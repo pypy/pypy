@@ -1,4 +1,5 @@
 from pypy.objspace.std import StdObjSpace
+from pypy.interpreter.error import OperationError
 from pypy.tool.udir import udir
 import py
 import socket, sys
@@ -8,6 +9,7 @@ def setup_module(mod):
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
     mod.path = udir.join('fd')
     mod.path.write('fo')
+    mod.raises = py.test.raises # make raises available from app-level tests
 
 def test_gethostname():
     host = space.appexec([w_socket], "(_socket): return _socket.gethostname()")
@@ -115,7 +117,7 @@ def test_htonl():
                         "(_socket, x): return _socket.htonl(x)")
     assert space.unwrap(w_n) == socket.htonl(125)
 
-def test_packed_ip():
+def test_aton_ntoa():
     ip = '123.45.67.89'
     packed = socket.inet_aton(ip)
     w_p = space.appexec([w_socket, space.wrap(ip)],
@@ -125,17 +127,29 @@ def test_packed_ip():
                          "(_socket, p): return _socket.inet_ntoa(p)")
     assert space.unwrap(w_ip) == ip
 
-def test_pton():
-    ip = '123.45.67.89'
-    packed = socket.inet_aton(ip)
+def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):
         py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
-    w_p = space.appexec([w_socket, space.wrap(ip)],
-                        "(_socket, ip): return _socket.inet_pton(_socket.AF_INET, ip)")
-    assert space.unwrap(w_p) == packed
-    w_ip = space.appexec([w_socket, space.wrap(packed)],
-                         "(_socket, p): return _socket.inet_ntop(_socket.AF_INET, p)")
-    assert space.unwrap(w_ip) == ip
+    for ip in '123.45.67.89', '0.0.0.0', '255.255.255.254':
+        packed = socket.inet_aton(ip)
+        w_p = space.appexec([w_socket, space.wrap(ip)],
+                            "(_socket, ip): return _socket.inet_pton(_socket.AF_INET, ip)")
+        assert space.unwrap(w_p) == packed
+        w_ip = space.appexec([w_socket, space.wrap(packed)],
+                             "(_socket, p): return _socket.inet_ntop(_socket.AF_INET, p)")
+        assert space.unwrap(w_ip) == ip
+
+def app_test_ntoa_exception():
+    import _socket
+    raises(_socket.error, _socket.inet_ntoa, "ab")
+
+def app_test_ntop_exceptions():
+    import _socket
+    for family, packed, exception in \
+                [(_socket.AF_INET + _socket.AF_INET6, "", ValueError),
+                 (_socket.AF_INET, "a", ValueError),
+                 (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
+        raises(exception, _socket.inet_ntop, family, packed)
 
 def test_has_ipv6():
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")

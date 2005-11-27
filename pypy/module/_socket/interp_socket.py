@@ -9,6 +9,9 @@ from pypy.module._socket.rpython import rsocket
 # Force the declarations of external functions
 import pypy.module._socket.rpython.exttable
 
+IPV4_ADDRESS_SIZE = 4
+IPV6_ADDRESS_SIZE = 16
+
 if sys.platform == 'win32':
     WIN32_ERROR_MESSAGES = {
         errno.WSAEINTR:  "Interrupted system call",
@@ -301,9 +304,14 @@ def inet_ntoa(space, packed):
     Convert an IP address from 32-bit packed binary format to string format
     """
     try:
-        return space.wrap(socket.inet_ntoa(packed))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+        return inet_ntop_ipv4(space, packed)
+    except OperationError, e:
+        if not e.match(space, space.w_ValueError):
+            raise
+        w_module = space.getbuiltinmodule('_socket')
+        # NB: This socket.error has no errno as per CPython
+        raise OperationError(space.getattr(w_module, space.wrap('error')),
+                             space.wrap("packed IP wrong length for inet_ntoa"))
 inet_ntoa.unwrap_spec = [ObjSpace, str]
 
 def inet_pton(space, af, ip):
@@ -318,16 +326,26 @@ def inet_pton(space, af, ip):
         raise wrap_socketerror(space, e)
 inet_pton.unwrap_spec = [ObjSpace, int, str]
 
-def inet_ntop(space, af, packed):
-    """inet_ntop(af, packed_ip) -> string formatted IP address
+def inet_ntop(space, family, packed):
+    """inet_ntop(family, packed_ip) -> string formatted IP address
 
     Convert a packed IP address of the given family to string format.
     """
-    try:
-        return space.wrap(socket.inet_ntop(af, packed))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    if family == socket.AF_INET:
+        return inet_ntop_ipv4(space, packed)
+    elif family == socket.AF_INET6:
+        raise NotImplementedError()
+    else:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("unknown address family %s" % family))
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
+
+def inet_ntop_ipv4(space, packed):
+    if len(packed) != IPV4_ADDRESS_SIZE:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("invalid length of packed IP address string"))
+    numbers = ord(packed[0]), ord(packed[1]), ord(packed[2]), ord(packed[3])
+    return space.wrap("%d.%d.%d.%d" % numbers)
 
 def enumerateaddrinfo(space, addr):
     result = []
