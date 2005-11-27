@@ -37,7 +37,7 @@ declareptrtype(rsocket.ADDRINFO, "ADDRINFO",
                free     = (type(None), '%s/freeaddrinfo' % module))
 
 declare(_socket.ntohs, int, '%s/ntohs' % module)
-declare(_socket.htons, int, '%s/ntohs' % module)
+declare(_socket.htons, int, '%s/htons' % module)
 declare(_socket.ntohl, int, '%s/ntohl' % module)
 declare(_socket.htonl, int, '%s/htonl' % module)
 

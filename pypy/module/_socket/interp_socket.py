@@ -1,4 +1,4 @@
-import socket, errno, sys
+import _socket, socket, errno, sys
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.module._socket.rpython import rsocket
 
 # Force the declarations of external functions
-import pypy.module.thread.rpython.exttable
+import pypy.module._socket.rpython.exttable
 
 if sys.platform == 'win32':
     WIN32_ERROR_MESSAGES = {
@@ -111,7 +111,7 @@ def gethostname(space):
     Return the current host name.
     """
     try:
-        return space.wrap(socket.gethostname())
+        return space.wrap(_socket.gethostname())
     except socket.error, e:
         raise wrap_socketerror(space, e)
 gethostname.unwrap_spec = [ObjSpace]
@@ -122,7 +122,7 @@ def gethostbyname(space, name):
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
     try:
-        return space.wrap(socket.gethostbyname(name))
+        return space.wrap(_socket.gethostbyname(name))
     except socket.error, e:
         raise wrap_socketerror(space, e)
 gethostbyname.unwrap_spec = [ObjSpace, str]
@@ -238,7 +238,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(socket.ntohs(x))
+    return space.wrap(_socket.ntohs(x))
 ntohs.unwrap_spec = [ObjSpace, int]
 
 def ntohl(space, w_x):
@@ -255,7 +255,7 @@ def ntohl(space, w_x):
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
 
-    return space.wrap(socket.ntohl(x))
+    return space.wrap(_socket.ntohl(x))
 ntohl.unwrap_spec = [ObjSpace, W_Root]
 
 def htons(space, x):
@@ -263,7 +263,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(socket.htons(x))
+    return space.wrap(_socket.htons(x))
 htons.unwrap_spec = [ObjSpace, int]
 
 def htonl(space, w_x):
@@ -280,7 +280,7 @@ def htonl(space, w_x):
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
 
-    return space.wrap(socket.htonl(x))
+    return space.wrap(_socket.htonl(x))
 htonl.unwrap_spec = [ObjSpace, W_Root]
 
 def inet_aton(space, ip):
@@ -510,8 +510,8 @@ class Socket(Wrappable):
         addr = space.unwrap(w_addr)
         try:
             self.fd.connect(addr)
-        except timeout:
-            raise wrap_timeout(space)
+        except socket.timeout:
+            raise wrap_timeouterror(space)
         except socket.error, e:
             raise wrap_socketerror(space, e)
     connect.unwrap_spec = ['self', ObjSpace, W_Root]
