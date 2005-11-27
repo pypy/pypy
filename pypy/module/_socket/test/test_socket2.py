@@ -139,6 +139,26 @@ def test_pton_ntop_ipv4():
                              "(_socket, p): return _socket.inet_ntop(_socket.AF_INET, p)")
         assert space.unwrap(w_ip) == ip
 
+def test_ntop_ipv6():
+    if not hasattr(socket, 'inet_pton'):
+        py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
+    if not socket.has_ipv6:
+        py.test.skip("No IPv6 on this platform")
+    tests = [
+        ("\x00" * 16, "::"),
+        ("\x01" * 16, ":".join(["101"] * 8)),
+        ("\x00\x00\x10\x10" * 4, "::1010:" + ":".join(["0:1010"] * 3)),
+        ("\x00" * 12 + "\x01\x02\x03\x04", "::1.2.3.4"),
+        ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
+    ]
+    for packed, ip in tests:
+        w_ip = space.appexec([w_socket, space.wrap(packed)],
+            "(_socket, packed): return _socket.inet_ntop(_socket.AF_INET6, packed)")
+        assert space.unwrap(w_ip) == ip
+        w_packed = space.appexec([w_socket, w_ip],
+            "(_socket, ip): return _socket.inet_pton(_socket.AF_INET6, ip)")
+        assert space.unwrap(w_packed) == packed
+
 def app_test_ntoa_exception():
     import _socket
     raises(_socket.error, _socket.inet_ntoa, "ab")
@@ -148,6 +168,7 @@ def app_test_ntop_exceptions():
     for family, packed, exception in \
                 [(_socket.AF_INET + _socket.AF_INET6, "", ValueError),
                  (_socket.AF_INET, "a", ValueError),
+                 (_socket.AF_INET6, "a", ValueError),
                  (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
         raises(exception, _socket.inet_ntop, family, packed)
 

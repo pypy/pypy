@@ -333,8 +333,8 @@ def inet_ntop(space, family, packed):
     """
     if family == socket.AF_INET:
         return inet_ntop_ipv4(space, packed)
-    elif family == socket.AF_INET6:
-        raise NotImplementedError()
+    elif socket.has_ipv6 and family == socket.AF_INET6:
+        return inet_ntop_ipv6(space, packed)
     else:
         raise OperationError(space.w_ValueError,
                              space.wrap("unknown address family %s" % family))
@@ -346,6 +346,50 @@ def inet_ntop_ipv4(space, packed):
                              space.wrap("invalid length of packed IP address string"))
     numbers = ord(packed[0]), ord(packed[1]), ord(packed[2]), ord(packed[3])
     return space.wrap("%d.%d.%d.%d" % numbers)
+
+def inet_ntop_ipv6(space, packed):
+    # XXX Currently does abbrevation of consecutive zeros only for leading zeros
+    if len(packed) != IPV6_ADDRESS_SIZE:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("invalid length of packed IP address string"))
+    numbers = []
+    for byte in packed:
+        numbers.append(ord(byte))
+    
+    # Skip leading zeros
+    pos = 0
+    part = 0
+    while part == 0 and pos < IPV6_ADDRESS_SIZE:
+        part = (numbers[pos] << 8) + numbers[pos + 1]
+        if part == 0:
+            pos += 2
+
+    # All zeros
+    if pos == IPV6_ADDRESS_SIZE:
+        return space.wrap("::")
+
+    # IPv4-compatible address
+    elif pos >= IPV6_ADDRESS_SIZE - 4:
+        ipv4 = space.unwrap(inet_ntop_ipv4(space, packed[IPV6_ADDRESS_SIZE - 4:]))
+        return space.wrap("::" + ipv4)
+
+    # IPv4-mapped IPv6 address
+    elif pos == IPV6_ADDRESS_SIZE - 6 and numbers[pos] == 0xff and numbers[pos + 1] == 0xff:
+        ipv4 = space.unwrap(inet_ntop_ipv4(space, packed[IPV6_ADDRESS_SIZE - 4:]))
+        return space.wrap("::ffff:" + ipv4)
+
+    # Standard IPv6 address
+    else:
+        if pos > 0:
+            ip = ":" # there were leading zeros
+        else:
+            ip = ""
+        for pos in range(pos, IPV6_ADDRESS_SIZE, 2):
+            if len(ip) > 0:
+                ip += ":"
+            part = (numbers[pos] << 8) + numbers[pos + 1]
+            ip += "%x" % part
+        return space.wrap(ip)
 
 def enumerateaddrinfo(space, addr):
     result = []
