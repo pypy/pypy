@@ -45,6 +45,19 @@ char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
   return NULL;
 }
 
+
+char *raw_malloc(int size) {
+  return malloc(size);
+}
+
+void raw_free(void *ptr) {
+  free(ptr);
+}
+
+void raw_memcopy(char *ptr1, char *ptr2, int size) {
+  memcpy((void *) ptr2, (void *) ptr1, size);
+}
+
 #include <gc/gc.h>
 #define USING_BOEHM_GC
 
@@ -56,6 +69,7 @@ char *pypy_malloc(unsigned int size) {
 }
 
 char *pypy_malloc_atomic(unsigned int size) {
+  // use the macros luke
   return GC_MALLOC_ATOMIC(size);
 }
 

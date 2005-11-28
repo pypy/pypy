@@ -12,6 +12,7 @@ from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
      OpaqueTypeNode, ExtOpaqueTypeNode
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
+from pypy.rpython.memory.lladdress import Address, NULL
             
 log = log.database 
 
@@ -34,7 +35,8 @@ class Database(object):
             lltype.Bool: "bool",
             lltype.Float: "double",
             lltype.UniChar: "uint",
-            lltype.Void: "void"}
+            lltype.Void: "void",
+            Address: "sbyte*"}
 
         # 32 bit platform
         if sys.maxint == 2**31-1:
@@ -311,7 +313,7 @@ class Database(object):
     def repr_tmpvar(self): 
         count = self._tmpcount 
         self._tmpcount += 1
-        return "%tmp." + str(count) 
+        return "%tmp_" + str(count) 
 
     def repr_constructor(self, type_):
         return self.obj2node[type_].constructor_ref
@@ -354,6 +356,9 @@ class Database(object):
             repr = str(ord(value))
         elif type_ is lltype.Float:
             repr = self.float_to_str(value)
+        elif type_ is Address:
+            assert value == NULL
+            repr = 'null' 
         else:
             repr = str(value)
         return repr

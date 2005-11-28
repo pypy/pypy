@@ -509,3 +509,144 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         self.codewriter.load(targetvar, targettype, tmpvar)
+
+    def adr_delta(self, op):
+        tmp = self.db.repr_tmpvar
+        addr1, addr2 = tmp(), tmp()
+        arg1, argtype1 = self.db.repr_argwithtype(op.args[0])
+        arg2, argtype2 = self.db.repr_argwithtype(op.args[1])
+        self.codewriter.cast(addr1, argtype1, arg1, "int")
+        self.codewriter.cast(addr2, argtype2, arg2, "int")
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        self.codewriter.binaryop("sub",
+                                 targetvar, targettype,
+                                 addr1, addr2,)
+
+    def _op_adr_generic(self, op, llvm_op):
+        tmp = self.db.repr_tmpvar
+        addr, res = tmp(), tmp()
+        arg, argtype = self.db.repr_argwithtype(op.args[0])
+        self.codewriter.cast(addr, argtype, arg, "int")
+        arg2, argtype2 = self.db.repr_argwithtype(op.args[1])        
+        self.codewriter.binaryop(llvm_op,
+                                 res, "int",
+                                 addr, arg2)
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        self.codewriter.cast(targetvar, "int", res, targettype)
+
+    def adr_add(self, op):
+        self._op_adr_generic(op, "add")
+
+    def adr_sub(self, op):
+        self._op_adr_generic(op, "sub")
+
+    def _op_adr_comparison_generic(self, op, llvm_op):
+        tmp = self.db.repr_tmpvar
+        addr1, addr2 = tmp(), tmp()
+        arg1, argtype1 = self.db.repr_argwithtype(op.args[0])
+        arg2, argtype2 = self.db.repr_argwithtype(op.args[1])
+        self.codewriter.cast(addr1, argtype1, arg1, "int")
+        self.codewriter.cast(addr2, argtype2, arg2, "int")
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        assert targettype == "bool"
+        self.codewriter.binaryop(llvm_op,
+                                 targetvar, "int",
+                                 addr1, addr2)
+
+    def adr_eq(self, op):
+        self._op_adr_comparison_generic(op, "seteq")
+
+    def adr_ne(self, op):
+        self._op_adr_comparison_generic(op, "setne")
+
+    def adr_le(self, op):
+        self._op_adr_comparison_generic(op, "setle")
+
+    def adr_gt(self, op):
+        self._op_adr_comparison_generic(op, "setgt")
+
+    def adr_lt(self, op):
+        self._op_adr_comparison_generic(op, "setlt")
+
+    def adr_ge(self, op):
+        self._op_adr_comparison_generic(op, "setge")
+
+    def raw_malloc(self, op):
+        # XXX Ignore raise as not last op
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        argrefs = self.db.repr_arg_multi(op.args)
+        argtypes = self.db.repr_arg_type_multi(op.args)
+        self.codewriter.call(targetvar, targettype, "%raw_malloc",
+                             argrefs, argtypes)
+    def raw_free(self, op):
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        argrefs = self.db.repr_arg_multi(op.args)
+        argtypes = self.db.repr_arg_type_multi(op.args)
+        self.codewriter.call(targetvar, targettype, "%raw_free",
+                             argrefs, argtypes)
+
+    def raw_memcopy(self, op):
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        argrefs = self.db.repr_arg_multi(op.args)
+        argtypes = self.db.repr_arg_type_multi(op.args)
+        self.codewriter.call(targetvar, targettype, "%raw_memcopy",
+                             argrefs, argtypes)
+
+    def raw_store(self, op):
+        tmp = self.db.repr_tmpvar
+
+        # XXX what is dummy suppose to be?
+        (arg_addr, arg_dummy,
+         arg_incr, arg_value) = self.db.repr_arg_multi(op.args)
+        (argtype_addr, argtype_dummy,
+         argtype_incr, argtype_value) = self.db.repr_arg_type_multi(op.args)
+
+        cast_addr = tmp()
+        addr_type = argtype_value + "*"
+
+        # cast to the correct type before arithmetic/storing
+        self.codewriter.cast(cast_addr, argtype_addr, arg_addr, addr_type)
+
+        # pointer arithmetic
+        if arg_incr:
+            incr_addr = tmp()
+            self.codewriter.raw_getelementptr(incr_addr,
+                                              addr_type,
+                                              cast_addr,
+                                              ("int", arg_incr))
+            cast_addr = incr_addr
+        self.codewriter.store(argtype_value, arg_value, cast_addr)
+
+        
+    def raw_load(self, op):
+        tmp = self.db.repr_tmpvar
+
+        # XXX what is dummy suppose to be?
+        arg_addr, arg_dummy, arg_incr = self.db.repr_arg_multi(op.args)
+        argtype_addr, argtype_dummy, argtype_incr = \
+                                      self.db.repr_arg_type_multi(op.args)
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+
+        cast_addr = tmp()
+        addr_type = targettype + "*"
+
+        # cast to the correct type before arithmetic/loading
+        self.codewriter.cast(cast_addr, argtype_addr, arg_addr, addr_type)
+        # pointer arithmetic
+        if arg_incr:
+            incr_addr = tmp()
+            self.codewriter.raw_getelementptr(incr_addr,
+                                              addr_type,
+                                              cast_addr,
+                                              ("int", arg_incr))
+            cast_addr = incr_addr
+
+        self.codewriter.load(targetvar, targettype, cast_addr) 
+        
