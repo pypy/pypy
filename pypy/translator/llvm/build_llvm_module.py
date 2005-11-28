@@ -91,7 +91,7 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
     else:
         gc_libs_path = '-static'
 
-    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
+    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, optimization_switches, b)]
     if not use_gcc:
         cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))

@@ -40,11 +40,14 @@ class CodeWriter(object):
     def globalinstance(self, name, typeandata):
         self.append("%s = %s global %s" % (name, "internal", typeandata))
 
+    def typedef(self, name, elements):
+        self.append("%s = type { %s }" % (name, elements))
+
     def structdef(self, name, typereprs):
-        self.append("%s = type { %s }" %(name, ", ".join(typereprs)))
+        self.typedef(name, ", ".join(typereprs))
 
     def arraydef(self, name, lentype, typerepr):
-        self.append("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr))
+        self.typedef(name, "%s, [0 x %s]" % (lentype, typerepr))
 
     def funcdef(self, name, rettyperepr, argtypereprs):
         self.append("%s = type %s (%s)" % (name, rettyperepr,
@@ -135,6 +138,12 @@ class CodeWriter(object):
     def malloc(self, targetvar, type_, size=1, atomic=False, cconv=DEFAULT_CCONV):
         for s in self.genllvm.gcpolicy.malloc(targetvar, type_, size, atomic, self.word, self.uword).split('\n'):
             self.indent(s)
+
+    def raw_getelementptr(self, targetvar, type, typevar, *indices):
+        word = self.word
+        res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, " % locals()
+        res += ", ".join(["%s %s" % (t, i) for t, i in indices])
+        self.indent(res)
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         word = self.word

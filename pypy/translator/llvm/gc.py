@@ -61,14 +61,14 @@ class BoehmGcPolicy(GcPolicy):
         cnt = '.%d' % self.n_malloced
         atomic = is_atomic and '_atomic' or ''
         t = '''
-%%malloc.Size%(cnt)s  = getelementptr %(type_)s* null, %(uword)s %(s)s
-%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to %(uword)s
-%%malloc.Ptr%(cnt)s   = call fastcc sbyte* %%pypy_malloc%(atomic)s(%(uword)s %%malloc.SizeU%(cnt)s)
-%(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*
+%%malloc_Size%(cnt)s  = getelementptr %(type_)s* null, %(uword)s %(s)s
+%%malloc_SizeU%(cnt)s = cast %(type_)s* %%malloc_Size%(cnt)s to %(uword)s
+%%malloc_Ptr%(cnt)s   = call fastcc sbyte* %%pypy_malloc%(atomic)s(%(uword)s %%malloc_SizeU%(cnt)s)
+%(targetvar)s = cast sbyte* %%malloc_Ptr%(cnt)s to %(type_)s*
 ''' % locals()
         if is_atomic:
             t += '''
-call ccc void %%llvm.memset(sbyte* %%malloc.Ptr%(cnt)s, ubyte 0, uint %%malloc.SizeU%(cnt)s, uint 0)
+call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, uint %%malloc_SizeU%(cnt)s, uint 0)
 ''' % locals()
         return t
 

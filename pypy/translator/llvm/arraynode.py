@@ -69,8 +69,7 @@ class VoidArrayTypeNode(LLVMNode):
         self.ref = "%arraytype_Void"
 
     def writedatatypedecl(self, codewriter):
-        td = "%s = type { %s }" % (self.ref, self.db.get_machine_word())
-        codewriter.append(td)
+        codewriter.typedef(self.ref, self.db.get_machine_word())
         
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be

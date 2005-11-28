@@ -69,12 +69,6 @@ class GenLLVM(object):
             create c file for externs
             create ll file for c file
             create codewriter """
-
-        # set up externs nodes
-        self.extern_decls = setup_externs(self.db)
-        self.translator.rtyper.specialize_more_blocks()
-        self.db.setup_all()
-        self._checkpoint('setup_all externs')
         
         # get entry point
         entry_point = self.get_entry_point(func)
@@ -84,6 +78,12 @@ class GenLLVM(object):
         self.db.setup_all()
         self.entrynode = self.db.set_entrynode(entry_point)
         self._checkpoint('setup_all all nodes')
+
+        # set up externs nodes
+        self.extern_decls = setup_externs(self.db)
+        self.translator.rtyper.specialize_more_blocks()
+        self.db.setup_all()
+        self._checkpoint('setup_all externs')
 
         self._print_node_stats()
 
