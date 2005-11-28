@@ -36,12 +36,14 @@ class compile_function(object):
 
         if use_browsertest:
             jstestcase = '%s(%s)' % (self.js.graph.name, args)
-            s = jstest(self.js.filename, jstestcase)
+            output = jstest(self.js.filename, jstestcase)
         else:
             wrappercode = self.js.wrappertemplate % args
             cmd = 'echo "%s" | js 2>&1' % wrappercode
             log(cmd)
-            s   = os.popen(cmd).read().strip()
+            output = os.popen(cmd).read().strip()
+        for s in output.split('\n'):
+            log(s)
 
         if s == 'false':
             res = False
