@@ -300,6 +300,8 @@ def inet_aton(space, ip):
     Convert an IP address in string format (123.45.67.89) to the 32-bit packed
     binary format used in low-level network functions.
     """
+    # XXX POSIX says inet_aton/inet_addr shall accept octal- and hexadecimal-
+    # dotted notation as well as CIDR, which we don't do currently.
     packed = inet_pton_ipv4(space, ip)
     if len(packed) == 0 or packed == "\xff\xff\xff\xff":
         # NB: The broadcast address 255.255.255.255 is illegal because it's the
@@ -337,8 +339,12 @@ def inet_pton(space, family, ip):
         else:
             return space.wrap(packed)
     elif socket.has_ipv6 and family == socket.AF_INET6:
-        # XXX implement pton for IPv6
-        return space.wrap(socket.inet_pton(family, ip))
+        packed = inet_pton_ipv6(space, ip)
+        if len(packed) == 0:
+            raise w_get_socketerror(space,
+                            "illegal IP address string passed to inet_pton")
+        else:
+            return space.wrap(packed)
     else:
         raise w_get_socketerror(space,
             "Address family not supported by protocol family", errno.EAFNOSUPPORT)
@@ -355,7 +361,7 @@ def inet_pton_ipv4(space, ip):
     for char in ip:
         char_ord = ord(char)
         if char == ".":
-            if len(packed) >= 3 or pos == 0:
+            if len(packed) >= IPV4_ADDRESS_SIZE - 1 or pos == 0:
                 return ""
             packed += chr(number)
             number = 0
@@ -368,6 +374,70 @@ def inet_pton_ipv4(space, ip):
         else:
             return ""
     packed += chr(number)
+    return packed
+
+def inet_pton_ipv6(space, ip):
+    zero_ord = ord("0")
+    a_ord = ord("a")
+    A_ord = ord("A")
+    packed = ""
+    number = 0
+    pos = 0
+    abbrev_index = -1
+    i = 0
+
+    if ip[:2] == "::":
+        abbrev_index = 0
+        i = 2
+
+    while i < len(ip):
+        char = ip[i]
+        char_ord = ord(char)
+        if char == ":":
+            if pos == 0: # Abbrevation
+                if abbrev_index >= 0:
+                    return ""
+                abbrev_index = len(packed)
+            else:
+                if len(packed) >= IPV6_ADDRESS_SIZE - 2:
+                    return ""
+                packed += chr((number & 0xff00) >> 8) + chr(number & 0xff)
+                number = 0
+                pos = 0
+        elif char_ord >= zero_ord and char_ord < zero_ord + 10:
+            number = number * 16 + char_ord - zero_ord
+            pos += 1
+        elif char_ord >= a_ord and char_ord < a_ord + 6:
+            number = number * 16 + (char_ord - a_ord) + 10
+            pos += 1
+        elif char_ord >= A_ord and char_ord < A_ord + 6:
+            number = number * 16 + (char_ord - A_ord) + 10
+            pos += 1
+        elif char == ".":
+            if i - pos == 0:
+                return ""
+            packed_v4 = inet_pton_ipv4(space, ip[i - pos:])
+            if len(packed_v4) == 0:
+                return ""
+            packed += packed_v4
+            break
+        else:
+            return ""
+        if pos > 4:
+            return ""
+        i += 1
+
+    if i == len(ip) and not (abbrev_index == len(packed) and pos == 0):
+        # The above means: No IPv4 compatibility and abbrevation not at end.
+        # We need to append the last 16 bits.
+        packed += chr((number & 0xff00) >> 8) + chr(number & 0xff)
+
+    if abbrev_index >= 0:
+        if len(packed) >= IPV6_ADDRESS_SIZE:
+            return ""
+        zeros = "\x00" * (IPV6_ADDRESS_SIZE - len(packed))
+        packed = packed[:abbrev_index] + zeros + packed[abbrev_index:]
+
     return packed
 
 def inet_ntop(space, family, packed):
