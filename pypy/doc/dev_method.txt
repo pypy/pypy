@@ -251,14 +251,14 @@ The PyPy team have been sprinting on the following occasions::
     Amsterdam       Dec     2003
     Europython
     /Gothenburg     June    2004
-    Vilnius         Nov     2004
-    Leysin          Jan     2005
+    Vilnius         2004-11-15 - 2004-11-23
+    Leysin          2005-01-22 - 2005-01-29
     PyCon
-    /Washington     March   2005
+    /Washington     2005-03-19 - 2005-03-22
     Europython
-    /Gothenburg     June    2005
-    Hildesheim      July    2005
-    Heidelberg      August  2005
+    /Gothenburg     2005-07-01 - 2005-07-07
+    Hildesheim      2005-07-25 - 2005-07-31
+    Heidelberg      2005-08-22 - 2005-08-29
     
 People how have participated and contributed during our sprints and thus
 contributing to PyPy::
