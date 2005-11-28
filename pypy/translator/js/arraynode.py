@@ -32,9 +32,9 @@ class ArrayNode(Node):
 
     #def write_forward_array_declaration(self, codewriter):
     #    if self.arraytype is lltype.Char:
-    #        codewriter.declare(self.ref + ' = new String()') #XXX string should be earlier
+    #        codewriter.declare('var ' + self.ref + ' = new String()') #XXX string should be earlier
     #    else:
-    #        codewriter.declare(self.ref + ' = new Array()')
+    #        codewriter.declare('var ' + self.ref + ' = new Array()')
 
     #def get _ref(self):
     #    return self.ref
@@ -47,7 +47,7 @@ class ArrayNode(Node):
     
     def write_global_array(self, codewriter):
         fields = [self.db.repr_constant(v)[1] for i, v in enumerate(self.value.items)]
-        line   = "%s = new Array(%s)" % (self.ref, ", ".join(fields))
+        line   = "var %s = new Array(%s)" % (self.ref, ", ".join(fields))
         log.writeglobaldata(line)
         codewriter.append(line)
 
@@ -79,7 +79,7 @@ class StrArrayNode(ArrayNode):
             else:
                 s += "\\%02x" % ord(c)
         s += '"'
-        line = self.ref + " = " + s
+        line = "var " + self.ref + " = " + s
         log.writeglobaldata(line)
         codewriter.append(line)
         #return [line]

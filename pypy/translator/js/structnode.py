@@ -44,7 +44,7 @@ class StructNode(Node):
             self.db.prepare_constant(lltype.typeOf(p), p)
 
     def write_forward_struct_declaration(self, codewriter):
-        codewriter.declare(self.ref + ' = new Object()')
+        codewriter.declare('var ' + self.ref + ' = new Object()')
         
     #def get_childref(self, index):
     #    return self.ref #self.get _ref() #XXX what to do with index?

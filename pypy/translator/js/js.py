@@ -86,7 +86,10 @@ class JS(object):   # JS = Javascript
         self.graph = self.db.obj2node[entry_point].graph
         startblock = self.graph.startblock
         args       = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
-        self.wrappertemplate = "load('%s'); print(%s(%%s))" % (self.filename, self.graph.name)
+        if self.stackless:
+            self.wrappertemplate = "load('%s'); print(slp_entry_point('%s(%%s)'))" % (self.filename, self.graph.name)
+        else:
+            self.wrappertemplate = "load('%s'); print(%s(%%s))" % (self.filename, self.graph.name)
 
         log('Written:', self.filename)
         return self.filename
