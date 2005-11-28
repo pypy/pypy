@@ -260,7 +260,7 @@ The PyPy team have been sprinting on the following occasions::
     Hildesheim      2005-07-25 - 2005-07-31
     Heidelberg      2005-08-22 - 2005-08-29
     
-People how have participated and contributed during our sprints and thus
+People who have participated and contributed during our sprints and thus
 contributing to PyPy::
 
     Armin Rigo
