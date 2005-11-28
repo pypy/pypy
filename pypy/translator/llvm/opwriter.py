@@ -601,7 +601,6 @@ class OpWriter(object):
     def raw_store(self, op):
         tmp = self.db.repr_tmpvar
 
-        # XXX what is dummy suppose to be?
         (arg_addr, arg_dummy,
          arg_incr, arg_value) = self.db.repr_arg_multi(op.args)
         (argtype_addr, argtype_dummy,
@@ -627,7 +626,6 @@ class OpWriter(object):
     def raw_load(self, op):
         tmp = self.db.repr_tmpvar
 
-        # XXX what is dummy suppose to be?
         arg_addr, arg_dummy, arg_incr = self.db.repr_arg_multi(op.args)
         argtype_addr, argtype_dummy, argtype_incr = \
                                       self.db.repr_arg_type_multi(op.args)
