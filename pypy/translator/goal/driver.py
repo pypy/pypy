@@ -218,7 +218,7 @@ class TranslationDriver(SimpleTaskEngine):
     def create_exe(self):
         import shutil
         exename = mkexename(self.c_entryp)
-        newexename = mkexename('./pypy-llvm')
+        newexename = mkexename('./pypy-%s' % self.options.backend)
         shutil.copy(exename, newexename)
         self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
