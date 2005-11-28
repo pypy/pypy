@@ -130,12 +130,16 @@ def test_aton_ntoa():
 def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):
         py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
-    for ip in '123.45.67.89', '0.0.0.0', '255.255.255.254':
-        packed = socket.inet_aton(ip)
+    tests = [
+        ("123.45.67.89", "\x7b\x2d\x43\x59"),
+        ("0.0.0.0", "\x00" * 4),
+        ("255.255.255.255", "\xff" * 4),
+    ]
+    for ip, packed in tests:
         w_p = space.appexec([w_socket, space.wrap(ip)],
                             "(_socket, ip): return _socket.inet_pton(_socket.AF_INET, ip)")
         assert space.unwrap(w_p) == packed
-        w_ip = space.appexec([w_socket, space.wrap(packed)],
+        w_ip = space.appexec([w_socket, w_p],
                              "(_socket, p): return _socket.inet_ntop(_socket.AF_INET, p)")
         assert space.unwrap(w_ip) == ip
 
@@ -163,6 +167,13 @@ def app_test_ntoa_exception():
     import _socket
     raises(_socket.error, _socket.inet_ntoa, "ab")
 
+def app_test_aton_exceptions():
+    import _socket
+    tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
+        "127.2.0.0.1", "127.2..0", "255.255.255.255"]
+    for ip in tests:
+        raises(_socket.error, _socket.inet_aton, ip)
+
 def app_test_ntop_exceptions():
     import _socket
     for family, packed, exception in \
@@ -171,6 +182,19 @@ def app_test_ntop_exceptions():
                  (_socket.AF_INET6, "a", ValueError),
                  (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
         raises(exception, _socket.inet_ntop, family, packed)
+
+def app_test_pton_exceptions():
+    import _socket
+    tests = [
+        (_socket.AF_INET + _socket.AF_INET6, ""),
+        (_socket.AF_INET, "127.0.0.256"),
+        (_socket.AF_INET, "127.0.0.255555555555555555"),
+        (_socket.AF_INET, "127.2b.0.0"),
+        (_socket.AF_INET, "127.2.0.0.1"),
+        (_socket.AF_INET, "127.2..0"),
+    ]
+    for family, ip in tests:
+        raises(_socket.error, _socket.inet_pton, family, ip)
 
 def test_has_ipv6():
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
