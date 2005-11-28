@@ -78,6 +78,7 @@ def test_stackless_manytimes():
 def test_stackless_arguments():
     if not conftest.option.jsstackless:
         py.test.skip("stackless disabled (enable with py.test --stackless)")
+    py.test.skip("stackless feature not incomplete")
 
     def f(n, d, t):
         if n > 0:
@@ -98,6 +99,7 @@ def test_stackless_arguments():
 def test_stack_too_big():
     if not conftest.option.jsstackless:
         py.test.skip("stackless disabled (enable with py.test --stackless)")
+    py.test.skip("stackless feature not incomplete")
 
     def f1():
         return stack_too_big()
@@ -136,6 +138,7 @@ def test_stack_unwind():
 def test_auto_stack_unwind():
     if not conftest.option.jsstackless:
         py.test.skip("stackless disabled (enable with py.test --stackless)")
+    py.test.skip("stackless feature not incomplete")
 
     def f(n):
         if n == 1:
@@ -151,6 +154,7 @@ def test_auto_stack_unwind():
 def test_yield_frame():
     if not conftest.option.jsstackless:
         py.test.skip("stackless disabled (enable with py.test --stackless)")
+    py.test.skip("stackless feature not incomplete")
 
     def g(lst):
         lst.append(2)

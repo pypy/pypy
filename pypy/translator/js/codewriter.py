@@ -4,6 +4,8 @@ from pypy.translator.js.log import log
 
 log = log.codewriter 
 
+debug = False
+
 class CodeWriter(object): 
 
     tabstring = '  '
@@ -40,7 +42,25 @@ class CodeWriter(object):
             eol = '\n'
         else:
             eol = ';\n'
+
+        do_log = debug and line and not line.endswith('}')
+        for x in ['var', '//', 'for (;;) {', 'switch (block) {', 'slp_new_frame']:
+            if line.startswith(x):
+                do_log = False
+                break
+        log_before = True
+        for x in ['function ', 'case ', '} else {', 'else if', 'else {']:
+            if line.startswith(x):
+                log_before = False
+                break
+
+        if do_log and log_before:
+            self.f.write("%slogme('%-40s %s')\n" % (s, line, self.decl))
+
         self.f.write(s + line + eol)
+
+        if do_log and not log_before:
+            self.f.write("%slogme('%-40s %s')\n" % (s, line, self.decl))
 
     def comment(self, line):
         self.append("// " + line)
@@ -109,9 +129,8 @@ class CodeWriter(object):
         self.decl     = decl
         self.funcnode = funcnode
         self.blocks   = blocks
-        self._savehandler_blocknum   = 1000
-        self._resumehandler_blocknum = 1001
-        self._resume_blocknum        = 2000
+        spacing = 10
+        self._resume_blocknum = (len(blocks) + spacing) / spacing * spacing
         self._usedvars = {}
         paramstr = decl.split('(')[1][:-1]
         for param in paramstr.split(','):
@@ -129,40 +148,26 @@ class CodeWriter(object):
 
         self.append("function %s {" % self.decl)
         self.indent_more()
+        self.append('var block = 0')
         if self._usedvars:
             self.append("var %s" % ', '.join(self._usedvars.keys()))
             
-        if self.js.stackless:
-            initial_block = "slp_frame_stack_top ? %d : 0" % self._resumehandler_blocknum
-        else:
-            initial_block = '0'
+        if self.js.stackless:   # XXX and this funcnode has resumepoints
+            self.append("if (slp_frame_stack_top) {")
+            self.indent_more()
+            for i, k in enumerate(self._usedvars.keys()):
+                self.append('%-19s = slp_frame_stack_top.vars[%d]' % (k, i))
+            self.append('%-19s = slp_frame_stack_top.resume_blocknum' % 'block')
+            self.append('eval(slp_frame_stack_top.targetvar + " = slp_return_value")')
+            self.append('slp_frame_stack_top = null')
+            self.indent_less()
+            self.append('}')
 
-        self.append("for (block = %s;;) {" % initial_block)
+        self.append("for (;;) {")
         self.indent_more()
         self.append("switch (block) {")
 
     def closefunc(self): 
-        if self.js.stackless:   #save&restore all local variable for now
-            self.openblock(self._savehandler_blocknum)
-            self.comment('save block for stackless feature')
-            usedvars = ', '.join(self._usedvars.keys())
-            self.append('slp_frame_stack_bottom.f_back = slp_new_frame(0, new Array(slp_function, slp_resume_block, slp_targetvar, %s))' % usedvars)    #XXX what should state (here 0) really be?
-            self.append('slp_frame_stack_bottom        = slp_frame_stack_bottom.f_back')
-            self.comment('and unwind')
-            self.append('return')
-            self.skip_closeblock()
-            self.closeblock()
-
-            self.openblock(self._resumehandler_blocknum)
-            self.comment('resume block for stackless feature')
-            self.append('%-19s = slp_frame_stack_top.resume_data[1]' % 'block')
-            self.append('%-19s = slp_frame_stack_top.resume_data[2]' % 'slp_targetvar')
-            for i, k in enumerate(self._usedvars.keys()):
-                self.append('%-19s = slp_frame_stack_top.resume_data[%d]' % (k, i+3))
-            self.append('slp_frame_stack_top = null')
-            self.append('eval(slp_targetvar + " = slp_return_value")')
-            self.closeblock()
-
         self.append("}")    #end of switch
         self.indent_less()
         self.append("}")    #end of forever (block) loop
@@ -185,23 +190,28 @@ class CodeWriter(object):
 
         if not exceptions:
             assert no_exception is None
+            self.append('%s = %s(%s)' % (targetvar, functionref, args))
             if self.js.stackless:
-                self.append('%s = %s(%s)' % (targetvar, functionref, args))
-                self.append('if (slp_frame_stack_bottom) { slp_function = %s; slp_targetvar = "%s"; block = %d; slp_resume_block = %d; break; }' %
-                    (functionref, targetvar, self._savehandler_blocknum, self._resume_blocknum))
+                selfdecl = self.decl.split('(')[0]
+                usedvars = ', '.join(self._usedvars.keys())
+                self.append('if (slp_frame_stack_bottom) {')
+                self.indent_more()
+                self.append('slp_new_frame("%s", %s, %d, new Array(%s))' %
+                    (targetvar, selfdecl, self._resume_blocknum, usedvars))
+                self.append('return')
+                self.indent_less()
+                self.append('}')
                 self.indent_less()
                 self.append('case %d:' % self._resume_blocknum)
                 self.indent_more()
                 self._resume_blocknum += 1
-            else:
-                self.append('%s = %s(%s)' % (targetvar, functionref, args))
         else:
             assert no_exception is not None
             no_exception_label, no_exception_exit = no_exception
             self.append('try {')
             self.indent_more()
             if self.js.stackless:
-                self.comment('TODO: stackless andf exceptions handling')
+                self.comment('TODO: XXX stackless in combination with exceptions handling')
             self.append('%s = %s(%s)' % (targetvar, functionref, args))
             self._phi(no_exception_exit)
             self._goto_block(no_exception_label)
