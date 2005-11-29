@@ -989,7 +989,7 @@ GenC is not really documented at the moment.  The basic principle of
 creating code from flowgraphs is similar to the `Python back-end`_.
 See also `Generating C code`_ in another draft.
 
-.. _`Generating C code`: draft-dynamic-language-translation.html#generating-c-code
+.. _`Generating C code`: dynamic-language-translation.html#generating-c-code
 
 
 .. _LLVM:

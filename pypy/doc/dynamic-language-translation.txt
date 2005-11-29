@@ -2293,7 +2293,7 @@ Main references:
 
 .. [LLA] Encapsulating low-level implementation aspects, PyPy
          documentation.
-         http://codespeak.net/pypy/dist/pypy/doc/draft-low-level-encapsulation.html
+         http://codespeak.net/pypy/dist/pypy/doc/low-level-encapsulation.html
 
 .. [Psyco] Home page: http://psyco.sourceforge.net.  Paper:
            Representation-Based Just-In-Time Specialization and the
