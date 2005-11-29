@@ -38,16 +38,23 @@ def parsedate(s):
         result = parser.parse(s)
     return pylab.date2num(result)
 
+def date2str(i, dates):
+    l = len(dates)
+    if i == 0 or i == l-1 or i == int(l/2):
+        d = dates[i]
+        return str(pylab.num2date(d))[:7]
+    else:
+        return ""
+
 def txt2png(p):
     print p
     title, axis, data = get_data(p)
-    #print title
-    #print axis
-    #print data
-    line,  = pylab.plot_date(data[0], data[1])
+    dates = data[0]
+    line,  = pylab.plot_date(dates, data[1], "b-")
+    loc, labels = pylab.xticks()
+    pylab.xticks( loc, [date2str(i,dates) for i, _ in enumerate(dates)] )
     pylab.title(title)
     pylab.savefig(p.purebasename + ".png")
-    #print
  
 def main():
     for p in py.path.local().listdir("*.txt"):
