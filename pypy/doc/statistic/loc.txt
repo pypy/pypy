@@ -1,3 +1,4 @@
+Lines of Code in the pypy subtree
 date, number of commits (inaccurate), number of files, number of testfiles, lines of code, lines of testcode
 2005-11-23, 66, 683, 232, 152830, 32830
 2005-11-22, 52, 683, 232, 152844, 32830
