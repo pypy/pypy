@@ -22,6 +22,16 @@ of the bytecode interpreter and virtual machine.
 `translation`_ offers the beginnings of documentation 
 about our low level code generator backends. 
 
+`dynamic-language translation`_ is a paper that describes
+the translation process, especially the flow object space
+and the annotator in detail.
+
+`low-level encapsulation`_ describes how our approach hides
+away a lot of low level details.
+
+`translation aspects`_ describes how we weave different
+properties into our interpreter during the translation process.
+
 `parser`_ contains the beginnings of documentation about
 the parser (and the compiler at some point). 
 
@@ -50,6 +60,9 @@ recent compliance test runs against PyPy.
 .. _`PyPy statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`object spaces`: objspace.html 
 .. _`translation`: translation.html 
+.. _`dynamic-language translation`: dynamic-language-translation.html
+.. _`low-level encapsulation`: low-level-encapsulation.html
+.. _`translation aspects`: translation-aspects.html
 .. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 

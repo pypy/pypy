@@ -31,5 +31,9 @@
     'getting_started.html'  : 'getting-started.html', 
     'getting_started.html#howtopypy' : 'getting-started.html#howtopypy',
     'getting_started.html#howtosvn' : 'getting-started.html#howtosvn',
+
+    'draft-dynamic-language-translation.html': 'dynamic-language-translation.html',
+    'draft-low-level-encapsulation.html': 'low-level-encapsulation.html',
+    'draft-memory-management-threading-model.html': 'translation-aspects.html',
 }
 
