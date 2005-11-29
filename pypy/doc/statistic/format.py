@@ -38,13 +38,20 @@ def parsedate(s):
         result = parser.parse(s)
     return pylab.date2num(result)
 
-if __name__ == '__main__':
-    p = py.path.local("pypy-svn-post.txt")
+def txt2png(p):
+    print p
     title, axis, data = get_data(p)
-    print title
-    print axis
-    print data
+    #print title
+    #print axis
+    #print data
     line,  = pylab.plot_date(data[0], data[1])
     pylab.title(title)
-    pylab.show()
-    
+    pylab.savefig(p.purebasename + ".png")
+    #print
+ 
+def main():
+    for p in py.path.local().listdir("*.txt"):
+        txt2png(p)
+
+if __name__ == '__main__':
+    main()
