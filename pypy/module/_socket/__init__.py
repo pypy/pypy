@@ -31,6 +31,6 @@ for name in """
 for constant in dir(_socket):
     value = getattr(_socket, constant)
     if constant.isupper() and type(value) in (int, str):
-        Module.interpleveldefs[constant] = "space.wrap(%s)" % value
+        Module.interpleveldefs[constant] = "space.wrap(%r)" % value
 
 Module.interpleveldefs['has_ipv6'] = "space.wrap(%s)" % _socket.has_ipv6
