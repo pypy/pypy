@@ -8,7 +8,7 @@ PyPy - Object Spaces
 .. _`objectspace`: 
 .. _`Object Space`: 
 
-The Object Space
+Introduction
 ================
 
 The object space creates all objects and knows how to perform operations
@@ -54,11 +54,10 @@ the bytecode interpreter:
   interpreter would like to perform when it is shown the given Python
   program.  This technique is explained `in another document`_.
 
-For a description of the object spaces, please see the
-`objspace document`_.  The sources of PyPy contain the various object spaces
-in the directory `objspace/`_.
+The present document gives a description of the above object spaces.
+The sources of PyPy contain the various object spaces in the directory
+`objspace/`_.
 
-.. _`objspace document`: objspace.html
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 .. _`in another document`: translation.html

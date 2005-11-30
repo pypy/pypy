@@ -5,18 +5,32 @@ PyPy - Bytecode Interpreter
 .. contents::
 .. sectnum::
 
-.. _`Bytecode Interpreter`: architecture.html#the-bytecode-interpreter 
-
 
 Introduction and Overview
 ===============================
 
 This document describes the implementation of PyPy's 
-`Bytecode Interpreter`_ and related Virtual Machine functionalities. 
+Bytecode Interpreter and related Virtual Machine functionalities. 
 
-PyPy's bytecode interpreter has a structure reminiscent of
-CPython's Virtual Machine: It processes code objects parsed
-and compiled from Python source code.  Code objects contain
+PyPy's bytecode interpreter has a structure reminiscent of CPython's
+Virtual Machine: It processes code objects parsed and compiled from
+Python source code.  It is implemented in the `interpreter/`_ directory.
+People familiar with the CPython implementation will easily recognize
+similar concepts there.  The major differences are the overall usage of
+the `object space`_ indirection to perform operations on objects, and
+the organization of the built-in modules (described `here`_).
+
+Code objects are a nicely preprocessed, structured representation of
+source code, and their main content is *bytecode*.  We use the same
+compact bytecode format as CPython 2.4.  Our bytecode compiler is
+implemented as a chain of flexible passes (tokenizer, lexer, parser,
+abstract syntax tree builder, bytecode generator).  The latter passes
+are based on the ``compiler`` package from the standard library of
+CPython, with various improvements and bug fixes. The bytecode compiler
+(living under `interpreter/astcompiler/`_) is now integrated and is
+translated with the rest of PyPy.
+
+Code objects contain
 contensed information about their respective functions, class and 
 module body source codes.  Interpreting such code objects means
 instantiating and initializing a `Frame class`_ and then
@@ -96,6 +110,7 @@ function invocations.
 .. _`wrapped`: coding-guide.html#wrapping-rules
 .. _`object space`: objspace.html
 .. _`application level exceptions`: coding-guide.html#applevel-exceptions
+.. _`here`: coding-guide.html#modules
 
 
 Bytecode Interpreter Implementation Classes  

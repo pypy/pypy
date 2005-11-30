@@ -140,18 +140,26 @@ It is divided into two components:
 Note that the *standard interpreter* can run fine on top of CPython if one
 is willing to pay the performance penalty for double-interpretation.
 
-The division between the interpreter that dispatches bytecode and handles code
-objects and the object space that is responsible for all objects operation is
-very important as it gives a lot of flexibility. It is possible to use a
-different object space to get a different behaviour of the python objects.
-Using a special object space is also an important technique for our translation
-process.
+The *bytecode interpreter* is the part that interprets the compact
+bytecode format produced from user Python sources by a preprocessing
+phase, the *bytecode compiler*.  The bytecode compiler itself is
+implemented as a chain of flexible passes (tokenizer, lexer, parser,
+abstract syntax tree builder, bytecode generator).  The bytecode
+interpreter then does its work by delegating all actual manipulation of
+user objects to the *object space*.  The latter can be thought of as the
+library of built-in types.  It defines the implementation of the user
+objects, like integers and lists, as well as the operations between
+them, like addition or truth-value-testing.
 
+This division between bytecode interpreter and object space is very
+important, as it gives a lot of flexibility. It is possible to use
+different `object spaces`_ to get different behaviours of the Python
+objects.  Using a special object space is also an important technique
+for our translation process.
+
+.. _`bytecode interpreter`: interpreter.html
 .. _`standard object space`: objspace.html#the-standard-object-space
-
-.. _`translation process in more details`:
-.. _`later in this document`:
-.. _`initialization time`: 
+.. _`object spaces`: objspace.html
 
 The Translation Process
 -----------------------
@@ -174,44 +182,13 @@ is done in four steps:
 - the *code generator* which translates the resulting flow graph into
   another language, currently C, LLVM_, Javascript (experimental).
 
-See below for the `translation process in more details`_.
+A more complete description of the phases of this process is out of the
+scope of the present introduction.  We will only give in the sequel a
+short overview.
 
 
-.. _`bytecode interpreter`:
-
-The Bytecode Interpreter
-=========================
-
-The *plain bytecode interpreter* handles python code objects.
-The interpreter can build code objects from Python sources,
-when needed, by invoking a bytecode compiler.  Code objects
-are a nicely preprocessed, structured representation of source code, and
-their main content is *bytecode*.  We use the same compact bytecode format
-as CPython 2.4.
-
-Our bytecode compiler is implemented as a chain of flexible passes
-(tokenizer, lexer, parser, abstract syntax tree builder, bytecode
-generator).  The latter passes are based on the ``compiler`` package
-from the standard library of CPython, with various improvements and
-bug fixes. The bytecode compiler (living under
-`interpreter/astcompiler/`_) is now integrated and is translated with
-the rest of PyPy.
-
-In addition to storing bytecode, code objects also know
-how to create a *frame* object which has the responsibility to
-*interpret* a code object's bytecode.  Each bytecode is implemented by a
-python function, which, in turn, delegates operations on
-application-level objects to an object space.  This interpretation and
-delegation is the core of the bytecode interpreter.
-
-This part is implemented in the `interpreter/`_ directory.  People familiar
-with the CPython implementation of the above concepts will easily recognize
-them there.  The major differences are the overall usage of the `Object Space`_
-indirection to perform operations on objects, and the organization of the
-built-in modules (described `here`_).
-
-.. _`here`: coding-guide.html#modules
-.. _`Object Space`: objspace.html
+.. _`initialization time`:
+.. _`translation process in more details`:
 
 RPython, the Flow Object Space and translation
 ==============================================
@@ -264,12 +241,14 @@ The newest piece of this puzzle is the
 uses them to modify the flow graph in-place to replace its operations with
 low-level ones, directly manipulating C-like values and data structures.
 
-The complete translation process is described in more details in the
-`translation document`_. There is a graph_ that gives an overview of the
-whole process.
+Here is an overview of the whole process (`PDF color version`_):
 
-.. image:: image/translation-greyscale-small.pdf
-   :scale: 80
+    .. image:: image/translation-greyscale-small.png
+
+The complete translation process is described in more details in the
+`translation document`_.  You might also be interested in reading the
+more theoretically-oriented paper `Compiling dynamic language
+implementations`_.
 
 Status of the implementation (Oct 2005)
 ========================================== 
@@ -313,9 +292,10 @@ the `statistics web page`_ for more detailed information.
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 .. _`RPython`: coding-guide.html#rpython
 .. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`Compiling dynamic language implementations`: dynamic-language-translation.html
 .. _`translation document`: translation.html
 .. _LLVM: http://llvm.cs.uiuc.edu/
-.. _graph: image/translation.pdf
+.. _`PDF color version`: image/translation.pdf
 .. _`getting started`: getting-started.html
 
 .. include:: _ref.txt
