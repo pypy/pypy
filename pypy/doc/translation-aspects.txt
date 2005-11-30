@@ -9,12 +9,13 @@ Abstract
 =========
 
 One of the goals of the PyPy project is it to have the memory and threading
-model flexible and changeable without having to touch the interpreter
-everywhere.  This document describes the current state of the implementation of
-memory object model, automatic memory management and threading models as well
-as possible future developments.
+model flexible and changeable without having to manually reimplement 
+the interpreter.  In fact, PyPy with the 0.7 and 0.8 releases contain 
+code for memory management and threading models which allows experimentation
+without requiring early design decisions.  This document describes the current state 
+of the implementation of the memory object model, automatic memory management and 
+threading models and describes possible future developments.
 
-XXX
 
 Background
 ===========
@@ -35,9 +36,9 @@ The low level object model
 XXX proper references to translation.txt and dynamic-language-translation
 
 One important part of the translation process is *rtyping*. Before that step
-all objects in our flow graphs are still regular python objects. During rtyping
-they are transformed into objects that match the model of the specific target
-platform. For C this model consists of a set of C-like types like structures,
+all objects in our flow graphs still represent regular python objects. During 
+rtyping they are transformed into objects that match the model of the specific 
+target platform. For C this model consists of a set of C-like types like structures,
 arrays and functions in addition to primitive types (integers, characters,
 floating point numbers). This multi-stage approach gives a lot of flexibility
 how a certain object is represented at C level. 
@@ -55,7 +56,7 @@ class "object" has::
         struct object * instantiate();
     }
 
-The structure memebers ``subclassrange_min`` and ``subclassrange_max`` are used
+The structure members ``subclassrange_min`` and ``subclassrange_max`` are used
 for subclass checking. Every other class X, with parent Y, has the structure::
 
     struct vtable_X {
