@@ -28,7 +28,7 @@ def convert_data(row):
     except ValueError:
         pass
     if first[0] == '"':
-        return [str(elt) for elt in row]
+        return [elt[1:-1] for elt in row]
     return [parsedate(elt) for elt in row]
 
 def parsedate(s):
@@ -47,7 +47,7 @@ def txt2png(p):
     dates = data[0]
 
     release_title, release_axis, release_data = get_data( py.path.local("release_dates.csv") )
-    release_dates = release_data[0]
+    release_dates, release_names = release_data
  
     sprint_title, sprint_axis, sprint_data = get_data( py.path.local("sprint_dates.csv") )
     sprint_locations, sprint_begin_dates, sprint_end_dates = sprint_data
@@ -58,13 +58,22 @@ def txt2png(p):
         pylab.plot_date(*args)
 
     for i, release_date in enumerate(release_dates):
+        release_name = release_names[i]
         pylab.axvline(release_date, linewidth=2, color="g", alpha=0.5)
+        ax.text(release_date, 0.0, release_name,
+                fontsize=10,
+                horizontalalignment='right',
+                rotation='vertical')
 
     for i, location in enumerate(sprint_locations):
         begin = sprint_begin_dates[i]
         end   = sprint_end_dates[i]
         if float(begin) >= float(min(dates[0],dates[-1])):
             pylab.axvspan(begin, end, facecolor="y", alpha=0.2)
+            ax.text(begin, 0.0, location,
+                    fontsize=10,
+                    horizontalalignment='right',
+                    rotation='vertical')
 
     pylab.legend(axis[1:], "upper left")
     pylab.xlabel(axis[0])
