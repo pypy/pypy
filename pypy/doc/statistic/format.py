@@ -34,7 +34,7 @@ def convert_data(row):
 def parsedate(s):
     if len(s) <= 7:
         year, month = s.split("-")
-        result = datetime.datetime(int(year), int(month), 1)
+        result = datetime.datetime(int(year), int(month), 15)
     else:
         result = parser.parse(s)
     return pylab.date2num(result)
