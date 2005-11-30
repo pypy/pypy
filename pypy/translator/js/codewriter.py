@@ -4,8 +4,6 @@ from pypy.translator.js.log import log
 
 log = log.codewriter 
 
-debug = False
-
 class CodeWriter(object): 
 
     tabstring = '  '
@@ -43,24 +41,31 @@ class CodeWriter(object):
         else:
             eol = ';\n'
 
-        do_log = debug and line and not line.endswith('}')
-        for x in ['var', '//', 'for (;;) {', 'switch (block) {', 'slp_new_frame']:
+        do_log = self.js.logging and line and not line.endswith('}')
+        for x in ['var', '//', 'for (;;) {', 'switch (block) {', 'slp_new_frame', 'case ', 'if ', 'elif ', 'else ', '} else ']:
             if line.startswith(x):
                 do_log = False
                 break
         log_before = True
-        for x in ['function ', 'case ', '} else {', 'else if', 'else {']:
+        for x in ['function ',]:
             if line.startswith(x):
                 log_before = False
                 break
 
+        try:
+            func_name = self.decl.split('(')[0]
+        except AttributeError:
+            func_name = 'UNKNOWN'
         if do_log and log_before:
-            self.f.write("%slogme('%-40s %s')\n" % (s, line, self.decl))
+            self.f.write("%slog('%-40s IN %s')\n" % (s, line, func_name))
 
         self.f.write(s + line + eol)
 
         if do_log and not log_before:
-            self.f.write("%slogme('%-40s %s')\n" % (s, line, self.decl))
+            if line.startswith('function '):
+                self.f.write("%slog('FUNCTION %s')\n" % (s, func_name))
+            else:
+                self.f.write("%slog('%-40s IN %s')\n" % (s, line, func_name))
 
     def comment(self, line):
         self.append("// " + line)

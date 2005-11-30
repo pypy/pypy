@@ -26,10 +26,11 @@ def _path_join(root_path, *paths):
     return path
 
 class JS(object):   # JS = Javascript
-    def __init__(self, translator, entrypoint=None, stackless=False):
+    def __init__(self, translator, entrypoint=None, stackless=False, logging=False):
         self.db = Database(translator)
         self.entrypoint = entrypoint or translator.entrypoint
-        self.stackless = stackless or conftest.option.jsstackless
+        self.stackless  = stackless or conftest.option.jsstackless
+        self.logging    = logging or conftest.option.jslog
 
     def write_source(self):
         func = self.entrypoint
@@ -78,18 +79,17 @@ class JS(object):   # JS = Javascript
         else:
             s = 'stack.js'
         src_filename = _path_join(os.path.dirname(__file__), 'src', s)
-        f.write(open(src_filename).read())
+        s = open(src_filename).read()
+        if self.logging:
+            s = s.replace('LOG', 'log')
+        else:
+            s = s.replace('LOG', '// log')
+        f.write(s)
 
         f.close()
 
         entry_point= c.value._obj
         self.graph = self.db.obj2node[entry_point].graph
-        startblock = self.graph.startblock
-        args       = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
-        if self.stackless:
-            self.wrappertemplate = "load('%s'); print(slp_entry_point('%s(%%s)'))" % (self.filename, self.graph.name)
-        else:
-            self.wrappertemplate = "load('%s'); print(%s(%%s))" % (self.filename, self.graph.name)
 
         log('Written:', self.filename)
         return self.filename

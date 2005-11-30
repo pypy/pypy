@@ -34,12 +34,14 @@ class compile_function(object):
     def __call__(self, *kwds):
         args = ', '.join([str(kw).lower() for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
 
+        function_call = "%s(%s)" % (self.js.graph.name, args)
+        if self.js.stackless:
+            function_call = "slp_entry_point(%s)" % function_call
+
         if use_browsertest:
-            jstestcase = '%s(%s)' % (self.js.graph.name, args)
-            output = jstest(self.js.filename, jstestcase)
+            output = jstest(self.js.filename, function_call)
         else:
-            wrappercode = self.js.wrappertemplate % args
-            cmd = 'echo "%s" | js 2>&1' % wrappercode
+            cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
             log(cmd)
             output = os.popen(cmd).read().strip()
         for s in output.split('\n'):

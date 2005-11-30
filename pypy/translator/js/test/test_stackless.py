@@ -99,7 +99,7 @@ def test_stackless_arguments():
 def test_stack_too_big():
     if not conftest.option.jsstackless:
         py.test.skip("stackless disabled (enable with py.test --stackless)")
-    py.test.skip("stackless feature not incomplete")
+    #py.test.skip("stackless feature not incomplete")
 
     def f1():
         return stack_too_big()
