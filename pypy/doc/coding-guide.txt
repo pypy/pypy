@@ -12,11 +12,11 @@ ask back any questions you might have.
 
 .. _`RPython`:
 
-Restricted Python
-==================
+Overview and motivation
+========================
 
 We are writing a Python interpreter in Python, using Python's well known
-ability to step behind the algorithmic problems as language. At first glance,
+ability to step behind the algorithmic problems as a language. At first glance,
 one might think this achieves nothing but a better understanding how the
 interpreter works.  This alone would make it worth doing, but we have much
 larger goals.
@@ -41,12 +41,100 @@ straight-forward way is to do a whole program analysis of the PyPy
 interpreter and create a C source, again. There are many other ways,
 but let's stick with this somewhat canonical approach.
 
+
+.. _`application-level`:
+.. _`interpreter-level`:
+
+Application-level and interpreter-level execution and objects
+-------------------------------------------------------------
+
+Since Python is used for implementing all of our code base, there is a
+crucial distinction to be aware of: that between *interpreter-level* objects and 
+*application-level* objects.  The latter are the ones that you deal with
+when you write normal python programs.  Interpreter-level code, however,
+cannot invoke operations nor access attributes from application-level
+objects.  You will immediately recognize any interpreter level code in
+PyPy, because half the variable and object names start with a ``w_``, which
+indicates that they are `wrapped`_ application-level values. 
+
+Let's show the difference with a simple example.  To sum the contents of
+two variables ``a`` and ``b``, one would write the simple application-level
+``a+b`` -- in contrast, the equivalent interpreter-level code is
+``space.add(w_a, w_b)``, where ``space`` is an instance of an object space,
+and ``w_a`` and ``w_b`` are typical names for the wrapped versions of the
+two variables.
+
+It helps to remember how CPython deals with the same issue: interpreter
+level code, in CPython, is written in C and thus typical code for the
+addition is ``PyNumber_Add(p_a, p_b)`` where ``p_a`` and ``p_b`` are C
+variables of type ``PyObject*``. This is conceptually similar to how we write
+our interpreter-level code in Python.
+
+Moreover, in PyPy we have to make a sharp distinction between
+interpreter- and application-level *exceptions*: application exceptions
+are always contained inside an instance of ``OperationError``.  This
+makes it easy to distinguish failures (or bugs) in our interpreter-level code
+from failures appearing in a python application level program that we are
+interpreting.
+
+
+.. _`app-preferable`: 
+
+Application level is often preferable 
+-------------------------------------
+
+Application-level code is substantially higher-level, and therefore
+correspondingly easier to write and debug.  For example, suppose we want
+to implement the ``update`` method of dict objects.  Programming at
+application level, we can write an obvious, simple implementation, one
+that looks like an **executable definition** of ``update``, for
+example::
+
+    def update(self, other):
+        for k in other.keys():
+            self[k] = other[k]
+
+If we had to code only at interpreter level, we would have to code
+something much lower-level and involved, say something like::
+
+    def update(space, w_self, w_other):
+        w_keys = space.call_method(w_other, 'keys')
+        w_iter = space.iter(w_keys)
+        while True:
+            try:
+                w_key = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise       # re-raise other app-level exceptions
+                break
+            w_value = space.getitem(w_other, w_key)
+            space.setitem(w_self, w_key, w_value)
+
+This interpreter-level implementation looks much more similar to the C
+source code.  It is still more readable than its C counterpart because 
+it doesn't contain memory management details and can use Python's native 
+exception mechanism. 
+
+In any case, it should be obvious that the application-level implementation 
+is definitely more readable, more elegant and more maintainable than the
+interpreter-level one.
+
+In fact, in almost all parts of PyPy, you find application level code in
+the middle of interpreter-level code.  Apart from some bootstrapping
+problems (application level functions need a certain initialization
+level of the object space before they can be executed), application
+level code is usually preferable.  We have an abstraction (called the
+'Gateway') which allows the caller of a function to remain ignorant of
+whether a particular function is implemented at application or
+interpreter level. 
+
 our runtime interpreter is "restricted python"
 ----------------------------------------------
 
-In order to make a C code generator feasible we restrict ourselves to a
-subset of the Python language, and we adhere to some rules which make
-translation to lower level languages more obvious.
+In order to make a C code generator feasible all code on interpreter level has
+to restrict itself to a subset of the Python language, and we adhere to some
+rules which make translation to lower level languages feasible. Code on
+application level can still use the full expressivity of Python.
 
 Unlike source-to-source translations (like e.g. Starkiller_) we start
 translation from live python code objects which constitute our Python
@@ -78,6 +166,9 @@ enables the code generator to emit efficient machine level replacements
 for pure integer objects, for instance.
 
 .. _`pyopcode.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
+
+Restricted Python
+=================
 
 RPython Definition, not
 -----------------------
@@ -340,9 +431,13 @@ handling enabled, so we might catch cases where we failed to
 adhere to our implicit assertions.
 
 .. _`wrapping rules`:
+.. _`wrapped`:
 
 Wrapping rules
 ==============
+
+Wrapping
+--------- 
 
 PyPy is made of Python source code at two levels: there is on the one hand
 *application-level code* that looks like normal Python code, and that
@@ -357,6 +452,24 @@ object space to support the objects it manipulates, but this is implicit.
 There is no need for particular conventions for application-level code.  The
 sequel is only about interpreter-level code.  (Ideally, no application-level
 variable should be called ``space`` or ``w_xxx`` to avoid confusion.)
+
+The ``w_`` prefixes so lavishly used in the example above indicate,
+by PyPy coding convention, that we are dealing with *wrapped* (or *boxed*) objects,
+that is, interpreter-level objects which the object space constructs
+to implement corresponding application-level objects.  Each object
+space supplies ``wrap``, ``unwrap``, ``int_w``, ``interpclass_w``,
+etc. operations that move between the two levels for objects of simple
+built-in types; each object space also implements other Python types
+with suitable interpreter-level classes with some amount of internal
+structure.
+
+For example, an application-level Python ``list``
+is implemented by the `standard object space`_ as an
+instance of ``W_ListObject``, which has an instance attribute
+``wrappeditems`` (an interpreter-level list which contains the
+application-level list's items as wrapped objects).
+
+The rules are described in more details below.
 
 
 Naming conventions

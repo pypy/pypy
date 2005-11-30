@@ -1046,7 +1046,7 @@ Python is, that the produced code does the same thing as the
 corresponding interpreted code, but no interpreter is needed
 any longer to execute this code.
 
-.. _`application-level`: architecture.html#app-preferable
+.. _`application-level`: coding-guide.html#app-preferable
 .. _exceptions: http://codespeak.net/pypy/dist/pypy/lib/_exceptions.py
 .. _oldstyle: http://codespeak.net/pypy/dist/pypy/lib/_classobj.py
 

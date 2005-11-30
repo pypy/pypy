@@ -188,7 +188,7 @@ Linux) or <Ctrl-Z>, <Enter> (under Windows).
 You may be interested in reading more about the distinction between
 `interpreter-level and app-level`_.
 
-.. _`interpreter-level and app-level`: architecture.html#interpreter-level
+.. _`interpreter-level and app-level`: coding-guide.html#interpreter-level
 
 .. _`trace example`: 
 
