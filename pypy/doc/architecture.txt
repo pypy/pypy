@@ -51,6 +51,64 @@ increase the expressive power available to python programmers.
 .. _Stackless: http://stackless.com 
 
 
+PyPy - the underlying goal
+==========================
+
+PyPy is not only about writing another Python interpreter.
+Traditionally, interpreters are written in some target platform language
+like C/Posix, Java or C#.  Each such interpreter provides a "mapping"
+from application source code to the target environment.  One of the
+goals of the "all-encompassing" environments, like the .NET framework
+and to some extent the Java virtual machine, is to provide standardized
+and higher level functionalities to language implementors.  This reduces
+the burden of having to write and maintain many interpreters (or
+compilers).
+
+PyPy is experimenting with a different approach.  We are not writing a
+Python interpreter for a specific target platform.  We have written a
+Python interpreter in Python, without any reference to low-level
+details.  (Because of the nature of Python, this is already a
+complicated task, although not as much as writing it -- say -- in C.)
+Then we use this as a "language specification" and manipulate it to
+produce the more traditional interpreters that we want.  In the above
+sense, we are generating the concrete "mappings" of Python into
+lower-level target platforms.
+
+So far (fall 2005), we have already succeeded in turning this "language
+specification" into reasonably efficient C-level code that performs
+basically the same job as CPython.  Memory management is inserted during
+this "translation" process.  It can be configured to use reference
+counting or not; thus we have already achieved two very different
+"mappings" of application Python code over C/Posix.  We have
+successfully translated our Python interpreter to the LLVM_ target as
+well, and we are working on targeting higher-level environments like
+Java and Squeak.
+
+Thus we can argue that the PyPy project's central component is not its
+interpreter, but its configurable translator.  We think it is a good way
+to avoid writing ``n * m * o`` interpreters for ``n`` dynamic languages
+and ``m`` platforms with ``o`` crucial design decisions.  In PyPy any
+one of these can be changed independently:
+
+* we can modify or replace the language we interpret and just regenerate
+  a concrete interpreter for each target;
+
+* we can write new translator back-ends to target new platforms;
+
+* we can tweak the translation process to produce low-level code based
+  on different models and tradeoffs.
+
+By contrast, standardizing a higher-level target environment just
+enforces ``m=1`` and makes ``o`` a bit smaller.  Speaking at least for
+myself (Armin), I believe that standardization is just
+counter-productive in this area, and PyPy's goal is to give weight to
+this claim.
+
+This is the "meta-goal"; a more concrete goal worth mentioning at this
+point is that language specifications can be used to generate cool stuff
+in addition to traditional interpreters -- e.g. JITs.
+
+
 Higher level picture
 ====================
 
