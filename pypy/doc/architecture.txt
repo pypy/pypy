@@ -94,10 +94,11 @@ is done in four steps:
 - the *annotator* which performs type inference on the flow graph;
 
 - the *typer* which, based on the type annotations, turns the flow graph
-  into one using only low-level, C-like operations;
+  into one using only low-level, operations that fit the model of the
+  target platform;
 
 - the *code generator* which translates the resulting flow graph into
-  another language, currently C or LLVM_.
+  another language, currently C, LLVM_, Javascript (experimental).
 
 See below for the `translation process in more details`_.
 
@@ -136,7 +137,6 @@ indirection to perform operations on objects, and the organization of the
 built-in modules (described `here`_).
 
 .. _`here`: coding-guide.html#modules
-
 
 .. _`objectspace`: 
 .. _`Object Space`: 
