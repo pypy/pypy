@@ -46,19 +46,38 @@ def date2str(i, dates):
     else:
         return ""
 
+colors = "brg"
+
 def txt2png(p):
     print p
     title, axis, data = get_data(p)
     dates = data[0]
-    line,  = pylab.plot_date(dates, data[1], "b-")
+    args = []
+    ax = pylab.subplot(111)
+    for i, d in enumerate(data[1:]):
+        args = [dates, d, colors[i]]
+        pylab.plot_date(*args)
+    pylab.legend(axis[1:], "upper left")
     loc, labels = pylab.xticks()
-    pylab.xticks( loc, [date2str(i,dates) for i, _ in enumerate(dates)] )
+    pylab.xlabel(axis[0])
+    pylab.ylabel(axis[1])
+    ticklabels = ax.get_xticklabels()
+    pylab.setp(ticklabels, 'rotation', 45, size=9)
+    ax.autoscale_view()
+    ax.grid(True)
     pylab.title(title)
     pylab.savefig(p.purebasename + ".png")
+    pylab.savefig(p.purebasename + ".eps")
  
 def main():
     for p in py.path.local().listdir("*.txt"):
         txt2png(p)
 
 if __name__ == '__main__':
-    main()
+    if py.std.sys.argv[1] == "--all":
+        for p in py.path.local().listdir():
+            if p.ext != ".txt":
+                continue
+            py.std.os.system("python %s %s" % (py.std.sys.argv[0], p.basename))
+    else:
+        txt2png(py.path.local(py.std.sys.argv[1]))
