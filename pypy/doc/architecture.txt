@@ -51,8 +51,8 @@ increase the expressive power available to python programmers.
 .. _Stackless: http://stackless.com 
 
 
-PyPy - the underlying goal
-==========================
+PyPy - the Holy Goal
+====================
 
 PyPy is not only about writing another Python interpreter.
 Traditionally, interpreters are written in some target platform language
@@ -98,11 +98,14 @@ one of these can be changed independently:
 * we can tweak the translation process to produce low-level code based
   on different models and tradeoffs.
 
-By contrast, standardizing a higher-level target environment just
-enforces ``m=1`` and makes ``o`` a bit smaller.  Speaking at least for
-myself (Armin), I believe that standardization is just
-counter-productive in this area, and PyPy's goal is to give weight to
-this claim.
+By contrast, a standardized target environment -- say .NET -- just
+enforces ``m=1`` as far as it's concerned.  It also helps making ``o`` a
+bit smaller by providing a higher-level base to build upon.  Still,
+speaking at least for myself (Armin), I believe that trying to enforce
+the use of one common environment is not necessary (and a bad idea in
+the first place).  PyPy's goal is to give weight to this claim (at least
+as far as language implementation is concerned), by showing an approach
+to the ``n * m * o`` problem that does not rely on standardization.
 
 This is the "meta-goal"; a more concrete goal worth mentioning at this
 point is that language specifications can be used to generate cool stuff
