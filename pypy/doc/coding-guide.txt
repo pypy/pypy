@@ -980,7 +980,7 @@ will select the thunk object space. The default is the `Standard Object Space`_
 which aims to implement unmodified Python semantics.
 
 .. _`standard object space`: objspace.html#standard-object-space
-.. _`objectspace`: architecture.html#objectspace
+.. _`objectspace`: objspace.html
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html
 
 Interpreter level tests

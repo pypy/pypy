@@ -5,15 +5,63 @@ PyPy - Object Spaces
 .. contents::
 .. sectnum::
 
+.. _`objectspace`: 
+.. _`Object Space`: 
 
-.. _`Object Spaces`: architecture.html#the-object-space
+The Object Space
+================
 
+The object space creates all objects and knows how to perform operations
+on the objects. You may think of an object space as being a library
+offering a fixed API, a set of *operations*, with implementations that
+correspond to the known semantics of Python objects.  An example of an
+operation is *add*: add's implementations are, for example, responsible
+for performing numeric addition when add works on numbers, concatenation
+when add works on built-in sequences.
 
-Introduction 
-============
+All object-space operations take and return `application-level`_ objects.
+There are only a few, very simple, object-space operations which allow the
+bytecode interpreter to gain some knowledge about the value of an
+application-level object.
+The most important one is ``is_true()``, which returns a boolean
+interpreter-level value.  This is necessary to implement, for example,
+if-statements (or rather, to be pedantic, to implement the
+conditional-branching bytecodes into which if-statements get compiled). 
 
-This document describes aspects of the implementation of PyPy's `Object Spaces`_.
+We currently have four working object spaces which can be plugged into
+the bytecode interpreter:
 
+- The *Standard Object Space* is a complete implementation 
+  of the various built-in types and objects of Python.  The Standard Object
+  Space, together with the bytecode interpreter, is the foundation of our Python
+  implementation.  Internally, it is a set of `interpreter-level`_ classes
+  implementing the various `application-level`_ objects -- integers, strings,
+  lists, types, etc.  To draw a comparison with CPython, the Standard Object
+  Space provides the equivalent of the C structures ``PyIntObject``,
+  ``PyListObject``, etc.
+
+- the *Trace Object Space* wraps e.g. the standard 
+  object space in order to trace the execution of bytecodes, 
+  frames and object space operations.
+
+- the *Thunk Object Space* wraps another object space (e.g. the standard
+  one) and adds two capabilities: lazily computed objects (computed only when
+  an operation is performed on them), and "become", which completely and
+  globally replaces one object with another.
+
+- the *Flow Object Space* transforms a Python program into a
+  flow-graph representation, by recording all operations that the bytecode 
+  interpreter would like to perform when it is shown the given Python
+  program.  This technique is explained `in another document`_.
+
+For a description of the object spaces, please see the
+`objspace document`_.  The sources of PyPy contain the various object spaces
+in the directory `objspace/`_.
+
+.. _`objspace document`: objspace.html
+.. _`application-level`: coding-guide.html#application-level
+.. _`interpreter-level`: coding-guide.html#interpreter-level
+.. _`in another document`: translation.html
 
 Object Space Interface
 ======================

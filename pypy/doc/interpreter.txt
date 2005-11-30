@@ -94,7 +94,7 @@ function invocations.
 .. _`initialization time`: architecture.html#initialization-time
 .. _`interpreter-level and application-level`: coding-guide.html#interpreter-level 
 .. _`wrapped`: coding-guide.html#wrapping-rules
-.. _`object space`: architecture.html#objectspace 
+.. _`object space`: objspace.html
 .. _`application level exceptions`: coding-guide.html#applevel-exceptions
 
 
