@@ -49,14 +49,22 @@ def txt2png(p):
     release_title, release_axis, release_data = get_data( py.path.local("release_dates.csv") )
     release_dates = release_data[0]
  
+    sprint_title, sprint_axis, sprint_data = get_data( py.path.local("sprint_dates.csv") )
+    sprint_locations, sprint_begin_dates, sprint_end_dates = sprint_data
+ 
     ax = pylab.subplot(111)
     for i, d in enumerate(data[1:]):
         args = [dates, d, colors[i]]
         pylab.plot_date(*args)
 
     for i, release_date in enumerate(release_dates):
-        pylab.axvline(release_date, color="g")
-    #pylab.axvspan(dates[0]+1.25, dates[-1]-1.55, facecolor="g", alpha=0.5)
+        pylab.axvline(release_date, linewidth=2, color="g", alpha=0.5)
+
+    for i, location in enumerate(sprint_locations):
+        begin = sprint_begin_dates[i]
+        end   = sprint_end_dates[i]
+        if float(begin) >= float(min(dates[0],dates[-1])):
+            pylab.axvspan(begin, end, facecolor="y", alpha=0.2)
 
     pylab.legend(axis[1:], "upper left")
     pylab.xlabel(axis[0])
