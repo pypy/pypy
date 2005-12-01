@@ -57,11 +57,11 @@ def txt2png(p):
         args = [dates, d, colors[i]]
         pylab.plot_date(*args)
 
-    ymax = max(pylab.yticks()[0]) * 0.88 #just below the legend
+    ymax = max(pylab.yticks()[0]) #just below the legend
     for i, release_date in enumerate(release_dates):
         release_name = release_names[i]
         pylab.axvline(release_date, linewidth=2, color="g", alpha=0.5)
-        ax.text(release_date, ymax, release_name,
+        ax.text(release_date, ymax * 0.5, release_name,
                 fontsize=10,
                 horizontalalignment='right',
                 verticalalignment='top',
@@ -72,7 +72,7 @@ def txt2png(p):
         end   = sprint_end_dates[i]
         if float(begin) >= float(min(dates[0],dates[-1])):
             pylab.axvspan(begin, end, facecolor="y", alpha=0.2)
-            ax.text(begin, ymax, location,
+            ax.text(begin, ymax * 0.88, location,
                     fontsize=10,
                     horizontalalignment='right',
                     verticalalignment='top',
