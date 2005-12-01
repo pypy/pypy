@@ -124,7 +124,7 @@ class OpWriter(object):
         self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
         
     def _skipped(self, op):
-            #self.codewriter.comment('Skipping operation %s()' % op.opname)
+            self.codewriter.comment('Skipping operation %s()' % op.opname)
             pass
     keepalive = _skipped 
     
@@ -389,4 +389,8 @@ class OpWriter(object):
 
     #Stackless
     def yield_current_frame_to_caller(self, op):
-        self._skipped(op)
+        '''special handling of this operation: call stack_unwind() to force the
+        current frame to be saved into the heap, but don't propagate the
+        unwind -- instead, capture it and return it normally'''
+        targetvar = self.db.repr_arg(op.result)
+        self.codewriter.call(targetvar, "ll_stack_unwind", specialreturnvalue="slp_return_current_frame_to_caller()")

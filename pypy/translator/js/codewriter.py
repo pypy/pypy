@@ -41,8 +41,11 @@ class CodeWriter(object):
         else:
             eol = ';\n'
 
-        do_log = self.js.logging and line and not line.endswith('}')
-        for x in ['var', '//', 'for (;;) {', 'switch (block) {', 'slp_new_frame', 'case ', 'if ', 'elif ', 'else ', '} else ']:
+        do_log = self.js.logging and line and not line.endswith('}') and \
+                 not ' = slp_frame_stack_top.' in line
+        for x in ['var'          , '//'   , 'for (;;) {', 'switch (block) {',
+                  'slp_new_frame', 'case ', 'if '       , 'elif '           ,
+                  'else '        , '} else ', 'slp_stack_depth' ]:
             if line.startswith(x):
                 do_log = False
                 break
@@ -190,20 +193,26 @@ class CodeWriter(object):
     def neg(self, targetvar, source):
         self.append('%(targetvar)s = -%(source)s' % locals())
         
-    def call(self, targetvar, functionref, argrefs, no_exception=None, exceptions=[]):
+    def call(self, targetvar, functionref, argrefs=[], no_exception=None, exceptions=[], specialreturnvalue=None):
         args = ", ".join(argrefs)
 
         if not exceptions:
             assert no_exception is None
+            if self.js.stackless:
+                self.append("slp_stack_depth++")
             self.append('%s = %s(%s)' % (targetvar, functionref, args))
             if self.js.stackless:
+                self.append("slp_stack_depth--")
                 selfdecl = self.decl.split('(')[0]
                 usedvars = ', '.join(self._usedvars.keys())
                 self.append('if (slp_frame_stack_bottom) {')
                 self.indent_more()
                 self.append('slp_new_frame("%s", %s, %d, new Array(%s))' %
                     (targetvar, selfdecl, self._resume_blocknum, usedvars))
-                self.append('return')
+                if specialreturnvalue:
+                    self.append("return " + specialreturnvalue)
+                else:
+                    self.append('return')
                 self.indent_less()
                 self.append('}')
                 self.indent_less()
@@ -217,7 +226,10 @@ class CodeWriter(object):
             self.indent_more()
             if self.js.stackless:
                 self.comment('TODO: XXX stackless in combination with exceptions handling')
+                self.append("slp_stack_depth++")
             self.append('%s = %s(%s)' % (targetvar, functionref, args))
+            if self.js.stackless:
+                self.append("slp_stack_depth--")    #XXX we don't actually get here when an exception occurs!
             self._phi(no_exception_exit)
             self._goto_block(no_exception_label)
             self.indent_less()
@@ -251,6 +263,7 @@ class CodeWriter(object):
 
             self.indent_less()
             self.append('}')
+
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
         if fromtype == 'void' and targettype == 'void':
