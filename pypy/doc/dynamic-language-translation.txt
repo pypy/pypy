@@ -837,7 +837,7 @@ Graphically:
               \        \      |  /        /
                `--------`-- Bottom ------'
 
-.. image:: image/lattice1.png
+.. graphviz:: image/lattice1.dot
 
 Here is the part about instances and nullable instances, assuming a
 simple class hierarchy with only two direct subclasses of ``object``:
@@ -866,7 +866,7 @@ simple class hierarchy with only two direct subclasses of ``object``:
                       \     /  /
                         Bottom
 
-.. image:: image/lattice2.png
+.. graphviz:: image/lattice2.dot
 
 All list terms for all variables are unordered:
 
@@ -881,7 +881,7 @@ All list terms for all variables are unordered:
             \            \     \   /     /            /
              '------------'--- None ----'------------'
 
-.. image:: image/lattice3.png
+.. graphviz:: image/lattice3.dot
 
 The Pbcs form a classical finite set-of-subsets lattice.  In practice,
 we consider ``None`` as a degenerated prebuilt constant, so the None
