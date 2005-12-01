@@ -6,6 +6,8 @@ from dateutil import parser
 import pylab
 import matplotlib
 
+greyscale = True
+
 def get_data(p):
     data = p.readlines()
     title = data[0].strip()
@@ -39,7 +41,10 @@ def parsedate(s):
         result = parser.parse(s)
     return pylab.date2num(result)
 
-colors = "brg"
+if greyscale:
+    colors = ["k", "k--", "k."]
+else:
+    colors = "brg"
 
 def txt2png(p):
     print p
@@ -60,7 +65,11 @@ def txt2png(p):
     ymax = max(pylab.yticks()[0]) #just below the legend
     for i, release_date in enumerate(release_dates):
         release_name = release_names[i]
-        pylab.axvline(release_date, linewidth=2, color="g", alpha=0.5)
+        if greyscale:
+            color = 0.3
+        else:
+            color = "g"
+        pylab.axvline(release_date, linewidth=2, color=color, alpha=0.5)
         ax.text(release_date, ymax * 0.5, release_name,
                 fontsize=10,
                 horizontalalignment='right',
@@ -71,7 +80,11 @@ def txt2png(p):
         begin = sprint_begin_dates[i]
         end   = sprint_end_dates[i]
         if float(begin) >= float(min(dates[0],dates[-1])):
-            pylab.axvspan(begin, end, facecolor="y", alpha=0.2)
+            if greyscale:
+                color = 0.8
+            else:
+                color = "y"
+            pylab.axvspan(begin, end, facecolor=color, alpha=0.2)
             ax.text(begin, ymax * 0.88, location,
                     fontsize=10,
                     horizontalalignment='right',
