@@ -3,7 +3,8 @@ import sys
 import types
 import urllib
 
-from pypy.rpython.rmodel import inputconst, getfunctionptr
+from pypy.objspace.flow.model import FunctionGraph
+from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 
@@ -113,8 +114,8 @@ def setup_externs(db):
     for c_name, obj in decls:
         if isinstance(obj, lltype.LowLevelType):
             db.prepare_type(obj)
-        elif isinstance(obj, types.FunctionType):
-            funcptr = getfunctionptr(db.translator, obj)
+        elif isinstance(obj, FunctionGraph):
+            funcptr = rtyper.getcallable(obj)
             c = inputconst(lltype.typeOf(funcptr), funcptr)
             db.prepare_arg_value(c)
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):
@@ -156,8 +157,8 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
         if isinstance(obj, lltype.LowLevelType):
             s = "#define %s struct %s\n%s;\n" % (c_name, c_name, c_name)
             ccode.append(s)
-        elif isinstance(obj, types.FunctionType):
-            funcptr = getfunctionptr(db.translator, obj)
+        elif isinstance(obj, FunctionGraph):
+            funcptr = db.translator.rtyper.getcallable(obj)
             c = inputconst(lltype.typeOf(funcptr), funcptr)
             predeclarefn(c_name, db.repr_arg(c))
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):

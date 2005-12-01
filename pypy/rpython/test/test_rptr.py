@@ -9,7 +9,8 @@ from pypy.annotation import model as annmodel
 
 def ll_rtype(llfn, argtypes=[]):
     a = RPythonAnnotator()
-    s, dontcare = annotate_lowlevel_helper(a, llfn, argtypes)
+    graph = annotate_lowlevel_helper(a, llfn, argtypes)
+    s = a.binding(graph.getreturnvar())
     t = a.translator
     typer = RPythonTyper(a)
     typer.specialize()

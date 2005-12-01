@@ -171,11 +171,28 @@ class __extend__(pairtype(IntegerRepr, FloatRepr)):
             return llops.genop('cast_int_to_float', [v], resulttype=Float)
         return NotImplemented
 
+class __extend__(pairtype(FloatRepr, IntegerRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Float and r_to.lowleveltype == Unsigned:
+            log.debug('explicit cast_float_to_uint')
+            return llops.genop('cast_float_to_uint', [v], resulttype=Unsigned)
+        if r_from.lowleveltype == Float and r_to.lowleveltype == Signed:
+            log.debug('explicit cast_float_to_int')
+            return llops.genop('cast_float_to_int', [v], resulttype=Signed)
+        return NotImplemented
+
 class __extend__(pairtype(BoolRepr, FloatRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Float:
             log.debug('explicit cast_bool_to_float')
             return llops.genop('cast_bool_to_float', [v], resulttype=Float)
+        return NotImplemented
+
+class __extend__(pairtype(FloatRepr, BoolRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Float and r_to.lowleveltype == Bool:
+            log.debug('explicit cast_float_to_bool')
+            return llops.genop('float_is_true', [v], resulttype=Bool)
         return NotImplemented
 
 class __extend__(pairtype(PyObjRepr, FloatRepr)):

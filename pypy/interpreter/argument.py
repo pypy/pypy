@@ -233,8 +233,8 @@ class Arguments:
 
     ### Argument <-> list of w_objects together with "shape" information
 
-    def rawshape(self):
-        shape_cnt  = len(self.arguments_w)        # Number of positional args
+    def _rawshape(self, nextra=0):
+        shape_cnt  = len(self.arguments_w)+nextra        # Number of positional args
         if self.kwds_w:
             shape_keys = self.kwds_w.keys()           # List of keywords (strings)
         else:
@@ -245,7 +245,7 @@ class Arguments:
         return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
 
     def flatten(self):
-        shape_cnt, shape_keys, shape_star, shape_stst = self.rawshape()
+        shape_cnt, shape_keys, shape_star, shape_stst = self._rawshape()
         data_w = self.arguments_w + [self.kwds_w[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
@@ -272,6 +272,9 @@ class Arguments:
             w_starstar = None
         return Arguments(space, args_w, kwds_w, w_star, w_starstar)
     fromshape = staticmethod(fromshape)
+
+def rawshape(args, nextra=0):
+    return args._rawshape(nextra)
 
 
 #

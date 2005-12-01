@@ -126,7 +126,7 @@ class DictRepr(rmodel.Repr):
         external, internal = self.pickrepr(key_repr)
         if external != internal:
             internal = external
-            while not self.rtyper.needs_hash_support(internal.classdef.cls):
+            while not self.rtyper.needs_hash_support(internal.classdef):
                 internal = internal.rbase
         return external, internal
         

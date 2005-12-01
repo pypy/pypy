@@ -2,18 +2,17 @@ import types
 import sys
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
-from pypy.annotation.classdef import isclassdef
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, ForwardReference, Struct, Bool, \
      Ptr, malloc, nullptr
-from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
+from pypy.rpython.rmodel import Repr, TyperError, inputconst, inputdesc
+from pypy.rpython.rmodel import warning, mangle
 from pypy.rpython import robject
 from pypy.rpython import rtuple
-from pypy.rpython.rpbc import SingleFrozenPBCRepr, getsignature, samesig,\
-                                commonbase, allattributenames, get_access_set,\
-                                MultiplePBCRepr, FunctionsPBCRepr, \
-                                AbstractClassesPBCRepr, AbstractMethodsPBCRepr
+from pypy.rpython.rpbc import SingleFrozenPBCRepr, samesig,\
+     commonbase, allattributenames, MultiplePBCRepr, FunctionsPBCRepr, \
+     AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
 
@@ -45,44 +44,48 @@ class MultipleFrozenPBCRepr(MultiplePBCRepr):
             for attr in attrlist:
                 s_value = self.access_set.attrs[attr]
                 r_value = self.rtyper.getrepr(s_value)
-                mangled_name = 'pbc_' + attr
+                mangled_name = mangle('pbc', attr)
                 llfields.append((mangled_name, r_value.lowleveltype))
                 llfieldmap[attr] = mangled_name, r_value
         self.pbc_type.become(Struct('pbc', *llfields))
         self.llfieldmap = llfieldmap
+
+    def convert_desc(self, frozendesc):
+        if (self.access_set is not None and
+            frozendesc not in self.access_set.descs):
+            raise TyperError("not found in PBC access set: %r" % (frozendesc,))
+        try:
+            return self.pbc_cache[frozendesc]
+        except KeyError:
+            self.setup()
+            result = malloc(self.pbc_type, immortal=True)
+            self.pbc_cache[frozendesc] = result
+            for attr, (mangled_name, r_value) in self.llfieldmap.items():
+                if r_value.lowleveltype is Void:
+                    continue
+                try:
+                    thisattrvalue = frozendesc.read_attribute(attr)
+                except AttributeError:
+                    warning("Desc %r has no attribute %r" % (frozendesc, attr))
+                    continue
+                llvalue = r_value.convert_const(thisattrvalue)
+                setattr(result, mangled_name, llvalue)
+            return result
 
     def convert_const(self, pbc):
         if pbc is None:
             return nullptr(self.pbc_type)
         if isinstance(pbc, types.MethodType) and pbc.im_self is None:
             value = pbc.im_func   # unbound method -> bare function
-##        if pbc not in self.access_set.objects:
-##            raise TyperError("not found in PBC set: %r" % (pbc,))
-        try:
-            return self.pbc_cache[pbc]
-        except KeyError:
-            self.setup()
-            result = malloc(self.pbc_type, immortal=True)
-            self.pbc_cache[pbc] = result
-            for attr, (mangled_name, r_value) in self.llfieldmap.items():
-                if r_value.lowleveltype is Void:
-                    continue
-                try: 
-                    thisattrvalue = self.access_set.values[(pbc, attr)] 
-                except KeyError:
-                    try:
-                        thisattrvalue = getattr(pbc, attr)
-                    except AttributeError:
-                        warning("PBC %r has no attribute %r" % (pbc, attr))
-                        continue
-                llvalue = r_value.convert_const(thisattrvalue)
-                setattr(result, mangled_name, llvalue)
-            return result
+        frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
+        return self.convert_desc(frozendesc)
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         vpbc, vattr = hop.inputargs(self, Void)
-        return self.getfield(vpbc, attr, hop.llops)
+        v_res = self.getfield(vpbc, attr, hop.llops)
+        mangled_name, r_res = self.llfieldmap[attr]
+        return hop.llops.convertvar(v_res, r_res, hop.r_result)
 
     def getfield(self, vpbc, attr, llops):
         mangled_name, r_value = self.llfieldmap[attr]
@@ -98,10 +101,10 @@ class __extend__(pairtype(MultipleFrozenPBCRepr, MultipleFrozenPBCRepr)):
 
 class __extend__(pairtype(SingleFrozenPBCRepr, MultipleFrozenPBCRepr)):
     def convert_from_to((r_pbc1, r_pbc2), v, llops):
-        value = r_pbc1.value
-        access = get_access_set(r_pbc2.rtyper, value)
+        frozendesc1 = r_pbc1.frozendesc
+        access = frozendesc1.queryattrfamily()
         if access is r_pbc2.access_set:
-            return inputconst(r_pbc2, value)
+            return inputdesc(r_pbc2, frozendesc1)
         return NotImplemented
 
 # ____________________________________________________________
@@ -114,36 +117,44 @@ class MethodOfFrozenPBCRepr(Repr):
 
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
-        self.function = s_pbc.prebuiltinstances.keys()[0].im_func
+        self.funcdesc = s_pbc.descriptions.keys()[0].funcdesc
+
         # a hack to force the underlying function to show up in call_families
         # (generally not needed, as normalizecalls() should ensure this,
         # but needed for bound methods that are ll helpers)
-        call_families = rtyper.annotator.getpbccallfamilies()
-        call_families.find((None, self.function))
-        im_selves = {}
-        for pbc, not_a_classdef in s_pbc.prebuiltinstances.items():
-            if pbc is None:
-                raise TyperError("unsupported: variable of type "
-                                 "method-of-frozen-PBC or None")
-            assert pbc.im_func is self.function
-            assert not isclassdef(not_a_classdef)
-            im_selves[pbc.im_self] = True
+        # XXX sort this out
+        #call_families = rtyper.annotator.getpbccallfamilies()
+        #call_families.find((None, self.function))
+        
+        if s_pbc.can_be_none():
+            raise TyperError("unsupported: variable of type "
+                             "method-of-frozen-PBC or None")
+
+        im_selves = []
+        for desc in s_pbc.descriptions:
+            assert desc.funcdesc is self.funcdesc
+            im_selves.append(desc.frozendesc)
+            
         self.s_im_self = annmodel.SomePBC(im_selves)
         self.r_im_self = rtyper.getrepr(self.s_im_self)
         self.lowleveltype = self.r_im_self.lowleveltype
 
     def get_s_callable(self):
-        return annmodel.SomePBC({self.function: True})
+        return annmodel.SomePBC([self.funcdesc])
 
     def get_r_implfunc(self):
         r_func = self.rtyper.getrepr(self.get_s_callable())
         return r_func, 1
 
+    def convert_desc(self, mdesc):
+        if mdesc.funcdesc is not self.funcdesc:
+            raise TyperError("not a method bound on %r: %r" % (self.funcdesc, 
+                                                               mdesc))
+        return self.r_im_self.convert_desc(mdesc.frozendesc)
+
     def convert_const(self, method):
-        if getattr(method, 'im_func', None) is not self.function:
-            raise TyperError("not a method bound on %r: %r" % (self.function,
-                                                               method))
-        return self.r_im_self.convert_const(method.im_self)
+        mdesc = self.rtyper.annotator.bookkeeper.getdesc(method)
+        return self.convert_desc(mdesc)
 
     def rtype_simple_call(self, hop):
         return self.redispatch_call(hop, call_args=False)
@@ -152,7 +163,8 @@ class MethodOfFrozenPBCRepr(Repr):
         return self.redispatch_call(hop, call_args=True)
 
     def redispatch_call(self, hop, call_args):
-        s_function = annmodel.SomePBC({self.function: True})
+        # XXX obscure, try to refactor...
+        s_function = annmodel.SomePBC([self.funcdesc])
         hop2 = hop.copy()
         hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
@@ -163,7 +175,8 @@ class MethodOfFrozenPBCRepr(Repr):
             hop2.swap_fst_snd_args()
             _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
             adjust_shape(hop2, s_shape)
-        c = Constant(self.function)
+        # a marker that would crash if actually used...
+        c = Constant("obscure-don't-use-me")
         hop2.v_s_insertfirstarg(c, s_function)   # insert 'function'
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
@@ -181,34 +194,22 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
     It assumes that all the methods come from the same name in a base
     classdef."""
 
-    def rtype_hardwired_simple_call(self, hop):
-        return self.redispatch_call(hop, call_args=False, hardwired=True)
-
-    def rtype_hardwired_call_args(self, hop):
-        return self.redispatch_call(hop, call_args=True, hardwired=True)
-
     def rtype_simple_call(self, hop):
         return self.redispatch_call(hop, call_args=False)
 
     def rtype_call_args(self, hop):
         return self.redispatch_call(hop, call_args=True)
 
-    def redispatch_call(self, hop, call_args, hardwired=False):
+    def redispatch_call(self, hop, call_args):
         hop2 = hop.copy()
-        if hardwired:
-            hop2.swap_fst_snd_args() # bring the hardwired function constant in front
-            func = hop2.args_v[0].value
-            s_func = annmodel.SomePBC({func: True})
-            hop2.r_s_popfirstarg() # info captured, discard it
-            v_func = Constant(func)
-        else:
-            r_class = self.r_im_self.rclass
-            mangled_name, r_func = r_class.clsfields[self.methodname]
-            assert isinstance(r_func, FunctionsPBCRepr)
-            s_func = r_func.s_pbc
-            v_im_self = hop.inputarg(self, arg=0)
-            v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
-            v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+        r_class = self.r_im_self.rclass
+        mangled_name, r_func = r_class.clsfields[self.methodname]
+        assert isinstance(r_func, (FunctionsPBCRepr,
+                                   OverriddenFunctionPBCRepr))
+        s_func = r_func.s_pbc
+        v_im_self = hop.inputarg(self, arg=0)
+        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
+        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
 
         hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
@@ -240,29 +241,37 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         return self.redispatch_call(hop, call_args=True)
 
     def redispatch_call(self, hop, call_args):
-        if self.lowleveltype is not Void:
-            # instantiating a class from multiple possible classes
-            vcls = hop.inputarg(self, arg=0)
-            access_set = self.get_access_set()
-            vnewfn = self.get_class_repr().getpbcfield(vcls, access_set,
-                                                       '__new__', hop.llops)
-            hop2 = hop.copy()
-            hop2.r_s_popfirstarg()   # discard the class pointer argument
-            hop2.v_s_insertfirstarg(vnewfn, access_set.attrs['__new__'])
-            # now hop2 looks like simple_call(klass__new__, args...)
-            return hop2.dispatch()
+        s_instance = hop.s_result
+        r_instance = hop.r_result
 
-        # instantiating a single class
-        klass = self.s_pbc.const
-        v_instance = rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
-        try:
-            initfunc = klass.__init__.im_func
-        except AttributeError:
+        if self.lowleveltype is Void:
+            # instantiating a single class
+            assert isinstance(s_instance, annmodel.SomeInstance)
+            classdef = hop.s_result.classdef
+            v_instance = rclass.rtype_new_instance(hop.rtyper, classdef,
+                                                   hop.llops)
+            s_init = classdef.classdesc.s_read_attribute('__init__')
+            v_init = Constant("init-func-dummy")   # this value not really used
+        else:
+            # instantiating a class from multiple possible classes
+            from pypy.rpython.lltypesystem.rbuiltin import ll_instantiate
+            vtypeptr = hop.inputarg(self, arg=0)
+            access_set = self.get_access_set()
+            r_class = self.get_class_repr()
+            if '__init__' in access_set.attrs:
+                s_init = access_set.attrs['__init__']
+                v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
+                                             hop.llops)
+            else:
+                s_init = annmodel.s_ImpossibleValue
+            v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
+            v_instance = hop.genop('cast_pointer', [v_inst1],
+                                   resulttype = r_instance)
+
+        if isinstance(s_init, annmodel.SomeImpossibleValue):
             assert hop.nb_args == 1, ("arguments passed to __init__, "
                                       "but no __init__!")
         else:
-            s_instance = rclass.instance_annotation_for_cls(self.rtyper, klass)
-            s_init = self.rtyper.annotator.bookkeeper.immutablevalue(initfunc)
             hop2 = hop.copy()
             hop2.r_s_popfirstarg()   # discard the class pointer argument
             if call_args:
@@ -271,42 +280,23 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
                 adjust_shape(hop2, s_shape)
             else:
                 hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
-            c = Constant(initfunc)
-            hop2.v_s_insertfirstarg(c, s_init)   # add 'initfunc'
-            hop2.s_result = annmodel.SomePBC({None: True})
+            hop2.v_s_insertfirstarg(v_init, s_init)   # add 'initfunc'
+            hop2.s_result = annmodel.s_None
             hop2.r_result = self.rtyper.getrepr(hop2.s_result)
             # now hop2 looks like simple_call(initfunc, instance, args...)
             hop2.dispatch()
         return v_instance
 
-
-class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
-    def convert_from_to((r_clspbc, r_cls), v, llops):
-        if r_cls.lowleveltype != r_clspbc.lowleveltype:
-            return NotImplemented   # good enough for now
-        return v
-
-class __extend__(pairtype(ClassesPBCRepr, ClassesPBCRepr)):
-    def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
-        # this check makes sense because both source and dest repr are ClassesPBCRepr
-        if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
-            return v
-        if r_clspbc1.lowleveltype is Void:
-            return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
-        return NotImplemented
-            
-
-
 # ____________________________________________________________
 
-def rtype_call_memo(hop): 
-    memo_table = hop.args_v[0].value
-    if memo_table.s_result.is_constant():
-        return hop.inputconst(hop.r_result, memo_table.s_result.const)
-    fieldname = memo_table.fieldname 
-    assert hop.nb_args == 2, "XXX"  
+##def rtype_call_memo(hop): 
+##    memo_table = hop.args_v[0].value
+##    if memo_table.s_result.is_constant():
+##        return hop.inputconst(hop.r_result, memo_table.s_result.const)
+##    fieldname = memo_table.fieldname 
+##    assert hop.nb_args == 2, "XXX"  
 
-    r_pbc = hop.args_r[1]
-    assert isinstance(r_pbc, (MultipleFrozenPBCRepr, ClassesPBCRepr))
-    v_table, v_pbc = hop.inputargs(Void, r_pbc)
-    return r_pbc.getfield(v_pbc, fieldname, hop.llops)
+##    r_pbc = hop.args_r[1]
+##    assert isinstance(r_pbc, (MultipleFrozenPBCRepr, ClassesPBCRepr))
+##    v_table, v_pbc = hop.inputargs(Void, r_pbc)
+##    return r_pbc.getfield(v_pbc, fieldname, hop.llops)

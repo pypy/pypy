@@ -331,3 +331,39 @@ def test_void_fnptr():
         return e.attr()
     res = interpret(f, [])
     assert res == 42
+
+def test_getattr_on_classes():
+    class A:
+        def meth(self):
+            return self.value + 42
+    class B(A):
+        def meth(self):
+            shouldnt**be**seen
+    class C(B):
+        def meth(self):
+            return self.value - 1
+    def pick_class(i):
+        if i > 0:
+            return A
+        else:
+            return C
+    def f(i):
+        meth = pick_class(i).meth
+        x = C()
+        x.value = 12
+        return meth(x)   # calls A.meth or C.meth, completely ignores B.meth
+    res = interpret(f, [1])
+    assert res == 54
+    res = interpret(f, [0])
+    assert res == 11
+
+def test_constant_bound_method():
+    class C:
+        value = 1
+        def meth(self):
+            return self.value
+    meth = C().meth
+    def f():
+        return meth()
+    res = interpret(f, [])
+    assert res == 1

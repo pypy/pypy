@@ -8,95 +8,100 @@ import autopath, os, sys, types
 
 from pypy.objspace.flow.model import *
 from pypy.translator.simplify import simplify_graph
-from pypy.translator.tool.cbuild import make_module_from_pyxstring
 from pypy.objspace.flow import FlowObjSpace
 from pypy.tool.ansi_print import ansi_log
+from pypy.tool.sourcetools import nice_repr_for_func
 import py
-log = py.log.Producer("getflowgraph") 
-py.log.setconsumer("getflowgraph", ansi_log) 
+log = py.log.Producer("flowgraph") 
+py.log.setconsumer("flowgraph", ansi_log) 
 
-class Translator(object):
+class TranslationContext(object):
+    FLOWING_FLAGS = {
+        'verbose': False,
+        'simplifying': True,
+        'do_imports_immediately': True,
+        'builtins_can_raise_exceptions': False,
+        }
 
-    def __init__(self, func=None, verbose=False, simplifying=True,
-                 do_imports_immediately=True,
-                 builtins_can_raise_exceptions=False):
-        self.entrypoint = func
-        self.verbose = verbose
-        self.simplifying = simplifying
-        self.builtins_can_raise_exceptions = builtins_can_raise_exceptions
-        self.do_imports_immediately = do_imports_immediately
-        self.clear()
-
-    def clear(self):
-        """Clear all annotations and all flow graphs."""
+    def __init__(self, **flowing_flags):
+        self.flags = self.FLOWING_FLAGS.copy()
+        self.flags.update(flowing_flags)
+        if len(self.flags) > len(self.FLOWING_FLAGS):
+            raise TypeError("unexpected keyword argument")
         self.annotator = None
         self.rtyper = None
-        self.flowgraphs = {}  # {function: graph}
-        self.functions = []   # the keys of self.flowgraphs, in creation order
-        self.callgraph = {}   # {opaque_tag: (caller, callee)}
-        self.frozen = False   # when frozen, no more flowgraphs can be generated
-        #self.concretetypes = {}  # see getconcretetype()
-        #self.ctlist = []         #  "
-        # the following is an index into self.functions from where to check
-        self._callgraph_complete = 0
-        if self.entrypoint:
-            self.getflowgraph()
+        self.graphs = []      # [graph]
+        self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
+        self._prebuilt_graphs = {}   # only used by the pygame viewer
 
-    def __getstate__(self):
-        # try to produce things a bit more ordered
-        return self.entrypoint, self.functions, self.__dict__
-
-    def __setstate__(self, args):
-        assert len(args) == 3
-        self.__dict__.update(args[2])
-        assert args[0] is self.entrypoint and args[1] is self.functions
-
-    def getflowgraph(self, func=None, called_by=None, call_tag=None):
-        """Get the flow graph for a function (default: the entry point)."""
-        func = func or self.entrypoint
+    def buildflowgraph(self, func):
+        """Get the flow graph for a function."""
         if not isinstance(func, types.FunctionType):
-            raise Exception, "getflowgraph() expects a function, got %s" % func
-        try:
-            graph = self.flowgraphs[func]
-        except KeyError:
-            if self.verbose:
-                descr =  '(%s:%d) %s' % (
-                    func.func_globals.get('__name__', '?'),
-                    func.func_code.co_firstlineno,
-                    func.__name__)
-                log.start(descr)
-            assert not self.frozen
+            raise TypeError("buildflowgraph() expects a function, "
+                            "got %r" % (func,))
+        if func in self._prebuilt_graphs:
+            graph = self._prebuilt_graphs.pop(func)
+        else:
+            if self.flags.get('verbose'):
+                log.start(nice_repr_for_func(func))
             space = FlowObjSpace()
-            space.builtins_can_raise_exceptions = self.builtins_can_raise_exceptions
-            space.do_imports_immediately = self.do_imports_immediately
+            space.__dict__.update(self.flags)   # xxx push flags there
             graph = space.build_flow(func)
-            if self.simplifying:
-                simplify_graph(graph, self.simplifying)
-            if self.verbose:
+            if self.flags.get('simplifying'):
+                simplify_graph(graph)
+            if self.flags.get('verbose'):
                 log.done(func.__name__)
-            self.flowgraphs[func] = graph
-            self.functions.append(func)
-            graph.func = func
-        if called_by:
-            self.callgraph[called_by, func, call_tag] = called_by, func
+            self.graphs.append(graph)   # store the graph in our list
         return graph
 
-    def gv(self, func=None):
-        """Shows the control flow graph for a function (default: all)
-        -- requires 'dot' and 'gv'."""
-        import os
-        from pypy.translator.tool.make_dot import make_dot, make_dot_graphs
-        if func is None:
-            # show the graph of *all* functions at the same time
-            graphs = []
-            for func in self.functions:
-                graph = self.getflowgraph(func)
-                graphs.append((graph.name, graph))
-            dest = make_dot_graphs(self.entrypoint.__name__, graphs)
-        else:
-            graph = self.getflowgraph(func)
-            dest = make_dot(graph.name, graph)
-        os.system('gv %s' % str(dest))
+    def update_call_graph(self, caller_graph, callee_graph, position_tag):
+        # update the call graph
+        key = caller_graph, callee_graph, position_tag
+        self.callgraph[key] = caller_graph, callee_graph
+
+    def buildannotator(self, policy=None):
+        if self.annotator is not None:
+            raise ValueError("we already have an annotator")
+        from pypy.translator.annrpython import RPythonAnnotator
+        self.annotator = RPythonAnnotator(self, policy=policy)
+        return self.annotator
+
+    def buildrtyper(self, type_system="lltype"):
+        if self.annotator is None:
+            raise ValueError("no annotator")
+        if self.rtyper is not None:
+            raise ValueError("we already have an rtyper")
+        from pypy.rpython.rtyper import RPythonTyper
+        self.rtyper = RPythonTyper(self.annotator,
+                                   type_system = type_system)
+        return self.rtyper
+
+    def checkgraphs(self):
+        for graph in self.graphs:
+            checkgraph(graph)
+
+    # debug aids
+
+    def about(self, x, f=None):
+        """Interactive debugging helper """
+        if f is None:
+            f = sys.stdout
+        if isinstance(x, Block):
+            for graph in self.graphs:
+                if x in graph.iterblocks():
+                    print >>f, '%s is a %s' % (x, x.__class__)
+                    print >>f, 'in %s' % (graph,)
+                    break
+            else:
+                print >>f, '%s is a %s at some unknown location' % (
+                    x, x.__class__.__name__)
+            print >>f, 'containing the following operations:'
+            for op in x.operations:
+                print >>f, "   ",op
+            print >>f, '--end--'
+            return
+        raise TypeError, "don't know about %r" % x
+
 
     def view(self):
         """Shows the control flow graph with annotations if computed.
@@ -110,84 +115,79 @@ class Translator(object):
         from pypy.translator.tool.graphpage import TranslatorPage
         TranslatorPage(self).display()
 
-    def simplify(self, func=None, passes=True):
-        """Simplifies the control flow graph (default: for all functions)."""
-        if func is None:
-            for func in self.flowgraphs.keys():
-                self.simplify(func)
-        else:
-            graph = self.getflowgraph(func)
+
+
+# _______________________________________________________________
+# testing helper
+
+def graphof(translator, func):
+    result = []
+    for graph in translator.graphs:
+        if getattr(graph, 'func', None) is func:
+            result.append(graph)
+    assert len(result) == 1
+    return result[0]
+
+# _______________________________________________________________
+
+class Translator(TranslationContext):
+
+    def __init__(self, func, **flowing_flags):
+        super(Translator, self).__init__(**flowing_flags)
+        self.entrypoint = func
+
+    def __getstate__(self):
+        # try to produce things a bit more ordered
+        XXX
+        return self.entrypoint, self.functions, self.__dict__
+
+    def __setstate__(self, args):
+        XXX
+        assert len(args) == 3
+        self.__dict__.update(args[2])
+        assert args[0] is self.entrypoint and args[1] is self.functions
+
+    def gv(self):
+        """Shows the control flow graph -- requires 'dot' and 'gv'."""
+        import os
+        from pypy.translator.tool.make_dot import make_dot, make_dot_graphs
+        graphs = []
+        for graph in self.graphs:
+            graphs.append((graph.name, graph))
+        dest = make_dot_graphs(self.entrypoint.__name__, graphs)
+        os.system('gv %s' % str(dest))
+
+    def simplify(self, passes=True):
+        """Simplifies all the control flow graphs."""
+        for graph in self.graphs:
             simplify_graph(graph, passes)
             
-    def annotate(self, input_args_types, func=None, policy=None):
-        """annotate(self, input_arg_types[, func]) -> Annotator
+    def annotate(self, input_args_types, policy=None):
+        """annotate(self, input_arg_types) -> Annotator
 
         Provides type information of arguments. Returns annotator.
         """
-        func = func or self.entrypoint
-        if self.annotator is None:
-            from pypy.translator.annrpython import RPythonAnnotator
-            self.annotator = RPythonAnnotator(self, policy=policy)
-        graph = self.getflowgraph(func)
-        self.annotator.build_types(graph, input_args_types, func)
-        return self.annotator
-
-    def about(self, x, f=None):
-        """Interactive debugging helper """
-        if f is None:
-            f = sys.stdout
-        if isinstance(x, Block):
-            for func, graph in self.flowgraphs.items():
-                if x in graph.iterblocks():
-                    funcname = func.func_name
-                    cls = getattr(func, 'class_', None)
-                    if cls:
-                        funcname = '%s.%s' % (cls.__name__, funcname)
-                    print >>f, '%s is a %s in the graph of %s' % (x,
-                                x.__class__.__name__, funcname)
-                    print >>f, 'at %s:%d' % (func.func_globals.get('__name__', '?'),
-                                             func.func_code.co_firstlineno)
-                    break
-            else:
-                print >>f, '%s is a %s at some unknown location' % (x,
-                                                                    x.__class__.__name__)
-            print >>f, 'containing the following operations:'
-            for op in x.operations:
-                print >>f, "   ",op
-            print >>f, '--end--'
-            return
-        raise TypeError, "don't know about %r" % x
-
-    def checkgraphs(self):
-        for graph in self.flowgraphs.itervalues():
-            checkgraph(graph)
+        annotator = self.buildannotator(policy)
+        annotator.build_types(self.entrypoint, input_args_types)
+        return annotator
 
     def specialize(self, **flags):
-        self._callgraph_complete = 0
-        if self.annotator is None:
-            raise ValueError("you need to call annotate() first")
-        if self.rtyper is not None:
-            raise ValueError("cannot specialize() several times")
-        from pypy.rpython.rtyper import RPythonTyper
-
-        self.rtyper = RPythonTyper(self.annotator,
+        rtyper = self.buildrtyper(
             type_system=flags.pop("type_system", "lltype"))
-        self.rtyper.specialize(**flags)
+        rtyper.specialize(**flags)
 
     def backend_optimizations(self, **kwds):
-        self._callgraph_complete = 0
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self, **kwds)
 
-    def source(self, func=None):
+    def source(self):
         """Returns original Python source.
         
         Returns <interactive> for functions written during the
         interactive session.
         """
-        func = func or self.entrypoint
-        graph = self.getflowgraph(func)
-        return getattr(graph, 'source', '<interactive>')
+        FIX_ME
+        return self.entrypointgraph.source
 
     def pyrex(self, input_arg_types=None, func=None):
         """pyrex(self[, input_arg_types][, func]) -> Pyrex translation
@@ -196,6 +196,7 @@ class Translator(object):
         returns type annotated translation. Subsequent calls are
         not affected by this.
         """
+        FIX_ME
         from pypy.translator.pyrex.genpyrex import GenPyrex
         return self.generatecode(GenPyrex, input_arg_types, func)
 
@@ -206,6 +207,7 @@ class Translator(object):
         returns type annotated translation. Subsequent calls are
         not affected by this.
         """
+        FIX_ME
         from pypy.translator.gencl import GenCL
         return self.generatecode(GenCL, input_arg_types, func)
 
@@ -214,6 +216,7 @@ class Translator(object):
         
         Returns C (CPython) translation.
         """
+        FIX_ME
         from pypy.translator.c import genc
         from cStringIO import StringIO
         f = StringIO()
@@ -226,6 +229,7 @@ class Translator(object):
         
         Returns LLVM translation.
         """
+        FIX_ME
         from pypy.translator.llvm.genllvm import GenLLVM
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
@@ -277,6 +281,8 @@ class Translator(object):
     def pyrexcompile(self):
         """Returns compiled function, compiled using Pyrex.
         """
+        FIX_ME
+        from pypy.translator.tool.cbuild import make_module_from_pyxstring
         from pypy.tool.udir import udir
         name = self.entrypoint.func_name
         pyxcode = self.pyrex()
@@ -295,8 +301,7 @@ class Translator(object):
         """Returns compiled function (living in a new C-extension module), 
            compiled using the C generator.
         """
-        if self.annotator is not None:
-            self.frozen = True
+        FIX_ME
         cbuilder = self.cbuilder(standalone=standalone, gcpolicy=gcpolicy)
         c_source_filename = cbuilder.generate_source()
         if not really_compile: 
@@ -308,6 +313,7 @@ class Translator(object):
         return cbuilder.get_entry_point()
 
     def cbuilder(self, standalone=False, gcpolicy=None, thread_enabled=False):
+        FIX_ME
         from pypy.translator.c import genc
         if standalone:
             return genc.CStandaloneBuilder(self, gcpolicy=gcpolicy, thread_enabled=thread_enabled)
@@ -319,6 +325,7 @@ class Translator(object):
         
         Returns LLVM translation with or without optimization.
         """
+        FIX_ME
         from pypy.translator.llvm import genllvm
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
@@ -327,75 +334,21 @@ class Translator(object):
                 exe_name = self.entrypoint.__name__
         else:
             exe_name = None
-        self.frozen = True
         return genllvm.genllvm(self, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name, gcpolicy=gcpolicy)
 
     def asmcompile(self, processor='virt'):
+        FIX_ME
         from pypy.translator.asm import genasm
         assert processor in ['ppc', 'virt', 'virtfinite']
         assert self.rtyper is not None, 'must specialize'
-        return genasm.genasm(self, processor)
+        graph = graphof(self, self.entrypoint)
+        return genasm.genasm(graph, processor)
 
     def call(self, *args):
         """Calls underlying Python function."""
         return self.entrypoint(*args)
 
-    def dis(self, func=None):
+    def dis(self):
         """Disassembles underlying Python function to bytecodes."""
         from dis import dis
-        dis(func or self.entrypoint)
-
-##    def consider_call(self, ann, func, args):
-##        graph = self.getflowgraph(func)
-##        ann.addpendingblock(graph.startblock, args)
-##        result_var = graph.getreturnvar()
-##        try:
-##            return ann.binding(result_var)
-##        except KeyError:
-##            # typical case for the 1st call, because addpendingblock() did
-##            # not actually start the analysis of the called function yet.
-##            return impossiblevalue
-
-##    def getconcretetype(self, cls, *args):
-##        "DEPRECATED.  To be removed"
-##        # Return a (cached) 'concrete type' object attached to this translator.
-##        # Concrete types are what is put in the 'concretetype' attribute of
-##        # the Variables and Constants of the flow graphs by typer.py to guide
-##        # the code generators.
-##        try:
-##            return self.concretetypes[cls, args]
-##        except KeyError:
-##            result = self.concretetypes[cls, args] = cls(self, *args)
-##            self.ctlist.append(result)
-##            return result
-
-    def get_complete_callgraph(self):
-        if self._callgraph_complete < len(self.functions):
-            self._complete_callgraph()
-        return self.callgraph
-    complete_callgraph = property(get_complete_callgraph)
-
-    def _complete_callgraph(self):
-        # walk through all functions, which may grow
-        # if we pull new graphs in.
-        graphs = self.flowgraphs
-        funcs = self.functions
-        was_frozen = self.frozen
-        self.frozen = False
-        complete = self._callgraph_complete
-        while complete < len(funcs):
-            sofar = len(funcs)
-            for func in funcs[complete:]:
-                graph = graphs[func]
-                for block in graph.iterblocks():
-                    for op in block.operations:
-                        if op.opname == 'direct_call':
-                            fnarg = op.args[0]
-                            if isinstance(fnarg, Constant):
-                                fnptr = fnarg.value
-                                fn = fnptr._obj._callable
-                                fg = self.getflowgraph(fn, called_by = func,
-                                                       call_tag = block)
-            complete = sofar
-        self.frozen = was_frozen
-        self._callgraph_complete = complete
+        dis(self.entrypoint)

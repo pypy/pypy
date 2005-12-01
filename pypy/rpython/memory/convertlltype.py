@@ -126,8 +126,8 @@ class LLTypeConverter(object):
                             lladdress.get_address_of_object(_obj))
 
 class FlowGraphConstantConverter(object):
-    def __init__(self, flowgraphs, gc=None, qt=None):
-        self.flowgraphs = flowgraphs
+    def __init__(self, graphs, gc=None, qt=None):
+        self.graphs = graphs
         self.memory = lladdress.NULL
         self.cvter = None
         self.total_size = 0
@@ -155,7 +155,7 @@ class FlowGraphConstantConverter(object):
                     collect_args(op.args)
                     if op.opname in ("malloc", "malloc_varsize"):
                         types[op.args[0].value] = True
-        for graph in self.flowgraphs.itervalues():
+        for graph in self.graphs:
             traverse(visit, graph)
         self.constants = constants
         self.types = types
@@ -246,7 +246,7 @@ class FlowGraphConstantConverter(object):
             elif isinstance(obj, Block):
                 for op in obj.operations:
                     patch_consts(op.args)
-        for graph in self.flowgraphs.itervalues():
+        for graph in self.graphs:
             traverse(visit, graph)
 
     def create_type_ids(self):

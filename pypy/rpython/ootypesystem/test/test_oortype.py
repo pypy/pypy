@@ -2,18 +2,18 @@
 from pypy.rpython.ootypesystem.ootype import *
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
 
 def gengraph(f, args=[], viewBefore=False, viewAfter=False):
-    t = Translator(f)
-    t.annotate(args)
+    t = TranslationContext()
+    t.buildannotator().build_types(f, args)
     if viewBefore:
         t.view()
-    t.specialize(type_system="ootype")
+    t.buildrtyper(type_system="ootype").specialize()
     if viewAfter:
         t.view()
-    return t.flowgraphs[f]
+    return graphof(t, f)
 
 def test_simple_class():
     C = Instance("test", None, {'a': Signed})

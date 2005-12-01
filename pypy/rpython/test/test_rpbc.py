@@ -259,7 +259,7 @@ def test_call_memoized_function():
     assert res == 7
     res = interpret(f1, [1]) 
     assert res == 3
-
+    
 def test_call_memoized_cache():
 
     # this test checks that we add a separate field 
@@ -852,7 +852,7 @@ def test_hlinvoke_simple():
         return a + b
     from pypy.translator import translator
     from pypy.translator import annrpython
-    a = annrpython.RPythonAnnotator(translator.Translator(simplifying=True))
+    a = annrpython.RPythonAnnotator()
     from pypy.annotation import model as annmodel
     
     s_f = a.bookkeeper.immutablevalue(f) 
@@ -873,15 +873,15 @@ def test_hlinvoke_simple():
 
     s_R = a.bookkeeper.immutablevalue(r_f)
     s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
-    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
-    assert s.knowntype == int
+    ll_h_graph = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
+    assert a.binding(ll_h_graph.getreturnvar()).knowntype == int
     rt.specialize_more_blocks()
 
     from pypy.rpython.llinterp import LLInterpreter
-    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    interp = LLInterpreter(rt)
 
     #a.translator.view()
-    res = interp.eval_function(llfunction, [None, None, 3])
+    res = interp.eval_graph(ll_h_graph, [None, None, 3])
     assert res == 5
 
 def test_hlinvoke_simple2():
@@ -913,22 +913,25 @@ def test_hlinvoke_simple2():
 
     from pypy.rpython import annlowlevel
 
-    s_f = annmodel.SomePBC({f1: True, f2: True})
+    f1desc = a.bookkeeper.getdesc(f1)
+    f2desc = a.bookkeeper.getdesc(f2)
+
+    s_f = annmodel.SomePBC([f1desc, f2desc])
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
     s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
-    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
-    assert s.knowntype == int
+    ll_h_graph= annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
+    assert a.binding(ll_h_graph.getreturnvar()).knowntype == int
     rt.specialize_more_blocks()
 
     from pypy.rpython.llinterp import LLInterpreter
-    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    interp = LLInterpreter(rt)
 
     #a.translator.view()
-    res = interp.eval_function(llfunction, [None, r_f.convert_const(f1), 3])
+    res = interp.eval_graph(ll_h_graph, [None, r_f.convert_desc(f1desc), 3])
     assert res == 5
-    res = interp.eval_function(llfunction, [None, r_f.convert_const(f2), 3])
+    res = interp.eval_graph(ll_h_graph, [None, r_f.convert_desc(f2desc), 3])
     assert res == 1
 
 
@@ -965,17 +968,19 @@ def test_hlinvoke_hltype():
 
     s_R = a.bookkeeper.immutablevalue(r_f)
     s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
-    A_repr = rclass.getinstancerepr(rt, a.getuserclasses()[A])
-    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    A_repr = rclass.getinstancerepr(rt, a.bookkeeper.getdesc(A).
+                                    getuniqueclassdef())
+    ll_h_graph = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    s = a.binding(ll_h_graph.getreturnvar())
     assert s.ll_ptrtype == A_repr.lowleveltype
     rt.specialize_more_blocks()
     
     from pypy.rpython.llinterp import LLInterpreter
-    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    interp = LLInterpreter(rt)
     
     #a.translator.view()
     c_a = A_repr.convert_const(A(None))
-    res = interp.eval_function(llfunction, [None, None, c_a])
+    res = interp.eval_graph(ll_h_graph, [None, None, c_a])
     assert typeOf(res) == A_repr.lowleveltype
 
 def test_hlinvoke_method_hltype():
@@ -1008,24 +1013,31 @@ def test_hlinvoke_method_hltype():
 
     from pypy.rpython import annlowlevel
 
-    Impl_def = a.getuserclasses()[Impl]
-    s_f = annmodel.SomePBC({Impl.f.im_func: Impl_def})
+    Impl_def = a.bookkeeper.getdesc(Impl).getuniqueclassdef()
+    Impl_f_desc = a.bookkeeper.getmethoddesc(
+        a.bookkeeper.getdesc(Impl.f.im_func),
+        Impl_def,
+        Impl_def,
+        'f')
+    s_f = annmodel.SomePBC([Impl_f_desc])
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)
     s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
-    A_repr = rclass.getinstancerepr(rt, a.getuserclasses()[A])
-    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    A_repr = rclass.getinstancerepr(rt, a.bookkeeper.getdesc(A).
+                                    getuniqueclassdef()) 
+    ll_h_graph = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    s = a.binding(ll_h_graph.getreturnvar())
     assert s.ll_ptrtype == A_repr.lowleveltype
     rt.specialize_more_blocks()
 
     from pypy.rpython.llinterp import LLInterpreter    
-    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    interp = LLInterpreter(rt)
     
     # low-level value is just the instance
     c_f = rclass.getinstancerepr(rt, Impl_def).convert_const(Impl())
     c_a = A_repr.convert_const(A(None))
-    res = interp.eval_function(llfunction, [None, c_f, c_a])
+    res = interp.eval_graph(ll_h_graph, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
 
 def test_hlinvoke_pbc_method_hltype():
@@ -1067,17 +1079,20 @@ def test_hlinvoke_pbc_method_hltype():
 
     s_R = a.bookkeeper.immutablevalue(r_f)
     s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
-    A_repr = rclass.getinstancerepr(rt, a.getuserclasses()[A])
-    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+
+    A_repr = rclass.getinstancerepr(rt, a.bookkeeper.getdesc(A).
+                                    getuniqueclassdef())
+    ll_h_graph = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    s = a.binding(ll_h_graph.getreturnvar())
     assert s.ll_ptrtype == A_repr.lowleveltype
     rt.specialize_more_blocks()
 
     from pypy.rpython.llinterp import LLInterpreter    
-    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    interp = LLInterpreter(rt)
 
     c_f = r_f.convert_const(i.f)
     c_a = A_repr.convert_const(A(None))
-    res = interp.eval_function(llfunction, [None, c_f, c_a])
+    res = interp.eval_graph(ll_h_graph, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
 
 def test_function_or_none():
@@ -1097,3 +1112,60 @@ def test_function_or_none():
     assert res == 184
     res = interpret(f, [3, 100])
     assert res == -1
+
+def test_pbc_getattr_conversion():
+    fr1 = Freezing()
+    fr2 = Freezing()
+    fr3 = Freezing()
+    fr1.value = 10
+    fr2.value = 5
+    fr3.value = 2.5
+    def pick12(i):
+        if i > 0:
+            return fr1
+        else:
+            return fr2
+    def pick23(i):
+        if i > 5:
+            return fr2
+        else:
+            return fr3
+    def f(i):
+        x = pick12(i)
+        y = pick23(i)
+        return x.value, y.value
+    for i in [0, 5, 10]:
+        res = interpret(f, [i])
+        assert type(res.item0) is int   # precise
+        assert type(res.item1) is float
+        assert res.item0 == f(i)[0]
+        assert res.item1 == f(i)[1]
+
+def test_pbc_getattr_conversion_with_classes():
+    class base: pass
+    class fr1(base): pass
+    class fr2(base): pass
+    class fr3(base): pass
+    fr1.value = 10
+    fr2.value = 5
+    fr3.value = 2.5
+    def pick12(i):
+        if i > 0:
+            return fr1
+        else:
+            return fr2
+    def pick23(i):
+        if i > 5:
+            return fr2
+        else:
+            return fr3
+    def f(i):
+        x = pick12(i)
+        y = pick23(i)
+        return x.value, y.value
+    for i in [0, 5, 10]:
+        res = interpret(f, [i])
+        assert type(res.item0) is int   # precise
+        assert type(res.item1) is float
+        assert res.item0 == f(i)[0]
+        assert res.item1 == f(i)[1]

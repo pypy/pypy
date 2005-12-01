@@ -2,15 +2,14 @@ from pypy.rpython.l3interp import model
 from pypy.rpython.l3interp import l3interp
 from pypy.objspace.flow import model as flowmodel
 
-def convert(t):
-    cvter = LL2L3Converter(t)
+def convert(entrygraph):
+    cvter = LL2L3Converter(entrygraph)
     return cvter.globals
 
 class LL2L3Converter(object):
-    def __init__(self, t):
-        self.translator = t
+    def __init__(self, entrygraph):
         self.globals = model.Globals()
-        self.convert_graph(t.getflowgraph())
+        self.convert_graph(entrygraph)
 
     def convert_graph(self, graph):
         graph_cvter = LL2L3GraphConverter(graph, self)

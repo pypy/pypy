@@ -1,7 +1,7 @@
 import py
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.test.test_malloc import check_malloc_removed
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, graphof
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
@@ -45,11 +45,11 @@ def test_big():
     t.specialize()
     backend_optimizations(t, inline_threshold=100, mallocs=True)
 
-    graph = t.getflowgraph()
-    check_malloc_removed(graph)
+    big_graph = graphof(t, big)
+    check_malloc_removed(big_graph)
 
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    res = interp.eval_function(big, [])
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(big_graph, [])
     assert res == 83
 
 
@@ -66,11 +66,11 @@ def test_for_loop():
     t.backend_optimizations(inline_threshold=1, mallocs=True)
     # this also checks that the BASE_INLINE_THRESHOLD is enough for 'for' loops
 
-    graph = t.getflowgraph()
-    check_malloc_removed(graph)
+    f_graph = graph = graphof(t, f)
+    check_malloc_removed(f_graph)
 
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    res = interp.eval_function(f, [11])
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(f_graph, [11])
     assert res == 55
 
 
@@ -83,11 +83,11 @@ def test_list_comp():
     t.specialize()
     t.backend_optimizations(inline_threshold=10, mallocs=True)
 
-    graph = t.getflowgraph()
-    check_malloc_removed(graph)
+    f_graph = graphof(t, f)
+    check_malloc_removed(f_graph)
 
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    res = interp.eval_function(f, [11, 22])
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(f_graph, [11, 22])
     assert res == 33
 
 def test_premature_death():
@@ -115,14 +115,14 @@ def test_premature_death():
     t.specialize()
     t.backend_optimizations(inline_threshold=1, mallocs=True)
 
-    graph = t.getflowgraph()
+    entry_point_graph = graphof(t, entry_point)
 
     from pypy.rpython.module.support import to_rstr
 
     argv = t.rtyper.getrepr(inputtypes[0]).convert_const(['./pypy-c'])
 
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    interp.eval_function(entry_point, [argv])
+    interp = LLInterpreter(t.rtyper)
+    interp.eval_graph(entry_point_graph, [argv])
 
     
 

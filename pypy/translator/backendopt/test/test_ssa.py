@@ -1,5 +1,5 @@
 from pypy.translator.backendopt.ssa import *
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import flatten, Block
 
 
@@ -11,12 +11,11 @@ def test_data_flow_families():
             else:
                 yy = yy + xx
         return yy
-    t = Translator(snippet_fn)
-    graph = t.getflowgraph()
+    t = TranslationContext()
+    graph = t.buildflowgraph(snippet_fn)
     operations = []
-    for block in flatten(graph):
-        if isinstance(block, Block):
-            operations += block.operations
+    for block in graph.iterblocks():
+        operations += block.operations
 
     variable_families = DataFlowFamilyBuilder(graph).get_variable_families()
 
@@ -42,11 +41,11 @@ def test_SSI_to_SSA():
         v7 = passed_over                   # v7 = inputarg
         return v7+v1                       # v8 = add(v7, v1)
 
-    t = Translator(snippet_fn)
-    SSI_to_SSA(t.getflowgraph())
+    t = TranslationContext()
+    graph = t.buildflowgraph(snippet_fn)
+    SSI_to_SSA(graph)
     allvars = []
-    for block in flatten(t.getflowgraph()):
-        if isinstance(block, Block):
+    for block in graph.iterblocks():
             allvars += [v.name for v in block.getvariables()]
     # see comments above for where the 8 remaining variables are expected to be
     assert len(dict.fromkeys(allvars)) == 8

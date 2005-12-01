@@ -55,7 +55,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow import FlowObjSpace
 
 from pypy.tool.sourcetools import render_docstr, NiceCompile
@@ -594,15 +594,10 @@ else:
             self.trans_funcname(func.func_globals.get('__name__', '?')),
             func.func_code.co_firstlineno,
             func.__name__)
-        if self.translator.frozen:
-            if func not in self.translator.flowgraphs:
-                log.WARNING("NOT GENERATING %s" % printable_name)
-                return self.skipped_function(func)
-        else:
-            if (func.func_doc and
-                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
-                log.WARNING("skipped %s" % printable_name)
-                return self.skipped_function(func)
+        if (func.func_doc and
+            func.func_doc.lstrip().startswith('NOT_RPYTHON')):
+            log.WARNING("skipped %s" % printable_name)
+            return self.skipped_function(func)
         name = self.uniquename('gfunc_' + self.trans_funcname(
             namehint + func.__name__))
         f_name = 'f_' + name[6:]
@@ -776,9 +771,9 @@ else:
                 if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
                     log.WARNING("skipped staticmethod: %s" % value)
                     continue
-                if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
-                    log.WARNING("skipped function: %s" % value)
-                    continue
+##                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
+##                     log.WARNING("skipped function: %s" % value)
+##                     continue
                     
                 yield 'space.setattr(%s, %s, %s)' % (
                     name, self.nameof(key), self.nameof(value))
@@ -1119,7 +1114,7 @@ else:
 
     def gen_rpyfunction(self, func):
         try:
-            graph = self.translator.getflowgraph(func)
+            graph = self.translator.buildflowgraph(func)
         except Exception, e:
             print 20*"*", e
             print func
@@ -1255,10 +1250,6 @@ else:
         # print the PyMethodDef
         # skipped
 
-        if not self.translator.frozen:
-            # this is only to keep the RAM consumption under control
-            pass # del self.translator.flowgraphs[func]
-        # got duplicate flowgraphs when doing this!
 
     def rpyfunction_body(self, graph, localscope):
         start = graph.startblock
@@ -1464,9 +1455,9 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
                 sys.path.remove(libdir)
 
         entrypoint = dic
-        t = Translator(None, verbose=False, simplifying=needed_passes,
-                       do_imports_immediately=do_imports_immediately,
-                       builtins_can_raise_exceptions=True)
+        t = TranslationContext(verbose=False, simplifying=needed_passes,
+                               do_imports_immediately=do_imports_immediately,
+                               builtins_can_raise_exceptions=True)
         gen = GenRpy(t, entrypoint, modname, dic)
 
     finally:

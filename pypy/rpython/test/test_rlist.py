@@ -158,16 +158,6 @@ class TestFixedSizeListImpl(BaseTestListImpl):
 
 # ____________________________________________________________
 
-def rtype(fn, argtypes=[]):
-    t = Translator(fn)
-    t.annotate(argtypes)
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
-    return t
-
-
 def test_simple():
     def dummyfn():
         l = [10, 20, 30]

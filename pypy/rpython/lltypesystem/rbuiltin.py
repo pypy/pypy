@@ -37,14 +37,14 @@ def rtype_builtin_isinstance(hop):
     else:
         return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
 
-def ll_instantiate(typeptr):
+def ll_instantiate(typeptr):   # NB. used by rpbc.ClassesPBCRepr as well
     my_instantiate = typeptr.instantiate
     return my_instantiate()
 
 def rtype_instantiate(hop):
     s_class = hop.args_s[0]
     assert isinstance(s_class, annmodel.SomePBC)
-    if len(s_class.prebuiltinstances) != 1:
+    if len(s_class.descriptions) != 1:
         # instantiate() on a variable class
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
         v_inst = hop.gendirectcall(ll_instantiate, vtypeptr)
@@ -52,8 +52,8 @@ def rtype_instantiate(hop):
                          resulttype = hop.r_result.lowleveltype)
 
 
-    klass = s_class.const
-    return rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
+    classdef = s_class.descriptions.keys()[0].getuniqueclassdef()
+    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate

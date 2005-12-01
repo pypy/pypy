@@ -1,8 +1,9 @@
 import types
+from pypy.annotation import model as annmodel
+from pypy.annotation import description
 from pypy.rpython.rmodel import inputconst, TyperError
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr, getclassrepr, get_type_repr
-from pypy.rpython.rpbc import getsignature
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.pairtype import pairtype
 from pypy.tool.sourcetools import func_with_new_name
@@ -18,19 +19,8 @@ class ClassRepr(AbstractClassRepr):
     def _setup_repr(self):
         pass # not actually needed?
 
-    def convert_const(self, value):
-        if not isinstance(value, (type, types.ClassType)):
-            raise TyperError("not a class: %r" % (value,))
-        try:
-            subclassdef = self.rtyper.annotator.getuserclasses()[value]
-        except KeyError:
-            raise TyperError("no classdef: %r" % (value,))
-        if self.classdef is not None:
-            if self.classdef.commonbase(subclassdef) != self.classdef:
-                raise TyperError("not a subclass of %r: %r" % (
-                    self.classdef.cls, value))
-        #
-        return getinstancerepr(self.rtyper, subclassdef).lowleveltype._class
+    def getruntime(self):
+        return getinstancerepr(self.rtyper, self.classdef).lowleveltype._class
 
     def rtype_issubtype(self, hop):
         class_repr = get_type_repr(self.rtyper)
@@ -74,7 +64,7 @@ class InstanceRepr(AbstractInstanceRepr):
             self.baserepr = getinstancerepr(rtyper, b)
             b = self.baserepr.lowleveltype
 
-        self.lowleveltype = ootype.Instance(classdef.cls.__name__, b, {}, {})
+        self.lowleveltype = ootype.Instance(classdef.shortname, b, {}, {})
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
 
@@ -90,22 +80,38 @@ class InstanceRepr(AbstractInstanceRepr):
 
         fields = {}
         fielddefaults = {}
-        attrs = self.classdef.attrs.items()
+        
+        selfattrs = self.classdef.attrs
 
-        for name, attrdef in attrs:
+        for name, attrdef in selfattrs.iteritems():
+            mangled = mangle(name)            
             if not attrdef.readonly:
-                mangled = mangle(name)
                 repr = self.rtyper.getrepr(attrdef.s_value)
                 allfields[mangled] = repr
                 oot = repr.lowleveltype
                 fields[mangled] = oot
                 try:
-                    fielddefaults[mangled] = getattr(self.classdef.cls, name)
+                    value = self.classdef.classdesc.read_attribute(name)
+                    fielddefaults[mangled] = repr.convert_desc_or_const(value)
                 except AttributeError:
                     pass
+            else:
+                s_value = attrdef.s_value
+                if isinstance(s_value, annmodel.SomePBC):
+                    if s_value.getKind() == description.MethodDesc:
+                        # attrdef is for a method
+                        if mangled in allclassattributes:
+                            raise TyperError("method overrides class attribute")
+                        allmethods[mangled] = name, s_value
+                        continue
+                # class attribute
+                if mangled in allmethods:
+                    raise TyperError("class attribute overrides method")
+                allclassattributes[mangled] = name, s_value
+                                
         #
         # hash() support
-        if self.rtyper.needs_hash_support(self.classdef.cls):
+        if self.rtyper.needs_hash_support(self.classdef):
             from pypy.rpython import rint
             allfields['_hash_cache_'] = rint.signed_repr
             fields['_hash_cache_'] = ootype.Signed
@@ -117,57 +123,61 @@ class InstanceRepr(AbstractInstanceRepr):
         baseInstance = self.lowleveltype._superclass
         classrepr = getclassrepr(self.rtyper, self.classdef)
 
+        for mangled, (name, s_value) in allmethods.iteritems():
+            methdescs = s_value.descriptions
+            origin = dict([(methdesc.originclassdef, methdesc) for
+                           methdesc in methdescs])
+            if self.classdef in origin:
+                methdesc = origin[self.classdef]
+            else:
+                if name in selfattrs:
+                    for superdef in self.classdef.getmro():
+                        if superdef in origin:
+                            # put in methods
+                            methdesc = origin[superdef]
+                            break
+                    else:
+                        # abstract method
+                        methdesc = None
+                else:
+                    continue
+
+            # get method implementation
+            from pypy.rpython.ootypesystem.rpbc import MethodImplementations
+            methimpls = MethodImplementations.get(self.rtyper, s_value)
+            m = methimpls.get_impl(mangled, methdesc)
+
+            methods[mangled] = m
+                                        
+
         for classdef in self.classdef.getmro():
-            attrs = classdef.attrs.items()
-            for name, attrdef in attrs:
+            for name, attrdef in classdef.attrs.iteritems():
                 if not attrdef.readonly:
                     continue
                 mangled = mangle(name)
-                is_method = (classrepr.prepare_method(attrdef.s_value)
-                             is not None)
-                if mangled in allmethods or mangled in allclassattributes:
-                    # if the method/attr was already found in a parent class,
-                    # we register it again only if it is overridden.
-                    if is_method and mangled in allclassattributes:
-                        raise TyperError("method overrides class attribute")
-                    if not is_method and mangled in allmethods:
-                        raise TyperError("class attribute overrides method")
-                    if name not in self.classdef.cls.__dict__:
-                        continue
-                    impl = self.classdef.cls.__dict__[name]
-                else:
-                    # otherwise, for new method/attrs, we look in all parent
-                    # classes to see if it's defined in a parent but only
-                    # actually first used in self.classdef.
-                    for clsdef in self.classdef.getmro():
-                        if name in clsdef.cls.__dict__:
-                            impl = clsdef.cls.__dict__[name]
-                            break
+                if mangled in allclassattributes:
+                    selfdesc = self.classdef.classdesc
+                    if name not in selfattrs:
+                        # if the attr was already found in a parent class,
+                        # we register it again only if it is overridden.
+                        if selfdesc.find_source_for(name) is None:
+                            continue
+                        value = selfdesc.read_attribute(name)
                     else:
-                        if is_method:
-                            impl = None    # abstract base method
-                        else:
+                        # otherwise, for new attrs, we look in all parent
+                        # classes to see if it's defined in a parent but only
+                        # actually first used in self.classdef.
+                        value = selfdesc.read_attribute(name, None)
+                        if value is None:
                             raise TyperError("class %r has no attribute %r" % (
-                                self.classdef.cls, name))
-                if is_method:
-                    # a regular method
-                    exmpl = impl or attrdef.s_value.prebuiltinstances.keys()[0]
-                    f, inputs, ret = getsignature(self.rtyper, exmpl)
-                    M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
-                    if impl:
-                        m = ootype.meth(M, _name=mangled, _callable=impl,
-                                        graph=f.graph)
-                    else:
-                        m = ootype.meth(M, _name=mangled, abstract=True)
-                    methods[mangled] = m
-                    allmethods[mangled] = True
-                else:
+                                self.classdef.name, name))
+
                     # a non-method class attribute
-                    allclassattributes[mangled] = True
                     if not attrdef.s_value.is_constant():
-                        classattributes[mangled] = attrdef.s_value, impl
+                        classattributes[mangled] = attrdef.s_value, value
         
         ootype.addMethods(self.lowleveltype, methods)
+        
         self.allfields = allfields
         self.allmethods = allmethods
         self.allclassattributes = allclassattributes
@@ -184,9 +194,9 @@ class InstanceRepr(AbstractInstanceRepr):
 
         # step 3: provide accessor methods for class attributes that are
         # really overridden in subclasses
-        for mangled, (s_value, impl) in classattributes.items():
+        for mangled, (s_value, value) in classattributes.items():
             r = self.rtyper.getrepr(s_value)
-            oovalue = r.convert_const(impl)
+            oovalue = r.convert_desc_or_const(value)
             m = self.attach_class_attr_accessor(mangled, oovalue,
                                                 r.lowleveltype)
 
@@ -195,10 +205,10 @@ class InstanceRepr(AbstractInstanceRepr):
             return oovalue
         ll_getclassattr = func_with_new_name(ll_getclassattr,
                                              'll_get_' + mangled)
-        sm = self.rtyper.annotate_helper(ll_getclassattr, [self.lowleveltype])
+        graph = self.rtyper.annotate_helper(ll_getclassattr, [self.lowleveltype])
         M = ootype.Meth([], oovaluetype)
         m = ootype.meth(M, _name=mangled, _callable=ll_getclassattr,
-                        graph=sm.graph)
+                        graph=graph)
         ootype.addMethods(self.lowleveltype, {mangled: m})
 
     def rtype_getattr(self, hop):
@@ -251,7 +261,7 @@ class InstanceRepr(AbstractInstanceRepr):
     def rtype_hash(self, hop):
         if self.classdef is None:
             raise TyperError, "hash() not supported for this class"
-        if self.rtyper.needs_hash_support(self.classdef.cls):
+        if self.rtyper.needs_hash_support(self.classdef):
             vinst, = hop.inputargs(self)
             return hop.gendirectcall(ll_inst_hash, vinst)
         else:
@@ -264,8 +274,9 @@ class InstanceRepr(AbstractInstanceRepr):
     def convert_const(self, value):
         if value is None:
             return ootype.null(self.lowleveltype)
+        bk = self.rtyper.annotator.bookkeeper
         try:
-            classdef = self.rtyper.annotator.getuserclasses()[value.__class__]
+            classdef = bk.getuniqueclassdef(value.__class__)
         except KeyError:
             raise TyperError("no classdef: %r" % (value.__class__,))
         if classdef != self.classdef:
@@ -275,7 +286,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 raise TyperError("not implemented: object() instance")
             if classdef.commonbase(self.classdef) != self.classdef:
                 raise TyperError("not an instance of %r: %r" % (
-                    self.classdef.cls, value))
+                    self.classdef.name, value))
             rinstance = getinstancerepr(self.rtyper, classdef)
             result = rinstance.convert_const(value)
             return ootype.ooupcast(self.lowleveltype, result)

@@ -28,7 +28,7 @@ from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.transform import insert_stackcheck
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, BrokenReprTyperError
-from pypy.rpython.rmodel import warning
+from pypy.rpython.rmodel import warning, HalfConcreteWrapper
 from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.rmodel import log
@@ -48,25 +48,16 @@ class RPythonTyper:
         else:
             raise TyperError("Unknown type system %r!" % type_system)
         self.type_system_deref = self.type_system.deref
-
-        def getfunctionptr(graphfunc):
-            def getconcretetype(v):
-                return self.bindingrepr(v).lowleveltype
-
-            return self.type_system.getcallable(
-                        self.annotator.translator, graphfunc, getconcretetype)
-        
-        self.getfunctionptr = getfunctionptr
-
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
-        self.specialized_ll_functions = {}
         self._dict_traits = {}
         self.class_reprs = {}
         self.instance_reprs = {}
         self.pbc_reprs = {}
+        self.concrete_calltables = {}
         self.class_pbc_attributes = {}
+        self.oo_meth_impls = {}
         self.typererrors = []
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
@@ -202,7 +193,7 @@ class RPythonTyper:
             self.dump_typererrors(to_log=True) 
             raise TyperError("there were %d error" % len(self.typererrors))
         # make sure that the return variables of all graphs are concretetype'd
-        for graph in self.annotator.translator.flowgraphs.values():
+        for graph in self.annotator.translator.graphs:
             v = graph.getreturnvar()
             self.setconcretetype(v)
 
@@ -290,7 +281,7 @@ class RPythonTyper:
         # specialize all the operations, as far as possible
         if block.operations == ():   # return or except block
             return
-        newops = LowLevelOpList(self)
+        newops = LowLevelOpList(self, block)
         varmapping = {}
         for v in block.getvariables():
             varmapping[v] = v    # records existing Variables
@@ -372,7 +363,7 @@ class RPythonTyper:
                     a, using_repr=self.exceptiondata.r_exception_value)
 
             inputargs_reprs = self.setup_block_entry(link.target)
-            newops = LowLevelOpList(self)
+            newops = LowLevelOpList(self, block)
             newlinkargs = {}
             for i in range(len(link.args)):
                 a1 = link.args[i]
@@ -509,12 +500,6 @@ class RPythonTyper:
         r_arg2 = hop.args_r[1]
         return pair(r_arg1, r_arg2).rtype_contains(hop)
 
-    def translate_op_hardwired_simple_call(self, hop):
-        return hop.args_r[0].rtype_hardwired_simple_call(hop)
-
-    def translate_op_hardwired_call_args(self, hop):
-        return hop.args_r[0].rtype_hardwired_call_args(hop)
-
     # __________ irregular operations __________
 
     def translate_op_newlist(self, hop):
@@ -532,53 +517,49 @@ class RPythonTyper:
     def translate_op_newslice(self, hop):
         return rslice.rtype_newslice(hop)
 
-    def translate_op_call_memo(self, hop):
-        return self.type_system.rpbc.rtype_call_memo(hop)
-
-    def translate_op_call_specialcase(self, hop):
-        return rspecialcase.rtype_call_specialcase(hop)
+    def translate_op_instantiate1(self, hop):
+        from pypy.rpython.lltypesystem import rclass
+        if not isinstance(hop.s_result, annmodel.SomeInstance):
+            raise TyperError("instantiate1 got s_result=%r" % (hop.s_result,))
+        classdef = hop.s_result.classdef
+        return rclass.rtype_new_instance(self, classdef, hop.llops)
 
     def missing_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
     # __________ utilities __________
 
-    def needs_hash_support(self, cls):
-        return cls in self.annotator.bookkeeper.needs_hash_support
+    def needs_hash_support(self, clsdef):
+        return clsdef in self.annotator.bookkeeper.needs_hash_support
 
-    def getcallable(self, graphfunc):
+    def getcallable(self, graph):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
 
-        return self.type_system.getcallable(
-                    self.annotator.translator, graphfunc, getconcretetype)
+        return self.type_system.getcallable(graph, getconcretetype)
 
     def annotate_helper(self, ll_function, arglltypes):
         """Annotate the given low-level helper function
         and return it as a function pointer object.
         """
         args_s = [annmodel.lltype_to_annotation(T) for T in arglltypes]
-        was_frozen = self.annotator.translator.frozen
-        self.annotator.translator.frozen = False   # oh well
-        try:
-            ignored, spec_function = annotate_lowlevel_helper(self.annotator,
-                                                            ll_function, args_s)
-        finally:
-            self.annotator.translator.frozen = was_frozen
-        return self.getfunctionptr(spec_function)
+        helper_graph = annotate_lowlevel_helper(self.annotator,
+                                                ll_function, args_s)
+        return helper_graph
 
     def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
         args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
-        s, spec_function = annotate_lowlevel_helper(self.annotator,
-                                                    func, args_s)
+        graph = annotate_lowlevel_helper(self.annotator,
+                                         func, args_s)
+        s = self.annotator.binding(graph.getreturnvar())
         if (not isinstance(s, annmodel.SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
-        funcptr = self.getfunctionptr(spec_function)
+        funcptr = self.getcallable(graph)
         attachRuntimeTypeInfo(GCSTRUCT, funcptr)
 
 # ____________________________________________________________
@@ -728,8 +709,22 @@ class LowLevelOpList(list):
     llop_raising_exceptions = None
     implicit_exceptions_checked = None
 
-    def __init__(self, rtyper):
+    def __init__(self, rtyper, originalblock=None):
         self.rtyper = rtyper
+        self.originalblock = originalblock
+
+    def getparentgraph(self):
+        return self.rtyper.annotator.annotated[self.originalblock]
+
+    def hasparentgraph(self):
+        return self.originalblock is not None
+
+    def record_extra_call(self, graph):
+        if self.hasparentgraph():
+            self.rtyper.annotator.translator.update_call_graph(
+                caller_graph = self.getparentgraph(),
+                callee_graph = graph,
+                position_tag = object())
 
     def convertvar(self, v, r_from, r_to):
         assert isinstance(v, (Variable, Constant))
@@ -767,28 +762,32 @@ class LowLevelOpList(list):
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
                 if not isinstance(s_value, annmodel.SomePBC):
-                    # a Void non-PBC constant: can be a SomePtr pointing to a
-                    # constant function.
-                    assert isinstance(s_value, annmodel.SomePtr)
-                    # Drop the 'const'.
-                    s_value = annmodel.SomePtr(s_value.ll_ptrtype)
-                    # Modify args_v so that 'v' gets the llptr concretetype
-                    # stored in s_value
-                    v = inputconst(s_value.ll_ptrtype, v.value)
+                    raise TyperError("non-PBC Void argument: %r", (s_value,))
+                if isinstance(s_value.const, HalfConcreteWrapper):
+                    # Modify args_v so that 'v' gets the concrete value
+                    # returned by the wrapper
+                    wrapper = s_value.const
+                    v = wrapper.concretize()
+                    s_value = annmodel.lltype_to_annotation(v.concretetype)
                 args_s.append(s_value)
             else:
                 args_s.append(annmodel.lltype_to_annotation(v.concretetype))
             newargs_v.append(v)
         
         self.rtyper.call_all_setups()  # compute ForwardReferences now
-        dontcare, spec_function = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
 
         # hack for bound methods
         if hasattr(ll_function, 'im_func'):
+            bk = rtyper.annotator.bookkeeper
+            args_s.insert(0, bk.immutablevalue(ll_function.im_self))
             newargs_v.insert(0, inputconst(Void, ll_function.im_self))
+            ll_function = ll_function.im_func
+
+        graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
+        self.record_extra_call(graph)
 
         # build the 'direct_call' operation
-        f = self.rtyper.getfunctionptr(spec_function)
+        f = self.rtyper.getcallable(graph)
         c = inputconst(typeOf(f), f)
         fobj = self.rtyper.type_system_deref(f)
         return self.genop('direct_call', [c]+newargs_v,

@@ -51,6 +51,16 @@ class __extend__(pairtype(BoolRepr, IntegerRepr)):
             return llops.genop('cast_bool_to_int', [v], resulttype=Signed)
         return NotImplemented
 
+class __extend__(pairtype(IntegerRepr, BoolRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Bool:
+            log.debug('explicit cast_uint_to_bool')
+            return llops.genop('uint_is_true', [v], resulttype=Bool)
+        if r_from.lowleveltype == Signed and r_to.lowleveltype == Bool:
+            log.debug('explicit cast_int_to_bool')
+            return llops.genop('int_is_true', [v], resulttype=Bool)
+        return NotImplemented
+
 class __extend__(pairtype(PyObjRepr, BoolRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_to.lowleveltype == Bool:

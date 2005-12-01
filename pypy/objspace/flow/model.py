@@ -4,8 +4,8 @@
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
 from __future__ import generators
-from pypy.tool.uid import Hashable
-from pypy.tool.sourcetools import PY_IDENTIFIER
+from pypy.tool.uid import uid, Hashable
+from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 
 """
     memory size before and after introduction of __slots__
@@ -65,6 +65,13 @@ class FunctionGraph(object):
         from pypy.tool.sourcetools import getsource
         return getsource(self.func)
     source = roproperty(getsource)
+
+    def __repr__(self):
+        if hasattr(self, 'func'):
+            fnrepr = nice_repr_for_func(self.func)
+        else:
+            fnrepr = self.name
+        return '<FunctionGraph of %s at 0x%x>' % (fnrepr, uid(self))
 
     def iterblocks(self):
         block = self.startblock

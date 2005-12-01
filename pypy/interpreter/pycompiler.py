@@ -97,7 +97,18 @@ def get_flag_names(space, flags):
     return flag_names
 
 
-class CPythonCompiler(AbstractCompiler):
+class PyCodeCompiler(AbstractCompiler):
+    """Base class for compilers producing PyCode objects."""
+
+    def getcodeflags(self, code):
+        from pypy.interpreter.pycode import PyCode
+        if isinstance(code, PyCode):
+            return code.co_flags & compiler_flags
+        else:
+            return 0
+
+
+class CPythonCompiler(PyCodeCompiler):
     """Faked implementation of a compiler, using the underlying compile()."""
 
     def compile(self, source, filename, mode, flags):
@@ -132,13 +143,6 @@ class CPythonCompiler(AbstractCompiler):
         from pypy.interpreter.pycode import PyCode
         return PyCode(space)._from_code(c)
     compile._annspecialcase_ = "override:cpy_compile"
-
-    def getcodeflags(self, code):
-        from pypy.interpreter.pycode import PyCode
-        if isinstance(code, PyCode):
-            return code.co_flags & compiler_flags
-        else:
-            return 0
 
     def _warn_explicit(self, message, category, filename, lineno,
                        module=None, registry=None):
@@ -185,7 +189,7 @@ class CPythonCompiler(AbstractCompiler):
 
 
 ########
-class PythonAstCompiler(CPythonCompiler):
+class PythonAstCompiler(PyCodeCompiler):
     """Uses the stdlib's python implementation of compiler
 
     XXX: This class should override the baseclass implementation of

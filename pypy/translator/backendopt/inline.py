@@ -199,9 +199,8 @@ def _inline_function(translator, graph, block, index_operation):
                         index = afterblock.inputargs.index(arg)
                         linkargs.append(passon_vars[block][index - 1])
                 return linkargs
-            exc_match = Constant(rmodel.getfunctionptr(
-                translator,
-                translator.rtyper.getexceptiondata().ll_exception_match))
+            exc_match = Constant(
+                translator.rtyper.getexceptiondata().fn_exception_match)
             exc_match.concretetype = typeOf(exc_match.value)
             #try to match the exceptions for simple cases
             for link in entrymap[graph_to_inline.exceptblock]:
@@ -341,7 +340,7 @@ def static_callers(translator, ignore_primitives=False):
                                        'suggested_primitive', False):
                                 continue
                         result.append((parentgraph, graph))
-    for parentgraph in translator.flowgraphs.itervalues():
+    for parentgraph in translator.graphs:
         traverse(build_call_graph, parentgraph)
     return result
 

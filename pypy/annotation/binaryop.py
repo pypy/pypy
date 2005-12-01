@@ -7,15 +7,14 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeUnicodeCodePoint
-from pypy.annotation.model import SomeTuple, SomeImpossibleValue
+from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
+from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
-from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Variable
 
 # convenience only!
@@ -85,8 +84,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_floordiv((obj1, obj2)): return pair(obj1, obj2).floordiv()
     def inplace_div((obj1, obj2)):      return pair(obj1, obj2).div()
     def inplace_mod((obj1, obj2)):      return pair(obj1, obj2).mod()
-    def inplace_pow((obj1, obj2)):      return pair(obj1, obj2).pow(
-                                                      SomePBC({None: True}))
+    def inplace_pow((obj1, obj2)):      return pair(obj1, obj2).pow(s_None)
     def inplace_lshift((obj1, obj2)):   return pair(obj1, obj2).lshift()
     def inplace_rshift((obj1, obj2)):   return pair(obj1, obj2).rshift()
     def inplace_and((obj1, obj2)):      return pair(obj1, obj2).and_()
@@ -523,9 +521,9 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
                 resdef = ins1.classdef
             else:
                 if ins1.can_be_None and ins2.can_be_None:
-                    return SomePBC({None: True})
+                    return s_None
                 else:
-                    return SomeImpossibleValue()
+                    return s_ImpossibleValue
         res = SomeInstance(resdef, can_be_None=ins1.can_be_None and ins2.can_be_None)
         if ins1.contains(res) and ins2.contains(res):
             return res    # fine
@@ -556,27 +554,9 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
 
 class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):       
-        if len(pbc2.prebuiltinstances) > len(pbc1.prebuiltinstances):
-            pbc1, pbc2 = pbc2, pbc1
-        d = pbc1.prebuiltinstances.copy()
-        for x, classdef in pbc2.prebuiltinstances.items():
-            if x in d:
-                if bool(isclassdef(classdef)) ^ bool(isclassdef(d[x])):
-                    raise UnionError(
-                        "union failed for %r with classdefs %r and %r" % 
-                        (x, classdef, d[x]))
-                if isclassdef(classdef):
-                    classdef2 = classdef
-                    if classdef != d[x]:
-                        classdef = classdef.commonbase(d[x])
-                        if classdef is None:
-                            raise UnionError(
-                                "confused pbc union trying unwarranted"
-                                "moving up of method %s from pair %s %s" %
-                                (x, d[x], classdef2))
-            d[x] = classdef
-        result =  SomePBC(d)
-        return result
+        d = pbc1.descriptions.copy()
+        d.update(pbc2.descriptions)
+        return SomePBC(d, can_be_None = pbc1.can_be_None or pbc2.can_be_None)
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
@@ -590,13 +570,15 @@ class __extend__(pairtype(SomeInstance, SomePBC)):
     def union((ins, pbc)):
         if pbc.isNone():
             return SomeInstance(classdef=ins.classdef, can_be_None = True)
-        classdef = ins.classdef.superdef_containing(pbc.knowntype)
-        if classdef is None:
-            # print warning?
-            return SomeObject()
-        if not getattr(TLS, 'no_side_effects_in_union', 0):
-            raise UnionError("mixing pbc and instance not supported anymore:  %s %s" % (pbc, ins))
-        return SomeInstance(classdef)
+        raise UnionError("mixing pbc and instance not supported anymore:  %s %s" % (pbc, ins))
+        # XXX is the following still useful?
+        #classdef = ins.classdef.superdef_containing(pbc.knowntype)
+        #if classdef is None:
+        #    # print warning?
+        #    return SomeObject()
+        #if not getattr(TLS, 'no_side_effects_in_union', 0):
+        #    raise UnionError("mixing pbc and instance not supported anymore:  %s %s" % (pbc, ins))
+        #return SomeInstance(classdef)
 
 class __extend__(pairtype(SomePBC, SomeInstance)):
     def union((pbc, ins)):

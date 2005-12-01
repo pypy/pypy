@@ -35,10 +35,10 @@ def test_alloc_flavor():
     a = RPythonAnnotator()
     #does not raise:
     s = a.build_types(f, [])
-    assert s.knowntype == A
+    Adef = a.bookkeeper.getuniqueclassdef(A)
+    assert s.knowntype == Adef
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-    Adef = rtyper.annotator.getuserclasses()[A]
     assert (Adef, False) in rtyper.instance_reprs
     assert (Adef, True) not in rtyper.instance_reprs    
     
@@ -53,13 +53,13 @@ def test_alloc_flavor_subclassing():
     a = RPythonAnnotator()
     #does not raise:
     s = a.build_types(f, [])
-    assert s.knowntype == B
+    Adef = a.bookkeeper.getuniqueclassdef(A)
+    Bdef = a.bookkeeper.getuniqueclassdef(B)
+    assert s.knowntype == Bdef
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-    Adef = rtyper.annotator.getuserclasses()[A]
     assert (Adef, False) in rtyper.instance_reprs
     assert (Adef, True) not in rtyper.instance_reprs
-    Bdef = rtyper.annotator.getuserclasses()[B]
     assert (Bdef, False) in rtyper.instance_reprs
     assert (Bdef, True) not in rtyper.instance_reprs        
 

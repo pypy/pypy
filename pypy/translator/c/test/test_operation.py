@@ -1,9 +1,9 @@
 import autopath
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.operation import FunctionByName
-from pypy.objspace.flow import FlowObjSpace 
 from pypy.translator.tool.cbuild import skip_missing_compiler
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
+from pypy.translator.c import genc
 
 # XXX this tries to make compiling faster for full-scale testing
 from pypy.translator.tool import cbuild
@@ -96,15 +96,14 @@ def operationtestfn():
 
 
 class TestOperations:
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
-
     def build_cfunc(self, graph):
-        t = Translator()
-        t.entrypoint = operationtestfn
-        t.functions.append(operationtestfn)
-        t.flowgraphs[operationtestfn] = graph
-        return skip_missing_compiler(t.ccompile)
+        t = TranslationContext()
+        t._prebuilt_graphs[operationtestfn] = graph
+        builder = genc.CExtModuleBuilder(t, operationtestfn)
+        builder.generate_source()
+        skip_missing_compiler(builder.compile)
+        builder.import_module()
+        return builder.get_entry_point()
 
     def test_operations(self):
         expected = []

@@ -1,4 +1,5 @@
 from pypy.translator.annrpython import RPythonAnnotator
+from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
@@ -124,9 +125,9 @@ class QueryTypes(object):
                 self.varsize_offsets_to_gcpointers_in_var_part)
 
 
-def getfunctionptr(translator, graphfunc):
+def getfunctionptr(annotator, graphfunc):
     """Make a functionptr from the given Python function."""
-    graph = translator.getflowgraph(graphfunc)
+    graph = annotator.bookkeeper.getdesc(graphfunc).cachedgraph(None)
     llinputs = [v.concretetype for v in graph.getargs()]
     lloutput = graph.getreturnvar().concretetype
     FT = lltype.FuncType(llinputs, lloutput)
@@ -244,31 +245,31 @@ class AnnotatingGcWrapper(GcWrapper):
         a.build_types(instantiate_gc, [])
         a.build_types(func, [])
         a.build_types(instantiate_linked_list, [])
-        a.translator.specialize()
+        typer = RPythonTyper(a)
+        typer.specialize()
         self.annotator = a
         
         # convert constants
-        fgcc = FlowGraphConstantConverter(a.translator.flowgraphs)
+        fgcc = FlowGraphConstantConverter(a.translator.graphs)
         fgcc.convert()
-        self.malloc_graph = a.translator.flowgraphs[self.gc.malloc.im_func]
-        self.write_barrier_graph = a.translator.flowgraphs[
-            self.gc.write_barrier.im_func]
+        self.malloc_graph = a.bookkeeper.getdesc(self.gc.malloc.im_func).cachedgraph(None)
+        self.write_barrier_graph = a.bookkeeper.getdesc(self.gc.write_barrier.im_func).cachedgraph(None)
 
         # create a gc via invoking instantiate_gc
-        self.gcptr = self.llinterp.eval_function(
-            instantiate_gc, graph=a.translator.flowgraphs[instantiate_gc])
+        self.gcptr = self.llinterp.eval_graph(
+            a.bookkeeper.getdesc(instantiate_gc).cachedgraph(None))
         GETROOTS_FUNCTYPE = lltype.typeOf(
-            getfunctionptr(a.translator, gc.dummy_get_roots1)).TO
+            getfunctionptr(a, gc.dummy_get_roots1)).TO
         setattr(self.gcptr, "inst_get_roots",
                 lltypesimulation.functionptr(GETROOTS_FUNCTYPE, "get_roots",
                                              _callable=self.get_roots))
         #get funcptrs neccessary to build the result of get_roots
         self.instantiate_linked_list = getfunctionptr(
-            a.translator, instantiate_linked_list)
+            a, instantiate_linked_list)
         self.append_linked_list = getfunctionptr(
-            a.translator, AddressLinkedList.append.im_func)
+            a, AddressLinkedList.append.im_func)
         self.pop_linked_list = getfunctionptr(
-            a.translator, AddressLinkedList.pop.im_func)
+            a, AddressLinkedList.pop.im_func)
         self.gc.get_roots = None
         self.translator = a.translator
 ##         a.translator.view()

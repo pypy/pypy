@@ -1,7 +1,6 @@
-from pypy.objspace.flow.model import Constant, Variable, last_exception
+from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
 
@@ -18,8 +17,7 @@ class LLException(Exception):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, flowgraphs, typer, lltype=lltype):
-        self.flowgraphs = flowgraphs
+    def __init__(self, typer, lltype=lltype):
         self.bindings = {}
         self.typer = typer
         self.llt = lltype  #module that contains the used lltype classes
@@ -28,14 +26,10 @@ class LLInterpreter(object):
         # prepare_graphs_and_create_gc might already use the llinterpreter!
         self.gc = None
         if hasattr(lltype, "prepare_graphs_and_create_gc"):
+            flowgraphs = typer.annotator.translator.graphs
             self.gc = lltype.prepare_graphs_and_create_gc(self, flowgraphs)
 
-    def getgraph(self, func):
-        return self.flowgraphs[func]
-
-    def eval_function(self, func, args=(), graph=None):
-        if graph is None:
-            graph = self.getgraph(func)
+    def eval_graph(self, graph, args=()):
         llframe = LLFrame(graph, args, self)
         try:
             return llframe.eval()
@@ -96,6 +90,7 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
+        assert isinstance(graph, FunctionGraph)
         self.graph = graph
         self.args = args
         self.llinterpreter = llinterpreter
@@ -120,7 +115,7 @@ class LLFrame(object):
             self.setvar(var, val)
 
     def setvar(self, var, val):
-        if var.concretetype != self.llt.Void:
+        if var.concretetype is not self.llt.Void:
             assert self.llinterpreter.typer.type_system.isCompatibleType(self.llt.typeOf(val), var.concretetype)
         assert isinstance(var, Variable)
         self.bindings[var] = val
@@ -131,9 +126,12 @@ class LLFrame(object):
 
     def getval(self, varorconst):
         try:
-            return varorconst.value
+            val = varorconst.value
         except AttributeError:
-            return self.bindings[varorconst]
+            val = self.bindings[varorconst]
+        if varorconst.concretetype is not self.llt.Void:
+            assert self.llinterpreter.typer.type_system.isCompatibleType(self.llt.typeOf(val), varorconst.concretetype)
+        return val
 
     # _______________________________________________________
     # other helpers
@@ -200,8 +198,8 @@ class LLFrame(object):
                 cls, inst = e.args
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
-                    if self.llinterpreter.eval_function(
-                        exdata.ll_exception_match, [cls, link.llexitcase]):
+                    if self.op_direct_call(exdata.fn_exception_match,
+                                           cls, link.llexitcase):
                         self.setifvar(link.last_exception, cls)
                         self.setifvar(link.last_exc_value, inst)
                         break
@@ -224,18 +222,16 @@ class LLFrame(object):
         self.setvar(operation.result, retval)
 
     def make_llexception(self, exc):
-        exdata = self.llinterpreter.typer.getexceptiondata()
+        typer = self.llinterpreter.typer
+        exdata = typer.getexceptiondata()
         if isinstance(exc, OSError):
-            fn = getfunctionptr(self.llinterpreter.typer.annotator.translator,
-                                exdata.ll_raise_OSError)
-            self.op_direct_call(fn, exc.errno)
+            self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
             assert False, "op_direct_call above should have raised"
         else:
             exc_class = exc.__class__
-            evalue = self.llinterpreter.eval_function(
-                exdata.ll_pyexcclass2exc, [self.llt.pyobjectptr(exc_class)])
-            etype = self.llinterpreter.eval_function(
-                exdata.ll_type_of_exc_inst, [evalue])
+            evalue = self.op_direct_call(exdata.fn_pyexcclass2exc,
+                                         self.llt.pyobjectptr(exc_class))
+            etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
         raise LLException(etype, evalue)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
@@ -300,11 +296,8 @@ class LLFrame(object):
         if hasattr(obj, 'graph'):
             graph = obj.graph
         else:
-            try:
-                graph = self.llinterpreter.getgraph(obj._callable)
-            except KeyError:
-                assert has_callable, "don't know how to execute %r" % f
-                return self.invoke_callable_with_pyexceptions(f, *args)
+            assert has_callable, "don't know how to execute %r" % f
+            return self.invoke_callable_with_pyexceptions(f, *args)
         frame = self.__class__(graph, args, self.llinterpreter, self)
         return frame.eval()
 
@@ -418,7 +411,11 @@ class LLFrame(object):
     def op_cast_float_to_int(self, f):
         assert type(f) is float
         return ovfcheck(int(f))
-    
+
+    def op_cast_float_to_uint(self, f):
+        assert type(f) is float
+        return r_uint(int(f))
+
     def op_cast_char_to_int(self, b):
         assert type(b) is str and len(b) == 1
         return ord(b)
@@ -642,7 +639,7 @@ class LLFrame(object):
         assert isinstance(message, str)
         bm = getattr(inst, message)
         m = bm.meth
-        m._checkargs(args)
+        m._checkargs(args, check_callable=False)
         if getattr(m, 'abstract', False):
             raise RuntimeError("calling abstract method %r" % (m,))
         return self.op_direct_call(m, inst, *args)

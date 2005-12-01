@@ -23,21 +23,21 @@ class C(object):
 class DummyClassDef:
     def __init__(self, cls=C):
         self.cls = cls
+        self.name = cls.__name__
 
 si0 = SomeInstance(DummyClassDef(), True)
 si1 = SomeInstance(DummyClassDef())
-sNone = SomePBC({None: True})
 sTrue = SomeBool()
 sTrue.const = True
 sFalse = SomeBool()
 sFalse.const = False
 
 def test_is_None():
-    assert pair(sNone, sNone).is_() == sTrue
-    assert pair(si1, sNone).is_() == sFalse
-    assert pair(si0, sNone).is_() != sTrue
-    assert pair(si0, sNone).is_() != sFalse
-    assert pair(si0, sNone).is_() == SomeBool()
+    assert pair(s_None, s_None).is_() == sTrue
+    assert pair(si1, s_None).is_() == sFalse
+    assert pair(si0, s_None).is_() != sTrue
+    assert pair(si0, s_None).is_() != sFalse
+    assert pair(si0, s_None).is_() == SomeBool()
 
 def test_equality():
     assert s1 != s2 != s3 != s4 != s5 != s6

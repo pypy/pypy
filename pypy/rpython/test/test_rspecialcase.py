@@ -1,8 +1,6 @@
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret, gengraph
 
-from pypy.translator.ann_override import PyPyAnnotatorPolicy
-
 
 def test_override_ignore():
     def f():
@@ -30,11 +28,10 @@ def test_ignore_breaking_transformations():
                 return f()
             except:
                 return "hello!"
-    t, typer = gengraph(g, [int])
+    t, typer, graph = gengraph(g, [int])
     from pypy.translator import simplify
     from pypy.translator.backendopt import removenoops
     from pypy.objspace.flow.model import checkgraph
-    graph = t.getflowgraph(g)
     removenoops.remove_same_as(graph)
     simplify.eliminate_empty_blocks(graph)
     #should not crash:

@@ -1,7 +1,7 @@
 from pypy.tool.udir import udir
 from pypy.translator.test import snippet
 from pypy.translator.squeak.gensqueak import GenSqueak
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 
 
 def looping(i = (int), j = (int)):
@@ -15,8 +15,9 @@ class TestSqueakTrans:
     def build_sqfunc(self, func):
         try: func = func.im_func
         except AttributeError: pass
-        t = Translator(func)
-        t.simplify()
+        t = TranslationContext()
+        graph = t.buildflowgraph(func)
+        t._prebuilt_graphs[func] = graph
         self.gen = GenSqueak(udir, t)
 
     def test_simple_func(self):

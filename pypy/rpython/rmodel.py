@@ -1,5 +1,6 @@
 from pypy.annotation.pairtype import pairtype, extendabletype
 from pypy.annotation import model as annmodel
+from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      Void, Bool, Float, Signed, Char, UniChar, \
@@ -89,6 +90,15 @@ class Repr:
     def _freeze_(self):
         return True
 
+    def convert_desc_or_const(self, desc_or_const):
+        if isinstance(desc_or_const, description.Desc):
+            return self.convert_desc(desc_or_const)
+        elif isinstance(desc_or_const, Constant):
+            return self.convert_const(desc_or_const.value)
+        else:
+            raise TyperError("convert_desc_or_const expects a Desc"
+                             "or Constant: %r" % desc_or_const)
+                            
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
         if self.lowleveltype is not Void:
@@ -230,10 +240,6 @@ def setattr_default(obj, attr, value):
 for opname in annmodel.UNARY_OPERATIONS:
     setattr_default(Repr, 'rtype_' + opname, missing_rtype_operation)
 
-# hardwired_*call*
-setattr_default(Repr, 'rtype_hardwired_simple_call', missing_rtype_operation)
-setattr_default(Repr, 'rtype_hardwired_call_args'  , missing_rtype_operation)
-
 for opname in annmodel.BINARY_OPERATIONS:
     setattr_default(pairtype(Repr, Repr),
                     'rtype_' + opname, missing_rtype_operation)
@@ -276,6 +282,17 @@ impossible_repr = VoidRepr()
 
 # ____________________________________________________________
 
+def inputdesc(reqtype, desc):
+    """Return a Constant for the given desc, of the requested type,
+    which can only be a Repr.
+    """
+    assert isinstance(reqtype, Repr)
+    value = reqtype.convert_desc(desc)
+    lltype = reqtype.lowleveltype
+    c = Constant(value)
+    c.concretetype = lltype
+    return c
+
 def inputconst(reqtype, value):
     """Return a Constant with the given value, of the requested type,
     which can be a Repr instance or a low-level type.
@@ -308,16 +325,32 @@ class BrokenReprTyperError(TyperError):
         has failed already. 
     """
 
+def mangle(prefix, name):
+    """Make a unique identifier from the prefix and the name.  The name
+    is allowed to start with $."""
+    if name.startswith('$'):
+        return '%sinternal_%s' % (prefix, name[1:])
+    else:
+        return '%s_%s' % (prefix, name)
+
+class HalfConcreteWrapper:
+    # see rtyper.gendirectcall()
+    def __init__(self, callback):
+        self.concretize = callback   # should produce a concrete const
+    def _freeze_(self):
+        return True
+
 # __________ utilities __________
-from pypy.rpython.typesystem import LowLevelTypeSystem
-getfunctionptr = LowLevelTypeSystem.instance.getcallable
 PyObjPtr = Ptr(PyObject)
 
 def needsgc(classdef, nogc=False):
     if classdef is None:
         return not nogc
     else:
-        return getattr(classdef.cls, '_alloc_flavor_', 'gc').startswith('gc')
+        classdesc = classdef.classdesc
+        alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
+                                                Constant('gc')).value     
+        return alloc_flavor.startswith('gc')
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
     from pypy.rpython import rclass

@@ -11,7 +11,7 @@ def backend_optimizations(translator, inline_threshold=1,
                                       ssa_form=True,
                                       propagate=False):
     # remove obvious no-ops
-    for graph in translator.flowgraphs.values():
+    for graph in translator.graphs:
         remove_same_as(graph)
         simplify.eliminate_empty_blocks(graph)
         simplify.transform_dead_op_vars(graph, translator)
@@ -26,7 +26,7 @@ def backend_optimizations(translator, inline_threshold=1,
 
     # vaporize mallocs
     if mallocs:
-        for graph in translator.flowgraphs.values():
+        for graph in translator.graphs:
             if remove_simple_mallocs(graph):
                 # remove typical leftovers from malloc removal
                 remove_same_as(graph)
@@ -36,7 +36,7 @@ def backend_optimizations(translator, inline_threshold=1,
         propagate_all(translator)
    
     if ssa_form:
-        for graph in translator.flowgraphs.values():
+        for graph in translator.graphs:
             SSI_to_SSA(graph)
 
     translator.checkgraphs()

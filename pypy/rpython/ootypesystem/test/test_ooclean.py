@@ -18,11 +18,11 @@ def check_only_ootype(graph):
 
 def interpret(func, values, view=False, viewbefore=False, policy=None,
               someobjects=False):
-    interp = get_interpreter(func, values, view, viewbefore, policy,
+    interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                              someobjects, type_system='ootype')
-    for graph in interp.flowgraphs.values():
-        check_only_ootype(graph)
-    return interp.eval_function(func, values)
+    for g in interp.typer.annotator.translator.graphs:
+        check_only_ootype(g)
+    return interp.eval_graph(graph, values)
 
 # ____________________________________________________________
 

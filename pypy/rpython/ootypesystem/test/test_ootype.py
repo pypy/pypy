@@ -122,6 +122,9 @@ def test_static_method_args():
     py.test.raises(TypeError, "f()")
     py.test.raises(TypeError, "f(1, 2, 3)")
 
+    null_F = null(F)
+    py.test.raises(RuntimeError, "null_F(1,2)")
+
 def test_class_method():
     M = Meth([Signed], Signed)
     def m_(self, b):
@@ -288,3 +291,12 @@ def test_subclassof():
         1, 1, 0,
         1, 1, 1,
         ]
+
+def test_static_method_equality():
+    SM = StaticMethod([], Signed)
+    SM1 = StaticMethod([], Signed)
+    assert SM == SM1
+
+    sm = static_meth(SM, 'f', graph='graph')
+    sm1 = static_meth(SM1, 'f', graph='graph')
+    assert sm == sm1

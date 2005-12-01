@@ -160,18 +160,29 @@ class PyObjMaker:
         self.initcode.append('  raise NotImplementedError')
         return name
 
+    def shouldskipfunc(self, func):
+        if isinstance(func, (staticmethod, classmethod)):
+            func = func.__get__(42)
+        try: func = func.im_func
+        except AttributeError: pass
+        if isinstance(func, FunctionType):
+            ann = self.translator.annotator
+            if ann is None:
+                if (func.func_doc and
+                    func.func_doc.lstrip().startswith('NOT_RPYTHON')):
+                    return "NOT_RPYTHON"   # True
+            else:
+                if not ann.bookkeeper.getdesc(func).querycallfamily():
+                    return True
+        return False
+
     def nameof_function(self, func):
         assert self.translator is not None, (
             "the Translator must be specified to build a PyObject "
             "wrapper for %r" % (func,))
         # look for skipped functions
-        if self.translator.frozen:
-            if func not in self.translator.flowgraphs:
-                return self.skipped_function(func)
-        else:
-            if (func.func_doc and
-                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
-                return self.skipped_function(func)
+        if self.shouldskipfunc(func):
+            return self.skipped_function(func)
 
         from pypy.translator.c.wrapper import gen_wrapper
         fwrapper = gen_wrapper(func, self.translator)
@@ -210,7 +221,7 @@ class PyObjMaker:
                 return False
             else:
                 return "probably"   # True
-        classdef = ann.getuserclasses().get(pbc.__class__)
+        classdef = ann.bookkeeper.immutablevalue(pbc).classdef
         if classdef and classdef.about_attribute(attr) is not None:
             return True
         return False
@@ -313,19 +324,13 @@ class PyObjMaker:
                         continue
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
-                if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
-                    log.WARNING("skipped staticmethod: %s" % value)
-                    continue
-                if isinstance(value, classmethod):
-                    doc = value.__get__(cls).__doc__
-                    if doc and doc.lstrip().startswith("NOT_RPYTHON"):
-                        continue
-                if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
-                    log.WARNING("skipped class function: %s" % value)
-                    continue
                 if key in ignore:
                     continue
-                    
+                skip = self.shouldskipfunc(value)
+                if skip:
+                    if skip != 'NOT_RPYTHON':
+                        log.WARNING("skipped class function: %r" % value)
+                    continue
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
 
         baseargs = ", ".join(basenames)

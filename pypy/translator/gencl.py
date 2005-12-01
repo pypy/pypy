@@ -162,6 +162,7 @@ class Op:
 
 class GenCL:
     def __init__(self, fun, input_arg_types=[]):
+        # NB. 'fun' is a graph!
         simplify_graph(fun)
         self.fun = fun
         self.blockref = {}
@@ -170,7 +171,8 @@ class GenCL:
                         +[transform_slice])
     def annotate(self, input_arg_types):
         ann = RPythonAnnotator()
-        ann.build_types(self.fun, input_arg_types)
+        inputcells = [ann.typeannotation(t) for t in input_arg_types]
+        ann.build_graph_types(self.fun, inputcells)
         self.setannotator(ann)
     def setannotator(self, annotator):
         self.ann = annotator

@@ -10,7 +10,6 @@ from pypy.annotation.model import \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      unionof, set, missing_operation, add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
-from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
 
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
@@ -36,7 +35,10 @@ class __extend__(SomeObject):
         if moreargs:
             raise Exception, 'type() called with more than one argument'
         if obj.is_constant():
-            r = SomePBC({obj.knowntype: True})
+            if isinstance(obj, SomeInstance):
+                r = SomePBC([obj.classdef.classdesc])
+            else:
+                r = immutablevalue(obj.knowntype)
         else:
             r = SomeObject()
             r.knowntype = type
@@ -157,7 +159,7 @@ class __extend__(SomeObject):
         return SomeObject()
     getattr.can_only_throw = []
 
-    def bindcallables(obj, classdef):
+    def bind_callables_under(obj, classdef, name):
         return obj   # default unbound __get__ implementation
 
     def simple_call(obj, *args_s):
@@ -452,7 +454,7 @@ class __extend__(SomeInstance):
             #       that can't possibly apply to an instance of ins.classdef.
             # XXX do it more nicely
             if isinstance(s_result, SomePBC):
-                s_result = ins.classdef.matching(s_result, attr)
+                s_result = ins.classdef.lookup_filter(s_result, attr)
             elif isinstance(s_result, SomeImpossibleValue):
                 ins.classdef.check_missing_attribute_update(attr)
             return s_result
@@ -474,7 +476,7 @@ class __extend__(SomeInstance):
             clsdef.generalize_attr(attr, s_value)
 
     def hash(ins):
-        getbookkeeper().needs_hash_support[ins.classdef.cls] = True
+        getbookkeeper().needs_hash_support[ins.classdef] = True
         return SomeInteger()
 
 
@@ -505,51 +507,21 @@ class __extend__(SomePBC):
     def setattr(pbc, s_attr, s_value):
         getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
 
-    def call(pbc, args, implicit_init=False):
+    def call(pbc, args):
         bookkeeper = getbookkeeper()
-        return bookkeeper.pbc_call(pbc, args, implicit_init=implicit_init)
+        return bookkeeper.pbc_call(pbc, args)
 
-        #bookkeeper = getbookkeeper()
-        #results = []
-        #for func, classdef in pbc.prebuiltinstances.items():
-        #    if isclassdef(classdef):
-        #        s_self = SomeInstance(classdef)
-        #        args1 = args.prepend(s_self)
-        #    else:
-        #        args1 = args
-        #    results.append(bookkeeper.pycall(func, args1))
-        #return unionof(*results)
-
-    def bindcallables(pbc, classdef):
-        """ turn the callables in the given SomeCallable 'cal'
-            into bound versions.
-        """
-        d = {}
-        for func, value in pbc.prebuiltinstances.items():
-            if isinstance(func, FunctionType):
-                if isclassdef(value):
-                    getbookkeeper().warning("rebinding an already bound "
-                                            "method %r with %r" % (func, value))
-                d[func] = classdef
-            elif isinstance(func, staticmethod):
-                d[func.__get__(43)] = value
-            else:
-                d[func] = value
-        return SomePBC(d)
+    def bind_callables_under(pbc, classdef, name):
+        d = [desc.bind_under(classdef, name) for desc in pbc.descriptions]
+        return SomePBC(d, can_be_None=pbc.can_be_None)
 
     def is_true_behavior(pbc):
-        outcome = None
-        for c in pbc.prebuiltinstances:
-            if c is not None and not bool(c):
-                getbookkeeper().warning("PBC %r has truth value False" % (c,))
-                getbookkeeper().count("pbc_is_true", pbc)
-        for c in pbc.prebuiltinstances:
-            if outcome is None:
-                outcome = bool(c)
-            else:
-                if outcome != bool(c):
-                    return SomeBool()
-        return immutablevalue(outcome)
+        if pbc.isNone():
+            return immutablevalue(False)
+        elif pbc.can_be_None:
+            return SomeBool()
+        else:
+            return immutablevalue(True)
 
 
 class __extend__(SomeExternalObject):
@@ -596,7 +568,8 @@ class __extend__(SomeLLADTMeth):
 
     def call(adtmeth, args):
         bookkeeper = getbookkeeper()
-        return bookkeeper.pycall(adtmeth.func, args.prepend(SomePtr(adtmeth.ll_ptrtype)), mono=True)
+        s_func = bookkeeper.immutablevalue(adtmeth.func)
+        return s_func.call(args.prepend(SomePtr(adtmeth.ll_ptrtype)))
 
 from pypy.rpython.ootypesystem import ootype
 class __extend__(SomeOOInstance):

@@ -324,7 +324,7 @@ class OpWriter(object):
                              argtypes, none_label, exc_label)
 
         e = self.db.translator.rtyper.getexceptiondata()
-        ll_exception_match       = '%pypy_' + e.ll_exception_match.__name__
+        ll_exception_match       = '%pypy_' + e.fn_exception_match._obj._name
 
         # XXX Can we use database?
         lltype_of_exception_type = ('%structtype_' +

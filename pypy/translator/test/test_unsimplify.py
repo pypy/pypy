@@ -1,5 +1,5 @@
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, graphof
 from pypy.translator.unsimplify import split_block
 
 def test_split_blocks_simple():
@@ -11,10 +11,10 @@ def test_split_blocks_simple():
         t = Translator(f)
         a = t.annotate([int, int])
         t.specialize()
-        graph = t.flowgraphs[f]
+        graph = graphof(t, f)
         split_block(t, graph, graph.startblock, i)
-        interp = LLInterpreter(t.flowgraphs, t.rtyper)
-        result = interp.eval_function(f, [1, 2])
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graph, [1, 2])
         assert result == 5
     
 def test_split_blocks_conditional():
@@ -27,12 +27,12 @@ def test_split_blocks_conditional():
         t = Translator(f)
         a = t.annotate([int, int])
         t.specialize()
-        graph = t.flowgraphs[f]
+        graph = graphof(t, f)
         split_block(t, graph, graph.startblock, i)
-        interp = LLInterpreter(t.flowgraphs, t.rtyper)
-        result = interp.eval_function(f, [-12, 2])
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graph, [-12, 2])
         assert result == 4
-        result = interp.eval_function(f, [0, 2])
+        result = interp.eval_graph(graph, [0, 2])
         assert result == 3
 
 def test_split_block_exceptions():
@@ -55,13 +55,13 @@ def test_split_block_exceptions():
         t = Translator(catches)
         a = t.annotate([int])
         t.specialize()
-        graph = t.flowgraphs[catches]
+        graph = graphof(t, catches)
         split_block(t, graph, graph.startblock, i)
-        interp = LLInterpreter(t.flowgraphs, t.rtyper)
-        result = interp.eval_function(catches, [0])
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graph, [0])
         assert result == 0
-        result = interp.eval_function(catches, [1])
+        result = interp.eval_graph(graph, [1])
         assert result == 1
-        result = interp.eval_function(catches, [2])
+        result = interp.eval_graph(graph, [2])
         assert result == 2
     

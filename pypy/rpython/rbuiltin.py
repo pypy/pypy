@@ -199,13 +199,18 @@ def rtype_hlinvoke(hop):
     r_func, nimplicitarg = r_callable.get_r_implfunc()
     s_callable = r_callable.get_s_callable()
 
-    _, rinputs, rresult = r_func.get_signature()
-    args_s, s_ret = r_func.get_args_ret_s()
+    nbargs = len(hop.args_s) - 1 + nimplicitarg 
+    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    if len(s_sigs) != 1:
+        raise TyperError("cannot hlinvoke callable %r with not uniform"
+                         "annotations: %r" % (r_callable,
+                                              s_sigs))
+    args_s, s_ret = s_sigs[0]
+    rinputs = [hop.rtyper.getrepr(s_obj) for s_obj in args_s]
+    rresult = hop.rtyper.getrepr(s_ret)
 
     args_s = args_s[nimplicitarg:]
     rinputs = rinputs[nimplicitarg:]
-
-    assert 1+len(args_s) == len(hop.args_s)
 
     new_args_r = [r_callable] + rinputs
 

@@ -2,6 +2,7 @@
 from pypy.annotation.policy import AnnotatorPolicy
 # for some reason, model must be imported first,
 # or we create a cycle.
+from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import specialize
@@ -15,28 +16,32 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         pol.pypytypes = {}
         pol.single_space = single_space
 
-    def override__wrap_exception_cls(pol, space, x):
-        import pypy.objspace.std.typeobject as typeobject
-        clsdef = getbookkeeper().getclassdef(typeobject.W_TypeObject)
-        return annmodel.SomeInstance(clsdef, can_be_None=True)
+    #def override__wrap_exception_cls(pol, space, x):
+    #    import pypy.objspace.std.typeobject as typeobject
+    #    clsdef = getbookkeeper().getuniqueclassdef(typeobject.W_TypeObject)
+    #    return annmodel.SomeInstance(clsdef, can_be_None=True)
+    #
+    #def override__fake_object(pol, space, x):
+    #    from pypy.interpreter import typedef
+    #    clsdef = getbookkeeper().getuniqueclassdef(typedef.W_Root)
+    #    return annmodel.SomeInstance(clsdef)    
+    #
+    #def override__cpy_compile(pol, self, source, filename, mode, flags):
+    #    from pypy.interpreter import pycode
+    #    clsdef = getbookkeeper().getuniqueclassdef(pycode.PyCode)
+    #    return annmodel.SomeInstance(clsdef)    
 
-    def override__fake_object(pol, space, x):
-        from pypy.interpreter import typedef
-        clsdef = getbookkeeper().getclassdef(typedef.W_Root)
-        return annmodel.SomeInstance(clsdef)    
-
-    def override__cpy_compile(pol, self, source, filename, mode, flags):
-        from pypy.interpreter import pycode
-        clsdef = getbookkeeper().getclassdef(pycode.PyCode)
-        return annmodel.SomeInstance(clsdef)    
-
-    def specialize__wrap(pol, bookkeeper, mod, spaceop, func, args, mono):
+    def specialize__wrap(pol,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import Wrappable
-        ignore, args_w = args.flatten()
-        typ = args_w[1].knowntype
-        if issubclass(typ, Wrappable):
+        from pypy.annotation.classdef import ClassDef
+        Wrappable_def = funcdesc.bookkeeper.getuniqueclassdef(Wrappable)
+        typ = args_s[1].knowntype
+        if isinstance(typ, ClassDef):
+            assert typ.issubclass(Wrappable_def)
             typ = Wrappable
-        return (func, typ), args
+        else:
+            assert not issubclass(typ, Wrappable)
+        return funcdesc.cachedgraph(typ)
     
     def attach_lookup(pol, t, attr):
         cached = "cached_%s" % attr
@@ -53,75 +58,82 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         return False
 
     def consider_lookup(pol, bookkeeper, attr):
+        from pypy.annotation.classdef import InstanceSource
         assert attr not in pol.lookups
         from pypy.objspace.std import typeobject
         cached = "cached_%s" % attr
-        clsdef = bookkeeper.getclassdef(typeobject.W_TypeObject)
-        setattr(clsdef.cls, cached, None)
-        clsdef.add_source_for_attribute(cached, clsdef.cls, clsdef)
+        clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
+        classdesc = clsdef.classdesc
+        classdesc.classdict[cached] = Constant(None)
+        clsdef.add_source_for_attribute(cached, classdesc)
         for t in pol.pypytypes:
             if pol.attach_lookup(t, attr):
-                clsdef.add_source_for_attribute(cached, t)
-        src = CACHED_LOOKUP % {'attr': attr}
-        print src
-        d = {}
-        exec src in d
-        fn = d["lookup_%s" % attr]
-        pol.lookups[attr] = fn
-
+                source = InstanceSource(bookkeeper, t)
+                clsdef.add_source_for_attribute(cached, source)
+        pol.lookups[attr] = True
 
     def consider_lookup_in_type_where(pol, bookkeeper, attr):
+        from pypy.annotation.classdef import InstanceSource
         assert attr not in pol.lookups_where
         from pypy.objspace.std import typeobject
         cached = "cached_where_%s" % attr
-        clsdef = bookkeeper.getclassdef(typeobject.W_TypeObject)
-        setattr(clsdef.cls, cached, (None, None))
-        clsdef.add_source_for_attribute(cached, clsdef.cls, clsdef)
+        clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
+        classdesc = clsdef.classdesc
+        classdesc.classdict[cached] = Constant((None, None))
+        clsdef.add_source_for_attribute(cached, classdesc)
         for t in pol.pypytypes:
             if pol.attach_lookup_in_type_where(t, attr):
-                clsdef.add_source_for_attribute(cached, t)
-        src = CACHED_LOOKUP_IN_TYPE_WHERE % {'attr': attr}
-        print src
-        d = {}
-        exec src in d
-        fn = d["lookup_in_type_where_%s" % attr]
-        pol.lookups_where[attr] = fn
+                source = InstanceSource(bookkeeper, t)
+                clsdef.add_source_for_attribute(cached, source)
+        pol.lookups_where[attr] = True
 
-    def specialize__lookup(pol, bookkeeper, mod, spaceop, func, args, mono):
-        (s_space, s_obj, s_name), _ = args.unpack()
+    def specialize__lookup(pol, funcdesc, args_s):
+        s_space, s_obj, s_name = args_s
         if s_name.is_constant():
             attr = s_name.const
-            if attr not in pol.lookups:
+            def builder(translator, func):
                 print "LOOKUP", attr
-                pol.consider_lookup(bookkeeper, attr)
-            return pol.lookups[attr], args
+                pol.consider_lookup(funcdesc.bookkeeper, attr)
+                d = {}
+                exec CACHED_LOOKUP % {'attr': attr} in d
+                return translator.buildflowgraph(d['lookup_'+attr])
+            return funcdesc.cachedgraph(attr, builder=builder)
         else:
             pol.lookups[None] = True
-        return func, args
+            return funcdesc.cachedgraph(None) # don't specialize
 
-    def specialize__lookup_in_type_where(pol, bookkeeper, mod, spaceop, func, args, mono):
-        (s_space, s_obj, s_name), _ = args.unpack()
+    def specialize__lookup_in_type_where(pol, funcdesc, args_s):
+        s_space, s_obj, s_name = args_s
         if s_name.is_constant():
             attr = s_name.const
-            if attr not in pol.lookups_where:
+            def builder(translator, func):
                 print "LOOKUP_IN_TYPE_WHERE", attr
-                pol.consider_lookup_in_type_where(bookkeeper, attr)
-            return pol.lookups_where[attr], args  
+                pol.consider_lookup_in_type_where(funcdesc.bookkeeper, attr)
+                d = {}
+                exec CACHED_LOOKUP_IN_TYPE_WHERE % {'attr': attr} in d
+                return translator.buildflowgraph(d['lookup_in_type_where_'+attr])
+            return funcdesc.cachedgraph(attr, builder=builder)
         else:
             pol.lookups_where[None] = True
-        return func, args
+            return funcdesc.cachedgraph(None)
 
     def event(pol, bookkeeper, what, x):
         from pypy.objspace.std import typeobject
         if isinstance(x, typeobject.W_TypeObject):
+            from pypy.annotation.classdef import InstanceSource
+            clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
             pol.pypytypes[x] = True
             print "TYPE", x
             for attr in pol.lookups:
-                if attr:
-                    pol.attach_lookup(x, attr)
+                if attr and pol.attach_lookup(x, attr):
+                    cached = "cached_%s" % attr
+                    source = InstanceSource(bookkeeper, x)
+                    clsdef.add_source_for_attribute(cached, source)
             for attr in pol.lookups_where:
-                if attr:
-                    pol.attach_lookup_in_type_where(x, attr)
+                if attr and pol.attach_lookup_in_type_where(x, attr):
+                    cached = "cached_where_%s" % attr
+                    source = InstanceSource(bookkeeper, x)
+                    clsdef.add_source_for_attribute(cached, source)
         return
 
 CACHED_LOOKUP = """

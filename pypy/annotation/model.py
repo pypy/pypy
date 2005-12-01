@@ -274,18 +274,19 @@ class SomeIterator(SomeObject):
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
+
     def __init__(self, classdef, can_be_None=False):
         self.classdef = classdef
-        if classdef is not None:   # XXX should never really be None
-            self.knowntype = classdef.cls
+        self.knowntype = classdef or object
         self.can_be_None = can_be_None
+
     def fmt_knowntype(self, kt):
         return None
-    def fmt_classdef(self, cd):
-        if cd is None:
+    def fmt_classdef(self, cdef):
+        if cdef is None:
             return 'object'
         else:
-            return cd.cls.__name__
+            return cdef.name
 
     def can_be_none(self):
         return self.can_be_None
@@ -294,65 +295,68 @@ class SomeInstance(SomeObject):
         return SomeInstance(self.classdef, can_be_None=False)
 
 
-def new_or_old_class(c):
-    if hasattr(c, '__class__'):
-        return c.__class__
-    else:
-        return type(c)
-
-
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
-    def __init__(self, prebuiltinstances):
-        # prebuiltinstances is a dictionary containing concrete python
-        # objects as keys.
-        # if the key is a function, the value can be a classdef to
-        # indicate that it is really a method.
-        prebuiltinstances = prebuiltinstances.copy()
-        self.prebuiltinstances = prebuiltinstances
+    def __init__(self, descriptions, can_be_None=False):
+        # descriptions is a set of Desc instances.
+        descriptions = dict.fromkeys(descriptions)
+        self.descriptions = descriptions
+        self.can_be_None = can_be_None
         self.simplify()
         if self.isNone():
             self.knowntype = type(None)
+            self.const = None
         else:
             knowntype = reduce(commonbase,
-                               [new_or_old_class(x)
-                                for x in prebuiltinstances
-                                if x is not None])
+                               [x.knowntype for x in descriptions])
             if knowntype == type(Exception):
                 knowntype = type
             if knowntype != object:
                 self.knowntype = knowntype
-        if prebuiltinstances.values() == [True]:
-            # hack for the convenience of direct callers to SomePBC():
-            # only if there is a single object in prebuiltinstances and
-            # it doesn't have an associated ClassDef
-            self.const, = prebuiltinstances
+            if len(descriptions) == 1 and not can_be_None:
+                # hack for the convenience of direct callers to SomePBC():
+                # only if there is a single object in descriptions
+                desc, = descriptions
+                if desc.pyobj is not None:
+                    self.const = desc.pyobj
+
+    def getKind(self):
+        "Return the common Desc class of all descriptions in this PBC."
+        kinds = {}
+        for x in self.descriptions:
+            assert type(x).__name__.endswith('Desc')  # avoid import nightmares
+            kinds[x.__class__] = True
+        assert len(kinds) <= 1, (
+            "mixing several kinds of PBCs: %r" % (kinds.keys(),))
+        if not kinds:
+            raise ValueError("no 'kind' on the 'None' PBC")
+        return kinds.keys()[0]
+
     def simplify(self):
-        # We check that the dictionary does not contain at the same time
-        # a function bound to a classdef, and constant bound method objects
-        # on that class.
-        for x, ignored in self.prebuiltinstances.items():
-            if isinstance(x, MethodType) and x.im_func in self.prebuiltinstances:
-                classdef = self.prebuiltinstances[x.im_func]
-                if isinstance(x.im_self, classdef.cls):
-                    del self.prebuiltinstances[x]
+        if self.descriptions:
+            # We check that the set only contains a single kind of Desc instance
+            kind = self.getKind()
+            # then we remove unnecessary entries in self.descriptions:
+            # some MethodDescs can be 'shadowed' by others
+            if len(self.descriptions) > 1:
+                kind.simplify_desc_set(self.descriptions)
+        else:
+            assert self.can_be_None, "use s_ImpossibleValue"
 
     def isNone(self):
-        return self.prebuiltinstances == {None:True}
+        return len(self.descriptions) == 0
 
     def can_be_none(self):
-        return None in self.prebuiltinstances
+        return self.can_be_None
 
     def nonnoneify(self):
-        prebuiltinstances = self.prebuiltinstances.copy()
-        del prebuiltinstances[None]
-        if not prebuiltinstances:
-            return SomeImpossibleValue()
+        if self.isNone():
+            return s_ImpossibleValue
         else:
-            return SomePBC(prebuiltinstances)
+            return SomePBC(self.descriptions, can_be_None=False)
 
-    def fmt_prebuiltinstances(self, pbis):
+    def fmt_descriptions(self, pbis):
         if hasattr(self, 'const'):
             return None
         else:
@@ -395,6 +399,10 @@ class SomeImpossibleValue(SomeObject):
 
     def can_be_none(self):
         return False
+
+
+s_None = SomePBC([], can_be_None=True)
+s_ImpossibleValue = SomeImpossibleValue()
 
 # ____________________________________________________________
 # memory addresses
@@ -459,7 +467,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 
 annotation_to_ll_map = [
-    (SomePBC({None: True}), lltype.Void),   # also matches SomeImpossibleValue()
+    (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (SomeBool(), lltype.Bool),
     (SomeInteger(), lltype.Signed),
     (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
@@ -472,6 +480,8 @@ annotation_to_ll_map = [
 def annotation_to_lltype(s_val, info=None):
     if isinstance(s_val, SomeOOInstance):
         return s_val.ootype
+    if isinstance(s_val, SomeOOStaticMeth):
+        return s_val.method
     if isinstance(s_val, SomePtr):
         return s_val.ll_ptrtype
     for witness, lltype in annotation_to_ll_map:
@@ -491,6 +501,8 @@ def lltype_to_annotation(T):
     if s is None:
         if isinstance(T, ootype.Instance):
             return SomeOOInstance(T)
+        elif isinstance(T, ootype.StaticMethod):
+            return SomeOOStaticMeth(T)
         else:
             return SomePtr(T)
     else:
@@ -519,7 +531,7 @@ def unionof(*somevalues):
     try:
         s1, s2 = somevalues
     except ValueError:
-        s1 = SomeImpossibleValue()
+        s1 = s_ImpossibleValue
         for s2 in somevalues:
             if s1 != s2:
                 s1 = pair(s1, s2).union()
@@ -587,7 +599,7 @@ def missing_operation(cls, name):
                 return  SomeObject()
         bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
         bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
-        return SomeImpossibleValue()
+        return s_ImpossibleValue
     setattr(cls, name, default_op)
 
 #

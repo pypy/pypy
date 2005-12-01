@@ -22,13 +22,13 @@ def camel_case(str):
         words[i] = words[i].capitalize()
     return ''.join(words)
 
-def arg_names(func, names = None):
+def arg_names(graph):
     #XXX need to handle more args, see 
     #    http://docs.python.org/ref/types.html#l2h-139
-    co = func.func_code
-    if not names:
-        names = co.co_varnames
-    return names[:co.co_argcount]
+    names, vararg, kwarg = graph.signature
+    assert vararg is None
+    assert kwarg is None
+    return names
 
 def selector(name, args):
     s = name
@@ -82,39 +82,38 @@ class GenSqueak:
         self.sqdir = sqdir
         self.translator = translator
         self.modname = (modname or
-                        translator.functions[0].__name__)
+                        translator.graphs[0].name)
         self.sqnames = {
             Constant(None).key:  'nil',
             Constant(False).key: 'false',
             Constant(True).key:  'true',
         }
         self.seennames = {}
-        self.pendingfunctions = []
+        self.pendinggraphs = []
         self.pendingclasses = []
         self.pendingmethods = []
         self.classes = [] 
         self.methods = [] 
 
         t = self.translator
-        func = t.functions[0]
-        graph = t.getflowgraph(func)
+        graph = t.graphs[0]
         simplify_graph(graph)
         remove_direct_loops(t, graph)
         checkgraph(graph)
         #self.translator.view()
 
-        self.nameof(func) #add to pending
-        file = self.sqdir.join('%s.st' % func.__name__).open('w')
+        self.nameof(graph) #add to pending
+        file = self.sqdir.join('%s.st' % graph.name).open('w')
         self.gen_source(file)
         file.close()
         #self.translator.view()
 
 
     def gen_source(self, file):
-        while self.pendingfunctions or self.pendingclasses or self.pendingmethods:
-            while self.pendingfunctions:
-                func = self.pendingfunctions.pop()
-                self.gen_sqfunction(func, file)
+        while self.pendinggraphs or self.pendingclasses or self.pendingmethods:
+            while self.pendinggraphs:
+                graph = self.pendinggraphs.pop()
+                self.gen_sqfunction(graph, file)
             while self.pendingclasses:
                 inst = self.pendingclasses.pop()
                 self.gen_sqclass(inst, file)
@@ -146,7 +145,7 @@ class GenSqueak:
         print >> f
 
 
-    def gen_sqfunction(self, func, f):
+    def gen_sqfunction(self, graph, f):
 
         def expr(v):
             if isinstance(v, Variable):
@@ -239,12 +238,9 @@ class GenSqueak:
                         yield "    %s" % line
                     yield "]"
 
-        t = self.translator
-        graph = t.getflowgraph(func)
-
         start = graph.startblock
         args = [expr(arg) for arg in start.inputargs]
-        print >> f, '%s' % signature(self.nameof(func), args)
+        print >> f, '%s' % signature(self.nameof(graph), args)
     
         loops = LoopFinder(start).loops
 
@@ -276,26 +272,34 @@ class GenSqueak:
     def nameof_str(self, s):
         return "'s'"
 
-    def nameof_function(self, func):
+    def nameof_FunctionGraph(self, graph):
         #XXX this should actually be a StaticMeth
-        printable_name = '(%s:%d) %s' % (
-            func.func_globals.get('__name__', '?'),
-            func.func_code.co_firstlineno,
-            func.__name__)
-        if self.translator.frozen:
-            if func not in self.translator.flowgraphs:
-                print "NOT GENERATING", printable_name
-                return self.skipped_function(func)
-        else:
-            if (func.func_doc and
-                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
-                print "skipped", printable_name
-                return self.skipped_function(func)
-        name = self.unique_name(func.__name__)
-        args = arg_names(func)
+        name = self.unique_name(graph.name.split('.')[-1])
+        args = arg_names(graph)
         sel = selector(name, args)
-        self.pendingfunctions.append(func)
+        self.pendinggraphs.append(graph)
         return sel
+
+    #def nameof_function(self, func):
+    #    #XXX this should actually be a StaticMeth
+    #    printable_name = '(%s:%d) %s' % (
+    #        func.func_globals.get('__name__', '?'),
+    #        func.func_code.co_firstlineno,
+    #        func.__name__)
+    #    if self.translator.frozen:
+    #        if func not in self.translator.flowgraphs:
+    #            print "NOT GENERATING", printable_name
+    #            return self.skipped_function(func)
+    #    else:
+    #        if (func.func_doc and
+    #            func.func_doc.lstrip().startswith('NOT_RPYTHON')):
+    #            print "skipped", printable_name
+    #            return self.skipped_function(func)
+    #    name = self.unique_name(func.__name__)
+    #    args = arg_names(func)
+    #    sel = selector(name, args)
+    #    self.pendingfunctions.append(func)
+    #    return sel
 
     def nameof_Instance(self, inst):
         if inst is None:

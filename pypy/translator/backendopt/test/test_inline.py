@@ -1,3 +1,4 @@
+# XXX clean up these tests to use more uniform helpers
 import py
 import os
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
@@ -6,7 +7,7 @@ from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.inline import collect_called_functions
 from pypy.translator.backendopt.inline import measure_median_execution_cost
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.rarithmetic import ovfcheck
 from pypy.translator.test.snippet import is_perfect_number
@@ -31,7 +32,7 @@ def no_missing_concretetype(node):
 
 def sanity_check(t):
     # look for missing '.concretetype'
-    for graph in t.flowgraphs.values():
+    for graph in t.graphs:
         checkgraph(graph)
         traverse(no_missing_concretetype, graph)
 
@@ -42,10 +43,14 @@ def check_inline(func, in_func, sig):
     t.specialize()
     # inline!
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    inline_function(t, func, t.flowgraphs[in_func])
+    in_func_graph = graphof(t, in_func)
+    func_graph = graphof(t, func)
+    inline_function(t, func, in_func_graph)
     sanity_check(t)
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    return interp
+    interp = LLInterpreter(t.rtyper)
+    def eval_func(args):
+        return interp.eval_graph(in_func_graph, args)
+    return eval_func
 
 
 def test_inline_simple():
@@ -56,10 +61,10 @@ def test_inline_simple():
             return x * y
         else:
             return -x * y
-    interp = check_inline(g, f, [int, int])
-    result = interp.eval_function(f, [-1, 5])
+    eval_func = check_inline(g, f, [int, int])
+    result = eval_func([-1, 5])
     assert result == f(-1, 5)
-    result = interp.eval_function(f, [2, 12])
+    result = eval_func([2, 12])
     assert result == f(2, 12)
 
 def test_inline_big():
@@ -69,8 +74,8 @@ def test_inline_big():
             if is_perfect_number(i):
                 result.append(i)
         return result
-    interp = check_inline(is_perfect_number, f, [int])
-    result = interp.eval_function(f, [10])
+    eval_func = check_inline(is_perfect_number, f, [int])
+    result = eval_func([10])
     assert result.length == len(f(10))
 
 def test_inline_raising():
@@ -95,14 +100,15 @@ def test_inline_raising():
     a.simplify()
     t.specialize()
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    inline_function(t, f, t.flowgraphs[g])
+    inline_function(t, f, graphof(t, g))
     sanity_check(t)
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(h, [0])
+    interp = LLInterpreter(t.rtyper)
+    h_graph = graphof(t, h)
+    result = interp.eval_graph(h_graph, [0])
     assert result == 0
-    result = interp.eval_function(h, [1])
+    result = interp.eval_graph(h_graph, [1])
     assert result == 1
-    result = interp.eval_function(h, [2])
+    result = interp.eval_graph(h_graph, [2])
     assert result == 2    
 
 def test_inline_several_times():
@@ -114,10 +120,10 @@ def test_inline_several_times():
         else:
             a = f(x) + 1
         return a + f(x)
-    interp = check_inline(f, g, [int])
-    result = interp.eval_function(g, [0])
+    eval_func = check_inline(f, g, [int])
+    result = eval_func([0])
     assert result == g(0)
-    result = interp.eval_function(g, [42])
+    result = eval_func([42])
     assert result == g(42)
 
 def test_inline_exceptions():
@@ -134,12 +140,12 @@ def test_inline_exceptions():
         except KeyError:
             return x+2
         return 1
-    interp = check_inline(f, g, [int])
-    result = interp.eval_function(g, [0])
+    eval_func = check_inline(f, g, [int])
+    result = eval_func([0])
     assert result == 2
-    result = interp.eval_function(g, [1])
+    result = eval_func([1])
     assert result == 3
-    result = interp.eval_function(g, [42])
+    result = eval_func([42])
     assert result == 1
 
 def test_inline_var_exception():
@@ -164,14 +170,15 @@ def test_inline_var_exception():
     a.simplify()
     t.specialize()
     auto_inlining(t, threshold=10)
-    for graph in t.flowgraphs.values():
+    for graph in t.graphs:
         traverse(no_missing_concretetype, graph)
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(g, [0])
+    interp = LLInterpreter(t.rtyper)
+    g_graph = graphof(t, g)
+    result = interp.eval_graph(g_graph, [0])
     assert result == 2
-    result = interp.eval_function(g, [1])
+    result = interp.eval_graph(g_graph, [1])
     assert result == 3
-    result = interp.eval_function(g, [42])
+    result = interp.eval_graph(g_graph, [42])
     assert result == 1
 
 def test_inline_nonraising_into_catching():
@@ -182,8 +189,8 @@ def test_inline_nonraising_into_catching():
             return f(x)
         except KeyError:
             return 42
-    interp = check_inline(f, g, [int])
-    result = interp.eval_function(g, [7654])
+    eval_func = check_inline(f, g, [int])
+    result = eval_func([7654])
     assert result == 7655
 
 def DONOTtest_call_call():
@@ -224,16 +231,16 @@ def test_for_loop():
     a = t.annotate([int])
     a.simplify()
     t.specialize()
-    for graph in t.flowgraphs.values():
+    for graph in t.graphs:
         if graph.name.startswith('ll_rangenext'):
             break
     else:
         assert 0, "cannot find ll_rangenext_*() function"
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    inline_function(t, graph, t.flowgraphs[f])
+    inline_function(t, graph, graphof(t, f))
     sanity_check(t)
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(f, [10])
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graphof(t, f), [10])
     assert result == 45
 
 def test_inline_constructor():
@@ -245,8 +252,8 @@ def test_inline_constructor():
     def f(i):
         a = A(117, i)
         return a.area()
-    interp = check_inline(A.__init__.im_func, f, [int])
-    result = interp.eval_function(f, [120])
+    eval_func = check_inline(A.__init__.im_func, f, [int])
+    result = eval_func([120])
     assert result == 30
 
 def test_cannot_inline_recursive_function():
@@ -281,11 +288,12 @@ def test_auto_inlining_small_call_big():
     a.simplify()
     t.specialize()
     auto_inlining(t, threshold=10)
-    assert len(collect_called_functions(t.getflowgraph(f))) == 0
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(f, [10])
+    f_graph = graphof(t, f)
+    assert len(collect_called_functions(f_graph)) == 0
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(f_graph, [10])
     assert result == 45
-    result = interp.eval_function(f, [15])
+    result = interp.eval_graph(f_graph, [15])
     assert result == -1
 
 def test_inline_exception_catching():
@@ -300,8 +308,8 @@ def test_inline_exception_catching():
             return False
     def f():
         return f2()
-    interp = check_inline(f2, f, [])
-    result = interp.eval_function(f, [])
+    eval_func = check_inline(f2, f, [])
+    result = eval_func([])
     assert result is True
 
 def test_inline_catching_different_exception():
@@ -316,8 +324,8 @@ def test_inline_catching_different_exception():
             return f2(n)
         except ValueError:
             return -1
-    interp = check_inline(f2, f, [int])
-    result = interp.eval_function(f, [54])
+    eval_func = check_inline(f2, f, [int])
+    result = eval_func([54])
     assert result == 55
 
 def test_auto_inline_os_path_isdir():
@@ -329,8 +337,8 @@ def test_auto_inline_os_path_isdir():
     a.simplify()
     t.specialize()
     auto_inlining(t)
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(f, [])
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graphof(t, f), [])
     assert result is True
 
 def test_inline_raiseonly():
@@ -341,8 +349,8 @@ def test_inline_raiseonly():
             return f2(x)
         except KeyError:
             return 42
-    interp = check_inline(f2, f, [int])
-    result = interp.eval_function(f, [98371])
+    eval_func = check_inline(f2, f, [int])
+    result = eval_func([98371])
     assert result == 42
 
 def test_measure_median_execution_cost():
@@ -362,6 +370,7 @@ def test_measure_median_execution_cost():
             x += 1
         x += 1
         return x
-    t = Translator(f)
-    res = measure_median_execution_cost(t.getflowgraph())
+    t = TranslationContext()
+    graph = t.buildflowgraph(f)
+    res = measure_median_execution_cost(graph)
     assert res == 19

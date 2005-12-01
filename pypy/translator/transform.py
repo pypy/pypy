@@ -12,14 +12,12 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Link
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.annotation.specialize import MemoTable
 from pypy.rpython.rstack import stack_check
 
 def checkgraphs(self, blocks):
     seen = {}
     for block in blocks:
-        fn = self.annotated[block]
-        graph = self.translator.flowgraphs[fn]
+        graph = self.annotated[block]
         if graph not in seen:
             checkgraph(graph)
             seen[graph] = True
@@ -126,13 +124,8 @@ def cutoff_alwaysraising_block(self, block):
     s_impossible = annmodel.SomeImpossibleValue()
     self.bindings[block.operations[n].result] = s_impossible
     # insert the equivalent of 'raise AssertionError'
-    # XXX no sane way to get the graph from the block!
-    fn = self.annotated[block]
-    assert fn in self.translator.flowgraphs, (
-        "Cannot find the graph that this block belong to! "
-        "fn=%r" % (fn,))
-    graph = self.translator.flowgraphs[fn]
-    msg = "Call to %r should have raised an exception" % (fn,)
+    graph = self.annotated[block]
+    msg = "Call to %r should have raised an exception" % (getattr(graph, 'func', None),)
     c1 = Constant(AssertionError)
     c2 = Constant(AssertionError(msg))
     errlink = Link([c1, c2], graph.exceptblock)
@@ -144,53 +137,11 @@ def cutoff_alwaysraising_block(self, block):
     s_type = annmodel.SomeObject()
     s_type.knowntype = type
     s_type.is_type_of = [evalue]
-    s_value = annmodel.SomeInstance(self.bookkeeper.getclassdef(Exception))
+    s_value = annmodel.SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
     self.setbinding(etype, s_type)
     self.setbinding(evalue, s_value)
     # make sure the bookkeeper knows about AssertionError
-    self.bookkeeper.getclassdef(AssertionError)
-
-def transform_specialization(self, block_subset):
-    for block in block_subset:
-        for op in block.operations:
-            if op.opname in ('simple_call', 'call_args'):
-                callb = self.binding(op.args[0], extquery=True)
-                if isinstance(callb, annmodel.SomePBC):
-                    if len(callb.prebuiltinstances) == 1:
-                        specialized_callb, specialcase = self.bookkeeper.query_spaceop_callable(op)
-                        if specialcase or callb != specialized_callb:
-                            if not specialcase:
-                                specialized_func = Constant(specialized_callb.prebuiltinstances.keys()[0])
-                                if not isinstance(op.args[0], Constant) and not callb.is_constant():
-                                    # this is a method call on some variable instance:
-                                    # we still need the logic for methods up to calling the fixed specialized function,
-                                    # we use special call operations 'hardwired_simple_call' and 'hardwired_call_args'
-                                    # including the specialized function as 2nd argument to distinguish this case
-                                    op.opname = intern('hardwired_'+op.opname)
-                                    op.args.insert(1, specialized_func)
-                                else:
-                                    op.args[0] = specialized_func
-                            else:
-                                if op.opname != 'simple_call':
-                                    assert 0, "not supported: call_args to a specialized function"
-                                callable = callb.prebuiltinstances.keys()[0]
-                                tag = getattr(callable, '_annspecialcase_', None)
-                                if tag == 'specialize:memo':
-                                    arglist_s = [self.binding(v) for v in op.args[1:]]
-                                    memo_table = MemoTable(self.bookkeeper, 
-                                                           callable, 
-                                                           self.binding(op.result), 
-                                                           arglist_s)
-                                    op.opname = intern('call_memo')
-                                    op.args[0] = Constant(memo_table)
-                                else:
-                                    op.opname = intern('call_specialcase')
-                elif isinstance(callb, annmodel.SomeLLADTMeth):
-                    specialized_callb, specialcase = self.bookkeeper.query_spaceop_callable(op)
-                    assert not specialcase
-                    assert not isinstance(op.args[0], Constant) and not callb.is_constant()
-                    op.opname = intern('hardwired_'+op.opname)
-                    op.args.insert(1, Constant(specialized_callb.func))
+    self.bookkeeper.getuniqueclassdef(AssertionError)
 
 def insert_stackcheck(ann):
     from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
@@ -204,7 +155,7 @@ def insert_stackcheck(ann):
         caller = edge.source
         _, _, call_tag = edge.callposition
         if call_tag:
-            _, caller_block, _ = call_tag
+            caller_block, _ = call_tag
         else:
             ann.warning("cycle detected but no information on where to insert "
                         "stack_check()")
@@ -217,7 +168,6 @@ def insert_stackcheck(ann):
         caller_block.operations.insert(0, unwind_op)
 
 default_extra_passes = [
-    transform_specialization,
     transform_allocate,
     ]
 

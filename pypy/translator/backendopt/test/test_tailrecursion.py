@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.translator.backendopt.tailrecursion import remove_tail_calls_to_self
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.test.snippet import is_perfect_number
 
@@ -14,7 +14,8 @@ def test_recursive_gcd():
     t = Translator(gcd)
     a = t.annotate([int, int])
     t.specialize()
-    remove_tail_calls_to_self(t, t.flowgraphs[gcd])
-    lli = LLInterpreter(t.flowgraphs, t.rtyper)
-    res = lli.eval_function(gcd, (15, 25))
+    gcd_graph = graphof(t, gcd)
+    remove_tail_calls_to_self(t, gcd_graph )
+    lli = LLInterpreter(t.rtyper)
+    res = lli.eval_graph(gcd_graph, (15, 25))
     assert res == 5

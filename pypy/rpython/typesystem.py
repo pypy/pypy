@@ -34,19 +34,24 @@ class TypeSystem(object):
 """
         raise NotImplementedError()
 
-    def getcallable(self, translator, graphfunc, getconcretetype=None):
+    def null_callable(self, T):
+        """null callable object of type T"""
+        raise NotImplementedError()
+        
+    def getcallable(self, graph, getconcretetype=None):
         """Return callable given a Python function."""
         if getconcretetype is None:
             getconcretetype = self.getconcretetype
-        graph = translator.getflowgraph(graphfunc)
         llinputs = [getconcretetype(v) for v in graph.getargs()]
         lloutput = getconcretetype(graph.getreturnvar())
 
         typ, constr = self.callable_trait
         
         FT = typ(llinputs, lloutput)
-        _callable = getattr(graphfunc, '_specializedversionof_', graphfunc)
-        return constr(FT, graphfunc.func_name, graph = graph, _callable = _callable)
+        if hasattr(graph, 'func') and callable(graph.func):
+            return constr(FT, graph.name, graph = graph, _callable = graph.func)
+        else:
+            return constr(FT, graph.name, graph = graph)
 
     def getconcretetype(self, v):
         """Helper called by getcallable() to get the conrete type of a variable
@@ -69,6 +74,9 @@ class LowLevelTypeSystem(TypeSystem):
     def getconcretetype(self, v):
         return getattr(v, 'concretetype', lltype.Ptr(lltype.PyObject))
 
+    def null_callable(self, T):
+        return lltype.nullptr(T.TO)
+
     def isCompatibleType(self, t1, t2):
         return lltype.isCompatibleType(t1, t2)
 
@@ -79,6 +87,9 @@ class ObjectOrientedTypeSystem(TypeSystem):
     def deref(self, obj):
         assert isinstance(ootype.typeOf(obj), ootype.OOType)
         return obj
+    
+    def null_callable(self, T):
+        return ootype.null(T)
 
     def isCompatibleType(self, t1, t2):
         return ootype.isCompatibleType(t1, t2)
@@ -86,6 +97,8 @@ class ObjectOrientedTypeSystem(TypeSystem):
 # All typesystems are singletons
 LowLevelTypeSystem.instance = LowLevelTypeSystem()
 ObjectOrientedTypeSystem.instance = ObjectOrientedTypeSystem()
+
+getfunctionptr = LowLevelTypeSystem.instance.getcallable
 
 # Multiple dispatch on type system and high-level annotation
 

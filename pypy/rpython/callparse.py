@@ -1,8 +1,8 @@
-from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.annotation import model as annmodel
 from pypy.rpython import rtuple
 from pypy.rpython.error import TyperError
+from pypy.rpython.lltypesystem import lltype
 
 class CallPatternTooComplex(TyperError):
     pass
@@ -30,25 +30,46 @@ class RPythonCallsSpace:
         raise CallPatternTooComplex, "'*' argument must be a tuple"
 
 
-def callparse(op, func, rinputs, hop):
+def getrinputs(rtyper, graph):
+    """Return the list of reprs of the input arguments to the 'graph'."""
+    return [rtyper.bindingrepr(v) for v in graph.getargs()]
+
+def getrresult(rtyper, graph):
+    """Return the repr of the result variable of the 'graph'."""
+    if graph.getreturnvar() in rtyper.annotator.bindings:
+        return rtyper.bindingrepr(graph.getreturnvar())
+    else:
+        return lltype.Void
+
+def getsig(rtyper, graph):
+    """Return the complete 'signature' of the graph."""
+    return (graph.signature,
+            graph.defaults,
+            getrinputs(rtyper, graph),
+            getrresult(rtyper, graph))
+
+def callparse(rtyper, graph, hop, opname):
+    """Parse the arguments of 'hop' when calling the given 'graph'.
+    """
+    rinputs = getrinputs(rtyper, graph)
     space = RPythonCallsSpace()
     def args_h(start):
         return [VarHolder(i, hop.args_s[i]) for i in range(start, hop.nb_args)]
-    if op == "simple_call":
+    if opname == "simple_call":
         arguments =  Arguments(space, args_h(1))
-    elif op == "call_args":
+    elif opname == "call_args":
         arguments = Arguments.fromshape(space, hop.args_s[1].const, # shape
                                         args_h(2))
     # parse the arguments according to the function we are calling
-    signature = cpython_code_signature(func.func_code)
+    signature = graph.signature
     defs_h = []
-    if func.func_defaults:
-        for x in func.func_defaults:
+    if graph.defaults:
+        for x in graph.defaults:
             defs_h.append(ConstHolder(x))
     try:
         holders = arguments.match_signature(signature, defs_h)
     except ArgErr, e:
-        raise TyperError, "signature mismatch: %s" % e.getmsg(arguments, func.__name__)
+        raise TyperError, "signature mismatch: %s" % e.getmsg(arguments, graph.name)
 
     assert len(holders) == len(rinputs), "argument parsing mismatch"
     vlist = []

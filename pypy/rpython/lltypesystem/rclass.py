@@ -3,7 +3,7 @@ import types
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, inputconst, warning
+from pypy.rpython.rmodel import Repr, inputconst, warning, mangle
 from pypy.rpython.rclass import AbstractClassRepr,\
                                 AbstractInstanceRepr,\
                                 MissingRTypeAttribute,\
@@ -112,13 +112,13 @@ class ClassRepr(AbstractClassRepr):
             for access_set, counter in extra_access_sets.items():
                 for attr, s_value in access_set.attrs.items():
                     r = self.rtyper.getrepr(s_value)
-                    mangled_name = 'pbc%d_%s' % (counter, attr)
+                    mangled_name = mangle('pbc%d' % counter, attr)
                     pbcfields[access_set, attr] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
             #
             self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
             self.rbase.setup()
-            vtable_type = Struct('%s_vtable' % self.classdef.cls.__name__,
+            vtable_type = Struct('%s_vtable' % self.classdef.name,
                                  ('super', self.rbase.vtable_type),
                                  *llfields)
             self.vtable_type.become(vtable_type)
@@ -128,19 +128,19 @@ class ClassRepr(AbstractClassRepr):
         self.allmethods = allmethods
         self.vtable = None
 
-    def convert_const(self, value):
-        if not isinstance(value, (type, types.ClassType)):
-            raise TyperError("not a class: %r" % (value,))
-        try:
-            subclassdef = self.rtyper.annotator.getuserclasses()[value]
-        except KeyError:
-            raise TyperError("no classdef: %r" % (value,))
-        if self.classdef is not None:
-            if self.classdef.commonbase(subclassdef) != self.classdef:
-                raise TyperError("not a subclass of %r: %r" % (
-                    self.classdef.cls, value))
-        #
-        return getclassrepr(self.rtyper, subclassdef).getvtable()
+#    def convert_const(self, value):
+#        if not isinstance(value, (type, types.ClassType)):
+#            raise TyperError("not a class: %r" % (value,))
+#        try:
+#            subclassdef = self.rtyper.annotator.getuserclasses()[value]
+#        except KeyError:
+#            raise TyperError("no classdef: %r" % (value,))
+#        if self.classdef is not None:
+#            if self.classdef.commonbase(subclassdef) != self.classdef:
+#                raise TyperError("not a subclass of %r: %r" % (
+#                    self.classdef.cls, value))
+#        #
+#        return getclassrepr(self.rtyper, subclassdef).getvtable()
 
     def getvtable(self, cast_to_typeptr=True):
         """Return a ptr to the vtable of this type."""
@@ -173,23 +173,23 @@ class ClassRepr(AbstractClassRepr):
             if rsubcls.classdef is None:
                 name = 'object'
             else:
-                name = rsubcls.classdef.cls.__name__
+                name = rsubcls.classdef.shortname
             vtable.name = malloc(Array(Char), len(name)+1, immortal=True)
             for i in range(len(name)):
                 vtable.name[i] = name[i]
             vtable.name[len(name)] = '\x00'
-            if hasattr(rsubcls.classdef, 'my_instantiate'):
-                fn = rsubcls.classdef.my_instantiate
-                vtable.instantiate = self.rtyper.getfunctionptr(fn)
+            if hasattr(rsubcls.classdef, 'my_instantiate_graph'):
+                graph = rsubcls.classdef.my_instantiate_graph
+                vtable.instantiate = self.rtyper.getcallable(graph)
             #else: the classdef was created recently, so no instantiate()
             #      could reach it
         else:
             # setup class attributes: for each attribute name at the level
             # of 'self', look up its value in the subclass rsubcls
             def assign(mangled_name, value):
-                if isinstance(value, staticmethod):
-                    value = value.__get__(42)   # staticmethod => bare function
-                llvalue = r.convert_const(value)
+                if isinstance(value, Constant) and isinstance(value.value, staticmethod):
+                    value = Constant(value.value.__get__(42))   # staticmethod => bare function
+                llvalue = r.convert_desc_or_const(value)
                 setattr(vtable, mangled_name, llvalue)
 
             mro = list(rsubcls.classdef.getmro())
@@ -197,24 +197,18 @@ class ClassRepr(AbstractClassRepr):
                 mangled_name, r = self.clsfields[fldname]
                 if r.lowleveltype is Void:
                     continue
-                for clsdef in mro:
-                    if fldname in clsdef.cls.__dict__:
-                        value = clsdef.cls.__dict__[fldname]
-                        assign(mangled_name, value)
-                        break
+                value = rsubcls.classdef.classdesc.read_attribute(fldname, None)
+                if value is not None:
+                    assign(mangled_name, value)
             # extra PBC attributes
             for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
+                if rsubcls.classdef.classdesc not in access_set.descs:
+                    continue   # only for the classes in the same pbc access set
                 if r.lowleveltype is Void:
                     continue
-                for clsdef in mro:
-                    try:
-                        thisattrvalue = access_set.values[clsdef.cls, attr]
-                    except KeyError:
-                        if attr not in clsdef.cls.__dict__:
-                            continue
-                        thisattrvalue = clsdef.cls.__dict__[attr]
-                    assign(mangled_name, thisattrvalue)
-                    break
+                attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
+                if attrvalue is not None:
+                    assign(mangled_name, attrvalue)
 
             # then initialize the 'super' portion of the vtable
             self.rbase.setup_vtable(vtable.super, rsubcls)
@@ -225,6 +219,7 @@ class ClassRepr(AbstractClassRepr):
 
     def fromtypeptr(self, vcls, llops):
         """Return the type pointer cast to self's vtable type."""
+        self.setup()
         castable(self.lowleveltype, vcls.concretetype) # sanity check
         return llops.genop('cast_pointer', [vcls],
                            resulttype=self.lowleveltype)
@@ -316,7 +311,7 @@ class InstanceRepr(AbstractInstanceRepr):
                     llfields.append((mangled_name, r.lowleveltype))
             #
             # hash() support
-            if self.rtyper.needs_hash_support(self.classdef.cls):
+            if self.rtyper.needs_hash_support(self.classdef):
                 from pypy.rpython import rint
                 fields['_hash_cache_'] = 'hash_cache', rint.signed_repr
                 llfields.append(('hash_cache', Signed))
@@ -328,7 +323,7 @@ class InstanceRepr(AbstractInstanceRepr):
             else:
                 MkStruct = Struct
             
-            object_type = MkStruct(self.classdef.cls.__name__,
+            object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    *llfields)
             self.object_type.become(object_type)
@@ -348,23 +343,22 @@ class InstanceRepr(AbstractInstanceRepr):
         return getinstancerepr(self.rtyper, None, nogc=not self.needsgc)
 
     def getflavor(self):
-        return getattr(self.classdef.cls, '_alloc_flavor_', 'gc')        
+        return self.classdef.classdesc.read_attribute('_alloc_flavor_', Constant('gc')).value
 
     def convert_const(self, value):
         if value is None:
             return nullptr(self.object_type)
-        try:
-            classdef = self.rtyper.annotator.getuserclasses()[value.__class__]
-        except KeyError:
-            raise TyperError("no classdef: %r" % (value.__class__,))
+        if isinstance(value, types.MethodType):
+            value = value.im_self   # bound method -> instance
+        cls = value.__class__
+        bk = self.rtyper.annotator.bookkeeper
+        classdef = bk.getdesc(cls).getuniqueclassdef()
         if classdef != self.classdef:
             # if the class does not match exactly, check that 'value' is an
             # instance of a subclass and delegate to that InstanceRepr
-            if classdef is None:
-                raise TyperError("not implemented: object() instance")
             if classdef.commonbase(self.classdef) != self.classdef:
                 raise TyperError("not an instance of %r: %r" % (
-                    self.classdef.cls, value))
+                    self.classdef.name, value))
             rinstance = getinstancerepr(self.rtyper, classdef)
             result = rinstance.convert_const(value)
             return cast_pointer(self.lowleveltype, result)
@@ -384,7 +378,7 @@ class InstanceRepr(AbstractInstanceRepr):
     def get_ll_hash_function(self):
         if self.classdef is None:
             return None
-        if self.rtyper.needs_hash_support( self.classdef.cls):
+        if self.rtyper.needs_hash_support(self.classdef):
             try:
                 return self._ll_hash_function
             except AttributeError:
@@ -411,10 +405,14 @@ class InstanceRepr(AbstractInstanceRepr):
                     try:
                         attrvalue = getattr(value, name)
                     except AttributeError:
-                        warning("prebuilt instance %r has no attribute %r" % (
-                            value, name))
-                        continue
-                    llattrvalue = r.convert_const(attrvalue)
+                        attrvalue = self.classdef.classdesc.read_attribute(name, None)
+                        if attrvalue is None:
+                            warning("prebuilt instance %r has no attribute %r" % (
+                                    value, name))
+                            continue
+                        llattrvalue = r.convert_desc_or_const(attrvalue)
+                    else:
+                        llattrvalue = r.convert_const(attrvalue)
                 setattr(result, mangled_name, llattrvalue)
         else:
             # OBJECT part
@@ -475,19 +473,18 @@ class InstanceRepr(AbstractInstanceRepr):
         if self.classdef is not None:
             flds = self.allinstancefields.keys()
             flds.sort()
-            mro = list(self.classdef.getmro())
             for fldname in flds:
                 if fldname == '__class__':
                     continue
                 mangled_name, r = self.allinstancefields[fldname]
                 if r.lowleveltype is Void:
                     continue
-                for clsdef in mro:
-                    if fldname in clsdef.cls.__dict__:
-                        value = clsdef.cls.__dict__[fldname]
-                        cvalue = inputconst(r, value)
-                        self.setfield(vptr, fldname, cvalue, llops)
-                        break
+                value = self.classdef.classdesc.read_attribute(fldname, None)
+                if value is not None:
+                    cvalue = inputconst(r.lowleveltype,
+                                        r.convert_desc_or_const(value))
+                    self.setfield(vptr, fldname, cvalue, llops)
+
         return vptr
 
     def rtype_type(self, hop):
@@ -501,7 +498,7 @@ class InstanceRepr(AbstractInstanceRepr):
     def rtype_hash(self, hop):
         if self.classdef is None:
             raise TyperError, "hash() not supported for this class"                        
-        if self.rtyper.needs_hash_support( self.classdef.cls):
+        if self.rtyper.needs_hash_support(self.classdef):
             vinst, = hop.inputargs(self)
             return hop.gendirectcall(ll_inst_hash, vinst)
         else:

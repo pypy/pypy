@@ -3,7 +3,8 @@ import time
 from pypy.translator.llvm import build_llvm_module
 from pypy.translator.llvm.database import Database 
 from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
-from pypy.rpython.rmodel import inputconst, getfunctionptr
+from pypy.rpython.rmodel import inputconst
+from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
@@ -14,7 +15,6 @@ from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
-from pypy.translator.translator import Translator
 from pypy.translator.llvm.log import log
 
 class GenLLVM(object):
@@ -47,7 +47,7 @@ class GenLLVM(object):
 
         self.source_generated = False
 
-    def gen_llvm_source(self, func=None):
+    def gen_llvm_source(self, func):
         self._checkpoint()
 
         codewriter = self.setup(func)
@@ -157,11 +157,11 @@ class GenLLVM(object):
         codewriter.comment("End of file")
     
     def get_entry_point(self, func):
-        if func is None:
-            func = self.translator.entrypoint
+        assert func is not None
         self.entrypoint = func
 
-        ptr = getfunctionptr(self.translator, func)
+        bk = self.translator.annotator.bookkeeper
+        ptr = getfunctionptr(bk.getdesc(func).cachedgraph(None))
         c = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
         self.entry_func_name = func.func_name
@@ -269,12 +269,13 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
-def genllvm(translator, gcpolicy=None, exceptionpolicy=None, standalone=False,
+def genllvm(translator, entry_point, gcpolicy=None,
+            exceptionpolicy=None, standalone=False,
             log_source=False, logging=False, **kwds):
 
     gen = GenLLVM(translator, gcpolicy, exceptionpolicy,
                   standalone, logging=logging)
-    filename = gen.gen_llvm_source()
+    filename = gen.gen_llvm_source(entry_point)
 
     if log_source:
         log(open(filename).read())
@@ -282,16 +283,17 @@ def genllvm(translator, gcpolicy=None, exceptionpolicy=None, standalone=False,
     return gen.compile_llvm_source(**kwds)
 
 def genllvm_compile(function, annotation, view=False, **kwds):
-    t = Translator(function)
-    a = t.annotate(annotation)
-    a.simplify()
-    t.specialize()
-    t.backend_optimizations(ssa_form=False)
+    from pypy.translator.translator import TranslationContext
+    from pypy.translator.backendopt.all import backend_optimizations
+    t = TranslationContext()
+    t.buildannotator().build_types(function, annotation)
+    t.buildrtyper().specialize()
+    backend_optimizations(t, ssa_form=False)
     
     # note: this is without policy transforms
     if view:
         t.view()
-    return genllvm(t, **kwds)
+    return genllvm(t, function, **kwds)
 
 def compile_function(function, annotation, **kwds):
     """ Helper - which get the compiled module from CPython. """

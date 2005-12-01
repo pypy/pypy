@@ -28,7 +28,7 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
                     someobjects=False):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
     try: 
-        (t, interp) = _tcache[key]
+        (t, interp, graph) = _tcache[key]
     except KeyError:
         def annotation(x):
             T = typeOf(x)
@@ -39,28 +39,28 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
             else:
                 return lltype_to_annotation(T)
         
-        t, typer = gengraph(func, [annotation(x)
+        t, typer, graph = gengraph(func, [annotation(x)
                       for x in values], viewbefore, policy)
-        interp = LLInterpreter(t.flowgraphs, typer, gclltype)
-        _tcache[key] = (t, interp)
+        interp = LLInterpreter(typer, gclltype)
+        _tcache[key] = (t, interp, graph)
         # keep the cache small 
         _lastinterpreted.append(key) 
         if len(_lastinterpreted) >= 4: 
             del _tcache[_lastinterpreted.pop(0)]
     if view:
         t.view()
-    return interp
+    return interp, graph
     
 def interpret(func, values, view=False, viewbefore=False, policy=None,
               someobjects=False):
-    interp = get_interpreter(func, values, view, viewbefore, policy,
+    interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                              someobjects)
-    return interp.eval_function(func, values)
+    return interp.eval_graph(graph, values)
 
 def interpret_raises(exc, func, values, view=False, viewbefore=False, policy=None, someobjects=False):
-    interp = get_interpreter(func, values, view, viewbefore, policy,
+    interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                              someobjects)
-    info = py.test.raises(LLException, "interp.eval_function(func, values)")
+    info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     assert find_exception(info.value, interp) is exc, "wrong exception type"
 
 #__________________________________________________________________

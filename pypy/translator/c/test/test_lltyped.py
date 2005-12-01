@@ -1,22 +1,9 @@
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.translator.tool.cbuild import skip_missing_compiler
-from pypy.translator.translator import Translator
-from pypy.objspace.flow import FlowObjSpace 
+from pypy.translator.c.test import test_typed
 
 
 class TestLowLevelType:
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
-
-    def getcompiled(self, func, argstypelist=[]):
-        t = Translator(func, simplifying=True)
-        # builds starting-types from func_defs 
-        a = t.annotate(argstypelist)
-        a.simplify()
-        t.specialize()
-        t.checkgraphs()
-        #t.view()
-        return skip_missing_compiler(t.ccompile)
+    getcompiled = test_typed.TestTypedTestCase().getcompiled
 
     def test_simple(self):
         S = GcStruct("s", ('v', Signed))

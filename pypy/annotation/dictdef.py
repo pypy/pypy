@@ -27,7 +27,7 @@ class DictKey(ListItem):
 
     def enable_hashing(self):
         if isinstance(self.s_value, SomeInstance):
-            self.bookkeeper.needs_hash_support[self.s_value.classdef.cls] = True
+            self.bookkeeper.needs_hash_support[self.s_value.classdef] = True
 
     def generalize(self, s_other_value):
         updated = ListItem.generalize(self, s_other_value)

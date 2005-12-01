@@ -1,6 +1,6 @@
 from __future__ import generators
 
-from types import ClassType
+from types import ClassType, FunctionType
 from pypy.tool.ansi_print import ansi_log 
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair
@@ -18,11 +18,16 @@ class AnnotatorError(Exception):
 
 class RPythonAnnotator:
     """Block annotator for RPython.
-    See description in doc/translation/annotation.txt."""
+    See description in doc/translation.txt."""
 
     def __init__(self, translator=None, policy = None):
+        if translator is None:
+            # interface for tests
+            from pypy.translator.translator import TranslationContext
+            translator = TranslationContext()
+            translator.annotator = self
         self.translator = translator
-        self.pendingblocks = {}  # map {block: function}
+        self.pendingblocks = {}  # map {block: graph-containing-it}
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
         self.added_blocks = None # see processblock() below
@@ -33,7 +38,7 @@ class RPythonAnnotator:
         self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
                                     # records the location of BlockedInference
                                     # exceptions that blocked some blocks.
-        self.blocked_functions = {} # set of functions that have blocked blocks
+        self.blocked_graphs = {} # set of graphs that have blocked blocks
         self.bindingshistory = {}# map Variables to lists of SomeValues
         self.binding_caused_by = {}     # map Variables to position_keys
                # records the caller position that caused bindings of inputargs
@@ -42,7 +47,7 @@ class RPythonAnnotator:
                 # history of binding_caused_by, kept in sync with
                 # bindingshistory
         self.reflowcounter = {}
-        self.return_bindings = {} # map return Variables to functions
+        self.return_bindings = {} # map return Variables to their graphs
         # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
         self.frozen = False
@@ -65,45 +70,39 @@ class RPythonAnnotator:
                 ret[key] = {}
         return ret
 
-    def _register_returnvar(self, flowgraph, func):
+    def _register_returnvar(self, flowgraph):
         if annmodel.DEBUG:
-            self.return_bindings[flowgraph.getreturnvar()] = func
+            self.return_bindings[flowgraph.getreturnvar()] = flowgraph
 
     #___ convenience high-level interface __________________
 
-    def getflowgraph(self, func, called_by=None, call_tag=None):        
-        flowgraph = self.translator.getflowgraph(func, called_by=called_by, call_tag=call_tag)
-        self._register_returnvar(flowgraph, func)
-        return flowgraph
-        
-
-    def build_types(self, func_or_flowgraph, input_arg_types, func=None):
+    def build_types(self, function, input_arg_types):
         """Recursively build annotations about the specific entry point."""
-        if isinstance(func_or_flowgraph, FunctionGraph):
-            flowgraph = func_or_flowgraph
-            checkgraph(flowgraph)
-            self._register_returnvar(flowgraph, func)
-        else:
-            func = func_or_flowgraph
-            if self.translator is None:
-                from pypy.translator.translator import Translator
-                self.translator = Translator(func, simplifying=True)
-                self.translator.annotator = self
-            flowgraph = self.getflowgraph(func)
+        assert isinstance(function, FunctionType), "fix that!"
+
         # make input arguments and set their type
-        input_arg_types = list(input_arg_types)
+        inputcells = [self.typeannotation(t) for t in input_arg_types]
+
+        desc = self.bookkeeper.getdesc(function)
+        desc.getcallfamily()   # record this implicit call (hint for back-ends)
+        flowgraph = desc.specialize(inputcells)
+        if not isinstance(flowgraph, FunctionGraph):
+            assert isinstance(flowgraph, annmodel.SomeObject)
+            return flowgraph
+
+        return self.build_graph_types(flowgraph, inputcells)
+
+    def build_graph_types(self, flowgraph, inputcells):
+        checkgraph(flowgraph)
+        self._register_returnvar(flowgraph)
+
         nbarg = len(flowgraph.getargs())
-        if len(input_arg_types) != nbarg: 
-            raise TypeError("flowgraph %s expects %d args, got %d" %(       
-                            flowgraph.name, nbarg, len(input_arg_types)))
-        inputcells = []
-        for t in input_arg_types:
-            if not isinstance(t, annmodel.SomeObject):
-                t = self.bookkeeper.valueoftype(t)
-            inputcells.append(t)
+        if len(inputcells) != nbarg: 
+            raise TypeError("%s expects %d args, got %d" %(       
+                            flowgraph, nbarg, len(inputcells)))
         
         # register the entry point
-        self.addpendingblock(func, flowgraph.startblock, inputcells)
+        self.addpendingblock(flowgraph, flowgraph.startblock, inputcells)
         # recursively proceed until no more pending block is left
         self.complete()
         return self.binding(flowgraph.getreturnvar(), extquery=True)
@@ -123,63 +122,35 @@ class RPythonAnnotator:
             raise TypeError, ("Variable or Constant instance expected, "
                               "got %r" % (variable,))
 
-    def getuserclasses(self):
-        """Return a set of known user classes."""
-        return self.bookkeeper.userclasses
-
     def getuserclassdefinitions(self):
         """Return a list of ClassDefs."""
-        return self.bookkeeper.userclasseslist
-
-    def getuserattributes(self, cls):
-        """Enumerate the attributes of the given user class, as Variable()s."""
-        clsdef = self.bookkeeper.userclasses[cls]
-        for attr, s_value in clsdef.attrs.items():
-            v = Variable(name=attr)
-            self.bindings[v] = s_value
-            yield v
-
-    def getpbcaccesssets(self):
-        """Return mapping const obj -> PBCAccessSet"""
-        return self.bookkeeper.pbc_maximal_access_sets
-
-    def getpbccallables(self):
-        """Return mapping callable -> {(ClassDef|None, callable): True...},
- 
-        The tuples are indices in getpbcfamilies returned mapping
-        """
-        return self.bookkeeper.pbc_callables
-    
-    def getpbccallfamilies(self):
-        """Return mapping (ClassDef|None, callable) -> PBCCallFamily"""
-        return self.bookkeeper.pbc_maximal_call_families
+        return self.bookkeeper.classdefs
 
     #___ medium-level interface ____________________________
 
-    def addpendingblock(self, fn, block, cells, called_from=None):
+    def addpendingblock(self, graph, block, cells, called_from_graph=None):
         """Register an entry point into block with the given input cells."""
-        assert self.translator is None or fn in self.translator.flowgraphs
         assert not self.frozen
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
         if block not in self.annotated:
-            self.bindinputargs(fn, block, cells, called_from)
+            self.bindinputargs(graph, block, cells, called_from_graph)
         else:
-            self.mergeinputargs(fn, block, cells, called_from)
+            self.mergeinputargs(graph, block, cells, called_from_graph)
         if not self.annotated[block]:
-            self.pendingblocks[block] = fn
+            self.pendingblocks[block] = graph
 
     def complete(self):
         """Process pending blocks until none is left."""
         while self.pendingblocks:
-            block, fn = self.pendingblocks.popitem()
-            self.processblock(fn, block)
+            block, graph = self.pendingblocks.popitem()
+            self.processblock(graph, block)
         if False in self.annotated.values():
             if annmodel.DEBUG:
                 for block in self.annotated:
                     if self.annotated[block] is False:
-                        fn = self.why_not_annotated[block][1].break_at[0]
-                        self.blocked_functions[fn] = True
+                        graph = self.why_not_annotated[block][1].break_at[0]
+                        self.blocked_graphs[graph] = True
                         import traceback
                         blocked_err = []
                         blocked_err.append('-+' * 30 +'\n')
@@ -194,17 +165,15 @@ class RPythonAnnotator:
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
         # make sure that the return variables of all graphs is annotated
-        if self.translator is not None:
-            if self.added_blocks is not None:
-                newgraphs = [self.translator.flowgraphs[self.annotated[block]]
-                             for block in self.added_blocks]
-                newgraphs = dict.fromkeys(newgraphs)
-            else:
-                newgraphs = self.translator.flowgraphs.itervalues() #all of them
-            for graph in newgraphs:
-                v = graph.getreturnvar()
-                if v not in self.bindings:
-                    self.setbinding(v, annmodel.SomeImpossibleValue())
+        if self.added_blocks is not None:
+            newgraphs = [self.annotated[block] for block in self.added_blocks]
+            newgraphs = dict.fromkeys(newgraphs)
+        else:
+            newgraphs = self.translator.graphs  #all of them
+        for graph in newgraphs:
+            v = graph.getreturnvar()
+            if v not in self.bindings:
+                self.setbinding(v, annmodel.SomeImpossibleValue())
         # policy-dependent computation
         self.policy.compute_at_fixpoint(self)
 
@@ -226,7 +195,13 @@ class RPythonAnnotator:
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 
-    def ondegenerated(self, what, s_value, where=None, called_from=None):
+    def typeannotation(self, t):
+        if isinstance(t, annmodel.SomeObject):
+            return t
+        else:
+            return self.bookkeeper.valueoftype(t)
+
+    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         if self.policy.allow_someobjects:
             return
         msglines = ["annotation of %r degenerated to SomeObject()" % (what,)]
@@ -236,16 +211,14 @@ class RPythonAnnotator:
             pass
         else:
             msglines.append(".. position: %s" % (self.whereami(position_key),))
-        if called_from is not None:
-            msglines.append(".. called from %r" % (called_from,))
-            if hasattr(called_from, '__module__'):
-                msglines[-1] += " from module %r"% (called_from.__module__,)
+        if called_from_graph is not None:
+            msglines.append(".. called from %r" % (called_from_graph,))
         if s_value.origin is not None:
             msglines.append(".. SomeObject() origin: %s" % (
                 self.whereami(s_value.origin),))
         raise AnnotatorError('\n'.join(msglines))        
 
-    def setbinding(self, arg, s_value, called_from=None, where=None):
+    def setbinding(self, arg, s_value, called_from_graph=None, where=None):
         if arg in self.bindings:
             assert s_value.contains(self.bindings[arg])
             # for debugging purposes, record the history of bindings that
@@ -259,7 +232,8 @@ class RPythonAnnotator:
         degenerated = annmodel.isdegenerated(s_value)
 
         if degenerated:
-            self.ondegenerated(arg, s_value, where=where, called_from=called_from)
+            self.ondegenerated(arg, s_value, where=where,
+                               called_from_graph=called_from_graph)
 
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
@@ -272,7 +246,7 @@ class RPythonAnnotator:
                 self.warning("result degenerated to SomeObject",
                              (self.return_bindings[arg],None, None))
                 
-            self.binding_caused_by[arg] = called_from
+            self.binding_caused_by[arg] = called_from_graph
         # XXX make this line available as a debugging option
         ##assert not (s_value.__class__ == annmodel.SomeObject and s_value.knowntype == object) ## debug
 
@@ -291,12 +265,14 @@ class RPythonAnnotator:
 
     #___ interface for annotator.bookkeeper _______
 
-    def recursivecall(self, func, whence, inputcells): # whence = position_key|callback taking the annotator, graph 
+    def recursivecall(self, graph, whence, inputcells): # whence = position_key|callback taking the annotator, graph 
         if isinstance(whence, tuple):
-            parent_fn, parent_block, parent_index = position_key = whence
+            parent_graph, parent_block, parent_index = position_key = whence
+            tag = parent_block, parent_index
+            self.translator.update_call_graph(parent_graph, graph, tag)
         else:
-            parent_fn = position_key = None
-        graph = self.getflowgraph(func, parent_fn, position_key)
+            position_key = None
+        self._register_returnvar(graph)
         # self.notify[graph.returnblock] is a dictionary of call
         # points to this func which triggers a reflow whenever the
         # return block of this graph has been analysed.
@@ -310,7 +286,7 @@ class RPythonAnnotator:
             callpositions[callback] = True
 
         # generalize the function's input arguments
-        self.addpendingblock(func, graph.startblock, inputcells, position_key)
+        self.addpendingblock(graph, graph.startblock, inputcells, position_key)
 
         # get the (current) return value
         v = graph.getreturnvar()
@@ -322,8 +298,8 @@ class RPythonAnnotator:
             return annmodel.SomeImpossibleValue()
 
     def reflowfromposition(self, position_key):
-        fn, block, index = position_key
-        self.reflowpendingblock(fn, block)
+        graph, block, index = position_key
+        self.reflowpendingblock(graph, block)
 
 
     #___ simplification (should be moved elsewhere?) _______
@@ -359,20 +335,20 @@ class RPythonAnnotator:
         transform.transform_graph(self, block_subset=block_subset)
         from pypy.translator import simplify 
         if block_subset is None:
-            graphs = self.translator.flowgraphs.values()
+            graphs = self.translator.graphs
         else:
             graphs = {}
             for block in block_subset:
-                fn = self.annotated.get(block)
-                if fn in self.translator.flowgraphs:
-                    graphs[self.translator.flowgraphs[fn]] = True
+                graph = self.annotated.get(block)
+                if graph:
+                    graphs[graph] = True
         for graph in graphs:
             simplify.eliminate_empty_blocks(graph)
 
 
     #___ flowing annotations in blocks _____________________
 
-    def processblock(self, fn, block):
+    def processblock(self, graph, block):
         # Important: this is not called recursively.
         # self.flowin() can only issue calls to self.addpendingblock().
         # The analysis of a block can be in three states:
@@ -381,7 +357,7 @@ class RPythonAnnotator:
         #  * self.annotated[block] == False:
         #      the input variables of the block are in self.bindings but we
         #      still have to consider all the operations in the block.
-        #  * self.annotated[block] == True or <original function object>:
+        #  * self.annotated[block] == graph-containing-block:
         #      analysis done (at least until we find we must generalize the
         #      input variables).
 
@@ -389,9 +365,9 @@ class RPythonAnnotator:
         if annmodel.DEBUG:
             self.reflowcounter.setdefault(block, 0)
             self.reflowcounter[block] += 1
-        self.annotated[block] = fn or True
+        self.annotated[block] = graph
         try:
-            self.flowin(fn, block)
+            self.flowin(graph, block)
         except BlockedInference, e:
             self.annotated[block] = False   # failed, hopefully temporarily
         except Exception, e:
@@ -406,42 +382,32 @@ class RPythonAnnotator:
         if self.added_blocks is not None:
             self.added_blocks[block] = True
 
-    def reflowpendingblock(self, fn, block):
+    def reflowpendingblock(self, graph, block):
         assert not self.frozen
-        self.pendingblocks[block] = fn
+        self.pendingblocks[block] = graph
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
-    def bindinputargs(self, fn, block, inputcells, called_from=None, where=None):
+    def bindinputargs(self, graph, block, inputcells,
+                      called_from_graph=None, where=None):
         # Create the initial bindings for the input args of a block.
         assert len(block.inputargs) == len(inputcells)
         for a, cell in zip(block.inputargs, inputcells):
-            self.setbinding(a, cell, called_from, where=where)
+            self.setbinding(a, cell, called_from_graph, where=where)
         self.annotated[block] = False  # must flowin.
 
-    def mergeinputargs(self, fn, block, inputcells, called_from=None):
+    def mergeinputargs(self, graph, block, inputcells, called_from_graph=None):
         # Merge the new 'cells' with each of the block's existing input
         # variables.
         oldcells = [self.binding(a) for a in block.inputargs]
         unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
-            self.bindinputargs(fn, block, unions, called_from, where=(fn, block, None))
+            self.bindinputargs(graph, block, unions,
+                               called_from_graph, where=(graph, block, None))
 
     def whereami(self, position_key):
-        fn, block, i = position_key
-        mod = getattr(fn, '__module__', None)
-        if mod is None:
-            mod = '?'
-        name = getattr(fn, '__name__', None)
-        if name is not None:
-            firstlineno = fn.func_code.co_firstlineno
-        else:
-            name = 'UNKNOWN'
-            firstlineno = -1
-        cls = getattr(fn, 'class_', None)
-        if cls is not None:
-            name = "%s.%s" % (cls.__name__, name)
+        graph, block, i = position_key
         blk = ""
         if block:
             at = block.at()
@@ -450,14 +416,14 @@ class RPythonAnnotator:
         opid=""
         if i is not None:
             opid = " op=%d" % i
-        return "(%s:%d)%s%s%s" % (mod, firstlineno, name, blk, opid)
+        return repr(graph) + blk + opid
 
-    def flowin(self, fn, block):
+    def flowin(self, graph, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
         try:
             for i in range(len(block.operations)):
                 try:
-                    self.bookkeeper.enter((fn, block, i))
+                    self.bookkeeper.enter((graph, block, i))
                     self.consider_op(block.operations[i])
                 finally:
                     self.bookkeeper.leave()
@@ -615,7 +581,7 @@ class RPythonAnnotator:
             if in_except_block:
                 last_exception_object.is_type_of = last_exc_value_vars
 
-            self.addpendingblock(fn, link.target, cells)
+            self.addpendingblock(graph, link.target, cells)
         if block in self.notify:
             # reflow from certain positions when this block is done
             for callback in self.notify[block]:

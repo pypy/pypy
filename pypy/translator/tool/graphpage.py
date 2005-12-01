@@ -1,7 +1,8 @@
 import inspect, types
-from pypy.objspace.flow.model import traverse, Block, Link
+from pypy.objspace.flow.model import traverse, Block, Link, FunctionGraph
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
 from pypy.annotation.classdef import ClassDef
+from pypy.annotation import model as annmodel, description
 from pypy.tool.uid import uid
 
 
@@ -70,8 +71,8 @@ class VariableHistoryGraphPage(GraphPage):
         self.source = dotgen.generate(target=None)
 
     def createlink(self, position_key, wording='Caused by a call from'):
-        fn, block, pos = position_key
-        basename = self.func_names.get(fn, fn.func_name)
+        graph, block, pos = position_key
+        basename = self.func_names.get(graph, graph.name)
         linkname = basename
         n = 1
         while self.linkinfo.get(linkname, position_key) != position_key:
@@ -85,9 +86,27 @@ class VariableHistoryGraphPage(GraphPage):
         return '%s %s' % (wording, linkname)
 
     def followlink(self, funcname):
-        fn, block, pos = self.linkinfo[funcname]
+        graph, block, pos = self.linkinfo[funcname]
         # It would be nice to focus on the block
-        return FlowGraphPage(self.translator, [fn], self.func_names)
+        return FlowGraphPage(self.translator, [graph], self.func_names)
+
+
+def graphsof(translator, func):
+    if isinstance(func, FunctionGraph):
+        return [func]   # already a graph
+    graphs = []
+    if translator.annotator:
+        funcdesc = translator.annotator.bookkeeper.getdesc(func)
+        graphs = funcdesc._cache.values()
+    if not graphs:
+        # build a new graph, mark it as "to be returned to the annotator the
+        # next time it asks for a graph for the same function"
+        # (note that this buildflowgraph() call will return the same graph
+        # if called again, from the _prebuilt_graphs cache)
+        graph = translator.buildflowgraph(func)
+        translator._prebuilt_graphs[func] = graph
+        graphs = [graph]
+    return graphs
 
 
 class FlowGraphPage(GraphPage):
@@ -97,14 +116,25 @@ class FlowGraphPage(GraphPage):
         self.translator = translator
         self.annotator = translator.annotator
         self.func_names = func_names or {}
-        functions = functions or translator.functions
-        graphs = [translator.getflowgraph(func) for func in functions]
+        if functions:
+            graphs = []
+            for func in functions:
+                graphs += graphsof(translator, func)
+        else:
+            graphs = self.translator.graphs
+        if not graphs:
+            if hasattr(translator, 'entrypoint'):
+                graphs = graphsof(translator, translator.entrypoint)
         gs = [(graph.name, graph) for graph in graphs]
-        if self.annotator and self.annotator.blocked_functions:
+        if self.annotator and self.annotator.blocked_graphs:
             for block, was_annotated in self.annotator.annotated.items():
                 if not was_annotated:
                     block.fillcolor = "red"
-        self.source = make_dot_graphs(graphs[0].name+"_graph", gs, target=None)
+        if graphs:
+            name = graphs[0].name+"_graph"
+        else:
+            name = 'no_graph'
+        self.source = make_dot_graphs(name, gs, target=None)
         # make the dictionary of links -- one per annotated variable
         self.binding_history = {}
         self.current_value = {}
@@ -166,17 +196,35 @@ class ClassDefPage(GraphPage):
     """
     def compute(self, translator, cdef):
         self.translator = translator
-        dotgen = DotGen(cdef.cls.__name__, rankdir="LR")
+        dotgen = DotGen(cdef.shortname, rankdir="LR")
 
         def writecdef(cdef):
-            dotgen.emit_node(nameof(cdef), color="red", shape="octagon",
-                             label=repr(cdef.cls))
+            lines = [cdef.name, '']
             attrs = cdef.attrs.items()
             attrs.sort()
-            for name, attrdef in attrs:
-                s_value = attrdef.s_value
-                dotgen.emit_node(name, shape="box", label=nottoowide(s_value))
-                dotgen.emit_edge(nameof(cdef), name, label=name)
+
+            def writeadefs(prefix, classattrs):
+                for name, attrdef in attrs:
+                    if bool(attrdef.readonly) == bool(classattrs):
+                        s_value = attrdef.s_value
+                        linkname = name
+                        info = s_value
+                        if (classattrs and isinstance(s_value, annmodel.SomePBC)
+                            and s_value.getKind() == description.MethodDesc):
+                            name += '()'
+                            info = 'SomePBC(%s)' % ', '.join(
+                                ['method %s.%s' % (
+                                  desc.originclassdef.shortname,
+                                  desc.name) for desc in s_value.descriptions],)
+                        lines.append(name)
+                        self.links[linkname] = '%s.%s: %s' % (prefix, name, info)
+
+            prefix = cdef.shortname
+            writeadefs(prefix + '()', False)
+            lines.append('')
+            writeadefs(prefix, True)
+            dotgen.emit_node(nameof(cdef), color="red", shape="box",
+                             label='\n'.join(lines))
 
         prevcdef = None
         while cdef is not None:
@@ -188,9 +236,18 @@ class ClassDefPage(GraphPage):
         
         self.source = dotgen.generate(target=None)
 
+    def followlink(self, name):
+        return self
+
 class BaseTranslatorPage(GraphPage):
     """Abstract GraphPage for showing some of the call graph between functions
     and possibily the class hierarchy."""
+
+    def allgraphs(self):
+        graphs = list(self.translator.graphs)
+        if not graphs and hasattr(self.translator, 'entrypoint'):
+            graphs = graphsof(self.translator, self.translator.entrypoint)
+        return graphs
 
     def graph_name(self, *args):
         raise NotImplementedError
@@ -209,36 +266,30 @@ class BaseTranslatorPage(GraphPage):
         # link the function names to the individual flow graphs
         for name, obj in self.object_by_name.items():
             if isinstance(obj, ClassDef):
-                #data = '%s.%s' % (obj.cls.__module__, obj.cls.__name__)
-                data = repr(obj.cls)
-            elif isinstance(obj, types.FunctionType):
-                func = obj
-                try:
-                    source = inspect.getsource(func)
-                except IOError:   # e.g. when func is defined interactively
-                    source = func.func_name
-                data = '%s:%d\n%s' % (func.func_globals.get('__name__', '?'),
-                                      func.func_code.co_firstlineno,
-                                      source.split('\n')[0])
+                data = repr(obj)
+            elif isinstance(obj, FunctionGraph):
+                graph = obj
+                data = graph.name
+                if hasattr(graph, 'func'):
+                    data += ':%d' % graph.func.func_code.co_firstlineno
+                if hasattr(graph, 'source'):
+                    data += '\n%s' % graph.source.split('\n', 1)[0]
             else:
                 continue
-            self.links[name] = data
+            self.links.setdefault(name, data)
 
-    def get_blocked_functions(self, functions):
+    def get_blocked_graphs(self, graphs):
         translator = self.translator
-        blocked_functions = {}
+        blocked_graphs = {}
         if translator.annotator:
-            # don't use translator.annotator.blocked_functions here because
+            # don't use translator.annotator.blocked_graphs here because
             # it is not populated until the annotator finishes.
             annotated = translator.annotator.annotated
-            for fn in functions:
-                graph = translator.flowgraphs[fn]
-                def visit(node):
-                    if annotated.get(node) is False:
-                        blocked_functions[fn] = True
-                traverse(visit, graph)
-
-        return blocked_functions
+            for graph in graphs:
+                for block in graph.iterblocks():
+                    if annotated.get(block) is False:
+                        blocked_graphs[graph] = True
+        return blocked_graphs
 
     def compute_class_hieararchy(self, dotgen):
         # show the class hierarchy
@@ -246,7 +297,7 @@ class BaseTranslatorPage(GraphPage):
             dotgen.emit_node(nameof(None), color="red", shape="octagon",
                              label="Root Class\\nobject")
             for classdef in self.translator.annotator.getuserclassdefinitions():
-                data = self.labelof(classdef, classdef.cls.__name__)
+                data = self.labelof(classdef, classdef.shortname)
                 dotgen.emit_node(nameof(classdef), label=data, shape="box")
                 dotgen.emit_edge(nameof(classdef.basedef), nameof(classdef))
              
@@ -281,35 +332,34 @@ class TranslatorPage(BaseTranslatorPage):
         translator = self.translator
 
         # show the call graph
-        callgraph = translator.complete_callgraph.values()
-        functions = list(translator.functions)
+        callgraph = translator.callgraph.values()
+        graphs = self.allgraphs()
 
-        if len(functions) > huge:
-            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, translator.entrypoint)
+        if len(graphs) > huge:
+            if hasattr(translator, 'entrypoint'):
+                graphs = graphsof(translator, translator.entrypoint)
+            assert graphs, "no graph to show!"
+            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, graphs[0])
             return
 
-        blocked_functions = self.get_blocked_functions(functions)
+        blocked_graphs = self.get_blocked_graphs(graphs)
 
-        highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
+        highlight_graphs = getattr(translator, 'highlight_graphs', {}) # XXX
         dotgen.emit_node('entry', fillcolor="green", shape="octagon",
                          label="Translator\\nEntry Point")
-        for func in functions:
-            name = func.func_name
-            class_ = getattr(func, 'class_', None)
-            if class_ is not None:
-                name = '%s.%s' % (class_.__name__, name)
-            data = self.labelof(func, name)
-            if func in blocked_functions:
+        for graph in graphs:
+            data = self.labelof(graph, graph.name)
+            if graph in blocked_graphs:
                 kw = {'fillcolor': 'red'}
-            elif func in highlight_functions:
+            elif graph in highlight_graphs:
                 kw = {'fillcolor': '#ffcccc'}
             else:
                 kw = {}
-            dotgen.emit_node(nameof(func), label=data, shape="box", **kw)
-        if functions:
-            dotgen.emit_edge('entry', nameof(functions[0]), color="green")
-        for f1, f2 in callgraph:  # captured above (multithreading fun)
-            dotgen.emit_edge(nameof(f1), nameof(f2))
+            dotgen.emit_node(nameof(graph), label=data, shape="box", **kw)
+        if graphs:
+            dotgen.emit_edge('entry', nameof(graphs[0]), color="green")
+        for g1, g2 in callgraph:  # captured above (multithreading fun)
+            dotgen.emit_edge(nameof(g1), nameof(g2))
 
         # show the class hierarchy
         self.compute_class_hieararchy(dotgen)
@@ -319,47 +369,43 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
     """A GraphPage showing the localized call graph for a function,
     that means just including direct callers and callees"""
 
-    def graph_name(self, func0):
-        return 'LCG_%s' % nameof(func0)
+    def graph_name(self, graph0):
+        return 'LCG_%s' % nameof(graph0)
 
-    def do_compute(self, dotgen, func0):
+    def do_compute(self, dotgen, graph0):
         translator = self.translator
 
-        functions = {}
+        graphs = {}
 
-        for f1, f2 in translator.callgraph.values():
-            if f1 is func0 or f2 is func0:
-                dotgen.emit_edge(nameof(f1), nameof(f2))
-                functions[f1] = True
-                functions[f2] = True
+        for g1, g2 in translator.callgraph.values():
+            if g1 is graph0 or g2 is graph0:
+                dotgen.emit_edge(nameof(g1), nameof(g2))
+                graphs[g1] = True
+                graphs[g2] = True
 
-        functions = functions.keys()
+        graphs = graphs.keys()
 
         # show the call graph
-        blocked_functions = self.get_blocked_functions(functions)
+        blocked_graphs = self.get_blocked_graphs(graphs)
 
-        highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
-        for func in functions:
-            name = func.func_name
-            class_ = getattr(func, 'class_', None)
-            if class_ is not None:
-                name = '%s.%s' % (class_.__name__, name)
-            data = self.labelof(func, name)
-            if func in blocked_functions:
+        highlight_graphs = getattr(translator, 'highlight_graphs', {}) # XXX
+        for graph in graphs:
+            data = self.labelof(graph, graph.name)
+            if graph in blocked_graphs:
                 kw = {'fillcolor': 'red'}
-            elif func in highlight_functions:
+            elif graph in highlight_graphs:
                 kw = {'fillcolor': '#ffcccc'}
             else:
                 kw = {}
-            dotgen.emit_node(nameof(func), label=data, shape="box", **kw)
+            dotgen.emit_node(nameof(graph), label=data, shape="box", **kw)
 
-            if func is not func0:
-                lcg = 'LCG_%s' % nameof(func)
-                label = name+'...'
+            if graph is not graph0:
+                lcg = 'LCG_%s' % nameof(graph)
+                label = graph.name+'...'
                 dotgen.emit_node(lcg, label=label)
-                dotgen.emit_edge(nameof(func), lcg)
+                dotgen.emit_edge(nameof(graph), lcg)
                 self.links[label] = 'go to its localized call graph'
-                self.object_by_name[label] = func
+                self.object_by_name[label] = graph
 
 class ClassHierarchyPage(BaseTranslatorPage):
     """A GraphPage showing the class hierarchy."""

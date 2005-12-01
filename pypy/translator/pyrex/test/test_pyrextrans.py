@@ -4,8 +4,9 @@ from pypy.tool.udir import udir
 from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.cbuild import build_cfunc
+from pypy.translator.tool.cbuild import make_module_from_pyxstring
 from pypy.translator.tool.cbuild import skip_missing_compiler
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow import FlowObjSpace
 
 from pypy import conftest 
@@ -113,7 +114,7 @@ class TestNoTypePyrexGenTestCase:
 class TestTypedTestCase:
 
     def getcompiled(self, func):
-        t = Translator(func, simplifying=True) 
+        t = TranslationContext() 
         # builds starting-types from func_defs 
         argstypelist = []
         if func.func_defaults:
@@ -121,8 +122,23 @@ class TestTypedTestCase:
                 if isinstance(spec, tuple):
                     spec = spec[0] # use the first type only for the tests
                 argstypelist.append(spec)
-        t.annotate(argstypelist) 
-        return skip_missing_compiler(t.pyrexcompile)
+        t.buildannotator().build_types(func, argstypelist) 
+        name = func.func_name
+
+        blobs = []
+        for graph in t.graphs:
+            g = GenPyrex(graph)
+            g.by_the_way_the_function_was = graph.func   # XXX
+            g.setannotator(t.annotator)
+            blobs.append(g.emitcode())
+        code = g.globaldeclarations()  # any 'g' is fine here...
+        if code:
+            blobs.insert(0, code)
+        pyxcode = '\n\n#_________________\n\n'.join(blobs)
+
+        mod = skip_missing_compiler(
+            make_module_from_pyxstring, name, udir, pyxcode)
+        return getattr(mod, name)
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)

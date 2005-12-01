@@ -515,3 +515,14 @@ def test_captured_get():
 
     res = interpret(f, [])
     assert res == 2    
+
+def test_specific_obscure_bug():
+    class A: pass
+    class B: pass   # unrelated kinds of instances
+    def f():
+        lst = [A()]
+        res1 = A() in lst
+        d2 = {B(): None, B(): None}
+        return res1+len(d2)
+    res = interpret(f, [])
+    assert res == 2

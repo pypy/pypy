@@ -8,6 +8,7 @@ import py
 from pypy.objspace.flow.model import Variable
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.lladdress import Address
+from pypy.rpython.module import ll_stack, ll_stackless
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 
@@ -21,21 +22,26 @@ class StacklessData:
 
         # start the decoding table with entries for the functions that
         # are written manually in ll_stackless.h
-        def reg(name):
-            self.stackless_roots[name.lower()] = True
-            return name
+        def reg(llfn):
+            """Register the given ll_ primitive function as being able to unwing
+            the stack.  Required to compute 'can_reach_unwind' correctly."""
+            assert llfn.suggested_primitive
+            self.stackless_roots[llfn] = True
+            name = llfn.__name__
+            assert name.startswith('ll_')
+            return 'LL_' + name[3:]
 
-        reg('LL_stack_unwind')
-        self.registerunwindable(reg('LL_stackless_stack_unwind'),
+        reg(ll_stack.ll_stack_unwind)
+        self.registerunwindable('LL_stackless_stack_unwind',
                                 lltype.FuncType([], lltype.Void),
                                 resume_points=1)
-        self.registerunwindable(reg('LL_stackless_stack_frames_depth'),
+        self.registerunwindable(reg(ll_stackless.ll_stackless_stack_frames_depth),
                                 lltype.FuncType([], lltype.Signed),
                                 resume_points=1)
-        self.registerunwindable(reg('LL_stackless_switch'),
+        self.registerunwindable(reg(ll_stackless.ll_stackless_switch),
                                 lltype.FuncType([Address], Address),
                                 resume_points=1)
-        self.registerunwindable(reg('slp_end_of_yielding_function'),
+        self.registerunwindable('slp_end_of_yielding_function',
                                 lltype.FuncType([], Address),
                                 resume_points=1)
 
@@ -43,11 +49,11 @@ class StacklessData:
         self.database = database
         self.count_calls = [0, 0]
 
-    def unwind_reachable(self, func):
+    def unwind_reachable(self, graph):
         reach_dict = self.can_reach_unwind
-        if func not in reach_dict:
+        if graph not in reach_dict:
             self.setup()
-        return reach_dict[func]
+        return reach_dict[graph]
 
     def setup(self):
         # to be called after database is complete, or we would
@@ -58,28 +64,28 @@ class StacklessData:
         callers = {}
         assert self.database.completed
         translator = self.database.translator
-        here = len(translator.functions)
-        for func in translator.functions:
-            callers[func] = []
-        for caller, callee in translator.complete_callgraph.values():
-            callers[caller].append(callee)
-        # add newly generated ones
-        for func in translator.functions[here:]:
-            callers.setdefault(func, [])
+        for graph in translator.graphs:
+            callers[graph] = []
+        for caller, callee in translator.callgraph.values():
+            # ignore calls issued suggested_primitives -- they are not
+            # compiled in, and they typically contain pseudo-recursions
+            try:
+                suggprim = caller.func.suggested_primitive
+            except AttributeError:
+                suggprim = False
+            if not suggprim:
+                callers[caller].append(callee)
         # check all callees if they can reach unwind
         seen = self.can_reach_unwind
         
         pending = {}
         ext = self.database.externalfuncs
-        def check_unwind(func):
-            if func in pending:
-                ret = func not in ext
-                # typical pseudo-recursion of externals
-                # but true recursions do unwind
-                seen[func] = ret
-                return ret
-            pending[func] = func
-            for callee in callers[func]:
+        def check_unwind(graph):
+            if graph in pending:
+                seen[graph] = True
+                return True
+            pending[graph] = graph
+            for callee in callers[graph]:
                 if callee in seen:
                     ret = seen[callee]
                 else:
@@ -87,9 +93,9 @@ class StacklessData:
                 if ret:
                     break
             else:
-                ret = func.__name__ in self.stackless_roots
-            del pending[func]
-            seen[func] = ret
+                ret = graph.func in self.stackless_roots
+            del pending[graph]
+            seen[graph] = ret
             return ret
         [check_unwind(caller) for caller in callers if caller not in seen]
 
@@ -251,10 +257,10 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         slp = self.db.stacklessdata
         # don't generate code for calls that cannot unwind
         if not specialreturnvalue:
-            need_stackless = slp.unwind_reachable(self.graph.func)
+            need_stackless = slp.unwind_reachable(self.graph)
             if need_stackless:
                 try:
-                    callee = op.args[0].value._obj.graph.func
+                    callee = op.args[0].value._obj.graph
                 except AttributeError:
                     pass # assume we need it really
                 else:

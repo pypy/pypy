@@ -598,6 +598,12 @@ def star_args(x, y, *args):
 def call_star_args(z):
     return star_args(z, 5, 10, 15, 20)
 
+def call_star_args_multiple(z):
+    a = star_args(z, 5, 10)
+    b = star_args(z, 5, 10, 15)
+    c = star_args(z, 5, 10, 15, 20)
+    return a+b+c
+
 def default_args(x, y=2, z=3L):
     return x+y+z
 
@@ -1165,8 +1171,6 @@ def class_spec():
     sstk.push("a")
     istk.push(2)
     sstk.push("b")
-    if not isinstance(istk, PolyStk):
-        return "confused"
+    #if not isinstance(istk, PolyStk):
+    #    return "confused"
     return istk.top(), sstk.top()
-
-    

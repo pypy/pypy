@@ -4,7 +4,6 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 
 import types
 from pypy.annotation import model as annmodel
-from pypy.annotation.specialize import decide_callable
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable
@@ -44,12 +43,8 @@ class KeyComp(object):
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False
 
-    def default_specialize(pol, bookkeeper, ignored, spaceop, func, args, mono):
-        args_s, kwds_s = args.unpack()
-        assert not kwds_s
-        if not args_s or not isinstance(func, types.FunctionType):
-            return None, None
-        key = [func]
+    def default_specialize(pol, funcdesc, args_s):
+        key = []
         new_args_s = []
         for s_obj in args_s:
             if isinstance(s_obj, annmodel.SomePBC):
@@ -64,7 +59,9 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
                     # passing non-low-level types to a ll_* function is allowed
                     # for module/ll_*
                     key.append(s_obj.__class__)
-        return tuple(key), bookkeeper.build_args('simple_call', new_args_s)
+        flowgraph = funcdesc.cachedgraph(tuple(key))
+        args_s[:] = new_args_s
+        return flowgraph
 
     def override__init_opaque_object(pol, s_opaqueptr, s_value):
         assert isinstance(s_opaqueptr, annmodel.SomePtr)
@@ -90,14 +87,12 @@ def annotate_lowlevel_helper(annotator, ll_function, args_s):
     saved = annotator.policy, annotator.added_blocks
     annotator.policy = LowLevelAnnotatorPolicy()
     try:
-        args = annotator.bookkeeper.build_args('simple_call', args_s)
-        (ll_function, args), key = decide_callable(annotator.bookkeeper, None, ll_function, args, mono=True, unpacked=True)
-        args_s, kwds_s = args.unpack()
-        assert not kwds_s
         annotator.added_blocks = {}
-        s = annotator.build_types(ll_function, args_s)
+        desc = annotator.bookkeeper.getdesc(ll_function)
+        graph = desc.specialize(args_s)
+        s = annotator.build_graph_types(graph, args_s)
         # invoke annotation simplifications for the new blocks
         annotator.simplify(block_subset=annotator.added_blocks)
     finally:
         annotator.policy, annotator.added_blocks = saved
-    return s, ll_function
+    return graph

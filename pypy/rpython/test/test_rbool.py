@@ -1,6 +1,5 @@
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import pyobjectptr
-from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rpython.test.test_llinterp import interpret
@@ -9,13 +8,10 @@ from pypy.rpython.test.test_llinterp import interpret
 class TestSnippet(object):
     
     def _test(self, func, types):
-        t = Translator(func)
-        t.annotate(types)
-        typer = RPythonTyper(t.annotator)
-        typer.specialize()
-        t.checkgraphs()  
-        #if func == snippet.bool_cast1:
-        #    t.view()
+        t = TranslationContext()
+        t.buildannotator().build_types(func, types)
+        t.buildrtyper().specialize()
+        t.checkgraphs()
 
     def test_not1(self):
         self._test(snippet.not1, [bool])

@@ -59,6 +59,9 @@ class PtrRepr(Repr):
         if not isinstance(self.lowleveltype.TO, FuncType):
             raise TyperError("calling a non-function %r", self.lowleveltype.TO)
         vlist = hop.inputargs(*hop.args_r)
+        if isinstance(vlist[0], flowmodel.Constant):
+            if hasattr(vlist[0].value, 'graph'):
+                hop.llops.record_extra_call(vlist[0].value.graph)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
@@ -141,13 +144,15 @@ class LLADTMethRepr(Repr):
         self.adtmeth = adtmeth
         self.lowleveltype = adtmeth.ll_ptrtype
 
-    def rtype_hardwired_simple_call(self, hop):
+    def rtype_simple_call(self, hop):
         hop2 = hop.copy()
-        hop2.swap_fst_snd_args()
-        r_func, s_func = hop2.r_s_popfirstarg()
-        fptr = hop2.rtyper.getcallable(s_func.const)
-        hop2.v_s_insertfirstarg(flowmodel.Constant(fptr), annmodel.SomePtr(typeOf(fptr)))
-        return hop2.dispatch(opname='simple_call')
+        func = self.adtmeth.func
+        s_func = hop.rtyper.annotator.bookkeeper.immutablevalue(func)
+        v_ptr = hop2.args_v[0]
+        hop2.r_s_popfirstarg()
+        hop2.v_s_insertfirstarg(v_ptr, annmodel.SomePtr(self.adtmeth.ll_ptrtype))
+        hop2.v_s_insertfirstarg(flowmodel.Constant(func), s_func)
+        return hop2.dispatch()
 
 class __extend__(pairtype(PtrRepr, LLADTMethRepr)):
 

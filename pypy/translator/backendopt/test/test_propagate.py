@@ -1,4 +1,4 @@
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, graphof
 from pypy.translator.backendopt.propagate import *
 from pypy.rpython.llinterp import LLInterpreter
 
@@ -8,12 +8,12 @@ def get_graph(fn, signature):
     t.annotate(signature)
     t.specialize()
     t.backend_optimizations(ssa_form=False, propagate=False) 
-    graph = t.getflowgraph()
+    graph = graphof(t, fn)
     return graph, t
 
 def check_graph(graph, args, expected_result, t):
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    res = interp.eval_function(None, args, graph=graph)
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graph, args)
     assert res == expected_result
 
 def check_get_graph(fn, signature, args, expected_result):

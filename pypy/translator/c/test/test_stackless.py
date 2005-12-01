@@ -1,4 +1,5 @@
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
+from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.rpython.rstack import stack_unwind, stack_frames_depth, stack_too_big
@@ -10,12 +11,13 @@ def wrap_stackless_function(fn):
         os.write(1, str(fn())+"\n")
         return 0
 
-    t = Translator(entry_point)
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
     s_list_of_strings.listdef.resize()
-    ann = t.annotate([s_list_of_strings])
-    t.specialize()
-    cbuilder = t.cbuilder(standalone=True)
+    t = TranslationContext()
+    t.buildannotator().build_types(entry_point, [s_list_of_strings])
+    t.buildrtyper().specialize()
+
+    cbuilder = CStandaloneBuilder(t, entry_point)
     cbuilder.stackless = True
     cbuilder.generate_source()
     cbuilder.compile()

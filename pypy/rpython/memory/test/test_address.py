@@ -3,6 +3,7 @@ import sys
 
 from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
+from pypy.translator.translator import graphof
 from pypy.objspace.flow import FlowObjSpace
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.lladdress import address, NULL
@@ -120,7 +121,7 @@ class TestAddressRTyping(object):
         s = a.build_types(f, [])
         rtyper = RPythonTyper(a)
         rtyper.specialize()
-        rtyp = a.translator.flowgraphs[f].returnblock.inputargs[0].concretetype
+        rtyp = graphof(a.translator, f).returnblock.inputargs[0].concretetype
         assert rtyp == Address
 
     def test_convert_to_bool(self):
@@ -198,7 +199,7 @@ class TestAddressRTyping(object):
         s = a.build_types(f, [annmodel.SomeInteger()])
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
-        graph = a.translator.flowgraphs[f] 
+        graph = graphof(a.translator, f)
         assert graph.startblock.operations[0].result.concretetype == Address
 
 class TestAddressInLLInterp(object):

@@ -30,7 +30,7 @@ def ann_startthr(s_bootstrap_function, s_argument_tuple):
     s_arg, = s_argument_tuple.items
     # XXX hack hack hack: emulate a call to s_bootstrap_function
     s_result = bookkeeper.emulate_pbc_call(bookkeeper.position_key, s_bootstrap_function, [s_arg])
-    assert bookkeeper.getpbc(None).contains(s_result), (
+    assert annmodel.s_None.contains(s_result), (
         """thread.start_new_thread(f, arg): f() should return None""")
     return annmodel.SomeInteger()
 

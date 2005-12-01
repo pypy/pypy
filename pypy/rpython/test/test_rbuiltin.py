@@ -1,8 +1,8 @@
+from pypy.translator.translator import graphof
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test import test_llinterp
 from pypy.rpython.objectmodel import instantiate, we_are_translated
 from pypy.rpython.lltypesystem import lltype
-from pypy.objspace.flow import model as flowmodel
 from pypy.tool import udir
 
 from pypy.annotation.builtin import *
@@ -69,12 +69,8 @@ def test_builtin_math_fmod():
 
 def enum_direct_calls(translator, func):
     blocks = []
-    graph = translator.getflowgraph(func)
-    def visit(block):
-        if isinstance(block, flowmodel.Block):
-            blocks.append(block)
-    flowmodel.traverse(visit, graph)
-    for block in blocks:
+    graph = graphof(translator, func)
+    for block in graph.iterblocks():
         for op in block.operations:
             if op.opname == 'direct_call':
                 yield op

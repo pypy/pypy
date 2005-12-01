@@ -1,11 +1,13 @@
 from pypy.annotation import model as annmodel
-from pypy.translator.translator import Translator
+from pypy.objspace.flow.model import Constant
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import annrpython
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython import rmodel
 import py
+
 
 def setup_module(mod): 
     mod.logstate = py.log._getstate()
@@ -32,7 +34,7 @@ def test_slice_reprkeys():
     three.const = 3
     minusone = annmodel.SomeInteger()
     minusone.const = -1
-    none = annmodel.SomePBC({None: True})
+    none = annmodel.s_None
 
     startonly = annmodel.SomeSlice(one, none, none)
     startonly2 = annmodel.SomeSlice(one, none, one)
@@ -73,26 +75,24 @@ def test_function_call():
 def test_retval():
     def f(x):
         return x
-    t = Translator(f)
-    t.annotate([int])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
     #t.view()
     t.checkgraphs()
-    graph = t.getflowgraph(f)
+    graph = graphof(t, f)
     assert graph.getreturnvar().concretetype == Signed
     assert graph.startblock.exits[0].args[0].concretetype == Signed
 
 def test_retval_None():
     def f(x):
         pass
-    t = Translator(f)
-    t.annotate([int])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
     #t.view()
     t.checkgraphs()
-    graph = t.getflowgraph(f)
+    graph = graphof(t, f)
     assert graph.getreturnvar().concretetype == Void
     assert graph.startblock.exits[0].args[0].concretetype == Void
 
@@ -100,14 +100,16 @@ def test_ll_calling_ll():
     import test_llann
     tst = test_llann.TestLowLevelAnnotateTestCase()
     a, vTs = tst.test_ll_calling_ll()
-    a.translator.specialize()
+    rt = RPythonTyper(a)
+    rt.specialize()
     assert [vT.concretetype for vT in vTs] == [Void] * 4
 
 def test_ll_calling_ll2():
     import test_llann
     tst = test_llann.TestLowLevelAnnotateTestCase()
     a, vTs = tst.test_ll_calling_ll2()
-    a.translator.specialize()
+    rt = RPythonTyper(a)
+    rt.specialize()
     assert [vT.concretetype for vT in vTs] == [Void] * 3
     
 
@@ -118,16 +120,29 @@ def test_needsgc():
         _alloc_flavor_ = "gc"
     class R:
         _alloc_flavor_ = "nongc"
-    class DummyClsDef:
-        def __init__(self, cls):
-            self.cls = cls
 
-    assert rmodel.needsgc(DummyClsDef(A))
-    assert rmodel.needsgc(DummyClsDef(A), nogc=True)
-    assert rmodel.needsgc(DummyClsDef(B))
-    assert rmodel.needsgc(DummyClsDef(B), nogc=True)
-    assert not rmodel.needsgc(DummyClsDef(R))
-    assert not rmodel.needsgc(DummyClsDef(R), nogc=False)
+    NDF = object()
+
+    class DummyClsDescDef:
+        def __init__(self, cls):
+            self._cls = cls
+            self.classdesc = self
+
+        def read_attribute(self, attr, default=NDF):
+            try:
+                return Constant(getattr(self._cls, attr))
+            except AttributeError:
+                if default is NDF:
+                    raise
+                else:
+                    return default
+            
+    assert rmodel.needsgc(DummyClsDescDef(A))
+    assert rmodel.needsgc(DummyClsDescDef(A), nogc=True)
+    assert rmodel.needsgc(DummyClsDescDef(B))
+    assert rmodel.needsgc(DummyClsDescDef(B), nogc=True)
+    assert not rmodel.needsgc(DummyClsDescDef(R))
+    assert not rmodel.needsgc(DummyClsDescDef(R), nogc=False)
     assert rmodel.needsgc(None)
     assert rmodel.needsgc(None, nogc=False)
     assert not rmodel.needsgc(None, nogc=True)            

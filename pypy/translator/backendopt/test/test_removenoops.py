@@ -1,6 +1,6 @@
 from pypy.translator.backendopt.removenoops import remove_void, remove_same_as
 from pypy.translator.backendopt.inline import inline_function
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, graphof
 from pypy.translator.test.snippet import simple_method
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.lltypesystem.lltype import Void
@@ -21,19 +21,18 @@ def test_remove_void_args():
     def f(i):
         return [1,2,3,i][i]
     t = annotate_and_remove_void(f, [int])
-    for func, graph in t.flowgraphs.iteritems():
+    for graph in t.graphs:
         assert checkgraph(graph) is None
         for arg in graph.startblock.inputargs:
             assert arg.concretetype is not Void
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    assert interp.eval_function(f, [0]) == 1 
+    interp = LLInterpreter(t.rtyper)
+    assert interp.eval_graph(graphof(t, f), [0]) == 1 
 
 def test_remove_void_in_struct():
     t = annotate_and_remove_void(simple_method, [int])
     #t.view()
-    log(t.flowgraphs.iteritems())
-    for func, graph in t.flowgraphs.iteritems():
-        log('func : ' + str(func))
+    for graph in t.graphs:
+        log('func : ' + graph.name)
         log('graph: ' + str(graph))
         assert checkgraph(graph) is None
         #for fieldname in self.struct._names:    #XXX helper (in lltype?) should remove these voids
@@ -56,15 +55,15 @@ def test_remove_same_as():
     a = t.annotate([])
     t.specialize()
     # now we make the 'if True' appear
-    inline_function(t, nothing, t.flowgraphs[f])
+    f_graph = graphof(t, f)
+    inline_function(t, nothing, f_graph)
     # here, the graph looks like  v21=same_as(True);  exitswitch: v21
-    remove_same_as(t.flowgraphs[f])
+    remove_same_as(f_graph)
     t.checkgraphs()
     # only one path should be left
-    for node in flatten(t.flowgraphs[f]):
-        if isinstance(node, Block):
-            assert len(node.exits) <= 1
+    for block in f_graph.iterblocks():
+        assert len(block.exits) <= 1
 
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(f, [])
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(f_graph, [])
     assert result == 42

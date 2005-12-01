@@ -1,16 +1,24 @@
 from pypy.rpython.l3interp import l3interp
 from pypy.rpython.l3interp import model
 from pypy.translator.c.test.test_genc import compile
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy
 
 def translate(func, inputargs):
-    t = Translator(func)
+    t = TranslationContext()
     pol = policy.AnnotatorPolicy()
     pol.allow_someobjects = False
-    t.annotate(inputargs, policy=pol)
-    t.specialize()
-    return t.ccompile() 
+    t.buildannotator(policy=pol).build_types(func, inputargs)
+    t.buildrtyper().specialize()
+
+    from pypy.translator.tool.cbuild import skip_missing_compiler
+    from pypy.translator.c import genc
+    builder = genc.CExtModuleBuilder(t, func)
+    builder.generate_source()
+    skip_missing_compiler(builder.compile)
+    builder.import_module()
+    return builder.get_entry_point()
+
 
 #----------------------------------------------------------------------
 def eval_seven():

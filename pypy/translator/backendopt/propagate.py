@@ -146,7 +146,7 @@ class CountingLLFrame(LLFrame):
 
 def constant_folding(graph, translator):
     """do constant folding if the arguments of an operations are constants"""
-    lli = LLInterpreter(translator.flowgraphs, translator.rtyper)
+    lli = LLInterpreter(translator.rtyper)
     llframe = LLFrame(graph, None, lli)
     changed = [False]
     def visit(block):
@@ -199,7 +199,7 @@ def constant_folding(graph, translator):
     return False
 
 def partial_folding_once(graph, translator):
-    lli = LLInterpreter(translator.flowgraphs, translator.rtyper)
+    lli = LLInterpreter(translator.rtyper)
     entrymap = mkentrymap(graph)
     def visit(block):
         if (not isinstance(block, Block) or block is graph.startblock or
@@ -270,7 +270,7 @@ def partial_folding(graph, translator):
         return False
 
 def propagate_all(translator):
-    for graph in translator.flowgraphs.itervalues():
+    for graph in translator.graphs:
         def prop():
             changed = rewire_links(graph)
             changed = changed or propagate_consts(graph)

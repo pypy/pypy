@@ -23,11 +23,7 @@ TARGET_WIN386=2
 # ASM_TARGET = determine_target()
 
 
-def genasm(translator, processor):
-
-    f = translator.entrypoint
-
-    graph = translator.getflowgraph(f)
+def genasm(graph, processor):
 
     retvar = graph.returnblock.inputargs[0]
 

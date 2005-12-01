@@ -50,19 +50,16 @@ def remove_same_as(graph):
 
 
 def remove_void(translator):
-    for func, graph in translator.flowgraphs.iteritems():
+    for graph in translator.graphs:
         args = [arg for arg in graph.startblock.inputargs
                     if arg.concretetype is not Void]
         graph.startblock.inputargs = args
-    def visit(block): 
-        if isinstance(block, Block):
+        for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'direct_call':
                     args = [arg for arg in op.args
                                 if arg.concretetype is not Void]
                     op.args = args
-    for func, graph in translator.flowgraphs.iteritems():
-        traverse(visit, graph)
  
 ##def rename_extfunc_calls(translator):
 ##    from pypy.rpython.extfunctable import table as extfunctable

@@ -1,15 +1,14 @@
-from pypy.translator.translator import Translator
 from pypy.translator.c.symboltable import getsymboltable
+from pypy.translator.c.test import test_typed
+
+getcompiled = test_typed.TestTypedTestCase().getcompiled
 
 def test_simple():
     glist = [4, 5, 6]
-    def f(x):
+    def fn(x=int):
         return glist[x], id(glist)
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
 
-    f = t.ccompile()
+    f = getcompiled(fn)
     res, addr = f(1)
     assert res == 5
 

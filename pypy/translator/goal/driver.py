@@ -1,6 +1,6 @@
 import sys, os
 
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.taskengine import SimpleTaskEngine
 from pypy.translator.goal import query
 from pypy.annotation import model as annmodel
@@ -105,12 +105,13 @@ class TranslationDriver(SimpleTaskEngine):
         self.extra = extra
 
         if empty_translator:
-            # re-initialize it
-            empty_translator.__init__(entry_point, verbose=True, simplifying=True)
+            # set verbose flags
+            empty_translator.flags['verbose'] = True
             translator = empty_translator
         else:
-            translator = Translator(entry_point, verbose=True, simplifying=True)
+            translator = TranslationContext(verbose=True)
 
+        self.entry_point = entry_point
         self.translator = translator
 
 
@@ -136,7 +137,8 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info('with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__))
 
         annmodel.DEBUG = self.options.debug
-        annotator = translator.annotate(self.inputtypes, policy=policy)
+        annotator = translator.buildannotator(policy=policy)
+        annotator.build_types(self.entry_point, self.inputtypes)
         self.sanity_check_annotation()
         annotator.simplify()        
     #
@@ -154,7 +156,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info("No lost method defs")
 
         so = query.qoutput(query.polluted_qgen(translator))
-        tot = len(translator.flowgraphs)
+        tot = len(translator.graphs)
         percent = int(tot and (100.0*so / tot) or 0)
         if percent == 0:
             pr = self.log.info
@@ -166,14 +168,16 @@ class TranslationDriver(SimpleTaskEngine):
 
     def task_rtype(self):
         opt = self.options
-        self.translator.specialize(dont_simplify_again=True,
-                                   crash_on_first_typeerror=not opt.insist)
+        rtyper = self.translator.buildrtyper()
+        rtyper.specialize(dont_simplify_again=True,
+                          crash_on_first_typeerror=not opt.insist)
     #
     task_rtype = taskdef(task_rtype, ['annotate'], "RTyping")
 
     def task_backendopt(self):
+        from pypy.translator.backendopt.all import backend_optimizations
         opt = self.options
-        self.translator.backend_optimizations(ssa_form=opt.backend != 'llvm')
+        backend_optimizations(self.translator, ssa_form=opt.backend != 'llvm')
     #
     task_backendopt = taskdef(task_backendopt, 
                                         ['rtype'], "Back-end optimisations") 
@@ -193,9 +197,13 @@ class TranslationDriver(SimpleTaskEngine):
             from pypy.translator.c import gc
             gcpolicy = gc.NoneGcPolicy
 
-        cbuilder = translator.cbuilder(standalone=standalone, 
-                                       gcpolicy=gcpolicy,
-                                       thread_enabled = getattr(opt, 'thread', False))
+        if standalone:
+            from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
+        else:
+            from pypy.translator.c.genc import CExtModuleBuilder as CBuilder
+        cbuilder = CBuilder(self.translator, self.entry_point,
+                            gcpolicy       = gcpolicy,
+                            thread_enabled = getattr(opt, 'thread', False))
         cbuilder.stackless = opt.stackless
         database = cbuilder.build_database()
         self.log.info("database for generating C source was created")
@@ -257,10 +265,12 @@ class TranslationDriver(SimpleTaskEngine):
         py.log.setconsumer("llinterp operation", None)
         
         translator = self.translator
-        interp = LLInterpreter(translator.flowgraphs, translator.rtyper)
-        v = interp.eval_function(translator.entrypoint,
-                                 self.extra.get('get_llinterp_args',
-                                                lambda: [])())
+        interp = LLInterpreter(translator.rtyper)
+        bk = translator.annotator.bookkeeper
+        graph = bk.getdesc(self.entry_point).cachedgraph(None)
+        v = interp.eval_graph(graph,
+                              self.extra.get('get_llinterp_args',
+                                             lambda: [])())
 
         log.llinterpret.event("result -> %s" % v)
     #
@@ -280,7 +290,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.llvmgen = genllvm.GenLLVM(translator, self.options.gc,
                                        None, self.standalone)
 
-        llvm_filename = self.llvmgen.gen_llvm_source()
+        llvm_filename = self.llvmgen.gen_llvm_source(self.entry_point)
         self.log.info("written: %s" % (llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 

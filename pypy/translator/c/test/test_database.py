@@ -1,10 +1,10 @@
 import autopath, sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
-from pypy.rpython.rmodel import getfunctionptr
+from pypy.rpython.typesystem import getfunctionptr
 
 
 def dump_on_stdout(database):
@@ -155,8 +155,7 @@ def test_func_simple():
 def test_untyped_func():
     def f(x):
         return x+1
-    t = Translator(f)
-    graph = t.getflowgraph()
+    graph = TranslationContext().buildflowgraph(f)
 
     F = FuncType([Ptr(PyObject)], Ptr(PyObject))
     f = functionptr(F, "f", graph=graph)
@@ -173,17 +172,25 @@ def test_untyped_func():
     db.complete()
     dump_on_stdout(db)
 
+# ____________________________________________________________
+
+def makegraph(func, argtypes):
+    t = TranslationContext()
+    t.buildannotator().build_types(func, [int])
+    t.buildrtyper().specialize()
+    bk = t.annotator.bookkeeper
+    graph = bk.getdesc(func).cachedgraph(None)
+    return t, graph
+
 def test_function_call():
     def g(x, y):
         return x-y
     def f(x):
         return g(1, x)
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
+    t, graph = makegraph(f, [int])
 
     F = FuncType([Signed], Signed)
-    f = functionptr(F, "f", graph=t.getflowgraph())
+    f = functionptr(F, "f", graph=graph)
     db = LowLevelDatabase(t)
     db.get(f)
     db.complete()
@@ -192,9 +199,7 @@ def test_function_call():
 def test_func_as_pyobject():
     def f(x):
         return x+1
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
+    t, graph = makegraph(f, [int])
 
     db = LowLevelDatabase(t)
     db.get(pyobjectptr(f))
@@ -208,12 +213,10 @@ def test_malloc():
         p.x = x
         p.y = x+1
         return p.x * p.y
-    t = Translator(ll_f)
-    t.annotate([int])
-    t.specialize()
+    t, graph = makegraph(ll_f, [int])
 
     db = LowLevelDatabase(t)
-    db.get(getfunctionptr(t, ll_f))
+    db.get(getfunctionptr(graph))
     db.complete()
     dump_on_stdout(db)
 
@@ -231,35 +234,12 @@ def test_multiple_malloc():
         s.ptr1 = ptr1
         s.ptr2 = ptr2
         return s.ptr1.x * s.ptr2.x
-    t = Translator(ll_f)
-    t.annotate([int])
-    t.specialize()
+    t, graph = makegraph(ll_f, [int])
     
     db = LowLevelDatabase(t)
-    db.get(getfunctionptr(t, ll_f))
+    db.get(getfunctionptr(graph))
     db.complete()
     dump_on_stdout(db)
-
-##def test_nested_gcstruct():
-##    S1 = GcStruct('inlined', ('x', Signed), ('y', Ptr(PyObject)))
-##    S = GcStruct('testing', ('head', S1),
-##                            ('ptr2', Ptr(S1)),
-##                            ('z', Signed))
-##    def ll_f(x):
-##        ptr2 = malloc(S1)
-##        ptr2.x = x+1
-##        s = malloc(S)
-##        s.head.x = x
-##        s.ptr2 = ptr2
-##        return s.head.x * s.ptr2.x
-##    t = Translator(ll_f)
-##    t.annotate([int])
-##    t.specialize()
-    
-##    db = LowLevelDatabase(t)
-##    db.get(getfunctionptr(t, ll_f))
-##    db.complete()
-##    dump_on_stdout(db)
 
 def test_array():
     A = GcArray(('obj', Ptr(PyObject)))

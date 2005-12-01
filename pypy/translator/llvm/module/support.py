@@ -36,7 +36,7 @@ internal fastcc int %RPyExceptionOccurred() {
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %lenu      = call ccc uint %strlen(sbyte* %s)
     %len       = cast uint %lenu to int
-    %rpy       = call fastcc %RPyString* %pypy_RPyString_New__Signed(int %len)
+    %rpy       = call fastcc %RPyString* %pypy_RPyString_New(int %len)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 

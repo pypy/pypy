@@ -1,7 +1,7 @@
 import autopath
 from pypy.translator.tool.cbuild import skip_missing_compiler
-from pypy.translator.translator import Translator
-from pypy.objspace.flow import FlowObjSpace 
+from pypy.translator.translator import TranslationContext
+from pypy.translator.c import genc
 
 from pypy.translator.test import snippet 
 
@@ -10,17 +10,15 @@ from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
 
 class TestNoTypeCGenTestCase:
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
-
-    def build_cfunc(self, func, *morefuncs):
+    def build_cfunc(self, func):
         try: func = func.im_func
         except AttributeError: pass
-        t = Translator(func)
-        for fn in morefuncs:
-            t.getflowgraph(fn)
-        t.simplify()
-        return skip_missing_compiler(t.ccompile)
+        t = TranslationContext()
+        builder = genc.CExtModuleBuilder(t, func)
+        builder.generate_source()
+        skip_missing_compiler(builder.compile)
+        builder.import_module()
+        return builder.get_entry_point()
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -154,8 +152,7 @@ class TestNoTypeCGenTestCase:
         assert call_with_keyword(100) == 82
 
     def test_call_very_complex(self):
-        call_very_complex = self.build_cfunc(snippet.call_very_complex,
-                                             snippet.default_args)
+        call_very_complex = self.build_cfunc(snippet.call_very_complex)
         assert call_very_complex(5, (3,), {}) == -12
         assert call_very_complex(5, (), {'y': 3}) == -12
         raises(TypeError, call_very_complex, 5, (3,), {'y': 4})

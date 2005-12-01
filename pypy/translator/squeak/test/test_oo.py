@@ -1,16 +1,15 @@
 from pypy.tool.udir import udir
 from pypy.translator.squeak.gensqueak import GenSqueak
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.rpython.ootypesystem.ootype import *
 
 
 def build_sqfunc(func, args=[], view=False):
    try: func = func.im_func
    except AttributeError: pass
-   t = Translator(func)
-   t.annotate(args)
-   t.specialize(type_system="ootype")
-   t.simplify()
+   t = TranslationContext()
+   t.buildannotator().build_types(func, args)
+   t.buildrtyper(type_system="ootype").specialize()
    if view:
       t.viewcg()
    GenSqueak(udir, t)

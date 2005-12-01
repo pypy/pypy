@@ -1,7 +1,7 @@
 import autopath, sys, os, py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.annotation import model as annmodel
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.genc import gen_source
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
@@ -10,6 +10,7 @@ from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.translator.tool.cbuild import enable_fast_compilation
 from pypy.translator.gensupp import uniquemodulename
+from pypy.translator.backendopt.all import backend_optimizations
 
 # XXX this tries to make compiling faster for full-scale testing
 # XXX tcc leaves some errors undetected! Bad!
@@ -27,12 +28,13 @@ def compile_db(db):
     return m
 
 def compile(fn, argtypes, view=False):
-    t = Translator(fn)
-    t.annotate(argtypes)
-    t.specialize()
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, argtypes)
+    t.buildrtyper().specialize()
     if view:
         t.view()
-    t.backend_optimizations()
+    backend_optimizations(t)
     db = LowLevelDatabase(t)
     entrypoint = db.get(pyobjectptr(fn))
     db.complete()
@@ -49,8 +51,7 @@ def compile(fn, argtypes, view=False):
 def test_untyped_func():
     def f(x):
         return x+1
-    t = Translator(f)
-    graph = t.getflowgraph()
+    graph = TranslationContext().buildflowgraph(f)
 
     F = FuncType([Ptr(PyObject)], Ptr(PyObject))
     S = GcStruct('testing', ('fptr', Ptr(F)))
@@ -66,9 +67,9 @@ def test_untyped_func():
 def test_func_as_pyobject():
     def f(x):
         return x*2
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
 
     db = LowLevelDatabase(t)
     entrypoint = db.get(pyobjectptr(f))
@@ -148,8 +149,8 @@ def test_runtime_type_info():
         p1.sub.is_actually_s1 = True
         # and no crash when p and p1 are decref'ed
         return sys
-    t = Translator(does_stuff)
-    t.annotate([])
+    t = TranslationContext()
+    t.buildannotator().build_types(does_stuff, [])
     from pypy.rpython.rtyper import RPythonTyper
     rtyper = RPythonTyper(t.annotator)
     rtyper.attachRuntimeTypeInfoFunc(S,  rtti_S)

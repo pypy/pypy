@@ -3,9 +3,9 @@ Type inference for user-defined classes.
 """
 
 from __future__ import generators
-from types import FunctionType
 from pypy.annotation.model import SomeImpossibleValue, SomePBC, unionof
 from pypy.annotation.model import SomeInteger, isdegenerated
+from pypy.annotation import description
 
 
 # The main purpose of a ClassDef is to collect information about class/instance
@@ -22,9 +22,9 @@ from pypy.annotation.model import SomeInteger, isdegenerated
 # (I) if B is a subclass of A, then they don't both have an Attribute for the
 #     same name.  (All information from B's Attribute must be merged into A's.)
 #
-# Additionally, each ClassDef records an 'attr_sources': it maps attribute
-# names to a set of objects that want to provide a constant value for this
-# attribute at the level of this class.  The attrsources provide information
+# Additionally, each ClassDef records an 'attr_sources': it maps attribute names
+# to a list of 'source' objects that want to provide a constant value for this
+# attribute at the level of this class.  The attr_sources provide information
 # higher in the class hierarchy than concrete Attribute()s.  It is for the case
 # where (so far or definitely) the user program only reads/writes the attribute
 # at the level of a subclass, but a value for this attribute could possibly
@@ -48,14 +48,9 @@ from pypy.annotation.model import SomeInteger, isdegenerated
 #
 # The following invariant holds:
 #
-# (II) if a class A has an Attribute, the 'attrsources' for the same name is
+# (II) if a class A has an Attribute, the 'attr_sources' for the same name is
 #      empty.  It is also empty on all subclasses of A.  (The information goes
 #      into the Attribute directly in this case.)
-#
-# The attrsources have the format {object: classdef}.  For class attributes,
-# 'object' is the class in question and 'classdef' its corresponding classdef,
-# used for binding methods.  For attribute sources that are prebuilt instances,
-# 'classdef' is None.
 #
 # The following invariant holds:
 #
@@ -63,7 +58,6 @@ from pypy.annotation.model import SomeInteger, isdegenerated
 #        from a prebuilt instance) must be merged into all Attributes of the
 #        same name in all subclasses of A, if any.  (Parent class attributes can
 #        be visible in reads from instances of subclasses.)
-
 
 class Attribute:
     # readonly-ness
@@ -75,17 +69,13 @@ class Attribute:
     def __init__(self, name, bookkeeper):
         self.name = name
         self.bookkeeper = bookkeeper
-        # XXX a SomeImpossibleValue() constant?  later!!
         self.s_value = SomeImpossibleValue()
         self.readonly = True
         self.read_locations = {}
 
-    def add_constant_source(self, source, classdef):
-        s_value = self.bookkeeper.immutablevalue(
-            source.__dict__[self.name])
-        if classdef:
-            s_value = s_value.bindcallables(classdef)
-        else:
+    def add_constant_source(self, classdef, source):
+        s_value = source.s_get_value(classdef, self.name)
+        if source.instance_level:
             # a prebuilt instance source forces readonly=False, see above
             self.readonly = False
         s_new_value = unionof(self.s_value, s_value)       
@@ -115,98 +105,57 @@ class Attribute:
 
     def mutated(self, homedef): # reflow from attr read positions
         s_newvalue = self.getvalue()
-        # check for method demotion
-        if isinstance(s_newvalue, SomePBC):
-            attr = self.name
-            meth = False
-            for func, classdef  in s_newvalue.prebuiltinstances.items():
-                if isclassdef(classdef):
-                    meth = True
-                    break
-            if meth and getattr(homedef.cls, attr, None) is None:
-                self.bookkeeper.warning("demoting method %s to base class %s" % (self.name, homedef))
 
         for position in self.read_locations:
             self.bookkeeper.annotator.reflowfromposition(position)        
+
+        # check for method demotion and after-the-fact method additions
+        if isinstance(s_newvalue, SomePBC):
+            attr = self.name
+            if not s_newvalue.isNone() and s_newvalue.getKind() == description.MethodDesc:
+                if homedef.classdesc.read_attribute(attr, None) is None: # is method
+                    if not homedef.check_missing_attribute_update(attr):
+                        self.bookkeeper.warning("demoting method %s to base class %s" % 
+                                                (self.name, homedef))
 
 
 
 class ClassDef:
     "Wraps a user class."
 
-    def __init__(self, cls, bookkeeper):
+    def __init__(self, bookkeeper, classdesc):
         self.bookkeeper = bookkeeper
         self.attrs = {}          # {name: Attribute}
-        #self.instantiation_locations = {}
-        self.cls = cls
-        self.subdefs = {}
-        self.attr_sources = {}   # {name: {constant_object: classdef_or_None}}
-        base = object
-        mixeddict = {}
-        sources = {}
-        baselist = list(cls.__bases__)
-        baselist.reverse()
-        self.also_Exception_subclass = False
-        if Exception in baselist and len(baselist)>1: # special-case
-            baselist.remove(Exception)
-            mixeddict['__init__'] = Exception.__init__.im_func
-            self.also_Exception_subclass = True
+        self.classdesc = classdesc
+        self.name = self.classdesc.name
+        self.shortname = self.name.split('.')[-1]        
+        self.subdefs = []
+        self.attr_sources = {}   # {name: list-of-sources}
 
-        for b1 in baselist:
-            if b1 is object:
-                continue
-            if getattr(b1, '_mixin_', False):
-                assert b1.__bases__ == () or b1.__bases__ == (object,), (
-                    "mixin class %r should have no base" % (b1,))
-                mixeddict.update(b1.__dict__)
-                for name in b1.__dict__:
-                    sources[name] = b1
-            else:
-                assert base is object, ("multiple inheritance only supported "
-                                        "with _mixin_: %r" % (cls,))
-                base = b1
-        mixeddict.update(cls.__dict__)
+        if classdesc.basedesc:
+            self.basedef = classdesc.basedesc.getuniqueclassdef()
+            self.basedef.subdefs.append(self)
+        else:
+            self.basedef = None
 
-        self.basedef = bookkeeper.getclassdef(base)
-        if self.basedef:
-            self.basedef.subdefs[cls] = self
+        self.parentdefs = dict.fromkeys(self.getmro())
 
-        # pass some data to the setup() method, which must be called
-        # after the __init__()
-        self.sources_from_the_class = mixeddict, sources
-
-        # forced attributes
-        if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
-            for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
-                self.generalize_attr(name, s_value)
-                self.find_attribute(name).readonly = False
-
-    def setup(self):
+    def setup(self, sources):
         # collect the (supposed constant) class attributes
-        cls = self.cls
-        d, sources = self.sources_from_the_class
-        del self.sources_from_the_class   # setup() shouldn't be called twice
-        for name, value in d.items():
-            # ignore some special attributes
-            if name.startswith('_') and not isinstance(value, FunctionType):
-                continue
-            if isinstance(value, FunctionType):
-                if not hasattr(value, 'class_'):
-                    value.class_ = cls # remember that this is really a method
-            self.add_source_for_attribute(name, sources.get(name, cls), self)
+        for name, source in sources.items():
+            self.add_source_for_attribute(name, source)
         if self.bookkeeper:
             self.bookkeeper.event('classdef_setup', self)
 
-    def add_source_for_attribute(self, attr, source, clsdef=None):
+    def add_source_for_attribute(self, attr, source):
         """Adds information about a constant source for an attribute.
         """
-        sources = self.attr_sources.setdefault(attr, {})
         for cdef in self.getmro():
             if attr in cdef.attrs:
                 # the Attribute() exists already for this class (or a parent)
                 attrdef = cdef.attrs[attr]
                 s_prev_value = attrdef.s_value
-                attrdef.add_constant_source(source, clsdef)
+                attrdef.add_constant_source(self, source)
                 # we should reflow from all the reader's position,
                 # but as an optimization we try to see if the attribute
                 # has really been generalized
@@ -215,18 +164,19 @@ class ClassDef:
                 return
         else:
             # remember the source in self.attr_sources
-            sources[source] = clsdef
+            sources = self.attr_sources.setdefault(attr, [])
+            sources.append(source)
             # register the source in any Attribute found in subclasses,
             # to restore invariant (III)
             # NB. add_constant_source() may discover new subdefs but the
             #     right thing will happen to them because self.attr_sources
             #     was already updated
-            if clsdef is not None:
+            if not source.instance_level:
                 for subdef in self.getallsubdefs():
                     if attr in subdef.attrs:
                         attrdef = subdef.attrs[attr]
                         s_prev_value = attrdef.s_value
-                        attrdef.add_constant_source(source, clsdef)
+                        attrdef.add_constant_source(self, source)
                         if attrdef.s_value != s_prev_value:
                             attrdef.mutated(subdef) # reflow from all read positions
 
@@ -243,23 +193,23 @@ class ClassDef:
         return self.locate_attribute(attr).attrs[attr]
     
     def __repr__(self):
-        return "<ClassDef '%s.%s'>" % (self.cls.__module__, self.cls.__name__)
+        return "<ClassDef '%s'>" % (self.name,)
 
     def commonbase(self, other):
         other1 = other
-        while other is not None and not issubclass(self.cls, other.cls):
+        while other is not None and not self.issubclass(other):
             other = other.basedef
         # special case for MI with Exception
-        if other is None and other1 is not None:
-            if issubclass(self.cls, Exception) and issubclass(other1.cls, Exception):
-                return self.bookkeeper.getclassdef(Exception)
+        #if other is None and other1 is not None:
+        #    if issubclass(self.cls, Exception) and issubclass(other1.cls, Exception):
+        #        return self.bookkeeper.getclassdef(Exception)
         return other
 
-    def superdef_containing(self, cls):
-        clsdef = self
-        while clsdef is not None and not issubclass(cls, clsdef.cls):
-            clsdef = clsdef.basedef
-        return clsdef
+    #def superdef_containing(self, cls):
+    #    clsdef = self
+    #    while clsdef is not None and not issubclass(cls, clsdef.cls):
+    #        clsdef = clsdef.basedef
+    #    return clsdef
 
     def getmro(self):
         while self is not None:
@@ -267,14 +217,14 @@ class ClassDef:
             self = self.basedef
 
     def issubclass(self, otherclsdef):
-        return issubclass(self.cls, otherclsdef.cls)
+        return otherclsdef in self.parentdefs
 
     def getallsubdefs(self):
         pending = [self]
         seen = {}
         for clsdef in pending:
             yield clsdef
-            for sub in clsdef.subdefs.values():
+            for sub in clsdef.subdefs:
                 if sub not in seen:
                     pending.append(sub)
                     seen[sub] = True
@@ -283,24 +233,25 @@ class ClassDef:
         # first remove the attribute from subclasses -- including us!
         # invariant (I)
         subclass_attrs = []
-        constant_sources = {}
+        constant_sources = []    # [(classdef-of-origin, source)]
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
                 subclass_attrs.append(subdef.attrs[attr])
                 del subdef.attrs[attr]
             if attr in subdef.attr_sources:
                 # accumulate attr_sources for this attribute from all subclasses
-                d = subdef.attr_sources[attr]
-                constant_sources.update(d)
-                d.clear()    # invariant (II)
+                lst = subdef.attr_sources[attr]
+                for source in lst:
+                    constant_sources.append((subdef, source))
+                del lst[:]    # invariant (II)
 
         # accumulate attr_sources for this attribute from all parents, too
         # invariant (III)
         for superdef in self.getmro():
             if attr in superdef.attr_sources:
-                for source, classdef in superdef.attr_sources[attr].items():
-                    if classdef is not None:
-                        constant_sources[source] = classdef
+                for source in superdef.attr_sources[attr]:
+                    if not source.instance_level:
+                        constant_sources.append((superdef, source))
 
         # create the Attribute and do the generalization asked for
         newattr = Attribute(attr, self.bookkeeper)
@@ -317,8 +268,8 @@ class ClassDef:
 
         # add the values of the pending constant attributes
         # completes invariants (II) and (III)
-        for source, classdef in constant_sources.items():
-            newattr.add_constant_source(source, classdef)
+        for origin_classdef, source in constant_sources:
+            newattr.add_constant_source(origin_classdef, source)
 
         # reflow from all read positions
         newattr.mutated(self)
@@ -345,50 +296,45 @@ class ClassDef:
                     return None
         return None
 
-    def matching(self, pbc, name=None):
-        d = {}
+    def lookup_filter(self, pbc, name=None):
+        """Selects the methods in the pbc that could possibly be seen by
+        a lookup performed on an instance of 'self', removing the ones
+        that cannot appear.
+        """
+        d = []
         uplookup = None
-        upfunc = None
+        updesc = None
         meth = False
         check_for_missing_attrs = False
-        for func, value in pbc.prebuiltinstances.items():
-            if isclassdef(value):
+        for desc in pbc.descriptions:
+            # pick methods but ignore already-bound methods, which can come
+            # from an instance attribute
+            if (isinstance(desc, description.MethodDesc)
+                and desc.selfclassdef is None):
                 meth = True
-                if value is not self and  value.issubclass(self):
+                methclassdef = desc.originclassdef
+                if methclassdef is not self and methclassdef.issubclass(self):
                     pass # subclasses methods are always candidates
-                elif self.issubclass(value): # upward consider only the best match
-                    if uplookup is None or value.issubclass(uplookup):
-                        uplookup = value
-                        upfunc = func
+                elif self.issubclass(methclassdef):
+                    # upward consider only the best match
+                    if uplookup is None or methclassdef.issubclass(uplookup):
+                        uplookup = methclassdef
+                        updesc = desc
                     continue
-                    # for clsdef1 >= clsdef2
-                    # clsdef1.matching(pbc) includes clsdef2.matching(pbc)
+                    # for clsdef1 >= clsdef2, we guarantee that
+                    # clsdef1.lookup_filter(pbc) includes
+                    # clsdef2.lookup_filter(pbc) (see formal proof...)
                 else:
                     continue # not matching
-            d[func] = value
+                # bind the method by giving it a selfclassdef.  Use the
+                # more precise subclass that it's coming from.
+                desc = desc.bind_self(methclassdef)
+            d.append(desc)
         if uplookup is not None:            
-            # hack^2, in this case the classdef for uplookup could be the result
-            # of the union of subclass sources that share the same implementation function
-            # so there could be still super and subclass implementations added after the fact
-            # that could be going undetected. We use uplookup.attr_sources[name] to flag
-            # whether a super implementation was considered and as such not undetected
-            if name is not None and not name in uplookup.attr_sources:
-                uplookup.attr_sources.setdefault(name, {})
-                check_for_missing_attrs = True
+            d.append(updesc.bind_self(self))
 
-            # when the method is found in a parent class, it get bound to the
-            # 'self' subclass.  This allows the 'func: classdef' entry of the
-            # PBC dictionary to track more precisely with which 'self' the
-            # method is called.
-            d[upfunc] = self
-        elif meth and name is not None:
-            check_for_missing_attrs = True
-
-        if check_for_missing_attrs:
-            self.check_missing_attribute_update(name)
-
-        if d:
-            return SomePBC(d)
+        if d or pbc.can_be_None:
+            return SomePBC(d, can_be_None=pbc.can_be_None)
         else:
             return SomeImpossibleValue()
 
@@ -406,9 +352,10 @@ class ClassDef:
         return found
 
     def check_attr_here(self, name):
-        if name in self.cls.__dict__:
+        source = self.classdesc.find_source_for(name)
+        if source is not None:
             # oups! new attribute showed up
-            self.add_source_for_attribute(name, self.cls, self)
+            self.add_source_for_attribute(name, source)
             # maybe it also showed up in some subclass?
             for subdef in self.getallsubdefs():
                 if subdef is not self:
@@ -417,8 +364,22 @@ class ClassDef:
         else:
             return False
 
-def isclassdef(x):
-    return isinstance(x, ClassDef)
+    def _freeze_(self):
+        raise Exception, "ClassDefs are used as knowntype for instances but cannot be used as immutablevalue arguments directly"
+
+# ____________________________________________________________
+
+class InstanceSource:
+    instance_level = True
+
+    def __init__(self, bookkeeper, obj):
+        self.bookkeeper = bookkeeper
+        self.obj = obj
+ 
+    def s_get_value(self, classdef, name):
+        s_value = self.bookkeeper.immutablevalue(
+            self.obj.__dict__[name])
+        return s_value
 
 # ____________________________________________________________
 

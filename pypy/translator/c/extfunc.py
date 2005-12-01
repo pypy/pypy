@@ -1,14 +1,13 @@
 import types
+from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.support import cdecl
-from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
 from pypy.rpython import rlist
 from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.module.thread.rpython import ll_thread
 from pypy.module._socket.rpython import ll__socket
-
 
 # table of functions hand-written in src/ll_*.h
 EXTERNALS = {
@@ -117,8 +116,8 @@ def predeclare_utility_functions(db, rtyper):
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):
             # hack: the defaults give the type of the arguments
-            fptr = rtyper.annotate_helper(f, f.func_defaults)
-            yield (fname, fptr)
+            graph = rtyper.annotate_helper(f, f.func_defaults)
+            yield (fname, graph)
 
 def predeclare_extfunc_helpers(db, rtyper):
     def annotate(func, *argtypes):
@@ -159,14 +158,14 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPYTHON_EXCEPTION_VTABLE', exceptiondata.lltype_of_exception_type)
     yield ('RPYTHON_EXCEPTION',        exceptiondata.lltype_of_exception_value)
 
-    yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
-    yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
-    yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.ll_raise_OSError)
+    yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.fn_exception_match)
+    yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.fn_type_of_exc_inst)
+    yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.fn_raise_OSError)
     if not db.standalone:
-        yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.ll_pyexcclass2exc)
+        yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
     for pyexccls in exceptiondata.standardexceptions:
-        exc_llvalue = exceptiondata.ll_pyexcclass2exc(
+        exc_llvalue = exceptiondata.fn_pyexcclass2exc(
             lltype.pyobjectptr(pyexccls))
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
@@ -199,9 +198,6 @@ def pre_include_code_lines(db, rtyper):
         assert '\n' not in llname
         return '#define\t%s\t%s' % (c_name, llname)
 
-    def predeclarefn(c_name, ll_func):
-        return predeclare(c_name, getfunctionptr(db.translator, ll_func))
-
     def predeclaretype(c_typename, lowleveltype):
         typename = db.gettype(lowleveltype)
         return 'typedef %s;' % cdecl(typename, c_typename)
@@ -217,8 +213,8 @@ def pre_include_code_lines(db, rtyper):
     for c_name, obj in decls:
         if isinstance(obj, lltype.LowLevelType):
             yield predeclaretype(c_name, obj)
-        elif isinstance(obj, types.FunctionType):
-            yield predeclarefn(c_name, obj)
+        elif isinstance(obj, FunctionGraph):
+            yield predeclare(c_name, rtyper.getcallable(obj))
         else:
             yield predeclare(c_name, obj)
 

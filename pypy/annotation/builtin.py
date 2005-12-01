@@ -126,16 +126,24 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                 
             assert not issubclass(typ, (int,long)) or typ in (bool, int), (
                 "for integers only isinstance(.,int|r_uint) are supported")
+ 
             if s_obj.is_constant():
                 r.const = isinstance(s_obj.const, typ)
+            elif isinstance(s_obj, SomeInstance):
+                typdef = getbookkeeper().getuniqueclassdef(typ)
+                if s_obj.classdef.issubclass(typdef):
+                    if not s_obj.can_be_none():
+                        r.const = True 
+                elif not typdef.issubclass(s_obj.classdef):
+                    r.const = False
             elif our_issubclass(s_obj.knowntype, typ):
                 if not s_obj.can_be_none():
                     r.const = True 
             elif not our_issubclass(typ, s_obj.knowntype): 
                 r.const = False
             elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
-                                                         # from bool to int, notice that isinstance( , bool|int)
-                                                         # is quite border case for RPython
+                                                   # from bool to int, notice that isinstance( , bool|int)
+                                                   # is quite border case for RPython
                 r.const = False
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
@@ -224,14 +232,15 @@ def rarith_intmask(s_obj):
 def robjmodel_instantiate(s_clspbc):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
-    for cls, v in s_clspbc.prebuiltinstances.items():
+    more_than_one = len(s_clspbc.descriptions)
+    for desc in s_clspbc.descriptions:
+        cdef = desc.getuniqueclassdef()
+        if more_than_one:
+            getbookkeeper().needs_generic_instantiate[cdef] = True
         if not clsdef:
-            clsdef = getbookkeeper().getclassdef(cls)
+            clsdef = cdef
         else:
-            clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
-    if len(s_clspbc.prebuiltinstances) > 1:
-        for cls in s_clspbc.prebuiltinstances:
-            getbookkeeper().needs_generic_instantiate[cls] = True
+            clsdef = clsdef.commonbase(cdef)
     return SomeInstance(clsdef)
 
 def robjmodel_we_are_translated():
@@ -246,8 +255,17 @@ def robjmodel_r_dict(s_eqfn, s_hashfn):
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     from pypy.rpython import rmodel
     assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr),"hlinvoke expects a constant repr as first argument"
-    r_func, _  = s_repr.const.get_r_implfunc()
-    f, rinputs, rresult = r_func.get_signature()
+    r_func, nimplicitarg  = s_repr.const.get_r_implfunc()
+
+    nbargs = len(args_s) + nimplicitarg 
+    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    if len(s_sigs) != 1:
+        raise TyperError("cannot hlinvoke callable %r with not uniform"
+                         "annotations: %r" % (s_repr.const,
+                                              s_sigs))
+    _, s_ret = s_sigs[0]
+    rresult = r_func.rtyper.getrepr(s_ret)
+
     return lltype_to_annotation(rresult.lowleveltype)
 
 def robjmodel_keepalive_until_here(*args_s):
@@ -367,10 +385,10 @@ def new(I):
     r = SomeOOInstance(ootype.typeOf(i))
     return r
 
-def null(I):
-    assert I.is_constant()
-    i = ootype.null(I.const)
-    r = SomeOOInstance(ootype.typeOf(i))
+def null(I_OR_SM):
+    assert I_OR_SM.is_constant()
+    null = ootype.null(I_OR_SM.const)
+    r = lltype_to_annotation(ootype.typeOf(null))
     return r
 
 def instanceof(i, I):

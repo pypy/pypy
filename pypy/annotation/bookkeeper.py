@@ -3,19 +3,19 @@ The Bookkeeper class.
 """
 
 from __future__ import generators
-import sys
-from types import FunctionType, ClassType, NoneType
+import sys, types, inspect
+
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomePtr, unionof, SomeInstance, SomeDict, SomeBuiltin, SomePBC, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
-     new_or_old_class, SomeUnicodeCodePoint, SomeOOStaticMeth, \
+     SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeList, SomeObject
-from pypy.annotation.classdef import ClassDef, isclassdef
+from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
-from pypy.interpreter.pycode import cpython_code_signature
+from pypy.annotation import description
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import r_dict
@@ -23,29 +23,6 @@ from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.memory import lladdress
-
-from pypy.annotation.specialize import decide_callable
-
-class PBCAccessSet:
-    def __init__(self, obj):
-        self.objects = { obj: True }
-        self.read_locations = {}
-        self.attrs = {}
-        self.values = {}   # used in the typer 
-
-    def update(self, other):
-        self.objects.update(other.objects)
-        self.read_locations.update(other.read_locations)        
-        self.attrs.update(other.attrs)
-
-class PBCCallFamily:
-    def __init__(self, obj):
-        self.objects = { obj: True }
-        self.patterns = {}
-
-    def update(self, other):
-        self.objects.update(other.objects)
-        self.patterns.update(other.patterns)
 
 class Stats:
 
@@ -102,14 +79,14 @@ class Stats:
     def consider_non_int_eq(self, obj1, obj2):
         if obj1.knowntype == obj2.knowntype == list:
             self.count("list_list_eq", obj1, obj2)
-        return obj1.knowntype.__name__, obj2.knowntype.__name__
+        return self.typerepr(obj1), self.typerepr(obj2)
 
     def consider_non_int_comp(self, obj1, obj2):
-        return obj1.knowntype.__name__, obj2.knowntype.__name__
+        return self.typerepr(obj1), self.typerepr(obj2)
 
     def typerepr(self, obj):
         if isinstance(obj, SomeInstance):
-            return obj.classdef.cls.__name__
+            return obj.classdef.name
         else:
             return obj.knowntype.__name__
 
@@ -178,33 +155,22 @@ class Bookkeeper:
 
     def __init__(self, annotator):
         self.annotator = annotator
-        self.userclasses = {}    # map classes to ClassDefs
-        self.userclasseslist = []# userclasses.keys() in creation order
-        self.cachespecializations = {}
-        self.pbccache = {}
+        self.descs = {}          # map Python objects to their XxxDesc wrappers
+        self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
+        self.classdefs = []      # list of all ClassDefs
         self.pbctypes = {}
         self.seen_mutable = {}
         self.listdefs = {}       # map position_keys to ListDefs
         self.dictdefs = {}       # map position_keys to DictDefs
         self.immutable_cache = {}
 
-        # mapping position -> key, prev_result for specializations
-        self.spec_callsite_keys_results = {}
+        self.pbc_maximal_access_sets = UnionFind(description.AttrFamily)
+        self.pbc_maximal_call_families = UnionFind(description.CallFamily)
 
-        self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
-        # can be precisely computed only at fix-point, see
-        # compute_at_fixpoint
-        self.pbc_maximal_call_families = None
-        self.pbc_callables = None
-        
-        self.pbc_call_sites = {}
         self.emulated_pbc_calls = {}
 
         self.needs_hash_support = {}
-
         self.needs_generic_instantiate = {}
-
-        self.memo_tables = []
 
         self.stats = Stats(self)
 
@@ -225,43 +191,70 @@ class Bookkeeper:
         del self.position_key
 
     def compute_at_fixpoint(self):
-        if self.pbc_maximal_call_families is None:
-            self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
-        if self.pbc_callables is None:
-            self.pbc_callables = {}
+        # getbookkeeper() needs to work during this function, so provide
+        # one with a dummy position
+        self.enter(None)
+        try:
+            def call_sites():
+                newblocks = self.annotator.added_blocks
+                if newblocks is None:
+                    newblocks = self.annotator.annotated  # all of them
+                binding = self.annotator.binding
+                for block in newblocks:
+                    for op in block.operations:
+                        if op.opname in ('simple_call', 'call_args'):
+                            yield op
+                        # some blocks are partially annotated
+                        if binding(op.result, extquery=True) is None:
+                            break   # ignore the unannotated part
 
-        for (fn, block, i), shape in self.pbc_call_sites.iteritems():
-            spaceop = block.operations[i]
-            assert spaceop.opname in ('call_args', 'simple_call')
-            pbc = self.annotator.binding(spaceop.args[0], extquery=True)
-            self.consider_pbc_call(pbc, shape, spaceop)
-        self.pbc_call_sites = {}
+            for call_op in call_sites():
+                self.consider_call_site(call_op)
 
-        for pbc, shape in self.emulated_pbc_calls.itervalues():
-            self.consider_pbc_call(pbc, shape)
-        self.emulated_pbc_calls = {}
+            for pbc, args_s in self.emulated_pbc_calls.itervalues():
+                self.consider_call_site_for_pbc(pbc, 'simple_call', 
+                                                args_s, s_ImpossibleValue)
+            self.emulated_pbc_calls = {}
 
-        for cls in self.needs_hash_support.keys():
-            for cls2 in self.needs_hash_support:
-                if issubclass(cls, cls2) and cls is not cls2:
-                    del self.needs_hash_support[cls]
-                    break
+            for clsdef in self.needs_hash_support.keys():
+                for clsdef2 in self.needs_hash_support:
+                    if clsdef.issubclass(clsdef2) and clsdef is not clsdef2:
+                        del self.needs_hash_support[clsdef]
+                        break
+        finally:
+            self.leave()
 
-    def getclassdef(self, cls):
-        """Get the ClassDef associated with the given user cls."""
+    def consider_call_site(self, call_op):
+        binding = self.annotator.binding
+        s_callable = binding(call_op.args[0])
+        args_s = [binding(arg) for arg in call_op.args[1:]]
+        if isinstance(s_callable, SomeLLADTMeth):
+            adtmeth = s_callable
+            s_callable = self.immutablevalue(adtmeth.func)
+            args_s = [SomePtr(adtmeth.ll_ptrtype)] + args_s
+        if isinstance(s_callable, SomePBC):
+            s_result = binding(call_op.result, extquery=True)
+            if s_result is None:
+                s_result = s_ImpossibleValue
+            self.consider_call_site_for_pbc(s_callable,
+                                            call_op.opname,
+                                            args_s, s_result)
+
+    def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result):
+        descs = s_callable.descriptions.keys()
+        family = descs[0].getcallfamily()
+        args = self.build_args(opname, args_s)
+        s_callable.getKind().consider_call_site(self, family, descs, args,
+                                                s_result)
+
+    def getuniqueclassdef(self, cls):
+        """Get the ClassDef associated with the given user cls.
+        Avoid using this!  It breaks for classes that must be specialized.
+        """
         if cls is object:
             return None
-        try:
-            return self.userclasses[cls]
-        except KeyError:
-            if cls in self.pbctypes:
-                self.warning("%r gets a ClassDef, but is the type of some PBC"
-                             % (cls,))
-            cdef = ClassDef(cls, self)
-            self.userclasses[cls] = cdef
-            self.userclasseslist.append(cdef)
-            cdef.setup()
-            return cdef
+        desc = self.getdesc(cls)
+        return desc.getuniqueclassdef()
 
     def getlistdef(self, **flags):
         """Get the ListDef associated with the current position."""
@@ -300,7 +293,7 @@ class Bookkeeper:
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
-        # convert unbound methods to the underlying function
+         # convert unbound methods to the underlying function
         if hasattr(x, 'im_self') and x.im_self is None:
             x = x.im_func
             assert not hasattr(x, 'im_self')
@@ -365,18 +358,15 @@ class Bookkeeper:
             result = SomeOOClass(x._INSTANCE)   # NB. can be None
         elif isinstance(x, ootype._instance):
             result = SomeOOInstance(ootype.typeOf(x))
-        elif callable(x) or isinstance(x, staticmethod): # XXX
-            # maybe 'x' is a method bound to a not-yet-frozen cache?
-            # fun fun fun.
-            if hasattr(x, 'im_self') and hasattr(x.im_self, '_freeze_'):
-                x.im_self._freeze_()
+        elif callable(x):
             if hasattr(x, '__self__') and x.__self__ is not None:
+                # for cases like 'l.append' where 'l' is a global constant list
                 s_self = self.immutablevalue(x.__self__)
                 result = s_self.find_method(x.__name__)
                 if result is None:
                     result = SomeObject()
             else:
-                return self.getpbc(x)
+                result = SomePBC([self.getdesc(x)])
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
             # user-defined classes can define a method _freeze_(), which
@@ -385,48 +375,93 @@ class Bookkeeper:
             # a SomePBC().  Otherwise it's just SomeInstance().
             frozen = hasattr(x, '_freeze_') and x._freeze_()
             if frozen:
-                return self.getpbc(x)
+                result = SomePBC([self.getdesc(x)])
             else:
-                clsdef = self.getclassdef(x.__class__)
-                if x.__class__.__dict__.get('_annspecialcase_', '').endswith('ctr_location'):
-                    raise Exception, "encountered a pre-built mutable instance of a class needing specialization: %s" % x.__class__.__name__
-                if x not in self.seen_mutable: # avoid circular reflowing, 
-                                               # see for example test_circular_mutable_getattr
-                    self.seen_mutable[x] = True
-                    self.event('mutable', x)
-                    for attr in x.__dict__:
-                        clsdef.add_source_for_attribute(attr, x) # can trigger reflowing
-                result = SomeInstance(clsdef)
+                self.see_mutable(x)
+                result = SomeInstance(self.getuniqueclassdef(x.__class__))
         elif x is None:
-            return self.getpbc(None)
+            return s_None
         else:
             result = SomeObject()
         result.const = x
         return result
 
-    def getpbc(self, x):
+    def getdesc(self, pyobj):
+        # get the XxxDesc wrapper for the given Python object, which must be
+        # one of:
+        #  * a user-defined Python function
+        #  * a Python type or class (but not a built-in one like 'int')
+        #  * a user-defined bound or unbound method object
+        #  * a frozen pre-built constant (with _freeze_() == True)
+        #  * a bound method of a frozen pre-built constant
         try:
-            # this is not just an optimization, but needed to avoid
-            # infinitely repeated calls to add_source_for_attribute()
-            return self.pbccache[x]
+            return self.descs[pyobj]
         except KeyError:
-            result = SomePBC({x: True}) # pre-built inst
-            #clsdef = self.getclassdef(new_or_old_class(x))
-            #for attr in getattr(x, '__dict__', {}):
-            #    clsdef.add_source_for_attribute(attr, x)
-            self.pbccache[x] = result
-            cls = new_or_old_class(x)
-            if cls not in self.pbctypes:
-                self.pbctypes[cls] = True
-                if cls in self.userclasses:
-                    self.warning("making some PBC of type %r, which has "
-                                 "already got a ClassDef" % (cls,))
+            if isinstance(pyobj, types.FunctionType):
+                result = description.FunctionDesc(self, pyobj)
+            elif isinstance(pyobj, (type, types.ClassType)):
+                if pyobj is object:
+                    raise Exception, "ClassDesc for object not supported"
+                result = description.ClassDesc(self, pyobj)
+            elif isinstance(pyobj, types.MethodType):
+                if pyobj.im_self is None:   # unbound
+                    return self.getdesc(pyobj.im_func)
+                elif (hasattr(pyobj.im_self, '_freeze_') and
+                      pyobj.im_self._freeze_()):  # method of frozen
+                    result = description.MethodOfFrozenDesc(self,
+                        self.getdesc(pyobj.im_func),            # funcdesc
+                        self.getdesc(pyobj.im_self))            # frozendesc
+                else: # regular method
+                    origincls, name = origin_of_meth(pyobj)
+                    self.see_mutable(pyobj.im_self)
+                    assert pyobj == getattr(pyobj.im_self, name), (
+                        "%r is not %s.%s ??" % (pyobj, pyobj.im_self, name))
+                    # emulate a getattr to make sure it's on the classdef
+                    classdef = self.getuniqueclassdef(pyobj.im_class)
+                    classdef.find_attribute(name)
+                    result = self.getmethoddesc(
+                        self.getdesc(pyobj.im_func),            # funcdesc
+                        self.getuniqueclassdef(origincls),      # originclassdef
+                        classdef,                               # selfclassdef
+                        name)
+            else:
+                # must be a frozen pre-built constant, but let's check
+                assert pyobj._freeze_()
+                result = description.FrozenDesc(self, pyobj)
+                cls = result.knowntype
+                if cls not in self.pbctypes:
+                    self.pbctypes[cls] = True
+                    # XXX what to do about this old check?:
+                    #if cls in self.userclasses:
+                    #    self.warning("making some PBC of type %r, which has "
+                    #                 "already got a ClassDef" % (cls,))
+            self.descs[pyobj] = result
             return result
+
+    def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name):
+        key = funcdesc, originclassdef, selfclassdef, name
+        try:
+            return self.methoddescs[key]
+        except KeyError:
+            result = description.MethodDesc(self, funcdesc, originclassdef,
+                                            selfclassdef, name)
+            self.methoddescs[key] = result
+            return result
+
+    def see_mutable(self, x):
+        if x in self.seen_mutable:
+            return
+        clsdef = self.getuniqueclassdef(x.__class__)        
+        self.seen_mutable[x] = True
+        self.event('mutable', x)
+        source = InstanceSource(self, x)
+        for attr in x.__dict__:
+            clsdef.add_source_for_attribute(attr, source) # can trigger reflowing
 
     def valueoftype(self, t):
         """The most precise SomeValue instance that contains all
         objects of type t."""
-        assert isinstance(t, (type, ClassType))
+        assert isinstance(t, (type, types.ClassType))
         if t is bool:
             return SomeBool()
         elif t is int:
@@ -442,12 +477,12 @@ class Bookkeeper:
         elif t is dict:
             return SomeDict(MOST_GENERAL_DICTDEF)
         # can't do tuple
-        elif t is NoneType:
-            return self.getpbc(None)
+        elif t is types.NoneType:
+            return s_None
         elif t in EXTERNAL_TYPE_ANALYZERS:
             return SomeExternalObject(t)
         elif t.__module__ != '__builtin__' and t not in self.pbctypes:
-            classdef = self.getclassdef(t)
+            classdef = self.getuniqueclassdef(t)
             return SomeInstance(classdef)
         else:
             o = SomeObject()
@@ -459,191 +494,82 @@ class Bookkeeper:
         assert s_attr.is_constant()
         attr = s_attr.const
 
-        access_sets = self.pbc_maximal_access_sets
-        objects = pbc.prebuiltinstances.keys()
-
-        for obj in objects:
-            if obj is not None:
-                first = obj
-                break
-        else:
+        descs = pbc.descriptions.keys()
+        if not descs:
             return SomeImpossibleValue()
-
-        change, rep, access = access_sets.find(first)
-        for obj in objects:
-            if obj is not None:
-                change1, rep, access = access_sets.union(rep, obj)
-                change = change or change1
+        first = descs[0]
+        change = first.mergeattrfamilies(*descs[1:])
+        attrfamily = first.getattrfamily()
 
         position = self.position_key
-        access.read_locations[position] = True
+        attrfamily.read_locations[position] = True
 
         actuals = []
-        for c in access.objects:
-            if hasattr(c, attr):
-                actuals.append(self.immutablevalue(getattr(c, attr)))
+        for desc in descs:
+            actuals.append(desc.s_read_attribute(attr))
         s_result = unionof(*actuals)
 
-        access.attrs[attr] = s_result
+        attrfamily.attrs[attr] = unionof(s_result,
+            attrfamily.attrs.get(attr, s_ImpossibleValue))
 
         if change:
-            for position in access.read_locations:
+            for position in attrfamily.read_locations:
                 self.annotator.reflowfromposition(position)
                 
         return s_result
 
-    # xxx refactor
+    def pbc_call(self, pbc, args, emulated=None):
+        """Analyse a call to a SomePBC() with the given args (list of
+        annotations).
+        """
+        descs = pbc.descriptions.keys()
+        if not descs:
+            return SomeImpossibleValue()
+        first = descs[0]
+        first.mergecallfamilies(*descs[1:])
 
-    def consider_pbc_call(self, pbc, shape, spaceop=None, implicit_init=None): # computation done at fix-point
-        if not isinstance(pbc, SomePBC):
-            return
-        
-        if implicit_init:
-            implicit_init = pbc, implicit_init
-            shape = (shape[0]+1,) + shape[1:]
-        else:
-            implicit_init = None
-
-        if not (spaceop is implicit_init is None):
-            pbc, dontcaresc = self.query_spaceop_callable(spaceop,
-                                            implicit_init=implicit_init) 
-
-        nonnullcallables = []
-        for func, classdef in pbc.prebuiltinstances.items():
-            if func is None:
-                continue
-            if not isclassdef(classdef): 
-                classdef = None
-
-            # if class => consider __init__ too
-            if isinstance(func, (type, ClassType)) and \
-                    func.__module__ != '__builtin__':
-                assert classdef is None
-                init_classdef, s_init = self.get_s_init(func)
-                if s_init is not None:
-                    self.consider_pbc_call(s_init, shape, spaceop, implicit_init=init_classdef) 
-
-            callable = (classdef, func)
-            assert not hasattr(func, 'im_func') or func.im_self is not None
-            self.pbc_callables.setdefault(func,{})[callable] = True
-            nonnullcallables.append(callable)
-
-        if nonnullcallables:
-            call_families = self.pbc_maximal_call_families
-
-            dontcare, rep, callfamily = call_families.find(nonnullcallables[0])
-            for obj in nonnullcallables:
-                    dontcare, rep, callfamily = call_families.union(rep, obj)
-
-            callfamily.patterns.update({shape: True})
- 
-    def pbc_call(self, pbc, args, implicit_init=False, emulated=None):
-        if not implicit_init and not emulated:
+        if emulated is None:
+            whence = self.position_key
+            # fish the existing annotation for the result variable,
+            # needed by some kinds of specialization.
             fn, block, i = self.position_key
-            assert block.operations[i].opname in ('call_args', 'simple_call')
-            assert self.annotator.binding(block.operations[i].args[0], extquery=True) is pbc
-            
-            # extract shape from args
-            shape = args.rawshape()
-            if self.position_key in self.pbc_call_sites:
-                assert self.pbc_call_sites[self.position_key] == shape
+            op = block.operations[i]
+            s_previous_result = self.annotator.binding(op.result,
+                                                       extquery=True)
+            if s_previous_result is None:
+                s_previous_result = s_ImpossibleValue
+        else:
+            if emulated is True:
+                whence = None
             else:
-                self.pbc_call_sites[self.position_key] = shape
+                whence = emulated # callback case
+            s_previous_result = s_ImpossibleValue
+
+        def schedule(graph, inputcells):
+            return self.annotator.recursivecall(graph, whence, inputcells)
 
         results = []
-        nonnullcallables = [(func, classdef)
-                            for func, classdef in pbc.prebuiltinstances.items()
-                            if func is not None]
-        mono = len(nonnullcallables) == 1
-
-        if emulated is not None:
-            if emulated is True:
-                context = None
-            else:
-                context = emulated
-        else:
-            context = 'current'
-
-        for func, classdef in nonnullcallables:
-            if isclassdef(classdef): 
-                s_self = SomeInstance(classdef)
-                args1 = args.prepend(s_self)
-            else:
-                args1 = args
-            results.append(self.pycall(func, args1, mono, context=context))
-
-        return unionof(*results) 
+        for desc in descs:
+            results.append(desc.pycall(schedule, args, s_previous_result))
+        s_result = unionof(*results)
+        return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
-        args = self.build_args("simple_call", args_s)
-        shape = args.rawshape()
+
         emulated_pbc_calls = self.emulated_pbc_calls
         prev = [unique_key]
         prev.extend(replace)
         for other_key in prev:
             if other_key in emulated_pbc_calls:
-                pbc, old_shape = emulated_pbc_calls[other_key]
-                assert shape == old_shape
                 del emulated_pbc_calls[other_key]
-        emulated_pbc_calls[unique_key] = pbc, shape
+        emulated_pbc_calls[unique_key] = pbc, args_s
 
+        args = self.build_args("simple_call", args_s)
         if callback is None:
             emulated = True
         else:
             emulated = callback
-
         return self.pbc_call(pbc, args, emulated=emulated)
-
-    # decide_callable(position, func, args, mono) -> callb, key
-    # query_spaceop_callable(spaceop) -> pbc, isspecialcase
-    # get_s_init(decided_cls) -> classdef, s_undecided_init
-
-    def query_spaceop_callable(self, spaceop, implicit_init=None): # -> s_pbc, specialcase
-        self.enter(None)
-        try:
-            if implicit_init is None:
-                assert spaceop.opname in ("simple_call", "call_args")
-                obj = spaceop.args[0]
-                s_obj = self.annotator.binding(obj, extquery=True)
-                init_classdef = None
-            else:
-                s_obj, init_classdef = implicit_init
-
-            argsvars = spaceop.args[1:]
-            args_s = [self.annotator.binding(v) for v in argsvars]
-            args = self.build_args(spaceop.opname, args_s)
-
-            if isinstance(s_obj, SomePBC):
-                if len(s_obj.prebuiltinstances) > 1: # no specialization expected
-                    return s_obj, False
-
-                func, classdef = s_obj.prebuiltinstances.items()[0]
-
-                if init_classdef:
-                    args = args.prepend(SomeInstance(init_classdef))
-                elif isclassdef(classdef): 
-                    s_self = SomeInstance(classdef)
-                    args = args.prepend(s_self)
-            elif isinstance(s_obj, SomeLLADTMeth):
-                func = s_obj.func
-                args = args.prepend(SomePtr(s_obj.ll_ptrtype))
-            else:
-                assert False, "unexpected callable %r for query_spaceop_callable" % s_obj
-
-            func, key = decide_callable(self, spaceop, func, args, mono=True)
-
-            if key is None:
-                return s_obj, False
-
-            if func is None: # specialisation computes annotation direclty
-                return s_obj, True
-
-            if isinstance(s_obj, SomePBC):
-                return SomePBC({func: classdef}), False
-            else:
-                return SomeLLADTMeth(s_obj.ll_ptrtype, func), False
-        finally:
-            self.leave()
 
     def build_args(self, op, args_s):
         space = RPythonCallsSpace()
@@ -653,92 +579,9 @@ class Bookkeeper:
             return Arguments.fromshape(space, args_s[0].const, # shape
                                        list(args_s[1:]))
 
-    def get_s_init(self, cls):
-        classdef = self.getclassdef(cls)
-        init = getattr(cls, '__init__', None)
-        if init is not None and init != object.__init__:
-            # don't record the access of __init__ on the classdef
-            # because it is not a dynamic attribute look-up, but
-            # merely a static function call
-            s_init = self.immutablevalue(init)
-            return classdef, s_init
-        else:
-            return classdef, None
- 
-    def get_inputcells(self, func, args):
-        # parse the arguments according to the function we are calling
-        signature = cpython_code_signature(func.func_code)
-        defs_s = []
-        if func.func_defaults:
-            for x in func.func_defaults:
-                defs_s.append(self.immutablevalue(x))
-        try:
-            inputcells = args.match_signature(signature, defs_s)
-        except ArgErr, e:
-            raise TypeError, "signature mismatch: %s" % e.getmsg(args, func.__name__)
-
-        return inputcells
- 
-
-    def pycall(self, func, args, mono, context='current'):
-        if func is None:   # consider None as a NULL function pointer
-            return SomeImpossibleValue()
-
-        # decide and pick if necessary a specialized version
-        base_func = func
-        if context == 'current':
-            position_key = self.position_key
-        else:
-            position_key = None
-        func, key = decide_callable(self, position_key, func, args, mono, unpacked=True)
-        
-        if func is None:
-            assert isinstance(key, SomeObject)
-            return key
-
-        func, args = func # method unpacking done by decide_callable
-            
-        if isinstance(func, (type, ClassType)) and \
-            func.__module__ != '__builtin__':
-            classdef, s_init = self.get_s_init(func)
-            s_instance = SomeInstance(classdef)
-            # flow into __init__() if the class has got one
-            if s_init is not None:
-                s_init.call(args.prepend(s_instance), implicit_init=True)
-            else:
-                try:
-                    args.fixedunpack(0)
-                except ValueError:
-                    raise Exception, "no __init__ found in %r" % (classdef.cls,)
-            return s_instance
-
-        assert isinstance(func, FunctionType), "[%s] expected user-defined function, got %r" % (self.whereami(), func)
-
-        inputcells = self.get_inputcells(func, args)
-        if context == 'current':
-            whence = self.position_key
-        else:
-            whence = context
-        r = self.annotator.recursivecall(func, whence, inputcells)
-
-        # if we got different specializations keys for a same site, mix previous results for stability
-        if key is not None:
-            assert context == 'current'
-            occurence = (base_func, self.position_key)
-            try:
-                prev_key, prev_r = self.spec_callsite_keys_results[occurence]
-            except KeyError:
-                self.spec_callsite_keys_results[occurence] = key, r
-            else:
-                if prev_key != key:
-                    r = unionof(r, prev_r)
-                    prev_key = None
-                self.spec_callsite_keys_results[occurence] = prev_key, r
-
-        return r
-
-    def ondegenerated(self, what, s_value, where=None, called_from=None):
-        self.annotator.ondegenerated(what, s_value, where=where, called_from=called_from)
+    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
+        self.annotator.ondegenerated(what, s_value, where=where,
+                                     called_from_graph=called_from_graph)
         
     def whereami(self):
         return self.annotator.whereami(self.position_key)
@@ -748,6 +591,18 @@ class Bookkeeper:
 
     def warning(self, msg):
         return self.annotator.warning(msg)
+
+def origin_of_meth(boundmeth):
+    func = boundmeth.im_func
+    candname = func.func_name
+    for cls in inspect.getmro(boundmeth.im_class):
+        dict = cls.__dict__
+        if dict.get(candname) is func:
+            return cls, candname
+        for name, value in dict.iteritems():
+            if value is func:
+                return cls, name
+    raise Exception, "could not match bound-method to attribute name: %r" % (boundmeth,)
 
 def ishashable(x):
     try:
@@ -796,3 +651,4 @@ def delayed_imports():
     global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS
     from pypy.annotation.builtin import BUILTIN_ANALYZERS
     from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
+

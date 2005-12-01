@@ -1,4 +1,4 @@
-from pypy.translator.translator import Translator
+from pypy.translator.translator import Translator, graphof
 from pypy.objspace.flow.model import traverse, Block
 
 def test_remove_direct_call_without_side_effects():
@@ -11,7 +11,7 @@ def test_remove_direct_call_without_side_effects():
     a = t.annotate([int])
     t.specialize()
     t.backend_optimizations()
-    assert len(t.flowgraphs[g].startblock.operations) == 1
+    assert len(graphof(t, g).startblock.operations) == 1
 
 def test_dont_remove_external_calls():
     import os
@@ -21,7 +21,7 @@ def test_dont_remove_external_calls():
     a = t.annotate([int])
     t.specialize()
     t.backend_optimizations()
-    assert len(t.flowgraphs[f].startblock.operations) == 1
+    assert len(graphof(t, f).startblock.operations) == 1
 
 def test_remove_recursive_call():
     def rec(a):
@@ -36,7 +36,7 @@ def test_remove_recursive_call():
     a = t.annotate([int])
     t.specialize()
     t.backend_optimizations()
-    assert len(t.flowgraphs[f].startblock.operations)
+    assert len(graphof(t, f).startblock.operations)
 
 def test_dont_remove_if_exception_guarded():
     def f(x):
@@ -55,7 +55,7 @@ def test_dont_remove_if_exception_guarded():
     a = t.annotate([int])
     t.specialize()
     t.backend_optimizations()
-    assert t.flowgraphs[g].startblock.operations[-1].opname == 'direct_call'
+    assert graphof(t, g).startblock.operations[-1].opname == 'direct_call'
 
 
 def test_remove_pointless_keepalive():
@@ -84,7 +84,7 @@ def test_remove_pointless_keepalive():
 
     #t.view()
 
-    graph = t.flowgraphs[f]
+    graph = graphof(t, f)
 
     for block in graph.iterblocks():
         for op in block.operations:

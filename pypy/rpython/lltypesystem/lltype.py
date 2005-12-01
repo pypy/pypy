@@ -601,7 +601,7 @@ class _ptr(object):
                 type(other).__name__,))
         if self._TYPE != other._TYPE:
             raise TypeError("comparing %r and %r" % (self._TYPE, other._TYPE))
-        return self._obj is other._obj
+        return self._obj == other._obj
 
     def __ne__(self, other):
         return not (self == other)

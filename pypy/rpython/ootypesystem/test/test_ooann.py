@@ -146,6 +146,17 @@ def test_static_method():
 
     assert s.knowntype == int
 
+def test_null_static_method():
+    F = StaticMethod([Signed, Signed], Signed)
+
+    def oof():
+        return null(F)
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [])
+    
+    assert s == annmodel.SomeOOStaticMeth(F)
+
 def test_truth_value():
     C = Instance("C", None)
     def oof(f):

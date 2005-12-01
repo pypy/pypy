@@ -1,7 +1,7 @@
 # ______________________________________________________________________
 import sys, operator, types
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
@@ -239,10 +239,17 @@ class FlowObjSpace(ObjSpace):
             name = name.replace(c, '_')
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
                                               constargs, closure, name)
+        graph = ec.graph
+        graph.func = func
+        # attach a signature and defaults to the graph
+        # so that it becomes even more interchangeable with the function
+        # itself
+        graph.signature = cpython_code_signature(code)
+        graph.defaults = func.func_defaults
         self.setup_executioncontext(ec)
         ec.build_flow()
-        checkgraph(ec.graph)
-        return ec.graph
+        checkgraph(graph)
+        return graph
 
     def unpacktuple(self, w_tuple, expected_length=None):
 ##        # special case to accept either Constant tuples

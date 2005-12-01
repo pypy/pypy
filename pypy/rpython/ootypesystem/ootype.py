@@ -71,7 +71,7 @@ class Instance(OOType):
             if self._has_field(name):
                 raise TypeError("Can't add method %r: field already exists" % name)
             if not isinstance(typeOf(method), Meth):
-                raise TypeError("added methods must be _meths, not %s" % type(defn))
+                raise TypeError("added methods must be _meths, not %s" % type(method))
         self._methods.update(methods)
 
     def _init_instance(self, instance):
@@ -119,10 +119,12 @@ class Instance(OOType):
         return all
 
 class StaticMethod(OOType):
+    __slots__ = ['_null']
 
     def __init__(self, args, result):
         self.ARGS = tuple(args)
         self.RESULT = result
+        self._null = _static_meth(self, _callable=None)
 
     def _example(self):
         _retval = self.RESULT._example()
@@ -136,8 +138,10 @@ class Meth(StaticMethod):
 
 class _class(object):
     _TYPE = Class
+
     def __init__(self, INSTANCE):
         self._INSTANCE = INSTANCE
+
 nullruntimeclass = _class(None)
 
 class _instance(object):
@@ -208,17 +212,30 @@ class _callable(object):
        self._callable = None
        self.__dict__.update(attrs)
 
-   def _checkargs(self, args):
+   def _checkargs(self, args, check_callable=True):
        if len(args) != len(self._TYPE.ARGS):
            raise TypeError,"calling %r with wrong argument number: %r" % (self._TYPE, args)
 
        for a, ARG in zip(args, self._TYPE.ARGS):
            if not isCompatibleType(typeOf(a), ARG):
                raise TypeError,"calling %r with wrong argument types: %r" % (self._TYPE, args)
+       if not check_callable:
+           return None
        callb = self._callable
        if callb is None:
-           raise RuntimeError,"calling undefined function"
+           raise RuntimeError,"calling undefined or null function"
        return callb
+
+   def __eq__(self, other):
+       return (self.__class__ is other.__class__ and
+               self.__dict__ == other.__dict__)
+
+   def __ne__(self, other):
+       return not (self == other)
+   
+   def __hash__(self):
+       return hash(frozendict(self.__dict__))
+
 
 class _static_meth(_callable):
 
@@ -260,8 +277,8 @@ def static_meth(FUNCTION, name,  **attrs):
 def meth(METHOD, **attrs):
     return _meth(METHOD, **attrs)
 
-def null(INSTANCE):
-    return INSTANCE._null
+def null(INSTANCE_OR_FUNCTION):
+    return INSTANCE_OR_FUNCTION._null
 
 def instanceof(inst, INSTANCE):
     # this version of instanceof() accepts a NULL instance and always
@@ -295,7 +312,7 @@ def runtimeClass(INSTANCE):
 def isSubclass(C1, C2):
     c = C1
     while c is not None:
-        if c is C2:
+        if c == C2:
             return True
         c = c._superclass
     return False

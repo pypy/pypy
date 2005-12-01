@@ -8,7 +8,8 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.annotation.model import SomePBC
-from pypy.annotation.classdef import isclassdef
+from pypy.annotation.description import MethodDesc
+from pypy.annotation.classdef import ClassDef
 from pypy.tool.uid import uid
 import inspect
 
@@ -213,7 +214,7 @@ class GenPyrex:
             # make the function visible from the outside
             # under its original name
             args = ', '.join([var.name for var in fun.getargs()])
-            self.putline("def %s(%s):" % (fun.name, args))
+            self.putline("def %s(%s):" % (fun.name.split('.')[-1], args))
             self.indent += 1
             self.putline("return %s(%s)" % (
                 self.getfunctionname(function_object), args))
@@ -247,6 +248,10 @@ class GenPyrex:
 
     def get_type(self, var):
         if isinstance(var, Constant):
+            tp = var.value.__class__
+            if self.annotator and tp in self.annotator.bookkeeper.descs:
+                classdesc = self.annotator.bookkeeper.descs[tp]
+                return classdesc.getuniqueclassdef()
             return type(var.value)
         elif self.annotator:
             return self.annotator.gettype(var)
@@ -257,7 +262,7 @@ class GenPyrex:
         vartype = self.get_type(var)
         if vartype in (int, bool):
             prefix = "i_"
-        elif self.annotator and vartype in self.annotator.getuserclasses():
+        elif isinstance(vartype, ClassDef):
             prefix = "p_"
         else:
             prefix = ""
@@ -271,8 +276,7 @@ class GenPyrex:
     def _gettypename(self, vartype):
         if vartype in (int, bool):
             ctype = "int"
-        elif (self.annotator and vartype in self.annotator.getuserclasses()
-              and vartype.__module__ != '__builtin__'):
+        elif isinstance(vartype, ClassDef):
             ctype = self.getclassname(vartype)
         else:
             ctype = "object"
@@ -286,9 +290,9 @@ class GenPyrex:
                 return ""
 
     def getclassname(self,cls):
-        assert inspect.isclass(cls)
-        name = cls.__name__
-        if issubclass(cls,Exception):
+        assert isinstance(cls, ClassDef)
+        name = cls.shortname
+        if cls.issubclass(self.annotator.bookkeeper.getuniqueclassdef(Exception)):
             return name
         return '%s__%x' % (name, uid(cls))#self._hackname(cls)
     
@@ -316,7 +320,8 @@ class GenPyrex:
         elif isinstance(obj, Constant):
             import types
             if isinstance(obj.value,(types.ClassType,type)):
-                fff=self.getclassname(obj.value)
+                bk = self.annotator.bookkeeper
+                fff=self.getclassname(bk.getuniqueclassdef(obj.value))
             elif isinstance(obj.value,(types.FunctionType,
                                        types.MethodType,
                                        type)):
@@ -423,42 +428,41 @@ class GenPyrex:
             self.lines = []
             self.indent = 0
             delay_methods={}
-            for cls in self.annotator.getuserclassdefinitions():
+            for cls in self.annotator.bookkeeper.classdefs:
                 if cls.basedef:
-                    bdef="(%s)" % (self.getclassname(cls.basedef.cls))
+                    bdef="(%s)" % (self.getclassname(cls.basedef))
                 else:
                     bdef=""
-                self.putline("cdef class %s%s:" % (self.getclassname(cls.cls),bdef))
+                self.putline("cdef class %s%s:" % (self.getclassname(cls),bdef))
                 self.indent += 1
                 empty = True
                 for attr, attrdef in cls.attrs.items():
                     s_value = attrdef.s_value
                     if isinstance(s_value, SomePBC):
-                        for py_fun,fun_class in s_value.prebuiltinstances.items():
-                            assert isclassdef(fun_class), ("don't support "
-                                "prebuilt constants like %r" % py_fun)
-                            delay_methods.setdefault(fun_class,[]).append(py_fun)
+                        assert s_value.getKind() is MethodDesc, ("don't support "
+                                "prebuilt constants like %r" % (s_value,))
+                        for methdesc in s_value.descriptions:
+                            meth_class = methdesc.originclassdef
+                            delay_methods.setdefault(meth_class,[]).append(methdesc)
                     else:
                         vartype=self._gettypename(s_value.knowntype)
                         self.putline("cdef public %s %s" % (vartype, attr))
                         empty = False
                 list_methods=delay_methods.get(cls,[])
-                for py_fun in list_methods:
+                for methdesc in list_methods:
                     # XXX!
-                    try:
-                        fun = self.annotator.translator.flowgraphs[py_fun]
-                    except KeyError:
-                        continue  # method present in class but never called
-                    hackedargs = ', '.join([var.name for var in fun.getargs()])
-                    self.putline("def %s(%s):" % (py_fun.__name__, hackedargs))
+                    graph = methdesc.funcdesc.cachedgraph(None)
+                    hackedargs = ', '.join([var.name for var in graph.getargs()])
+                    name = graph.name.split('.')[-1]
+                    self.putline("def %s(%s):" % (name, hackedargs))
                     self.indent += 1
                     # XXX special case hack: cannot use 'return' in __init__
-                    if py_fun.__name__ == "__init__":
+                    if name == "__init__":
                         statement = ""
                     else:
                         statement = "return "
                     self.putline("%s%s(%s)" % (statement,
-                                               self.getfunctionname(py_fun),
+                                               self.getfunctionname(graph.func),
                                                hackedargs))
                     self.indent -= 1
                     empty = False

@@ -7,11 +7,11 @@ from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import build_executable, CCompiler
 from pypy.translator.tool.cbuild import import_module_from_directory
-from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.locality.calltree import CallTree
 from pypy.translator.c.support import log
+from pypy.rpython.typesystem import getfunctionptr
 
 class CBuilder(object):
     c_source_filename = None
@@ -19,8 +19,9 @@ class CBuilder(object):
     symboltable = None
     stackless = False
     
-    def __init__(self, translator, gcpolicy=None, libraries=None, thread_enabled=False):
+    def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False):
         self.translator = translator
+        self.entrypoint = entrypoint
         self.gcpolicy = gcpolicy
         self.thread_enabled = thread_enabled
 
@@ -67,7 +68,7 @@ class CBuilder(object):
             self.symboltable = SymbolTable()
             cfile, extra = gen_source(db, modulename, targetdir,
                                       defines = defines,
-                                      exports = {translator.entrypoint.func_name: pf},
+                                      exports = {self.entrypoint.func_name: pf},
                                       symboltable = self.symboltable)
         else:
             if self.stackless:
@@ -87,7 +88,7 @@ class CExtModuleBuilder(CBuilder):
     c_ext_module = None 
 
     def getentrypointptr(self):
-        return lltype.pyobjectptr(self.translator.entrypoint)
+        return lltype.pyobjectptr(self.entrypoint)
 
     def compile(self):
         assert self.c_source_filename 
@@ -111,7 +112,7 @@ class CExtModuleBuilder(CBuilder):
     def get_entry_point(self):
         assert self.c_ext_module 
         return getattr(self.c_ext_module, 
-                       self.translator.entrypoint.func_name)
+                       self.entrypoint.func_name)
 
 
 class CStandaloneBuilder(CBuilder):
@@ -121,7 +122,8 @@ class CStandaloneBuilder(CBuilder):
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
-        return getfunctionptr(self.translator, self.translator.entrypoint)
+        bk = self.translator.annotator.bookkeeper
+        return getfunctionptr(bk.getdesc(self.entrypoint).cachedgraph(None))
 
     def getccompiler(self, extra_includes):
         # XXX for now, we always include Python.h
@@ -186,8 +188,8 @@ class CStandaloneBuilder(CBuilder):
         f.close()
 
 
-def translator2database(translator):
-    pf = lltype.pyobjectptr(translator.entrypoint)
+def translator2database(translator, entrypoint):
+    pf = lltype.pyobjectptr(entrypoint)
     db = LowLevelDatabase(translator)
     db.get(pf)
     db.complete()
