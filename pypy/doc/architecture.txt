@@ -46,7 +46,7 @@ of Psyco_ that should make PyPy run Python programs faster than CPython,
 and extensions, following the ideas of Stackless_ and others, that will
 increase the expressive power available to python programmers.
 
-.. _Python: http://www.python.org/doc/current/ref/ref.html
+.. _Python: http://docs.python.org/ref
 .. _Psyco: http://psyco.sourceforge.net
 .. _Stackless: http://stackless.com 
 
@@ -55,7 +55,7 @@ PyPy - Meta Goals
 ========================
 
 PyPy is not only about writing another Python interpreter.
-Traditionally, interpreters are written in some target platform language
+Traditionally, interpreters are written in a target platform language
 like C/Posix, Java or C#.  Each such interpreter provides a "mapping"
 from application source code to the target environment.  One of the
 goals of the "all-encompassing" environments, like the .NET framework
@@ -68,20 +68,20 @@ PyPy is experimenting with a different approach.  We are not writing a
 Python interpreter for a specific target platform.  We have written a
 Python interpreter in Python, without many references to low-level
 details.  (Because of the nature of Python, this is already a
-complicated task, although not as much as writing it -- say -- in C.)
+complicated task, although not as much as writing it in - say - C.)
 Then we use this as a "language specification" and manipulate it to
 produce the more traditional interpreters that we want.  In the above
 sense, we are generating the concrete "mappings" of Python into
 lower-level target platforms.
 
-So far (fall 2005), we have already succeeded in turning this "language
+So far (autumn 2005), we have already succeeded in turning this "language
 specification" into reasonably efficient C-level code that performs
 basically the same job as CPython.  Memory management is inserted during
-this "translation" process.  It can be configured to use reference
+this *translation* process.  It can be configured to use reference
 counting or not; thus we have already achieved two very different
-"mappings" of application Python code over C/Posix.  We have
-successfully translated our Python interpreter to the LLVM_ target as
-well, and we are working on targeting higher-level environments like
+mappings of application Python code over C/Posix.  We have
+successfully also translated our Python interpreter into LLVM_ code,
+and we are working on targeting higher-level environments like
 Java and Squeak.
 
 In some senses, PyPy project's central component is not its
@@ -99,7 +99,7 @@ one of these parameters changeable independently from each other:
 * we can tweak the translation process to produce low-level code based
   on different models and tradeoffs.
 
-By contrast, a standardized target environment -- say .NET -- 
+By contrast, a standardized target environment - say .NET -
 enforces ``m=1`` as far as it's concerned.  This helps making ``o`` a
 bit smaller by providing a higher-level base to build upon.  Still,
 we believe that enforcing the use of one common environment 
@@ -107,9 +107,9 @@ is not necessary.  PyPy's goal is to give weight to this claim - at least
 as far as language implementation is concerned - showing an approach
 to the ``n * m * o`` problem that does not rely on standardization.
 
-This is the "meta-goal"; a more concrete goal worth mentioning at this
+This is the *meta-goal*; a more concrete goal worth mentioning at this
 point is that language specifications can be used to generate cool stuff
-in addition to traditional interpreters -- e.g. Just-In-Time Compilers. 
+in addition to traditional interpreters - e.g. Just-In-Time compilers. 
 
 
 Higher level picture
@@ -176,7 +176,7 @@ is done in four steps:
 - the *annotator* which performs type inference on the flow graph;
 
 - the *typer* which, based on the type annotations, turns the flow graph
-  into one using only low-level, operations that fit the model of the
+  into one using only low-level operations that fit the model of the
   target platform;
 
 - the *code generator* which translates the resulting flow graph into
@@ -200,8 +200,7 @@ effectively, we need to restrict the dynamism of our interpreter-level
 Python code at some point.  However, in the start-up phase, we are
 completely free to use all kinds of powerful python constructs, including
 metaclasses and execution of dynamically constructed strings.  However,
-when the initialization phase (mainly, the function
-``objspace.initialize()``) finishes, all code objects involved need to
+when the initialization phase finishes, all code objects involved need to
 adhere to a more static subset of Python:
 Restricted Python, also known as `RPython`_. 
 
@@ -241,7 +240,7 @@ The newest piece of this puzzle is the
 uses them to modify the flow graph in-place to replace its operations with
 low-level ones, directly manipulating C-like values and data structures.
 
-Here is an overview of the whole process (`PDF color version`_):
+Here is an overview of the translation process (`PDF color version`_):
 
     .. image:: image/translation-greyscale-small.png
 
@@ -279,12 +278,12 @@ scale how our whole tool-chain supports flexibility from the interpreter
 written in Python to the resulting self-contained executable.
 
 Our rather complete and Python 2.4-compliant interpreter consists 
-of about 30'000-50'000 lines of code (depending on the way you
+of about 30,000-50,000 lines of code (depending on the way you
 count code borrowed and adapted from other sources), with
-another 14'000 lines of unit tests.  If we include the tools,
+another 14,000 lines of unit tests.  If we include the tools,
 the parts related to code analysis and generation, and the
-standard library modules ported from C, PyPy is now 138'000
-lines of code and 32'000 lines of tests. Refer to 
+standard library modules ported from C, PyPy is now 138,000
+lines of code and 32,000 lines of tests. Refer to 
 the `statistics web page`_ for more detailed information. 
 
 .. _`statistics web page`: http://codespeak.net/~hpk/pypy-stat/
