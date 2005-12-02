@@ -52,6 +52,9 @@ dependant on CPython anymore and becomes faster.
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
 
+**WARNING**: because of an ongoing major refactoring some of the examples
+below don't work in the svn version. Please use the 0.8.0 release for now!
+
 If you want to play with the ongoing development PyPy version 
 you can check it out from the repository using subversion. Download 
 and install subversion_ if you don't allready have it. Then you can
