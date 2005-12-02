@@ -1,6 +1,12 @@
-from pypy.rpython.llinterp import LLInterpreter
-from pypy.translator.translator import Translator, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import split_block
+from pypy.rpython.llinterp import LLInterpreter
+
+def translate(func, argtypes):
+    t = TranslationContext()
+    t.buildannotator().build_types(func, argtypes)
+    t.buildrtyper().specialize()
+    return graphof(t, func), t
 
 def test_split_blocks_simple():
     for i in range(4):
@@ -8,10 +14,7 @@ def test_split_blocks_simple():
             z = x + y
             w = x * y
             return z + w
-        t = Translator(f)
-        a = t.annotate([int, int])
-        t.specialize()
-        graph = graphof(t, f)
+        graph, t = translate(f, [int, int])
         split_block(t, graph, graph.startblock, i)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [1, 2])
@@ -24,10 +27,7 @@ def test_split_blocks_conditional():
                 return y + 1
             else:
                 return y + 2
-        t = Translator(f)
-        a = t.annotate([int, int])
-        t.specialize()
-        graph = graphof(t, f)
+        graph, t = translate(f, [int, int])
         split_block(t, graph, graph.startblock, i)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [-12, 2])
@@ -52,10 +52,7 @@ def test_split_block_exceptions():
             except KeyError:
                 return 1
             return x
-        t = Translator(catches)
-        a = t.annotate([int])
-        t.specialize()
-        graph = graphof(t, catches)
+        graph, t = translate(catches, [int])
         split_block(t, graph, graph.startblock, i)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [0])
