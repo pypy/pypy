@@ -81,7 +81,7 @@ function ll_stack_unwind() {
         slp_frame_stack_top = slp_frame_stack_bottom = slp_new_frame_simple(ll_stack_unwind);
     }
     LOG('slp_frame_stack_top='+slp_frame_stack_top + ', slp_frame_stack_bottom='+slp_frame_stack_bottom)
-    return null;
+    return slp_return_value;
 }
 
 function    slp_return_current_frame_to_caller() {
@@ -98,12 +98,13 @@ function slp_end_of_yielding_function() {
     LOG("slp_end_of_yielding_function");
     if (!slp_frame_stack_top) log('slp_end_of_yielding_function !slp_frame_stack_top'); // can only resume from slp_return_current_frame_to_caller()
     if (!slp_return_value)    log('slp_end_of_yielding_function !slp_return_value');
+    LOG('slp_return_value is going to ' + function_name(slp_return_value.func))
     slp_frame_stack_top = slp_return_value;
     return null;
 }
 
-function ll_stackless_switch__frame_stack_topPtr(c) {
-    LOG("ll_stackless_switch__frame_stack_topPtr");
+function ll_stackless_switch(c) {
+    LOG("ll_stackless_switch");
     var f;
     var result;
     if (slp_frame_stack_top) {  //resume
@@ -120,7 +121,7 @@ function ll_stackless_switch__frame_stack_topPtr(c) {
 
     LOG("slp_frame_stack_top == null");
     // first, unwind the current stack
-    f = slp_new_frame_simple(ll_stackless_switch__frame_stack_topPtr);
+    f = slp_new_frame_simple(ll_stackless_switch);
     f.p0 = c;
     slp_frame_stack_top = slp_frame_stack_bottom = f;
 }

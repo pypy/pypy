@@ -41,14 +41,10 @@ class JS(object):   # JS = Javascript
         self.db.prepare_arg_value(c)
 
         #add exception matching function (XXX should only be done when needed)
-        try:
-            e          = self.db.translator.rtyper.getexceptiondata()
-            #matchptr   = getfunctionptr(bk.getdesc(e.fn_exception_match).cachedgraph(None))
-            matchptr   = getfunctionptr(bk.getdesc(e.fn_exception_match._obj).cachedgraph(None))
-            matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
-            self.db.prepare_arg_value(matchconst)
-        except:
-            pass    #XXX need a fix here
+        e          = self.db.translator.rtyper.getexceptiondata()
+        matchptr   = e.fn_exception_match
+        matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
+        self.db.prepare_arg_value(matchconst)
 
         # set up all nodes
         self.db.setup_all()

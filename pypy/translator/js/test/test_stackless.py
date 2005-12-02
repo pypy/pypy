@@ -130,8 +130,6 @@ def test_auto_stack_unwind():
     assert int(data.strip()) == 697 #10**4==697(6seconds, 10**5==545(45seconds)
 
 def test_yield_frame1():
-    py.test.skip("stackless feature not incomplete")
-
     def g(lst):
         lst.append(2)
         frametop_before_5 = yield_current_frame_to_caller()
@@ -148,7 +146,7 @@ def test_yield_frame1():
         lst.append(5)
         frametop_after_return = frametop_before_6.switch()
         lst.append(7)
-        #assert frametop_after_return is None
+        assert frametop_after_return is None
         n = 0
         for i in lst:
             n = n*10 + i
@@ -158,8 +156,6 @@ def test_yield_frame1():
     assert int(data.strip()) == 1234567
 
 def test_yield_frame2():
-    py.test.skip("stackless feature incomplete (exception handling?)")
-
     S = lltype.GcStruct("base", ('a', lltype.Signed))
     s = lltype.malloc(S)
 
@@ -179,7 +175,7 @@ def test_yield_frame2():
         s.a += 5
         frametop_after_return = frametop_before_6.switch()
         s.a += 7
-        #assert frametop_after_return is None
+        assert frametop_after_return is None
         return s.a
 
     data = wrap_stackless_function(f)
