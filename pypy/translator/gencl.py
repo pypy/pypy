@@ -19,7 +19,7 @@ class Op:
 
     def __init__(self, gen, op):
         self.gen = gen
-        self.str = gen.str
+        self.str = gen.repr_arg
         self.op = op
         self.opname = op.opname
         self.args = op.args
@@ -203,17 +203,15 @@ class GenCL:
     def get_type(self, var):
         return self.ann.gettype(var)
 
-    def str(self, obj):
-        if isinstance(obj, Variable):
-            return obj.name
-        elif isinstance(obj, Constant):
-            return self.conv(obj.value)
-        else:
-            return "#<%r>" % (obj,)
+    def repr_unknown(self, obj):
+        return '#<%r>' % (obj,)
 
-    def conv(self, val):
+    def repr_var(self, var):
+        return var.name
+
+    def repr_const(self, val):
         if isinstance(val, tuple):
-            val = map(self.conv, val)
+            val = map(self.repr_const, val)
             return "'(%s)" % ' '.join(val)
         elif isinstance(val, bool): # should precedes int
             if val:
@@ -236,7 +234,15 @@ class GenCL:
         elif val is last_exc_value:
             return "'last-exc-value"
         else:
-            return "#<%r>" % (val,)
+            return self.repr_unknown(val)
+
+    def repr_arg(self, arg):
+        if isinstance(arg, Variable):
+            return self.repr_var(arg)
+        elif isinstance(arg, Constant):
+            return self.repr_const(arg.value)
+        else:
+            return self.repr_unknown(arg)
 
     def emitcode(self, public=True):
         import sys
@@ -257,7 +263,7 @@ class GenCL:
         arglist = fun.getargs()
         print "(",
         for arg in arglist:
-            print self.str(arg),
+            print self.repr_var(arg),
         print ")"
         print "(prog"
         blocklist = []
@@ -274,15 +280,15 @@ class GenCL:
         print "( last-exc",
         for var in vardict:
             if var in arglist:
-                print "(", self.str(var), self.str(var), ")",
+                print "(", self.repr_var(var), self.repr_var(var), ")",
             else:
-                print self.str(var),
+                print self.repr_var(var),
         print ")"
         print ";; DEBUG: type inference"
         for var in vardict:
             tp = vardict[var]
             if tp:
-                print ";;", self.str(var), "is", tp.__name__
+                print ";;", self.repr_var(var), "is", tp.__name__
         print "(setq last-exc nil)"
         for block in blocklist:
             self.emit_block(block)
@@ -304,7 +310,7 @@ class GenCL:
             if (len(exits) == 2 and
                 exits[0].exitcase == False and
                 exits[1].exitcase == True):
-                print "(if", self.str(block.exitswitch)
+                print "(if", self.repr_arg(block.exitswitch)
                 print "(progn"
                 self.emit_link(exits[1])
                 print ") ; else"
@@ -316,20 +322,20 @@ class GenCL:
                 # shouldn't be needed but in Python 2.2 we can't tell apart
                 # 0 vs nil  and  1 vs t  :-(
                 for exit in exits[:-1]:
-                    print "(if (equalp", self.str(block.exitswitch),
-                    print self.conv(exit.exitcase), ')'
+                    print "(if (equalp", self.repr_arg(block.exitswitch),
+                    print self.repr_const(exit.exitcase), ')'
                     print "(progn"
                     self.emit_link(exit)
                     print ")"
-                print "(progn ; else should be", self.conv(exits[-1].exitcase)
+                print "(progn ; else should be", self.repr_const(exits[-1].exitcase)
                 self.emit_link(exits[-1])
                 print ")" * len(exits)
         elif len(block.inputargs) == 2:    # exc_cls, exc_value
-            exc_cls   = self.str(block.inputargs[0])
-            exc_value = self.str(block.inputargs[1])
+            exc_cls   = self.repr_var(block.inputargs[0])
+            exc_value = self.repr_var(block.inputargs[1])
             print "(something-like-throw-exception %s %s)" % (exc_cls, exc_value)
         else:
-            retval = self.str(block.inputargs[0])
+            retval = self.repr_var(block.inputargs[0])
             print "(return", retval, ")"
 
     def emit_jump(self, block):
@@ -337,12 +343,11 @@ class GenCL:
         print "(go", "tag" + str(tag), ")"
 
     def emit_link(self, link):
-        source = link.args
-        target = link.target.inputargs
+        source = map(self.repr_arg, link.args)
+        target = map(self.repr_var, link.target.inputargs)
         print "(psetq", # parallel assignment
         for s, t in zip(source, target):
-            if s != t:  # and s != Constant(undefined_value):
-                print self.str(t), self.str(s),
+            print t, s
         print ")"
         self.emit_jump(link.target)
 
@@ -350,12 +355,12 @@ class GenCL:
         bool: "boolean",
         int: "fixnum",
         long: "bignum",
-        type(''): "string", # hack, 'str' is in the namespace!
+        str: "string",
         list: "vector",
     }
 
     def emit_typecase(self, table, *args):
-        argreprs = tuple(map(self.str, args))
+        argreprs = tuple(map(self.repr_arg, args))
         argtypes = tuple(map(self.get_type, args))
         if argtypes in table:
             trans = table[argtypes]

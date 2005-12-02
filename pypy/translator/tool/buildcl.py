@@ -26,7 +26,7 @@ def readlisp(s):
 def writelisp(gen, obj):
     #if isinstance(obj, (bool, int, type(None), str)):
     if isinstance(obj, (int, type(None), str)):
-        return gen.conv(obj)
+        return gen.repr_const(obj)
     if isinstance(obj, (tuple, list)):
         content = ' '.join([writelisp(gen, elt) for elt in obj])
         content = '(' + content + ')'
@@ -65,4 +65,4 @@ if __name__ == '__main__':
     it = writelisp(gen, what)
     print what
     print it
-    assert it == '#(t "universe" 42 nil ("of" "them" #("eternal" 95)))'
+    assert it == '#(t "universe" 42 nil \'("of" "them" #("eternal" 95)))'
