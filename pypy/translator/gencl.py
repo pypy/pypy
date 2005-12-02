@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import *
+from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
 
 from pypy.translator.simplify import simplify_graph
