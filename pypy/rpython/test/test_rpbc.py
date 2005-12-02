@@ -1169,3 +1169,52 @@ def test_pbc_getattr_conversion_with_classes():
         assert type(res.item1) is float
         assert res.item0 == f(i)[0]
         assert res.item1 == f(i)[1]
+
+def test_multiple_specialized_functions():
+    def myadder(x, y):   # int,int->int or str,str->str
+        return x+y
+    def myfirst(x, y):   # int,int->int or str,str->str
+        return x
+    def mysecond(x, y):  # int,int->int or str,str->str
+        return y
+    myadder._annspecialcase_ = 'specialize:argtype0'
+    myfirst._annspecialcase_ = 'specialize:argtype0'
+    mysecond._annspecialcase_ = 'specialize:argtype0'
+    def f(i):
+        if i == 0:
+            g = myfirst
+        elif i == 1:
+            g = mysecond
+        else:
+            g = myadder
+        s = g("hel", "lo")
+        n = g(40, 2)
+        return len(s) * n
+    for i in range(3):
+        res = interpret(f, [i])
+        assert res == f(i)
+
+def test_specialized_method_of_frozen():
+    class space:
+        def __init__(self, tag):
+            self.tag = tag
+        def wrap(self, x):
+            if isinstance(x, int):
+                return self.tag + '< %d >' % x
+            else:
+                return self.tag + x
+        wrap._annspecialcase_ = 'specialize:argtype1'
+    space1 = space("tag1:")
+    space2 = space("tag2:")
+    def f(i):
+        if i == 1:
+            sp = space1
+        else:
+            sp = space2
+        w1 = sp.wrap('hello')
+        w2 = sp.wrap(42)
+        return w1 + w2
+    res = interpret(f, [1])
+    assert ''.join(res.chars) == 'tag1:hellotag1:< 42 >'
+    res = interpret(f, [0])
+    assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
