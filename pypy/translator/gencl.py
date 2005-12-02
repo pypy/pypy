@@ -253,11 +253,7 @@ class GenCL:
             print self.repr_var(arg),
         print ")"
         print "(prog"
-        blocklist = []
-        def collect_block(node):
-            if isinstance(node, Block):
-                blocklist.append(node)
-        traverse(collect_block, fun)
+        blocklist = list(fun.iterblocks())
         vardict = {}
         for block in blocklist:
             tag = len(self.blockref)
