@@ -1,5 +1,5 @@
 import autopath
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 
 
 def example(d):
@@ -9,6 +9,7 @@ def example(d):
         d['key'] = 'value'
 
 def test_example():
-    t = Translator(example)
-    t.simplify()    # this specific example triggered a bug in simplify.py
+    t = TranslationContext(simplifying=True)
+    t.buildflowgraph(example)
+    # this specific example triggered a bug in simplify.py
     #t.view()
