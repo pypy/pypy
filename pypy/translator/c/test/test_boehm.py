@@ -1,12 +1,12 @@
 import py
 test_src = """
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.c.genc import CExtModuleBuilder
 
 def getcompiled(func):
     from pypy.translator.c.gc import BoehmGcPolicy
-    t = Translator(func, simplifying=True)
+    t = TranslationContext(simplifying=True)
     # builds starting-types from func_defs 
     argstypelist = []
     if func.func_defaults:
@@ -14,12 +14,11 @@ def getcompiled(func):
             if isinstance(spec, tuple):
                 spec = spec[0] # use the first type only for the tests
             argstypelist.append(spec)
-    a = t.annotate(argstypelist)
-    a.simplify()
-    t.specialize()
+    a = t.buildannotator().build_types(func, argstypelist)
+    t.buildrtyper().specialize()
     t.checkgraphs()
     def compile():
-        cbuilder = CExtModuleBuilder(t, gcpolicy=BoehmGcPolicy)
+        cbuilder = CExtModuleBuilder(t, func, gcpolicy=BoehmGcPolicy)
         c_source_filename = cbuilder.generate_source()
         cbuilder.compile()
         cbuilder.import_module()    
@@ -42,7 +41,7 @@ def test_malloc_a_lot():
 
 def run_test(fn):
     fn()
-    channel.send(None)
+    channel.send("ok")
 
 run_test(test_malloc_a_lot)
 """
@@ -57,7 +56,7 @@ def test_boehm():
     gw = py.execnet.PopenGateway()
     chan = gw.remote_exec(py.code.Source(test_src))
     res = chan.receive()
-    assert not res
+    assert res == "ok"
     chan.close()
 
 
