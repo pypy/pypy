@@ -10,7 +10,8 @@ reference material:
 import py
 import os
 
-from pypy.rpython.rmodel import inputconst, getfunctionptr
+from pypy.rpython.rmodel import inputconst
+from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.js.node import Node
@@ -34,15 +35,20 @@ class JS(object):   # JS = Javascript
 
     def write_source(self):
         func = self.entrypoint
-        ptr  = getfunctionptr(self.db.translator, func)
+        bk   = self.db.translator.annotator.bookkeeper
+        ptr  = getfunctionptr(bk.getdesc(func).cachedgraph(None))
         c    = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
 
         #add exception matching function (XXX should only be done when needed)
-        e          = self.db.translator.rtyper.getexceptiondata()
-        matchptr   = getfunctionptr(self.db.translator, e.ll_exception_match)
-        matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
-        self.db.prepare_arg_value(matchconst)
+        try:
+            e          = self.db.translator.rtyper.getexceptiondata()
+            #matchptr   = getfunctionptr(bk.getdesc(e.fn_exception_match).cachedgraph(None))
+            matchptr   = getfunctionptr(bk.getdesc(e.fn_exception_match._obj).cachedgraph(None))
+            matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
+            self.db.prepare_arg_value(matchconst)
+        except:
+            pass    #XXX need a fix here
 
         # set up all nodes
         self.db.setup_all()

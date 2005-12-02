@@ -1,7 +1,6 @@
 import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.translator.js.log import log 
 log = log.opwriter
 
@@ -278,7 +277,7 @@ class OpWriter(object):
         exceptions = []
         for exit in self.block.exits[1:]:
             assert issubclass(exit.exitcase, Exception)
-            exception_match  = self.db.translator.rtyper.getexceptiondata().ll_exception_match.__name__
+            exception_match  = self.db.translator.rtyper.getexceptiondata().fn_exception_match._obj._name
             exception_ref    = self.db.obj2node[exit.llexitcase._obj].ref #get _ref()
             exception_target = self.node.blockindex[exit.target]
             exception        = (exception_match, exception_ref, exception_target, exit)
