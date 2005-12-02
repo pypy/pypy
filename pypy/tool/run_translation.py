@@ -7,11 +7,12 @@ import sys
 module = __import__('pypy.translator.goal.%s', None, None, ['target'])
 entry_point, arg_s = module.target()
 
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.translator.goal.query import polluted
 
-t = Translator(entry_point)
-a = t.annotate(arg_s)
+t = TranslationContext()
+a = t.buildannotator()
+a.build_types(entry_point, args_s)
 a.simplify()
 
 print polluted(t)
