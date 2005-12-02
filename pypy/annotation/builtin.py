@@ -11,7 +11,9 @@ from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation
 from pypy.annotation.model import add_knowntypedata
+from pypy.annotation.model import s_ImpossibleValue
 from pypy.annotation.bookkeeper import getbookkeeper
+from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 import pypy.rpython.rarithmetic
 import pypy.rpython.objectmodel
@@ -169,6 +171,14 @@ def builtin_hasattr(s_obj, s_attr):
     r = SomeBool()
     if s_obj.is_constant():
         r.const = hasattr(s_obj.const, s_attr.const)
+    elif (isinstance(s_obj, SomePBC)
+          and s_obj.getKind() is description.FrozenDesc):
+       answers = {}    
+       for d in s_obj.descriptions:
+           answer = (d.s_read_attribute(s_attr.const) != s_ImpossibleValue)
+           answers[answer] = True
+       if len(answers) == 1:
+           r.const, = answers
     return r
 
 ##def builtin_callable(s_obj):

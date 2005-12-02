@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import W_Object, UnwrapError
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
@@ -52,7 +53,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                                               mm)
                 
                                                   # e.g. add(space, w_x, w_y)
-                boundmethod = func.__get__(self)  # bind the 'space' argument
+                def make_boundmethod(func=func):
+                    def boundmethod(*args):
+                        return func(self, *args)
+                    return func_with_new_name(boundmethod, 'boundmethod_'+name)
+                boundmethod = make_boundmethod()
                 setattr(self, name, boundmethod)  # store into 'space' instance
 
         # hack to avoid imports in the time-critical functions below
