@@ -1,6 +1,6 @@
 from pypy.translator.backendopt.removenoops import remove_void, remove_same_as
 from pypy.translator.backendopt.inline import inline_function
-from pypy.translator.translator import Translator, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.test.snippet import simple_method
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.lltypesystem.lltype import Void
@@ -11,9 +11,9 @@ log = py.log.Producer('test_backendoptimization')
 
 
 def annotate_and_remove_void(f, annotate):
-    t = Translator(f)
-    a = t.annotate(annotate)
-    t.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(f, annotate)
+    t.buildrtyper().specialize()
     remove_void(t)
     return t
 
@@ -51,9 +51,9 @@ def test_remove_same_as():
             return 42
         else:
             return 666
-    t = Translator(f)
-    a = t.annotate([])
-    t.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    t.buildrtyper().specialize()
     # now we make the 'if True' appear
     f_graph = graphof(t, f)
     inline_function(t, nothing, f_graph)

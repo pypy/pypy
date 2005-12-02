@@ -1,6 +1,6 @@
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.inline import inline_function
-from pypy.translator.translator import Translator, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.llinterp import LLInterpreter
 
@@ -18,9 +18,9 @@ def check_malloc_removed(graph):
     assert count2 == 0   # number of direct_calls left
 
 def check(fn, signature, args, expected_result, must_be_removed=True):
-    t = Translator(fn)
-    t.annotate(signature)
-    t.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, signature)
+    t.buildrtyper().specialize()
     graph = graphof(t, fn)
     remove_simple_mallocs(graph)
     if must_be_removed:

@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.translator.backendopt.tailrecursion import remove_tail_calls_to_self
-from pypy.translator.translator import Translator, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.test.snippet import is_perfect_number
 
@@ -11,9 +11,9 @@ def test_recursive_gcd():
         if a > b:
             return gcd(b, a)
         return gcd(b % a, a)
-    t = Translator(gcd)
-    a = t.annotate([int, int])
-    t.specialize()
+    t = TranslationContext()
+    t.buildannotator().build_types(gcd, [int, int])
+    t.buildrtyper().specialize()
     gcd_graph = graphof(t, gcd)
     remove_tail_calls_to_self(t, gcd_graph )
     lli = LLInterpreter(t.rtyper)

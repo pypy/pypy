@@ -7,7 +7,7 @@ from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.inline import collect_called_functions
 from pypy.translator.backendopt.inline import measure_median_execution_cost
-from pypy.translator.translator import Translator, TranslationContext, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.rarithmetic import ovfcheck
 from pypy.translator.test.snippet import is_perfect_number
@@ -36,21 +36,38 @@ def sanity_check(t):
         checkgraph(graph)
         traverse(no_missing_concretetype, graph)
 
-def check_inline(func, in_func, sig):
-    t = Translator(in_func)
-    a = t.annotate(sig)
-    a.simplify()
-    t.specialize()
+def translate(func, argtypes):
+    t = TranslationContext()
+    t.buildannotator().build_types(func, argtypes)
+    t.buildrtyper().specialize()
+    return t
+
+def check_inline(func, in_func, sig, entry=None):
+    if entry is None:
+        entry = in_func
+    t = translate(entry, sig)
     # inline!
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    in_func_graph = graphof(t, in_func)
-    func_graph = graphof(t, func)
-    inline_function(t, func, in_func_graph)
+    inline_function(t, func, graphof(t, in_func))
     sanity_check(t)
     interp = LLInterpreter(t.rtyper)
     def eval_func(args):
-        return interp.eval_graph(in_func_graph, args)
+        return interp.eval_graph(graphof(t, entry), args)
     return eval_func
+
+def check_auto_inlining(func, sig, threshold=None):
+    t = translate(func, sig)
+    # inline!
+    sanity_check(t)    # also check before inlining (so we don't blame it)
+    if threshold is None:
+        auto_inlining(t)
+    else:
+        auto_inlining(t, threshold=threshold)
+    sanity_check(t)
+    interp = LLInterpreter(t.rtyper)
+    def eval_func(args):
+        return interp.eval_graph(graphof(t, func), args)
+    return eval_func, t
 
 
 def test_inline_simple():
@@ -95,20 +112,12 @@ def test_inline_raising():
         except KeyError:
             return 2
         return x
-    t = Translator(h)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    sanity_check(t)    # also check before inlining (so we don't blame it)
-    inline_function(t, f, graphof(t, g))
-    sanity_check(t)
-    interp = LLInterpreter(t.rtyper)
-    h_graph = graphof(t, h)
-    result = interp.eval_graph(h_graph, [0])
+    eval_func = check_inline(f,g, [int], entry=h)
+    result = eval_func([0])
     assert result == 0
-    result = interp.eval_graph(h_graph, [1])
+    result = eval_func([1])
     assert result == 1
-    result = interp.eval_graph(h_graph, [2])
+    result = eval_func([2])
     assert result == 2    
 
 def test_inline_several_times():
@@ -165,20 +174,13 @@ def test_inline_var_exception():
         except KeyError:
             return 3
         return 1
-    t = Translator(g)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    auto_inlining(t, threshold=10)
-    for graph in t.graphs:
-        traverse(no_missing_concretetype, graph)
-    interp = LLInterpreter(t.rtyper)
-    g_graph = graphof(t, g)
-    result = interp.eval_graph(g_graph, [0])
+
+    eval_func, _ = check_auto_inlining(g, [int], threshold=10)
+    result = eval_func([0])
     assert result == 2
-    result = interp.eval_graph(g_graph, [1])
+    result = eval_func([1])
     assert result == 3
-    result = interp.eval_graph(g_graph, [42])
+    result = eval_func([42])
     assert result == 1
 
 def test_inline_nonraising_into_catching():
@@ -208,17 +210,10 @@ def DONOTtest_call_call():
             return f(x)+3
         except KeyError:
             return -1
-    t = Translator(g)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    sanity_check(t)    # also check before inlining (so we don't blame it)
-    inline_function(t, f, t.flowgraphs[g])
-    sanity_check(t)
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(g, [100])
+    eval_func = check_inline(f, g, [int])
+    result = eval_func([100])
     assert result == 106
-    result = interp.eval_function(g, [-100])
+    result = eval_func(g, [-100])
     assert result == -1
 
 def test_for_loop():
@@ -227,16 +222,13 @@ def test_for_loop():
         for i in range(0, x):
             result += i
         return result
-    t = Translator(f)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
+    t = translate(f, [int])
+    sanity_check(t)    # also check before inlining (so we don't blame it)
     for graph in t.graphs:
         if graph.name.startswith('ll_rangenext'):
             break
     else:
         assert 0, "cannot find ll_rangenext_*() function"
-    sanity_check(t)    # also check before inlining (so we don't blame it)
     inline_function(t, graph, graphof(t, f))
     sanity_check(t)
     interp = LLInterpreter(t.rtyper)
@@ -283,17 +275,13 @@ def test_auto_inlining_small_call_big():
             return g(n)
         except OverflowError:
             return -1
-    t = Translator(f)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    auto_inlining(t, threshold=10)
+    eval_func, t = check_auto_inlining(f, [int], threshold=10)
     f_graph = graphof(t, f)
     assert len(collect_called_functions(f_graph)) == 0
-    interp = LLInterpreter(t.rtyper)
-    result = interp.eval_graph(f_graph, [10])
+
+    result = eval_func([10])
     assert result == 45
-    result = interp.eval_graph(f_graph, [15])
+    result = eval_func([15])
     assert result == -1
 
 def test_inline_exception_catching():
@@ -332,13 +320,8 @@ def test_auto_inline_os_path_isdir():
     directory = "./."
     def f():
         return os.path.isdir(directory)
-    t = Translator(f)
-    a = t.annotate([])
-    a.simplify()
-    t.specialize()
-    auto_inlining(t)
-    interp = LLInterpreter(t.rtyper)
-    result = interp.eval_graph(graphof(t, f), [])
+    eval_func, _ = check_auto_inlining(f, [])
+    result = eval_func([])
     assert result is True
 
 def test_inline_raiseonly():

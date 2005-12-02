@@ -1,13 +1,14 @@
-from pypy.translator.translator import Translator, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.propagate import *
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython.llinterp import LLInterpreter
 
 
 def get_graph(fn, signature):
-    t = Translator(fn)
-    t.annotate(signature)
-    t.specialize()
-    t.backend_optimizations(ssa_form=False, propagate=False) 
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, signature)
+    t.buildrtyper().specialize()
+    backend_optimizations(t, ssa_form=False, propagate=False) 
     graph = graphof(t, fn)
     return graph, t
 
@@ -115,6 +116,6 @@ def call_list_default_argument(i1):
     
 def test_call_list_default_argument():
     graph, t = get_graph(call_list_default_argument, [int])
-    t.backend_optimizations(propagate=True, ssa_form=False) 
+    backend_optimizations(t, propagate=True, ssa_form=False) 
     for i in range(10):
         check_graph(graph, [i], call_list_default_argument(i), t)

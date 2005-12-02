@@ -1,11 +1,17 @@
 import py
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.test.test_malloc import check_malloc_removed
-from pypy.translator.translator import Translator, graphof
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 
+def translateopt(func, sig, **optflags):
+    t = TranslationContext()
+    t.buildannotator().build_types(func, sig)
+    t.buildrtyper().specialize()
+    backend_optimizations(t, **optflags)
+    return t
 
 class A:
     def __init__(self, x, y):
@@ -40,10 +46,7 @@ def big():
 def test_big():
     assert big() == 83
 
-    t = Translator(big)
-    t.annotate([])
-    t.specialize()
-    backend_optimizations(t, inline_threshold=100, mallocs=True)
+    t = translateopt(big, [], inline_threshold=100, mallocs=True) 
 
     big_graph = graphof(t, big)
     check_malloc_removed(big_graph)
@@ -60,10 +63,8 @@ def test_for_loop():
         for i in range(n):
             total += i
         return total
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
-    t.backend_optimizations(inline_threshold=1, mallocs=True)
+
+    t  = translateopt(f, [int], inline_threshold=1, mallocs=True)
     # this also checks that the BASE_INLINE_THRESHOLD is enough for 'for' loops
 
     f_graph = graph = graphof(t, f)
@@ -78,10 +79,8 @@ def test_list_comp():
     def f(n1, n2):
         c = [i for i in range(n2)]
         return 33
-    t = Translator(f)
-    t.annotate([int, int])
-    t.specialize()
-    t.backend_optimizations(inline_threshold=10, mallocs=True)
+
+    t  = translateopt(f, [int, int], inline_threshold=10, mallocs=True)
 
     f_graph = graphof(t, f)
     check_malloc_removed(f_graph)
@@ -110,10 +109,7 @@ def test_premature_death():
             #debug(" lowered -> " + a)
         return 0
 
-    t = Translator(entry_point)
-    t.annotate(inputtypes)
-    t.specialize()
-    t.backend_optimizations(inline_threshold=1, mallocs=True)
+    t  = translateopt(entry_point, inputtypes, inline_threshold=1, mallocs=True)
 
     entry_point_graph = graphof(t, entry_point)
 
