@@ -122,9 +122,6 @@ class FlowGraphPage(GraphPage):
                 graphs += graphsof(translator, func)
         else:
             graphs = self.translator.graphs
-        if not graphs:
-            if hasattr(translator, 'entrypoint'):
-                graphs = graphsof(translator, translator.entrypoint)
         gs = [(graph.name, graph) for graph in graphs]
         if self.annotator and self.annotator.blocked_graphs:
             for block, was_annotated in self.annotator.annotated.items():
@@ -244,10 +241,7 @@ class BaseTranslatorPage(GraphPage):
     and possibily the class hierarchy."""
 
     def allgraphs(self):
-        graphs = list(self.translator.graphs)
-        if not graphs and hasattr(self.translator, 'entrypoint'):
-            graphs = graphsof(self.translator, self.translator.entrypoint)
-        return graphs
+        return list(self.translator.graphs)
 
     def graph_name(self, *args):
         raise NotImplementedError
@@ -336,8 +330,6 @@ class TranslatorPage(BaseTranslatorPage):
         graphs = self.allgraphs()
 
         if len(graphs) > huge:
-            if hasattr(translator, 'entrypoint'):
-                graphs = graphsof(translator, translator.entrypoint)
             assert graphs, "no graph to show!"
             LocalizedCallGraphPage.do_compute.im_func(self, dotgen, graphs[0])
             return

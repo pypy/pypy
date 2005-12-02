@@ -100,20 +100,22 @@ class SimpleTaskEngine(object):
 
     def _execute(self, goals, *args, **kwds):
         task_skip = kwds.get('task_skip', [])
+        res = None
         for goal in self._plan(goals, skip=task_skip):
             taskcallable, _ = self.tasks[goal]
             self._event('pre', goal, taskcallable)
             try:
-                self._do(goal, taskcallable, *args, **kwds)
+                res = self._do(goal, taskcallable, *args, **kwds)
             except (SystemExit, KeyboardInterrupt):
                 raise
             except:
                 self._error(goal)
                 raise
             self._event('post', goal, taskcallable)
-        
+        return res
+
     def _do(self, goal, func, *args, **kwds):
-        func()
+        return func()
 
     def _event(self, kind, goal, func):
         pass

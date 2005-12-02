@@ -52,8 +52,9 @@ class TranslationDriver(SimpleTaskEngine):
         self.done = {}
 
         maybe_skip = []
-        for goal in self.backend_select_goals(disable):
-            maybe_skip.extend(self._depending_on_closure(goal))
+        if disable:
+             for goal in  self.backend_select_goals(disable):
+                 maybe_skip.extend(self._depending_on_closure(goal))
         self.maybe_skip = dict.fromkeys(maybe_skip).keys()
 
         if default_goal:
@@ -67,20 +68,23 @@ class TranslationDriver(SimpleTaskEngine):
         def expose_task(task):
             backend_goal, = self.backend_select_goals([task])
             def proc():
-                self.proceed(backend_goal)
+                return self.proceed(backend_goal)
             setattr(self, task, proc)
 
-        for task in ('annotate', 'rtype', 'backendopt', 'source', 'compile', 'run', 'llinterpret'):
-            expose_task(task)
-            
+        if self.options.backend:
+            for task in ('annotate', 'rtype', 'backendopt', 'source', 'compile', 'run', 'llinterpret'):
+                expose_task(task)
+        else:
+            for task in self.tasks:
+                expose_task(task)
+
     def backend_select_goals(self, goals):
         backend = self.options.backend
-        assert backend
         l = []
         for goal in goals:
             if goal in self.tasks:
                 l.append(goal)
-            else:
+            elif backend:
                 goal = "%s_%s" % (goal, backend)
                 assert goal in self.tasks
                 l.append(goal)
@@ -125,10 +129,10 @@ class TranslationDriver(SimpleTaskEngine):
             return
         else:
             self.log.info("%s..." % title)
-        func()
+        res = func()
         if not func.task_idempotent:
             self.done[goal] = True
-
+        return res
 
     def task_annotate(self):  
         # includes annotation and annotatation simplifications
@@ -138,9 +142,10 @@ class TranslationDriver(SimpleTaskEngine):
 
         annmodel.DEBUG = self.options.debug
         annotator = translator.buildannotator(policy=policy)
-        annotator.build_types(self.entry_point, self.inputtypes)
+        s = annotator.build_types(self.entry_point, self.inputtypes)
         self.sanity_check_annotation()
-        annotator.simplify()        
+        annotator.simplify()
+        return s
     #
     task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
 
@@ -326,7 +331,7 @@ class TranslationDriver(SimpleTaskEngine):
         elif isinstance(goals, str):
             goals = [goals]
         goals = self.backend_select_goals(goals)
-        self._execute(goals, task_skip = self.maybe_skip)
+        return self._execute(goals, task_skip = self.maybe_skip)
 
     def from_targetspec(targetspec_dic, options=None, args=None, empty_translator=None, 
                         disable=[],
