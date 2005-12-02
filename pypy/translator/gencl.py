@@ -5,16 +5,6 @@ from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph, default_extra_passes, transform_slice
 
 
-DEBUG = False
-
-
-# XXX For 2.2 the emitted code isn't quite right, because we cannot tell
-# when we should write "0"/"1" or "nil"/"t".
-if not isinstance(bool, type):
-    class bool(int):
-        pass
-
-
 class Op:
 
     def __init__(self, gen, op):
@@ -26,9 +16,6 @@ class Op:
         self.result = op.result
 
     def __call__(self):
-        if DEBUG:
-            self.op_default()
-            return
         if self.opname in self.binary_ops:
             self.op_binary(self.opname)
         else:
