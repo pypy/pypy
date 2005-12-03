@@ -1,0 +1,52 @@
+JIT ideas and areas of work
+------------------------------
+
+Low-level graphs abstract interpreter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the context of PyPy architecture a JIT can be envisioned as a
+run-time specialiser (doing constant folding, partial evaluation and
+keeping allocation virtual as much as possible). The specialiser would
+be able to produce for some runtime execution state of a function new
+low-level graphs from a predetermined relevant subset of the forest of
+low-level graphs making up PyPy and given entry points and parameter
+variables whose run-time constantness can be exploited (think the eval
+loop for an entry-point and the bytecode of the function for such a
+variable and the graphs for the directly involved PyPy functions as the
+subset). This new low-level graphs could then be turned into machine
+code by a run-time machine code backend, mapping progressively
+the function bytecode into machine code.
+
+Ideally PyPy translation should generate code from this determined
+subset, list of entry-points and variables that implements run-time
+specialisation for it, plus management/bookkeeping and instrumentation
+code.
+
+To explore and understand this problem space, we should probably start
+by writing a pure Python abstract interpreter doing constant-folding
+and partial evaluation of low-level graphs. Increasing abstraction
+this could maybe evolve in the code for generating the specialiser or
+at least be used to analyse which subset of the graphs is relevant.
+
+issue: too fine granularity of low-level implementations of rpython dicts
+
+Simple target interpreter for experimentation and testing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+
+Given that PyPy eval loop is quite a large chunk to swallow, ahem,
+analyse, it would be nice to have some kind of minimal bytecode eval
+loop for some very simple bytecode written in RPython to use for
+testing/experimenting and as first target. Ideally the interpreter
+state for this should not be much more than an instruction counter and
+a value stack.
+
+L3 interpreter
+~~~~~~~~~~~~~~~~~~~
+
+xxx
+
+
+Machine code backends and register allocation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+xxx
