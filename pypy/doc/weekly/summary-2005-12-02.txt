@@ -1,0 +1,55 @@
+=======================
+  This Week in PyPy 5
+=======================
+
+Introduction
+============
+
+This is the fifth of what will hopefully be many summaries of what's
+been going on in the world of PyPy in the last week.  I'd still like
+to remind people that when something worth summarizing happens to
+recommend if for "This Week in PyPy" as mentioned on:
+
+    http://codespeak.net/pypy/dist/pypy/doc/weekly/
+
+where you can also find old summaries.  I note in passing that the
+idea of keeping track of IRC conversations in the weekly summary has
+pretty much fizzled.  Oh well.
+
+There were about 230 commits to the pypy section of codespeak's
+repository in the last week (a busy one, it seems :-).
+
+
+SomePBC-refactoring
+===================
+
+We merged the branch at last!  Finishing the branch off and getting
+translate_pypy running again seemed to mostly involve fighting with
+memoized functions and methods, and the "strange details" hinted at in
+the last "This Week in PyPy" were not so bad -- indeed once we got to
+the point of rtyping finishing, the backend optimizations, source
+generation, compilation and resulting binary all worked first time
+(there must be something to be said for this Test Driven Development
+stuff :).
+
+If you recall from the second This Week in PyPy the thing that
+motivated us to start the branch was wanting to support multiple
+independent object spaces in the translated binary.  After three weeks
+of refactoring we hoped we'd made this possible... and so it proved,
+though a couple of small tweaks were needed to the PyPy source.  The
+resulting binary is quite a lot (40%) bigger but only a little (10%)
+slower.
+
+
+CCC papers
+==========
+
+As mentioned last week, two PyPy talks have been accepted for the
+Chaos Communication Congress in Berlin, from December 27th to the
+30th.  The CCC asks that speakers provide papers to accompany their
+talks (they make a proceedings book) so that's what we've done, and
+the results are two quite nice pieces of propaganda for the project:
+
+    http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
+    http://codespeak.net/pypy/extradoc/talk/22c3/techpaper.pdf
+
