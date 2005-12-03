@@ -373,9 +373,13 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
 
         for g1, g2 in translator.callgraph.values():
             if g1 in centers  or g2 in centers:
-                dotgen.emit_edge(nameof(g1), nameof(g2))
                 graphs[g1] = True
                 graphs[g2] = True
+
+        # show all edges that exist between these graphs
+        for g1, g2 in translator.callgraph.values():
+            if g1 in graphs and g2 in graphs:
+                dotgen.emit_edge(nameof(g1), nameof(g2))
 
         graphs = graphs.keys()
 
@@ -395,7 +399,7 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
 
             if graph  not in centers:
                 lcg = 'LCG_%s' % nameof(graph)
-                label = graph.name+'...'
+                label = data+'...'
                 dotgen.emit_node(lcg, label=label)
                 dotgen.emit_edge(nameof(graph), lcg)
                 self.links[label] = 'go to its localized call graph'
