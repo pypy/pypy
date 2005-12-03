@@ -64,6 +64,7 @@ Archive
 
    - SomePBC-refactoring
    - CCC papers
+   - Background EU-related work
    - Where did PyPy-sync go?
 
 .. _`Week ending 2005-11-04`: summary-2005-11-04.html

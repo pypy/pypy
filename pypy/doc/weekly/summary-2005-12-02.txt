@@ -63,24 +63,24 @@ people from other communities and generally be available for
 discussing all things PyPy and the future.
 
 
-Background work regarding EU involvement 
-============================================
 
-Less visible but requiring quite some work, organisations
-funding and organizing the EU PyPy project are currently 
-preparing a lot of paperwork and reports.  Most of the (technical)
-reports are done by now but the next Gothenborg sprint
-will still internally start with two days of finalizing
-those reports.  Let's all hope that everything
-goes well regarding our first major EU review end January.
+Background EU-related work
+==========================
 
-Meanwhile, Holger was invited to give a talk about PyPy's
-technical organisation at a workshop from the german EU office
-on the 5th December.  Also, Bea, Alastair and Holger will
-talk about PyPy at an EU workshop 8th December in Bruxelles.  
-Hopefully, this provides us some more insights and possibilities 
-to have PyPy recognized as an interesting "live" project within
-the EU context. 
+Less visible but still requiring work, organisations funding and
+organizing the EU PyPy project are currently preparing a lot of
+paperwork and reports.  Most of the reports are mostly done by now but
+the next Göteborg sprint will start with two (insider only) days of
+dotting the 'i's and crossing the 't's.  Let's all hope that
+everything goes well at our first major EU review at the end of
+January.
+
+Meanwhile, Holger was invited to give a talk about PyPy's technical
+organisation at a workshop given by the german EU office on the 5th of
+December.  Also, Bea, Alastair and Holger will talk about PyPy at an
+EU workshop on the 8th of December in Bruxelles.  Hopefully, this will
+enable us to find more opportunities to get PyPy recognized as an
+interesting "live" project in the EU's corner of the world.
 
 
 Where did PyPy-sync go?
@@ -102,9 +102,8 @@ last couple haven't really happened this way -- no agenda and only a
 few people have turned up and mostly just the people who are in #pypy
 all week anyway.
 
-So after the Gtbg sprint next week we're going to try harder to
+So after the Göteborg sprint next week we're going to try harder to
 prepare and get developers to attend pypy-sync meetings again.  This
 is especially important as we head towards more varied and less
 intrinsically related challenges such as a JIT compiler, integration
-of logic programming, GC, higher level backend and much more.
-
+of logic programming, GC, higher level backends and much more.
