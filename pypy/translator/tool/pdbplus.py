@@ -106,6 +106,13 @@ in pypy (see help pypyprefixes); the result is assigned to var or _."""
     class GiveUp(Exception):
         pass
 
+    def _getcdef(self, cls):
+        try:
+            return self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
+        except Exception:
+            print "*** cannot get classdef: likely specialized class: %s" % cls
+            return None
+
     def _make_flt(self, expr):
         try:
             expr = compile(expr, '<filter>', 'eval')
@@ -130,39 +137,32 @@ in pypy (see help pypyprefixes); the result is assigned to var or _."""
                     del self.curframe.f_locals['cand']
         return flt
 
-    def do_findclasses(self, arg):
-        """findclasses expr [as var]
-find annotated classes for which expr is true, cand in it referes to
-the candidate class; the result list is assigned to var or _."""
+    def do_finddescs(self, arg):
+        """finddescs kind expr [as var]
+find annotation descs of kind (ClassDesc|FuncionDesc|...)
+ for which expr is true, cand in it referes to
+the candidate desc; the result list is assigned to var or _."""
         expr, var = self._parse_modif(arg)
+        kind, expr = expr.split(None, 1)
         flt = self._make_flt(expr)
         if flt is None:
             return
-        cls = []
-        try:
-            for c in self.translator.annotator.getuserclasses():
-                if flt(c):
-                    cls.append(c)
-        except self.GiveUp:
+        from pypy.annotation import description
+        kind_cls = getattr(description, kind, None)
+        if kind_cls is None:
+            kind = kind.title()+'Desc'
+            kind_cls = getattr(description, kind, None)
+        if kind_cls is None:
             return
-        self._setvar(var, cls)
 
-    def do_findfuncs(self, arg):
-        """findfuncs expr [as var]
-find flow-graphed functions for which expr is true, cand in it referes to
-the candidate function; the result list is assigned to var or _."""
-        expr, var = self._parse_modif(arg)
-        flt = self._make_flt(expr)
-        if flt is None:
-            return
-        funcs = []
+        descs = []
         try:
-            for f in self.translator.flowgraphs:
-                if flt(f):
-                    funcs.append(f)
+            for c in self.translator.annotator.bookkeeper.descs.itervalues():
+                if isinstance(c, kind_cls) and flt(c):
+                    descs.append(c)
         except self.GiveUp:
             return
-        self._setvar(var, funcs)
+        self._setvar(var, descs)
 
     def do_showg(self, arg):
         """showg obj
@@ -183,7 +183,9 @@ if obj is a class or ClassDef the class definition graph is shown"""
         elif isinstance(obj, FunctionGraph):
             page = graphpage.FlowGraphPage(translator, [obj])
         elif isinstance(obj, (type, types.ClassType)):
-            classdef = translator.annotator.bookkeeper.getuniqueclassdef(obj)
+            classdef = self._getcdef(obj)
+            if classdef is None:
+                return
             page = graphpage.ClassDefPage(translator, classdef)
         elif isinstance(obj, ClassDef):
             page = graphpage.ClassDefPage(translator, obj)
@@ -203,11 +205,13 @@ if obj is a class or ClassDef the class definition graph is shown"""
             obj = list(obj)
         except:
             obj = [obj]
-        getcdef = self.translator.annotator.bookkeeper.getuniqueclassdef
         clsdefs = []
         for x in obj:
             if isinstance(x, (type, types.ClassType)):
-                clsdefs.append(getcdef(x))
+                cdef = self._getcdef(x)
+                if cdef is None:
+                    continue
+                clsdefs.append(cdef)
             else:
                 clsdefs.append(x)
 
@@ -281,7 +285,9 @@ the list of the read positions functions is set to var or _."""
         if obj is None:
             return
         if isinstance(obj, (type, types.ClassType)):
-            obj = self.translator.annotator.bookkeeper.getuniqueclassdef(obj)
+            obj = self._getcdef(obj)
+            if obj is None:
+                return
         attrs = obj.attrs
         if attrname not in attrs:
             print "*** bogus:", attrname
@@ -395,7 +401,7 @@ start serving graphs on <port>
         print "graph commands are: showg, flowg, callg, classhier, enable_graphic"
 
     def help_ann_other(self):
-        print "other annotation related commands are: find, findclasses, findfuncs, attrs, attrsann, readpos"
+        print "other annotation related commands are: find, finddescs, attrs, attrsann, readpos"
 
     def help_pypyprefixes(self):
         print "these prefixes are tried for dotted names in graph commands:"
