@@ -53,3 +53,26 @@ the results are two quite nice pieces of propaganda for the project:
     http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
     http://codespeak.net/pypy/extradoc/talk/22c3/techpaper.pdf
 
+
+Where did PyPy-sync go?
+=======================
+
+What's a pypy-sync meeting? Apparently::
+
+    It's an XP-style meeting that serves to synchronize
+    development work and let everybody know who is 
+    working on what.  It also serves as a decision 
+    board of the PyPy developers.  If discussions 
+    last too long and decisions cannot be reached 
+    they are delegated to a sub-group or get postponed. 
+
+And they usually happen at 1pm CET on the #pypy-sync meeting on
+freenode.  Except that the last couple haven't really happened -- a
+few people have turned up, but not many and mostly it's just the
+people who are in #pypy all week anyway.  So after the Gtbg sprint
+next week we're going to try hard to get everyone to attend these
+meetings again and talk about what they are doing.  This is especially
+important as we head into phases 2 and 3 of the project as the areas
+of work have less intrinsically in common and so maintaining an
+overall impression of where the project is requires more explicit
+effort.
