@@ -45,22 +45,23 @@ CCC papers
 ==========
 
 As mentioned last week, two PyPy talks have been accepted for the
-Chaos Communication Congress in Berlin, from December 27th to the
-30th.  The CCC asks that speakers provide papers to accompany their
-talks (they make a proceedings book) so that's what we've done, and
-the results are two quite nice pieces of propaganda for the project:
+Chaos Communication Congress.  The CCC asks that speakers provide
+papers to accompany their talks (they make a proceedings book) so
+that's what we've done, and the results are two quite nice pieces of
+propaganda for the project:
 
     http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
     http://codespeak.net/pypy/extradoc/talk/22c3/techpaper.pdf
 
-Btw, it's still possible to attend the CCC conference 27th-30th December 
-in Berlin: 
+It's still possible to attend the conference in Berlin, from December
+27th to the 30th:
 
     http://events.ccc.de/congress/2005
 
-A number of PyPy people will be around and innocently mix with
-people from other communities and generally be available for 
-discussing all things PyPy and the future. 
+A number of PyPy people will be around and innocently mixing with
+people from other communities and generally be available for
+discussing all things PyPy and the future.
+
 
 Where did PyPy-sync go?
 =======================
@@ -74,15 +75,15 @@ What's a pypy-sync meeting? Apparently::
     last too long and decisions cannot be reached 
     they are delegated to a sub-group or get postponed. 
 
-pypy-sync meetings usually happen on thursdays at 1pm CET on the 
-#pypy-sync IRC channel on freenode, and they are usually 
-prepared an Agenda and minutes after the meeting.  Except that 
-the last couple haven't really happened this way -- no agenda, 
-a few people have turned up, but not many and mostly it's just the
-people who are in #pypy all week anyway.
+pypy-sync meetings usually happen on thursdays at 1pm CET on the
+#pypy-sync IRC channel on freenode, with an agenda prepared beforehand
+and minutes posted to pypy-dev after the meeting.  Except that the
+last couple haven't really happened this way -- no agenda and only a
+few people have turned up and mostly just the people who are in #pypy
+all week anyway.
 
-So after the Gtbg sprint next week we're going to try harder
-to prepare and get developers to attend pypy-sync meetings
-again.  This is especially important as we head towards
-JIT-compiler efforts, integrating more of our GC works, more
-and refined backends and lots of other challenges. 
+So after the Gtbg sprint next week we're going to try harder to
+prepare and get developers to attend pypy-sync meetings again.  This
+is especially important as we head towards more varied and less
+intrinsically related challenges such as a JIT compiler, integration
+of logic programming, higher level backend and much more.
