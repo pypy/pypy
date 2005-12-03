@@ -1,4 +1,6 @@
 import threading, pdb
+import types
+from pypy.objspace.flow.model import FunctionGraph
 
 class _EnableGraphic:
     def __init__(self, port=None):
@@ -176,8 +178,10 @@ if obj is a class or ClassDef the class definition graph is shown"""
             return
         if hasattr(obj, 'im_func'):
             obj = obj.im_func
-        if obj in translator.flowgraphs:
-            page = graphpage.LocalizedCallGraphPage(translator, obj)
+        if isinstance(obj, types.FunctionType):
+            page = graphpage.LocalizedCallGraphPage(translator, self._allgraphs(obj))
+        elif isinstance(obj, FunctionGraph):
+            page = graphpage.FlowGraphPage(translator, [obj])
         elif obj in getattr(translator.annotator, 'getuserclasses', lambda: {})():
             page = graphpage.ClassDefPage(translator, translator.annotator.getuserclasses()[obj])
         elif isinstance(obj, ClassDef):
@@ -194,7 +198,6 @@ if obj is a class or ClassDef the class definition graph is shown"""
         obj = self._getobj(arg)
         if obj is None:
             return
-        import types
         if isinstance(obj, (type, types.ClassType)):
             obj = [obj]
         else:
@@ -306,33 +309,50 @@ the list of the read positions functions is set to var or _."""
         """callg obj
 show flow graph for function obj, obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""            
-        import types
         from pypy.translator.tool import graphpage                        
         obj = self._getobj(arg)
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
             obj = obj.im_func
-        if not isinstance(obj, types.FunctionType):
+        if isinstance(obj, types.FunctionType):
+            graphs = self._allgraphs(obj)
+        elif isinstance(obj, FunctionGraph):
+            graphs = [obj]
+        else:
             print "*** Not a function"
             return
-        self._show(graphpage.FlowGraphPage(self.translator, [obj]))
+        self._show(graphpage.FlowGraphPage(self.translator, graphs))
+
+    def _allgraphs(self, func):
+        graphs = {}
+        funcdesc = self.translator.annotator.bookkeeper.getdesc(func)
+        for graph in funcdesc._cache.itervalues():
+            graphs[graph] = True
+        for graph in self.translator.graphs:
+            if getattr(graph, 'func', None) is func:
+                graphs[graph] = True
+        return graphs.keys()
+
 
     def do_callg(self, arg):
         """callg obj
 show localized call-graph for function obj, obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""
-        import types
         from pypy.translator.tool import graphpage                        
         obj = self._getobj(arg)
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
             obj = obj.im_func
-        if not isinstance(obj, types.FunctionType):
+        if isinstance(obj, types.FunctionType):
+            graphs = self._allgraphs(obj)
+        elif isinstance(obj, FunctionGraph):
+            graphs = [obj]
+        else:
             print "*** Not a function"
             return
-        self._show(graphpage.LocalizedCallGraphPage(self.translator, obj))
+        self._show(graphpage.LocalizedCallGraphPage(self.translator, graphs))
 
     def do_classhier(self, arg):
         """classhier

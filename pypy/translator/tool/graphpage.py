@@ -308,7 +308,7 @@ class BaseTranslatorPage(GraphPage):
     def followlink(self, name):
         if name.endswith('...'):
             obj = self.object_by_name[name]
-            return LocalizedCallGraphPage(self.translator, obj)
+            return LocalizedCallGraphPage(self.translator, [obj])
         obj = self.object_by_name[name]
         if isinstance(obj, ClassDef):
             return ClassDefPage(self.translator, obj)
@@ -331,7 +331,7 @@ class TranslatorPage(BaseTranslatorPage):
 
         if len(graphs) > huge:
             assert graphs, "no graph to show!"
-            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, graphs[0])
+            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, [graphs[0]])
             return
 
         blocked_graphs = self.get_blocked_graphs(graphs)
@@ -361,16 +361,18 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
     """A GraphPage showing the localized call graph for a function,
     that means just including direct callers and callees"""
 
-    def graph_name(self, graph0):
-        return 'LCG_%s' % nameof(graph0)
+    def graph_name(self, centers):
+        return 'LCG_%s' % nameof(centers[0])
 
-    def do_compute(self, dotgen, graph0):
+    def do_compute(self, dotgen, centers):
+        centers = dict.fromkeys(centers)
+
         translator = self.translator
 
         graphs = {}
 
         for g1, g2 in translator.callgraph.values():
-            if g1 is graph0 or g2 is graph0:
+            if g1 in centers  or g2 in centers:
                 dotgen.emit_edge(nameof(g1), nameof(g2))
                 graphs[g1] = True
                 graphs[g2] = True
@@ -391,7 +393,7 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
                 kw = {}
             dotgen.emit_node(nameof(graph), label=data, shape="box", **kw)
 
-            if graph is not graph0:
+            if graph  not in centers:
                 lcg = 'LCG_%s' % nameof(graph)
                 label = graph.name+'...'
                 dotgen.emit_node(lcg, label=label)
