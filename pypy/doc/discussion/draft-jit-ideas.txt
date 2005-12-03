@@ -43,7 +43,23 @@ a value stack.
 L3 interpreter
 ~~~~~~~~~~~~~~~~~~~
 
-xxx
+* in RPython
+
+* the code should try to be straightforward (also for efficiency)
+
+* try to avoid needing maximal parameters that need to be 
+  computed over all the graph (makes emitting a graph incrementally harder)
+
+* one major issue to keep in mind is where the information
+  about offsets into low-level data types comes from/is computed
+  (C compiler offset values, vs. made-up values)
+
+* translatable together with an RPython program, and capable
+  of accepting (constant) data and functions from it 
+  in the interpreted graphs
+
+* ideally this should evolve into the intermediate representation
+  used between the JIT and the machine code backends
 
 
 Machine code backends and register allocation
