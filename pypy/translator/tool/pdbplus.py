@@ -182,8 +182,9 @@ if obj is a class or ClassDef the class definition graph is shown"""
             page = graphpage.LocalizedCallGraphPage(translator, self._allgraphs(obj))
         elif isinstance(obj, FunctionGraph):
             page = graphpage.FlowGraphPage(translator, [obj])
-        elif obj in getattr(translator.annotator, 'getuserclasses', lambda: {})():
-            page = graphpage.ClassDefPage(translator, translator.annotator.getuserclasses()[obj])
+        elif isinstance(obj, (type, types.ClassType)):
+            classdef = translator.annotator.bookkeeper.getuniqueclassdef(obj)
+            page = graphpage.ClassDefPage(translator, classdef)
         elif isinstance(obj, ClassDef):
             page = graphpage.ClassDefPage(translator, obj)
         else:
@@ -198,30 +199,36 @@ if obj is a class or ClassDef the class definition graph is shown"""
         obj = self._getobj(arg)
         if obj is None:
             return
-        if isinstance(obj, (type, types.ClassType)):
-            obj = [obj]
-        else:
+        try:
             obj = list(obj)
+        except:
+            obj = [obj]
+        getcdef = self.translator.annotator.bookkeeper.getuniqueclassdef
+        clsdefs = []
+        for x in obj:
+            if isinstance(x, (type, types.ClassType)):
+                clsdefs.append(getcdef(x))
+            else:
+                clsdefs.append(x)
+
         def longname(c):
-            return "%s.%s" % (c.__module__, c.__name__) 
-        obj.sort(lambda x,y: cmp(longname(x), longname(y)))
-        cls = self.translator.annotator.getuserclasses()
+            return c.name
+        clsdefs.sort(lambda x,y: cmp(longname(x), longname(y)))
         flt = self._make_flt(expr)
         if flt is None:
             return
-        for c in obj:
-            if c in cls:
-                try:
-                    attrs = [a for a in cls[c].attrs.itervalues() if flt(a)]
-                except self.GiveUp:
-                    return
-                if attrs:
-                    print "%s:" % longname(c)
-                    pr(attrs)
+        for cdef in clsdefs:
+            try:
+                attrs = [a for a in cdef.attrs.itervalues() if flt(a)]
+            except self.GiveUp:
+                return
+            if attrs:
+                print "%s:" % cdef.name
+                pr(attrs)
 
     def do_attrs(self, arg):
         """attrs obj [match expr]
-list annotated attrs of class obj or list of classes obj,
+list annotated attrs of class|def obj or list of classe(def)s obj,
 obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes));
 expr is an optional filtering expression; cand in it refer to the candidate Attribute
@@ -232,7 +239,7 @@ information object, which has a .name and .s_value."""
 
     def do_attrsann(self, arg):
         """attrsann obj [match expr]
-list with their annotation annotated attrs of class obj or list of classes obj,
+list with their annotation annotated attrs of class|def obj or list of classe(def)s obj,
 obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes));
 expr is an optional filtering expression; cand in it refer to the candidate Attribute
@@ -244,14 +251,15 @@ information object, which has a .name and .s_value."""
 
     def do_readpos(self, arg):
         """readpos obj attrname [match expr] [as var]
-list the read positions of annotated attr with attrname of class obj,
+list the read positions of annotated attr with attrname of class or classdef obj,
 obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes));
 expr is an optional filtering expression; cand in it refer to the candidate read
-position information, which has a .func and .block and .i;
+position information, which has a .func (which can be None), a .graph  and .block and .i;
 the list of the read positions functions is set to var or _."""
         class Pos:
-            def __init__(self, func, block, i):
+            def __init__(self, graph, func, block, i):
+                self.graph = graph
                 self.func = func
                 self.block = block
                 self.i = i
@@ -272,10 +280,9 @@ the list of the read positions functions is set to var or _."""
         obj = self._getobj(arg)
         if obj is None:
             return
-        cls = self.translator.annotator.getuserclasses()
-        if obj not in cls:
-            return
-        attrs = cls[obj].attrs
+        if isinstance(obj, (type, types.ClassType)):
+            obj = self.translator.annotator.bookkeeper.getuniqueclassdef(obj)
+        attrs = obj.attrs
         if attrname not in attrs:
             print "*** bogus:", attrname
             return
@@ -288,9 +295,16 @@ the list of the read positions functions is set to var or _."""
         r = {}
         try:
             for p in pos:
-                func, block, i = p
-                if flt(Pos(func, block, i)):
-                    print func.__module__ or '?', func.__name__, block, i
+                graph, block, i = p
+                if hasattr(graph, 'func'):
+                    func = graph.func
+                else:
+                    func = None
+                if flt(Pos(graph, func, block, i)):
+                    if func is not None:
+                        print func.__module__ or '?', func.__name__, block, i
+                    else:
+                        print graph, block, i
                     if i >= 0:
                         op = block.operations[i]
                         print " ", op
