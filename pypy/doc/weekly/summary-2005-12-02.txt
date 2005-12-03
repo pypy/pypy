@@ -77,9 +77,9 @@ goes well regarding our first major EU review end January.
 Meanwhile, Holger was invited to give a talk about PyPy's
 technical organisation at a workshop from the german EU office
 on the 5th December.  Also, Bea, Alastair and Holger will
-talk about PyPy at an EU workshop in Bruxelles.  Hopefully, this 
-provides us some more insights and possibilities to have PyPy
-recognized as an interesting "live" project within
+talk about PyPy at an EU workshop 8th December in Bruxelles.  
+Hopefully, this provides us some more insights and possibilities 
+to have PyPy recognized as an interesting "live" project within
 the EU context. 
 
 
