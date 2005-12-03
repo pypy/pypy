@@ -53,6 +53,14 @@ the results are two quite nice pieces of propaganda for the project:
     http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
     http://codespeak.net/pypy/extradoc/talk/22c3/techpaper.pdf
 
+Btw, it's still possible to attend the CCC conference 27th-30th December 
+in Berlin: 
+
+    http://events.ccc.de/congress/2005
+
+A number of PyPy people will be around and innocently mix with
+people from other communities and generally be available for 
+discussing all things PyPy and the future. 
 
 Where did PyPy-sync go?
 =======================
@@ -62,17 +70,19 @@ What's a pypy-sync meeting? Apparently::
     It's an XP-style meeting that serves to synchronize
     development work and let everybody know who is 
     working on what.  It also serves as a decision 
-    board of the PyPy developers.  If discussions 
+    board of the PyPy active developers.  If discussions 
     last too long and decisions cannot be reached 
     they are delegated to a sub-group or get postponed. 
 
-And they usually happen at 1pm CET on the #pypy-sync meeting on
-freenode.  Except that the last couple haven't really happened -- a
-few people have turned up, but not many and mostly it's just the
-people who are in #pypy all week anyway.  So after the Gtbg sprint
-next week we're going to try hard to get everyone to attend these
-meetings again and talk about what they are doing.  This is especially
-important as we head into phases 2 and 3 of the project as the areas
-of work have less intrinsically in common and so maintaining an
-overall impression of where the project is requires more explicit
-effort.
+pypy-sync meetings usually happen on thursdays at 1pm CET on the 
+#pypy-sync IRC channel on freenode, and they are usually 
+prepared an Agenda and minutes after the meeting.  Except that 
+the last couple haven't really happened this way -- no agenda, 
+a few people have turned up, but not many and mostly it's just the
+people who are in #pypy all week anyway.
+
+So after the Gtbg sprint next week we're going to try harder
+to prepare and get developers to attend pypy-sync meetings
+again.  This is especially important as we head towards
+JIT-compiler efforts, integrating more of our GC works, more
+and refined backends and lots of other challenges. 
