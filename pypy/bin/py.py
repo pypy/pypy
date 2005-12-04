@@ -100,6 +100,9 @@ def main_(argv=None):
         def doit():
             main.run_string(Options.command[0], space=space)
     elif args:
+        scriptdir = os.path.dirname(os.path.abspath(args[0]))
+        space.call_method(space.sys.get('path'), 'insert',
+                          space.wrap(0), space.wrap(scriptdir))
         def doit():
             main.run_file(args[0], space=space)
     else:

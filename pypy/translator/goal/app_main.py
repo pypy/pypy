@@ -173,6 +173,10 @@ def entry_point(executable, argv):
                     exec cmd in mainmodule.__dict__
                 run_toplevel(run_it)
             else:
+                import os
+                # XXX resolve symlinks
+                scriptdir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                sys.path.insert(0, scriptdir)
                 run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
         else: 
             go_interactive = True
