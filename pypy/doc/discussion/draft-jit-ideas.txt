@@ -1,6 +1,24 @@
 JIT ideas and areas of work
 ------------------------------
 
+Plan
+===========================
+
+Short-term plans:
+
+1. Write a small interpreter in RPython for whatever bytecode language,
+   as an example and for testing.  The goal is to turn that interpreter
+   into a JIT.
+
+2. Write code that takes LL graphs and "specializes" them, by making a
+   variable constant and propagating it.
+
+3. Think more about how to plug 1 into 2 :-)
+
+
+Discussion and details
+===========================
+
 Low-level graphs abstract interpreter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
