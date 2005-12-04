@@ -62,16 +62,8 @@ def getobjspace(name=None, **kwds):
             kwds.setdefault('usemodules', option.usemodules)
             kwds.setdefault('compiler', option.compiler)
             space = Space(**kwds)
-        except KeyboardInterrupt: 
-            raise 
-        except OperationError, e: 
-            # we cannot easily convert w_KeyboardInterrupt to
-            # KeyboardInterrupt so we have to jump through hoops 
-            try: 
-                if e.w_type.name == 'KeyboardInterrupt': 
-                    raise KeyboardInterrupt 
-            except AttributeError: 
-                pass 
+        except OperationError, e:
+            check_keyboard_interrupt(e)
             if option.verbose:  
                 import traceback 
                 traceback.print_exc() 
@@ -86,6 +78,19 @@ def getobjspace(name=None, **kwds):
         space.raises_w = appsupport.raises_w.__get__(space)
         space.eq_w = appsupport.eq_w.__get__(space) 
         return space
+
+class OpErrKeyboardInterrupt(KeyboardInterrupt):
+    pass
+
+def check_keyboard_interrupt(e):
+    # we cannot easily convert w_KeyboardInterrupt to KeyboardInterrupt
+    # in general without a space -- here is an approximation
+    try:
+        if e.w_type.name == 'KeyboardInterrupt':
+            tb = sys.exc_info()[2]
+            raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
+    except AttributeError:
+        pass
 
 # 
 # Interfacing/Integrating with py.test's collection process 
@@ -147,8 +152,9 @@ class PyPyTestFunction(py.test.Function):
         try:
             target(*args)
         except OperationError, e:
-            if e.match(space, space.w_KeyboardInterrupt): 
-                raise KeyboardInterrupt 
+            if e.match(space, space.w_KeyboardInterrupt):
+                tb = sys.exc_info()[2]
+                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
             appexcinfo = appsupport.AppExceptionInfo(space, e) 
             if appexcinfo.traceback: 
                 raise self.Failed(excinfo=appsupport.AppExceptionInfo(space, e))
@@ -159,11 +165,15 @@ _pygame_warned = False
 class IntTestFunction(PyPyTestFunction):
     def execute(self, target, *args):
         co = target.func_code
-        if 'space' in co.co_varnames[:co.co_argcount]: 
-            space = gettestobjspace() 
-            target(space, *args)  
-        else:
-            target(*args)
+        try:
+            if 'space' in co.co_varnames[:co.co_argcount]: 
+                space = gettestobjspace() 
+                target(space, *args)  
+            else:
+                target(*args)
+        except OperationError, e:
+            check_keyboard_interrupt(e)
+            raise
         if 'pygame' in sys.modules:
             global _pygame_warned
             if not _pygame_warned:
