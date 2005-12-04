@@ -1,7 +1,9 @@
+import py
 from pypy.rpython.l3interp import convertgraph, l3interp
 from pypy.translator.translator import TranslationContext
 
 def test_convert_add():
+    py.test.skip("in-progress")
     def f(x):
         return x + 4
     t = TranslationContext()

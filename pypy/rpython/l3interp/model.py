@@ -3,6 +3,12 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem import lltype
 
 very_low_level_ops = [
+    'nop',
+
+    #control flow operations (only at the end of blocks)
+    'jump', 'jump_cond',
+    'void_return', 'int_return', 'float_return', 'adr_return',
+
     #operations with adresses:
     'adr_add', 'adr_delta', 'adr_eq', 'adr_ge', 'adr_gt', 'adr_le',
     'adr_lt', 'adr_ne', 'adr_sub',
@@ -72,7 +78,11 @@ very_low_level_ops = [
     'unichar_eq', 'unichar_ne'
     ]
 
-
+#assert len(very_low_level_ops) <= 256
+very_low_level_opcode = {}
+for i, op in enumerate(very_low_level_ops):
+    very_low_level_opcode[op] = i
+del i, op
 
 
 primitives = [lltype.Signed, lltype.Unsigned, lltype.Float, lltype.Char,
@@ -81,56 +91,41 @@ primitives = [lltype.Signed, lltype.Unsigned, lltype.Float, lltype.Char,
 primitive_to_number = {}
 for i, p in enumerate(primitives):
     primitive_to_number[p] = -i - 1
-del p
+del i, p
 
+class Op: "Attribute-based interface to very_low_level_opcode"
+Op = Op()
+Op.__dict__ = very_low_level_opcode
 
-# possible values for exitswitch:
-ONE_EXIT = -1
-LAST_EXCEPTION = -2
-
-class Operation(object):
-    def __init__(self, opimpl, result, args):
-        self.opimpl = opimpl # unbound method of LLFrame
-        self.args = args     # list of ints: how to represent constants?
-        self.result = result # resulting variable
-
-class Link(object):
-    stop_graph_evaluation = False
-    def __init__(self, target, exitcase=None):
-        self.target = target # target is a Block
-        self.exitcase = exitcase  # NULL for non-exceptional case
-                                  # address of exception class else
-        self.move_int_registers = None
-
-class ReturnLink(Link):
-    stop_graph_evaluation = True
-    def __init__(self, return_val=0, exitcase=None):
-        Link.__init__(self, None, exitcase)
-        if return_val != 0:
-            self.move_int_registers = [return_val, 0]
-    pass
-
-class StartLink(Link):
-    pass
 
 class Block(object):
-    def __init__(self):
-        self.operations = [] # list of Operations
-        self.exitswitch = 0  # positives are variables
-                             # negatives see above
-        self.exits = []      # list of Links
+    def __init__(self, insns, exit0=None,
+                              exit1=None,
+                              constants_int=None,
+                              constants_dbl=None,
+                              constants_ptr=None,
+                              called_graphs=None):
+        self.insns = insns
+        self.exit0 = exit0
+        self.exit1 = exit1
+        self.constants_int = constants_int
+        self.constants_dbl = constants_dbl
+        self.constants_ptr = constants_ptr
+        self.called_graphs = called_graphs
+
+class Link(object):
+    def __init__(self, target, targetregs_int=None,
+                               targetregs_dbl=None,
+                               targetregs_ptr=None):
+        self.target = target
+        self.targetregs_int = targetregs_int
+        self.targetregs_dbl = targetregs_dbl
+        self.targetregs_ptr = targetregs_ptr
 
 class Graph(object):
-    def __init__(self, name, startlink):
-        self.name = name             # string
-        self.startlink = startlink # Block
-        self.constants_int = []
-        self.max_num_ints = 17 #XXX calculate this
-
-    def set_constants_int(self, constants):
-        self.constants_int = constants
-
-class Globals(object):
-    def __init__(self):
-        self.graphs = []    # list of Graphs
-
+    def __init__(self, name, startblock, nargs_int, nargs_dbl, nargs_ptr):
+        self.name = name
+        self.startblock = startblock
+        self.nargs_int = nargs_int
+        self.nargs_dbl = nargs_dbl
+        self.nargs_ptr = nargs_ptr

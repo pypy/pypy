@@ -1,5 +1,6 @@
 from pypy.rpython.l3interp import l3interp
 from pypy.rpython.l3interp import model
+from pypy.rpython.l3interp.model import Op
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy
@@ -24,19 +25,13 @@ def translate(func, inputargs):
 def eval_seven():
     #def f():
     #    return 3 + 4
-    op = model.Operation(l3interp.LLFrame.op_int_add, 0, [-1, -2])
-    returnlink = model.ReturnLink()
-    block = model.Block()
-    block.exitswitch = model.ONE_EXIT
-    block.exits = [returnlink]
-    block.operations.append(op)
-    startlink = model.Link(block, [])
-    graph = model.Graph("testgraph", startlink)
-    graph.set_constants_int([3, 4])
-    g = model.Globals()
-    g.graphs = [graph]
-    interp = l3interp.LLInterpreter(g)
-    return interp.eval_graph_int(graph, [])
+    block = model.Block([Op.int_add, 0, 1,
+                         Op.int_return, -1],
+                        constants_int = [3, 4])
+    graph = model.Graph("testgraph", block, 0, 0, 0)
+    value = l3interp.l3interpret(graph, [], [], [])
+    assert isinstance(value, l3interp.L3Integer)
+    return value.intval
       
 def test_very_simple():
     result = eval_seven()
@@ -50,20 +45,13 @@ def test_very_simple_translated():
 def eval_eight(number):
     #def f(x):
     #    return x + 4
-    op = model.Operation(l3interp.LLFrame.op_int_add, 1, [0, -1])
-    returnlink = model.ReturnLink(return_val=1)
-    block = model.Block()
-    block.exitswitch = model.ONE_EXIT
-    block.exits = [returnlink]
-    block.operations.append(op)
-    startlink = model.Link(target=block)
-    startlink.move_int_registers = [0, 0]
-    graph = model.Graph("testgraph", startlink)
-    graph.set_constants_int([4])
-    g = model.Globals()
-    g.graphs = [graph]
-    interp = l3interp.LLInterpreter(g)
-    return interp.eval_graph_int(graph, [number])
+    block = model.Block([Op.int_add, -1, 0,
+                         Op.int_return, -1],
+                        constants_int = [4])
+    graph = model.Graph("testgraph", block, 1, 0, 0)
+    value = l3interp.l3interpret(graph, [number], [], [])
+    assert isinstance(value, l3interp.L3Integer)
+    return value.intval
 
 def test_simple():
     result = eval_eight(4)
@@ -77,69 +65,51 @@ def test_simple_translated():
 def eval_branch(number):
     #def f(x):
     #    if x:
-    #        return 2
+    #        return x
     #    return 1
-    op = model.Operation(l3interp.LLFrame.op_int_is_true, 1, [0])
-    returnlink1 = model.ReturnLink(-1)
-    returnlink2 = model.ReturnLink(-2)
-    block = model.Block()
-    block.exitswitch = 1
-    block.exits = [returnlink1, returnlink2]
-    block.operations.append(op)
-    startlink = model.Link(target=block)
-    startlink.move_int_registers = [0, 0]
-    graph = model.Graph("testgraph", startlink)
-    graph.set_constants_int([1, 2])
-    g = model.Globals()
-    g.graphs = [graph]
-    interp = l3interp.LLInterpreter(g)
-    return interp.eval_graph_int(graph, [number])
+    block1 = model.Block([Op.jump_cond, -1])
+    block2 = model.Block([Op.int_return, -1])
+    block3 = model.Block([Op.int_return, 0], constants_int=[1])
+    block1.exit0 = model.Link(block3)
+    block1.exit1 = model.Link(block2, targetregs_int=[-1])
+    graph = model.Graph("testgraph", block1, 1, 0, 0)
+    value = l3interp.l3interpret(graph, [number], [], [])
+    assert isinstance(value, l3interp.L3Integer)
+    return value.intval
 
 def test_branch():
     result = eval_branch(4)
-    assert result == 2
+    assert result == 4
     result = eval_branch(0)
     assert result == 1
 
 def test_branch_translated():
     fn = translate(eval_branch, [int]) 
-    assert fn(4) == 2 
+    assert fn(4) == 4
     assert fn(0) == 1
 
 #----------------------------------------------------------------------
 
 def eval_call(number):
-    #XXX uh: this isn't funny anymore
     #def g(x):
     #    return x + 1
     #def f(x):
     #    return g(x) + 2
-    op_g = model.Operation(l3interp.LLFrame.op_int_add, 1, [0, -1])
-    op_f = model.Operation(l3interp.LLFrame.op_int_add, 2, [1, -1])
-    call_op = model.Operation(l3interp.LLFrame.op_call_graph_int, 1, [0, 0])
-    returnlink_g = model.ReturnLink(1)
-    returnlink_f = model.ReturnLink(2)
-    block_g = model.Block()
-    block_g.exitswitch = model.ONE_EXIT
-    block_g.exits = [returnlink_g]
-    block_g.operations.append(op_g)
-    startlink_g = model.StartLink(target=block_g)
-    startlink_g.move_int_registers = [0, 0]
-    graph_g = model.Graph("g", startlink_g)
-    graph_g.set_constants_int([1])
+    block = model.Block([Op.int_add, -1, 0,
+                         Op.int_return, -1],
+                        constants_int = [1])
+    graph1 = model.Graph("g", block, 1, 0, 0)
 
-    block_f = model.Block()
-    block_f.exitswitch = model.ONE_EXIT
-    block_f.exits = [returnlink_f]
-    block_f.operations.extend([call_op, op_f])
-    startlink_f = model.StartLink(target=block_f)
-    startlink_f.move_int_registers = [0, 0]
-    graph_f = model.Graph("f", startlink_f)
-    graph_f.set_constants_int([2])
-    g = model.Globals()
-    g.graphs = [graph_g, graph_f]
-    interp = l3interp.LLInterpreter(g)
-    return interp.eval_graph_int(graph_f, [number])
+    block = model.Block([Op.direct_call, 0, -1,
+                         Op.int_add, -1, 0,
+                         Op.int_return, -1],
+                        constants_int = [2],
+                        called_graphs = [graph1])
+    graph2 = model.Graph("f", block, 1, 0, 0)
+
+    value = l3interp.l3interpret(graph2, [number], [], [])
+    assert isinstance(value, l3interp.L3Integer)
+    return value.intval
 
 def test_call():
     result = eval_call(4)
@@ -151,5 +121,3 @@ def test_call_translated():
     fn = translate(eval_call, [int]) 
     assert fn(4) == 7 
     assert fn(0) == 3
-
-
