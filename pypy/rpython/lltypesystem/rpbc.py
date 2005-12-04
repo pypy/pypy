@@ -7,11 +7,11 @@ from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, ForwardReference, Struct, Bool, \
      Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError, inputconst, inputdesc
-from pypy.rpython.rmodel import warning, mangle
+from pypy.rpython.rmodel import warning, mangle, CanBeNull
 from pypy.rpython import robject
 from pypy.rpython import rtuple
 from pypy.rpython.rpbc import SingleFrozenPBCRepr, samesig,\
-     commonbase, allattributenames, MultiplePBCRepr, FunctionsPBCRepr, \
+     commonbase, allattributenames, FunctionsPBCRepr, \
      AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
@@ -26,7 +26,7 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
     
 # ____________________________________________________________
 
-class MultipleFrozenPBCRepr(MultiplePBCRepr):
+class MultipleFrozenPBCRepr(CanBeNull, Repr):
     """Representation selected for multiple non-callable pre-built constants."""
     def __init__(self, rtyper, access_set):
         self.rtyper = rtyper

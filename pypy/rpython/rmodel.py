@@ -179,6 +179,17 @@ def ll_hash_void(v):
     return 0
 
 
+class CanBeNull(object):
+    """A mix-in base class for subclasses of Repr that represent None as
+    'null' and true values as non-'null'.
+    """
+    def rtype_is_true(self, hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(Bool, hop.s_result.const)
+        else:
+            return hop.rtyper.type_system.check_null(self, hop)
+
+
 class IteratorRepr(Repr):
     """Base class of Reprs of any kind of iterator."""
 

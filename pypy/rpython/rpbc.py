@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, Bool, nullptr, frozendict, Ptr, Struct, malloc
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, inputconst, HalfConcreteWrapper
+from pypy.rpython.rmodel import Repr, inputconst, HalfConcreteWrapper, CanBeNull
 from pypy.rpython import rclass
 from pypy.rpython import robject
 
@@ -65,17 +65,6 @@ builtin_descriptor_type = (
     )
 
 # ____________________________________________________________
-
-class MultiplePBCRepr(Repr):
-    """Base class for PBCReprs of multiple PBCs that can include None
-    (represented as a NULL pointer)."""
-    def rtype_is_true(self, hop):
-        if hop.s_result.is_constant():
-            assert hop.s_result.const is True    # custom __nonzero__ on PBCs?
-            return hop.inputconst(Bool, hop.s_result.const)
-        else:
-            return hop.rtyper.type_system.check_null(self, hop)
-
 
 class ConcreteCallTableRow(dict):
     """A row in a concrete call table."""
@@ -165,7 +154,7 @@ def get_concrete_calltable(rtyper, callfamily):
     return concretetable, uniquerows
 
 
-class FunctionsPBCRepr(MultiplePBCRepr):
+class FunctionsPBCRepr(CanBeNull, Repr):
     """Representation selected for a PBC of function(s)."""
 
     def __init__(self, rtyper, s_pbc):
