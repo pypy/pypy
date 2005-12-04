@@ -1,6 +1,6 @@
 # base annotation policy for overrides and specialization
 from pypy.annotation.specialize import default_specialize as default
-from pypy.annotation.specialize import argtype, argvalue
+from pypy.annotation.specialize import argtype, argvalue, arglistitemtype
 from pypy.annotation.specialize import memo, methodmemo
 # for some reason, model must be imported first,
 # or we create a cycle.
@@ -55,16 +55,22 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     specialize__methodmemo = staticmethod(methodmemo)
     specialize__arg0 = staticmethod(argvalue(0))
     specialize__argtype0 = staticmethod(argtype(0))
+    specialize__arglistitemtype0 = staticmethod(arglistitemtype(0))
     specialize__arg1 = staticmethod(argvalue(1))
     specialize__argtype1 = staticmethod(argtype(1))
+    specialize__arglistitemtype1 = staticmethod(arglistitemtype(1))
     specialize__arg2 = staticmethod(argvalue(2))
     specialize__argtype2 = staticmethod(argtype(2))
+    specialize__arglistitemtype2 = staticmethod(arglistitemtype(2))
     specialize__arg3 = staticmethod(argvalue(3))
     specialize__argtype3 = staticmethod(argtype(3))
+    specialize__arglistitemtype3 = staticmethod(arglistitemtype(3))
     specialize__arg4 = staticmethod(argvalue(4))
     specialize__argtype4 = staticmethod(argtype(4))
+    specialize__arglistitemtype4 = staticmethod(arglistitemtype(4))
     specialize__arg5 = staticmethod(argvalue(5))
     specialize__argtype5 = staticmethod(argtype(5))
+    specialize__arglistitemtype5 = staticmethod(arglistitemtype(5))
 
     def override__ignore(pol, *args):
         bk = getbookkeeper()

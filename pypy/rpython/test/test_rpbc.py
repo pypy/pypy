@@ -1218,3 +1218,16 @@ def test_specialized_method_of_frozen():
     assert ''.join(res.chars) == 'tag1:hellotag1:< 42 >'
     res = interpret(f, [0])
     assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
+
+def test_call_from_list():
+    def f0(n): return n+200
+    def f1(n): return n+192
+    def f2(n): return n+46
+    def f3(n): return n+2987
+    def f4(n): return n+217
+    lst = [f0, f1, f2, f3, f4]
+    def f(i, n):
+        return lst[i](n)
+    for i in range(5):
+        res = interpret(f, [i, 1000])
+        assert res == f(i, 1000)

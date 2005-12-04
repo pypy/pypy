@@ -73,12 +73,12 @@ class L3Frame(object):
     def followlink(self, link):
         assert isinstance(link, model.Link)
         block = self.block
-        followlink1(L3Integer, self.stack_int, self.base_int,
-                               link.targetregs_int, block.constants_int)
-        followlink1(L3Double,  self.stack_dbl, self.base_dbl,
-                               link.targetregs_dbl, block.constants_dbl)
-        followlink1(L3Pointer, self.stack_ptr, self.base_ptr,
-                               link.targetregs_ptr, block.constants_ptr)
+        followlink1(self.stack_int, self.base_int,
+                    link.targetregs_int, block.constants_int)
+        followlink1(self.stack_dbl, self.base_dbl,
+                    link.targetregs_dbl, block.constants_dbl)
+        followlink1(self.stack_ptr, self.base_ptr,
+                    link.targetregs_ptr, block.constants_ptr)
         self.block = link.target
         self.i = 0
 
@@ -161,12 +161,12 @@ class L3Frame(object):
         block = self.block
         assert block.called_graphs is not None
         graph = block.called_graphs[self.nextuop()]
-        directcall1(L3Integer, graph.nargs_int, self.stack_int,
-                               block.constants_int, self.nextop)
-        directcall1(L3Double,  graph.nargs_dbl, self.stack_dbl,
-                               block.constants_dbl, self.nextop)
-        directcall1(L3Pointer, graph.nargs_ptr, self.stack_ptr,
-                               block.constants_ptr, self.nextop)
+        directcall1(self.stack_int, graph.nargs_int,
+                    block.constants_int, self.nextop)
+        directcall1(self.stack_dbl, graph.nargs_dbl,
+                    block.constants_dbl, self.nextop)
+        directcall1(self.stack_ptr, graph.nargs_ptr,
+                    block.constants_ptr, self.nextop)
         frame = L3Frame(graph, self.stack_int, self.stack_dbl, self.stack_ptr)
         frame.execute()
 
@@ -175,7 +175,7 @@ class L3Frame(object):
 class L3Return(Exception):
     pass
 
-def followlink1(marker, stack, stackbase, targetregs, constants):
+def followlink1(stack, stackbase, targetregs, constants):
     if targetregs is None:
         del stack[stackbase:]
     else:
@@ -188,9 +188,9 @@ def followlink1(marker, stack, stackbase, targetregs, constants):
         for i in range(targetlen):
             stack[stackbase + i] = stack[top + i]
         del stack[stackbase + targetlen:]
-followlink1._annspecialcase_ = 'specialize:arg0'
+followlink1._annspecialcase_ = 'specialize:arglistitemtype0'
 
-def directcall1(marker, nargs, stack, constants, nextop):
+def directcall1(stack, nargs, constants, nextop):
     if nargs > 0:
         top = r_uint(len(stack))
         for i in range(nargs):
@@ -198,4 +198,4 @@ def directcall1(marker, nargs, stack, constants, nextop):
             if op >= 0: newval = constants[op]
             else:       newval = stack[top + op]
             stack.append(newval)
-directcall1._annspecialcase_ = 'specialize:arg0'
+directcall1._annspecialcase_ = 'specialize:arglistitemtype0'

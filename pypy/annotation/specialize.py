@@ -186,3 +186,13 @@ def argtype(i):
         key = args_s[i].knowntype
         return funcdesc.cachedgraph(key)        
     return specialize_argtype
+
+def arglistitemtype(i):
+    def specialize_arglistitemtype(funcdesc, args_s):
+        s = args_s[i]
+        if s.knowntype is not list:
+            key = None
+        else:
+            key = s.listdef.listitem.s_value.knowntype
+        return funcdesc.cachedgraph(key)        
+    return specialize_arglistitemtype
