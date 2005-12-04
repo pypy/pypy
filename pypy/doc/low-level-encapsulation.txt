@@ -255,9 +255,12 @@ Stacklessness
 
 Multiple Interpreters
 
-    No experimental data available so far.  We are working on removing a
-    minor technical restriction that prevents our translation toolchain
-    from handling this case.
+    A binary that allowed selection between two copies of the standard
+    object space with a command line switch was about 10% slower and
+    about 40% bigger larger than the default.  Most of the extra size
+    is likely accounted for by the duplication of the large amount
+    prebuilt data involved in an instance of the standard object
+    space.
 
 Memory Management
 
