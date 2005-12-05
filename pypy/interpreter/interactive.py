@@ -130,7 +130,7 @@ class PyPyConsole(code.InteractiveConsole):
         w_sys = self.space.sys
         major, minor, micro, _, _ = self.space.unwrap(self.space.sys.get('pypy_version_info'))
         elapsed = time.time() - self.space._starttime
-        banner = "PyPy %d.%d.%d in %r on top of Python %s (startupttime: %.2f secs)" % (
+        banner = "PyPy %d.%d.%d in %r on top of Python %s (startuptime: %.2f secs)" % (
             major, minor, micro, self.space, sys.version.split()[0], elapsed)
         code.InteractiveConsole.interact(self, banner)
 
