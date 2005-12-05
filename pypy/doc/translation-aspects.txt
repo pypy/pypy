@@ -12,13 +12,16 @@ One of the goals of the PyPy project is it to have the memory and threading
 models flexible and changeable without having to manually reimplement the
 interpreter.  In fact, PyPy with the 0.7 and 0.8 releases contain code for
 memory management and threading models which allows experimentation without
-requiring early design decisions.  This document describes the current state of
-the implementation of the memory object model, automatic memory management and
-threading models and describes possible future developments.
+requiring early design decisions.  This document describes many details of the
+current state of the implementation of the memory object model, automatic
+memory management and threading models and describes possible future
+developments.
 
 
-Background
-===========
+Introduction
+============
+
+
 
 The main emphasis of the PyPy project is that of integration: we want to make
 changing memory management and threading techniques possible while at the same
@@ -154,7 +157,7 @@ a low-level array is used directly. For lists which get resized a
 representation consisting of a structure with a pointer to an array is used and
 overallocation is performed.
 
-We plan to use similar techniques to use tagged pointers instead of box-classes
+We plan to use similar techniques to use tagged pointers instead of using boxing
 to represent builtin types of the PyPy interpreter such as integers. This would
 require attaching explicit hints to the involved classes. Field access would
 then be translated to the corresponding masking operations.
@@ -431,14 +434,12 @@ Object model
 ------------
 
 We also might want to experiment with more sophisticated structure inlining.
-That means identifying a field in a structure A that points to another object B
-on the heap in such a way, that the pointer in A gets assigned only once to and
-that no other pointer to B exists from a heap object. If this is the case the
-object B can be inlined into the A since B lives exactly as long as A.
-XXX makes little sense!
+Sometimes it is possible to find out that one structure object that is
+allocated on the heap lives exactly as long as another structure object on the
+heap pointing to it. If this is the case it is possible to inline the first
+object into the second. This saves the space of one pointer and avoids
+pointer-chasing.
 
-As noted above, another plan is to implement builtin application level objects
-by using tagged pointers. XXX also makes little sense!
 
 Conclusion
 ===========
