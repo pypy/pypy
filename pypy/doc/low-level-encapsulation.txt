@@ -305,7 +305,11 @@ Conclusion
 
 Although still a work in progress, we believe that the successes we
 have had in enscapsulating implementation aspects justifies the
-approach we have taken.
+approach we have taken.  In particular, the relative ease of
+implementing the translation aspects described in this paper -- as
+mentioned above, the stackless modifications took only a few days --
+means we are confident that it will be easily possible to encapsulate
+implementation aspects we have not yet considered.
 
 
 References
