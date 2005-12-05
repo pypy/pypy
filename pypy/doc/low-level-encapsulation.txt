@@ -141,15 +141,15 @@ CPython largely because of the memory overhead that adding a 'interp'
 pointer to all Python objects would create.
 
 In PyPy, all of our implementation code manipulates an explicit object
-space instance, as described in [CODG]_.  Ideally, the situation of
-multiple interpreters is thus handled automatically: if there is only
-one space instance, it is regarded as a pre-constructed constant and the
-space object pointer (though not its non-constant contents) disappears
-from the produced source, i.e. both from function arguments and local
-variables and from instance fields.  If there are two or more such
-instances, a 'space' attribute will be automatically added to all
-application objects (or more precisely, it will not be removed by the
-translation process), the best of both worlds.
+space instance, as described in [CODG]_.  The situation of multiple
+interpreters is thus handled automatically: if there is only one space
+instance, it is regarded as a pre-constructed constant and the space
+object pointer (though not its non-constant contents) disappears from
+the produced source, i.e. from function arguments, local variables and
+instance fields.  If there are two or more such instances, a 'space'
+attribute will be automatically added to all application objects (or
+more precisely, it will not be removed by the translation process), the
+best of both worlds.
 
 
 Concurrency
