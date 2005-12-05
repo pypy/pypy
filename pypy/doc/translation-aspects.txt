@@ -9,7 +9,7 @@ Abstract
 =========
 
 One of the goals of the PyPy project is it to have the memory and threading
-model flexible and changeable without having to manually reimplement the
+models flexible and changeable without having to manually reimplement the
 interpreter.  In fact, PyPy with the 0.7 and 0.8 releases contain code for
 memory management and threading models which allows experimentation without
 requiring early design decisions.  This document describes the current state of
@@ -41,12 +41,12 @@ During rtyping they are transformed into objects that match the model of the
 specific target platform. For C or C-like targets this model consists of a set
 of C-like types like structures, arrays and functions in addition to primitive
 types (integers, characters, floating point numbers). This multi-stage approach
-gives a lot of flexibility how a certain object is represented on the target
-level. The RPython process can decide what representation to use based on the
-type annotation and on the context and usages of the object.
+gives a lot of flexibility how a particular object is represented on the 
+target's level. The RPython process can decide what representation to use based
+on the type annotation and on the way the object is used.
 
-In the following the structures used to represent user classes are described.
-There is one "vtable" per user class, with the following structure: A root
+In the following the structures used to represent RPython classes are described.
+There is one "vtable" per RPython class, with the following structure: A root
 class "object" has::
 
     struct object_vtable {
@@ -72,11 +72,11 @@ supported by the RPython object model) are stored there.
 
 The type of the instances is::
 
-   struct object {       // for the root class
+   struct object {       // for instance of the root class
        struct object_vtable* typeptr;
    }
 
-   struct X {
+   struct X {            // for instances of every other class
        struct Y super;   // inlined
        ...               // extra instance attributes
    }
@@ -94,8 +94,8 @@ by our approach: in the beginning we were using a naive linear lookup
 algorithm. Since subclass checking is quite common (it is also used to check
 whether an object is an instance of a certain class) we wanted to replace it
 with the more efficient relative numbering algorithm. This was a matter of just
-changing the appropriate code of the rtyping process, calculating the class-ids
-during rtyping and inserting the necessary fields into the class structure. It
+changing the appropriate code of the rtyping process to calculate the class-ids
+during rtyping and insert the necessary fields into the class structure. It
 would be similarly easy to switch to another implementation.
 
 XXX reference to the paper
@@ -103,7 +103,7 @@ XXX reference to the paper
 ID hashes
 ---------
 
-In the RPython type system class instances can be used as dictionary-keys using
+In the RPython type system class instances can be used as dictionary keys using
 a default hash implementation based on identity which in practise is
 implemented using the memory address. This is similar to how standard Python
 behaves if no user-defined hash function is present. The annotator keeps track
@@ -130,7 +130,8 @@ class stores the object's memory address in this field if it is zero. The
 return value of the hash function is the content of the field. This means that
 instances of such a class that are converted PBCs retain the hash values they
 had before the conversion whereas new objects of the class have their memory
-address as hash values. 
+address as hash values. A strategy along these lines will be required if we ever 
+switch to using a copying garbage collector.
 
 Cached functions with PBC arguments
 ------------------------------------
@@ -154,9 +155,9 @@ representation consisting of a structure with a pointer to an array is used and
 overallocation is performed.
 
 We plan to use similar techniques to use tagged pointers instead of box-classes
-to represent builtin types of the PyPy-interpreter such as integers. This would
-require attaching explicit hints to the involved classes. Field acces would
-then be translated to the corresponging masking operations.
+to represent builtin types of the PyPy interpreter such as integers. This would
+require attaching explicit hints to the involved classes. Field access would
+then be translated to the corresponding masking operations.
 
 
 Automatic Memory Management Implementations
@@ -165,7 +166,7 @@ Automatic Memory Management Implementations
 The whole implementation of the PyPy interpreter assumes automatic memory
 management, e.g. automatic reclamation of memory that is no longer used. The
 whole analysis toolchain also assumes that memory management is being taken
-care of. Only the backends have to concern themselves with that issue. For
+care of -- only the backends have to concern themselves with that issue. For
 backends that target environments that have their own garbage collector, like
 Smalltalk or Javascript, this is not an issue. For other targets like C and
 LLVM the backend has to produce code that uses some sort of garbage collection.
@@ -195,7 +196,7 @@ other objects (e.g. strings) there is a special allocation function that
 signals to the collector that it does not need to consider this memory when
 tracing pointers.
 
-Using the Boehm collector has disadvantages as well. Its problems stem from the
+Using the Boehm collector has disadvantages as well. The problems stem from the
 fact that the Boehm collector is conservative which means that it has to
 consider every word in memory to be a potential pointer. Since PyPy's toolchain
 has complete knowledge of the placement of data in memory we can generate an
@@ -272,8 +273,8 @@ pointers, uninitialized memory, etc.
 At the moment we have three simple garbage collectors implemented for this
 framework: a simple copying collector, a mark-and-sweep collector and a
 deferred reference counting collector. These garbage collectors are working on
-top of the memory simulator at the moment it is not yet possible to translate
-PyPy to C with them, though. This is due to the fact that it is not easy to
+top of the memory simulator, but at the moment it is not yet possible to translate
+PyPy to C with them. This is due to the fact that it is not easy to
 find the root pointers that reside on the C stack because the C stack layout is
 heavily platform dependent and because of the possibility of roots that are not
 only on the stack but also in registers (which would give a problem for moving
@@ -306,12 +307,12 @@ Threading with a Global Interpreter Lock
 
 At the moment there is one non-trivial threading model implemented. It follows
 the threading implementation of CPython and thus uses a global interpreter
-lock. This lock prevents that any two threads can interpret python code at any
+lock. This lock prevents any two threads from interpreting python code at any
 time. The global interpreter lock is released around calls to blocking I/O
 functions. This approach has a number of advantages: it gives very little
 runtime penalty for single-threaded applications, makes many of the common uses
 for threading possible and is relatively easy to implement and maintain. It has
-the disadvantages that multiple threads cannot be distributed accros multiple
+the disadvantages that multiple threads cannot be distributed accross multiple
 proccessors. 
 
 To make this threading-model useable for I/O-bound applications the global
@@ -332,8 +333,8 @@ captured and subsequently only resumed once.
 The technique we have implemented is based on an old but recurring idea
 of emulating this style via exceptions: a specific program point can
 generate a pseudo-exception whose purpose is to unwind the whole C stack
-in a restartable way.  More precisely, the "unwind" exception has the
-effect of saving the C stack into the heap, in a compact and explicit
+in a restartable way.  More precisely, the "unwind" exception causes 
+the C stack to be saved into the heap in a compact and explicit
 format, as described below.  It is then possible to resume only the
 innermost (most recent) frame of the saved stack -- allowing unlimited
 recursion on OSes that limit the size of the C stack -- or to resume a
@@ -383,7 +384,7 @@ useful abstractions can be implemented, like:
 * implicitly-scheduled microthreads, also known as green threads.
 
 An important property of the changes in all the generated C functions is
-to be written in a way that almost does not degrade their performance in
+to be written in a way that does not significantly degrade their performance in
 the non-exceptional case.  Most optimisations performed by C compilers,
 like register allocation, continue to work...
 
@@ -405,12 +406,12 @@ supported yet. It should be possible to implement these with a reasonable
 amount of effort for reference counting as well as the Boehm collector (which
 provides the necessary hooks). 
 
-Integrating the now only simulated GC framework into the rtyping process and
-the code generation will require considerable effort. It requires to be able to
+Integrating the now simulated-only GC framework into the rtyping process and
+the code generation will require considerable effort. It requires being able to
 keep track of the GC roots which is hard to do with portable C code. One
 solution would be to use stackless since it moves the stack completely to the
-heap. We expect that we can insert GC barriers as function calls into the
-graphs and rely on inlining to make them less inefficient.
+heap. We expect that we can implement GC read and write barriers as function
+calls and rely on inlining to make them less inefficient.
 
 We may also spent some time on improving the existing reference counting
 implementation by removing unnecessary incref-decref pairs. A bigger task would
@@ -433,10 +434,11 @@ We also might want to experiment with more sophisticated structure inlining.
 That means identifying a field in a structure A that points to another object B
 on the heap in such a way, that the pointer in A gets assigned only once to and
 that no other pointer to B exists from a heap object. If this is the case the
-object B can be inlined into the A since B lives exactly as long as A. 
+object B can be inlined into the A since B lives exactly as long as A.
+XXX makes little sense!
 
 As noted above, another plan is to implement builtin application level objects
-by using tagged pointer.
+by using tagged pointers. XXX also makes little sense!
 
 Conclusion
 ===========
