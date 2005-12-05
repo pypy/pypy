@@ -366,7 +366,7 @@ to be written in a way that almost does not degrade their performance in
 the non-exceptional case.  Most optimisations performed by C compilers,
 like register allocation, continue to work...
 
-.. image:: image/stackless_informal.png
+.. graphviz:: image/stackless_informal.dot
 
 
 Open Challenges
