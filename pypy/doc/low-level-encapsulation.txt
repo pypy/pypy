@@ -253,7 +253,7 @@ Stacklessness
     PyPy interpreter that can be involved in recursions contain stack
     bookkeeping code (leaf functions, functions calling only leaves,
     etc. do not need to use this style).  The current performance impact
-    is to make PyPy slower by about 10%.  A couple of minor pending
+    is to make PyPy slower by about 8%.  A couple of minor pending
     optimisations could reduce this figure a bit.  We expect the rest of
     the performance impact to be mainly caused by the increase of size
     of the generated executable (+20%).
@@ -289,15 +289,16 @@ Concurrency
 Evaluation Strategy
 
     When translated to C code, the Thunk object space has a global
-    performance impact of 5%.  The executable is 12% bigger (probably
+    performance impact of 6%.  The executable is 10% bigger (probably
     due to the arguably excessive inlining we perform).
 
 We have described five aspects in this document, each currently with
 two implementation choices, leading to 32 possible translations.  We
 have not measured the performance of each variant, but the few we have
 tried suggests that the performance impacts are what one would expect,
-e.g. a translated stackless binary using the thunk object space is
-about 1.05 x 1.10 = 1.16 times slower than the default.
+e.g. a translated stackless binary using the thunk object space would
+be expected to be about 1.06 x 1.08 ~= 1.14 times slower than the
+default and was found to be 1.15 times slower.
 
 
 Conclusion
