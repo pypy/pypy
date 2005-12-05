@@ -11,7 +11,7 @@ Abstract
 
 It has always been a major goal of PyPy to not force implementation
 decisions.  This means that even after the implementation of the
-standard interpreter has been written we are still able to experiment
+standard interpreter [#]_ has been written we are still able to experiment
 with different approaches to memory management or concurrency and to
 target wildly different platforms such as the Java Virtual Machine or
 a very memory-limited embedded environment.
@@ -22,6 +22,10 @@ well defined parts of the translation process.
 In the following document, we give examples of aspects that have been
 successfully encapsulated in more detail and contrast the potential of
 our approach with CPython.
+
+.. [#] `standard interpreter`_ is our term for the code which
+       implements the Python language, i.e. the interpreter and the
+       standard object space.
 
 
 Background
@@ -37,17 +41,17 @@ able to work on the new functionality that was the point of the
 exercise.
 
 One solution would have been for the patches to become part of core
-CPython but this was not done partly because the code that fully enabled
-stackless required widespread modifications that made the code harder to
-understand (as the "stackless" model contains control flow that is not
-easily expressable in C, the implementation became much less
-"natural" in some sense).
+CPython but this was not done partly because the code that fully
+enabled stackless required widespread modifications that made the code
+harder to understand (as the "stackless" model contains control flow
+that is not easily expressable in C, the implementation became much
+less "natural" in some sense).
 
 With PyPy, however, it is possible to obtain this flexible control
 flow whilst retaining transparent implementation code as the necessary
 modifications can be implemented as a localized translation aspect,
 and indeed this was done at the Paris sprint in a couple of days (as
-compared to XXX weeks for the original stackless patches).
+compared to around six months for the original stackless patches).
 
 Of course, this is not the only aspect that can be so decided a
 posteriori, during translation.
@@ -56,7 +60,7 @@ posteriori, during translation.
 Translation aspects
 ===================
 
-Our standard interpreter [#]_ is implemented at a very high level of
+Our standard interpreter is implemented at a very high level of
 abstraction.  This has a number of happy consequences, among which is
 enabling the encapsulation of language aspects as described in this
 document.  For example, the implementation code simply makes no
@@ -64,9 +68,6 @@ reference to memory management, which clealy gives the translator
 complete freedom to decide about this aspect.  This constrasts with
 CPython where the decision to use reference counting is reflected tens
 or even hundreds of times in each C source file in the codebase.
-
-.. [#] `standard interpreter`_ in this context means the code which
-       implements the interpreter and the standard object space.
 
 As described in [ARCH]_, producing a Python implementation from the
 source of our standard interpreter involves various stages: the
@@ -86,7 +87,7 @@ Stacklessness
 -------------
 
 The stackless modifications are mostly implemented in the C backend,
-with a single extra flow graph operations to influence some detail of
+with a single extra flow graph operation to influence some details of
 the generated C code.  The total changes only required about 300 lines
 of source, vindicating our abstract approach.
 
@@ -98,12 +99,12 @@ entierely moved to the heap.  The stack can then be resumed by just
 re-entering the innermost (most recent) frame: all previous (older)
 frames can continue to live in the heap and be resumed only when their
 callees return.  In this way, unlimited recursion is possible even on
-OSes that limit the size of the C stack.  Alternatively, a different
-stack can be resumed, which implements software-switching (coroutines,
-or green threads if scheduling is implicit).  We reobtain in this way
-all major benefits of the original "stackless" patches.  More generally,
-we are able to compile any RPython program into a C program that can
-explicitly control its C stack.
+operating systems that limit the size of the C stack.  Alternatively,
+a different stack can be resumed, which implements software-switching
+(coroutines, or green threads if scheduling is implicit).  We reobtain
+in this way all major benefits of the original "stackless" patches.
+More generally, we are able to compile any RPython program into a C
+program that can explicitly control its C stack.
 
 This effect requires a number of changes in each and every C function
 that would be extremely tedious to write by hand: checking for the
