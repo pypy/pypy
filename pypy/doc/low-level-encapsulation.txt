@@ -211,12 +211,17 @@ Evaluation Strategy
 
 Possibly the most radical aspect to tinker with is the evaluation
 strategy.  The thunk object space [OBJS]_ wraps the standard object
-space to allow the production of "lazily computed objects", objects
-whose values are only calculated when needed, and to allow the global
-and total replacement of one object with another.  The thunk object
-space is mostly meant as an example of what our approach can acheive --
-the combination of side-effects and lazy evaluation is not easy to
-understand.
+space to allow the production of "lazily computed objects", i.e. objects
+whose values are only calculated when needed.  It also allows global and
+total replacement of one object with another.
+
+The thunk object space is mostly meant as an example of what our
+approach can acheive -- the combination of side-effects and lazy
+evaluation is not easy to understand.  This demonstration is important
+because this level of flexibility will be required to implement future
+features along the lines of Prolog-style logic variables, transparent
+persistency, object distribution across several machines, or
+object-level security.
 
 
 Experimental results
