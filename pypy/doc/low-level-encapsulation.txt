@@ -152,6 +152,31 @@ more precisely, it will not be removed by the translation process), the
 best of both worlds.
 
 
+Memory Management
+-----------------
+
+As mentioned above, CPython's decision to use a garbage collector based
+on reference counting is reflected throughout its source.  In the
+implementation code of PyPy, it is not, and in fact the standard
+interpreter can currently be compiled to use a reference counted scheme
+or the Boehm GC [BOEHM]_.  Again, more details are in [TA]_.  We also
+have an experimental framework for developing custom exact GCs [GC]_,
+but it is not yet integrated with the low-level translation back-ends.
+
+Another advantage of the aspect oriented approach shows itself most
+clearly with this memory management aspect: that of correctness.
+Although reference counting is a fairly simple scheme, writing code for
+CPython requires that the programmer make a large number of
+not-quite-trivial decisions about the refcounting code.  Experience
+suggests that mistakes will always creep in, leading to crashes or
+leaks.  While tools exist to help find these mistakes, it is surely
+better to not write the reference count manipulations at all and this is
+what PyPy's approach allows.  Writing the code that emits the correct
+reference count manipulations is surely harder than writing any one
+piece of explicit refcounting code, but once it is done and tested, it
+just works without further effort.
+
+
 Concurrency
 -----------
 
@@ -180,34 +205,6 @@ have never been tried out in CPython, for lack of necessary resources.
 A number of them are clearly easy to try out in PyPy, at least in an
 experimental version that would allow its costs to be assessed -- for
 example, various forms of object-level locking.
-
-
-Memory Management
------------------
-
-A final low-level aspect is that of memory management.  As mentioned
-above, CPython's decision to use a garbage collector based on
-reference counting is reflected throughout the source.  In the
-implementation code of PyPy, it is not, and in fact the standard
-interpreter can currently be compiled to use a reference counted
-scheme or the Boehm GC [BOEHM]_.  We also have an experimental
-framework for developing custom exact GCs [GC]_, but it is not yet
-integrated with the low-level translation back-ends.
-
-XXX Start documentation and link to it from here.
-
-Another advantage of the aspect oriented approach shows itself most
-clearly with this memory management aspect: that of correctness.
-Although reference counting is a fairly simple scheme, writing code
-for CPython requires that the programmer make a large number of
-not-quite-trivial decisions about the refcounting code and experience
-suggests that mistakes will always creep in, leading to crashes or
-leaks.  While tools exist to help find these mistakes, it is surely
-better to not write the reference count manipulations at all and this
-is what PyPy's approach allows.  Writing the code that emits the
-correct reference count manipulations is surely harder than writing
-any one piece of explicit refcounting code, but once it's done and
-tested, it just works without further effort.
 
 
 Evaluation Strategy
