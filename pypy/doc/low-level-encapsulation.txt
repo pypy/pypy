@@ -192,11 +192,10 @@ performance on multi-processor machines.
 
 PyPy will offer the opportunity to experiment with different models,
 although currently we only offer a version with no thread support and
-another with a GIL-like model.  (We also plan to support soon "green"
-software-only threads in the Stackless model described above, but
-obviously this would not solve the multi-processor scalability issue.)
-
-XXX Start documentation and link to it from here.
+another with a GIL-like model [TA]_.  (We also plan to support soon
+"green" software-only threads in the Stackless model described above,
+but obviously this would not solve the multi-processor scalability
+issue.)
 
 The future work in this direction is to collect the numerous possible
 approaches that have between thought out along the years and
