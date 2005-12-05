@@ -417,16 +417,27 @@ We may also spent some time on improving the existing reference counting
 implementation by removing unnecessary incref-decref pairs. A bigger task would
 be to add support for detecing circular references.
 
+
 Threading model
 ---------------
 
-  - green threads? 
-  - threading model with various granularities of locking
+One of the interesting possibities that stackless offers is to implement green
+threading. This would involve writing a scheduler and preemption logic. 
+
+We should also investigate other threading models based on operating system
+threads with various granularities of locking for access of shared access.
 
 Object model
 ------------
-  - more sophisticated structure inlining ?  possibly
 
+We also might want to experiment with more sophisticated structure inlining.
+That means identifying a field in a structure A that points to another object B
+on the heap in such a way, that the pointer in A gets assigned only once to and
+that no other pointer to B exists from a heap object. If this is the case the
+object B can be inlined into the A since B lives exactly as long as A. 
+
+As noted above, another plan is to implement builtin application level objects
+by using tagged pointer.
 
 Conclusion
 ===========
