@@ -91,38 +91,35 @@ with a single extra flow graph operation to influence some details of
 the generated C code.  The total changes only required about 300 lines
 of source, vindicating our abstract approach.
 
-In stackless mode, the C backend generates functions answering to a
-special "unwind" exception: when this exception goes through a stack
-frame, the function saves away its local variables into the heap.  By
-propagating the exception through the whole stack, the latter gets
-entierely moved to the heap.  The stack can then be resumed by just
-re-entering the innermost (most recent) frame: all previous (older)
-frames can continue to live in the heap and be resumed only when their
-callees return.  In this way, unlimited recursion is possible even on
-operating systems that limit the size of the C stack.  Alternatively,
-a different stack can be resumed, which implements software-switching
-(coroutines, or green threads if scheduling is implicit).  We reobtain
+In stackless mode, the C backend generates functions that are
+systematically extended with a small amount of bookkeeping code.  This
+allows the C code to save its own stack to the heap on demand, where it
+can then be inspected, manipulated and eventually resumed.  This is
+described in more detail in [TA]_.  In this way, unlimited (or more
+precisely heap-limited) recursion is possible, even on operating systems
+that limit the size of the C stack.  Alternatively, a different saved
+stack can be resumed, thus implementing soft context switches -
+coroutines, or green threads with an appropriate scheduler.  We reobtain
 in this way all major benefits of the original "stackless" patches.
-More generally, we are able to compile any RPython program into a C
-program that can explicitly control its C stack.
 
 This effect requires a number of changes in each and every C function
 that would be extremely tedious to write by hand: checking for the
-"unwind" exception, saving away precisely the currently active local
-variables, and when re-entering the function check which variables are
-being restored and which call site is resumed.  There are moreover a
-couple of global tables assisting the process.  The key point is that we
-can fine-tune all these interactions freely, without having to rewrite
-the whole code all the time but only modifying the C backend.  So far,
-this allowed us to find a style that does not hinder the compiler
-optimisations and so has only a minor impact on performance in the
-non-exceptional case.
-
-XXX Start documenting it and link to it from here!
+signal triggering the saving of the stack, actually saving precisely the
+currently active local variables, and when re-entering the function
+check which variables are being restored and which call site is resumed.
+In addition, a couple of global tables must be maintained to drive the
+process.  The key point is that we can fine-tune all these interactions
+freely, without having to rewrite the whole code all the time but only
+modifying the C backend (in addition, of course, to being able to change
+at any time the high-level code that is the input of the translation
+process).  So far, this allowed us to find a style that does not hinder
+the compiler optimisations and so has only a minor impact on performance
+in the normal case.
 
 Also note that the fact that the C stack can be fully saved into the
-heap can tremendously simplify the life of garbage collection: after a
-stack unwind, there are no stack roots left.
+heap can tremendously simplify the portable implementation of garbage
+collection: after the stack has been completely transfered to the heap,
+there are no roots left on the stack.
 
 
 Multiple Interpreters
@@ -314,6 +311,9 @@ References
 .. [STK] `Stackless Python`_, a Python implementation that does not use
          the C stack, Christian Tismer, 1999-2004
 
+.. [TA] `Memory management and threading models as translation aspects`_,
+        PyPy documentation (and EU Deliverable D05.3), 2005
+
 .. _`standard interpreter`: architecture.html#standard-interpreter
 .. _`Architecture Overview`: architecture.html
 .. _`Coding Guide`: coding-guide.html
@@ -321,3 +321,4 @@ References
 .. _`Object Spaces`: objspace.html
 .. _`Stackless Python`: http://www.stackless.com
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+.. _`Memory management and threading models as translation aspects`: translation-aspects.html
