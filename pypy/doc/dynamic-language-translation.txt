@@ -2306,7 +2306,7 @@ Main references:
 Glossary and links mentioned in the text:
 
 * Abstract interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
-p
+
 * Flow Object Space: see `Object Space`_.
 
 * GenC back-end: see [TR]_.
