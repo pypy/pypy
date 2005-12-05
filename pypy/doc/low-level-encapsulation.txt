@@ -245,19 +245,21 @@ state-of-the-art techniques in each of these domains.
 
 Stacklessness
 
-    Producing Stackless-style C code currently means that all the
-    functions of the PyPy interpreter use the new style.  The current
-    performance impact is to make PyPy slower by about 10%.  A couple of
-    minor pending optimisations could reduce this figure a bit.  We
-    expect the rest of the performance impact to be mainly caused by the
-    increase of size of the generated executable (+20%).
+    Producing Stackless-style C code means that all the functions of the
+    PyPy interpreter that can be involved in recursions contain stack
+    bookkeeping code (leaf functions, functions calling only leaves,
+    etc. do not need to use this style).  The current performance impact
+    is to make PyPy slower by about 10%.  A couple of minor pending
+    optimisations could reduce this figure a bit.  We expect the rest of
+    the performance impact to be mainly caused by the increase of size
+    of the generated executable (+20%).
 
 Multiple Interpreters
 
     A binary that allowed selection between two copies of the standard
     object space with a command line switch was about 10% slower and
     about 40% larger than the default.  Most of the extra size is
-    likely accounted for by the duplication of the large amount
+    likely accounted for by the duplication of the large amount of
     prebuilt data involved in an instance of the standard object
     space.
 
@@ -267,7 +269,7 @@ Memory Management
     comparison, using reference counting instead makes the interpreter
     twice as slow.  This is almost certainly due to the naive approach
     to reference counting used so far, which updates the counter far
-    more often than theoretically necessary; we also still have a lot of
+    more often than strictly necessary; we also still have a lot of
     objects that would theoretically not need a reference counter,
     either because they are short-lived or because we can prove that
     they are "owned" by another object and can share its lifetime.  In
