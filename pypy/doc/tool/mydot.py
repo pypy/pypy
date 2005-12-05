@@ -52,22 +52,14 @@ def process_dot(dot):
     temppath = py.test.ensuretemp("dot")
     tex, texcontent = create_tex_eps(dot, temppath)
     dvi = tex.new(ext="dvi")
-    output = dvi.new(ext="ps")
+    output = dvi.new(purebasename=dvi.purebasename + "out", ext="eps")
     oldpath = dot.dirpath()
     dvi.dirpath().chdir()
     py.process.cmdexec("latex %s" % (tex, ))
-    py.process.cmdexec("dvips -o %s %s" % (output, dvi))
+    py.process.cmdexec("dvips -E -o %s %s" % (output, dvi))
     oldpath.chdir()
     return output
 
-def ps2eps(ps):
-    try:
-        py.process.cmdexec("ps2eps -l -f %s" % ps)
-    except:
-        try:
-            py.process.cmdexec("ps2epsi %s %s" % (psfile, eps))
-        except:
-            raise OSError("neither ps2eps nor ps2epsi found")
 
 if __name__ == '__main__':
     import optparse
@@ -77,22 +69,10 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
     if len(args) != 1:
         raise ValueError, "need exactly one argument"
-    psfile = process_dot(py.path.local(args[0]))
-    if options.format == "ps":
-        print psfile.read()
-    elif options.format == "eps":
-        ps2eps(psfile)
-        eps = psfile.new(ext="eps")
-        print eps.read()
+    epsfile = process_dot(py.path.local(args[0]))
+    if options.format == "ps" or options.format == "eps":
+        print epsfile.read()
     elif options.format == "png":
-        png = psfile.new(ext="png")
-        eps = psfile.new(ext="eps")
-        try:
-            ps2eps(psfile)
-        except:
-            #ok, no eps converter found
-            py.process.cmdexec("convert %s %s" % (psfile, png))
-        else:
-            py.process.cmdexec("convert %s %s" % (eps, png))
+        png = epsfile.new(ext="png")
+        py.process.cmdexec("convert %s %s" % (epsfile, png))
         print png.read()
-    
