@@ -82,6 +82,10 @@ Other aspects affect different levels, as their needs require.  The
 remainder of this section describes a few aspects that we have
 successfully enscapsulated.
 
+An advantage of our approach is that any combination of aspects can be
+freely selected, avoiding the problem of combinatorial explosion of
+variants seen in manually written interpreters.
+
 
 Stacklessness
 -------------
@@ -287,6 +291,13 @@ Evaluation Strategy
     When translated to C code, the Thunk object space has a global
     performance impact of 5%.  The executable is 12% bigger (probably
     due to the arguably excessive inlining we perform).
+
+We have described five aspects in this document, each currently with
+two implementation choices, leading to 32 possible translations.  We
+have not measured the performance of each variant, but the few we have
+tried suggests that the performance impacts are what one would expect,
+e.g. a translated stackless binary using the thunk object space is
+about 1.05 x 1.10 = 1.16 times slower than the default.
 
 
 Conclusion
