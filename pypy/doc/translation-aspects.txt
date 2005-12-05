@@ -9,11 +9,11 @@ Abstract
 =========
 
 One of the goals of the PyPy project is it to have the memory and threading
-model flexible and changeable without having to manually reimplement 
-the interpreter.  In fact, PyPy with the 0.7 and 0.8 releases contain 
-code for memory management and threading models which allows experimentation
-without requiring early design decisions.  This document describes the current state 
-of the implementation of the memory object model, automatic memory management and 
+model flexible and changeable without having to manually reimplement the
+interpreter.  In fact, PyPy with the 0.7 and 0.8 releases contain code for
+memory management and threading models which allows experimentation without
+requiring early design decisions.  This document describes the current state of
+the implementation of the memory object model, automatic memory management and
 threading models and describes possible future developments.
 
 
@@ -28,7 +28,6 @@ implementations and to provide an environment where experiments with
 fundamentally different ways to implement these things is possible and
 reasonably easy. 
 
-XXX
 
 The low level object model
 ===========================
@@ -442,8 +441,9 @@ by using tagged pointer.
 Conclusion
 ===========
 
-XXX nice concluding paragraphs
-
+As shown with various examples our approach gives us flexibility and lets us
+chooses various aspects at translation time instead of encoding them into the
+implementation itself.
 
 References
 ===========
