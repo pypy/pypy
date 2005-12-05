@@ -100,7 +100,7 @@ precisely heap-limited) recursion is possible, even on operating systems
 that limit the size of the C stack.  Alternatively, a different saved
 stack can be resumed, thus implementing soft context switches -
 coroutines, or green threads with an appropriate scheduler.  We reobtain
-in this way all major benefits of the original "stackless" patches.
+in this way all the major benefits of the original "stackless" patches.
 
 This effect requires a number of changes in each and every C function
 that would be extremely tedious to write by hand: checking for the
@@ -113,8 +113,8 @@ freely, without having to rewrite the whole code all the time but only
 modifying the C backend (in addition, of course, to being able to change
 at any time the high-level code that is the input of the translation
 process).  So far, this allowed us to find a style that does not hinder
-the compiler optimisations and so has only a minor impact on performance
-in the normal case.
+the optimisations performed by the C compiler and so has only a minor
+impact on performance in the normal case.
 
 Also note that the fact that the C stack can be fully saved into the
 heap can tremendously simplify the portable implementation of garbage
