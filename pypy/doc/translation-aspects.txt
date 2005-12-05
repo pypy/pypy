@@ -36,12 +36,15 @@ The low level object model
 XXX proper references to translation.txt and dynamic-language-translation
 
 One important part of the translation process is *rtyping*. Before that step
-all objects in our flow graphs still represent regular python objects. During 
-rtyping they are transformed into objects that match the model of the specific 
-target platform. For C this model consists of a set of C-like types like structures,
-arrays and functions in addition to primitive types (integers, characters,
-floating point numbers). This multi-stage approach gives a lot of flexibility
-how a certain object is represented at C level. 
+all objects in our flow graphs are annotated with types on the level of the
+RPython type system which is still quite high-level and target-independent.
+During rtyping they are transformed into objects that match the model of the
+specific target platform. For C or C-like targets this model consists of a set
+of C-like types like structures, arrays and functions in addition to primitive
+types (integers, characters, floating point numbers). This multi-stage approach
+gives a lot of flexibility how a certain object is represented on the target
+level. The RPython process can decide what representation to use based on the
+type annotation and on the context and usages of the object.
 
 In the following the structures used to represent user classes are described.
 There is one "vtable" per user class, with the following structure: A root
@@ -64,6 +67,10 @@ for subclass checking. Every other class X, with parent Y, has the structure::
         ...                      // extra class attributes
     }
 
+The extra class attributes usually contain function pointers to the methods
+of that class. In addition the class attributes (which are
+supported by the RPython object model) are stored there.
+
 The type of the instances is::
 
    struct object {       // for the root class
@@ -75,8 +82,10 @@ The type of the instances is::
        ...               // extra instance attributes
    }
 
+The extra instance attributes are all the attributes of an instance.
 
-XXX low level object model, data structures current layouts
+These structure layouts are quite similar to how classes are usually
+implemented in C++.
 
 Subclass checking
 -----------------
@@ -90,23 +99,27 @@ changing the appropriate code of the rtyping process, calculating the class-ids
 during rtyping and inserting the necessary fields into the class structure. It
 would be similarly easy to switch to another implementation.
 
+XXX reference to the paper
+
 ID hashes
 ---------
 
-XXX motivate the presence of this example
+In the RPython type system class instances can be used as dictionary-keys using
+a default hash implementation based on identity which in practise is
+implemented using the memory address. This is similar to how standard Python
+behaves if no user-defined hash function is present. The annotator keeps track
+for which classes this hashing is ever used.
 
 One of the peculiarities of PyPy's approach is that live objects are analyzed
 by our translation toolchain. This leads to the presence of instances of user
 classes that were built before the translation started. These are called
-prebuilt-constants (PBCs for short). During rtyping these instances have to be
+prebuilt-constants (PBCs for short). During rtyping, these instances have to be
 converted to the low level model. One of the problems with doing this is that
-the standard hash implementation of Python is take the id of an object, which
-is just the memory address. If a PBC is stored in a dictionary the memory
-address of the original object is used as a key. If the dictionary is also
-built before the translation process starts then the conversion of the
-dictionary together with its keys is problematic: after the conversion the PBCs
-that are used as keys have a different memory addresses and are therefore no
-longer found in the dictionary.
+the standard hash implementation of Python is to take the id of an object, which
+is just the memory address. If the RPython program explicitely stores the hashes
+of PBCS somewhere (for example in the implementation of a data structure) then
+the stored hash value would not match the value of the object's address after
+translation anymore.
 
 To prevent this the following strategy is used: for every class with instances
 that are hashed somewhere in the program (either when storing them in a
@@ -118,24 +131,33 @@ class stores the object's memory address in this field if it is zero. The
 return value of the hash function is the content of the field. This means that
 instances of such a class that are converted PBCs retain the hash values they
 had before the conversion whereas new objects of the class have their memory
-address as hash values. Therefor the structural integrity of dictionaries with
-PBC keys is conserved during conversion. This might of course lead to hash
-collisions but in practice these should be rare.
+address as hash values. 
 
 Cached functions with PBC arguments
 ------------------------------------
 
-XXX
-(also a word on the
-example of cached functions with PBC argument?)
+As explained in (XXX reference to dynamicblabla) the annotated code can contain
+functions from a finite set of PBCs to something else. The set itself has to be
+finite but its content does not need to be provided explictly but is discovered
+as the annotation of the input argument by the annotator itself. This kind of
+function is translated by recording the input-result relationship by calling
+the function concretely at annotation time, and adding a field to the PBCs in
+the set and emitting code reading that field instead of the function call.  
 
+Changing the representation of an object
+----------------------------------------
 
-Changing the representation of an object completely
----------------------------------------------------
+One example of the flexibility the RTyper provides is how we deal with lists.
+Based on information gathered by the annotator the RTyper chooses between two
+different list implementations. If a list never changes its size after creation
+a low-level array is used directly. For lists which get resized a
+representation consisting of a structure with a pointer to an array is used and
+overallocation is performed.
 
-XXX
-probably describe in more detail the possibilies to completely change the
-representation of objects, etc.
+We plan to use similar techniques to use tagged pointers instead of box-classes
+to represent builtin types of the PyPy-interpreter such as integers. This would
+require attaching explicit hints to the involved classes. Field acces would
+then be translated to the corresponging masking operations.
 
 
 Automatic Memory Management Implementations
@@ -226,8 +248,6 @@ Since quite a lot of objects are allocated in small "helper" functions this
 simple approach which does not track objects accros function boundaries only
 works well in the presence of function inlining.
 
-XXX
-
 A general garbage collection framework
 --------------------------------------
 
@@ -266,10 +286,11 @@ frame layout can be controlled by us. This is one of the tasks that need to be
 tackled in phase 2 as generating assembly directly is needed anyway for a
 just-in-time compiler. The other possibility (which would be much easier to
 implement) is to move all the data away from the stack to the heap, as
-described below in section XXXXX.
+described below in section (XXX reference).
 
 Threading Model Implementations
 ============================================
+
 
 XXX nice introductory paragraph
 
@@ -287,16 +308,17 @@ Threading with a Global Interpreter Lock
 At the moment there is one non-trivial threading model implemented. It follows
 the threading implementation of CPython and thus uses a global interpreter
 lock. This lock prevents that any two threads can interpret python code at any
-time. The global interpreter lock is released around calls to blocking I/O functions. 
-This approach has a number of advantages: it gives very little runtime penalty
-for single-threaded applications, makes many of the common uses for threading
-possible and is relatively easy to implement and maintain. It has the
-disadvantages that multiple threads cannot be distributed accros multiple
-proccessors (XXX is this really a major point? it is repeated very often which
-of course does not make it true).
+time. The global interpreter lock is released around calls to blocking I/O
+functions. This approach has a number of advantages: it gives very little
+runtime penalty for single-threaded applications, makes many of the common uses
+for threading possible and is relatively easy to implement and maintain. It has
+the disadvantages that multiple threads cannot be distributed accros multiple
+proccessors. 
 
-XXX GIL release around system calls (how do we mention that here? as if it was
-already implemented?)
+To make this threading-model useable for I/O-bound applications the global
+intepreter lock should be released around blocking external function calls
+(which is also what CPython does). This has not been fully implemented yet.
+
 
 Stackless C code
 -----------------
@@ -369,20 +391,41 @@ like register allocation, continue to work...
 .. graphviz:: image/stackless_informal.dot
 
 
-Open Challenges
+Future work
 ================
-
-XXX
 
 open challenges for phase 2:
 
-  - more clever incref/decref policy, circularity detector
-  - more sophisticated structure inlining ?  possibly
-  - full GC hooks? (we have started a framework for GC construction, only simulated for now)
-  - exact GC needs -- control over low-level machine code
-  - Finalization and weak references
+Garbage collection
+------------------
+
+One of the biggest missing features of our current garbage collectors is
+missing finalization. Right now finalizers are not invoked if an object is
+freed by the garbage collector. Along the same lines weak references are not
+supported yet. It should be possible to implement these with a reasonable
+amount of effort for reference counting as well as the Boehm collector (which
+provides the necessary hooks). 
+
+Integrating the now only simulated GC framework into the rtyping process and
+the code generation will require considerable effort. It requires to be able to
+keep track of the GC roots which is hard to do with portable C code. One
+solution would be to use stackless since it moves the stack completely to the
+heap. We expect that we can insert GC barriers as function calls into the
+graphs and rely on inlining to make them less inefficient.
+
+We may also spent some time on improving the existing reference counting
+implementation by removing unnecessary incref-decref pairs. A bigger task would
+be to add support for detecing circular references.
+
+Threading model
+---------------
+
   - green threads? 
   - threading model with various granularities of locking
+
+Object model
+------------
+  - more sophisticated structure inlining ?  possibly
 
 
 Conclusion
