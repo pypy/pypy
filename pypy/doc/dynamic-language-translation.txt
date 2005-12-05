@@ -32,9 +32,9 @@ recent members of the family, or at least made them more practical than
 they previously were.  The following aspects in particular are typical not
 only of Python but of most modern dynamic languages:
 
-* The driving force is not minimalistic elegance.  It is a balance between
-  elegance and practicality, and rather un-minimalistic -- the feature
-  sets built into languages tend to be relatively large and growing
+* The driving force is not minimalist elegance.  It is a balance between
+  elegance and practicality, and rather un-minimalist -- the feature
+  sets built into languages tend to be relatively large and grow
   (to some extent, depending on the community driving the evolution of
   the language).
 
@@ -295,7 +295,7 @@ the claimed goals):
 
 * the `Annotator`_ performs type inference.  This part is best
   implemented separately from other parts because it is based on a
-  fixpoint search algorithm.  It is mostly this part that defines and
+  fixed point search algorithm.  It is mostly this part that defines and
   restricts what RPython exactly is.  After annotation, the control flow
   graphs still contain all the original relatively-high-level RPython
   operations; the inferred information is only used in the next step.
@@ -490,7 +490,7 @@ call to ``is_true``; at this point, the replaying recorder gives the
 answer corresponding to the branch to follow, and switches to the next
 recorder in the chain.
 
-.. [#] "eggs, eggs, eggs, eggs and spam" -- references to Monthy Python
+.. [#] "spam, spam, spam, egg and spam" -- references to Monty Python
        are common in Python :-)
 
 This mechanism ensures that all flow paths are considered, including
@@ -682,7 +682,7 @@ starting from individual operations and propagating type constraints
 outwards.
 
 Naturally, simply propagating annotations forward requires the use of a
-fixpoint algorithm in the presence of loops in the flow graphs or in the
+fixed point algorithm in the presence of loops in the flow graphs or in the
 inter-procedural call graph.  Indeed, we flow annotations forward from
 the beginning of the entry point function into each block, operation
 after operation, and follow all calls recursively.  During this process,
@@ -693,7 +693,7 @@ for a larger set of possible run-time values, and schedule the block
 where they appear for reflowing.  The more general annotations can
 generalise the annotations of the results of the variables in the block,
 which in turn can generalise the annotations that flow into the
-following blocks, and so on.  This process continues until a fixpoint is
+following blocks, and so on.  This process continues until a fixed point is
 reached.
 
 We can consider that all variables are initially assigned the "bottom"
@@ -785,7 +785,7 @@ The set *A* of annotations is defined as the following formal terms:
   (there is one such term per variable);
 
 * Pbc(*set*) -- where the *set* is a subset of the (finite) set of all
-  `Prebuilt Constants`_, defined below.  This set includes all the
+  `Pre-built Constants`_, defined below.  This set includes all the
   callables of the user program: functions, classes, and methods.
 
 * None -- stands for the singleton ``None`` object of Python.
@@ -884,7 +884,7 @@ All list terms for all variables are unordered:
 .. graphviz:: image/lattice3.dot
 
 The Pbcs form a classical finite set-of-subsets lattice.  In practice,
-we consider ``None`` as a degenerated prebuilt constant, so the None
+we consider ``None`` as a degenerated pre-built constant, so the None
 annotation is actually Pbc({None}).
 
 We should mention (but ignore for the sequel) that all annotations also
@@ -927,7 +927,7 @@ b(v)`` and *E'* includes at least all relations of *E*.  There is:
 
 The goal of the annotator is to find the least general (i.e. most
 precise) state that is sound (i.e. correct for the user program).  The
-algorithm used is a fixpoint search: we start from the least general
+algorithm used is a fixed point search: we start from the least general
 state and consider the conditions repeatedly; if a condition is not met,
 we generalise the state incrementally to accommodate for it.  This
 process continues until all conditions are satisfied.
@@ -1025,9 +1025,9 @@ following family of rules (one for each pair *(x,y)*)::
 
 Note that a priori, all rules should be tried repeatedly until none of
 them generalises the state any more, at which point we have reached a
-fixpoint.  However, the rules are well suited to a simple metarule that
+fixed point.  However, the rules are well suited to a simple meta-rule that
 tracks a small set of rules that can possibly apply.  Only these
-"scheduled" rules are tried.  The metarule is as follows:
+"scheduled" rules are tried.  The meta-rule is as follows:
 
 - when an identification *x~y* is added to *E*, then the rule
   ``(x~y) in E`` is scheduled to be considered;
@@ -1038,7 +1038,7 @@ tracks a small set of rules that can possibly apply.  Only these
   This also includes the cases where *x* is the auxiliary variable
   of an operation (see `Flow graph model`_).
 
-These rules and metarule favour a forward propagation: the rule
+These rules and meta-rule favour a forward propagation: the rule
 corresponding to an operation in a flow graph typically modifies the
 binding of the operation's result variable which is used in a following
 operation in the same block, thus scheduling the following operation's
@@ -1085,7 +1085,7 @@ that all aliases of the list end up being annotated as ``List(v)`` with
 the same variable *v*.  The binding of *v* itself, i.e. ``b(v)``, is
 updated to reflect generalisation of the list item's type; such an
 update is instantly visible to all aliases.  Moreover, the update is
-described as a change of binding, which means that the metarules will
+described as a change of binding, which means that the meta-rules will
 ensure that any rule based on the binding of this variable will be
 reconsidered.
 
@@ -1109,7 +1109,7 @@ rescheduled if the binding of the hidden variable is generalised.  We do
 so by identifying the hidden variable with the current operation's
 auxiliary variable.  The identification ensures that the hidden
 variable's binding will eventually propagate to the auxiliary variable,
-which -- according to the metarule -- will reschedule the operation's
+which -- according to the meta-rule -- will reschedule the operation's
 rule::
 
          z=getitem(x,y) | z', b(x)=List(v)
@@ -1119,7 +1119,7 @@ rule::
 
 We cannot directly set ``z->b(v)`` because that would be an "illegal"
 use of a binding, in the sense explained above: it would defeat the
-metarule for rescheduling the rule when ``b(v)`` is modified.  (In the
+meta-rule for rescheduling the rule when ``b(v)`` is modified.  (In the
 source code, the same effect is actually achieved by recording on a
 case-by-case basis at which locations the binding ``b(v)`` has been
 read; in the theory we use the equivalence relation *E* to make this
@@ -1146,8 +1146,8 @@ the concatenation for lists)::
 As with `merge`_, it identifies the two lists.
 
 
-Prebuilt constants
-~~~~~~~~~~~~~~~~~~
+Pre-built constants
+~~~~~~~~~~~~~~~~~~~
 
 The ``Pbc`` annotations play a special role in our approach.  They group
 in a single family all the constant user-defined objects that exist
@@ -1159,46 +1159,46 @@ The presence of the latter kind of object -- which come with a number of
 new problems to solve -- is a distinguishing property of the idea of
 analysing a live program instead of static source code.  All the user
 objects that exist before the annotation phase are divided in two
-further families: the "prebuilt instances" and the "frozen prebuilt
+further families: the "pre-built instances" and the "frozen pre-built
 constants".
 
 1. Normally, all instances of user-defined classes have the same
    behaviour, independently of whether they exist before annotation or are
    built dynamically by the program after annotation and compilation.
    Both correspond to the ``Inst(C)`` annotation.  Instances that are
-   prebuilt will simply be compiled into the resulting executable as
-   prebuilt data structures.
+   pre-built will simply be compiled into the resulting executable as
+   pre-built data structures.
 
 2. However, as an exception to 1., the user program can give a hint that
-   forces the annotator to consider such an object as a "frozen prebuilt
+   forces the annotator to consider such an object as a "frozen pre-built
    constant" instead.  The object is then considered as an *immutable*
    container of attributes.  It loses its object-oriented aspects and its
    class becomes irrelevant.  It is not possible to further instantiate
    its class at run-time.
 
-In summary, the prebuilt constants are:
+In summary, the pre-built constants are:
 
 * all functions ``f`` of the user program (including the ones appearing
   as methods);
 
 * all classes ``C`` of the user program;
 
-* all frozen prebuilt constants.
+* all frozen pre-built constants.
 
 For convenience, we add the following objects to the above set:
 
 * for each function ``f`` and class ``C``, a "potential bound method"
   object written ``C.f``, used below to handle method calls;
 
-* the singleton None object (a special case of frozen prebuilt constant).
+* the singleton None object (a special case of frozen pre-built constant).
 
 The annotation ``Pbc(set)`` stands for an object that belongs to the
-specified ``set`` of prebuilt constant objects, which is a subset of all
-the prebuilt constant objects.
+specified ``set`` of pre-built constant objects, which is a subset of all
+the pre-built constant objects.
 
-In practice, the set of all prebuilt constants is not fixed in advance,
+In practice, the set of all pre-built constants is not fixed in advance,
 but grows while annotation discovers new functions and classes and
-frozen prebuilt constants; in this way we can be sure that only the
+frozen pre-built constants; in this way we can be sure that only the
 objects that are still alive will be included in the set, leaving out
 the ones that were only relevant during the initialisation phase of the
 program.
@@ -1769,7 +1769,7 @@ Complexity
 
 The lattice is finite, although its size depends on the size of the
 program.  The List part has the same size as *V*, and the Pbc part is
-exponential on the number of prebuilt constants.  However, in this model
+exponential on the number of pre-built constants.  However, in this model
 a chain of annotations cannot be longer than::
 
     max(5, number-of-pbcs + 3, depth-of-class-hierarchy + 3).
@@ -1811,7 +1811,7 @@ be computed or to fill more caches.  We describe below some of these
 aspects.
 
 
-Specialisation
+Sprecialization
 ***************
 
 The type system used by the annotator does not include polymorphism
@@ -1821,7 +1821,7 @@ overriding and parametric polymorphism for builtin containers (lists,
 most cases sufficient for the kind of system programming RPython is
 aimed at and matching our main targets.
 
-Not all of our target code or expressivity needs fit into this model.
+Not all of our target code or our needs for expressiveness fit into this model.
 The fact that we allow unrestricted dynamism at bootstrap helps a
 great deal, but in addition we also support the explicit flagging of
 certain functions or classes as requiring special treatment.  One such
@@ -1838,19 +1838,19 @@ annotation information for a given function, without letting the flow
 object space and annotator abstractly interpret the function's bytecode.
 
 In more details, the following special-cases are supported by default
-(more advanced specialisations have been implemented specifically for
+(more advanced sprecializations have been implemented specifically for
 PyPy):
 
-* specialising a function by the annotation of a given argument
+* sprecializing a function by the annotation of a given argument
 
-* specialising a function by the value of a given argument (requires all
+* sprecializing a function by the value of a given argument (requires all
   calls to the function to resolve the argument to a constant value)
 
 * ignoring -- the function call is ignored.  Useful for writing tests or
   debugging support code that should be removed during translation.
 
 * by arity -- for functions taking a variable number of (non-keyword)
-  arguments via a ``*args``, the default specialisation is by the number
+  arguments via a ``*args``, the default sprecialization is by the number
   of extra arguments.  (This follows naturally from the fact that the
   extended annotation lattice we use has annotations of the form
   ``Tuple(A_1, ..., A_n)`` representing a heterogeneous tuple of length
@@ -1859,7 +1859,7 @@ PyPy):
 
 * ctr_location -- for classes.  A fresh independent copy of the class is
   made for each program point that instantiate the class.  This is a
-  simple (but potentially over-specialising) way to obtain class
+  simple (but potentially over-sprecializing) way to obtain class
   polymorphism for the couple of container classes we needed in PyPy
   (e.g. Stack).
 
@@ -1875,11 +1875,11 @@ PyPy):
 Concrete mode execution
 ***********************
 
-The *memo* specialisation_ is used at key points in PyPy to obtain the
+The *memo* sprecialization_ is used at key points in PyPy to obtain the
 effect described in the introduction (see `Abstract interpretation`_):
 the memo functions and all the code it invokes is concretely executed
 during annotation.  There is no staticness restriction on that code --
-it will typically instantiate classes, creating more prebuilt instances,
+it will typically instantiate classes, creating more pre-built instances,
 and sometimes even build new classes and functions; this possibility is
 used quite extensively in PyPy.
 
@@ -1910,10 +1910,10 @@ variable carries an annotation of either ``Bool(const=<link case>)`` or
 
 The dead code removal effect is used in an essential way to hide
 bootstrap-only code from the annotator where it could not analyse such
-code.  For example, some frozen prebuilt constants force some of their
+code.  For example, some frozen pre-built constants force some of their
 caches to be filled when they are frozen (which occurs the first time
 the annotator discovers such a constant).  This allows the regular
-access methods of the frozen prebuilt constant to contain code like::
+access methods of the frozen pre-built constant to contain code like::
 
     if self.not_computed_yet:
         self.compute_result()
@@ -1938,7 +1938,7 @@ annotation of the variables involved in the check.  For example::
 
 In the basic block at the beginning of the positive case, the input
 block variable corresponding to the source-level ``obj`` variable is
-annotated as ``Inst(MySubClass)``.  Similarily, in::
+annotated as ``Inst(MySubClass)``.  Similarly, in::
 
     if x > y:
         ...positive case...
@@ -1990,7 +1990,7 @@ still respect the Generalisation_ property if we also have constant
 annotations, as mentioned at the end of the `Annotation model`_.  It
 requires constant ``Bool`` annotations -- i.e. known to be True or known
 to be False -- that are nevertheless extended as above, even though it
-seems redundant, just in case the annotation needs to be generalized to
+seems redundant, just in case the annotation needs to be generalised to
 a non-constant extended annotation.  See for example
 ``builtin_isinstance()`` in `pypy/annotation/builtin.py`_.)
 
@@ -2017,7 +2017,7 @@ into infinite loops.)
 
 
 Code Generation
-===============================
+===============
 
 The actual generation of low-level code from the information computed by
 the annotator is not the central subject of the present report, so we
@@ -2052,7 +2052,7 @@ Squeak_ and in the future Java and/or .NET.
 
 
 RTyper
-~~~~~~~~~~
+~~~~~~
 
 The first step is called "RTyping", short for "RPython low-level
 typing".  It turns general high-level operations into low-level C-like
@@ -2109,7 +2109,7 @@ annotator, to the low-level types.
 
 One representation is created for each used annotation.  The
 representation maps a low-level type to each annotation in a way that
-depends on information dicovered by the annotator.  For example, the
+depends on information discovered by the annotator.  For example, the
 representation of ``Inst`` annotations are responsible for building the
 low-level type -- nested structures and vtable pointers, in the case of
 lltype_.  In addition,the representation objects' central role is to
@@ -2140,7 +2140,7 @@ implemented in terms of "simpler" operations.  The function is then fed
 back into the flow object space and the annotator and the RTyper itself,
 so that it gets turned into another low-level control flow graph.  At
 this point, the annotator runs with a different set of default
-specialisations: it allows several copies of the helper functions to be
+sprecializations: it allows several copies of the helper functions to be
 automatically built, one for each low-level type of its arguments.  We
 do this by default at this level because of the intended purpose of
 these helpers: they are usually methods of a polymorphic container.
@@ -2149,7 +2149,7 @@ This approach shows that our annotator is versatile enough to
 accommodate different kinds of sub-languages at different levels: it is
 straightforward to adapt it for the so-called "low-level Python"
 language in which we constrain ourselves to write the low-level
-operation helpers.  Automatic specialisation was a key point here; the
+operation helpers.  Automatic sprecialization was a key point here; the
 resulting language feels like a basic C++ without any type or template
 declarations.
 
@@ -2157,7 +2157,7 @@ declarations.
 The back-ends
 ~~~~~~~~~~~~~
 
-So far, all data structures (flow graphs, prebuilt constants...) 
+So far, all data structures (flow graphs, pre-built constants...) 
 manipulated by the translation process only existed as objects in
 memory.  The last step is to turn them into an external representation.
 This step, while basically straightforward, is messy in practice for
@@ -2178,7 +2178,7 @@ they are difficult to render in a language with no ``goto`` equivalent).
 The C back-end works itself again in two steps:
 
 * it first collects recursively all functions (i.e. their low-level flow
-  graphs) and all prebuilt data structures, remembering all "struct" C
+  graphs) and all pre-built data structures, remembering all "struct" C
   types that will need to be declared;
 
 * it then generates one or multiple C source files containing:
@@ -2187,11 +2187,11 @@ The C back-end works itself again in two steps:
 
   2. the full declarations of the latter;
 
-  3. a forward declaration of all the functions and prebuilt data
+  3. a forward declaration of all the functions and pre-built data
      structures;
 
   4. the implementation of the latter (i.e. the body of functions and
-     the static initialisers of prebuilt data structures).
+     the static initialisers of pre-built data structures).
 
 Each function's body is implemented as basic blocks (following the basic
 blocks of the control flow graphs) with jumps between them.  The
@@ -2249,9 +2249,9 @@ analysis is ultimately more powerful.
 In PyPy, our short-term future work is to focus on using the translation
 toolchain presented here to generate a modified low-level version of the
 same full Python interpreter.  This modified version will drive a
-just-in-time specialisation process, in the sense of providing a
+just-in-time sprecialization process, in the sense of providing a
 description of full Python that will not be directly executed, but
-specialised for the particular user Python program.
+sprecialized for the particular user Python program.
 
 As of October 2005, we are only starting the work in this direction.
 The details are not fleshed out nor documented yet, but the [Psyco]_
@@ -2306,7 +2306,7 @@ Main references:
 Glossary and links mentioned in the text:
 
 * Abstract interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
-
+p
 * Flow Object Space: see `Object Space`_.
 
 * GenC back-end: see [TR]_.
