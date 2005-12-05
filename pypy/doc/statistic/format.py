@@ -6,7 +6,7 @@ from dateutil import parser
 import pylab
 import matplotlib
 
-greyscale = True
+greyscale = False
 
 def get_data(p):
     data = p.readlines()
