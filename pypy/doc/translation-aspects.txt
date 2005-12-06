@@ -438,9 +438,7 @@ pointer-chasing.
 Conclusion
 ===========
 
-As shown with various examples our approach gives us flexibility and lets us
-chooses various aspects at translation time instead of encoding them into the
-implementation itself.
+As concretely shown with various detailed examples our approach gives us flexibility and lets us chooses various aspects at translation time instead of encoding them into the implementation itself.
 
 References
 ===========
