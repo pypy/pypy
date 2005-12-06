@@ -24,6 +24,16 @@ support_functions = [
     "%LLVM_RPython_StartupCode",
     ]
 
+def get_c_cpath():
+    from pypy.translator import translator
+    return os.path.dirname(translator.__file__)
+
+def get_genexterns_path():
+    return os.path.join(get_llvm_cpath(), "genexterns.c")
+
+def get_llvm_cpath():
+    return os.path.join(os.path.dirname(__file__), "module")
+
 def get_ll(ccode, function_names):
     function_names += support_functions
     filename = str(udir.join("ccode.c"))
@@ -31,16 +41,13 @@ def get_ll(ccode, function_names):
     f.write(ccode)
     f.close()
 
-    llvm_gcc = os.popen('which llvm-gcc 2>&1').read()
-    if llvm_gcc and not llvm_gcc.startswith('which'):   #local llvm CFE available
-        #log('using local llvm-gcc')
-        plain = filename[:-2]
-        os.system("llvm-gcc -S %s.c -o %s.ll 2>&1" % (plain, plain))
-        llcode = open(plain + '.ll').read()
-    else:   #as fallback use remove CFE. XXX local and remote should be similar machines!
-        #log('falling back on remote llvm-gcc')
-        request = urllib.urlencode({'ccode':ccode}) # goto codespeak and compile our c code
-        llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
+    plain = filename[:-2]
+    cmd = "llvm-gcc -I%s -I%s -S %s.c -o %s.ll 2>&1" % (get_llvm_cpath(),
+                                                        get_c_cpath(),
+                                                        plain,
+                                                        plain)
+    os.system(cmd)
+    llcode = open(plain + '.ll').read()
 
     # strip lines
     ll_lines = []
@@ -125,12 +132,6 @@ def setup_externs(db):
 
     return decls
 
-def path_join(root_path, *paths):
-    path = root_path
-    for p in paths:
-        path = os.path.join(path, p)
-    return path
-
 def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode = []
     function_names = []
@@ -142,16 +143,9 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
         assert '\n' not in llname
         ccode.append('#define\t%s\t%s\n' % (c_name, llname))
 
-    # special case name entry_point XXX bit underhand
-    for k, v in db.obj2node.items():
-        try:
-            if isinstance(lltype.typeOf(k), lltype.FuncType):
-                if v == entrynode and standalone:
-                    predeclarefn("__ENTRY_POINT__", v.get_ref())
-                    ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
-                    break
-        except TypeError, exc:
-            pass
+    if standalone:
+        predeclarefn("__ENTRY_POINT__", entrynode.get_ref())
+        ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
 
     for c_name, obj in extern_decls:
         if isinstance(obj, lltype.LowLevelType):
@@ -171,46 +165,17 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
             assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
 
     # start building our source
-    src = open(path_join(os.path.dirname(__file__),
-                         "module",
-                         "genexterns.c")).read()
+    src = open(get_genexterns_path()).read()
 
-    # set python version to include
+    # XXX MESS: set python version to include
     if sys.platform == 'darwin':
         python_h = '"/System/Library/Frameworks/Python.framework/Versions/2.3/include/python2.3/Python.h"'
     else:
         python_h = '<python2.3/Python.h>'
-    src = src.replace('__PYTHON_H__', python_h)
-               
-    # add our raising ops
-    s = open(path_join(os.path.dirname(__file__),
-                       "module",
-                       "raisingop.h")).read()
-    src = src.replace('__RAISING_OPS__', s)
-                    
-    
-    from pypy.translator.c import extfunc
-    src_path = path_join(os.path.dirname(extfunc.__file__), "src")
 
-    include_files = [path_join(src_path, f + ".h") for f in
-                        ["thread", "ll_os", "ll_math", "ll_time",
-                         "ll_strtod", "ll_thread", "stack"]]
-    
-    includes = []
-    for f in include_files:
-        s = open(f).read()
+    src = src.replace('__PYTHON_H__', python_h)                    
 
-        # XXX this is getting a tad (even more) ridiculous            
-        for name in ["ll_osdefs.h", "thread_pthread.h"]:
-            include_str = '#include "%s"' % name
-            if s.find(include_str) >= 0:
-                s2 = open(path_join(src_path, name)).read()
-                s = s.replace(include_str, s2)
-
-        includes.append(s)
-
-    src = src.replace('__INCLUDE_FILES__', "".join(includes))
-    ccode.append(src)
     ccode = "".join(ccode)
+    ccode += src
     
     return get_ll(ccode, function_names)

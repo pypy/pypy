@@ -7,6 +7,7 @@ MINIMUM_LLVM_VERSION = 1.6
 def llvm_is_on_path():
     try:
         py.path.local.sysfind("llvm-as")
+        py.path.local.sysfind("llvm-gcc")
     except py.error.ENOENT: 
         return False 
     return True

@@ -24,10 +24,16 @@ void _RPyListOfString_SetItem(RPyListOfString *, int, RPyString *);
 #include __PYTHON_H__
 
 // overflows/zeros/values raising operations
-__RAISING_OPS__
+#include "raisingop.h"
 
 // append some genc files here manually from python
-__INCLUDE_FILES__
+#include "c/src/thread.h"
+#include "c/src/ll_os.h"
+#include "c/src/ll_math.h"
+#include "c/src/ll_time.h"
+#include "c/src/ll_strtod.h"
+#include "c/src/ll_thread.h"
+#include "c/src/stack.h"
 
 // setup code for ThreadLock Opaque types
 char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
