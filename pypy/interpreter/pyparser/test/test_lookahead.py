@@ -1,4 +1,4 @@
-from pypy.interpreter.pyparser.grammar import Alternative, Sequence, KleenStar, \
+from pypy.interpreter.pyparser.grammar import Alternative, Sequence, KleeneStar, \
      Token, EmptyToken, build_first_sets
 
 class TestLookAheadBasics:
@@ -32,10 +32,10 @@ class TestLookAheadBasics:
 
     def test_basic_kleenstar(self):
         tok1, tok2, tok3 = self.tokens
-        kstar = KleenStar(self.nextid(), 1, 3, tok1)
+        kstar = KleeneStar(self.nextid(), 1, 3, tok1)
         build_first_sets([kstar])
         assert kstar.first_set == [tok1]
-        kstar = KleenStar(self.nextid(), 0, 3, tok1)
+        kstar = KleeneStar(self.nextid(), 0, 3, tok1)
         build_first_sets([kstar])
         assert kstar.first_set == [tok1, EmptyToken]
 
@@ -45,8 +45,8 @@ class TestLookAheadBasics:
          ==> S.first_set = [tok1, tok2, EmptyToken]
         """
         tok1, tok2, tok3 = self.tokens
-        k1 = KleenStar(self.nextid(), 0, 2, tok1)
-        k2 = KleenStar(self.nextid(), 0, 2, tok2)
+        k1 = KleeneStar(self.nextid(), 0, 2, tok1)
+        k2 = KleeneStar(self.nextid(), 0, 2, tok2)
         seq = Sequence(self.nextid(), [k1, k2])
         build_first_sets([k1, k2, seq])
         assert seq.first_set == [tok1, tok2, EmptyToken]
@@ -57,8 +57,8 @@ class TestLookAheadBasics:
          ==> S.first_set = [tok1, tok2]
         """
         tok1, tok2, tok3 = self.tokens
-        k1 = KleenStar(self.nextid(), 0, 2, tok1)
-        k2 = KleenStar(self.nextid(), 1, 2, tok2)
+        k1 = KleeneStar(self.nextid(), 0, 2, tok1)
+        k2 = KleeneStar(self.nextid(), 1, 2, tok2)
         seq = Sequence(self.nextid(), [k1, k2])
         build_first_sets([k1, k2, seq])
         assert seq.first_set == [tok1, tok2]
@@ -83,8 +83,8 @@ class TestLookAhead:
          self.LOW = Token(LOW, 'low')
          self.CAP = Token(CAP ,'cap')
          self.A = Alternative(R_A, [])
-         k1 = KleenStar(R_k1, 0, rule=self.LOW)
-         k2 = KleenStar(R_k2, 0, rule=self.CAP)
+         k1 = KleeneStar(R_k1, 0, rule=self.LOW)
+         k2 = KleeneStar(R_k2, 0, rule=self.CAP)
          self.B = Sequence(R_B, [k1, self.A])
          self.C = Sequence(R_C, [k2, self.A])
          self.A.args = [self.B, self.C]

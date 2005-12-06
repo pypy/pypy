@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from grammar import BaseGrammarBuilder, Alternative, Sequence, Token, \
-     KleenStar, GrammarElement, build_first_sets, EmptyToken
+     KleeneStar, GrammarElement, build_first_sets, EmptyToken
 from ebnflexer import GrammarSource
 from syntaxtree import AbstractSyntaxVisitor
 import pytoken
@@ -182,7 +182,7 @@ class EBNFVisitor(AbstractSyntaxVisitor):
 
     def handle_option( self, node ):
         rule = node.nodes[1].visit(self)
-        return self.new_item( KleenStar( self.new_symbol(), 0, 1, rule ) )
+        return self.new_item( KleeneStar( self.new_symbol(), 0, 1, rule ) )
 
     def handle_group( self, node ):
         rule = node.nodes[1].visit(self)
@@ -214,10 +214,10 @@ class EBNFVisitor(AbstractSyntaxVisitor):
             rule_name = self.new_symbol()
             tok = star_opt.nodes[0].nodes[0]
             if tok.value == '+':
-                item = KleenStar(rule_name, _min=1, rule=myrule)
+                item = KleeneStar(rule_name, _min=1, rule=myrule)
                 return self.new_item(item)
             elif tok.value == '*':
-                item = KleenStar(rule_name, _min=0, rule=myrule)
+                item = KleeneStar(rule_name, _min=0, rule=myrule)
                 return self.new_item(item)
             else:
                 raise SyntaxError("Got symbol star_opt with value='%s'"
@@ -260,7 +260,7 @@ def grammar_grammar():
     S = g_add_symbol
     # star: '*' | '+'
     star          = Alternative( S("star"), [Token(S('*')), Token(S('+'))] )
-    star_opt      = KleenStar  ( S("star_opt"), 0, 1, rule=star )
+    star_opt      = KleeneStar ( S("star_opt"), 0, 1, rule=star )
 
     # rule: SYMBOL ':' alternative
     symbol        = Sequence(    S("symbol"), [Token(S('SYMBOL')), star_opt] )
@@ -269,12 +269,12 @@ def grammar_grammar():
     rule          = Sequence(    S("rule"), [symboldef, alternative] )
 
     # grammar: rule+
-    grammar       = KleenStar(   S("grammar"), _min=1, rule=rule )
+    grammar       = KleeneStar(   S("grammar"), _min=1, rule=rule )
 
     # alternative: sequence ( '|' sequence )*
-    sequence      = KleenStar(   S("sequence"), 1 )
+    sequence      = KleeneStar(   S("sequence"), 1 )
     seq_cont_list = Sequence(    S("seq_cont_list"), [Token(S('|')), sequence] )
-    sequence_cont = KleenStar(   S("sequence_cont"),0, rule=seq_cont_list )
+    sequence_cont = KleeneStar(   S("sequence_cont"),0, rule=seq_cont_list )
     
     alternative.args = [ sequence, sequence_cont ]
 

@@ -4,7 +4,7 @@ the grammar is defined as a composition of objects
 the objects of the grammar are :
 Alternative : as in S -> A | B | C
 Sequence    : as in S -> A B C
-KleenStar   : as in S -> A* or S -> A+
+KleeneStar   : as in S -> A* or S -> A+
 Token       : a lexer token
 """
 
@@ -122,7 +122,7 @@ from syntaxtree import SyntaxNode, TempSyntaxNode, TokenNode
 #
 # we use the term root for a grammar rule to specify rules that are given a name
 # by the grammar
-# a rule like S -> A B* is mapped as Sequence( SCODE, KleenStar(-3, B))
+# a rule like S -> A B* is mapped as Sequence( SCODE, KleeneStar(-3, B))
 # so S is a root and the subrule describing B* is not.
 # SCODE is the numerical value for rule "S"
 
@@ -190,9 +190,9 @@ class BaseGrammarBuilder(AbstractBuilder):
         return True
 
 
-######################################################################
-# Grammar Elements Classes (Alternative, Sequence, KleenStar, Token) #
-######################################################################
+#######################################################################
+# Grammar Elements Classes (Alternative, Sequence, KleeneStar, Token) #
+#######################################################################
 class GrammarElement(object):
     """Base parser class"""
 
@@ -515,14 +515,14 @@ class Sequence(GrammarElement):
         return True
 
 
-class KleenStar(GrammarElement):
-    """Represents a KleenStar in a grammar rule as in (S -> A+) or (S -> A*)"""
+class KleeneStar(GrammarElement):
+    """Represents a KleeneStar in a grammar rule as in (S -> A+) or (S -> A*)"""
     def __init__(self, name, _min = 0, _max = -1, rule=None):
         GrammarElement.__init__( self, name )
         self.args = [rule]
         self.min = _min
         if _max == 0:
-            raise ValueError("KleenStar needs max==-1 or max>1")
+            raise ValueError("KleeneStar needs max==-1 or max>1")
         self.max = _max
         self.star = "x"
         if self.min == 0:
