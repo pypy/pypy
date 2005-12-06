@@ -8,9 +8,9 @@ Memory management and threading models as translation aspects -- solutions and c
 Introduction
 =============
 
-One of the goals of the PyPy project is it to have the memory and concurrency
-models flexible and changeable without having to manually reimplement the
-interpreter. In fact, PyPy by time of the 0.8 release contains code for memory
+One of the goals of the PyPy project is to have the memory and concurrency
+models flexible and changeable without having to reimplement the
+interpreter manually. In fact, PyPy, by the time of the 0.8 release contains code for memory
 management and concurrency models which allows experimentation without
 requiring early design decisions.  This document describes many of the more
 technical details of the current state of the implementation of the memory
@@ -82,9 +82,9 @@ Subclass checking
 The way we do subclass checking is a good example of the flexibility provided
 by our approach: in the beginning we were using a naive linear lookup
 algorithm. Since subclass checking is quite a common operation (it is also used
-to check whether an object is an instance of a certain class) we wanted to
+to check whether an object is an instance of a certain class), we wanted to
 replace it with the more efficient relative numbering algorithm (see [PVE]_ for
-an overview of techniques). This was a matter of just changing the appropriate
+an overview of techniques). This was a matter of changing just the appropriate
 code of the rtyping process to calculate the class-ids during rtyping and
 insert the necessary fields into the class structure. It would be similarly
 easy to switch to another implementation.
@@ -92,10 +92,10 @@ easy to switch to another implementation.
 Identity hashes
 ---------------
 
-In the RPython type system class instances can be used as dictionary keys using
-a default hash implementation based on identity which in practise is
-implemented using the memory address. This is similar to how CPython behaves if
-no user-defined hash function is present. The annotator keeps track of the
+In the RPython type system, class instances can be used as dictionary keys using
+a default hash implementation based on identity, which in practice is
+implemented using the memory address. This is similar to CPython's behavior
+when no user-defined hash function is present. The annotator keeps track of the
 classes for which this hashing is ever used.
 
 One of the peculiarities of PyPy's approach is that live objects are analyzed
@@ -104,10 +104,8 @@ classes that were built before the translation started. These are called
 "pre-built constants" (PBCs for short). During rtyping, these instances must be
 converted to the low level model. One of the problems with doing this is that
 the standard hash implementation of Python is to take the id of an object, which
-is just the memory address. If the RPython program explicitely stores the hashes
-of a PBC somewhere (for example in the implementation of a data structure) then
-the stored hash value would be extremely unlikely to match the value of the object's
-address after translation.
+is just the memory address. This is problematic for creating PBCs, because
+the address of an object is not persistent after translation.
 
 To prevent this the following strategy is used: for every class whose instances
 are hashed somewhere in the program (either when storing them in a
@@ -138,10 +136,10 @@ Changing the representation of an object
 
 One example of the flexibility the RTyper provides is how we deal with lists.
 Based on information gathered by the annotator the RTyper chooses between two
-different list implementations. If a list never changes its size after creation
-a low-level array is used directly. For lists which might be resized a
-representation consisting of a structure with a pointer to an array is used and
-overallocation is performed.
+different list implementations. If a list never changes its size after creation,
+a low-level array is used directly. For lists which might be resized, a
+representation consisting of a structure with a pointer to an array is used,
+together with over-allocation.
 
 We plan to use similar techniques to use tagged pointers instead of using boxing
 to represent builtin types of the PyPy interpreter such as integers. This would
@@ -161,12 +159,12 @@ Smalltalk or Javascript, this is not an issue. For other targets like C and
 LLVM the backend has to produce code that uses some sort of garbage collection.
 
 This approach has several advantages. It makes it possible to target different
-platforms, with and without integrated garbage collection. Furthermore the
+platforms, with and without integrated garbage collection. Furthermore, the
 interpreter implementation is not complicated by the need to do explicit memory
 management everywhere. Even more important the backend can optimize the memory
 handling to fit a certain situation (like a machine with very restricted
 memory) or completely replace the memory management technique or memory model
-with a different one without having to change interpreter code. Additionally
+with a different one without the need to change source code. Additionally,
 the backend can use information that was inferred by the rest of the toolchain
 to improve the quality of memory management. 
 
@@ -181,7 +179,7 @@ to a function of the boehm collector which returns a suitable amount of memory.
 Since the C backend has a lot of information avaiable about the data structure
 being allocated it can choose the memory allocation function out of the Boehm
 API that fits best. For example, for objects that do not contain references to
-other objects (e.g. strings) there is a special allocation function that
+other objects (e.g. strings) there is a special allocation function which
 signals to the collector that it does not need to consider this memory when
 tracing pointers.
 
@@ -206,6 +204,8 @@ refers to are decremented as well.
 The current placement of reference counter updates is far from optimal: The
 reference counts are updated much more often than theoretically necessary (e.g.
 sometimes a counter is increased and then immediately decreased again).
+Objects passed into a function as arguments can almost always use a "trusted reference",
+because the call-site is responsible to create a valid reference.
 Furthermore some more analysis could show that some objects don't need a
 reference counter at all because they either have a very short, foreseeable
 life-time or because they live exactly as long as another object.
