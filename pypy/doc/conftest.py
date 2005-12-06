@@ -1,6 +1,13 @@
 import py
 from py.__.documentation.conftest import Directory, DoctestText, ReSTChecker
 
+Option = py.test.Config.Option
+option = py.test.Config.addoptions("pypy-doc options", 
+        Option('--generate-redirections', action="store_true",
+               dest="generateredirections",
+               default=False, help="Generate the redirecting HTML files"),
+    )
+
 class PyPyDoctestText(DoctestText): 
 
     def run(self): 
