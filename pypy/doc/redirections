@@ -15,11 +15,8 @@
     'checking_ReST.html'    : 'coding-guide.html#pypy-documentation', 
     'optionaltools.html'    : 'coding-guide.html#optionaltool', 
 
-    'newrepolayout.html'    : 'misc.html#newrepolayout', 
-    'goals.html'            : 'misc.html#goals', 
-
-    'developers.html'       : 'misc.html#developers', 
-    'cmodules.html'         : 'misc.html#cmodules',
+    'developers.html'       : 'contributor.html',
+    'goals.html'            : 'architecture.html',
 
     'annotation.html'       : 'translation.html#annotator',
     'basicblock.asc'        : 'objspace.html#the-flow-model',
