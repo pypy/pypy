@@ -378,7 +378,7 @@ useful abstractions can be implemented, like:
 * implicitly-scheduled (preemptive) microthreads, also known as green threads.
 
 An important property of the changes in all the generated C functions is
-to be written in a way that does not significantly degrade their performance in
+that they are written in a way that does only minimally degrade their performance in
 the non-exceptional case.  Most optimisations performed by C compilers,
 like register allocation, continue to work...
 
@@ -412,18 +412,19 @@ the code generation will require considerable effort. It requires being able to
 keep track of the GC roots which is hard to do with portable C code. One
 solution would be to use the "stackless" code since it can move the stack 
 completely to the heap. We expect that we can implement GC read and write 
-barriers as function calls and rely on inlining to make them less inefficient.
+barriers as function calls and rely on inlining to make them more efficient.
 
 We may also spend some time on improving the existing reference counting
-implementation by removing unnecessary incref-decref pairs. A bigger task would
+implementation by removing unnecessary incref-decref pairs and identifying
+trustworthy references. A bigger task would
 be to add support for detecing circular references.
 
 
 Threading model
 ---------------
 
-One of the interesting possibities that stackless offers is to implement green
-threading. This would involve writing a scheduler and preemption logic. 
+One of the interesting possibities that stackless offers is to implement *green
+threading*. This would involve writing a scheduler and some preemption logic. 
 
 We should also investigate other threading models based on operating system
 threads with various granularities of locking for access of shared objects.
@@ -432,7 +433,7 @@ Object model
 ------------
 
 We also might want to experiment with more sophisticated structure inlining.
-Sometimes it is possible to find out that one structure object that is
+Sometimes it is possible to find out that one structure object
 allocated on the heap lives exactly as long as another structure object on the
 heap pointing to it. If this is the case it is possible to inline the first
 object into the second. This saves the space of one pointer and avoids
@@ -442,7 +443,9 @@ pointer-chasing.
 Conclusion
 ===========
 
-As concretely shown with various detailed examples our approach gives us flexibility and lets us chooses various aspects at translation time instead of encoding them into the implementation itself.
+As concretely shown with various detailed examples, our approach gives us
+flexibility and lets us choose various aspects at translation time instead
+of encoding them into the implementation itself.
 
 References
 ===========
