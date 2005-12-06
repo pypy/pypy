@@ -260,10 +260,10 @@ At the moment we have three simple garbage collectors implemented for this
 framework: a simple copying collector, a mark-and-sweep collector and a
 deferred reference counting collector. These garbage collectors are work when run on
 top of the memory simulator, but at the moment it is not yet possible to translate
-PyPy to C with them. This is because is not easy to
+PyPy to C with them. This is because it is not easy to
 find the root pointers that reside on the C stack -- both because the C stack layout is
-heavily platform dependent and because of the possibility of roots that are not
-only on the stack but also in registers (which would give a problem for *moving
+heavily platform dependent, and also due to the possibility of roots that are not
+only on the stack but also hiding in registers (which would give a problem for *moving
 garbage collectors*).
 
 There are several possible solutions for this problem: One
@@ -311,14 +311,14 @@ intepreter lock should be released around blocking external function calls
 Stackless C code
 -----------------
 
-"Stackless" C code is C code that only uses a bounded amount of the
-space in the C stack, and that can more generally obtain explicit
-control of its own stack.  This is generally known as "continuations",
+"Stackless" C code is C code that only uses a bounded amount of
+space in the C stack, and that can generally obtain explicit
+control of its own stack.  This is commonly known as "continuations",
 or "continuation-passing style" code, although in our case we will limit
 ourselves to single-shot continuations, i.e. continuations that are
-captured and subsequently only resumed once.
+captured and subsequently will be resumed exactly once.
 
-The technique we have implemented is based on an old but recurring idea
+The technique we have implemented is based on an ancient but recurring idea
 of emulating this style via exceptions: a specific program point can
 generate a pseudo-exception whose purpose is to unwind the whole C stack
 in a restartable way.  More precisely, the "unwind" exception causes 
@@ -327,11 +327,11 @@ format, as described below.  It is then possible to resume only the
 innermost (most recent) frame of the saved stack -- allowing unlimited
 recursion on OSes that limit the size of the C stack -- or to resume a
 different previously-saved C stack altogether, thus implementing
-coroutines.
+coroutines or light-weight threads.
 
 In our case, exception handling is always explicit in the generated code:
-the C backend always
-puts after each call site a cheap check to detect if the callee exited
+the C backend puts a cheap check
+after each call site to detect if the callee exited
 normally or generated an exception.  So when compiling functions in
 stackless mode, the generated exception handling code special-cases the
 new "unwind" exception.  This exception causes the current function to
@@ -343,7 +343,9 @@ exception.
 
 At this point, the whole C stack is stored away in the heap.  This is a
 very interesting state in itself, because precisely there is no C stack
-left.  It is this which will allow us to write in a portable way all the algorithms that
+below the dispatcher
+left.  It is this which will allow us to write all the algorithms 
+in a portable way, that
 normally require machine-specific code to inspect the stack,
 in particular garbage collectors.
 
@@ -356,15 +358,16 @@ frame eventually exits normally, it returns to the dispatcher, which then
 invokes the previous (parent) saved frame, and so on. We insert stack checks
 before calls that can lead to recursion by detecting cycles in the call graph.
 These stack checks copy the stack to the heap (by raising the special
-exception) if it is deeper than a certain level.  In this model, the C stack
-can be considered as a cache for the heap-based saved frames.  When we run out
+exception) if it is about to grow deeper than a certain level.
+As a different point of view, the C stack can also be considered as a cache
+for the heap-based saved frames in this model.  When we run out
 of C stack space, we flush the cache.  When the cache is empty, we fill it with
 the next item from the heap.
 
 To give the translated program some amount of control over the
 heap-based stack structures and over the top-level dispatcher that jumps
 between them, there are a few "external" functions directly implemented
-in C.  These functions provide an elementary interface on top of which
+in C.  These functions provide an elementary interface, on top of which
 useful abstractions can be implemented, like:
 
 * coroutines: explicitly switching code, similar to Greenlets [GREENLET]_.
@@ -372,7 +375,7 @@ useful abstractions can be implemented, like:
 * "tasklets": cooperatively-scheduled microthreads, as introduced in
   Stackless Python [STK]_.
 
-* implicitly-scheduled microthreads, also known as green threads.
+* implicitly-scheduled (preemptive) microthreads, also known as green threads.
 
 An important property of the changes in all the generated C functions is
 to be written in a way that does not significantly degrade their performance in
