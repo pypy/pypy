@@ -231,7 +231,7 @@ if the size of the object is known in advance the object can be allocated on
 the stack. To achieve this, the object is "exploded", that means that for every
 element of the structure a new variable is generated that is handed around in
 the graph. Reads from elements of the structure are removed and just replaced
-by one of the variables, writes by assignements to same.
+by one of the variables, writes by assignments to same.
 
 Since quite a lot of objects are allocated in small helper functions, this
 simple approach which does not track objects accross function boundaries only
@@ -263,28 +263,29 @@ top of the memory simulator, but at the moment it is not yet possible to transla
 PyPy to C with them. This is because is not easy to
 find the root pointers that reside on the C stack -- both because the C stack layout is
 heavily platform dependent and because of the possibility of roots that are not
-only on the stack but also in registers (which would give a problem for moving
-garbage collectors).
+only on the stack but also in registers (which would give a problem for *moving
+garbage collectors*).
 
 There are several possible solutions for this problem: One
-of them is to not use C compilers to generate machine code so that the stack
-frame layout can be controlled by us. This is one of the tasks that need to be
-tackled in phase 2 as generating assembly directly is needed anyway for a
+of them is to not use C compilers to generate machine code, so that the stack
+frame layout get into our control. This is one of the tasks that need to be
+tackled in phase 2, as directly generating assembly is needed anyway for a
 just-in-time compiler. The other possibility (which would be much easier to
-implement) is to move all the data away from the stack to the heap, as
-described below in section "Stackless C code".
+implement) is to move all the data away from the stack to the heap
+before collecting garbage, as described in section "Stackless C code"  below.
 
 Concurrency Model Implementations
 ============================================
 
-At the moment we have implemented two different concurrency models and the
-option to not support concurrency (which proof the modularity of our approach):
+At the moment we have implemented two different concurrency models, and the
+option to not support concurrency at all 
+(another proof of the modularity of our approach):
 threading with a global interpreter lock and a "stackless" model.
 
 No threading
 -------------
 
-By default multi-threading is not supported at all, which gives some small
+By default, multi-threading is not supported at all, which gives some small
 benefits for single-threaded applications since even in the single-threaded
 case there is some overhead if threading capabilities are built into
 the interpreter.
@@ -292,19 +293,19 @@ the interpreter.
 Threading with a Global Interpreter Lock
 ------------------------------------------
 
-At the moment there is one non-trivial threading model implemented. It follows
+Right now, there is one non-trivial threading model implemented. It follows
 the threading implementation of CPython and thus uses a global interpreter
-lock. This lock prevents any two threads from interpreting python code at any
-time. The global interpreter lock is released around calls to blocking I/O
+lock. This lock prevents any two threads from interpreting python code at
+the same time. The global interpreter lock is released around calls to blocking I/O
 functions. This approach has a number of advantages: it gives very little
 runtime penalty for single-threaded applications, makes many of the common uses
-for threading possible and is relatively easy to implement and maintain. It has
-the disadvantages that multiple threads cannot be distributed accross multiple
+for threading possible, and it is relatively easy to implement and maintain. It has
+the disadvantage that multiple threads cannot be distributed accross multiple
 proccessors. 
 
-To make this threading-model useable for I/O-bound applications the global
+To make this threading-model usable for I/O-bound applications, the global
 intepreter lock should be released around blocking external function calls
-(which is also what CPython does). This has not been fully implemented yet.
+(which is also what CPython does). This has been partially implemented, yet.
 
 
 Stackless C code
