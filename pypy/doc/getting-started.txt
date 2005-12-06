@@ -602,7 +602,7 @@ py.test and the py lib
 
 The `py library`_ is used for supporting PyPy development and 
 running our tests against code and documentation as well as
-compliancy tests.  You don't need to install the py library because 
+compliance tests.  You don't need to install the py library because 
 it ships with PyPy and `pypy/test_all.py`_ is an alias for ``py.test``
 but if you want to have the ``py.test`` tool generally in your 
 path, you might like to visit: 
