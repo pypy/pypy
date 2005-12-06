@@ -42,7 +42,8 @@ def get_ll(ccode, function_names):
     f.close()
 
     plain = filename[:-2]
-    cmd = "llvm-gcc -I%s -I%s -I%s -S %s.c -o %s.ll 2>&1" % (get_llvm_cpath(),
+    cmd = "llvm-gcc -I%s -I%s -I%s -I%s -S %s.c -o %s.ll 2>&1" % (get_llvm_cpath(),
+                                                             get_incdir(),
                                                              get_c_cpath(),
                                                              get_python_inc(),
                                                              plain,
@@ -136,6 +137,10 @@ def setup_externs(db):
 def get_python_inc():
     import distutils.sysconfig
     return distutils.sysconfig.get_python_inc()
+
+def get_incdir():
+    import distutils.sysconfig
+    return distutils.sysconfig.EXEC_PREFIX + "/include"
 
 def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode = []

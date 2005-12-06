@@ -60,7 +60,7 @@ void raw_memcopy(char *ptr1, char *ptr2, int size) {
   memcpy((void *) ptr2, (void *) ptr1, size);
 }
 
-#include <gc/gc.h>
+#include <gc.h>
 #define USING_BOEHM_GC
 
 char *LLVM_RPython_StartupCode();

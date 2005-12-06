@@ -20,10 +20,11 @@ class GcPolicy:
 
     def new(gcpolicy=None):  #factory
         gcpolicy = gcpolicy or 'boehm'
-        
+
+        import distutils.sysconfig
         from os.path import exists
-        boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a') or \
-                        exists('/sw/lib/libgc.so') or exists('/sw/lib/libgc.a')
+        libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"  
+        boehm_on_path = exists(libdir + '/libgc.so') or exists(libdir + '/libgc.a')
         if gcpolicy == 'boehm' and not boehm_on_path:
             log.gc.WARNING('warning: Boehm GC libary not found in /usr/lib, falling back on no gc')
             gcpolicy = 'none'

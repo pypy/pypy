@@ -87,7 +87,9 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
     cleanup = False
 
     if sys.platform == 'darwin':
-        gc_libs_path = '-L/sw/lib -ldl'
+        import distutils.sysconfig
+        libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"
+        gc_libs_path = '-L%s -ldl' % libdir
     else:
         gc_libs_path = '-static'
 
