@@ -2149,7 +2149,7 @@ This approach shows that our annotator is versatile enough to
 accommodate different kinds of sub-languages at different levels: it is
 straightforward to adapt it for the so-called "low-level Python"
 language in which we constrain ourselves to write the low-level
-operation helpers.  Automatic sprecialization was a key point here; the
+operation helpers.  Automatic specialization was a key point here; the
 resulting language feels like a basic C++ without any type or template
 declarations.
 
