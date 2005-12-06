@@ -24,15 +24,8 @@ support_functions = [
     "%LLVM_RPython_StartupCode",
     ]
 
-def get_c_cpath():
-    from pypy.translator import translator
-    return os.path.dirname(translator.__file__)
-
 def get_genexterns_path():
     return os.path.join(get_llvm_cpath(), "genexterns.c")
-
-def get_llvm_cpath():
-    return os.path.join(os.path.dirname(__file__), "module")
 
 def get_ll(ccode, function_names):
     function_names += support_functions
@@ -42,12 +35,10 @@ def get_ll(ccode, function_names):
     f.close()
 
     plain = filename[:-2]
-    cmd = "llvm-gcc -I%s -I%s -I%s -I%s -S %s.c -o %s.ll 2>&1" % (get_llvm_cpath(),
-                                                             get_incdir(),
-                                                             get_c_cpath(),
-                                                             get_python_inc(),
-                                                             plain,
-                                                             plain)
+    includes = get_incdirs()
+    cmd = "llvm-gcc %s -S %s.c -o %s.ll 2>&1" % (includes,
+                                                 plain,
+                                                 plain)
     os.system(cmd)
     llcode = open(plain + '.ll').read()
 
@@ -134,13 +125,26 @@ def setup_externs(db):
 
     return decls
 
-def get_python_inc():
-    import distutils.sysconfig
-    return distutils.sysconfig.get_python_inc()
+def get_c_cpath():
+    from pypy.translator import translator
+    return os.path.dirname(translator.__file__)
 
-def get_incdir():
+def get_llvm_cpath():
+    return os.path.join(os.path.dirname(__file__), "module")
+
+def get_incdirs():
+
     import distutils.sysconfig
-    return distutils.sysconfig.EXEC_PREFIX + "/include"
+    includes = (distutils.sysconfig.EXEC_PREFIX + "/include", 
+                distutils.sysconfig.EXEC_PREFIX + "/include/gc",
+                distutils.sysconfig.get_python_inc(),
+                get_c_cpath(),
+                get_llvm_cpath())
+
+    includestr = ""
+    for ii in includes:
+        includestr += "-I %s " % ii
+    return includestr
 
 def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode = []
