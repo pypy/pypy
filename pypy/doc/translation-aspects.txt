@@ -5,29 +5,18 @@ Memory management and threading models as translation aspects -- solutions and c
 .. contents::
 .. sectnum::
 
-Abstract
-=========
-
-One of the goals of the PyPy project is it to have the memory and threading
-models flexible and changeable without having to manually reimplement the
-interpreter.  In fact, PyPy by time of the 0.8 release contains code for
-memory management and threading models which allows experimentation without
-requiring early design decisions.  This document describes many details of the
-current state of the implementation of the memory object model, automatic
-memory management and threading models and describes possible future
-developments.
-
-
 Introduction
-============
+=============
 
-The main emphasis of the PyPy project is that of flexible integration: we want
-to make changing memory management and threading techniques possible while at
-the same time influencing the source code of interpreter as little as
-possible. It is not the current goal to optimize the current approaches in
-extreme ways but rather to produce solid implementations and to provide an
-environment where experiments with fundamentally different ways to implement
-these things are possible and reasonably easy.
+One of the goals of the PyPy project is it to have the memory and concurrency
+models flexible and changeable without having to manually reimplement the
+interpreter. In fact, PyPy by time of the 0.8 release contains code for memory
+management and concurrency models which allows experimentation without
+requiring early design decisions.  This document describes many of the more
+technical details of the current state of the implementation of the memory
+object model, automatic memory management and concurrency models and describes
+possible future developments.
+
 
 The low level object model
 ===========================
@@ -94,7 +83,7 @@ The way we do subclass checking is a good example of the flexibility provided
 by our approach: in the beginning we were using a naive linear lookup
 algorithm. Since subclass checking is quite a common operation (it is also used
 to check whether an object is an instance of a certain class) we wanted to
-replace it with the more efficient relative numbering algorithm (see [PVE] for
+replace it with the more efficient relative numbering algorithm (see [PVE]_ for
 an overview of techniques). This was a matter of just changing the appropriate
 code of the rtyping process to calculate the class-ids during rtyping and
 insert the necessary fields into the class structure. It would be similarly
