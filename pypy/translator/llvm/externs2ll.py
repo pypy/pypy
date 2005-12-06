@@ -42,10 +42,11 @@ def get_ll(ccode, function_names):
     f.close()
 
     plain = filename[:-2]
-    cmd = "llvm-gcc -I%s -I%s -S %s.c -o %s.ll 2>&1" % (get_llvm_cpath(),
-                                                        get_c_cpath(),
-                                                        plain,
-                                                        plain)
+    cmd = "llvm-gcc -I%s -I%s -I%s -S %s.c -o %s.ll 2>&1" % (get_llvm_cpath(),
+                                                             get_c_cpath(),
+                                                             get_python_inc(),
+                                                             plain,
+                                                             plain)
     os.system(cmd)
     llcode = open(plain + '.ll').read()
 
@@ -132,6 +133,10 @@ def setup_externs(db):
 
     return decls
 
+def get_python_inc():
+    import distutils.sysconfig
+    return distutils.sysconfig.get_python_inc()
+
 def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode = []
     function_names = []
@@ -165,17 +170,7 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
             assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
 
     # start building our source
-    src = open(get_genexterns_path()).read()
-
-    # XXX MESS: set python version to include
-    if sys.platform == 'darwin':
-        python_h = '"/System/Library/Frameworks/Python.framework/Versions/2.3/include/python2.3/Python.h"'
-    else:
-        python_h = '<python2.3/Python.h>'
-
-    src = src.replace('__PYTHON_H__', python_h)                    
-
     ccode = "".join(ccode)
-    ccode += src
+    ccode += open(get_genexterns_path()).read()
     
     return get_ll(ccode, function_names)

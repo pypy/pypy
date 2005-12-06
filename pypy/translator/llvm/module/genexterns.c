@@ -16,12 +16,8 @@ void RPYTHON_RAISE_OSERROR(int error);
 RPyListOfString *_RPyListOfString_New(int);
 void _RPyListOfString_SetItem(RPyListOfString *, int, RPyString *);
 
-#include <errno.h>
-#include <locale.h>
-#include <ctype.h>
-
-// the placeholder in the next line gets replaced by the actual python.h path
-#include __PYTHON_H__
+// include this to get constants and macros for below includes
+#include <Python.h>
 
 // overflows/zeros/values raising operations
 #include "raisingop.h"
