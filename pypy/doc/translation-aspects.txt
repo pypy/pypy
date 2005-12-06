@@ -29,22 +29,20 @@ extreme ways but rather to produce solid implementations and to provide an
 environment where experiments with fundamentally different ways to implement
 these things are possible and reasonably easy.
 
-
 The low level object model
 ===========================
 
-XXX proper references to translation.txt and dynamic-language-translation
-
-One important part of the translation process is *rtyping*. Before that step
-all objects in our flow graphs are annotated with types at the level of the
-RPython type system which is still quite high-level and target-independent.
-During rtyping they are transformed into objects that match the model of the
-specific target platform. For C or C-like targets this model consists of a set
-of C-like types like structures, arrays and functions in addition to primitive
-types (integers, characters, floating point numbers). This multi-stage approach
-gives a lot of flexibility in how a given object is represented at the 
-target's level. The RPython process can decide what representation to use based
-on the type annotation and on the way the object is used.
+One important part of the translation process is *rtyping* [DLT]_, [TR]_.
+Before that step all objects in our flow graphs are annotated with types at the
+level of the RPython type system which is still quite high-level and
+target-independent.  During rtyping they are transformed into objects that
+match the model of the specific target platform. For C or C-like targets this
+model consists of a set of C-like types like structures, arrays and functions
+in addition to primitive types (integers, characters, floating point numbers).
+This multi-stage approach gives a lot of flexibility in how a given object is
+represented at the target's level. The RPython process can decide what
+representation to use based on the type annotation and on the way the object is
+used.
 
 In the following the structures used to represent RPython classes are described.
 There is one "vtable" per RPython class, with the following structure: The root
@@ -94,15 +92,13 @@ Subclass checking
 
 The way we do subclass checking is a good example of the flexibility provided
 by our approach: in the beginning we were using a naive linear lookup
-algorithm. Since subclass checking is quite a common operation (it is also
-used to check whether an object is an instance of a certain class) we wanted
-to replace it with the more efficient relative numbering algorithm. This was a
-matter of just changing the appropriate code of the rtyping process to
-calculate the class-ids during rtyping and insert the necessary fields into
-the class structure. It would be similarly easy to switch to another
-implementation.
-
-XXX reference to the paper
+algorithm. Since subclass checking is quite a common operation (it is also used
+to check whether an object is an instance of a certain class) we wanted to
+replace it with the more efficient relative numbering algorithm (see [PVE] for
+an overview of techniques). This was a matter of just changing the appropriate
+code of the rtyping process to calculate the class-ids during rtyping and
+insert the necessary fields into the class structure. It would be similarly
+easy to switch to another implementation.
 
 Identity hashes
 ---------------
@@ -140,7 +136,7 @@ required if we ever switch to using a copying garbage collector.
 Cached functions with PBC arguments
 ------------------------------------
 
-As explained in (XXX reference to dynamicblabla) the annotated code can contain
+As explained in [DLT]_ the annotated code can contain
 functions from a finite set of PBCs to something else. The set itself has to be
 finite but its content does not need to be provided explictly but is discovered
 as the annotation of the input argument by the annotator itself. This kind of
@@ -255,9 +251,6 @@ works well in the presence of function inlining.
 A general garbage collection framework
 --------------------------------------
 
-(XXX I have no idea whether/how detailed this should be described here. It kind
-of fits the "solutions for memory models", though)
-
 In addition to the garbage collectors implemented in the C backend we have also
 started writing a more general toolkit for implementing exact garbage
 collectors in Python. The general idea is to express the garbage collection
@@ -290,13 +283,14 @@ frame layout can be controlled by us. This is one of the tasks that need to be
 tackled in phase 2 as generating assembly directly is needed anyway for a
 just-in-time compiler. The other possibility (which would be much easier to
 implement) is to move all the data away from the stack to the heap, as
-described below in section (XXX reference).
+described below in section "Stackless C code".
 
-Threading Model Implementations
+Concurrency Model Implementations
 ============================================
 
-
-XXX nice introductory paragraph
+At the moment we have implemented two different concurrency models and the
+option to not support concurrency (which proof the modularity of our approach):
+threading with a global interpreter lock and a "stackless" model.
 
 No threading
 -------------
@@ -363,17 +357,19 @@ left.  It is this which will allow us to write in a portable way all the algorit
 normally require machine-specific code to inspect the stack,
 in particular garbage collectors.
 
-To continue execution, the dispatcher can resume either the freshly
-saved or a completely different stack.  Moreover, it can resume directly
-the innermost (most recent) saved frame in the heap chain, without
-having to resume all intermediate frames first.  This not only makes
-stack switches fast, but it also allows the frame to continue to run on
-top of a clean C stack.  When that frame eventually exits normally, it
-returns to the dispatcher, which then invokes the previous (parent)
-saved frame, and so on.  XXX mention that we unwind when we use too much stack!
-In this model, the C stack can be considered as a cache for the heap-based saved
-frame.  When we run out of C stack space, we flush the cache.  When the cache is
-empty, we fill it with the next item from the heap.
+To continue execution, the dispatcher can resume either the freshly saved or a
+completely different stack.  Moreover, it can resume directly the innermost
+(most recent) saved frame in the heap chain, without having to resume all
+intermediate frames first.  This not only makes stack switches fast, but it
+also allows the frame to continue to run on top of a clean C stack.  When that
+frame eventually exits normally, it returns to the dispatcher, which then
+invokes the previous (parent) saved frame, and so on. We insert stack checks
+before calls that can lead to recursion by detecting cycles in the call graph.
+These stack checks copy the stack to the heap (by raising the special
+exception) if it is deeper than a certain level.  In this model, the C stack
+can be considered as a cache for the heap-based saved frames.  When we run out
+of C stack space, we flush the cache.  When the cache is empty, we fill it with
+the next item from the heap.
 
 To give the translated program some amount of control over the
 heap-based stack structures and over the top-level dispatcher that jumps
@@ -381,10 +377,10 @@ between them, there are a few "external" functions directly implemented
 in C.  These functions provide an elementary interface on top of which
 useful abstractions can be implemented, like:
 
-* coroutines: explicitly switching code, similar to Greenlets_.
+* coroutines: explicitly switching code, similar to Greenlets [GREENLET]_.
 
 * "tasklets": cooperatively-scheduled microthreads, as introduced in
-  `Stackless Python`_.
+  Stackless Python [STK]_.
 
 * implicitly-scheduled microthreads, also known as green threads.
 
@@ -393,9 +389,14 @@ to be written in a way that does not significantly degrade their performance in
 the non-exceptional case.  Most optimisations performed by C compilers,
 like register allocation, continue to work...
 
-XXX talk about the picture
+The following picture shows a graph function together with the modifications
+necessary for the stackless style: the check whether the stack is too big and
+should be unwound, the check whether we are in the process of currently storing
+away the stack and the check whether the call to the function is not a regular
+call but a reentry call.
 
 .. graphviz:: image/stackless_informal.dot
+   :scale: 70
 
 
 Future work
@@ -459,5 +460,23 @@ References
            for C and C++, Hans Boehm, 1988-2004
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 
-.. _Greenlets: http://codespeak.net/py/current/doc/greenlet.html
+.. [GREENLET] `Lightweight concurrent programming`_, py-lib Documentation 2003-2005
+.. _`Lightweight concurrent programming`: http://codespeak.net/py/current/doc/greenlet.html
+
+.. [STK] `Stackless Python`_, a Python implementation that does not use
+         the C stack, Christian Tismer, 1999-2004
 .. _`Stackless Python`: http://www.stackless.com
+
+.. [TR] `Translation`_, PyPy documentation, 2003-2005
+.. _`Translation`: translation.html
+
+.. [LE] `Encapsulating low-level implementation aspects`_,
+        PyPy documentation (and EU deliverable D05.4), 2005
+.. _`Encapsulating low-level implementation aspects`: low-level-encapsulation.html
+
+.. [DLT] `Compiling dynamic language implementations`_,
+         PyPy documentation (and EU deliverable D05.1), 2005
+.. _`Compiling dynamic language implementations`: dynamic-language-translation.html
+
+.. [PVE] `Simple and Efficient Subclass Tests`_, Jonathan Bachrach, Draft submission to ECOOP-02, 2001
+.. _`Simple and Efficient Subclass Tests`: http://people.csail.mit.edu/jrb/pve/pve.pdf
