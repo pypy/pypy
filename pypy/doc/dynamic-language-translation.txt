@@ -25,7 +25,7 @@
 The analysis of dynamic languages
 ===============================================
 
-Dynamic languages are definitely not new on the computing scene.  
+Dynamic languages are definitely not new on the computing scene.
 However, new conditions like increased computing power and designs driven
 by larger communities have enabled the emergence of new aspects in the
 recent members of the family, or at least made them more practical than
@@ -195,7 +195,7 @@ PyPy has an alternate object space called the `Flow Object Space`_,
 whose objects are empty placeholders.  The over-simplified view
 is that to analyse a function, we bind its input arguments to such
 placeholders, and execute the function -- i.e. let the interpreter follow
-its bytecode and invoke the object space for each operations, one by one.  
+its bytecode and invoke the object space for each operations, one by one.
 The Flow object space records each operation when it is issued, and
 returns a new placeholder as a result.  At the end, the list of recorded
 operations, along with the involved placeholders, gives an assembler-like
@@ -628,7 +628,7 @@ documentation.
 
 
 
-Annotator 
+Annotator
 =================================
 
 The annotator is the type inference part of our toolchain.  The
@@ -857,7 +857,7 @@ simple class hierarchy with only two direct subclasses of ``object``:
                  /         /    \        \
                 /  NuInst(cls2)  \     NuInst(cls1)
                /   /      \       \     /  /
-           Inst(cls2)      \  Inst(cls1)  / 
+           Inst(cls2)      \  Inst(cls1)  /
                  \          \    /       /
                   \          \  /       /
                    \          \/       /
@@ -2157,7 +2157,7 @@ declarations.
 The back-ends
 ~~~~~~~~~~~~~
 
-So far, all data structures (flow graphs, pre-built constants...) 
+So far, all data structures (flow graphs, pre-built constants...)
 manipulated by the translation process only existed as objects in
 memory.  The last step is to turn them into an external representation.
 This step, while basically straightforward, is messy in practice for
