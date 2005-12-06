@@ -104,8 +104,11 @@ classes that were built before the translation started. These are called
 "pre-built constants" (PBCs for short). During rtyping, these instances must be
 converted to the low level model. One of the problems with doing this is that
 the standard hash implementation of Python is to take the id of an object, which
-is just the memory address. This is problematic for creating PBCs, because
-the address of an object is not persistent after translation.
+
+is just the memory address. If the RPython program explicitely captures the
+hash of a PBC by storing it (for example in the implementation of a data
+structure) then the stored hash value will not match the value of the object's
+address after translation.
 
 To prevent this the following strategy is used: for every class whose instances
 are hashed somewhere in the program (either when storing them in a
@@ -268,7 +271,7 @@ garbage collectors*).
 
 There are several possible solutions for this problem: One
 of them is to not use C compilers to generate machine code, so that the stack
-frame layout get into our control. This is one of the tasks that need to be
+frame layout gets into our control. This is one of the tasks that need to be
 tackled in phase 2, as directly generating assembly is needed anyway for a
 just-in-time compiler. The other possibility (which would be much easier to
 implement) is to move all the data away from the stack to the heap
@@ -305,7 +308,7 @@ proccessors.
 
 To make this threading-model usable for I/O-bound applications, the global
 intepreter lock should be released around blocking external function calls
-(which is also what CPython does). This has been partially implemented, yet.
+(which is also what CPython does). This has been partially implemented.
 
 
 Stackless C code
@@ -318,7 +321,7 @@ or "continuation-passing style" code, although in our case we will limit
 ourselves to single-shot continuations, i.e. continuations that are
 captured and subsequently will be resumed exactly once.
 
-The technique we have implemented is based on an ancient but recurring idea
+The technique we have implemented is based on the recurring idea
 of emulating this style via exceptions: a specific program point can
 generate a pseudo-exception whose purpose is to unwind the whole C stack
 in a restartable way.  More precisely, the "unwind" exception causes 
