@@ -237,9 +237,9 @@ optimized for PyPy.
 Simple escape analysis to remove memory allocation
 ---------------------------------------------------
 
-We also implemented a technique to prevent some amount of memory allocation.
+We also implemented a technique to reduce the amount of memory allocation.
 Sometimes it is possible to deduce from the flow graphs that an object lives
-exactly as long as the stack frame of the function where it is allocated in.
+exactly as long as the stack frame of the function it is allocated in.
 This happens if no pointer to the object is stored into another object and if
 no pointer to the object is returned from the function. If this is the case and
 if the size of the object is known in advance the object can be allocated on
@@ -248,8 +248,8 @@ element of the structure a new variable is generated that is handed around in
 the graph. Reads from elements of the structure are removed and just replaced
 by one of the variables, writes by assignements to same.
 
-Since quite a lot of objects are allocated in small "helper" functions this
-simple approach which does not track objects accros function boundaries only
+Since quite a lot of objects are allocated in small helper functions, this
+simple approach which does not track objects accross function boundaries only
 works well in the presence of function inlining.
 
 A general garbage collection framework
@@ -276,10 +276,10 @@ pointers, uninitialized memory, etc.
 
 At the moment we have three simple garbage collectors implemented for this
 framework: a simple copying collector, a mark-and-sweep collector and a
-deferred reference counting collector. These garbage collectors are working on
+deferred reference counting collector. These garbage collectors are work when run on
 top of the memory simulator, but at the moment it is not yet possible to translate
-PyPy to C with them. This is due to the fact that it is not easy to
-find the root pointers that reside on the C stack because the C stack layout is
+PyPy to C with them. This is because is not easy to
+find the root pointers that reside on the C stack -- both because the C stack layout is
 heavily platform dependent and because of the possibility of roots that are not
 only on the stack but also in registers (which would give a problem for moving
 garbage collectors).
@@ -302,8 +302,8 @@ No threading
 -------------
 
 By default multi-threading is not supported at all, which gives some small
-benefits for single-threaded applications since even for single-threaded
-applications some overhead is there if threading-capabilities are built into
+benefits for single-threaded applications since even in the single-threaded
+case there is some overhead if threading capabilities are built into
 the interpreter.
 
 Threading with a Global Interpreter Lock
@@ -345,7 +345,8 @@ recursion on OSes that limit the size of the C stack -- or to resume a
 different previously-saved C stack altogether, thus implementing
 coroutines.
 
-In our case, exception handling is always explicit: the C backend always
+In our case, exception handling is always explicit in the generated code:
+the C backend always
 puts after each call site a cheap check to detect if the callee exited
 normally or generated an exception.  So when compiling functions in
 stackless mode, the generated exception handling code special-cases the
@@ -358,9 +359,9 @@ exception.
 
 At this point, the whole C stack is stored away in the heap.  This is a
 very interesting state in itself, because precisely there is no C stack
-left.  It allows us to write in a portable way all the algorithms that
-normally require machine-specific instructions to inspect the stack,
-e.g. garbage collectors.
+left.  It is this which will allow us to write in a portable way all the algorithms that
+normally require machine-specific code to inspect the stack,
+in particular garbage collectors.
 
 To continue execution, the dispatcher can resume either the freshly
 saved or a completely different stack.  Moreover, it can resume directly
@@ -369,10 +370,10 @@ having to resume all intermediate frames first.  This not only makes
 stack switches fast, but it also allows the frame to continue to run on
 top of a clean C stack.  When that frame eventually exits normally, it
 returns to the dispatcher, which then invokes the previous (parent)
-saved frame, and so on.  In this model, the C stack can be considered as
-a cache for the heap-based saved frame.  When we run out of C stack
-space, we flush the cache.  When the cache is empty, we fill it with the
-next item from the heap.
+saved frame, and so on.  XXX mention that we unwind when we use too much stack!
+In this model, the C stack can be considered as a cache for the heap-based saved
+frame.  When we run out of C stack space, we flush the cache.  When the cache is
+empty, we fill it with the next item from the heap.
 
 To give the translated program some amount of control over the
 heap-based stack structures and over the top-level dispatcher that jumps
@@ -392,6 +393,8 @@ to be written in a way that does not significantly degrade their performance in
 the non-exceptional case.  Most optimisations performed by C compilers,
 like register allocation, continue to work...
 
+XXX talk about the picture
+
 .. graphviz:: image/stackless_informal.dot
 
 
@@ -404,7 +407,7 @@ Garbage collection
 ------------------
 
 One of the biggest missing features of our current garbage collectors is
-missing finalization. Right now finalizers are not invoked if an object is
+finalization. At present finalizers are simply not invoked if an object is
 freed by the garbage collector. Along the same lines weak references are not
 supported yet. It should be possible to implement these with a reasonable
 amount of effort for reference counting as well as the Boehm collector (which
@@ -413,11 +416,11 @@ provides the necessary hooks).
 Integrating the now simulated-only GC framework into the rtyping process and
 the code generation will require considerable effort. It requires being able to
 keep track of the GC roots which is hard to do with portable C code. One
-solution would be to use stackless since it moves the stack completely to the
-heap. We expect that we can implement GC read and write barriers as function
-calls and rely on inlining to make them less inefficient.
+solution would be to use the "stackless" code since it can move the stack 
+completely to the heap. We expect that we can implement GC read and write 
+barriers as function calls and rely on inlining to make them less inefficient.
 
-We may also spent some time on improving the existing reference counting
+We may also spend some time on improving the existing reference counting
 implementation by removing unnecessary incref-decref pairs. A bigger task would
 be to add support for detecing circular references.
 
@@ -429,7 +432,7 @@ One of the interesting possibities that stackless offers is to implement green
 threading. This would involve writing a scheduler and preemption logic. 
 
 We should also investigate other threading models based on operating system
-threads with various granularities of locking for access of shared access.
+threads with various granularities of locking for access of shared objects.
 
 Object model
 ------------
