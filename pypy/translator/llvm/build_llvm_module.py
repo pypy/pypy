@@ -65,7 +65,8 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
         source_files = [ "%s.c" % modname ]
     else:
         source_files = []
-    object_files = []
+    from distutils.sysconfig import EXEC_PREFIX
+    object_files = ["-L%s/lib" % EXEC_PREFIX]
     library_files = genllvm.gcpolicy.gc_libraries()
     gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
