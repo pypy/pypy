@@ -256,7 +256,7 @@ Stacklessness
     is to make PyPy slower by about 8%.  A couple of minor pending
     optimisations could reduce this figure a bit.  We expect the rest of
     the performance impact to be mainly caused by the increase of size
-    of the generated executable (+20%).
+    of the generated executable (+28%).
 
 Multiple Interpreters
 
@@ -289,7 +289,7 @@ Concurrency
 Evaluation Strategy
 
     When translated to C code, the Thunk object space has a global
-    performance impact of 6%.  The executable is 10% bigger (probably
+    performance impact of 6%.  The executable is 13% bigger (probably
     due to the arguably excessive inlining we perform).
 
 We have described five aspects in this document, each currently with
