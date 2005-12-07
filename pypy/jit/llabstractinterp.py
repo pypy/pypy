@@ -1,6 +1,7 @@
 import operator
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
+from pypy.objspace.flow.model import checkgraph, last_exception
 from pypy.rpython.lltypesystem import lltype
 
 
@@ -117,6 +118,7 @@ class LLAbstractInterp(object):
         copygraph.getreturnvar().concretetype = (
             origgraph.getreturnvar().concretetype)
         returnstate.resolveblock(copygraph.returnblock)
+        checkgraph(copygraph)   # sanity-check
         return copygraph
 
     def applyhint(self, args_a, origblock):
@@ -194,24 +196,34 @@ class LLAbstractInterp(object):
             handler = getattr(self, 'op_' + op.opname)
             a_result = handler(op, *[binding(v) for v in op.args])
             bindings[op.result] = a_result
-        if 1:  # self.residual_operations:
-            inputargs = []
-            for v in origblock.inputargs:
-                a = bindings[v]
-                if not isinstance(a, LLConcreteValue):
-                    inputargs.append(a.getvarorconst())
-            newblock = Block(inputargs)
-            newblock.operations = self.residual_operations
-            del self.residual_operations   # just in case
-            assert origblock.exitswitch is None   # XXX
-            origlink, = origblock.exits  # XXX
+        inputargs = []
+        for v in origblock.inputargs:
+            a = bindings[v]
+            if not isinstance(a, LLConcreteValue):
+                inputargs.append(a.getvarorconst())
+        newblock = Block(inputargs)
+        newblock.operations = self.residual_operations
+        del self.residual_operations   # just in case
+        if origblock.exitswitch is None:
+            links = origblock.exits
+        elif origblock.exitswitch == Constant(last_exception):
+            XXX
+        else:
+            v = bindings[origblock.exitswitch].getvarorconst()
+            if isinstance(v, Variable):
+                newblock.exitswitch = v
+                links = origblock.exits
+            else:
+                links = [link for link in origblock.exits
+                              if link.llexitcase == v.value]
+        newlinks = []
+        for origlink in links:
             args_a = [binding(v) for v in origlink.args]
             newlink = self.schedule(args_a, origlink.target)
-            print "CLOSING"
-            newblock.closeblock(newlink)
-            state.resolveblock(newblock)
-        else:
-            XXX
+            newlinks.append(newlink)
+        print "CLOSING"
+        newblock.closeblock(*newlinks)
+        state.resolveblock(newblock)
 
     def constantfold(self, constant_op, args_a):
         concretevalues = []
@@ -248,6 +260,9 @@ class LLAbstractInterp(object):
         return a_result
 
     # ____________________________________________________________
+
+    def op_int_is_true(self, op, a):
+        return self.residualize(op, [a], operator.truth)
 
     def op_int_add(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.add)

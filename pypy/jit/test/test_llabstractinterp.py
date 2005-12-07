@@ -65,6 +65,32 @@ def test_simple():
 def test_simple2():
     def ll_function(x, y):
         return x + y
-
     graph2, insns = abstrinterp(ll_function, [6, 42], [0, 1])
     assert not insns
+
+def test_constantbranch():
+    def ll_function(x, y):
+        if x:
+            y += 1
+        y += 2
+        return y
+    graph2, insns = abstrinterp(ll_function, [6, 42], [0])
+    assert insns == {'int_add': 2}
+
+def test_constantbranch_two_constants():
+    def ll_function(x, y):
+        if x:
+            y += 1
+        y += 2
+        return y
+    graph2, insns = abstrinterp(ll_function, [6, 42], [0, 1])
+    assert not insns
+
+def test_branch():
+    def ll_function(x, y):
+        if x:
+            y += 1
+        y += 2
+        return y
+    graph2, insns = abstrinterp(ll_function, [6, 42], [])
+    assert insns == {'int_is_true': 1, 'int_add': 2}
