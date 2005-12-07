@@ -262,6 +262,10 @@ def test_timeout():
                   "(_socket): return _socket.getdefaulttimeout()")
     assert space.unwrap(w_t) is None
 
+def app_test_newsocket_error():
+    import socket
+    raises (socket.error, socket.socket, 10001, socket.SOCK_STREAM, 0)
+
 class AppTestSocket:
     def setup_class(cls):
         cls.space = space
@@ -290,13 +294,3 @@ class AppTestSocket:
         import socket
         s = socket.socket()
 
-    def test_newsocket_error(self):
-        import socket
-        import errno
-        try:
-            s = socket.socket(1001,socket.SOCK_STREAM,0)
-        except socket.error, ex:
-            print ex,ex.args[0]
-            assert ex.args[0] == errno.EAFNOSUPPORT
-        else:
-            assert 0
