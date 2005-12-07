@@ -121,11 +121,19 @@ class LLAbstractInterp(object):
 
     def applyhint(self, args_a, origblock):
         result_a = []
-        for a, origv in zip(args_a, origblock.inputargs):
-            if origv in self.hints:
-                # use the hint, ignore the source binding
-                a = LLConcreteValue(self.hints[origv])
-            result_a.append(a)
+        if origblock.operations == ():
+            # make sure args_s does *not* contain LLConcreteValues
+            for a in args_a:
+                if isinstance(a, LLConcreteValue):
+                    a = LLRuntimeValue(orig_v=a.getvarorconst())
+                result_a.append(a)
+        else:
+            # apply the hints to make more LLConcreteValues
+            for a, origv in zip(args_a, origblock.inputargs):
+                if origv in self.hints:
+                    # use the hint, ignore the source binding
+                    a = LLConcreteValue(self.hints[origv])
+                result_a.append(a)
         return result_a
 
     def schedule(self, args_a, origblock):
@@ -156,7 +164,7 @@ class LLAbstractInterp(object):
             try:
                 self.flowin(state)
             except GotReturnValue, e:
-                assert e.returnstate is returnstate   # XXX
+                assert e.returnstate is returnstate
 
     def flowin(self, state):
         # flow in the block

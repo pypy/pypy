@@ -61,3 +61,10 @@ def test_simple():
     assert op.args[1].concretetype == lltype.Signed
     assert len(graph2.startblock.exits) == 1
     assert graph2.startblock.exits[0].target is graph2.returnblock
+
+def test_simple2():
+    def ll_function(x, y):
+        return x + y
+
+    graph2, insns = abstrinterp(ll_function, [6, 42], [0, 1])
+    assert not insns
