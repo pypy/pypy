@@ -13,6 +13,7 @@ class AbstractCompiler:
 
     def __init__(self, space):
         self.space = space
+	self.compile_hook = None
 
     def compile(self, source, filename, mode, flags):
         """Compile and return an pypy.interpreter.eval.Code instance."""
@@ -218,6 +219,15 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
 
+	try:
+	    if self.compile_hook is not None:
+		new_tree = space.call_function(self.compile_hook,
+                                               space.wrap(ast_tree),
+                                               space.wrap(encoding))
+	except Exception, e:
+            # XXX find a better way to handle exceptions at this point
+            raise OperationError(space.w_Exception,
+                                 space.wrap(str(e)))
         try:
             astcompiler.misc.set_filename(filename, ast_tree)
             flag_names = get_flag_names(space, flags)
@@ -239,3 +249,10 @@ class PythonAstCompiler(PyCodeCompiler):
         assert isinstance(c,PyCode)
         return c
 
+
+
+def install_compiler_hook(space, w_callable):
+    if space.is_w(w_callable, space.w_None):
+	space.default_compiler.compile_hook = None
+    else:
+        space.default_compiler.compile_hook = w_callable

@@ -7,6 +7,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 import pyparser
 import pypy.interpreter.pyparser.pythonlexer
 import pypy.interpreter.pyparser.pythonparse
+import pypy.interpreter.pycompiler
 
 class Module(MixedModule):
      """The builtin parser module. 
@@ -44,5 +45,6 @@ class Module(MixedModule):
 
          # PyPy extension
          'decode_string_literal': 'pyparser.decode_string_literal',
+         'install_compiler_hook' : 'pypy.interpreter.pycompiler.install_compiler_hook',
      }
 
