@@ -205,7 +205,7 @@ class NodeInfo:
             fmt = COMMA.join(["%s"] * self.nargs)
             if '(' in self.args:
                 fmt = '(%s)' % fmt
-            vals = ["repr(self.%s)" % name for name in self.argnames]
+            vals = ["self.%s.__repr__()" % name for name in self.argnames]
             vals = COMMA.join(vals)
             if self.nargs == 1:
                 vals = vals + ","
@@ -418,7 +418,7 @@ def descr_accept( space, w_obj, w_visitor ):
     return w_obj.descr_accept( space, w_visitor )
 
 Node.typedef = TypeDef('ASTNode',
-		       __repr__ = interp2app(descr_node_repr),
+		       #__repr__ = interp2app(descr_node_repr),
 		       getChildNodes = interp2app(descr_getChildNodes),
 		       accept = interp2app(descr_accept),
 		       )
