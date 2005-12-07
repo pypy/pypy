@@ -108,7 +108,8 @@ class Link(object):
                 last_exception last_exc_value""".split()
 
     def __init__(self, args, target, exitcase=None):
-        assert len(args) == len(target.inputargs), "output args mismatch"
+        if target is not None:
+            assert len(args) == len(target.inputargs), "output args mismatch"
         self.args = list(args)     # mixed list of var/const
         self.target = target       # block
         self.exitcase = exitcase   # this is a concrete value
@@ -141,6 +142,11 @@ class Link(object):
         if hasattr(self, 'llexitcase'):
             newlink.llexitcase = self.llexitcase
         return newlink
+
+    def settarget(self, targetblock):
+        assert len(self.args) == len(targetblock.inputargs), (
+            "output args mismatch")
+        self.target = targetblock
 
     def __repr__(self):
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
