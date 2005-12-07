@@ -1,7 +1,8 @@
 '''Toy Language'''
 
 import py
-from bytecode import *
+from opcode import *
+import opcode
 
 def char2int(c):
     t = ord(c)
@@ -109,3 +110,28 @@ def interp(code=''):
             raise RuntimeError("unknown opcode: " + str(opcode))
 
     return stack[-1]
+
+def compile(code=''):
+    bytecode = []
+    labels   = {}       #[key] = pc
+    label_usage = []    #(name, pc)
+    for s in code.split('\n'):
+        for comment in '; # //'.split():
+            s = s.split(comment, 1)[0]
+        s = s.strip()
+        if not s:
+            continue
+        t = s.split()
+        if t[0].endswith(':'):
+            labels[ t[0][:-1] ] = len(bytecode)
+            continue
+        bytecode.append( opcode.names[ t[0] ] )
+        if len(t) > 1:
+            try:
+                bytecode.append( int(t[1]) )
+            except ValueError:
+                label_usage.append( (t[1], len(bytecode)) )
+                bytecode.append( 0 )
+    for label, pc in label_usage:
+        bytecode[pc] = labels[label] - pc - 1
+    return ''.join([chr(i & 0xff) for i in bytecode])  
