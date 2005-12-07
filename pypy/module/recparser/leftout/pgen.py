@@ -55,7 +55,7 @@ class SimpleBuilder(object):
 
 import re
 import grammar
-from grammar import Token, Alternative, KleenStar, Sequence, TokenSource, BaseGrammarBuilder, Proxy, Pgen
+from grammar import Token, Alternative, KleeneStar, Sequence, TokenSource, BaseGrammarBuilder, Proxy, Pgen
 
 g_symdef = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*:",re.M)
 g_symbol = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*",re.M)
@@ -114,7 +114,7 @@ class GrammarSource(TokenSource):
 def debug_rule( rule ):
     nm = rule.__class__.__name__
     print nm, rule.name, "->",
-    if nm=='KleenStar':
+    if nm=='KleeneStar':
         print "(%d,%d,%s)" % (rule.min, rule.max, rule.star),
     for x in rule.args:
         print x.name,
@@ -223,7 +223,7 @@ class GrammarBuilder(BaseGrammarBuilder):
             _min = 0
         elif star=='+':
             _min = 1
-        sym = KleenStar( self.get_name(), _min, _max, rule=sym )
+        sym = KleeneStar( self.get_name(), _min, _max, rule=sym )
         sym.star = star
         debug_rule( sym )
         self.items.append(sym)
@@ -235,7 +235,7 @@ class GrammarBuilder(BaseGrammarBuilder):
      
     def build_option( self, values ):
         """option: '[' alternative ']'"""
-        sym = KleenStar( self.get_name(), 0, 1, rule=values[1] )
+        sym = KleeneStar( self.get_name(), 0, 1, rule=values[1] )
         debug_rule( sym )
         self.items.append(sym)
         return sym
@@ -343,7 +343,7 @@ class GrammarVisitor(object):
 
     def visit_option( self, node ):
         rule = node.nodes[1].visit(self)
-        return self.new_item( KleenStar( self.new_name(), 0, 1, rule ) )
+        return self.new_item( KleeneStar( self.new_name(), 0, 1, rule ) )
 
     def visit_group( self, node ):
         rule = node.nodes[1].visit(self)
@@ -372,9 +372,9 @@ class GrammarVisitor(object):
             rule_name = self.new_name()
             tok = star_opt.nodes[0].nodes[0]
             if tok.value == '+':
-                return self.new_item( KleenStar( rule_name, _min=1, rule = myrule ) )
+                return self.new_item( KleeneStar( rule_name, _min=1, rule = myrule ) )
             elif tok.value == '*':
-                return self.new_item( KleenStar( rule_name, _min=0, rule = myrule ) )
+                return self.new_item( KleeneStar( rule_name, _min=0, rule = myrule ) )
             else:
                 raise SyntaxError("Got symbol star_opt with value='%s'" % tok.value )
         return myrule
@@ -395,7 +395,7 @@ def grammar_grammar():
     """
     # star: '*' | '+'
     star          = Alternative( "star", Token('*'), Token('+') )
-    star_opt      = KleenStar  ( "star_opt", 0, 1, rule=star )
+    star_opt      = KleeneStar  ( "star_opt", 0, 1, rule=star )
 
     # rule: SYMBOL ':' alternative
     symbol        = Sequence(    "symbol", Token('SYMBOL'), star_opt )
@@ -404,12 +404,12 @@ def grammar_grammar():
     rule          = Sequence(    "rule", symboldef, alternative )
 
     # grammar: rule+
-    grammar       = KleenStar(   "grammar", _min=1, rule=rule )
+    grammar       = KleeneStar(   "grammar", _min=1, rule=rule )
 
     # alternative: sequence ( '|' sequence )*
-    sequence      = KleenStar(   "sequence", 1 )
+    sequence      = KleeneStar(   "sequence", 1 )
     seq_cont_list = Sequence(    "seq_cont_list", Token('|'), sequence )
-    sequence_cont = KleenStar(   "sequence_cont",0, rule=seq_cont_list )
+    sequence_cont = KleeneStar(   "sequence_cont",0, rule=seq_cont_list )
     
     alternative.args = [ sequence, sequence_cont ]
 

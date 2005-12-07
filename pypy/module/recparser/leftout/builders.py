@@ -1,7 +1,7 @@
 """DEPRECATED"""
 
 raise DeprecationWarning("This module is broken and out of date. Don't use it !")
-from grammar import BaseGrammarBuilder, Alternative, Token, Sequence, KleenStart
+from grammar import BaseGrammarBuilder, Alternative, Token, Sequence, KleeneStar
 
 class BuilderToken(object):
     def __init__(self, name, value):
@@ -149,7 +149,7 @@ class GrammarBuilder(BaseGrammarBuilder):
             _min = 0
         elif star=='+':
             _min = 1
-        sym = KleenStar( self.get_name(), _min, _max, rule=sym )
+        sym = KleeneStar( self.get_name(), _min, _max, rule=sym )
         sym.star = star
         debug_rule( sym )
         self.items.append(sym)
@@ -161,7 +161,7 @@ class GrammarBuilder(BaseGrammarBuilder):
      
     def build_option( self, values ):
         """option: '[' alternative ']'"""
-        sym = KleenStar( self.get_name(), 0, 1, rule=values[1] )
+        sym = KleeneStar( self.get_name(), 0, 1, rule=values[1] )
         debug_rule( sym )
         self.items.append(sym)
         return sym
