@@ -21,13 +21,13 @@
 
 #ifndef PYPY_STANDALONE
 #  include "src/module.h"
+#  include "src/pyobj.h"
 #endif
 
 #include "src/int.h"
 #include "src/char.h"
 #include "src/unichar.h"
 #include "src/float.h"
-#include "src/pyobj.h"
 #include "src/address.h"
 
 /*** modules ***/
