@@ -94,3 +94,40 @@ def test_branch():
         return y
     graph2, insns = abstrinterp(ll_function, [6, 42], [])
     assert insns == {'int_is_true': 1, 'int_add': 2}
+
+def test_unrolling_loop():
+    def ll_function(x, y):
+        while x > 0:
+            y += x
+            x -= 1
+        return y
+    graph2, insns = abstrinterp(ll_function, [6, 42], [0])
+    assert insns == {'int_add': 6}
+
+def test_loop():
+    def ll_function(x, y):
+        while x > 0:
+            y += x
+            x -= 1
+        return y
+    graph2, insns = abstrinterp(ll_function, [6, 42], [])
+    assert insns == {'int_gt': 1, 'int_add': 1, 'int_sub': 1}
+
+def test_loop2():
+    def ll_function(x, y):
+        while x > 0:
+            y += x
+            x -= 1
+        return y
+    graph2, insns = abstrinterp(ll_function, [6, 42], [1])
+    assert insns == {'int_gt': 2, 'int_add': 2, 'int_sub': 2}
+
+def test_not_merging():
+    def ll_function(x, y, z):
+        if x:
+            a = y + z
+        else:
+            a = y - z
+        return a + x
+    graph2, insns = abstrinterp(ll_function, [3, 4, 5], [1, 2])
+    assert insns == {'int_is_true': 1, 'int_add': 2}

@@ -266,3 +266,12 @@ class LLAbstractInterp(object):
 
     def op_int_add(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.add)
+
+    def op_int_sub(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.sub)
+
+    def op_int_gt(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.gt)
+
+    def op_same_as(self, op, a):
+        return a
