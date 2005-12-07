@@ -136,10 +136,13 @@ label1:
     PUSH -1
     PUSH 3
     BR_COND end
-somename:
-    PUSH 2
-    BR_COND label1
-end:
+somename:   ;
+    PUSH 2  //
+    BR_COND label1//
+end:// comment
+    //
+//
+//comment
 """)
     assert code == list2bytecode([PUSH,0, PUSH,1, BR_COND,6, PUSH,-1, PUSH,3, BR_COND,4, PUSH,2, BR_COND,-10])
 
@@ -151,10 +154,10 @@ def test_compile_call_ret():
     EXIT
 
 func1:
-    RETURN
+    RETURN  # comment
 
 func2:
-    ROT 3
+    ROT 3   ;comment
     ADD 
     SWAP
     RETURN""")
