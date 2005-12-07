@@ -13,6 +13,7 @@ int LL__socket_ntohs(int htons);
 int LL__socket_htons(int ntohs);
 long LL__socket_ntohl(long htonl);
 long LL__socket_htonl(long ntohl);
+int LL__socket_newsocket(int family, int type, int protocol);
 RPyString *LL__socket_gethostname(void);
 RPyString *LL__socket_gethostbyname(RPyString *name);
 struct RPyOpaque_ADDRINFO *LL__socket_getaddrinfo(RPyString *host, RPyString *port, 
@@ -75,6 +76,10 @@ long LL__socket_htonl(long ntohl)
     return htonl(ntohl);
 }
 
+int LL__socket_newsocket(int family, int type, int protocol)
+{
+    return socket(family, type, protocol);
+}
 /* ____________________________________________________________________________ */
 
 /* Lock to allow python interpreter to continue, but only allow one

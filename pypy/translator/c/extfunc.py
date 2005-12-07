@@ -66,6 +66,7 @@ EXTERNALS = {
     ll__socket.ll__socket_htons: 'LL__socket_htons',
     ll__socket.ll__socket_htonl: 'LL__socket_htonl',
     ll__socket.ll__socket_ntohl: 'LL__socket_htonl',
+    ll__socket.ll__socket_newsocket: 'LL__socket_newsocket',
     }
 
 #______________________________________________________
