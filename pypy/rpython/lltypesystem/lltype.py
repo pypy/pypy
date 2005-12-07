@@ -1,6 +1,6 @@
 import weakref
 import py
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
 from types import NoneType
@@ -416,7 +416,9 @@ class Primitive(LowLevelType):
 
 
 Signed   = Primitive("Signed", 0)
+SignedLongLong = Primitive("SignedLongLong", r_longlong(0))
 Unsigned = Primitive("Unsigned", r_uint(0))
+UnsignedLongLong = Primitive("UnsignedLongLong", r_ulonglong(0))
 Float    = Primitive("Float", 0.0)
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)
@@ -469,6 +471,10 @@ def typeOf(val):
             return Bool
         if tp is r_uint:
             return Unsigned
+        if tp is r_ulonglong:
+            return UnsignedLongLong
+        if tp is r_longlong:
+            return SignedLongLong
         if tp is float:
             return Float
         if tp is str:

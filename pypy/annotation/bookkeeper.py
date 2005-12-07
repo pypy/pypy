@@ -17,7 +17,7 @@ from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.annotation import description
 from pypy.interpreter.argument import Arguments, ArgErr
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
 from pypy.rpython.objectmodel import r_dict
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
@@ -306,6 +306,10 @@ class Bookkeeper:
             result = SomeInteger(nonneg = x>=0)
         elif tp is r_uint:
             result = SomeInteger(nonneg = True, unsigned = True)
+        elif tp is r_ulonglong:
+            result = SomeInteger(nonneg = True, unsigned = True, size = 2)
+        elif tp is r_longlong:
+            result = SomeInteger(nonneg = x>0, size = 2)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             if len(x) == 1:
                 result = SomeChar()
@@ -468,6 +472,10 @@ class Bookkeeper:
             return SomeInteger()
         elif t is r_uint:
             return SomeInteger(nonneg = True, unsigned = True)
+        elif t is r_ulonglong:
+            return SomeInteger(nonneg = True, unsigned = True, size = 2)
+        elif t is r_longlong:
+            return SomeInteger(size = 2)
         elif issubclass(t, str): # py.lib uses annotated str subclasses
             return SomeString()
         elif t is float:

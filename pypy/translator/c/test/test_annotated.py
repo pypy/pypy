@@ -233,3 +233,15 @@ class TestAnnotatedTestCase:
         assert fn(2) == 42
         assert fn(-2) == 789
         assert fn(-3) == 42
+
+    def test_long_long(self):
+        from pypy.rpython.rarithmetic import r_ulonglong, r_longlong
+        def f(i=r_ulonglong):
+            return 4*i
+        fn = self.getcompiled(f, view=False)
+        assert fn(sys.maxint) == 4*sys.maxint
+
+        def g(i=r_longlong):
+            return 4*i
+        gn = self.getcompiled(g, view=False)
+        assert gn(sys.maxint) == 4*sys.maxint

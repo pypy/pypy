@@ -222,7 +222,8 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def union((int1, int2)):
         unsigned = int1.unsigned or int2.unsigned
         return SomeInteger(nonneg = unsigned or (int1.nonneg and int2.nonneg),
-                           unsigned=unsigned)
+                           unsigned=unsigned,
+                           size = max(int1.size, int2.size))
 
     or_ = xor = add = mul = _clone(union, [])
     add_ovf = mul_ovf = _clone(union, [OverflowError])
@@ -235,28 +236,33 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     truediv_ovf = _clone(truediv, [ZeroDivisionError, OverflowError])
 
     def sub((int1, int2)):
-        return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
+        return SomeInteger(unsigned = int1.unsigned or int2.unsigned,
+                           size = max(int1.size, int2.size))
     sub.can_only_throw = []
     sub_ovf = _clone(sub, [OverflowError])
 
     def and_((int1, int2)):
         unsigned = int1.unsigned or int2.unsigned
         return SomeInteger(nonneg = unsigned or int1.nonneg or int2.nonneg,
-                           unsigned = unsigned)
+                           unsigned = unsigned,
+                           size = max(int1.size, int2.size))
     and_.can_only_throw = []
 
     def lshift((int1, int2)):
         if int1.unsigned:
             return SomeInteger(unsigned=True)
-        return SomeInteger(nonneg = int1.nonneg)
+        return SomeInteger(nonneg = int1.nonneg,
+                           size = max(int1.size, int2.size))
     lshift.can_only_throw = [ValueError]
     rshift = lshift
     lshift_ovf = _clone(lshift, [ValueError, OverflowError])
 
     def pow((int1, int2), obj3):
         if int1.unsigned or int2.unsigned or getattr(obj3, 'unsigned', False):
-            return SomeInteger(unsigned=True)
-        return SomeInteger(nonneg = int1.nonneg)
+            return SomeInteger(unsigned=True,
+                               size = max(int1.size, int2.size))
+        return SomeInteger(nonneg = int1.nonneg,
+                           size = max(int1.size, int2.size))
     pow.can_only_throw = [ZeroDivisionError]
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
 

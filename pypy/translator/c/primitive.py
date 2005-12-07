@@ -16,6 +16,13 @@ def name_unsigned(value):
     assert value >= 0
     return '%dUL' % value
 
+def name_unsignedlonglong(value):
+    assert value >= 0
+    return '%dULL' % value
+
+def name_signedlonglong(value):
+    return '%dLL' % value
+
 def isinf(x):
     return x != 0.0 and x / 2 == x
 
@@ -52,7 +59,9 @@ def name_address(value):
 
 PrimitiveName = {
     Signed:   name_signed,
+    SignedLongLong:   name_signedlonglong,
     Unsigned: name_unsigned,
+    UnsignedLongLong: name_unsignedlonglong,
     Float:    name_float,
     Char:     name_char,
     UniChar:  name_unichar,
@@ -63,7 +72,9 @@ PrimitiveName = {
 
 PrimitiveType = {
     Signed:   'long @',
+    SignedLongLong:   'long long @',
     Unsigned: 'unsigned long @',
+    UnsignedLongLong: 'unsigned long long @',
     Float:    'double @',
     Char:     'char @',
     UniChar:  'unsigned int @',
@@ -74,7 +85,9 @@ PrimitiveType = {
 
 PrimitiveErrorValue = {
     Signed:   '-1',
+    SignedLongLong:   '-1LL',
     Unsigned: '((unsigned) -1)',
+    UnsignedLongLong: '((unsigned long long) -1)',
     Float:    '-1.0',
     Char:     '((char) -1)',
     UniChar:  '((unsigned) -1)',

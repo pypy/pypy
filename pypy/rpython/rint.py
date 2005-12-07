@@ -3,10 +3,11 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
-     Void, Char, UniChar, GcArray, malloc, Array, pyobjectptr
+     Void, Char, UniChar, GcArray, malloc, Array, pyobjectptr, \
+     UnsignedLongLong, SignedLongLong
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rarithmetic import intmask, r_uint
+from pypy.rpython.rarithmetic import intmask, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
 
@@ -14,14 +15,24 @@ from pypy.rpython.rmodel import log
 class __extend__(annmodel.SomeInteger):
     def rtyper_makerepr(self, rtyper):
         if self.unsigned:
-            return unsigned_repr
+            if self.size == 2:
+                return unsignedlonglong_repr
+            else:
+                assert self.size == 1
+                return unsigned_repr
         else:
-            return signed_repr
+            if self.size == 2:
+                return signedlonglong_repr
+            else:
+                assert self.size == 1
+                return signed_repr
     def rtyper_makekey(self):
-        return self.__class__, self.unsigned
+        return self.__class__, self.unsigned, self.size
 
 signed_repr = IntegerRepr(Signed, 'int_')
+signedlonglong_repr = IntegerRepr(SignedLongLong, 'llong_')
 unsigned_repr = IntegerRepr(Unsigned, 'uint_')
+unsignedlonglong_repr = IntegerRepr(UnsignedLongLong, 'ullong_')
 
 
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
@@ -195,6 +206,10 @@ class __extend__(IntegerRepr):
             return intmask(value)
         if self.lowleveltype == Unsigned:
             return r_uint(value)
+        if self.lowleveltype == UnsignedLongLong:
+            return r_ulonglong(value)
+        if self.lowleveltype == SignedLongLong:
+            return r_longlong(value)
         raise NotImplementedError
 
     def get_ll_eq_function(self):
@@ -262,7 +277,7 @@ class __extend__(IntegerRepr):
         return vlist[0]
 
     def rtype_int(self, hop):
-        if self.lowleveltype == Unsigned:
+        if self.lowleveltype in (Unsigned, UnsignedLongLong):
             raise TyperError("use intmask() instead of int(r_uint(...))")
         vlist = hop.inputargs(self)
         return vlist[0]
@@ -403,24 +418,32 @@ def ll_check_unichr(n):
 #
 # _________________________ Conversions _________________________
 
+
+py_to_ll_conversion_functions = {
+    UnsignedLongLong: ('RPyLong_AsUnsignedLongLong', lambda pyo: r_ulonglong(pyo._obj.value)),
+    SignedLongLong: ('RPyLong_AsLongLong', lambda pyo: r_longlong(pyo._obj.value)),
+    Unsigned: ('PyLong_AsUnsignedLong', lambda pyo: r_uint(pyo._obj.value)),
+    Signed: ('PyInt_AsLong', lambda pyo: int(pyo._obj.value))
+}
+
+ll_to_py_conversion_functions = {
+    UnsignedLongLong: ('PyLong_FromUnsignedLongLong', lambda i: pyobjectptr(i)),
+    SignedLongLong: ('PyLong_FromLongLong', lambda i: pyobjectptr(i)),
+    Unsigned: ('PyLong_FromUnsignedLong', lambda i: pyobjectptr(i)),
+    Signed: ('PyLong_FromLong', lambda i: pyobjectptr(i)),
+}
+    
+
 class __extend__(pairtype(PyObjRepr, IntegerRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        if r_to.lowleveltype == Unsigned:
-            return llops.gencapicall('PyLong_AsUnsignedLong', [v],
-                                     resulttype=Unsigned)
-        if r_to.lowleveltype == Signed:
-            return llops.gencapicall('PyInt_AsLong', [v],
-                                     resulttype=Signed,
-                                     _callable = lambda pyo: int(pyo._obj.value))
-        return NotImplemented
+        tolltype = r_to.lowleveltype
+        fnname, callable = py_to_ll_conversion_functions[tolltype]
+        return llops.gencapicall(fnname, [v],
+                                 resulttype=r_to, _callable=callable)
 
 class __extend__(pairtype(IntegerRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Unsigned:
-            return llops.gencapicall('PyLong_FromUnsignedLong', [v],
-                                     resulttype=pyobj_repr)
-        if r_from.lowleveltype == Signed:
-            # xxx put in table
-            return llops.gencapicall('PyInt_FromLong', [v],
-                                     resulttype=pyobj_repr, _callable = lambda i: pyobjectptr(i))
-        return NotImplemented
+        fromlltype = r_from.lowleveltype
+        fnname, callable = ll_to_py_conversion_functions[fromlltype]
+        return llops.gencapicall(fnname, [v],
+                                 resulttype=pyobj_repr, _callable=callable)

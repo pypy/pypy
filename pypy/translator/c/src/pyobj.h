@@ -215,3 +215,26 @@
 	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, def))) CFAIL(err)
 #define OP_CHECK_NO_MORE_ARG(fname, n, vargs, r, err)	\
 	if (check_no_more_arg(fname, n, vargs) < 0) CFAIL(err)
+
+unsigned long long RPyLong_AsUnsignedLongLong(PyObject *v);
+long long RPyLong_AsLongLong(PyObject *v);
+
+#ifndef PYPY_NOT_MAIN_FILE
+
+unsigned long long RPyLong_AsUnsignedLongLong(PyObject *v)
+{
+	if (PyInt_Check(v))
+		return PyInt_AsLong(v);
+	else
+		return PyLong_AsUnsignedLongLong(v);
+}
+
+long long RPyLong_AsLongLong(PyObject *v)
+{
+	if (PyInt_Check(v))
+		return PyInt_AsLong(v);
+	else
+		return PyLong_AsLongLong(v);
+}
+
+#endif
