@@ -68,7 +68,7 @@ class FunctionGraph(object):
 
     def __repr__(self):
         if hasattr(self, 'func'):
-            fnrepr = nice_repr_for_func(self.func)
+            fnrepr = nice_repr_for_func(self.func, self.name)
         else:
             fnrepr = self.name
         return '<FunctionGraph of %s at 0x%x>' % (fnrepr, uid(self))

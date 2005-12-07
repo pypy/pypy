@@ -168,6 +168,21 @@ class FunctionDesc(Desc):
         try:
             return self._cache[key]
         except KeyError:
+            def nameof(thing):
+                if isinstance(thing, str):
+                    return thing
+                elif hasattr(thing, '__name__'): # mostly types and functions
+                    return thing.__name__
+                elif hasattr(thing, 'name'): # mostly ClassDescs
+                    return thing.name
+                elif isinstance(thing, tuple):
+                    return '_'.join(map(nameof, thing))
+                else:
+                    return str(thing)[:30]
+                
+            if key is not None and alt_name is None:
+                postfix = nameof(key)
+                alt_name = "%s__%s"%(self.name, postfix)
             graph = self.buildgraph(alt_name, builder)
             self._cache[key] = graph
             return graph

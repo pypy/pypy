@@ -249,11 +249,12 @@ def has_varkeywords(func):
     func = getattr(func, 'func_code', func)
     return (func.co_flags & CO_VARKEYWORDS) != 0
 
-def nice_repr_for_func(fn):
+def nice_repr_for_func(fn, name=None):
     mod = getattr(fn, '__module__', None)
     if mod is None:
         mod = '?'
-    name = getattr(fn, '__name__', None)
+    if name is None:
+        name = getattr(fn, '__name__', None)
     if name is not None:
         firstlineno = fn.func_code.co_firstlineno
     else:
