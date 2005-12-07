@@ -7,6 +7,7 @@
 # include <sys/types.h>
 # include <sys/socket.h>
 # include <netdb.h>
+# include <netinet/in.h>
 #endif
 
 int LL__socket_ntohs(int htons);
