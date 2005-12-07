@@ -28,127 +28,6 @@ mark where overflow checking is required.
 """
 import math
 
-class r_int(int):
-    """ fake integer implementation in order to make sure that
-    primitive integer operations do overflow """
-
-    def __add__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x + y)
-    __radd__ = __add__
-    
-    def __sub__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x - y)
-
-    def __rsub__(self, other):
-        y = int(self)
-        x = int(other)
-        return r_int(x - y)
-    
-    def __mul__(self, other):
-        x = int(self)
-        if not isinstance(other, (int, long)):
-            return x * other
-        y = int(other)
-        return r_int(x * y)
-    __rmul__ = __mul__
-
-    def __div__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x // y)
-
-    __floordiv__ = __div__
-
-    def __rdiv__(self, other):
-        y = int(self)
-        x = int(other)
-        return r_int(x // y)
-
-    __rfloordiv__ = __rdiv__
-
-    def __mod__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x % y)
-
-    def __rmod__(self, other):
-        y = int(self)
-        x = int(other)
-        return r_int(x % y)
-
-    def __divmod__(self, other):
-        x = int(self)
-        y = int(other)
-        res = divmod(x, y)
-        return (r_int(res[0]), r_int(res[1]))
-
-    def __lshift__(self, n):
-        # ensure long shift, so we don't depend on
-        # shift truncation (2.3) vs. long(2.4)
-        x = long(self)
-        y = int(n)
-        return r_int(x << y)
-
-    def __rlshift__(self, n):
-        y = long(self)
-        x = int(n)
-        return r_int(x << y)
-
-    def __rshift__(self, n):
-        x = int(self)
-        y = int(n)
-        return r_int(x >> y)
-
-    def __rrshift__(self, n):
-        y = int(self)
-        x = int(n)
-        return r_int(x >> y)
-
-    def __or__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x | y)
-    __ror__ = __or__
-
-    def __and__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x & y)
-    __rand__ = __and__
-
-    def __xor__(self, other):
-        x = int(self)
-        y = int(other)
-        return r_int(x ^ y)
-    __rxor__ = __xor__
-
-    def __neg__(self):
-        x = int(self)
-        return r_int(-x)
-
-    def __pos__(self):
-        return r_int(self)
-
-    def __invert__(self):
-        x = int(self)
-        return r_int(~x)
-
-    def __pow__(self, other, m=None):
-        x = int(self)
-        y = int(other)
-        res = pow(x, y, m)
-        return r_int(res)
-
-    def __rpow__(self, other, m=None):
-        y = int(self)
-        x = int(other)
-        res = pow(x, y, m)
-        return r_int(res)
-
 # set up of machine internals
 _bits = 0
 _itest = 1
@@ -203,21 +82,22 @@ def ovfcheck_float_to_int(x):
     raise OverflowError
 
 
-def _widen(self, other, value):
-    """
-    if one argument is int or long, the other type wins.
-    otherwise, produce the largest class to hold the result.
-    """
-    return _typemap[ type(self), type(other) ](value)
-
-class r_uint(long):
+class base_int(long):
     """ fake unsigned integer implementation """
 
-    MASK = LONG_MASK
-    BITS = LONG_BIT
+
+    def _widen(self, other, value):
+        """
+        if one argument is int or long, the other type wins.
+        otherwise, produce the largest class to hold the result.
+        """
+        return self.typemap[ type(self), type(other) ](value)
 
     def __new__(klass, val):
-        return long.__new__(klass, val & klass.MASK)
+        if klass is base_int:
+            raise TypeError("abstract base!")
+        else:
+            return super(base_int, klass).__new__(klass, val)
 
     def __int__(self):
         if self < LONG_TEST:
@@ -228,56 +108,56 @@ class r_uint(long):
     def __add__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x + y)
+        return self._widen(other, x + y)
     __radd__ = __add__
     
     def __sub__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x - y)
+        return self._widen(other, x - y)
 
     def __rsub__(self, other):
         y = long(self)
         x = long(other)
-        return _widen(self, other, x - y)
+        return self._widen(other, x - y)
     
     def __mul__(self, other):
         x = long(self)
         if not isinstance(other, (int, long)):
             return x * other
         y = long(other)
-        return _widen(self, other, x * y)
+        return self._widen(other, x * y)
     __rmul__ = __mul__
 
     def __div__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x // y)
+        return self._widen(other, x // y)
 
     __floordiv__ = __div__
 
     def __rdiv__(self, other):
         y = long(self)
         x = long(other)
-        return _widen(self, other, x // y)
+        return self._widen(other, x // y)
 
     __rfloordiv__ = __rdiv__
 
     def __mod__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x % y)
+        return self._widen(other, x % y)
 
     def __rmod__(self, other):
         y = long(self)
         x = long(other)
-        return _widen(self, other, x % y)
+        return self._widen(other, x % y)
 
     def __divmod__(self, other):
         x = long(self)
         y = long(other)
         res = divmod(x, y)
-        return (r_uint(res[0]), r_uint(res[1]))
+        return (self.__class__(res[0]), self.__class__(res[1]))
 
     def __lshift__(self, n):
         x = long(self)
@@ -287,34 +167,34 @@ class r_uint(long):
     def __rlshift__(self, n):
         y = long(self)
         x = long(n)
-        return _widen(self, n, x << y)
+        return self._widen(n, x << y)
 
     def __rshift__(self, n):
         x = long(self)
         y = long(n)
-        return _widen(self, n, x >> y)
+        return self._widen(n, x >> y)
 
     def __rrshift__(self, n):
         y = long(self)
         x = long(n)
-        return _widen(self, n, x >> y)
+        return self._widen(n, x >> y)
 
     def __or__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x | y)
+        return self._widen(other, x | y)
     __ror__ = __or__
 
     def __and__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x & y)
+        return self._widen(other, x & y)
     __rand__ = __and__
 
     def __xor__(self, other):
         x = long(self)
         y = long(other)
-        return _widen(self, other, x ^ y)
+        return self._widen(other, x ^ y)
     __rxor__ = __xor__
 
     def __neg__(self):
@@ -332,26 +212,53 @@ class r_uint(long):
         x = long(self)
         y = long(other)
         res = pow(x, y, m)
-        return _widen(self, other, res)
+        return self._widen(other, res)
 
     def __rpow__(self, other, m=None):
         y = long(self)
         x = long(other)
         res = pow(x, y, m)
-        return _widen(self, other, res)
+        return self._widen(other, res)
 
-class r_ushort(r_uint):
-    """ fake unsigned short integer implementation """
-    BITS = r_uint.BITS // 2
-    MASK = (1L << BITS) - 1
+class signed_int(base_int):
+    def __new__(klass, val):
+        if val > klass.MASK>>1 or val < -(klass.MASK>>1)-1:
+            raise OverflowError("%s does not fit in signed %d-bit integer"%(val, klass.BITS))
+        if val < 0:
+            val = - ((-val) & klass.MASK)
+        return super(signed_int, klass).__new__(klass, val)
+    typemap = {}
 
-class r_ulong(r_uint):
-    """ fake unsigned long integer implementation """
-    BITS = r_uint.BITS * 2
-    MASK = (1L << BITS) - 1
+class unsigned_int(base_int):
+    def __new__(klass, val):
+        return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
+    typemap = {}
 
-def setup_typemap():
-    types = int, long, r_uint, r_ushort, r_ulong
+class r_int(signed_int):
+    MASK = LONG_MASK
+    BITS = LONG_BIT
+
+
+class r_uint(unsigned_int):
+    MASK = LONG_MASK
+    BITS = LONG_BIT
+
+
+if LONG_BIT == 64:
+    r_ulonglong = r_uint
+    r_longlong = r_int
+else:
+    assert LONG_BIT == 32
+    
+    class r_longlong(signed_int):
+        BITS = LONG_BIT * 2
+        MASK = 2**BITS-1
+
+    class r_ulonglong(unsigned_int):
+        BITS = LONG_BIT * 2
+        MASK = 2**BITS-1
+
+def setup_typemap(typemap, types):
     for left in types:
         for right in types:
             if left in (int, long):
@@ -364,10 +271,11 @@ def setup_typemap():
                 else:
                     restype = right
             if restype not in (int, long):
-                _typemap[ left, right ] = restype
-_typemap = {}
+                typemap[ left, right ] = restype
 
-setup_typemap()
+setup_typemap(unsigned_int.typemap, (int, long, r_uint, r_ulonglong))
+setup_typemap(signed_int.typemap, (int, long, r_int, r_longlong))
+
 del setup_typemap
 
 # string -> float helper

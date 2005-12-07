@@ -1,6 +1,6 @@
 from pypy.rpython.rarithmetic import *
 import sys
-
+import py
 
 maxint_mask = (sys.maxint*2 + 1)
 machbits = 0
@@ -52,7 +52,7 @@ class Test_r_int:
         self.unary_test(lambda x: ~x)
     def test__pow__(self):
         self.binary_test(lambda x, y: x**y, (2, 3))
-        self.binary_test(lambda x, y: pow(x, y, 42), (2, 3, 5, 1000))
+        self.binary_test(lambda x, y: pow(x, y, 42L), (2, 3, 5, 1000))
 
     def unary_test(self, f):
         for arg in (-10, -1, 0, 3, 12345):
@@ -139,7 +139,7 @@ class Test_r_uint:
                     assert res == cmp
 
 def test_mixed_types():
-    types = [r_ushort, r_uint, r_ulong]
+    types = [r_uint, r_ulonglong]
     for left in types:
         for right in types:
             x = left(3) + right(5)
@@ -147,17 +147,17 @@ def test_mixed_types():
             assert types.index(type(x)) == expected
 
 def test_limits():
-    mask = r_ushort.MASK
-    assert r_ushort(mask) == mask
-    assert r_ushort(mask+1) == 0
-    mask = (mask << r_ushort.BITS) + mask
-    assert mask == r_uint.MASK
-    assert r_uint(mask == mask)
-    assert r_uint(mask+1) == 0
-    mask = (mask << r_uint.BITS) + mask
-    assert mask == r_ulong.MASK
-    assert r_ulong(mask == mask)
-    assert r_ulong(mask+1) == 0
+    for cls in r_uint, r_ulonglong:
+        mask = cls.MASK
+        assert cls(mask) == mask
+        assert cls(mask+1) == 0
+
+    for cls in r_int, r_longlong:
+        mask = cls.MASK>>1
+        assert cls(mask) == mask
+        assert cls(-mask-1) == -mask-1
+        py.test.raises(OverflowError, "cls(mask) + 1")
+        py.test.raises(OverflowError, "cls(-mask-1) - 1")
 
 def test_intmask():
     assert intmask(1) == 1
