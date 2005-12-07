@@ -70,7 +70,7 @@ def descr_accept( space, w_obj, w_visitor ):
     return w_obj.descr_accept( space, w_visitor )
 
 Node.typedef = TypeDef('ASTNode',
-		       __repr__ = interp2app(descr_node_repr),
+		       #__repr__ = interp2app(descr_node_repr),
 		       getChildNodes = interp2app(descr_getChildNodes),
 		       accept = interp2app(descr_accept),
 		       )
@@ -181,7 +181,7 @@ class Add(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "Add((%s, %s))" % (repr(self.left), repr(self.right))
+        return "Add((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitAdd(self)
@@ -206,7 +206,7 @@ class And(AbstractTest):
         return nodelist
 
     def __repr__(self):
-        return "And(%s)" % (repr(self.nodes),)
+        return "And(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitAnd(self)
@@ -231,7 +231,7 @@ class AssAttr(Node):
         return [self.expr,]
 
     def __repr__(self):
-        return "AssAttr(%s, %s, %s)" % (repr(self.expr), repr(self.attrname), repr(self.flags))
+        return "AssAttr(%s, %s, %s)" % (self.expr.__repr__(), self.attrname.__repr__(), self.flags.__repr__())
 
     def accept(self, visitor):
         return visitor.visitAssAttr(self)
@@ -278,7 +278,7 @@ class AssList(AssSeq):
         return nodelist
 
     def __repr__(self):
-        return "AssList(%s)" % (repr(self.nodes),)
+        return "AssList(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitAssList(self)
@@ -302,7 +302,7 @@ class AssName(Node):
         return []
 
     def __repr__(self):
-        return "AssName(%s, %s)" % (repr(self.name), repr(self.flags))
+        return "AssName(%s, %s)" % (self.name.__repr__(), self.flags.__repr__())
 
     def accept(self, visitor):
         return visitor.visitAssName(self)
@@ -340,7 +340,7 @@ class AssTuple(AssSeq):
         return argnames
 
     def __repr__(self):
-        return "AssTuple(%s)" % (repr(self.nodes),)
+        return "AssTuple(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitAssTuple(self)
@@ -371,7 +371,7 @@ class Assert(Node):
         return nodelist
 
     def __repr__(self):
-        return "Assert(%s, %s)" % (repr(self.test), repr(self.fail))
+        return "Assert(%s, %s)" % (self.test.__repr__(), self.fail.__repr__())
 
     def accept(self, visitor):
         return visitor.visitAssert(self)
@@ -401,7 +401,7 @@ class Assign(Node):
         return nodelist
 
     def __repr__(self):
-        return "Assign(%s, %s)" % (repr(self.nodes), repr(self.expr))
+        return "Assign(%s, %s)" % (self.nodes.__repr__(), self.expr.__repr__())
 
     def accept(self, visitor):
         return visitor.visitAssign(self)
@@ -426,7 +426,7 @@ class AugAssign(Node):
         return [self.node, self.expr]
 
     def __repr__(self):
-        return "AugAssign(%s, %s, %s)" % (repr(self.node), repr(self.op), repr(self.expr))
+        return "AugAssign(%s, %s, %s)" % (self.node.__repr__(), self.op.__repr__(), self.expr.__repr__())
 
     def accept(self, visitor):
         return visitor.visitAugAssign(self)
@@ -471,7 +471,7 @@ class Backquote(UnaryOp):
         return [self.expr,]
 
     def __repr__(self):
-        return "Backquote(%s)" % (repr(self.expr),)
+        return "Backquote(%s)" % (self.expr.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitBackquote(self)
@@ -518,7 +518,7 @@ class Bitand(BitOp):
         return nodelist
 
     def __repr__(self):
-        return "Bitand(%s)" % (repr(self.nodes),)
+        return "Bitand(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitBitand(self)
@@ -543,7 +543,7 @@ class Bitor(BitOp):
         return nodelist
 
     def __repr__(self):
-        return "Bitor(%s)" % (repr(self.nodes),)
+        return "Bitor(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitBitor(self)
@@ -568,7 +568,7 @@ class Bitxor(BitOp):
         return nodelist
 
     def __repr__(self):
-        return "Bitxor(%s)" % (repr(self.nodes),)
+        return "Bitxor(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitBitxor(self)
@@ -628,7 +628,7 @@ class CallFunc(Node):
         return nodelist
 
     def __repr__(self):
-        return "CallFunc(%s, %s, %s, %s)" % (repr(self.node), repr(self.args), repr(self.star_args), repr(self.dstar_args))
+        return "CallFunc(%s, %s, %s, %s)" % (self.node.__repr__(), self.args.__repr__(), self.star_args.__repr__(), self.dstar_args.__repr__())
 
     def accept(self, visitor):
         return visitor.visitCallFunc(self)
@@ -662,7 +662,7 @@ class Class(Node):
         return nodelist
 
     def __repr__(self):
-        return "Class(%s, %s, %s, %s)" % (repr(self.name), repr(self.bases), repr(self.doc), repr(self.code))
+        return "Class(%s, %s, %s, %s)" % (self.name.__repr__(), self.bases.__repr__(), self.doc.__repr__(), self.code.__repr__())
 
     def accept(self, visitor):
         return visitor.visitClass(self)
@@ -695,7 +695,7 @@ class Compare(Node):
         return nodelist
 
     def __repr__(self):
-        return "Compare(%s, %s)" % (repr(self.expr), repr(self.ops))
+        return "Compare(%s, %s)" % (self.expr.__repr__(), self.ops.__repr__())
 
     def accept(self, visitor):
         return visitor.visitCompare(self)
@@ -718,7 +718,7 @@ class Const(Node):
         return []
 
     def __repr__(self):
-        return "Const(%s)" % (repr(self.value),)
+        return "Const(%s)" % (self.value.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitConst(self)
@@ -765,7 +765,7 @@ class Decorators(Node):
         return nodelist
 
     def __repr__(self):
-        return "Decorators(%s)" % (repr(self.nodes),)
+        return "Decorators(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitDecorators(self)
@@ -794,7 +794,7 @@ class Dict(Node):
         return nodelist
 
     def __repr__(self):
-        return "Dict(%s)" % (repr(self.items),)
+        return "Dict(%s)" % (self.items.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitDict(self)
@@ -817,7 +817,7 @@ class Discard(Node):
         return [self.expr,]
 
     def __repr__(self):
-        return "Discard(%s)" % (repr(self.expr),)
+        return "Discard(%s)" % (self.expr.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitDiscard(self)
@@ -841,7 +841,7 @@ class Div(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "Div((%s, %s))" % (repr(self.left), repr(self.right))
+        return "Div((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitDiv(self)
@@ -898,7 +898,7 @@ class Exec(Node):
         return nodelist
 
     def __repr__(self):
-        return "Exec(%s, %s, %s)" % (repr(self.expr), repr(self.locals), repr(self.globals))
+        return "Exec(%s, %s, %s)" % (self.expr.__repr__(), self.locals.__repr__(), self.globals.__repr__())
 
     def accept(self, visitor):
         return visitor.visitExec(self)
@@ -922,7 +922,7 @@ class FloorDiv(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "FloorDiv((%s, %s))" % (repr(self.left), repr(self.right))
+        return "FloorDiv((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitFloorDiv(self)
@@ -959,7 +959,7 @@ class For(Node):
         return nodelist
 
     def __repr__(self):
-        return "For(%s, %s, %s, %s)" % (repr(self.assign), repr(self.list), repr(self.body), repr(self.else_))
+        return "For(%s, %s, %s, %s)" % (self.assign.__repr__(), self.list.__repr__(), self.body.__repr__(), self.else_.__repr__())
 
     def accept(self, visitor):
         return visitor.visitFor(self)
@@ -983,7 +983,7 @@ class From(Node):
         return []
 
     def __repr__(self):
-        return "From(%s, %s)" % (repr(self.modname), repr(self.names))
+        return "From(%s, %s)" % (self.modname.__repr__(), self.names.__repr__())
 
     def accept(self, visitor):
         return visitor.visitFrom(self)
@@ -1032,7 +1032,7 @@ class Function(AbstractFunction):
         return nodelist
 
     def __repr__(self):
-        return "Function(%s, %s, %s, %s, %s, %s, %s)" % (repr(self.decorators), repr(self.name), repr(self.argnames), repr(self.defaults), repr(self.flags), repr(self.doc), repr(self.code))
+        return "Function(%s, %s, %s, %s, %s, %s, %s)" % (self.decorators.__repr__(), self.name.__repr__(), self.argnames.__repr__(), self.defaults.__repr__(), self.flags.__repr__(), self.doc.__repr__(), self.code.__repr__())
 
     def accept(self, visitor):
         return visitor.visitFunction(self)
@@ -1059,7 +1059,7 @@ class GenExpr(AbstractFunction):
         return [self.code,]
 
     def __repr__(self):
-        return "GenExpr(%s)" % (repr(self.code),)
+        return "GenExpr(%s)" % (self.code.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitGenExpr(self)
@@ -1095,7 +1095,7 @@ class GenExprFor(Node):
         return nodelist
 
     def __repr__(self):
-        return "GenExprFor(%s, %s, %s)" % (repr(self.assign), repr(self.iter), repr(self.ifs))
+        return "GenExprFor(%s, %s, %s)" % (self.assign.__repr__(), self.iter.__repr__(), self.ifs.__repr__())
 
     def accept(self, visitor):
         return visitor.visitGenExprFor(self)
@@ -1118,7 +1118,7 @@ class GenExprIf(Node):
         return [self.test,]
 
     def __repr__(self):
-        return "GenExprIf(%s)" % (repr(self.test),)
+        return "GenExprIf(%s)" % (self.test.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitGenExprIf(self)
@@ -1148,7 +1148,7 @@ class GenExprInner(Node):
         return nodelist
 
     def __repr__(self):
-        return "GenExprInner(%s, %s)" % (repr(self.expr), repr(self.quals))
+        return "GenExprInner(%s, %s)" % (self.expr.__repr__(), self.quals.__repr__())
 
     def accept(self, visitor):
         return visitor.visitGenExprInner(self)
@@ -1172,7 +1172,7 @@ class Getattr(Node):
         return [self.expr,]
 
     def __repr__(self):
-        return "Getattr(%s, %s)" % (repr(self.expr), repr(self.attrname))
+        return "Getattr(%s, %s)" % (self.expr.__repr__(), self.attrname.__repr__())
 
     def accept(self, visitor):
         return visitor.visitGetattr(self)
@@ -1195,7 +1195,7 @@ class Global(Node):
         return []
 
     def __repr__(self):
-        return "Global(%s)" % (repr(self.names),)
+        return "Global(%s)" % (self.names.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitGlobal(self)
@@ -1230,7 +1230,7 @@ class If(Node):
         return nodelist
 
     def __repr__(self):
-        return "If(%s, %s)" % (repr(self.tests), repr(self.else_))
+        return "If(%s, %s)" % (self.tests.__repr__(), self.else_.__repr__())
 
     def accept(self, visitor):
         return visitor.visitIf(self)
@@ -1253,7 +1253,7 @@ class Import(Node):
         return []
 
     def __repr__(self):
-        return "Import(%s)" % (repr(self.names),)
+        return "Import(%s)" % (self.names.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitImport(self)
@@ -1276,7 +1276,7 @@ class Invert(UnaryOp):
         return [self.expr,]
 
     def __repr__(self):
-        return "Invert(%s)" % (repr(self.expr),)
+        return "Invert(%s)" % (self.expr.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitInvert(self)
@@ -1300,7 +1300,7 @@ class Keyword(Node):
         return [self.expr,]
 
     def __repr__(self):
-        return "Keyword(%s, %s)" % (repr(self.name), repr(self.expr))
+        return "Keyword(%s, %s)" % (self.name.__repr__(), self.expr.__repr__())
 
     def accept(self, visitor):
         return visitor.visitKeyword(self)
@@ -1341,7 +1341,7 @@ class Lambda(AbstractFunction):
         return nodelist
 
     def __repr__(self):
-        return "Lambda(%s, %s, %s, %s)" % (repr(self.argnames), repr(self.defaults), repr(self.flags), repr(self.code))
+        return "Lambda(%s, %s, %s, %s)" % (self.argnames.__repr__(), self.defaults.__repr__(), self.flags.__repr__(), self.code.__repr__())
 
     def accept(self, visitor):
         return visitor.visitLambda(self)
@@ -1365,7 +1365,7 @@ class LeftShift(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "LeftShift((%s, %s))" % (repr(self.left), repr(self.right))
+        return "LeftShift((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitLeftShift(self)
@@ -1390,7 +1390,7 @@ class List(Node):
         return nodelist
 
     def __repr__(self):
-        return "List(%s)" % (repr(self.nodes),)
+        return "List(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitList(self)
@@ -1420,7 +1420,7 @@ class ListComp(Node):
         return nodelist
 
     def __repr__(self):
-        return "ListComp(%s, %s)" % (repr(self.expr), repr(self.quals))
+        return "ListComp(%s, %s)" % (self.expr.__repr__(), self.quals.__repr__())
 
     def accept(self, visitor):
         return visitor.visitListComp(self)
@@ -1453,7 +1453,7 @@ class ListCompFor(Node):
         return nodelist
 
     def __repr__(self):
-        return "ListCompFor(%s, %s, %s)" % (repr(self.assign), repr(self.list), repr(self.ifs))
+        return "ListCompFor(%s, %s, %s)" % (self.assign.__repr__(), self.list.__repr__(), self.ifs.__repr__())
 
     def accept(self, visitor):
         return visitor.visitListCompFor(self)
@@ -1476,7 +1476,7 @@ class ListCompIf(Node):
         return [self.test,]
 
     def __repr__(self):
-        return "ListCompIf(%s)" % (repr(self.test),)
+        return "ListCompIf(%s)" % (self.test.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitListCompIf(self)
@@ -1500,7 +1500,7 @@ class Mod(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "Mod((%s, %s))" % (repr(self.left), repr(self.right))
+        return "Mod((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitMod(self)
@@ -1524,7 +1524,7 @@ class Module(Node):
         return [self.node,]
 
     def __repr__(self):
-        return "Module(%s, %s)" % (repr(self.doc), repr(self.node))
+        return "Module(%s, %s)" % (self.doc.__repr__(), self.node.__repr__())
 
     def accept(self, visitor):
         return visitor.visitModule(self)
@@ -1548,7 +1548,7 @@ class Mul(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "Mul((%s, %s))" % (repr(self.left), repr(self.right))
+        return "Mul((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitMul(self)
@@ -1571,7 +1571,7 @@ class Name(Node):
         return []
 
     def __repr__(self):
-        return "Name(%s)" % (repr(self.varname),)
+        return "Name(%s)" % (self.varname.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitName(self)
@@ -1616,7 +1616,7 @@ class Not(UnaryOp):
         return [self.expr,]
 
     def __repr__(self):
-        return "Not(%s)" % (repr(self.expr),)
+        return "Not(%s)" % (self.expr.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitNot(self)
@@ -1639,7 +1639,7 @@ class NumberConst(Node):
         return []
 
     def __repr__(self):
-        return "NumberConst(%s)" % (repr(self.number_value),)
+        return "NumberConst(%s)" % (self.number_value.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitNumberConst(self)
@@ -1664,7 +1664,7 @@ class Or(AbstractTest):
         return nodelist
 
     def __repr__(self):
-        return "Or(%s)" % (repr(self.nodes),)
+        return "Or(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitOr(self)
@@ -1710,7 +1710,7 @@ class Power(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "Power((%s, %s))" % (repr(self.left), repr(self.right))
+        return "Power((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitPower(self)
@@ -1741,7 +1741,7 @@ class Print(Node):
         return nodelist
 
     def __repr__(self):
-        return "Print(%s, %s)" % (repr(self.nodes), repr(self.dest))
+        return "Print(%s, %s)" % (self.nodes.__repr__(), self.dest.__repr__())
 
     def accept(self, visitor):
         return visitor.visitPrint(self)
@@ -1772,7 +1772,7 @@ class Printnl(Node):
         return nodelist
 
     def __repr__(self):
-        return "Printnl(%s, %s)" % (repr(self.nodes), repr(self.dest))
+        return "Printnl(%s, %s)" % (self.nodes.__repr__(), self.dest.__repr__())
 
     def accept(self, visitor):
         return visitor.visitPrintnl(self)
@@ -1808,7 +1808,7 @@ class Raise(Node):
         return nodelist
 
     def __repr__(self):
-        return "Raise(%s, %s, %s)" % (repr(self.expr1), repr(self.expr2), repr(self.expr3))
+        return "Raise(%s, %s, %s)" % (self.expr1.__repr__(), self.expr2.__repr__(), self.expr3.__repr__())
 
     def accept(self, visitor):
         return visitor.visitRaise(self)
@@ -1834,7 +1834,7 @@ class Return(Node):
         return nodelist
 
     def __repr__(self):
-        return "Return(%s)" % (repr(self.value),)
+        return "Return(%s)" % (self.value.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitReturn(self)
@@ -1858,7 +1858,7 @@ class RightShift(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "RightShift((%s, %s))" % (repr(self.left), repr(self.right))
+        return "RightShift((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitRightShift(self)
@@ -1895,7 +1895,7 @@ class Slice(Node):
         return nodelist
 
     def __repr__(self):
-        return "Slice(%s, %s, %s, %s)" % (repr(self.expr), repr(self.flags), repr(self.lower), repr(self.upper))
+        return "Slice(%s, %s, %s, %s)" % (self.expr.__repr__(), self.flags.__repr__(), self.lower.__repr__(), self.upper.__repr__())
 
     def accept(self, visitor):
         return visitor.visitSlice(self)
@@ -1920,7 +1920,7 @@ class Sliceobj(Node):
         return nodelist
 
     def __repr__(self):
-        return "Sliceobj(%s)" % (repr(self.nodes),)
+        return "Sliceobj(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitSliceobj(self)
@@ -1945,7 +1945,7 @@ class Stmt(Node):
         return nodelist
 
     def __repr__(self):
-        return "Stmt(%s)" % (repr(self.nodes),)
+        return "Stmt(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitStmt(self)
@@ -1968,7 +1968,7 @@ class StringConst(Node):
         return []
 
     def __repr__(self):
-        return "StringConst(%s)" % (repr(self.string_value),)
+        return "StringConst(%s)" % (self.string_value.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitStringConst(self)
@@ -1992,7 +1992,7 @@ class Sub(BinaryOp):
         return [self.left, self.right]
 
     def __repr__(self):
-        return "Sub((%s, %s))" % (repr(self.left), repr(self.right))
+        return "Sub((%s, %s))" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
         return visitor.visitSub(self)
@@ -2024,7 +2024,7 @@ class Subscript(Node):
         return nodelist
 
     def __repr__(self):
-        return "Subscript(%s, %s, %s)" % (repr(self.expr), repr(self.flags), repr(self.subs))
+        return "Subscript(%s, %s, %s)" % (self.expr.__repr__(), self.flags.__repr__(), self.subs.__repr__())
 
     def accept(self, visitor):
         return visitor.visitSubscript(self)
@@ -2066,7 +2066,7 @@ class TryExcept(Node):
         return nodelist
 
     def __repr__(self):
-        return "TryExcept(%s, %s, %s)" % (repr(self.body), repr(self.handlers), repr(self.else_))
+        return "TryExcept(%s, %s, %s)" % (self.body.__repr__(), self.handlers.__repr__(), self.else_.__repr__())
 
     def accept(self, visitor):
         return visitor.visitTryExcept(self)
@@ -2090,7 +2090,7 @@ class TryFinally(Node):
         return [self.body, self.final]
 
     def __repr__(self):
-        return "TryFinally(%s, %s)" % (repr(self.body), repr(self.final))
+        return "TryFinally(%s, %s)" % (self.body.__repr__(), self.final.__repr__())
 
     def accept(self, visitor):
         return visitor.visitTryFinally(self)
@@ -2115,7 +2115,7 @@ class Tuple(Node):
         return nodelist
 
     def __repr__(self):
-        return "Tuple(%s)" % (repr(self.nodes),)
+        return "Tuple(%s)" % (self.nodes.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitTuple(self)
@@ -2138,7 +2138,7 @@ class UnaryAdd(UnaryOp):
         return [self.expr,]
 
     def __repr__(self):
-        return "UnaryAdd(%s)" % (repr(self.expr),)
+        return "UnaryAdd(%s)" % (self.expr.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitUnaryAdd(self)
@@ -2161,7 +2161,7 @@ class UnarySub(UnaryOp):
         return [self.expr,]
 
     def __repr__(self):
-        return "UnarySub(%s)" % (repr(self.expr),)
+        return "UnarySub(%s)" % (self.expr.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitUnarySub(self)
@@ -2195,7 +2195,7 @@ class While(Node):
         return nodelist
 
     def __repr__(self):
-        return "While(%s, %s, %s)" % (repr(self.test), repr(self.body), repr(self.else_))
+        return "While(%s, %s, %s)" % (self.test.__repr__(), self.body.__repr__(), self.else_.__repr__())
 
     def accept(self, visitor):
         return visitor.visitWhile(self)
@@ -2218,7 +2218,7 @@ class Yield(Node):
         return [self.value,]
 
     def __repr__(self):
-        return "Yield(%s)" % (repr(self.value),)
+        return "Yield(%s)" % (self.value.__repr__(),)
 
     def accept(self, visitor):
         return visitor.visitYield(self)
