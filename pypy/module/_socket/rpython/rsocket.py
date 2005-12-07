@@ -25,3 +25,6 @@ class ADDRINFO(object):
 
 def getaddrinfo(host, port, family, socktype, proto, flags):
     return ADDRINFO(host, port, family, socktype, proto, flags)
+
+def newsocket(family, type, protocol):
+    return socket.socket(family, type, protocol).fileno()

@@ -618,12 +618,16 @@ def newsocket(space, w_subtype, family=socket.AF_INET,
         socket.setdefaulttimeout(timeout)
 
     try:
-        fd = socket.socket(family, type, proto)
+        fd = rsocket.newsocket(family, type, proto)
     except socket.error, e:
         raise wrap_socketerror(space, e)
-    sock = space.allocate_instance(Socket, w_subtype)
-    Socket.__init__(sock, space, fd, family, type, proto)
-    return space.wrap(sock)
+    # XXX If we want to support subclassing the socket type we will need
+    # something along these lines. But allocate_instance is only defined
+    # on the standard object space, so this is not really correct.
+    #sock = space.allocate_instance(Socket, w_subtype)
+    #Socket.__init__(sock, space, fd, family, type, proto)
+    #return space.wrap(sock)
+    return space.wrap(Socket(space, fd, family, type, proto))
 descr_socket_new = interp2app(newsocket,
                                unwrap_spec=[ObjSpace, W_Root, int, int, int])
 

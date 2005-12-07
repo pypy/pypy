@@ -29,3 +29,7 @@ def test_getaddrinfo():
     info = ll__socket_nextaddrinfo(addr)
     info = info[:4] + (info[4:],)
     assert info == _socket.getaddrinfo(host, port)[0]
+
+def test_newsocket():
+    fd = ll__socket_newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    assert isinstance(fd, int)

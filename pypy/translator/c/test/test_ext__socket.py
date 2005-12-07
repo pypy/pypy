@@ -2,6 +2,7 @@ import autopath
 import py
 import _socket
 from pypy.translator.c.test.test_genc import compile
+from pypy.translator.translator import Translator
 
 def setup_module(mod):
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
@@ -60,3 +61,19 @@ def test_getaddrinfo():
     f1 = compile(does_stuff, [str, str])
     res = f1("localhost", "25")
     assert eval(res) == _socket.getaddrinfo("localhost", "25")
+
+def test_newsocket_annotation():
+    from pypy.module._socket.rpython import rsocket
+    def does_stuff():
+        return rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    t = Translator(does_stuff)
+    a = t.annotate([])
+    assert a.gettype(t.graphs[0].getreturnvar()) == int
+
+def DONOT_test_newsocket():
+    from pypy.module._socket.rpython import rsocket
+    def does_stuff():
+        return rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert isinstance(res, int)

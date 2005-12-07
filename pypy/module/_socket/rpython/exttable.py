@@ -41,6 +41,8 @@ declare(_socket.htons, int, '%s/htons' % module)
 declare(_socket.ntohl, int, '%s/ntohl' % module)
 declare(_socket.htonl, int, '%s/htonl' % module)
 
+declare(rsocket.newsocket, int, '%s/newsocket' % module)
+
 # ____________________________________________________________
 # _socket.error can be raised by the above
 
