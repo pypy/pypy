@@ -78,7 +78,18 @@ long LL__socket_htonl(long ntohl)
 
 int LL__socket_newsocket(int family, int type, int protocol)
 {
-    return socket(family, type, protocol);
+    int fd;
+
+    fd = socket(family, type, protocol);
+
+#ifdef MS_WINDOWS
+    if (fd == INVALID_SOCKET)
+#else
+    if (fd < 0)
+#endif
+    {
+      return -1; 
+    }
 }
 /* ____________________________________________________________________________ */
 

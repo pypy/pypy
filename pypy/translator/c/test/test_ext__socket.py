@@ -77,3 +77,12 @@ def test_newsocket():
     f1 = compile(does_stuff, [])
     res = f1()
     assert isinstance(res, int)
+
+def test_newsocket_error():
+    from pypy.module._socket.rpython import rsocket
+    def does_stuff():
+        return rsocket.newsocket(1001, _socket.SOCK_STREAM, 0)
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert res == -1
+
