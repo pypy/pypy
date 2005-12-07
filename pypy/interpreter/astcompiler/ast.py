@@ -61,7 +61,7 @@ class Node(Wrappable):
     
     def descr_getChildNodes( self, space ):
         lst = self.getChildNodes()
-        return space.newlist( [ self.wrap( it ) for it in lst ] )
+        return space.newlist( [ space.wrap( it ) for it in lst ] )
 
 def descr_node_accept( space, w_self, w_visitor ):
     w_callable = space.getattr(w_visitor, space.wrap('visitNode'))
