@@ -992,5 +992,4 @@ shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
-    **socketmethods
     )

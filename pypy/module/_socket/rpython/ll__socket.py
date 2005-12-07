@@ -74,6 +74,8 @@ def ll__socket_ntohl(htonl):
 ll__socket_ntohl.suggested_primitive = True
 
 def ll__socket_newsocket(family, type, protocol):
-    return _socket.socket(family, type, protocol).fileno()
+#    from pypy.module._socket.rpython import rsocket
+#    return rsocket.newsocket(family, type, protocol).fileno()
+    return 0
 ll__socket_newsocket.suggested_primitive = True
 

@@ -70,7 +70,7 @@ def test_newsocket_annotation():
     a = t.annotate([])
     assert a.gettype(t.graphs[0].getreturnvar()) == int
 
-def DONOT_test_newsocket():
+def test_newsocket():
     from pypy.module._socket.rpython import rsocket
     def does_stuff():
         return rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
