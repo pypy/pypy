@@ -37,7 +37,7 @@ Thus the four basic grammar rule types are :
 * token
 
 The four types are represented by a class in pyparser/grammar.py
-( Sequence, Alternative, KleenStar, Token) all classes have a ``match()`` method
+( Sequence, Alternative, KleeneStar, Token) all classes have a ``match()`` method
 accepting a source (the tokenizer) and a builder (an object responsible for
 building something out of the grammar).
 
@@ -50,7 +50,7 @@ Here's a basic exemple and how the grammar is represented::
     In python:
     V = Alternative( Token('x'), Token('y') )
     A = Sequence( V,
-           KleenStar(
+           KleeneStar(
                Sequence(
                   Alternative( Token('*'), Token('/') ), V
                        )
