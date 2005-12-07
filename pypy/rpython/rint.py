@@ -20,9 +20,8 @@ class __extend__(annmodel.SomeInteger):
     def rtyper_makekey(self):
         return self.__class__, self.unsigned
 
-signed_repr = IntegerRepr()
-unsigned_repr = IntegerRepr()
-unsigned_repr.lowleveltype = Unsigned
+signed_repr = IntegerRepr(Signed, 'int_')
+unsigned_repr = IntegerRepr(Unsigned, 'uint_')
 
 
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
@@ -112,20 +111,13 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         if hop.has_implicit_exception(ZeroDivisionError):
             suffix += '_zer'
         s_int3 = hop.args_s[2]
-        if hop.s_result.unsigned:
-            if s_int3.is_constant() and s_int3.const is None:
-                vlist = hop.inputargs(Unsigned, Unsigned, Void)[:2]
-            else:
-                vlist = hop.inputargs(Unsigned, Unsigned, Unsigned)
-            hop.exception_is_here()
-            return hop.genop('uint_pow' + suffix, vlist, resulttype=Unsigned)
+        rresult = hop.rtyper.makerepr(hop.s_result)
+        if s_int3.is_constant() and s_int3.const is None:
+            vlist = hop.inputargs(rresult, rresult, Void)[:2]
         else:
-            if s_int3.is_constant() and s_int3.const is None:
-                vlist = hop.inputargs(Signed, Signed, Void)[:2]
-            else:
-                vlist = hop.inputargs(Signed, Signed, Signed)
-            hop.exception_is_here()
-            return hop.genop('int_pow' + suffix, vlist, resulttype=Signed)
+            vlist = hop.inputargs(rresult, rresult, rresult)
+        hop.exception_is_here()
+        return hop.genop(rresult.opprefix + 'pow' + suffix, vlist, resulttype=rresult)
 
     def rtype_pow_ovf(_, hop):
         if hop.s_result.unsigned:
@@ -161,23 +153,22 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 #Helper functions
 
 def _rtype_template(hop, func, implicit_excs=[]):
-    func1 = func
+    if func.endswith('_ovf'):
+        if hop.s_result.unsigned:
+            raise TyperError("forbidden unsigned " + func)
+        else:
+            hop.has_implicit_exception(OverflowError)
+
     for implicit_exc in implicit_excs:
         if hop.has_implicit_exception(implicit_exc):
             appendix = op_appendices[implicit_exc]
             func += '_' + appendix
-    if hop.s_result.unsigned:
-        if func1.endswith('_ovf'):
-            raise TyperError("forbidden uint_" + func)
-        vlist = hop.inputargs(Unsigned, Unsigned)
-        hop.exception_is_here()
-        return hop.genop('uint_'+func, vlist, resulttype=Unsigned)
-    else:
-        if func1.endswith('_ovf'):              # record that we know about it
-            hop.has_implicit_exception(OverflowError)
-        vlist = hop.inputargs(Signed, Signed)
-        hop.exception_is_here()
-        return hop.genop('int_'+func, vlist, resulttype=Signed)
+
+    repr = hop.rtyper.makerepr(hop.s_result)
+    vlist = hop.inputargs(repr, repr)
+    hop.exception_is_here()
+    return hop.genop(repr.opprefix+func, vlist, resulttype=repr)
+    
 
 #Helper functions for comparisons
 
@@ -186,11 +177,11 @@ def _rtype_compare_template(hop, func):
     if s_int1.unsigned or s_int2.unsigned:
         if not s_int1.nonneg or not s_int2.nonneg:
             raise TyperError("comparing a signed and an unsigned number")
-        vlist = hop.inputargs(Unsigned, Unsigned)
-        return hop.genop('uint_'+func, vlist, resulttype=Bool)
-    else:
-        vlist = hop.inputargs(Signed, Signed)
-        return hop.genop('int_'+func, vlist, resulttype=Bool)
+
+    repr = hop.rtyper.makerepr(annmodel.unionof(s_int1, s_int2))
+    vlist = hop.inputargs(repr, repr)
+    hop.exception_is_here()
+    return hop.genop(repr.opprefix+func, vlist, resulttype=Bool)
 
 
 #
@@ -220,75 +211,60 @@ class __extend__(IntegerRepr):
         return hop.genop('cast_int_to_char', vlist, resulttype=Char)
 
     def rtype_unichr(_, hop):
-        vlist =  hop.inputargs(Signed)
+        vlist = hop.inputargs(Signed)
         if hop.has_implicit_exception(ValueError):
             hop.exception_is_here()
             hop.gendirectcall(ll_check_unichr, vlist[0])
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
     def rtype_is_true(self, hop):
-        if self.lowleveltype == Unsigned:
-            vlist = hop.inputargs(Unsigned)
-            return hop.genop('uint_is_true', vlist, resulttype=Bool)
-        else:
-            vlist = hop.inputargs(Signed)
-            return hop.genop('int_is_true', vlist, resulttype=Bool)
+        vlist = hop.inputargs(self)
+        return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
 
     #Unary arithmetic operations    
     
-    def rtype_abs(_, hop):
+    def rtype_abs(self, hop):
         if hop.s_result.unsigned:
-            vlist = hop.inputargs(Unsigned)
+            vlist = hop.inputargs(self)
             return vlist[0]
         else:
-            vlist = hop.inputargs(Signed)
-            return hop.genop('int_abs', vlist, resulttype=Signed)
+            vlist = hop.inputargs(self)
+            return hop.genop(self.opprefix + 'abs', vlist, resulttype=self)
 
-    def rtype_abs_ovf(_, hop):
+    def rtype_abs_ovf(self, hop):
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_abs_ovf")
         else:
-            vlist = hop.inputargs(Signed)
+            vlist = hop.inputargs(self)
             hop.has_implicit_exception(OverflowError) # record we know about it
             hop.exception_is_here()
-            return hop.genop('int_abs_ovf', vlist, resulttype=Signed)
+            return hop.genop(self.opprefix + 'abs_ovf', vlist, resulttype=self)
 
-    def rtype_invert(_, hop):
-        if hop.s_result.unsigned:
-            vlist = hop.inputargs(Unsigned)
-            return hop.genop('uint_invert', vlist, resulttype=Unsigned)
-        else:
-            vlist = hop.inputargs(Signed)
-            return hop.genop('int_invert', vlist, resulttype=Signed)
+    def rtype_invert(self, hop):
+        vlist = hop.inputargs(self)
+        return hop.genop(self.opprefix + 'invert', vlist, resulttype=self)
+        
+    def rtype_neg(self, hop):
+        vlist = hop.inputargs(self)
+        return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
 
-    def rtype_neg(_, hop):
-        if hop.s_result.unsigned:
-            vlist = hop.inputargs(Unsigned)
-            return hop.genop('uint_neg', vlist, resulttype=Unsigned)
-        else:
-            vlist = hop.inputargs(Signed)
-            return hop.genop('int_neg', vlist, resulttype=Signed)
-
-    def rtype_neg_ovf(_, hop):
+    def rtype_neg_ovf(self, hop):
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_neg_ovf")
         else:
-            vlist = hop.inputargs(Signed)
+            vlist = hop.inputargs(self)
             hop.has_implicit_exception(OverflowError) # record we know about it
             hop.exception_is_here()
-            return hop.genop('int_neg_ovf', vlist, resulttype=Signed)
+            return hop.genop(self.opprefix + 'neg_ovf', vlist, resulttype=self)
 
-    def rtype_pos(_, hop):
-        if hop.s_result.unsigned:
-            vlist = hop.inputargs(Unsigned)
-        else:
-            vlist = hop.inputargs(Signed)
+    def rtype_pos(self, hop):
+        vlist = hop.inputargs(self)
         return vlist[0]
 
-    def rtype_int(r_int, hop):
-        if r_int.lowleveltype == Unsigned:
+    def rtype_int(self, hop):
+        if self.lowleveltype == Unsigned:
             raise TyperError("use intmask() instead of int(r_uint(...))")
-        vlist = hop.inputargs(Signed)
+        vlist = hop.inputargs(self)
         return vlist[0]
 
     def rtype_float(_, hop):

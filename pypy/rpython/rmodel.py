@@ -271,10 +271,15 @@ class FloatRepr(Repr):
     lowleveltype = Float
 
 class IntegerRepr(FloatRepr):
-    lowleveltype = Signed
+    def __init__(self, lowleveltype, opprefix):
+        self.lowleveltype = lowleveltype
+        self.opprefix = opprefix
 
 class BoolRepr(IntegerRepr):
     lowleveltype = Bool
+    opprefix = 'int_'
+    def __init__(self):
+        pass
 
 class StringRepr(Repr):
     pass
