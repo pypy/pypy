@@ -418,22 +418,3 @@ def call_raise_intercept(i):
     except ValueError:
         raise TypeError
 
-#__________________________________________________________________
-# interactive playing
-
-if __name__ == '__main__':
-    try:
-        import rlcompleter2 as _rl2
-        _rl2.setup()
-    except ImportError:
-        pass
-
-    t, typer = gengraph(number_ops, [int])
-    interp = LLInterpreter(t.flowgraphs, typer)
-    res = interp.eval_function(number_ops, [3])
-    assert res == number_ops(3)
-    for name, value in globals().items():
-        if name not in _snap and name[0] != '_':
-            print "%20s: %s" %(name, value)
-
-
