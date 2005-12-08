@@ -180,3 +180,17 @@ def test_yield_frame2():
 
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 7495
+
+def test_long_running():
+    n_iterations = 50000
+
+    def g(x):
+        if x > 0:
+            g(x-1)
+        return x
+
+    def lp():
+        return g(n_iterations)
+
+    data = wrap_stackless_function(lp)
+    assert int(data.strip()) == n_iterations

@@ -3,6 +3,7 @@
 var slp_frame_stack_top    = null;
 var slp_frame_stack_bottom = null;
 var slp_return_value       = undefined;
+var slp_start_time         = undefined;
 var slp_stack_depth        = 0;
 
 // This gets called with --log
@@ -40,14 +41,26 @@ function ll_stackless_stack_frames_depth() {
     }
     return result;
 }
+ll_stackless_stack_frames_depth__ = ll_stackless_stack_frames_depth
 
 //
 
 function ll_stack_too_big() {
     var result = slp_stack_depth > 500;   // Firefox has a recursion limit of 1000 (others allow more)
     LOG("ll_stack_to_big result=" + result);
+
+    if (!result) {
+        var t = new Date().getTime();
+        var d = t - slp_start_time;
+        result = d > 1000;
+        if (result) {
+            print('XXX d='+d + ' XXX t='+t);
+            slp_start_time = t;
+        } 
+    }
     return result;
 }
+ll_stack_too_big__ = ll_stack_too_big
 
 function slp_new_frame(targetvar, func, resume_blocknum, vars) {
     //LOG("slp_new_frame("+targetvar+","+function_name(func)+","+resume_blocknum+","+vars.toSource()+")");
@@ -83,6 +96,7 @@ function ll_stack_unwind() {
     LOG('slp_frame_stack_top='+slp_frame_stack_top + ', slp_frame_stack_bottom='+slp_frame_stack_bottom)
     return slp_return_value;
 }
+ll_stack_unwind__ = ll_stack_unwind
 
 function    slp_return_current_frame_to_caller() {
     LOG("slp_return_current_frame_to_caller");
@@ -125,6 +139,7 @@ function ll_stackless_switch(c) {
     f.p0 = c;
     slp_frame_stack_top = slp_frame_stack_bottom = f;
 }
+ll_stackless_switch__frame_stack_topPtr = ll_stackless_switch;
 
 // main dispatcher loop
 
@@ -137,6 +152,7 @@ function slp_main_loop() {
         while (true) {
             f_back           = pending.f_back;
             LOG('calling: ' + function_name(pending.func));
+            //slp_start_time   = new Date().getTime();    //XXX should really exit javascript and resume with setTimeout(...)
             slp_stack_depth  = 0;               // we are restarting to recurse
             slp_return_value = pending.func();  // params get initialized in the function because it's a resume!
             if (slp_frame_stack_top) {
@@ -157,6 +173,7 @@ function slp_main_loop() {
 }
 
 function slp_entry_point(funcstring) {
+    slp_start_time  = new Date().getTime();
     slp_stack_depth = 0;    /// initial stack depth
     var result = eval(funcstring);
     if (slp_frame_stack_bottom) { // get with dispatch loop when stack unwound
