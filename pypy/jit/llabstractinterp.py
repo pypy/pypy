@@ -55,28 +55,11 @@ class LLRuntimeValue(LLAbstractValue):
 
 
 class LLState(object):
+    """Entry state of a block or a graph, as a combination of LLAbstractValues
+    for its input arguments."""
 
-    def __init__(self, origblock, args_a):
-        assert len(args_a) == len(origblock.inputargs)
+    def __init__(self, args_a):
         self.args_a = args_a
-        self.origblock = origblock
-        self.copyblock = None
-        self.pendinglinks = []
-
-    def patchlink(self, copylink):
-        if self.copyblock is None:
-            print 'PENDING', self, id(copylink)
-            self.pendinglinks.append(copylink)
-        else:
-            # XXX nice interface required!
-            print 'LINKING', self, id(copylink), self.copyblock
-            copylink.settarget(self.copyblock)
-
-    def resolveblock(self, newblock):
-        self.copyblock = newblock
-        for copylink in self.pendinglinks:
-            self.patchlink(copylink)
-        del self.pendinglinks[:]
 
     def match(self, args_a):
         # simple for now
@@ -86,17 +69,58 @@ class LLState(object):
         else:
             return True
 
+
+class BlockState(LLState):
+    """Entry state of a block."""
+
+    def __init__(self, origblock, args_a):
+        assert len(args_a) == len(origblock.inputargs)
+        super(BlockState, self).__init__(args_a)
+        self.origblock = origblock
+        self.copyblock = None
+        self.pendingsources = []
+
+    def patchsource(self, source):
+        if self.copyblock is None:
+            print 'PENDING', self, hex(id(source))
+            self.pendingsources.append(source)
+        else:
+            # XXX nice interface required!
+            print 'LINKING', self, id(source), self.copyblock
+            source.settarget(self.copyblock)
+
+    def resolveblock(self, newblock):
+        print "RESOLVING BLOCK", newblock
+        self.copyblock = newblock
+        for source in self.pendingsources:
+            self.patchsource(source)
+        del self.pendingsources[:]
+
+
+class GraphState(LLState):
+    """Entry state of a graph."""
+
+    def __init__(self, origgraph, args_a):
+        super(GraphState, self).__init__(args_a)
+        self.origgraph = origgraph
+        self.copygraph = FunctionGraph(origgraph.name, Block([]))   # grumble
+
+    def settarget(self, block):
+        block.isstartblock = True
+        self.copygraph.startblock = block
+
 # ____________________________________________________________
-
-class GotReturnValue(Exception):
-    def __init__(self, returnstate):
-        self.returnstate = returnstate
-
 
 class LLAbstractInterp(object):
 
     def __init__(self):
-        pass
+        self.graphs = {}   # {origgraph: {BlockState: GraphState}}
+        self.fixreturnblocks = []
+
+    def itercopygraphs(self):
+        for d in self.graphs.itervalues():
+            for graphstate in d.itervalues():
+                yield graphstate.copygraph
 
     def eval(self, origgraph, hints):
         # for now, 'hints' means "I'm absolutely sure that the
@@ -105,21 +129,24 @@ class LLAbstractInterp(object):
         self.hints = hints
         self.blocks = {}   # {origblock: list-of-LLStates}
         args_a = [LLRuntimeValue(orig_v=v) for v in origgraph.getargs()]
-        newstartlink = self.schedule(args_a, origgraph.startblock)
+        graphstate = self.schedule_graph(args_a, origgraph)
+        self.complete()
+        self.fixgraphs()
+        return graphstate.copygraph
 
-        return_a = LLRuntimeValue(orig_v=origgraph.getreturnvar())
-        returnstate = LLState(origgraph.returnblock, [return_a])
-        self.allpendingstates.append(returnstate)
-        self.blocks[origgraph.returnblock] = [returnstate]
-        self.complete(returnstate)
-
-        copygraph = FunctionGraph(origgraph.name, newstartlink.target)
-        # XXX messy -- what about len(returnlink.args) == 0 ??
-        copygraph.getreturnvar().concretetype = (
-            origgraph.getreturnvar().concretetype)
-        returnstate.resolveblock(copygraph.returnblock)
-        checkgraph(copygraph)   # sanity-check
-        return copygraph
+    def fixgraphs(self):
+        # add the missing '.returnblock' attribute
+        for graph in self.fixreturnblocks:
+            for block in graph.iterblocks():
+                if block.operations == () and len(block.inputargs) == 1:
+                    # here it is :-)
+                    graph.returnblock = block
+                    break
+            else:
+                # no return block...
+                graph.getreturnvar().concretevalue = lltype.Void
+            checkgraph(graph)   # sanity-check
+        del self.fixreturnblocks
 
     def applyhint(self, args_a, origblock):
         result_a = []
@@ -138,50 +165,56 @@ class LLAbstractInterp(object):
                 result_a.append(a)
         return result_a
 
+    def schedule_graph(self, args_a, origgraph):
+        origblock = origgraph.startblock
+        state, args_a = self.schedule_getstate(args_a, origblock)
+        try:
+            graphstate = self.graphs[origgraph][state]
+        except KeyError:
+            graphstate = GraphState(origgraph, args_a)
+            self.fixreturnblocks.append(graphstate.copygraph)
+            d = self.graphs.setdefault(origgraph, {})
+            d[state] = graphstate
+        print "SCHEDULE_GRAPH", graphstate
+        state.patchsource(graphstate)
+        return graphstate
+
     def schedule(self, args_a, origblock):
         print "SCHEDULE", args_a, origblock
         # args_a: [a_value for v in origblock.inputargs]
-        args_a = self.applyhint(args_a, origblock)
+        state, args_a = self.schedule_getstate(args_a, origblock)
         args_v = [a.getvarorconst() for a in args_a
                   if not isinstance(a, LLConcreteValue)]
         newlink = Link(args_v, None)
-        # try to match this new state with an existing one
+        state.patchsource(newlink)
+        return newlink
+
+    def schedule_getstate(self, args_a, origblock):
+        # NOTA BENE: copyblocks can get shared between different copygraphs!
+        args_a = self.applyhint(args_a, origblock)
         pendingstates = self.blocks.setdefault(origblock, [])
+        # try to match this new state with an existing one
         for state in pendingstates:
             if state.match(args_a):
                 # already matched
-                break
+                return state, args_a
         else:
             # schedule this new state
-            state = LLState(origblock, args_a)
+            state = BlockState(origblock, args_a)
             pendingstates.append(state)
             self.allpendingstates.append(state)
-        state.patchlink(newlink)
-        return newlink
+            return state, args_a
 
-    def complete(self, returnstate):
+    def complete(self):
         while self.allpendingstates:
             state = self.allpendingstates.pop()
             print 'CONSIDERING', state
-            try:
-                self.flowin(state)
-            except GotReturnValue, e:
-                assert e.returnstate is returnstate
+            self.flowin(state)
 
     def flowin(self, state):
         # flow in the block
         assert state.copyblock is None
         origblock = state.origblock
-        if origblock.operations == ():
-            if len(origblock.inputargs) == 1:
-                # return block
-                raise GotReturnValue(state)
-            elif len(origblock.inputargs) == 2:
-                # except block
-                XXX
-            else:
-                raise Exception("uh?")
-        self.residual_operations = []
         bindings = {}   # {Variables-of-origblock: a_value}
         def binding(v):
             if isinstance(v, Constant):
@@ -192,10 +225,14 @@ class LLAbstractInterp(object):
             if not isinstance(a, LLConcreteValue):
                 a = LLRuntimeValue(orig_v=v)
             bindings[v] = a
-        for op in origblock.operations:
-            handler = getattr(self, 'op_' + op.opname)
-            a_result = handler(op, *[binding(v) for v in op.args])
-            bindings[op.result] = a_result
+        if origblock.operations == ():
+            self.residual_operations = ()
+        else:
+            self.residual_operations = []
+            for op in origblock.operations:
+                handler = getattr(self, 'op_' + op.opname)
+                a_result = handler(op, *[binding(v) for v in op.args])
+                bindings[op.result] = a_result
         inputargs = []
         for v in origblock.inputargs:
             a = bindings[v]
@@ -275,3 +312,30 @@ class LLAbstractInterp(object):
 
     def op_same_as(self, op, a):
         return a
+
+    def op_direct_call(self, op, a_func, *args_a):
+        v_func = a_func.getvarorconst()
+        if isinstance(v_func, Constant):
+            fnobj = v_func.value._obj
+            if hasattr(fnobj, 'graph'):
+                origgraph = fnobj.graph
+                graphstate = self.schedule_graph(args_a, origgraph)
+                origfptr = v_func.value
+                ARGS = []
+                new_args_a = []
+                for a in graphstate.args_a:
+                    if not isinstance(a, LLConcreteValue):
+                        ARGS.append(a.getconcretetype())
+                        new_args_a.append(a)
+                args_a = new_args_a
+                TYPE = lltype.FuncType(
+                   ARGS, lltype.typeOf(origfptr).TO.RESULT)
+                fptr = lltype.functionptr(
+                   TYPE, fnobj._name, graph=graphstate.copygraph)
+                fconst = Constant(fptr)
+                fconst.concretetype = lltype.typeOf(fptr)
+                a_func = LLRuntimeValue(fconst)
+        a_result = LLRuntimeValue(op.result)
+        self.residual("direct_call", [a_func] + args_a, a_result) 
+        return a_result
+               

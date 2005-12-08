@@ -39,9 +39,10 @@ def abstrinterp(ll_function, argvalues, arghints):
     assert result1 == result2
     # return a summary of the instructions left in graph2
     insns = {}
-    for block in graph2.iterblocks():
-        for op in block.operations:
-            insns[op.opname] = insns.get(op.opname, 0) + 1
+    for copygraph in interp.itercopygraphs():
+        for block in copygraph.iterblocks():
+            for op in block.operations:
+                insns[op.opname] = insns.get(op.opname, 0) + 1
     return graph2, insns
 
 
@@ -128,6 +129,15 @@ def test_not_merging():
             a = y + z
         else:
             a = y - z
-        return a + x
+        a += x
+        return a
     graph2, insns = abstrinterp(ll_function, [3, 4, 5], [1, 2])
     assert insns == {'int_is_true': 1, 'int_add': 2}
+
+def test_simple_call():
+    def ll2(x, y):
+        return x + (y + 42)
+    def ll1(x, y, z):
+        return ll2(x, y - z)
+    graph2, insns = abstrinterp(ll1, [3, 4, 5], [1, 2])
+    assert insns == {'direct_call': 1, 'int_add': 1}
