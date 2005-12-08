@@ -201,6 +201,10 @@ class base_int(long):
         x = long(self)
         return self.__class__(-x)
 
+    def __abs__(self):
+        x = long(self)
+        return self.__class__(abs(x))
+
     def __pos__(self):
         return self.__class__(self)
 

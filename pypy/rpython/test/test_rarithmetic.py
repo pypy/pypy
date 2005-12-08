@@ -262,5 +262,5 @@ def test_ovfcheck_float_to_int():
     else:
         assert False
 
-
-
+def test_abs():
+    assert type(abs(r_longlong(1))) is r_longlong
