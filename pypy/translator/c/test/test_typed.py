@@ -397,3 +397,35 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         assert fn(7, 1) == 5040    # detection must work several times, too
         assert fn(7, 1) == 5040
         py.test.raises(RuntimeError, fn, -1, 0)
+
+    def test_list_len_is_true(self):
+
+        class X(object):
+            pass
+        class A(object):
+            def __init__(self):
+                self.l = []
+
+            def append_to_list(self, e):
+                self.l.append(e)
+
+            def check_list_is_true(self):
+                did_loop = 0
+                while self.l:
+                    did_loop = 1
+                    if len(self.l):
+                        break
+                return did_loop
+            
+        a1 = A()
+        def f():
+            a2 = A()
+            for ii in range(1):
+                a1.append_to_list(X())
+                a2.append_to_list(X())
+            return a1.check_list_is_true() + 2 * a2.check_list_is_true()
+        fn = self.getcompiled(f)
+        assert fn() == 3        
+        
+
+            
