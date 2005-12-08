@@ -32,6 +32,7 @@ from types import BuiltinFunctionType, MethodType
 import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
+from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 import inspect
 
 
@@ -163,6 +164,16 @@ class SomeInteger(SomeFloat):
         self.nonneg = unsigned or nonneg
         self.unsigned = unsigned  # pypy.rpython.rarithmetic.r_uint
         self.size = size
+        if self.unsigned:
+            if self.size == 2:
+                self.knowntype = r_ulonglong
+            else:
+                self.knowntype = r_uint
+        else:
+            if self.size == 2:
+                self.knowntype = r_longlong
+            else:
+                self.knowntype = int
 
     def fmt_size(self, s):
         if s != 1:

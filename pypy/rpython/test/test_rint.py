@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, r_longlong
 
 
 class TestSnippet(object):
@@ -101,3 +101,17 @@ def test_unsigned():
     res = interpret(dummy, [-1])
     assert res is False    # -1 ==> 0xffffffff
 
+def test_specializing_int_functions():
+    def f(i):
+        return i + 1
+    f._annspecialcase_ = "specialize:argtype0"
+    def g(n):
+        if n > 0:
+            return f(r_longlong(0))
+        else:
+            return f(0)
+    res = interpret(g, [0])
+    assert res == 1
+
+    res = interpret(g, [1])
+    assert res == 1

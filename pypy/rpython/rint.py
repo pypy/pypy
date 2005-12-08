@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
      UnsignedLongLong, SignedLongLong
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rarithmetic import intmask, r_uint, r_ulonglong, r_longlong
+from pypy.rpython.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
 
@@ -44,6 +44,8 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Signed:
             log.debug('explicit cast_uint_to_int')
             return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
+        if r_from.lowleveltype == Signed and r_to.lowleveltype == SignedLongLong:
+            return llops.genop('cast_int_to_longlong', [v], resulttype=SignedLongLong)
         return NotImplemented
 
     #arithmetic
@@ -200,7 +202,7 @@ def _rtype_compare_template(hop, func):
 class __extend__(IntegerRepr):
 
     def convert_const(self, value):
-        if not isinstance(value, (int, r_uint)):   # can be bool
+        if not isinstance(value, (int, r_uint, r_int, r_longlong, r_ulonglong)):   # can be bool
             raise TyperError("not an integer: %r" % (value,))
         if self.lowleveltype == Signed:
             return intmask(value)

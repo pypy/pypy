@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, last_exception
-from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
+from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
@@ -436,6 +436,10 @@ class LLFrame(object):
         assert type(b) is r_uint
         return intmask(b)
 
+    def op_cast_int_to_longlong(self, b):
+        assert type(b) is int
+        return r_longlong(b)
+
     def op_int_floordiv_ovf_zer(self, a, b):
         assert type(a) is int
         assert type(b) is int
@@ -534,12 +538,14 @@ class LLFrame(object):
     # __________________________________________________________
     # primitive operations
 
-    for typ in (float, int, r_uint):
+    for typ in (float, int, r_uint, r_longlong):
         typname = typ.__name__
         optup = ('add', 'sub', 'mul', 'div', 'truediv', 'floordiv',
                  'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
         if typ is r_uint:
             opnameprefix = 'uint'
+        elif typ is r_longlong:
+            opnameprefix = 'llong'
         else:
             opnameprefix = typname
         if typ in (int, r_uint):
