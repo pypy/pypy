@@ -84,54 +84,6 @@ def sieve_of_eratosthenes():
 def simple_func(i=numtype):
     return i + 1
 
-from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
-
-def add_func(i=numtype):
-    try:
-        return ovfcheck(i + 1)
-    except OverflowError:
-        raise
-
-from sys import maxint
-
-def div_func(i=numtype):
-    try:
-        return ovfcheck((-maxint-1) // i)
-    except (OverflowError, ZeroDivisionError):
-        raise
-    
-def mod_func(i=numtype):
-    try:
-        return ovfcheck((-maxint-1) % i)
-    except OverflowError:
-        raise
-    except ZeroDivisionError:
-        raise
-
-def rshift_func(i=numtype):
-    try:
-        return (-maxint-1) >> i
-    except ValueError:
-        raise
-
-class hugelmugel(OverflowError):pass
-
-def hugo(a, b, c):pass
-
-def lshift_func(i=numtype):
-    try:
-        hugo(2, 3, 5)
-        return ovfcheck_lshift((-maxint-1), i)
-    except (hugelmugel, OverflowError, StandardError, ValueError):
-        raise
-
-def unary_func(i=numtype):
-    try:
-        return ovfcheck(-i), ovfcheck(abs(i-1))
-    except: raise
-    # XXX it would be nice to get it right without an exception
-    # handler at all, but then we need to do much harder parsing
-
 def while_func(i=numtype):
     total = 0
     while i > 0:
@@ -1174,3 +1126,52 @@ def class_spec():
     #if not isinstance(istk, PolyStk):
     #    return "confused"
     return istk.top(), sstk.top()
+
+
+from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
+
+def add_func(i=numtype):
+    try:
+        return ovfcheck(i + 1)
+    except OverflowError:
+        raise
+
+from sys import maxint
+
+def div_func(i=numtype):
+    try:
+        return ovfcheck((-maxint-1) // i)
+    except (OverflowError, ZeroDivisionError):
+        raise
+    
+def mod_func(i=numtype):
+    try:
+        return ovfcheck((-maxint-1) % i)
+    except OverflowError:
+        raise
+    except ZeroDivisionError:
+        raise
+
+def rshift_func(i=numtype):
+    try:
+        return (-maxint-1) >> i
+    except ValueError:
+        raise
+
+class hugelmugel(OverflowError):pass
+
+def hugo(a, b, c):pass
+
+def lshift_func(i=numtype):
+    try:
+        hugo(2, 3, 5)
+        return ovfcheck_lshift((-maxint-1), i)
+    except (hugelmugel, OverflowError, StandardError, ValueError):
+        raise
+
+def unary_func(i=numtype):
+    try:
+        return ovfcheck(-i), ovfcheck(abs(i-1))
+    except: raise
+    # XXX it would be nice to get it right without an exception
+    # handler at all, but then we need to do much harder parsing
