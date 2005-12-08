@@ -695,13 +695,27 @@ class Socket(Wrappable):
         Connect the socket to a remote address.  For IP sockets, the address
         is a pair (host, port).
         """
-        addr = space.unwrap(w_addr)
-        try:
-            self.fd.connect(addr)
-        except socket.timeout:
-            raise wrap_timeouterror(space)
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        if self.family == socket.AF_INET:
+            if not (space.is_true(space.isinstance(w_addr, space.w_tuple)) and
+                space.int_w(space.len(w_addr)) == 2):
+                raise OperationError(space.w_TypeError,
+                    space.wrap("AF_INET address must be tuple of length 2"))
+            addr_w = space.unpackiterable(w_addr)
+            if not (space.is_true(space.isinstance(addr_w[0], space.w_str))
+                    and space.is_true(space.isinstance(addr_w[1], space.w_int))):
+                raise OperationError(space.w_TypeError,
+                    space.wrap("tuple of a string and an int required"))
+            host = space.str_w(addr_w[0])
+            port = space.int_w(addr_w[1])
+            try:
+                rsocket.connect(self.fd, host, port)
+            except socket.timeout:
+                raise wrap_timeouterror(space)
+            except socket.error, e:
+                raise wrap_socketerror(space, e)
+        else:
+            # XXX IPv6 and Unix sockets missing here
+            pass
     connect.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def connect_ex(self, space, w_addr):
@@ -748,7 +762,9 @@ class Socket(Wrappable):
         info is a pair (hostaddr, port).
         """
         try:
-            return space.wrap(self.fd.getpeername())
+            name = rsocket.getpeername(self.fd)
+            # XXX IPv4 only
+            return space.newtuple([space.wrap(name[0]), space.wrap(name[1])])
         except socket.error, e:
             raise wrap_socketerror(space, e)
     getpeername.unwrap_spec = ['self', ObjSpace]
@@ -959,10 +975,11 @@ settimeout shutdown
 """.split()
 socketmethods = {}
 for methodname in socketmethodnames:
-    method = getattr(Socket, methodname)
-    assert hasattr(method,'unwrap_spec'), methodname
-    assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
-    socketmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
+    if hasattr(_socket.socket, methodname):
+        method = getattr(Socket, methodname)
+        assert hasattr(method,'unwrap_spec'), methodname
+        assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
+        socketmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
 
 Socket.typedef = TypeDef("_socket.socket",
     __doc__ = """\

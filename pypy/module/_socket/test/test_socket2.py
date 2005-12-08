@@ -291,6 +291,27 @@ def app_test_socket_close_error():
     os.close(s.fileno())
     raises(_socket.error, s.close)
 
+def app_test_socket_connect():
+    import _socket, os
+    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    s.connect(("codespeak.net", 80))
+    name = s.getpeername() # Will raise socket.error if not connected
+    assert name[1] == 80
+    s.close()
+
+def DONOT_app_test_socket_connect_typeerrors():
+    tests = [
+        "",
+        ("80"),
+        ("80", "80"),
+        (80, 80),
+    ]
+    import _socket
+    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    for args in tests:
+        raises(TypeError, s.connect, args)
+    s.close()
+
 
 class AppTestSocket:
     def setup_class(cls):
