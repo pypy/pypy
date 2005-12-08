@@ -19,6 +19,21 @@ class OpWriter(object):
                          'int_ge': 'setge',
                          'int_gt': 'setgt',
 
+                         'llong_mul': 'mul',
+                         'llong_add': 'add',
+                         'llong_sub': 'sub',
+                         'llong_floordiv': 'div',
+                         'llong_mod': 'rem',
+                         'llong_and': 'and',
+                         'llong_or': 'or',
+                         'llong_xor': 'xor',
+                         'llong_lt': 'setlt',
+                         'llong_le': 'setle',
+                         'llong_eq': 'seteq',
+                         'llong_ne': 'setne',
+                         'llong_ge': 'setge',
+                         'llong_gt': 'setgt',
+
                          'uint_mul': 'mul',
                          'uint_add': 'add',
                          'uint_sub': 'sub',
@@ -61,6 +76,9 @@ class OpWriter(object):
 
                          'uint_lshift': 'shl',
                          'uint_rshift': 'shr',
+                         
+			 'llong_lshift': 'shl',
+                         'llong_rshift': 'shr',
                          }
 
 
@@ -88,7 +106,7 @@ class OpWriter(object):
                 self.shiftop(op)
             elif op.opname in self.char_operations:
                 self.char_binaryop(op)
-            elif op.opname.startswith('cast_'):
+            elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
                 if op.opname == 'cast_char_to_int':
                     self.cast_char_to_int(op)
                 else:
@@ -140,6 +158,7 @@ class OpWriter(object):
                              [self.db.repr_arg(op.args[0])],
                              [self.db.repr_arg_type(op.args[0])])
     float_abs = int_abs
+    llong_abs = int_abs
 
     def int_pow(self, op):
         self._generic_pow(op, "1") 
@@ -248,6 +267,7 @@ class OpWriter(object):
                                  self.db.repr_arg(op.args[0]),
                                  "0")
     uint_is_true = int_is_true
+    llong_is_true = int_is_true
 
     def float_is_true(self, op):
         self.codewriter.binaryop("setne",

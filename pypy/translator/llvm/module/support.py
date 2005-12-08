@@ -57,6 +57,18 @@ return_block:
     ret int %result
 }
 
+internal fastcc long %pypyop_long_abs(long %x) {
+block0:
+    %cond1 = setge long %x, 0
+    br bool %cond1, label %return_block, label %block1
+block1:
+    %x2 = sub long 0, %x
+    br label %return_block
+return_block:
+    %result = phi long [%x, %block0], [%x2, %block1]
+    ret long %result
+}
+
 internal fastcc double %pypyop_float_abs(double %x) {
 block0:
     %cond1 = setge double %x, 0.0
