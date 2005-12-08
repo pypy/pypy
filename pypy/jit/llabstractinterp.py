@@ -288,6 +288,9 @@ class LLAbstractInterp(object):
         self.residual_operations.append(op)
 
     def residualize(self, op, args_a, constant_op=None):
+        RESULT = op.result.concretetype
+        if RESULT is lltype.Void:
+            return XXX_later
         if constant_op:
             a_result = self.constantfold(constant_op, args_a)
             if a_result is not None:
@@ -312,6 +315,12 @@ class LLAbstractInterp(object):
 
     def op_int_gt(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.gt)
+
+    def op_int_lt(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.lt)
+
+    def op_cast_char_to_int(self, op, a):
+        return self.residualize(op, [a], ord)
 
     def op_same_as(self, op, a):
         return a
@@ -343,22 +352,31 @@ class LLAbstractInterp(object):
         return a_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
+        constant_op = None
         T = a_ptr.getconcretetype().TO
-        attrname = a_attrname.getvarorconst().value
-        RESULT = getattr(T, attrname)
-        if RESULT is lltype.Void:
-            return XXX_later
         v_ptr = a_ptr.getvarorconst()
         if isinstance(v_ptr, Constant):
             if T._hints.get('immutable', False):
-                concreteresult = getattr(v_ptr.value, attrname)
-                if isinstance(a_ptr, LLConcreteValue):
-                    a_result = LLConcreteValue(concreteresult)
-                else:
-                    c_result = Constant(concreteresult)
-                    c_result.concretetype = lltype.typeOf(concreteresult)
-                    a_result = LLRuntimeValue(c_result)
-                return a_result
-        a_result = LLRuntimeValue(op.result)
-        self.residual("getfield", [a_ptr, a_attrname], a_result)
-        return a_result
+                constant_op = getattr
+        return self.residualize(op, [a_ptr, a_attrname], constant_op)
+    op_getsubstruct = op_getfield
+
+    def op_getarraysize(self, op, a_ptr):
+        constant_op = None
+        T = a_ptr.getconcretetype().TO
+        v_ptr = a_ptr.getvarorconst()
+        if isinstance(v_ptr, Constant):
+            if T._hints.get('immutable', False):
+                constant_op = len
+        return self.residualize(op, [a_ptr], constant_op)
+
+    def op_getarrayitem(self, op, a_ptr, a_index):
+        constant_op = None
+        T = a_ptr.getconcretetype().TO
+        v_ptr = a_ptr.getvarorconst()
+        if isinstance(v_ptr, Constant):
+            if T._hints.get('immutable', False):
+                constant_op = operator.getitem
+        return self.residualize(op, [a_ptr, a_index], constant_op)
+
+        

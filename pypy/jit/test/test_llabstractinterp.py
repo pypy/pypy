@@ -153,3 +153,19 @@ def test_simple_struct():
         return s.hello * s.world
     graph2, insns = abstrinterp(ll_function, [s], [0])
     assert insns == {}
+
+def test_simple_array():
+    A = lltype.Array(lltype.Char,
+                     hints={'immutable': True})
+    S = lltype.GcStruct('str', ('chars', A),
+                        hints={'immutable': True})
+    s = lltype.malloc(S, 11)
+    for i, c in enumerate("hello world"):
+        s.chars[i] = c
+    def ll_function(s, i, total):
+        while i < len(s.chars):
+            total += ord(s.chars[i])
+            i += 1
+        return total
+    graph2, insns = abstrinterp(ll_function, [s, 0, 0], [0, 1, 2])
+    assert insns == {}
