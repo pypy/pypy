@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython import ros
+from pypy.rpython.rarithmetic import r_longlong
 
 def ll_os_open(fname, flag, mode):
     return os.open(from_rstr(fname), flag, mode)
@@ -64,7 +65,7 @@ def ll_os_dup(fd):
 ll_os_dup.suggested_primitive = True
 
 def ll_os_lseek(fd,pos,how):
-    return intmask(os.lseek(fd,pos,how))
+    return r_longlong(os.lseek(fd,pos,how))
 ll_os_lseek.suggested_primitive = True
 
 def ll_os_isatty(fd):

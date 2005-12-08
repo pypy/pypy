@@ -5,7 +5,7 @@ import os
 import time
 import math
 import types
-
+from pypy.rpython.rarithmetic import r_longlong
 
 class ExtFuncInfo:
     def __init__(self, func, annotation, ll_function_path, ll_annotable, backend_functiontemplate):
@@ -149,7 +149,7 @@ declare(os.read     , str           , 'll_os/read')
 declare(os.write    , posannotation , 'll_os/write')
 declare(os.close    , noneannotation, 'll_os/close')
 declare(os.dup      , int           , 'll_os/dup')
-declare(os.lseek    , int           , 'll_os/lseek')
+declare(os.lseek    , r_longlong    , 'll_os/lseek')
 declare(os.isatty   , bool          , 'll_os/isatty')
 if hasattr(posix, 'ftruncate'):
     declare(os.ftruncate, noneannotation, 'll_os/ftruncate')

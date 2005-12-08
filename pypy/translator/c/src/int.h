@@ -277,4 +277,6 @@ long op_divmod_adj(long x, long y, long *p_rem)
 #define OP_UINT_XOR OP_INT_XOR
 
 #define OP_ULLONG_MUL OP_INT_MUL
+
 #define OP_LLONG_MUL OP_INT_MUL
+#define OP_LLONG_EQ OP_INT_EQ

@@ -85,6 +85,10 @@ def restricted_uint(s_obj):    # for r_uint
     return constpropagate(pypy.rpython.rarithmetic.r_uint, [s_obj],
                           SomeInteger(nonneg=True, unsigned=True))
 
+def restricted_longlong(s_obj):    # for r_uint
+    return constpropagate(pypy.rpython.rarithmetic.r_longlong, [s_obj],
+                          SomeInteger(size=2))
+
 def builtin_float(s_obj):
     return constpropagate(float, [s_obj], SomeFloat())
 
@@ -314,6 +318,7 @@ for name, value in globals().items():
         BUILTIN_ANALYZERS[original] = value
 
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
+BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_longlong] = restricted_longlong
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
