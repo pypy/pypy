@@ -281,6 +281,21 @@ long op_divmod_adj(long x, long y, long *p_rem)
 
 #define OP_ULLONG_MUL OP_INT_MUL
 
-#define OP_LLONG_MUL OP_INT_MUL
-#define OP_LLONG_EQ OP_INT_EQ
 #define OP_LLONG_ADD OP_INT_ADD
+#define OP_LLONG_SUB OP_INT_SUB
+#define OP_LLONG_MUL OP_INT_MUL
+#define OP_LLONG_DIV OP_INT_DIV
+
+#define OP_LLONG_EQ  OP_INT_EQ
+#define OP_LLONG_NE  OP_INT_NE
+#define OP_LLONG_LT  OP_INT_LT
+#define OP_LLONG_LE  OP_INT_LE
+#define OP_LLONG_GT  OP_INT_GT
+#define OP_LLONG_GE  OP_INT_GE
+
+#define OP_LLONG_CMP OP_INT_CMP
+
+#define OP_LLONG_INVERT OP_INT_INVERT
+#define OP_LLONG_AND    OP_INT_AND
+#define OP_LLONG_OR     OP_INT_OR
+#define OP_LLONG_XOR    OP_INT_XOR
