@@ -156,6 +156,7 @@
 #define OP_CAST_BOOL_TO_UINT(x,r,err)   r = (unsigned long)(x)
 #define OP_CAST_UINT_TO_INT(x,r,err)    r = (long)(x)
 #define OP_CAST_INT_TO_UINT(x,r,err)    r = (unsigned long)(x)
+#define OP_CAST_INT_TO_LONGLONG(x,r,err) r = (long long)(x)
 #define OP_CAST_CHAR_TO_INT(x,r,err)    r = (long)((unsigned char)(x))
 #define OP_CAST_INT_TO_CHAR(x,r,err)    r = (char)(x)
 #define OP_CAST_PTR_TO_INT(x,r,err)     r = (long)(x)    /* XXX */
@@ -280,3 +281,4 @@ long op_divmod_adj(long x, long y, long *p_rem)
 
 #define OP_LLONG_MUL OP_INT_MUL
 #define OP_LLONG_EQ OP_INT_EQ
+#define OP_LLONG_ADD OP_INT_ADD

@@ -245,3 +245,18 @@ class TestAnnotatedTestCase:
             return 4*i
         gn = self.getcompiled(g, view=False)
         assert gn(sys.maxint) == 4*sys.maxint
+
+    def test_specializing_int_functions(self):
+        from pypy.rpython.rarithmetic import r_longlong
+        def f(i):
+            return i + 1
+        f._annspecialcase_ = "specialize:argtype0"
+        def g(n=int):
+            if n > 0:
+                return f(r_longlong(0))
+            else:
+                return f(0)
+
+        fn = self.getcompiled(g)
+        assert g(0) == 1
+        assert g(1) == 1
