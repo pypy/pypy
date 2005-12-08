@@ -193,7 +193,7 @@ def _rtype_compare_template(hop, func):
         if not s_int1.nonneg or not s_int2.nonneg:
             raise TyperError("comparing a signed and an unsigned number")
 
-    repr = hop.rtyper.makerepr(annmodel.unionof(s_int1, s_int2))
+    repr = hop.rtyper.makerepr(annmodel.unionof(s_int1, s_int2)).as_int
     vlist = hop.inputargs(repr, repr)
     hop.exception_is_here()
     return hop.genop(repr.opprefix+func, vlist, resulttype=Bool)
@@ -237,12 +237,14 @@ class __extend__(IntegerRepr):
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
     def rtype_is_true(self, hop):
+        assert self is self.as_int   # rtype_is_true() is overridden in BoolRepr
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
 
     #Unary arithmetic operations    
     
     def rtype_abs(self, hop):
+        self = self.as_int
         if hop.s_result.unsigned:
             vlist = hop.inputargs(self)
             return vlist[0]
@@ -251,6 +253,7 @@ class __extend__(IntegerRepr):
             return hop.genop(self.opprefix + 'abs', vlist, resulttype=self)
 
     def rtype_abs_ovf(self, hop):
+        self = self.as_int
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_abs_ovf")
         else:
@@ -260,14 +263,17 @@ class __extend__(IntegerRepr):
             return hop.genop(self.opprefix + 'abs_ovf', vlist, resulttype=self)
 
     def rtype_invert(self, hop):
+        self = self.as_int
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'invert', vlist, resulttype=self)
         
     def rtype_neg(self, hop):
+        self = self.as_int
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
 
     def rtype_neg_ovf(self, hop):
+        self = self.as_int
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_neg_ovf")
         else:
@@ -277,6 +283,7 @@ class __extend__(IntegerRepr):
             return hop.genop(self.opprefix + 'neg_ovf', vlist, resulttype=self)
 
     def rtype_pos(self, hop):
+        self = self.as_int
         vlist = hop.inputargs(self)
         return vlist[0]
 
@@ -320,13 +327,15 @@ class __extend__(IntegerRepr):
             j += 1
         return result
 
-    def rtype_hex(_, hop):
-        varg = hop.inputarg(hop.args_r[0], 0)
+    def rtype_hex(self, hop):
+        self = self.as_int
+        varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
         return hop.gendirectcall(ll_int2hex, varg, true)
 
-    def rtype_oct(_, hop):
-        varg = hop.inputarg(hop.args_r[0], 0)
+    def rtype_oct(self, hop):
+        self = self.as_int
+        varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
         return hop.gendirectcall(ll_int2oct, varg, true)
 

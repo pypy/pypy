@@ -44,3 +44,33 @@ class TestSnippet(object):
         assert res == 0 and res is not False   # forced to int by static typing
         res = interpret(f, [True])
         assert res == 2
+
+    def test_arithmetic_with_bool_inputs(self):
+        def f(n):
+            a = n * ((n>2) + (n>=2))
+            a -= (a != n) > False
+            return a + (-(n<0))
+        for i in [-1, 1, 2, 42]:
+            res = interpret(f, [i])
+            assert res == f(i)
+
+    def test_bool2str(self):
+        def f(n, m):
+            if m == 1:
+                return hex(n > 5)
+            elif m == 2:
+                return oct(n > 5)
+            else:
+                return str(n > 5)
+        res = interpret(f, [2, 0])
+        assert ''.join(res.chars) in ('0', 'False')   # unspecified so far
+        res = interpret(f, [9, 0])
+        assert ''.join(res.chars) in ('1', 'True')    # unspecified so far
+        res = interpret(f, [2, 1])
+        assert ''.join(res.chars) == '0x0'
+        res = interpret(f, [9, 1])
+        assert ''.join(res.chars) == '0x1'
+        res = interpret(f, [2, 2])
+        assert ''.join(res.chars) == '0'
+        res = interpret(f, [9, 2])
+        assert ''.join(res.chars) == '01'

@@ -274,12 +274,14 @@ class IntegerRepr(FloatRepr):
     def __init__(self, lowleveltype, opprefix):
         self.lowleveltype = lowleveltype
         self.opprefix = opprefix
+        self.as_int = self
 
 class BoolRepr(IntegerRepr):
     lowleveltype = Bool
-    opprefix = 'int_'
+    # NB. no 'opprefix' here.  Use 'as_int' systematically.
     def __init__(self):
-        pass
+        from pypy.rpython.rint import signed_repr
+        self.as_int = signed_repr
 
 class StringRepr(Repr):
     pass
