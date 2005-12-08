@@ -121,3 +121,21 @@ def test_downcast_int():
         return int(i)
     res = interpret(f, [r_longlong(0)])
     assert res == 0
+
+def test_isinstance_vs_int_types():
+    class FakeSpace(object):
+        def wrap(self, x):
+            if x is None:
+                return [None]
+            if isinstance(x, str):
+                return x
+            if isinstance(x, r_longlong):
+                return int(x)
+            return "XXX"
+        wrap._annspecialcase_ = 'specialize:argtype0'
+
+    space = FakeSpace()
+    def wrap(x):
+        return space.wrap(x)
+    res = interpret(wrap, [r_longlong(0)])
+    assert res == 0
