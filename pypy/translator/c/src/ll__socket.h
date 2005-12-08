@@ -89,7 +89,7 @@ int LL__socket_newsocket(int family, int type, int protocol)
     if (fd < 0)
 #endif
     {
-      return -1; 
+        RPYTHON_RAISE_OSERROR(errno);
     }
 }
 /* ____________________________________________________________________________ */

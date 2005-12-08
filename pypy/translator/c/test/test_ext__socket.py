@@ -80,9 +80,16 @@ def test_newsocket():
 
 def test_newsocket_error():
     from pypy.module._socket.rpython import rsocket
-    def does_stuff():
-        return rsocket.newsocket(1001, _socket.SOCK_STREAM, 0)
-    f1 = compile(does_stuff, [])
-    res = f1()
-    assert res == -1
-
+    tests = [(1001, _socket.SOCK_STREAM, 0)]
+    def does_stuff(family, type, protocol):
+        return rsocket.newsocket(family, type, protocol)
+    f1 = compile(does_stuff, [int, int, int])
+    for args in tests:
+        try:
+            f1(*args)
+        except OSError, ex:
+            try:
+                import socket
+                socket.socket(*args)
+            except socket.error, ex_socket:
+                assert ex_socket.args[0] == ex.errno
