@@ -3,18 +3,10 @@
 var slp_frame_stack_top    = null;
 var slp_frame_stack_bottom = null;
 var slp_return_value       = undefined;
+
+var slp_timeout            = false;
 var slp_start_time         = undefined;
 var slp_stack_depth        = 0;
-
-// This gets called with --log
-
-function log(s) {
-    try {
-        alert(s);   // in browser
-    } catch (e) {
-        print('log: ' + s);   // commandline
-    }
-}
 
 function function_name(func) {
     var s = func.toString().split("\n");
@@ -23,8 +15,6 @@ function function_name(func) {
     s = s.split('(')[0];
     return s
 }
-
-// example function for testing
 
 function ll_stackless_stack_frames_depth() {
     if (!slp_frame_stack_top) {
@@ -49,18 +39,17 @@ function ll_stack_too_big() {
     var result = slp_stack_depth > 500;   // Firefox has a recursion limit of 1000 (others allow more)
     LOG("ll_stack_to_big result=" + result);
 
-    if (!result) {
+    if (!result && in_browser && false) {
         var t = new Date().getTime();
         var d = t - slp_start_time;
-        result = d > 1000;
+        result = d > 100;
         if (result) {
-            print('XXX d='+d + ' XXX t='+t);
-            slp_start_time = t;
+            slp_timeout = true;
         } 
     }
     return result;
 }
-ll_stack_too_big__ = ll_stack_too_big
+ll_stack_too_big__ = ll_stack_too_big;
 
 function slp_new_frame(targetvar, func, resume_blocknum, vars) {
     //LOG("slp_new_frame("+targetvar+","+function_name(func)+","+resume_blocknum+","+vars.toSource()+")");
@@ -145,6 +134,9 @@ ll_stackless_switch__frame_stack_topPtr = ll_stackless_switch;
 
 function slp_main_loop() {
     var f_back;
+    log("SLP_MAIN_LOOP");
+    slp_timeout    = false;
+    slp_start_time = new Date().getTime();
     while (true) {
         slp_frame_stack_bottom = null;
         pending = slp_frame_stack_top;
@@ -152,9 +144,12 @@ function slp_main_loop() {
         while (true) {
             f_back           = pending.f_back;
             LOG('calling: ' + function_name(pending.func));
-            //slp_start_time   = new Date().getTime();    //XXX should really exit javascript and resume with setTimeout(...)
             slp_stack_depth  = 0;               // we are restarting to recurse
             slp_return_value = pending.func();  // params get initialized in the function because it's a resume!
+            if (slp_timeout) {
+                setTimeout('slp_main_loop()', 0);
+                return undefined;
+            }
             if (slp_frame_stack_top) {
                 break;
             }
@@ -164,19 +159,29 @@ function slp_main_loop() {
             pending             = f_back;
             slp_frame_stack_top = pending;
         }
-        
+
         if (slp_frame_stack_bottom) { // returning from switch()
             if (slp_frame_stack_bottom.f_back) log('slp_frame_stack_bottom.f_back');
             slp_frame_stack_bottom.f_back = f_back;
         }
     }
+    log("REALLY FINISHED");
 }
 
-function slp_entry_point(funcstring) {
+// 
+// note: this function returns undefined for long running processes.
+//        In that case it should be seen as similar to thread.run()
+//
+function slp_entry_point(funcstring) {  //new thread().run()
+    slp_timeout     = false;
     slp_start_time  = new Date().getTime();
     slp_stack_depth = 0;    /// initial stack depth
     var result = eval(funcstring);
     if (slp_frame_stack_bottom) { // get with dispatch loop when stack unwound
+        if (slp_timeout) {
+            setTimeout('slp_main_loop()', 0);
+            return undefined;
+        }
         slp_main_loop();
         result = slp_return_value;
     }

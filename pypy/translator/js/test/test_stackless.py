@@ -181,11 +181,19 @@ def test_yield_frame2():
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 7495
 
+# XXX
+# need test to detect timeout (return=undefined), call slp_main_loop() until no timeout
+# and only then check result.
+
 def test_long_running():
+    py.test.skip("stackless feature incomplete (no long running processes yet)")
+
     n_iterations = 50000
 
     def g(x):
         if x > 0:
+            for q in range(1000):
+                pass
             g(x-1)
         return x
 
@@ -193,4 +201,6 @@ def test_long_running():
         return g(n_iterations)
 
     data = wrap_stackless_function(lp)
-    assert int(data.strip()) == n_iterations
+
+    #note: because long running processes can't return a value like this
+    assert int(data.strip()) == undefined

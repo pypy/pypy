@@ -1,7 +1,3 @@
-function logme(s) {
-    print("logme: " + s);
-}
-
 function ll_stack_too_big_helper(depth) {
     if (depth > 0) {
         ll_stack_too_big_helper(depth-1)
@@ -16,3 +12,4 @@ function ll_stack_too_big() {
     }
     return false;
 }
+ll_stack_too_big__ = ll_stack_too_big;

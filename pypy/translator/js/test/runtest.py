@@ -36,7 +36,7 @@ class compile_function(object):
 
         function_call = "%s(%s)" % (self.js.graph.name, args)
         if self.js.stackless:
-            function_call = "slp_entry_point(%s)" % function_call
+            function_call = "slp_entry_point('%s')" % function_call
 
         if use_browsertest:
             output = jstest(self.js.filename, function_call)

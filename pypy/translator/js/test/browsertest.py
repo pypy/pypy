@@ -29,9 +29,12 @@ function runTest() {
             result = "raise Exception('unknown')";
         }
     }
-    var resultform = document.forms['resultform'];
-    resultform.result.value = result;
-    resultform.submit();
+
+    if (result != undefined || !in_browser) {  // if no timeout (i.e. not long running)
+        var resultform = document.forms['resultform'];
+        resultform.result.value = result;
+        resultform.submit();
+    }
 };
 </script>
 </head>
@@ -40,6 +43,7 @@ function runTest() {
     <form method="post" name="resultform" id="resultform">
         <input name="result" type="hidden" value="UNKNOWN" />
     </form>
+    <div id="logdiv"></div>
 </body>
 </html>"""
 
@@ -76,6 +80,7 @@ class TestHandler(BaseHTTPRequestHandler):
         jstestcase = jstest.jstestcase
         jscode     = jstest.jscode
         html_page  = config.html_page % locals()
+        open("html_page.html", "w").write(html_page)
         self.serve_data('text/html', html_page)
         do_status = 'do_GET'
 
