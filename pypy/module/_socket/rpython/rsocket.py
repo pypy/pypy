@@ -4,6 +4,8 @@ Helper file for Python equivalents of socket specific calls.
 
 import socket
 
+keep_sockets_alive = []
+
 class ADDRINFO(object):
     # a simulated addrinfo structure from C, i.e. a chained list
     # returned by getaddrinfo()
@@ -27,4 +29,8 @@ def getaddrinfo(host, port, family, socktype, proto, flags):
     return ADDRINFO(host, port, family, socktype, proto, flags)
 
 def newsocket(family, type, protocol):
-    return socket.socket(family, type, protocol).fileno()
+    s = socket.socket(family, type, protocol)
+    # HACK: We have to prevent GC to collect the socket object because we don't
+    # want it to be closed.
+    keep_sockets_alive.append(s)
+    return s.fileno()

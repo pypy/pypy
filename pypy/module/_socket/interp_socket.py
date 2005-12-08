@@ -1,4 +1,4 @@
-import _socket, socket, errno, sys
+import _socket, socket, errno, os, sys
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
@@ -642,6 +642,7 @@ class Socket(Wrappable):
         self.type = type
         self.proto = proto
         self.timeout = getstate(space).defaulttimeout
+        self.closed = False
 
     def accept(self, space):
         """accept() -> (socket object, address info)
@@ -677,10 +678,15 @@ class Socket(Wrappable):
 
         Close the socket.  It cannot be used after this call.
         """
-        if self.fd is not None:
-            fd = self.fd
-            self.fd = None
-            fd.close()
+        if not self.closed:
+            try:
+                # Reusing the os.close primitive to save us from writing a 
+                # socket-specific close primitive. This might not be perfectly
+                # cross-platform (Windows?).
+                os.close(self.fd)
+            except OSError, e:
+                raise w_get_socketerror(space, e.strerror, e.errno)
+            self.closed = True
     close.unwrap_spec = ['self', ObjSpace]
 
     def connect(self, space, w_addr):
@@ -729,7 +735,10 @@ class Socket(Wrappable):
 
         Return the integer file descriptor of the socket.
         """
-        return space.wrap(self.fd.fileno())
+        if not self.closed:
+            return space.wrap(self.fd)
+        else:
+            raise w_get_socketerror(space, "Bad file descriptor", errno.EBADF)
     fileno.unwrap_spec = ['self', ObjSpace]
 
     def getpeername(self, space):

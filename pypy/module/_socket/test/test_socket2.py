@@ -263,8 +263,34 @@ def test_timeout():
     assert space.unwrap(w_t) is None
 
 def app_test_newsocket_error():
-    import socket
-    raises (socket.error, socket.socket, 10001, socket.SOCK_STREAM, 0)
+    import _socket
+    raises(_socket.error, _socket.socket, 10001, _socket.SOCK_STREAM, 0)
+
+def app_test_socket_fileno():
+    import _socket
+    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    assert s.fileno() > -1
+    assert isinstance(s.fileno(), int)
+
+def app_test_socket_close():
+    import _socket, errno
+    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    fileno = s.fileno()
+    s.close()
+    s.close()
+    try:
+        s.fileno()
+    except _socket.error, ex:
+        assert ex.args[0], errno.EBADF
+    else:
+        assert 0
+
+def app_test_socket_close_error():
+    import _socket, os
+    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    os.close(s.fileno())
+    raises(_socket.error, s.close)
+
 
 class AppTestSocket:
     def setup_class(cls):
