@@ -55,6 +55,12 @@ class JS(object):   # JS = Javascript
 
         codewriter.comment('filename: %s' % self.filename)
         codewriter.newline()
+
+        src_filename = _path_join(os.path.dirname(__file__), 'src', 'misc.js')
+        s = open(src_filename).read()
+        f.write(s)
+
+        codewriter.newline()
         for node in self.db.getnodes():
             node.write_implementation(codewriter)
 
