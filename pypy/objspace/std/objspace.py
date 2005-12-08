@@ -11,6 +11,7 @@ from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
+from pypy.rpython.rarithmetic import r_longlong
 import sys
 import os
 
@@ -260,6 +261,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, long):
+            from pypy.objspace.std.longobject import args_from_long
+            return W_LongObject(self, *args_from_long(x))
+        if isinstance(x, r_longlong):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
         if isinstance(x, slice):
