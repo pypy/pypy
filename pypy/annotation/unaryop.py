@@ -66,7 +66,7 @@ class __extend__(SomeObject):
         return SomeInteger(nonneg=True)
 
     def is_true_behavior(obj):
-        if obj.is_constant():
+        if obj.is_immutable_constant():
             return immutablevalue(bool(obj.const))
         else:
             s_len = obj.len()
@@ -151,7 +151,7 @@ class __extend__(SomeObject):
             if s_method is not None:
                 return s_method
             # if the SomeObject is itself a constant, allow reading its attrs
-            if obj.is_constant() and hasattr(obj.const, attr):
+            if obj.is_immutable_constant() and hasattr(obj.const, attr):
                 return immutablevalue(getattr(obj.const, attr))
         else:
             getbookkeeper().warning('getattr(%r, %r) is not RPythonic enough' %
@@ -478,6 +478,12 @@ class __extend__(SomeInstance):
     def hash(ins):
         getbookkeeper().needs_hash_support[ins.classdef] = True
         return SomeInteger()
+
+    def is_true_behavior(ins):
+        if ins.can_be_None:
+            return SomeBool()
+        else:
+            return immutablevalue(True)
 
 
 class __extend__(SomeBuiltin):

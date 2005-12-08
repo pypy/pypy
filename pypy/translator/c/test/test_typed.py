@@ -419,13 +419,8 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             
         a1 = A()
         def f():
-            a2 = A()
             for ii in range(1):
                 a1.append_to_list(X())
-                a2.append_to_list(X())
-            return a1.check_list_is_true() + 2 * a2.check_list_is_true()
+            return a1.check_list_is_true()
         fn = self.getcompiled(f)
-        assert fn() == 3        
-        
-
-            
+        assert fn() == 1

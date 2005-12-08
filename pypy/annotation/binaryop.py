@@ -101,42 +101,42 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     inplace_mod.can_only_throw = [ZeroDivisionError]
 
     def lt((obj1, obj2)):
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const < obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def le((obj1, obj2)):
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const <= obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def eq((obj1, obj2)):
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const == obj2.const)
         else:
             getbookkeeper().count("non_int_eq", obj1, obj2)
             return SomeBool()
 
     def ne((obj1, obj2)):
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const != obj2.const)
         else:
             getbookkeeper().count("non_int_eq", obj1, obj2)
             return SomeBool()
 
     def gt((obj1, obj2)):
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const > obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def ge((obj1, obj2)):
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const >= obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
@@ -144,7 +144,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
     def cmp((obj1, obj2)):
         getbookkeeper().count("cmp", obj1, obj2)
-        if obj1.is_constant() and obj2.is_constant():
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(cmp(obj1.const, obj2.const))
         else:
             return SomeInteger()

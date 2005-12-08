@@ -63,6 +63,7 @@ class SomeObject:
     for an arbitrary object about which nothing is known."""
     __metaclass__ = extendabletype
     knowntype = object
+    immutable = False
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -113,6 +114,9 @@ class SomeObject:
     def is_constant(self):
         return hasattr(self, 'const')
 
+    def is_immutable_constant(self):
+        return self.immutable and hasattr(self, 'const')
+
     # for debugging, record where each instance comes from
     # this is disabled if DEBUG is set to False
     _coming_from = {}
@@ -152,6 +156,7 @@ class SomeFloat(SomeObject):
     "Stands for a float or an integer."
     knowntype = float   # if we don't know if it's a float or an int,
                         # pretend it's a float.
+    immutable = True
 
     def can_be_none(self):
         return False
@@ -192,6 +197,7 @@ class SomeBool(SomeInteger):
 class SomeString(SomeObject):
     "Stands for an object which is known to be a string."
     knowntype = str
+    immutable = True
     def __init__(self, can_be_None=False):
         self.can_be_None = can_be_None
 
@@ -205,8 +211,9 @@ class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
 
 class SomeUnicodeCodePoint(SomeObject):
-    knowntype = unicode
     "Stands for an object known to be a unicode codepoint."
+    knowntype = unicode
+    immutable = True
 
     def can_be_none(self):
         return False
@@ -232,6 +239,7 @@ class SomeList(SomeObject):
 
 class SomeSlice(SomeObject):
     knowntype = slice
+    immutable = True
     def __init__(self, start, stop, step):
         self.start = start
         self.stop = stop
@@ -243,6 +251,7 @@ class SomeSlice(SomeObject):
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
     knowntype = tuple
+    immutable = True
     def __init__(self, items):
         self.items = tuple(items)   # tuple of s_xxx elements
         for i in items:
@@ -316,6 +325,8 @@ class SomeInstance(SomeObject):
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
+    immutable = True
+
     def __init__(self, descriptions, can_be_None=False):
         # descriptions is a set of Desc instances.
         descriptions = dict.fromkeys(descriptions)
@@ -390,6 +401,8 @@ class SomePBC(SomeObject):
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType
+    immutable = True
+
     def __init__(self, analyser, s_self=None, methodname=None):
         self.analyser = analyser
         self.s_self = s_self
@@ -414,6 +427,7 @@ class SomeExternalObject(SomeObject):
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
+    immutable = True
 
     def can_be_none(self):
         return False
@@ -428,6 +442,7 @@ s_ImpossibleValue = SomeImpossibleValue()
 from pypy.rpython.memory import lladdress
 
 class SomeAddress(SomeObject):
+    immutable = True
     def __init__(self, is_null=False):
         self.is_null = is_null
 
@@ -450,6 +465,7 @@ class SomeTypedAddressAccess(SomeObject):
 # annotation of low-level types
 
 class SomePtr(SomeObject):
+    immutable = True
     def __init__(self, ll_ptrtype):
         self.ll_ptrtype = ll_ptrtype
 
@@ -457,6 +473,7 @@ class SomePtr(SomeObject):
         return False
 
 class SomeLLADTMeth(SomeObject):
+    immutable = True
     def __init__(self, ll_ptrtype, func):
         self.ll_ptrtype = ll_ptrtype
         self.func = func 
@@ -473,11 +490,13 @@ class SomeOOInstance(SomeObject):
         self.ootype = ootype
 
 class SomeOOBoundMeth(SomeObject):
+    immutable = True
     def __init__(self, ootype, name):
         self.ootype = ootype
         self.name = name
 
 class SomeOOStaticMeth(SomeObject):
+    immutable = True
     def __init__(self, method):
         self.method = method
         

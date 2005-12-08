@@ -30,7 +30,7 @@ def constpropagate(func, args_s, s_result):
     """
     args = []
     for s in args_s:
-        if not s.is_constant():
+        if not s.is_immutable_constant():
             return s_result
         args.append(s.const)
     realresult = func(*args)
@@ -70,7 +70,7 @@ def builtin_range(*args):
 builtin_xrange = builtin_range # xxx for now allow it
 
 def builtin_bool(s_obj):
-    return constpropagate(bool, [s_obj], SomeBool())
+    return s_obj.is_true()
 
 def builtin_int(s_obj, s_base=None):
     assert (s_base is None or isinstance(s_base, SomeInteger)
@@ -172,7 +172,7 @@ def builtin_hasattr(s_obj, s_attr):
         getbookkeeper().warning('hasattr(%r, %r) is not RPythonic enough' %
                                 (s_obj, s_attr))
     r = SomeBool()
-    if s_obj.is_constant():
+    if s_obj.is_immutable_constant():
         r.const = hasattr(s_obj.const, s_attr.const)
     elif (isinstance(s_obj, SomePBC)
           and s_obj.getKind() is description.FrozenDesc):

@@ -68,7 +68,7 @@ class Scheduler(object):
 
     def run(self):            
         debug("running: length of runnables %s" % len(self.runnables))
-        while len(self.runnables):
+        while self.runnables:
             t = self.runnables.pop(0)
             debug("resuming %s(%s)" % (t.name, t.alive))
             self.current_tasklet = t
@@ -117,4 +117,5 @@ def test_simple():
         run()
         return c.get_count() == 25
     
-    assert wrap_stackless_function(f) == '1'
+    res = wrap_stackless_function(f)
+    assert res == '1'
