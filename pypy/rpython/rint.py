@@ -46,6 +46,8 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
             return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
         if r_from.lowleveltype == Signed and r_to.lowleveltype == SignedLongLong:
             return llops.genop('cast_int_to_longlong', [v], resulttype=SignedLongLong)
+        if r_from.lowleveltype == SignedLongLong and r_to.lowleveltype == Signed:
+            return llops.genop('truncate_longlong_to_int', [v], resulttype=Signed)
         return NotImplemented
 
     #arithmetic
@@ -281,7 +283,7 @@ class __extend__(IntegerRepr):
     def rtype_int(self, hop):
         if self.lowleveltype in (Unsigned, UnsignedLongLong):
             raise TyperError("use intmask() instead of int(r_uint(...))")
-        vlist = hop.inputargs(self)
+        vlist = hop.inputargs(Signed)
         return vlist[0]
 
     def rtype_float(_, hop):

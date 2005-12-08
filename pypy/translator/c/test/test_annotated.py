@@ -5,6 +5,9 @@ from pypy.translator.translator import TranslationContext
 
 from pypy.translator.test import snippet 
 
+from pypy.rpython.rarithmetic import r_ulonglong, r_longlong
+
+
 # XXX this tries to make compiling faster for full-scale testing
 from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
@@ -235,7 +238,6 @@ class TestAnnotatedTestCase:
         assert fn(-3) == 42
 
     def test_long_long(self):
-        from pypy.rpython.rarithmetic import r_ulonglong, r_longlong
         def f(i=r_ulonglong):
             return 4*i
         fn = self.getcompiled(f, view=False)
@@ -247,7 +249,6 @@ class TestAnnotatedTestCase:
         assert gn(sys.maxint) == 4*sys.maxint
 
     def test_specializing_int_functions(self):
-        from pypy.rpython.rarithmetic import r_longlong
         def f(i):
             return i + 1
         f._annspecialcase_ = "specialize:argtype0"
@@ -260,3 +261,9 @@ class TestAnnotatedTestCase:
         fn = self.getcompiled(g)
         assert g(0) == 1
         assert g(1) == 1
+
+    def test_downcast_int(self):
+        def f(i=r_longlong):
+            return int(i)
+        fn = self.getcompiled(f)
+        assert f(0) == 0

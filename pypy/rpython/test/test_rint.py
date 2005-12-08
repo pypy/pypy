@@ -115,3 +115,9 @@ def test_specializing_int_functions():
 
     res = interpret(g, [1])
     assert res == 1
+
+def test_downcast_int():
+    def f(i):
+        return int(i)
+    res = interpret(f, [r_longlong(0)])
+    assert res == 0

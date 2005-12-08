@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
 
+import sys
 import math
 import py
 
@@ -439,6 +440,11 @@ class LLFrame(object):
     def op_cast_int_to_longlong(self, b):
         assert type(b) is int
         return r_longlong(b)
+
+    def op_truncate_longlong_to_int(self, b):
+        assert type(b) is r_longlong
+        assert -sys.maxint-1 <= b <= sys.maxint
+        return int(b)
 
     def op_int_floordiv_ovf_zer(self, a, b):
         assert type(a) is int
