@@ -7,6 +7,8 @@ from pypy.interpreter.stablecompiler.transformer import Transformer
 import pypy.interpreter.stablecompiler.ast as test_ast
 import pypy.interpreter.astcompiler.ast as ast_ast
 
+flatten = ast_ast.flatten
+
 import py.test
 
 from pypy.interpreter.astcompiler import ast
@@ -24,8 +26,10 @@ def arglist_equal(left,right):
                 return False
         else:
             print "Type mismatch", repr(l), repr(r)
-            print "l is str", type(l)==str
-            print "r is AssName", isinstance(r,ast_ast.AssName)
+            print "l is str", repr(l), type(l)==str
+            print "r is AssName", repr(r), isinstance(r,ast_ast.AssName)
+	    print "left is", repr(left)
+	    print "right is", repr(right)
             return False
     return True
 
@@ -38,7 +42,14 @@ def nodes_equal(left, right, check_lineno=False):
         return False    
     if isinstance(left,test_ast.Function) and isinstance(right,ast_ast.Function):
         left_nodes = list(left.getChildren())
-        right_nodes = list(right.getChildren())
+        right_nodes = [] # generated ast differ here because argnames is a list of nodes in
+        right_nodes.append(right.decorators)
+        right_nodes.append(right.name)
+        right_nodes.append(right.argnames)
+        right_nodes.extend(flatten(right.defaults))
+        right_nodes.append(right.flags)
+        right_nodes.append(right.w_doc)
+        right_nodes.append(right.code)
         left_args = left_nodes[2]
         del left_nodes[2]
         right_args = right_nodes[2]
@@ -47,7 +58,14 @@ def nodes_equal(left, right, check_lineno=False):
             return False
     elif isinstance(left,test_ast.Lambda) and isinstance(right,ast_ast.Lambda):
         left_nodes = list(left.getChildren())
-        right_nodes = list(right.getChildren())
+        right_nodes = [] # generated ast differ here because argnames is a list of nodes in
+        right_nodes.append(right.argnames)
+        right_nodes.extend(flatten(right.defaults))
+        right_nodes.append(right.flags)
+        right_nodes.append(right.code)
+
+	print "left", repr(left_nodes)
+	print "right", repr(right_nodes)
         left_args = left_nodes[0]
         del left_nodes[0]
         right_args = right_nodes[0]

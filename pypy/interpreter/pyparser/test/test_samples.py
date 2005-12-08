@@ -95,6 +95,7 @@ def DISABLED_check_tuples_equality(pypy_tuples, python_tuples, testname):
 
 from pypy.interpreter.stablecompiler.transformer import Transformer as PyPyTransformer
 from compiler.transformer import Transformer as PythonTransformer
+from pypy.interpreter.astcompiler.consts import OP_ASSIGN, OP_DELETE, OP_APPLY
 
 def _check_tuples_equality(pypy_tuples, python_tuples, testname):
     # compare the two tuples by transforming them into AST, to hide irrelevant
@@ -126,6 +127,11 @@ def _check_tuples_equality(pypy_tuples, python_tuples, testname):
     #   astbuilder.py
     repr_pypy = repr_pypy.replace("[]", "()")
     repr_python = repr_python.replace("[]", "()")
+    # We also changed constants 'OP_ASSIGN' 'OP_DELETE' 'OP_APPLY' to use numeric values
+    repr_python = repr_python.replace("'OP_ASSIGN'", repr(OP_ASSIGN) )
+    repr_python = repr_python.replace("'OP_DELETE'", repr(OP_DELETE) )
+    repr_python = repr_python.replace("'OP_APPLY'", repr(OP_APPLY) )
+
     assert repr_pypy == repr_python
 
 

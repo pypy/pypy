@@ -7,6 +7,11 @@ Sequence    : as in S -> A B C
 KleeneStar   : as in S -> A* or S -> A+
 Token       : a lexer token
 """
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.error import OperationError
 
 DEBUG = 0
 USE_LOOKAHEAD = True
@@ -193,7 +198,7 @@ class BaseGrammarBuilder(AbstractBuilder):
 #######################################################################
 # Grammar Elements Classes (Alternative, Sequence, KleeneStar, Token) #
 #######################################################################
-class GrammarElement(object):
+class GrammarElement(Wrappable):
     """Base parser class"""
 
     symbols = {} # dirty trick to provide a symbols mapping while printing (and not putting it in every object)
@@ -344,6 +349,21 @@ class GrammarElement(object):
         pass
 
 
+    def descr_repr( self, space ):
+	"""TODO: make __repr__ RPython"""
+	import pysymbol
+	return space.wrap( self.display(0, pysymbol.sym_name) )
+
+    def descr_get_children( self, space ):
+	return space.newlist( [ space.wrap(it) for it in self.args ] )
+
+GrammarElement.typedef = TypeDef( "GrammarElement",
+				  #__repr__ = interp2app(GrammarElement.descr_repr,
+				  #                      unwrap_spec=['self', ObjSpace] ),
+				  get_children = interp2app(GrammarElement.descr_get_children,
+							    unwrap_spec=['self', ObjSpace] ),
+				  )
+
 class Alternative(GrammarElement):
     """Represents an alternative in a grammar rule (as in S -> A | B | C)"""
     def __init__(self, name, args):
@@ -440,7 +460,47 @@ class Alternative(GrammarElement):
                 return True
         return False
 
+    def descr_alternative_append( self, space, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	self.args.append( rule )
+
+    def descr_alternative___getitem__(self, space, idx ):
+	return space.wrap(self.args[idx])
     
+    def descr_alternative___setitem__(self, space, idx, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	return space.wrap( self.args[idx] )
+
+    def descr_alternative___delitem__(self, space, idx ):
+	del self.args[idx]
+
+    def descr_alternative_insert(self, space, idx, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	if idx<0 or idx>len(self.args):
+	    raise OperationError( space.w_IndexError, space.wrap("Invalid index") )
+	self.args.insert( idx, rule )
+
+
+
+Alternative.typedef = TypeDef("Alternative", GrammarElement.typedef,
+			      __getitem__ = interp2app( Alternative.descr_alternative___getitem__,
+							unwrap_spec=['self',ObjSpace,int]),
+			      __setitem__ = interp2app( Alternative.descr_alternative___setitem__,
+							unwrap_spec=['self',ObjSpace,int,W_Root]),
+			      __delitem__ = interp2app( Alternative.descr_alternative___delitem__,
+							unwrap_spec=['self',ObjSpace,int]),
+			      insert = interp2app( Alternative.descr_alternative_insert,
+						   unwrap_spec = ['self', ObjSpace, int, W_Root ] ),
+			      append = interp2app( Alternative.descr_alternative_append,
+						   unwrap_spec = ['self', ObjSpace, W_Root ] ),
+			      )
+
 class Sequence(GrammarElement):
     """Reprensents a Sequence in a grammar rule (as in S -> A B C)"""
     def __init__(self, name, args):
@@ -452,7 +512,7 @@ class Sequence(GrammarElement):
     def _match(self, source, builder, level=0):
         """matches all of the symbols in order"""
         if DEBUG > 1:
-            print "try seq:", self.display(level, builder.symbols )
+            print "try seq:", self.display(0, builder.symbols )
         ctx = source.context()
         bctx = builder.context()
         for rule in self.args:
@@ -474,7 +534,7 @@ class Sequence(GrammarElement):
             return name
         else:
             name = ""
-        items = [a.display(1) for a in self.args]
+        items = [a.display(1,symbols) for a in self.args]
         return name + "(" + " ".join( items ) + ")"
 
     def calc_first_set(self):
@@ -514,6 +574,47 @@ class Sequence(GrammarElement):
                 return False
         return True
 
+    def descr_alternative_append( self, space, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	self.args.append( rule )
+
+    def descr_alternative___getitem__(self, space, idx ):
+	return space.wrap(self.args[idx])
+    
+    def descr_alternative___setitem__(self, space, idx, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	return space.wrap( self.args[idx] )
+
+    def descr_alternative___delitem__(self, space, idx ):
+	del self.args[idx]
+
+    def descr_alternative_insert(self, space, idx, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	if idx<0 or idx>len(self.args):
+	    raise OperationError( space.w_IndexError, space.wrap("Invalid index") )
+	self.args.insert( idx, rule )
+
+
+
+Sequence.typedef = TypeDef("Sequence", GrammarElement.typedef,
+			      __getitem__ = interp2app( Sequence.descr_alternative___getitem__,
+							unwrap_spec=['self',ObjSpace,int]),
+			      __setitem__ = interp2app( Sequence.descr_alternative___setitem__,
+							unwrap_spec=['self',ObjSpace,int,W_Root]),
+			      __delitem__ = interp2app( Sequence.descr_alternative___delitem__,
+							unwrap_spec=['self',ObjSpace,int]),
+			      insert = interp2app( Sequence.descr_alternative_insert,
+						   unwrap_spec = ['self', ObjSpace, int, W_Root ] ),
+			      append = interp2app( Sequence.descr_alternative_append,
+						   unwrap_spec = ['self', ObjSpace, W_Root ] ),
+			      )
+
 
 class KleeneStar(GrammarElement):
     """Represents a KleeneStar in a grammar rule as in (S -> A+) or (S -> A*)"""
@@ -535,7 +636,7 @@ class KleeneStar(GrammarElement):
         represent infinity
         """
         if DEBUG > 1:
-            print "try kle:", self.display()
+            print "try kle:", self.display(0,builder.symbols)
         ctx = 0
         bctx = None
         if self.min:
@@ -573,7 +674,7 @@ class KleeneStar(GrammarElement):
             star = "*"
         elif self.min==1 and self.max==-1:
             star = "+"
-        s = self.args[0].display(1)
+        s = self.args[0].display(1, symbols)
         return name + "%s%s" % (s, star)
 
 
@@ -604,6 +705,28 @@ class KleeneStar(GrammarElement):
             if not rule.validate(n):
                 return False
         return True
+
+    def descr_kleenestar___getitem__(self, space, idx ):
+	if idx!=0:
+	    raise OperationError( space.w_ValueError, space.wrap("KleeneStar only support one child"))
+	return space.wrap(self.args[idx])
+    
+    def descr_kleenestar___setitem__(self, space, idx, w_rule ):
+	rule = space.interpclass_w(w_rule)
+	if idx!=0:
+	    raise OperationError( space.w_ValueError, space.wrap("KleeneStar only support one child"))
+	if not isinstance( rule, GrammarElement ):
+	    raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+	self.args[idx] = rule
+
+
+
+KleeneStar.typedef = TypeDef("KleeneStar", GrammarElement.typedef,
+			     __getitem__ = interp2app(KleeneStar.descr_kleenestar___getitem__,
+						      unwrap_spec=[ 'self', ObjSpace, int]),
+			     __setitem__ = interp2app(KleeneStar.descr_kleenestar___setitem__,
+						      unwrap_spec=[ 'self', ObjSpace, int, W_Root ]),
+			     )
 
 
 class Token(GrammarElement):
@@ -680,6 +803,8 @@ class Token(GrammarElement):
         if self.value == syntax_node.value:
             return True
         return False
+
+Token.typedef = TypeDef("Token", GrammarElement.typedef )
 
 from pypy.interpreter.pyparser.pytoken import NULLTOKEN
 EmptyToken = Token(NULLTOKEN, None)

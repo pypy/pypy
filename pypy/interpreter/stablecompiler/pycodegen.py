@@ -9,7 +9,7 @@ from cStringIO import StringIO
 from pypy.interpreter.stablecompiler import ast, parse, walk, syntax
 from pypy.interpreter.stablecompiler import pyassem, misc, future, symbols
 from pypy.interpreter.stablecompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_DEFAULT
+    SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_DELETE, OP_ASSIGN
 from pypy.interpreter.stablecompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.stablecompiler.pyassem import TupleArg
@@ -914,9 +914,9 @@ class CodeGenerator:
                 self.visit(elt)
 
     def visitAssName(self, node):
-        if node.flags == 'OP_ASSIGN':
+        if node.flags == OP_ASSIGN:
             self.storeName(node.name)
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.set_lineno(node)
             self.delName(node.name)
         else:
@@ -924,16 +924,16 @@ class CodeGenerator:
 
     def visitAssAttr(self, node):
         self.visit(node.expr)
-        if node.flags == 'OP_ASSIGN':
+        if node.flags == OP_ASSIGN:
             self.emit('STORE_ATTR', self.mangle(node.attrname))
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.emit('DELETE_ATTR', self.mangle(node.attrname))
         else:
             print "warning: unexpected flags:", node.flags
             print node
 
     def _visitAssSequence(self, node, op='UNPACK_SEQUENCE'):
-        if findOp(node) != 'OP_DELETE':
+        if findOp(node) != OP_DELETE:
             self.emit(op, len(node.nodes))
         for child in node.nodes:
             self.visit(child)
@@ -1098,11 +1098,11 @@ class CodeGenerator:
                 self.emit('DUP_TOPX', 3)
             else:
                 self.emit('DUP_TOPX', 2)
-        if node.flags == 'OP_APPLY':
+        if node.flags == OP_APPLY:
             self.emit('SLICE+%d' % slice)
-        elif node.flags == 'OP_ASSIGN':
+        elif node.flags == OP_ASSIGN:
             self.emit('STORE_SLICE+%d' % slice)
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.emit('DELETE_SLICE+%d' % slice)
         else:
             print "weird slice", node.flags
@@ -1116,11 +1116,11 @@ class CodeGenerator:
             self.emit('DUP_TOPX', 2)
         if len(node.subs) > 1:
             self.emit('BUILD_TUPLE', len(node.subs))
-        if node.flags == 'OP_APPLY':
+        if node.flags == OP_APPLY:
             self.emit('BINARY_SUBSCR')
-        elif node.flags == 'OP_ASSIGN':
+        elif node.flags == OP_ASSIGN:
             self.emit('STORE_SUBSCR')
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.emit('DELETE_SUBSCR')
 
     # binary ops

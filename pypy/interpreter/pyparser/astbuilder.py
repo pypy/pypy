@@ -591,7 +591,7 @@ def build_power(builder, nb):
         token = atoms[-2]
         if isinstance(token, TokenObject) and token.name == tok.DOUBLESTAR:
             obj = parse_attraccess(slicecut(atoms, 0, -2))
-            builder.push(ast.Power([obj, atoms[-1]], lineno))
+            builder.push(ast.Power( obj, atoms[-1], lineno))
         else:
             obj = parse_attraccess(atoms)
             builder.push(obj)
@@ -620,13 +620,13 @@ def build_term(builder, nb):
         op_node = atoms[i-1]
         assert isinstance(op_node, TokenObject)
         if op_node.name == tok.STAR:
-            left = ast.Mul( [ left, right ], left.lineno )
+            left = ast.Mul( left, right, left.lineno )
         elif op_node.name == tok.SLASH:
-            left = ast.Div( [ left, right ], left.lineno )
+            left = ast.Div( left, right, left.lineno )
         elif op_node.name == tok.PERCENT:
-            left = ast.Mod( [ left, right ], left.lineno )
+            left = ast.Mod( left, right, left.lineno )
         elif op_node.name == tok.DOUBLESLASH:
-            left = ast.FloorDiv( [ left, right ], left.lineno )
+            left = ast.FloorDiv( left, right, left.lineno )
         else:
             token = atoms[i-1]
             raise SyntaxError("unexpected token", token.lineno, token.col)
@@ -641,9 +641,9 @@ def build_arith_expr(builder, nb):
         op_node = atoms[i-1]
         assert isinstance(op_node, TokenObject)
         if op_node.name == tok.PLUS:
-            left = ast.Add([ left, right ], left.lineno)
+            left = ast.Add( left, right, left.lineno)
         elif op_node.name == tok.MINUS:
-            left = ast.Sub([ left, right ], left.lineno)
+            left = ast.Sub( left, right, left.lineno)
         else:
             token = atoms[i-1]
             raise SyntaxError("unexpected token", token.lineno, token.col)
@@ -659,9 +659,9 @@ def build_shift_expr(builder, nb):
         op_node = atoms[i-1]
         assert isinstance(op_node, TokenObject)
         if op_node.name == tok.LEFTSHIFT:
-            left = ast.LeftShift( [left, right], lineno )
+            left = ast.LeftShift( left, right, lineno )
         elif op_node.name == tok.RIGHTSHIFT:
-            left = ast.RightShift( [ left, right ], lineno )
+            left = ast.RightShift( left, right, lineno )
         else:
             token = atoms[i-1]
             raise SyntaxError("unexpected token", token.lineno, token.col)
@@ -1264,7 +1264,9 @@ def build_import_name(builder, nb):
         names.append((name, as_name))
         # move forward until next ','
         # XXX: what is it supposed to do ?
-        for atom in atoms[index:]:
+	while index<l:
+	    atom = atoms[index]
+#        for atom in atoms[index:]:
             if isinstance(atom, TokenObject) and atom.name == tok.COMMA:
                 break
             index += 1

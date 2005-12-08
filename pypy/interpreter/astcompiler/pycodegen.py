@@ -7,7 +7,7 @@ import sys
 from pypy.interpreter.astcompiler import ast, parse, walk, syntax
 from pypy.interpreter.astcompiler import pyassem, misc, future, symbols
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_DEFAULT
+    SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -313,9 +313,9 @@ class CodeGenerator(ast.ASTVisitor):
         assert node.scope is not None
         self.scope = node.scope
         self.emitop_int('SET_LINENO', 0)
-        if not space.is_w(node.doc, space.w_None):
+        if not space.is_w(node.w_doc, space.w_None):
             self.set_lineno(node)
-            self.emitop_obj('LOAD_CONST', node.doc)
+            self.emitop_obj('LOAD_CONST', node.w_doc)
             self.storeName('__doc__', node.lineno)
         node.node.accept( self )
         self.emitop_obj('LOAD_CONST', space.w_None )
@@ -332,8 +332,8 @@ class CodeGenerator(ast.ASTVisitor):
     def visitFunction(self, node):
         self._visitFuncOrLambda(node, isLambda=0)
         space = self.space
-        if not space.is_w(node.doc, space.w_None):
-            self.setDocstring(node.doc)
+        if not space.is_w(node.w_doc, space.w_None):
+            self.setDocstring(node.w_doc)
         self.storeName(node.name, node.lineno)
 
     def visitLambda(self, node):
@@ -892,29 +892,29 @@ class CodeGenerator(ast.ASTVisitor):
                 elt.accept( self )
 
     def visitAssName(self, node):
-        if node.flags == 'OP_ASSIGN':
+        if node.flags == OP_ASSIGN:
             self.storeName(node.name, node.lineno)
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.set_lineno(node)
             self.delName(node.name, node.lineno)
         else:
-            assert False, "visitAssName unexpected flags: %s" % node.flags
+            assert False, "visitAssName unexpected flags: %d" % node.flags
 
     def visitAssAttr(self, node):
         node.expr.accept( self )
-        if node.flags == 'OP_ASSIGN':
+        if node.flags == OP_ASSIGN:
             if node.attrname  == 'None':
                 raise SyntaxError('assignment to None is not allowed', node.lineno)
             self.emitop('STORE_ATTR', self.mangle(node.attrname))
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             if node.attrname == 'None':
                 raise SyntaxError('deleting None is not allowed', node.lineno)
             self.emitop('DELETE_ATTR', self.mangle(node.attrname))
         else:
-            assert False, "visitAssAttr unexpected flags: %s" % node.flags         
+            assert False, "visitAssAttr unexpected flags: %d" % node.flags
 
     def _visitAssSequence(self, node, op='UNPACK_SEQUENCE'):
-        if findOp(node) != 'OP_DELETE':
+        if findOp(node) != OP_DELETE:
             self.emitop_int(op, len(node.nodes))
         for child in node.nodes:
             child.accept( self )
@@ -1052,14 +1052,14 @@ class CodeGenerator(ast.ASTVisitor):
                 self.emitop_int('DUP_TOPX', 3)
             else:
                 self.emitop_int('DUP_TOPX', 2)
-        if node.flags == 'OP_APPLY':
+        if node.flags == OP_APPLY:
             self.emit('SLICE+%d' % slice)
-        elif node.flags == 'OP_ASSIGN':
+        elif node.flags == OP_ASSIGN:
             self.emit('STORE_SLICE+%d' % slice)
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.emit('DELETE_SLICE+%d' % slice)
         else:
-            assert False, "weird slice %s" % node.flags
+            assert False, "weird slice %d" % node.flags
 
     def visitSubscript(self, node):
         return self._visitSubscript(node, False)
@@ -1072,11 +1072,11 @@ class CodeGenerator(ast.ASTVisitor):
             self.emitop_int('DUP_TOPX', 2)
         if len(node.subs) > 1:
             self.emitop_int('BUILD_TUPLE', len(node.subs))
-        if node.flags == 'OP_APPLY':
+        if node.flags == OP_APPLY:
             self.emit('BINARY_SUBSCR')
-        elif node.flags == 'OP_ASSIGN':
+        elif node.flags == OP_ASSIGN:
             self.emit('STORE_SUBSCR')
-        elif node.flags == 'OP_DELETE':
+        elif node.flags == OP_DELETE:
             self.emit('DELETE_SUBSCR')
 
     # binary ops
@@ -1268,8 +1268,8 @@ class AbstractFunctionCode(CodeGenerator):
         CodeGenerator.__init__(self, space, graph)
         self.optimized = 1
 
-        if not isLambda and not space.is_w(func.doc, space.w_None):
-            self.setDocstring(func.doc)
+        if not isLambda and not space.is_w(func.w_doc, space.w_None):
+            self.setDocstring(func.w_doc)
 
         if func.varargs:
             self.graph.setFlag(CO_VARARGS)
@@ -1348,8 +1348,8 @@ class AbstractClassCode(CodeGenerator):
         CodeGenerator.__init__(self, space, graph)
         self.class_name = klass.name
         self.graph.setFlag(CO_NEWLOCALS)
-        if not space.is_w(klass.doc, space.w_None):
-            self.setDocstring(klass.doc)
+        if not space.is_w(klass.w_doc, space.w_None):
+            self.setDocstring(klass.w_doc)
 
     def get_module(self):
         return self.module
@@ -1371,8 +1371,8 @@ class ClassCodeGenerator(AbstractClassCode):
         self.set_lineno(klass)
         self.emitop("LOAD_GLOBAL", "__name__")
         self.storeName("__module__", klass.lineno)
-        if not space.is_w(klass.doc, space.w_None):
-            self.emitop_obj("LOAD_CONST", klass.doc)
+        if not space.is_w(klass.w_doc, space.w_None):
+            self.emitop_obj("LOAD_CONST", klass.w_doc)
             self.storeName('__doc__', klass.lineno)
 
 def findOp(node):
@@ -1384,20 +1384,20 @@ def findOp(node):
 
 class OpFinder(ast.ASTVisitor):
     def __init__(self):
-        self.op = None
+        self.op = OP_NONE
 
     def visitAssName(self, node):
-        if self.op is None:
+        if self.op is OP_NONE:
             self.op = node.flags
         elif self.op != node.flags:
             raise ValueError("mixed ops in stmt")
     def visitAssAttr(self, node):
-        if self.op is None:
+        if self.op is OP_NONE:
             self.op = node.flags
         elif self.op != node.flags:
             raise ValueError("mixed ops in stmt")
     def visitSubscript(self, node):
-        if self.op is None:
+        if self.op is OP_NONE:
             self.op = node.flags
         elif self.op != node.flags:
             raise ValueError("mixed ops in stmt")

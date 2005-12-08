@@ -149,3 +149,7 @@ def parse_single_input(textsrc, gram, builder ):
 def parse_eval_input(textsrc, gram, builder):
     """Parse a python expression"""
     return gram.parse_source( textsrc, "eval_input", builder )
+
+
+def grammar_rules( space ):
+    return space.wrap( PYTHON_PARSER.rules )
