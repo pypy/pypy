@@ -281,6 +281,12 @@ long op_divmod_adj(long x, long y, long *p_rem)
 
 #define OP_ULLONG_MUL OP_INT_MUL
 
+#define OP_LLONG_IS_TRUE OP_INT_IS_TRUE
+#define OP_LLONG_INVERT OP_INT_INVERT
+
+#define OP_LLONG_POS OP_INT_POS
+#define OP_LLONG_NEG OP_INT_NEG
+
 #define OP_LLONG_ADD OP_INT_ADD
 #define OP_LLONG_SUB OP_INT_SUB
 #define OP_LLONG_MUL OP_INT_MUL
@@ -295,7 +301,10 @@ long op_divmod_adj(long x, long y, long *p_rem)
 
 #define OP_LLONG_CMP OP_INT_CMP
 
-#define OP_LLONG_INVERT OP_INT_INVERT
 #define OP_LLONG_AND    OP_INT_AND
 #define OP_LLONG_OR     OP_INT_OR
 #define OP_LLONG_XOR    OP_INT_XOR
+
+#define OP_LLONG_ABS    OP_INT_ABS
+#define OP_LLONG_RSHIFT OP_INT_RSHIFT
+#define OP_LLONG_LSHIFT OP_INT_LSHIFT
