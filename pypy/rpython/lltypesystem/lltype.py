@@ -127,8 +127,9 @@ class ContainerType(LowLevelType):
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
 
-    def _install_adtmeths(self, adtmeths={}):
+    def _install_extras(self, adtmeths={}, hints={}):
         self._adtmeths = frozendict(adtmeths)
+        self._hints = frozendict(hints)
 
     def __getattr__(self, name):
         adtmeth = self._adtmeths.get(name, NFOUND)
@@ -175,7 +176,7 @@ class Struct(ContainerType):
         self._flds = frozendict(flds)
         self._names = tuple(names)
 
-        self._install_adtmeths(**kwds)
+        self._install_extras(**kwds)
 
     def _first_struct(self):
         if self._names:
@@ -277,7 +278,7 @@ class Array(ContainerType):
             raise TypeError("cannot have a GC structure as array item type")
         self.OF._inline_is_varsize(False)
 
-        self._install_adtmeths(**kwds)
+        self._install_extras(**kwds)
 
     def _inline_is_varsize(self, last):
         if not last:

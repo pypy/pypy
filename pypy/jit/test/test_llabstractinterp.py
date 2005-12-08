@@ -141,3 +141,15 @@ def test_simple_call():
         return ll2(x, y - z)
     graph2, insns = abstrinterp(ll1, [3, 4, 5], [1, 2])
     assert insns == {'direct_call': 1, 'int_add': 1}
+
+def test_simple_struct():
+    S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
+                                      ('world', lltype.Signed),
+                        hints={'immutable': True})
+    s = lltype.malloc(S)
+    s.hello = 6
+    s.world = 7
+    def ll_function(s):
+        return s.hello * s.world
+    graph2, insns = abstrinterp(ll_function, [s], [0])
+    assert insns == {}

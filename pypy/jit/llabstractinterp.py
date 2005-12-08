@@ -307,6 +307,9 @@ class LLAbstractInterp(object):
     def op_int_sub(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.sub)
 
+    def op_int_mul(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.mul)
+
     def op_int_gt(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.gt)
 
@@ -338,4 +341,24 @@ class LLAbstractInterp(object):
         a_result = LLRuntimeValue(op.result)
         self.residual("direct_call", [a_func] + args_a, a_result) 
         return a_result
-               
+
+    def op_getfield(self, op, a_ptr, a_attrname):
+        T = a_ptr.getconcretetype().TO
+        attrname = a_attrname.getvarorconst().value
+        RESULT = getattr(T, attrname)
+        if RESULT is lltype.Void:
+            return XXX_later
+        v_ptr = a_ptr.getvarorconst()
+        if isinstance(v_ptr, Constant):
+            if T._hints.get('immutable', False):
+                concreteresult = getattr(v_ptr.value, attrname)
+                if isinstance(a_ptr, LLConcreteValue):
+                    a_result = LLConcreteValue(concreteresult)
+                else:
+                    c_result = Constant(concreteresult)
+                    c_result.concretetype = lltype.typeOf(concreteresult)
+                    a_result = LLRuntimeValue(c_result)
+                return a_result
+        a_result = LLRuntimeValue(op.result)
+        self.residual("getfield", [a_ptr, a_attrname], a_result)
+        return a_result
