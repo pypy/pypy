@@ -619,8 +619,10 @@ def newsocket(space, w_subtype, family=socket.AF_INET,
 
     try:
         fd = rsocket.newsocket(family, type, proto)
-    except socket.error, e:
+    except socket.error, e: # On untranslated PyPy
         raise wrap_socketerror(space, e)
+    except OSError, e: # On translated PyPy
+        raise w_get_socketerror(space, e.strerror, e.errno)
     # XXX If we want to support subclassing the socket type we will need
     # something along these lines. But allocate_instance is only defined
     # on the standard object space, so this is not really correct.

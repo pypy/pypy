@@ -89,6 +89,9 @@ int LL__socket_newsocket(int family, int type, int protocol)
     if (fd < 0)
 #endif
     {
+        // Raise OSError instead of socket.error for convenience.
+        // XXX For some reason the errno attribute of the OSError is not set
+        // at interpreter level. Investigate ...
         RPYTHON_RAISE_OSERROR(errno);
     }
 }
