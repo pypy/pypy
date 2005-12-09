@@ -1,7 +1,8 @@
 import os
+
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython.rstack import yield_current_frame_to_caller
-import os
+
 # ____________________________________________________________
 # For testing
 
@@ -73,6 +74,7 @@ class Tasklet(Resumable):
         Resumable.__init__(self, fn)
         self.name = name
         self.blocked = False
+        self.data = -1
         
         # propogates round suspend-resume to tell scheduler in run()
         # XXX too late to think this thru
@@ -104,34 +106,32 @@ class Channel:
             t = self.queue.pop(0)
             t.data = value
             t.blocked = 0
-
-            # XXX Wrong - should run immediately
-            scheduler.add_tasklet(t)
+            scheduler.run_immediately(tasklet)
             scheduler.schedule()
             
         else:
             t = getcurrent()
+            assert isinstance(t, Tasklet)
             # let it wait for a receiver to come along
-            self.queue.append((t, value))
+            self.queue.append(t)
             t.blocked = 1
             scheduler.schedule_remove()
-
     
     def receive(self):
         self.balance -= 1
         # good to go
-        if self.balance > 0:
-            t, value = self.queue.pop(0)
+        if self.balance >= 0:
+            t = self.queue.pop(0)
             t.blocked = 0
             scheduler.add_tasklet(t)
-            return value
 
-        # block until ready
-        t = getcurrent()
-        self.queue.append(t)
-        t.blocked = -1
-        scheduler.schedule_remove()
-
+        else:
+            # block until ready
+            t = getcurrent()
+            self.queue.append(t)
+            t.blocked = -1
+            scheduler.schedule_remove()
+    
 class Scheduler(object):
     def __init__(self):
         self.runnables = []
@@ -295,4 +295,25 @@ def test_run_immediately():
     res = wrap_stackless_function(f)
     assert res == '1'
 
+def test_channels():
+    ch = Channel()
         
+    def f1(name):
+        for ii in range(5):
+            ch.send(ii)
+        debug("done sending")
+            
+    def f2(name):
+        while True:
+            ch.receive()
+            debug("received")
+
+    def f():
+        start_tasklet(Tasklet("f2", f2))
+        start_tasklet(Tasklet("f1", f1))
+        run()
+
+        return 0
+    
+    res = wrap_stackless_function(f)
+    assert res == '1'
