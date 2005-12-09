@@ -77,7 +77,7 @@ def ll__socket_ntohs(htons):
 ll__socket_ntohs.suggested_primitive = True
 
 def ll__socket_htons(ntohs):
-    return _socket.ntohs(htons)
+    return _socket.htons(ntohs)
 ll__socket_htons.suggested_primitive = True
 
 def ll__socket_htonl(ntohl):

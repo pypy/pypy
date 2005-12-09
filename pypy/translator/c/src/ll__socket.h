@@ -10,6 +10,8 @@
 # include <netinet/in.h>
 #endif
 
+static int
+setipaddr(char *name, struct sockaddr *addr_ret, size_t addr_ret_size, int af);
 int LL__socket_ntohs(int htons);
 int LL__socket_htons(int ntohs);
 long LL__socket_ntohl(long htonl);
@@ -121,6 +123,7 @@ RPySOCKET_SOCKNAME *LL__socket_getpeername(int fd)
     RPyString* host;
     
     memset((void *) &addr, '\0', sizeof(addr));
+    addr_len = sizeof(addr);
     if (getpeername(fd, (struct sockaddr *) &addr, &addr_len) < 0) {
         // XXX raise some error here
     }

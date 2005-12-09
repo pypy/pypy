@@ -76,7 +76,7 @@ def test_newsocket():
         return rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
     f1 = compile(does_stuff, [])
     res = f1()
-    assert isinstance(res, int)
+    assert isinstance(res, (int, long))
 
 def test_newsocket_error():
     from pypy.module._socket.rpython import rsocket
