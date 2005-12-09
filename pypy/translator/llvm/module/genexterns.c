@@ -60,29 +60,12 @@ void raw_memcopy(char *ptr1, char *ptr2, int size) {
   memcpy((void *) ptr2, (void *) ptr1, size);
 }
 
-// overflows/zeros/values raising operations
-#include "boehm.h"
-
 char *LLVM_RPython_StartupCode();
 
-char *pypy_malloc(unsigned int size) {
-  // use the macros luke
-  return GC_MALLOC(size);
-}
-
-char *pypy_malloc_atomic(unsigned int size) {
-  // use the macros luke
-  return GC_MALLOC_ATOMIC(size);
-}
+// boehm includes
+#include "boehm.h"
 
 #ifdef ENTRY_POINT_DEFINED
-
-extern GC_all_interior_pointers;
-char *RPython_StartupCode() {
-  GC_all_interior_pointers = 0;
-  GC_init();
-  return LLVM_RPython_StartupCode();
-}
 
 int __ENTRY_POINT__(RPyListOfString *);
 
@@ -121,13 +104,6 @@ int main(int argc, char *argv[])
 }
 
 #else
-extern GC_all_interior_pointers;
-
-char *RPython_StartupCode() {
-  GC_all_interior_pointers = 0;
-  GC_init();
-  return LLVM_RPython_StartupCode();
-}
 
 int Pyrex_RPython_StartupCode() {
 

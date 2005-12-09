@@ -12,3 +12,18 @@
 #endif
 
 #define USING_BOEHM_GC
+
+char *pypy_malloc(unsigned int size) {
+  return GC_MALLOC(size);
+}
+
+char *pypy_malloc_atomic(unsigned int size) {
+  return GC_MALLOC_ATOMIC(size);
+}
+
+extern GC_all_interior_pointers;
+  char *RPython_StartupCode() {
+  GC_all_interior_pointers = 0;
+  GC_init();
+  return LLVM_RPython_StartupCode();
+}
