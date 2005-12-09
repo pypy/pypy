@@ -25,6 +25,11 @@ globals = Globals()
 globals.count = 0
 
 def wrap_stackless_function(fn):
+    # ensure we have no SomeObject s
+    from pypy.annotation.policy import AnnotatorPolicy
+    annotatorpolicy = AnnotatorPolicy()
+    annotatorpolicy.allow_someobjects = False
+
     from pypy.translator.translator import TranslationContext
     from pypy.translator.c.genc import CStandaloneBuilder
     from pypy.annotation.model import SomeList, SomeString
@@ -38,7 +43,7 @@ def wrap_stackless_function(fn):
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
     s_list_of_strings.listdef.resize()
     t = TranslationContext()
-    t.buildannotator().build_types(entry_point, [s_list_of_strings])
+    t.buildannotator(annotatorpolicy).build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
     backend_optimizations(t)
     cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gcpolicy)
@@ -385,3 +390,64 @@ def test_channel3():
 
     res = wrap_stackless_function(f)
     assert res == '1'
+
+
+def test_channel4():
+    """ test with something other than int """
+
+    class A:
+        pass
+    
+    class Data(object):
+        pass
+    
+    class IntData(Data):
+        def __init__(self, d):
+            self.d = d
+
+    class StringData(Data):
+        def __init__(self, d):
+            self.d = d
+
+    class InstanceAData(Data):
+        def __init__(self, d):
+            self.d = d
+
+    ch1 = Channel()
+    ch2 = Channel()
+    ch3 = Channel()
+        
+    def f1(name):
+        for ii in range(5):
+            ch1.send(IntData(ii))
+
+    def f2(name):
+        for ii in range(5):
+            ch2.send(StringData("asda"))
+
+    def f3(name):
+        for ii in range(5):
+            ch3.send(StringData("asda"))
+            
+    def fr(name):
+        #while True:
+        for ii in range(11):
+            data3 = ch3.receive()
+            globals.count += 1
+            data1 = ch1.receive()
+            globals.count += 1
+            data2 = ch2.receive()
+            globals.count += 1
+            
+    def f():
+        start_tasklet(Tasklet("fr", fr))
+        start_tasklet(Tasklet("f1", f1))
+        start_tasklet(Tasklet("f2", f2))
+        start_tasklet(Tasklet("f3", f3))
+        run()
+        debug("asd %s" % globals.count)
+        return (globals.count == 15)
+
+    res = wrap_stackless_function(f)
+    assert res == '1'
+    
