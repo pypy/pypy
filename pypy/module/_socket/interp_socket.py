@@ -709,6 +709,9 @@ class Socket(Wrappable):
             port = space.int_w(addr_w[1])
             try:
                 rsocket.connect(self.fd, host, port)
+            except OSError, ex:
+                raise w_get_socketerror(space, e.strerror, e.errno)
+            # XXX timeout doesn't really work at the moment
             except socket.timeout:
                 raise wrap_timeouterror(space)
             except socket.error, e:

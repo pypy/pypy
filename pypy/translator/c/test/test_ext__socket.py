@@ -103,3 +103,19 @@ def test_connect():
     f1 = compile(does_stuff, [])
     res = f1()
     assert res == 80
+
+def test_connect_error():
+    from pypy.module._socket.rpython import rsocket
+    import os
+    tests = [
+        ("blablablablabla", 80),
+        ("127.0.0.1", 909090),
+        ("127.0.0.1", -2),
+    ]
+    def does_stuff(host, port):
+        fd = rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        rsocket.connect(fd, host, port)
+        os.close(fd)
+    f1 = compile(does_stuff, [str, int])
+    for args in tests:
+        py.test.raises(OSError, f1, *args)

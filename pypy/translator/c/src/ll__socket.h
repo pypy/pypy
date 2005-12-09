@@ -108,12 +108,16 @@ void LL__socket_connect(int fd, RPyString *host, int port)
     
     if (setipaddr(RPyString_AsString(host), (struct sockaddr *) &addr,
 		      sizeof(addr), AF_INET) < 0) {
-        // XXX raise some error here
+        // XXX we actually want to raise socket.error
+        RPYTHON_RAISE_OSERROR(errno);
+        return NULL;
     }
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     if (connect(fd, &addr, sizeof(addr)) < 0) {
-        // XXX raise some error here
+        // XXX we actually want to raise socket.error
+        RPYTHON_RAISE_OSERROR(errno);
+        return NULL;
     }
 }
 
