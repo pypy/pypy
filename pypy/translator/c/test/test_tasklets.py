@@ -39,7 +39,6 @@ def wrap_stackless_function(fn):
     s_list_of_strings.listdef.resize()
     t = TranslationContext()
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
-    t.view()
     t.buildrtyper().specialize()
     backend_optimizations(t)
     cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gcpolicy)
@@ -64,9 +63,11 @@ class Resumable(object):
         self.resumable = resumable
 
     def suspend(self):
+        # we suspend ourself
         self.caller = self.caller.switch()  
         
     def resume(self):
+        # the caller resumes me
         self.resumable = self.resumable.switch()  
         self.alive = self.resumable is not None
     
@@ -75,7 +76,6 @@ class Tasklet(Resumable):
         Resumable.__init__(self, fn)
         self.name = name
         self.blocked = 0
-        self.data = -1
         
         # propogates round suspend-resume to tell scheduler in run()
         # XXX too late to think this thru
@@ -107,16 +107,26 @@ class Channel:
             t = self.queue.pop(0)
             t.data = value
             t.blocked = 0
+            t.remove = False
             scheduler.run_immediately(t)
             scheduler.schedule()
+
+            # resuming
+            t = getcurrent()
+            assert t.blocked == 0
             
         else:
             t = getcurrent()
             assert isinstance(t, Tasklet)
+            t.data = value
             # let it wait for a receiver to come along
             self.queue.append(t)
             t.blocked = 1
             schedule_remove()
+
+            # resuming
+            assert t == getcurrent()
+            assert t.blocked == 0
     
     def receive(self):
         self.balance -= 1
@@ -124,17 +134,25 @@ class Channel:
         if self.balance >= 0:
             t = self.queue.pop(0)
             t.blocked = 0
+            t.remove = False
             data = t.data
             scheduler.add_tasklet(t)
             return data
         else:
-            # block until ready
+            # queue ourself
             t = getcurrent()
             assert isinstance(t, Tasklet)
             self.queue.append(t)
+
+            # block until send has reenabled me
             t.blocked = -1
             schedule_remove()
-            return -1 # never reached
+
+            # resuming
+            assert t == getcurrent()
+            assert t.blocked == 0
+
+            return t.data
     
 class Scheduler(object):
     def __init__(self):
@@ -155,6 +173,7 @@ class Scheduler(object):
             count = 0
             for t in runnables:
                 assert self.current_tasklet is None
+
                 self.current_tasklet = t
                 if t.resume():
                     self.runnables.append(self.current_tasklet)
@@ -299,30 +318,70 @@ def test_run_immediately():
     res = wrap_stackless_function(f)
     assert res == '1'
 
-def test_channels():
+def test_channel1():
     ch = Channel()
         
     def f1(name):
         for ii in range(5):
             ch.send(ii)
-        debug("done sending")
             
     def f2(name):
-        for ii in range(5):
-            data = ch.receive()
-            debug("done receiving")
-##        while True:
-##            data = ch.receive()
-##            if data == 42:
-##                break
-##            debug("received")
+        #while True:
+        for ii in range(6):
+            globals.count += ch.receive()
 
     def f():
         start_tasklet(Tasklet("f2", f2))
         start_tasklet(Tasklet("f1", f1))
         run()
+        return (globals.count == 10)
 
-        return 0
-    
+    res = wrap_stackless_function(f)
+    assert res == '1'
+
+def test_channel2():
+    ch = Channel()
+        
+    def f1(name):
+        for ii in range(5):
+            ch.send(ii)
+            
+    def f2(name):
+        #while True:
+        for ii in range(6):
+            res = ch.receive()
+            globals.count += res
+            
+    def f():
+        start_tasklet(Tasklet("f1", f1))
+        start_tasklet(Tasklet("f2", f2))
+        run()
+        return (globals.count == 10)
+
+    res = wrap_stackless_function(f)
+    assert res == '1'
+
+
+def test_channel3():
+    ch = Channel()
+        
+    def f1(name):
+        for ii in range(5):
+            ch.send(ii)
+            
+    def f2(name):
+        #while True:
+        for ii in range(16):
+            res = ch.receive()
+            globals.count += res
+            
+    def f():
+        start_tasklet(Tasklet("f1x", f1))
+        start_tasklet(Tasklet("f1xx", f1))
+        start_tasklet(Tasklet("f1xxx", f1))
+        start_tasklet(Tasklet("f2", f2))
+        run()
+        return (globals.count == 30)
+
     res = wrap_stackless_function(f)
     assert res == '1'
