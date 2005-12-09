@@ -29,7 +29,7 @@ going well.  There has been work on the JIT, supporting larger integers and
 sockets in RPython, making the stackless option more useful, performance,
 compiler flexibility, documentation and probably even more.
 
-.. _`sprint report`: http://please/write/me
+.. _`sprint report`: http://codespeak.net/pipermail/pypy-dev/2005q4/002656.html
 
 
 IRC Summary
@@ -56,13 +56,13 @@ Thanks again to Pieter for this.  We need to talk about formatting :)
 
 **Sunday** http://tismerysoft.de/pypy/irc-logs/pypy/%23pypy.log.20051204::
 
-  [14:03] Stakkars asks about the necessity of 3 stacks in the pypy
-          system. One for floats, ints and addresses. After remarks about
-          easier CPU support, Arigo replies that there is simply no sane
-          way to do RPython with a single one.
+  [14:03] Stakkars asks about the necessity of 3 stacks in the l3interpreter
+          that Armin has been working on. One for floats, ints and
+          addresses. After remarks about easier CPU support, Arigo replies
+          that there is simply no sane way to write RPython with a single one.
   [18:26] Gromit asks how ready pypy is for production usage. He is
-          interested in pypy as a smalltalk-like environment, since its
-          objects spaces is reminiscent of smalltalk vm images.
+          interested in pypy as a smalltalk-like environment, since he deems
+          objects spaces to be reminiscent of smalltalk vm images.
   [18:31] Stakkars states that he believes the project should postpone
           advanced technologies, in favour of getting the groundwork to a
           level where the project really becomes a CPython alternative.
