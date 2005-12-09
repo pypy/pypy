@@ -97,7 +97,9 @@ int LL__socket_newsocket(int family, int type, int protocol)
         // XXX For some reason the errno attribute of the OSError is not set
         // at interpreter level. Investigate ...
         RPYTHON_RAISE_OSERROR(errno);
+        return -1;
     }
+    return fd;
 }
 
 void LL__socket_connect(int fd, RPyString *host, int port)
