@@ -361,6 +361,27 @@ def test_getRuntimeTypeInfo():
     assert getRuntimeTypeInfo(Sbis) != pinf0
     assert Sbis != S # the attached runtime type info distinguishes them
 
+def test_getRuntimeTypeInfo_destrpointer():
+    S = GcStruct('s', ('x', Signed))
+    def f(s):
+        s.x = 1
+    def type_info_S(p):
+        return getRuntimeTypeInfo(S)
+    qp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
+                     "type_info_S", 
+                     _callable=type_info_S)
+    dp = functionptr(FuncType([Ptr(S)], Void), 
+                     "destructor_funcptr", 
+                     _callable=f)
+    pinf0 = attachRuntimeTypeInfo(S, qp, destrptr=dp)
+    assert pinf0._obj.about == S
+    pinf = getRuntimeTypeInfo(S)
+    assert pinf == pinf0
+    pinf1 = getRuntimeTypeInfo(S)
+    assert pinf == pinf1
+    assert pinf._obj.destructor_funcptr == dp
+    assert pinf._obj.query_funcptr == qp
+
 def test_runtime_type_info():
     S = GcStruct('s', ('x', Signed))
     attachRuntimeTypeInfo(S)

@@ -250,7 +250,7 @@ class Struct(ContainerType):
 class GcStruct(Struct):
     _runtime_type_info = None
 
-    def _attach_runtime_type_info_funcptr(self, funcptr):
+    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
         if self._runtime_type_info is None:
             self._runtime_type_info = opaqueptr(RuntimeTypeInfo, name=self._name, about=self)._obj
         if funcptr is not None:
@@ -263,6 +263,17 @@ class GcStruct(Struct):
                 raise TypeError("expected a runtime type info function "
                                 "implementation, got: %s" % funcptr)
             self._runtime_type_info.query_funcptr = funcptr
+        if destrptr is not None :
+            T = typeOf(destrptr)
+            if (not isinstance(T, Ptr) or
+                not isinstance(T.TO, FuncType) or
+                len(T.TO.ARGS) != 1 or
+                T.TO.RESULT != Void or
+                castable(T.TO.ARGS[0], Ptr(self)) < 0):
+                raise TypeError("expected a destructor function "
+                                "implementation, got: %s" % destrptr)
+            self._runtime_type_info.destructor_funcptr = destrptr
+           
 
 class Array(ContainerType):
     __name__ = 'array'
@@ -969,10 +980,10 @@ def cast_ptr_to_int(ptr):
     return id(obj)
 
 
-def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None):
+def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, GcStruct):
         raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
-    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr)
+    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):
