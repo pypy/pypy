@@ -323,6 +323,10 @@ class Database(object):
     def repr_name(self, obj):
         return self.obj2node[obj].ref
 
+    def repr_value(self, value):
+        # XXX Testing
+        return self.obj2node[value].get_ref()
+
     # __________________________________________________________
     # Primitive stuff
 
