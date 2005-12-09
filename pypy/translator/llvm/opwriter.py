@@ -77,7 +77,7 @@ class OpWriter(object):
                          'uint_lshift': 'shl',
                          'uint_rshift': 'shr',
                          
-			 'llong_lshift': 'shl',
+                         'llong_lshift': 'shl',
                          'llong_rshift': 'shr',
                          }
 

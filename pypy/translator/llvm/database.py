@@ -36,8 +36,8 @@ class Database(object):
             lltype.Float: "double",
             lltype.UniChar: "uint",
             lltype.Void: "void",
-	    lltype.UnsignedLongLong: "ulong",
-	    lltype.SignedLongLong: "long",
+            lltype.UnsignedLongLong: "ulong",
+            lltype.SignedLongLong: "long",
             Address: "sbyte*"}
 
         # 32 bit platform
