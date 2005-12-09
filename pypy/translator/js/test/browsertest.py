@@ -30,11 +30,15 @@ function runTest() {
         }
     }
 
-    if (result != undefined || !in_browser) {  // if no timeout (i.e. not long running)
-        var resultform = document.forms['resultform'];
-        resultform.result.value = result;
-        resultform.submit();
+    if (result != undefined || !in_browser) {  // if valid result (no timeout)
+        handle_result(result);
     }
+};
+
+function handle_result(result) {
+    var resultform = document.forms['resultform'];
+    resultform.result.value = result;
+    resultform.submit();
 };
 </script>
 </head>

@@ -13,3 +13,8 @@ function ll_stack_too_big() {
     return false;
 }
 ll_stack_too_big__ = ll_stack_too_big;
+
+function ll_stack_unwind() {
+    throw "Recursion limit exceeded";
+}
+ll_stack_unwind__ = ll_stack_unwind;

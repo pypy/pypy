@@ -7,6 +7,7 @@ var slp_return_value       = undefined;
 var slp_timeout            = false;
 var slp_start_time         = undefined;
 var slp_stack_depth        = 0;
+var slp_max_stack_depth    = 75;    // XXX make this browser dependent (75:Safari, 750:Firefox/Spidermonkey, more:IE)
 
 function function_name(func) {
     var s = func.toString().split("\n");
@@ -36,7 +37,7 @@ ll_stackless_stack_frames_depth__ = ll_stackless_stack_frames_depth
 //
 
 function ll_stack_too_big() {
-    var result = slp_stack_depth > 500;   // Firefox has a recursion limit of 1000 (others allow more)
+    var result = slp_stack_depth > slp_max_stack_depth;   // Firefox has a recursion limit of 1000 (others allow more)
     LOG("ll_stack_to_big result=" + result);
 
     if (!result && in_browser && false) {
@@ -166,6 +167,7 @@ function slp_main_loop() {
         }
     }
     log("REALLY FINISHED");
+    handle_result(slp_return_value);
 }
 
 // 

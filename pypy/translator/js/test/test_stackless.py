@@ -107,7 +107,7 @@ def test_stack_too_big():
     def fn():
         return f(0)
     data = wrap_stackless_function(fn)
-    assert int(data.strip()) == 494
+    assert int(data.strip()) > 50   #conservative estimate because the value is browser dependent
 
 
 def test_stack_unwind():
