@@ -119,6 +119,16 @@ def _try_inline_malloc(info):
             continue   # ok
         return False
 
+    # must not remove mallocs of structures that have a RTTI with a destructor
+
+    try:
+        destr_ptr = lltype.getRuntimeTypeInfo(STRUCT)._obj.destructor_funcptr
+        if destr_ptr:
+            return False
+    except (ValueError, AttributeError), e:
+        print e
+        pass
+    
     # success: replace each variable with a family of variables (one per field)
     example = STRUCT._container_example()
     flatnames = []

@@ -1,6 +1,7 @@
+import py
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.inline import inline_function
-from pypy.translator.translator import TranslationContext, graphof
+from pypy.translator.translator import TranslationContext, Translator, graphof
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.llinterp import LLInterpreter
 
@@ -109,3 +110,33 @@ def test_with_keepalive():
         keepalive_until_here(t)
         return s*d
     check(fn1, [int, int], [15, 10], 125)
+
+def test_dont_remove_with__del__():
+    import os
+    delcalls = [0]
+    class A(object):
+        nextid = 0
+        def __init__(self):
+            self.id = self.nextid
+            self.nextid += 1
+
+        def __del__(self):
+            delcalls[0] += 1
+            os.write(1, "__del__\n")
+
+    def f(x=int):
+        a = A()
+        i = 0
+        while i < x:
+            a = A()
+            os.write(1, str(delcalls[0]) + "\n")
+            i += 1
+        return 1
+    t = Translator(f)
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    graph = graphof(t, f)
+    t.backend_optimizations()
+    op = graph.startblock.exits[0].target.exits[1].target.operations[0]
+    assert op.opname == "malloc"
+
