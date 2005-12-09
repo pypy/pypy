@@ -39,6 +39,7 @@ def wrap_stackless_function(fn):
     s_list_of_strings.listdef.resize()
     t = TranslationContext()
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
+    t.view()
     t.buildrtyper().specialize()
     backend_optimizations(t)
     cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gcpolicy)
@@ -105,8 +106,8 @@ class Channel:
         if self.balance <= 0:
             t = self.queue.pop(0)
             t.data = value
-            ##!!t.blocked = 0
-            scheduler.run_immediately(tasklet)
+            t.blocked = 0
+            scheduler.run_immediately(t)
             scheduler.schedule()
             
         else:
@@ -114,7 +115,7 @@ class Channel:
             assert isinstance(t, Tasklet)
             # let it wait for a receiver to come along
             self.queue.append(t)
-            ##!!t.blocked = 1
+            t.blocked = 1
             schedule_remove()
     
     def receive(self):
@@ -122,15 +123,18 @@ class Channel:
         # good to go
         if self.balance >= 0:
             t = self.queue.pop(0)
-            ##!!t.blocked = 0
+            t.blocked = 0
+            data = t.data
             scheduler.add_tasklet(t)
-
+            return data
         else:
             # block until ready
             t = getcurrent()
+            assert isinstance(t, Tasklet)
             self.queue.append(t)
-            ##!!t.blocked = -1
+            t.blocked = -1
             schedule_remove()
+            return -1 # never reached
     
 class Scheduler(object):
     def __init__(self):
@@ -304,9 +308,14 @@ def test_channels():
         debug("done sending")
             
     def f2(name):
-        while True:
-            ch.receive()
-            debug("received")
+        for ii in range(5):
+            data = ch.receive()
+            debug("done receiving")
+##        while True:
+##            data = ch.receive()
+##            if data == 42:
+##                break
+##            debug("received")
 
     def f():
         start_tasklet(Tasklet("f2", f2))
