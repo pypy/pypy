@@ -339,10 +339,13 @@ class InstanceRepr(AbstractInstanceRepr):
             if (self.classdef is not None and
                 self.classdef.classdesc.lookup('__del__') is not None):
                 s_func = self.classdef.classdesc.s_read_attribute('__del__')
+                source_desc = self.classdef.classdesc.lookup('__del__')
+                source_classdef = source_desc.getclassdef(None)
+                source_repr = getinstancerepr(self.rtyper, source_classdef)
                 assert len(s_func.descriptions) == 1
                 funcdesc = s_func.descriptions.keys()[0]
                 graph = funcdesc.cachedgraph(None)
-                FUNCTYPE = FuncType([Ptr(self.object_type)], Void)
+                FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
                                        _callable=graph.func)

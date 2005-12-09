@@ -387,5 +387,48 @@ def test__del__():
     destrptr = RTTI._obj.destructor_funcptr
     assert destrptr is not None
     
-    
-
+   
+def test_del_inheritance():
+    class State:
+        pass
+    s = State()
+    s.a_dels = 0
+    s.b_dels = 0
+    class A(object):
+        def __del__(self):
+            s.a_dels += 1
+    class B(A):
+        def __del__(self):
+            s.b_dels += 1
+    class C(A):
+        pass
+    def f():
+        A()
+        B()
+        C()
+        A()
+        B()
+        C()
+        return s.a_dels * 10 + s.b_dels
+    res = f()
+    assert res == 42
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    t.buildrtyper().specialize()
+    graph = graphof(t, f)
+    TYPEA = graph.startblock.operations[0].args[0].value
+    RTTIA = getRuntimeTypeInfo(TYPEA)
+    TYPEB = graph.startblock.operations[3].args[0].value
+    RTTIB = getRuntimeTypeInfo(TYPEB)
+    TYPEC = graph.startblock.operations[6].args[0].value
+    RTTIC = getRuntimeTypeInfo(TYPEC)
+    queryptra = RTTIA._obj.query_funcptr # should not raise
+    queryptrb = RTTIB._obj.query_funcptr # should not raise
+    queryptrc = RTTIC._obj.query_funcptr # should not raise
+    destrptra = RTTIA._obj.destructor_funcptr
+    destrptrb = RTTIB._obj.destructor_funcptr
+    destrptrc = RTTIC._obj.destructor_funcptr
+    assert destrptra == destrptrc
+    assert typeOf(destrptra).TO.ARGS[0] != typeOf(destrptrb).TO.ARGS[0]
+    assert destrptra is not None
+    assert destrptrb is not None
