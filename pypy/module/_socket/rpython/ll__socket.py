@@ -102,7 +102,3 @@ ll__socket_connect.suggested_primitive = True
 def ll__socket_getpeername(fd):
     return ("", 0, 0, 0)
 ll__socket_getpeername.suggested_primitive = True
-
-def ll__socket_freesockname(sockname):
-    return None
-ll__socket_freesockname.suggested_primitive = True

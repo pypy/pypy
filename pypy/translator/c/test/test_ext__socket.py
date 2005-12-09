@@ -91,14 +91,15 @@ def test_newsocket_error():
         py.test.raises(OSError, f1, *args)
 
 def test_connect():
+    import os
     from pypy.module._socket.rpython import rsocket
     def does_stuff():
         fd = rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         # XXX need to think of a test without connecting to outside servers
         rsocket.connect(fd, "codespeak.net", 80)
         sockname = rsocket.getpeername(fd)
-        port = sockname[1]
-        rsocket.freesockname(sockname)
-        return port
+        os.close(fd)
+        return sockname[1]
     f1 = compile(does_stuff, [])
-    assert f1() == 80
+    res = f1()
+    assert res == 80

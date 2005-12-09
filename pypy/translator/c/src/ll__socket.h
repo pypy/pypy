@@ -102,12 +102,12 @@ void LL__socket_connect(int fd, RPyString *host, int port)
 {
     struct sockaddr_in addr;
     
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons((short)port);
     if (setipaddr(RPyString_AsString(host), (struct sockaddr *) &addr,
 		      sizeof(addr), AF_INET) < 0) {
-        // XXX raise some error here 
+        // XXX raise some error here
     }
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
     if (connect(fd, &addr, sizeof(addr)) < 0) {
         // XXX raise some error here
     }
@@ -122,16 +122,15 @@ RPySOCKET_SOCKNAME *LL__socket_getpeername(int fd)
     
     memset((void *) &addr, '\0', sizeof(addr));
     if (getpeername(fd, (struct sockaddr *) &addr, &addr_len) < 0) {
-        // XXX raise some error
+        // XXX raise some error here
     }
     
     host = RPyString_FromString(inet_ntoa(addr.sin_addr));
+#if !defined(USING_BOEHM_GC) && !defined(USING_NO_GC)
+    host->refcount--; // XXX this is not sane, but there is no better way
+                      // at the moment.
+#endif
     return ll__socket_sockname(host, addr.sin_port, 0, 0);
-}
-
-void LL__socket_freesockname(RPySOCKET_SOCKNAME *sockname)
-{
-	free(sockname);
 }
 
 /* ____________________________________________________________________________ */

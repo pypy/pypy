@@ -69,7 +69,6 @@ EXTERNALS = {
     ll__socket.ll__socket_newsocket: 'LL__socket_newsocket',
     ll__socket.ll__socket_connect: 'LL__socket_connect',
     ll__socket.ll__socket_getpeername: 'LL__socket_getpeername',
-    ll__socket.ll__socket_freesockname: 'LL__socket_freesockname',
     }
 
 #______________________________________________________

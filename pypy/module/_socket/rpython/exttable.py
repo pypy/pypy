@@ -47,7 +47,6 @@ declare(_socket.htonl, int, '%s/htonl' % module)
 declare(rsocket.newsocket, int, '%s/newsocket' % module)
 declare(rsocket.connect, noneannotation, '%s/connect' % module)
 declare(rsocket.getpeername, ann_sockname, '%s/getpeername' % module)
-declare(rsocket.freesockname, noneannotation, '%s/freesockname' % module)
 
 # ____________________________________________________________
 # _socket.error can be raised by the above
