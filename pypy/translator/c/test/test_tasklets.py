@@ -1,13 +1,35 @@
-from pypy.translator.translator import TranslationContext
-from pypy.translator.c.genc import CStandaloneBuilder
-from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.listdef import ListDef
-from pypy.rpython.rstack import stack_unwind, stack_frames_depth, stack_too_big
-from pypy.rpython.rstack import yield_current_frame_to_caller
-from pypy.translator.backendopt.all import backend_optimizations
 import os
+from pypy.rpython.memory.lladdress import NULL
+from pypy.rpython.rstack import yield_current_frame_to_caller
+import os
+# ____________________________________________________________
+# For testing
+
+from pypy.translator.c.gc import BoehmGcPolicy
+gcpolicy = None #BoehmGcPolicy 
+debug_flag = True
+
+# count of loops in tests (set lower to speed up)
+loops = 5000
+    
+def debug(s):
+    if debug_flag:
+        os.write(2, "%s\n" % s)
+
+class Globals:
+    def __init__(self):
+        pass
+
+globals = Globals()
+globals.count = 0
 
 def wrap_stackless_function(fn):
+    from pypy.translator.translator import TranslationContext
+    from pypy.translator.c.genc import CStandaloneBuilder
+    from pypy.annotation.model import SomeList, SomeString
+    from pypy.annotation.listdef import ListDef
+    from pypy.translator.backendopt.all import backend_optimizations
+
     def entry_point(argv):
         os.write(1, str(fn()))
         return 0
@@ -18,7 +40,7 @@ def wrap_stackless_function(fn):
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
     backend_optimizations(t)
-    cbuilder = CStandaloneBuilder(t, entry_point)
+    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gcpolicy)
     cbuilder.stackless = True
     cbuilder.generate_source()
     cbuilder.compile()
@@ -26,39 +48,79 @@ def wrap_stackless_function(fn):
 
 # ____________________________________________________________
 
-def debug(s):
-    #os.write(1, "%s\n" % s)
-    pass
-
-class Tasklet(object):
-
-    def __init__(self, name, fn):
+class Resumable(object):
+    def __init__(self, fn):
         self.fn = fn
-        self.name = name
         self.alive = False
 
+        # propogates round suspend-resume to tell scheduler in run()
+        # XXX too late to think this thru
+        self.remove = False
+        
     def start(self):
-        debug("starting %s" % self.name)
         self.caller = yield_current_frame_to_caller()
-
-        debug("entering %s" % self.name)
         self.fn(self.name)
-        debug("leaving %s" % self.name)
         return self.caller
 
-    def setalive(self, resumable):
-        self.alive = True
+    def set_resumable(self, resumable):
         self.resumable = resumable
 
-    def schedule(self):
-        debug("scheduling %s" % self.name)            
+    def suspend(self, remove):
         self.caller = self.caller.switch()  
-
+        self.remove = remove
+        
     def resume(self):
-        debug("resuming %s" % self.name)            
+        debug("resuming %s" % self.name)
         self.resumable = self.resumable.switch()  
         self.alive = self.resumable is not None
+        # not sure what to do with alive yetXXX        
 
+        #XXX arggh - why NOT??
+        #if not alive:
+        #    self.caller = # None / NULL
+        return self.alive and not self.remove 
+    
+class Tasklet(Resumable):
+    def __init__(self, name, fn):
+        Resumable.__init__(self, fn)
+        self.name = name
+        self.blocked = False
+        
+class Channel:
+    def __init__(self):
+        self.balance = 0
+        self.queue = []
+
+    def send(self, value):
+        self.balance += 1
+        if self.balance < 0:
+            t = self.queue.pop(0)
+            t.data = value
+            t.blocked = 0
+        else:
+            t = getcurrent()
+            # Remove the tasklet from the list of running tasklets.
+            #XXX dont need this - t.remove()
+
+            # let it wait for a receiver to come along
+            self.queue.append((t, value))
+            t.blocked = 1
+            scheduler.schedule()
+    
+    def receive(self):
+        self.balance -= 1
+        # good to go
+        if self.balance > 0:
+            t, value = self.queue.pop(0)
+            t.blocked = 0
+            scheduler.add_tasklet(t)
+            return value
+
+        # block until ready
+        t = getcurrent()
+        self.queue.append(t)
+        t.blocked = -1
+        scheduler.schedule()
 
 class Scheduler(object):
     def __init__(self):
@@ -69,55 +131,89 @@ class Scheduler(object):
         self.runnables.append(tasklet)
 
     def run(self):            
-        debug("running: length of runnables %s" % len(self.runnables))
+        debug("len1 %s" % len(self.runnables))
         while self.runnables:
-            t = self.runnables.pop(0)
-            debug("resuming %s(%s)" % (t.name, t.alive))
-            self.current_tasklet = t
-            t.resume()
-            self.current_tasklet = None
-            if t.alive:
-                self.runnables.append(t)
+            runnables = self.runnables
+            debug("len2 %s" % len(runnables))
+            self.runnables = []
+            for t in runnables:
+                assert self.current_tasklet is None
+                self.current_tasklet = t
+                if t.resume():
+                    self.runnables.append(self.current_tasklet)
+                self.current_tasklet = None
 
-        debug("ran")
+    def schedule(self, remove=False):
+        assert self.current_tasklet is not None
+        self.current_tasklet.suspend(remove)
+        
+# ____________________________________________________________
 
 scheduler = Scheduler()
 def start_tasklet(tasklet):
     res = tasklet.start()
-    tasklet.setalive(res)
+    tasklet.set_resumable(res)
     scheduler.add_tasklet(tasklet)
+
+def schedule():
+    scheduler.schedule()
+
+def schedule_remove():
+    scheduler.schedule(remove=True)
 
 def run():
     scheduler.run()
 
-def schedule():
-    assert scheduler.current_tasklet
-    scheduler.current_tasklet.schedule()
+def getcurrent():
+    return scheduler.current_tasklet
+
+# ____________________________________________________________
 
 def test_simple():
-    class Counter:
-        def __init__(self):
-            self.count = 0
-
-        def increment(self):
-            self.count += 1
-
-        def get_count(self):
-            return self.count
-
-    c = Counter()
     
     def simple(name):
         for ii in range(5):
-            debug("xxx %s %s" % (name, ii))
-            c.increment()
+            globals.count += 1
             schedule()
 
     def f():
-        for ii in range(5):
+        for ii in range(loops):
             start_tasklet(Tasklet("T%s" % ii, simple))
         run()
-        return c.get_count() == 25
+        return globals.count == loops * 5
+
+    res = wrap_stackless_function(f)
+    assert res == '1'
+
+def test_multiple_simple():
+    
+    def simple(name):
+        for ii in range(5):
+            globals.count += 1
+            schedule()
+
+    def simple2(name):
+        for ii in range(5):
+            globals.count += 1
+            schedule()
+            globals.count += 1
+
+    def simple3(name):
+        schedule()
+        for ii in range(10):
+            globals.count += 1
+            if ii % 2:
+                schedule()
+        schedule()
+
+    def f():
+        globals.count = 0
+        for ii in range(loops):
+            start_tasklet(Tasklet("T1%s" % ii, simple))
+            start_tasklet(Tasklet("T2%s" % ii, simple2))
+            start_tasklet(Tasklet("T3%s" % ii, simple3))
+        run()
+        return globals.count == loops * 25
     
     res = wrap_stackless_function(f)
     assert res == '1'
