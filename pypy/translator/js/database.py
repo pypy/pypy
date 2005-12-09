@@ -154,14 +154,14 @@ class Database(object):
             assert isinstance(arg, Variable)
             return str(arg)
 
-    def repr_type(self, arg):
-        try:
-            node = self.obj2node.get(arg.value._obj)
-            if isinstance(node, ArrayNode):
-                return 'Array'
-        except:
-            pass
-        return 'Object'
+    #def repr_type(self, arg):
+    #    try:
+    #        node = self.obj2node.get(arg.value._obj)
+    #        if isinstance(node, ArrayNode):
+    #            return 'Array'
+    #    except:
+    #        pass
+    #    return 'Object'
 
     def repr_concretetype(self, ct): #used by casts
         try:
@@ -200,16 +200,16 @@ class Database(object):
 
         assert False, "%s not supported" % (type(value))
 
-    def repr_tmpvar(self): 
-        count = self._tmpcount 
-        self._tmpcount += 1
-        return "tmp_" + str(count) 
-
-    def repr_constructor(self, type_):
-        return self.obj2node[type_].constructor_ref
-
-    def repr_name(self, obj):
-        return self.obj2node[obj].ref
+    #def repr_tmpvar(self): 
+    #    count = self._tmpcount 
+    #    self._tmpcount += 1
+    #    return "tmp_" + str(count) 
+    #
+    #def repr_constructor(self, type_):
+    #    return self.obj2node[type_].constructor_ref
+    #
+    #def repr_name(self, obj):
+    #    return self.obj2node[obj].ref
 
     # __________________________________________________________
     # Primitive stuff

@@ -113,7 +113,7 @@ class OpWriter(object):
         else:
             res_val = mult_val
             for ii in range(operand - 1):
-                res_val = self.db.repr_tmpvar()
+                #res_val = self.db.repr_tmpvar()
                 self.codewriter.binaryop('*', 
                                          res_val,
                                          last_val,
@@ -178,22 +178,27 @@ class OpWriter(object):
         name = self.char_operations[op.opname]
         assert len(op.args) == 2
         res = self.db.repr_arg(op.result)
-        c1 = self.db.repr_tmpvar()
-        c2 = self.db.repr_tmpvar()
-        self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
-        self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
+        if True:
+            c1 = self.db.repr_arg(op.args[0])
+            c2 = self.db.repr_arg(op.args[1])
+        else:
+            c1 = self.db.repr_tmpvar()
+            c2 = self.db.repr_tmpvar()
+            self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
+            self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
         self.codewriter.binaryop(name, res, c1, c2)
 
     def cast_char_to_int(self, op):
         " works for all casts "
         assert len(op.args) == 1
-        targetvar = self.db.repr_arg(op.result)
-        #targettype = self.db.repr_arg_type(op.result)
+        targetvar  = self.db.repr_arg(op.result)
         targettype = self.db.repr_concretetype(op.result.concretetype)
-        fromvar = self.db.repr_arg(op.args[0])
-        #fromtype = self.db.repr_arg_type(op.args[0])
+        fromvar  = self.db.repr_arg(op.args[0])
         fromtype = self.db.repr_concretetype(op.args[0].concretetype)
-        intermediate = self.db.repr_tmpvar()
+        if True:
+            intermediate = self.db.repr_arg(op.args[0])
+        else:
+            intermediate = self.db.repr_tmpvar()
         self.codewriter.cast(intermediate, fromtype, fromvar, "ubyte")
         self.codewriter.cast(targetvar, "ubyte", intermediate, targettype)
 
@@ -288,8 +293,16 @@ class OpWriter(object):
     def malloc(self, op): 
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
-        type_ = self.db.repr_type(arg_type)
+        t        = str(op.args[0]).split()
+        if t[0].endswith('Array'):  #XXX ouch do I really want to go down this road
+            type_ = 'Array'
+        else:
+            type_ = 'Object' #self.db.repr_type(arg_type)
+        # self.codewriter.comment(str(arg_type))
+        self.codewriter.comment(str(op.args[0]))
         self.codewriter.malloc(targetvar, type_)
+        if t[1] == 'rpy_string':
+            self.codewriter.append(targetvar + '.chars = ""')   #XXX this should be done correctly for all types offcourse!
     malloc_exception = malloc
     malloc_varsize = malloc
 
