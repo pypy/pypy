@@ -7,16 +7,17 @@ class LLVMNode(object):
 
     def make_name(self, name):
         " helper for creating names"
-        if " " in name or "<" in name: 
-            name = '"%s"' % name
-            
         if name in self.nodename_count:
             postfix = '_%d' % self.nodename_count[name]
             self.nodename_count[name] += 1
         else:
             postfix = ''
             self.nodename_count[name] = 1
-        return name + postfix
+
+        name += postfix
+        if " " in name or "<" in name: 
+            name = '"%s"' % name
+        return name
 
     def make_ref(self, prefix, name):
         return self.make_name(prefix + name)
