@@ -23,7 +23,7 @@ class StacklessData:
         # start the decoding table with entries for the functions that
         # are written manually in ll_stackless.h
         def reg(llfn):
-            """Register the given ll_ primitive function as being able to unwing
+            """Register the given ll_ primitive function as being able to unwind
             the stack.  Required to compute 'can_reach_unwind' correctly."""
             assert llfn.suggested_primitive
             self.stackless_roots[llfn] = True
