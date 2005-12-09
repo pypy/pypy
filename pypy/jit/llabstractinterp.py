@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.objspace.flow.model import checkgraph, last_exception
 from pypy.rpython.lltypesystem import lltype
+from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 
 
 class LLAbstractValue(object):
@@ -219,6 +220,8 @@ class LLAbstractFrame(object):
                             raise Exception("uh?")
         # the graph should be complete now; sanity-check
         checkgraph(graph)
+        eliminate_empty_blocks(graph)
+        join_blocks(graph)
 
     def flowin(self, state):
         # flow in the block
