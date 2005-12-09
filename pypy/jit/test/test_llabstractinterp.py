@@ -61,7 +61,7 @@ def test_simple():
     assert op.args[1].value == 42
     assert op.args[1].concretetype == lltype.Signed
     assert len(graph2.startblock.exits) == 1
-    assert graph2.startblock.exits[0].target is graph2.returnblock
+    assert insns == {'int_add': 1}
 
 def test_simple2():
     def ll_function(x, y):
@@ -157,8 +157,7 @@ def test_simple_struct():
 def test_simple_array():
     A = lltype.Array(lltype.Char,
                      hints={'immutable': True})
-    S = lltype.GcStruct('str', ('chars', A),
-                        hints={'immutable': True})
+    S = lltype.GcStruct('str', ('chars', A))
     s = lltype.malloc(S, 11)
     for i, c in enumerate("hello world"):
         s.chars[i] = c
@@ -169,3 +168,4 @@ def test_simple_array():
         return total
     graph2, insns = abstrinterp(ll_function, [s, 0, 0], [0, 1, 2])
     assert insns == {}
+

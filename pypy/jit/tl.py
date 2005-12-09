@@ -10,13 +10,12 @@ def char2int(c):
         t = -(-ord(c) & 0xff)
     return t
 
-def interp(code=''):
+def interp(code='', pc=0):
     if not isinstance(code,str):
         raise TypeError("code '%s' should be a string" % str(code))
 
     code_len = len(code)
     stack = []
-    pc = 0
 
     while pc < code_len:
         opcode = ord(code[pc])

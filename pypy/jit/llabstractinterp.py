@@ -54,12 +54,15 @@ class LLRuntimeValue(LLAbstractValue):
         return isinstance(other, LLRuntimeValue)  # XXX and ...
 
 
-class LLState(object):
-    """Entry state of a block or a graph, as a combination of LLAbstractValues
+class BlockState(object):
+    """Entry state of a block, as a combination of LLAbstractValues
     for its input arguments."""
 
-    def __init__(self, args_a):
+    def __init__(self, origblock, args_a):
+        assert len(args_a) == len(origblock.inputargs)
         self.args_a = args_a
+        self.origblock = origblock
+        self.copyblock = None
 
     def match(self, args_a):
         # simple for now
@@ -69,53 +72,47 @@ class LLState(object):
         else:
             return True
 
-
-class BlockState(LLState):
-    """Entry state of a block."""
-
-    def __init__(self, origblock, args_a):
-        assert len(args_a) == len(origblock.inputargs)
-        super(BlockState, self).__init__(args_a)
-        self.origblock = origblock
-        self.copyblock = None
-        self.pendingsources = []
-
-    def patchsource(self, source):
-        if self.copyblock is None:
-            print 'PENDING', self, hex(id(source))
-            self.pendingsources.append(source)
-        else:
-            # XXX nice interface required!
-            print 'LINKING', self, id(source), self.copyblock
-            source.settarget(self.copyblock)
-
     def resolveblock(self, newblock):
-        print "RESOLVING BLOCK", newblock
+        #print "RESOLVING BLOCK", newblock
         self.copyblock = newblock
-        for source in self.pendingsources:
-            self.patchsource(source)
-        del self.pendingsources[:]
 
 
-class GraphState(LLState):
+class GraphState(object):
     """Entry state of a graph."""
 
     def __init__(self, origgraph, args_a):
         super(GraphState, self).__init__(args_a)
         self.origgraph = origgraph
         self.copygraph = FunctionGraph(origgraph.name, Block([]))   # grumble
+        for orig_v, copy_v in [(origgraph.getreturnvar(),
+                                self.copygraph.getreturnvar()),
+                               (origgraph.exceptblock.inputargs[0],
+                                self.copygraph.exceptblock.inputargs[0]),
+                               (origgraph.exceptblock.inputargs[1],
+                                self.copygraph.exceptblock.inputargs[1])]:
+            if hasattr(orig_v, 'concretetype'):
+                copy_v.concretetype = orig_v.concretetype
+        self.a_return = None
+        self.state = "before"
 
     def settarget(self, block):
         block.isstartblock = True
         self.copygraph.startblock = block
+
+    def complete(self, interp):
+        assert self.state != "during"
+        if self.state == "before":
+            builderframe = LLAbstractFrame(interp, self)
+            builderframe.complete()
+            self.state = "after"
 
 # ____________________________________________________________
 
 class LLAbstractInterp(object):
 
     def __init__(self):
-        self.graphs = {}   # {origgraph: {BlockState: GraphState}}
-        self.fixreturnblocks = []
+        self.graphs = {}          # {origgraph: {BlockState: GraphState}}
+        self.pendingstates = {}   # {Link-or-GraphState: next-BlockState}
 
     def itercopygraphs(self):
         for d in self.graphs.itervalues():
@@ -125,28 +122,12 @@ class LLAbstractInterp(object):
     def eval(self, origgraph, hints):
         # for now, 'hints' means "I'm absolutely sure that the
         # given variables will have the given ll value"
-        self.allpendingstates = []
         self.hints = hints
         self.blocks = {}   # {origblock: list-of-LLStates}
         args_a = [LLRuntimeValue(orig_v=v) for v in origgraph.getargs()]
-        graphstate = self.schedule_graph(args_a, origgraph)
-        self.complete()
-        self.fixgraphs()
+        graphstate, args_a = self.schedule_graph(args_a, origgraph)
+        graphstate.complete(self)
         return graphstate.copygraph
-
-    def fixgraphs(self):
-        # add the missing '.returnblock' attribute
-        for graph in self.fixreturnblocks:
-            for block in graph.iterblocks():
-                if block.operations == () and len(block.inputargs) == 1:
-                    # here it is :-)
-                    graph.returnblock = block
-                    break
-            else:
-                # no return block...
-                graph.getreturnvar().concretevalue = lltype.Void
-            checkgraph(graph)   # sanity-check
-        del self.fixreturnblocks
 
     def applyhint(self, args_a, origblock):
         result_a = []
@@ -172,21 +153,20 @@ class LLAbstractInterp(object):
             graphstate = self.graphs[origgraph][state]
         except KeyError:
             graphstate = GraphState(origgraph, args_a)
-            self.fixreturnblocks.append(graphstate.copygraph)
             d = self.graphs.setdefault(origgraph, {})
             d[state] = graphstate
-        print "SCHEDULE_GRAPH", graphstate
-        state.patchsource(graphstate)
-        return graphstate
+            self.pendingstates[graphstate] = state
+        #print "SCHEDULE_GRAPH", graphstate
+        return graphstate, args_a
 
     def schedule(self, args_a, origblock):
-        print "SCHEDULE", args_a, origblock
+        #print "SCHEDULE", args_a, origblock
         # args_a: [a_value for v in origblock.inputargs]
         state, args_a = self.schedule_getstate(args_a, origblock)
         args_v = [a.getvarorconst() for a in args_a
                   if not isinstance(a, LLConcreteValue)]
         newlink = Link(args_v, None)
-        state.patchsource(newlink)
+        self.pendingstates[newlink] = state
         return newlink
 
     def schedule_getstate(self, args_a, origblock):
@@ -202,18 +182,38 @@ class LLAbstractInterp(object):
             # schedule this new state
             state = BlockState(origblock, args_a)
             pendingstates.append(state)
-            self.allpendingstates.append(state)
             return state, args_a
 
+
+class LLAbstractFrame(object):
+
+    def __init__(self, interp, graphstate):
+        self.interp = interp
+        self.graphstate = graphstate
+
     def complete(self):
-        while self.allpendingstates:
-            state = self.allpendingstates.pop()
-            print 'CONSIDERING', state
-            self.flowin(state)
+        graph = self.graphstate.copygraph
+        interp = self.interp
+        pending = [self.graphstate]
+        seen = {}
+        # follow all possible links, forcing the blocks along the way to be
+        # computed
+        while pending:
+            next = pending.pop()
+            state = interp.pendingstates[next]
+            if state.copyblock is None:
+                self.flowin(state)
+            next.settarget(state.copyblock)
+            for link in state.copyblock.exits:
+                if (link not in seen and link.target is not graph.returnblock
+                                     and link.target is not graph.exceptblock):
+                    pending.append(link)
+                    seen[link] = True
+        # the graph should be complete now; sanity-check
+        checkgraph(graph)
 
     def flowin(self, state):
         # flow in the block
-        assert state.copyblock is None
         origblock = state.origblock
         bindings = {}   # {Variables-of-origblock: a_value}
         def binding(v):
@@ -225,14 +225,12 @@ class LLAbstractInterp(object):
             if not isinstance(a, LLConcreteValue):
                 a = LLRuntimeValue(orig_v=v)
             bindings[v] = a
-        if origblock.operations == ():
-            self.residual_operations = ()
-        else:
-            self.residual_operations = []
-            for op in origblock.operations:
-                handler = getattr(self, 'op_' + op.opname)
-                a_result = handler(op, *[binding(v) for v in op.args])
-                bindings[op.result] = a_result
+        print
+        self.residual_operations = []
+        for op in origblock.operations:
+            handler = getattr(self, 'op_' + op.opname)
+            a_result = handler(op, *[binding(v) for v in op.args])
+            bindings[op.result] = a_result
         inputargs = []
         for v in origblock.inputargs:
             a = bindings[v]
@@ -241,24 +239,39 @@ class LLAbstractInterp(object):
         newblock = Block(inputargs)
         newblock.operations = self.residual_operations
         del self.residual_operations   # just in case
-        if origblock.exitswitch is None:
-            links = origblock.exits
-        elif origblock.exitswitch == Constant(last_exception):
-            XXX
-        else:
-            v = bindings[origblock.exitswitch].getvarorconst()
-            if isinstance(v, Variable):
-                newblock.exitswitch = v
+
+        if origblock.operations != ():
+            # build exit links and schedule their target for later completion
+            if origblock.exitswitch is None:
                 links = origblock.exits
+            elif origblock.exitswitch == Constant(last_exception):
+                XXX
             else:
-                links = [link for link in origblock.exits
-                              if link.llexitcase == v.value]
-        newlinks = []
-        for origlink in links:
-            args_a = [binding(v) for v in origlink.args]
-            newlink = self.schedule(args_a, origlink.target)
-            newlinks.append(newlink)
-        print "CLOSING"
+                v = bindings[origblock.exitswitch].getvarorconst()
+                if isinstance(v, Variable):
+                    newblock.exitswitch = v
+                    links = origblock.exits
+                else:
+                    links = [link for link in origblock.exits
+                                  if link.llexitcase == v.value]
+            newlinks = []
+            for origlink in links:
+                args_a = [binding(v) for v in origlink.args]
+                newlink = self.interp.schedule(args_a, origlink.target)
+                newlinks.append(newlink)
+        else:
+            # copies of return and except blocks are *normal* blocks currently;
+            # they are linked to the official return or except block of the
+            # copygraph.  If needed, LLConcreteValues are turned into Constants.
+            if len(origblock.inputargs) == 1:
+                self.graphstate.a_return = bindings[origblock.inputargs[0]]
+                target = self.graphstate.copygraph.returnblock
+            else:
+                XXX_later
+                target = self.graphstate.copygraph.exceptblock
+            args_v = [binding(v).getvarorconst() for v in origblock.inputargs]
+            newlinks = [Link(args_v, target)]
+        #print "CLOSING"
         newblock.closeblock(*newlinks)
         state.resolveblock(newblock)
 
@@ -273,6 +286,7 @@ class LLAbstractInterp(object):
                 return None    # cannot constant-fold
             any_concrete = any_concrete or isinstance(a, LLConcreteValue)
         # can constant-fold
+        print 'fold:', constant_op, concretevalues
         concreteresult = constant_op(*concretevalues)
         if any_concrete:
             return LLConcreteValue(concreteresult)
@@ -282,9 +296,15 @@ class LLAbstractInterp(object):
             return LLRuntimeValue(c)
 
     def residual(self, opname, args_a, a_result):
+        v_result = a_result.getvarorconst()
+        if isinstance(v_result, Constant):
+            v = Variable()
+            v.concretetype = v_result.concretetype
+            v_result = v
         op = SpaceOperation(opname,
                             [a.getvarorconst() for a in args_a],
-                            a_result.getvarorconst())
+                            v_result)
+        print 'keep:', op
         self.residual_operations.append(op)
 
     def residualize(self, op, args_a, constant_op=None):
@@ -319,6 +339,18 @@ class LLAbstractInterp(object):
     def op_int_lt(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.lt)
 
+    def op_int_ge(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.ge)
+
+    def op_int_le(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.le)
+
+    def op_int_eq(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.eq)
+
+    def op_int_ne(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.ne)
+
     def op_cast_char_to_int(self, op, a):
         return self.residualize(op, [a], ord)
 
@@ -326,16 +358,23 @@ class LLAbstractInterp(object):
         return a
 
     def op_direct_call(self, op, a_func, *args_a):
+        a_result = LLRuntimeValue(op.result)
         v_func = a_func.getvarorconst()
         if isinstance(v_func, Constant):
             fnobj = v_func.value._obj
             if hasattr(fnobj, 'graph'):
                 origgraph = fnobj.graph
-                graphstate = self.schedule_graph(args_a, origgraph)
+                graphstate, args_a = self.interp.schedule_graph(
+                    args_a, origgraph)
+                if graphstate.state != "during":
+                    graphstate.complete(self.interp)
+                    if isinstance(graphstate.a_return, LLConcreteValue):
+                        a_result = graphstate.a_return
+                
                 origfptr = v_func.value
                 ARGS = []
                 new_args_a = []
-                for a in graphstate.args_a:
+                for a in args_a:
                     if not isinstance(a, LLConcreteValue):
                         ARGS.append(a.getconcretetype())
                         new_args_a.append(a)
@@ -347,36 +386,27 @@ class LLAbstractInterp(object):
                 fconst = Constant(fptr)
                 fconst.concretetype = lltype.typeOf(fptr)
                 a_func = LLRuntimeValue(fconst)
-        a_result = LLRuntimeValue(op.result)
         self.residual("direct_call", [a_func] + args_a, a_result) 
         return a_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
         constant_op = None
         T = a_ptr.getconcretetype().TO
-        v_ptr = a_ptr.getvarorconst()
-        if isinstance(v_ptr, Constant):
-            if T._hints.get('immutable', False):
-                constant_op = getattr
+        if T._hints.get('immutable', False):
+            constant_op = getattr
         return self.residualize(op, [a_ptr, a_attrname], constant_op)
-    op_getsubstruct = op_getfield
+
+    def op_getsubstruct(self, op, a_ptr, a_attrname):
+        return self.residualize(op, [a_ptr, a_attrname], getattr)
 
     def op_getarraysize(self, op, a_ptr):
-        constant_op = None
-        T = a_ptr.getconcretetype().TO
-        v_ptr = a_ptr.getvarorconst()
-        if isinstance(v_ptr, Constant):
-            if T._hints.get('immutable', False):
-                constant_op = len
-        return self.residualize(op, [a_ptr], constant_op)
+        return self.residualize(op, [a_ptr], len)
 
     def op_getarrayitem(self, op, a_ptr, a_index):
         constant_op = None
         T = a_ptr.getconcretetype().TO
-        v_ptr = a_ptr.getvarorconst()
-        if isinstance(v_ptr, Constant):
-            if T._hints.get('immutable', False):
-                constant_op = operator.getitem
+        if T._hints.get('immutable', False):
+            constant_op = operator.getitem
         return self.residualize(op, [a_ptr, a_index], constant_op)
 
         
