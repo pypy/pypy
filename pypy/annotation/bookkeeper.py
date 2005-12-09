@@ -348,7 +348,8 @@ class Bookkeeper:
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
-            result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (x.__module__, x.__name__))
+	    _module = getattr(x,"__module__","unknown")
+            result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
         elif tp in EXTERNAL_TYPE_ANALYZERS:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):

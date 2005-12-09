@@ -2,6 +2,7 @@
 from grammar import BaseGrammarBuilder, Alternative, Sequence, Token, \
      KleeneStar, GrammarElement, build_first_sets, EmptyToken
 from ebnflexer import GrammarSource
+from ebnfgrammar import GRAMMAR_GRAMMAR, sym_map
 from syntaxtree import AbstractSyntaxVisitor
 import pytoken
 import pysymbol
@@ -15,13 +16,6 @@ punct=['>=', '<>', '!=', '<', '>', '<=', '==', '\\*=',
        '>>', '&', '\\+', '\\*', '-', '/', '\\.', '\\*\\*',
        '%', '<<', '//', '\\', '', '\n\\)', '\\(', ';', ':',
        '@', '\\[', '\\]', '`', '\\{', '\\}']
-
-py_punct = re.compile(r"""
->=|<>|!=|<|>|<=|==|~|
-\*=|//=|%=|\^=|<<=|\*\*=|\|=|\+=|>>=|=|&=|/=|-=|
-,|\^|>>|&|\+|\*|-|/|\.|\*\*|%|<<|//|\||
-\)|\(|;|:|@|\[|\]|`|\{|\}
-""", re.M | re.X)
 
 
 TERMINALS = [
@@ -188,7 +182,7 @@ class EBNFVisitor(AbstractSyntaxVisitor):
         rule = node.nodes[1].visit(self)
         return self.repeat( node.nodes[3], rule )
 
-    def handle_STRING( self, node ):
+    def handle_TOK_STRING( self, node ):
         value = node.value
         tokencode = pytoken.tok_punct.get( value )
         if tokencode is None:
@@ -224,76 +218,6 @@ class EBNFVisitor(AbstractSyntaxVisitor):
                                   % tok.value)
         return myrule
 
-rules = None
-
-sym_map = {}
-sym_rmap = {}
-sym_count = 0
-
-def g_add_symbol( name ):
-    global sym_count
-    if name in sym_rmap:
-        return sym_rmap[name]
-    val = sym_count
-    sym_count += 1
-    sym_map[val] = name
-    sym_rmap[name] = val
-    return val
-
-g_add_symbol( 'EOF' )
-
-def grammar_grammar():
-    """Builds the grammar for the grammar file
-
-    Here's the description of the grammar's grammar ::
-
-      grammar: rule+
-      rule: SYMDEF alternative
-      
-      alternative: sequence ( '|' sequence )+
-      star: '*' | '+'
-      sequence: (SYMBOL star? | STRING | option | group star? )+
-      option: '[' alternative ']'
-      group: '(' alternative ')' star?    
-    """
-    global rules, sym_map
-    S = g_add_symbol
-    # star: '*' | '+'
-    star          = Alternative( S("star"), [Token(S('*')), Token(S('+'))] )
-    star_opt      = KleeneStar ( S("star_opt"), 0, 1, rule=star )
-
-    # rule: SYMBOL ':' alternative
-    symbol        = Sequence(    S("symbol"), [Token(S('SYMBOL')), star_opt] )
-    symboldef     = Token(       S("SYMDEF") )
-    alternative   = Sequence(    S("alternative"), [])
-    rule          = Sequence(    S("rule"), [symboldef, alternative] )
-
-    # grammar: rule+
-    grammar       = KleeneStar(   S("grammar"), _min=1, rule=rule )
-
-    # alternative: sequence ( '|' sequence )*
-    sequence      = KleeneStar(   S("sequence"), 1 )
-    seq_cont_list = Sequence(    S("seq_cont_list"), [Token(S('|')), sequence] )
-    sequence_cont = KleeneStar(   S("sequence_cont"),0, rule=seq_cont_list )
-    
-    alternative.args = [ sequence, sequence_cont ]
-
-    # option: '[' alternative ']'
-    option        = Sequence(    S("option"), [Token(S('[')), alternative, Token(S(']'))] )
-
-    # group: '(' alternative ')'
-    group         = Sequence(    S("group"),  [Token(S('(')), alternative, Token(S(')')), star_opt] )
-
-    # sequence: (SYMBOL | STRING | option | group )+
-    string = Token(S('STRING'))
-    alt           = Alternative( S("sequence_alt"), [symbol, string, option, group] ) 
-    sequence.args = [ alt ]
-
-
-    rules = [ star, star_opt, symbol, alternative, rule, grammar, sequence,
-              seq_cont_list, sequence_cont, option, group, alt ]
-    build_first_sets( rules )
-    return grammar
 
 
 def parse_grammar(stream):
@@ -301,15 +225,27 @@ def parse_grammar(stream):
 
     stream : file-like object representing the grammar to parse
     """
-    source = GrammarSource(stream.read(), sym_rmap)
-    rule = grammar_grammar()
+    source = GrammarSource(stream.read())
     builder = BaseGrammarBuilder()
-    result = rule.match(source, builder)
+    result = GRAMMAR_GRAMMAR.match(source, builder)
     node = builder.stack[-1]
     vis = EBNFVisitor()
     node.visit(vis)
     return vis
 
+def parse_grammar_text(txt):
+    """parses a grammar input
+
+    stream : file-like object representing the grammar to parse
+    """
+    source = GrammarSource(txt)
+    builder = BaseGrammarBuilder()
+    result = GRAMMAR_GRAMMAR.match(source, builder)
+    node = builder.stack[-1]
+    vis = EBNFVisitor()
+    node.visit(vis)
+    return vis
+    
 
 from pprint import pprint
 if __name__ == "__main__":

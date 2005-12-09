@@ -179,6 +179,9 @@ def ll_max(i1, i2):
 def rtype_Exception__init__(hop):
     pass
 
+def rtype_object__init__(hop):
+    pass
+
 def rtype_OSError__init__(hop):
     if hop.nb_args == 2:
         raise TyperError("OSError() should not be called with "
@@ -241,6 +244,7 @@ for name, value in globals().items():
 BUILTIN_TYPER[Exception.__init__.im_func] = rtype_Exception__init__
 BUILTIN_TYPER[AssertionError.__init__.im_func] = rtype_Exception__init__
 BUILTIN_TYPER[OSError.__init__.im_func] = rtype_OSError__init__
+BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
 
 def rtype_malloc(hop):

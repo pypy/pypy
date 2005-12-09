@@ -5,7 +5,7 @@ Helper file for Python equivalents of socket specific calls.
 import socket
 
 # HACK: We have to prevent GC to collect the socket object we create within this
-#Êmodule. Because socket.close() is called on GC this can lead to strange
+# module. Because socket.close() is called on GC this can lead to strange
 # effects in corner cases where file descriptors are reused.
 socket_cache = {}
 keep_sockets_alive = []

@@ -1,7 +1,11 @@
 """SyntaxTree class definition"""
-from pypy.interpreter.pyparser.pysymbol import sym_values
-from pypy.interpreter.pyparser.pytoken import tok_values
-
+try:
+    from pypy.interpreter.pyparser.pysymbol import sym_values
+    from pypy.interpreter.pyparser.pytoken import tok_values
+except ImportError:
+    from pysymbol import sym_values
+    from pytoken import tok_values
+    
 class AbstractSyntaxVisitor(object):
     def visit_syntaxnode( self, node ):
         pass

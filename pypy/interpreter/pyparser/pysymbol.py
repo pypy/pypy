@@ -1,5 +1,9 @@
 # replacement for the CPython symbol module
-from pypy.interpreter.pyparser import symbol
+try:
+    from pypy.interpreter.pyparser import symbol
+except ImportError:
+    # for standalone testing
+    import symbol
 
 # try to avoid numeric values conflict with tokens
 # it's important for CPython, but I'm not so sure it's still

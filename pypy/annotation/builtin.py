@@ -233,6 +233,11 @@ def builtin_slice(*args):
 def exception_init(s_self, *args):
     pass   # XXX check correctness of args, maybe
 
+def object_init(s_self, *args):
+    # ignore - mostly used for abstract classes initialization
+    pass
+
+
 def count(s_obj):
     return SomeInteger()
 
@@ -338,6 +343,9 @@ BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
 BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
+
+# object - just ignore object.__init__
+BUILTIN_ANALYZERS[object.__init__] = object_init
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func

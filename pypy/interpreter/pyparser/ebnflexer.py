@@ -3,18 +3,21 @@ it obeys the TokenSource interface defined for the grammar
 analyser in grammar.py
 """
 
-import re
 from grammar import TokenSource, Token
+from ebnfgrammar import *
 
-## Lexer for Python's grammar ########################################
-g_symdef = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*:",re.M)
-g_symbol = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*",re.M)
-g_string = re.compile(r"'[^']+'",re.M)
-g_tok = re.compile(r"\[|\]|\(|\)|\*|\+|\|",re.M)
-g_skip = re.compile(r"\s*(#.*$)?",re.M)
+
+def match_symbol( input, start, stop ):
+    idx = start
+    while idx<stop:
+        if input[idx] not in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+            break
+        idx+=1
+    return idx
 
 class GrammarSource(TokenSource):
-    """The grammar tokenizer
+    """Fully RPython - see targetebnflexer.py
+    The grammar tokenizer
     It knows only 5 types of tokens:
     EOF: end of file
     SYMDEF: a symbol definition e.g. "file_input:"
@@ -22,13 +25,12 @@ class GrammarSource(TokenSource):
     SYMBOL: a rule symbol usually appeary right of a SYMDEF
     tokens: '[', ']', '(' ,')', '*', '+', '|'
     """
-    def __init__(self, inpstring, tokenmap ):
+    def __init__(self, inpstring ):
         TokenSource.__init__(self)
         self.input = inpstring
         self.pos = 0
         self.begin = 0
         self._peeked = None
-        self.tokmap = tokenmap
         self.current_line = 1
 
     def context(self):
@@ -50,11 +52,64 @@ class GrammarSource(TokenSource):
         self.pos, self._peeked = ctx
 
     def current_line(self):
-        end = self.input.find("\n",self.pos)
-        return self.input[self.begin:self.pos]
+        pos = idx = self.begin
+        inp = self.input
+        end = len(inp)
+        while idx<end:
+            chr = inp[idx]
+            if chr=="\n":
+                break
+            idx+=1
+        return self.input[pos:idx]
 
     def current_lineno(self):
         return self.current_line
+
+
+    def skip_empty_lines(self, input, start, end ):
+        idx = start
+        # assume beginning of a line
+        while idx<end:
+            chr = input[idx]
+            if chr not in " \t#\n":
+                break
+            idx += 1
+            if chr=="#":
+                # skip to end of line
+                while idx<end:
+                    chr = input[idx]
+                    idx+= 1
+                    if chr=="\n":
+                        self.begin = idx
+                        self.current_line+=1
+                        break
+                continue
+            elif chr=="\n":
+                self.begin = idx
+                self.current_line+=1
+        return idx
+
+    def match_string( self, input, start, stop ):
+        if input[start]!="'":
+            return start
+        idx = start + 1
+        while idx<stop:
+            chr = input[idx]
+            idx = idx + 1
+            if chr == "'":
+                break
+            if chr == "\n":
+                self.current_line += 1
+                self.begin = idx
+                break
+        return idx
+
+
+    def RaiseError( self, msg ):
+        errmsg = msg + " at line=%d" % self.current_line
+        errmsg += " at pos=%d" % (self.pos-self.begin)
+        errmsg += " context='" + self.input[self.pos:self.pos+20]
+        raise ValueError( errmsg )
 
     def next(self):
         """returns the next token"""
@@ -62,7 +117,6 @@ class GrammarSource(TokenSource):
         # means backtracking more than one token
         # will re-tokenize the stream (but this is the
         # grammar lexer so we don't care really!)
-        T = self.tokmap
         if self._peeked is not None:
             peeked = self._peeked
             self._peeked = None
@@ -70,37 +124,38 @@ class GrammarSource(TokenSource):
         
         pos = self.pos
         inp = self.input
-        m = g_skip.match(inp, pos)
-        while m and pos!=m.end():
-            self.current_line+=m.group().count("\n")
-            pos = m.end()
-            if pos==len(inp):
-                self.pos = pos
-                return Token(T["EOF"], None)
-            m = g_skip.match(inp, pos)
-        m = g_symdef.match(inp,pos)
-        if m:
-            tk = m.group(0)
-            self.begin = self.pos
-            self.pos = m.end()
-            return Token(T['SYMDEF'],tk[:-1])
-        m = g_tok.match(inp,pos)
-        if m:
-            tk = m.group(0)
-            self.pos = m.end()
-            return Token(T[tk],tk)
-        m = g_string.match(inp,pos)
-        if m:
-            tk = m.group(0)
-            self.pos = m.end()
-            return Token(T['STRING'],tk[1:-1])
-        m = g_symbol.match(inp,pos)
-        if m:
-            tk = m.group(0)
-            self.pos = m.end()
-            return Token(T['SYMBOL'],tk)
-        raise ValueError("Unknown token at pos=%d context='%s'" %
-                         (pos,inp[pos:pos+20]) )
+        end = len(self.input)
+        pos = self.skip_empty_lines(inp,pos,end)
+        if pos==end:
+            return Token(EOF, None)
+
+        # at this point nextchar is not a white space nor \n
+        nextchr = inp[pos]
+        if nextchr=="'":
+            npos = self.match_string( inp, pos, end)
+            # could get a string terminated by EOF here
+            if npos==end and inp[end-1]!="'":
+                self.RaiseError("Unterminated string")
+            self.pos = npos
+	    _endpos = npos - 1
+	    assert _endpos>=0
+            return Token(TOK_STRING,inp[pos+1:_endpos])
+        else:
+            npos = match_symbol( inp, pos, end)
+            if npos!=pos:
+                self.pos = npos
+                if npos!=end and inp[npos]==":":
+                    self.pos += 1
+                    return Token(TOK_SYMDEF,inp[pos:npos])
+                else:
+                    return Token(TOK_SYMBOL,inp[pos:npos])
+        
+        # we still have pos!=end here
+        chr = inp[pos]
+        if chr in "[]()*+|":
+            self.pos = pos+1
+            return Token(tok_rmap[chr], chr)
+        self.RaiseError( "Unknown token" )
 
     def peek(self):
         """take a peek at the next token"""
@@ -113,3 +168,21 @@ class GrammarSource(TokenSource):
         """A simple helper function returning the stream at the last
         parsed position"""
         return self.input[self.pos:self.pos+N]
+
+
+# a simple target used to annotate/translate the tokenizer
+def target_parse_input( txt ):
+    lst = []
+    src = GrammarSource( txt )
+    while 1:
+        x = src.next()
+        lst.append( x )
+        if x.codename == EOF:
+            break
+    #return lst
+
+if __name__ == "__main__":
+    import sys
+    f = file(sys.argv[-1])
+    lst = target_parse_input( f.read() )
+    for i in lst: print i
