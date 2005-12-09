@@ -22,7 +22,7 @@ PyPy issue trackers
 
 .. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
 
-IRC Channel #pypy on freenode
+IRC channel #pypy on freenode
 ============================= 
 
 Many of the core developers are hanging out at #pypy on irc.freenode.net. 
@@ -31,3 +31,14 @@ in participating in some parts of the PyPy project. You can find the logs of
 the channel here_.
 
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
+
+PyPy calendar
+=============
+
+There is a PyPy calendar at http://pypycal.sabi.net/.  Currently
+Michael Hudson is the only person who can reliably modify the
+calendar, so if there's a mistake or something to add please tell him
+about it.  If you have a webcal client, you could try clicking
+`this`_.
+
+.. _`this`: webcal://pypycal.sabi.net///calendars/PyPy.ics
