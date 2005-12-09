@@ -1,7 +1,7 @@
 from pypy.rpython.rstr import STR
 
 def write_constructor(db, codewriter, ref, constructor_decl, ARRAY, 
-                      indices_to_array=(), atomic=False):
+                      indices_to_array=(), atomic=False, is_str=False):
 
     #varsized arrays and structs look like this: 
     #Array: {int length , elemtype*}
@@ -27,11 +27,26 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
     codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
 
     indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
+
     # the following accesses the length field of the array 
     codewriter.getelementptr("%arraylength", ref + "*", 
                              "%result", 
                              *indices_to_arraylength)
     codewriter.store(lentype, "%len", "%arraylength")
+
+    if is_str:
+        indices_to_hash = (("uint", 0),)
+        codewriter.getelementptr("%xxx1", ref + "*", 
+                                 "%result", 
+                                 *indices_to_hash)
+        codewriter.store("int", "0", "%arraylength")
+
+        codewriter.getelementptr("%xxx2", ref + "*", 
+                                 "%result", 
+                                 *elemindices)
+        codewriter.store(elemtype, "0", "%xxx2")
+
+
 
     codewriter.ret(ref + "*", "%result")
     codewriter.closefunc()
