@@ -73,7 +73,7 @@ class Tasklet(Resumable):
     def __init__(self, name, fn):
         Resumable.__init__(self, fn)
         self.name = name
-        self.blocked = False
+        self.blocked = 0
         self.data = -1
         
         # propogates round suspend-resume to tell scheduler in run()
@@ -105,7 +105,7 @@ class Channel:
         if self.balance <= 0:
             t = self.queue.pop(0)
             t.data = value
-            t.blocked = 0
+            ##!!t.blocked = 0
             scheduler.run_immediately(tasklet)
             scheduler.schedule()
             
@@ -114,23 +114,23 @@ class Channel:
             assert isinstance(t, Tasklet)
             # let it wait for a receiver to come along
             self.queue.append(t)
-            t.blocked = 1
-            scheduler.schedule_remove()
+            ##!!t.blocked = 1
+            schedule_remove()
     
     def receive(self):
         self.balance -= 1
         # good to go
         if self.balance >= 0:
             t = self.queue.pop(0)
-            t.blocked = 0
+            ##!!t.blocked = 0
             scheduler.add_tasklet(t)
 
         else:
             # block until ready
             t = getcurrent()
             self.queue.append(t)
-            t.blocked = -1
-            scheduler.schedule_remove()
+            ##!!t.blocked = -1
+            schedule_remove()
     
 class Scheduler(object):
     def __init__(self):
