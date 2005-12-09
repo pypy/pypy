@@ -60,8 +60,8 @@ void raw_memcopy(char *ptr1, char *ptr2, int size) {
   memcpy((void *) ptr2, (void *) ptr1, size);
 }
 
-#include <gc.h>
-#define USING_BOEHM_GC
+// overflows/zeros/values raising operations
+#include "boehm.h"
 
 char *LLVM_RPython_StartupCode();
 
@@ -80,7 +80,7 @@ char *pypy_malloc_atomic(unsigned int size) {
 extern GC_all_interior_pointers;
 char *RPython_StartupCode() {
   GC_all_interior_pointers = 0;
-  GC_INIT();
+  GC_init();
   return LLVM_RPython_StartupCode();
 }
 
@@ -125,7 +125,7 @@ extern GC_all_interior_pointers;
 
 char *RPython_StartupCode() {
   GC_all_interior_pointers = 0;
-  GC_INIT();
+  GC_init();
   return LLVM_RPython_StartupCode();
 }
 
