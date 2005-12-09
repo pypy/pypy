@@ -1,7 +1,7 @@
 import py
 import operator
 from pypy.jit.tl import interp, compile
-from pypy.jit.opcode import *
+from pypy.jit.tlopcode import *
 
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy

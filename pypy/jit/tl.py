@@ -1,8 +1,8 @@
 '''Toy Language'''
 
 import py
-from opcode import *
-import opcode
+from tlopcode import *
+import tlopcode
 
 def char2int(c):
     t = ord(c)
@@ -125,7 +125,7 @@ def compile(code=''):
         if t[0].endswith(':'):
             labels[ t[0][:-1] ] = len(bytecode)
             continue
-        bytecode.append( opcode.names[ t[0] ] )
+        bytecode.append( tlopcode.names[ t[0] ] )
         if len(t) > 1:
             try:
                 bytecode.append( int(t[1]) )
