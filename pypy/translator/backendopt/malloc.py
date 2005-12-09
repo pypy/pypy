@@ -126,7 +126,6 @@ def _try_inline_malloc(info):
         if destr_ptr:
             return False
     except (ValueError, AttributeError), e:
-        print e
         pass
     
     # success: replace each variable with a family of variables (one per field)
