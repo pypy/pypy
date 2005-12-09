@@ -14,6 +14,9 @@ class LLConcreteValue(LLAbstractValue):
     def __init__(self, value):
         self.value = value
 
+    def __repr__(self):
+        return '<concrete %r>' % (self.value,)
+
 #    def __eq__(self, other):
 #        return self.__class__ is other.__class__ and self.value == other.value
 #
@@ -44,6 +47,9 @@ class LLRuntimeValue(LLAbstractValue):
         else:
             # we can share the Constant()
             self.copy_v = orig_v
+
+    def __repr__(self):
+        return '<runtime %r>' % (self.copy_v,)
 
     def getconcretetype(self):
         return self.copy_v.concretetype
@@ -213,6 +219,7 @@ class LLAbstractFrame(object):
                         # that it is really the one from 'graph' -- by patching
                         # 'graph' if necessary.
                         if len(link.target.inputargs) == 1:
+                            self.graphstate.a_return = state.args_a[0]
                             graph.returnblock = link.target
                         elif len(link.target.inputargs) == 2:
                             graph.exceptblock = link.target
@@ -275,7 +282,6 @@ class LLAbstractFrame(object):
             # they are linked to the official return or except block of the
             # copygraph.  If needed, LLConcreteValues are turned into Constants.
             if len(origblock.inputargs) == 1:
-                self.graphstate.a_return = bindings[origblock.inputargs[0]]
                 target = self.graphstate.copygraph.returnblock
             else:
                 XXX_later
@@ -387,9 +393,11 @@ class LLAbstractFrame(object):
                 graphstate, args_a = self.interp.schedule_graph(
                     args_a, origgraph)
                 if graphstate.state != "during":
+                    print 'ENTERING', graphstate.copygraph.name, args_a
                     graphstate.complete(self.interp)
                     if isinstance(graphstate.a_return, LLConcreteValue):
                         a_result = graphstate.a_return
+                    print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
                 
                 origfptr = v_func.value
                 ARGS = []

@@ -26,8 +26,17 @@ def jit_tl(code):
     #graph2.show()
 
 
-def test_jit_tl_1():
-    code = tl.compile("""
-        PUSH 42
-    """)
+def run_jit(code):
+    code = tl.compile(code)
     jit_tl(code)
+
+
+def test_jit_tl_1():
+    for code in [
+        ''' PUSH 42
+        ''',
+        ''' PUSH 6
+            PUSH 7
+            ADD
+        ''']:
+        yield run_jit, code
