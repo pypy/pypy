@@ -53,6 +53,11 @@ class LLRuntimeValue(LLAbstractValue):
     def match(self, other):
         return isinstance(other, LLRuntimeValue)  # XXX and ...
 
+orig_v = Constant(None)
+orig_v.concretetype = lltype.Void
+ll_no_return_value = LLRuntimeValue(orig_v)
+del orig_v
+
 
 class BlockState(object):
     """Entry state of a block, as a combination of LLAbstractValues
@@ -205,10 +210,20 @@ class LLAbstractFrame(object):
                 self.flowin(state)
             next.settarget(state.copyblock)
             for link in state.copyblock.exits:
-                if (link not in seen and link.target is not graph.returnblock
-                                     and link.target is not graph.exceptblock):
-                    pending.append(link)
+                if link not in seen:
                     seen[link] = True
+                    if link.target is None or link.target.operations != ():
+                        pending.append(link)
+                    else:
+                        # link.target is a return or except block; make sure
+                        # that it is really the one from 'graph' -- by patching
+                        # 'graph' if necessary.
+                        if len(link.target.inputargs) == 1:
+                            graph.returnblock = link.target
+                        elif len(link.target.inputargs) == 2:
+                            graph.exceptblock = link.target
+                        else:
+                            raise Exception("uh?")
         # the graph should be complete now; sanity-check
         checkgraph(graph)
 
@@ -308,10 +323,10 @@ class LLAbstractFrame(object):
         self.residual_operations.append(op)
 
     def residualize(self, op, args_a, constant_op=None):
-        RESULT = op.result.concretetype
-        if RESULT is lltype.Void:
-            return XXX_later
         if constant_op:
+            RESULT = op.result.concretetype
+            if RESULT is lltype.Void:
+                return ll_no_return_value
             a_result = self.constantfold(constant_op, args_a)
             if a_result is not None:
                 return a_result
@@ -332,6 +347,15 @@ class LLAbstractFrame(object):
 
     def op_int_mul(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.mul)
+
+    def op_int_and(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.and_)
+
+    def op_int_rshift(self, op, a1, a2):
+        return self.residualize(op, [a1, a2], operator.rshift)
+
+    def op_int_neg(self, op, a1):
+        return self.residualize(op, [a1], operator.neg)
 
     def op_int_gt(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.gt)
@@ -409,4 +433,14 @@ class LLAbstractFrame(object):
             constant_op = operator.getitem
         return self.residualize(op, [a_ptr, a_index], constant_op)
 
-        
+    def op_malloc(self, op, a_T):
+        return self.residualize(op, [a_T])
+
+    def op_malloc_varsize(self, op, a_T, a_size):
+        return self.residualize(op, [a_T, a_size])
+
+    def op_setfield(self, op, a_ptr, a_attrname, a_value):
+        return self.residualize(op, [a_ptr, a_attrname, a_value])
+
+    def op_setarrayitem(self, op, a_ptr, a_index, a_value):
+        return self.residualize(op, [a_ptr, a_index, a_value])
