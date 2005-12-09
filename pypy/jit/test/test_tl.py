@@ -108,9 +108,9 @@ def test_branch_backwards():
 def test_branch0():
     assert interp(list2bytecode([PUSH,7, PUSH,1, BR_COND,0])) == 7
 
-def test_exit():
-    assert py.test.raises(IndexError, interp, list2bytecode([EXIT]))
-    assert interp(list2bytecode([PUSH,7, EXIT, PUSH,5])) == 7
+def test_return():
+    assert py.test.raises(IndexError, interp, list2bytecode([RETURN]))
+    assert interp(list2bytecode([PUSH,7, RETURN, PUSH,5])) == 7
 
 def test_rot():
     code = [PUSH,1, PUSH,2, PUSH,3, ROT,3] 
@@ -121,10 +121,8 @@ def test_rot():
     py.test.raises(IndexError, interp, list2bytecode([PUSH,1, PUSH,2, PUSH,3, ROT,4]))
 
 def test_call_ret():
-    assert py.test.raises(IndexError, interp, list2bytecode([RETURN]))
-    assert interp(list2bytecode([PUSH,6, RETURN, PUSH,4, EXIT, PUSH,9])) == 9
-    assert interp(list2bytecode([CALL,0])) == 2
-    assert interp(list2bytecode([PUSH,1, CALL,5, PUSH,2, CALL,2, EXIT, RETURN, ROT,3, ADD, SWAP, RETURN])) == 3
+    assert interp(list2bytecode([CALL,1, RETURN, PUSH,2])) == 2
+    assert interp(list2bytecode([PUSH,6, CALL,2, MUL, RETURN, PUSH,7, RETURN])) == 42
 
 def test_compile_branch_backwards():
     code = compile("""
@@ -149,16 +147,19 @@ end:// comment
 def test_compile_call_ret():
     code = compile("""PUSH 1
     CALL func1
-    PUSH 2
+    PUSH 3
     CALL func2
-    EXIT
+    RETURN
 
 func1:
+    PUSH 2
     RETURN  # comment
 
 func2:
-    ROT 3   ;comment
-    ADD 
-    SWAP
+    PUSH 4   ;comment
+    PUSH 5
+    ADD
     RETURN""")
-    assert code == list2bytecode([PUSH,1, CALL,5, PUSH,2, CALL,2, EXIT, RETURN, ROT,3, ADD, SWAP, RETURN])
+    assert code == list2bytecode([PUSH,1, CALL,5, PUSH,3, CALL,4, RETURN,
+                                  PUSH,2, RETURN,
+                                  PUSH,4, PUSH,5, ADD, RETURN])

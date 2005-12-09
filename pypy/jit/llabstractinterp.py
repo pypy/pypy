@@ -92,10 +92,10 @@ class BlockState(object):
 class GraphState(object):
     """Entry state of a graph."""
 
-    def __init__(self, origgraph, args_a):
-        super(GraphState, self).__init__(args_a)
+    def __init__(self, origgraph, args_a, n):
         self.origgraph = origgraph
-        self.copygraph = FunctionGraph(origgraph.name, Block([]))   # grumble
+        name = '%s_%d' % (origgraph.name, n)
+        self.copygraph = FunctionGraph(name, Block([]))   # grumble
         for orig_v, copy_v in [(origgraph.getreturnvar(),
                                 self.copygraph.getreturnvar()),
                                (origgraph.exceptblock.inputargs[0],
@@ -114,6 +114,7 @@ class GraphState(object):
     def complete(self, interp):
         assert self.state != "during"
         if self.state == "before":
+            self.state = "during"
             builderframe = LLAbstractFrame(interp, self)
             builderframe.complete()
             self.state = "after"
@@ -157,8 +158,8 @@ class LLAbstractInterp(object):
         try:
             graphstate = self.graphs[origgraph][state]
         except KeyError:
-            graphstate = GraphState(origgraph, args_a)
             d = self.graphs.setdefault(origgraph, {})
+            graphstate = GraphState(origgraph, args_a, n=len(d))
             d[state] = graphstate
             self.pendingstates[graphstate] = state
         #print "SCHEDULE_GRAPH", graphstate
@@ -284,7 +285,6 @@ class LLAbstractFrame(object):
             if len(origblock.inputargs) == 1:
                 target = self.graphstate.copygraph.returnblock
             else:
-                XXX_later
                 target = self.graphstate.copygraph.exceptblock
             args_v = [binding(v).getvarorconst() for v in origblock.inputargs]
             newlinks = [Link(args_v, target)]
@@ -388,14 +388,18 @@ class LLAbstractFrame(object):
         v_func = a_func.getvarorconst()
         if isinstance(v_func, Constant):
             fnobj = v_func.value._obj
-            if hasattr(fnobj, 'graph'):
+            if (hasattr(fnobj, 'graph') and
+                not getattr(fnobj._callable, 'suggested_primitive', False)):
                 origgraph = fnobj.graph
                 graphstate, args_a = self.interp.schedule_graph(
                     args_a, origgraph)
+                #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
                 if graphstate.state != "during":
                     print 'ENTERING', graphstate.copygraph.name, args_a
                     graphstate.complete(self.interp)
-                    if isinstance(graphstate.a_return, LLConcreteValue):
+                    if (graphstate.a_return is not None and
+                        isinstance(graphstate.a_return.getvarorconst(),
+                                   Constant)):
                         a_result = graphstate.a_return
                     print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
                 
@@ -410,11 +414,11 @@ class LLAbstractFrame(object):
                 TYPE = lltype.FuncType(
                    ARGS, lltype.typeOf(origfptr).TO.RESULT)
                 fptr = lltype.functionptr(
-                   TYPE, fnobj._name, graph=graphstate.copygraph)
+                   TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
                 fconst = Constant(fptr)
                 fconst.concretetype = lltype.typeOf(fptr)
                 a_func = LLRuntimeValue(fconst)
-        self.residual("direct_call", [a_func] + args_a, a_result) 
+        self.residual("direct_call", [a_func] + list(args_a), a_result) 
         return a_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
@@ -448,3 +452,8 @@ class LLAbstractFrame(object):
 
     def op_setarrayitem(self, op, a_ptr, a_index, a_value):
         return self.residualize(op, [a_ptr, a_index, a_value])
+
+    def op_cast_pointer(self, op, a_ptr):
+        def constant_op(ptr):
+            return lltype.cast_pointer(op.result.concretetype, ptr)
+        return self.residualize(op, [a_ptr], constant_op)

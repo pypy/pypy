@@ -31,8 +31,6 @@ opcode("BR_COND")  #1 operand offset
 opcode("CALL")  #1 operand offset
 opcode("RETURN")
 
-opcode("EXIT")
-
 opcode("INVALID")
 
 del opcode

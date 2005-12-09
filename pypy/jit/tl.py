@@ -96,13 +96,12 @@ def interp(code='', pc=0):
             pc += 1
 
         elif opcode == CALL:
-            stack.append( pc+1 )
-            pc += char2int(code[pc]) + 1
+            offset = char2int(code[pc])
+            pc += 1
+            res = interp(code, pc + offset)
+            stack.append( res )
 
         elif opcode == RETURN:
-            pc = stack.pop()
-
-        elif opcode == EXIT:
             break
 
         else:

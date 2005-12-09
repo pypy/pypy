@@ -169,3 +169,16 @@ def test_simple_array():
     graph2, insns = abstrinterp(ll_function, [s, 0, 0], [0, 1, 2])
     assert insns == {}
 
+def test_recursive_call():
+    def ll_factorial(k):
+        if k <= 1:
+            return 1
+        else:
+            return ll_factorial(k-1) * k
+    def ll_function(k):
+        # indirection needed, because the hint is not about *all* calls to
+        # ll_factorial()
+        return ll_factorial(k)
+    graph2, insns = abstrinterp(ll_function, [7], [0])
+    # the direct_calls are messy to count, with calls to ll_stack_check
+    assert insns.keys() == ['direct_call']
