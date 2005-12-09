@@ -215,7 +215,7 @@ def test_prebuilt_tuples():
     assert f(0) == 5
     assert f(1) == 2
 
-def DONTtest_pbc_fns(): #issue with arrayinstance output in incorrect order
+def test_pbc_fns():
     def f2(x):
          return x+1
     def f3(x):
@@ -271,7 +271,7 @@ def DONTtest_list_list_getitem_pbc(): #issue with incorrect arrayinstance order
     assert f(0) == 0
     assert f(1) == 1
 
-def DONTtest_list_basic_ops():  #issue unknown
+def test_list_basic_ops():
     def list_basic_ops(i, j): 
         l = [1,2,3]
         l.insert(0, 42)
@@ -288,7 +288,7 @@ def DONTtest_list_basic_ops():  #issue unknown
         for j in range(6): 
             assert f(i,j) == list_basic_ops(i,j)
 
-def DONTtest_string_simple():   #issue because malloc(sometype) doesn't populate the Object with data(types)
+def test_string_simple():
     def string_simple(i): 
         return ord(str(i))
     f = compile_function(string_simple, [int])

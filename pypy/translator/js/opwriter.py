@@ -298,11 +298,13 @@ class OpWriter(object):
             type_ = 'Array'
         else:
             type_ = 'Object' #self.db.repr_type(arg_type)
-        # self.codewriter.comment(str(arg_type))
+        self.codewriter.comment(str(arg_type))
         self.codewriter.comment(str(op.args[0]))
         self.codewriter.malloc(targetvar, type_)
-        if t[1] == 'rpy_string':
-            self.codewriter.append(targetvar + '.chars = ""')   #XXX this should be done correctly for all types offcourse!
+        if t[1] == 'rpy_string':    #XXX this should be done correctly for all types offcourse!
+            #self.codewriter.append(targetvar + '.length = 0')
+            self.codewriter.append(targetvar + '.hash = 0')
+            self.codewriter.append(targetvar + '.chars = ""')
     malloc_exception = malloc
     malloc_varsize = malloc
 

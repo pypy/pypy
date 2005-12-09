@@ -84,4 +84,3 @@ class TestPBC(object):
         assert f(1) == 15
         assert f(2) == 17
         assert f(3) == 19
-
