@@ -371,18 +371,22 @@ class BoehmGcPolicy(BasicGcPolicy):
         return ['gc']
 
     def pre_pre_gc_code(self):
-        if sys.platform == "linux2" and self.thread_enabled:
+        if sys.platform == "linux2":
             yield "#define _REENTRANT 1"
             yield "#define GC_LINUX_THREADS 1"
-        yield '#include <gc/gc.h>'
-        yield '#define USING_BOEHM_GC'
+            yield "#define GC_REDIRECT_TO_LOCAL 1"
+            yield '#include <gc/gc_local_alloc.h>'
+            yield '#define USING_BOEHM_GC'
+        else:
+            yield '#include <gc/gc.h>'
+            yield '#define USING_BOEHM_GC'
 
     def gc_startup_code(self):
         if sys.platform == 'win32':
             yield 'assert(GC_all_interior_pointers == 0);'
         else:
             yield 'GC_all_interior_pointers = 0;'
-        yield 'GC_INIT();'
+        yield 'GC_init();'
 
 
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
