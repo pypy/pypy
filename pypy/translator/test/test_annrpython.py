@@ -1884,6 +1884,39 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.knowntype == int
 
+    def test_annotate__del__(self):
+        class A(object):
+            def __init__(self):
+                self.a = 2
+            def __del__(self):
+                self.a = 1
+        def f():
+            return A().a
+        a = self.RPythonAnnotator()
+        t = a.translator
+        s = a.build_types(f, [])
+        assert s.knowntype == int
+        graph = tgraphof(t, A.__del__.im_func)
+        assert graph.startblock in a.annotated
+
+    def test_annotate__del__baseclass(self):
+        class A(object):
+            def __init__(self):
+                self.a = 2
+            def __del__(self):
+                self.a = 1
+        class B(A):
+            def __init__(self):
+                self.a = 3
+        def f():
+            return B().a
+        a = self.RPythonAnnotator()
+        t = a.translator
+        s = a.build_types(f, [])
+        assert s.knowntype == int
+        graph = tgraphof(t, A.__del__.im_func)
+        assert graph.startblock in a.annotated
+
 def g(n):
     return [0,1,2,n]
 

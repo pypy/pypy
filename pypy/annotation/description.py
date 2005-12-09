@@ -387,6 +387,13 @@ class ClassDesc(Desc):
             for attr in self.classdict:
                 classsources[attr] = self    # comes from this ClassDesc
             classdef.setup(classsources)
+            # look for a __del__ method and annotate it if it's there
+            if '__del__' in self.classdict:
+                from pypy.annotation.model import s_None, SomeInstance
+                s_func = self.s_read_attribute('__del__')
+                args_s = [SomeInstance(classdef)]
+                s = self.bookkeeper.emulate_pbc_call(None, s_func, args_s)
+                assert s_None.contains(s)
             return classdef
 
     def getuniqueclassdef(self):
