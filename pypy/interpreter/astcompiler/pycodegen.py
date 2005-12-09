@@ -4,7 +4,8 @@ import marshal
 import struct
 import sys
 
-from pypy.interpreter.astcompiler import ast, parse, walk, syntax
+#from pypy.interpreter.astcompiler import ast, parse, walk, syntax
+from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler import pyassem, misc, future, symbols
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
@@ -350,7 +351,7 @@ class CodeGenerator(ast.ASTVisitor):
         gen = FunctionCodeGenerator(self.space, node, isLambda,
                                self.class_name, self.get_module(),
                                     self.scopeambiguity)
-        walk(node.code, gen)
+        node.code.accept( gen )
         gen.finish()
         self.set_lineno(node)
         for default in node.defaults:
@@ -374,7 +375,7 @@ class CodeGenerator(ast.ASTVisitor):
         gen = ClassCodeGenerator(self.space, node,
                                  self.get_module(),
                                  self.scopeambiguity)
-        walk(node.code, gen)
+        node.code.accept( gen )
         gen.finish()
         self.set_lineno(node)
         self.emitop_obj('LOAD_CONST', self.space.wrap(node.name) )
@@ -620,7 +621,7 @@ class CodeGenerator(ast.ASTVisitor):
                                    self.get_module(), self.scopeambiguity)
         inner = node.code
         assert isinstance(inner, ast.GenExprInner)
-        walk(inner, gen)
+        inner.accept( gen )
         gen.finish()
         self.set_lineno(node)
         frees = gen.scope.get_free_vars()
@@ -1378,7 +1379,6 @@ class ClassCodeGenerator(AbstractClassCode):
 def findOp(node):
     """Find the op (DELETE, LOAD, STORE) in an AssTuple tree"""
     v = OpFinder()
-    # walk(node, v, verbose=0)
     node.accept(v)
     return v.op
 

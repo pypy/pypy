@@ -516,7 +516,7 @@ def list_eq(l1, l2):
     
 if __name__ == "__main__":
     import sys
-    from pypy.interpreter.astcompiler import parseFile, walk
+    from pypy.interpreter.astcompiler import parseFile
     import symtable
 
     def get_names(syms):
@@ -532,7 +532,7 @@ if __name__ == "__main__":
         mod_names = get_names(syms)
         tree = parseFile(file)
         s = SymbolVisitor()
-        walk(tree, s)
+        tree.accept(s)
 
         # compare module-level symbols
         names2 = tree.scope.get_names()

@@ -33,6 +33,8 @@ import pypy.interpreter.pyparser.pysymbol as symbol
 import pypy.interpreter.pyparser.pytoken as token
 import sys
 
+sym_name = symbol._cpython_symbols.sym_name
+
 # transforming is requiring a lot of recursion depth so make sure we have enough
 if sys.getrecursionlimit()<5000:
     sys.setrecursionlimit(5000)
@@ -113,7 +115,7 @@ class Transformer:
     def __init__(self, filename=''):
         self._dispatch = {}
         self.filename = filename
-        for value, name in symbol.sym_name.items():
+        for value, name in sym_name.items():
             if hasattr(self, name):
                 self._dispatch[value] = getattr(self, name)
         self._dispatch[token.NEWLINE] = self.com_NEWLINE
@@ -1481,7 +1483,7 @@ _assign_types = [
 
 import types
 _names = {}
-for k, v in symbol.sym_name.items():
+for k, v in sym_name.items():
     _names[k] = v
 for k, v in token.tok_name.items():
     _names[k] = v

@@ -45,7 +45,7 @@ class PythonParser(object):
         return self.parse_lines(lines, goal, builder, flags)
 
     def parse_lines(self, lines, goal, builder, flags=0):
-        goalnumber = pysymbol.sym_values[goal]
+        goalnumber = pysymbol._cpython_symbols.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
     
@@ -153,3 +153,8 @@ def parse_eval_input(textsrc, gram, builder):
 
 def grammar_rules( space ):
     return space.wrap( PYTHON_PARSER.rules )
+
+
+def make_rule( space, w_rule ):
+    rule = space.str_w( w_rule )
+    

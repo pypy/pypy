@@ -24,7 +24,7 @@ class Module(MixedModule):
 from pypy.interpreter.pyparser import pysymbol
 
 sym_name = {}
-for val, name in pysymbol.sym_name.items():
+for val, name in pysymbol._cpython_symbols.sym_name.items():
     if val >= 0:
         Module.interpleveldefs[name] = 'space.wrap(%d)' % val
         sym_name[val] = name

@@ -1,10 +1,10 @@
 """SyntaxTree class definition"""
-try:
-    from pypy.interpreter.pyparser.pysymbol import sym_values
-    from pypy.interpreter.pyparser.pytoken import tok_values
-except ImportError:
-    from pysymbol import sym_values
-    from pytoken import tok_values
+# try:
+# #    from pypy.interpreter.pyparser.pysymbol import sym_values
+#     from pypy.interpreter.pyparser.pytoken import tok_values
+# except ImportError:
+# #    from pysymbol import sym_values
+#     from pytoken import tok_values
     
 class AbstractSyntaxVisitor(object):
     def visit_syntaxnode( self, node ):
@@ -60,11 +60,13 @@ class SyntaxNode(object):
         a TempSyntaxNode"""
         return [ self ]
 
-    def totuple(self, lineno=False ):
-        """returns a tuple representation of the syntax tree"""
+    def totuple(self, sym_values, lineno=False ):
+        """returns a tuple representation of the syntax tree
+        needs symbols+tokens value to name mapping to represent the nodes
+        """
         symvalue = sym_values.get( self.name, (0, self.name) )
         l = [ symvalue ]
-        l += [node.totuple(lineno) for node in self.nodes]
+        l += [node.totuple(lineno, sym_values ) for node in self.nodes]
         return tuple(l)
     
 
@@ -102,8 +104,10 @@ class TokenNode(SyntaxNode):
         assert isinstance(visitor, AbstractSyntaxVisitor) 
         return visitor.visit_tokennode(self)
 
-    def totuple(self, lineno=False):
-        """returns a tuple representation of the syntax tree"""
+    def totuple(self, tok_values, lineno=False):
+        """returns a tuple representation of the syntax tree
+        needs symbols+tokens value to name mapping to represent the nodes
+        """
         num = tok_values.get(self.name, -1)
         if num == -1:
             print "Unknown", self.name, self.value

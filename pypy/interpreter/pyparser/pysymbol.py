@@ -9,48 +9,63 @@ except ImportError:
 # it's important for CPython, but I'm not so sure it's still
 # important here
 
-_anoncount = -10
-_count = 0
+class SymbolMapper(object):
+    def __init__(self, sym_name=None ):
+        _anoncount = self._anoncount = -10
+        _count = self._count = 0
+        self.sym_name = {}
+        self.sym_values = {}
+        if sym_name is not None:
+            for _value, _name in sym_name.items():
+                if _value<_anoncount:
+                    _anoncount = _value
+                if _value>_count:
+                    _count = _value
+                self.sym_values[_name] = _value
+                self.sym_name[_value] = _name
+            self._anoncount = _anoncount
+            self._count = _count
 
-sym_name = {}
-sym_values = {}
+    def add_symbol( self, sym ):
+        assert type(sym)==str
+        if not sym in self.sym_values:
+            self._count += 1
+            val = self._count
+            self.sym_values[sym] = val
+            self.sym_name[val] = sym
+            return val
+        return self.sym_values[ sym ]
 
-for _name, _value in symbol.__dict__.items():
-    if type(_value) is type(0):
-        _count = max(_count, _value)
+    def add_anon_symbol( self, sym ):
+        assert type(sym)==str
+        if not sym in self.sym_values:
+            self._anoncount -= 1
+            val = self._anoncount
+            self.sym_values[sym] = val
+            self.sym_name[val] = sym
+            return val
+        return self.sym_values[ sym ]
 
-def add_symbol( sym ):
-    assert type(sym)==str
-    if not sym_values.has_key( sym ):
-        if hasattr(symbol, sym):
-            val = getattr(symbol, sym)
-        else:
-            global _count
-            _count += 1
-            val = _count
-        sym_values[sym] = val
-        sym_name[val] = sym
-        globals()[sym] = val
-        return val
-    return sym_values[ sym ]
+    def __getitem__(self, sym ):
+        """NOT RPYTHON"""
+        assert type(sym)==str
+        return self.sym_values[ sym ]
+    
 
-def add_anon_symbol( sym ):
-    global _anoncount
-    assert type(sym)==str
-    if not sym_values.has_key( sym ):
-        val = _anoncount
-        sym_values[sym] = val
-        sym_name[val] = sym
-        _anoncount -= 1
-        return val
-    return sym_values[ sym ]
+_cpython_symbols = SymbolMapper( symbol.sym_name )
+
+
+# prepopulate symbol table from symbols used by CPython
+for _value, _name in _cpython_symbols.sym_name.items():
+    globals()[_name] = _value
+
     
 
 def update_symbols( parser ):
     """Update the symbol module according to rules
     in PythonParser instance : parser"""
     for rule in parser.rules:
-        add_symbol( rule )
+        _cpython_symbols.add_symbol( rule )
 
 # There is no symbol in this module until the grammar is loaded
 # once loaded the grammar parser will fill the mappings with the
