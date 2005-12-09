@@ -6,11 +6,11 @@ import os
 # For testing
 
 from pypy.translator.c.gc import BoehmGcPolicy
-gcpolicy = None #BoehmGcPolicy 
+gcpolicy = BoehmGcPolicy 
 debug_flag = True
 
 # count of loops in tests (set lower to speed up)
-loops = 5000
+loops = 1000
     
 def debug(s):
     if debug_flag:
@@ -79,11 +79,13 @@ class Tasklet(Resumable):
         self.remove = False
 
     def suspend_and_remove(self, remove):
-        self.suspend()
         self.remove = remove
+        self.suspend()
 
     def resume(self):
+        assert not self.remove
         Resumable.resume(self)
+        
         # not sure what to do with alive yetXXX        
 
         #XXX arggh - why NOT??
@@ -136,10 +138,8 @@ class Scheduler(object):
         self.runnables.append(tasklet)
 
     def run(self):            
-        debug("len1 %s" % len(self.runnables))
         while self.runnables:
             runnables = self.runnables
-            debug("len2 %s" % len(runnables))
             self.runnables = []
             for t in runnables:
                 assert self.current_tasklet is None
@@ -212,7 +212,6 @@ def test_multiple_simple():
         schedule()
 
     def f():
-        globals.count = 0
         for ii in range(loops):
             start_tasklet(Tasklet("T1%s" % ii, simple))
             start_tasklet(Tasklet("T2%s" % ii, simple2))
@@ -220,5 +219,27 @@ def test_multiple_simple():
         run()
         return globals.count == loops * 25
     
+    res = wrap_stackless_function(f)
+    assert res == '1'
+
+def test_schedule_remove():
+    
+    def simple(name):
+        for ii in range(20):
+            if ii < 10:
+                schedule()
+            else:
+                schedule_remove()
+            globals.count += 1
+
+    def f():
+        for ii in range(loops):
+            start_tasklet(Tasklet("T%s" % ii, simple))
+        run()
+        for ii in range(loops):
+            start_tasklet(Tasklet("T%s" % ii, simple))
+        run()
+        return globals.count == loops * 10 * 2
+
     res = wrap_stackless_function(f)
     assert res == '1'
