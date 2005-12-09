@@ -278,6 +278,7 @@ OP_WEIGHTS = {'same_as': 0,
               'cast_pointer': 0,
               'keepalive': 0,
               'direct_call': 2,    # guess
+              'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
