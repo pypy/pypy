@@ -4,7 +4,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.jit import tl
 from pypy.jit.llabstractinterp import LLAbstractInterp
 from pypy.rpython.rstr import string_repr
-
+from pypy.rpython.llinterp import LLInterpreter
 
 def jit_tl(code):
     t = TranslationContext()
@@ -16,12 +16,17 @@ def jit_tl(code):
     interp = LLAbstractInterp()
     hints = {graph1.getargs()[0]: string_repr.convert_const(code),
              graph1.getargs()[1]: 0}
-
     graph2 = interp.eval(graph1, hints)
-    graph2.show()
+
+    llinterp = LLInterpreter(rtyper)
+    result1 = llinterp.eval_graph(graph1, [string_repr.convert_const(code), 0])
+    result2 = llinterp.eval_graph(graph2, [])
+
+    assert result1 == result2
+    #graph2.show()
 
 
-def INPROGRESS_test_jit_tl_1():
+def test_jit_tl_1():
     code = tl.compile("""
         PUSH 42
     """)
