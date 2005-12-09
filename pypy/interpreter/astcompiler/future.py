@@ -2,7 +2,7 @@
 
 """
 from pypy.interpreter.pyparser.error import SyntaxError
-from pypy.interpreter.astcompiler import ast, walk
+from pypy.interpreter.astcompiler import ast
 
 def is_future(stmt):
     """Return true if statement is a well-formed future statement"""
@@ -82,18 +82,18 @@ class BadFutureParser(ast.ASTVisitor):
 def find_futures(node):
     p1 = FutureParser()
     p2 = BadFutureParser()
-    walk(node, p1)
-    walk(node, p2)
+    node.accept( p1 )
+    node.accept( p2 )
     return p1.get_features()
 
 if __name__ == "__main__":
     import sys
-    from pypy.interpreter.astcompiler import parseFile, walk
+    from pypy.interpreter.astcompiler import parseFile
 
     for file in sys.argv[1:]:
         print file
         tree = parseFile(file)
         v = FutureParser()
-        walk(tree, v)
+        tree.accept(v)
         print v.found
         print
