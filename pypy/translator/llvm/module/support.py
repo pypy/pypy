@@ -57,7 +57,7 @@ return_block:
     ret int %result
 }
 
-internal fastcc long %pypyop_long_abs(long %x) {
+internal fastcc long %pypyop_llong_abs(long %x) {
 block0:
     %cond1 = setge long %x, 0
     br bool %cond1, label %return_block, label %block1
