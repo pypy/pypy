@@ -294,12 +294,15 @@ def app_test_socket_close_error():
 def app_test_socket_connect():
     import _socket, os
     s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+    # XXX temporarily we use codespeak to test, will have more robust tests in
+    # the absence of a network connection later when mroe parts of the socket
+    # API are implemented.
     s.connect(("codespeak.net", 80))
     name = s.getpeername() # Will raise socket.error if not connected
     assert name[1] == 80
     s.close()
 
-def DONOT_app_test_socket_connect_typeerrors():
+def app_test_socket_connect_typeerrors():
     tests = [
         "",
         ("80"),

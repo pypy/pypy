@@ -4,7 +4,11 @@ Helper file for Python equivalents of socket specific calls.
 
 import socket
 
-keep_sockets_alive = {}
+# HACK: We have to prevent GC to collect the socket object we create within this
+#Êmodule. Because socket.close() is called on GC this can lead to strange
+# effects in corner cases where file descriptors are reused.
+socket_cache = {}
+keep_sockets_alive = []
 
 class ADDRINFO(object):
     # a simulated addrinfo structure from C, i.e. a chained list
@@ -30,21 +34,21 @@ def getaddrinfo(host, port, family, socktype, proto, flags):
 
 def newsocket(family, type, protocol):
     s = socket.socket(family, type, protocol)
-    # HACK: We have to prevent GC to collect the socket object because we don't
-    # want it to be closed.
     fileno = s.fileno()
-    keep_sockets_alive[fileno] = s
+    if socket_cache.has_key(fileno):
+        keep_sockets_alive.append(socket_cache[fileno])
+    socket_cache[fileno] = s
     return fileno
 
 def connect(fd, host, port):
     # XXX IPv4 only
-    s = keep_sockets_alive[fd]
+    s = socket_cache[fd]
     try:
         s.connect((host, port))
     except Exception, ex:
         print ex
 
 def getpeername(fd):
-    s = keep_sockets_alive[fd]
+    s = socket_cache[fd]
     return s.getpeername()
 
