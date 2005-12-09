@@ -84,6 +84,7 @@ class BasicGcPolicy:
 class RefcountingInfo:
     deallocator = None
     static_deallocator = None
+    destructor = None
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
@@ -184,6 +185,10 @@ class RefcountingGcPolicy(BasicGcPolicy):
                 gcinfo.rtti_query_funcptr = db.get(fnptr)
                 T = typeOf(fnptr).TO.ARGS[0]
                 gcinfo.rtti_query_funcptr_argtype = db.gettype(T)
+                if hasattr(rtti._obj, 'destructor_funcptr'):
+                    destrptr = rtti._obj.destructor_funcptr
+                    gcinfo.destructor = db.get(destrptr)
+                    T = typeOf(destrptr).TO.ARGS[0]
             else:
                 # is a deallocator really needed, or would it be empty?
                 if list(self.deallocator_lines(structdefnode, '')):
@@ -198,14 +203,32 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def struct_implementationcode(self, structdefnode):
         if structdefnode.gcinfo:
             gcinfo = structdefnode.gcinfo
-            if gcinfo.static_deallocator:
+            has_dynamic_deallocator = gcinfo.deallocator and gcinfo.deallocator != gcinfo.static_deallocator
+            if gcinfo.static_deallocator and not has_dynamic_deallocator:
                 yield 'void %s(struct %s *p) {' % (gcinfo.static_deallocator,
                                                structdefnode.name)
+                # insert decrefs to objects we have a reference to
                 for line in self.deallocator_lines(structdefnode, '(*p)'):
                     yield '\t' + line
                 yield '\tOP_FREE(p);'
                 yield '}'
-            if gcinfo.deallocator and gcinfo.deallocator != gcinfo.static_deallocator:
+            elif has_dynamic_deallocator:
+                # write static deallocator
+                yield 'void %s(struct %s *p) {' % (gcinfo.static_deallocator,
+                                               structdefnode.name)
+                # insert call to __del__ if necessary
+                if gcinfo.destructor:
+                    yield "\t%s((%s) p);" % (gcinfo.destructor,
+                                             cdecl(gcinfo.destructor_argtype, ''))
+                # insert decrefs to objects we have a reference to
+                yield '\tif (!--p->%s) {' % (structdefnode.gcheader,)
+                for line in self.deallocator_lines(structdefnode, '(*p)'):
+                    yield '\t\t' + line
+                yield '\t\tOP_FREE(p);'
+                yield '\t}'
+                yield '}'
+
+                # write dynamic deallocator
                 yield 'void %s(struct %s *p) {' % (gcinfo.deallocator, structdefnode.name)
                 yield '\tvoid (*staticdealloc) (void *);'
                 # the refcount should be 0; temporarily bump it to 1
@@ -214,8 +237,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
                 yield '\tstaticdealloc = %s((%s) p);' % (
                     gcinfo.rtti_query_funcptr,
                     cdecl(gcinfo.rtti_query_funcptr_argtype, ''))
-                yield '\tif (!--p->%s)' % (structdefnode.gcheader,)
-                yield '\t\tstaticdealloc(p);'
+                yield '\tstaticdealloc(p);'
                 yield '}'
 
 
