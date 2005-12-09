@@ -1,9 +1,9 @@
-#define USING_THREADED_BOEHM = 1
+//#define USING_THREADED_BOEHM
 
 #ifdef USING_THREADED_BOEHM
 
 #define GC_REDIRECT_TO_LOCAL 1
-#include <gc/gc_local_alloc.h>
+#include <gc_local_alloc.h>
 
 #else
 
