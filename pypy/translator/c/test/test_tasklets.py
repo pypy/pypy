@@ -52,10 +52,6 @@ class Resumable(object):
     def __init__(self, fn):
         self.fn = fn
         self.alive = False
-
-        # propogates round suspend-resume to tell scheduler in run()
-        # XXX too late to think this thru
-        self.remove = False
         
     def start(self):
         self.caller = yield_current_frame_to_caller()
@@ -65,20 +61,12 @@ class Resumable(object):
     def set_resumable(self, resumable):
         self.resumable = resumable
 
-    def suspend(self, remove):
+    def suspend(self):
         self.caller = self.caller.switch()  
-        self.remove = remove
         
     def resume(self):
-        debug("resuming %s" % self.name)
         self.resumable = self.resumable.switch()  
         self.alive = self.resumable is not None
-        # not sure what to do with alive yetXXX        
-
-        #XXX arggh - why NOT??
-        #if not alive:
-        #    self.caller = # None / NULL
-        return self.alive and not self.remove 
     
 class Tasklet(Resumable):
     def __init__(self, name, fn):
@@ -86,6 +74,23 @@ class Tasklet(Resumable):
         self.name = name
         self.blocked = False
         
+        # propogates round suspend-resume to tell scheduler in run()
+        # XXX too late to think this thru
+        self.remove = False
+
+    def suspend_and_remove(self, remove):
+        self.suspend()
+        self.remove = remove
+
+    def resume(self):
+        Resumable.resume(self)
+        # not sure what to do with alive yetXXX        
+
+        #XXX arggh - why NOT??
+        #if not alive:
+        #    self.caller = # None / NULL
+        return self.alive and not self.remove         
+
 class Channel:
     def __init__(self):
         self.balance = 0
@@ -145,7 +150,7 @@ class Scheduler(object):
 
     def schedule(self, remove=False):
         assert self.current_tasklet is not None
-        self.current_tasklet.suspend(remove)
+        self.current_tasklet.suspend_and_remove(remove)
         
 # ____________________________________________________________
 
