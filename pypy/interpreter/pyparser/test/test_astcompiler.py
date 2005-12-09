@@ -117,7 +117,7 @@ def compare_code(ac_code, sc_code, space=FakeSpace()):
 
     assert len(ac_code.co_consts) == len(sc_code.co_consts)
     for c1, c2 in zip( ac_code.co_consts, sc_code.co_consts ):
-        if type(c1)==PyCode:
+        if isinstance(c1, PyCode):
             return compare_code( c1, c2, space )
         else:
             assert c1 == c2
