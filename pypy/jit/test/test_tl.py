@@ -63,7 +63,7 @@ def test_swap():
 def test_pick():
     values = [7, 8, 9]
     code = []
-    for v in reversed(values):
+    for v in values[::-1]:
         code.extend([PUSH, v])
 
     for i, v in enumerate(values):
