@@ -77,6 +77,8 @@ long LL__socket_htonl(long ntohl)
     return htonl(ntohl);
 }
 
+// XXX Check what should be done threading-wise around blocking system calls
+
 int LL__socket_newsocket(int family, int type, int protocol)
 {
     int fd;
@@ -95,6 +97,43 @@ int LL__socket_newsocket(int family, int type, int protocol)
         RPYTHON_RAISE_OSERROR(errno);
     }
 }
+
+void LL__socket_connect(int fd, RPyString *host, int port)
+{
+    struct sockaddr_in addr;
+    
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((short)port);
+    if (setipaddr(RPyString_AsString(host), (struct sockaddr *) &addr,
+		      sizeof(addr), AF_INET) < 0) {
+        // XXX raise some error here 
+    }
+    if (connect(fd, &addr, sizeof(addr)) < 0) {
+        // XXX raise some error here
+    }
+}
+
+RPySOCKET_SOCKNAME *LL__socket_getpeername(int fd)
+{
+    struct sockaddr_in addr; // XXX IPv4 only
+    int addr_len;
+    RPySOCKET_SOCKNAME* sockname;
+    RPyString* host;
+    
+    memset((void *) &addr, '\0', sizeof(addr));
+    if (getpeername(fd, (struct sockaddr *) &addr, &addr_len) < 0) {
+        // XXX raise some error
+    }
+    
+    host = RPyString_FromString(inet_ntoa(addr.sin_addr));
+    return ll__socket_sockname(host, addr.sin_port, 0, 0);
+}
+
+void LL__socket_freesockname(RPySOCKET_SOCKNAME *sockname)
+{
+	free(sockname);
+}
+
 /* ____________________________________________________________________________ */
 
 /* Lock to allow python interpreter to continue, but only allow one

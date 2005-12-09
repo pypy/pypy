@@ -67,6 +67,9 @@ EXTERNALS = {
     ll__socket.ll__socket_htonl: 'LL__socket_htonl',
     ll__socket.ll__socket_ntohl: 'LL__socket_htonl',
     ll__socket.ll__socket_newsocket: 'LL__socket_newsocket',
+    ll__socket.ll__socket_connect: 'LL__socket_connect',
+    ll__socket.ll__socket_getpeername: 'LL__socket_getpeername',
+    ll__socket.ll__socket_freesockname: 'LL__socket_freesockname',
     }
 
 #______________________________________________________
@@ -91,6 +94,7 @@ def predeclare_common_types(db, rtyper):
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
     yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
     yield ('RPySOCKET_ADDRINFO', ll__socket.ADDRINFO_RESULT)
+    yield ('RPySOCKET_SOCKNAME', ll__socket.SOCKNAME)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
@@ -132,6 +136,8 @@ def predeclare_extfunc_helpers(db, rtyper):
     args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
             lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
     yield annotate(ll__socket.ll__socket_addrinfo, *args)
+    args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
+    yield annotate(ll__socket.ll__socket_sockname, *args)
 
 def predeclare_extfuncs(db, rtyper):
     modules = {}

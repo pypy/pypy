@@ -315,6 +315,8 @@ def app_test_socket_connect_typeerrors():
         raises(TypeError, s.connect, args)
     s.close()
 
+# XXX also need tests for other connection and timeout errors
+
 
 class AppTestSocket:
     def setup_class(cls):

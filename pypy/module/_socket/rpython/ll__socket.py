@@ -34,6 +34,13 @@ ADDRINFO_RESULT = GcStruct('tuple8',
                            ('item7', Signed),
                            )
 
+SOCKNAME = GcStruct('tuple4',
+                           ('item0', Ptr(STR)),
+                           ('item1', Signed),
+                           ('item2', Signed),
+                           ('item3', Signed),
+                           )
+
 def ll__socket_addrinfo(family, socktype, proto, canonname,
                         ipaddr, port, flowinfo, scopeid):
     tup = malloc(ADDRINFO_RESULT)
@@ -45,6 +52,14 @@ def ll__socket_addrinfo(family, socktype, proto, canonname,
     tup.item5 = port
     tup.item6 = flowinfo  # ipV6
     tup.item7 = scopeid   # ipV6
+    return tup
+
+def ll__socket_sockname(host, port, flowinfo, scopeid):
+    tup = malloc(SOCKNAME)
+    tup.item0 = host
+    tup.item1 = port
+    tup.item2 = flowinfo  # ipV6
+    tup.item3 = scopeid   # ipV6
     return tup
 
 def ll__socket_nextaddrinfo(opaqueaddr):
@@ -73,9 +88,21 @@ def ll__socket_ntohl(htonl):
     return _socket.ntohl(htonl)
 ll__socket_ntohl.suggested_primitive = True
 
+# Can't actually create socket objects in these ll helpers because they are
+# turned into flowgraphs at some point, and that fails on SocketType.__init__.
+
 def ll__socket_newsocket(family, type, protocol):
-#    from pypy.module._socket.rpython import rsocket
-#    return rsocket.newsocket(family, type, protocol).fileno()
     return 0
 ll__socket_newsocket.suggested_primitive = True
 
+def ll__socket_connect(fd, host, port):
+    return None
+ll__socket_connect.suggested_primitive = True
+
+def ll__socket_getpeername(fd):
+    return ("", 0, 0, 0)
+ll__socket_getpeername.suggested_primitive = True
+
+def ll__socket_freesockname(sockname):
+    return None
+ll__socket_freesockname.suggested_primitive = True

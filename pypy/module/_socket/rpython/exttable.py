@@ -5,7 +5,7 @@ Annotation support for interp-level socket objects.
 import _socket
 from pypy.module._socket.rpython import rsocket
 from pypy.rpython.extfunctable import declare, declaretype, declareptrtype
-from pypy.rpython.extfunctable import standardexceptions
+from pypy.rpython.extfunctable import standardexceptions, noneannotation
 from pypy.annotation.model import SomeTuple, SomeInteger, SomeString
 from pypy.annotation import classdef
 
@@ -28,6 +28,9 @@ def ann_addrinfo(*s_args):
                           ])
     return addrinfo
 
+def ann_sockname(*args):
+    return SomeTuple([SomeString(), SomeInteger(), SomeInteger(), SomeInteger()])
+
 declare(_socket.gethostname, str, '%s/gethostname' % module)
 declare(_socket.gethostbyname, str, '%s/gethostbyname' % module)
 
@@ -42,6 +45,9 @@ declare(_socket.ntohl, int, '%s/ntohl' % module)
 declare(_socket.htonl, int, '%s/htonl' % module)
 
 declare(rsocket.newsocket, int, '%s/newsocket' % module)
+declare(rsocket.connect, noneannotation, '%s/connect' % module)
+declare(rsocket.getpeername, ann_sockname, '%s/getpeername' % module)
+declare(rsocket.freesockname, noneannotation, '%s/freesockname' % module)
 
 # ____________________________________________________________
 # _socket.error can be raised by the above

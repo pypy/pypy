@@ -52,3 +52,5 @@ def getpeername(fd):
     s = socket_cache[fd]
     return s.getpeername()
 
+def freesockname(sockname):
+    pass
