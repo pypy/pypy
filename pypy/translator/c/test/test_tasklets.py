@@ -10,7 +10,7 @@ gcpolicy = BoehmGcPolicy
 debug_flag = True
 
 # count of loops in tests (set lower to speed up)
-loops = 1000
+loops = 10
     
 def debug(s):
     if debug_flag:
@@ -95,24 +95,27 @@ class Tasklet(Resumable):
 
 class Channel:
     def __init__(self):
-        self.balance = 0
         self.queue = []
+        self.balance = 0
 
     def send(self, value):
         self.balance += 1
-        if self.balance < 0:
+        if self.balance <= 0:
             t = self.queue.pop(0)
             t.data = value
             t.blocked = 0
+
+            # XXX Wrong - should run immediately
+            scheduler.add_tasklet(t)
+            scheduler.schedule()
+            
         else:
             t = getcurrent()
-            # Remove the tasklet from the list of running tasklets.
-            #XXX dont need this - t.remove()
-
             # let it wait for a receiver to come along
             self.queue.append((t, value))
             t.blocked = 1
-            scheduler.schedule()
+            scheduler.schedule_remove()
+
     
     def receive(self):
         self.balance -= 1
@@ -127,27 +130,39 @@ class Channel:
         t = getcurrent()
         self.queue.append(t)
         t.blocked = -1
-        scheduler.schedule()
+        scheduler.schedule_remove()
 
 class Scheduler(object):
     def __init__(self):
         self.runnables = []
         self.current_tasklet = None
+        self.immediately_schedule = None
 
     def add_tasklet(self, tasklet):
         self.runnables.append(tasklet)
+
+    def run_immediately(self, tasklet):
+        self.immediately_schedule = tasklet
 
     def run(self):            
         while self.runnables:
             runnables = self.runnables
             self.runnables = []
+            count = 0
             for t in runnables:
                 assert self.current_tasklet is None
                 self.current_tasklet = t
                 if t.resume():
                     self.runnables.append(self.current_tasklet)
                 self.current_tasklet = None
+                count += 1
 
+                if self.immediately_schedule:
+                    self.runnables = [self.immediately_schedule] \
+                                     + runnables[count:] + self.runnables
+                    self.immediately_schedule = None
+                    break
+                
     def schedule(self, remove=False):
         assert self.current_tasklet is not None
         self.current_tasklet.suspend_and_remove(remove)
@@ -160,6 +175,11 @@ def start_tasklet(tasklet):
     tasklet.set_resumable(res)
     scheduler.add_tasklet(tasklet)
 
+def start_tasklet_now(tasklet):
+    res = tasklet.start()
+    tasklet.set_resumable(res)
+    scheduler.run_immediately(tasklet)
+        
 def schedule():
     scheduler.schedule()
 
@@ -243,3 +263,36 @@ def test_schedule_remove():
 
     res = wrap_stackless_function(f)
     assert res == '1'
+
+def test_run_immediately():
+    globals.intermediate = 0
+    globals.count = 0
+    def simple(name):
+        for ii in range(20):
+            globals.count += 1
+            schedule()
+
+    def run_immediately(name):
+        globals.intermediate = globals.count
+        schedule()
+    
+    def simple2(name):
+        for ii in range(20):
+            globals.count += 1
+            if ii == 10:
+                start_tasklet_now(Tasklet("intermediate", run_immediately))
+            schedule()
+
+    def f():
+        start_tasklet(Tasklet("simple2", simple2))
+        for ii in range(loops):
+            start_tasklet(Tasklet("T%s" % ii, simple))        
+        run()
+        total_expected = (loops + 1) * 20
+        return (globals.intermediate == total_expected / 2 + 1 and
+                globals.count == total_expected)
+
+    res = wrap_stackless_function(f)
+    assert res == '1'
+
+        
