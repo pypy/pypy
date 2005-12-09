@@ -102,18 +102,18 @@ int LL__socket_newsocket(int family, int type, int protocol)
     return fd;
 }
 
-void LL__socket_connect(int fd, RPyString *host, int port)
+void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname)
 {
     struct sockaddr_in addr;
     
-    if (setipaddr(RPyString_AsString(host), (struct sockaddr *) &addr,
+    if (setipaddr(RPyString_AsString(sockname->t_item0), (struct sockaddr *) &addr,
 		      sizeof(addr), AF_INET) < 0) {
         // XXX we actually want to raise socket.error
         RPYTHON_RAISE_OSERROR(errno);
         return NULL;
     }
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
+    addr.sin_port = htons(sockname->t_item1);
     if (connect(fd, &addr, sizeof(addr)) < 0) {
         // XXX we actually want to raise socket.error
         RPYTHON_RAISE_OSERROR(errno);

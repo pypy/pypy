@@ -95,7 +95,7 @@ def ll__socket_newsocket(family, type, protocol):
     return 0
 ll__socket_newsocket.suggested_primitive = True
 
-def ll__socket_connect(fd, host, port):
+def ll__socket_connect(fd, sockname):
     return None
 ll__socket_connect.suggested_primitive = True
 

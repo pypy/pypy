@@ -40,13 +40,9 @@ def newsocket(family, type, protocol):
     socket_cache[fileno] = s
     return fileno
 
-def connect(fd, host, port):
-    # XXX IPv4 only
+def connect(fd, sockname):
     s = socket_cache[fd]
-    try:
-        s.connect((host, port))
-    except Exception, ex:
-        print ex
+    s.connect(sockname[:2]) # XXX IPv4 only
 
 def getpeername(fd):
     s = socket_cache[fd]

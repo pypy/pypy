@@ -96,7 +96,7 @@ def test_connect():
     def does_stuff():
         fd = rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         # XXX need to think of a test without connecting to outside servers
-        rsocket.connect(fd, "codespeak.net", 80)
+        rsocket.connect(fd, ("codespeak.net", 80, 0, 0))
         sockname = rsocket.getpeername(fd)
         os.close(fd)
         return sockname[1]
@@ -114,7 +114,7 @@ def test_connect_error():
     ]
     def does_stuff(host, port):
         fd = rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        rsocket.connect(fd, host, port)
+        rsocket.connect(fd, (host, port, 0, 0))
         os.close(fd)
     f1 = compile(does_stuff, [str, int])
     for args in tests:

@@ -707,18 +707,19 @@ class Socket(Wrappable):
                     space.wrap("tuple of a string and an int required"))
             host = space.str_w(addr_w[0])
             port = space.int_w(addr_w[1])
-            try:
-                rsocket.connect(self.fd, host, port)
-            except OSError, ex:
-                raise w_get_socketerror(space, e.strerror, e.errno)
-            # XXX timeout doesn't really work at the moment
-            except socket.timeout:
-                raise wrap_timeouterror(space)
-            except socket.error, e:
-                raise wrap_socketerror(space, e)
+            sockname = (host, port, 0, 0)
         else:
             # XXX IPv6 and Unix sockets missing here
             pass
+        try:
+            rsocket.connect(self.fd, sockname)
+        except OSError, ex:
+            raise w_get_socketerror(space, e.strerror, e.errno)
+        # XXX timeout doesn't really work at the moment
+        except socket.timeout:
+            raise wrap_timeouterror(space)
+        except socket.error, e:
+            raise wrap_socketerror(space, e)
     connect.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def connect_ex(self, space, w_addr):
