@@ -13,7 +13,7 @@ class ExtFuncSig(object):
 ext_func_sigs = {
     "%LL_os_isatty" : ExtFuncSig("int", None),
     "%LL_stack_too_big" : ExtFuncSig("int", None),
-    "%LL_os_lseek" : ExtFuncSig("long", None),
+    "%LL_os_lseek" : ExtFuncSig("int", None),
     "%LL_thread_acquirelock" : ExtFuncSig("int", [None, "int"]),
     "%LL_thread_start" : ExtFuncSig(None, ["sbyte*", "sbyte*"])}
     
