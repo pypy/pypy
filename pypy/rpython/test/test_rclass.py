@@ -1,4 +1,4 @@
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import intmask
@@ -367,3 +367,25 @@ def test_constant_bound_method():
         return meth()
     res = interpret(f, [])
     assert res == 1
+
+def test__del__():
+    class A(object):
+        def __init__(self):
+            self.a = 2
+        def __del__(self):
+            self.a = 3
+    def f():
+        a = A()
+        return a.a
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    t.buildrtyper().specialize()
+    graph = graphof(t, f)
+    TYPE = graph.startblock.operations[0].args[0].value
+    RTTI = getRuntimeTypeInfo(TYPE)
+    queryptr = RTTI._obj.query_funcptr # should not raise
+    destrptr = RTTI._obj.destructor_funcptr
+    assert destrptr is not None
+    
+    
+

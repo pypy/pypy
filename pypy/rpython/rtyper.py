@@ -547,7 +547,8 @@ class RPythonTyper:
                                                 ll_function, args_s)
         return helper_graph
 
-    def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None):
+    def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None,
+                                  destrptr=None):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
@@ -560,7 +561,7 @@ class RPythonTyper:
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # ____________________________________________________________
 

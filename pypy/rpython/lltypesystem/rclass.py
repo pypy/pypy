@@ -16,7 +16,7 @@ from pypy.rpython.lltypesystem.lltype import \
      cast_pointer, castable, nullptr, \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, attachRuntimeTypeInfo, \
-     FuncType, Bool, Signed
+     FuncType, Bool, Signed, functionptr, FuncType
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -336,9 +336,21 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def _setup_repr_final(self):
         if self.needsgc: # only gc-case
+            if (self.classdef is not None and
+                self.classdef.classdesc.lookup('__del__') is not None):
+                s_func = self.classdef.classdesc.s_read_attribute('__del__')
+                assert len(s_func.descriptions) == 1
+                funcdesc = s_func.descriptions.keys()[0]
+                graph = funcdesc.cachedgraph(None)
+                FUNCTYPE = FuncType([Ptr(self.object_type)], Void)
+                destrptr = functionptr(FUNCTYPE, graph.name,
+                                       graph=graph,
+                                       _callable=graph.func)
+            else:
+                destrptr = None
             self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
                                                   ll_runtime_type_info,
-                                                  OBJECT)
+                                                  OBJECT, destrptr)
     def common_repr(self): # -> object or nongcobject reprs
         return getinstancerepr(self.rtyper, None, nogc=not self.needsgc)
 
