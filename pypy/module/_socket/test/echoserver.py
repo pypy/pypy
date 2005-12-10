@@ -4,6 +4,19 @@ import sys, time
 # user-accessible port
 PORT = 8037
 
+class EchoServer(SocketServer.TCPServer):
+
+    def __init__(self, *args, **kwargs):
+        SocketServer.TCPServer.__init__(self, *args, **kwargs)
+        self.stop = False
+        
+    def handle_error(self, request, client_address):
+        self.stop = True
+
+    def serve(self):
+        while not self.stop:
+            self.handle_request()
+
 class EchoRequestHandler(SocketServer.StreamRequestHandler):
 
     def handle(self):
@@ -14,9 +27,9 @@ class EchoRequestHandler(SocketServer.StreamRequestHandler):
                 char = self.rfile.read(1)
                 client_string += char
             if client_string.startswith("shutdown"):
-                sys.exit(1)
+                raise RuntimeError()
             self.wfile.write(client_string)
 
 if __name__ == "__main__":
-    server = SocketServer.TCPServer(("", PORT), EchoRequestHandler)
-    server.serve_forever()
+    server = EchoServer(("", PORT), EchoRequestHandler)
+    server.serve()

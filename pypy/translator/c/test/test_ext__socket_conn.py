@@ -11,20 +11,21 @@ PORT = 8037
 def setup_module(mod):
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
     serverpath = os.path.join(autopath.pypydir, "module/_socket/test/echoserver.py")
-    mod.server_pid = subprocess.Popen([sys.executable, serverpath]).pid
+    mod.process = subprocess.Popen([sys.executable, serverpath])
 
 def teardown_module(mod):
     import telnetlib
     tn = telnetlib.Telnet(HOST, PORT)
     tn.write("shutdown\n")
     tn.close()
+    del tn
+    del mod.process
 
-def DONOT_test_connect():
+def test_connect():
     import os
     from pypy.module._socket.rpython import rsocket
     def does_stuff():
         fd = rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX need to think of a test without connecting to outside servers
         rsocket.connect(fd, (HOST, PORT, 0, 0))
         sockname = rsocket.getpeername(fd)
         os.close(fd)
