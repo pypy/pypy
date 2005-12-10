@@ -247,6 +247,15 @@ def conf():
 def rarith_intmask(s_obj):
     return SomeInteger()
 
+def robjmodel_cast_obj_to_int(s_instance):
+    return SomeInteger()
+
+def robjmodel_cast_int_to_obj(s_int, s_clspbc):
+    assert len(s_clspbc.descriptions) == 1
+    desc = s_clspbc.descriptions.keys()[0]
+    cdef = desc.getuniqueclassdef()
+    return SomeInstance(cdef)
+
 def robjmodel_instantiate(s_clspbc):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
@@ -326,6 +335,8 @@ BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_longlong] = restricted_longlong
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.cast_object_to_int] = robjmodel_cast_obj_to_int
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.cast_int_to_object] = robjmodel_cast_int_to_obj
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)

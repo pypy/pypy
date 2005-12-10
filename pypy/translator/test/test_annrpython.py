@@ -11,6 +11,7 @@ from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython import objectmodel
 from pypy.objspace.flow import FlowObjSpace
 
 from pypy.translator.test import snippet
@@ -1916,6 +1917,22 @@ class TestAnnotateTestCase:
         assert s.knowntype == int
         graph = tgraphof(t, A.__del__.im_func)
         assert graph.startblock in a.annotated
+        
+    def test_casttoandfromint(self):
+        class A(object):
+            pass
+        def f():
+            a = A()
+            return objectmodel.cast_object_to_int(a)
+        def g(i):
+            return objectmodel.cast_int_to_object(i, A)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
+        s = a.build_types(g, [annmodel.SomeInteger()])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef.classdesc.pyobj is A
+
 
 def g(n):
     return [0,1,2,n]
