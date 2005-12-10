@@ -464,17 +464,27 @@ class ObjSpace(object):
         # XXX start of hack for performance
         from pypy.interpreter.function import Function
         if isinstance(w_func, Function):
-            if len(args_w) == 1:
+            if len(args_w) == 0:
+                w_res = w_func.code.fastcall_0(self, w_func)
+                if w_res is not None:
+                    return w_res
+            elif len(args_w) == 1:
                 w_res = w_func.code.fastcall_1(self, w_func, args_w[0])
                 if w_res is not None:
                     return w_res
             elif len(args_w) == 2:
-                w_res = w_func.code.fastcall_2(self, args_w[0], args_w[1])
+                w_res = w_func.code.fastcall_2(self, w_func, args_w[0],
+                                               args_w[1])
                 if w_res is not None:
                     return w_res
             elif len(args_w) == 3:
-                w_res = w_func.code.fastcall_3(self, args_w[0],
+                w_res = w_func.code.fastcall_3(self, w_func, args_w[0],
                                                args_w[1], args_w[2])
+                if w_res is not None:
+                    return w_res
+            elif len(args_w) == 4:
+                w_res = w_func.code.fastcall_4(self, w_func, args_w[0],
+                                               args_w[1], args_w[2], args_w[3])
                 if w_res is not None:
                     return w_res
             args = Arguments(self, list(args_w))

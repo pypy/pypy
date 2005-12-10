@@ -158,12 +158,6 @@ class PyCode(eval.Code):
         self._compute_fastcall()
         return self
 
-    def _compute_fastcall(self):
-        # Speed hack!
-        self.do_fastcall = -1
-        if self.co_flags & (CO_VARARGS | CO_VARKEYWORDS) == 0:
-            if self.co_argcount == 1:
-                self.do_fastcall = 1
         
     def _from_code(self, code, hidden_applevel=False, from_cpython=True):
         """ Initialize the code object from a real (CPython) one.
@@ -223,13 +217,65 @@ class PyCode(eval.Code):
         self._compute_fastcall()
         return self
 
+    def _compute_fastcall(self):
+        # Speed hack!
+        self.do_fastcall = -1
+        if not (0 <= self.co_argcount <= 4):
+            return
+        if self.co_flags & (CO_VARARGS | CO_VARKEYWORDS):
+            return
+        if self.co_cellvars:
+            first_cellvar = self.co_cellvars[0]
+            for i in range(self.co_argcount):
+                if first_cellvar == self.co_varnames[i]:
+                    return
+
+        self.do_fastcall = self.co_argcount
+
+    def fastcall_0(self, space, w_func):
+        if self.do_fastcall == 0:
+            frame = self.create_frame(space, w_func.w_func_globals,
+                                      w_func.closure)
+            return frame.run()
+        return None
+
     def fastcall_1(self, space, w_func, w_arg):
-        if self.do_fastcall != 1:
-            return None
-        frame = self.create_frame(space, w_func.w_func_globals,
-                                       w_func.closure)
-        frame.setfastscope([w_arg])
-        return frame.run()
+        if self.do_fastcall == 1:
+            frame = self.create_frame(space, w_func.w_func_globals,
+                                      w_func.closure)
+            frame.fastlocals_w[0] = w_arg # frame.setfastscope([w_arg])
+            return frame.run()
+        return None
+
+    def fastcall_2(self, space, w_func, w_arg1, w_arg2):
+        if self.do_fastcall == 2:
+            frame = self.create_frame(space, w_func.w_func_globals,
+                                      w_func.closure)
+            frame.fastlocals_w[0] = w_arg1 # frame.setfastscope([w_arg])
+            frame.fastlocals_w[1] = w_arg2
+            return frame.run()
+        return None
+
+    def fastcall_3(self, space, w_func, w_arg1, w_arg2, w_arg3):
+        if self.do_fastcall == 3:
+            frame = self.create_frame(space, w_func.w_func_globals,
+                                      w_func.closure)
+            frame.fastlocals_w[0] = w_arg1 # frame.setfastscope([w_arg])
+            frame.fastlocals_w[1] = w_arg2 
+            frame.fastlocals_w[2] = w_arg3 
+            return frame.run()
+        return None
+
+    def fastcall_4(self, space, w_func, w_arg1, w_arg2, w_arg3, w_arg4):
+        if self.do_fastcall == 4:
+            frame = self.create_frame(space, w_func.w_func_globals,
+                                      w_func.closure)
+            frame.fastlocals_w[0] = w_arg1 # frame.setfastscope([w_arg])
+            frame.fastlocals_w[1] = w_arg2 
+            frame.fastlocals_w[2] = w_arg3 
+            frame.fastlocals_w[3] = w_arg4 
+            return frame.run()
+        return None
 
     def create_frame(self, space, w_globals, closure=None):
         "Create an empty PyFrame suitable for this code object."

@@ -415,6 +415,9 @@ class BuiltinCode(eval.Code):
         self.framefactory = make_builtin_frame_factory(func, orig_sig, unwrap_spec)
 
         # speed hack
+        if unwrap_spec == [ObjSpace]:
+            self.__class__ = BuiltinCode0
+            self.fastfunc_0 = func
         if unwrap_spec == [ObjSpace, W_Root]:
             self.__class__ = BuiltinCode1
             self.fastfunc_1 = func
@@ -424,6 +427,9 @@ class BuiltinCode(eval.Code):
         elif unwrap_spec == [ObjSpace, W_Root, W_Root, W_Root]:
             self.__class__ = BuiltinCode3
             self.fastfunc_3 = func
+        elif unwrap_spec == [ObjSpace, W_Root, W_Root, W_Root, W_Root]:
+            self.__class__ = BuiltinCode4
+            self.fastfunc_4 = func
 
     def create_frame(self, space, w_globals, closure=None):
         return self.framefactory.create(space, self, w_globals)
@@ -436,6 +442,21 @@ class BuiltinCode(eval.Code):
 
 
 # (verbose) performance hack below
+
+class BuiltinCode0(BuiltinCode):
+    def fastcall_0(self, space, w_func):
+        try:
+            w_result = self.fastfunc_0(space)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
 
 class BuiltinCode1(BuiltinCode):
     def fastcall_1(self, space, w_func, w1):
@@ -453,7 +474,7 @@ class BuiltinCode1(BuiltinCode):
         return w_result
 
 class BuiltinCode2(BuiltinCode):
-    def fastcall_2(self, space, w1, w2):
+    def fastcall_2(self, space, w_func, w1, w2):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except KeyboardInterrupt: 
@@ -468,9 +489,24 @@ class BuiltinCode2(BuiltinCode):
         return w_result
 
 class BuiltinCode3(BuiltinCode):
-    def fastcall_3(self, space, w1, w2, w3):
+    def fastcall_3(self, space, func, w1, w2, w3):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+class BuiltinCode4(BuiltinCode):
+    def fastcall_4(self, space, func, w1, w2, w3, w4):
+        try:
+            w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except KeyboardInterrupt: 
             raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
         except MemoryError: 

@@ -89,12 +89,17 @@ class DescrOperation:
                 if w_res is not None:
                     return w_res
             elif len(args_w) == 1:
-                w_res = descr.code.fastcall_2(space, w_obj, args_w[0])
+                w_res = descr.code.fastcall_2(space, descr, w_obj, args_w[0])
                 if w_res is not None:
                     return w_res
             elif len(args_w) == 2:
-                w_res = descr.code.fastcall_3(space, w_obj, args_w[0],
+                w_res = descr.code.fastcall_3(space, descr, w_obj, args_w[0],
                                                             args_w[1])
+                if w_res is not None:
+                    return w_res
+            elif len(args_w) == 3:
+                w_res = descr.code.fastcall_4(space, descr, w_obj, args_w[0],
+                                              args_w[1], args_w[2])
                 if w_res is not None:
                     return w_res
             args = Arguments(space, list(args_w))

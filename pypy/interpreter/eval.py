@@ -50,12 +50,16 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
-    # a performance hack (see gateway.BuiltinCode1/2/3)
+    # a performance hack (see gateway.BuiltinCode1/2/3 and pycode.PyCode)
+    def fastcall_0(self, space, func):
+        return None
     def fastcall_1(self, space, func, w1):
         return None
-    def fastcall_2(self, space, w1, w2):
+    def fastcall_2(self, space, func, w1, w2):
         return None
-    def fastcall_3(self, space, w1, w2, w3):
+    def fastcall_3(self, space, func, w1, w2, w3):
+        return None
+    def fastcall_4(self, space, func, w1, w2, w3, w4):
         return None
 
 class Frame(Wrappable):
