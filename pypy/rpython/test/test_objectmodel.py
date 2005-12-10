@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.objectmodel import *
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
@@ -21,6 +22,11 @@ def test_casttoandfromint():
     i2 = cast_object_to_int(b)
     assert cast_int_to_object(i1, A) is a
     assert cast_int_to_object(i2, B) is b
+    a = None
+    b = None
+    a = cast_int_to_object(i1, A)
+    py.test.raises(RuntimeError, "a.b")
+
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant
