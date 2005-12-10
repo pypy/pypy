@@ -101,7 +101,7 @@ def test_struct_constant6():
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
-def DONTtest_aliasing():    #issue looks like empty Object mallocs
+def DONTtest_aliasing():    #issue with missing operation (v229 = getelementptr  arrayinstance, word 0, uint 1,  i_0)
     B = lltype.Struct('B', ('x', lltype.Signed))
     A = lltype.Array(B)
     global_a = lltype.malloc(A, 5, immortal=True)
@@ -113,7 +113,7 @@ def DONTtest_aliasing():    #issue looks like empty Object mallocs
     assert f(2) == 0
     assert f(3) == 17
 
-def DONTtest_aliasing2():   #issue mallocs
+def DONTtest_aliasing2():   #issue with missing operation (v230 = getelementptr  arrayinstance, word 0, uint 1,  i_0)
     B = lltype.Struct('B', ('x', lltype.Signed))
     A = lltype.Array(B)
     C = lltype.Struct('C', ('x', lltype.Signed), ('bptr', lltype.Ptr(B)))
@@ -150,7 +150,7 @@ def test_array_constant2():
     f = compile_function(array_constant, [])
     assert f() == array_constant()
 
-def DONTtest_array_constant3(): #malloc issue
+def DONTtest_array_constant3(): #issue with missing operation (v289 = getelementptr  arrayinstance, word 0, uint 1,  0)
     A = lltype.GcArray(('x', lltype.Signed))
     a = lltype.malloc(A, 3)
     a[0].x = 100

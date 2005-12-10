@@ -22,7 +22,7 @@ class TestLLVMArray(object):
         assert f(2) == 13
         assert f(3) == 3
 
-    def DONTtest_array_add(self):   #unknown issue
+    def test_array_add(self):
         f = compile_function(llvmsnippet.array_add, [int, int, int, int, int])
         assert f(1,2,3,4,0) == 1
         assert f(1,2,3,4,1) == 2
@@ -41,7 +41,7 @@ class TestLLVMArray(object):
         f = compile_function(llvmsnippet.array_arg, [int])
         assert f(5) == 0
 
-    def DONTtest_array_len(self):   #unknown issue
+    def test_array_len(self):
         f = compile_function(llvmsnippet.array_len, [])
         assert f() == 10
 
@@ -86,7 +86,7 @@ class TestLLVMArray(object):
             for j in range(5):
                 assert f(i, j, 0) == i + j
 
-    def DONTtest_circular_list(self):   #unkjown issue
+    def test_circular_list(self):
         f = compile_function(llvmsnippet.circular_list, [int])
         assert f(0) == 0
         assert f(1) == 1
