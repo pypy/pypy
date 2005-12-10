@@ -11,7 +11,7 @@ def test_we_are_translated():
     res = interpret(fn, [])
     assert res is True
 
-def test_casttoandfromint():
+def test_casttoandfromint_on_cpython():
     class A(object):
         pass
     class B(object):
@@ -27,6 +27,23 @@ def test_casttoandfromint():
     a = cast_int_to_object(i1, A)
     py.test.raises(RuntimeError, "a.b")
 
+def test_casttoandfromint():
+    class A(object):
+        pass
+    def f():
+        a = A()
+        return cast_object_to_int(a)
+    def g():
+        a = A()
+        i = cast_object_to_int(a)
+        return cast_object_to_int(cast_int_to_object(i, A)) == i
+    res = interpret(f, [])
+    # XXX humpf: there is no sane way to implement cast_ptr_to_int
+    # without going for the same hacks as in robjectmodel.cast_XXX_to_XXX
+    py.test.raises(AssertionError, interpret, g, [])
+    assert res > 0
+     
+    
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant

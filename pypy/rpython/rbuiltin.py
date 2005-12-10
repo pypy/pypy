@@ -1,8 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import rarithmetic, objectmodel, rstack
+from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython import rarithmetic, objectmodel, rstack, rint
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
@@ -280,6 +280,18 @@ def rtype_runtime_type_info(hop):
     return hop.genop('runtime_type_info', vlist,
                  resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
 
+def rtype_cast_object_to_int(hop):
+    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
+    vlist = hop.inputargs(hop.args_r[0])
+    return hop.genop('cast_ptr_to_int', vlist,
+                 resulttype = rint.signed_repr)
+
+def rtype_cast_int_to_object(hop):
+    assert isinstance(hop.args_r[0], rint.IntegerRepr)
+    vlist = [hop.inputarg(rint.signed_repr, arg=0)]
+    return hop.genop('cast_int_to_ptr', vlist,
+                 resulttype = hop.r_result.lowleveltype)
+
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
@@ -292,6 +304,8 @@ BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 BUILTIN_TYPER[rarithmetic.r_longlong] = rtype_r_longlong
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
+BUILTIN_TYPER[objectmodel.cast_object_to_int] = rtype_cast_object_to_int
+BUILTIN_TYPER[objectmodel.cast_int_to_object] = rtype_cast_int_to_object
 BUILTIN_TYPER[rstack.yield_current_frame_to_caller] = (
     rtype_yield_current_frame_to_caller)
 
