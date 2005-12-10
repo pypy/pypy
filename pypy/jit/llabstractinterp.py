@@ -93,13 +93,10 @@ class LLRuntimeValue(LLAbstractValue):
         return LLRuntimeValue(self.getconcretetype())
 
     def match(self, other):
-        if isinstance(other, LLRuntimeValue):
-            if isinstance(self.copy_v, Variable):
-                return isinstance(other.copy_v, Variable)
-            else:
-                return self.copy_v == other.copy_v
-        else:
-            return False
+        # Note: the meaning of match() is actually to see if calling
+        # with_fresh_variables() on both 'self' and 'other' would give the
+        # same result.  This is why any two LLRuntimeValues match each other.
+        return isinstance(other, LLRuntimeValue)
 
 ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
