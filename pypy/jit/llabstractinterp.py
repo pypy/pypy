@@ -43,7 +43,7 @@ class LLConcreteValue(LLAbstractValue):
     def forcevarorconst(self, builder):
         return const(self.value)
 
-    def getruntimevars(self):
+    def getruntimevars(self, memo):
         return []
 
     def maybe_get_constant(self):
@@ -80,7 +80,7 @@ class LLRuntimeValue(LLAbstractValue):
     def forcevarorconst(self, builder):
         return self.copy_v
 
-    def getruntimevars(self):
+    def getruntimevars(self, memo):
         return [self.copy_v]
 
     def maybe_get_constant(self):
@@ -199,6 +199,7 @@ class VirtualStruct(object):
                     builder.residual_operations.append(op)
 
     def rec_fields(self):
+        # -- not used at the moment --
         # enumerate all the fields of this structure and each of
         # its substructures
         for name in self.T._names:
@@ -211,10 +212,14 @@ class VirtualStruct(object):
             else:
                 yield self, name
 
-    def getruntimevars(self):
+    def getruntimevars(self, memo):
         result = []
-        for obj, name in self.topmostparent().rec_fields():
-            result.extend(obj.getfield(name).getruntimevars())
+        if self not in memo:
+            memo[self] = True
+            if self.parent is not None:
+                result.extend(self.parent.getruntimevars(memo))
+            for name in self.T._names:
+                result.extend(self.getfield(name).getruntimevars(memo))
         return result
 
     def match(self, other):
@@ -244,8 +249,8 @@ class LLVirtualPtr(LLAbstractValue):
         self.__dict__ = {'copy_v': v_result}
         return v_result
 
-    def getruntimevars(self):
-        return self.containerobj.getruntimevars()
+    def getruntimevars(self, memo):
+        return self.containerobj.getruntimevars(memo)
 
     def maybe_get_constant(self):
         return None
@@ -333,8 +338,9 @@ class LLAbstractInterp(object):
         # args_a: [the-a-corresponding-to-v for v in origblock.inputargs]
         state, args_a = self.schedule_getstate(args_a, origblock)
         args_v = []
+        memo = {}
         for a in args_a:
-            args_v.extend(a.getruntimevars())
+            args_v.extend(a.getruntimevars(memo))
         newlink = Link(args_v, None)
         self.pendingstates[newlink] = state
         return newlink
@@ -413,7 +419,11 @@ class GraphState(object):
                         else:
                             raise Exception("uh?")
         # the graph should be complete now; sanity-check
-        checkgraph(graph)
+        try:
+            checkgraph(graph)
+        except:
+            graph.show()
+            raise
         eliminate_empty_blocks(graph)
         join_blocks(graph)
         self.state = "after"
@@ -424,13 +434,14 @@ class GraphState(object):
         builder = BlockBuilder(self.interp)
         newinputargs = []
         memo = {}
+        memo2 = {}
         for v, a in zip(origblock.inputargs, state.args_a):
             a = a.with_fresh_variables(memo)
             # try to preserve the name
             if isinstance(a, LLRuntimeValue) and isinstance(a.copy_v, Variable):
                 a.copy_v.rename(v)
             builder.bindings[v] = a
-            newinputargs.extend(a.getruntimevars())
+            newinputargs.extend(a.getruntimevars(memo2))
         print
         # flow the actual operations of the block
         for op in origblock.operations:
@@ -595,6 +606,11 @@ class BlockBuilder(object):
             if (hasattr(fnobj, 'graph') and
                 not getattr(fnobj._callable, 'suggested_primitive', False)):
                 origgraph = fnobj.graph
+
+                # for now, we need to force all arguments
+                for a in args_a:
+                    a.forcevarorconst(self)
+                
                 graphstate, args_a = self.interp.schedule_graph(
                     args_a, origgraph)
                 #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
@@ -675,3 +691,13 @@ class BlockBuilder(object):
         def constant_op(ptr):
             return lltype.cast_pointer(op.result.concretetype, ptr)
         return self.residualize(op, [a_ptr], constant_op)
+
+    def op_keepalive(self, op, a_ptr):
+        if isinstance(a_ptr, LLVirtualPtr):
+            for v in a_ptr.getruntimevars({}):
+                if isinstance(v, Variable) and not v.concretetype._is_atomic():
+                    op = SpaceOperation('keepalive', [v], newvar(lltype.Void))
+                    print 'virtual:', op
+                    self.residual_operations.append(op)
+            return ll_no_return_value
+        return self.residualize(op, [a_ptr])

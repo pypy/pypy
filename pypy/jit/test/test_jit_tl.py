@@ -1,10 +1,14 @@
 # "coughcoughcough" applies to most of this file
 
+import py
 from pypy.translator.translator import TranslationContext
 from pypy.jit import tl
 from pypy.jit.llabstractinterp import LLAbstractInterp
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.translator.backendopt import inline
+
+py.test.skip("in-progress")
 
 def entry_point(code, pc):
     # indirection needed, because the hints are not about *all* calls to
@@ -16,6 +20,7 @@ def jit_tl(code):
     t.buildannotator().build_types(entry_point, [str, int])
     rtyper = t.buildrtyper()
     rtyper.specialize()
+    inline.auto_inlining(t, 0.5)
     graph1 = t.graphs[0] 
 
     interp = LLAbstractInterp()
@@ -28,7 +33,8 @@ def jit_tl(code):
     result2 = llinterp.eval_graph(graph2, [])
 
     assert result1 == result2
-    #graph2.show()
+
+    #interp.graphs[1].show()     # graphs[0] should be the entry_point
 
 
 def run_jit(code):
