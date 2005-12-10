@@ -347,10 +347,18 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     # for structs
     def struct_setup(self, structdefnode, rtti):
-        if isinstance(structdefnode.LLTYPE, GcStruct) and list(self.deallocator_lines(structdefnode, '')):
+        if isinstance(structdefnode.LLTYPE, GcStruct):
+	    has_del = rtti is not None and hasattr(rtti._obj, 'destructor_funcptr')
             gcinfo = structdefnode.gcinfo = BoehmInfo()
             gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+structdefnode.barename)
-
+            if list(self.deallocator_lines(structdefnode, '')):
+	    	if has_del:
+		    raise Exception("you cannot use __del__ with PyObjects and Boehm")
+            if has_del:	
+                destrptr = rtti._obj.destructor_funcptr
+                gcinfo.destructor = self.db.get(destrptr)
+                T = typeOf(destrptr).TO.ARGS[0]
+                gcinfo.destructor_argtype = self.db.gettype(T)
     struct_after_definition = common_after_definition
 
     def struct_implementationcode(self, structdefnode):
@@ -359,6 +367,9 @@ class BoehmGcPolicy(BasicGcPolicy):
             if gcinfo.finalizer:
                 yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % gcinfo.finalizer
                 yield '\tstruct %s *p = (struct %s *)obj;' % (structdefnode.name, structdefnode.name)
+		if hasattr(gcinfo, 'destructor'):
+                    yield '\t%s((%s) p);' % (
+                        gcinfo.destructor, cdecl(gcinfo.destructor_argtype, ''))
                 for line in self.deallocator_lines(structdefnode, '(*p)'):
                     yield '\t' + line
                 yield '}'

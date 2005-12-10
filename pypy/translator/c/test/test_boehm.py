@@ -39,11 +39,41 @@ def test_malloc_a_lot():
     fn = getcompiled(malloc_a_lot)
     fn()
 
+def test__del__():
+    class State:
+        pass
+    s = State()
+    class A(object):
+        def __del__(self):
+            s.a_dels += 1
+    class B(A):
+        def __del__(self):
+            s.b_dels += 1
+    class C(A):
+        pass
+    def f():
+        s.a_dels = 0
+        s.b_dels = 0
+        A()
+        B()
+        C()
+        A()
+        B()
+        C()
+        return s.a_dels * 10 + s.b_dels
+    fn = getcompiled(f)
+    res = f()
+    assert res == 42
+    res = fn() #does not crash
+    res = fn() #does not crash
+    assert 0 <= res <= 42 # 42 cannot be guaranteed
+
 def run_test(fn):
     fn()
     channel.send("ok")
 
 run_test(test_malloc_a_lot)
+run_test(test__del__)
 """
 
 
@@ -55,6 +85,8 @@ def test_boehm():
         py.test.skip("no boehm gc on this machine")
     gw = py.execnet.PopenGateway()
     chan = gw.remote_exec(py.code.Source(test_src))
+    res = chan.receive()
+    assert res == "ok"
     res = chan.receive()
     assert res == "ok"
     chan.close()
