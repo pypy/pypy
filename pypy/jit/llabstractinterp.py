@@ -6,6 +6,17 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 
 
+def const(value, T=None):
+    c = Constant(value)
+    c.concretetype = T or lltype.typeOf(value)
+    return c
+
+def newvar(T):
+    v = Variable()
+    v.concretetype = T
+    return v
+
+
 class LLAbstractValue(object):
     pass
 
@@ -30,17 +41,13 @@ class LLConcreteValue(LLAbstractValue):
         return lltype.typeOf(self.value)
 
     def forcevarorconst(self, builder):
-        c = Constant(self.value)
-        c.concretetype = self.getconcretetype()
-        return c
+        return const(self.value)
 
     def getruntimevars(self):
         return []
 
     def maybe_get_constant(self):
-        c = Constant(self.value)
-        c.concretetype = self.getconcretetype()
-        return c
+        return const(self.value)
 
     def with_fresh_variables(self, to_be_stored_into):
         return self
@@ -81,13 +88,104 @@ class LLRuntimeValue(LLAbstractValue):
         return LLRuntimeValue(orig_v=to_be_stored_into)
 
     def match(self, other):
-        return isinstance(other, LLRuntimeValue)  # XXX and ...
+        if isinstance(other, LLRuntimeValue):
+            if isinstance(self.copy_v, Variable):
+                return isinstance(other.copy_v, Variable)
+            else:
+                return self.copy_v == other.copy_v
+        else:
+            return False
 
-orig_v = Constant(None)
-orig_v.concretetype = lltype.Void
-ll_no_return_value = LLRuntimeValue(orig_v)
-del orig_v
+ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
+
+class VirtualStruct(object):
+    def __init__(self, STRUCT):
+        self.T = STRUCT
+        self.fields = {}
+
+    def getfield(self, name):
+        try:
+            return self.fields[name]
+        except KeyError:
+            T = getattr(self.T, name)
+            return LLRuntimeValue(const(T._defl()))
+
+    def setfield(self, name, value):
+        self.fields[name] = value
+
+    def copy(self):
+        result = VirtualStruct(self.T)
+        for name, a_value in self.fields.items():
+            v = newvar(a_value.getconcretetype())
+            result.fields[name] = a_value.with_fresh_variables(v)
+        return result
+
+    def force(self, builder):
+        v_result = newvar(lltype.Ptr(self.T))
+        op = SpaceOperation('malloc', [const(self.T, lltype.Void)], v_result)
+        print 'force:', op
+        builder.residual_operations.append(op)
+        # initialize all fields by relying on the assumption that the
+        # structure is initialized to zeros
+        for name in self.T._names:
+            if name in self.fields:
+                v_value = self.fields[name].forcevarorconst(builder)
+                op = SpaceOperation('setfield', [v_result,
+                                                 const(name, lltype.Void),
+                                                 v_value],
+                                    newvar(lltype.Void))
+                print 'force:', op
+                builder.residual_operations.append(op)
+        return v_result
+
+    def getruntimevars(self):
+        result = []
+        for name in self.T._names:
+            result.extend(self.getfield(name).getruntimevars())
+        return result
+
+    def match(self, other):
+        assert self.T == other.T
+        for name in self.T._names:
+            a1 = self.getfield(name)
+            a2 = other.getfield(name)
+            if not a1.match(a2):
+                return False
+        else:
+            return True
+
+
+class LLVirtualPtr(LLAbstractValue):
+
+    def __init__(self, containerobj):
+        self.containerobj = containerobj    # a VirtualStruct
+
+    def getconcretetype(self):
+        return lltype.Ptr(self.containerobj.T)
+
+    def forcevarorconst(self, builder):
+        v_result = self.containerobj.force(builder)
+        self.__class__ = LLRuntimeValue
+        self.__dict__ = {'copy_v': v_result}
+        return v_result
+
+    def getruntimevars(self):
+        return self.containerobj.getruntimevars()
+
+    def maybe_get_constant(self):
+        return None
+
+    def with_fresh_variables(self, to_be_stored_into):
+        return LLVirtualPtr(self.containerobj.copy())
+
+    def match(self, other):
+        if isinstance(other, LLVirtualPtr):
+            return self.containerobj.match(other.containerobj)
+        else:
+            return False
+
+# ____________________________________________________________
 
 class BlockState(object):
     """Entry state of a block, as a combination of LLAbstractValues
@@ -116,13 +214,12 @@ class BlockState(object):
 class LLAbstractInterp(object):
 
     def __init__(self):
-        self.graphs = {}          # {origgraph: {BlockState: GraphState}}
+        self.graphs = []
+        self.graphstates = {}     # {origgraph: {BlockState: GraphState}}
         self.pendingstates = {}   # {Link-or-GraphState: next-BlockState}
 
     def itercopygraphs(self):
-        for d in self.graphs.itervalues():
-            for graphstate in d.itervalues():
-                yield graphstate.copygraph
+        return self.graphs
 
     def eval(self, origgraph, hints):
         # for now, 'hints' means "I'm absolutely sure that the
@@ -148,9 +245,9 @@ class LLAbstractInterp(object):
         origblock = origgraph.startblock
         state, args_a = self.schedule_getstate(args_a, origblock)
         try:
-            graphstate = self.graphs[origgraph][state]
+            graphstate = self.graphstates[origgraph][state]
         except KeyError:
-            d = self.graphs.setdefault(origgraph, {})
+            d = self.graphstates.setdefault(origgraph, {})
             graphstate = GraphState(self, origgraph, args_a, n=len(d))
             d[state] = graphstate
             self.pendingstates[graphstate] = state
@@ -192,6 +289,7 @@ class GraphState(object):
         self.origgraph = origgraph
         name = '%s_%d' % (origgraph.name, n)
         self.copygraph = FunctionGraph(name, Block([]))   # grumble
+        interp.graphs.append(self.copygraph)
         for orig_v, copy_v in [(origgraph.getreturnvar(),
                                 self.copygraph.getreturnvar()),
                                (origgraph.exceptblock.inputargs[0],
@@ -250,8 +348,11 @@ class GraphState(object):
         # flow in the block
         origblock = state.origblock
         builder = BlockBuilder(self.interp)
+        newinputargs = []
         for v, a in zip(origblock.inputargs, state.args_a):
-            builder.bindings[v] = a.with_fresh_variables(to_be_stored_into=v)
+            a = a.with_fresh_variables(to_be_stored_into=v)
+            builder.bindings[v] = a
+            newinputargs.extend(a.getruntimevars())
         print
         # flow the actual operations of the block
         for op in origblock.operations:
@@ -292,8 +393,7 @@ class GraphState(object):
             newlinks = [Link(args_v, target)]
         #print "CLOSING"
 
-        newblock = builder.buildblock(origblock.inputargs,
-                                      newexitswitch, newlinks)
+        newblock = builder.buildblock(newinputargs, newexitswitch, newlinks)
         state.resolveblock(newblock)
 
 
@@ -304,12 +404,8 @@ class BlockBuilder(object):
         self.bindings = {}   # {Variables-of-origblock: a_value}
         self.residual_operations = []
 
-    def buildblock(self, originputargs, newexitswitch, newlinks):
-        inputargs = []
-        for v in originputargs:
-            a = self.bindings[v]
-            inputargs.extend(a.getruntimevars())
-        b = Block(inputargs)
+    def buildblock(self, newinputargs, newexitswitch, newlinks):
+        b = Block(newinputargs)
         b.operations = self.residual_operations
         b.exitswitch = newexitswitch
         b.closeblock(*newlinks)
@@ -349,9 +445,7 @@ class BlockBuilder(object):
     def residual(self, opname, args_a, a_result):
         v_result = a_result.forcevarorconst(self)
         if isinstance(v_result, Constant):
-            v = Variable()
-            v.concretetype = v_result.concretetype
-            v_result = v
+            v_result = newvar(v_result.concretetype)
         op = SpaceOperation(opname,
                             [a.forcevarorconst(self) for a in args_a],
                             v_result)
@@ -455,6 +549,10 @@ class BlockBuilder(object):
         return a_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
+        if isinstance(a_ptr, LLVirtualPtr):
+            c_attrname = a_attrname.maybe_get_constant()
+            assert c_attrname is not None
+            return a_ptr.containerobj.getfield(c_attrname.value)
         constant_op = None
         T = a_ptr.getconcretetype().TO
         if T._hints.get('immutable', False):
@@ -475,12 +573,20 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_index], constant_op)
 
     def op_malloc(self, op, a_T):
-        return self.residualize(op, [a_T])
+        c_T = a_T.maybe_get_constant()
+        assert c_T is not None
+        S = VirtualStruct(c_T.value)
+        return LLVirtualPtr(S)
 
     def op_malloc_varsize(self, op, a_T, a_size):
         return self.residualize(op, [a_T, a_size])
 
     def op_setfield(self, op, a_ptr, a_attrname, a_value):
+        if isinstance(a_ptr, LLVirtualPtr):
+            c_attrname = a_attrname.maybe_get_constant()
+            assert c_attrname is not None
+            a_ptr.containerobj.setfield(c_attrname.value, a_value)
+            return ll_no_return_value
         return self.residualize(op, [a_ptr, a_attrname, a_value])
 
     def op_setarrayitem(self, op, a_ptr, a_index, a_value):

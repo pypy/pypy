@@ -182,3 +182,13 @@ def test_recursive_call():
     graph2, insns = abstrinterp(ll_function, [7], [0])
     # the direct_calls are messy to count, with calls to ll_stack_check
     assert insns.keys() == ['direct_call']
+
+def test_simple_malloc_removal():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    def ll_function(k):
+        s = lltype.malloc(S)
+        s.n = k
+        l = s.n
+        return l+1
+    graph2, insns = abstrinterp(ll_function, [7], [0])
+    assert insns == {}
