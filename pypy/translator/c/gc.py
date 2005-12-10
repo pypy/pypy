@@ -308,7 +308,7 @@ class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
 
 
 
-class BoehmGcInfo:
+class BoehmInfo:
     finalizer = None
 
 class BoehmGcPolicy(BasicGcPolicy):
@@ -329,7 +329,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def array_setup(self, arraydefnode):
         if isinstance(arraydefnode.LLTYPE, GcArray) and list(self.deallocator_lines(arraydefnode, '')):
-            gcinfo = arraydefnode.gcinfo = RefcountingInfo()
+            gcinfo = arraydefnode.gcinfo = BoehmInfo()
             gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+arraydefnode.barename)
 
     def array_implementationcode(self, arraydefnode):
@@ -347,7 +347,7 @@ class BoehmGcPolicy(BasicGcPolicy):
     # for structs
     def struct_setup(self, structdefnode, rtti):
         if isinstance(structdefnode.LLTYPE, GcStruct) and list(self.deallocator_lines(structdefnode, '')):
-            gcinfo = structdefnode.gcinfo = RefcountingInfo()
+            gcinfo = structdefnode.gcinfo = BoehmInfo()
             gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+structdefnode.barename)
 
     struct_after_definition = common_after_definition
