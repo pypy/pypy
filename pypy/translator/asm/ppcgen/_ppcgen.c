@@ -121,6 +121,10 @@ PyMethodDef _ppy_methods[] = {
 	{0, 0}
 };
 
+#if !defined(MAP_ANON) && defined(__APPLE__)
+#define MAP_ANON 0x1000
+#endif
+
 PyMODINIT_FUNC
 init_ppcgen(void)
 {

@@ -1,8 +1,10 @@
 import py
-test_src = """
 from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.c.genc import CExtModuleBuilder
+
+py.test.skip("boehm test is fragile wrt. the number of dynamically loaded libs")
+
 
 def getcompiled(func):
     from pypy.translator.c.gc import BoehmGcPolicy
@@ -67,28 +69,3 @@ def test__del__():
     res = fn() #does not crash
     res = fn() #does not crash
     assert 0 <= res <= 42 # 42 cannot be guaranteed
-
-def run_test(fn):
-    fn()
-    channel.send("ok")
-
-run_test(test_malloc_a_lot)
-run_test(test__del__)
-"""
-
-
-def test_boehm():
-    import py
-    py.test.skip("boehm test is fragile wrt. the number of dynamically loaded libs")
-    from  pypy.translator.tool import cbuild
-    if not cbuild.check_boehm_presence():
-        py.test.skip("no boehm gc on this machine")
-    gw = py.execnet.PopenGateway()
-    chan = gw.remote_exec(py.code.Source(test_src))
-    res = chan.receive()
-    assert res == "ok"
-    res = chan.receive()
-    assert res == "ok"
-    chan.close()
-
-
