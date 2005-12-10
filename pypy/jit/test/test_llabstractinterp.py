@@ -192,3 +192,14 @@ def test_simple_malloc_removal():
         return l+1
     graph2, insns = abstrinterp(ll_function, [7], [0])
     assert insns == {}
+
+def test_inlined_substructure():
+    S = lltype.Struct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+    def ll_function(k):
+        t = lltype.malloc(T)
+        t.s.n = k
+        l = t.s.n
+        return l
+    graph2, insns = abstrinterp(ll_function, [7], [0])
+    assert insns == {}

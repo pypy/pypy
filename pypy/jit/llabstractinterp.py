@@ -49,7 +49,7 @@ class LLConcreteValue(LLAbstractValue):
     def maybe_get_constant(self):
         return const(self.value)
 
-    def with_fresh_variables(self, to_be_stored_into):
+    def with_fresh_variables(self, memo):
         return self
 
     def match(self, other):
@@ -62,9 +62,14 @@ class LLRuntimeValue(LLAbstractValue):
         if isinstance(orig_v, Variable):
             self.copy_v = Variable(orig_v)
             self.copy_v.concretetype = orig_v.concretetype
-        else:
+        elif isinstance(orig_v, Constant):
             # we can share the Constant()
             self.copy_v = orig_v
+        elif isinstance(orig_v, lltype.LowLevelType):
+            # hackish interface :-(  we accept a type too
+            self.copy_v = newvar(orig_v)
+        else:
+            raise TypeError(repr(orig_v))
 
     def __repr__(self):
         return '<runtime %r>' % (self.copy_v,)
@@ -84,8 +89,8 @@ class LLRuntimeValue(LLAbstractValue):
         else:
             return None
 
-    def with_fresh_variables(self, to_be_stored_into):
-        return LLRuntimeValue(orig_v=to_be_stored_into)
+    def with_fresh_variables(self, memo):
+        return LLRuntimeValue(self.getconcretetype())
 
     def match(self, other):
         if isinstance(other, LLRuntimeValue):
@@ -100,52 +105,122 @@ ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
 
 class VirtualStruct(object):
+    parent = None
+    parentindex = None
+
     def __init__(self, STRUCT):
         self.T = STRUCT
         self.fields = {}
+
+    def setparent(self, parent, parentindex):
+        self.parent = parent
+        self.parentindex = parentindex
+
+    def topmostparent(self):
+        obj = self
+        while obj.parent is not None:
+            obj = obj.parent
+        return obj
 
     def getfield(self, name):
         try:
             return self.fields[name]
         except KeyError:
             T = getattr(self.T, name)
-            return LLRuntimeValue(const(T._defl()))
+            if isinstance(T, lltype.ContainerType):
+                # reading a substructure
+                substr = VirtualStruct(T)
+                substr.setparent(self, name)
+                a_result = LLVirtualPtr(substr)
+                self.fields[name] = a_result
+                return a_result
+            else:
+                # no value ever set, return a default
+                return LLRuntimeValue(const(T._defl()))
 
     def setfield(self, name, value):
         self.fields[name] = value
 
-    def copy(self):
-        result = VirtualStruct(self.T)
-        for name, a_value in self.fields.items():
-            v = newvar(a_value.getconcretetype())
-            result.fields[name] = a_value.with_fresh_variables(v)
-        return result
+    def copy(self, memo):
+        if self in memo:
+            return memo[self]    # already seen
+        else:
+            result = VirtualStruct(self.T)
+            memo[self] = result
+            if self.parent is not None:
+                # build the parent first -- note that parent.copy() will pick
+                # up 'result' again, because it is already in the memo
+                result.setparent(self.parent.copy(memo), self.parentindex)
+
+            for name, a_value in self.fields.items():
+                a = a_value.with_fresh_variables(memo)
+                result.fields[name] = a
+            return result
 
     def force(self, builder):
         v_result = newvar(lltype.Ptr(self.T))
-        op = SpaceOperation('malloc', [const(self.T, lltype.Void)], v_result)
-        print 'force:', op
-        builder.residual_operations.append(op)
-        # initialize all fields by relying on the assumption that the
-        # structure is initialized to zeros
+        if self.parent is not None:
+            v_parent = self.parent.force(builder)
+            op = SpaceOperation('getsubstruct', [v_parent,
+                                                 const(self.parentindex,
+                                                       lltype.Void)],
+                                v_result)
+            print 'force:', op
+            builder.residual_operations.append(op)
+        else:
+            op = SpaceOperation('malloc', [const(self.T, lltype.Void)], v_result)
+            print 'force:', op
+            builder.residual_operations.append(op)
+            self.buildcontent(builder, v_result)
+        return v_result
+
+    def buildcontent(self, builder, v_target):
+        # initialize all fields
         for name in self.T._names:
             if name in self.fields:
-                v_value = self.fields[name].forcevarorconst(builder)
-                op = SpaceOperation('setfield', [v_result,
-                                                 const(name, lltype.Void),
-                                                 v_value],
-                                    newvar(lltype.Void))
-                print 'force:', op
-                builder.residual_operations.append(op)
-        return v_result
+                a_value = self.fields[name]
+                T = getattr(self.T, name)
+                if isinstance(T, lltype.ContainerType):
+                    # initialize the substructure
+                    v_subptr = newvar(lltype.Ptr(T))
+                    op = SpaceOperation('getsubstruct',
+                                        [v_target, const(name, lltype.Void)],
+                                        v_subptr)
+                    print 'force:', op
+                    builder.residual_operations.append(op)
+                    assert isinstance(a_value, LLVirtualPtr)
+                    a_value.containerobj.buildcontent(builder, v_subptr)
+                else:
+                    v_value = a_value.forcevarorconst(builder)
+                    op = SpaceOperation('setfield', [v_target,
+                                                     const(name, lltype.Void),
+                                                     v_value],
+                                        newvar(lltype.Void))
+                    print 'force:', op
+                    builder.residual_operations.append(op)
+
+    def rec_fields(self):
+        # enumerate all the fields of this structure and each of
+        # its substructures
+        for name in self.T._names:
+            a_value = self.getfield(name)
+            T = getattr(self.T, name)
+            if isinstance(T, lltype.ContainerType):
+                assert isinstance(a_value, LLVirtualPtr)
+                for obj, fld in a_value.containerobj.rec_fields():
+                    yield obj, fld
+            else:
+                yield self, name
 
     def getruntimevars(self):
         result = []
-        for name in self.T._names:
-            result.extend(self.getfield(name).getruntimevars())
+        for obj, name in self.topmostparent().rec_fields():
+            result.extend(obj.getfield(name).getruntimevars())
         return result
 
     def match(self, other):
+        if self is other:
+            return True
         assert self.T == other.T
         for name in self.T._names:
             a1 = self.getfield(name)
@@ -176,8 +251,8 @@ class LLVirtualPtr(LLAbstractValue):
     def maybe_get_constant(self):
         return None
 
-    def with_fresh_variables(self, to_be_stored_into):
-        return LLVirtualPtr(self.containerobj.copy())
+    def with_fresh_variables(self, memo):
+        return LLVirtualPtr(self.containerobj.copy(memo))
 
     def match(self, other):
         if isinstance(other, LLVirtualPtr):
@@ -349,8 +424,12 @@ class GraphState(object):
         origblock = state.origblock
         builder = BlockBuilder(self.interp)
         newinputargs = []
+        memo = {}
         for v, a in zip(origblock.inputargs, state.args_a):
-            a = a.with_fresh_variables(to_be_stored_into=v)
+            a = a.with_fresh_variables(memo)
+            # try to preserve the name
+            if isinstance(a, LLRuntimeValue) and isinstance(a.copy_v, Variable):
+                a.copy_v.rename(v)
             builder.bindings[v] = a
             newinputargs.extend(a.getruntimevars())
         print
@@ -438,9 +517,7 @@ class BlockBuilder(object):
         if any_concrete:
             return LLConcreteValue(concreteresult)
         else:
-            c = Constant(concreteresult)
-            c.concretetype = typeOf(concreteresult)
-            return LLRuntimeValue(c)
+            return LLRuntimeValue(const(concreteresult))
 
     def residual(self, opname, args_a, a_result):
         v_result = a_result.forcevarorconst(self)
@@ -542,9 +619,7 @@ class BlockBuilder(object):
                    ARGS, lltype.typeOf(origfptr).TO.RESULT)
                 fptr = lltype.functionptr(
                    TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
-                fconst = Constant(fptr)
-                fconst.concretetype = lltype.typeOf(fptr)
-                a_func = LLRuntimeValue(fconst)
+                a_func = LLRuntimeValue(const(fptr))
         self.residual("direct_call", [a_func] + list(args_a), a_result) 
         return a_result
 
@@ -560,6 +635,11 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname], constant_op)
 
     def op_getsubstruct(self, op, a_ptr, a_attrname):
+        if isinstance(a_ptr, LLVirtualPtr):
+            c_attrname = a_attrname.maybe_get_constant()
+            assert c_attrname is not None
+            # this should return a new LLVirtualPtr
+            return a_ptr.containerobj.getfield(c_attrname.value)
         return self.residualize(op, [a_ptr, a_attrname], getattr)
 
     def op_getarraysize(self, op, a_ptr):
