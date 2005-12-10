@@ -101,7 +101,7 @@ class PyCode(eval.Code):
         self.co_firstlineno = 0      # first source line number
         self.co_lnotab = ""          # string: encoding addr<->lineno mapping
         self.hidden_applevel = False
-
+        self.do_fastcall = -1
 
     def _code_new( self, argcount, nlocals, stacksize, flags,
                    code, consts, names, varnames, filename,
@@ -155,8 +155,16 @@ class PyCode(eval.Code):
             magic, = struct.unpack("<i", imp.get_magic())
             if magic != self.magic:
                 self.magic = magic
+        self._compute_fastcall()
         return self
 
+    def _compute_fastcall(self):
+        # Speed hack!
+        self.do_fastcall = -1
+        if self.co_flags & (CO_VARARGS | CO_VARKEYWORDS) == 0:
+            if self.co_argcount == 1:
+                self.do_fastcall = 1
+        
     def _from_code(self, code, hidden_applevel=False, from_cpython=True):
         """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
@@ -212,10 +220,16 @@ class PyCode(eval.Code):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
-        # recursively _from_code()-ify the code objects in code.co_consts
-        space = self.space
+        self._compute_fastcall()
         return self
 
+    def fastcall_1(self, space, w_func, w_arg):
+        if self.do_fastcall != 1:
+            return None
+        frame = self.create_frame(space, w_func.w_func_globals,
+                                       w_func.closure)
+        frame.setfastscope([w_arg])
+        return frame.run()
 
     def create_frame(self, space, w_globals, closure=None):
         "Create an empty PyFrame suitable for this code object."
@@ -345,3 +359,4 @@ class PyCode(eval.Code):
             code.co_cellvars = unpack_str_tuple(space, w_cellvars)
         return space.wrap(code)
     descr_code__new__.unwrap_spec = unwrap_spec 
+

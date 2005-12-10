@@ -51,7 +51,7 @@ class Code(Wrappable):
         return None
 
     # a performance hack (see gateway.BuiltinCode1/2/3)
-    def fastcall_1(self, space, w1):
+    def fastcall_1(self, space, func, w1):
         return None
     def fastcall_2(self, space, w1, w2):
         return None

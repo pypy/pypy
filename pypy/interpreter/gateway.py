@@ -438,7 +438,7 @@ class BuiltinCode(eval.Code):
 # (verbose) performance hack below
 
 class BuiltinCode1(BuiltinCode):
-    def fastcall_1(self, space, w1):
+    def fastcall_1(self, space, w_func, w1):
         try:
             w_result = self.fastfunc_1(space, w1)
         except KeyboardInterrupt: 

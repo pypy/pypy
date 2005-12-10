@@ -465,7 +465,7 @@ class ObjSpace(object):
         from pypy.interpreter.function import Function
         if isinstance(w_func, Function):
             if len(args_w) == 1:
-                w_res = w_func.code.fastcall_1(self, args_w[0])
+                w_res = w_func.code.fastcall_1(self, w_func, args_w[0])
                 if w_res is not None:
                     return w_res
             elif len(args_w) == 2:
