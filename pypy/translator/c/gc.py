@@ -189,6 +189,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
                     destrptr = rtti._obj.destructor_funcptr
                     gcinfo.destructor = db.get(destrptr)
                     T = typeOf(destrptr).TO.ARGS[0]
+                    gcinfo.destructor_argtype = db.gettype(T)
             else:
                 # is a deallocator really needed, or would it be empty?
                 if list(self.deallocator_lines(structdefnode, '')):
