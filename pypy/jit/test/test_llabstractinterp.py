@@ -203,3 +203,22 @@ def test_inlined_substructure():
         return l
     graph2, insns = abstrinterp(ll_function, [7], [0])
     assert insns == {}
+
+def test_merge_with_inlined_substructure():
+    S = lltype.Struct('S', ('n1', lltype.Signed), ('n2', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+    def ll_function(k, flag):
+        if flag:
+            t = lltype.malloc(T)
+            t.s.n1 = k
+            t.s.n2 = flag
+        else:
+            t = lltype.malloc(T)
+            t.s.n1 = 14 - k
+            t.s.n2 = flag + 42
+        # 't.s.n1' should always be 7 here, so the two branches should merge
+        n1 = t.s.n1
+        n2 = t.s.n2
+        return n1 * n2
+    graph2, insns = abstrinterp(ll_function, [7, 1], [0])
+    assert insns == {'int_is_true': 1, 'int_add': 1, 'int_mul': 1}

@@ -149,8 +149,10 @@ class VirtualStruct(object):
                 # up 'result' again, because it is already in the memo
                 result.setparent(self.parent.copy(memo), self.parentindex)
 
-            for name, a_value in self.fields.items():
-                a = a_value.with_fresh_variables(memo)
+            # cannot keep lazy fields around: the copy is expected to have
+            # only variables, not constants
+            for name in self.T._names:
+                a = self.getfield(name).with_fresh_variables(memo)
                 result.fields[name] = a
             return result
 
