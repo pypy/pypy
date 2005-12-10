@@ -10,6 +10,17 @@ def test_we_are_translated():
     res = interpret(fn, [])
     assert res is True
 
+def test_casttoandfromint():
+    class A(object):
+        pass
+    class B(object):
+        pass
+    a = A()
+    b = B()
+    i1 = cast_object_to_int(a)
+    i2 = cast_object_to_int(b)
+    assert cast_int_to_object(i1, A) is a
+    assert cast_int_to_object(i2, B) is b
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant
