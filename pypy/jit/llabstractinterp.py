@@ -29,10 +29,21 @@ class LLConcreteValue(LLAbstractValue):
     def getconcretetype(self):
         return lltype.typeOf(self.value)
 
-    def getvarorconst(self):
+    def forcevarorconst(self, builder):
         c = Constant(self.value)
         c.concretetype = self.getconcretetype()
         return c
+
+    def getruntimevars(self):
+        return []
+
+    def maybe_get_constant(self):
+        c = Constant(self.value)
+        c.concretetype = self.getconcretetype()
+        return c
+
+    def with_fresh_variables(self, to_be_stored_into):
+        return self
 
     def match(self, other):
         return isinstance(other, LLConcreteValue) and self.value == other.value
@@ -54,8 +65,20 @@ class LLRuntimeValue(LLAbstractValue):
     def getconcretetype(self):
         return self.copy_v.concretetype
 
-    def getvarorconst(self):
+    def forcevarorconst(self, builder):
         return self.copy_v
+
+    def getruntimevars(self):
+        return [self.copy_v]
+
+    def maybe_get_constant(self):
+        if isinstance(self.copy_v, Constant):
+            return self.copy_v
+        else:
+            return None
+
+    def with_fresh_variables(self, to_be_stored_into):
+        return LLRuntimeValue(orig_v=to_be_stored_into)
 
     def match(self, other):
         return isinstance(other, LLRuntimeValue)  # XXX and ...
@@ -88,37 +111,6 @@ class BlockState(object):
         #print "RESOLVING BLOCK", newblock
         self.copyblock = newblock
 
-
-class GraphState(object):
-    """Entry state of a graph."""
-
-    def __init__(self, origgraph, args_a, n):
-        self.origgraph = origgraph
-        name = '%s_%d' % (origgraph.name, n)
-        self.copygraph = FunctionGraph(name, Block([]))   # grumble
-        for orig_v, copy_v in [(origgraph.getreturnvar(),
-                                self.copygraph.getreturnvar()),
-                               (origgraph.exceptblock.inputargs[0],
-                                self.copygraph.exceptblock.inputargs[0]),
-                               (origgraph.exceptblock.inputargs[1],
-                                self.copygraph.exceptblock.inputargs[1])]:
-            if hasattr(orig_v, 'concretetype'):
-                copy_v.concretetype = orig_v.concretetype
-        self.a_return = None
-        self.state = "before"
-
-    def settarget(self, block):
-        block.isstartblock = True
-        self.copygraph.startblock = block
-
-    def complete(self, interp):
-        assert self.state != "during"
-        if self.state == "before":
-            self.state = "during"
-            builderframe = LLAbstractFrame(interp, self)
-            builderframe.complete()
-            self.state = "after"
-
 # ____________________________________________________________
 
 class LLAbstractInterp(object):
@@ -139,7 +131,7 @@ class LLAbstractInterp(object):
         self.blocks = {}   # {origblock: list-of-LLStates}
         args_a = [LLRuntimeValue(orig_v=v) for v in origgraph.getargs()]
         graphstate, args_a = self.schedule_graph(args_a, origgraph)
-        graphstate.complete(self)
+        graphstate.complete()
         return graphstate.copygraph
 
     def applyhint(self, args_a, origblock):
@@ -159,7 +151,7 @@ class LLAbstractInterp(object):
             graphstate = self.graphs[origgraph][state]
         except KeyError:
             d = self.graphs.setdefault(origgraph, {})
-            graphstate = GraphState(origgraph, args_a, n=len(d))
+            graphstate = GraphState(self, origgraph, args_a, n=len(d))
             d[state] = graphstate
             self.pendingstates[graphstate] = state
         #print "SCHEDULE_GRAPH", graphstate
@@ -167,10 +159,11 @@ class LLAbstractInterp(object):
 
     def schedule(self, args_a, origblock):
         #print "SCHEDULE", args_a, origblock
-        # args_a: [a_value for v in origblock.inputargs]
+        # args_a: [the-a-corresponding-to-v for v in origblock.inputargs]
         state, args_a = self.schedule_getstate(args_a, origblock)
-        args_v = [a.getvarorconst() for a in args_a
-                  if not isinstance(a, LLConcreteValue)]
+        args_v = []
+        for a in args_a:
+            args_v.extend(a.getruntimevars())
         newlink = Link(args_v, None)
         self.pendingstates[newlink] = state
         return newlink
@@ -191,16 +184,37 @@ class LLAbstractInterp(object):
             return state, args_a
 
 
-class LLAbstractFrame(object):
+class GraphState(object):
+    """Entry state of a graph."""
 
-    def __init__(self, interp, graphstate):
+    def __init__(self, interp, origgraph, args_a, n):
         self.interp = interp
-        self.graphstate = graphstate
+        self.origgraph = origgraph
+        name = '%s_%d' % (origgraph.name, n)
+        self.copygraph = FunctionGraph(name, Block([]))   # grumble
+        for orig_v, copy_v in [(origgraph.getreturnvar(),
+                                self.copygraph.getreturnvar()),
+                               (origgraph.exceptblock.inputargs[0],
+                                self.copygraph.exceptblock.inputargs[0]),
+                               (origgraph.exceptblock.inputargs[1],
+                                self.copygraph.exceptblock.inputargs[1])]:
+            if hasattr(orig_v, 'concretetype'):
+                copy_v.concretetype = orig_v.concretetype
+        self.a_return = None
+        self.state = "before"
+
+    def settarget(self, block):
+        block.isstartblock = True
+        self.copygraph.startblock = block
 
     def complete(self):
-        graph = self.graphstate.copygraph
+        assert self.state != "during"
+        if self.state == "after":
+            return
+        self.state = "during"
+        graph = self.copygraph
         interp = self.interp
-        pending = [self.graphstate]
+        pending = [self]
         seen = {}
         # follow all possible links, forcing the blocks along the way to be
         # computed
@@ -220,7 +234,7 @@ class LLAbstractFrame(object):
                         # that it is really the one from 'graph' -- by patching
                         # 'graph' if necessary.
                         if len(link.target.inputargs) == 1:
-                            self.graphstate.a_return = state.args_a[0]
+                            self.a_return = state.args_a[0]
                             graph.returnblock = link.target
                         elif len(link.target.inputargs) == 2:
                             graph.exceptblock = link.target
@@ -230,35 +244,21 @@ class LLAbstractFrame(object):
         checkgraph(graph)
         eliminate_empty_blocks(graph)
         join_blocks(graph)
+        self.state = "after"
 
     def flowin(self, state):
         # flow in the block
         origblock = state.origblock
-        bindings = {}   # {Variables-of-origblock: a_value}
-        def binding(v):
-            if isinstance(v, Constant):
-                return LLRuntimeValue(orig_v=v)
-            else:
-                return bindings[v]
+        builder = BlockBuilder(self.interp)
         for v, a in zip(origblock.inputargs, state.args_a):
-            if not isinstance(a, LLConcreteValue):
-                a = LLRuntimeValue(orig_v=v)
-            bindings[v] = a
+            builder.bindings[v] = a.with_fresh_variables(to_be_stored_into=v)
         print
-        self.residual_operations = []
+        # flow the actual operations of the block
         for op in origblock.operations:
-            handler = getattr(self, 'op_' + op.opname)
-            a_result = handler(op, *[binding(v) for v in op.args])
-            bindings[op.result] = a_result
-        inputargs = []
-        for v in origblock.inputargs:
-            a = bindings[v]
-            if not isinstance(a, LLConcreteValue):
-                inputargs.append(a.getvarorconst())
-        newblock = Block(inputargs)
-        newblock.operations = self.residual_operations
-        del self.residual_operations   # just in case
+            builder.dispatch(op)
+        # done
 
+        newexitswitch = None
         if origblock.operations != ():
             # build exit links and schedule their target for later completion
             if origblock.exitswitch is None:
@@ -266,16 +266,17 @@ class LLAbstractFrame(object):
             elif origblock.exitswitch == Constant(last_exception):
                 XXX
             else:
-                v = bindings[origblock.exitswitch].getvarorconst()
+                a = builder.bindings[origblock.exitswitch]
+                v = a.forcevarorconst(builder)
                 if isinstance(v, Variable):
-                    newblock.exitswitch = v
+                    newexitswitch = v
                     links = origblock.exits
                 else:
                     links = [link for link in origblock.exits
                                   if link.llexitcase == v.value]
             newlinks = []
             for origlink in links:
-                args_a = [binding(v) for v in origlink.args]
+                args_a = [builder.binding(v) for v in origlink.args]
                 newlink = self.interp.schedule(args_a, origlink.target)
                 newlinks.append(newlink)
         else:
@@ -283,24 +284,57 @@ class LLAbstractFrame(object):
             # they are linked to the official return or except block of the
             # copygraph.  If needed, LLConcreteValues are turned into Constants.
             if len(origblock.inputargs) == 1:
-                target = self.graphstate.copygraph.returnblock
+                target = self.copygraph.returnblock
             else:
-                target = self.graphstate.copygraph.exceptblock
-            args_v = [binding(v).getvarorconst() for v in origblock.inputargs]
+                target = self.copygraph.exceptblock
+            args_v = [builder.binding(v).forcevarorconst(builder)
+                      for v in origblock.inputargs]
             newlinks = [Link(args_v, target)]
         #print "CLOSING"
-        newblock.closeblock(*newlinks)
+
+        newblock = builder.buildblock(origblock.inputargs,
+                                      newexitswitch, newlinks)
         state.resolveblock(newblock)
+
+
+class BlockBuilder(object):
+
+    def __init__(self, interp):
+        self.interp = interp
+        self.bindings = {}   # {Variables-of-origblock: a_value}
+        self.residual_operations = []
+
+    def buildblock(self, originputargs, newexitswitch, newlinks):
+        inputargs = []
+        for v in originputargs:
+            a = self.bindings[v]
+            inputargs.extend(a.getruntimevars())
+        b = Block(inputargs)
+        b.operations = self.residual_operations
+        b.exitswitch = newexitswitch
+        b.closeblock(*newlinks)
+        return b
+
+    def binding(self, v):
+        if isinstance(v, Constant):
+            return LLRuntimeValue(orig_v=v)
+        else:
+            return self.bindings[v]
+
+    def dispatch(self, op):
+        handler = getattr(self, 'op_' + op.opname)
+        a_result = handler(op, *[self.binding(v) for v in op.args])
+        self.bindings[op.result] = a_result
+
 
     def constantfold(self, constant_op, args_a):
         concretevalues = []
         any_concrete = False
         for a in args_a:
-            v = a.getvarorconst()
-            if isinstance(v, Constant):
-                concretevalues.append(v.value)
-            else:
+            v = a.maybe_get_constant()
+            if v is None:
                 return None    # cannot constant-fold
+            concretevalues.append(v.value)
             any_concrete = any_concrete or isinstance(a, LLConcreteValue)
         # can constant-fold
         print 'fold:', constant_op, concretevalues
@@ -313,13 +347,13 @@ class LLAbstractFrame(object):
             return LLRuntimeValue(c)
 
     def residual(self, opname, args_a, a_result):
-        v_result = a_result.getvarorconst()
+        v_result = a_result.forcevarorconst(self)
         if isinstance(v_result, Constant):
             v = Variable()
             v.concretetype = v_result.concretetype
             v_result = v
         op = SpaceOperation(opname,
-                            [a.getvarorconst() for a in args_a],
+                            [a.forcevarorconst(self) for a in args_a],
                             v_result)
         print 'keep:', op
         self.residual_operations.append(op)
@@ -385,8 +419,8 @@ class LLAbstractFrame(object):
 
     def op_direct_call(self, op, a_func, *args_a):
         a_result = LLRuntimeValue(op.result)
-        v_func = a_func.getvarorconst()
-        if isinstance(v_func, Constant):
+        v_func = a_func.maybe_get_constant()
+        if v_func is not None:
             fnobj = v_func.value._obj
             if (hasattr(fnobj, 'graph') and
                 not getattr(fnobj._callable, 'suggested_primitive', False)):
@@ -396,10 +430,9 @@ class LLAbstractFrame(object):
                 #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
                 if graphstate.state != "during":
                     print 'ENTERING', graphstate.copygraph.name, args_a
-                    graphstate.complete(self.interp)
+                    graphstate.complete()
                     if (graphstate.a_return is not None and
-                        isinstance(graphstate.a_return.getvarorconst(),
-                                   Constant)):
+                        graphstate.a_return.maybe_get_constant() is not None):
                         a_result = graphstate.a_return
                     print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
                 
