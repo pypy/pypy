@@ -886,7 +886,8 @@ class ReallyRunFileExternal(py.test.Item):
         python = sys.executable 
         pypy_script = pypydir.join('bin', 'py.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
-        regr_script = pypydir.join('tool', 'pytest', 'regrverbose.py')
+        regr_script = pypydir.join('tool', 'pytest', 
+                                   'run-script', 'regrverbose.py')
         pypy_options = []
         if regrtest.oldstyle: 
             pypy_options.append('--oldstyle') 
