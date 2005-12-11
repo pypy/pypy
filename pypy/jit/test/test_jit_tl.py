@@ -8,27 +8,30 @@ from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.backendopt import inline
 
-py.test.skip("in-progress")
+#py.test.skip("in-progress")
 
 def entry_point(code, pc):
     # indirection needed, because the hints are not about *all* calls to
     # interp()
     return tl.interp(code, pc)
 
-def jit_tl(code):
+def setup_module(mod):
     t = TranslationContext()
     t.buildannotator().build_types(entry_point, [str, int])
     rtyper = t.buildrtyper()
     rtyper.specialize()
-    inline.auto_inlining(t, 0.5)
-    graph1 = t.graphs[0] 
+    inline.auto_inlining(t, 0.3)
+    
+    mod.graph1 = t.graphs[0]
+    mod.llinterp = LLInterpreter(rtyper)
+    
 
+def jit_tl(code):
     interp = LLAbstractInterp()
     hints = {graph1.getargs()[0]: string_repr.convert_const(code),
              graph1.getargs()[1]: 0}
     graph2 = interp.eval(graph1, hints)
 
-    llinterp = LLInterpreter(rtyper)
     result1 = llinterp.eval_graph(graph1, [string_repr.convert_const(code), 0])
     result2 = llinterp.eval_graph(graph2, [])
 
