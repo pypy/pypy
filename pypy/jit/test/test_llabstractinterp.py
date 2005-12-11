@@ -255,7 +255,7 @@ def test_dont_merge_forced_and_not_forced():
     # XXX fragile test: at the moment, the two branches of the 'if' are not
     # being merged at all because 's' was forced in one case only.
     assert insns == {'direct_call': 1, 'int_is_true': 1, 'int_add': 2,
-                     'malloc': 1, 'setfield': 2, 'getfield': 1}
+                     'malloc': 1, 'setfield': 1, 'getfield': 1}
 
 def test_unique_virtualptrs():
     S = lltype.GcStruct('S', ('n', lltype.Signed))
@@ -284,3 +284,14 @@ def test_cast_pointer():
         return s.n1
     graph2, insns = abstrinterp(ll_function, [], [])
     assert insns == {}
+
+def test_residual_direct_call():
+    def ll_uninteresting(x, y):
+        return x * y
+    def ll_function(a, b):
+        return ll_uninteresting(a+b, b+1)
+    graph2, insns = abstrinterp(ll_function, [2, 5], [0])
+    # ll_uninteresting() should not be residualized because it is only passed
+    # non-concrete values, so 'insns' should only see the residualized
+    # ll_function().
+    assert insns == {'direct_call': 1, 'int_add': 2}

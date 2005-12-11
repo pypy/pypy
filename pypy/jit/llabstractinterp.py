@@ -590,44 +590,58 @@ class BlockBuilder(object):
     def op_same_as(self, op, a):
         return a
 
-    def op_direct_call(self, op, a_func, *args_a):
-        a_result = LLRuntimeValue(op.result)
-        v_func = a_func.maybe_get_constant()
-        if v_func is not None:
-            fnobj = v_func.value._obj
-            if (hasattr(fnobj, 'graph') and
-                not getattr(fnobj._callable, 'suggested_primitive', False)):
-                origgraph = fnobj.graph
+    def op_direct_call(self, op, *args_a):
+        a_result = self.handle_call(op, *args_a)
+        if a_result is None:
+            a_result = self.residualize(op, args_a)
+        return a_result
 
-                # for now, we need to force all arguments
-                for a in args_a:
-                    a.forcevarorconst(self)
-                
-                graphstate, args_a = self.interp.schedule_graph(
-                    args_a, origgraph)
-                #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
-                if graphstate.state != "during":
-                    print 'ENTERING', graphstate.copygraph.name, args_a
-                    graphstate.complete()
-                    if (graphstate.a_return is not None and
-                        graphstate.a_return.maybe_get_constant() is not None):
-                        a_result = graphstate.a_return
-                    print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
-                
-                origfptr = v_func.value
-                ARGS = []
-                new_args_a = []
-                for a in args_a:
-                    if not isinstance(a, LLConcreteValue):
-                        ARGS.append(a.getconcretetype())
-                        new_args_a.append(a)
-                args_a = new_args_a
-                TYPE = lltype.FuncType(
-                   ARGS, lltype.typeOf(origfptr).TO.RESULT)
-                fptr = lltype.functionptr(
-                   TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
-                a_func = LLRuntimeValue(const(fptr))
-        self.residual("direct_call", [a_func] + list(args_a), a_result) 
+    def handle_call(self, op, a_func, *args_a):
+        v_func = a_func.maybe_get_constant()
+        if v_func is None:
+            return None
+        fnobj = v_func.value._obj
+        if not hasattr(fnobj, 'graph'):
+            return None
+        if getattr(fnobj._callable, 'suggested_primitive', False):
+            return None
+
+        origgraph = fnobj.graph
+
+        # for now, we need to force all arguments
+        any_concrete = False
+        for a in args_a:
+            a.forcevarorconst(self)
+            any_concrete = any_concrete or isinstance(a,LLConcreteValue)
+        if not any_concrete:
+            return None
+
+        a_result = LLRuntimeValue(op.result)
+        graphstate, args_a = self.interp.schedule_graph(
+            args_a, origgraph)
+        #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
+        if graphstate.state != "during":
+            print 'ENTERING', graphstate.copygraph.name, args_a
+            graphstate.complete()
+            if (graphstate.a_return is not None and
+                graphstate.a_return.maybe_get_constant() is not None):
+                a_result = graphstate.a_return
+            print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
+
+        origfptr = v_func.value
+        ARGS = []
+        new_args_a = []
+        for a in args_a:
+            if not isinstance(a, LLConcreteValue):
+                ARGS.append(a.getconcretetype())
+                new_args_a.append(a)
+        args_a = new_args_a
+        TYPE = lltype.FuncType(
+           ARGS, lltype.typeOf(origfptr).TO.RESULT)
+        fptr = lltype.functionptr(
+           TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
+        a_func = LLRuntimeValue(const(fptr))
+        self.residual("direct_call", [a_func] + args_a, a_result) 
         return a_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
