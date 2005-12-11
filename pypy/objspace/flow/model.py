@@ -520,6 +520,7 @@ def checkgraph(graph):
                     assert isinstance(block.exitswitch, Variable)
                     assert block.exitswitch in vars
 
+                allexitcases = {}
                 for link in block.exits:
                     assert len(link.args) == len(link.target.inputargs)
                     assert link.prevblock is block
@@ -542,6 +543,8 @@ def checkgraph(graph):
                         #    if not exc_link:
                         #        assert v.value is not last_exception
                         #        #assert v.value != last_exc_value
+                    allexitcases[link.exitcase] = True
+                assert len(allexitcases) == len(block.exits)
                 vars_previous_blocks.update(vars)
 
         try:

@@ -208,8 +208,13 @@ class LLFrame(object):
                     # no handler found, pass on
                     raise e
         else:
-            index = self.getval(block.exitswitch)
-            link = block.exits[index]
+            llexitvalue = self.getval(block.exitswitch)
+            for link in block.exits:
+                if link.llexitcase == llexitvalue:
+                    break   # found -- the result is in 'link'
+            else:
+                raise ValueError("exit case %r not found in the exit links "
+                                 "of %r" % (llexitvalue, block))
         return link.target, [self.getval(x) for x in link.args]
 
     def eval_operation(self, operation):
