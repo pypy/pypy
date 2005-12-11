@@ -50,6 +50,7 @@ class W_TypeObject(W_Object):
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
         w_self.nslots = 0
+        w_self.needsdel = False
         w_self.w_bestbase = None
 
         # make sure there is a __doc__ in dict_w
@@ -119,6 +120,7 @@ class W_TypeObject(W_Object):
                                                  space.wrap("instance layout conflicts in "
                                                             "multiple inheritance"))
                 w_self.hasdict = w_self.hasdict or w_base.hasdict
+                w_self.needsdel = w_self.needsdel or w_base.needsdel
             if not w_newstyle: # only classic bases
                 raise OperationError(space.w_TypeError,
                                      space.wrap("a new-style class can't have only classic bases"))
@@ -176,7 +178,8 @@ class W_TypeObject(W_Object):
             if wantdict and not w_self.hasdict:
                 w_self.dict_w['__dict__'] = space.wrap(std_dict_descr)
                 w_self.hasdict = True
-               
+            if '__del__' in dict_w:
+                w_self.needsdel = True
             w_type = space.type(w_self)
             if not space.is_w(w_type, space.w_type):
                 w_self.mro_w = []
@@ -185,7 +188,6 @@ class W_TypeObject(W_Object):
                 w_mro = space.call_args(mro_func, mro_func_args)
                 w_self.mro_w = space.unpackiterable(w_mro)
                 return
-
         w_self.mro_w = w_self.compute_mro()
 
     # compute the most parent class with the same layout as us

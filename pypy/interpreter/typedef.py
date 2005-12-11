@@ -38,54 +38,79 @@ class TypeDef:
 # we cannot specialize:memo by more than one PBC key 
 # so we need to work a bit to allow that 
 
-def get_unique_interplevel_subclass(cls, hasdict, wants_slots): 
-    if hasdict: 
-        if wants_slots: 
-            return get_unique_interplevel_WithDictWithSlots(cls)
-        else: 
-            return get_unique_interplevel_WithDictNoSlots(cls)
-    else: 
-        if wants_slots: 
-            return get_unique_interplevel_NoDictWithSlots(cls)
-        else: 
-            return get_unique_interplevel_NoDictNoSlots(cls)
+def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False): 
+    if needsdel:
+        if hasdict:
+            if wants_slots:
+                return get_unique_interplevel_WithDictWithSlotsWithDel(cls)
+            else: 
+                return get_unique_interplevel_WithDictNoSlotsWithDel(cls)
+        else:
+            if wants_slots:
+                return get_unique_interplevel_NoDictWithSlotsWithDel(cls)
+            else: 
+                return get_unique_interplevel_NoDictNoSlotsWithDel(cls)
+    else:
+        if hasdict:
+            if wants_slots:
+                return get_unique_interplevel_WithDictWithSlotsNoDel(cls)
+            else: 
+                return get_unique_interplevel_WithDictNoSlotsNoDel(cls)
+        else:
+            if wants_slots:
+                return get_unique_interplevel_NoDictWithSlotsNoDel(cls)
+            else: 
+                return get_unique_interplevel_NoDictNoSlotsNoDel(cls)
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:arg0"
 
 for hasdict in False, True: 
-    for wants_slots in False, True: 
-        name = hasdict and "WithDict" or "NoDict"
-        name += wants_slots and "WithSlots" or "NoSlots" 
-        funcname = "get_unique_interplevel_%s" % (name,)
-        exec compile2("""
-            subclass_cache_%(name)s = {}
-            def %(funcname)s(cls): 
-                try: 
-                    return subclass_cache_%(name)s[cls]
-                except KeyError: 
-                    subcls = _buildusercls(cls, %(hasdict)r, %(wants_slots)r)
-                    subclass_cache_%(name)s[cls] = subcls
-                    return subcls
-            %(funcname)s._annspecialcase_ = "specialize:memo"
-        """ % locals())
+    for wants_del in False, True:
+        for wants_slots in False, True: 
+            name = hasdict and "WithDict" or "NoDict"
+            name += wants_slots and "WithSlots" or "NoSlots" 
+            name += wants_del and "WithDel" or "NoDel"
+            funcname = "get_unique_interplevel_%s" % (name,)
+            exec compile2("""
+                subclass_cache_%(name)s = {}
+                def %(funcname)s(cls): 
+                    try: 
+                        return subclass_cache_%(name)s[cls]
+                    except KeyError: 
+                        subcls = _buildusercls(cls, %(hasdict)r, %(wants_slots)r, %(wants_del)r)
+                        subclass_cache_%(name)s[cls] = subcls
+                        return subcls
+                %(funcname)s._annspecialcase_ = "specialize:memo"
+            """ % locals())
 
-def _buildusercls(cls, hasdict, wants_slots):
+def _buildusercls(cls, hasdict, wants_slots, wants_del):
     "NOT_RPYTHON: initialization-time only"
     typedef = cls.typedef
 
     if hasdict and typedef.hasdict:
-        return get_unique_interplevel_subclass(cls, False, wants_slots)
+        return get_unique_interplevel_subclass(cls, False, wants_slots, wants_del)
 
     name = ['User']
     if not hasdict:
         name.append('NoDict')
     if wants_slots:
         name.append('WithSlots')
+    if wants_del:
+        name.append('WithDel')
     name.append(cls.__name__)
 
     name = ''.join(name)
 
-    if wants_slots:
-        supercls = get_unique_interplevel_subclass(cls, hasdict, False)
+    if wants_del:
+        supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots, False)
+        class Proto(object):
+            def __del__(self):
+                try:
+                    self.space.userdel(self)
+                except OperationError, e:
+                    e.write_unraisable(self.space, 'method __del__ of ', self)
+                    e.clear(self.space)   # break up reference cycles
+    elif wants_slots:
+        supercls = get_unique_interplevel_subclass(cls, hasdict, False, False)
 
         class Proto(object):
             def user_setup_slots(self, nslots):
@@ -97,7 +122,7 @@ def _buildusercls(cls, hasdict, wants_slots):
             def getslotvalue(self, index):
                 return self.slots_w[index]
     elif hasdict:
-        supercls = get_unique_interplevel_subclass(cls, False, False)
+        supercls = get_unique_interplevel_subclass(cls, False, False, False)
 
         class Proto(object):
             def getdict(self):
@@ -126,12 +151,6 @@ def _buildusercls(cls, hasdict, wants_slots):
                 # only used by descr_set___class__
                 self.w__class__ = w_subtype
 
-            def __del__(self):
-                try:
-                    self.space.userdel(self)
-                except OperationError, e:
-                    e.write_unraisable(self.space, 'method __del__ of ', self)
-                    e.clear(self.space)   # break up reference cycles
 
             def user_setup(self, space, w_subtype, nslots):
                 self.space = space
