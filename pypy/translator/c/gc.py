@@ -349,16 +349,18 @@ class BoehmGcPolicy(BasicGcPolicy):
     def struct_setup(self, structdefnode, rtti):
         if isinstance(structdefnode.LLTYPE, GcStruct):
 	    has_del = rtti is not None and hasattr(rtti._obj, 'destructor_funcptr')
+            needs_deallocator = bool(list(self.deallocator_lines(structdefnode, '')))
             gcinfo = structdefnode.gcinfo = BoehmInfo()
-            gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+structdefnode.barename)
-            if list(self.deallocator_lines(structdefnode, '')):
-	    	if has_del:
-		    raise Exception("you cannot use __del__ with PyObjects and Boehm")
-            if has_del:	
-                destrptr = rtti._obj.destructor_funcptr
-                gcinfo.destructor = self.db.get(destrptr)
-                T = typeOf(destrptr).TO.ARGS[0]
-                gcinfo.destructor_argtype = self.db.gettype(T)
+            if needs_deallocator and has_del:
+                raise Exception("you cannot use __del__ with PyObjects and Boehm")
+            if needs_deallocator or has_del:
+                name = 'finalize_'+structdefnode.barename 
+                gcinfo.finalizer = self.db.namespace.uniquename(name)
+                if has_del:	
+                    destrptr = rtti._obj.destructor_funcptr
+                    gcinfo.destructor = self.db.get(destrptr)
+                    T = typeOf(destrptr).TO.ARGS[0]
+                    gcinfo.destructor_argtype = self.db.gettype(T)
     struct_after_definition = common_after_definition
 
     def struct_implementationcode(self, structdefnode):
