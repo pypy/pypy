@@ -333,6 +333,32 @@ def test_obj_obj_is():
     res = interpret(f, [o, o], someobjects=True)
     assert res is True
     
+
+def test_funny_links():
+    from pypy.objspace.flow.model import Block, FunctionGraph, \
+         SpaceOperation, Variable, Constant, Link
+    for i in range(2):
+        v_i = Variable("i")
+        v_case = Variable("case")
+        block = Block([v_i])
+        g = FunctionGraph("is_one", block)
+        block.operations.append(SpaceOperation("eq", [v_i, Constant(1)], v_case))
+        block.exitswitch = v_case
+        tlink = Link([Constant(1)], g.returnblock, True)
+        flink = Link([Constant(0)], g.returnblock, False)
+        links = [tlink, flink]
+        if i:
+            links.reverse()
+        block.closeblock(*links)
+        t = TranslationContext()
+        a = t.buildannotator()
+        a.build_graph_types(g, [annmodel.SomeInteger()])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+        interp = LLInterpreter(rtyper)
+        assert interp.eval_graph(g, [1]) == 1
+        assert interp.eval_graph(g, [0]) == 0
+
 #__________________________________________________________________
 #
 #  Test objects and instances
