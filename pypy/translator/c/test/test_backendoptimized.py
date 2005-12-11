@@ -1,6 +1,7 @@
 import autopath
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.rpython import objectmodel
 
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):
@@ -75,4 +76,22 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 42
-        
+
+    def test_casttoandfromint(self):
+        class A(object):
+            pass
+        def f():
+            a = A()
+            return objectmodel.cast_object_to_int(a)
+        def g():
+            a = A()
+            i = objectmodel.cast_object_to_int(a)
+            return objectmodel.cast_object_to_int(
+                objectmodel.cast_int_to_object(i, A)) == i
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res > 0
+        gn = self.getcompiled(g)
+        res = gn()
+        assert res
+    

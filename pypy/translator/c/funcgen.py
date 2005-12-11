@@ -545,6 +545,12 @@ class FunctionCodeGenerator(object):
             result.append(self.pyobj_incref(op.result))
         return '\t'.join(result)
 
+    def OP_CAST_INT_TO_PTR(self, op, err):
+        TYPE = self.lltypemap(op.result)
+        typename = self.db.gettype(TYPE)
+        return "%s = (%s)%s;" % (self.expr(op.result), cdecl(typename, ""), 
+                                 self.expr(op.args[0]))
+
     def OP_SAME_AS(self, op, err):
         result = []
         TYPE = self.lltypemap(op.result)
