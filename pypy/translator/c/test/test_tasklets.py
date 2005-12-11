@@ -1,3 +1,4 @@
+import py
 import os
 
 from pypy.rpython.memory.lladdress import NULL
@@ -6,9 +7,13 @@ from pypy.rpython.rstack import yield_current_frame_to_caller
 # ____________________________________________________________
 # For testing
 
+from pypy.translator.tool import cbuild
 from pypy.translator.c.gc import BoehmGcPolicy
 gcpolicy = BoehmGcPolicy 
 debug_flag = True
+
+if not cbuild.check_boehm_presence():
+    raise py.test.skip("boehm not found")
 
 # count of loops in tests (set lower to speed up)
 loops = 10
