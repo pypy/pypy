@@ -1,8 +1,12 @@
 import autopath
 import py
-import _socket
+import _socket, thread
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import Translator
+from pypy.module._socket.test import echoserver
+
+HOST = "localhost"
+PORT = 8037
 
 def setup_module(mod):
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
@@ -105,3 +109,36 @@ def test_connect_error():
     f1 = compile(does_stuff, [str, int])
     for args in tests:
         py.test.raises(OSError, f1, *args)
+
+
+class TestConnectedIPv4:
+
+    family = _socket.AF_INET
+    
+    def setup_class(cls):    
+        thread.start_new_thread(echoserver.start_server, (),
+                                            {"address_family": cls.family})
+
+    def teardown_class(cls):
+        import telnetlib
+        tn = telnetlib.Telnet(HOST, PORT)
+        tn.write("shutdown\n")
+        tn.close()
+
+    def test_connect(self):
+        import os
+        from pypy.module._socket.rpython import rsocket
+        def does_stuff():
+            fd = rsocket.newsocket(self.family, _socket.SOCK_STREAM, 0)
+            rsocket.connect(fd, (HOST, PORT, 0, 0))
+            sockname = rsocket.getpeername(fd)
+            os.close(fd)
+            return sockname[1]
+        f1 = compile(does_stuff, [])
+        res = f1()
+        assert res == PORT
+
+class DONOT_TestConnectedIPv6(TestConnectedIPv4):
+    
+    disabled = not _socket.has_ipv6
+    family = _socket.AF_INET6
