@@ -60,12 +60,12 @@ class Resumable(object):
         self.alive = False
         
     def start(self):
-        self.caller = yield_current_frame_to_caller()
-        self.fn(self.name)
-        return self.caller
+        self.resumable = self._start()
 
-    def set_resumable(self, resumable):
-        self.resumable = resumable
+    def _start(self):
+        self.caller = yield_current_frame_to_caller()
+        self.fn()
+        return self.caller
 
     def suspend(self):
         # we suspend ourself
@@ -75,16 +75,24 @@ class Resumable(object):
         # the caller resumes me
         self.resumable = self.resumable.switch()  
         self.alive = self.resumable is not None
-    
+
 class Tasklet(Resumable):
-    def __init__(self, name, fn):
+    def __init__(self, fn):
         Resumable.__init__(self, fn)
-        self.name = name
         self.blocked = 0
         
         # propogates round suspend-resume to tell scheduler in run()
-        # XXX too late to think this thru
+        # XXX this should probably be done by setting a value in the
+        #     scheduler??
         self.remove = False
+
+    def start(self):
+        Resumable.start(self)
+        scheduler.add_tasklet(self)
+
+    def run(self):
+        Resumable.start(self)
+        scheduler.run_immediately(self)
 
     def suspend_and_remove(self, remove):
         self.remove = remove
@@ -198,15 +206,6 @@ class Scheduler(object):
 # ____________________________________________________________
 
 scheduler = Scheduler()
-def start_tasklet(tasklet):
-    res = tasklet.start()
-    tasklet.set_resumable(res)
-    scheduler.add_tasklet(tasklet)
-
-def start_tasklet_now(tasklet):
-    res = tasklet.start()
-    tasklet.set_resumable(res)
-    scheduler.run_immediately(tasklet)
         
 def schedule():
     scheduler.schedule()
@@ -222,16 +221,19 @@ def getcurrent():
 
 # ____________________________________________________________
 
+#XXX start_tasklet
+#XXX start_tasklet_now
+
 def test_simple():
     
-    def simple(name):
+    def simple():
         for ii in range(5):
             globals.count += 1
             schedule()
 
     def f():
         for ii in range(loops):
-            start_tasklet(Tasklet("T%s" % ii, simple))
+            Tasklet(simple).start()
         run()
         return globals.count == loops * 5
 
@@ -240,18 +242,18 @@ def test_simple():
 
 def test_multiple_simple():
     
-    def simple(name):
+    def simple():
         for ii in range(5):
             globals.count += 1
             schedule()
 
-    def simple2(name):
+    def simple2():
         for ii in range(5):
             globals.count += 1
             schedule()
             globals.count += 1
 
-    def simple3(name):
+    def simple3():
         schedule()
         for ii in range(10):
             globals.count += 1
@@ -261,9 +263,9 @@ def test_multiple_simple():
 
     def f():
         for ii in range(loops):
-            start_tasklet(Tasklet("T1%s" % ii, simple))
-            start_tasklet(Tasklet("T2%s" % ii, simple2))
-            start_tasklet(Tasklet("T3%s" % ii, simple3))
+            Tasklet(simple).start()
+            Tasklet(simple2).start()
+            Tasklet(simple3).start()
         run()
         return globals.count == loops * 25
     
@@ -272,7 +274,7 @@ def test_multiple_simple():
 
 def test_schedule_remove():
     
-    def simple(name):
+    def simple():
         for ii in range(20):
             if ii < 10:
                 schedule()
@@ -282,10 +284,10 @@ def test_schedule_remove():
 
     def f():
         for ii in range(loops):
-            start_tasklet(Tasklet("T%s" % ii, simple))
+            Tasklet(simple).start()
         run()
         for ii in range(loops):
-            start_tasklet(Tasklet("T%s" % ii, simple))
+            Tasklet(simple).start()
         run()
         return globals.count == loops * 10 * 2
 
@@ -295,26 +297,26 @@ def test_schedule_remove():
 def test_run_immediately():
     globals.intermediate = 0
     globals.count = 0
-    def simple(name):
+    def simple():
         for ii in range(20):
             globals.count += 1
             schedule()
 
-    def run_immediately(name):
+    def run_immediately():
         globals.intermediate = globals.count
         schedule()
     
-    def simple2(name):
+    def simple2():
         for ii in range(20):
             globals.count += 1
             if ii == 10:
-                start_tasklet_now(Tasklet("intermediate", run_immediately))
+                Tasklet(run_immediately).run()
             schedule()
 
     def f():
-        start_tasklet(Tasklet("simple2", simple2))
+        Tasklet(simple2).start()
         for ii in range(loops):
-            start_tasklet(Tasklet("T%s" % ii, simple))        
+            Tasklet(simple).start()
         run()
         total_expected = (loops + 1) * 20
         return (globals.intermediate == total_expected / 2 + 1 and
@@ -326,18 +328,18 @@ def test_run_immediately():
 def test_channel1():
     ch = Channel()
         
-    def f1(name):
+    def f1():
         for ii in range(5):
             ch.send(ii)
             
-    def f2(name):
-        #while True:
+    def f2():
+        #while True: XXX Doesnt annotate
         for ii in range(6):
             globals.count += ch.receive()
 
     def f():
-        start_tasklet(Tasklet("f2", f2))
-        start_tasklet(Tasklet("f1", f1))
+        Tasklet(f2).start()
+        Tasklet(f1).start()
         run()
         return (globals.count == 10)
 
@@ -347,50 +349,48 @@ def test_channel1():
 def test_channel2():
     ch = Channel()
         
-    def f1(name):
+    def f1():
         for ii in range(5):
             ch.send(ii)
             
-    def f2(name):
-        #while True:
+    def f2():
+        #while True:XXX Doesnt annotate
         for ii in range(6):
             res = ch.receive()
             globals.count += res
             
     def f():
-        start_tasklet(Tasklet("f1", f1))
-        start_tasklet(Tasklet("f2", f2))
+        Tasklet(f1).start()
+        Tasklet(f2).start()
         run()
         return (globals.count == 10)
 
     res = wrap_stackless_function(f)
     assert res == '1'
 
-
 def test_channel3():
     ch = Channel()
         
-    def f1(name):
+    def f1():
         for ii in range(5):
             ch.send(ii)
             
-    def f2(name):
-        #while True:
+    def f2():
+        #while True: XXX Doesnt annotate
         for ii in range(16):
             res = ch.receive()
             globals.count += res
             
     def f():
-        start_tasklet(Tasklet("f1x", f1))
-        start_tasklet(Tasklet("f1xx", f1))
-        start_tasklet(Tasklet("f1xxx", f1))
-        start_tasklet(Tasklet("f2", f2))
+        Tasklet(f1).start()
+        Tasklet(f1).start()
+        Tasklet(f1).start()
+        Tasklet(f2).start()
         run()
         return (globals.count == 30)
 
     res = wrap_stackless_function(f)
     assert res == '1'
-
 
 def test_channel4():
     """ test with something other than int """
@@ -417,19 +417,19 @@ def test_channel4():
     ch2 = Channel()
     ch3 = Channel()
         
-    def f1(name):
+    def f1():
         for ii in range(5):
             ch1.send(IntData(ii))
 
-    def f2(name):
+    def f2():
         for ii in range(5):
             ch2.send(StringData("asda"))
 
-    def f3(name):
+    def f3():
         for ii in range(5):
             ch3.send(StringData("asda"))
             
-    def fr(name):
+    def fr():
         #while True:
         for ii in range(11):
             data3 = ch3.receive()
@@ -440,14 +440,13 @@ def test_channel4():
             globals.count += 1
             
     def f():
-        start_tasklet(Tasklet("fr", fr))
-        start_tasklet(Tasklet("f1", f1))
-        start_tasklet(Tasklet("f2", f2))
-        start_tasklet(Tasklet("f3", f3))
+        Tasklet(fr).start()
+        Tasklet(f1).start()
+        Tasklet(f2).start()
+        Tasklet(f3).start()
         run()
-        debug("asd %s" % globals.count)
         return (globals.count == 15)
 
     res = wrap_stackless_function(f)
     assert res == '1'
-    
+
