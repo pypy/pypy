@@ -295,3 +295,14 @@ def test_residual_direct_call():
     # non-concrete values, so 'insns' should only see the residualized
     # ll_function().
     assert insns == {'direct_call': 1, 'int_add': 2}
+
+def test_virtual_array():
+    A = lltype.GcArray(lltype.Signed)
+    def ll_function(k, l):
+        a = lltype.malloc(A, 3)
+        a[0] = k
+        a[1] = 12
+        a[2] = l
+        return (a[0] + a[1]) + a[2]
+    graph2, insns = abstrinterp(ll_function, [7, 983], [0])
+    assert insns == {'int_add': 1}

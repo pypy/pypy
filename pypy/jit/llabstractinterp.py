@@ -101,15 +101,16 @@ class LLRuntimeValue(LLAbstractValue):
 ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
 
-class LLVirtualStruct(LLAbstractValue):
-    """Stands for a pointer to a malloc'ed structure; the structure is not
-    malloc'ed so far, but we record which fields have which value.
-    """
+class LLVirtualContainer(LLAbstractValue):
+
     parent = None
     parentindex = None
 
-    def __init__(self, STRUCT):
-        self.T = STRUCT
+    def __init__(self, T, a_length=None):
+        assert (a_length is not None) == T._is_varsize()
+        self.T = T
+        self.a_length = a_length
+        self.names = self.getnames()
         self.fields = {}
 
     def getconcretetype(self):
@@ -132,13 +133,17 @@ class LLVirtualStruct(LLAbstractValue):
         try:
             return self.fields[name]
         except KeyError:
-            T = getattr(self.T, name)
+            T = self.fieldtype(name)
             if isinstance(T, lltype.ContainerType):
                 # reading a substructure
-                a_substr = LLVirtualStruct(T)
-                a_substr.setparent(self, name)
-                self.fields[name] = a_substr
-                return a_substr
+                if T._is_varsize():
+                    a_length = self.a_length
+                else:
+                    a_length = None
+                a_sub = virtualcontainer(T, a_length)
+                a_sub.setparent(self, name)
+                self.fields[name] = a_sub
+                return a_sub
             else:
                 # no value ever set, return a default
                 return LLRuntimeValue(const(T._defl()))
@@ -150,7 +155,7 @@ class LLVirtualStruct(LLAbstractValue):
         if self in memo:
             return memo[self]    # already seen
         else:
-            result = LLVirtualStruct(self.T)
+            result = virtualcontainer(self.T, self.a_length)
             memo[self] = result
             if self.parent is not None:
                 # build the parent first -- note that
@@ -161,7 +166,7 @@ class LLVirtualStruct(LLAbstractValue):
 
             # cannot keep lazy fields around: the copy is expected to have
             # only variables, not constants
-            for name in self.T._names:
+            for name in self.names:
                 a = self.getfield(name).with_fresh_variables(memo)
                 result.fields[name] = a
             return result
@@ -177,7 +182,14 @@ class LLVirtualStruct(LLAbstractValue):
             print 'force:', op
             builder.residual_operations.append(op)
         else:
-            op = SpaceOperation('malloc', [const(self.T, lltype.Void)], v_result)
+            if self.T._is_varsize():
+                op = SpaceOperation('malloc_varsize', [
+                                        const(self.T, lltype.Void),
+                                        self.a_length.forcevarorconst(builder)],
+                                    v_result)
+            else:
+                op = SpaceOperation('malloc', [const(self.T, lltype.Void)],
+                                    v_result)
             print 'force:', op
             builder.residual_operations.append(op)
             self.buildcontent(builder, v_result)
@@ -187,12 +199,12 @@ class LLVirtualStruct(LLAbstractValue):
 
     def buildcontent(self, builder, v_target):
         # initialize all fields
-        for name in self.T._names:
+        for name in self.names:
             if name in self.fields:
                 a_value = self.fields[name]
-                T = getattr(self.T, name)
+                T = self.fieldtype(name)
                 if isinstance(T, lltype.ContainerType):
-                    # initialize the substructure
+                    # initialize the substructure/subarray
                     v_subptr = newvar(lltype.Ptr(T))
                     op = SpaceOperation('getsubstruct',
                                         [v_target, const(name, lltype.Void)],
@@ -203,26 +215,9 @@ class LLVirtualStruct(LLAbstractValue):
                     a_value.buildcontent(builder, v_subptr)
                 else:
                     v_value = a_value.forcevarorconst(builder)
-                    op = SpaceOperation('setfield', [v_target,
-                                                     const(name, lltype.Void),
-                                                     v_value],
-                                        newvar(lltype.Void))
+                    op = self.setop(v_target, name, v_value)
                     print 'force:', op
                     builder.residual_operations.append(op)
-
-    def rec_fields(self):
-        # -- not used at the moment --
-        # enumerate all the fields of this structure and each of
-        # its substructures
-        for name in self.T._names:
-            a_value = self.getfield(name)
-            T = getattr(self.T, name)
-            if isinstance(T, lltype.ContainerType):
-                assert isinstance(a_value, LLVirtualStruct)
-                for obj, fld in a_value.rec_fields():
-                    yield obj, fld
-            else:
-                yield self, name
 
     def getruntimevars(self, memo):
         result = []
@@ -230,12 +225,12 @@ class LLVirtualStruct(LLAbstractValue):
             memo[self] = True
             if self.parent is not None:
                 result.extend(self.parent.getruntimevars(memo))
-            for name in self.T._names:
+            for name in self.names:
                 result.extend(self.getfield(name).getruntimevars(memo))
         return result
 
     def match(self, other, memo):
-        if not isinstance(other, LLVirtualStruct):
+        if self.__class__ is not other.__class__:
             return False
         if (False, self) in memo:
             return other is memo[False, self]
@@ -244,13 +239,61 @@ class LLVirtualStruct(LLAbstractValue):
         memo[False, self] = other
         memo[True, other] = self
         assert self.T == other.T
-        for name in self.T._names:
+        if self.a_length is not None:
+            if not self.a_length.match(other.a_length, memo):
+                return False
+        for name in self.names:
             a1 = self.getfield(name)
             a2 = other.getfield(name)
             if not a1.match(a2, memo):
                 return False
         else:
             return True
+
+
+class LLVirtualStruct(LLVirtualContainer):
+    """Stands for a pointer to a malloc'ed structure; the structure is not
+    malloc'ed so far, but we record which fields have which value.
+    """
+    def getnames(self):
+        return self.T._names
+
+    def fieldtype(self, name):
+        return getattr(self.T, name)
+
+    def setop(self, v_target, name, v_value):
+        return SpaceOperation('setfield', [v_target,
+                                           const(name, lltype.Void),
+                                           v_value],
+                              newvar(lltype.Void))
+
+class LLVirtualArray(LLVirtualContainer):
+    """Stands for a pointer to a malloc'ed array; the array is not
+    malloc'ed so far, but we record which fields have which value -- here
+    a field is an item, indexed by an integer instead of a string field name.
+    """
+    def getnames(self):
+        c = self.a_length.maybe_get_constant()
+        assert c is not None
+        return range(c.value)
+
+    def fieldtype(self, index):
+        return self.T.OF
+
+    def setop(self, v_target, name, v_value):
+        return SpaceOperation('setarrayitem', [v_target,
+                                               const(name, lltype.Signed),
+                                               v_value],
+                              newvar(lltype.Void))
+
+def virtualcontainer(T, a_length=None):
+    if isinstance(T, lltype.Struct):
+        cls = LLVirtualStruct
+    elif isinstance(T, lltype.Array):
+        cls = LLVirtualArray
+    else:
+        raise TypeError("unsupported container type %r" % (T,))
+    return cls(T, a_length)
 
 # ____________________________________________________________
 
@@ -656,17 +699,23 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname], constant_op)
 
     def op_getsubstruct(self, op, a_ptr, a_attrname):
-        if isinstance(a_ptr, LLVirtualStruct):
+        if isinstance(a_ptr, LLVirtualContainer):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            # this should return new LLVirtualStruct as well
+            # this should return new LLVirtualContainer as well
             return a_ptr.getfield(c_attrname.value)
         return self.residualize(op, [a_ptr, a_attrname], getattr)
 
     def op_getarraysize(self, op, a_ptr):
+        if isinstance(a_ptr, LLVirtualArray):
+            return a_ptr.a_length
         return self.residualize(op, [a_ptr], len)
 
     def op_getarrayitem(self, op, a_ptr, a_index):
+        if isinstance(a_ptr, LLVirtualArray):
+            c_index = a_index.maybe_get_constant()
+            if c_index is not None:
+                return a_ptr.getfield(c_index.value)
         constant_op = None
         T = a_ptr.getconcretetype().TO
         if T._hints.get('immutable', False):
@@ -679,6 +728,10 @@ class BlockBuilder(object):
         return LLVirtualStruct(c_T.value)
 
     def op_malloc_varsize(self, op, a_T, a_size):
+        if a_size.maybe_get_constant() is not None:
+            c_T = a_T.maybe_get_constant()
+            assert c_T is not None
+            return virtualcontainer(c_T.value, a_length=a_size)
         return self.residualize(op, [a_T, a_size])
 
     def op_setfield(self, op, a_ptr, a_attrname, a_value):
@@ -690,6 +743,11 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname, a_value])
 
     def op_setarrayitem(self, op, a_ptr, a_index, a_value):
+        if isinstance(a_ptr, LLVirtualArray):
+            c_index = a_index.maybe_get_constant()
+            if c_index is not None:
+                a_ptr.setfield(c_index.value, a_value)
+                return ll_no_return_value
         return self.residualize(op, [a_ptr, a_index, a_value])
 
     def op_cast_pointer(self, op, a_ptr):
