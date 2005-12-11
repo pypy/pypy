@@ -101,13 +101,22 @@ class LLRuntimeValue(LLAbstractValue):
 ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
 
-class VirtualStruct(object):
+class LLVirtualStruct(LLAbstractValue):
+    """Stands for a pointer to a malloc'ed structure; the structure is not
+    malloc'ed so far, but we record which fields have which value.
+    """
     parent = None
     parentindex = None
 
     def __init__(self, STRUCT):
         self.T = STRUCT
         self.fields = {}
+
+    def getconcretetype(self):
+        return lltype.Ptr(self.T)
+
+    def maybe_get_constant(self):
+        return None
 
     def setparent(self, parent, parentindex):
         self.parent = parent
@@ -126,28 +135,29 @@ class VirtualStruct(object):
             T = getattr(self.T, name)
             if isinstance(T, lltype.ContainerType):
                 # reading a substructure
-                substr = VirtualStruct(T)
-                substr.setparent(self, name)
-                a_result = LLVirtualPtr(substr)
-                self.fields[name] = a_result
-                return a_result
+                a_substr = LLVirtualStruct(T)
+                a_substr.setparent(self, name)
+                self.fields[name] = a_substr
+                return a_substr
             else:
                 # no value ever set, return a default
                 return LLRuntimeValue(const(T._defl()))
 
-    def setfield(self, name, value):
-        self.fields[name] = value
+    def setfield(self, name, a_value):
+        self.fields[name] = a_value
 
-    def copy(self, memo):
+    def with_fresh_variables(self, memo):
         if self in memo:
             return memo[self]    # already seen
         else:
-            result = VirtualStruct(self.T)
+            result = LLVirtualStruct(self.T)
             memo[self] = result
             if self.parent is not None:
-                # build the parent first -- note that parent.copy() will pick
-                # up 'result' again, because it is already in the memo
-                result.setparent(self.parent.copy(memo), self.parentindex)
+                # build the parent first -- note that
+                # parent.with_fresh_variables() will pick up 'result' again,
+                # because it is already in the memo
+                result.setparent(self.parent.with_fresh_variables(memo),
+                                 self.parentindex)
 
             # cannot keep lazy fields around: the copy is expected to have
             # only variables, not constants
@@ -156,7 +166,7 @@ class VirtualStruct(object):
                 result.fields[name] = a
             return result
 
-    def force(self, builder):
+    def forcevarorconst(self, builder):
         v_result = newvar(lltype.Ptr(self.T))
         if self.parent is not None:
             v_parent = self.parent.force(builder)
@@ -171,6 +181,8 @@ class VirtualStruct(object):
             print 'force:', op
             builder.residual_operations.append(op)
             self.buildcontent(builder, v_result)
+        self.__class__ = LLRuntimeValue
+        self.__dict__ = {'copy_v': v_result}
         return v_result
 
     def buildcontent(self, builder, v_target):
@@ -187,8 +199,8 @@ class VirtualStruct(object):
                                         v_subptr)
                     print 'force:', op
                     builder.residual_operations.append(op)
-                    assert isinstance(a_value, LLVirtualPtr)
-                    a_value.containerobj.buildcontent(builder, v_subptr)
+                    assert isinstance(a_value, LLVirtualStruct)
+                    a_value.buildcontent(builder, v_subptr)
                 else:
                     v_value = a_value.forcevarorconst(builder)
                     op = SpaceOperation('setfield', [v_target,
@@ -206,8 +218,8 @@ class VirtualStruct(object):
             a_value = self.getfield(name)
             T = getattr(self.T, name)
             if isinstance(T, lltype.ContainerType):
-                assert isinstance(a_value, LLVirtualPtr)
-                for obj, fld in a_value.containerobj.rec_fields():
+                assert isinstance(a_value, LLVirtualStruct)
+                for obj, fld in a_value.rec_fields():
                     yield obj, fld
             else:
                 yield self, name
@@ -223,6 +235,8 @@ class VirtualStruct(object):
         return result
 
     def match(self, other, memo):
+        if not isinstance(other, LLVirtualStruct):
+            return False
         if (False, self) in memo:
             return other is memo[False, self]
         if (True, other) in memo:
@@ -237,42 +251,6 @@ class VirtualStruct(object):
                 return False
         else:
             return True
-
-
-class LLVirtualPtr(LLAbstractValue):
-
-    def __init__(self, containerobj):
-        self.containerobj = containerobj    # a VirtualStruct
-
-    def getconcretetype(self):
-        return lltype.Ptr(self.containerobj.T)
-
-    def forcevarorconst(self, builder):
-        v_result = self.containerobj.force(builder)
-        self.__class__ = LLRuntimeValue
-        self.__dict__ = {'copy_v': v_result}
-        return v_result
-
-    def getruntimevars(self, memo):
-        return self.containerobj.getruntimevars(memo)
-
-    def maybe_get_constant(self):
-        return None
-
-    def with_fresh_variables(self, memo):
-        if self in memo:
-            return memo[self]
-        else:
-            result = LLVirtualPtr(None)
-            memo[self] = result
-            result.containerobj = self.containerobj.copy(memo)
-            return result
-
-    def match(self, other, memo):
-        if isinstance(other, LLVirtualPtr):
-            return self.containerobj.match(other.containerobj, memo)
-        else:
-            return False
 
 # ____________________________________________________________
 
@@ -653,10 +631,10 @@ class BlockBuilder(object):
         return a_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
-        if isinstance(a_ptr, LLVirtualPtr):
+        if isinstance(a_ptr, LLVirtualStruct):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            return a_ptr.containerobj.getfield(c_attrname.value)
+            return a_ptr.getfield(c_attrname.value)
         constant_op = None
         T = a_ptr.getconcretetype().TO
         if T._hints.get('immutable', False):
@@ -664,11 +642,11 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname], constant_op)
 
     def op_getsubstruct(self, op, a_ptr, a_attrname):
-        if isinstance(a_ptr, LLVirtualPtr):
+        if isinstance(a_ptr, LLVirtualStruct):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            # this should return a new LLVirtualPtr
-            return a_ptr.containerobj.getfield(c_attrname.value)
+            # this should return new LLVirtualStruct as well
+            return a_ptr.getfield(c_attrname.value)
         return self.residualize(op, [a_ptr, a_attrname], getattr)
 
     def op_getarraysize(self, op, a_ptr):
@@ -684,17 +662,16 @@ class BlockBuilder(object):
     def op_malloc(self, op, a_T):
         c_T = a_T.maybe_get_constant()
         assert c_T is not None
-        S = VirtualStruct(c_T.value)
-        return LLVirtualPtr(S)
+        return LLVirtualStruct(c_T.value)
 
     def op_malloc_varsize(self, op, a_T, a_size):
         return self.residualize(op, [a_T, a_size])
 
     def op_setfield(self, op, a_ptr, a_attrname, a_value):
-        if isinstance(a_ptr, LLVirtualPtr):
+        if isinstance(a_ptr, LLVirtualStruct):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            a_ptr.containerobj.setfield(c_attrname.value, a_value)
+            a_ptr.setfield(c_attrname.value, a_value)
             return ll_no_return_value
         return self.residualize(op, [a_ptr, a_attrname, a_value])
 
@@ -707,7 +684,7 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr], constant_op)
 
     def op_keepalive(self, op, a_ptr):
-        if isinstance(a_ptr, LLVirtualPtr):
+        if isinstance(a_ptr, LLVirtualStruct):
             for v in a_ptr.getruntimevars({}):
                 if isinstance(v, Variable) and not v.concretetype._is_atomic():
                     op = SpaceOperation('keepalive', [v], newvar(lltype.Void))
