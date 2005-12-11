@@ -462,6 +462,12 @@ class ObjSpace(object):
 
     def call_function(self, w_func, *args_w):
         # XXX start of hack for performance
+        from pypy.interpreter.function import Function, Method
+        if (isinstance(w_func, Method) and
+            w_func.w_instance is not None and
+            len(args_w) <= 3):
+            return self.call_function(w_func.w_function, w_func.w_instance, *args_w)
+            
         from pypy.interpreter.function import Function
         if isinstance(w_func, Function):
             if len(args_w) == 0:
@@ -490,6 +496,7 @@ class ObjSpace(object):
             args = Arguments(self, list(args_w))
             return w_func.call_args(args)
         # XXX end of hack for performance
+
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 

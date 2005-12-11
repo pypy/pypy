@@ -650,7 +650,11 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def CALL_FUNCTION(f, oparg):
         # XXX start of hack for performance
-        if oparg == 1:    # 1 arg, 0 keyword arg
+        if oparg == 0:      # 0 arg, 0 keyword arg
+            w_function = f.valuestack.pop()
+            w_result = f.space.call_function(w_function)
+            f.valuestack.push(w_result)
+        elif oparg == 1:    # 1 arg, 0 keyword arg
             w_arg = f.valuestack.pop()
             w_function = f.valuestack.pop()
             w_result = f.space.call_function(w_function, w_arg)
