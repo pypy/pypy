@@ -368,6 +368,15 @@ class __extend__(SomeString):
     def method_rfind(str, frag, start=None, end=None):
         return SomeInteger()
 
+    def method_strip(str, chr):
+        return SomeString()
+
+    def method_lstrip(str, chr):
+        return SomeString()
+
+    def method_rstrip(str, chr):
+        return SomeString()
+
     def method_join(str, s_list):
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()

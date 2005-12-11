@@ -138,6 +138,19 @@ class __extend__(StringRepr):
     def rtype_method_rfind(self, hop):
         return self.rtype_method_find(hop, reverse=True)
 
+    def rtype_method_strip(_, hop, left=True, right=True):
+        v_str = hop.inputarg(string_repr, arg=0)
+        v_char = hop.inputarg(char_repr, arg=1)
+        v_left = hop.inputconst(Bool, left)
+        v_right = hop.inputconst(Bool, right)
+        return hop.gendirectcall(ll_strip, v_str, v_char, v_left, v_right)
+
+    def rtype_method_lstrip(self, hop):
+        return self.rtype_method_strip(hop, left=True, right=False)
+
+    def rtype_method_rstrip(self, hop):
+        return self.rtype_method_strip(hop, left=False, right=True)
+
     def rtype_method_upper(_, hop):
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
@@ -821,6 +834,28 @@ def ll_rfind(s1, s2, start, end):
     return -1
 
 emptystr = string_repr.convert_const("")
+
+def ll_strip(s, ch, left, right):
+    s_len = len(s.chars)
+    if s_len == 0:
+        return emptystr
+    lpos = 0
+    rpos = s_len - 1
+    if left:
+        while lpos < rpos and s.chars[lpos] == ch:
+            lpos += 1
+    if right:
+        while lpos < rpos and s.chars[rpos] == ch:
+            rpos -= 1
+    r_len = rpos - lpos + 1
+    result = malloc(STR, r_len)
+    i = 0
+    j = lpos
+    while i < r_len:
+        result.chars[i] = s.chars[j]
+        i += 1
+        j += 1
+    return result
 
 def ll_upper(s):
     s_chars = s.chars

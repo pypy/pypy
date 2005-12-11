@@ -262,6 +262,20 @@ def test_find_char():
         res = interpret(fn, [ch])
         assert res == fn(ch)
 
+def test_strip():
+    def both():
+        return '!ab!'.strip('!')
+    def left():
+        return '!ab!'.lstrip('!')
+    def right():
+        return '!ab!'.rstrip('!')
+    res = interpret(both, [])
+    assert ''.join(res.chars) == 'ab'
+    res = interpret(left, [])
+    assert ''.join(res.chars) == 'ab!'
+    res = interpret(right, [])
+    assert ''.join(res.chars) == '!ab'
+
 def test_upper():
     strings = ['', ' ', 'upper', 'UpPeR', ',uppEr,']
     for i in range(256): strings.append(chr(i))
