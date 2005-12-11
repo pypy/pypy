@@ -272,3 +272,15 @@ def test_unique_virtualptrs():
             ll_do_nothing(s)
         return s.n * t.n
     graph2, insns = abstrinterp(ll_function, [1, 0], [])
+
+def test_cast_pointer():
+    S = lltype.GcStruct('S', ('n1', lltype.Signed), ('n2', lltype.Signed))
+    PS = lltype.Ptr(S)
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+    def ll_function():
+        t = lltype.malloc(T)
+        s = lltype.cast_pointer(PS, t)
+        t.s.n1 = 12
+        return s.n1
+    graph2, insns = abstrinterp(ll_function, [], [])
+    assert insns == {}

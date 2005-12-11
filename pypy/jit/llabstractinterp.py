@@ -169,7 +169,7 @@ class LLVirtualStruct(LLAbstractValue):
     def forcevarorconst(self, builder):
         v_result = newvar(lltype.Ptr(self.T))
         if self.parent is not None:
-            v_parent = self.parent.force(builder)
+            v_parent = self.parent.forcevarorconst(builder)
             op = SpaceOperation('getsubstruct', [v_parent,
                                                  const(self.parentindex,
                                                        lltype.Void)],
@@ -679,6 +679,17 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_index, a_value])
 
     def op_cast_pointer(self, op, a_ptr):
+        if isinstance(a_ptr, LLVirtualStruct):
+            down_or_up = lltype.castable(op.result.concretetype,
+                                         a_ptr.getconcretetype())
+            a = a_ptr
+            if down_or_up >= 0:
+                for n in range(down_or_up):
+                    a = a.getfield(a.T._names[0])
+            else:
+                for n in range(-down_or_up):
+                    a = a.parent
+            return a
         def constant_op(ptr):
             return lltype.cast_pointer(op.result.concretetype, ptr)
         return self.residualize(op, [a_ptr], constant_op)
