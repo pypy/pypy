@@ -40,9 +40,12 @@ def newsocket(family, type, protocol):
     socket_cache[fileno] = s
     return fileno
 
-def connect(fd, sockname):
+def connect(fd, sockname, family):
     s = socket_cache[fd]
-    s.connect(sockname[:2]) # XXX IPv4 only
+    if family == socket.AF_INET:
+        s.connect(sockname[:2])
+    elif family == socket.AF_INET6:
+        s.connect(sockname)
 
 def getpeername(fd):
     s = socket_cache[fd]

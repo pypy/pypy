@@ -712,7 +712,7 @@ class Socket(Wrappable):
             # XXX IPv6 and Unix sockets missing here
             pass
         try:
-            rsocket.connect(self.fd, sockname)
+            rsocket.connect(self.fd, sockname, self.family)
         except OSError, ex:
             raise w_get_socketerror(space, e.strerror, e.errno)
         # XXX timeout doesn't really work at the moment

@@ -102,19 +102,53 @@ int LL__socket_newsocket(int family, int type, int protocol)
     return fd;
 }
 
-void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname)
+void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname, int family)
 {
-    struct sockaddr_in addr;
+    struct sockaddr addr;
+    int addr_len;
     
     if (setipaddr(RPyString_AsString(sockname->t_item0), (struct sockaddr *) &addr,
-		      sizeof(addr), AF_INET) < 0) {
+		      sizeof(addr), family) < 0) {
         // XXX we actually want to raise socket.error
         RPYTHON_RAISE_OSERROR(errno);
         return NULL;
     }
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(sockname->t_item1);
-    if (connect(fd, &addr, sizeof(addr)) < 0) {
+    
+    switch (family) {
+    
+        case AF_INET:
+        {
+            struct sockaddr_in* addr_in;
+            addr_in = (struct sockaddr_in *) &addr;
+            addr_in->sin_family = family;
+            addr_in->sin_port = htons(sockname->t_item1);
+            addr_len = sizeof(addr_in);
+            break;
+        }
+
+#ifdef ENABLE_IPV6
+        case AF_INET6:
+        {
+            struct sockaddr_in6* addr_in6;
+            addr_in6 = (struct sockaddr_in6 *) &addr;
+            addr_in6->sin6_family = family;
+            addr_in6->sin6_port = htons((short)sockname->t_item1);
+            addr_in6->sin6_flowinfo = sockname->t_item2;
+            addr_in6->sin6_scope_id = sockname->t_item3;
+            addr_len = sizeof(addr_in6);
+            break;
+        }
+#endif
+
+        default:
+        {
+            // XXX raise some error
+            break;
+        }
+
+    }
+
+    if (connect(fd, &addr, addr_len) < 0) {
         // XXX we actually want to raise socket.error
         RPYTHON_RAISE_OSERROR(errno);
         return NULL;
