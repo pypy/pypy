@@ -4,6 +4,7 @@
 
 import os, sys, time
 
+MAX_BENCHMARKS = 40
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
 PYSTONE_PATTERN = 'This machine benchmarks at'
 RICHARDS_CMD = 'from richards import *;main(iterations=%d)'
@@ -51,7 +52,7 @@ def main():
     ref_stone = run_pystone()
     print FMT % (time.ctime(), 'python %s' % sys.version.split()[0], ref_rich, 1.0, ref_stone, 1.0)
     sys.stdout.flush()
-    for exe in get_executables():
+    for exe in get_executables()[:MAX_BENCHMARKS]:
         exename = os.path.splitext(exe)[0].lstrip('./')
         ctime   = time.ctime( os.path.getctime(exename) )
         rich    = run_richards(exe, 1)

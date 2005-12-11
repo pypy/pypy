@@ -16,6 +16,12 @@ def update_llvm():
     os.system('make -j3 tools-only 2>&1')
 
 def compile(backend):
+    os.chdir(homedir + '/projects/pypy-dist')
+    os.system('rm `find . -name *.pyc`')
+
+    os.chdir(homedir + '/projects/pypy-dist/pypy/_cache')
+    os.system('rm *')
+
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     os.system('python translate_pypy.py --backend=%(backend)s --text --batch targetpypystandalone 2>&1' % locals())
 
@@ -47,8 +53,9 @@ def main(backends=[]):
     if backends == []:
         backends = 'llvm c'.split()
     print time.ctime()
+    #if 'llvm' in backends:
+    #    update_llvm()
     update_pypy()
-    update_llvm()
     for backend in backends:
         try:
             compile(backend)
