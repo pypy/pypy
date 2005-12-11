@@ -34,17 +34,19 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
                              *indices_to_arraylength)
     codewriter.store(lentype, "%len", "%arraylength")
 
-    if is_str:
-        indices_to_hash = (("uint", 0),)
-        codewriter.getelementptr("%xxx1", ref + "*", 
-                                 "%result", 
-                                 *indices_to_hash)
-        codewriter.store("int", "0", "%arraylength")
+    #if is_str:
+    #    indices_to_hash = (("uint", 0),)
+    #    codewriter.getelementptr("%ptrhash", ref + "*", 
+    #                             "%result", 
+    #                             *indices_to_hash)
+    #    codewriter.store("int", "0", "%ptrhash")
 
-        codewriter.getelementptr("%xxx2", ref + "*", 
-                                 "%result", 
-                                 *elemindices)
-        codewriter.store(elemtype, "0", "%xxx2")
+
+    #if ARRAY is STR.chars:
+    #    codewriter.getelementptr("%ptrendofchar", ref + "*", 
+    #                             "%result", 
+    #                             *elemindices)
+    #    codewriter.store(elemtype, "0", "%ptrendofchar")
 
 
 

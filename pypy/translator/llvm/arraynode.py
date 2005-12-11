@@ -70,17 +70,6 @@ class VoidArrayTypeNode(LLVMNode):
 
     def writedatatypedecl(self, codewriter):
         codewriter.typedef(self.ref, self.db.get_machine_word())
-
-
-class StrArrayTypeNode(ArrayTypeNode):
-    def writeimpl(self, codewriter):
-        log.writeimpl(self.ref)
-        varsize.write_constructor(self.db, codewriter, self.ref, 
-                                  self.constructor_decl,
-                                  self.array,
-                                  atomic=self.array._is_atomic(),
-                                  is_str=True)
-
         
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be

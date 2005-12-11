@@ -77,7 +77,8 @@ class StructVarsizeTypeNode(StructTypeNode):
                                   self.constructor_decl,
                                   current, 
                                   indices_to_array,
-                                  self.struct._is_atomic())
+                                  self.struct._is_atomic(),
+                                  is_str=self.struct._name == "rpy_string")
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain

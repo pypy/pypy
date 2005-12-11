@@ -68,10 +68,10 @@ class BoehmGcPolicy(GcPolicy):
 %(targetvar)s = cast sbyte* %%malloc_Ptr%(cnt)s to %(type_)s*
 ''' % locals()
 
-        #if is_atomic:
-        #    t += '''
-        #call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, uint %%malloc_SizeU%(cnt)s, uint 0)
-        #''' % locals()
+        if is_atomic:
+            t += '''
+        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, uint %%malloc_SizeU%(cnt)s, uint 0)
+        ''' % locals()
         return t
 
     def pyrex_code(self):
