@@ -15,23 +15,38 @@ def annotation(a, x):
         t = annmodel.lltype_to_annotation(T)
     return a.typeannotation(t)
 
-def abstrinterp(ll_function, argvalues, arghints):
+_lastinterpreted = []
+def get_and_residualize_graph(ll_function, argvalues, arghints):
+    key = ll_function, tuple(arghints), tuple([argvalues[n] for n in arghints])
+    for key1, value1 in _lastinterpreted:    # 'key' is not hashable
+        if key1 == key:
+            return value1
+    if len(_lastinterpreted) >= 3:
+        del _lastinterpreted[0]
+    # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
     argtypes = [annotation(a, value) for value in argvalues]
     graph1 = annotate_lowlevel_helper(a, ll_function, argtypes)
     rtyper = t.buildrtyper()
     rtyper.specialize()
+    # build the residual ll graphs by propagating the hints
     interp = LLAbstractInterp()
     hints = {}
-    argvalues2 = argvalues[:]
-    lst = list(arghints)
-    lst.sort()
-    lst.reverse()
-    for hint in lst:
-        hints[graph1.getargs()[hint]] = argvalues2[hint]
-        del argvalues2[hint]
+    for hint in arghints:
+        hints[graph1.getargs()[hint]] = argvalues[hint]
     graph2 = interp.eval(graph1, hints)
+    # cache and return the original and the residual ll graph
+    result = t, interp, graph1, graph2
+    _lastinterpreted.append((key, result))
+    return result
+
+def abstrinterp(ll_function, argvalues, arghints):
+    t, interp, graph1, graph2 = get_and_residualize_graph(
+        ll_function, argvalues, arghints)
+    argvalues2 = [argvalues[n] for n in range(len(argvalues))
+                               if n not in arghints]
+    rtyper = t.rtyper
     # check the result by running it
     llinterp = LLInterpreter(rtyper)
     result1 = llinterp.eval_graph(graph1, argvalues)
@@ -94,6 +109,8 @@ def test_branch():
         y += 2
         return y
     graph2, insns = abstrinterp(ll_function, [6, 42], [])
+    assert insns == {'int_is_true': 1, 'int_add': 2}
+    graph2, insns = abstrinterp(ll_function, [0, 42], [])
     assert insns == {'int_is_true': 1, 'int_add': 2}
 
 def test_unrolling_loop():

@@ -52,7 +52,7 @@ class LLConcreteValue(LLAbstractValue):
     def with_fresh_variables(self, memo):
         return self
 
-    def match(self, other):
+    def match(self, other, memo):
         return isinstance(other, LLConcreteValue) and self.value == other.value
 
 
@@ -92,7 +92,7 @@ class LLRuntimeValue(LLAbstractValue):
     def with_fresh_variables(self, memo):
         return LLRuntimeValue(self.getconcretetype())
 
-    def match(self, other):
+    def match(self, other, memo):
         # Note: the meaning of match() is actually to see if calling
         # with_fresh_variables() on both 'self' and 'other' would give the
         # same result.  This is why any two LLRuntimeValues match each other.
@@ -222,14 +222,18 @@ class VirtualStruct(object):
                 result.extend(self.getfield(name).getruntimevars(memo))
         return result
 
-    def match(self, other):
-        if self is other:
-            return True
+    def match(self, other, memo):
+        if (False, self) in memo:
+            return other is memo[False, self]
+        if (True, other) in memo:
+            return self is memo[True, other]
+        memo[False, self] = other
+        memo[True, other] = self
         assert self.T == other.T
         for name in self.T._names:
             a1 = self.getfield(name)
             a2 = other.getfield(name)
-            if not a1.match(a2):
+            if not a1.match(a2, memo):
                 return False
         else:
             return True
@@ -258,9 +262,9 @@ class LLVirtualPtr(LLAbstractValue):
     def with_fresh_variables(self, memo):
         return LLVirtualPtr(self.containerobj.copy(memo))
 
-    def match(self, other):
+    def match(self, other, memo):
         if isinstance(other, LLVirtualPtr):
-            return self.containerobj.match(other.containerobj)
+            return self.containerobj.match(other.containerobj, memo)
         else:
             return False
 
@@ -278,8 +282,9 @@ class BlockState(object):
 
     def match(self, args_a):
         # simple for now
+        memo = {}
         for a1, a2 in zip(self.args_a, args_a):
-            if not a1.match(a2):
+            if not a1.match(a2, memo):
                 return False
         else:
             return True
@@ -468,6 +473,9 @@ class GraphState(object):
             for origlink in links:
                 args_a = [builder.binding(v) for v in origlink.args]
                 newlink = self.interp.schedule(args_a, origlink.target)
+                if newexitswitch is not None:
+                    newlink.exitcase = origlink.exitcase
+                    newlink.llexitcase = origlink.llexitcase
                 newlinks.append(newlink)
         else:
             # copies of return and except blocks are *normal* blocks currently;
