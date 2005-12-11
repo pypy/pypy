@@ -5,8 +5,6 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import Translator
 from pypy.module._socket.test import echoserver
 
-HOST = "localhost"
-PORT = 8037
 
 def setup_module(mod):
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
@@ -48,7 +46,7 @@ def test_gethostbyname():
     assert res == _socket.gethostbyname("localhost")
 
 def test_getaddrinfo():
-    py.test.skip("segfaulting on linux right now")
+#    py.test.skip("segfaulting on linux right now")
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
     from pypy.module._socket.rpython import rsocket
     def does_stuff(host, port):
@@ -58,8 +56,13 @@ def test_getaddrinfo():
             info = addr.nextinfo()
             if info[0] == 0:
                 break
-            result.append("(%d, %d, %d, '%s', ('%s', %d))" %
+            if info[0] == _socket.AF_INET:
+                result.append("(%d, %d, %d, '%s', ('%s', %d))" %
                           (info[0],info[1],info[2],info[3],info[4],info[5]))
+            elif info[0] == _socket.AF_INET6:
+                result.append("(%d, %d, %d, '%s', ('%s', %d, %d, %d))" %
+                          (info[0],info[1],info[2],info[3],info[4],info[5],info[6],info[7]))
+
         addr.free()
         return str(result)
     f1 = compile(does_stuff, [str, str])
@@ -113,6 +116,8 @@ def test_connect_error():
 
 class TestConnectedIPv4:
 
+    HOST = "localhost"
+    PORT = 8037
     family = _socket.AF_INET
     
     def setup_class(cls):    
@@ -121,7 +126,7 @@ class TestConnectedIPv4:
 
     def teardown_class(cls):
         import telnetlib
-        tn = telnetlib.Telnet(HOST, PORT)
+        tn = telnetlib.Telnet(cls.HOST, cls.PORT)
         tn.write("shutdown\n")
         tn.close()
 
@@ -130,15 +135,16 @@ class TestConnectedIPv4:
         from pypy.module._socket.rpython import rsocket
         def does_stuff():
             fd = rsocket.newsocket(self.family, _socket.SOCK_STREAM, 0)
-            rsocket.connect(fd, (HOST, PORT, 0, 0), self.family)
+            rsocket.connect(fd, (self.HOST, self.PORT, 0, 0), self.family)
             sockname = rsocket.getpeername(fd)
             os.close(fd)
             return sockname[1]
-        f1 = compile(does_stuff, [])
+        f1 = compile(does_stuff, [], True)
         res = f1()
-        assert res == PORT
+        assert res == self.PORT
 
 class DONOT_TestConnectedIPv6(TestConnectedIPv4):
     
+    HOST = "0000:0000:0000:0000:0000:0000:0000:0001"
     disabled = not _socket.has_ipv6
     family = _socket.AF_INET6
