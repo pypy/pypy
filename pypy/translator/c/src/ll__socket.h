@@ -106,7 +106,7 @@ void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname, int family)
 {
     struct sockaddr addr;
     int addr_len;
-    
+ 
     if (setipaddr(RPyString_AsString(sockname->t_item0), (struct sockaddr *) &addr,
 		      sizeof(addr), family) < 0) {
         // XXX we actually want to raise socket.error
@@ -122,7 +122,7 @@ void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname, int family)
             addr_in = (struct sockaddr_in *) &addr;
             addr_in->sin_family = family;
             addr_in->sin_port = htons(sockname->t_item1);
-            addr_len = sizeof(addr_in);
+            addr_len = sizeof(*addr_in);
             break;
         }
 
@@ -135,7 +135,7 @@ void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname, int family)
             addr_in6->sin6_port = htons((short)sockname->t_item1);
             addr_in6->sin6_flowinfo = sockname->t_item2;
             addr_in6->sin6_scope_id = sockname->t_item3;
-            addr_len = sizeof(addr_in6);
+            addr_len = sizeof(*addr_in6);
             break;
         }
 #endif
