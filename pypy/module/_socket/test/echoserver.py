@@ -30,6 +30,9 @@ class EchoRequestHandler(SocketServer.StreamRequestHandler):
                 raise RuntimeError()
             self.wfile.write(client_string)
 
-if __name__ == "__main__":
+def start_server():
     server = EchoServer(("", PORT), EchoRequestHandler)
-    server.serve()
+    server.serve()    
+
+if __name__ == "__main__":
+    start_server()

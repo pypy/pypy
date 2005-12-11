@@ -1,6 +1,6 @@
 import autopath
 import py
-import os.path, subprocess, sys
+import os.path, subprocess, sys, thread
 import _socket
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import Translator
@@ -10,8 +10,8 @@ PORT = 8037
 
 def setup_module(mod):
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
-    serverpath = os.path.join(autopath.pypydir, "module/_socket/test/echoserver.py")
-    mod.process = subprocess.Popen([sys.executable, serverpath])
+    from pypy.module._socket.test import echoserver
+    thread.start_new_thread(echoserver.start_server, ())
 
 def teardown_module(mod):
     import telnetlib
@@ -19,9 +19,8 @@ def teardown_module(mod):
     tn.write("shutdown\n")
     tn.close()
     del tn
-    del mod.process
 
-def DONOT_test_connect():
+def test_connect():
     import os
     from pypy.module._socket.rpython import rsocket
     def does_stuff():
