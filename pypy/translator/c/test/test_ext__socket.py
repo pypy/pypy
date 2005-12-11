@@ -104,7 +104,7 @@ def test_connect_error():
     ]
     def does_stuff(host, port):
         fd = rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        rsocket.connect(fd, (host, port, 0, 0))
+        rsocket.connect(fd, (host, port, 0, 0), _socket.AF_INET)
         os.close(fd)
     f1 = compile(does_stuff, [str, int])
     for args in tests:
@@ -130,7 +130,7 @@ class TestConnectedIPv4:
         from pypy.module._socket.rpython import rsocket
         def does_stuff():
             fd = rsocket.newsocket(self.family, _socket.SOCK_STREAM, 0)
-            rsocket.connect(fd, (HOST, PORT, 0, 0))
+            rsocket.connect(fd, (HOST, PORT, 0, 0), self.family)
             sockname = rsocket.getpeername(fd)
             os.close(fd)
             return sockname[1]
