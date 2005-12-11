@@ -260,7 +260,13 @@ class LLVirtualPtr(LLAbstractValue):
         return None
 
     def with_fresh_variables(self, memo):
-        return LLVirtualPtr(self.containerobj.copy(memo))
+        if self in memo:
+            return memo[self]
+        else:
+            result = LLVirtualPtr(None)
+            memo[self] = result
+            result.containerobj = self.containerobj.copy(memo)
+            return result
 
     def match(self, other, memo):
         if isinstance(other, LLVirtualPtr):

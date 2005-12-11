@@ -239,3 +239,36 @@ def test_merge_with_inlined_substructure():
         return n1 * n2
     graph2, insns = abstrinterp(ll_function, [7, 1], [0])
     assert insns == {'int_is_true': 1, 'int_add': 1, 'int_mul': 1}
+
+def test_dont_merge_forced_and_not_forced():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    def ll_do_nothing(s):
+        s.n = 2
+    def ll_function(flag):
+        s = lltype.malloc(S)
+        s.n = 12
+        t = s.n
+        if flag:
+            ll_do_nothing(s)
+        return t + s.n
+    graph2, insns = abstrinterp(ll_function, [0], [])
+    # XXX fragile test: at the moment, the two branches of the 'if' are not
+    # being merged at all because 's' was forced in one case only.
+    assert insns == {'direct_call': 1, 'int_is_true': 1, 'int_add': 2,
+                     'malloc': 1, 'setfield': 2, 'getfield': 1}
+
+def test_unique_virtualptrs():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    def ll_do_nothing(s):
+        s.n = 2
+    def ll_function(flag, flag2):
+        s = lltype.malloc(S)
+        s.n = 12
+        if flag2:   # flag2 should always be 0
+            t = lltype.nullptr(S)
+        else:
+            t = s
+        if flag:
+            ll_do_nothing(s)
+        return s.n * t.n
+    graph2, insns = abstrinterp(ll_function, [1, 0], [])
