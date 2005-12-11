@@ -1,8 +1,9 @@
 import inspect, types
 from pypy.objspace.flow.model import traverse, Block, Link, FunctionGraph
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
+from pypy.annotation.model import SomePBC
+from pypy.annotation.description import MethodDesc
 from pypy.annotation.classdef import ClassDef
-from pypy.annotation import model as annmodel, description
 from pypy.tool.uid import uid
 
 
@@ -206,8 +207,8 @@ class ClassDefPage(GraphPage):
                         s_value = attrdef.s_value
                         linkname = name
                         info = s_value
-                        if (classattrs and isinstance(s_value, annmodel.SomePBC)
-                            and s_value.getKind() == description.MethodDesc):
+                        if (classattrs and isinstance(s_value, SomePBC)
+                            and s_value.getKind() == MethodDesc):
                             name += '()'
                             info = 'SomePBC(%s)' % ', '.join(
                                 ['method %s.%s' % (
