@@ -297,20 +297,61 @@ def virtualcontainer(T, a_length=None):
 
 # ____________________________________________________________
 
-class BlockState(object):
+class LLBlockState(LLAbstractValue):
     """Entry state of a block, as a combination of LLAbstractValues
     for its input arguments."""
 
-    def __init__(self, origblock, args_a):
+    def __init__(self, args_a, origblock, origposition=0, a_back=None):
         assert len(args_a) == len(origblock.inputargs)
         self.args_a = args_a
         self.origblock = origblock
+        self.origposition = origposition
         self.copyblock = None
+        self.a_back = a_back
 
-    def match(self, args_a):
-        # simple for now
-        memo = {}
-        for a1, a2 in zip(self.args_a, args_a):
+    def key(self):
+        # two LLBlockStates should return different keys if they cannot match().
+        if self.a_back is None:
+            backkey = None
+        else:
+            backkey = self.a_back.key()
+        return (self.origblock, self.origposition, backkey)
+
+    def getruntimevars(self, memo):
+        if self.a_back is None:
+            result = []
+        else:
+            result = self.a_back.getruntimevars(memo)
+        for a in self.args_a:
+            result.extend(a.getruntimevars(memo))
+        return result
+
+    def maybe_get_constant(self):
+        return None
+
+    def with_fresh_variables(self, memo):
+        if self.a_back is None:
+            new_a_back = self.a_back.with_fresh_variables(memo)
+        else:
+            new_a_back = None
+        new_args_a = [a.with_fresh_variables(memo) for a in self.args_a]
+        return LLBlockState(new_args_a, self.origblock, self.origposition,
+                            new_a_back)
+
+    def match(self, other, memo):
+        if self.origblock is not other.origblock:
+            return False
+        if self.origposition != other.origposition:
+            return False
+        if self.a_back is None:
+            if other.a_back is not None:
+                return False
+        else:
+            if other.a_back is None:
+                return False
+            if not self.a_back.match(other.a_back, memo):
+                return False
+        for a1, a2 in zip(self.args_a, other.args_a):
             if not a1.match(a2, memo):
                 return False
         else:
@@ -328,6 +369,7 @@ class LLAbstractInterp(object):
         self.graphs = []
         self.graphstates = {}     # {origgraph: {BlockState: GraphState}}
         self.pendingstates = {}   # {Link-or-GraphState: next-BlockState}
+        self.blocks = {}          # {BlockState.key(): list-of-LLBlockStates}
 
     def itercopygraphs(self):
         return self.graphs
@@ -336,7 +378,6 @@ class LLAbstractInterp(object):
         # for now, 'hints' means "I'm absolutely sure that the
         # given variables will have the given ll value"
         self.hints = hints
-        self.blocks = {}   # {origblock: list-of-LLStates}
         args_a = [LLRuntimeValue(orig_v=v) for v in origgraph.getargs()]
         graphstate, args_a = self.schedule_graph(args_a, origgraph)
         graphstate.complete()
@@ -352,7 +393,7 @@ class LLAbstractInterp(object):
             result_a.append(a)
         return result_a
 
-    def schedule_graph(self, args_a, origgraph):
+    def schedule_graph(self, args_a, origgraph, a_back=None):
         origblock = origgraph.startblock
         state, args_a = self.schedule_getstate(args_a, origblock)
         try:
@@ -377,20 +418,20 @@ class LLAbstractInterp(object):
         self.pendingstates[newlink] = state
         return newlink
 
-    def schedule_getstate(self, args_a, origblock):
+    def schedule_getstate(self, args_a, origblock, a_back=None):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
         args_a = self.applyhint(args_a, origblock)
-        pendingstates = self.blocks.setdefault(origblock, [])
+        newstate = LLBlockState(args_a, origblock, a_back)
+        pendingstates = self.blocks.setdefault(newstate.key(), [])
         # try to match this new state with an existing one
         for state in pendingstates:
-            if state.match(args_a):
+            if state.match(newstate, {}):
                 # already matched
                 return state, args_a
         else:
-            # schedule this new state
-            state = BlockState(origblock, args_a)
-            pendingstates.append(state)
-            return state, args_a
+            # cache and return this new state
+            pendingstates.append(newstate)
+            return newstate, args_a
 
 
 class GraphState(object):
