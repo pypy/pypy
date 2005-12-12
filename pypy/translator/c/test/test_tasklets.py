@@ -9,15 +9,15 @@ from pypy.rpython.rstack import yield_current_frame_to_caller
 
 from pypy.translator.tool import cbuild
 from pypy.translator.c.gc import BoehmGcPolicy
-gcpolicy = BoehmGcPolicy 
-debug_flag = True
 
-if not cbuild.check_boehm_presence():
-    raise py.test.skip("boehm not found")
+gcpolicy = None
+if cbuild.check_boehm_presence():
+    gcpolicy = BoehmGcPolicy
 
 # count of loops in tests (set lower to speed up)
 loops = 10
     
+debug_flag = False
 def debug(s):
     if debug_flag:
         os.write(2, "%s\n" % s)
