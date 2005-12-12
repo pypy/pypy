@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython import rstr
 from pypy.annotation import model as annmodel
-from pypy.jit.llabstractinterp import LLAbstractInterp
+from pypy.jit.llabstractinterp import LLAbstractInterp, Policy
 
 
 def annotation(a, x):
@@ -16,8 +16,9 @@ def annotation(a, x):
     return a.typeannotation(t)
 
 _lastinterpreted = []
-def get_and_residualize_graph(ll_function, argvalues, arghints):
-    key = ll_function, tuple(arghints), tuple([argvalues[n] for n in arghints])
+def get_and_residualize_graph(ll_function, argvalues, arghints, policy):
+    key = (ll_function, tuple(arghints),
+           tuple([argvalues[n] for n in arghints]), policy)
     for key1, value1 in _lastinterpreted:    # 'key' is not hashable
         if key1 == key:
             return value1
@@ -31,7 +32,7 @@ def get_and_residualize_graph(ll_function, argvalues, arghints):
     rtyper = t.buildrtyper()
     rtyper.specialize()
     # build the residual ll graphs by propagating the hints
-    interp = LLAbstractInterp()
+    interp = LLAbstractInterp(policy)
     hints = {}
     for hint in arghints:
         hints[hint] = argvalues[hint]
@@ -41,9 +42,9 @@ def get_and_residualize_graph(ll_function, argvalues, arghints):
     _lastinterpreted.append((key, result))
     return result
 
-def abstrinterp(ll_function, argvalues, arghints):
+def abstrinterp(ll_function, argvalues, arghints, policy=Policy()):
     t, interp, graph1, graph2 = get_and_residualize_graph(
-        ll_function, argvalues, arghints)
+        ll_function, argvalues, arghints, policy)
     argvalues2 = [argvalues[n] for n in range(len(argvalues))
                                if n not in arghints]
     rtyper = t.rtyper
@@ -59,6 +60,8 @@ def abstrinterp(ll_function, argvalues, arghints):
             for op in block.operations:
                 insns[op.opname] = insns.get(op.opname, 0) + 1
     return graph2, insns
+
+P_INLINE = Policy(inlining=True)
 
 
 def test_simple():
@@ -301,4 +304,12 @@ def test_virtual_array():
         a[2] = l
         return (a[0] + a[1]) + a[2]
     graph2, insns = abstrinterp(ll_function, [7, 983], [0])
+    assert insns == {'int_add': 1}
+
+def test_simple_call_with_inlining():
+    def ll2(x, y):
+        return x + (y + 42)
+    def ll1(x, y, z):
+        return ll2(x, y - z)
+    graph2, insns = abstrinterp(ll1, [3, 4, 5], [1, 2], policy=P_INLINE)
     assert insns == {'int_add': 1}

@@ -297,25 +297,23 @@ def virtualcontainer(T, a_length=None):
 
 # ____________________________________________________________
 
-class LLBlockState(LLAbstractValue):
+class LLState(LLAbstractValue):
     """Entry state of a block, as a combination of LLAbstractValues
-    for its input arguments."""
+    for its input arguments.  Abstract base class."""
 
-    def __init__(self, args_a, origblock, origposition=0, a_back=None):
-        assert len(args_a) == len(origblock.inputargs)
+    def __init__(self, a_back, args_a, origblock):
+        self.a_back = a_back
         self.args_a = args_a
         self.origblock = origblock
-        self.origposition = origposition
         self.copyblock = None
-        self.a_back = a_back
+        assert len(args_a) == len(self.getlivevars())
 
     def key(self):
-        # two LLBlockStates should return different keys if they cannot match().
-        if self.a_back is None:
-            backkey = None
-        else:
-            backkey = self.a_back.key()
-        return (self.origblock, self.origposition, backkey)
+        # two LLStates should return different keys if they cannot match().
+        result = self.localkey()
+        if self.a_back is not None:
+            result += self.a_back.key()
+        return result
 
     def getruntimevars(self, memo):
         if self.a_back is None:
@@ -330,18 +328,22 @@ class LLBlockState(LLAbstractValue):
         return None
 
     def with_fresh_variables(self, memo):
-        if self.a_back is None:
+        if self.a_back is not None:
             new_a_back = self.a_back.with_fresh_variables(memo)
         else:
             new_a_back = None
-        new_args_a = [a.with_fresh_variables(memo) for a in self.args_a]
-        return LLBlockState(new_args_a, self.origblock, self.origposition,
-                            new_a_back)
+        new_args_a = []
+        for v, a in zip(self.getlivevars(), self.args_a):
+            a = a.with_fresh_variables(memo)
+            # try to preserve the name
+            if isinstance(a, LLRuntimeValue) and isinstance(a.copy_v, Variable):
+                a.copy_v.rename(v)
+            new_args_a.append(a)
+        return self.__class__(new_a_back, new_args_a, *self.localkey())
 
     def match(self, other, memo):
-        if self.origblock is not other.origblock:
-            return False
-        if self.origposition != other.origposition:
+        assert self.__class__ is other.__class__
+        if self.localkey() != other.localkey():
             return False
         if self.a_back is None:
             if other.a_back is not None:
@@ -361,15 +363,51 @@ class LLBlockState(LLAbstractValue):
         #print "RESOLVING BLOCK", newblock
         self.copyblock = newblock
 
+    def getbindings(self):
+        return dict(zip(self.getlivevars(), self.args_a))
+
+
+class LLBlockState(LLState):
+    """Entry state of a block, as a combination of LLAbstractValues
+    for its input arguments."""
+
+    def localkey(self):
+        return (self.origblock,)
+
+    def getlivevars(self):
+        return self.origblock.inputargs
+
+
+class LLSuspendedBlockState(LLBlockState):
+    """Block state in the middle of the execution of one instruction
+    (typically a direct_call() that is causing inlining)."""
+
+    def __init__(self, a_back, args_a, origblock, origposition):
+        self.origposition = origposition
+        super(LLSuspendedBlockState, self).__init__(a_back, args_a, origblock)
+
+    def localkey(self):
+        return (self.origblock, self.origposition)
+
+    def getlivevars(self):
+        return live_variables(self.origblock, self.origposition)
+
+
 # ____________________________________________________________
+
+class Policy(object):
+    def __init__(self, inlining=False):
+        self.inlining = inlining
+
 
 class LLAbstractInterp(object):
 
-    def __init__(self):
+    def __init__(self, policy=Policy()):
         self.graphs = []
         self.graphstates = {}     # {origgraph: {BlockState: GraphState}}
         self.pendingstates = {}   # {Link-or-GraphState: next-BlockState}
         self.blocks = {}          # {BlockState.key(): list-of-LLBlockStates}
+        self.policy = policy
 
     def itercopygraphs(self):
         return self.graphs
@@ -388,7 +426,7 @@ class LLAbstractInterp(object):
         return graphstate.copygraph
 
     def schedule_graph(self, args_a, origgraph):
-        inputstate = LLBlockState(args_a, origgraph.startblock)
+        inputstate = LLBlockState(None, args_a, origgraph.startblock)
         state = self.schedule_getstate(inputstate)
         try:
             graphstate = self.graphstates[origgraph][state]
@@ -402,7 +440,6 @@ class LLAbstractInterp(object):
 
     def schedule(self, inputstate):
         #print "SCHEDULE", args_a, origblock
-        # args_a: [the-a-corresponding-to-v for v in origblock.inputargs]
         state = self.schedule_getstate(inputstate)
         args_v = inputstate.getruntimevars({})
         newlink = Link(args_v, None)
@@ -483,7 +520,11 @@ class GraphState(object):
         # the graph should be complete now; sanity-check
         try:
             checkgraph(graph)
-        except:
+        except Exception, e:
+            print 'INVALID GRAPH:'
+            import traceback
+            traceback.print_exc()
+            print 'graph.show()...'
             graph.show()
             raise
         eliminate_empty_blocks(graph)
@@ -492,27 +533,59 @@ class GraphState(object):
 
     def flowin(self, state):
         # flow in the block
+        assert isinstance(state, LLBlockState)
         origblock = state.origblock
-        builder = BlockBuilder(self.interp)
-        newinputargs = []
-        memo = {}
-        memo2 = {}
-        for v, a in zip(origblock.inputargs, state.args_a):
-            a = a.with_fresh_variables(memo)
-            # try to preserve the name
-            if isinstance(a, LLRuntimeValue) and isinstance(a.copy_v, Variable):
-                a.copy_v.rename(v)
-            builder.bindings[v] = a
-            newinputargs.extend(a.getruntimevars(memo2))
-        print
-        # flow the actual operations of the block
-        for op in origblock.operations:
-            builder.dispatch(op)
-        # done
-
+        origposition = 0
+        builder = BlockBuilder(self.interp, state)
         newexitswitch = None
-        if origblock.operations != ():
-            # build exit links and schedule their target for later completion
+        print
+        try:
+            if origblock.operations == ():
+                if state.a_back is None:
+                    # copies of return and except blocks are *normal* blocks
+                    # currently; they are linked to the official return or
+                    # except block of the copygraph.  If needed,
+                    # LLConcreteValues are turned into Constants.
+                    if len(origblock.inputargs) == 1:
+                        target = self.copygraph.returnblock
+                    else:
+                        target = self.copygraph.exceptblock
+                    args_v = [builder.binding(v).forcevarorconst(builder)
+                              for v in origblock.inputargs]
+                    raise InsertNextLink(Link(args_v, target))
+                else:
+                    # finishing a handle_call_inlining(): link back to
+                    # the parent, passing the return value
+                    # XXX GENERATE KEEPALIVES HERE
+                    if len(origblock.inputargs) == 1:
+                        a_result = builder.binding(origblock.inputargs[0])
+                        builder.runningstate = builder.runningstate.a_back
+                        origblock = builder.runningstate.origblock
+                        origposition = builder.runningstate.origposition
+                        builder.bindings = builder.runningstate.getbindings()
+                        op = origblock.operations[origposition]
+                        builder.bindings[op.result] = a_result
+                        origposition += 1
+                    else:
+                        XXX_later
+
+            # flow the actual operations of the block
+            for i in range(origposition, len(origblock.operations)):
+                op = origblock.operations[i]
+                builder.enter(origblock, i)
+                try:
+                    builder.dispatch(op)
+                finally:
+                    builder.leave()
+            # done
+
+        except InsertNextLink, e:
+            # the current operation forces a jump to another block
+            newlinks = [e.link]
+
+        else:
+            # normal path: build exit links and schedule their target for
+            # later completion
             if origblock.exitswitch is None:
                 links = origblock.exits
             elif origblock.exitswitch == Constant(last_exception):
@@ -529,39 +602,30 @@ class GraphState(object):
             newlinks = []
             for origlink in links:
                 args_a = [builder.binding(v) for v in origlink.args]
-                nextinputstate = LLBlockState(args_a, origlink.target,
-                                              a_back=state.a_back)
+                nextinputstate = LLBlockState(builder.runningstate.a_back,
+                                              args_a, origlink.target)
                 newlink = self.interp.schedule(nextinputstate)
                 if newexitswitch is not None:
                     newlink.exitcase = origlink.exitcase
                     newlink.llexitcase = origlink.llexitcase
                 newlinks.append(newlink)
-        else:
-            # copies of return and except blocks are *normal* blocks currently;
-            # they are linked to the official return or except block of the
-            # copygraph.  If needed, LLConcreteValues are turned into Constants.
-            if len(origblock.inputargs) == 1:
-                target = self.copygraph.returnblock
-            else:
-                target = self.copygraph.exceptblock
-            args_v = [builder.binding(v).forcevarorconst(builder)
-                      for v in origblock.inputargs]
-            newlinks = [Link(args_v, target)]
-        #print "CLOSING"
 
-        newblock = builder.buildblock(newinputargs, newexitswitch, newlinks)
+        newblock = builder.buildblock(newexitswitch, newlinks)
         state.resolveblock(newblock)
 
 
 class BlockBuilder(object):
 
-    def __init__(self, interp):
+    def __init__(self, interp, initialstate):
         self.interp = interp
-        self.bindings = {}   # {Variables-of-origblock: a_value}
+        self.runningstate = initialstate.with_fresh_variables({})
+        self.newinputargs = self.runningstate.getruntimevars({})
+        # {Variables-of-origblock: a_value}
+        self.bindings = self.runningstate.getbindings()
         self.residual_operations = []
 
-    def buildblock(self, newinputargs, newexitswitch, newlinks):
-        b = Block(newinputargs)
+    def buildblock(self, newexitswitch, newlinks):
+        b = Block(self.newinputargs)
         b.operations = self.residual_operations
         b.exitswitch = newexitswitch
         b.closeblock(*newlinks)
@@ -578,6 +642,14 @@ class BlockBuilder(object):
         a_result = handler(op, *[self.binding(v) for v in op.args])
         self.bindings[op.result] = a_result
 
+    def enter(self, origblock, origposition):
+        self.blockpos = origblock, origposition
+
+    def leave(self):
+        del self.blockpos
+
+    # ____________________________________________________________
+    # Utilities
 
     def constantfold(self, constant_op, args_a):
         concretevalues = []
@@ -619,6 +691,7 @@ class BlockBuilder(object):
         return a_result
 
     # ____________________________________________________________
+    # Operation handlers
 
     def op_int_is_true(self, op, a):
         return self.residualize(op, [a], operator.truth)
@@ -682,8 +755,23 @@ class BlockBuilder(object):
             return None
 
         origgraph = fnobj.graph
+        if self.interp.policy.inlining:
+            return self.handle_call_inlining(op, origgraph, *args_a)
+        else:
+            return self.handle_call_residual(op, origgraph, *args_a)
 
-        # for now, we need to force all arguments
+    def handle_call_inlining(self, op, origgraph, *args_a):
+        origblock, origposition = self.blockpos
+        alive_a = []
+        for v in live_variables(origblock, origposition):
+            alive_a.append(self.bindings[v])
+        parentstate = LLSuspendedBlockState(self.runningstate.a_back, alive_a,
+                                            origblock, origposition)
+        nextstate = LLBlockState(parentstate, args_a, origgraph.startblock)
+        raise InsertNextLink(self.interp.schedule(nextstate))
+
+    def handle_call_residual(self, op, origgraph, *args_a):
+        # residual call: for now we need to force all arguments
         any_concrete = False
         for a in args_a:
             a.forcevarorconst(self)
@@ -702,7 +790,6 @@ class BlockBuilder(object):
                 a_result = graphstate.a_return
             print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
 
-        origfptr = v_func.value
         ARGS = []
         new_args_a = []
         for a in args_a:
@@ -710,8 +797,7 @@ class BlockBuilder(object):
                 ARGS.append(a.getconcretetype())
                 new_args_a.append(a)
         args_a = new_args_a
-        TYPE = lltype.FuncType(
-           ARGS, lltype.typeOf(origfptr).TO.RESULT)
+        TYPE = lltype.FuncType(ARGS, a_result.getconcretetype())
         fptr = lltype.functionptr(
            TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
         a_func = LLRuntimeValue(const(fptr))
@@ -806,3 +892,28 @@ class BlockBuilder(object):
                     self.residual_operations.append(op)
             return ll_no_return_value
         return self.residualize(op, [a_ptr])
+
+
+class InsertNextLink(Exception):
+    def __init__(self, link):
+        self.link = link
+
+
+def live_variables(block, position):
+    # return a list of all variables alive in the block at the beginning of
+    # the given 'position', in the order of creation.
+    used = {block.exitswitch: True}
+    for op in block.operations[position:]:
+        for v in op.args:
+            used[v] = True
+    for link in block.exits:
+        for v in link.args:
+            used[v] = True
+    result = []
+    for v in block.inputargs:
+        if v in used:
+            result.append(v)
+    for op in block.operations[:position]:
+        if op.result in used:
+            result.append(op.result)
+    return result
