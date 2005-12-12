@@ -34,7 +34,7 @@ def get_and_residualize_graph(ll_function, argvalues, arghints):
     interp = LLAbstractInterp()
     hints = {}
     for hint in arghints:
-        hints[graph1.getargs()[hint]] = argvalues[hint]
+        hints[hint] = argvalues[hint]
     graph2 = interp.eval(graph1, hints)
     # cache and return the original and the residual ll graph
     result = t, interp, graph1, graph2
@@ -192,11 +192,7 @@ def test_recursive_call():
             return 1
         else:
             return ll_factorial(k-1) * k
-    def ll_function(k):
-        # indirection needed, because the hint is not about *all* calls to
-        # ll_factorial()
-        return ll_factorial(k)
-    graph2, insns = abstrinterp(ll_function, [7], [0])
+    graph2, insns = abstrinterp(ll_factorial, [7], [0])
     # the direct_calls are messy to count, with calls to ll_stack_check
     assert insns.keys() == ['direct_call']
 

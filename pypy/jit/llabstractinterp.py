@@ -374,28 +374,22 @@ class LLAbstractInterp(object):
     def itercopygraphs(self):
         return self.graphs
 
-    def eval(self, origgraph, hints):
-        # for now, 'hints' means "I'm absolutely sure that the
-        # given variables will have the given ll value"
-        self.hints = hints
-        args_a = [LLRuntimeValue(orig_v=v) for v in origgraph.getargs()]
-        graphstate, args_a = self.schedule_graph(args_a, origgraph)
+    def eval(self, origgraph, arghints):
+        # 'arghints' maps argument index to a given ll value
+        args_a = []
+        for i, v in enumerate(origgraph.getargs()):
+            if i in arghints:
+                a = LLConcreteValue(arghints[i])
+            else:
+                a = LLRuntimeValue(orig_v=v)
+            args_a.append(a)
+        graphstate = self.schedule_graph(args_a, origgraph)
         graphstate.complete()
         return graphstate.copygraph
 
-    def applyhint(self, args_a, origblock):
-        result_a = []
-        # apply the hints to make more LLConcreteValues
-        for a, origv in zip(args_a, origblock.inputargs):
-            if origv in self.hints:
-                # use the hint, ignore the source binding
-                a = LLConcreteValue(self.hints[origv])
-            result_a.append(a)
-        return result_a
-
     def schedule_graph(self, args_a, origgraph, a_back=None):
         origblock = origgraph.startblock
-        state, args_a = self.schedule_getstate(args_a, origblock)
+        state = self.schedule_getstate(args_a, origblock)
         try:
             graphstate = self.graphstates[origgraph][state]
         except KeyError:
@@ -404,12 +398,12 @@ class LLAbstractInterp(object):
             d[state] = graphstate
             self.pendingstates[graphstate] = state
         #print "SCHEDULE_GRAPH", graphstate
-        return graphstate, args_a
+        return graphstate
 
     def schedule(self, args_a, origblock):
         #print "SCHEDULE", args_a, origblock
         # args_a: [the-a-corresponding-to-v for v in origblock.inputargs]
-        state, args_a = self.schedule_getstate(args_a, origblock)
+        state = self.schedule_getstate(args_a, origblock)
         args_v = []
         memo = {}
         for a in args_a:
@@ -420,18 +414,17 @@ class LLAbstractInterp(object):
 
     def schedule_getstate(self, args_a, origblock, a_back=None):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
-        args_a = self.applyhint(args_a, origblock)
         newstate = LLBlockState(args_a, origblock, a_back)
         pendingstates = self.blocks.setdefault(newstate.key(), [])
         # try to match this new state with an existing one
         for state in pendingstates:
             if state.match(newstate, {}):
                 # already matched
-                return state, args_a
+                return state
         else:
             # cache and return this new state
             pendingstates.append(newstate)
-            return newstate, args_a
+            return newstate
 
 
 class GraphState(object):
@@ -701,8 +694,7 @@ class BlockBuilder(object):
             return None
 
         a_result = LLRuntimeValue(op.result)
-        graphstate, args_a = self.interp.schedule_graph(
-            args_a, origgraph)
+        graphstate = self.interp.schedule_graph(args_a, origgraph)
         #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
         if graphstate.state != "during":
             print 'ENTERING', graphstate.copygraph.name, args_a

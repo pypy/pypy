@@ -10,14 +10,9 @@ from pypy.translator.backendopt import inline
 
 #py.test.skip("in-progress")
 
-def entry_point(code, pc):
-    # indirection needed, because the hints are not about *all* calls to
-    # interp()
-    return tl.interp(code, pc)
-
 def setup_module(mod):
     t = TranslationContext()
-    t.buildannotator().build_types(entry_point, [str, int])
+    t.buildannotator().build_types(tl.interp, [str, int])
     rtyper = t.buildrtyper()
     rtyper.specialize()
     inline.auto_inlining(t, 0.3)
@@ -28,8 +23,8 @@ def setup_module(mod):
 
 def jit_tl(code):
     interp = LLAbstractInterp()
-    hints = {graph1.getargs()[0]: string_repr.convert_const(code),
-             graph1.getargs()[1]: 0}
+    hints = {0: string_repr.convert_const(code),
+             1: 0}
     graph2 = interp.eval(graph1, hints)
 
     result1 = llinterp.eval_graph(graph1, [string_repr.convert_const(code), 0])
@@ -37,7 +32,7 @@ def jit_tl(code):
 
     assert result1 == result2
 
-    #interp.graphs[1].show()     # graphs[0] should be the entry_point
+    #interp.graphs[0].show()
 
 
 def run_jit(code):
