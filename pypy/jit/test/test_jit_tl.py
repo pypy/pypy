@@ -3,10 +3,10 @@
 import py
 from pypy.translator.translator import TranslationContext
 from pypy.jit import tl
-from pypy.jit.llabstractinterp import LLAbstractInterp
+from pypy.jit.llabstractinterp import LLAbstractInterp, Policy
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.translator.backendopt import inline
+#from pypy.translator.backendopt import inline
 
 #py.test.skip("in-progress")
 
@@ -15,14 +15,14 @@ def setup_module(mod):
     t.buildannotator().build_types(tl.interp, [str, int])
     rtyper = t.buildrtyper()
     rtyper.specialize()
-    inline.auto_inlining(t, 0.3)
+    #inline.auto_inlining(t, 0.3)
     
     mod.graph1 = t.graphs[0]
     mod.llinterp = LLInterpreter(rtyper)
     
 
 def jit_tl(code):
-    interp = LLAbstractInterp()
+    interp = LLAbstractInterp(Policy(inlining=True))
     hints = {0: string_repr.convert_const(code),
              1: 0}
     graph2 = interp.eval(graph1, hints)
