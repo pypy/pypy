@@ -387,50 +387,46 @@ class LLAbstractInterp(object):
         graphstate.complete()
         return graphstate.copygraph
 
-    def schedule_graph(self, args_a, origgraph, a_back=None):
-        origblock = origgraph.startblock
-        state = self.schedule_getstate(args_a, origblock)
+    def schedule_graph(self, args_a, origgraph):
+        inputstate = LLBlockState(args_a, origgraph.startblock)
+        state = self.schedule_getstate(inputstate)
         try:
             graphstate = self.graphstates[origgraph][state]
         except KeyError:
             d = self.graphstates.setdefault(origgraph, {})
-            graphstate = GraphState(self, origgraph, args_a, n=len(d))
+            graphstate = GraphState(self, origgraph, inputstate, n=len(d))
             d[state] = graphstate
             self.pendingstates[graphstate] = state
         #print "SCHEDULE_GRAPH", graphstate
         return graphstate
 
-    def schedule(self, args_a, origblock):
+    def schedule(self, inputstate):
         #print "SCHEDULE", args_a, origblock
         # args_a: [the-a-corresponding-to-v for v in origblock.inputargs]
-        state = self.schedule_getstate(args_a, origblock)
-        args_v = []
-        memo = {}
-        for a in args_a:
-            args_v.extend(a.getruntimevars(memo))
+        state = self.schedule_getstate(inputstate)
+        args_v = inputstate.getruntimevars({})
         newlink = Link(args_v, None)
         self.pendingstates[newlink] = state
         return newlink
 
-    def schedule_getstate(self, args_a, origblock, a_back=None):
+    def schedule_getstate(self, inputstate):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
-        newstate = LLBlockState(args_a, origblock, a_back)
-        pendingstates = self.blocks.setdefault(newstate.key(), [])
-        # try to match this new state with an existing one
+        pendingstates = self.blocks.setdefault(inputstate.key(), [])
+        # try to match the input state with an existing one
         for state in pendingstates:
-            if state.match(newstate, {}):
+            if state.match(inputstate, {}):
                 # already matched
                 return state
         else:
             # cache and return this new state
-            pendingstates.append(newstate)
-            return newstate
+            pendingstates.append(inputstate)
+            return inputstate
 
 
 class GraphState(object):
     """Entry state of a graph."""
 
-    def __init__(self, interp, origgraph, args_a, n):
+    def __init__(self, interp, origgraph, inputstate, n):
         self.interp = interp
         self.origgraph = origgraph
         name = '%s_%d' % (origgraph.name, n)
@@ -533,7 +529,9 @@ class GraphState(object):
             newlinks = []
             for origlink in links:
                 args_a = [builder.binding(v) for v in origlink.args]
-                newlink = self.interp.schedule(args_a, origlink.target)
+                nextinputstate = LLBlockState(args_a, origlink.target,
+                                              a_back=state.a_back)
+                newlink = self.interp.schedule(nextinputstate)
                 if newexitswitch is not None:
                     newlink.exitcase = origlink.exitcase
                     newlink.llexitcase = origlink.llexitcase
