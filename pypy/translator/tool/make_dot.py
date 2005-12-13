@@ -14,10 +14,10 @@ from pypy.interpreter.pytraceback import offset2lineno
 class DotGen:
 
     def __init__(self, graphname, rankdir=None):
-        self.graphname = graphname
+        self.graphname = graphname + '_'
         self.lines = []
         self.source = None
-        self.emit("digraph %s {" % graphname)
+        self.emit("digraph %s {" % self.graphname)
         if rankdir:
             self.emit('rankdir="%s"' % rankdir)
 
@@ -80,7 +80,7 @@ class FlowGraphDotGen(DotGen):
         DotGen.__init__(self, graphname.replace('.', '_'), rankdir)
 
     def emit_subgraph(self, name, node):
-        name = name.replace('.', '_')
+        name = name.replace('.', '_') + '_'
         self.blocks = {}
         self.func = None
         self.prefix = name
