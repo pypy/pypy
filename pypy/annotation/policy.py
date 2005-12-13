@@ -1,7 +1,7 @@
 # base annotation policy for overrides and specialization
 from pypy.annotation.specialize import default_specialize as default
 from pypy.annotation.specialize import argtype, argvalue, arglistitemtype
-from pypy.annotation.specialize import memo, methodmemo
+from pypy.annotation.specialize import memo
 # for some reason, model must be imported first,
 # or we create a cycle.
 from pypy.annotation import model as annmodel
@@ -20,8 +20,11 @@ class BasicAnnotatorPolicy:
     def no_specialization(pol, funcdesc, args_s):
         return funcdesc.cachedgraph(None)
 
-    def compute_at_fixpoint(pol, annotator):
-        annotator.bookkeeper.compute_at_fixpoint()
+    def no_more_blocks_to_annotate(pol, annotator):
+        # hint to all pending specializers that we are done
+        for callback in annotator.bookkeeper.pending_specializations:
+            callback()
+        del annotator.bookkeeper.pending_specializations[:]
 
 
 class AnnotatorPolicy(BasicAnnotatorPolicy):
@@ -52,7 +55,6 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
 
     default_specialize = staticmethod(default)
     specialize__memo = staticmethod(memo)
-    specialize__methodmemo = staticmethod(methodmemo)
     specialize__arg0 = staticmethod(argvalue(0))
     specialize__argtype0 = staticmethod(argtype(0))
     specialize__arglistitemtype0 = staticmethod(arglistitemtype(0))

@@ -94,7 +94,6 @@ class RPythonAnnotator:
 
     def build_graph_types(self, flowgraph, inputcells):
         checkgraph(flowgraph)
-        self._register_returnvar(flowgraph)
 
         nbarg = len(flowgraph.getargs())
         if len(inputcells) != nbarg: 
@@ -102,7 +101,7 @@ class RPythonAnnotator:
                             flowgraph, nbarg, len(inputcells)))
         
         # register the entry point
-        self.addpendingblock(flowgraph, flowgraph.startblock, inputcells)
+        self.addpendinggraph(flowgraph, inputcells)
         # recursively proceed until no more pending block is left
         self.complete()
         return self.binding(flowgraph.getreturnvar(), extquery=True)
@@ -128,6 +127,10 @@ class RPythonAnnotator:
 
     #___ medium-level interface ____________________________
 
+    def addpendinggraph(self, flowgraph, inputcells):
+        self._register_returnvar(flowgraph)
+        self.addpendingblock(flowgraph, flowgraph.startblock, inputcells)
+
     def addpendingblock(self, graph, block, cells, called_from_graph=None):
         """Register an entry point into block with the given input cells."""
         assert not self.frozen
@@ -142,9 +145,13 @@ class RPythonAnnotator:
 
     def complete(self):
         """Process pending blocks until none is left."""
-        while self.pendingblocks:
-            block, graph = self.pendingblocks.popitem()
-            self.processblock(graph, block)
+        while True:
+            while self.pendingblocks:
+                block, graph = self.pendingblocks.popitem()
+                self.processblock(graph, block)
+            self.policy.no_more_blocks_to_annotate(self)
+            if not self.pendingblocks:
+                break   # finished
         if False in self.annotated.values():
             if annmodel.DEBUG:
                 for block in self.annotated:
@@ -175,7 +182,7 @@ class RPythonAnnotator:
             if v not in self.bindings:
                 self.setbinding(v, annmodel.SomeImpossibleValue())
         # policy-dependent computation
-        self.policy.compute_at_fixpoint(self)
+        self.bookkeeper.compute_at_fixpoint()
 
     def binding(self, arg, extquery=False):
         "Gives the SomeValue corresponding to the given Variable or Constant."

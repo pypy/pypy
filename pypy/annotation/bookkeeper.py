@@ -168,6 +168,8 @@ class Bookkeeper:
         self.pbc_maximal_call_families = UnionFind(description.CallFamily)
 
         self.emulated_pbc_calls = {}
+        self.all_specializations = {}       # {FuncDesc: specialization-info}
+        self.pending_specializations = []   # list of callbacks
 
         self.needs_hash_support = {}
         self.needs_generic_instantiate = {}
