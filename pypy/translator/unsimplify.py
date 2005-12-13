@@ -38,7 +38,7 @@ def insert_empty_block(translator, link, newops=[]):
 def split_block(translator, graph, block, index):
     """split a block in two, inserting a proper link between the new blocks"""
     assert 0 <= index <= len(block.operations)
-    if block.exitswitch == Constant(last_exception):
+    if block.exitswitch == c_last_exception:
         assert index < len(block.operations)
     #varmap is the map between names in the new and the old block
     #but only for variables that are produced in the old block and needed in

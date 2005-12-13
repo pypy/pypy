@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, last_exception
+from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import lladdress
@@ -163,7 +163,7 @@ class LLFrame(object):
             is None, values is the concrete return value.
         """
         self.curr_block = block
-        catch_exception = block.exitswitch == Constant(last_exception)
+        catch_exception = block.exitswitch == c_last_exception
         e = None
 
         try:

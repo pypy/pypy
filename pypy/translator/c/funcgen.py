@@ -3,7 +3,7 @@ from pypy.translator.c.support import USESLOTS # set to False if necessary while
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
-from pypy.objspace.flow.model import traverse, last_exception
+from pypy.objspace.flow.model import traverse, c_last_exception
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, PyObject, Void, Bool, pyobjectptr, Struct, Array
 
@@ -270,7 +270,7 @@ class FunctionCodeGenerator(object):
                 for op in gen_link(block.exits[0]):
                     yield op
                 yield ''
-            elif block.exitswitch == Constant(last_exception):
+            elif block.exitswitch == c_last_exception:
                 # block catching the exceptions raised by its last operation
                 # we handle the non-exceptional case first
                 link = block.exits[0]

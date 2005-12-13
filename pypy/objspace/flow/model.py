@@ -357,6 +357,7 @@ class Atom:
         return self.__name__
 
 last_exception = Atom('last_exception')
+c_last_exception = Constant(last_exception)
 # if Block().exitswitch == Constant(last_exception), it means that we are
 # interested in catching the exception that the *last operation* of the
 # block could raise.  The exitcases of the links are None for no exception
@@ -504,7 +505,7 @@ def checkgraph(graph):
                     assert len(block.exits) <= 1
                     if block.exits:
                         assert block.exits[0].exitcase is None
-                elif block.exitswitch == Constant(last_exception):
+                elif block.exitswitch == c_last_exception:
                     assert len(block.operations) >= 1
                     # check if an exception catch is done on a reasonable
                     # operation

@@ -3,7 +3,7 @@ from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.translator.simplify import remove_identical_vars
 from pypy.translator.unsimplify import copyvar, split_block
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, last_exception
+from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void
@@ -79,7 +79,7 @@ def _inline_function(translator, graph, block, index_operation):
     op = block.operations[index_operation]
     graph_to_inline = op.args[0].value._obj.graph
     exception_guarded = False
-    if (block.exitswitch == Constant(last_exception) and
+    if (block.exitswitch == c_last_exception and
         index_operation == len(block.operations) - 1):
         exception_guarded = True
         if len(collect_called_functions(graph_to_inline)) != 0:

@@ -1,6 +1,6 @@
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
-        last_exception, flatten, SpaceOperation
+        c_last_exception, flatten, SpaceOperation
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool
 
@@ -20,7 +20,7 @@ def create_exception_handling(translator, graph):
     blocks = [x for x in flatten(graph) if isinstance(x, Block)]
     for block in blocks:
         last_operation = len(block.operations)-1
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             last_operation -= 1
         for i in range(last_operation, -1, -1):
             op = block.operations[i]

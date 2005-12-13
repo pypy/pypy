@@ -17,7 +17,7 @@ import py
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.objspace.flow.model import SpaceOperation, last_exception
+from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.rpython.lltypesystem.lltype import \
      Signed, Unsigned, Float, Char, Bool, Void, \
      LowLevelType, Ptr, ContainerType, \
@@ -302,7 +302,7 @@ class RPythonTyper:
         if (pos is not None and pos != len(newops)-1):
             # this is for the case where the llop that raises the exceptions
             # is not the last one in the list.
-            assert block.exitswitch == Constant(last_exception)
+            assert block.exitswitch == c_last_exception
             noexclink = block.exits[0]
             assert noexclink.exitcase is None
             if pos == "removed":
@@ -342,7 +342,7 @@ class RPythonTyper:
                 if isinstance(block.exitswitch, Variable):
                     r_case = self.bindingrepr(block.exitswitch)
                 else:
-                    assert block.exitswitch == Constant(last_exception)
+                    assert block.exitswitch == c_last_exception
                     r_case = rclass.get_type_repr(self)
                 link.llexitcase = r_case.convert_const(link.exitcase)
             else:
@@ -408,7 +408,7 @@ class RPythonTyper:
             for op in block.operations[:-1]:
                 yield HighLevelOp(self, op, [], llops)
             # look for exception links for the last operation
-            if block.exitswitch == Constant(last_exception):
+            if block.exitswitch == c_last_exception:
                 exclinks = block.exits[1:]
             else:
                 exclinks = []

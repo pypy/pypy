@@ -7,7 +7,7 @@ from pypy.annotation.pairtype import pair
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import FunctionGraph
-from pypy.objspace.flow.model import last_exception, checkgraph
+from pypy.objspace.flow.model import c_last_exception, checkgraph
 import py
 log = py.log.Producer("annrpython") 
 py.log.setconsumer("annrpython", ansi_log) 
@@ -190,7 +190,6 @@ class RPythonAnnotator:
         elif isinstance(arg, Constant):
             #if arg.value is undefined_value:   # undefined local variables
             #    return annmodel.SomeImpossibleValue()
-            assert not arg.value is last_exception
             return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
@@ -434,7 +433,7 @@ class RPythonAnnotator:
                 self.why_not_annotated[block] = sys.exc_info()
 
             if (e.op is block.operations[-1] and
-                block.exitswitch == Constant(last_exception)):
+                block.exitswitch == c_last_exception):
                 # this is the case where the last operation of the block will
                 # always raise an exception which is immediately caught by
                 # an exception handler.  We then only follow the exceptional
@@ -471,7 +470,7 @@ class RPythonAnnotator:
 
         # filter out those exceptions which cannot
         # occour for this specific, typed operation.
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             op = block.operations[-1]
             if op.opname in annmodel.BINARY_OPERATIONS:
                 arg1 = self.binding(op.args[0])

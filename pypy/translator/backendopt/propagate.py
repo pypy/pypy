@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Block, Variable, Constant, last_exception
+from pypy.objspace.flow.model import Block, Variable, Constant, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.rpython.lltypesystem.lltype import Bool
@@ -63,7 +63,7 @@ def coalesce_links(graph):
             return
         if len(block.exits) != 2:
             return
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             return
         if (block.exits[0].args == block.exits[1].args and
             block.exits[0].target is block.exits[1].target):
@@ -172,7 +172,7 @@ def constant_folding(graph, translator):
                 called_graph = get_graph(op.args[0], translator)
                 if (called_graph is not None and
                     simplify.has_no_side_effects(translator, called_graph) and
-                    (block.exitswitch != Constant(last_exception) or 
+                    (block.exitswitch != c_last_exception or 
                      i != len(block.operations) - 1)):
                     args = [arg.value for arg in op.args[1:]]
                     countingframe = CountingLLFrame(called_graph, args, lli)

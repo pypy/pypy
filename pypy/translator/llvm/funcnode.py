@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Block, Constant, Link
-from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
+from pypy.objspace.flow.model import flatten, mkentrymap, traverse, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
@@ -59,7 +59,7 @@ class FuncNode(ConstantLLVMNode):
                 for op in block.operations:
                     map(self.db.prepare_arg, op.args)
                     self.db.prepare_arg(op.result)
-                    if block.exitswitch != Constant(last_exception):
+                    if block.exitswitch != c_last_exception:
                         continue
                     for link in block.exits[1:]:
                         self.db.prepare_constant(lltype.typeOf(link.llexitcase),
@@ -154,7 +154,7 @@ class FuncNode(ConstantLLVMNode):
             blocknames = [self.block_to_name[link.prevblock]
                               for link in entrylinks]
             for i, link in enumerate(entrylinks):   #XXX refactor into a transformation
-                if link.prevblock.exitswitch == Constant(last_exception) and \
+                if link.prevblock.exitswitch == c_last_exception and \
                    link.prevblock.exits[0].target != block:
                     blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
             data.append( (arg, type_, names, blocknames) )
@@ -167,7 +167,7 @@ class FuncNode(ConstantLLVMNode):
 
     def write_block_branches(self, codewriter, block):
         #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             #codewriter.comment('FuncNode(ConstantLLVMNode) *last_exception* write_block_branches @%s@' % str(block.exits))
             return
         if len(block.exits) == 1:
@@ -179,7 +179,7 @@ class FuncNode(ConstantLLVMNode):
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             last_op_index = len(block.operations) - 1
         else:
             last_op_index = None

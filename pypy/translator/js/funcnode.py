@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
-from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
+from pypy.objspace.flow.model import flatten, mkentrymap, traverse, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.js.node import Node
 from pypy.translator.js.opwriter import OpWriter
@@ -30,7 +30,7 @@ class FuncNode(Node):
                 for op in block.operations:
                     map(self.db.prepare_arg, op.args)
                     self.db.prepare_arg(op.result)
-                    if block.exitswitch != Constant(last_exception):
+                    if block.exitswitch != c_last_exception:
                         continue
                     for link in block.exits[1:]:
                         self.db.prepare_constant(lltype.typeOf(link.llexitcase),
@@ -75,7 +75,7 @@ class FuncNode(Node):
         self.write_block_branches(codewriter, block)
 
     def write_block_branches(self, codewriter, block):
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             return
         if len(block.exits) == 1:
             codewriter.br_uncond(self.blockindex[block.exits[0].target], block.exits[0])
@@ -87,7 +87,7 @@ class FuncNode(Node):
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)
-        if block.exitswitch == Constant(last_exception):
+        if block.exitswitch == c_last_exception:
             last_op_index = len(block.operations) - 1
         else:
             last_op_index = None

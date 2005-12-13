@@ -7,7 +7,7 @@ simplify_graph() applies all simplifications defined in this file.
 
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import last_exception
+from pypy.objspace.flow.model import c_last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
 
 def get_graph(arg, translator):
@@ -42,7 +42,7 @@ def eliminate_empty_blocks(graph):
         if isinstance(link, Link):
             while not link.target.operations:
                 if (len(link.target.exits) != 1 and
-                    link.target.exitswitch != Constant(last_exception)):
+                    link.target.exitswitch != c_last_exception):
                     break
                 assert link.target is not link.prevblock, (
                     "the graph contains an empty infinite loop")
@@ -190,7 +190,7 @@ def simplify_exceptions(graph):
     chain of is_/issubtype tests. We collapse them all into
     the block's single list of exits.
     """
-    clastexc = Constant(last_exception)
+    clastexc = c_last_exception
     renaming = {}
     def rename(v):
         return renaming.get(v, v)
@@ -251,7 +251,7 @@ def simplify_exceptions(graph):
 def remove_dead_exceptions(graph):
     """Exceptions can be removed if they are unreachable"""
 
-    clastexc = Constant(last_exception)
+    clastexc = c_last_exception
 
     def issubclassofmember(cls, seq):
         for member in seq:
@@ -331,7 +331,7 @@ def remove_assertion_errors(graph):
                 # can we remove this exit without breaking the graph?
                 if len(block.exits) < 2:
                     break
-                if block.exitswitch == Constant(last_exception):
+                if block.exitswitch == c_last_exception:
                     if exit.exitcase is None:
                         break
                     if len(block.exits) == 2:
@@ -434,7 +434,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
     def canremove(op, block):
         if op.opname not in CanRemove:
             return False
-        if block.exitswitch != Constant(last_exception):
+        if block.exitswitch != c_last_exception:
             return True
         # cannot remove the exc-raising operation
         return op is not block.operations[-1]
@@ -544,7 +544,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
                         graph = get_graph(op.args[0], translator)
                         if (graph is not None and
                             has_no_side_effects(translator, graph) and
-                            (block.exitswitch != Constant(last_exception) or
+                            (block.exitswitch != c_last_exception or
                              i != len(block.operations)- 1)):
                             del block.operations[i]
         # look for output variables never used

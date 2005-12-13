@@ -48,7 +48,7 @@ import autopath, os, sys, types
 import cPickle as pickle, __builtin__
 from copy_reg import _HEAPTYPE
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import last_exception, checkgraph
+from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
@@ -1264,7 +1264,7 @@ else:
         yield "    while True:"
                 
         def render_block(block):
-            catch_exception = block.exitswitch == Constant(last_exception)
+            catch_exception = block.exitswitch == c_last_exception
             regular_op = len(block.operations) - catch_exception
             # render all but maybe the last op
             for op in block.operations[:regular_op]:

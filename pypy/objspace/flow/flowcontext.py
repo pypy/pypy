@@ -233,7 +233,7 @@ class FlowExecutionContext(ExecutionContext):
             else:
                 yield 'last_exception', Variable('last_exception')
                 yield 'last_exc_value', Variable('last_exc_value')
-        outcome = self.guessbool(Constant(last_exception),
+        outcome = self.guessbool(c_last_exception,
                                  cases = [None] + list(classes),
                                  replace_last_variable_except_in_first_case = replace_exc_values)
         if outcome is None:

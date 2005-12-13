@@ -10,7 +10,7 @@ from __future__ import generators
 import types
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Link
-from pypy.objspace.flow.model import last_exception, checkgraph
+from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.rstack import stack_check
 
@@ -98,7 +98,7 @@ def transform_dead_code(self, block_subset):
                 if not block.exits:
                     # oups! cannot reach the end of this block
                     cutoff_alwaysraising_block(self, block)
-                elif block.exitswitch == Constant(last_exception):
+                elif block.exitswitch == c_last_exception:
                     # exceptional exit
                     if block.exits[0].exitcase is not None:
                         # killed the non-exceptional path!

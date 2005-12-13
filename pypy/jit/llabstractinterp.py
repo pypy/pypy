@@ -1,7 +1,7 @@
 import operator
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
-from pypy.objspace.flow.model import checkgraph, last_exception
+from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 
@@ -654,7 +654,7 @@ class GraphState(object):
             # later completion
             if origblock.exitswitch is None:
                 links = origblock.exits
-            elif origblock.exitswitch == Constant(last_exception):
+            elif origblock.exitswitch == c_last_exception:
                 XXX
             else:
                 a = builder.bindings[origblock.exitswitch]
