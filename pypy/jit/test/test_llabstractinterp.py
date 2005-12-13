@@ -322,3 +322,14 @@ def test_const_propagate():
         return ll_add(x, 42)
     graph2, insns = abstrinterp(ll1, [3], [0], policy=P_CONST_INLINE)
     assert insns == {}
+
+def test_dont_unroll_loop():
+    def ll_factorial(n):
+        i = 1
+        result = 1
+        while i < n:
+            i += 1
+            result *= i
+        return result
+    graph2, insns = abstrinterp(ll_factorial, [7], [], policy=P_CONST_INLINE)
+    assert insns == {'int_lt': 1, 'int_add': 1, 'int_mul': 1}

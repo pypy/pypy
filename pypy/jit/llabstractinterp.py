@@ -107,7 +107,7 @@ class LLRuntimeValue(LLAbstractValue):
         if isinstance(self.copy_v, Variable):
             return True
         if self.copy_v == other.copy_v:
-            memo.propagate_as_constant[other] = True   # exact match
+            memo.propagate_as_constants[other] = True   # exact match
         else:
             memo.exact_match = False
         return True
@@ -316,6 +316,7 @@ def virtualcontainer(T, a_length=None):
 class LLState(LLAbstractValue):
     """Entry state of a block, as a combination of LLAbstractValues
     for its input arguments.  Abstract base class."""
+    generalized_by = None
 
     def __init__(self, a_back, args_a, origblock):
         self.a_back = a_back
@@ -377,7 +378,15 @@ class LLState(LLAbstractValue):
 
     def resolveblock(self, newblock):
         #print "RESOLVING BLOCK", newblock
-        self.copyblock = newblock
+        if self.copyblock is not None:
+            # uncommon case: must patch the existing Block
+            assert len(self.copyblock.inputargs) == len(newblock.inputargs)
+            self.copyblock.inputargs  = newblock.inputargs
+            self.copyblock.operations = newblock.operations
+            self.copyblock.exitswitch = newblock.exitswitch
+            self.copyblock.recloseblock(*newblock.exits)
+        else:
+            self.copyblock = newblock
 
     def getbindings(self):
         return dict(zip(self.getlivevars(), self.args_a))
@@ -471,7 +480,7 @@ class LLAbstractInterp(object):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
         pendingstates = self.blocks.setdefault(inputstate.key(), [])
         # try to match the input state with an existing one
-        for state in pendingstates:
+        for i, state in enumerate(pendingstates):
             memo = MatchMemo()
             if state.match(inputstate, memo):
                 # already matched
@@ -480,16 +489,18 @@ class LLAbstractInterp(object):
                 if not self.policy.const_propagate:
                     return state    # all constants will be generalized anyway
                 # partial match: in the old state, some constants need to
-                # be turned into variables.  XXX patch oldstate.block to point
-                # to the new state, as in the flow object space
+                # be turned into variables.
                 inputstate.propagate_as_constants = memo.propagate_as_constants
-                break
+                # The generalized state replaces the existing one.
+                pendingstates[i] = inputstate
+                state.generalized_by = inputstate
+                return inputstate
         else:
+            # cache and return this new state
             if self.policy.const_propagate:
                 inputstate.propagate_as_constants = ALL
-        # cache and return this new state
-        pendingstates.append(inputstate)
-        return inputstate
+            pendingstates.append(inputstate)
+            return inputstate
 
 
 class GraphState(object):
@@ -534,21 +545,25 @@ class GraphState(object):
                 self.flowin(state)
             next.settarget(state.copyblock)
             for link in state.copyblock.exits:
-                if link not in seen:
-                    seen[link] = True
-                    if link.target is None or link.target.operations != ():
+                if link.target is None or link.target.operations != ():
+                    if link not in seen:
+                        seen[link] = True
                         pending.append(link)
+                else:
+                    # link.target is a return or except block; make sure
+                    # that it is really the one from 'graph' -- by patching
+                    # 'graph' if necessary.
+                    if len(link.target.inputargs) == 1:
+                        self.a_return = state.args_a[0]
+                        graph.returnblock = link.target
+                    elif len(link.target.inputargs) == 2:
+                        graph.exceptblock = link.target
                     else:
-                        # link.target is a return or except block; make sure
-                        # that it is really the one from 'graph' -- by patching
-                        # 'graph' if necessary.
-                        if len(link.target.inputargs) == 1:
-                            self.a_return = state.args_a[0]
-                            graph.returnblock = link.target
-                        elif len(link.target.inputargs) == 2:
-                            graph.exceptblock = link.target
-                        else:
-                            raise Exception("uh?")
+                        raise Exception("uh?")
+
+        if interp.policy.const_propagate:
+            self.compactify(seen)
+
         # the graph should be complete now; sanity-check
         try:
             checkgraph(graph)
@@ -562,6 +577,25 @@ class GraphState(object):
         eliminate_empty_blocks(graph)
         join_blocks(graph)
         self.state = "after"
+
+    def compactify(self, links):
+        # remove the parts of the graph that use constants that were later
+        # generalized
+        interp = self.interp
+        for link in links:
+            oldstate = interp.pendingstates[link]
+            if oldstate.generalized_by is not None:
+                newstate = oldstate.generalized_by
+                while newstate.generalized_by:
+                    newstate = newstate.generalized_by
+                # Patch oldstate.block to point to the new state,
+                # as in the flow object space
+                builder = BlockBuilder(self, oldstate)
+                memo = VarMemo(newstate.propagate_as_constants)
+                args_v = builder.runningstate.getruntimevars(memo)
+                oldlink = Link(args_v, newstate.copyblock)
+                oldblock = builder.buildblock(None, [oldlink])
+                oldstate.resolveblock(oldblock)
 
     def flowin(self, state):
         # flow in the block
@@ -935,7 +969,7 @@ class InsertNextLink(Exception):
 class MatchMemo(object):
     def __init__(self):
         self.exact_match = True
-        self.propagate_as_constant = {}
+        self.propagate_as_constants = {}
         self.self_alias = {}
         self.other_alias = {}
 
