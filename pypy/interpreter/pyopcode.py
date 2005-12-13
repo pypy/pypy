@@ -6,7 +6,7 @@ pyfastscope.py and pynestedscope.py.
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import UnpackValueError
-from pypy.interpreter import gateway, function
+from pypy.interpreter import gateway, function, eval
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments
@@ -360,9 +360,8 @@ class PyInterpFrame(pyframe.PyFrame):
         plain = f.w_locals is not None and f.space.is_w(w_locals, f.w_locals)
         if plain:
             w_locals = f.getdictscope()
-        pycode = f.space.interpclass_w(w_prog)
-        assert isinstance(pycode, PyCode)
-        pycode.exec_code(f.space, w_globals, w_locals)
+        co = f.space.interp_w(eval.Code, w_prog)
+        co.exec_code(f.space, w_globals, w_locals)
         if plain:
             f.setdictscope(w_locals)
 
@@ -692,8 +691,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def MAKE_FUNCTION(f, numdefaults):
         w_codeobj = f.valuestack.pop()
-        codeobj = f.space.interpclass_w(w_codeobj)
-        assert isinstance(codeobj, PyCode)        
+        codeobj = f.space.interp_w(PyCode, w_codeobj)
         defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
         defaultarguments.reverse()
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)

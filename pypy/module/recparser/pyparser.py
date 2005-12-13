@@ -236,9 +236,7 @@ GrammarElement.typedef = TypeDef( "GrammarElement",
 
 
 def descr_alternative_append( self, space, w_rule ):
-    rule = space.interpclass_w(w_rule)
-    if not isinstance( rule, GrammarElement ):
-	raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+    rule = space.interp_w(GrammarElement, w_rule)
     self.args.append( rule )
 
 
@@ -246,18 +244,14 @@ def descr_alternative___getitem__(self, space, idx ):
     return space.wrap(self.args[idx])
     
 def descr_alternative___setitem__(self, space, idx, w_rule ):
-    rule = space.interpclass_w(w_rule)
-    if not isinstance( rule, GrammarElement ):
-	raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+    rule = space.interp_w(GrammarElement, w_rule)
     return space.wrap( self.args[idx] )
 
 def descr_alternative___delitem__(self, space, idx ):
     del self.args[idx]
 
 def descr_alternative_insert(self, space, idx, w_rule ):
-    rule = space.interpclass_w(w_rule)
-    if not isinstance( rule, GrammarElement ):
-	raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+    rule = space.interp_w(GrammarElement, w_rule)
     if idx<0 or idx>len(self.args):
 	raise OperationError( space.w_IndexError, space.wrap("Invalid index") )
     self.args.insert( idx, rule )
@@ -308,11 +302,9 @@ def descr_kleenestar___getitem__(self, space, idx ):
     return space.wrap(self.args[idx])
     
 def descr_kleenestar___setitem__(self, space, idx, w_rule ):
-    rule = space.interpclass_w(w_rule)
     if idx!=0:
 	raise OperationError( space.w_ValueError, space.wrap("KleeneStar only support one child"))
-    if not isinstance( rule, GrammarElement ):
-	raise OperationError( space.w_TypeError, space.wrap("Need a GrammarElement instance") )
+    rule = space.interp_w(GrammarElement, w_rule)
     self.args[idx] = rule
 
 KleeneStar.descr_kleenestar___getitem__ = descr_kleenestar___getitem__

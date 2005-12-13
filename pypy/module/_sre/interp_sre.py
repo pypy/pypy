@@ -251,10 +251,7 @@ class RepeatContext(MatchContext):
 #### Main opcode dispatch loop
 
 def w_search(space, w_state, w_pattern_codes):
-    state = space.interpclass_w(w_state)
-    if not isinstance(state, W_State):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("State object expected"))
+    state = space.interp_w(W_State, w_state)
     pattern_codes = [intmask(space.uint_w(code)) for code
                                     in space.unpackiterable(w_pattern_codes)]
     return space.newbool(search(space, state, pattern_codes))
@@ -327,10 +324,7 @@ def fast_search(space, state, pattern_codes):
     return False
 
 def w_match(space, w_state, w_pattern_codes):
-    state = space.interpclass_w(w_state)
-    if not isinstance(state, W_State):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("State object expected"))
+    state = space.interp_w(W_State, w_state)
     pattern_codes = [intmask(space.uint_w(code)) for code
                                     in space.unpackiterable(w_pattern_codes)]
     return space.newbool(match(space, state, pattern_codes))

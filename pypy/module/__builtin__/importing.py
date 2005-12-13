@@ -358,8 +358,7 @@ def parse_source_module(space, pathname, osfile):
     w_mode = w("exec")
     w_pathname = w(pathname)
     w_code = space.builtin.call('compile', w_source, w_pathname, w_mode) 
-    pycode = space.interpclass_w(w_code)
-    assert isinstance(pycode, Code)   # hint to the annotator
+    pycode = space.interp_w(Code, w_code)
     return pycode
 
 def load_source_module(space, w_modulename, w_mod, pathname, osfile):

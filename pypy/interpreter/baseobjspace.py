@@ -406,7 +406,7 @@ class ObjSpace(object):
 	    return None
 	obj = self.interpclass_w(w_obj)
 	if not isinstance(obj, RequiredClass):   # or obj is None
-	    msg = "expected a %s, got %s instead" % (
+	    msg = "'%s' object expected, got '%s' instead" % (
 	        RequiredClass.typedef.name,
 		w_obj.getclass(self).getname(self, '?'))
 	    raise OperationError(self.w_TypeError, self.wrap(msg))

@@ -50,9 +50,7 @@ class Function(Wrappable):
 
     def descr_method__new__(space, w_subtype, w_code, w_globals, 
                             w_name=None, w_argdefs=None, w_closure=None):
-        code = space.interpclass_w(w_code)
-        if code is None or not isinstance(code, Code):
-            raise OperationError(space.w_TypeError, space.wrap("expected code"))
+        code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
         if not space.is_w(w_name, space.w_None):
@@ -79,12 +77,7 @@ class Function(Wrappable):
                 raise OperationError(space.w_ValueError, space.wrap("no closure needed"))
             elif nfreevars != n:
                 raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))
-            closure = []
-            for w_cell in closure_w:
-                cell = space.interpclass_w(w_cell)
-                if not isinstance(cell, Cell):
-                    raise OperationError(space.w_TypeError, space.wrap("non-cell in closure"))
-                closure.append(cell)
+            closure = [space.interp_w(Cell, w_cell) for w_cell in closure_w]
         func = space.allocate_instance(Function, w_subtype)
         Function.__init__(func, space, code, w_globals, defs_w, closure, name)
         return space.wrap(func)
@@ -153,9 +146,7 @@ class Function(Wrappable):
 
     def fset_func_code(space, self, w_code):
         from pypy.interpreter.pycode import PyCode
-        code = space.interpclass_w(w_code)
-        if not isinstance(code, Code):
-            raise OperationError(space.w_TypeError, space.wrap("func_code must be set to a code object") )
+        code = space.interp_w(Code, w_code)
         closure_len = 0
         if self.closure:
             closure_len = len(self.closure)
@@ -320,10 +311,7 @@ class BuiltinFunction(Function):
         self.w_module = func.w_module
 
     def descr_method__new__(space, w_subtype, w_func):
-        func = space.interpclass_w(w_func)
-        if func is None or not isinstance(func, Function):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("expected a function object"))
+        func = space.interp_w(Function, w_func)
         bltin = space.allocate_instance(BuiltinFunction, w_subtype)
         BuiltinFunction.__init__(bltin, func)
         return space.wrap(bltin)

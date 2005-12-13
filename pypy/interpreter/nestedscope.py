@@ -166,24 +166,15 @@ class PyNestedScopeFrame(PyInterpFrame):
 
     def MAKE_CLOSURE(f, numdefaults):
         w_codeobj = f.valuestack.pop()
-        codeobj = f.space.interpclass_w(w_codeobj)
-        assert isinstance(codeobj, pycode.PyCode)
+        codeobj = f.space.interp_w(pycode.PyCode, w_codeobj)
         if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge
             w_freevarstuple = f.valuestack.pop()
-            freevars = []
-            for cell in f.space.unpacktuple(w_freevarstuple):
-                cell = f.space.interpclass_w(cell)
-                if not isinstance(cell, Cell):
-                    raise pyframe.BytecodeCorruption
-                freevars.append(cell)                
+            freevars = [f.space.interp_w(Cell, cell)
+                        for cell in f.space.unpacktuple(w_freevarstuple)]
         else:
             nfreevars = len(codeobj.co_freevars)
-            freevars = []
-            for i in range(nfreevars):
-                cell = f.space.interpclass_w(f.valuestack.pop())
-                if not isinstance(cell, Cell):
-                    raise pyframe.BytecodeCorruption
-                freevars.append(cell)
+            freevars = [f.space.interp_w(Cell, f.valuestack.pop())
+                        for i in range(nfreevars)]
             freevars.reverse()
         defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
         defaultarguments.reverse()

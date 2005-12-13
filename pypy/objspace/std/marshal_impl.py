@@ -369,8 +369,7 @@ register(TYPE_NULL, unmarshal_NULL)
 def marshal_w_pycode(space, w_pycode, m):
     m.start(TYPE_CODE)
     # see pypy.interpreter.pycode for the layout
-    x = space.interpclass_w(w_pycode)
-    assert isinstance(x, PyCode)
+    x = space.interp_w(PyCode, w_pycode)
     m.put_int(x.co_argcount)
     m.put_int(x.co_nlocals)
     m.put_int(x.co_stacksize)

@@ -2,6 +2,7 @@
 
 
 """
+import py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
@@ -184,34 +185,30 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     if isinstance(cls, str):
         #print "<CHECK", func.__module__ or '?', func.__name__
         assert cls.startswith('<'),"pythontype typecheck should begin with <"
-        unwrap = "w_obj"
+        source = """
+        def descr_typecheck_%(name)s(space, w_obj, %(extra)s):
+            if not space.is_true(space.isinstance(w_obj, space.w_%(cls_name)s)):
+                # xxx improve msg
+                msg =  "descriptor is for '%(expected)s'"
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            return %(name)s(space, w_obj, %(extra)s)
+        """
         cls_name = cls[1:]
         expected = repr(cls_name)
-        check = "space.is_true(space.isinstance(obj, space.w_%s))" % cls_name
     else:
         cls_name = cls.__name__
-        if issubclass(cls, Wrappable):
-            unwrap =  "space.interpclass_w(w_obj)"
-        else:
-            unwrap = "w_obj"
-        miniglobals[cls_name] = cls
-        check = "isinstance(obj, %s)" % cls_name
-        expected = "%s.typedef.name" % cls_name
-    
-    source = """if 1: 
+        assert issubclass(cls, Wrappable)
+        source = """
         def descr_typecheck_%(name)s(space, w_obj, %(extra)s):
-            obj = %(unwrap)s
-            if obj is None or not %(check)s:
-                # xxx improve msg
-                msg =  "descriptor is for '%%s'" %% %(expected)s
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+            obj = space.interp_w(%(cls_name)s, w_obj)
             return %(name)s(space, obj, %(extra)s)
-        \n""" % {'name': func.__name__, 
-                 'check': check,
-                 'expected': expected,
-                 'unwrap': unwrap,
-                 'extra': ', '.join(extraargs)} 
-    exec compile2(source) in miniglobals
+        """
+        miniglobals[cls_name] = cls
+
+    name = func.__name__
+    extra = ', '.join(extraargs)
+    source = py.code.Source(source % locals())
+    exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]    
 
 def unknown_objclass_getter(space):

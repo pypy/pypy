@@ -20,8 +20,7 @@ def compilecode(space, source, filename, cmd='exec'):
     w = space.wrap
     w_code = space.builtin.call('compile', 
              w(source), w(filename), w(cmd), w(0), w(0))
-    pycode = space.interpclass_w(w_code)
-    assert isinstance(pycode, eval.Code)
+    pycode = space.interp_w(eval.Code, w_code)
     return pycode
 
 

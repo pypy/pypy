@@ -165,13 +165,8 @@ class UnwrapSpecRecipe:
         name = el.__name__
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
-            "obj = self.space.interpclass_w(scope_w[%d])" % cur)
-        emit_sig.setfastscope.append(
-            "if obj is None or not isinstance(obj, %s):" % name)
-        emit_sig.setfastscope.append(
-            "    raise OperationError(self.space.w_TypeError,self.space.wrap('expected %%s' %% %s.typedef.name ))" % name) # xxx
+            "obj = self.space.interp_w(%s, scope_w[%d])" % (name, cur))
         emit_sig.miniglobals[name] = el
-        emit_sig.miniglobals['OperationError'] = OperationError
         emit_sig.setfastscope.append(
             "self.%s_arg%d = obj" % (name,cur))
         emit_sig.through_scope_w += 1
@@ -374,7 +369,7 @@ class BuiltinCode(eval.Code):
         # It is a list of types or singleton objects:
         #  baseobjspace.ObjSpace is used to specify the space argument
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
-        #  baseobjspace.Wrappable subclasses imply interpclass_w and a typecheck
+        #  baseobjspace.Wrappable subclasses imply interp_w and a typecheck
         #  argument.Arguments is for a final rest arguments Arguments object
         # 'args_w' for unpacktuple applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple
