@@ -62,6 +62,7 @@ def abstrinterp(ll_function, argvalues, arghints, policy=Policy()):
     return graph2, insns
 
 P_INLINE = Policy(inlining=True)
+P_CONST_INLINE = Policy(inlining=True, const_propagate=True)
 
 
 def test_simple():
@@ -313,3 +314,11 @@ def test_simple_call_with_inlining():
         return ll2(x, y - z)
     graph2, insns = abstrinterp(ll1, [3, 4, 5], [1, 2], policy=P_INLINE)
     assert insns == {'int_add': 1}
+
+def test_const_propagate():
+    def ll_add(x, y):
+        return x + y
+    def ll1(x):
+        return ll_add(x, 42)
+    graph2, insns = abstrinterp(ll1, [3], [0], policy=P_CONST_INLINE)
+    assert insns == {}

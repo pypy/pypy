@@ -81,7 +81,11 @@ class LLRuntimeValue(LLAbstractValue):
         return self.copy_v
 
     def getruntimevars(self, memo):
-        return [self.copy_v]
+        if (isinstance(self.copy_v, Variable) or
+            self not in memo.propagate_as_constants):
+            return [self.copy_v]
+        else:
+            return []   # we propagate this constant as a constant
 
     def maybe_get_constant(self):
         if isinstance(self.copy_v, Constant):
@@ -90,13 +94,23 @@ class LLRuntimeValue(LLAbstractValue):
             return None
 
     def with_fresh_variables(self, memo):
-        return LLRuntimeValue(self.getconcretetype())
+        # don't use memo.seen here: shared variables must become distinct
+        if (isinstance(self.copy_v, Variable) or
+            self not in memo.propagate_as_constants):
+            return LLRuntimeValue(self.getconcretetype())
+        else:
+            return self   # we are allowed to propagate this constant
 
     def match(self, other, memo):
-        # Note: the meaning of match() is actually to see if calling
-        # with_fresh_variables() on both 'self' and 'other' would give the
-        # same result.  This is why any two LLRuntimeValues match each other.
-        return isinstance(other, LLRuntimeValue)
+        if not isinstance(other, LLRuntimeValue):
+            return False
+        if isinstance(self.copy_v, Variable):
+            return True
+        if self.copy_v == other.copy_v:
+            memo.propagate_as_constant[other] = True   # exact match
+        else:
+            memo.exact_match = False
+        return True
 
 ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
@@ -152,11 +166,11 @@ class LLVirtualContainer(LLAbstractValue):
         self.fields[name] = a_value
 
     def with_fresh_variables(self, memo):
-        if self in memo:
-            return memo[self]    # already seen
+        if self in memo.seen:
+            return memo.seen[self]    # already seen
         else:
             result = virtualcontainer(self.T, self.a_length)
-            memo[self] = result
+            memo.seen[self] = result
             if self.parent is not None:
                 # build the parent first -- note that
                 # parent.with_fresh_variables() will pick up 'result' again,
@@ -221,8 +235,8 @@ class LLVirtualContainer(LLAbstractValue):
 
     def getruntimevars(self, memo):
         result = []
-        if self not in memo:
-            memo[self] = True
+        if self not in memo.seen:
+            memo.seen[self] = True
             if self.parent is not None:
                 result.extend(self.parent.getruntimevars(memo))
             for name in self.names:
@@ -232,12 +246,14 @@ class LLVirtualContainer(LLAbstractValue):
     def match(self, other, memo):
         if self.__class__ is not other.__class__:
             return False
-        if (False, self) in memo:
-            return other is memo[False, self]
-        if (True, other) in memo:
-            return self is memo[True, other]
-        memo[False, self] = other
-        memo[True, other] = self
+
+        if self in memo.self_alias:
+            return other is memo.self_alias[self]
+        if other in memo.other_alias:
+            return self is memo.other_alias[other]
+        memo.self_alias[self] = other
+        memo.other_alias[other] = self
+
         assert self.T == other.T
         if self.a_length is not None:
             if not self.a_length.match(other.a_length, memo):
@@ -370,6 +386,7 @@ class LLState(LLAbstractValue):
 class LLBlockState(LLState):
     """Entry state of a block, as a combination of LLAbstractValues
     for its input arguments."""
+    propagate_as_constants = {}
 
     def localkey(self):
         return (self.origblock,)
@@ -396,13 +413,16 @@ class LLSuspendedBlockState(LLBlockState):
 # ____________________________________________________________
 
 class Policy(object):
-    def __init__(self, inlining=False):
+    def __init__(self, inlining=False, const_propagate=False):
         self.inlining = inlining
+        self.const_propagate = const_propagate
+
+best_policy = Policy(inlining=True, const_propagate=True)
 
 
 class LLAbstractInterp(object):
 
-    def __init__(self, policy=Policy()):
+    def __init__(self, policy=best_policy):
         self.graphs = []
         self.graphstates = {}     # {origgraph: {BlockState: GraphState}}
         self.pendingstates = {}   # {Link-or-GraphState: next-BlockState}
@@ -441,7 +461,8 @@ class LLAbstractInterp(object):
     def schedule(self, inputstate):
         #print "SCHEDULE", args_a, origblock
         state = self.schedule_getstate(inputstate)
-        args_v = inputstate.getruntimevars({})
+        memo = VarMemo(state.propagate_as_constants)
+        args_v = inputstate.getruntimevars(memo)
         newlink = Link(args_v, None)
         self.pendingstates[newlink] = state
         return newlink
@@ -451,13 +472,24 @@ class LLAbstractInterp(object):
         pendingstates = self.blocks.setdefault(inputstate.key(), [])
         # try to match the input state with an existing one
         for state in pendingstates:
-            if state.match(inputstate, {}):
+            memo = MatchMemo()
+            if state.match(inputstate, memo):
                 # already matched
-                return state
+                if memo.exact_match:
+                    return state    # exact match
+                if not self.policy.const_propagate:
+                    return state    # all constants will be generalized anyway
+                # partial match: in the old state, some constants need to
+                # be turned into variables.  XXX patch oldstate.block to point
+                # to the new state, as in the flow object space
+                inputstate.propagate_as_constants = memo.propagate_as_constants
+                break
         else:
-            # cache and return this new state
-            pendingstates.append(inputstate)
-            return inputstate
+            if self.policy.const_propagate:
+                inputstate.propagate_as_constants = ALL
+        # cache and return this new state
+        pendingstates.append(inputstate)
+        return inputstate
 
 
 class GraphState(object):
@@ -618,8 +650,10 @@ class BlockBuilder(object):
 
     def __init__(self, interp, initialstate):
         self.interp = interp
-        self.runningstate = initialstate.with_fresh_variables({})
-        self.newinputargs = self.runningstate.getruntimevars({})
+        memo = VarMemo(initialstate.propagate_as_constants)
+        self.runningstate = initialstate.with_fresh_variables(memo)
+        memo = VarMemo(initialstate.propagate_as_constants)
+        self.newinputargs = self.runningstate.getruntimevars(memo)
         # {Variables-of-origblock: a_value}
         self.bindings = self.runningstate.getbindings()
         self.residual_operations = []
@@ -885,7 +919,7 @@ class BlockBuilder(object):
 
     def op_keepalive(self, op, a_ptr):
         if isinstance(a_ptr, LLVirtualStruct):
-            for v in a_ptr.getruntimevars({}):
+            for v in a_ptr.getruntimevars(VarMemo()):
                 if isinstance(v, Variable) and not v.concretetype._is_atomic():
                     op = SpaceOperation('keepalive', [v], newvar(lltype.Void))
                     print 'virtual:', op
@@ -897,6 +931,23 @@ class BlockBuilder(object):
 class InsertNextLink(Exception):
     def __init__(self, link):
         self.link = link
+
+class MatchMemo(object):
+    def __init__(self):
+        self.exact_match = True
+        self.propagate_as_constant = {}
+        self.self_alias = {}
+        self.other_alias = {}
+
+class VarMemo(object):
+    def __init__(self, propagate_as_constants={}):
+        self.seen = {}
+        self.propagate_as_constants = propagate_as_constants
+
+class ALL(object):
+    def __contains__(self, other):
+        return True
+ALL = ALL()
 
 
 def live_variables(block, position):
