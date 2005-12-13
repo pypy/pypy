@@ -47,5 +47,9 @@ class Module(MixedModule):
          'decode_string_literal': 'pyparser.decode_string_literal',
          'install_compiler_hook' : 'pypy.interpreter.pycompiler.install_compiler_hook',
          'rules' : 'pypy.interpreter.pyparser.pythonparse.grammar_rules',
-     }
+         }
 
+# Automatically exports each AST class
+from pypy.interpreter.astcompiler.ast import nodeclasses
+for klass_name in nodeclasses:
+     Module.interpleveldefs['AST' + klass_name] = 'pypy.interpreter.astcompiler.ast.%s' % klass_name
