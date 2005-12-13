@@ -1,5 +1,7 @@
 import autopath
 from py.test import raises
+from pypy.interpreter.function import Function
+from pypy.interpreter.pycode import PyCode
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
@@ -86,6 +88,17 @@ class TestObjSpace:
                                                    self.space.w_LookupError)
         assert not self.space.exception_match(self.space.w_ValueError,
                                                self.space.w_LookupError)
+
+    def test_interp_w(self):
+        w = self.space.wrap
+	w_bltinfunction = self.space.builtin.get('len')
+	res = self.space.interp_w(Function, w_bltinfunction)
+	assert res is w_bltinfunction   # with the std objspace only
+	self.space.raises_w(self.space.w_TypeError, self.space.interp_w, PyCode, w_bltinfunction)
+	self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(42))
+	self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(None))
+	res = self.space.interp_w(Function, w(None), can_be_None=True)
+	assert res is None
 
 class TestModuleMinimal: 
     def test_sys_exists(self):
