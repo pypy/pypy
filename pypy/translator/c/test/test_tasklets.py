@@ -15,7 +15,7 @@ if cbuild.check_boehm_presence():
     gcpolicy = BoehmGcPolicy
 
 # count of loops in tests (set lower to speed up)
-loops = 1000
+loops = 1
     
 def debug(s):
     os.write(2, "%s\n" % s)
@@ -57,6 +57,10 @@ def wrap_stackless_function(fn):
 
 # ____________________________________________________________
 
+class ThreadLocals(object):
+    pass
+threadlocals = ThreadLocals()
+
 class Resumable(object):
     def __init__(self):
         self.alive = False
@@ -65,13 +69,13 @@ class Resumable(object):
         self.resumable = self._start()
 
     def _start(self):
-        self.caller = yield_current_frame_to_caller()
+        threadlocals.cc = yield_current_frame_to_caller()
         self.fn()
-        return self.caller
+        return threadlocals.cc
 
     def suspend(self):
         # we suspend ourself
-        self.caller = self.caller.switch()
+        threadlocals.cc = threadlocals.cc.switch()
         
     def resume(self):
         # the caller resumes me
@@ -82,6 +86,7 @@ class Resumable(object):
         pass
 
 class Tasklet(Resumable):
+
     def __init__(self):
         Resumable.__init__(self)
         self.blocked = 0
@@ -106,12 +111,6 @@ class Tasklet(Resumable):
     def resume(self):
         assert not self.remove
         Resumable.resume(self)
-        
-        # not sure what to do with alive yetXXX        
-
-        #XXX arggh - why NOT??
-        #if not alive:
-        #    self.caller = # None / NULL
         return self.alive and not self.remove         
 
 class Channel:
@@ -281,7 +280,7 @@ def test_multiple_simple():
 
 def test_schedule_remove():
 
-    class Tasklet1(Tasklet):    
+    class Tasklet1(Tasklet):
         def fn(self):
             for ii in range(20):
                 if ii < 10:
@@ -506,7 +505,7 @@ def test_original_api():
             self.redirect_fn = fn
         def fn(self):
             self.redirect_fn()
-           
+
     def tasklet(fn):
         return TaskletAsFunction(fn)
         
