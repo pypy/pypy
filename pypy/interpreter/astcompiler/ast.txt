@@ -171,12 +171,10 @@ Compare.fset_ops( space, self, w_arg ):
         w_opname = space.getitem( w_obj, space.wrap(0) )
         w_node = space.getitem( w_obj, space.wrap(1) )
         ops = space.str_w(w_opname)
-        node = space.interpclass_w( w_node )
-        if not isinstance(node, Node):
-           raise OperationError(space.w_TypeError, space.wrap("ops must be a list of (name,node)"))
+        node = space.interp_w(Node, w_node)
         self.ops.append( (ops,node) )
 
-Dict.fget_items( space, self ):
+Dict.fget_items(space, self):
     return space.newlist( [ space.newtuple( [ space.wrap(key), space.wrap(value) ] )
                             for key, value in self.items ] )
 
@@ -185,27 +183,9 @@ Dict.fset_items( space, self, w_arg ):
     for w_tup in space.unpackiterable( w_arg ):
         w_key = space.getitem( w_tup, space.wrap(0) )
         w_value = space.getitem( w_tup, space.wrap(1) )
-        key = space.interpclass_w( w_key )
-        value = space.interpclass_w( w_value )
-        if not isinstance( key, Node ) or not isinstance( value, Node ):
-            raise OperationError(space.w_TypeError, space.wrap("Need a list of (key node, value node)"))
+        key = space.interp_w(Node, w_key)
+        value = space.interp_w(Node, w_value)
         self.items.append( (key,value) )
-
-flatten_nodes(TryExcept.handlers):
-    # handlers is a list of triplets (expr1, expr2, body)
-    for expr1, expr2, body in self.handlers:
-        if expr1 is not None:
-            nodelist.append(expr1)
-        if expr2 is not None:
-            nodelist.append(expr2)
-        if body is not None:
-            nodelist.append(body)
-
-flatten_nodes(If.tests):
-    # tests is a list of couples (node (test), node (suite))
-    for test, suite in self.tests:
-        nodelist.append(test)
-        nodelist.append(suite)
 
 
 If.fget_tests( space, self ):
@@ -218,12 +198,9 @@ If.fset_tests( space, self, w_arg ):
     for w_tup in space.unpackiterable( w_arg ):
         w_test = space.getitem( w_tup, space.wrap(0) )
         w_suite = space.getitem( w_tup, space.wrap(1) )
-        test = space.interpclass_w( w_test )
-        suite = space.interpclass_w( w_suite )
-        if not isinstance( test, Node ) or not isinstance( suite, Node ):
-            raise OperationError(space.w_TypeError, space.wrap("Need a list of (test,suite) nodes") )
+        test = space.interp_w(Node, w_test)
+        suite = space.interp_w(Node, w_suite)
         self.tests.append( (test,suite) )
-
 
 
 TryExcept.fget_handlers( space, self ):
@@ -238,11 +215,9 @@ TryExcept.fset_handlers( space, self, w_arg ):
         w_expr1 = space.getitem( w_tup, space.wrap(0) )
         w_expr2 = space.getitem( w_tup, space.wrap(1) )
         w_body = space.getitem( w_tup, space.wrap(2) )
-        expr1 = space.interpclass_w( w_expr1 )
-        expr2 = space.interpclass_w( w_expr2 )
-        body = space.interpclass_w( w_body )
-        if not isinstance( expr1, Node ) or not isinstance( expr2, Node ) or not isinstance( body, Node ):
-            raise OperationError(space.w_TypeError, space.wrap("Need a list of (expr1,expr2,body) nodes") )
+        expr1 = space.interp_w(Node,  w_expr1, can_be_None=True)
+        expr2 = space.interp_w(Node,  w_expr2, can_be_None=True)
+        body = space.interp_w(Node,  w_body, can_be_None=False)
         self.handlers.append( (expr1,expr2,body) )
 
 Import.fget_names( space, self ):
@@ -275,3 +250,95 @@ From.fset_names( space, self, w_arg ):
             as_name = space.str_w( w_as_name )
         self.names.append( (name, as_name) )
 
+def descr_From_new(space, w_subtype, w_modname, w_names, lineno=-1):
+    self = space.allocate_instance(From, w_subtype)
+    modname = space.str_w(w_modname)
+    self.modname = modname
+    names = []
+    for w_tuple in space.unpackiterable(w_names):
+        w_name = space.getitem(w_tuple, space.wrap(0))
+        w_as_name = space.getitem(w_tuple, space.wrap(1))
+        name = space.str_w(w_name)
+        as_name = None
+        if not space.is_w(w_as_name, space.w_None):
+            as_name = space.str_w(w_as_name)
+        names.append((name, as_name))
+    self.names = names
+    self.lineno = lineno
+    return space.wrap(self)
+
+def descr_Import_new(space, w_subtype, w_names, lineno=-1):
+    self = space.allocate_instance(Import, w_subtype)
+    names = []
+    for w_tuple in space.unpackiterable(w_names):
+        w_name = space.getitem(w_tuple, space.wrap(0))
+        w_as_name = space.getitem(w_tuple, space.wrap(1))
+        name = space.str_w(w_name)
+        as_name = None
+        if not space.is_w(w_as_name, space.w_None):
+            as_name = space.str_w(w_as_name)
+        names.append((name, as_name))
+    self.names = names
+    self.lineno = lineno
+    return space.wrap(self)
+    
+def descr_Compare_new(space, w_subtype, w_expr, w_ops, lineno=-1):
+    self = space.allocate_instance(Compare, w_subtype)
+    self.expr = space.interp_w(Node, w_expr)
+    ops = []
+    for w_tuple in space.unpackiterable(w_ops):
+        w_opname = space.getitem(w_tuple, space.wrap(0))
+        w_node = space.getitem(w_tuple, space.wrap(1))
+        opname = space.str_w(w_opname)
+	node = space.interp_w(Node, w_node)
+        ops.append((opname, node))
+    self.ops = ops
+    self.lineno = lineno
+    return space.wrap(self)
+    
+def descr_Dict_new(space, w_subtype, w_items, lineno=-1):
+    self = space.allocate_instance(Dict, w_subtype)
+    items = []
+    for w_tuple in space.unpackiterable(w_items):
+        w_key = space.getitem(w_tuple, space.wrap(0))
+        w_value = space.getitem(w_tuple, space.wrap(1))
+        key = space.interp_w(Node, w_key)
+        value = space.interp_w(Node, w_value)
+        items.append((key, value))
+    self.items = items
+    self.lineno = lineno
+    return space.wrap(self)
+    
+
+def descr_If_new(space, w_subtype, w_tests, w_else_, lineno=-1):
+    self = space.allocate_instance(If, w_subtype)
+    tests = []
+    for w_tuple in space.unpackiterable(w_tests):
+        w_test = space.getitem(w_tuple, space.wrap(0))
+        w_suite = space.getitem(w_tuple, space.wrap(1))
+        test = space.interp_w(Node, w_test)
+        suite = space.interp_w(Node, w_suite)
+        tests.append((test, suite))
+    self.tests = tests
+    self.else_ = space.interp_w(Node, w_else_, can_be_None=True)
+    self.lineno = lineno
+    return space.wrap(self)
+    
+
+def descr_TryExcept_new(space, w_subtype, w_body, w_handlers, w_else_, lineno=-1):
+    self = space.allocate_instance(TryExcept, w_subtype)
+    self.body = space.interp_w(Node, w_body)
+    handlers = []
+    for w_tuple in space.unpackiterable( w_handlers ):
+        w_expr1 = space.getitem( w_tuple, space.wrap(0) )
+        w_expr2 = space.getitem( w_tuple, space.wrap(1) )
+        w_body = space.getitem( w_tuple, space.wrap(2) )
+	expr1 = space.interp_w(Node, w_expr1, can_be_None=True)
+	expr2 = space.interp_w(Node, w_expr2, can_be_None=True)
+	body = space.interp_w(Node, w_body, can_be_None=False)
+        handlers.append((expr1, expr2, body))
+    self.handlers = handlers
+    self.else_ = space.interp_w(Node, w_else_, can_be_None=True)
+    self.lineno = lineno
+    return space.wrap(self)
+    

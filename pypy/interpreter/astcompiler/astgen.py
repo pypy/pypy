@@ -45,6 +45,7 @@ class NodeInfo:
         self.argprops = self.get_argprops()
         self.nargs = len(self.argnames)
         self.init = []
+        self.applevel_new = []
         self.flatten_nodes = {}
         self.additional_methods = {}
         self.parent = parent
@@ -117,6 +118,13 @@ class NodeInfo:
 
         return d
 
+    def get_initargs(self):
+        if self.parent.args and self.args:
+            args = self.parent.args +","+ self.args
+        else:
+            args = self.parent.args or self.args
+        return args
+
     def gen_source(self):
         buf = StringIO()
         print >> buf, "class %s(%s):" % (self.name, self.parent.name)
@@ -133,21 +141,20 @@ class NodeInfo:
         print >> buf
         self._gen_attrs(buf)
         print >> buf
+        self._gen_new(buf)
+        print >> buf
         self._gen_typedef(buf)
         buf.seek(0, 0)
         return buf.read()
 
     def _gen_init(self, buf):
-        if self.parent.args and self.args:
-            args = self.parent.args +","+ self.args
-        else:
-            args = self.parent.args or self.args
-        if args:
-            print >> buf, "    def __init__(self, %s, lineno=-1):" % args
+        initargs = self.get_initargs()
+        if initargs:
+            print >> buf, "    def __init__(self, %s, lineno=-1):" % initargs
         else:
             print >> buf, "    def __init__(self, lineno=-1):"
         if self.parent.args:
-            print >> buf, "        %s.__init__(self, %s, lineno)" % self.parent.args
+            print >> buf, "        %s.__init__(self, %s, lineno)" % (self.parent.name, self.parent.args)
         else:
             print >> buf, "        Node.__init__(self, lineno)"
         if self.argnames:
@@ -157,6 +164,47 @@ class NodeInfo:
                 print >> buf, "        self.%s = %s" % (name, name)
         if self.init:
             print >> buf, "".join(["    " + line for line in self.init])
+
+    def _gen_new(self, buf):
+        if self.applevel_new:
+            print >> buf, ''.join(self.applevel_new)
+            return
+        args = self.get_initargs()
+        argprops = self.argprops
+        if args:
+            w_args = ['w_%s' % strip_default(arg.strip())
+                      for arg in args.split(',') if arg]
+            print >> buf, "def descr_%s_new(space, w_subtype, %s, lineno=-1):" % (self.name, ', '.join(w_args))
+        else:
+            w_args = []
+            print >> buf, "def descr_%s_new(space, w_subtype, lineno=-1):" % (self.name,)
+        print >> buf, "    self = space.allocate_instance(%s, w_subtype)" % (self.name,)
+        # w_args = ['w_%s' % strip_default(arg.strip()) for arg in self.args.split(',') if arg]
+        for w_arg in w_args:
+            argname = w_arg[2:]
+            prop = argprops[argname]
+            if prop == P_NONE:
+                print >> buf, "    %s = space.interp_w(Node, %s, can_be_None=True)" % (argname, w_arg)
+            elif prop == P_NODE:
+                print >> buf, "    %s = space.interp_w(Node, %s, can_be_None=False)" % (argname, w_arg)
+            elif prop == P_NESTED:
+                print >> buf, "    %s = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(%s)]" % (argname, w_arg)
+            elif prop == P_STR:
+                print >> buf, "    %s = space.str_w(%s)" % (argname, w_arg)
+            elif prop == P_INT:
+                print >> buf, "    %s = space.int_w(%s)" % (argname, w_arg)
+            elif prop == P_STR_LIST:
+                print >> buf, "    %s = [space.str_w(w_str) for w_str in space.unpackiterable(%s)]" % (argname, w_arg)
+            elif prop == P_INT_LIST:
+                print >> buf, "    %s = [space.int_w(w_int) for w_int in space.unpackiterable(%s)]" % (argname, w_arg)
+            elif prop == P_WRAPPED:
+                print >> buf, "    # This dummy assingment is auto-generated, astgen.py should be fixed to avoid that"
+                print >> buf, "    %s = %s" % (argname, w_arg)
+            else:
+                raise ValueError("Don't know how to handle property '%s'" % prop)
+            print >> buf, "    self.%s = %s" % (argname, argname)
+        print >> buf, "    self.lineno = lineno"
+        print >> buf, "    return space.wrap(self)"
 
     def _gen_getChildren(self, buf):
         print >> buf, "    def getChildren(self):"
@@ -266,37 +314,28 @@ class NodeInfo:
     def _gen_fset_func(self, buf, attr, prop ):
 	# FSET
 	print >> buf, "    def fset_%s( space, self, w_arg):" % attr
-	if prop[attr]==P_WRAPPED:
+	if prop[attr] == P_WRAPPED:
 	    print >> buf, "        self.%s = w_arg" % attr
-	elif prop[attr]==P_INT:
+	elif prop[attr] == P_INT:
 	    print >> buf, "        self.%s = space.int_w(w_arg)" % attr
-	elif prop[attr]==P_STR:
+	elif prop[attr] == P_STR:
 	    print >> buf, "        self.%s = space.str_w(w_arg)" % attr
-	elif prop[attr]==P_INT_LIST:
+	elif prop[attr] == P_INT_LIST:
 	    print >> buf, "        del self.%s[:]" % attr
 	    print >> buf, "        for itm in space.unpackiterable(w_arg):"
 	    print >> buf, "            self.%s.append( space.int_w(itm) )" % attr
-	elif prop[attr]==P_STR_LIST:
+	elif prop[attr] == P_STR_LIST:
 	    print >> buf, "        del self.%s[:]" % attr
 	    print >> buf, "        for itm in space.unpackiterable(w_arg):"
 	    print >> buf, "            self.%s.append( space.str_w(itm) )" % attr
-	elif prop[attr]==P_NESTED:
+	elif prop[attr] == P_NESTED:
 	    print >> buf, "        del self.%s[:]" % attr
-	    print >> buf, "        for w_itm in space.unpackiterable( w_arg ):"
-	    print >> buf, "            self.%s.append( space.interpclass_w( w_arg ) )" % attr
-	elif prop[attr]==P_NONE:
-	    print >> buf, "        if space.is_w( w_arg, space.w_None ):"
-	    print >> buf, "            self.%s = None" % attr
-	    print >> buf, "        else:"
-	    print >> buf, "            obj = space.interpclass_w( w_arg )"
-	    print >> buf, "            if not isinstance( obj, Node):"
-	    print >> buf, "                raise OperationError(space.w_TypeError,space.wrap('Need a Node instance'))"
-	    print >> buf, "            self.%s = obj" % attr
+	    print >> buf, "        for w_itm in space.unpackiterable(w_arg):"
+	    print >> buf, "            self.%s.append( space.interp_w(Node, w_arg))" % attr
+	elif prop[attr] == P_NONE:
+            print >> buf, "        self.%s = space.interp_w(Node, w_arg, can_be_None=True)" % attr
 	else: # P_NODE
-	    print >> buf, "        obj = space.interpclass_w( w_arg )"
-	    print >> buf, "        if not isinstance( obj, Node):"
-	    print >> buf, "            raise OperationError(space.w_TypeError,space.wrap('Need a Node instance'))"
-	    print >> buf, "        self.%s = obj" % attr
+            print >> buf, "        self.%s = space.interp_w(Node, w_arg, can_be_None=False)" % attr
 
     def _gen_attrs(self, buf):
 	prop = self.argprops
@@ -307,16 +346,22 @@ class NodeInfo:
 	    if "fset_%s" % attr not in self.additional_methods:
 		self._gen_fset_func( buf, attr, prop )
 
-
     def _gen_typedef(self, buf):
+        initargs = [strip_default(arg.strip())
+                    for arg in self.get_initargs().split(',') if arg]
+        if initargs:
+            new_unwrap_spec = ['ObjSpace', 'W_Root'] + ['W_Root'] * len(initargs) + ['int']
+        else:
+            new_unwrap_spec = ['ObjSpace', 'W_Root', 'int']
 	parent_type = "%s.typedef" % self.parent.name
         print >> buf, "def descr_%s_accept( space, w_self, w_visitor):" %self.name
         print >> buf, "    w_callable = space.getattr(w_visitor, space.wrap('visit%s'))" % self.name
         print >> buf, "    args = Arguments(space, [ w_self ])"
         print >> buf, "    return space.call_args(w_callable, args)"
         print >> buf, ""
-        print >> buf, "%s.typedef = TypeDef('%s', %s, " % (self.name,self.name,parent_type)
-        print >> buf, "                     accept=interp2app(descr_%s_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] )," % self.name
+        print >> buf, "%s.typedef = TypeDef('%s', %s, " % (self.name, self.name, parent_type)
+        print >> buf, "                     __new__ = interp2app(descr_%s_new, unwrap_spec=[%s])," % (self.name, ', '.join(new_unwrap_spec))
+        print >> buf, "                     accept=interp2app(descr_%s_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] )," % self.name
 	for attr in self.argnames:
 	    print >> buf, "                    %s=GetSetProperty(%s.fget_%s, %s.fset_%s )," % (attr,self.name,attr,self.name,attr)
 	print >> buf, "                    )"
@@ -356,7 +401,7 @@ Node_NodeInfo = NodeInfo("Node","")
 rx_init = re.compile('init\((.*)\):')
 rx_flatten_nodes = re.compile('flatten_nodes\((.*)\.(.*)\):')
 rx_additional_methods = re.compile('(\\w+)\.(\w+)\((.*?)\):')
-
+rx_descr_news_methods = re.compile('def\s+descr_(\\w+)_new\((.*?)\):')
 def parse_spec(file):
     classes = {}
     cur = None
@@ -414,6 +459,14 @@ def parse_spec(file):
 	    cur.additional_methods[_cur_] = ['    def %s(%s):\n' % (methname, params)]
 	    continue
 
+	mo = rx_descr_news_methods.match(line)
+	if mo:
+	    kind = 'applevel_new'
+	    name = mo.group(1)
+	    cur = classes[name]
+	    cur.applevel_new = [mo.group(0) + '\n']
+	    continue
+
 	if kind == 'init':
 	    # some code for the __init__ method
 	    cur.init.append(line)
@@ -424,6 +477,8 @@ def parse_spec(file):
 	    cur.flatten_nodes[_cur_].append(line)
 	elif kind == 'additional_method':
 	    cur.additional_methods[_cur_].append(' '*4 + line)
+	elif kind == 'applevel_new':
+	    cur.applevel_new.append(line)
             
     for node in classes.values():
         node.setup_parent(classes)
@@ -492,7 +547,7 @@ This file is automatically generated by Tools/compiler/astgen.py
 """
 from consts import CO_VARARGS, CO_VARKEYWORDS, OP_ASSIGN
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
@@ -556,10 +611,18 @@ def descr_node_accept( space, w_self, w_visitor ):
     args = Arguments(space, [ w_self ])
     return space.call_args( w_callable, args )
 
+def descr_Node_new(space, w_subtype, lineno=-1):
+    node = space.allocate_instance(Node, w_subtype)
+    node.lineno = lineno
+    return space.wrap(node)
+
 Node.typedef = TypeDef('ASTNode',
+                       __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
 		       #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
 		       getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
 		       accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
+                       lineno = interp_attrproperty('lineno', cls=Node),
+                       filename = interp_attrproperty('filename', cls=Node),
 		       )
 
         
@@ -589,9 +652,11 @@ class Expression(Node):
 '''
 
 epilogue = '''
+nodeclasses = []
 for name, obj in globals().items():
     if isinstance(obj, type) and issubclass(obj, Node):
         nodes[name.lower()] = obj
+        nodeclasses.append(name)
 '''
 
 if __name__ == "__main__":
