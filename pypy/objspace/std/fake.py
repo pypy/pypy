@@ -80,7 +80,7 @@ def really_build_fake_type(cpy_type):
     else:
         for s, v in cpy_type.__dict__.items():
             if not (cpy_type is unicode and s in ['__add__', '__contains__']):
-                if s != '__getattribute__' or cpy_type is type(sys):
+                if s != '__getattribute__' or cpy_type is type(sys) or cpy_type is type(Exception):
                     kw[s] = v
 
     kw['__module__'] = cpy_type.__module__
