@@ -36,52 +36,19 @@ class TypeDef:
         return True
 
 
-# we cannot specialize:memo by more than one PBC key 
-# so we need to work a bit to allow that 
-
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False): 
-    if needsdel:
-        if hasdict:
-            if wants_slots:
-                return get_unique_interplevel_WithDictWithSlotsWithDel(cls)
-            else: 
-                return get_unique_interplevel_WithDictNoSlotsWithDel(cls)
-        else:
-            if wants_slots:
-                return get_unique_interplevel_NoDictWithSlotsWithDel(cls)
-            else: 
-                return get_unique_interplevel_NoDictNoSlotsWithDel(cls)
-    else:
-        if hasdict:
-            if wants_slots:
-                return get_unique_interplevel_WithDictWithSlotsNoDel(cls)
-            else: 
-                return get_unique_interplevel_WithDictNoSlotsNoDel(cls)
-        else:
-            if wants_slots:
-                return get_unique_interplevel_NoDictWithSlotsNoDel(cls)
-            else: 
-                return get_unique_interplevel_NoDictNoSlotsNoDel(cls)
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:arg0"
-
-for hasdict in False, True: 
-    for wants_del in False, True:
-        for wants_slots in False, True: 
-            name = hasdict and "WithDict" or "NoDict"
-            name += wants_slots and "WithSlots" or "NoSlots" 
-            name += wants_del and "WithDel" or "NoDel"
-            funcname = "get_unique_interplevel_%s" % (name,)
-            exec compile2("""
-                subclass_cache_%(name)s = {}
-                def %(funcname)s(cls): 
-                    try: 
-                        return subclass_cache_%(name)s[cls]
-                    except KeyError: 
-                        subcls = _buildusercls(cls, %(hasdict)r, %(wants_slots)r, %(wants_del)r)
-                        subclass_cache_%(name)s[cls] = subcls
-                        return subcls
-                %(funcname)s._annspecialcase_ = "specialize:memo"
-            """ % locals())
+    key = cls, hasdict, wants_slots, needsdel
+    try:
+        return _subclass_cache[key]
+    except KeyError:
+        name = hasdict and "WithDict" or "NoDict"
+        name += wants_slots and "WithSlots" or "NoSlots"
+        name += needsdel and "WithDel" or "NoDel"
+        subcls = _buildusercls(cls, hasdict, wants_slots, needsdel)
+        _subclass_cache[key] = subcls
+        return subcls
+get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
+_subclass_cache = {}
 
 def _buildusercls(cls, hasdict, wants_slots, wants_del):
     "NOT_RPYTHON: initialization-time only"
