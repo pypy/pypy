@@ -69,21 +69,11 @@ class MemoTable:
 
     fieldnamecounter = 0
 
-    def getuniquefieldname(self, descs):
+    def getuniquefieldname(self):
         name = self.funcdesc.name
-        fieldname = 'memofield_%s_%d' % (name, MemoTable.fieldnamecounter)
+        fieldname = '$memofield_%s_%d' % (name, MemoTable.fieldnamecounter)
         MemoTable.fieldnamecounter += 1
-        # look for name clashes
-        for desc in descs:
-            try:
-                desc.read_attribute(fieldname)
-            except AttributeError:
-                pass   # no clash
-            else:
-                # clash! try again...
-                return self.getuniquefieldname(descs)
-        else:
-            return fieldname
+        return fieldname
 
     def finish(self):
         from pypy.annotation.model import unionof
@@ -101,18 +91,17 @@ class MemoTable:
         name = self.funcdesc.name
         argnames = ['a%d' % i for i in range(nbargs)]
 
-        def make_helper(firstarg, expr, miniglobals):
-            source = """
-                def f(%s):
-                    return %s
-            """ % (', '.join(argnames[firstarg:]), expr)
-            exec py.code.Source(source).compile() in miniglobals
+        def make_helper(firstarg, stmt, miniglobals):
+            header = "def f(%s):" % (', '.join(argnames[firstarg:],))
+            source = py.code.Source(stmt)
+            source = source.putaround(header)
+            exec source.compile() in miniglobals
             f = miniglobals['f']
             return func_with_new_name(f, 'memo_%s_%d' % (name, firstarg))
 
         def make_constant_subhelper(firstarg, result):
             # make a function that just returns the constant answer 'result'
-            f = make_helper(firstarg, 'result', {'result': result})
+            f = make_helper(firstarg, 'return result', {'result': result})
             f.constant_result = result
             return f
 
@@ -125,6 +114,8 @@ class MemoTable:
                 return make_constant_subhelper(firstarg, result)
             else:
                 nextargvalues = list(sets[len(args_so_far)])
+                if nextargvalues == [True, False]:
+                    nextargvalues = [False, True]
                 nextfns = [make_subhelper(args_so_far + (arg,))
                            for arg in nextargvalues]
                 # do all graphs return a constant?
@@ -132,6 +123,7 @@ class MemoTable:
                     constants = [fn.constant_result for fn in nextfns]
                 except AttributeError:
                     constants = None    # one of the 'fn' has no constant_result
+                restargs = ', '.join(argnames[firstarg+1:])
 
                 # is there actually only one possible value for the current arg?
                 if len(nextargvalues) == 1:
@@ -140,15 +132,43 @@ class MemoTable:
                         return make_constant_subhelper(firstarg, result)
                     else:
                         # ignore the first argument and just call the subhelper
-                        expr = 'subhelper(%s)' % (
-                            ', '.join(argnames[firstarg+1:]),)
-                        return make_helper(firstarg, expr,
+                        stmt = 'return subhelper(%s)' % restargs
+                        return make_helper(firstarg, stmt,
                                            {'subhelper': nextfns[0]})
+
+                # is the arg a bool?
+                elif nextargvalues == [False, True]:
+                    fieldname0 = self.getuniquefieldname()
+                    fieldname1 = self.getuniquefieldname()
+                    stmt = ['if %s:' % argnames[firstarg]]
+                    if hasattr(nextfns[True], 'constant_result'):
+                        # the True branch has a constant result
+                        case1 = nextfns[True].constant_result
+                        stmt.append('    return case1')
+                    else:
+                        # must call the subhelper
+                        case1 = nextfns[True]
+                        stmt.append('    return case1(%s)' % restargs)
+                    stmt.append('else:')
+                    if hasattr(nextfns[False], 'constant_result'):
+                        # the False branch has a constant result
+                        case0 = nextfns[False].constant_result
+                        stmt.append('    return case0')
+                    else:
+                        # must call the subhelper
+                        case0 = nextfns[False]
+                        stmt.append('    return case0(%s)' % restargs)
+
+                    return make_helper(firstarg, '\n'.join(stmt),
+                                       {'case0': case0,
+                                        'case1': case1})
+
+                # the arg is a set of PBCs
                 else:
                     descs = [bookkeeper.getdesc(pbc) for pbc in nextargvalues]
-                    fieldname = self.getuniquefieldname(descs)
-                    expr = 'getattr(%s, %r)' % (argnames[firstarg],
-                                                fieldname)
+                    fieldname = self.getuniquefieldname()
+                    stmt = 'return getattr(%s, %r)' % (argnames[firstarg],
+                                                       fieldname)
                     if constants:
                         # instead of calling these subhelpers indirectly,
                         # we store what they would return directly in the
@@ -157,13 +177,13 @@ class MemoTable:
                     else:
                         store = nextfns
                         # call the result of the getattr()
-                        expr += '(%s)' % (', '.join(argnames[firstarg+1:]),)
+                        stmt += '(%s)' % restargs
 
                     # store the memo field values
                     for desc, value_to_store in zip(descs, store):
                         desc.create_new_attribute(fieldname, value_to_store)
 
-                    return make_helper(firstarg, expr, {})
+                    return make_helper(firstarg, stmt, {})
 
         entrypoint = make_subhelper(args_so_far = ())
         self.graph = annotator.translator.buildflowgraph(entrypoint)
@@ -177,22 +197,28 @@ class MemoTable:
 
 
 def memo(funcdesc, arglist_s):
-    from pypy.annotation.model import SomePBC, SomeImpossibleValue, unionof
+    from pypy.annotation.model import SomePBC, SomeImpossibleValue, SomeBool
+    from pypy.annotation.model import unionof
     # call the function now, and collect possible results
     argvalues = []
     for s in arglist_s:
-        if not isinstance(s, SomePBC):
-            if isinstance(s, SomeImpossibleValue):
-                return s    # we will probably get more possible args later
+        if s.is_constant():
+            values = [s.const]
+        elif isinstance(s, SomePBC):
+            values = []
+            assert not s.can_be_None, "memo call: cannot mix None and PBCs"
+            for desc in s.descriptions:
+                if desc.pyobj is None:
+                    raise Exception("memo call with a class or PBC that has no "
+                                   "corresponding Python object (%r)" % (desc,))
+                values.append(desc.pyobj)
+        elif isinstance(s, SomeImpossibleValue):
+            return s    # we will probably get more possible args later
+        elif isinstance(s, SomeBool):
+            values = [False, True]
+        else:
             raise Exception("memo call: argument must be a class or a frozen "
                             "PBC, got %r" % (s,))
-        assert not s.can_be_None, "memo call: arguments must never be None"
-        values = []
-        for desc in s.descriptions:
-            if desc.pyobj is None:
-                raise Exception("memo call with a class or PBC that has no "
-                                "corresponding Python object (%r)" % (desc,))
-            values.append(desc.pyobj)
         argvalues.append(values)
     # the list of all possible tuples of arguments to give to the memo function
     possiblevalues = cartesian_product(argvalues)

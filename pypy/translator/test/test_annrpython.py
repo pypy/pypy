@@ -1791,6 +1791,33 @@ class TestAnnotateTestCase:
         s = a.build_types(f1, [int])
         assert s.knowntype == int
 
+    def test_call_memoized_function_with_bools(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        def getorbuild(key, flag1, flag2):
+            a = 1
+            if key is fr1:
+                result = eval("a+2")
+            else:
+                result = eval("a+6")
+            if flag1:
+                result += 100
+            if flag2:
+                result += 1000
+            return result
+        getorbuild._annspecialcase_ = "specialize:memo"
+
+        def f1(i):
+            if i > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            return getorbuild(fr, i % 2 == 0, i % 3 == 0)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f1, [int])
+        assert s.knowntype == int
+
     def test_stored_bound_method(self):
         # issue 129
         class H:

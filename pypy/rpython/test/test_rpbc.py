@@ -259,7 +259,34 @@ def test_call_memoized_function():
     assert res == 7
     res = interpret(f1, [1]) 
     assert res == 3
-    
+
+def test_call_memoized_function_with_bools():
+    fr1 = Freezing()
+    fr2 = Freezing()
+    def getorbuild(key, flag1, flag2):
+        a = 1
+        if key is fr1:
+            result = eval("a+2")
+        else:
+            result = eval("a+6")
+        if flag1:
+            result += 100
+        if flag2:
+            result += 1000
+        return result
+    getorbuild._annspecialcase_ = "specialize:memo"
+
+    def f1(i):
+        if i > 0:
+            fr = fr1
+        else:
+            fr = fr2
+        return getorbuild(fr, i % 2 == 0, i % 3 == 0)
+
+    for n in [0, 1, 2, -3, 6]:
+        res = interpret(f1, [n])
+        assert res == f1(n)
+
 def test_call_memoized_cache():
 
     # this test checks that we add a separate field 
