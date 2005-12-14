@@ -320,10 +320,14 @@ def static_instruction_count(graph):
         count += block_weight(block)
     return count
 
-def inlining_heuristic(graph):
+def inlining_heuristic(graph, callers=None, callees=None):
     # XXX ponderation factors?
+    factor = 1
+    if callers is not None:
+        if len(callers) == 1:
+            factor = 0.1
     return (0.9999 * measure_median_execution_cost(graph) +
-            static_instruction_count(graph))
+            static_instruction_count(graph)) * factor
 
 
 def static_callers(translator, ignore_primitives=False):
@@ -361,7 +365,7 @@ def auto_inlining(translator, threshold=1):
     while fiboheap:
         weight, graph = fiboheap[0]
         if not valid_weight.get(graph):
-            weight = inlining_heuristic(graph)
+            weight = inlining_heuristic(graph, callers.get(graph), callees.get(graph))
             #print '  + cost %7.2f %50s' % (weight, graph.name)
             heapreplace(fiboheap, (weight, graph))
             valid_weight[graph] = True
