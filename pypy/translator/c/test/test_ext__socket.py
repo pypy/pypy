@@ -139,7 +139,7 @@ class TestConnectedIPv4:
             sockname = rsocket.getpeername(fd)
             os.close(fd)
             return sockname[1]
-        f1 = compile(does_stuff, [], True)
+        f1 = compile(does_stuff, [])
         res = f1()
         assert res == self.PORT
 
