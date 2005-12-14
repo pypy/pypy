@@ -158,7 +158,7 @@ class Block(object):
     
     def __init__(self, inputargs):
         self.isstartblock = False
-        self.inputargs = list(inputargs)  # mixed list of variable/const 
+        self.inputargs = list(inputargs)  # mixed list of variable/const XXX 
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
@@ -462,106 +462,103 @@ def mkentrymap(funcgraph):
 
 def checkgraph(graph):
     "Check the consistency of a flow graph."
-    if __debug__:
-        this_block = [None]
+    if not __debug__:
+        return
+    try:
+
+        vars_previous_blocks = {}
+
         exitblocks = {graph.returnblock: 1,   # retval
                       graph.exceptblock: 2}   # exc_cls, exc_value
-        
-        def visit(block):
-            if isinstance(block, Block):
-                this_block[0] = block
-                assert bool(block.isstartblock) == (block is graph.startblock)
-                if not block.exits:
-                    assert block in exitblocks
-                vars = {}
 
-                def definevar(v, only_in_link=None):
-                    assert isinstance(v, Variable)
-                    assert v not in vars, "duplicate variable %r" % (v,)
-                    assert v not in vars_previous_blocks, (
-                        "variable %r used in more than one block" % (v,))
-                    vars[v] = only_in_link
+        for block, nbargs in exitblocks.items():
+            assert len(block.inputargs) == nbargs
+            assert not block.operations
+            assert not block.exits
 
-                def usevar(v, in_link=None):
-                    assert v in vars
-                    if in_link is not None:
-                        assert vars[v] is None or vars[v] is in_link
+        for block in graph.iterblocks():
+            assert bool(block.isstartblock) == (block is graph.startblock)
+            if not block.exits:
+                assert block in exitblocks
+            vars = {}
 
-                for v in block.inputargs:
-                    definevar(v)
+            def definevar(v, only_in_link=None):
+                assert isinstance(v, Variable)
+                assert v not in vars, "duplicate variable %r" % (v,)
+                assert v not in vars_previous_blocks, (
+                    "variable %r used in more than one block" % (v,))
+                vars[v] = only_in_link
 
-                for op in block.operations:
-                    for v in op.args:
-                        assert isinstance(v, (Constant, Variable))
-                        if isinstance(v, Variable):
-                            usevar(v)
-                        else:
-                            assert v.value is not last_exception
-                            #assert v.value != last_exc_value
-                    definevar(op.result)
+            def usevar(v, in_link=None):
+                assert v in vars
+                if in_link is not None:
+                    assert vars[v] is None or vars[v] is in_link
 
-                exc_links = {}
-                if block.exitswitch is None:
-                    assert len(block.exits) <= 1
-                    if block.exits:
-                        assert block.exits[0].exitcase is None
-                elif block.exitswitch == c_last_exception:
-                    assert len(block.operations) >= 1
-                    # check if an exception catch is done on a reasonable
-                    # operation
-                    assert block.operations[-1].opname not in ("keepalive",
-                                                               "cast_pointer",
-                                                               "same_as")
-                    assert len(block.exits) >= 2
-                    assert block.exits[0].exitcase is None
-                    for link in block.exits[1:]:
-                        assert issubclass(link.exitcase, Exception)
-                        exc_links[link] = True
-                else:
-                    assert isinstance(block.exitswitch, Variable)
-                    assert block.exitswitch in vars
+            for v in block.inputargs:
+                definevar(v)
 
-                allexitcases = {}
-                for link in block.exits:
-                    assert len(link.args) == len(link.target.inputargs)
-                    assert link.prevblock is block
-                    exc_link = link in exc_links
-                    if exc_link:
-                        for v in [link.last_exception, link.last_exc_value]:
-                            assert isinstance(v, (Variable, Constant))
-                            if isinstance(v, Variable):
-                                definevar(v, only_in_link=link)
+            for op in block.operations:
+                for v in op.args:
+                    assert isinstance(v, (Constant, Variable))
+                    if isinstance(v, Variable):
+                        usevar(v)
                     else:
-                        assert link.last_exception is None
-                        assert link.last_exc_value is None
-                    for v in link.args:
-                        assert isinstance(v, (Constant, Variable))
+                        assert v.value is not last_exception
+                        #assert v.value != last_exc_value
+                definevar(op.result)
+
+            exc_links = {}
+            if block.exitswitch is None:
+                assert len(block.exits) <= 1
+                if block.exits:
+                    assert block.exits[0].exitcase is None
+            elif block.exitswitch == Constant(last_exception):
+                assert len(block.operations) >= 1
+                # check if an exception catch is done on a reasonable
+                # operation
+                assert block.operations[-1].opname not in ("keepalive",
+                                                           "cast_pointer",
+                                                           "same_as")
+                assert len(block.exits) >= 2
+                assert block.exits[0].exitcase is None
+                for link in block.exits[1:]:
+                    assert issubclass(link.exitcase, Exception)
+                    exc_links[link] = True
+            else:
+                assert isinstance(block.exitswitch, Variable)
+                assert block.exitswitch in vars
+                assert len(block.exits) > 1
+
+            allexitcases = {}
+            for link in block.exits:
+                assert len(link.args) == len(link.target.inputargs)
+                assert link.prevblock is block
+                exc_link = link in exc_links
+                if exc_link:
+                    for v in [link.last_exception, link.last_exc_value]:
+                        assert isinstance(v, (Variable, Constant))
                         if isinstance(v, Variable):
-                            usevar(v, in_link=link)
-                            if exc_link:
-                                assert v != block.operations[-1].result
-                        #else:
-                        #    if not exc_link:
-                        #        assert v.value is not last_exception
-                        #        #assert v.value != last_exc_value
-                    allexitcases[link.exitcase] = True
-                assert len(allexitcases) == len(block.exits)
-                vars_previous_blocks.update(vars)
+                            definevar(v, only_in_link=link)
+                else:
+                    assert link.last_exception is None
+                    assert link.last_exc_value is None
+                for v in link.args:
+                    assert isinstance(v, (Constant, Variable))
+                    if isinstance(v, Variable):
+                        usevar(v, in_link=link)
+                        if exc_link:
+                            assert v != block.operations[-1].result
+                    #else:
+                    #    if not exc_link:
+                    #        assert v.value is not last_exception
+                    #        #assert v.value != last_exc_value
+                allexitcases[link.exitcase] = True
+            assert len(allexitcases) == len(block.exits)
+            vars_previous_blocks.update(vars)
 
-        try:
-            for block, nbargs in exitblocks.items():
-                this_block[0] = block
-                assert len(block.inputargs) == nbargs
-                assert not block.operations
-                assert not block.exits
-
-            vars_previous_blocks = {}
-
-            traverse(visit, graph)
-
-        except AssertionError, e:
-            # hack for debug tools only
-            #graph.show()  # <== ENABLE THIS TO SEE THE BROKEN GRAPH
-            if this_block[0] and not hasattr(e, '__annotator_block'):
-                setattr(e, '__annotator_block', this_block[0])
-            raise
+    except AssertionError, e:
+        # hack for debug tools only
+        #graph.show()  # <== ENABLE THIS TO SEE THE BROKEN GRAPH
+        if block and not hasattr(e, '__annotator_block'):
+            setattr(e, '__annotator_block', block)
+        raise
