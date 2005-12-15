@@ -90,7 +90,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
                 objectmodel.cast_int_to_object(i, A)) == i
         fn = self.getcompiled(f)
         res = fn()
-        assert res > 0
+        # cannot really test anything about 'res' here
         gn = self.getcompiled(g)
         res = gn()
         assert res
