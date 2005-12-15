@@ -331,7 +331,7 @@ class NodeInfo:
 	elif prop[attr] == P_NESTED:
 	    print >> buf, "        del self.%s[:]" % attr
 	    print >> buf, "        for w_itm in space.unpackiterable(w_arg):"
-	    print >> buf, "            self.%s.append( space.interp_w(Node, w_arg))" % attr
+	    print >> buf, "            self.%s.append( space.interp_w(Node, w_itm))" % attr
 	elif prop[attr] == P_NONE:
             print >> buf, "        self.%s = space.interp_w(Node, w_arg, can_be_None=True)" % attr
 	else: # P_NODE

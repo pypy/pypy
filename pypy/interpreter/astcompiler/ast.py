@@ -282,7 +282,7 @@ class And(AbstractTest):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_And_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(And, w_subtype)
@@ -417,7 +417,7 @@ class AssList(AssSeq):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_AssList_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(AssList, w_subtype)
@@ -525,7 +525,7 @@ class AssTuple(AssSeq):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_AssTuple_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(AssTuple, w_subtype)
@@ -634,7 +634,7 @@ class Assign(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -850,7 +850,7 @@ class Bitand(BitOp):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Bitand_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Bitand, w_subtype)
@@ -895,7 +895,7 @@ class Bitor(BitOp):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Bitor_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Bitor, w_subtype)
@@ -940,7 +940,7 @@ class Bitxor(BitOp):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Bitxor_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Bitxor, w_subtype)
@@ -1035,7 +1035,7 @@ class CallFunc(Node):
     def fset_args( space, self, w_arg):
         del self.args[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.args.append( space.interp_w(Node, w_arg))
+            self.args.append( space.interp_w(Node, w_itm))
     def fget_star_args( space, self):
         if self.star_args is None:
             return space.w_None
@@ -1116,7 +1116,7 @@ class Class(Node):
     def fset_bases( space, self, w_arg):
         del self.bases[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.bases.append( space.interp_w(Node, w_arg))
+            self.bases.append( space.interp_w(Node, w_itm))
     def fget_w_doc( space, self):
         return self.w_doc
     def fset_w_doc( space, self, w_arg):
@@ -1332,7 +1332,7 @@ class Decorators(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Decorators_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Decorators, w_subtype)
@@ -1877,13 +1877,13 @@ class Function(AbstractFunction):
     def fset_argnames( space, self, w_arg):
         del self.argnames[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.argnames.append( space.interp_w(Node, w_arg))
+            self.argnames.append( space.interp_w(Node, w_itm))
     def fget_defaults( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.defaults] )
     def fset_defaults( space, self, w_arg):
         del self.defaults[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.defaults.append( space.interp_w(Node, w_arg))
+            self.defaults.append( space.interp_w(Node, w_itm))
     def fget_flags( space, self):
         return space.wrap(self.flags)
     def fset_flags( space, self, w_arg):
@@ -2023,7 +2023,7 @@ class GenExprFor(Node):
     def fset_ifs( space, self, w_arg):
         del self.ifs[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.ifs.append( space.interp_w(Node, w_arg))
+            self.ifs.append( space.interp_w(Node, w_itm))
 
 def descr_GenExprFor_new(space, w_subtype, w_assign, w_iter, w_ifs, lineno=-1):
     self = space.allocate_instance(GenExprFor, w_subtype)
@@ -2124,7 +2124,7 @@ class GenExprInner(Node):
     def fset_quals( space, self, w_arg):
         del self.quals[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.quals.append( space.interp_w(Node, w_arg))
+            self.quals.append( space.interp_w(Node, w_itm))
 
 def descr_GenExprInner_new(space, w_subtype, w_expr, w_quals, lineno=-1):
     self = space.allocate_instance(GenExprInner, w_subtype)
@@ -2519,13 +2519,13 @@ class Lambda(AbstractFunction):
     def fset_argnames( space, self, w_arg):
         del self.argnames[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.argnames.append( space.interp_w(Node, w_arg))
+            self.argnames.append( space.interp_w(Node, w_itm))
     def fget_defaults( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.defaults] )
     def fset_defaults( space, self, w_arg):
         del self.defaults[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.defaults.append( space.interp_w(Node, w_arg))
+            self.defaults.append( space.interp_w(Node, w_itm))
     def fget_flags( space, self):
         return space.wrap(self.flags)
     def fset_flags( space, self, w_arg):
@@ -2636,7 +2636,7 @@ class List(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_List_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(List, w_subtype)
@@ -2690,7 +2690,7 @@ class ListComp(Node):
     def fset_quals( space, self, w_arg):
         del self.quals[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.quals.append( space.interp_w(Node, w_arg))
+            self.quals.append( space.interp_w(Node, w_itm))
 
 def descr_ListComp_new(space, w_subtype, w_expr, w_quals, lineno=-1):
     self = space.allocate_instance(ListComp, w_subtype)
@@ -2754,7 +2754,7 @@ class ListCompFor(Node):
     def fset_ifs( space, self, w_arg):
         del self.ifs[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.ifs.append( space.interp_w(Node, w_arg))
+            self.ifs.append( space.interp_w(Node, w_itm))
 
 def descr_ListCompFor_new(space, w_subtype, w_assign, w_list, w_ifs, lineno=-1):
     self = space.allocate_instance(ListCompFor, w_subtype)
@@ -3109,7 +3109,7 @@ class Or(AbstractTest):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Or_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Or, w_subtype)
@@ -3242,7 +3242,7 @@ class Print(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
     def fget_dest( space, self):
         if self.dest is None:
             return space.w_None
@@ -3303,7 +3303,7 @@ class Printnl(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
     def fget_dest( space, self):
         if self.dest is None:
             return space.w_None
@@ -3613,7 +3613,7 @@ class Sliceobj(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Sliceobj_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Sliceobj, w_subtype)
@@ -3658,7 +3658,7 @@ class Stmt(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Stmt_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Stmt, w_subtype)
@@ -3767,7 +3767,7 @@ class Subscript(Node):
     def fset_subs( space, self, w_arg):
         del self.subs[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.subs.append( space.interp_w(Node, w_arg))
+            self.subs.append( space.interp_w(Node, w_itm))
 
 def descr_Subscript_new(space, w_subtype, w_expr, w_flags, w_subs, lineno=-1):
     self = space.allocate_instance(Subscript, w_subtype)
@@ -3967,7 +3967,7 @@ class Tuple(Node):
     def fset_nodes( space, self, w_arg):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
-            self.nodes.append( space.interp_w(Node, w_arg))
+            self.nodes.append( space.interp_w(Node, w_itm))
 
 def descr_Tuple_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Tuple, w_subtype)
