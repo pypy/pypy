@@ -213,8 +213,12 @@ class LLFrame(object):
                 if link.llexitcase == llexitvalue:
                     break   # found -- the result is in 'link'
             else:
-                raise ValueError("exit case %r not found in the exit links "
-                                 "of %r" % (llexitvalue, block))
+                if block.exits[-1].exitcase == "default":
+                    assert block.exits[-1].llexitcase is None
+                    link = block.exits[-1]
+                else:
+                    raise ValueError("exit case %r not found in the exit links "
+                                     "of %r" % (llexitvalue, block))
         return link.target, [self.getval(x) for x in link.args]
 
     def eval_operation(self, operation):

@@ -2,6 +2,7 @@ from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks_once, mer
 from pypy.translator.translator import TranslationContext, graphof as tgraphof
 from pypy.objspace.flow.model import flatten, Block
 from pypy.translator.backendopt.removenoops import remove_same_as
+from pypy.rpython.llinterp import LLInterpreter
 
 def test_merge1():
     def merge1(n):
@@ -24,6 +25,10 @@ def test_merge1():
     merge_if_blocks_once(graph)
     assert len(graph.startblock.exits) == 4
     assert len(list(graph.iterblocks())) == 2 #startblock, returnblock
+    interp = LLInterpreter(rtyper)
+    for i in range(4):
+        res = interp.eval_graph(graph, [i])
+        assert res == i + 1
 
 def test_merge_passonvars():
     def merge(n, m):
@@ -44,6 +49,10 @@ def test_merge_passonvars():
     remove_same_as(graph)
     merge_if_blocks_once(graph)
     assert len(graph.startblock.exits) == 4
+    interp = LLInterpreter(rtyper)
+    for i in range(1, 5):
+        res = interp.eval_graph(graph, [i, 1])
+        assert res == i + 1
 
 def test_merge_several():
     def merge(n, m):
@@ -70,6 +79,16 @@ def test_merge_several():
     merge_if_blocks(graph)
     assert len(graph.startblock.exits) == 3
     assert len(list(graph.iterblocks())) == 3
+    interp = LLInterpreter(rtyper)
+    for m in range(3):
+        res = interp.eval_graph(graph, [0, m])
+        assert res == m
+    res = interp.eval_graph(graph, [1, 0])
+    assert res == 4
+    res = interp.eval_graph(graph, [2, 0])
+    assert res == 6
+
+
 
 def test_dont_merge():
     def merge(n, m):
@@ -91,3 +110,4 @@ def test_dont_merge():
     blocknum = len(list(graph.iterblocks()))
     merge_if_blocks(graph)
     assert blocknum == len(list(graph.iterblocks()))
+
