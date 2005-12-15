@@ -3,28 +3,6 @@ from pypy.translator.backendopt.support import log
 
 log = log.mergeifblocks
 
-'''
-[backendopt:mergeifblocks] merge1
-[backendopt:mergeifblocks] 1
-[backendopt:mergeifblocks] int_eq, args[n_0, (1)], result=v0
-[backendopt:mergeifblocks] exitswitch...v0
-[backendopt:mergeifblocks] exits...(link from block@-1 to block@-1, link from block@-1 to codeless block)
-[backendopt:mergeifblocks] merge1
-[backendopt:mergeifblocks] 1
-[backendopt:mergeifblocks] int_eq, args[n_1, (2)], result=v1
-[backendopt:mergeifblocks] exitswitch...v1
-[backendopt:mergeifblocks] exits...(link from block@-1 to block@-1, link from block@-1 to codeless block)
-[backendopt:mergeifblocks] merge1
-[backendopt:mergeifblocks] 1
-[backendopt:mergeifblocks] int_eq, args[v2, (3)], result=v3
-[backendopt:mergeifblocks] exitswitch...v3
-[backendopt:mergeifblocks] exits...(link from block@-1 to codeless block, link from block@-1 to codeless block)
-[backendopt:mergeifblocks] merge1
-[backendopt:mergeifblocks] 0
-[backendopt:mergeifblocks] exitswitch...None
-[backendopt:mergeifblocks] exits...()  
-'''
-
 def is_chain_block(block, first=False):
     if len(block.operations) == 0:
         return False
@@ -42,7 +20,6 @@ def merge_chain(chain, checkvar, varmap):
         if isinstance(var_or_const, Constant):
             return var_or_const
         return varmap[var_or_const]
-    print chain, checkvar
     firstblock, case = chain[0]
     firstblock.operations = firstblock.operations[:-1]
     firstblock.exitswitch = checkvar 
@@ -69,7 +46,6 @@ def merge_if_blocks_once(graph):
     """
     candidates = [block for block in graph.iterblocks()
                       if is_chain_block(block, first=True)]
-    print "candidates", candidates
     for firstblock in candidates:
         chain = []
         checkvars = []
@@ -113,5 +89,11 @@ def merge_if_blocks_once(graph):
             break
     else:
         return False
+    log("merging blocks in %s" % (graph.name, ))
     merge_chain(chain, checkvars[0], varmap)
     checkgraph(graph)
+    return True
+
+def merge_if_blocks(graph):
+    while merge_if_blocks_once(graph):
+        pass
