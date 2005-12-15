@@ -1,4 +1,5 @@
-from pypy.objspace.flow.model import Block, Constant, Variable, flatten, checkgraph
+from pypy.objspace.flow.model import Block, Constant, Variable, flatten
+from pypy.objspace.flow.model import checkgraph, mkentrymap
 from pypy.translator.backendopt.support import log
 
 log = log.mergeifblocks
@@ -46,6 +47,7 @@ def merge_if_blocks_once(graph):
     """
     candidates = [block for block in graph.iterblocks()
                       if is_chain_block(block, first=True)]
+    entrymap = mkentrymap(graph)
     for firstblock in candidates:
         chain = []
         checkvars = []
@@ -72,11 +74,9 @@ def merge_if_blocks_once(graph):
             falseexit = current.exits[0]
             assert not falseexit.exitcase
             trueexit = current.exits[1]
-            for i, var in enumerate(trueexit.args):
-                add_to_varmap(var, trueexit.target.inputargs[i])
-            for i, var in enumerate(falseexit.args):
-                add_to_varmap(var, falseexit.target.inputargs[i])
             targetblock = falseexit.target
+            if len(entrymap[targetblock]) != 1:
+                break
             if checkvar not in falseexit.args:
                 break
             newcheckvar = targetblock.inputargs[falseexit.args.index(checkvar)]
@@ -84,6 +84,10 @@ def merge_if_blocks_once(graph):
                 break
             if newcheckvar not in targetblock.operations[0].args:
                 break
+            for i, var in enumerate(trueexit.args):
+                add_to_varmap(var, trueexit.target.inputargs[i])
+            for i, var in enumerate(falseexit.args):
+                add_to_varmap(var, falseexit.target.inputargs[i])
             current = targetblock
         if len(chain) > 1:
             break

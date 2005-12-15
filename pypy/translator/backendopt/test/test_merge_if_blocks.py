@@ -71,4 +71,23 @@ def test_merge_several():
     assert len(graph.startblock.exits) == 3
     assert len(list(graph.iterblocks())) == 3
 
-            
+def test_dont_merge():
+    def merge(n, m):
+        r = -1
+        if n == 0:
+            r += m
+        if n == 1:
+            r += 2 * m
+        else:
+            r += 6
+        return r
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(merge, [int, int])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    graph = tgraphof(t, merge)
+    remove_same_as(graph)
+    blocknum = len(list(graph.iterblocks()))
+    merge_if_blocks(graph)
+    assert blocknum == len(list(graph.iterblocks()))
