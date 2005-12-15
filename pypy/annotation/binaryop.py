@@ -2,6 +2,7 @@
 Binary operations between SomeValues.
 """
 
+import py
 import operator
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
@@ -572,57 +573,32 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
     def union((obj1, imp2)):
         return obj1
 
-class __extend__(pairtype(SomeInstance, SomePBC)):
-    def union((ins, pbc)):
-        if pbc.isNone():
-            return SomeInstance(classdef=ins.classdef, can_be_None = True)
-        raise UnionError("mixing pbc and instance not supported anymore:  %s %s" % (pbc, ins))
-        # XXX is the following still useful?
-        #classdef = ins.classdef.superdef_containing(pbc.knowntype)
-        #if classdef is None:
-        #    # print warning?
-        #    return SomeObject()
-        #if not getattr(TLS, 'no_side_effects_in_union', 0):
-        #    raise UnionError("mixing pbc and instance not supported anymore:  %s %s" % (pbc, ins))
-        #return SomeInstance(classdef)
+# mixing Nones with other objects
 
-class __extend__(pairtype(SomePBC, SomeInstance)):
-    def union((pbc, ins)):
-        return pair(ins, pbc).union()
+def _make_none_union(classname, constructor_args=''):
+    loc = locals()
+    source = py.code.Source("""
+        class __extend__(pairtype(%(classname)s, SomePBC)):
+            def union((obj, pbc)):
+                if pbc.isNone():
+                    return %(classname)s(%(constructor_args)s)
+                else:
+                    return SomeObject()
 
-# let mix lists and None for now
-class __extend__(pairtype(SomeList, SomePBC)):
-    def union((lst, pbc)):
-        if pbc.isNone():
-            return SomeList(lst.listdef)
-        return SomeObject()
+        class __extend__(pairtype(SomePBC, %(classname)s)):
+            def union((pbc, obj)):
+                if pbc.isNone():
+                    return %(classname)s(%(constructor_args)s)
+                else:
+                    return SomeObject()
+    """ % loc)
+    exec source.compile() in globals()
 
-class __extend__(pairtype(SomePBC, SomeList    )):
-    def union((pbc, lst)):
-        return pair(lst, pbc).union()
-
-# let mix dicts and None
-class __extend__(pairtype(SomeDict, SomePBC)):
-    def union((dct, pbc)):
-        if pbc.isNone():
-            return SomeDict(dct.dictdef)
-        return SomeObject()
-
-class __extend__(pairtype(SomePBC, SomeDict    )):
-    def union((pbc, dct)):
-        return pair(dct, pbc).union()
-
-# mixing strings and None
-
-class __extend__(pairtype(SomeString, SomePBC)):
-    def union((s, pbc)):
-        if pbc.isNone():
-            return SomeString(can_be_None=True)
-        return SomeObject()
-
-class __extend__(pairtype(SomePBC, SomeString    )):
-    def union((pbc, s)):
-        return pair(s, pbc).union()
+_make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
+_make_none_union('SomeString',      'can_be_None=True')
+_make_none_union('SomeList',         'obj.listdef')
+_make_none_union('SomeDict',          'obj.dictdef')
+_make_none_union('SomeExternalObject', 'obj.knowntype')
 
 # getitem on SomePBCs, in particular None fails
 

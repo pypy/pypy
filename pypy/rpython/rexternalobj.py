@@ -32,7 +32,7 @@ class ExternalObjRepr(Repr):
     def convert_const(self, value):
         T = self.exttypeinfo.get_lltype()
         if value is None:
-            return nullptr(T)
+            return lltype.nullptr(T)
         if not isinstance(value, self.exttypeinfo.typ):
             raise TyperError("expected a %r: %r" % (self.exttypeinfo.typ,
                                                     value))
