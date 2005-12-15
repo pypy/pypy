@@ -38,7 +38,8 @@ def test_casttoandfromint():
         i = cast_object_to_int(a)
         return cast_object_to_int(cast_int_to_object(i, A)) == i
     res = interpret(f, [])
-    assert res > 0
+    # cannot really check anything about 'res' here
+
     # XXX humpf: there is no sane way to implement cast_ptr_to_int
     # without going for the same hacks as in robjectmodel.cast_XXX_to_XXX
     py.test.raises(AssertionError, interpret, g, [])
