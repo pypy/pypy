@@ -301,7 +301,8 @@ class FunctionsPBCRepr(CanBeNull, Repr):
     def call(self, opname, hop):
         bk = self.rtyper.annotator.bookkeeper
         args = bk.build_args(opname, hop.args_s[1:])
-        descs = self.s_pbc.descriptions.keys()
+        s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
+        descs = s_pbc.descriptions.keys()
         shape, index = description.FunctionDesc.variant_for_call_site(bk, self.callfamily, descs, args)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness

@@ -206,7 +206,10 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         mangled_name, r_func = r_class.clsfields[self.methodname]
         assert isinstance(r_func, (FunctionsPBCRepr,
                                    OverriddenFunctionPBCRepr))
-        s_func = r_func.s_pbc
+        # s_func = r_func.s_pbc -- not precise enough, see
+        # test_precise_method_call_1.  Build a more precise one...
+        funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
+        s_func = annmodel.SomePBC(funcdescs)
         v_im_self = hop.inputarg(self, arg=0)
         v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
         v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
