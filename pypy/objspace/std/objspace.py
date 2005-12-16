@@ -230,6 +230,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
+        # You might notice that this function is rather conspicuously
+        # not RPython.  We can get away with this because the function
+        # is speicalized (see after the function body).  Also worth
+        # noting is that the isinstance's involving integer types
+        # behave rather differently to how you might expect during
+        # annotation (see pypy/annotation/builtin.py)
         if x is None:
             return self.w_None
         if isinstance(x, W_Object):
@@ -260,10 +266,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
-        if isinstance(x, long):
+        if isinstance(x, r_longlong):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
-        if isinstance(x, r_longlong):
+        if isinstance(x, long):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
         if isinstance(x, slice):
