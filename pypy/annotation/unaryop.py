@@ -2,7 +2,6 @@
 Unary operations on SomeValues.
 """
 
-from types import FunctionType
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
