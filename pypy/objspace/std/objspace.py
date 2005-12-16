@@ -232,7 +232,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         "Wraps the Python value 'x' into one of the wrapper classes."
         # You might notice that this function is rather conspicuously
         # not RPython.  We can get away with this because the function
-        # is speicalized (see after the function body).  Also worth
+        # is specialized (see after the function body).  Also worth
         # noting is that the isinstance's involving integer types
         # behave rather differently to how you might expect during
         # annotation (see pypy/annotation/builtin.py)
