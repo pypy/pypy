@@ -12,6 +12,7 @@ from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.objectmodel import we_are_translated
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -46,6 +47,17 @@ class PyInterpFrame(pyframe.PyFrame):
     # 'dispatch_table_w_arg: list of functions/None 
     # Currently, they are always setup in pyopcode.py
     # but it could be a custom table.
+
+    # note: __initclass__ might override dispatch() with a more efficient version
+    def dispatch(self):
+        opcode = self.nextop()
+        if self.opcode_has_arg[opcode]:
+            fn = self.dispatch_table_w_arg[opcode]
+            oparg = self.nextarg()
+            fn(self, oparg)
+        else:
+            fn = self.dispatch_table_no_arg[opcode] 
+            fn(self)
 
     def nextop(self):
         c = self.pycode.co_code[self.next_instr]
@@ -768,21 +780,24 @@ class PyInterpFrame(pyframe.PyFrame):
         cls.dispatch_table_w_arg = dispatch_table_w_arg
 
         #XXX performance hack!
-
-        ### create unrolled dispatch loop ###
-        import py
-        dispatch_code  = 'def dispatch(self):\n'
-        dispatch_code += '    opcode = self.nextop()\n'
-        for i in range(256):
-            dispatch_code += '    %s opcode == %d:\n' % (('if', 'elif')[i > 0], i)
-            opcode_has_arg = i >= dis.HAVE_ARGUMENT
-            opname         = dis.opname[i].replace('+', '_')
-            missingname    = ('MISSING_OPCODE', 'MISSING_OPCODE_W_ARG')[opcode_has_arg]
-            func_name      = (missingname, opname)[hasattr(cls, opname)]
-            dispatch_code += '        self.%s(%s)\n'  % (func_name, ('', 'self.nextarg()')[opcode_has_arg])
-        exec py.code.Source(dispatch_code).compile()
-        cls.dispatch = dispatch
-        del dispatch_code, i, opcode_has_arg, opname, missingname, func_name
+        if we_are_translated(): ### create unrolled dispatch thingy ###
+            import py
+            dispatch_code  = 'def dispatch(self):\n'
+            dispatch_code += '    opcode = self.nextop()\n'
+            n_outputed = 0
+            for i in range(256):
+                opname         = dis.opname[i].replace('+', '_')
+                if not hasattr(cls, opname):
+                    continue
+                dispatch_code += '    %s opcode == %d:\n' % (('if', 'elif')[n_outputed > 0], i)
+                opcode_has_arg = cls.opcode_has_arg[i]
+                dispatch_code += '        self.%s(%s)\n'  % (opname, ('', 'self.nextarg()')[opcode_has_arg])
+                n_outputed += 1
+            dispatch_code += '    else:\n'
+            dispatch_code += '        self.MISSING_OPCODE()\n'
+            exec py.code.Source(dispatch_code).compile()
+            cls.dispatch = dispatch
+            del dispatch_code, i, opcode_has_arg, opname
  
 
 ### helpers written at the application-level ###
