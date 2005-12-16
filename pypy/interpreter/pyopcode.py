@@ -47,16 +47,6 @@ class PyInterpFrame(pyframe.PyFrame):
     # Currently, they are always setup in pyopcode.py
     # but it could be a custom table.
 
-    def dispatch(self):
-        opcode = self.nextop()
-        if self.opcode_has_arg[opcode]:
-            fn = self.dispatch_table_w_arg[opcode]
-            oparg = self.nextarg()
-            fn(self, oparg)
-        else:
-            fn = self.dispatch_table_no_arg[opcode] 
-            fn(self)
-
     def nextop(self):
         c = self.pycode.co_code[self.next_instr]
         self.next_instr += 1
@@ -777,6 +767,21 @@ class PyInterpFrame(pyframe.PyFrame):
         cls.dispatch_table_no_arg = dispatch_table_no_arg
         cls.dispatch_table_w_arg = dispatch_table_w_arg
 
+        ### create unrolled dispatch loop ###
+        import py
+        dispatch_code  = 'def dispatch(self):\n'
+        dispatch_code += '    opcode = self.nextop()\n'
+        for i in range(256):
+            dispatch_code += '    %s opcode == %d:\n' % (('if', 'elif')[i > 0], i)
+            opcode_has_arg = i >= dis.HAVE_ARGUMENT
+            opname         = dis.opname[i].replace('+', '_')
+            missingname    = ('MISSING_OPCODE', 'MISSING_OPCODE_W_ARG')[opcode_has_arg]
+            func_name      = (missingname, opname)[hasattr(cls, opname)]
+            dispatch_code += '        self.%s(%s)\n'  % (func_name, ('', 'self.nextarg()')[opcode_has_arg])
+        exec py.code.Source(dispatch_code).compile()
+        cls.dispatch = dispatch
+        del dispatch_code, i, opcode_has_arg, opname, missingname, func_name
+ 
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
