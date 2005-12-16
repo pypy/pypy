@@ -1,4 +1,6 @@
-from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks_once, merge_if_blocks
+from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks_once
+from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof as tgraphof
 from pypy.objspace.flow.model import flatten, Block
 from pypy.translator.backendopt.removenoops import remove_same_as
@@ -107,6 +109,22 @@ def test_dont_merge():
     rtyper.specialize()
     graph = tgraphof(t, merge)
     remove_same_as(graph)
+    blocknum = len(list(graph.iterblocks()))
+    merge_if_blocks(graph)
+    assert blocknum == len(list(graph.iterblocks()))
+
+def test_two_constants():
+    def fn():
+        r = range(10, 37, 4)
+        r.reverse()
+        return r[0]
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, [])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    backend_optimizations(t, merge_if_blocks_to_switch=True)
+    graph = tgraphof(t, fn)
     blocknum = len(list(graph.iterblocks()))
     merge_if_blocks(graph)
     assert blocknum == len(list(graph.iterblocks()))

@@ -14,6 +14,8 @@ def is_chain_block(block, first=False):
         return False
     if isinstance(op.args[0], Variable) and isinstance(op.args[1], Variable):
         return False
+    if isinstance(op.args[0], Constant) and isinstance(op.args[1], Constant):
+        return False
     return True
 
 def merge_chain(chain, checkvar, varmap):
