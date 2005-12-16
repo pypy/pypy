@@ -767,6 +767,8 @@ class PyInterpFrame(pyframe.PyFrame):
         cls.dispatch_table_no_arg = dispatch_table_no_arg
         cls.dispatch_table_w_arg = dispatch_table_w_arg
 
+        #XXX performance hack!
+
         ### create unrolled dispatch loop ###
         import py
         dispatch_code  = 'def dispatch(self):\n'
