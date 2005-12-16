@@ -95,3 +95,27 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         res = gn()
         assert res
     
+
+
+class TestTypedOptimizedSwitchTestCase:
+
+    class CodeGenerator(_TestTypedTestCase):
+        def process(self, t):
+            _TestTypedTestCase.process(self, t)
+            self.t = t
+            backend_optimizations(t, merge_if_blocks_to_switch=True)
+
+    def test_switch(self):
+        def f(x=int):
+            if x == 3:
+                return 9
+            elif x == 9:
+                return 27
+            elif x == 27:
+                return 3
+            return 0
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in (0,1,2,3,9,27,48, -9):
+            assert fn(x) == f(x)
+

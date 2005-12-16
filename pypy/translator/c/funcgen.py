@@ -5,7 +5,7 @@ from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, c_last_exception
 from pypy.rpython.lltypesystem.lltype import \
-     Ptr, PyObject, Void, Bool, pyobjectptr, Struct, Array
+     Ptr, PyObject, Void, Bool, Signed, pyobjectptr, Struct, Array
 
 
 PyObjPtr = Ptr(PyObject)
@@ -320,33 +320,55 @@ class FunctionCodeGenerator(object):
             else:
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
-                for link in block.exits[:-1]:
-                    assert link.exitcase in (False, True)
+                if TYPE in (Bool, PyObjPtr):
                     expr = self.expr(block.exitswitch)
-                    if TYPE == Bool:
-                        if not link.exitcase:
-                            expr = '!' + expr
-                    elif TYPE == PyObjPtr:
-                        yield 'assert(%s == Py_True || %s == Py_False);' % (
-                            expr, expr)
-                        if link.exitcase:
-                            expr = '%s == Py_True' % expr
-                        else:
-                            expr = '%s == Py_False' % expr
-                    else:
-                        raise TypeError("switches can only be on Bool or "
-                                        "PyObjPtr.  Got %r" % (TYPE,))
-                    yield 'if (%s) {' % expr
-                    for op in gen_link(link):
+                    for link in block.exits[:-1]:
+                        assert link.exitcase in (False, True)
+                        if TYPE == Bool:
+                            if not link.exitcase:
+                                expr = '!' + expr
+                        elif TYPE == PyObjPtr:
+                            yield 'assert(%s == Py_True || %s == Py_False);' % (
+                                expr, expr)
+                            if link.exitcase:
+                                expr = '%s == Py_True' % expr
+                            else:
+                                expr = '%s == Py_False' % expr
+                        yield 'if (%s) {' % expr
+                        for op in gen_link(link):
+                            yield '\t' + op
+                        yield '}'
+                    link = block.exits[-1]
+                    assert link.exitcase in (False, True)
+                    #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
+                    #                       self.genc.nameofvalue(link.exitcase, ct))
+                    for op in gen_link(block.exits[-1]):
+                        yield op
+                    yield ''
+                elif TYPE == Signed:
+                    defaultlink = None
+                    expr = self.expr(block.exitswitch)
+                    yield 'switch (%s) {' % self.expr(block.exitswitch)
+                    for link in block.exits:
+                        if link.exitcase is 'default':
+                            defaultlink = link
+                            continue
+                        yield 'case %s:' % link.llexitcase
+                        for op in gen_link(link):
+                            yield '\t' + op
+                        yield 'break;'
+                        
+                    # ? Emit default case
+                    if defaultlink is None:
+                        raise TypeError('switches must have a default case.')
+                    yield 'default:'
+                    for op in gen_link(defaultlink):
                         yield '\t' + op
+
                     yield '}'
-                link = block.exits[-1]
-                assert link.exitcase in (False, True)
-                #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
-                #                       self.genc.nameofvalue(link.exitcase, ct))
-                for op in gen_link(block.exits[-1]):
-                    yield op
-                yield ''
+                else:
+                    raise TypeError("switches can only be on Bool or "
+                                    "PyObjPtr.  Got %r" % (TYPE,))
 
             for i in range(reachable_err, -1, -1):
                 if not fallthrough:
