@@ -48,8 +48,13 @@ class PyInterpFrame(pyframe.PyFrame):
     # Currently, they are always setup in pyopcode.py
     # but it could be a custom table.
 
-    # note: __initclass__ might override dispatch() with a more efficient version
     def dispatch(self):
+        if we_are_translated():
+            self.dispatch_translated()
+        else:
+            self.dispatch_not_translated()
+
+    def dispatch_not_translated(self):
         opcode = self.nextop()
         if self.opcode_has_arg[opcode]:
             fn = self.dispatch_table_w_arg[opcode]
@@ -780,24 +785,25 @@ class PyInterpFrame(pyframe.PyFrame):
         cls.dispatch_table_w_arg = dispatch_table_w_arg
 
         #XXX performance hack!
-        if we_are_translated(): ### create unrolled dispatch thingy ###
-            import py
-            dispatch_code  = 'def dispatch(self):\n'
-            dispatch_code += '    opcode = self.nextop()\n'
-            n_outputed = 0
-            for i in range(256):
-                opname         = dis.opname[i].replace('+', '_')
-                if not hasattr(cls, opname):
-                    continue
-                dispatch_code += '    %s opcode == %d:\n' % (('if', 'elif')[n_outputed > 0], i)
-                opcode_has_arg = cls.opcode_has_arg[i]
-                dispatch_code += '        self.%s(%s)\n'  % (opname, ('', 'self.nextarg()')[opcode_has_arg])
-                n_outputed += 1
-            dispatch_code += '    else:\n'
-            dispatch_code += '        self.MISSING_OPCODE()\n'
-            exec py.code.Source(dispatch_code).compile()
-            cls.dispatch = dispatch
-            del dispatch_code, i, opcode_has_arg, opname
+        ### Create dispatch with a lot of if,elifs ###
+        ### (this gets optimized for translated pypy by the merge_if_blocks transformation) ###
+        import py
+        dispatch_code  = 'def dispatch_translated(self):\n'
+        dispatch_code += '    opcode = self.nextop()\n'
+        n_outputed = 0
+        for i in range(256):
+            opname         = dis.opname[i].replace('+', '_')
+            if not hasattr(cls, opname):
+                continue
+            dispatch_code += '    %s opcode == %d:\n' % (('if', 'elif')[n_outputed > 0], i)
+            opcode_has_arg = cls.opcode_has_arg[i]
+            dispatch_code += '        self.%s(%s)\n'  % (opname, ('', 'self.nextarg()')[opcode_has_arg])
+            n_outputed += 1
+        dispatch_code += '    else:\n'
+        dispatch_code += '        self.MISSING_OPCODE()\n'
+        exec py.code.Source(dispatch_code).compile()
+        cls.dispatch_translated = dispatch_translated
+        del dispatch_code, i, opcode_has_arg, opname
  
 
 ### helpers written at the application-level ###
