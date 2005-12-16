@@ -63,6 +63,7 @@ def abstrinterp(ll_function, argvalues, arghints, policy=Policy()):
 
 P_INLINE = Policy(inlining=True)
 P_CONST_INLINE = Policy(inlining=True, const_propagate=True)
+P_HINT_DRIVEN = Policy(inlining=True, concrete_propagate=False)
 
 
 def test_simple():
@@ -333,3 +334,28 @@ def test_dont_unroll_loop():
         return result
     graph2, insns = abstrinterp(ll_factorial, [7], [], policy=P_CONST_INLINE)
     assert insns == {'int_lt': 1, 'int_add': 1, 'int_mul': 1}
+
+def INPROGRESS_test_hint():
+    from pypy.rpython.objectmodel import hint
+    A = lltype.GcArray(lltype.Char)
+    def ll_interp(code):
+        accum = 0
+        pc = 0
+        while pc < len(code):
+            opcode = hint(code[pc], concrete=True)
+            pc += 1
+            if opcode == 'A':
+                accum += 6
+            elif opcode == 'B':
+                if accum < 20:
+                    pc = 0
+        return accum
+    bytecode = lltype.malloc(A, 5)
+    bytecode[0] = 'A'
+    bytecode[1] = 'A'
+    bytecode[2] = 'A'
+    bytecode[3] = 'B'
+    bytecode[4] = 'A'
+    graph2, insns = abstrinterp(ll_interp, [bytecode], [],
+                                policy=P_HINT_DRIVEN)
+    assert insns == {'int_add': 4, 'int_lt': 1}

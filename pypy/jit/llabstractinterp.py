@@ -434,9 +434,11 @@ class LLSuspendedBlockState(LLBlockState):
 # ____________________________________________________________
 
 class Policy(object):
-    def __init__(self, inlining=False, const_propagate=False):
+    def __init__(self, inlining=False, const_propagate=False,
+                       concrete_propagate=True):
         self.inlining = inlining
         self.const_propagate = const_propagate
+        self.concrete_propagate = concrete_propagate
 
 best_policy = Policy(inlining=True, const_propagate=True)
 
@@ -743,7 +745,7 @@ class BlockBuilder(object):
         # can constant-fold
         print 'fold:', constant_op, concretevalues
         concreteresult = constant_op(*concretevalues)
-        if any_concrete:
+        if any_concrete and self.policy.concrete_propagate:
             return LLConcreteValue(concreteresult)
         else:
             return LLRuntimeValue(const(concreteresult))
