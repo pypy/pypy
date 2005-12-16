@@ -271,6 +271,12 @@ class LLVirtualStruct(LLVirtualContainer):
     """Stands for a pointer to a malloc'ed structure; the structure is not
     malloc'ed so far, but we record which fields have which value.
     """
+    def __repr__(self):
+        items = self.fields.items()
+        items.sort()
+        flds = ['%s=%r' % item for item in items]
+        return '<virtual %s %s>' % (self.T._name, ', '.join(flds))
+
     def getnames(self):
         return self.T._names
 
@@ -288,6 +294,12 @@ class LLVirtualArray(LLVirtualContainer):
     malloc'ed so far, but we record which fields have which value -- here
     a field is an item, indexed by an integer instead of a string field name.
     """
+    def __repr__(self):
+        items = self.fields.items()
+        items.sort()
+        flds = ['%s=%r' % item for item in items]
+        return '<virtual [%s]>' % (', '.join(flds),)
+
     def getnames(self):
         c = self.a_length.maybe_get_constant()
         assert c is not None
@@ -802,6 +814,9 @@ class BlockBuilder(object):
 
     def op_cast_char_to_int(self, op, a):
         return self.residualize(op, [a], ord)
+
+    def op_cast_bool_to_int(self, op, a):
+        return self.residualize(op, [a], int)
 
     def op_same_as(self, op, a):
         return a
