@@ -50,6 +50,7 @@ opts = {
 
     '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'none'])],
     '3_stackless': [OPT(('--stackless',), "Stackless code generation", True)],
+    '4_merge_if_blocks': [OPT(('--merge_if_blocks',), "Merge if ... elif ... chains and use a switch statement for them.", True)],
     },
 
 
@@ -101,6 +102,7 @@ defaults = {
     'gc': 'boehm',
     'backend': 'c',
     'stackless': False,
+    'merge_if_blocks': False,
     
     'batch': False,
     'text': False,
