@@ -64,6 +64,23 @@ class BuiltinFunctionRepr(Repr):
         hop2.r_s_popfirstarg()
         return bltintyper(hop2)
 
+    def rtype_call_args(self, hop):
+        # calling a built-in function with keyword arguments:
+        # mostly for rpython.objectmodel.hint()
+        from pypy.interpreter.argument import Arguments
+        arguments = Arguments.fromshape(None, hop.args_s[1].const, # shape
+                                        hop.args_s[2:])
+        args_s, kwds = arguments.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
+        bltintyper = BUILTIN_TYPER[self.builtinfunc]
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        hop2.r_s_popfirstarg()
+        return bltintyper(hop2, **kwds_s)
+
 
 class BuiltinMethodRepr(Repr):
 
@@ -390,3 +407,18 @@ def rtype_keepalive_until_here(hop):
     return hop.inputconst(lltype.Void, None)
 
 BUILTIN_TYPER[objectmodel.keepalive_until_here] = rtype_keepalive_until_here
+
+# hint
+
+def rtype_hint(hop, **kwds_s):
+    hints = {}
+    for key, s_value in kwds_s.items():
+        if not s_value.is_constant():
+            raise TyperError("hint %r is not constant" % (key,))
+        assert key.startswith('s_')
+        hints[key[2:]] = s_value.const
+    v = hop.inputarg(hop.args_r[0], arg=0)
+    c_hint = hop.inputconst(lltype.Void, hints)
+    return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
+
+BUILTIN_TYPER[objectmodel.hint] = rtype_hint

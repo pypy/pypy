@@ -503,12 +503,15 @@ class __extend__(SomeBuiltin):
             return bltn.analyser(*args)
 
     def call(bltn, args, implicit_init=False):
-        args, kw = args.unpack()
-        assert not kw, "don't call builtins with keywords arguments"
+        args_s, kwds = args.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
         if bltn.s_self is not None:
-            return bltn.analyser(bltn.s_self, *args)
+            return bltn.analyser(bltn.s_self, *args_s, **kwds_s)
         else:
-            return bltn.analyser(*args)
+            return bltn.analyser(*args_s, **kwds_s)
 
 
 class __extend__(SomePBC):

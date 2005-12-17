@@ -271,6 +271,9 @@ class LLFrame(object):
     def op_same_as(self, x):
         return x
 
+    def op_hint(self, x, hints):
+        return x
+
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
         FIELDTYPE = getattr(self.llt.typeOf(obj).TO, fieldname)

@@ -20,6 +20,9 @@ def we_are_translated():
 def keepalive_until_here(*values):
     pass
 
+def hint(x, **kwds):
+    return x
+
 
 class FREED_OBJECT(object):
     def __getattribute__(self, attr):

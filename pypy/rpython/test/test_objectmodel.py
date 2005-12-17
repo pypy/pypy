@@ -190,3 +190,11 @@ def test_rtype_keepalive():
 
     res = interpret(f, [])
     assert res == 1
+
+def test_hint():
+    from pypy.rpython import objectmodel
+    def f():
+        x = objectmodel.hint(5, hello="world")
+        return x
+    res = interpret(f, [])
+    assert res == 5

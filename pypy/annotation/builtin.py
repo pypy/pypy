@@ -298,6 +298,9 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
 
+def robjmodel_hint(s, **kwds_s):
+    return s
+
 def rstack_yield_current_frame_to_caller():
     return SomeExternalObject(pypy.rpython.rstack.frame_stack_top)
     
@@ -343,6 +346,7 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hint] = robjmodel_hint
 BUILTIN_ANALYZERS[pypy.rpython.rstack.yield_current_frame_to_caller] = (
     rstack_yield_current_frame_to_caller)
 
