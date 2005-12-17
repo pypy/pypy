@@ -32,7 +32,7 @@ function ll_stackless_stack_frames_depth() {
     }
     return result;
 }
-ll_stackless_stack_frames_depth__ = ll_stackless_stack_frames_depth
+ll_stackless_stack_frames_depth__ = ll_stackless_stack_frames_depth;
 
 //
 
@@ -86,7 +86,7 @@ function ll_stack_unwind() {
     LOG('slp_frame_stack_top='+slp_frame_stack_top + ', slp_frame_stack_bottom='+slp_frame_stack_bottom)
     return slp_return_value;
 }
-ll_stack_unwind__ = ll_stack_unwind
+ll_stack_unwind__ = ll_stack_unwind;
 
 function    slp_return_current_frame_to_caller() {
     LOG("slp_return_current_frame_to_caller");

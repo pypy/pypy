@@ -17,6 +17,7 @@ from pypy.tool.udir import udir
 from pypy.translator.js.node import Node
 from pypy.translator.js.database import Database 
 from pypy.translator.js.codewriter import CodeWriter
+from pypy.translator.js.optimize import optimize_filesize
 from pypy.translator.js.log import log
 from pypy.translator.js import conftest
 
@@ -27,11 +28,12 @@ def _path_join(root_path, *paths):
     return path
 
 class JS(object):   # JS = Javascript
-    def __init__(self, translator, entrypoint=None, stackless=False, logging=False):
-        self.db = Database(translator)
+    def __init__(self, translator, entrypoint=None, stackless=False, compress=False, logging=False):
         self.entrypoint = entrypoint or translator.entrypoint
         self.stackless  = stackless or conftest.option.jsstackless
+        self.compress   = compress or conftest.option.jscompress
         self.logging    = logging or conftest.option.jslog
+        self.db = Database(translator, self)
 
     def write_source(self):
         func = self.entrypoint
@@ -39,12 +41,6 @@ class JS(object):   # JS = Javascript
         ptr  = getfunctionptr(bk.getdesc(func).cachedgraph(None))
         c    = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
-
-        #add exception matching function (XXX should only be done when needed)
-        e          = self.db.translator.rtyper.getexceptiondata()
-        matchptr   = e.fn_exception_match
-        matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
-        self.db.prepare_arg_value(matchconst)
 
         # set up all nodes
         self.db.setup_all()
@@ -95,6 +91,9 @@ class JS(object):   # JS = Javascript
         f.write(s)
 
         f.close()
+
+        if self.compress:
+            optimize_filesize(str(self.filename))
 
         entry_point= c.value._obj
         self.graph = self.db.obj2node[entry_point].graph

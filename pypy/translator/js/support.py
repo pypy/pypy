@@ -1,9 +1,10 @@
 from pypy.translator.gensupp import NameManager
-
+from pypy.translator.js.optimize import optimized_functions
 
 class JavascriptNameManager(NameManager):
-    def __init__(self):
+    def __init__(self, js):
         NameManager.__init__(self)
+        self.js = js
         # keywords cannot be reused.  This is the C99 draft's list.
         #XXX this reserved_names list is incomplete!
         reserved_names_string = '''
@@ -17,6 +18,11 @@ class JavascriptNameManager(NameManager):
         for name in reserved_names_string.split():
             self.reserved_names[name] = True
         self.make_reserved_names(reserved_names_string)
+
+    def uniquename(self, name):
+        if self.js.compress and name != self.js.entrypoint.func_name and name not in optimized_functions:
+            name = 'f'
+        return NameManager.uniquename(self, name)
 
     def ensure_non_reserved(self, name):
         while name in self.reserved_names:

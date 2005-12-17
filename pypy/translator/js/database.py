@@ -23,12 +23,13 @@ class Database(object):
             lltype.UniChar: "uint",
             lltype.Void: "void"}
 
-    def __init__(self, translator): 
+    def __init__(self, translator, js): 
         self.translator = translator
+        self.js = js
         self.obj2node = {}
         self._pendingsetup = []
         self._tmpcount = 1
-        self.namespace = JavascriptNameManager()
+        self.namespace = JavascriptNameManager(js)
 
     #_______setting up and preperation______________________________
 

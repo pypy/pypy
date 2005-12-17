@@ -1,5 +1,6 @@
 import py
 from itertools import count
+from pypy.translator.js.optimize import optimize_call
 from pypy.translator.js.log import log 
 
 log = log.codewriter 
@@ -163,8 +164,9 @@ class CodeWriter(object):
         if self.js.stackless:   # XXX and this funcnode has resumepoints
             self.append("if (slp_frame_stack_top) {")
             self.indent_more()
+            self.append('var t = slp_frame_stack_top.vars')
             for i, k in enumerate(self._usedvars.keys()):
-                self.append('%-19s = slp_frame_stack_top.vars[%d]' % (k, i))
+                self.append('%-19s = t[%d]' % (k, i))
             self.append('%-19s = slp_frame_stack_top.resume_blocknum' % 'block')
             self.append('eval(slp_frame_stack_top.targetvar + " = slp_return_value")')
             self.append('slp_frame_stack_top = null')
@@ -180,7 +182,7 @@ class CodeWriter(object):
         self.indent_less()
         self.append("}")    #end of forever (block) loop
         self.indent_less()
-        self.append("};")   #end of function
+        self.append("}")   #end of function
         self.newline()
 
     def ret(self, ref=''): 
@@ -200,7 +202,7 @@ class CodeWriter(object):
             assert no_exception is None
             if self.js.stackless:
                 self.append("slp_stack_depth++")
-            self.append('%s = %s(%s)' % (targetvar, functionref, args))
+            self.append( optimize_call('%s = %s(%s)' % (targetvar, functionref, args)) )
             if self.js.stackless:
                 self.append("slp_stack_depth--")
                 selfdecl = self.decl.split('(')[0]
@@ -227,7 +229,7 @@ class CodeWriter(object):
             if self.js.stackless:
                 self.comment('TODO: XXX stackless in combination with exceptions handling')
                 self.append("slp_stack_depth++")
-            self.append('%s = %s(%s)' % (targetvar, functionref, args))
+            self.append( optimize_call('%s = %s(%s)' % (targetvar, functionref, args)) )
             if self.js.stackless:
                 self.append("slp_stack_depth--")    #XXX we don't actually get here when an exception occurs!
             self._phi(no_exception_exit)
@@ -264,7 +266,6 @@ class CodeWriter(object):
             self.indent_less()
             self.append('}')
 
-
     def cast(self, targetvar, fromtype, fromvar, targettype):
         if fromtype == 'void' and targettype == 'void':
                 return
@@ -288,9 +289,9 @@ class CodeWriter(object):
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
         self.comment(res)
 
-        #res = "%(targetvar)s = %(typevar)s" % locals()
-        #res += ''.join(['[%s]' % i for t, i in indices])
-        #self.append(res)
+        res = "%(targetvar)s = %(typevar)s" % locals()
+        res += ''.join(['[%s]' % i for t, i in indices[1:]])
+        self.append(res)
 
     def load(self, destvar, src, srcindices):
         res  = "%(destvar)s = %(src)s" % locals()

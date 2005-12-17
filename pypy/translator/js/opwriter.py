@@ -97,31 +97,11 @@ class OpWriter(object):
                 meth(op)    
 
     def _generic_pow(self, op, onestr): 
-        mult_val = self.db.repr_arg(op.args[0])
-        last_val = mult_val
-        try:
-            value = "NO VALUE"
-            value = op.args[1].value
-            operand = int(value)
-        except Exception, exc:
-            msg = 'XXX: Error: _generic_pow: Variable '\
-                  '%s - failed to convert to int %s' % (value, str(exc))
-            self.codewriter.comment(msg)
-            return
-        if operand < 1:
-            res_val = onestr
-        else:
-            res_val = mult_val
-            for ii in range(operand - 1):
-                #res_val = self.db.repr_tmpvar()
-                self.codewriter.binaryop('*', 
-                                         res_val,
-                                         last_val,
-                                         mult_val)
-                last_val = res_val
         targetvar = self.db.repr_arg(op.result)
-        self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
-        
+        mult_val  = self.db.repr_arg(op.args[0])
+        value     = op.args[1].value
+        self.codewriter.append('%s = Math.pow(%s, %s)' % (targetvar, mult_val, value))
+
     def _skipped(self, op):
             self.codewriter.comment('Skipping operation %s()' % op.opname)
             pass
@@ -298,13 +278,13 @@ class OpWriter(object):
             type_ = 'Array'
         else:
             type_ = 'Object' #self.db.repr_type(arg_type)
-        self.codewriter.comment(str(arg_type))
-        self.codewriter.comment(str(op.args[0]))
-        self.codewriter.malloc(targetvar, type_)
-        if t[1] == 'rpy_string':    #XXX this should be done correctly for all types offcourse!
-            #self.codewriter.append(targetvar + '.length = 0')
-            self.codewriter.append(targetvar + '.hash = 0')
-            self.codewriter.append(targetvar + '.chars = ""')
+        #XXX this should be done correctly for all types offcourse!
+        if type_ == 'Object' and t[1] == 'rpy_string':
+            self.codewriter.append(targetvar + ' = new Object({hash:0, chars:""})')
+        else:
+            self.codewriter.comment(str(arg_type))
+            self.codewriter.comment(str(op.args[0]))
+            self.codewriter.malloc(targetvar, type_)
     malloc_exception = malloc
     malloc_varsize = malloc
 

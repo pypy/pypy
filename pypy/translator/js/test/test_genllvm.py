@@ -56,7 +56,7 @@ def test_simple_branching():
     assert f(True) == 12
     assert f(False) == 13
 
-def DONTtest_int_ops(): #issue in opwriter._generic_pow
+def test_int_ops():
     def ops(i):
         x = 0
         x += i < i
@@ -70,14 +70,12 @@ def DONTtest_int_ops(): #issue in opwriter._generic_pow
         x += x ** 1
         x += x ** 2
         x += i + 1 * i // i - 1
-        #x += i is not None
-        #x += i is None
         return x
     f = compile_function(ops, [int])
     assert f(1) == ops(1)
     assert f(2) == ops(2)
     
-def DONTtest_uint_ops():    #issue in opwriter._generic_pow
+def test_uint_ops():
     def ops(i):
         x = 0
         x += i < i
@@ -91,14 +89,12 @@ def DONTtest_uint_ops():    #issue in opwriter._generic_pow
         x += x ** 1
         x += x ** 2
         x += i + 1 * i // i - 1
-        #x += i is not None
-        #x += i is None
         return x
     f = compile_function(ops, [r_uint])
     assert f(1) == ops(1)
     assert f(2) == ops(2)
 
-def DONTtest_float_ops():   #issue with opwriter.generic_pow
+def test_float_ops():
     def ops(flt):
         x = 0
         x += flt < flt
@@ -111,8 +107,6 @@ def DONTtest_float_ops():   #issue with opwriter.generic_pow
         x += x ** 1
         x += x ** 2
         x += int(flt + 1 * flt / flt - 1)
-        #x += flt fs not None
-        #x += flt is None
         return x 
     f = compile_function(ops, [float])
     assert f(1) == ops(1)
@@ -230,7 +224,7 @@ def test_pbc_fns():
     assert f(-1) == 3
     assert f(0) == 5
 
-def DONTtest_simple_chars():    #issue unknown
+def test_simple_chars():    #XXX test this also without optimize_call(...)
      def char_constant2(s):
          s = s + s + s
          return len(s + '.')
@@ -294,7 +288,7 @@ def test_string_simple():
     f = compile_function(string_simple, [int])
     assert f(0) 
     
-def DONTtest_string_simple_ops():   #same issue with empty Object mallocs
+def DONTtest_string_simple_ops():   #issue with casts
     def string_simple_ops(i): 
         res = 0
         s = str(i)
@@ -321,7 +315,7 @@ def DONTtest_string_getitem2(): #issue with cast sbyte to ubyte
     f = compile_function(string_test, [int])
     assert f(0) == ord("H")
 
-def DONTtest_list_of_string():  #issue probably also with malloc of empty Objects
+def DONTtest_list_of_string():  #issue with casts
     a = ["hello", "world"]
     def string_simple(i, j, k, l):
         s = a[i][j] + a[k][l]
@@ -359,7 +353,7 @@ def test_method_call():
     f = compile_function(method_call, [])
     assert f() == 4
 
-def DONTtest_dict_creation():   #issue unknown
+def test_dict_creation():
     d = {'hello' : 23,
          'world' : 21}
     l = ["hello", "world"]

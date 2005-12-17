@@ -32,6 +32,12 @@ class FuncNode(Node):
                     self.db.prepare_arg(op.result)
                     if block.exitswitch != c_last_exception:
                         continue
+                    if hasattr(self.graph, 'exceptblock'):
+                        from pypy.rpython.rmodel import inputconst
+                        e          = self.db.translator.rtyper.getexceptiondata()
+                        matchptr   = e.fn_exception_match
+                        matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
+                        self.db.prepare_arg_value(matchconst) 
                     for link in block.exits[1:]:
                         self.db.prepare_constant(lltype.typeOf(link.llexitcase),
                                                  link.llexitcase)
@@ -118,5 +124,5 @@ class ExternalFuncNode(Node):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref   = db.namespace.uniquename(value.graph.name)
+        self.ref   = value.graph.name #keep the exact name (do not compress)
         self.graph = value.graph

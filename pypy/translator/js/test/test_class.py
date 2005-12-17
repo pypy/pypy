@@ -22,7 +22,7 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple2, [int])
         assert f(2) == 10
 
-    def DONTtest_inherit1(self):    #unknown issue
+    def DONTtest_inherit1(self):    #issue with empty object mallocs
         f = compile_function(llvmsnippet.class_inherit1, [])
         assert f() == 11
 
@@ -56,7 +56,7 @@ class TestClass(object):
         assert f(True) == 1
         assert f(False) == 2
 
-    def DONTtest_global_instance(self): #issue unknown
+    def DONTtest_global_instance(self): #issue unknown TEST THIS!
         f = compile_function(llvmsnippet.global_instance, [int])
         assert f(-1) == llvmsnippet.global_instance(-1)
         for i in range(20):

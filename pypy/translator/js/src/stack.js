@@ -1,3 +1,5 @@
+// Start of helpers
+
 function ll_stack_too_big_helper(depth) {
     if (depth > 0) {
         ll_stack_too_big_helper(depth-1)
@@ -18,3 +20,5 @@ function ll_stack_unwind() {
     throw "Recursion limit exceeded";
 }
 ll_stack_unwind__ = ll_stack_unwind;
+
+// End of helpers
