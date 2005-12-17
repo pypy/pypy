@@ -18,8 +18,7 @@ def remove_exception_mallocs(translator, graph, ref):
     """
     n_removed = 0
     n_removed_of_type = {}
-    blocks = [x for x in flatten(graph) if isinstance(x, Block)]
-    for block in blocks:
+    for block in graph.iterblocks():
         ops = block.operations
         if len(ops) < 3 or \
            ops[0].opname != 'malloc'   or ops[1].opname != 'cast_pointer'   or \

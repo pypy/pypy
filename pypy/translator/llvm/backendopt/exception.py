@@ -17,8 +17,7 @@ def create_exception_handling(translator, graph):
     global n_calls, n_calls_patched
     n_calls_patched_begin = n_calls_patched
     e = translator.rtyper.getexceptiondata()
-    blocks = [x for x in flatten(graph) if isinstance(x, Block)]
-    for block in blocks:
+    for block in graph.iterblocks():
         last_operation = len(block.operations)-1
         if block.exitswitch == c_last_exception:
             last_operation -= 1

@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Block, flatten, SpaceOperation, Constant, Variable
+from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
 from pypy.rpython.lltypesystem.lltype import GcStruct, Void, Ptr
 from pypy.translator.llvm.backendopt.support import log
 
@@ -14,8 +14,7 @@ def merge_mallocs(translator, graph, ref):
     warning: some will consider this a dirty hack, that's ok! :)
     """
     n_times_merged = 0
-    blocks = [x for x in flatten(graph) if isinstance(x, Block)]
-    for block in blocks:
+    for block in graph.iterblocks():
         mallocs = [[], []]
         for i, op in enumerate(block.operations):
             if op.opname != 'malloc' or op.args[0].value._arrayfld:

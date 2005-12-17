@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Block, Constant, Link
-from pypy.objspace.flow.model import flatten, mkentrymap, traverse, c_last_exception
+from pypy.objspace.flow.model import mkentrymap, traverse, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
@@ -79,11 +79,10 @@ class FuncNode(ConstantLLVMNode):
         codewriter.openfunc(self.getdecl(), self is self.db.entrynode)
         nextblock = graph.startblock
         args = graph.startblock.inputargs 
-        l = [x for x in flatten(graph) if isinstance(x, Block)]
         self.block_to_name = {}
-        for i, block in enumerate(l):
+        for i, block in enumerate(graph.iterblocks()):
             self.block_to_name[block] = "block%s" % i
-        for block in l:
+        for block in graph.iterblocks():
             codewriter.label(self.block_to_name[block])
             for name in 'startblock returnblock exceptblock'.split():
                 if block is getattr(graph, name):
@@ -95,8 +94,7 @@ class FuncNode(ConstantLLVMNode):
 
     def writecomments(self, codewriter):
         """ write operations strings for debugging purposes. """ 
-        blocks = [x for x in flatten(self.graph) if isinstance(x, Block)]
-        for block in blocks:
+        for block in self.graph.iterblocks():
             for op in block.operations:
                 strop = str(op) + "\n\x00"
                 l = len(strop)
