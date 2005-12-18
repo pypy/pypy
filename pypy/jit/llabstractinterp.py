@@ -265,6 +265,8 @@ class LLVirtualContainer(LLAbstractValue):
         memo.other_alias[other] = self
 
         assert self.T == other.T
+        if self.names != other.names:
+            return False
         if self.a_length is not None:
             if not self.a_length.match(other.a_length, memo):
                 return False

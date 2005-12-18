@@ -8,7 +8,7 @@ from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
 #from pypy.translator.backendopt import inline
 
-py.test.skip("in-progress")
+#py.test.skip("in-progress")
 
 def setup_module(mod):
     t = TranslationContext()
