@@ -6,6 +6,7 @@ def opcode(opcode_name):
     g_opcode += 1
     names[opcode_name] = globals()[opcode_name] = g_opcode
 
+opcode("NOP")
 opcode("PUSH")     #1 operand
 opcode("POP")
 opcode("SWAP")
@@ -27,6 +28,7 @@ opcode("GT")
 opcode("GE")
 
 opcode("BR_COND")  #1 operand offset
+opcode("BR_COND_STK")    # no operand, takes [condition, offset] from the stack
 
 opcode("CALL")  #1 operand offset
 opcode("RETURN")

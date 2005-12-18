@@ -116,3 +116,30 @@ def test_factorial():
             POP
             RETURN
     ''')
+
+def test_factorial_harder():
+    run_jit('''
+            PUSH 1   #  accumulator
+            PUSH 7   #  N
+
+        start:
+            PICK 0
+            PUSH 1
+            LE
+            PUSH exit
+            BR_COND_STK
+
+            SWAP
+            PICK 1
+            MUL
+            SWAP
+            PUSH 1
+            SUB
+            PUSH 1
+            BR_COND start
+
+        exit:
+            NOP      # BR_COND_STK skips this instruction
+            POP
+            RETURN
+    ''')

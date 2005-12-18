@@ -190,3 +190,32 @@ def test_factorial():
     ''')
     res = interp(code)
     assert res == 5040
+
+def test_factorial_harder():
+    code = compile('''
+            PUSH 1   #  accumulator
+            PUSH 7   #  N
+
+        start:
+            PICK 0
+            PUSH 1
+            LE
+            PUSH exit
+            BR_COND_STK
+
+            SWAP
+            PICK 1
+            MUL
+            SWAP
+            PUSH 1
+            SUB
+            PUSH 1
+            BR_COND start
+
+        exit:
+            NOP      # BR_COND_STK skips this instruction
+            POP
+            RETURN
+    ''')
+    res = interp(code)
+    assert res == 5040

@@ -23,7 +23,10 @@ def interp(code='', pc=0):
         opcode = hint(opcode, concrete=True)
         pc += 1
 
-        if opcode == PUSH:
+        if opcode == NOP:
+            pass
+
+        elif opcode == PUSH:
             stack.append( char2int(code[pc]) )
             pc += 1
 
@@ -96,6 +99,11 @@ def interp(code='', pc=0):
             if stack.pop():
                 pc += char2int(code[pc])
             pc += 1
+
+        elif opcode == BR_COND_STK:
+            offset = stack.pop()
+            if stack.pop():
+                pc += offset
 
         elif opcode == CALL:
             offset = char2int(code[pc])
