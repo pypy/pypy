@@ -506,7 +506,11 @@ class LLAbstractInterp(object):
                     if statevar.fixed:
                         # the saved state says that this new incoming
                         # variable must be forced to a constant
-                        must_restart |= self.hint_needs_constant(inputvar)
+                        self.hint_needs_constant(inputvar)
+                        # we'll have to restart if we are trying to turn
+                        # a variable into a constant
+                        if inputvar.maybe_get_constant() is None:
+                            must_restart = True
                 if must_restart:
                     raise RestartCompleting
                 # The new inputstate is merged into the existing saved state.
@@ -523,7 +527,6 @@ class LLAbstractInterp(object):
 
     def hint_needs_constant(self, a):
         # Force the given LLRuntimeValue to be a fixed constant.
-        must_restart = False
         fix_me = [a]
         while fix_me:
             a = fix_me.pop()
@@ -534,16 +537,12 @@ class LLAbstractInterp(object):
             a.fixed = True
             # If 'a' is already a Constant, we just fixed it and we can
             # continue.  If it is a Variable, restart the whole process.
-            is_variable = a.maybe_get_constant() is None
-            if is_variable:
-                must_restart = True
             if a.origin:
                 fix_me.extend(a.origin)
-            elif is_variable:
+            elif a.maybe_get_constant() is None:
                 # a Variable with no recorded origin
                 raise Exception("hint() failed: cannot trace the variable %r "
                                 "back to a link where it was a constant" % (a,))
-        return must_restart
 
 
 class GraphState(object):
@@ -953,15 +952,18 @@ class BlockBuilder(object):
         hints = c_hints.value
         if hints.get('concrete'):
             # turn this 'a' into a concrete value
-            c = a.forcevarorconst(self)
-            if isinstance(c, Constant):
+            a.forcevarorconst(self)
+            if not isinstance(a, LLConcreteValue):
+                self.interp.hint_needs_constant(a)
+                c = a.maybe_get_constant()
+                if c is None:
+                    # Oups! it's not a constant.  But hint_needs_constant()
+                    # traced it back to a constant that was turned into a
+                    # variable by a link.  This constant has been marked as
+                    # 'fixed', so if we restart now, op_hint() should receive
+                    # a constant the next time.
+                    raise RestartCompleting
                 a = LLConcreteValue(c.value)
-            else:
-                # Oups! it's not a constant.  Try to trace it back to a
-                # constant that was turned into a variable by a link.
-                restart = self.interp.hint_needs_constant(a)
-                assert restart
-                raise RestartCompleting
         return a
 
     def op_direct_call(self, op, *args_a):
