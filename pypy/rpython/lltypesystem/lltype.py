@@ -862,10 +862,10 @@ class _array(_parentable):
             else:
                 return "%s {%s}" % (of._name, item._str_fields())
         else:
-            return item
+            return repr(item)
 
     def __str__(self):
-        return 'array [ %s ]' % (', '.join(['%s' % self._str_item(item)
+        return 'array [ %s ]' % (', '.join([self._str_item(item)
                                             for item in self.items]),)
 
 assert not '__dict__' in dir(_array)

@@ -186,7 +186,7 @@ class LLFrame(object):
                 raise LLException(etype, evalue)
             resultvar, = block.getvariables()
             result = self.getval(resultvar)
-            log.operation("returning", result)
+            log.operation("returning", repr(result))
             return None, result
         elif block.exitswitch is None:
             # single-exit block
