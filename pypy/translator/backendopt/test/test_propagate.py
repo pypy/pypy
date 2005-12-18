@@ -4,11 +4,12 @@ from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython.llinterp import LLInterpreter
 
 
-def get_graph(fn, signature):
+def get_graph(fn, signature, inline_threshold=True):
     t = TranslationContext()
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
-    backend_optimizations(t, ssa_form=False, propagate=False) 
+    backend_optimizations(t, inline_threshold=inline_threshold,
+                          ssa_form=False, propagate=False) 
     graph = graphof(t, fn)
     return graph, t
 
@@ -59,12 +60,14 @@ def test_constant_fold():
 def test_constant_fold_call():
     def s(x):
         res = 0
-        for i in range(1, x + 1):
+        i = 1
+        while i <= x:
             res += i
+            i += 1
         return res
     def g(x):
         return s(100) + s(1) + x
-    graph, t = get_graph(g, [int])
+    graph, t = get_graph(g, [int], inline_threshold=0)
     while constant_folding(graph, t):
         pass
     assert len(graph.startblock.operations) == 1
