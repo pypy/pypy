@@ -597,6 +597,24 @@ class GraphState(object):
             next = pending.pop()
             state = interp.pendingstates[next]
 
+            # debugging: print the current call stack
+            print
+            st = state
+            stlist = []
+            while st.a_back is not None:
+                st = st.a_back
+                stlist.append(st)
+            stlist.reverse()
+            for st in stlist:
+                op = st.origblock.operations[st.origposition]
+                if op.opname == 'direct_call':
+                    v = op.args[0]
+                    if isinstance(v, Constant):
+                        v = v.value
+                else:
+                    v = '?'
+                print 'In %r:' % (v,)
+
             # Before computing each block, we compute a 'key' which is
             # derived from the current state's fixed constants.  Instead
             # of only one residual block per state, there is one residual
@@ -618,8 +636,6 @@ class GraphState(object):
             # with each other.
 
             key = tuple(state.getruntimevars(VarMemo(next.args)))
-            print
-            print 'key=', key
             try:
                 block = state.copyblocks[key]
             except KeyError:

@@ -34,10 +34,18 @@ def jit_tl(code):
 
     #interp.graphs[0].show()
 
+    # return a summary of the instructions left in graph2
+    insns = {}
+    for copygraph in interp.itercopygraphs():
+        for block in copygraph.iterblocks():
+            for op in block.operations:
+                insns[op.opname] = insns.get(op.opname, 0) + 1
+    return insns
+
 
 def run_jit(code):
     code = tl.compile(code)
-    jit_tl(code)
+    return jit_tl(code)
 
 
 def test_simple1():
@@ -93,7 +101,7 @@ def test_calls():
     ''')
 
 def test_factorial():
-    run_jit('''
+    insns = run_jit('''
             PUSH 1   #  accumulator
             PUSH 7   #  N
 
@@ -116,9 +124,17 @@ def test_factorial():
             POP
             RETURN
     ''')
+    # currently, the condition is turned from the bool to an int and back
+    # so ignore that
+    if 'cast_bool_to_int' in insns:
+        assert insns['cast_bool_to_int'] == 1
+        assert insns['int_is_true'] == 1
+        del insns['cast_bool_to_int']
+        del insns['int_is_true']
+    assert insns == {'int_le': 1, 'int_mul': 1, 'int_sub': 1}
 
 def test_factorial_harder():
-    run_jit('''
+    insns = run_jit('''
             PUSH 1   #  accumulator
             PUSH 7   #  N
 
@@ -143,3 +159,11 @@ def test_factorial_harder():
             POP
             RETURN
     ''')
+    # currently, the condition is turned from the bool to an int and back
+    # so ignore that
+    if 'cast_bool_to_int' in insns:
+        assert insns['cast_bool_to_int'] == 1
+        assert insns['int_is_true'] == 1
+        del insns['cast_bool_to_int']
+        del insns['int_is_true']
+    assert insns == {'int_le': 1, 'int_mul': 1, 'int_sub': 1}
