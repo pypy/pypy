@@ -10,7 +10,7 @@ from pypy.translator import simplify
 def backend_optimizations(translator, inline_threshold=1,
                                       mallocs=True,
                                       ssa_form=True,
-                                      merge_if_blocks_to_switch=True,
+                                      merge_if_blocks_to_switch=False,
                                       propagate=False):
     # remove obvious no-ops
     for graph in translator.graphs:
