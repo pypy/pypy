@@ -62,13 +62,10 @@ class LLRuntimeValue(LLAbstractValue):
                       # the sources that did or could allow 'self' to be
                       # computed as a constant
 
-    becomes = "var"   # only meaningful on LLRuntimeValues attached to a
+    fixed = False     # only meaningful on LLRuntimeValues attached to a
                       # saved state.  Describes what this LLRuntimeValue will
-                      # become in the next block:
-                      #   "var"    - becomes a Variable in the next block
-                      #   "single" - only one Constant seen so far, so
-                      #                for now it can stay a Constant
-                      #   "fixed"  - forced by hint() to stay a Constant
+                      # become in the next block.  Set to True by hint()
+                      # to force a Constant to stay a Constant.
 
     def __init__(self, orig_v):
         if isinstance(orig_v, Variable):
@@ -78,7 +75,6 @@ class LLRuntimeValue(LLAbstractValue):
             # we can share the Constant()
             self.copy_v = orig_v
             self.origin = []
-            self.becomes = "single"
         elif isinstance(orig_v, lltype.LowLevelType):
             # hackish interface :-(  we accept a type too
             self.copy_v = newvar(orig_v)
@@ -99,13 +95,12 @@ class LLRuntimeValue(LLAbstractValue):
             return [self.copy_v]
         else:
             c = memo.key.next()
-            if self.becomes == "var":
-                return [None]
-            else:
+            if self.fixed:
                 assert isinstance(c, Constant), (
-                    "unexpected Variable %r reaching a %r input arg" %
-                    (c, self.becomes))
+                    "unexpected Variable %r reaching a fixed input arg" % (c,))
                 return [c]
+            else:
+                return [None]
 
     def maybe_get_constant(self):
         if isinstance(self.copy_v, Constant):
@@ -116,7 +111,7 @@ class LLRuntimeValue(LLAbstractValue):
     def with_fresh_variables(self, memo):
         # don't use memo.seen here: shared variables must become distinct
         c = memo.key and memo.key.next()
-        if c is not None:    # allowed to propagate as a Constant?
+        if isinstance(c, Constant):    # allowed to propagate as a Constant?
             result = LLRuntimeValue(c)
         else:
             result = LLRuntimeValue(self.getconcretetype())
@@ -505,14 +500,7 @@ class LLAbstractInterp(object):
                 # already matched
                 must_restart = False
                 for statevar, inputvar in memo.dependencies:
-                    if statevar.becomes == "single":
-                        # the saved state only records one possible Constant
-                        # incoming value so far.  Are we seeing a different
-                        # Constant, or even a Variable?
-                        if inputvar.copy_v != statevar.copy_v:
-                            statevar.becomes = "var"
-                            must_restart = True
-                    elif statevar.becomes == "fixed":
+                    if statevar.fixed:
                         # the saved state says that this new incoming
                         # variable must be forced to a constant
                         must_restart |= self.hint_needs_constant(inputvar)
@@ -537,21 +525,21 @@ class LLAbstractInterp(object):
         while fix_me:
             a = fix_me.pop()
             assert isinstance(a, LLRuntimeValue)
-            if a.becomes == "fixed":
+            if a.fixed:
                 continue    # already fixed
             print 'fixing:', a
-            if a.becomes == "var":
-                must_restart = True    # this Var is now fixed
-                # (no need to restart if a.becomes was "single")
-            a.becomes = "fixed"
+            a.fixed = True
+            # If 'a' is already a Constant, we just fixed it and we can
+            # continue.  If it is a Variable, restart the whole process.
+            is_variable = a.maybe_get_constant() is None
+            if is_variable:
+                must_restart = True
             if a.origin:
                 fix_me.extend(a.origin)
-            elif a.maybe_get_constant() is None:
+            elif is_variable:
                 # a Variable with no recorded origin
                 raise Exception("hint() failed: cannot trace the variable %r "
                                 "back to a link where it was a constant" % (a,))
-        assert self.policy.const_propagate, (
-            "hint() can only be used with a policy of const_propagate=True")
         return must_restart
 
 
@@ -605,13 +593,60 @@ class GraphState(object):
         while pending:
             next = pending.pop()
             state = interp.pendingstates[next]
-            if interp.policy.const_propagate:
-                key = tuple(state.getruntimevars(VarMemo(next.args)))
+
+            # Before computing each block, we compute a 'key' which is
+            # derived from the current state's fixed constants.  Instead
+            # of only one residual block per state, there is one residual
+            # block per 'key'.  The residual block in question has
+            # inputargs that are constants -- at least for each fixed
+            # constant, but possibly for more, if policy.const_propagate
+            # is True.
+            #
+            # When we consider a link that should go to a given block, we
+            # compute the 'key' and check if there is already a
+            # corresponding residual block; if so, we check the constants
+            # that have been put in the inputargs.  If they don't match
+            # the new link's constants, we throw away the existing
+            # residual block and compute a new one with less constants in
+            # its inputargs.
+            #
+            # These recomputations are based on the official 'key', so
+            # that links with different *fixed* constants don't interfere
+            # with each other.
+
+            key = tuple(state.getruntimevars(VarMemo(next.args)))
+            print
+            print 'key=', key
+            try:
+                block = state.copyblocks[key]
+            except KeyError:
+                if interp.policy.const_propagate:
+                    # originally, propagate all constants from next.args
+                    # optimistically to the new block
+                    initial_key = next.args
+                else:
+                    # don't propagate anything more than required ('fixed')
+                    initial_key = key
+                print 'flowin() with initial key', initial_key
+                block = self.flowin(state, initial_key)
+                state.copyblocks[key] = block
             else:
-                key = None
-            if key not in state.copyblocks:
-                self.flowin(state, key)
-            block = state.copyblocks[key]
+                # check if the tentative constants of the existing block
+                # are compatible with the ones specified by the new link
+                merged_key = []
+                recompute = False
+                for c1, c2 in zip(block.inputargs, next.args):
+                    if isinstance(c1, Constant) and c1 != c2:
+                        # incompatibility
+                        merged_key.append(None)  # force a Variable
+                        recompute = True
+                    else:
+                        merged_key.append(c1)    # unmodified
+                if recompute:
+                    print 'flowin() merged as', merged_key
+                    block = self.flowin(state, merged_key)
+                    state.copyblocks[key] = block
+                    raise RestartCompleting
             next.settarget(block)
             for link in block.exits:
                 if link.target is None or link.target.operations != ():
@@ -659,10 +694,10 @@ class GraphState(object):
             for v1, v2, k in zip(state.getruntimevars(VarMemo()),
                                  builder.runningstate.getruntimevars(VarMemo()),
                                  key):
-                if k is None:
-                    assert isinstance(v2, Variable)
-                else:
+                if isinstance(k, Constant):
                     assert v2 == k
+                else:
+                    assert isinstance(v2, Variable)
                 arglist.append('%s => %s' % (v1, v2))
         print
         print '--> %s [%s]' % (origblock, ', '.join(arglist))
@@ -741,7 +776,7 @@ class GraphState(object):
                 newlinks.append(newlink)
 
         newblock = builder.buildblock(newexitswitch, newlinks)
-        state.copyblocks[key] = newblock
+        return newblock
 
 
 class BlockBuilder(object):
