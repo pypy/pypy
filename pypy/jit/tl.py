@@ -3,6 +3,7 @@
 import py
 from tlopcode import *
 import tlopcode
+from pypy.rpython.objectmodel import hint
 
 def char2int(c):
     t = ord(c)
@@ -19,6 +20,7 @@ def interp(code='', pc=0):
 
     while pc < code_len:
         opcode = ord(code[pc])
+        opcode = hint(opcode, concrete=True)
         pc += 1
 
         if opcode == PUSH:

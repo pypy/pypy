@@ -57,6 +57,8 @@ class LLConcreteValue(LLAbstractValue):
 
 
 class LLRuntimeValue(LLAbstractValue):
+    origin = None
+    fixed = False
 
     def __init__(self, orig_v):
         if isinstance(orig_v, Variable):
@@ -81,11 +83,10 @@ class LLRuntimeValue(LLAbstractValue):
         return self.copy_v
 
     def getruntimevars(self, memo):
-        if (isinstance(self.copy_v, Variable) or
-            self not in memo.propagate_as_constants):
-            return [self.copy_v]
+        if memo.get_fixed_flags:
+            return [self.fixed]
         else:
-            return []   # we propagate this constant as a constant
+            return [self.copy_v]
 
     def maybe_get_constant(self):
         if isinstance(self.copy_v, Constant):
@@ -95,22 +96,17 @@ class LLRuntimeValue(LLAbstractValue):
 
     def with_fresh_variables(self, memo):
         # don't use memo.seen here: shared variables must become distinct
-        if (isinstance(self.copy_v, Variable) or
-            self not in memo.propagate_as_constants):
-            return LLRuntimeValue(self.getconcretetype())
-        else:
-            return self   # we are allowed to propagate this constant
+        if memo.key is not None:
+            c = memo.key.next()
+            if c is not None:
+                return LLRuntimeValue(c)
+        result = LLRuntimeValue(self.getconcretetype())
+        result.origin = [self]
+        return result
 
     def match(self, other, memo):
-        if not isinstance(other, LLRuntimeValue):
-            return False
-        if isinstance(self.copy_v, Variable):
-            return True
-        if self.copy_v == other.copy_v:
-            memo.propagate_as_constants[other] = True   # exact match
-        else:
-            memo.exact_match = False
-        return True
+        memo.dependencies.append((self, other, self.fixed))
+        return isinstance(other, LLRuntimeValue)
 
 ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
 
@@ -334,7 +330,7 @@ class LLState(LLAbstractValue):
         self.a_back = a_back
         self.args_a = args_a
         self.origblock = origblock
-        self.copyblock = None
+        self.copyblocks = {}
         assert len(args_a) == len(self.getlivevars())
 
     def key(self):
@@ -388,18 +384,6 @@ class LLState(LLAbstractValue):
         else:
             return True
 
-    def resolveblock(self, newblock):
-        #print "RESOLVING BLOCK", newblock
-        if self.copyblock is not None:
-            # uncommon case: must patch the existing Block
-            assert len(self.copyblock.inputargs) == len(newblock.inputargs)
-            self.copyblock.inputargs  = newblock.inputargs
-            self.copyblock.operations = newblock.operations
-            self.copyblock.exitswitch = newblock.exitswitch
-            self.copyblock.recloseblock(*newblock.exits)
-        else:
-            self.copyblock = newblock
-
     def getbindings(self):
         return dict(zip(self.getlivevars(), self.args_a))
 
@@ -407,7 +391,6 @@ class LLState(LLAbstractValue):
 class LLBlockState(LLState):
     """Entry state of a block, as a combination of LLAbstractValues
     for its input arguments."""
-    propagate_as_constants = {}
 
     def localkey(self):
         return (self.origblock,)
@@ -434,13 +417,13 @@ class LLSuspendedBlockState(LLBlockState):
 # ____________________________________________________________
 
 class Policy(object):
-    def __init__(self, inlining=False, const_propagate=False,
-                       concrete_propagate=True):
+    def __init__(self, inlining=False,
+                       concrete_propagate=True, concrete_args=True):
         self.inlining = inlining
-        self.const_propagate = const_propagate
         self.concrete_propagate = concrete_propagate
+        self.concrete_args = concrete_args
 
-best_policy = Policy(inlining=True, const_propagate=True)
+best_policy = Policy(inlining=True, concrete_args=False)
 
 
 class LLAbstractInterp(object):
@@ -460,7 +443,10 @@ class LLAbstractInterp(object):
         args_a = []
         for i, v in enumerate(origgraph.getargs()):
             if i in arghints:
-                a = LLConcreteValue(arghints[i])
+                if self.policy.concrete_args:
+                    a = LLConcreteValue(arghints[i])
+                else:
+                    a = LLRuntimeValue(const(arghints[i]))
             else:
                 a = LLRuntimeValue(orig_v=v)
             args_a.append(a)
@@ -484,8 +470,7 @@ class LLAbstractInterp(object):
     def schedule(self, inputstate):
         #print "SCHEDULE", args_a, origblock
         state = self.schedule_getstate(inputstate)
-        memo = VarMemo(state.propagate_as_constants)
-        args_v = inputstate.getruntimevars(memo)
+        args_v = inputstate.getruntimevars(VarMemo())
         newlink = Link(args_v, None)
         self.pendingstates[newlink] = state
         return newlink
@@ -498,23 +483,40 @@ class LLAbstractInterp(object):
             memo = MatchMemo()
             if state.match(inputstate, memo):
                 # already matched
-                if memo.exact_match:
-                    return state    # exact match
-                if not self.policy.const_propagate:
-                    return state    # all constants will be generalized anyway
-                # partial match: in the old state, some constants need to
-                # be turned into variables.
-                inputstate.propagate_as_constants = memo.propagate_as_constants
-                # The generalized state replaces the existing one.
-                pendingstates[i] = inputstate
-                state.generalized_by = inputstate
-                return inputstate
+                must_restart = False
+                for statevar, inputvar, fixed in memo.dependencies:
+                    if fixed:
+                        must_restart |= self.hint_needs_constant(inputvar)
+                if must_restart:
+                    raise RestartCompleting
+                for statevar, inputvar, fixed in memo.dependencies:
+                    if statevar.origin is None:
+                        statevar.origin = []
+                    statevar.origin.append(inputvar)
+                return state
         else:
             # cache and return this new state
-            if self.policy.const_propagate:
-                inputstate.propagate_as_constants = ALL
             pendingstates.append(inputstate)
             return inputstate
+
+    def hint_needs_constant(self, a):
+        if a.maybe_get_constant() is not None:
+            return False
+        fix_me = [a]
+        while fix_me:
+            a = fix_me.pop()
+            if not a.origin:
+                raise Exception("hint() failed: cannot trace the variable %r "
+                                "back to a link where it was a constant" % (a,))
+            for a_origin in a.origin:
+                # 'a_origin' is a LLRuntimeValue attached to a saved state
+                assert isinstance(a_origin, LLRuntimeValue)
+                if not a_origin.fixed:
+                    print 'fixing:', a_origin
+                    a_origin.fixed = True
+                    if a_origin.maybe_get_constant() is None:
+                        fix_me.append(a_origin)
+        return True
 
 
 class GraphState(object):
@@ -534,6 +536,9 @@ class GraphState(object):
                                 self.copygraph.exceptblock.inputargs[1])]:
             if hasattr(orig_v, 'concretetype'):
                 copy_v.concretetype = orig_v.concretetype
+        # The 'args' attribute is needed by process_constant_input(),
+        # which looks for it on either a GraphState or a Link
+        self.args = inputstate.getruntimevars(VarMemo())
         self.a_return = None
         self.state = "before"
 
@@ -546,6 +551,15 @@ class GraphState(object):
         if self.state == "after":
             return
         self.state = "during"
+        while True:
+            try:
+                self.try_to_complete()
+                break
+            except RestartCompleting:
+                print '--- restarting ---'
+                continue
+
+    def try_to_complete(self):
         graph = self.copygraph
         interp = self.interp
         pending = [self]
@@ -555,10 +569,22 @@ class GraphState(object):
         while pending:
             next = pending.pop()
             state = interp.pendingstates[next]
-            if state.copyblock is None:
-                self.flowin(state)
-            next.settarget(state.copyblock)
-            for link in state.copyblock.exits:
+            fixed_flags = state.getruntimevars(VarMemo(get_fixed_flags=True))
+            key = []
+            for fixed, c in zip(fixed_flags, next.args):
+                if fixed:
+                    assert isinstance(c, Constant), (
+                        "unexpected Variable %r reaching a fixed input arg" %
+                        (c,))
+                    key.append(c)
+                else:
+                    key.append(None)
+            key = tuple(key)
+            if key not in state.copyblocks:
+                self.flowin(state, key)
+            block = state.copyblocks[key]
+            next.settarget(block)
+            for link in block.exits:
                 if link.target is None or link.target.operations != ():
                     if link not in seen:
                         seen[link] = True
@@ -575,8 +601,7 @@ class GraphState(object):
                     else:
                         raise Exception("uh?")
 
-        if interp.policy.const_propagate:
-            self.compactify(seen)
+        remove_constant_inputargs(graph)
 
         # the graph should be complete now; sanity-check
         try:
@@ -592,33 +617,28 @@ class GraphState(object):
         join_blocks(graph)
         self.state = "after"
 
-    def compactify(self, links):
-        # remove the parts of the graph that use constants that were later
-        # generalized
-        interp = self.interp
-        for link in links:
-            oldstate = interp.pendingstates[link]
-            if oldstate.generalized_by is not None:
-                newstate = oldstate.generalized_by
-                while newstate.generalized_by:
-                    newstate = newstate.generalized_by
-                # Patch oldstate.block to point to the new state,
-                # as in the flow object space
-                builder = BlockBuilder(self, oldstate)
-                memo = VarMemo(newstate.propagate_as_constants)
-                args_v = builder.runningstate.getruntimevars(memo)
-                oldlink = Link(args_v, newstate.copyblock)
-                oldblock = builder.buildblock(None, [oldlink])
-                oldstate.resolveblock(oldblock)
-
-    def flowin(self, state):
+    def flowin(self, state, key):
         # flow in the block
         assert isinstance(state, LLBlockState)
         origblock = state.origblock
         origposition = 0
-        builder = BlockBuilder(self.interp, state)
+        builder = BlockBuilder(self.interp, state, key)
         newexitswitch = None
+        # debugging print
+        arglist = []
+        for v1, v2, k in zip(state.getruntimevars(VarMemo()),
+                             builder.runningstate.getruntimevars(VarMemo()),
+                             key):
+            if k is None:
+                assert isinstance(v2, Variable)
+            else:
+                assert v2 == k
+            arglist.append('%s => %s' % (v1, v2))
         print
+        print '--> %s [%s]' % (origblock, ', '.join(arglist))
+        for op in origblock.operations:
+            print '\t\t', op
+        # end of debugging print
         try:
             if origblock.operations == ():
                 if state.a_back is None:
@@ -691,17 +711,16 @@ class GraphState(object):
                 newlinks.append(newlink)
 
         newblock = builder.buildblock(newexitswitch, newlinks)
-        state.resolveblock(newblock)
+        state.copyblocks[key] = newblock
 
 
 class BlockBuilder(object):
 
-    def __init__(self, interp, initialstate):
+    def __init__(self, interp, initialstate, key):
         self.interp = interp
-        memo = VarMemo(initialstate.propagate_as_constants)
+        memo = VarMemo(iter(key))
         self.runningstate = initialstate.with_fresh_variables(memo)
-        memo = VarMemo(initialstate.propagate_as_constants)
-        self.newinputargs = self.runningstate.getruntimevars(memo)
+        self.newinputargs = self.runningstate.getruntimevars(VarMemo())
         # {Variables-of-origblock: a_value}
         self.bindings = self.runningstate.getbindings()
         self.residual_operations = []
@@ -743,9 +762,9 @@ class BlockBuilder(object):
             concretevalues.append(v.value)
             any_concrete = any_concrete or isinstance(a, LLConcreteValue)
         # can constant-fold
-        print 'fold:', constant_op, concretevalues
+        print 'fold:', constant_op.__name__, concretevalues
         concreteresult = constant_op(*concretevalues)
-        if any_concrete and self.policy.concrete_propagate:
+        if any_concrete and self.interp.policy.concrete_propagate:
             return LLConcreteValue(concreteresult)
         else:
             return LLRuntimeValue(const(concreteresult))
@@ -769,8 +788,20 @@ class BlockBuilder(object):
             if a_result is not None:
                 return a_result
         a_result = LLRuntimeValue(op.result)
+        if constant_op:
+            self.record_origin(a_result, args_a)
         self.residual(op.opname, args_a, a_result)
         return a_result
+
+    def record_origin(self, a_result, args_a):
+        origin = []
+        for a in args_a:
+            if a.maybe_get_constant() is not None:
+                continue
+            if not isinstance(a, LLRuntimeValue) or a.origin is None:
+                return
+            origin.extend(a.origin)
+        a_result.origin = origin
 
     # ____________________________________________________________
     # Operation handlers
@@ -814,6 +845,9 @@ class BlockBuilder(object):
     def op_int_ne(self, op, a1, a2):
         return self.residualize(op, [a1, a2], operator.ne)
 
+    op_char_eq = op_int_eq
+    op_char_ne = op_int_ne
+
     def op_cast_char_to_int(self, op, a):
         return self.residualize(op, [a], ord)
 
@@ -821,6 +855,23 @@ class BlockBuilder(object):
         return self.residualize(op, [a], int)
 
     def op_same_as(self, op, a):
+        return a
+
+    def op_hint(self, op, a, a_hints):
+        c_hints = a_hints.maybe_get_constant()
+        assert c_hints is not None, "hint dict not constant"
+        hints = c_hints.value
+        if hints.get('concrete'):
+            # turn this 'a' into a concrete value
+            c = a.forcevarorconst(self)
+            if isinstance(c, Constant):
+                a = LLConcreteValue(c.value)
+            else:
+                # Oups! it's not a constant.  Try to trace it back to a
+                # constant that was turned into a variable by a link.
+                restart = self.interp.hint_needs_constant(a)
+                assert restart
+                raise RestartCompleting
         return a
 
     def op_direct_call(self, op, *args_a):
@@ -983,22 +1034,20 @@ class InsertNextLink(Exception):
     def __init__(self, link):
         self.link = link
 
+class RestartCompleting(Exception):
+    pass
+
 class MatchMemo(object):
     def __init__(self):
-        self.exact_match = True
-        self.propagate_as_constants = {}
+        self.dependencies = []
         self.self_alias = {}
         self.other_alias = {}
 
 class VarMemo(object):
-    def __init__(self, propagate_as_constants={}):
+    def __init__(self, key=None, get_fixed_flags=False):
         self.seen = {}
-        self.propagate_as_constants = propagate_as_constants
-
-class ALL(object):
-    def __contains__(self, other):
-        return True
-ALL = ALL()
+        self.key = key
+        self.get_fixed_flags = get_fixed_flags
 
 
 def live_variables(block, position):
@@ -1019,3 +1068,22 @@ def live_variables(block, position):
         if op.result in used:
             result.append(op.result)
     return result
+
+def remove_constant_inputargs(graph):
+    # for simplicity, the logic in GraphState produces graphs that can
+    # pass constants from one block to the next explicitly, via a
+    # link.args -> block.inputargs.  Remove them now.
+    for link in graph.iterlinks():
+        i = 0
+        for v in link.target.inputargs:
+            if isinstance(v, Constant):
+                del link.args[i]
+            else:
+                i += 1
+    for block in graph.iterblocks():
+        i = 0
+        for v in block.inputargs[:]:
+            if isinstance(v, Constant):
+                del block.inputargs[i]
+            else:
+                i += 1

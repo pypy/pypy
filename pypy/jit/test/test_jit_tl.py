@@ -8,7 +8,7 @@ from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
 #from pypy.translator.backendopt import inline
 
-#py.test.skip("in-progress")
+py.test.skip("in-progress")
 
 def setup_module(mod):
     t = TranslationContext()
@@ -32,7 +32,7 @@ def jit_tl(code):
 
     assert result1 == result2
 
-    #interp.graphs[0].show()
+    interp.graphs[0].show()
 
 
 def run_jit(code):
@@ -90,4 +90,29 @@ def test_calls():
             PUSH 5
             ADD
             RETURN
-   ''')
+    ''')
+
+def test_factorial():
+    run_jit('''
+            PUSH 1   #  accumulator
+            PUSH 7   #  N
+
+        start:
+            PICK 0
+            PUSH 1
+            LE
+            BR_COND exit
+
+            SWAP
+            PICK 1
+            MUL
+            SWAP
+            PUSH 1
+            SUB
+            PUSH 1
+            BR_COND start
+
+        exit:
+            POP
+            RETURN
+    ''')

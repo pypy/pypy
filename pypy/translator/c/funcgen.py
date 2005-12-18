@@ -584,6 +584,10 @@ class FunctionCodeGenerator(object):
                 result.append(self.pyobj_incref(op.result))
         return '\t'.join(result)
 
+    def OP_HINT(self, op, err):
+        hints = op.args[1].value
+        return '%s\t/* hint: %r */' % (self.OP_SAME_AS(op, err), hints)
+
     def OP_KEEPALIVE(self, op, err): # xxx what should be the sematics consequences of this
         return "/* kept alive: %s */ ;" % self.expr(op.args[0], special_case_void=False)
 

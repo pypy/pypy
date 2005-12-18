@@ -163,3 +163,30 @@ func2:
     assert code == list2bytecode([PUSH,1, CALL,5, PUSH,3, CALL,4, RETURN,
                                   PUSH,2, RETURN,
                                   PUSH,4, PUSH,5, ADD, RETURN])
+
+def test_factorial():
+    code = compile('''
+            PUSH 1   #  accumulator
+            PUSH 7   #  N
+
+        start:
+            PICK 0
+            PUSH 1
+            LE
+            BR_COND exit
+
+            SWAP
+            PICK 1
+            MUL
+            SWAP
+            PUSH 1
+            SUB
+            PUSH 1
+            BR_COND start
+
+        exit:
+            POP
+            RETURN
+    ''')
+    res = interp(code)
+    assert res == 5040
