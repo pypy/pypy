@@ -591,6 +591,7 @@ class GraphState(object):
         interp = self.interp
         pending = [self]
         seen = {}
+        did_any_generalization = False
         # follow all possible links, forcing the blocks along the way to be
         # computed
         while pending:
@@ -665,7 +666,7 @@ class GraphState(object):
                     print 'flowin() merged as', merged_key
                     block = self.flowin(state, merged_key)
                     state.copyblocks[key] = block
-                    raise RestartCompleting
+                    did_any_generalization = True
             next.settarget(block)
             for link in block.exits:
                 if link.target is None or link.target.operations != ():
@@ -683,6 +684,9 @@ class GraphState(object):
                         graph.exceptblock = link.target
                     else:
                         raise Exception("uh?")
+
+        if did_any_generalization:
+            raise RestartCompleting
 
         remove_constant_inputargs(graph)
 
