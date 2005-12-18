@@ -438,7 +438,8 @@ class Policy(object):
         self.concrete_propagate = concrete_propagate
         self.concrete_args = concrete_args
 
-best_policy = Policy(inlining=True, const_propagate=True)
+# hint-driven policy
+best_policy = Policy(inlining=True, const_propagate=True, concrete_args=False)
 
 
 class LLAbstractInterp(object):
