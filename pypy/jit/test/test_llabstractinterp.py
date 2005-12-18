@@ -62,7 +62,8 @@ def abstrinterp(ll_function, argvalues, arghints, policy=Policy()):
     return graph2, insns
 
 P_INLINE = Policy(inlining=True)
-P_HINT_DRIVEN = Policy(inlining=True, concrete_args=False)
+P_CONST_INLINE = Policy(inlining=True, const_propagate=True)
+P_HINT_DRIVEN = Policy(inlining=True, const_propagate=True, concrete_args=False)
 
 
 def test_simple():
@@ -315,13 +316,13 @@ def test_simple_call_with_inlining():
     graph2, insns = abstrinterp(ll1, [3, 4, 5], [1, 2], policy=P_INLINE)
     assert insns == {'int_add': 1}
 
-##def test_const_propagate():
-##    def ll_add(x, y):
-##        return x + y
-##    def ll1(x):
-##        return ll_add(x, 42)
-##    graph2, insns = abstrinterp(ll1, [3], [0], policy=P_CONST_INLINE)
-##    assert insns == {}
+def test_const_propagate():
+    def ll_add(x, y):
+        return x + y
+    def ll1(x):
+        return ll_add(x, 42)
+    graph2, insns = abstrinterp(ll1, [3], [0], policy=P_CONST_INLINE)
+    assert insns == {}
 
 def test_dont_unroll_loop():
     def ll_factorial(n):
@@ -331,7 +332,7 @@ def test_dont_unroll_loop():
             i += 1
             result *= i
         return result
-    graph2, insns = abstrinterp(ll_factorial, [7], [], policy=P_INLINE)
+    graph2, insns = abstrinterp(ll_factorial, [7], [], policy=P_CONST_INLINE)
     assert insns == {'int_lt': 1, 'int_add': 1, 'int_mul': 1}
 
 def test_hint():
@@ -342,6 +343,35 @@ def test_hint():
         pc = 0
         while pc < len(code):
             opcode = hint(code[pc], concrete=True)
+            pc += 1
+            if opcode == 'A':
+                accum += 6
+            elif opcode == 'B':
+                if accum < 20:
+                    pc = 0
+        return accum
+    bytecode = lltype.malloc(A, 5)
+    bytecode[0] = 'A'
+    bytecode[1] = 'A'
+    bytecode[2] = 'A'
+    bytecode[3] = 'B'
+    bytecode[4] = 'A'
+    graph2, insns = abstrinterp(ll_interp, [bytecode], [0],
+                                policy=P_HINT_DRIVEN)
+    assert insns == {'int_add': 4, 'int_lt': 1}
+
+def test_hint_across_call():
+    from pypy.rpython.objectmodel import hint
+    A = lltype.GcArray(lltype.Char, hints={'immutable': True})
+    def ll_length(a):
+        return len(a)
+    def ll_getitem(a, i):
+        return a[i]
+    def ll_interp(code):
+        accum = 0
+        pc = 0
+        while pc < ll_length(code):
+            opcode = hint(ll_getitem(code, pc), concrete=True)
             pc += 1
             if opcode == 'A':
                 accum += 6

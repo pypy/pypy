@@ -32,7 +32,7 @@ def jit_tl(code):
 
     assert result1 == result2
 
-    interp.graphs[0].show()
+    #interp.graphs[0].show()
 
 
 def run_jit(code):

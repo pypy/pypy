@@ -57,8 +57,18 @@ class LLConcreteValue(LLAbstractValue):
 
 
 class LLRuntimeValue(LLAbstractValue):
-    origin = None
-    fixed = False
+
+    origin = None     # list of LLRuntimeValues attached to a saved state:
+                      # the sources that did or could allow 'self' to be
+                      # computed as a constant
+
+    becomes = "var"   # only meaningful on LLRuntimeValues attached to a
+                      # saved state.  Describes what this LLRuntimeValue will
+                      # become in the next block:
+                      #   "var"    - becomes a Variable in the next block
+                      #   "single" - only one Constant seen so far, so
+                      #                for now it can stay a Constant
+                      #   "fixed"  - forced by hint() to stay a Constant
 
     def __init__(self, orig_v):
         if isinstance(orig_v, Variable):
@@ -67,6 +77,8 @@ class LLRuntimeValue(LLAbstractValue):
         elif isinstance(orig_v, Constant):
             # we can share the Constant()
             self.copy_v = orig_v
+            self.origin = []
+            self.becomes = "single"
         elif isinstance(orig_v, lltype.LowLevelType):
             # hackish interface :-(  we accept a type too
             self.copy_v = newvar(orig_v)
@@ -83,10 +95,17 @@ class LLRuntimeValue(LLAbstractValue):
         return self.copy_v
 
     def getruntimevars(self, memo):
-        if memo.get_fixed_flags:
-            return [self.fixed]
-        else:
+        if memo.key is None:
             return [self.copy_v]
+        else:
+            c = memo.key.next()
+            if self.becomes == "var":
+                return [None]
+            else:
+                assert isinstance(c, Constant), (
+                    "unexpected Variable %r reaching a %r input arg" %
+                    (c, self.becomes))
+                return [c]
 
     def maybe_get_constant(self):
         if isinstance(self.copy_v, Constant):
@@ -96,16 +115,16 @@ class LLRuntimeValue(LLAbstractValue):
 
     def with_fresh_variables(self, memo):
         # don't use memo.seen here: shared variables must become distinct
-        if memo.key is not None:
-            c = memo.key.next()
-            if c is not None:
-                return LLRuntimeValue(c)
-        result = LLRuntimeValue(self.getconcretetype())
+        c = memo.key and memo.key.next()
+        if c is not None:    # allowed to propagate as a Constant?
+            result = LLRuntimeValue(c)
+        else:
+            result = LLRuntimeValue(self.getconcretetype())
         result.origin = [self]
         return result
 
     def match(self, other, memo):
-        memo.dependencies.append((self, other, self.fixed))
+        memo.dependencies.append((self, other))
         return isinstance(other, LLRuntimeValue)
 
 ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
@@ -417,13 +436,14 @@ class LLSuspendedBlockState(LLBlockState):
 # ____________________________________________________________
 
 class Policy(object):
-    def __init__(self, inlining=False,
+    def __init__(self, inlining=False, const_propagate=False,
                        concrete_propagate=True, concrete_args=True):
         self.inlining = inlining
+        self.const_propagate = const_propagate
         self.concrete_propagate = concrete_propagate
         self.concrete_args = concrete_args
 
-best_policy = Policy(inlining=True, concrete_args=False)
+best_policy = Policy(inlining=True, const_propagate=True)
 
 
 class LLAbstractInterp(object):
@@ -484,15 +504,26 @@ class LLAbstractInterp(object):
             if state.match(inputstate, memo):
                 # already matched
                 must_restart = False
-                for statevar, inputvar, fixed in memo.dependencies:
-                    if fixed:
+                for statevar, inputvar in memo.dependencies:
+                    if statevar.becomes == "single":
+                        # the saved state only records one possible Constant
+                        # incoming value so far.  Are we seeing a different
+                        # Constant, or even a Variable?
+                        if inputvar.copy_v != statevar.copy_v:
+                            statevar.becomes = "var"
+                            must_restart = True
+                    elif statevar.becomes == "fixed":
+                        # the saved state says that this new incoming
+                        # variable must be forced to a constant
                         must_restart |= self.hint_needs_constant(inputvar)
                 if must_restart:
                     raise RestartCompleting
-                for statevar, inputvar, fixed in memo.dependencies:
-                    if statevar.origin is None:
-                        statevar.origin = []
-                    statevar.origin.append(inputvar)
+                # The new inputstate is merged into the existing saved state.
+                # Record this inputstate's variables in the possible origins
+                # of the saved state's variables.
+                for statevar, inputvar in memo.dependencies:
+                    if statevar.origin is not None:
+                        statevar.origin.append(inputvar)
                 return state
         else:
             # cache and return this new state
@@ -500,23 +531,28 @@ class LLAbstractInterp(object):
             return inputstate
 
     def hint_needs_constant(self, a):
-        if a.maybe_get_constant() is not None:
-            return False
+        # Force the given LLRuntimeValue to be a fixed constant.
+        must_restart = False
         fix_me = [a]
         while fix_me:
             a = fix_me.pop()
-            if not a.origin:
+            assert isinstance(a, LLRuntimeValue)
+            if a.becomes == "fixed":
+                continue    # already fixed
+            print 'fixing:', a
+            if a.becomes == "var":
+                must_restart = True    # this Var is now fixed
+                # (no need to restart if a.becomes was "single")
+            a.becomes = "fixed"
+            if a.origin:
+                fix_me.extend(a.origin)
+            elif a.maybe_get_constant() is None:
+                # a Variable with no recorded origin
                 raise Exception("hint() failed: cannot trace the variable %r "
                                 "back to a link where it was a constant" % (a,))
-            for a_origin in a.origin:
-                # 'a_origin' is a LLRuntimeValue attached to a saved state
-                assert isinstance(a_origin, LLRuntimeValue)
-                if not a_origin.fixed:
-                    print 'fixing:', a_origin
-                    a_origin.fixed = True
-                    if a_origin.maybe_get_constant() is None:
-                        fix_me.append(a_origin)
-        return True
+        assert self.policy.const_propagate, (
+            "hint() can only be used with a policy of const_propagate=True")
+        return must_restart
 
 
 class GraphState(object):
@@ -569,17 +605,10 @@ class GraphState(object):
         while pending:
             next = pending.pop()
             state = interp.pendingstates[next]
-            fixed_flags = state.getruntimevars(VarMemo(get_fixed_flags=True))
-            key = []
-            for fixed, c in zip(fixed_flags, next.args):
-                if fixed:
-                    assert isinstance(c, Constant), (
-                        "unexpected Variable %r reaching a fixed input arg" %
-                        (c,))
-                    key.append(c)
-                else:
-                    key.append(None)
-            key = tuple(key)
+            if interp.policy.const_propagate:
+                key = tuple(state.getruntimevars(VarMemo(next.args)))
+            else:
+                key = None
             if key not in state.copyblocks:
                 self.flowin(state, key)
             block = state.copyblocks[key]
@@ -626,14 +655,15 @@ class GraphState(object):
         newexitswitch = None
         # debugging print
         arglist = []
-        for v1, v2, k in zip(state.getruntimevars(VarMemo()),
-                             builder.runningstate.getruntimevars(VarMemo()),
-                             key):
-            if k is None:
-                assert isinstance(v2, Variable)
-            else:
-                assert v2 == k
-            arglist.append('%s => %s' % (v1, v2))
+        if key:
+            for v1, v2, k in zip(state.getruntimevars(VarMemo()),
+                                 builder.runningstate.getruntimevars(VarMemo()),
+                                 key):
+                if k is None:
+                    assert isinstance(v2, Variable)
+                else:
+                    assert v2 == k
+                arglist.append('%s => %s' % (v1, v2))
         print
         print '--> %s [%s]' % (origblock, ', '.join(arglist))
         for op in origblock.operations:
@@ -718,7 +748,7 @@ class BlockBuilder(object):
 
     def __init__(self, interp, initialstate, key):
         self.interp = interp
-        memo = VarMemo(iter(key))
+        memo = VarMemo(key)
         self.runningstate = initialstate.with_fresh_variables(memo)
         self.newinputargs = self.runningstate.getruntimevars(VarMemo())
         # {Variables-of-origblock: a_value}
@@ -767,7 +797,9 @@ class BlockBuilder(object):
         if any_concrete and self.interp.policy.concrete_propagate:
             return LLConcreteValue(concreteresult)
         else:
-            return LLRuntimeValue(const(concreteresult))
+            a_result = LLRuntimeValue(const(concreteresult))
+            self.record_origin(a_result, args_a)
+            return a_result
 
     def residual(self, opname, args_a, a_result):
         v_result = a_result.forcevarorconst(self)
@@ -796,7 +828,7 @@ class BlockBuilder(object):
     def record_origin(self, a_result, args_a):
         origin = []
         for a in args_a:
-            if a.maybe_get_constant() is not None:
+            if isinstance(a, LLConcreteValue):
                 continue
             if not isinstance(a, LLRuntimeValue) or a.origin is None:
                 return
@@ -1044,10 +1076,12 @@ class MatchMemo(object):
         self.other_alias = {}
 
 class VarMemo(object):
-    def __init__(self, key=None, get_fixed_flags=False):
+    def __init__(self, key=None):
         self.seen = {}
-        self.key = key
-        self.get_fixed_flags = get_fixed_flags
+        if key is not None:
+            self.key = iter(key)
+        else:
+            self.key = None
 
 
 def live_variables(block, position):
