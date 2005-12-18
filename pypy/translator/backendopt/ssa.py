@@ -15,21 +15,24 @@ class DataFlowFamilyBuilder:
         # the nth output variable from each of the incoming links, in a list:
         # [Block, blockvar, linkvar, linkvar, linkvar...]
         opportunities = []
+        opportunities_with_const = []
         for block, links in mkentrymap(graph).items():
             if block is graph.startblock:
                 continue
             assert links
             for n, inputvar in enumerate(block.inputargs):
                 vars = [block, inputvar]
+                put_in = opportunities
                 for link in links:
                     var = link.args[n]
                     if not isinstance(var, Variable):
-                        break
+                        put_in = opportunities_with_const
                     vars.append(var)
-                else:
-                    # if no Constant found in the incoming links
-                    opportunities.append(vars)
+                # if any link provides a Constant, record this in
+                # the opportunities_with_const list instead
+                put_in.append(vars)
         self.opportunities = opportunities
+        self.opportunities_with_const = opportunities_with_const
         self.variable_families = UnionFind()
 
     def complete(self):
@@ -66,9 +69,9 @@ class DataFlowFamilyBuilder:
         while progress:
             progress = False
             block_phi_nodes = {}   # in the SSA sense
-            for vars in self.opportunities:
+            for vars in self.opportunities + self.opportunities_with_const:
                 block, blockvar = vars[:2]
-                linksvars = vars[2:]   # from the incoming links
+                linksvars = vars[2:]   # from the incoming links (vars+consts)
                 linksvars = [variable_families.find_rep(v) for v in linksvars]
                 phi_node = (block,) + tuple(linksvars) # ignoring n and blockvar
                 if phi_node in block_phi_nodes:

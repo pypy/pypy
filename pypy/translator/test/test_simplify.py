@@ -82,4 +82,15 @@ def test_remove_pointless_keepalive():
             assert op.opname != 'getfield'
             if op.opname == 'keepalive':
                 assert op.args[0] in graph.getargs()
-   
+
+
+def test_remove_identical_variables():
+    def g(code):
+        pc = 0
+        while pc < len(code):
+            pc += 1
+        return pc
+
+    graph = TranslationContext().buildflowgraph(g)
+    for block in graph.iterblocks():
+        assert len(block.inputargs) <= 2   # at most 'pc' and 'code'
