@@ -821,7 +821,6 @@ lattice.
 
 
 .. graphviz:: image/lattice1.dot
-   :scale: 80
 
 :Figure 1: the lattice of annotations.
 
@@ -843,7 +842,6 @@ lattice.
 
 
 .. graphviz:: image/lattice2.dot
-   :scale: 80
 
 :Figure 2: The part about instances and nullable instances, assuming a
            simple class hierarchy with only two direct subclasses of
@@ -875,7 +873,6 @@ lattice.
 
 
 .. graphviz:: image/lattice3.dot
-   :scale: 80
 
 :Figure 3: All list terms for all variables are unordered.
 
@@ -1708,7 +1705,7 @@ Proof:
    which concludes the induction step.
 
    Case 2: *r* is not in *S_i*.  By induction hypothesis ``(b_i, E_i) =
-   r( (b_i, E_i) )``.
+   r( (b_i, E_i) )``. ::
 
        (b_i, E_i) = (b_i, E_i) union (bf,Ef)
        (b_i, E_i) >= (bf,Ef)
