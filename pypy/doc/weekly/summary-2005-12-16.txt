@@ -56,3 +56,26 @@ Thanks again to Pieter for this.
          switches. Cfbolz replies that it is time to write a graph
          transformation to implement this optimization officially.
 
+
+PyPy's Bytecode Dispatcher
+==========================
+
+Until now the bytecode dispatching in PyPy was done using a list of functions
+that contain the implementation of the respective bytecode. The dispatch
+function retrieved the correct function by using the bytecode as an index into
+this list. This was turned by the translator and the C backend into an array of
+function pointers. This has the drawback that the bytecode implementing
+functions can never be inlined (although some of them are quite small) and
+there always is a read from memory for every bytecode. 
+
+During the Gothenburg sprint we discussed a strategy to transform the dispatch
+code into something more efficient. During the last week Eric, Arre and Carl
+Friedrich implemented this strategy. Now the dispatching is done with a huge
+chain of if/elif/else that all test the value of the same variable. In addition
+there is a transformation that transforms chains of such if/elif/else blocks
+into a block that has an integer variable as an exitswitch and links which
+exitcases corresponding to the different values of the single integer variable.
+The C backend outputs such a block as a switch. In addition this technique
+makes it possible for our inliner to inline some of the bytecode implementing
+functions work. Using the new dispatcher pypy-c got XXX slower and is now XXX
+times slower thatn CPython.
