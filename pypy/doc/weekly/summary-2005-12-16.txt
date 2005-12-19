@@ -22,7 +22,7 @@ The Sprint!
 ===========
 
 The last weekly summary was written towards then end of the sprint.
-The things we did in the couple of remaining weeks were written up in
+The things we did in the couple of remaining days were written up in
 the second sprint report:
 
     http://codespeak.net/pipermail/pypy-dev/2005q4/002660.html
