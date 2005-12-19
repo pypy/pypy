@@ -167,6 +167,10 @@ def rtype_r_longlong(hop):
     vlist = hop.inputargs(lltype.SignedLongLong)
     return vlist[0]
 
+def rtype_r_ulonglong(hop):
+    vlist = hop.inputargs(lltype.UnsignedLongLong)
+    return vlist[0]
+
 def rtype_builtin_min(hop):
     rint1, rint2 = hop.args_r
     assert isinstance(rint1, IntegerRepr)
@@ -319,6 +323,7 @@ BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 BUILTIN_TYPER[rarithmetic.r_longlong] = rtype_r_longlong
+BUILTIN_TYPER[rarithmetic.r_ulonglong] = rtype_r_ulonglong
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
 BUILTIN_TYPER[objectmodel.cast_object_to_int] = rtype_cast_object_to_int
