@@ -88,10 +88,13 @@ class Coroutine(object):
         self.frame = self._bind(thunk)
 
     def _bind(self, thunk):
+        binder = costate.current
         costate.last.frame = yield_current_frame_to_caller()
         thunk.call()
-        costate.last, costate.current = costate.current, costate.main
-        frame, costate.main.frame = costate.main.frame, None
+        if binder.frame is None:
+            binder = costate.main
+        costate.last, costate.current = costate.current, binder
+        frame, binder.frame = binder.frame, None
         return frame
 
     def switch(self):
@@ -164,8 +167,6 @@ def test_coroutine():
 
 def test_coroutine2():
 
-    py.test.skip("failing test")
-    
     class TBase:
         def call(self):
             pass
