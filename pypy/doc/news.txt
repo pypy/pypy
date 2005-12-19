@@ -18,6 +18,7 @@ the socket module had some progress, PyPy got faster and work was started to
 expose the internals of our parser and bytecode compiler to the user.
 Michael and Carl have written a `report about the first half`_ and `one about
 the second half`_ of the sprint.  *(12/18/2005)*
+
 .. _`report about the first half`: http://codespeak.net/pipermail/pypy-dev/2005q4/002656.html
 .. _`one about the second half`: http://codespeak.net/pipermail/pypy-dev/2005q4/002660.html
 
