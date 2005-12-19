@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
-from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
+from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
@@ -560,7 +560,7 @@ class LLFrame(object):
     # __________________________________________________________
     # primitive operations
 
-    for typ in (float, int, r_uint, r_longlong):
+    for typ in (float, int, r_uint, r_longlong, r_ulonglong):
         typname = typ.__name__
         optup = ('add', 'sub', 'mul', 'div', 'truediv', 'floordiv',
                  'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
@@ -568,6 +568,8 @@ class LLFrame(object):
             opnameprefix = 'uint'
         elif typ is r_longlong:
             opnameprefix = 'llong'
+        elif typ is r_ulonglong:
+            opnameprefix = 'ullong'
         else:
             opnameprefix = typname
         if typ in (int, r_uint):
