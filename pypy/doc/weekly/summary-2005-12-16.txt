@@ -79,3 +79,16 @@ The C backend outputs such a block as a switch. In addition this technique
 makes it possible for our inliner to inline some of the bytecode implementing
 functions work. Using the new dispatcher pypy-c got XXX slower and is now XXX
 times slower thatn CPython.
+
+Preparations for EU-review still ongoing 
+===========================================
+
+Still many developers are involved in ongoing 
+preparations for the EU review on 20th January. 
+Reports are being finalized and there are discussions
+about various issues that are only indirectly related
+to the development efforts (in so far as it provides
+the basis for the partial funding we receive). 
+We probably will only know on the 20th if everything 
+works out suitably. 
+
