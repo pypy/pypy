@@ -5,9 +5,29 @@ from pypy.translator.translator import TranslationContext, graphof as tgraphof
 from pypy.objspace.flow.model import flatten, Block
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
+
+def do_test_merge(fn, testvalues):
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, [type(testvalues[0])])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    graph = tgraphof(t, fn)
+    assert len(list(graph.iterblocks())) == 4 #startblock, blocks, returnblock
+    remove_same_as(graph)
+    merge_if_blocks_once(graph)
+    assert len(graph.startblock.exits) == 4
+    assert len(list(graph.iterblocks())) == 2 #startblock, returnblock
+    interp = LLInterpreter(rtyper)
+    for i in testvalues:
+        expected = fn(i)
+        actual = interp.eval_graph(graph, [i])
+        assert actual == expected
 
 def test_merge1():
-    def merge1(n):
+    def merge_int(n):
         n += 1
         if n == 1:
             return 1
@@ -16,22 +36,33 @@ def test_merge1():
         elif n == 3:
             return 3
         return 4
-    t = TranslationContext()
-    a = t.buildannotator()
-    a.build_types(merge1, [int])
-    rtyper = t.buildrtyper()
-    rtyper.specialize()
-    graph = tgraphof(t, merge1)
-    assert len(list(graph.iterblocks())) == 4 #startblock, blocks, returnblock
-    remove_same_as(graph)
-    merge_if_blocks_once(graph)
-    assert len(graph.startblock.exits) == 4
-    assert len(list(graph.iterblocks())) == 2 #startblock, returnblock
-    interp = LLInterpreter(rtyper)
-    for i in range(4):
-        res = interp.eval_graph(graph, [i])
-        assert res == i + 1
+    do_test_merge(merge_int, range(4))
+    do_test_merge(merge_int, [r_uint(i) for i in range(4)])
+    do_test_merge(merge_int, [r_longlong(i) for i in range(4)])
+    do_test_merge(merge_int, [r_ulonglong(i) for i in range(4)])
 
+    def merge_chr(n):
+        c = chr(n + 1)
+        if c == 'a':
+            return 'a'
+        elif c == 'b':
+            return 'b'
+        elif c == 'c':
+            return 'c'
+        return 'd'
+    do_test_merge(merge_chr, range(96, 101))
+
+    def merge_uchr(n):
+        c = unichr(n + 1)
+        if c == u'a':
+            return u'a'
+        elif c == u'b':
+            return u'b'
+        elif c == u'c':
+            return u'c'
+        return u'd'
+    do_test_merge(merge_uchr, range(96, 101))
+    
 def test_merge_passonvars():
     def merge(n, m):
         if n == 1:

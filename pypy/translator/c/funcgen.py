@@ -5,7 +5,7 @@ from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, c_last_exception
 from pypy.rpython.lltypesystem.lltype import \
-     Ptr, PyObject, Void, Bool, Signed, pyobjectptr, Struct, Array
+     Ptr, PyObject, Void, Bool, Signed, Unsigned, SignedLongLong, UnsignedLongLong,Char, UniChar, pyobjectptr, Struct, Array
 
 
 PyObjPtr = Ptr(PyObject)
@@ -345,7 +345,8 @@ class FunctionCodeGenerator(object):
                     for op in gen_link(block.exits[-1]):
                         yield op
                     yield ''
-                elif TYPE == Signed:
+                elif TYPE in (Signed, Unsigned, SignedLongLong,
+                              UnsignedLongLong, Char, UniChar):
                     defaultlink = None
                     expr = self.expr(block.exitswitch)
                     yield 'switch (%s) {' % self.expr(block.exitswitch)
@@ -353,7 +354,7 @@ class FunctionCodeGenerator(object):
                         if link.exitcase is 'default':
                             defaultlink = link
                             continue
-                        yield 'case %s:' % link.llexitcase
+                        yield 'case %s:' % self.db.get(link.llexitcase)
                         for op in gen_link(link):
                             yield '\t' + op
                         yield 'break;'

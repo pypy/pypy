@@ -10,7 +10,9 @@ def is_chain_block(block, first=False):
     if len(block.operations) > 1 and not first:
         return False
     op = block.operations[-1]
-    if op.opname != 'int_eq' or op.result != block.exitswitch:
+    if (op.opname not in ('int_eq', 'uint_eq', 'llong_eq', 'ullong_eq',
+                          'char_eq', 'unichar_eq')
+        or op.result != block.exitswitch):
         return False
     if isinstance(op.args[0], Variable) and isinstance(op.args[1], Variable):
         return False

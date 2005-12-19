@@ -2,7 +2,7 @@ import autopath
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython import objectmodel
-
+from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):
 
@@ -105,7 +105,7 @@ class TestTypedOptimizedSwitchTestCase:
             self.t = t
             backend_optimizations(t, merge_if_blocks_to_switch=True)
 
-    def test_switch(self):
+    def test_int_switch(self):
         def f(x=int):
             if x == 3:
                 return 9
@@ -118,4 +118,78 @@ class TestTypedOptimizedSwitchTestCase:
         fn = codegenerator.getcompiled(f)
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)
+
+    def test_uint_switch(self):
+        def f(x=r_uint):
+            if x == r_uint(3):
+                return 9
+            elif x == r_uint(9):
+                return 27
+            elif x == r_uint(27):
+                return 3
+            return 0
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in (0,1,2,3,9,27,48):
+            assert fn(x) == f(x)
+
+    def test_longlong_switch(self):
+        def f(x=r_longlong):
+            if x == r_longlong(3):
+                return 9
+            elif x == r_longlong(9):
+                return 27
+            elif x == r_longlong(27):
+                return 3
+            return 0
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in (0,1,2,3,9,27,48, -9):
+            assert fn(x) == f(x)
+
+    def test_ulonglong_switch(self):
+        def f(x=r_ulonglong):
+            if x == r_ulonglong(3):
+                return 9
+            elif x == r_ulonglong(9):
+                return 27
+            elif x == r_ulonglong(27):
+                return 3
+            return 0
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in (0,1,2,3,9,27,48, -9):
+            assert fn(x) == f(x)
+
+    def test_chr_switch(self):
+        def f(y=int):
+            x = chr(y)
+            if x == 'a':
+                return 'b'
+            elif x == 'b':
+                return 'c'
+            elif x == 'c':
+                return 'd'
+            return '@'
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in 'ABCabc@':
+            y = ord(x)
+            assert fn(y) == f(y)
+
+    def test_unichr_switch(self):
+        def f(y=int):
+            x = unichr(y)
+            if x == u'a':
+                return 'b'
+            elif x == u'b':
+                return 'c'
+            elif x == u'c':
+                return 'd'
+            return '@'
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in u'ABCabc@':
+            y = ord(x)
+            assert fn(y) == f(y)
 
