@@ -5,38 +5,121 @@ from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
 import sys
 
-namespaces = {'rdf':'http://www.w3.org/1999/02/22-rdf-syntax-ns',
-      'rdfs':'http://www.w3.org/2000/01/rdf-schema',
-      'dc':'http://purl.org/dc/elements/1.0/',
-      'xmlns':'http://www.w3.org/1999/xhtml',
-      'owl':'http://www.w3.org/2002/07/owl',
+namespaces = {
+    'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
+    'rdfs' : 'http://www.w3.org/2000/01/rdf-schema',
+    'xmlns' : 'http://www.w3.org/1999/xhtml',
+    'owl' : 'http://www.w3.org/2002/07/owl',
 }
+
 uris = {}
 for k,v in namespaces.items(): 
     uris[v] = k
 
-Thing = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
 Class = URIRef(u'http://www.w3.org/2002/07/owl#Class')
-builtin_voc = [
-               'Thing',
-               'Class',
-               'ObjectProperty',
-               'AllDifferent',
-               'AnnotationProperty',
-               'DataRange',
-               'DatatypeProperty',
-               'DeprecatedClass',
-               'DeprecatedProperty',
-               'FunctionalProperty',
-               'InverseFunctionalProperty',
-               'Nothing',
-               'ObjectProperty',
-               'Ontology',
-               'OntologyProperty',
-               'Restriction',
-               'SymmetricProperty',
-               'TransitiveProperty'
-              ]
+rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
+rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
+
+class ClassDomain(AbstractDomain):
+
+    # Class domain is intended as a (abstract/virtual) domain for implementing
+    # Class axioms. Working on class descriptions the class domain should allow
+    # creation of classes through axioms.
+    # The instances of a class can be represented as a FiniteDomain in values (not always see Disjointwith)
+    # Properties of a class is in the dictionary "properties"
+    # The bases of a class is in the list "bases"
+
+    def __init__(self, name='', values=[], bases = []):
+        AbstractDomain.__init__(self)
+        self.bases = bases+[self]
+        self.values = values
+        self.name = name
+        self.properties = {}
+
+    def __repr__(self):
+        return "<ClassDomain %s>" % str(self.name)
+
+    def __getitem__(self, index):
+        return None
+
+    def __iter__(self):
+        return iter(self.bases) 
+
+    def size(self):
+        return len(self.bases)
+
+    __len__ = size
+
+    def copy(self):
+        return self
+
+    def removeValues(self, values):
+        print "remove values from ClassDomain %r"%self, values
+        if len(values) > 0:
+            self.bases.pop(self.bases.index(values[0]))
+
+    def getValues(self):
+        return self.bases
+
+class Property(ClassDomain):
+    pass
+    
+class ObjectProperty(Property):
+
+    pass
+
+class DataTypeProperty(Property):
+
+    pass
+
+class Thing:
+
+    def __init__(self):
+        pass
+
+class AllDifferent(ClassDomain):
+    # A special class whose members are distinct
+    # Syntactic sugar
+    pass
+
+class Nothing:
+
+    pass
+
+
+class FunctionalProperty:
+    
+    def __init__(self):
+        pass
+
+class DataRange:
+    
+    def __init__(self):
+        pass
+
+class Restriction(ClassDomain):
+    pass
+
+builtin_voc = {
+               'Thing' : Thing,
+               'Class' : ClassDomain,
+               'ObjectProperty' : ObjectProperty,
+               'AllDifferent' : AllDifferent ,
+##               'AnnotationProperty' : AnnotationProperty,
+##               'DataRange' : DataRange,
+##               'DatatypeProperty' : DatatypeProperty,
+##               'DeprecatedClass' : DeprecatedClass,
+##               'DeprecatedProperty' : DeprecatedProperty,
+##               'FunctionalProperty' : FunctionalProperty,
+##               'InverseFunctionalProperty' : InverseFunctionalProperty,
+##               'Nothing' : Nothing,
+##               'ObjectProperty' : ObjectProperty,
+##               'Ontology' : Ontology,
+##               'OntologyProperty' : OntologyProperty,
+               'Restriction' : Restriction,
+##               'SymmetricProperty' : SymmetricProperty,
+##               'TransitiveProperty' : TransitiveProperty
+              }
   
 class Ontology(Graph):
 
@@ -56,37 +139,30 @@ class Ontology(Graph):
     def attach_fd(self):
         for (s, p, o) in (self.triples((None, None, None))):
             if p.find('#') != -1:
-                owl,func = p.split('#')
+                ns, func = p.split('#')
             else:
-                owl =''
+                ns =''
                 func = p
-                #print s, p, o
-                #raise Exception
-            if owl in [namespaces['owl'],namespaces['rdf'],namespaces['rdfs']]:
+                
+            if ns in namespaces.items():
                 pred = getattr(self, func)
-            else:
-                pred = None
-            if pred: 
                 res = pred(s, p, o) 
                 if res == None:
                     continue
                 if type(res) != list :
                     res = [res]
-                avar = self.make_var(s) 
+                avar = self.make_var(fd, s) 
             else:
                 res = [o]
-                avar = self.make_var(s,p) 
+                avar = self.make_var(fd, s, p) 
             if self.variables.get(avar) and type(self.variables[avar]) == fd:
                 self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
             else:
                 self.variables[avar] = fd(res)
-      #  for var in self.seen:
-      #      self.variables.pop(var)
-      #  self.seen = {}
-                    
+
     def solve(self,verbose=0):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
-        return Solver().solve(rep,verbose)
+        return Solver().solve(rep, verbose)
 
     def consistency(self):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
@@ -94,26 +170,24 @@ class Ontology(Graph):
  
     def get_list(self, subject):
         res = []
-        p = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
-        first = list(self.objects(subject, p)) 
+        first = list(self.objects(subject, rdf_first)) 
         assert len(first) == 1
-        self.seen[self.make_var(subject,p)]= 1
+        self.seen[self.make_var(fd, subject, p)]= 1
         if type(first[0]) == URIRef:
-            var = self.make_var(first[0])
+            var = self.make_var(fd, first[0])
             if var not in self.variables.keys():
                 self.variables[var] = ClassDomain(var)
         res += first
-      
-        p = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
-        rest = list(self.objects(subject, p)) 
-        self.seen[self.make_var(subject,p)]= 1
+        
+        rest = list(self.objects(subject, rdf_rest)) 
+        self.seen[self.make_var(fd, subject, p)]= 1
         if "#nil" in rest[0] :
            return res
         else:
            res += self.get_list(rest[0])
         return res
 
-    def make_var(self,*args):
+    def make_var(self, cls=fd, *args):
         res = []
         for a in args:
             if type(a) == URIRef:
@@ -129,6 +203,9 @@ class Ontology(Graph):
             else:
                 res.append(a)
         var = '.'.join([str(a.replace('-','_')) for a in res])
+        if not var in self.variables.keys():
+            print var
+            self.variables[var] = cls(name=var)
         return var 
 
     def find_prop(self, s):
@@ -144,8 +221,6 @@ class Ontology(Graph):
             pr = list( self.subjects(p,s) )
             if len(pr) == 0:
                 return
-        #        pr = list( self.subjects(r,s) )
-        #    assert len(pr) == 1
             return pr[0]
         else:
             return s
@@ -159,9 +234,9 @@ class Ontology(Graph):
         prop = self.find_prop(s)
         cls = self.find_cls(s)
         if cls :
-            avar = self.make_var(cls, prop)
+            avar = self.make_var(ClassDomain, cls, prop)
         else:
-            avar = self.make_var( prop)
+            avar = self.make_var(ClassDomain, prop)
         if not self.variables.get(avar):
             self.variables[avar] = ClassDomain(avar)
         return avar
@@ -169,15 +244,11 @@ class Ontology(Graph):
 #---------------- Implementation ----------------
 
     def type(self, s, p, var):
-        avar = self.make_var(var)
-        svar = self.make_var(s)
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(ClassDomain, s)
         if (type(var) == URIRef and not 
            (var in [URIRef(namespaces['owl']+'#'+x) for x in builtin_voc])):
             # var is not one of the builtin classes
-            if not self.variables.get(svar): 
-                self.variables[svar] = ClassDomain(svar)
-            if not self.variables.get(avar): 
-                self.variables[avar] = ClassDomain(avar)
              
 #            if self.variables[avar].values:
             self.variables[svar].values +=  self.variables[avar].values
@@ -185,18 +256,13 @@ class Ontology(Graph):
             self.constraints.append(constrain)
         else:
             # var is a builtin class
-            pass    
+            self.variables[svar] =  builtin_voc[var.split('#')[-1]]()
+
 
     def first(self, s, p, var):
         pass
 
     def rest(self, s, p, var):
-        pass
-
-    def range(self, s, p, var):
-        pass
-
-    def domain(self, s, p, var):
         pass
 
 # --------- Class Axioms ---------------------
@@ -205,39 +271,71 @@ class Ontology(Graph):
         # s is a subclass of var means that the 
         # class extension of s is a subset of the
         # class extension of var. 
-        avar = self.make_var(var)
-        svar = self.make_var(s)
-        if not self.variables.get(avar): 
-            self.variables[avar] = ClassDomain(avar)
-        constrain = SubClassConstraint(svar, avar) 
-        self.constraints.append(constrain)
-        
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(ClassDomain, s)
+        res = get_bases(self.variables[avar], self.variables)
+        self.variables[svar].bases.extend(res.keys())
+
     def equivalentClass(self, s, p, var):
-        avar = self.make_var(var)
-        svar = self.make_var(s)
-        if not self.variables.get(avar): 
-            self.variables[avar] = ClassDomain(avar)
-#        constrain = EquivalentClassConstraint(svar, avar) 
-#        self.constraints.append(constrain)
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(ClassDomain, s)
         self.subClassOf(s, p, var)
         self.subClassOf(var, p, s)
 
     def disjointWith(self, s, p, var):
-        avar = self.make_var(var)
-        svar = self.make_var(s)
-        if not self.variables.get(avar): 
-            self.variables[avar] = ClassDomain(avar)
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(ClassDomain, s)
         constrain = DisjointClassConstraint(svar, avar) 
         self.constraints.append(constrain)
+
+    def complementOf(self, s, p, var):
+        # add constraint of not var
+        pass
 
     def oneOf(self, s, p, var):
         res = self.get_list(var)
         prop = self.find_uriref(s)
-        avar = self.make_var( prop)
+        avar = self.make_var(fd, prop)
         if self.variables.get(avar) and type(self.variables[avar]) == fd:
             self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
         else:
             self.variables[avar] = fd(res)
+
+    def unionOf(self,s, p, var):
+        res = self.get_list(var)
+        return res #There might be doubles (but fd takes care of that)
+
+    def intersectionOf(self, s, p, var):
+        res = self.get_list(var)
+        result = {}.fromkeys(res[0])
+        for el in res:
+            for cls in result.keys():
+                if cls not in el:
+                   result.pop(cls)
+        return result.keys()
+
+#---------Property axioms--------------------
+
+    def range(self, s, p, var):
+        pass
+
+    def domain(self, s, p, var):
+        avar = self.make_var(CassDomain, var)
+        svar = self.make_var(Property, s)
+        assert isinstance(self.variables[svar], Property)
+        assert isinstance(self.variables[avar], ClassDomain)
+        self.variables[avar].properties[svar] = self.variables[svar]
+
+    def subPropertyOf(self, s, p, var):
+        pass
+
+    def equivalentProperty(self, s, p, var):
+        pass
+
+    def inverseOf(self, s, p, var):
+        pass
+
+#-------------------------------------------
 
     def maxCardinality(self, s, p, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
@@ -258,41 +356,21 @@ class Ontology(Graph):
         constrain = Cardinality(avar,int(var))
         self.constraints.append(constrain) 
 
-    def unionOf(self,s, p, var):
-        res = self.get_list(var)
-        return res #There might be doubles (but fd takes care of that)
-
-    def intersectionOf(self, s, p, var):
-        res = self.get_list(var)
-        result = {}.fromkeys(res[0])
-        for el in res:
-            for cls in result.keys():
-                if cls not in el:
-                   result.pop(cls)
-        return result.keys()
-
     def differentFrom(self, s, p, var):
-        s_var = self.make_var(s)
-        var_var = self.make_var(var)
-        if not self.variables.get(s_var):
-            self.variables[s_var] = ClassDomain(s_var)
-        if not self.variables.get(var_var):
-            self.variables[var_var] = fd([])
+        s_var = self.make_var(ClassDomain, s)
+        var_var = self.make_var(fd, var)
         constrain = BinaryExpression([s_var, var_var],"%s != %s" %(s_var,  var_var))
         self.constraints.append(constrain)
 
     def distinctMembers(self, s, p, var):
         res = self.get_list(var)
-        self.constraints.append(AllDistinct([self.make_var(y) for y in res]))
+        self.constraints.append(AllDistinct([self.make_var(ClassDomain, y) for y in res]))
         return res
 
     def sameAs(self, s, p, var):
-        constrain = BinaryExpression([self.make_var(s), self.make_var(var)],"%s == %s" %(self.make_var(s), self.make_var( var)))
+        constrain = BinaryExpression([self.make_var(ClassDomain, s), self.make_var(ClassDomain, var)],
+               "%s == %s" %(self.make_var(ClassDomain, s), self.make_var(ClassDomain, var)))
         self.constraints.append(constrain)
-
-    def complementOf(self, s, p, var):
-        # add constraint of not var
-        pass
 
     def onProperty(self, s, p, var):
         pass
@@ -306,16 +384,7 @@ class Ontology(Graph):
     def someValuesFrom(self, s, p, var):
         pass
 
-    def equivalentProperty(self, s, p, var):
-        pass
-
-    def inverseOf(self, s, p, var):
-        pass
-
     def someValuesFrom(self, s, p, var):
-        pass
-
-    def subPropertyOf(self, s, p, var):
         pass
 
     def imports(self, s, p, var):
@@ -433,41 +502,3 @@ class DisjointClassConstraint(AbstractConstraint):
         print subdom,superdom, bases, subdom.bases
         subdom.bases += [bas for bas in bases if bas not in subdom.bases]
         
-class ClassDomain(AbstractDomain):
-    # Class domain is intended as a (abstract/virtual) domain for implementing
-    # Class axioms. Working on class descriptions the class domain should allow
-    # creation of classes through axioms.
-    # The instances of a class can be represented as a FiniteDomain in values (not always see Disjointwith)
-    # Properties of a class is in the dictionary "properties"
-    # The bases of a class is in the list "bases"
-
-    def __init__(self, name='', values=[], bases = []):
-        AbstractDomain.__init__(self)
-        self.bases = bases+[self]
-        self.values = values
-        self.name = name
-
-    def __repr__(self):
-        return "<ClassDomain %s>" % str(self.name)
-
-    def __getitem__(self, index):
-        return None
-
-    def __iter__(self):
-        return iter(self.bases) 
-
-    def size(self):
-        return sys.maxint
-
-    __len__ = size
-
-    def copy(self):
-        return self
-
-    def removeValues(self, values):
-        print "remove values from ClassDomain", values
-        self.bases.pop(self.bases.index(values[0]))
-
-    def getValues(self):
-        return self.bases
- 

@@ -13,18 +13,23 @@ from rdflib import Graph, URIRef, BNode
 def test_makevar():
     O = Ontology()
     var = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#A-and-B')
-    cod = O.make_var(var)+' = 1'
+    name = O.make_var(ClassDomain, var)
+    cod = name+' = 1'
     exec cod
-    assert O.make_var(var) in locals() 
-
-def DONOT_test_subClassof():
+    assert O.make_var(ClassDomain, var) in locals() 
+    assert isinstance(O.variables[name], ClassDomain)
+     
+def test_subClassof():
     O = Ontology()
-    a = b = c = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#A-and-B')
+    a = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#A')
+    b = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#B')
+    c = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#C')
     O.subClassOf(b, None, a)
     O.subClassOf(c, None, b)
-    assert O.solve()
-    O.subClassOf(c, None, a)
-    assert O.solve()
+    A = O.make_var(ClassDomain, a)
+    C = O.make_var(ClassDomain, c)
+    assert len(O.variables) == 3
+    assert O.variables[A] in O.variables[C].bases
 
 def test_ClassDomain():
     a = ClassDomain()
@@ -92,6 +97,13 @@ def test_type():
     obj = URIRef('o')
     O = Ontology()
     O.type(sub, pred , obj)
-    assert O.variables[O.make_var(sub)].__class__  == ClassDomain
+    assert O.variables[O.make_var(ClassDomain, sub)].__class__  == ClassDomain
 
- 
+def test_ObjectProperty():
+    sub = URIRef('a')
+    pred = URIRef('type')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O = Ontology()
+    O.type(sub, pred , obj)
+    assert O.variables[O.make_var(ClassDomain, sub)].__class__  == ObjectProperty
+
