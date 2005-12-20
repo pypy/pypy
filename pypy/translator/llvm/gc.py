@@ -5,6 +5,9 @@ class GcPolicy:
     def __init__(self):
         raise Exception, 'GcPolicy should not be used directly'
 
+    def genextern_code(self):
+        return ""
+    
     def gc_libraries(self):
         return []
 
@@ -49,6 +52,9 @@ class NoneGcPolicy(GcPolicy):
 class BoehmGcPolicy(GcPolicy):
     def __init__(self):
         self.n_malloced = 0
+
+    def genextern_code(self):
+        return '#include "boehm.h"'
 
     def gc_libraries(self):
         return ['gc', 'pthread'] # XXX on windows?

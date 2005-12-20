@@ -1,3 +1,5 @@
+// XXX use some form of "configure" script 
+// disable this for boehm compiled without threading
 #define USING_THREADED_BOEHM
 
 #ifdef USING_THREADED_BOEHM
@@ -22,8 +24,8 @@ char *pypy_malloc_atomic(unsigned int size) {
 }
 
 extern GC_all_interior_pointers;
-  char *RPython_StartupCode() {
-  GC_all_interior_pointers = 0;
+
+// startup specific code for boehm 
+#define __GC_STARTUP_CODE__ \
+  GC_all_interior_pointers = 0; \
   GC_init();
-  return LLVM_RPython_StartupCode();
-}

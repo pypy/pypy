@@ -171,11 +171,12 @@ class GenLLVM(object):
         # we only cache the llexterns to make tests run faster
         if self.llexterns_header is None:
             assert self.llexterns_functions is None
-            self.llexterns_header, self.llexterns_functions = \
+            GenLLVM.llexterns_header, GenLLVM.llexterns_functions = \
                                    generate_llfile(self.db,
                                                    self.extern_decls,
                                                    self.entrynode,
-                                                   self.standalone)
+                                                   self.standalone,
+                                                   self.gcpolicy)
 
     def create_codewriter(self):
         # prevent running the same function twice in a test

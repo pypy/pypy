@@ -16,9 +16,6 @@ void RPYTHON_RAISE_OSERROR(int error);
 RPyListOfString *_RPyListOfString_New(int);
 void _RPyListOfString_SetItem(RPyListOfString *, int, RPyString *);
 
-// include this to get constants and macros for below includes
-#include <Python.h>
-
 // overflows/zeros/values raising operations
 #include "raisingop.h"
 
@@ -47,7 +44,7 @@ char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
   return NULL;
 }
 
-
+// raw malloc code
 char *raw_malloc(int size) {
   return malloc(size);
 }
@@ -62,8 +59,13 @@ void raw_memcopy(char *ptr1, char *ptr2, int size) {
 
 char *LLVM_RPython_StartupCode();
 
-// boehm includes
-#include "boehm.h"
+char *RPython_StartupCode() {
+
+  // is there any garbage collection / memory management initialisation
+  __GC_STARTUP_CODE__
+
+  return LLVM_RPython_StartupCode();
+}
 
 #ifdef ENTRY_POINT_DEFINED
 
