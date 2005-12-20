@@ -749,7 +749,7 @@ the model we assume to be fully known in advance.  Let us define the set
 For a function ``f`` of the user program, we call *arg_f_1, ...,
 arg_f_n* the variables bound to the input arguments of ``f`` (which are
 actually the input variables of the first block in the flow graph of
-``f``) and *return_f* the variable bound to the return value of ``f``
+``f``) and *returnvar_f* the variable bound to the return value of ``f``
 (which is the single input variable of a special empty "return" block
 ending the flow graph).
 
@@ -986,7 +986,7 @@ modify *E*).
 
 Also ``[note]`` that we do not generally try to prove the correctness and
 safety of the user program, preferring to rely on test coverage for
-that.  This is apparent in the third rule above, which considers
+that.  This is apparent in the last rule above, which considers
 concatenation of two potentially "nullable" strings, i.e. strings that
 the annotator could not prove to be non-None.  Instead of reporting an
 error, we take it as a hint that the two strings will not actually be
