@@ -1818,7 +1818,7 @@ be computed or to fill more caches.  We describe below some of these
 aspects.
 
 
-Sprecialization
+Specialization
 ***************
 
 The type system used by the annotator does not include polymorphism
@@ -1845,19 +1845,19 @@ annotation information for a given function, without letting the flow
 object space and annotator abstractly interpret the function's bytecode.
 
 In more details, the following special-cases are supported by default
-(more advanced sprecializations have been implemented specifically for
+(more advanced specializations have been implemented specifically for
 PyPy):
 
-* sprecializing a function by the annotation of a given argument
+* specializing a function by the annotation of a given argument
 
-* sprecializing a function by the value of a given argument (requires all
+* specializing a function by the value of a given argument (requires all
   calls to the function to resolve the argument to a constant value)
 
 * ignoring -- the function call is ignored.  Useful for writing tests or
   debugging support code that should be removed during translation.
 
 * by arity -- for functions taking a variable number of (non-keyword)
-  arguments via a ``*args``, the default sprecialization is by the number
+  arguments via a ``*args``, the default specialization is by the number
   of extra arguments.  (This follows naturally from the fact that the
   extended annotation lattice we use has annotations of the form
   ``Tuple(A_1, ..., A_n)`` representing a heterogeneous tuple of length
@@ -1866,7 +1866,7 @@ PyPy):
 
 * ctr_location -- for classes.  A fresh independent copy of the class is
   made for each program point that instantiate the class.  This is a
-  simple (but potentially over-sprecializing) way to obtain class
+  simple (but potentially over-specializing) way to obtain class
   polymorphism for the couple of container classes we needed in PyPy
   (e.g. Stack).
 
@@ -1882,7 +1882,7 @@ PyPy):
 Concrete mode execution
 ***********************
 
-The *memo* sprecialization_ is used at key points in PyPy to obtain the
+The *memo* specialization_ is used at key points in PyPy to obtain the
 effect described in the introduction (see `Abstract interpretation`_):
 the memo functions and all the code it invokes is concretely executed
 during annotation.  There is no staticness restriction on that code --
@@ -2147,7 +2147,7 @@ implemented in terms of "simpler" operations.  The function is then fed
 back into the flow object space and the annotator and the RTyper itself,
 so that it gets turned into another low-level control flow graph.  At
 this point, the annotator runs with a different set of default
-sprecializations: it allows several copies of the helper functions to be
+specializations: it allows several copies of the helper functions to be
 automatically built, one for each low-level type of its arguments.  We
 do this by default at this level because of the intended purpose of
 these helpers: they are usually methods of a polymorphic container.
@@ -2256,9 +2256,9 @@ analysis is ultimately more powerful.
 In PyPy, our short-term future work is to focus on using the translation
 toolchain presented here to generate a modified low-level version of the
 same full Python interpreter.  This modified version will drive a
-just-in-time sprecialization process, in the sense of providing a
+just-in-time specialization process, in the sense of providing a
 description of full Python that will not be directly executed, but
-sprecialized for the particular user Python program.
+specialized for the particular user Python program.
 
 As of October 2005, we are only starting the work in this direction.
 The details are not fleshed out nor documented yet, but the [Psyco]_
