@@ -1860,8 +1860,8 @@ PyPy):
   arguments via a ``*args``, the default specialization is by the number
   of extra arguments.  (This follows naturally from the fact that the
   extended annotation lattice we use has annotations of the form
-  ``Tuple(A_1, ..., A_n)`` representing a heterogeneous tuple of length
-  *n* whose items are respectively annotated with ``A_1, ..., A_n``, but
+  ``Tuple(a_1, ..., a_n)`` representing a heterogeneous tuple of length
+  *n* whose items are respectively annotated with ``a_1, ..., a_n``, but
   there is no annotation for tuples of unknown length.)
 
 * ctr_location -- for classes.  A fresh independent copy of the class is
