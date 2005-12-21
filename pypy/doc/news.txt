@@ -79,7 +79,7 @@ PyPy Sprint in Heidelberg 22nd-29th August 2005
 The last `PyPy sprint`_ took place at the Heidelberg University
 in Germany from 22nd August to 29th August (both days included). 
 Its main focus is translation of the whole PyPy interpreter 
-to a low level language and reaching 2.4.1 Python compliancy.
+to a low level language and reaching 2.4.1 Python compliance.
 The goal of the sprint is to release a first self-contained
 PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_, 
 there are some pictures_ online and a `heidelberg summary report`_
