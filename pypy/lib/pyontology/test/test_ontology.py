@@ -28,6 +28,8 @@ def test_subClassof():
     O.subClassOf(c, None, b)
     A = O.make_var(ClassDomain, a)
     C = O.make_var(ClassDomain, c)
+    for con in O.constraints:
+        con.narrow(O.variables)
     assert len(O.variables) == 3
     assert O.variables[A] in O.variables[C].bases
 
@@ -81,15 +83,16 @@ def test_subClassconstraintMulti2():
     assert len(c.bases) == len(a.bases)
     assert [bas in a.bases for bas in c.bases] == [True]*len(a.bases)
 
-def DONOT_test_equivalentClass():
-    a = ClassDomain('A')
-    b = ClassDomain('B')
-    c = ClassDomain('C')
-    con = EquivalentClassConstraint('c','a')
-    con2 = EquivalentClassConstraint('c','b')
-    con.narrow({'a': a, 'b': b, 'c': c}) 
-    con2.narrow({'a': a, 'b': b, 'c': c})
-    assert a == b
+def test_equivalentClass():
+    a = URIRef('A')
+    b = URIRef('B')
+    c = URIRef('C')
+    O = Ontology()
+    O.equivalentClass(c, None, a)
+    O.equivalentClass(c, None, b)
+    A = O.make_var(ClassDomain, a)
+    B = O.make_var(ClassDomain, b)
+    assert O.variables[A].values == O.variables[B].values
 
 def test_type():
     sub = URIRef('a')
