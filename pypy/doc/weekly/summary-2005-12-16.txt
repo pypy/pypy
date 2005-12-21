@@ -21,7 +21,7 @@ repository in the last week.
 The Sprint!
 ===========
 
-The last weekly summary was written towards then end of the sprint.
+The last weekly summary was written towards the end of the sprint.
 The things we did in the couple of remaining days were written up in
 the second sprint report:
 
@@ -60,35 +60,43 @@ Thanks again to Pieter for this.
 PyPy's Bytecode Dispatcher
 ==========================
 
-Until now the bytecode dispatching in PyPy was done using a list of functions
-that contain the implementation of the respective bytecode. The dispatch
-function retrieved the correct function by using the bytecode as an index into
-this list. This was turned by the translator and the C backend into an array of
-function pointers. This has the drawback that the bytecode implementing
-functions can never be inlined (although some of them are quite small) and
-there always is a read from memory for every bytecode. 
+Something that was suggested but never got-around-to at the last
+sprint was to modify the translation process so that the bytecode
+dispatch loop of the interpreter used a C switch rather than a table
+of function pointers.
 
-During the Gothenburg sprint we discussed a strategy to transform the dispatch
-code into something more efficient. During the last week Eric, Arre and Carl
-Friedrich implemented this strategy. Now the dispatching is done with a huge
-chain of if/elif/else that all test the value of the same variable. In addition
-there is a transformation that transforms chains of such if/elif/else blocks
-into a block that has an integer variable as an exitswitch and links which
-exitcases corresponding to the different values of the single integer variable.
-The C backend outputs such a block as a switch. In addition this technique
-makes it possible for our inliner to inline some of the bytecode implementing
-functions work. Using the new dispatcher pypy-c got XXX slower and is now XXX
-times slower thatn CPython.
+The bytecode implementation code in PyPy builds a list of functions
+that contain the implementation of the respective bytecode.  Up until
+a few days ago, the dispatch function retrieved the correct function
+by using the bytecode as an index into this list.  This was turned by
+the translator and the C backend into an array of function
+pointers. This has the drawback that the bytecode-implementing
+functions can never be inlined (even though some of them are quite
+small) and there always is a read from memory for every bytecode
+executed.
+
+During the Gothenburg sprint we discussed and a strategy to transform
+the dispatch code into something more efficient and in the last week
+Eric, Arre and Carl Friedrich implemented this strategy.  Now the
+dispatching is done by a huge (automatically generated, of course)
+chain of if/elif/else that all test the value of the same variable.
+In addition there is a transformation that transforms chains of such
+if/elif/else blocks into a block that has an integer variable as an
+exitswitch and links with exitcases corresponding to the different
+values of the single integer variable.  The C backend converts such a
+block into a switch.  In addition this technique makes it possible for
+our inliner to inline some of the bytecode implementing functions
+work.  Using the new dispatcher pypy-c got 10% or so faster (though
+the *first* time we ran it it was much much faster!  Benchmarking is
+hard).
 
 Preparations for EU-review still ongoing 
 ===========================================
 
-Still many developers are involved in ongoing 
-preparations for the EU review on 20th January. 
-Reports are being finalized and there are discussions
-about various issues that are only indirectly related
-to the development efforts (in so far as it provides
-the basis for the partial funding we receive). 
-We probably will only know on the 20th if everything 
-works out suitably. 
+Many developers are still involved in preparations for the EU review
+on 20th January.  Reports are being finalized and there are
+discussions about various issues that are only indirectly related to
+the development efforts (in so far as it provides the basis for the
+partial funding we receive).  We probably will only know on the 20th
+if everything works out suitably.
 
