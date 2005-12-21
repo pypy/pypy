@@ -1,6 +1,5 @@
 from pypy.translator.llvm.log import log
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.llvm import varsize
 from pypy.rpython.lltypesystem import lltype
 
 log = log.structnode 
@@ -71,14 +70,14 @@ class StructVarsizeTypeNode(StructTypeNode):
             name = current._names_without_voids()[-1]
             current = current._flds[name]
         assert isinstance(current, lltype.Array)
-        varsize.write_constructor(self.db,
-                                  codewriter, 
-                                  self.ref,
-                                  self.constructor_decl,
-                                  current, 
-                                  indices_to_array,
-                                  self.struct._is_atomic(),
-                                  is_str=self.struct._name == "rpy_string")
+        gp = self.db.gcpolicy
+        gp.write_constructor(codewriter, 
+                             self.ref,
+                             self.constructor_decl,
+                             current, 
+                             indices_to_array,
+                             self.struct._is_atomic(),
+                             is_str=self.struct._name == "rpy_string")
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain

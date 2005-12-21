@@ -146,7 +146,7 @@ def get_incdirs():
         includestr += "-I %s " % ii
     return includestr
 
-def generate_llfile(db, extern_decls, entrynode, standalone, gcpolicy):
+def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode = []
     function_names = []
         
@@ -183,7 +183,7 @@ def generate_llfile(db, extern_decls, entrynode, standalone, gcpolicy):
     ccode.append('#include <Python.h>\n')
 
     # ask gcpolicy for any code needed
-    ccode.append('%s\n' % gcpolicy.genextern_code())
+    ccode.append('%s\n' % db.gcpolicy.genextern_code())
     
     # append our source file
     ccode = "".join(ccode)

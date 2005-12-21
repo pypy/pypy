@@ -1,8 +1,10 @@
+from pypy.rpython.rstr import STR
+
 from pypy.translator.llvm.log import log
 log = log.gc
 
 class GcPolicy:
-    def __init__(self):
+    def __init__(self, db):
         raise Exception, 'GcPolicy should not be used directly'
 
     def genextern_code(self):
@@ -11,17 +13,68 @@ class GcPolicy:
     def gc_libraries(self):
         return []
 
-    def declarations(self):
-        return ''
+    # malloc is not an codewriter specific thing
+    def malloc(self, codewriter, targetvar, type_, size=1, atomic=False):
+        # XXX _indent & test
+        codewriter._indent('%(targetvar)s = malloc %(type_)s, uint %(s)s' % locals())
+    
+    def write_constructor(self, codewriter, ref, constructor_decl, ARRAY, 
+                          indices_to_array=(), atomic=False, is_str=False):
 
-    def malloc(self, targetvar, type_, size, is_atomic, word, uword):
-        s = str(size)
-        return '%(targetvar)s = malloc %(type_)s, uint %(s)s' % locals()
+
+        #varsized arrays and structs look like this: 
+        #Array: {int length , elemtype*}
+        #Struct: {...., Array}
+
+        # the following indices access the last element in the array
+        elemtype = self.db.repr_type(ARRAY.OF)
+        word = lentype = self.db.get_machine_word()
+        uword = self.db.get_machine_uword()
+
+        codewriter.openfunc(constructor_decl)    
+
+        # Need room for NUL terminator
+        if ARRAY is STR.chars:
+            codewriter.binaryop("add", "%actuallen", lentype, "%len", 1)
+        else:
+            codewriter.cast("%actuallen", lentype, "%len", lentype)
+
+        elemindices = list(indices_to_array)
+        elemindices += [("uint", 1), (lentype, "%actuallen")]
+        codewriter.getelementptr("%size", ref + "*", "null", *elemindices) 
+        codewriter.cast("%usize", elemtype + "*", "%size", uword)
+        self.malloc(codewriter, "%ptr", "sbyte", "%usize", atomic=atomic)
+        codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
+
+        indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
+
+        # the following accesses the length field of the array 
+        codewriter.getelementptr("%arraylength", ref + "*", 
+                                 "%result", 
+                                 *indices_to_arraylength)
+        codewriter.store(lentype, "%len", "%arraylength")
+
+        #if is_str:
+        #    indices_to_hash = (("uint", 0),)
+        #    codewriter.getelementptr("%ptrhash", ref + "*", 
+        #                             "%result", 
+        #                             *indices_to_hash)
+        #    codewriter.store("int", "0", "%ptrhash")
+
+
+        #if ARRAY is STR.chars:
+        #    codewriter.getelementptr("%ptrendofchar", ref + "*", 
+        #                             "%result", 
+        #                             *elemindices)
+        #    codewriter.store(elemtype, "0", "%ptrendofchar")
+
+        codewriter.ret(ref + "*", "%result")
+        codewriter.closefunc()
 
     def pyrex_code(self):
         return ''
 
-    def new(gcpolicy=None):  #factory
+    def new(db, gcpolicy=None):  #factory
         gcpolicy = gcpolicy or 'boehm'
 
         import distutils.sysconfig
@@ -33,11 +86,11 @@ class GcPolicy:
             gcpolicy = 'none'
 
         if gcpolicy == 'boehm':
-            gcpolicy = BoehmGcPolicy()
+            gcpolicy = BoehmGcPolicy(db)
         elif gcpolicy == 'ref':
-            gcpolicy = RefcountingGcPolicy()
+            gcpolicy = RefcountingGcPolicy(db)
         elif gcpolicy == 'none':
-            gcpolicy = NoneGcPolicy()
+            gcpolicy = NoneGcPolicy(db)
         else:
             raise Exception, 'unknown gcpolicy: ' + str(gcpolicy)
         return gcpolicy
@@ -45,12 +98,13 @@ class GcPolicy:
 
 
 class NoneGcPolicy(GcPolicy):
-    def __init__(self):
-        pass
+    def __init__(self, db):
+        self.db = db
 
 
 class BoehmGcPolicy(GcPolicy):
-    def __init__(self):
+    def __init__(self, db):
+        self.db = db
         self.n_malloced = 0
 
     def genextern_code(self):
@@ -59,10 +113,10 @@ class BoehmGcPolicy(GcPolicy):
     def gc_libraries(self):
         return ['gc', 'pthread'] # XXX on windows?
 
-    def declarations(self):
-        return ''
 
-    def malloc(self, targetvar, type_, size, is_atomic, word, uword):
+    def malloc(self, codewriter, targetvar, type_, size=1, atomic=False):
+        is_atomic = atomic
+        uword = self.db.get_machine_uword()
         s = str(size)
         self.n_malloced += 1
         cnt = '.%d' % self.n_malloced
@@ -78,7 +132,7 @@ class BoehmGcPolicy(GcPolicy):
             t += '''
         call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, uint %%malloc_SizeU%(cnt)s, uint 0)
         ''' % locals()
-        return t
+        codewriter.write_lines(t)
 
     def pyrex_code(self):
         return '''

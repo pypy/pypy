@@ -5,7 +5,6 @@ from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
 from pypy.translator.llvm.backendopt.removeexcmallocs import remove_exception_mallocs
-#from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
 from pypy.translator.unsimplify import remove_double_links
 log = log.funcnode
 
@@ -30,6 +29,9 @@ class FuncTypeNode(LLVMNode):
         inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
         codewriter.funcdef(self.ref, returntype, inputargtypes)
 
+class BlockBranchWriterException(Exception):
+    pass
+
 class FuncNode(ConstantLLVMNode):
     __slots__ = "db value ref graph block_to_name".split()
 
@@ -39,8 +41,13 @@ class FuncNode(ConstantLLVMNode):
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
 
-        self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
+        self.db.exceptionpolicy.transform(self.db.translator,
+                                          self.graph)
+
         remove_exception_mallocs(self.db.translator, self.graph, self.ref)
+
+        #XXX experimental
+        #from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
         #merge_mallocs(self.db.translator, self.graph, self.ref)
 
         remove_double_links(self.db.translator, self.graph)
@@ -49,7 +56,6 @@ class FuncNode(ConstantLLVMNode):
         return "<FuncNode %r>" %(self.ref,)
     
     def setup(self):
-        #log("setup", self)
         def visit(node):
             if isinstance(node, Link):
                 map(self.db.prepare_arg, node.args)
@@ -62,8 +68,8 @@ class FuncNode(ConstantLLVMNode):
                     if block.exitswitch != c_last_exception:
                         continue
                     for link in block.exits[1:]:
-                        self.db.prepare_constant(lltype.typeOf(link.llexitcase),
-                                                 link.llexitcase)
+                        type_ = lltype.typeOf(link.llexitcase)
+                        self.db.prepare_constant(type_, link.llexitcase)
                                             
         assert self.graph, "cannot traverse"
         traverse(visit, self.graph)
@@ -76,7 +82,7 @@ class FuncNode(ConstantLLVMNode):
     def writeimpl(self, codewriter):
         graph = self.graph
         log.writeimpl(graph.name)
-        codewriter.openfunc(self.getdecl(), self is self.db.entrynode)
+        codewriter.openfunc(self.getdecl())
         nextblock = graph.startblock
         args = graph.startblock.inputargs 
         self.block_to_name = {}
@@ -91,29 +97,6 @@ class FuncNode(ConstantLLVMNode):
             else:
                 self.write_block(codewriter, block)
         codewriter.closefunc()
-
-    def writecomments(self, codewriter):
-        """ write operations strings for debugging purposes. """ 
-        for block in self.graph.iterblocks():
-            for op in block.operations:
-                strop = str(op) + "\n\x00"
-                l = len(strop)
-                if strop.find("direct_call") == -1:
-                    continue
-                tempname = self.db.add_op2comment(l, op)
-                printables = dict([(ord(i), None) for i in
-                                   ("0123456789abcdefghijklmnopqrstuvwxyz" +
-                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-                                    "!#$%&()*+,-./:;<=>?@[\\]^_`{|}~ '")])
-                s = []
-                for c in strop:
-                    if ord(c) in printables:
-                        s.append(c)
-                    else:
-                        s.append("\\%02x" % ord(c))
-                r = 'c"%s"' % "".join(s)
-                typeandata = '[%s x sbyte] %s' % (l, r)
-                codewriter.globalinstance(tempname, typeandata)
 
     def writeglobalconstants(self, codewriter):
         pass
@@ -136,26 +119,36 @@ class FuncNode(ConstantLLVMNode):
         returntype, ref, args = self.getdecl_parts()
         return "%s %s(%s)" % (returntype, ref, ", ".join(args))
 
-    def write_block(self, codewriter, block):
-        self.write_block_phi_nodes(codewriter, block)
-        self.write_block_operations(codewriter, block)
-        self.write_block_branches(codewriter, block)
-
+    # ______________________________________________________________________
+    # helpers for block writers
+    
     def get_phi_data(self, block):
+        exceptionpolicy = self.db.exceptionpolicy
         data = []
+        
         entrylinks = mkentrymap(self.graph)[block]
         entrylinks = [x for x in entrylinks if x.prevblock is not None]
+
         inputargs = self.db.repr_arg_multi(block.inputargs)
         inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
-        for i, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
-            names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
+
+        # for each argument in block, return a 4 tuple of
+        # arg_name, arg_type, [list of names from previous blocks,
+        # [corresponding list of block names]
+        for ii, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
+
+            names = self.db.repr_arg_multi([link.args[ii]
+                                            for link in entrylinks])
+
             blocknames = [self.block_to_name[link.prevblock]
-                              for link in entrylinks]
-            for i, link in enumerate(entrylinks):   #XXX refactor into a transformation
-                if link.prevblock.exitswitch == c_last_exception and \
-                   link.prevblock.exits[0].target != block:
-                    blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
-            data.append( (arg, type_, names, blocknames) )
+                          for link in entrylinks]
+
+            assert len(names) == len(blocknames)
+
+            # some exception policies will add new blocks...
+            exceptionpolicy.update_phi_data(self, entrylinks, block, blocknames)
+            data.append((arg, type_, names, blocknames))
+
         return data
 
     def write_block_phi_nodes(self, codewriter, block):
@@ -164,51 +157,54 @@ class FuncNode(ConstantLLVMNode):
                 codewriter.phi(arg, type_, names, blocknames)
 
     def write_block_branches(self, codewriter, block):
-        #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)
         if block.exitswitch == c_last_exception:
-            #codewriter.comment('FuncNode(ConstantLLVMNode) *last_exception* write_block_branches @%s@' % str(block.exits))
+            # special case - handled by exception policy
             return
+        
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
         elif len(block.exits) == 2:
             cond = self.db.repr_arg(block.exitswitch)
-            codewriter.br(cond, self.block_to_name[block.exits[0].target],
+            codewriter.br(cond,
+                          self.block_to_name[block.exits[0].target],
                           self.block_to_name[block.exits[1].target])
+        else:
+            raise BranchException("only support branches with 2 exit cases")
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)
+        
         if block.exitswitch == c_last_exception:
-            last_op_index = len(block.operations) - 1
-        else:
-            last_op_index = None
-        for op_index, op in enumerate(block.operations):
-            if False:   # print out debug string
-                codewriter.newline()
-                codewriter.comment("** %s **" % str(op))
-                info = self.db.get_op2comment(op)
-                if info is not None:
-                    lenofopstr, opstrname = info
-                    codewriter.debugcomment(self.db.repr_tmpvar(),
-                                            lenofopstr,
-                                            opstrname)
-            if op_index == last_op_index:
-                #could raise an exception and should therefor have a function
-                #implementation that can be invoked by the llvm-code.
-                invoke_prefix = 'invoke:'
-                assert not op.opname.startswith(invoke_prefix)
-                op.opname = invoke_prefix + op.opname
+            invoke_prefix = 'invoke:'
+            # could raise an exception and should therefor have a function
+            # implementation that can be invoked by the llvm-code.
+            op = block.operations[len(block.operations) - 1]
+            assert not op.opname.startswith(invoke_prefix)
+            op.opname = invoke_prefix + op.opname
+
+        # emit operations
+        for op in block.operations:
             opwriter.write_operation(op)
 
+    # ______________________________________________________________________
+    # actual block writers
+    
     def write_startblock(self, codewriter, block):
+        self.write_block_operations(codewriter, block)
+        self.write_block_branches(codewriter, block)
+
+    def write_block(self, codewriter, block):
+        self.write_block_phi_nodes(codewriter, block)
         self.write_block_operations(codewriter, block)
         self.write_block_branches(codewriter, block)
 
     def write_returnblock(self, codewriter, block):
         assert len(block.inputargs) == 1
         self.write_block_phi_nodes(codewriter, block)
-        inputargtype = self.db.repr_arg_type(block.inputargs[0])
-        inputarg = self.db.repr_arg(block.inputargs[0])
+        inputarg, inputargtype = self.db.repr_argwithtype(block.inputargs[0])
         codewriter.ret(inputargtype, inputarg)
 
     def write_exceptblock(self, codewriter, block):
-        self.db.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)
+        self.db.exceptionpolicy.write_exceptblock(self,
+                                                  codewriter,
+                                                  block)

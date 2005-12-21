@@ -96,5 +96,5 @@ internal fastcc void %%raise%s(sbyte* %%msg) {
     ret void
 }
 """ % (c_name, exc_repr)
-    codewriter.append(l)
+    codewriter.write_lines(l)
 

@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.log import log
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.llvm import varsize 
 log = log.structnode
 
 class ArrayTypeNode(LLVMNode):
@@ -53,11 +52,9 @@ class ArrayTypeNode(LLVMNode):
 
     def writeimpl(self, codewriter):
         log.writeimpl(self.ref)
-        varsize.write_constructor(self.db, codewriter, self.ref, 
-                                  self.constructor_decl,
-                                  self.array,
-                                  atomic=self.array._is_atomic())
-
+        gp = self.db.gcpolicy
+        gp.write_constructor(codewriter, self.ref, self.constructor_decl,
+                             self.array, atomic=self.array._is_atomic())
 
 class VoidArrayTypeNode(LLVMNode):
     __slots__ = "db array ref".split()
@@ -69,7 +66,7 @@ class VoidArrayTypeNode(LLVMNode):
         self.ref = "%arraytype_Void"
 
     def writedatatypedecl(self, codewriter):
-        codewriter.typedef(self.ref, self.db.get_machine_word())
+        codewriter.typedef(self.ref, "{ %s }" % self.db.get_machine_word())
         
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be

@@ -31,11 +31,12 @@ class GenLLVM(object):
 
         # create and set internals
         self.db = Database(self, translator)
+        self.db.gcpolicy = GcPolicy.new(self.db, gcpolicy)
+        self.db.exceptionpolicy = ExceptionPolicy.new(self.db,
+                                                      exceptionpolicy)
 
-        self.gcpolicy = GcPolicy.new(gcpolicy)
         self.standalone = standalone
         self.translator = translator
-        self.exceptionpolicy = ExceptionPolicy.new(exceptionpolicy)
 
         # the debug flag is for creating comments of every operation
         # that may be executed
@@ -99,7 +100,7 @@ class GenLLVM(object):
     def write_headers(self, codewriter):
         # write external function headers
         codewriter.header_comment('External Function Headers')
-        codewriter.append(self.llexterns_header)
+        codewriter.write_lines(self.llexterns_header)
 
         codewriter.header_comment("Type Declarations")
 
@@ -122,10 +123,7 @@ class GenLLVM(object):
         codewriter.header_comment("Function Prototypes")
 
         # write external protos
-        codewriter.append(extdeclarations)
-
-        # write garbage collection protos
-        codewriter.append(self.gcpolicy.declarations())
+        codewriter.write_lines(extdeclarations)
 
         # write node protos
         for typ_decl in self.db.getnodes():
@@ -138,15 +136,16 @@ class GenLLVM(object):
 
         # write external function implementations
         codewriter.header_comment('External Function Implementation')
-        codewriter.append(self.llexterns_functions)
-        codewriter.append(extfunctions)
+        codewriter.write_lines(self.llexterns_functions)
+        codewriter.write_lines(extfunctions)
         self.write_extern_impls(codewriter)
         self.write_setup_impl(codewriter)
         
         self._checkpoint('write support implentations')
 
         # write exception implementaions
-        codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
+        ep = self.db.exceptionpolicy
+        codewriter.write_lines(ep.llvmcode(self.entrynode))
 
         # write all node implementations
         for typ_decl in self.db.getnodes():
@@ -175,8 +174,7 @@ class GenLLVM(object):
                                    generate_llfile(self.db,
                                                    self.extern_decls,
                                                    self.entrynode,
-                                                   self.standalone,
-                                                   self.gcpolicy)
+                                                   self.standalone)
 
     def create_codewriter(self):
         # prevent running the same function twice in a test
@@ -188,7 +186,7 @@ class GenLLVM(object):
             self.function_count[self.entry_func_name] = 1
         filename = udir.join(self.entry_func_name + postfix).new(ext='.ll')
         f = open(str(filename), 'w')
-        return CodeWriter(f, self), filename
+        return CodeWriter(f, self.db), filename
 
     def write_extern_decls(self, codewriter):        
         for c_name, obj in self.extern_decls:
@@ -197,7 +195,7 @@ class GenLLVM(object):
                     obj = obj.TO
 
                 l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
-                codewriter.append(l)
+                codewriter.write_lines(l)
                 
     def write_extern_impls(self, codewriter):
         for c_name, obj in self.extern_decls:
@@ -283,18 +281,20 @@ def genllvm(translator, entry_point, gcpolicy=None,
 
     return gen.compile_llvm_source(**kwds)
 
-def genllvm_compile(function, annotation, view=False, **kwds):
+def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
     t = TranslationContext()
     t.buildannotator().build_types(function, annotation)
     t.buildrtyper().specialize()
-    backend_optimizations(t, ssa_form=False)
-    
+    if optimize:
+        backend_optimizations(t, ssa_form=False)
+    else:
+        backend_optimizations(t, ssa_form=False, mallocs=False, inline_threshold=0)
     # note: this is without policy transforms
     if view:
         t.view()
-    return genllvm(t, function, **kwds)
+    return genllvm(t, function, optimize=optimize, **kwds)
 
 def compile_function(function, annotation, **kwds):
     """ Helper - which get the compiled module from CPython. """

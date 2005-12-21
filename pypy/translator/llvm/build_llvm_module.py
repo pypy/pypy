@@ -67,7 +67,7 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
         source_files = []
     from distutils.sysconfig import EXEC_PREFIX
     object_files = ["-L%s/lib" % EXEC_PREFIX]
-    library_files = genllvm.gcpolicy.gc_libraries()
+    library_files = genllvm.db.gcpolicy.gc_libraries()
     gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
     if optimize:
@@ -96,14 +96,14 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
 
     cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, optimization_switches, b)]
     if not use_gcc:
-        cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
+        cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
         if exe_name:
             cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
             cmds.append(cmd)
         object_files.append("%s.o" % b)
     else:
-        cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.exceptionpolicy.llc_options(), b, b))
+        cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
         if exe_name:
             cmd = "gcc %s.c -c -O2 -pipe" % b
             if profile:

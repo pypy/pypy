@@ -1,5 +1,6 @@
+from pypy.objspace.flow.model import c_last_exception
 from pypy.translator.llvm.codewriter import DEFAULT_CCONV
-
+from pypy.translator.llvm.backendopt.exception import create_exception_handling
 
 class ExceptionPolicy:
     RINGBUGGER_SIZE          = 8192
@@ -24,7 +25,7 @@ else:
 }
 ''' % (RINGBUFFER_ENTRY_MAXSIZE, RINGBUGGER_OVERSIZE, RINGBUGGER_SIZE-1)
 
-    def __init__(self):
+    def __init__(self, db):
         raise Exception, 'ExceptionPolicy should not be used directly'
 
     def transform(self, translator, graph=None):
@@ -42,31 +43,57 @@ else:
             return r + ' 0'
         return r + ' null'
 
+    def _noresult2(self, returntype):
+        r = returntype.strip()
+        if r == 'void':
+            return 'void'
+        elif r == 'bool':
+            return 'false'
+        elif r in 'float double'.split():
+            return '0.0'
+        elif r in 'ubyte sbyte ushort short uint int ulong long'.split():
+            return ' 0'
+        return 'null'
+
+
     def _nonoderesult(self, node):
         returntype, name, dummy = node.getdecl_parts()
         noresult = self._noresult(returntype)
         return noresult
 
-    def new(exceptionpolicy=None):  #factory
+    def new(db, exceptionpolicy=None):  #factory
         exceptionpolicy = exceptionpolicy or 'explicit'
         if exceptionpolicy == 'invokeunwind':
-            exceptionpolicy = InvokeUnwindExceptionPolicy()
+            exceptionpolicy = InvokeUnwindExceptionPolicy(db)
         elif exceptionpolicy == 'explicit':
-            exceptionpolicy = ExplicitExceptionPolicy()
+            exceptionpolicy = ExplicitExceptionPolicy(db)
         elif exceptionpolicy == 'none':
-            exceptionpolicy = NoneExceptionPolicy()
+            exceptionpolicy = NoneExceptionPolicy(db)
         else:
             raise Exception, 'unknown exceptionpolicy: ' + str(exceptionpolicy)
         return exceptionpolicy
     new = staticmethod(new)
 
+    def update_phi_data(self, funcnode, entrylinks, block, blocknames):
+        """ Exceptions handling code introduces intermediate blocks for
+        exception handling cases, hence we modify our input phi data
+        accordingly. """
+        for ii, link in enumerate(entrylinks):
+            if (link.prevblock.exitswitch == c_last_exception and
+                link.prevblock.exits[0].target != block):
+                blocknames[ii] += '_exception_found_branchto_'
+                blocknames[ii] += funcnode.block_to_name[block]
 
-class NoneExceptionPolicy(ExceptionPolicy): #XXX untested
-    def __init__(self):
-        pass
+class NoneExceptionPolicy(ExceptionPolicy):
+    """  XXX untested """
 
+    def __init__(self, db):
+        self.db = db
 
-class InvokeUnwindExceptionPolicy(ExceptionPolicy):  #uses issubclass() and llvm invoke&unwind
+class InvokeUnwindExceptionPolicy(ExceptionPolicy):
+    """ uses issubclass() and llvm invoke&unwind
+    XXX Untested for a while """
+    
     def __init__(self):
         pass
 
@@ -97,12 +124,14 @@ internal fastcc void %%unwind() {
 }
 ''' % locals() + self.RINGBUFFER_LLVMCODE
 
-    def invoke(self, codewriter, targetvar, tail_, cconv, returntype, functionref, args, label, except_label):
+    def invoke(self, codewriter, targetvar, tail_, cconv, returntype,
+               functionref, args, label, except_label):
+
         labels = 'to label %%%s except label %%%s' % (label, except_label)
         if returntype == 'void':
-            codewriter.indent('%sinvoke %s void %s(%s) %s' % (tail_, cconv, functionref, args, labels))
+            codewriter._indent('%sinvoke %s void %s(%s) %s' % (tail_, cconv, functionref, args, labels))
         else:
-            codewriter.indent('%s = %sinvoke %s %s %s(%s) %s' % (targetvar, tail_, cconv, returntype, functionref, args, labels))
+            codewriter._indent('%s = %sinvoke %s %s %s(%s) %s' % (targetvar, tail_, cconv, returntype, functionref, args, labels))
 
     def _is_raise_new_exception(self, db, graph, block):
         from pypy.objspace.flow.model import mkentrymap
@@ -137,7 +166,7 @@ internal fastcc void %%unwind() {
             #Which is already stored in the global variables.
             #So nothing needs to happen here!
 
-        codewriter.indent('unwind')
+        codewriter.unwind()
 
     def fetch_exceptions(self, codewriter, exc_found_labels, lltype_of_exception_type, lltype_of_exception_value):
         for label, target, last_exc_type_var, last_exc_value_var in exc_found_labels:
@@ -150,14 +179,15 @@ internal fastcc void %%unwind() {
 
     def reraise(self, funcnode, codewriter):
         codewriter.comment('reraise when exception is not caught')
-        codewriter.indent('unwind')
+        codewriter.unwind()
 
     def llc_options(self):
         return '-enable-correct-eh-support'
 
-
-class ExplicitExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_exception tests after each call
-    def __init__(self):
+class ExplicitExceptionPolicy(ExceptionPolicy):
+    """ uses issubclass() and last_exception tests after each call """
+    def __init__(self, db):
+        self.db = db
         self.invoke_count = 0
 
     def llvmcode(self, entrynode):
@@ -191,56 +221,73 @@ internal fastcc void %%unwind() {
 ''' % locals() + self.RINGBUFFER_LLVMCODE
 
     def transform(self, translator, graph=None):
-        from pypy.translator.llvm.backendopt.exception import create_exception_handling
         if graph:
             create_exception_handling(translator, graph)
         else:
             for graph in translator.flowgraphs.itervalues():
                 create_exception_handling(translator, graph)
-            #translator.view()
 
-    def invoke(self, codewriter, targetvar, tail_, cconv, returntype, functionref, args, label, except_label):
-        if returntype == 'void':
-            #XXX I think keepalive should not be the last operation here!
-            if functionref != '%keepalive': 
-                codewriter.indent('%scall %s void %s(%s)' % (tail_, cconv, functionref, args))
-        else:
-            codewriter.indent('%s = %scall %s %s %s(%s)' % (targetvar, tail_, cconv, returntype, functionref, args))
+
+    def invoke(self, codewriter, targetvar, returntype, functionref,
+               argrefs, argtypes, label, except_label):
+
+        assert functionref != '%keepalive'
+
         tmp = '%%invoke.tmp.%d' % self.invoke_count
         exc = '%%invoke.exc.%d' % self.invoke_count
         self.invoke_count += 1
-        codewriter.indent('%(tmp)s = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type' % locals())
-        codewriter.indent('%(exc)s = seteq %%RPYTHON_EXCEPTION_VTABLE* %(tmp)s, null'         % locals())
-        codewriter.indent('br bool %(exc)s, label %%%(label)s, label %%%(except_label)s'      % locals())
+
+        # XXX Hardcoded type...
+        type_ = "%RPYTHON_EXCEPTION_VTABLE*"
+
+        codewriter.call(targetvar, returntype, functionref, argrefs, argtypes)
+        codewriter.load(tmp, type_, "%last_exception_type")
+        codewriter.binaryop("seteq", exc, type_, tmp, "null")
+        codewriter.br(exc, except_label, label)
 
     def write_exceptblock(self, funcnode, codewriter, block):
+        """ Raises an exception - called from FuncNode """
+        
         assert len(block.inputargs) == 2
 
-        noresult = self._nonoderesult(funcnode)
+        returntype, name, dummy = funcnode.getdecl_parts()
 
         funcnode.write_block_phi_nodes(codewriter, block)
 
-        inputargs     = funcnode.db.repr_arg_multi(block.inputargs)
+        inputargs = funcnode.db.repr_arg_multi(block.inputargs)
         inputargtypes = funcnode.db.repr_arg_type_multi(block.inputargs)
 
         codewriter.store(inputargtypes[0], inputargs[0], '%last_exception_type')
         codewriter.store(inputargtypes[1], inputargs[1], '%last_exception_value')
-        codewriter.indent('ret ' + noresult)
+        codewriter.ret(returntype, self._noresult2(returntype))
 
-    def fetch_exceptions(self, codewriter, exc_found_labels, lltype_of_exception_type, lltype_of_exception_value):
-        for label, target, last_exc_type_var, last_exc_value_var in exc_found_labels:
+    def fetch_exceptions(self, codewriter, exc_found_labels,
+                         lltype_of_exception_type, lltype_of_exception_value):
+
+        for (label, target,
+             last_exc_type_var, last_exc_value_var) in exc_found_labels:
+
             codewriter.label(label)
             if last_exc_type_var:    
-                codewriter.load(last_exc_type_var, lltype_of_exception_type, '%last_exception_type')
+                codewriter.load(last_exc_type_var,
+                                lltype_of_exception_type,
+                                '%last_exception_type')
             if last_exc_value_var:   
-                codewriter.load(last_exc_value_var, lltype_of_exception_value, '%last_exception_value')
-            codewriter.store(lltype_of_exception_type , 'null', '%last_exception_type')
-            codewriter.store(lltype_of_exception_value, 'null', '%last_exception_value')
+                codewriter.load(last_exc_value_var,
+                                lltype_of_exception_value,
+                                '%last_exception_value')
+            codewriter.store(lltype_of_exception_type,
+                             'null',
+                             '%last_exception_type')
+            codewriter.store(lltype_of_exception_value,
+                             'null',
+                             '%last_exception_value')
             codewriter.br_uncond(target)
 
     def reraise(self, funcnode, codewriter):
-        noresult = self._nonoderesult(funcnode)
-        codewriter.indent('ret ' + noresult)
+        returntype, name, dummy = funcnode.getdecl_parts()
+        codewriter.ret(returntype, self._noresult2(returntype))
 
     def llc_options(self):
         return ''
+    

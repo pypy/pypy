@@ -46,7 +46,7 @@ def write_pyx_wrapper(genllvm, targetpath):
     append("class LLVMException(Exception):")
     append("    pass")
     append("")
-    append(genllvm.gcpolicy.pyrex_code())
+    append(genllvm.db.gcpolicy.pyrex_code())
     append("def %s_wrapper(%s):" % (funcgen.ref.strip("%"), ", ".join(inputargs)))
     append("    if not setup[0]:")
     append("        startup = Pyrex_RPython_StartupCode()")
