@@ -1,6 +1,9 @@
 LOOPS = 1 << 18
 
-class Foo:
+class OldStyleFoo:
+    pass
+
+class NewStyleFoo(object):
     pass
 
 def test_simple_loop():
@@ -8,8 +11,14 @@ def test_simple_loop():
     while i < LOOPS:
         i += 1
 
-def test_simple_loop_with_class_creation():
+def test_simple_loop_with_old_style_class_creation():
     i = 0
     while i < LOOPS:
-        Foo()
+        OldStyleFoo()
+        i += 1
+
+def test_simple_loop_with_new_style_class_creation():
+    i = 0
+    while i < LOOPS:
+        NewStyleFoo()
         i += 1

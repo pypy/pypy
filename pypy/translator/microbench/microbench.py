@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+"""This script computes the relative performance between python
+implementations on a set of microbenchmarks. The script usally is started
+with "./microbench.py python ./pypy" where pypy is a symlink to you pypy exectable."""
+
 import os, time, sys
 
 microbenches = []
@@ -11,7 +15,7 @@ for fname in os.listdir('.'):
     microbenches.append(microbench)
 
 def run():
-    MINIMUM_MICROBENCH_TIME = 2.5
+    MINIMUM_MICROBENCH_TIME = 1.0
 
     for microbench in microbenches:
         for k in [s for s in globals()[microbench].__dict__ if s.startswith('test_')] :
@@ -26,7 +30,7 @@ def run():
             print '%s took %.2f seconds' % (testcase, duration / float(n))
 
 if __name__ == '__main__':
-    for n, exe in enumerate(sys.argv[1:3]):
+    for n, exe in enumerate(sys.argv[1:]):
         print 'exe:', exe
         data = [s for s in os.popen(exe + ' microbench.py 2>&1').readlines() if not s.startswith('debug:')]
         benchdata = {}
@@ -36,8 +40,13 @@ if __name__ == '__main__':
         if n == 0:
             benchdata_ref = benchdata
         else:
+            result = []
             for k, v in benchdata.iteritems():
-                print '%s %.2fx slower' % (k, v / benchdata_ref[k])
+                result.append( (v / benchdata_ref[k], k) )
+            result.sort()
+            for r in result:
+                slowdown, testcase = r
+                print '%5.2fx slower on %s' % (slowdown, testcase)
         
     if len(sys.argv) == 1:
         run()
