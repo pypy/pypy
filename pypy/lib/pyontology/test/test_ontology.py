@@ -110,3 +110,34 @@ def test_ObjectProperty():
     O.type(sub, pred , obj)
     assert O.variables[O.make_var(ClassDomain, sub)].__class__  == ObjectProperty
 
+def test_range():
+    O = Ontology()
+    sub = URIRef('a')
+    obj = URIRef('b')
+    O.variables['b_'] = fd([1,2,3,4])
+    O.range(sub, None , obj)
+    sub = URIRef('a')
+    pred = URIRef('type')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, pred , obj)
+    assert len(O.constraints) == 1
+    O.constraints[0].narrow(O.variables)
+    assert list(O.variables['a_'].getValues()) == [1,2,3,4]
+
+def test_merge():
+    O = Ontology()
+    sub = URIRef('a')
+    obj = URIRef('b')
+    O.variables['b_'] = fd([1,2,3,4])
+    O.range(sub, None , obj)
+    sub = URIRef('a')
+    obj = URIRef('c')
+    O.variables['c_'] = fd([3,4,5,6])
+    O.range(sub, None , obj)
+    sub = URIRef('a')
+    pred = URIRef('type')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, pred , obj)
+    assert len(O.constraints) == 2
+    O.consistency()
+    assert list(O.variables['a_'].getValues()) == [3,4]

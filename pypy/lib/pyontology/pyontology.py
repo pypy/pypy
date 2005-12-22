@@ -37,7 +37,7 @@ class ClassDomain(AbstractDomain):
         self.properties = {}
 
     def __repr__(self):
-        return "<ClassDomain %s>" % str(self.name)
+        return "<%s %s %r>" % (self.__class__, str(self.name),self.values)
 
     def __getitem__(self, index):
         return None
@@ -54,13 +54,18 @@ class ClassDomain(AbstractDomain):
         return self
 
     def removeValues(self, values):
-        print "remove values from ClassDomain %r"%self, values
-        if len(values) > 0:
-            self.bases.pop(self.bases.index(values[0]))
+        for val in values:
+            self.values.pop(self.values.index(val))
 
-    def getValues(self):
+    def getBases(self):
         return self.bases
 
+    def getValues(self):
+        return self.values
+
+    def setValues(self, values):
+        self.values = values
+        
 class Property(ClassDomain):
     pass
     
@@ -160,7 +165,22 @@ class Ontology(Graph):
             else:
                 self.variables[avar] = fd(res)
 
+    def merge_constraints(self):
+        # Make the intersection of multiple rdfs:range constraints on the same variable
+        cons_dict = {}
+        new_cons =[]
+        for con in self.constraints:
+            if isinstance(con, RangeConstraint):
+                cons_dict.setdefault(con.variable, [])
+                cons_dict[con.variable].append(con)
+            else:
+                new_cons.append(con)
+        for k,v in cons_dict.items():
+            for con in v:
+                pass
+                
     def solve(self,verbose=0):
+        #self.merge_constraints()
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
         return Solver().solve(rep, verbose)
 
@@ -204,7 +224,6 @@ class Ontology(Graph):
                 res.append(a)
         var = '.'.join([str(a.replace('-','_')) for a in res])
         if not var in self.variables.keys():
-            print var
             self.variables[var] = cls(name=var)
         return var 
 
@@ -244,17 +263,19 @@ class Ontology(Graph):
 #---------------- Implementation ----------------
 
     def type(self, s, p, var):
-        avar = self.make_var(ClassDomain, var)
         svar = self.make_var(ClassDomain, s)
         if (type(var) == URIRef and not 
            (var in [URIRef(namespaces['owl']+'#'+x) for x in builtin_voc])):
             # var is not one of the builtin classes
+            avar = self.make_var(ClassDomain, var)
             self.variables[svar].values +=  self.variables[avar].values
             constrain = BinaryExpression([svar, avar],"%s in %s" %(svar,  avar))
             self.constraints.append(constrain)
         else:
             # var is a builtin class
-            self.variables[svar] =  builtin_voc[var.split('#')[-1]]()
+            cls =builtin_voc[var.split('#')[-1]](name=svar)
+            cls.setValues(self.variables[svar].getValues())
+            self.variables[svar] =  cls
 
     def first(self, s, p, var):
         pass
@@ -316,24 +337,37 @@ class Ontology(Graph):
     def range(self, s, p, var):
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(Property, s)
+        vals = get_values(self.variables[avar], self.variables).keys()
+        for v in self.variables[svar].getValues():
+            if not v in vals:
+                vals.append(v)
+        self.variables[svar].setValues(vals)
         cons = RangeConstraint( svar, avar)
         self.constraints.append(cons)
 
 
     def domain(self, s, p, var):
+        # The classes that has this property (s) must belong to the class extension of var
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(Property, s)
         assert isinstance(self.variables[svar], Property)
         assert isinstance(self.variables[avar], ClassDomain)
-        self.variables[avar].properties[svar] = self.variables[svar]
+        
 
     def subPropertyOf(self, s, p, var):
         # TODO: implement this
-        pass
+        # s is a subproperty of var
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(Property, s)
+        cons = SubPropertyConstraint( svar, avar)
+        self.constraints.append(cons)
 
     def equivalentProperty(self, s, p, var):
         # TODO: implement this  
-        pass
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(Property, s)
+        cons = EquivalentConstraint( svar, avar)
+        self.constraints.append(cons)
 
     def inverseOf(self, s, p, var):
         # TODO: implement this 
@@ -420,7 +454,6 @@ class MaxCardinality(AbstractConstraint):
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         if len(domains[self._variables[0]]) > self.cardinality:
-            print " I Think I will raise an exception"
             raise ConsistencyFailure("Maxcardinality exceeded")
         else:
             return 1
@@ -452,13 +485,13 @@ class Cardinality(MaxCardinality):
             return 1
 
 
-def get_values(dom, domains, attr = 'values'):
+def get_values(dom, domains, attr = 'getValues'):
     res = {}
-    for val in getattr(dom, attr):
+    for val in getattr(dom, attr)():
         res[val] = 1
         if val in domains.keys():
             res.update( get_values(val, domains, attr))
-    res[dom] = 1
+    #res[dom] = 1
     return res
  
 class SubClassConstraint(AbstractConstraint):
@@ -473,10 +506,9 @@ class SubClassConstraint(AbstractConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.super]
-        bases = get_values(superdom, domains, 'bases').keys()
-        print subdom,superdom, bases, subdom.bases
+        bases = get_values(superdom, domains, 'getBases').keys()
         subdom.bases += [bas for bas in bases if bas not in subdom.bases]
-        vals = get_values(subdom, domains, 'values')
+        vals = get_values(subdom, domains, 'getValues')
         superdom.values += [val for val in vals if val not in superdom.values]
 
 class DisjointClassConstraint(AbstractConstraint):
@@ -491,11 +523,10 @@ class DisjointClassConstraint(AbstractConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.super]
-        bases = get_values(superdom, domains, 'bases').keys()
-        print subdom,superdom, bases, subdom.bases
+        bases = get_values(superdom, domains, 'getBases').keys()
         subdom.bases += [bas for bas in bases if bas not in subdom.bases]
-        vals1 = get_values(superdom, domains, 'values').keys()
-        vals2 = get_values(variable, domains, 'values').keys()
+        vals1 = get_values(superdom, domains, 'getValues').keys()
+        vals2 = get_values(variable, domains, 'getValues').keys()
         for i in vals1:
             if i in vals2:
                 raise ConsistencyError
@@ -512,4 +543,57 @@ class ComplementClassConstraint(AbstractConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.super]
+
+class RangeConstraint(AbstractConstraint):
+
+    def __init__(self, variable, cls_or_restriction):
+        AbstractConstraint.__init__(self, [variable])
+        # worst case complexity
+        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        self.super = cls_or_restriction
+        self.variable = variable
+
+    def narrow(self, domains):
+        subdom = domains[self.variable]
+        superdom = domains[self.super]
+        vals = get_values(superdom, domains, 'getValues').keys()
+        res = []
+        for val in get_values(subdom, domains, 'getValues').keys():
+            if not val in vals:
+                res.append(val)
+        subdom.removeValues(res)
         
+class SubPropertyConstraint(AbstractConstraint):
+
+    def __init__(self, variable, cls_or_restriction):
+        AbstractConstraint.__init__(self, [variable])
+        # worst case complexity
+        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        self.super = cls_or_restriction
+        self.variable = variable
+
+    def narrow(self, domains):
+        subdom = domains[self.variable]
+        superdom = domains[self.super]
+        vals = get_values(superdom, domains, 'getValues').keys()
+        for val in subdom.getValues():
+            if not val in vals:
+                raise ConsistencyError("Value not in prescribed range")
+
+class EquivalentPropertyConstraint(AbstractConstraint):
+
+    def __init__(self, variable, cls_or_restriction):
+        AbstractConstraint.__init__(self, [variable])
+        # worst case complexity
+        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        self.super = cls_or_restriction
+        self.variable = variable
+
+    def narrow(self, domains):
+        subdom = domains[self.variable]
+        superdom = domains[self.super]
+        vals = get_values(superdom, domains, 'getValues').keys()
+        for val in subdom.getValues():
+            if not val in vals:
+                raise ConsistencyError("Value not in prescribed range")
+            
