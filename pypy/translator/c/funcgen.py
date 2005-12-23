@@ -368,8 +368,8 @@ class FunctionCodeGenerator(object):
 
                     yield '}'
                 else:
-                    raise TypeError("switches can only be on Bool or "
-                                    "PyObjPtr.  Got %r" % (TYPE,))
+                    raise TypeError("exitswitch type not supported"
+                                    "  Got %r" % (TYPE,))
 
             for i in range(reachable_err, -1, -1):
                 if not fallthrough:
