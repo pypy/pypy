@@ -290,7 +290,7 @@ def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
     if optimize:
         backend_optimizations(t, ssa_form=False)
     else:
-        backend_optimizations(t, ssa_form=False, mallocs=False, inline_threshold=0)
+        backend_optimizations(t, ssa_form=False, mallocs=False, inline_threshold=0, merge_if_blocks_to_switch=False, propagate=False)
     # note: this is without policy transforms
     if view:
         t.view()

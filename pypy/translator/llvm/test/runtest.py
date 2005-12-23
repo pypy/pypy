@@ -35,7 +35,16 @@ def compile_test(function, annotation, **kwds):
         return genllvm_compile(function, annotation, optimize=optimize_tests,
                                logging=False, **kwds)
 
+def compile_optimized_test(function, annotation, **kwds):
+    if llvm_test():        
+        return genllvm_compile(function, annotation, optimize=True,
+                               logging=False, **kwds)
+
 def compile_function(function, annotation, **kwds):
     if llvm_test():
         return compile_test(function, annotation, return_fn=True, **kwds)
+
+def compile_optimized_function(function, annotation, **kwds):
+    if llvm_test():
+        return compile_optimized_test(function, annotation, return_fn=True, **kwds)
 

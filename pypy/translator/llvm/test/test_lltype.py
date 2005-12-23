@@ -211,7 +211,7 @@ def test_struct_opaque():
     f = compile_function(struct_opaque, [])
     assert f() == struct_opaque()
 
-def test_floats():
+def test_floats():  #note: this is known to fail with llvm1.6 and llvm1.7cvs when not using gcc
     " test pbc of floats "
     F = lltype.GcStruct("f",
                         ('f1', lltype.Float),

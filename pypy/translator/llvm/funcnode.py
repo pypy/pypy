@@ -29,7 +29,7 @@ class FuncTypeNode(LLVMNode):
         inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
         codewriter.funcdef(self.ref, returntype, inputargtypes)
 
-class BlockBranchWriterException(Exception):
+class BranchException(Exception):
     pass
 
 class FuncNode(ConstantLLVMNode):
@@ -163,13 +163,29 @@ class FuncNode(ConstantLLVMNode):
         
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
-        elif len(block.exits) == 2:
-            cond = self.db.repr_arg(block.exitswitch)
+            return
+
+        cond, condtype = self.db.repr_argwithtype(block.exitswitch)
+        if block.exitswitch.concretetype == lltype.Bool:
+            assert len(block.exits) == 2
             codewriter.br(cond,
                           self.block_to_name[block.exits[0].target],
                           self.block_to_name[block.exits[1].target])
+
+        elif block.exitswitch.concretetype in \
+            (lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
+             lltype.UnsignedLongLong, lltype.Char, lltype.UniChar):
+            defaultlink = None
+            value_labels = []
+            for link in block.exits:
+                if link.exitcase is 'default':
+                    defaultlink = link
+                    continue 
+                value_labels.append( (link.llexitcase, self.block_to_name[link.target]) )
+            codewriter.switch(condtype, cond, self.block_to_name[defaultlink.target], value_labels)
+
         else:
-            raise BranchException("only support branches with 2 exit cases")
+            raise BranchException("exitswitch type '%s' not supported" % block.exitswitch.concretetype)
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)
