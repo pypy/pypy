@@ -37,6 +37,19 @@ def test_merge_if_blocks_chr():
     for i in range(0, 50):
         assert basic(i) == merge_if_blocks_chr(i)
 
+def test_merge_if_blocks_uni():
+    def merge_if_blocks_uni(i):
+        c = unichr(i)
+        if c == u'\x05':
+            return 1005
+        elif c == u'!':
+            return 1008
+        return 2222
+    basic  = compile_optimized_function(merge_if_blocks_uni , [int])
+    for i in range(0, 50):
+        assert basic(i) == merge_if_blocks_uni(i)
+
+
 def test_merge_if_blocks_many():
     def merge_if_blocks_many(i):
         if i == 0:

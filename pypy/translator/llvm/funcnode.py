@@ -182,8 +182,8 @@ class FuncNode(ConstantLLVMNode):
                     defaultlink = link
                     continue
 
-                exitcase = link.llexitcase 
-                if block.exitswitch.concretetype is lltype.Char:
+                exitcase = link.llexitcase
+                if block.exitswitch.concretetype in [lltype.Char, lltype.UniChar]:
                     exitcase = ord(exitcase)
                 value_labels.append( (exitcase,
                                       self.block_to_name[link.target]) )
