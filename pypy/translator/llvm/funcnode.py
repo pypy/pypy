@@ -75,7 +75,7 @@ class FuncNode(ConstantLLVMNode):
         traverse(visit, self.graph)
 
     # ______________________________________________________________________
-    # main entry points from genllvm 
+    # main entry points from genllvm    
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
@@ -180,12 +180,20 @@ class FuncNode(ConstantLLVMNode):
             for link in block.exits:
                 if link.exitcase is 'default':
                     defaultlink = link
-                    continue 
-                value_labels.append( (link.llexitcase, self.block_to_name[link.target]) )
-            codewriter.switch(condtype, cond, self.block_to_name[defaultlink.target], value_labels)
+                    continue
+
+                exitcase = link.llexitcase 
+                if block.exitswitch.concretetype is lltype.Char:
+                    exitcase = ord(exitcase)
+                value_labels.append( (exitcase,
+                                      self.block_to_name[link.target]) )
+
+            codewriter.switch(condtype, cond,
+                              self.block_to_name[defaultlink.target], value_labels)
 
         else:
-            raise BranchException("exitswitch type '%s' not supported" % block.exitswitch.concretetype)
+            raise BranchException("exitswitch type '%s' not supported" %
+                                  block.exitswitch.concretetype)
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)

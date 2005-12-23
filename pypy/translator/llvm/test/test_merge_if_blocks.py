@@ -23,7 +23,19 @@ def test_merge_if_blocks_basic():
         return 2222
     basic  = compile_optimized_function(merge_if_blocks_basic , [int])
     for i in range(-20,20):
-        assert basic(i)  == merge_if_blocks_basic(i)
+        assert basic(i) == merge_if_blocks_basic(i)
+
+def test_merge_if_blocks_chr():
+    def merge_if_blocks_chr(i):
+        c = chr(i)
+        if c == '\x05':
+            return 1005
+        elif c == '!':
+            return 1008
+        return 2222
+    basic  = compile_optimized_function(merge_if_blocks_chr , [int])
+    for i in range(0, 50):
+        assert basic(i) == merge_if_blocks_chr(i)
 
 def test_merge_if_blocks_many():
     def merge_if_blocks_many(i):
