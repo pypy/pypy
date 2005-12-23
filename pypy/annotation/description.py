@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
+from pypy.tool.sourcetools import valid_identifier
 
 
 class CallFamily:
@@ -181,7 +182,7 @@ class FunctionDesc(Desc):
                     return str(thing)[:30]
                 
             if key is not None and alt_name is None:
-                postfix = nameof(key)
+                postfix = valid_identifier(nameof(key))
                 alt_name = "%s__%s"%(self.name, postfix)
             graph = self.buildgraph(alt_name, builder)
             self._cache[key] = graph
