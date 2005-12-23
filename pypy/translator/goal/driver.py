@@ -25,7 +25,7 @@ DEFAULT_OPTIONS = optparse.Values(defaults={
   'backend': 'c',
   'lowmem': False,
   'fork_before': None,
-  'merge_if_blocks': False
+  'merge_if_blocks': True
 })
 
 def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=False):
