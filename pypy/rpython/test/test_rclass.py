@@ -148,7 +148,9 @@ def test_method_both_A_and_B():
     assert res == 246
 
 def test_issubclass_type():
-    class A:
+    class Abstract:
+        pass
+    class A(Abstract):
         pass
     class B(A):
         pass

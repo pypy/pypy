@@ -30,10 +30,15 @@ def rtype_builtin_isinstance(hop):
 
     v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
     if isinstance(v_cls, Constant):
-        minid = hop.inputconst(lltype.Signed, v_cls.value.subclassrange_min)
-        maxid = hop.inputconst(lltype.Signed, v_cls.value.subclassrange_max)
-        return hop.gendirectcall(rclass.ll_isinstance_const, v_obj, minid,
-                                 maxid)
+        cls = v_cls.value
+        if cls.subclassrange_max == cls.subclassrange_min + 1:
+            # a class with no subclass
+            return hop.gendirectcall(rclass.ll_isinstance_exact, v_obj, v_cls)
+        else:
+            minid = hop.inputconst(lltype.Signed, cls.subclassrange_min)
+            maxid = hop.inputconst(lltype.Signed, cls.subclassrange_max)
+            return hop.gendirectcall(rclass.ll_isinstance_const, v_obj, minid,
+                                     maxid)
     else:
         return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
 

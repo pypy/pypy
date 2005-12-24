@@ -260,9 +260,15 @@ class ClassRepr(AbstractClassRepr):
         class_repr = get_type_repr(self.rtyper)
         v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
         if isinstance(v_cls2, Constant):
-            minid = hop.inputconst(Signed, v_cls2.value.subclassrange_min)
-            maxid = hop.inputconst(Signed, v_cls2.value.subclassrange_max)
-            return hop.gendirectcall(ll_issubclass_const, v_cls1, minid, maxid)
+            cls2 = v_cls2.value
+            if cls2.subclassrange_max == cls2.subclassrange_min + 1:
+                # a class with no subclass
+                return hop.genop('ptr_eq', [v_cls1, v_cls2], resulttype=Bool)
+            else:
+                minid = hop.inputconst(Signed, cls2.subclassrange_min)
+                maxid = hop.inputconst(Signed, cls2.subclassrange_max)
+                return hop.gendirectcall(ll_issubclass_const, v_cls1, minid,
+                                         maxid)
         else:
             v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
             return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
@@ -631,6 +637,12 @@ def ll_isinstance_const(obj, minid, maxid):
     if not obj:
         return False
     return ll_issubclass_const(obj.typeptr, minid, maxid)
+
+def ll_isinstance_exact(obj, cls):
+    if not obj:
+        return False
+    obj_cls = obj.typeptr
+    return obj_cls == cls
 
 def ll_runtime_type_info(obj):
     return obj.typeptr.rtti
