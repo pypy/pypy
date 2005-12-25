@@ -191,3 +191,49 @@ class AppTest_Descroperation:
         assert len(s.__dict__) == 1
         assert type(s.__dict__.keys()[0]) is str   # don't store S keys
         assert s.abc is s
+
+    def test_notimplemented(self):
+        #import types
+        import operator
+
+        def specialmethod(self, other):
+            return NotImplemented
+
+        def check(expr, x, y, operator=operator):
+            raises(TypeError, expr)
+
+        for metaclass in [type]:   # [type, types.ClassType]:
+            for name, expr, iexpr in [
+                    ('__add__',      'x + y',                   'x += y'),
+                    ('__sub__',      'x - y',                   'x -= y'),
+                    ('__mul__',      'x * y',                   'x *= y'),
+                    ('__truediv__',  'operator.truediv(x, y)',  None),
+                    ('__floordiv__', 'operator.floordiv(x, y)', None),
+                    ('__div__',      'x / y',                   'x /= y'),
+                    ('__mod__',      'x % y',                   'x %= y'),
+                    ('__divmod__',   'divmod(x, y)',            None),
+                    ('__pow__',      'x ** y',                  'x **= y'),
+                    ('__lshift__',   'x << y',                  'x <<= y'),
+                    ('__rshift__',   'x >> y',                  'x >>= y'),
+                    ('__and__',      'x & y',                   'x &= y'),
+                    ('__or__',       'x | y',                   'x |= y'),
+                    ('__xor__',      'x ^ y',                   'x ^= y'),
+                    ('__coerce__',   'coerce(x, y)',            None)]:
+                if name == '__coerce__':
+                    rname = name
+                else:
+                    rname = '__r' + name[2:]
+                A = metaclass('A', (), {name: specialmethod})
+                B = metaclass('B', (), {rname: specialmethod})
+                a = A()
+                b = B()
+                check(expr, a, a)
+                check(expr, a, b)
+                check(expr, b, a)
+                check(expr, b, b)
+                if iexpr:
+                    iname = '__i' + name[2:]
+                    C = metaclass('C', (), {iname: specialmethod})
+                    c = C()
+                    check(expr, c, a)
+                    check(expr, c, b)
