@@ -232,8 +232,12 @@ class AppTest_Descroperation:
                 check(expr, b, a)
                 check(expr, b, b)
                 if iexpr:
+                    check(iexpr, a, a)
+                    check(iexpr, a, b)
+                    check(iexpr, b, a)
+                    check(iexpr, b, b)
                     iname = '__i' + name[2:]
                     C = metaclass('C', (), {iname: specialmethod})
                     c = C()
-                    check(expr, c, a)
-                    check(expr, c, b)
+                    check(iexpr, c, a)
+                    check(iexpr, c, b)
