@@ -122,7 +122,7 @@ def test_range():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
-    assert list(O.variables['a_'].getValues()) == [1,2,3,4]
+    assert O.variables['a_'].getValues() == ((None,[1,2,3,4]),)
 
 def test_merge():
     O = Ontology()
@@ -130,7 +130,6 @@ def test_merge():
     obj = URIRef('b')
     O.variables['b_'] = fd([1,2,3,4])
     O.range(sub, None , obj)
-    sub = URIRef('a')
     obj = URIRef('c')
     O.variables['c_'] = fd([3,4,5,6])
     O.range(sub, None , obj)
@@ -140,4 +139,47 @@ def test_merge():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 2
     O.consistency()
-    assert list(O.variables['a_'].getValues()) == [3,4]
+    assert O.variables['a_'].getValues() == ((None, [3,4]),)
+
+def test_domain():
+    O = Ontology()
+    sub = URIRef('a')
+    obj = URIRef('b')
+    O.variables['b_'] = ClassDomain('b')
+    O.domain(sub, None , obj)
+    sub = URIRef('a')
+    pred = URIRef('type')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, pred , obj)
+    assert len(O.constraints) == 1
+    O.constraints[0].narrow(O.variables)
+    assert O.variables['a_'].getValues() == ((O.variables['b_'], [None]),)
+
+def test_domain_merge():
+    O = Ontology()
+    sub = URIRef('a')
+    obj = URIRef('b')
+    O.variables['b_'] = ClassDomain('b')
+    O.domain(sub, None , obj)
+    obj = URIRef('c')
+    O.variables['c_'] = ClassDomain('c')
+    O.domain(sub, None , obj)
+    pred = URIRef('type')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, pred , obj)
+    
+    assert len(O.constraints) == 2
+    for con in O.constraints:
+        con.narrow(O.variables)
+    assert O.variables['a_'].getValues() ==() #O.variables['b_']
+
+def test_subproperty():
+    O = Ontology()
+    sub = URIRef('a')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, None, obj)
+    b = URIRef('b')
+    O.type(b, None, obj)
+    O.subPropertyOf(sub, None, b)
+    assert len(O.constraints) ==1
+    assert O.variables['a_'].getValues() in O.variables['b_'].getValues()
