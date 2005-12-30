@@ -9,6 +9,7 @@ from pypy.translator.tool.cbuild import build_executable, CCompiler
 from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
+from pypy.tool import isolate
 from pypy.translator.locality.calltree import CallTree
 from pypy.translator.c.support import log
 from pypy.rpython.typesystem import getfunctionptr
@@ -108,12 +109,23 @@ class CExtModuleBuilder(CBuilder):
         if self.symboltable:
             self.symboltable.attach(mod)   # hopefully temporary hack
         return mod
+
+    def isolated_import(self):
+        assert self._compiled
+        assert not self.c_ext_module
+        self.c_ext_module = isolate.Isolate((str(self.c_source_filename.dirpath()),
+                                             self.c_source_filename.purebasename))
+        return self.c_ext_module
         
     def get_entry_point(self):
         assert self.c_ext_module 
         return getattr(self.c_ext_module, 
                        self.entrypoint.func_name)
 
+    def cleanup(self):
+        assert self.c_ext_module
+        if isinstance(self.c_ext_module, isolate.Isolate):
+            isolate.close_isolate(self.c_ext_module)
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
