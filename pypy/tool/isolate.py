@@ -1,34 +1,5 @@
-import py
-import exceptions
-
-ISOLATE = """
-import sys
-import imp
-
-mod = channel.receive()
-if isinstance(mod, str):
-    mod = __import__(mod, {}, {}, ['__doc__'])
-else:
-    dir, name = mod
-    file, pathname, description = imp.find_module(name, [dir])
-    try:
-        mod = imp.load_module(name, file, pathname, description)
-    finally:
-        if file:
-            file.close()    
-channel.send("loaded")
-while True:
-    func, args = channel.receive()
-    try:
-        res = getattr(mod, func)(*args)
-    except KeyboardInterrupt:
-        raise
-    except:
-        exc_type = sys.exc_info()[0] 
-        channel.send(('exc', (exc_type.__module__, exc_type.__name__)))
-    else:
-        channel.send(('ok', res))
-"""
+import exceptions, os
+from pypy.tool import slaveproc
 
 class IsolateException(Exception):
     pass
@@ -57,17 +28,17 @@ class Isolate(object):
     _closed = False
 
     def __init__(self, module):
-        self.gw = py.execnet.PopenGateway()
-        chan = self.chan = self.gw.remote_exec(ISOLATE)
-        chan.send(module)
-        assert chan.receive() == "loaded"
+        self.slave = slaveproc.SlaveProcess(os.path.join(os.path.dirname(__file__),
+                                                         'isolate_slave.py'))
+        res = self.slave.cmd(('load', module))
+        assert res == 'loaded'
 
     def __getattr__(self, name):
         return IsolateInvoker(self, name)
 
     def _invoke(self, func, args):
-        self.chan.send((func, args))
-        status, value =  self.chan.receive()
+        status, value = self.slave.cmd(('invoke', (func, args)))
+        print 'OK'
         if status == 'ok':
             return value
         else:
@@ -79,8 +50,7 @@ class Isolate(object):
 
     def _close(self):
         if not self._closed:
-            self.chan.close()
-            self.gw.exit()
+            self.slave.close()
             self._closed = True
 
     def __del__(self):
