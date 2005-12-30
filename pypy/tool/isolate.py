@@ -10,7 +10,7 @@ if isinstance(mod, str):
     mod = __import__(mod, {}, {}, ['__doc__'])
 else:
     dir, name = mod
-    file, pathname, description = imp.find_module(name, [str(dir)])
+    file, pathname, description = imp.find_module(name, [dir])
     try:
         mod = imp.load_module(name, file, pathname, description)
     finally:
@@ -54,6 +54,7 @@ class Isolate(object):
 
     module: a dotted module name or a tuple (directory, module-name)
     """
+    _closed = False
 
     def __init__(self, module):
         self.gw = py.execnet.PopenGateway()
@@ -77,11 +78,13 @@ class Isolate(object):
                 raise IsolateException, "%s.%s" % value 
 
     def _close(self):
-        self.chan.close()
-        self.gw.exit()
+        if not self._closed:
+            self.chan.close()
+            self.gw.exit()
+            self._closed = True
 
     def __del__(self):
-        self.close()
+        self._close()
 
 def close_isolate(isolate):
     assert isinstance(isolate, Isolate)
