@@ -409,7 +409,10 @@ class Bookkeeper:
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
                     raise Exception, "ClassDesc for object not supported"
-                result = description.ClassDesc(self, pyobj)
+                if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
+                    result = self.getfrozen(pyobj)
+                else:
+                    result = description.ClassDesc(self, pyobj)
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)
@@ -434,16 +437,16 @@ class Bookkeeper:
             else:
                 # must be a frozen pre-built constant, but let's check
                 assert pyobj._freeze_()
-                result = description.FrozenDesc(self, pyobj)
-                cls = result.knowntype
-                if cls not in self.pbctypes:
-                    self.pbctypes[cls] = True
-                    # XXX what to do about this old check?:
-                    #if cls in self.userclasses:
-                    #    self.warning("making some PBC of type %r, which has "
-                    #                 "already got a ClassDef" % (cls,))
+                result = self.getfrozen(pyobj)
             self.descs[pyobj] = result
             return result
+
+    def getfrozen(self, pyobj):
+        result = description.FrozenDesc(self, pyobj)
+        cls = result.knowntype
+        if cls not in self.pbctypes:
+            self.pbctypes[cls] = True
+        return result
 
     def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name):
         key = funcdesc, originclassdef, selfclassdef, name

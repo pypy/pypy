@@ -320,6 +320,7 @@ class ClassDesc(Desc):
         self._classdefs = {}
 
         if pyobj is not None:
+            assert pyobj.__module__ != '__builtin__'
             cls = pyobj
             base = object
             baselist = list(cls.__bases__)

@@ -110,7 +110,33 @@ def builtin_unichr(s_int):
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
-    return cls2 is object or issubclass(cls1, cls2)
+    from pypy.annotation.classdef import ClassDef
+    if cls2 is object:
+        return True
+    def classify(cls):
+        if isinstance(cls, ClassDef):
+            return 'def'
+        if cls.__module__ == '__builtin__':
+            return 'builtin'
+        else:
+            return 'cls'
+    kind1 = classify(cls1)
+    kind2 = classify(cls2)
+    if kind1 != 'def' and kind2 != 'def':
+        return issubclass(cls1, cls2)
+    if kind1 == 'builtin' and kind2 == 'def':
+        return False
+    elif kind1 == 'def' and kind2 == 'builtin':
+        return issubclass(object, cls2)
+    else:
+        bk = getbookkeeper()
+        def toclassdef(kind, cls):
+            if kind != 'def':
+                return bk.getuniqueclassdef(cls)
+            else:
+                return cls
+        return toclassdef(kind1, cls1).issubclass(toclassdef(kind2, cls2))
+
 
 def builtin_isinstance(s_obj, s_type, variables=None):
     r = SomeBool() 
@@ -138,13 +164,6 @@ def builtin_isinstance(s_obj, s_type, variables=None):
  
             if s_obj.is_constant():
                 r.const = isinstance(s_obj.const, typ)
-            elif isinstance(s_obj, SomeInstance):
-                typdef = getbookkeeper().getuniqueclassdef(typ)
-                if s_obj.classdef.issubclass(typdef):
-                    if not s_obj.can_be_none():
-                        r.const = True 
-                elif not typdef.issubclass(s_obj.classdef):
-                    r.const = False
             elif our_issubclass(s_obj.knowntype, typ):
                 if not s_obj.can_be_none():
                     r.const = True 
