@@ -251,10 +251,10 @@ def conf():
 def rarith_intmask(s_obj):
     return SomeInteger()
 
-def robjmodel_cast_obj_to_int(s_instance):
+def robjmodel_cast_obj_to_int(s_instance): # XXX GC behavior
     return SomeInteger()
 
-def robjmodel_cast_int_to_obj(s_int, s_clspbc):
+def robjmodel_cast_int_to_obj(s_int, s_clspbc): # XXX GC behavior
     assert len(s_clspbc.descriptions) == 1
     desc = s_clspbc.descriptions.keys()[0]
     cdef = desc.getuniqueclassdef()
