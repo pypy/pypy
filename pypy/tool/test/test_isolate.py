@@ -38,3 +38,10 @@ def test_raising_fancy():
     py.test.raises(isolate.IsolateException, "simple.h()")
     isolate.close_isolate(simple)
     #os.system("ps")
+
+def test_bomb():
+    simple = isolate.Isolate('pypy.tool.test.isolate_simple')
+    py.test.raises(EOFError, "simple.bomb()")
+    isolate.close_isolate(simple)
+
+

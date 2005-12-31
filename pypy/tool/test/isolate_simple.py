@@ -10,3 +10,6 @@ class FancyException(Exception):
 
 def h():
     raise FancyException, "booh"
+
+def bomb():
+    raise KeyboardInterrupt

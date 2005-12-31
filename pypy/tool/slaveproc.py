@@ -23,17 +23,23 @@ class Exchange(object):
         return marshal.loads(s)
 
 class SlaveProcess(object):
-
+    _broken = False
+    
     def __init__(self, slave_impl):
         inp, out = os.popen2('%s -u %s' % (sys.executable, os.path.abspath(slave_impl)))
         self.exchg = Exchange(out, inp)
 
     def cmd(self, data):
         self.exchg.send(data)
-        return self.exchg.recv()
+        try:
+            return self.exchg.recv()
+        except EOFError:
+            self._broken = True
+            raise
 
     def close(self):
-        assert self.cmd(None) == 'done'
+        if not self._broken:
+             assert self.cmd(None) == 'done'
 
 class Slave(object):
 
