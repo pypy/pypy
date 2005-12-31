@@ -435,7 +435,7 @@ def ll_check_unichr(n):
 py_to_ll_conversion_functions = {
     UnsignedLongLong: ('RPyLong_AsUnsignedLongLong', lambda pyo: r_ulonglong(pyo._obj.value)),
     SignedLongLong: ('RPyLong_AsLongLong', lambda pyo: r_longlong(pyo._obj.value)),
-    Unsigned: ('PyLong_AsUnsignedLong', lambda pyo: r_uint(pyo._obj.value)),
+    Unsigned: ('RPyLong_AsUnsignedLong', lambda pyo: r_uint(pyo._obj.value)),
     Signed: ('PyInt_AsLong', lambda pyo: int(pyo._obj.value))
 }
 
