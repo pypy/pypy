@@ -97,6 +97,5 @@ def test_invalid_links():
     g = FunctionGraph("g", Block([v]))
     g.startblock.exitswitch = v
     g.startblock.closeblock(Link([Constant(1)], g.returnblock))
-    checkgraph(g)
     py.test.raises(AssertionError, checkgraph, g)
 
