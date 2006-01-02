@@ -13,7 +13,7 @@ Next PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
 ===============================================================
 
 The next sprint is organized for end of January in Palma de Mallorca.
-Topics will include progressing with the JIT work started in Götteborg
+Topics will include progressing with the JIT work started in Göteborg
 and Paris, GC and optimisation work, logic programming, and possibly
 improving our way to write glue code for C libraries. As usual we will
 give newcomer-friendly introductions, and other topics are possible.
