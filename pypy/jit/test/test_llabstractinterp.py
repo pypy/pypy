@@ -1,3 +1,4 @@
+import py
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.lltypesystem import lltype
@@ -192,6 +193,8 @@ def test_simple_array():
     assert insns == {}
 
 def test_recursive_call():
+    py.test.skip("reimplement or remove the test: "
+                 "non-inlined calls with constant results")
     def ll_factorial(k):
         if k <= 1:
             return 1

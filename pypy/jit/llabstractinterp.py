@@ -4,346 +4,20 @@ from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-
-
-def const(value, T=None):
-    c = Constant(value)
-    c.concretetype = T or lltype.typeOf(value)
-    return c
-
-def newvar(T):
-    v = Variable()
-    v.concretetype = T
-    return v
-
-
-class LLAbstractValue(object):
-    pass
-
-class LLConcreteValue(LLAbstractValue):
-
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        return '<concrete %r>' % (self.value,)
-
-#    def __eq__(self, other):
-#        return self.__class__ is other.__class__ and self.value == other.value
-#
-#    def __ne__(self, other):
-#        return not (self == other)
-#
-#    def __hash__(self):
-#        return hash(self.value)
-
-    def getconcretetype(self):
-        return lltype.typeOf(self.value)
-
-    def forcevarorconst(self, builder):
-        return const(self.value)
-
-    def getruntimevars(self, memo):
-        return []
-
-    def maybe_get_constant(self):
-        return const(self.value)
-
-    def with_fresh_variables(self, memo):
-        return self
-
-    def match(self, other, memo):
-        return isinstance(other, LLConcreteValue) and self.value == other.value
-
-
-class LLRuntimeValue(LLAbstractValue):
-
-    origin = None     # list of LLRuntimeValues attached to a saved state:
-                      # the sources that did or could allow 'self' to be
-                      # computed as a constant
-
-    fixed = False     # only meaningful on LLRuntimeValues attached to a
-                      # saved state.  Describes what this LLRuntimeValue will
-                      # become in the next block.  Set to True by hint()
-                      # to force a Constant to stay a Constant.
-
-    def __init__(self, orig_v):
-        if isinstance(orig_v, Variable):
-            self.copy_v = Variable(orig_v)
-            self.copy_v.concretetype = orig_v.concretetype
-        elif isinstance(orig_v, Constant):
-            # we can share the Constant()
-            self.copy_v = orig_v
-            self.origin = []
-        elif isinstance(orig_v, lltype.LowLevelType):
-            # hackish interface :-(  we accept a type too
-            self.copy_v = newvar(orig_v)
-        else:
-            raise TypeError(repr(orig_v))
-
-    def __repr__(self):
-        return '<runtime %r>' % (self.copy_v,)
-
-    def getconcretetype(self):
-        return self.copy_v.concretetype
-
-    def forcevarorconst(self, builder):
-        return self.copy_v
-
-    def getruntimevars(self, memo):
-        if memo.key is None:
-            return [self.copy_v]
-        else:
-            c = memo.key.next()
-            if self.fixed:
-                assert isinstance(c, Constant), (
-                    "unexpected Variable %r reaching a fixed input arg" % (c,))
-                return [c]
-            else:
-                return [None]
-
-    def maybe_get_constant(self):
-        if isinstance(self.copy_v, Constant):
-            return self.copy_v
-        else:
-            return None
-
-    def with_fresh_variables(self, memo):
-        # don't use memo.seen here: shared variables must become distinct
-        c = memo.key and memo.key.next()
-        if isinstance(c, Constant):    # allowed to propagate as a Constant?
-            result = LLRuntimeValue(c)
-        else:
-            result = LLRuntimeValue(self.getconcretetype())
-        result.origin = [self]
-        return result
-
-    def match(self, other, memo):
-        memo.dependencies.append((self, other))
-        return isinstance(other, LLRuntimeValue)
-
-ll_no_return_value = LLRuntimeValue(const(None, lltype.Void))
-
-
-class LLVirtualContainer(LLAbstractValue):
-
-    parent = None
-    parentindex = None
-
-    def __init__(self, T, a_length=None):
-        assert (a_length is not None) == T._is_varsize()
-        self.T = T
-        self.a_length = a_length
-        self.names = self.getnames()
-        self.fields = {}
-
-    def getconcretetype(self):
-        return lltype.Ptr(self.T)
-
-    def maybe_get_constant(self):
-        return None
-
-    def setparent(self, parent, parentindex):
-        self.parent = parent
-        self.parentindex = parentindex
-
-    def topmostparent(self):
-        obj = self
-        while obj.parent is not None:
-            obj = obj.parent
-        return obj
-
-    def getfield(self, name):
-        try:
-            return self.fields[name]
-        except KeyError:
-            T = self.fieldtype(name)
-            if isinstance(T, lltype.ContainerType):
-                # reading a substructure
-                if T._is_varsize():
-                    a_length = self.a_length
-                else:
-                    a_length = None
-                a_sub = virtualcontainer(T, a_length)
-                a_sub.setparent(self, name)
-                self.fields[name] = a_sub
-                return a_sub
-            else:
-                # no value ever set, return a default
-                return LLRuntimeValue(const(T._defl()))
-
-    def setfield(self, name, a_value):
-        self.fields[name] = a_value
-
-    def with_fresh_variables(self, memo):
-        if self in memo.seen:
-            return memo.seen[self]    # already seen
-        else:
-            result = virtualcontainer(self.T, self.a_length)
-            memo.seen[self] = result
-            if self.parent is not None:
-                # build the parent first -- note that
-                # parent.with_fresh_variables() will pick up 'result' again,
-                # because it is already in the memo
-                result.setparent(self.parent.with_fresh_variables(memo),
-                                 self.parentindex)
-
-            # cannot keep lazy fields around: the copy is expected to have
-            # only variables, not constants
-            for name in self.names:
-                a = self.getfield(name).with_fresh_variables(memo)
-                result.fields[name] = a
-            return result
-
-    def forcevarorconst(self, builder):
-        v_result = newvar(lltype.Ptr(self.T))
-        if self.parent is not None:
-            v_parent = self.parent.forcevarorconst(builder)
-            op = SpaceOperation('getsubstruct', [v_parent,
-                                                 const(self.parentindex,
-                                                       lltype.Void)],
-                                v_result)
-            print 'force:', op
-            builder.residual_operations.append(op)
-        else:
-            if self.T._is_varsize():
-                op = SpaceOperation('malloc_varsize', [
-                                        const(self.T, lltype.Void),
-                                        self.a_length.forcevarorconst(builder)],
-                                    v_result)
-            else:
-                op = SpaceOperation('malloc', [const(self.T, lltype.Void)],
-                                    v_result)
-            print 'force:', op
-            builder.residual_operations.append(op)
-            self.buildcontent(builder, v_result)
-        self.__class__ = LLRuntimeValue
-        self.__dict__ = {'copy_v': v_result}
-        return v_result
-
-    def buildcontent(self, builder, v_target):
-        # initialize all fields
-        for name in self.names:
-            if name in self.fields:
-                a_value = self.fields[name]
-                T = self.fieldtype(name)
-                if isinstance(T, lltype.ContainerType):
-                    # initialize the substructure/subarray
-                    v_subptr = newvar(lltype.Ptr(T))
-                    op = SpaceOperation('getsubstruct',
-                                        [v_target, const(name, lltype.Void)],
-                                        v_subptr)
-                    print 'force:', op
-                    builder.residual_operations.append(op)
-                    assert isinstance(a_value, LLVirtualStruct)
-                    a_value.buildcontent(builder, v_subptr)
-                else:
-                    v_value = a_value.forcevarorconst(builder)
-                    op = self.setop(v_target, name, v_value)
-                    print 'force:', op
-                    builder.residual_operations.append(op)
-
-    def getruntimevars(self, memo):
-        result = []
-        if self not in memo.seen:
-            memo.seen[self] = True
-            if self.parent is not None:
-                result.extend(self.parent.getruntimevars(memo))
-            for name in self.names:
-                result.extend(self.getfield(name).getruntimevars(memo))
-        return result
-
-    def match(self, other, memo):
-        if self.__class__ is not other.__class__:
-            return False
-
-        if self in memo.self_alias:
-            return other is memo.self_alias[self]
-        if other in memo.other_alias:
-            return self is memo.other_alias[other]
-        memo.self_alias[self] = other
-        memo.other_alias[other] = self
-
-        assert self.T == other.T
-        if self.names != other.names:
-            return False
-        if self.a_length is not None:
-            if not self.a_length.match(other.a_length, memo):
-                return False
-        for name in self.names:
-            a1 = self.getfield(name)
-            a2 = other.getfield(name)
-            if not a1.match(a2, memo):
-                return False
-        else:
-            return True
-
-
-class LLVirtualStruct(LLVirtualContainer):
-    """Stands for a pointer to a malloc'ed structure; the structure is not
-    malloc'ed so far, but we record which fields have which value.
-    """
-    def __repr__(self):
-        items = self.fields.items()
-        items.sort()
-        flds = ['%s=%r' % item for item in items]
-        return '<virtual %s %s>' % (self.T._name, ', '.join(flds))
-
-    def getnames(self):
-        return self.T._names
-
-    def fieldtype(self, name):
-        return getattr(self.T, name)
-
-    def setop(self, v_target, name, v_value):
-        return SpaceOperation('setfield', [v_target,
-                                           const(name, lltype.Void),
-                                           v_value],
-                              newvar(lltype.Void))
-
-class LLVirtualArray(LLVirtualContainer):
-    """Stands for a pointer to a malloc'ed array; the array is not
-    malloc'ed so far, but we record which fields have which value -- here
-    a field is an item, indexed by an integer instead of a string field name.
-    """
-    def __repr__(self):
-        items = self.fields.items()
-        items.sort()
-        flds = ['%s=%r' % item for item in items]
-        return '<virtual [%s]>' % (', '.join(flds),)
-
-    def getnames(self):
-        c = self.a_length.maybe_get_constant()
-        assert c is not None
-        return range(c.value)
-
-    def fieldtype(self, index):
-        return self.T.OF
-
-    def setop(self, v_target, name, v_value):
-        return SpaceOperation('setarrayitem', [v_target,
-                                               const(name, lltype.Signed),
-                                               v_value],
-                              newvar(lltype.Void))
-
-def virtualcontainer(T, a_length=None):
-    if isinstance(T, lltype.Struct):
-        cls = LLVirtualStruct
-    elif isinstance(T, lltype.Array):
-        cls = LLVirtualArray
-    else:
-        raise TypeError("unsupported container type %r" % (T,))
-    return cls(T, a_length)
+from pypy.jit.llvalue import LLAbstractValue, const, newvar, dupvar
+from pypy.jit.llvalue import FlattenMemo, MatchMemo, FreezeMemo, UnfreezeMemo
+from pypy.jit.llcontainer import LLAbstractContainer, virtualcontainervalue
 
 # ____________________________________________________________
 
-class LLState(LLAbstractValue):
+class LLState(LLAbstractContainer):
     """Entry state of a block, as a combination of LLAbstractValues
     for its input arguments.  Abstract base class."""
-    generalized_by = None
 
-    def __init__(self, a_back, args_a, origblock):
-        self.a_back = a_back
+    frozen = False   # for debugging
+
+    def __init__(self, back, args_a, origblock):
+        self.back = back
         self.args_a = args_a
         self.origblock = origblock
         self.copyblocks = {}
@@ -352,53 +26,85 @@ class LLState(LLAbstractValue):
     def key(self):
         # two LLStates should return different keys if they cannot match().
         result = self.localkey()
-        if self.a_back is not None:
-            result += self.a_back.key()
+        if self.back is not None:
+            result += self.back.key()
         return result
 
-    def getruntimevars(self, memo):
-        if self.a_back is None:
-            result = []
+    def enum_fixed_constants(self, incoming_link_args=None):
+        assert self.frozen, "enum_fixed_constants(): only for frozen states"
+        selfvalues = self.flatten()
+        if incoming_link_args is None:
+            for a in selfvalues:
+                yield None   # no incoming args provided, so no fixed constants
         else:
-            result = self.a_back.getruntimevars(memo)
+            assert len(incoming_link_args) == len(selfvalues)
+            for linkarg, fr in zip(incoming_link_args, selfvalues):
+                if fr.fixed:
+                    assert isinstance(linkarg, Constant), (
+                        "unexpected Variable %r reaching the fixed input arg %r"
+                        % (linkarg, fr))
+                    yield linkarg
+                else:
+                    yield None
+
+    def getruntimevars(self):
+        assert not self.frozen, "getruntimevars(): not for frozen states"
+        return [a.runtimevar for a in self.flatten()]
+
+    def flatten(self, memo=None):
+        if memo is None:
+            memo = FlattenMemo()
+        if self.back is not None:
+            self.back.flatten(memo)
         for a in self.args_a:
-            result.extend(a.getruntimevars(memo))
-        return result
-
-    def maybe_get_constant(self):
-        return None
-
-    def with_fresh_variables(self, memo):
-        if self.a_back is not None:
-            new_a_back = self.a_back.with_fresh_variables(memo)
-        else:
-            new_a_back = None
-        new_args_a = []
-        for v, a in zip(self.getlivevars(), self.args_a):
-            a = a.with_fresh_variables(memo)
-            # try to preserve the name
-            if isinstance(a, LLRuntimeValue) and isinstance(a.copy_v, Variable):
-                a.copy_v.rename(v)
-            new_args_a.append(a)
-        return self.__class__(new_a_back, new_args_a, *self.localkey())
+            a.flatten(memo)
+        return memo.result
 
     def match(self, other, memo):
+        assert self.frozen, "match(): 1st state must be frozen"
+        assert not other.frozen, "match(): 2nd state must not be frozen"
         assert self.__class__ is other.__class__
         if self.localkey() != other.localkey():
             return False
-        if self.a_back is None:
-            if other.a_back is not None:
+        if self.back is None:
+            if other.back is not None:
                 return False
         else:
-            if other.a_back is None:
+            if other.back is None:
                 return False
-            if not self.a_back.match(other.a_back, memo):
+            if not self.back.match(other.back, memo):
                 return False
         for a1, a2 in zip(self.args_a, other.args_a):
             if not a1.match(a2, memo):
                 return False
         else:
             return True
+
+    def freeze(self, memo):
+        assert not self.frozen, "freeze(): state already frozen"
+        if self.back is not None:
+            new_back = self.back.freeze(memo)
+        else:
+            new_back = None
+        new_args_a = [a.freeze(memo) for a in self.args_a]
+        result = self.__class__(new_back, new_args_a, *self.localkey())
+        result.frozen = True    # for debugging
+        return result
+
+    def unfreeze(self, memo):
+        assert self.frozen, "unfreeze(): state not frozen"
+        if self.back is not None:
+            new_back = self.back.unfreeze(memo)
+        else:
+            new_back = None
+        new_args_a = []
+        for v, a in zip(self.getlivevars(), self.args_a):
+            a = a.unfreeze(memo)
+            # try to preserve the name
+            if isinstance(a.runtimevar, Variable):
+                a.runtimevar.rename(v)
+            new_args_a.append(a)
+        return self.__class__(new_back, new_args_a, *self.localkey())
 
     def getbindings(self):
         return dict(zip(self.getlivevars(), self.args_a))
@@ -419,9 +125,9 @@ class LLSuspendedBlockState(LLBlockState):
     """Block state in the middle of the execution of one instruction
     (typically a direct_call() that is causing inlining)."""
 
-    def __init__(self, a_back, args_a, origblock, origposition):
+    def __init__(self, back, args_a, origblock, origposition):
         self.origposition = origposition
-        super(LLSuspendedBlockState, self).__init__(a_back, args_a, origblock)
+        super(LLSuspendedBlockState, self).__init__(back, args_a, origblock)
 
     def localkey(self):
         return (self.origblock, self.origposition)
@@ -431,6 +137,9 @@ class LLSuspendedBlockState(LLBlockState):
 
 
 # ____________________________________________________________
+
+ll_no_return_value = LLAbstractValue(const(None, lltype.Void))
+
 
 class Policy(object):
     def __init__(self, inlining=False, const_propagate=False,
@@ -454,19 +163,17 @@ class LLAbstractInterp(object):
         self.policy = policy
 
     def itercopygraphs(self):
-        return self.graphs
+        return iter(self.graphs)
 
     def eval(self, origgraph, arghints):
         # 'arghints' maps argument index to a given ll value
         args_a = []
         for i, v in enumerate(origgraph.getargs()):
             if i in arghints:
-                if self.policy.concrete_args:
-                    a = LLConcreteValue(arghints[i])
-                else:
-                    a = LLRuntimeValue(const(arghints[i]))
+                a = LLAbstractValue(const(arghints[i]))
+                a.concrete = self.policy.concrete_args
             else:
-                a = LLRuntimeValue(orig_v=v)
+                a = LLAbstractValue(dupvar(v))
             args_a.append(a)
         graphstate = self.schedule_graph(args_a, origgraph)
         graphstate.complete()
@@ -474,32 +181,32 @@ class LLAbstractInterp(object):
 
     def schedule_graph(self, args_a, origgraph):
         inputstate = LLBlockState(None, args_a, origgraph.startblock)
-        state = self.schedule_getstate(inputstate)
+        frozenstate = self.schedule_getstate(inputstate)
         try:
-            graphstate = self.graphstates[origgraph][state]
+            graphstate = self.graphstates[origgraph][frozenstate]
         except KeyError:
             d = self.graphstates.setdefault(origgraph, {})
             graphstate = GraphState(self, origgraph, inputstate, n=len(d))
-            d[state] = graphstate
-            self.pendingstates[graphstate] = state
+            d[frozenstate] = graphstate
+            self.pendingstates[graphstate] = frozenstate
         #print "SCHEDULE_GRAPH", graphstate
         return graphstate
 
     def schedule(self, inputstate):
         #print "SCHEDULE", args_a, origblock
-        state = self.schedule_getstate(inputstate)
-        args_v = inputstate.getruntimevars(VarMemo())
+        frozenstate = self.schedule_getstate(inputstate)
+        args_v = inputstate.getruntimevars()
         newlink = Link(args_v, None)
-        self.pendingstates[newlink] = state
+        self.pendingstates[newlink] = frozenstate
         return newlink
 
     def schedule_getstate(self, inputstate):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
         pendingstates = self.blocks.setdefault(inputstate.key(), [])
         # try to match the input state with an existing one
-        for i, state in enumerate(pendingstates):
+        for i, savedstate in enumerate(pendingstates):
             memo = MatchMemo()
-            if state.match(inputstate, memo):
+            if savedstate.match(inputstate, memo):
                 # already matched
                 must_restart = False
                 for statevar, inputvar in memo.dependencies:
@@ -517,32 +224,29 @@ class LLAbstractInterp(object):
                 # Record this inputstate's variables in the possible origins
                 # of the saved state's variables.
                 for statevar, inputvar in memo.dependencies:
-                    if statevar.origin is not None:
-                        statevar.origin.append(inputvar)
-                return state
+                    statevar.origin.extend(inputvar.origin)
+                return savedstate
         else:
-            # cache and return this new state
-            pendingstates.append(inputstate)
-            return inputstate
+            # freeze and return this new state
+            frozenstate = inputstate.freeze(FreezeMemo())
+            pendingstates.append(frozenstate)
+            return frozenstate
 
     def hint_needs_constant(self, a):
-        # Force the given LLRuntimeValue to be a fixed constant.
-        fix_me = [a]
+        # Force the given LLAbstractValue to be a fixed constant.
+        fix_me = list(a.origin)
+        progress = False
         while fix_me:
-            a = fix_me.pop()
-            assert isinstance(a, LLRuntimeValue)
-            if a.fixed:
+            fr = fix_me.pop()
+            if fr.fixed:
                 continue    # already fixed
-            print 'fixing:', a
-            a.fixed = True
-            # If 'a' is already a Constant, we just fixed it and we can
-            # continue.  If it is a Variable, restart the whole process.
-            if a.origin:
-                fix_me.extend(a.origin)
-            elif a.maybe_get_constant() is None:
-                # a Variable with no recorded origin
-                raise Exception("hint() failed: cannot trace the variable %r "
-                                "back to a link where it was a constant" % (a,))
+            if not fr.fixed:
+                print 'fixing:', fr
+                fr.fixed = True
+                progress = True
+                fix_me.extend(fr.origin)
+        if not progress and a.maybe_get_constant() is None:
+            raise HintError("cannot trace the origin of %r" % (a,))
 
 
 class GraphState(object):
@@ -562,10 +266,10 @@ class GraphState(object):
                                 self.copygraph.exceptblock.inputargs[1])]:
             if hasattr(orig_v, 'concretetype'):
                 copy_v.concretetype = orig_v.concretetype
-        # The 'args' attribute is needed by process_constant_input(),
+        # The 'args' attribute is needed by try_to_complete(),
         # which looks for it on either a GraphState or a Link
-        self.args = inputstate.getruntimevars(VarMemo())
-        self.a_return = None
+        self.args = inputstate.getruntimevars()
+        #self.a_return = None
         self.state = "before"
 
     def settarget(self, block):
@@ -601,8 +305,8 @@ class GraphState(object):
             print
             st = state
             stlist = []
-            while st.a_back is not None:
-                st = st.a_back
+            while st.back is not None:
+                st = st.back
                 stlist.append(st)
             stlist.reverse()
             for st in stlist:
@@ -635,7 +339,7 @@ class GraphState(object):
             # that links with different *fixed* constants don't interfere
             # with each other.
 
-            key = tuple(state.getruntimevars(VarMemo(next.args)))
+            key = tuple(state.enum_fixed_constants(next.args))
             try:
                 block = state.copyblocks[key]
             except KeyError:
@@ -677,7 +381,7 @@ class GraphState(object):
                     # that it is really the one from 'graph' -- by patching
                     # 'graph' if necessary.
                     if len(link.target.inputargs) == 1:
-                        self.a_return = state.args_a[0]
+                        #self.a_return = state.args_a[0]
                         graph.returnblock = link.target
                     elif len(link.target.inputargs) == 2:
                         graph.exceptblock = link.target
@@ -713,14 +417,13 @@ class GraphState(object):
         # debugging print
         arglist = []
         if key:
-            for v1, v2, k in zip(state.getruntimevars(VarMemo()),
-                                 builder.runningstate.getruntimevars(VarMemo()),
+            for a1, a2, k in zip(state.flatten(),
+                                 builder.runningstate.flatten(),
                                  key):
                 if isinstance(k, Constant):
-                    assert v2 == k
+                    arglist.append('%s => %s' % (a1, k))
                 else:
-                    assert isinstance(v2, Variable)
-                arglist.append('%s => %s' % (v1, v2))
+                    arglist.append('%s => %s' % (a1, a2))
         print
         print '--> %s [%s]' % (origblock, ', '.join(arglist))
         for op in origblock.operations:
@@ -728,11 +431,10 @@ class GraphState(object):
         # end of debugging print
         try:
             if origblock.operations == ():
-                if state.a_back is None:
+                if state.back is None:
                     # copies of return and except blocks are *normal* blocks
                     # currently; they are linked to the official return or
-                    # except block of the copygraph.  If needed,
-                    # LLConcreteValues are turned into Constants.
+                    # except block of the copygraph.
                     if len(origblock.inputargs) == 1:
                         target = self.copygraph.returnblock
                     else:
@@ -746,7 +448,7 @@ class GraphState(object):
                     # XXX GENERATE KEEPALIVES HERE
                     if len(origblock.inputargs) == 1:
                         a_result = builder.binding(origblock.inputargs[0])
-                        builder.runningstate = builder.runningstate.a_back
+                        builder.runningstate = builder.runningstate.back
                         origblock = builder.runningstate.origblock
                         origposition = builder.runningstate.origposition
                         builder.bindings = builder.runningstate.getbindings()
@@ -789,7 +491,7 @@ class GraphState(object):
             newlinks = []
             for origlink in links:
                 args_a = [builder.binding(v) for v in origlink.args]
-                nextinputstate = LLBlockState(builder.runningstate.a_back,
+                nextinputstate = LLBlockState(builder.runningstate.back,
                                               args_a, origlink.target)
                 newlink = self.interp.schedule(nextinputstate)
                 if newexitswitch is not None:
@@ -805,9 +507,11 @@ class BlockBuilder(object):
 
     def __init__(self, interp, initialstate, key):
         self.interp = interp
-        memo = VarMemo(key)
-        self.runningstate = initialstate.with_fresh_variables(memo)
-        self.newinputargs = self.runningstate.getruntimevars(VarMemo())
+        memo = UnfreezeMemo(key)
+        self.runningstate = initialstate.unfreeze(memo)
+        assert list(memo.propagateconsts) == []   # all items consumed
+        self.newinputargs = self.runningstate.getruntimevars()
+        assert len(self.newinputargs) == len(key)
         # {Variables-of-origblock: a_value}
         self.bindings = self.runningstate.getbindings()
         self.residual_operations = []
@@ -821,7 +525,7 @@ class BlockBuilder(object):
 
     def binding(self, v):
         if isinstance(v, Constant):
-            return LLRuntimeValue(orig_v=v)
+            return LLAbstractValue(v)
         else:
             return self.bindings[v]
 
@@ -847,16 +551,16 @@ class BlockBuilder(object):
             if v is None:
                 return None    # cannot constant-fold
             concretevalues.append(v.value)
-            any_concrete = any_concrete or isinstance(a, LLConcreteValue)
+            any_concrete = any_concrete or a.concrete
         # can constant-fold
         print 'fold:', constant_op.__name__, concretevalues
         concreteresult = constant_op(*concretevalues)
+        a_result = LLAbstractValue(const(concreteresult))
         if any_concrete and self.interp.policy.concrete_propagate:
-            return LLConcreteValue(concreteresult)
+            a_result.concrete = True
         else:
-            a_result = LLRuntimeValue(const(concreteresult))
             self.record_origin(a_result, args_a)
-            return a_result
+        return a_result
 
     def residual(self, opname, args_a, a_result):
         v_result = a_result.forcevarorconst(self)
@@ -876,21 +580,17 @@ class BlockBuilder(object):
             a_result = self.constantfold(constant_op, args_a)
             if a_result is not None:
                 return a_result
-        a_result = LLRuntimeValue(op.result)
+        a_result = LLAbstractValue(dupvar(op.result))
         if constant_op:
             self.record_origin(a_result, args_a)
         self.residual(op.opname, args_a, a_result)
         return a_result
 
     def record_origin(self, a_result, args_a):
-        origin = []
+        origin = a_result.origin
         for a in args_a:
-            if isinstance(a, LLConcreteValue):
-                continue
-            if not isinstance(a, LLRuntimeValue) or a.origin is None:
-                return
-            origin.extend(a.origin)
-        a_result.origin = origin
+            if not a.concrete:
+                origin.extend(a.origin)
 
     # ____________________________________________________________
     # Operation handlers
@@ -953,7 +653,7 @@ class BlockBuilder(object):
         if hints.get('concrete'):
             # turn this 'a' into a concrete value
             a.forcevarorconst(self)
-            if not isinstance(a, LLConcreteValue):
+            if not a.concrete:
                 self.interp.hint_needs_constant(a)
                 c = a.maybe_get_constant()
                 if c is None:
@@ -963,7 +663,8 @@ class BlockBuilder(object):
                     # 'fixed', so if we restart now, op_hint() should receive
                     # a constant the next time.
                     raise RestartCompleting
-                a = LLConcreteValue(c.value)
+                a = LLAbstractValue(c)
+                a.concrete = True
         return a
 
     def op_direct_call(self, op, *args_a):
@@ -993,7 +694,7 @@ class BlockBuilder(object):
         alive_a = []
         for v in live_variables(origblock, origposition):
             alive_a.append(self.bindings[v])
-        parentstate = LLSuspendedBlockState(self.runningstate.a_back, alive_a,
+        parentstate = LLSuspendedBlockState(self.runningstate.back, alive_a,
                                             origblock, origposition)
         nextstate = LLBlockState(parentstate, args_a, origgraph.startblock)
         raise InsertNextLink(self.interp.schedule(nextstate))
@@ -1003,40 +704,42 @@ class BlockBuilder(object):
         any_concrete = False
         for a in args_a:
             a.forcevarorconst(self)
-            any_concrete = any_concrete or isinstance(a,LLConcreteValue)
+            any_concrete = any_concrete or a.concrete
         if not any_concrete:
             return None
 
-        a_result = LLRuntimeValue(op.result)
+        a_result = LLAbstractValue(dupvar(op.result))
+        a_real_result = a_result
         graphstate = self.interp.schedule_graph(args_a, origgraph)
         #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
         if graphstate.state != "during":
             print 'ENTERING', graphstate.copygraph.name, args_a
             graphstate.complete()
-            if (graphstate.a_return is not None and
-                graphstate.a_return.maybe_get_constant() is not None):
-                a_result = graphstate.a_return
-            print 'LEAVING', graphstate.copygraph.name, graphstate.a_return
+            #if graphstate.a_return is not None:
+            #    a = graphstate.a_return.unfreeze(UnfreezeMemo())
+            #    if a.maybe_get_constant() is not None:
+            #        a_real_result = a    # propagate a constant result
+            print 'LEAVING', graphstate.copygraph.name#, graphstate.a_return
 
         ARGS = []
         new_args_a = []
         for a in args_a:
-            if not isinstance(a, LLConcreteValue):
+            if not a.concrete:
                 ARGS.append(a.getconcretetype())
                 new_args_a.append(a)
         args_a = new_args_a
         TYPE = lltype.FuncType(ARGS, a_result.getconcretetype())
         fptr = lltype.functionptr(
            TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
-        a_func = LLRuntimeValue(const(fptr))
+        a_func = LLAbstractValue(const(fptr))
         self.residual("direct_call", [a_func] + args_a, a_result) 
-        return a_result
+        return a_real_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
-        if isinstance(a_ptr, LLVirtualStruct):
+        if a_ptr.content is not None:
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            return a_ptr.getfield(c_attrname.value)
+            return a_ptr.content.getfield(c_attrname.value)
         constant_op = None
         T = a_ptr.getconcretetype().TO
         if T._hints.get('immutable', False):
@@ -1044,23 +747,24 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname], constant_op)
 
     def op_getsubstruct(self, op, a_ptr, a_attrname):
-        if isinstance(a_ptr, LLVirtualContainer):
+        if a_ptr.content is not None:
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            # this should return new LLVirtualContainer as well
-            return a_ptr.getfield(c_attrname.value)
+            # the difference with op_getfield() is only that the following
+            # line always returns a LLAbstractValue with content != None
+            return a_ptr.content.getfield(c_attrname.value)
         return self.residualize(op, [a_ptr, a_attrname], getattr)
 
     def op_getarraysize(self, op, a_ptr):
-        if isinstance(a_ptr, LLVirtualArray):
-            return a_ptr.a_length
+        if a_ptr.content is not None:
+            return LLAbstractValue(const(a_ptr.content.length))
         return self.residualize(op, [a_ptr], len)
 
     def op_getarrayitem(self, op, a_ptr, a_index):
-        if isinstance(a_ptr, LLVirtualArray):
+        if a_ptr.content is not None:
             c_index = a_index.maybe_get_constant()
             if c_index is not None:
-                return a_ptr.getfield(c_index.value)
+                return a_ptr.content.getfield(c_index.value)
         constant_op = None
         T = a_ptr.getconcretetype().TO
         if T._hints.get('immutable', False):
@@ -1070,56 +774,60 @@ class BlockBuilder(object):
     def op_malloc(self, op, a_T):
         c_T = a_T.maybe_get_constant()
         assert c_T is not None
-        return LLVirtualStruct(c_T.value)
+        return virtualcontainervalue(c_T.value)
 
     def op_malloc_varsize(self, op, a_T, a_size):
-        if a_size.maybe_get_constant() is not None:
+        c_size = a_size.maybe_get_constant()
+        if c_size is not None:
             c_T = a_T.maybe_get_constant()
             assert c_T is not None
-            return virtualcontainer(c_T.value, a_length=a_size)
+            return virtualcontainervalue(c_T.value, c_size.value)
         return self.residualize(op, [a_T, a_size])
 
     def op_setfield(self, op, a_ptr, a_attrname, a_value):
-        if isinstance(a_ptr, LLVirtualStruct):
+        if a_ptr.content is not None:
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
-            a_ptr.setfield(c_attrname.value, a_value)
+            a_ptr.content.setfield(c_attrname.value, a_value)
             return ll_no_return_value
         return self.residualize(op, [a_ptr, a_attrname, a_value])
 
     def op_setarrayitem(self, op, a_ptr, a_index, a_value):
-        if isinstance(a_ptr, LLVirtualArray):
+        if a_ptr.content is not None:
             c_index = a_index.maybe_get_constant()
             if c_index is not None:
-                a_ptr.setfield(c_index.value, a_value)
+                a_ptr.content.setfield(c_index.value, a_value)
                 return ll_no_return_value
         return self.residualize(op, [a_ptr, a_index, a_value])
 
     def op_cast_pointer(self, op, a_ptr):
-        if isinstance(a_ptr, LLVirtualStruct):
+        if a_ptr.content is not None:
             down_or_up = lltype.castable(op.result.concretetype,
-                                         a_ptr.getconcretetype())
+                                         a_ptr.content.getconcretetype())
+            # the following works because if a structure is virtual, then
+            # all its parent and inlined substructures are also virtual
             a = a_ptr
             if down_or_up >= 0:
                 for n in range(down_or_up):
-                    a = a.getfield(a.T._names[0])
+                    a = a.content.getfield(a.content.T._names[0])
             else:
                 for n in range(-down_or_up):
-                    a = a.parent
+                    a = a.content.a_parent
             return a
         def constant_op(ptr):
             return lltype.cast_pointer(op.result.concretetype, ptr)
         return self.residualize(op, [a_ptr], constant_op)
 
     def op_keepalive(self, op, a_ptr):
-        if isinstance(a_ptr, LLVirtualStruct):
-            for v in a_ptr.getruntimevars(VarMemo()):
-                if isinstance(v, Variable) and not v.concretetype._is_atomic():
-                    op = SpaceOperation('keepalive', [v], newvar(lltype.Void))
-                    print 'virtual:', op
-                    self.residual_operations.append(op)
-            return ll_no_return_value
-        return self.residualize(op, [a_ptr])
+        memo = FlattenMemo()
+        a_ptr.flatten(memo)
+        for a in memo.result:
+            v = a.runtimevar
+            if isinstance(v, Variable) and not v.concretetype._is_atomic():
+                op = SpaceOperation('keepalive', [v], newvar(lltype.Void))
+                print 'virtual:', op
+                self.residual_operations.append(op)
+        return ll_no_return_value
 
 
 class InsertNextLink(Exception):
@@ -1129,19 +837,8 @@ class InsertNextLink(Exception):
 class RestartCompleting(Exception):
     pass
 
-class MatchMemo(object):
-    def __init__(self):
-        self.dependencies = []
-        self.self_alias = {}
-        self.other_alias = {}
-
-class VarMemo(object):
-    def __init__(self, key=None):
-        self.seen = {}
-        if key is not None:
-            self.key = iter(key)
-        else:
-            self.key = None
+class HintError(Exception):
+    pass
 
 
 def live_variables(block, position):
