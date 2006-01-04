@@ -127,6 +127,13 @@ class InverseFunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
+        self.constraint = InverseFunctionalCardinality(name, 1)
+
+class TransitiveProperty(Property):
+    
+    def __init__(self, name='', values=[], bases = []):
+        Property.__init__(self, name, values, bases)
+        self.constraint = TransitiveConstraint(name)
 
 class DataRange:
     
@@ -147,14 +154,14 @@ builtin_voc = {
 ##               'DeprecatedClass' : DeprecatedClass,
 ##               'DeprecatedProperty' : DeprecatedProperty,
                'FunctionalProperty' : FunctionalProperty,
-##               'InverseFunctionalProperty' : InverseFunctionalProperty,
+               'InverseFunctionalProperty' : InverseFunctionalProperty,
 ##               'Nothing' : Nothing,
 ##               'ObjectProperty' : ObjectProperty,
 ##               'Ontology' : Ontology,
 ##               'OntologyProperty' : OntologyProperty,
                'Restriction' : Restriction,
 ##               'SymmetricProperty' : SymmetricProperty,
-##               'TransitiveProperty' : TransitiveProperty
+               'TransitiveProperty' : TransitiveProperty
               }
   
 class Ontology(Graph):
@@ -482,10 +489,11 @@ class OwlConstraint(AbstractConstraint):
 
     def __init__(self, variable):
         AbstractConstraint.__init__(self, [variable])
+        self.variable = variable
         self.__cost = 1 
 
     def __repr__(self):
-        return '<%s  %s,%i>' % (self.__class__.__name__, str(self._variables[0]),self.cardinality)
+        return '<%s  %s>' % (self.__class__.__name__, str(self._variables[0]))
 
     def estimateCost(self, domains):
         return self.__cost
@@ -495,9 +503,8 @@ class MaxCardinality(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def __init__(self, variable, cardinality):
-        OwlConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
+        self.__cost = 1
         self.cardinality = cardinality
 
     def narrow(self, domains):
@@ -635,23 +642,6 @@ class SubPropertyConstraint(OwlConstraint):
                 vals.append(val)
         superdom.setValues(vals)
 
-class FunctionalCardinality(OwlConstraint):
-    """Contraint: all values must be distinct"""
-
-    def __init__(self, variable, cardinality):
-        OwlConstraint.__init__(self, variable)
-        self.cardinality = cardinality
-        self.variable = variable
-
-    def narrow(self, domains):
-        """narrowing algorithm for the constraint"""
-        domain = domains[self.variable].getValues()
-        for cls, val in domain:
-            if len(val) != self.cardinality:
-                raise ConsistencyFailure("Maxcardinality exceeded")
-        else:
-            return 0
-
 class EquivalentPropertyConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
@@ -666,3 +656,45 @@ class EquivalentPropertyConstraint(OwlConstraint):
         for val in subdom.getValues():
             if not val in vals:
                 raise ConsistencyFailure("Value not in prescribed range")
+
+class FunctionalCardinality(MaxCardinality):
+    """Contraint: all values must be distinct"""
+
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        domain = domains[self.variable].getValues()
+        for cls, val in domain:
+            if len(val) != self.cardinality:
+                raise ConsistencyFailure("Maxcardinality exceeded")
+        else:
+            return 0
+
+class InverseFunctionalCardinality(MaxCardinality):
+    """Contraint: all values must be distinct"""
+
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        domain = domains[self.variable].getValues()
+        vals = {}
+        for cls, val in domain:
+            for v in val:
+                if vals.has_key(v):
+                    raise ConsistencyFailure("Maxcardinality exceeded")
+                else:
+                    vals[v] = 1
+        else:
+            return 0
+
+class TransitiveConstraint(OwlConstraint):
+    """Contraint: all values must be distinct"""
+
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        domain = domains[self.variable].getValues()
+        domain_dict = dict( domain )
+        for cls, val in domain:
+            for v in val:
+                if v in domain_dict:
+                    val.extend(domain_dict[v])
+
+

@@ -208,6 +208,52 @@ def test_functionalproperty():
     #add another valueof the property
     O.variables['p_'].setValues([('individ_',42),('individ_',43)])
     #check that consistency raises
-    print O.constraints
-    print O.variables
     py.test.raises(ConsistencyFailure, O.consistency)
+
+def test_inversefunctionalproperty():
+    
+    O = Ontology()
+    #Make functional property
+    sub = URIRef('p')
+    obj = URIRef(namespaces['owl']+'#InverseFunctionalProperty')
+    O.type(sub, None, obj)
+    #Make class
+    sub = URIRef('c')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(sub, None, obj)
+    #Make individual with a value of the property
+    sub = URIRef('individ')
+    obj = URIRef('c')
+    O.type(sub, None, obj)
+    O.variables['p_'].setValues([('individ_',42)])
+    assert len(O.constraints) == 2
+    #add another individual with the same value for the property
+    sub = URIRef('individ2')
+    obj = URIRef('c')
+    O.type(sub, None, obj)
+    O.variables['p_'].setValues([('individ2_',42)])
+    #check that consistency raises
+    py.test.raises(ConsistencyFailure, O.consistency)
+    
+def test_Transitiveproperty():
+    
+    O = Ontology()
+    #Make functional property
+    sub = URIRef('subRegionOf')
+    obj = URIRef(namespaces['owl']+'#TransitiveProperty')
+    O.type(sub, None, obj)
+    #Make class
+    sub = URIRef('c')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(sub, None, obj)
+    #Make individual with a value of the property
+    sub = URIRef('Italy')
+    obj = URIRef('c')
+    O.type(sub, None, obj)
+    sub = URIRef('Tuscanny')
+    O.type(sub, None, obj)
+    sub = URIRef('Chianti')
+    O.type(sub, None, obj)
+    O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
+    O.consistency()
+    assert ('Italy_', ['Tuscanny_', 'Chianti_']) in O.variables['subRegionOf_'].getValues()
