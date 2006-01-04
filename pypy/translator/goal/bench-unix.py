@@ -24,12 +24,12 @@ def run_cmd(cmd):
     pipe = os.popen(cmd + ' 2>&1')
     return pipe.read()
 
-def run_pystone(executable='python', n=0):
+def run_pystone(executable='/usr/local/bin/python', n=0):
     argstr = PYSTONE_CMD % (str(n) and n or '')
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
     return get_result(txt, PYSTONE_PATTERN)
 
-def run_richards(executable='python', n=10):
+def run_richards(executable='/usr/local/bin/python', n=10):
     argstr = RICHARDS_CMD % n
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
     return get_result(txt, RICHARDS_PATTERN)

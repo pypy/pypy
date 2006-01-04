@@ -32,10 +32,7 @@ SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
     ]))
 
 flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read()[17:-1].split()
-
-#if int(os.popen("opt --help 2>&1").read().find('-heap2stack')) >= 0:
-#    flags.insert(flags.index("-inline")+1, "-heap2stack -debug")
-
+flags += "-globalopt -constmerge -ipsccp -deadargelim -inline -instcombine -scalarrepl -globalsmodref-aa -licm -load-vn -gcse -instcombine -simplifycfg -globaldce".split()
 OPTIMIZATION_SWITCHES = " ".join(flags)
 
 def compile_module(module, source_files, object_files, library_files):
