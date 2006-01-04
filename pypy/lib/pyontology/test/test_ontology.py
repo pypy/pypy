@@ -1,4 +1,5 @@
 # tests for the Ontology class
+import py
 
 try:
     import logilab.constraint
@@ -182,4 +183,31 @@ def test_subproperty():
     O.type(b, None, obj)
     O.subPropertyOf(sub, None, b)
     assert len(O.constraints) ==1
-    assert O.variables['a_'].getValues() in O.variables['b_'].getValues()
+    O.variables['a_'].setValues([('individ_',42)])
+    O.consistency()
+    for val in O.variables['a_'].getValues():
+        assert  val in O.variables['b_'].getValues()
+
+def test_functionalproperty():
+    
+    O = Ontology()
+    #Make functional property
+    sub = URIRef('p')
+    obj = URIRef(namespaces['owl']+'#FunctionalProperty')
+    O.type(sub, None, obj)
+    #Make class
+    sub = URIRef('c')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(sub, None, obj)
+    #Make individual with a value of the property
+    sub = URIRef('individ')
+    obj = URIRef('c')
+    O.type(sub, None, obj)
+    O.variables['p_'].setValues([('individ_',42)])
+    assert len(O.constraints) == 2
+    #add another valueof the property
+    O.variables['p_'].setValues([('individ_',42),('individ_',43)])
+    #check that consistency raises
+    print O.constraints
+    print O.variables
+    py.test.raises(ConsistencyFailure, O.consistency)

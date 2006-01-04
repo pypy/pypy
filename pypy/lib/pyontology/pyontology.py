@@ -79,7 +79,6 @@ class Property(ClassDomain):
 
     def setValues(self, values):
         for k,v in values:
-            print "####",k,v
             self._dict.setdefault(k,[])
             if type(v) == list:
                 self._dict[k] = v
@@ -118,10 +117,16 @@ class Nothing:
     pass
 
 
-class FunctionalProperty:
+class FunctionalProperty(Property):
     
-    def __init__(self):
-        pass
+    def __init__(self, name='', values=[], bases = []):
+        Property.__init__(self, name, values, bases)
+        self.constraint = FunctionalCardinality(name, 1)
+        
+class InverseFunctionalProperty(Property):
+    
+    def __init__(self, name='', values=[], bases = []):
+        Property.__init__(self, name, values, bases)
 
 class DataRange:
     
@@ -141,7 +146,7 @@ builtin_voc = {
 ##               'DatatypeProperty' : DatatypeProperty,
 ##               'DeprecatedClass' : DeprecatedClass,
 ##               'DeprecatedProperty' : DeprecatedProperty,
-##               'FunctionalProperty' : FunctionalProperty,
+               'FunctionalProperty' : FunctionalProperty,
 ##               'InverseFunctionalProperty' : InverseFunctionalProperty,
 ##               'Nothing' : Nothing,
 ##               'ObjectProperty' : ObjectProperty,
@@ -185,7 +190,12 @@ class Ontology(Graph):
                 avar = self.make_var(fd, s) 
             else:
                 res = [o]
-                avar = self.make_var(fd, s, p) 
+                avar = self.make_var(Property, p)
+                # Set the values of the property p to o
+                sub = self.make_var(fd, s) 
+                obj = self.make_var(fd, o) 
+                res = self.variables[avar].getValues() 
+                self.variables[avar].setValues(res + [(sub, obj)])
             if self.variables.get(avar) and type(self.variables[avar]) == fd:
                 self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
             else:
@@ -250,7 +260,7 @@ class Ontology(Graph):
                 res.append(a)
         var = '.'.join([str(a.replace('-','_')) for a in res])
         if not var in self.variables.keys():
-            self.variables[var] = cls(name=var)
+            self.variables[var] = cls(var)
         return var 
 
     def find_prop(self, s):
@@ -300,6 +310,8 @@ class Ontology(Graph):
         else:
             # var is a builtin class
             cls =builtin_voc[var.split('#')[-1]](name=svar)
+            if hasattr(cls, 'constraint'):
+                self.constraints.append(cls.constraint)
             vals = self.variables[svar].getValues()
             cls.setValues(vals)
             self.variables[svar] =  cls
@@ -387,7 +399,6 @@ class Ontology(Graph):
             if not k in vals:
                 vals.append((k,v))
         self.variables[svar].setValues(vals)
-        print "->",vals, self.variables[svar]
         cons = DomainConstraint(svar, avar)
         self.constraints.append(cons)
 
@@ -467,20 +478,27 @@ class Ontology(Graph):
 
 # ----------------- Helper classes ----------------
 
-class MaxCardinality(AbstractConstraint):
-    """Contraint: all values must be distinct"""
+class OwlConstraint(AbstractConstraint):
 
-    def __init__(self, variable, cardinality):
+    def __init__(self, variable):
         AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
-        self.cardinality = cardinality
+        self.__cost = 1 
 
     def __repr__(self):
-        return '<MaxCardinality %s,%i>' % (str(self._variables[0]),self.cardinality)
+        return '<%s  %s,%i>' % (self.__class__.__name__, str(self._variables[0]),self.cardinality)
 
     def estimateCost(self, domains):
         return self.__cost
+
+
+class MaxCardinality(OwlConstraint):
+    """Contraint: all values must be distinct"""
+
+    def __init__(self, variable, cardinality):
+        OwlConstraint.__init__(self, [variable])
+        # worst case complexity
+        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        self.cardinality = cardinality
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
@@ -490,9 +508,6 @@ class MaxCardinality(AbstractConstraint):
             return 1
 
 class MinCardinality(MaxCardinality):
-
-    def __repr__(self):
-        return '<MinCardinality %s,%i>' % (str(self._variables[0]),self.cardinality)
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
@@ -504,9 +519,6 @@ class MinCardinality(MaxCardinality):
         
 class Cardinality(MaxCardinality):
     
-    def __repr__(self):
-        return '<Cardinality %s,%i>' % (str(self._variables[0]),self.cardinality)
-
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
           
@@ -527,12 +539,10 @@ def get_values(dom, domains, attr = 'getValues'):
     #res[dom] = 1
     return res
 
-class SubClassConstraint(AbstractConstraint):
+class SubClassConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -544,12 +554,10 @@ class SubClassConstraint(AbstractConstraint):
         vals = get_values(subdom, domains, 'getValues')
         superdom.values += [val for val in vals if val not in superdom.values]
 
-class DisjointClassConstraint(AbstractConstraint):
+class DisjointClassConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, [variable])
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -562,14 +570,12 @@ class DisjointClassConstraint(AbstractConstraint):
         vals2 = get_values(variable, domains, 'getValues')  
         for i in vals1:
             if i in vals2:
-                raise ConsistencyError
+                raise ConsistencyFailure()
 
-class ComplementClassConstraint(AbstractConstraint):
+class ComplementClassConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -577,12 +583,10 @@ class ComplementClassConstraint(AbstractConstraint):
         subdom = domains[self.variable]
         superdom = domains[self.super]
 
-class RangeConstraint(AbstractConstraint):
+class RangeConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -598,12 +602,10 @@ class RangeConstraint(AbstractConstraint):
                     res.append((k,v)) 
         subdom.removeValues(res)
 
-class DomainConstraint(AbstractConstraint):
+class DomainConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -615,16 +617,12 @@ class DomainConstraint(AbstractConstraint):
         for k,val in get_values(subdom, domains, 'getValues'):
             if not k in vals and k != superdom:
                 res.append((k,val))
-        print "res",res,vals,superdom
         subdom.removeValues(res)
-        print "---",subdom
-        
-class SubPropertyConstraint(AbstractConstraint):
+
+class SubPropertyConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -634,14 +632,30 @@ class SubPropertyConstraint(AbstractConstraint):
         vals = get_values(superdom, domains, 'getValues')  
         for val in subdom.getValues():
             if not val in vals:
-                raise ConsistencyError("Value not in prescribed range")
+                vals.append(val)
+        superdom.setValues(vals)
 
-class EquivalentPropertyConstraint(AbstractConstraint):
+class FunctionalCardinality(OwlConstraint):
+    """Contraint: all values must be distinct"""
+
+    def __init__(self, variable, cardinality):
+        OwlConstraint.__init__(self, variable)
+        self.cardinality = cardinality
+        self.variable = variable
+
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        domain = domains[self.variable].getValues()
+        for cls, val in domain:
+            if len(val) != self.cardinality:
+                raise ConsistencyFailure("Maxcardinality exceeded")
+        else:
+            return 0
+
+class EquivalentPropertyConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [variable])
-        # worst case complexity
-        self.__cost = 1 #len(variables) * (len(variables) - 1) / 2
+        OwlConstraint.__init__(self, variable)
         self.super = cls_or_restriction
         self.variable = variable
 
@@ -651,5 +665,4 @@ class EquivalentPropertyConstraint(AbstractConstraint):
         vals = get_values(superdom, domains, 'getValues')  
         for val in subdom.getValues():
             if not val in vals:
-                raise ConsistencyError("Value not in prescribed range")
-            
+                raise ConsistencyFailure("Value not in prescribed range")
