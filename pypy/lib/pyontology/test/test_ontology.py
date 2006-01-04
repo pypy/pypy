@@ -257,3 +257,24 @@ def test_Transitiveproperty():
     O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
     O.consistency()
     assert ('Italy_', ['Tuscanny_', 'Chianti_']) in O.variables['subRegionOf_'].getValues()
+    
+def test_symmetricproperty():
+    
+    O = Ontology()
+    #Make functional property
+    sub = URIRef('friend')
+    obj = URIRef(namespaces['owl']+'#SymmetricProperty')
+    O.type(sub, None, obj)
+    #Make class
+    sub = URIRef('c')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(sub, None, obj)
+    #Make individual with a value of the property
+    sub = URIRef('Bob')
+    obj = URIRef('c')
+    O.type(sub, None, obj)
+    sub = URIRef('Alice')
+    O.type(sub, None, obj)
+    O.variables['friend_'].setValues([('Bob_','Alice_')])
+    O.consistency()
+    assert ('Alice_', ['Bob_']) in O.variables['friend_'].getValues()

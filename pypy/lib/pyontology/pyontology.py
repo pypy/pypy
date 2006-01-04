@@ -104,8 +104,7 @@ class DataTypeProperty(Property):
 
 class Thing:
 
-    def __init__(self):
-        pass
+    pass
 
 class AllDifferent(ClassDomain):
     # A special class whose members are distinct
@@ -135,6 +134,12 @@ class TransitiveProperty(Property):
         Property.__init__(self, name, values, bases)
         self.constraint = TransitiveConstraint(name)
 
+class SymmetricProperty(Property):
+    
+    def __init__(self, name='', values=[], bases = []):
+        Property.__init__(self, name, values, bases)
+        self.constraint = SymmetricConstraint(name)
+
 class DataRange:
     
     def __init__(self):
@@ -150,7 +155,7 @@ builtin_voc = {
                'AllDifferent' : AllDifferent ,
 ##               'AnnotationProperty' : AnnotationProperty,
 ##               'DataRange' : DataRange,
-##               'DatatypeProperty' : DatatypeProperty,
+              'DatatypeProperty' : DatatypeProperty,
 ##               'DeprecatedClass' : DeprecatedClass,
 ##               'DeprecatedProperty' : DeprecatedProperty,
                'FunctionalProperty' : FunctionalProperty,
@@ -160,7 +165,7 @@ builtin_voc = {
 ##               'Ontology' : Ontology,
 ##               'OntologyProperty' : OntologyProperty,
                'Restriction' : Restriction,
-##               'SymmetricProperty' : SymmetricProperty,
+               'SymmetricProperty' : SymmetricProperty,
                'TransitiveProperty' : TransitiveProperty
               }
   
@@ -311,7 +316,7 @@ class Ontology(Graph):
            (var in [URIRef(namespaces['owl']+'#'+x) for x in builtin_voc])):
             # var is not one of the builtin classes
             avar = self.make_var(ClassDomain, var)
-            self.variables[svar].values +=  self.variables[avar].values
+            self.variables[svar].setValues(self.variables[avar].getValues())
             constrain = BinaryExpression([svar, avar],"%s in %s" %(svar,  avar))
             self.constraints.append(constrain)
         else:
@@ -696,5 +701,18 @@ class TransitiveConstraint(OwlConstraint):
             for v in val:
                 if v in domain_dict:
                     val.extend(domain_dict[v])
+            domain_dict[cls] = val
+        domains[self.variable].setValues(domain_dict.items())
 
+class SymmetricConstraint(OwlConstraint):
+    """Contraint: all values must be distinct"""
 
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        domain = domains[self.variable].getValues()
+        domain_dict = dict( domain )
+        for cls, val in domain:
+            for v in val:
+                domain_dict.setdefault(v, [])
+                domain_dict[v].append(cls)
+        domains[self.variable].setValues(domain_dict.items())
