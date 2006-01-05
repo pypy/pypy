@@ -41,7 +41,7 @@ class Translation(object):
 
         self.update_options(argtypes, kwds)
 
-    FREEZE = {
+    GOAL_USES_OPTS = {
         'annotate': ['debug'],
         'rtype': ['insist'],
     }
@@ -51,7 +51,8 @@ class Translation(object):
              print goal
              self.ensure_setup()
         elif kind == 'post':
-            self.frozen_options.update(dict.fromkeys(self.FREEZE[goal], True))
+            used_opts = dict.fromkeys(self.GOAL_USES_OPTS[goal], True)
+            self.frozen_options.update(used_opts)
 
     def ensure_setup(self, argtypes=None, policy=None):
         if not self.driver_setup:
