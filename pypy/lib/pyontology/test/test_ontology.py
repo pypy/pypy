@@ -123,7 +123,7 @@ def test_range():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
-    assert O.variables['a_'].getValues() == ((None,[1,2,3,4]),)
+    assert O.variables['a_'].getValues() == [(None,[1,2,3,4]),]
 
 def test_merge():
     O = Ontology()
@@ -140,7 +140,7 @@ def test_merge():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 2
     O.consistency()
-    assert O.variables['a_'].getValues() == ((None, [3,4]),)
+    assert O.variables['a_'].getValues() == [(None, [3,4]),]
 
 def test_domain():
     O = Ontology()
@@ -154,7 +154,7 @@ def test_domain():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
-    assert O.variables['a_'].getValues() == ((O.variables['b_'], [None]),)
+    assert O.variables['a_'].getValues() == [(O.variables['b_'], [None]),]
 
 def test_domain_merge():
     O = Ontology()
@@ -172,7 +172,7 @@ def test_domain_merge():
     assert len(O.constraints) == 2
     for con in O.constraints:
         con.narrow(O.variables)
-    assert O.variables['a_'].getValues() ==() #O.variables['b_']
+    assert O.variables['a_'].getValues() ==[] #O.variables['b_']
 
 def test_subproperty():
     O = Ontology()
@@ -278,3 +278,29 @@ def test_symmetricproperty():
     O.variables['friend_'].setValues([('Bob_','Alice_')])
     O.consistency()
     assert ('Alice_', ['Bob_']) in O.variables['friend_'].getValues()
+
+def no_test_maxcardinality():
+    
+    O = Ontology()
+    #Make functional property
+    sub = URIRef('friend')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, None, obj)
+    #Make class
+    sub = URIRef('c')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(sub, None, obj)
+    #Make individual with a cardinality restriction of the property
+    sub = URIRef('Bob')
+    obj = URIRef('c')
+    O.type(sub, None, obj)
+    sub = BNode('anon')
+    obj = URIRef(namespaces['owl']+'#Restriction')
+    O.type(sub, None, obj)
+    O.onProperty(sub, None, URIRef('friend'))
+    O.maxCardinality(sub, None, 1)
+    O.variables['friend_'].setValues([('Bob_',['Alice_','Finn_'])])
+    O.consistency(verbose=5)
+    print O.variables
+    print O.constraints
+    assert not '_anon' in O.variables

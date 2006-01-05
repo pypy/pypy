@@ -65,7 +65,10 @@ class ClassDomain(AbstractDomain):
 
     def setValues(self, values):
         self.values = values
-        
+
+class List(ClassDomain):
+    pass
+
 class Property(ClassDomain):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' anonymous
@@ -75,7 +78,7 @@ class Property(ClassDomain):
         self._dict = {}
 
     def getValues(self):
-        return tuple(self._dict.items())
+        return self._dict.items()
 
     def setValues(self, values):
         for k,v in values:
@@ -98,12 +101,13 @@ class ObjectProperty(Property):
 
     pass
 
-class DataTypeProperty(Property):
-
+class DatatypeProperty(Property):
     pass
 
-class Thing:
+class Thing(ClassDomain):
+    pass
 
+class DataRange(ClassDomain):
     pass
 
 class AllDifferent(ClassDomain):
@@ -111,7 +115,7 @@ class AllDifferent(ClassDomain):
     # Syntactic sugar
     pass
 
-class Nothing:
+class Nothing(ClassDomain):
 
     pass
 
@@ -140,11 +144,6 @@ class SymmetricProperty(Property):
         Property.__init__(self, name, values, bases)
         self.constraint = SymmetricConstraint(name)
 
-class DataRange:
-    
-    def __init__(self):
-        pass
-
 class Restriction(ClassDomain):
     pass
 
@@ -154,8 +153,8 @@ builtin_voc = {
                'ObjectProperty' : ObjectProperty,
                'AllDifferent' : AllDifferent ,
 ##               'AnnotationProperty' : AnnotationProperty,
-##               'DataRange' : DataRange,
-              'DatatypeProperty' : DatatypeProperty,
+               'DataRange' : DataRange,
+               'DatatypeProperty' : DatatypeProperty,
 ##               'DeprecatedClass' : DeprecatedClass,
 ##               'DeprecatedProperty' : DeprecatedProperty,
                'FunctionalProperty' : FunctionalProperty,
@@ -166,7 +165,8 @@ builtin_voc = {
 ##               'OntologyProperty' : OntologyProperty,
                'Restriction' : Restriction,
                'SymmetricProperty' : SymmetricProperty,
-               'TransitiveProperty' : TransitiveProperty
+               'TransitiveProperty' : TransitiveProperty,
+               'List' : List
               }
   
 class Ontology(Graph):
@@ -191,11 +191,10 @@ class Ontology(Graph):
             else:
                 ns =''
                 func = p
-                
-            if ns in namespaces.items():
+            if ns in namespaces.values():
                 pred = getattr(self, func)
                 res = pred(s, p, o) 
-                if res == None:
+                if not res :
                     continue
                 if type(res) != list :
                     res = [res]
@@ -207,7 +206,7 @@ class Ontology(Graph):
                 sub = self.make_var(fd, s) 
                 obj = self.make_var(fd, o) 
                 res = self.variables[avar].getValues() 
-                self.variables[avar].setValues(res + [(sub, obj)])
+                self.variables[avar].setValues(res + ((sub, obj),))
             if self.variables.get(avar) and type(self.variables[avar]) == fd:
                 self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
             else:
@@ -232,15 +231,14 @@ class Ontology(Graph):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
         return Solver().solve(rep, verbose)
 
-    def consistency(self):
+    def consistency(self, verbose=0):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
-        rep.consistency()
+        rep.consistency(verbose)
  
     def get_list(self, subject):
         res = []
         first = list(self.objects(subject, rdf_first)) 
         assert len(first) == 1
-        self.seen[self.make_var(fd, subject, p)]= 1
         if type(first[0]) == URIRef:
             var = self.make_var(fd, first[0])
             if var not in self.variables.keys():
@@ -248,7 +246,6 @@ class Ontology(Graph):
         res += first
         
         rest = list(self.objects(subject, rdf_rest)) 
-        self.seen[self.make_var(fd, subject, p)]= 1
         if "#nil" in rest[0] :
            return res
         else:
@@ -311,16 +308,19 @@ class Ontology(Graph):
 #---------------- Implementation ----------------
 
     def type(self, s, p, var):
-        svar = self.make_var(ClassDomain, s)
-        if (type(var) == URIRef and not 
-           (var in [URIRef(namespaces['owl']+'#'+x) for x in builtin_voc])):
+        
+        #if (type(var) == URIRef and not 
+        if not (var in [URIRef(namespaces['owl']+'#'+x) for x in builtin_voc]):
             # var is not one of the builtin classes
+            svar = self.make_var(ClassDomain, s)
             avar = self.make_var(ClassDomain, var)
             self.variables[svar].setValues(self.variables[avar].getValues())
             constrain = BinaryExpression([svar, avar],"%s in %s" %(svar,  avar))
             self.constraints.append(constrain)
-        else:
+        else: # type(s) != BNode:
             # var is a builtin class
+            svar = self.make_var(ClassDomain, s)
+            print "===",var
             cls =builtin_voc[var.split('#')[-1]](name=svar)
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
@@ -431,7 +431,7 @@ class Ontology(Graph):
         # TODO: implement this 
         pass
 
-#---Label---#000000#FFFFFF------------------------------------------------------
+#---Property restrictions------------------------------------------------------
 
     def maxCardinality(self, s, p, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
@@ -512,6 +512,9 @@ class MaxCardinality(OwlConstraint):
         self.__cost = 1
         self.cardinality = cardinality
 
+    def __repr__(self):
+        return '<%s  %s %i>' % (self.__class__.__name__, str(self._variables[0]), self.cardinality)
+
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         if len(domains[self._variables[0]]) > self.cardinality:
@@ -525,7 +528,7 @@ class MinCardinality(MaxCardinality):
         """narrowing algorithm for the constraint"""
           
         if len(domains[self._variables[0]]) < self.cardinality:
-            raise ConsistencyFailure()
+            raise ConsistencyFailure("MinCardinality not accomplished")
         else:
             return 1
         
@@ -535,7 +538,7 @@ class Cardinality(MaxCardinality):
         """narrowing algorithm for the constraint"""
           
         if len(domains[self._variables[0]]) != self.cardinality:
-            raise ConsistencyFailure()
+            raise ConsistencyFailure("Cardinality constraint not met")
         else:
             return 1
 
@@ -558,6 +561,9 @@ class SubClassConstraint(OwlConstraint):
         self.super = cls_or_restriction
         self.variable = variable
 
+    def __repr__(self):
+        return '<%s  %s %s>' % (self.__class__.__name__, str(self._variables[0]), self.super)
+
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.super]
@@ -566,12 +572,7 @@ class SubClassConstraint(OwlConstraint):
         vals = get_values(subdom, domains, 'getValues')
         superdom.values += [val for val in vals if val not in superdom.values]
 
-class DisjointClassConstraint(OwlConstraint):
-
-    def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, [variable])
-        self.super = cls_or_restriction
-        self.variable = variable
+class DisjointClassConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
@@ -584,23 +585,13 @@ class DisjointClassConstraint(OwlConstraint):
             if i in vals2:
                 raise ConsistencyFailure()
 
-class ComplementClassConstraint(OwlConstraint):
-
-    def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, variable)
-        self.super = cls_or_restriction
-        self.variable = variable
+class ComplementClassConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.super]
 
-class RangeConstraint(OwlConstraint):
-
-    def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, variable)
-        self.super = cls_or_restriction
-        self.variable = variable
+class RangeConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
@@ -614,12 +605,7 @@ class RangeConstraint(OwlConstraint):
                     res.append((k,v)) 
         subdom.removeValues(res)
 
-class DomainConstraint(OwlConstraint):
-
-    def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, variable)
-        self.super = cls_or_restriction
-        self.variable = variable
+class DomainConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
@@ -631,12 +617,7 @@ class DomainConstraint(OwlConstraint):
                 res.append((k,val))
         subdom.removeValues(res)
 
-class SubPropertyConstraint(OwlConstraint):
-
-    def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, variable)
-        self.super = cls_or_restriction
-        self.variable = variable
+class SubPropertyConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
@@ -647,12 +628,7 @@ class SubPropertyConstraint(OwlConstraint):
                 vals.append(val)
         superdom.setValues(vals)
 
-class EquivalentPropertyConstraint(OwlConstraint):
-
-    def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, variable)
-        self.super = cls_or_restriction
-        self.variable = variable
+class EquivalentPropertyConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
