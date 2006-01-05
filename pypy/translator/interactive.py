@@ -41,13 +41,17 @@ class Translation(object):
 
         self.update_options(argtypes, kwds)
 
+    FREEZE = {
+        'annotate': ['debug'],
+        'rtype': ['insist'],
+    }
+
     def driver_event(self, kind, goal, func):
         if kind == 'pre':
              print goal
              self.ensure_setup()
         elif kind == 'post':
-            if 'goal' == 'annotate':  # xxx use a table instead
-                self.frozen_options['debug'] = True
+            self.frozen_options.update(dict.fromkeys(self.FREEZE[goal], True))
 
     def ensure_setup(self, argtypes=None, policy=None):
         if not self.driver_setup:
@@ -60,9 +64,9 @@ class Translation(object):
         else:
             # check consistency
             if argtypes is not None and argtypes != self.ann_argtypes:
-                raise Exception("xxx")
+                raise Exception("incosistent argtype supplied")
             if policy is not None and policy != self.ann_policy:
-                raise Exception("xxx")
+                raise Exception("incosistent annotation polish supplied")
 
     def update_options(self, argtypes, kwds):
         if argtypes or kwds.get('policy'):
@@ -70,14 +74,22 @@ class Translation(object):
         for optname, value in kwds:
             if optname in self.frozen_options:
                 if getattr(self.driver.options, optname) != value:
-                     raise Exception("xxx")
+                     raise Exception("incosistent option supplied: %s" % optname)
             else:
                 setattr(self.driver.options, optname, value)
                 self.frozen_options[optname] = True
 
+    # backend independent
+
     def annotate(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         return self.driver.annotate()
+
+    def rtype(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        return self.driver.rtype()
+
+    # backend depedent xxx
 
     def source(self, argtypes, **kwds):
         backend = self.ensure_backend()
