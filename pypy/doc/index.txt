@@ -22,15 +22,21 @@ of the bytecode interpreter and virtual machine.
 `translation`_ offers the beginnings of documentation 
 about our low level code generator backends. 
 
+`EU reports`_ is a page that contains links to the
+preliminary reports that we submitted to the European Union.
+
 `dynamic-language translation`_ is a paper that describes
 the translation process, especially the flow object space
-and the annotator in detail.
+and the annotator in detail. This document is also part
+of the `EU reports`_.
 
 `low-level encapsulation`_ describes how our approach hides
-away a lot of low level details.
+away a lot of low level details. This document is also part
+of the `EU reports`_.
 
 `translation aspects`_ describes how we weave different
-properties into our interpreter during the translation process.
+properties into our interpreter during the translation
+process. This document is also part of the `EU reports`_.
 
 `parser`_ contains the beginnings of documentation about
 the parser (and the compiler at some point). 
@@ -69,6 +75,7 @@ recent compliance test runs against PyPy.
 .. _`getting started`: getting-started.html 
 .. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
+.. _`EU reports`: index-report.html
 .. _`garbage collection`: garbage_collection.html
 .. _`directory reference`: 
 

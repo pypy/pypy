@@ -1,0 +1,48 @@
+============================================
+PyPy - Overview over the EU-reports
+============================================
+
+We have written several reports for the EU of which some are also quite useful
+as documentation. The ones not so useful as documentation mostly contain text
+that can also be found in the regular documentation section. All these
+documents are not approved by the European Union and therefore only
+preliminary.
+
+`D04.1 Partial Python Implementation`_ contains details about the 0.6 release.
+All the content can be found in the regular documentation section.
+
+`D04.2 Complete Python Implementation`_ contains details about the 0.7 release.
+All the content can be found in the regular documentation section.
+
+`D04.3 Parser and Bytecode Compiler`_ describes our parser and bytecode compiler.
+
+`D04.4 PyPy as a Research Tool`_ contains details about the 0.8 release.
+All the content can be found in the regular documentation section.
+
+`D05.1 Compiling Dynamic Language Implementations`_ is a paper that describes
+the translation process, especially the flow object space and the annotator in
+detail.
+
+`D05.2 A Compiled Version of PyPy`_ contains more details about the 0.7 release.
+All the content can be found in the regular documentation section.
+
+`D05.3 Implementation with Translation Aspects`_
+describes how our approach hides away a lot of low level details.
+
+`D05.4 Encapsulating Low Level Aspects`_ describes how we weave different
+properties into our interpreter during the translation process.
+
+`D14.1 Report about Milestone/Phase 1`_ describes what happened in the PyPy
+project during the first year of EU funding (December 2004 - December 2005)
+
+
+.. _`D04.1 Partial Python Implementation`: http://codespeak.net/~cfbolz/eu-reports/D04.1_Partial_Python_Implementation_on_top_of_CPython.pdf
+.. _`D04.2 Complete Python Implementation`: http://codespeak.net/~cfbolz/eu-reports/D04.2_Complete_Python_Implementation_on_top_of_CPython.pdf
+.. _`D04.3 Parser and Bytecode Compiler`: http://codespeak.net/~cfbolz/eu-reports/D04.3_Report_about_the_parser_and_bytecode_compiler.pdf
+.. _`D04.4 PyPy as a Research Tool`: http://codespeak.net/~cfbolz/eu-reports/D04.4_Release_PyPy_as_a_research_tool.pdf
+.. _`D05.1 Compiling Dynamic Language Implementations`: http://codespeak.net/~cfbolz/eu-reports/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _`D05.2 A Compiled Version of PyPy`: http://codespeak.net/~cfbolz/eu-reports/D05.2_A_compiled,_self-contained_version_of_PyPy.pdf
+.. _`D05.3 Implementation with Translation Aspects`: http://codespeak.net/~cfbolz/eu-reports/D05.3_Publish_on_implementation_with_translation_aspects.pdf
+.. _`D05.4 Encapsulating Low Level Aspects`: http://codespeak.net/~cfbolz/eu-reports/D05.4_Publish_on_encapsulating_low_level_language_aspects.pdf
+.. _`D14.1 Report about Milestone/Phase 1`: http://codespeak.net/~cfbolz/eu-reports/D14.1_Report_about_Milestone_Phase_1.pdf
+
