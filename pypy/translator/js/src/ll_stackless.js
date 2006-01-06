@@ -32,7 +32,7 @@ function ll_stackless_stack_frames_depth() {
     }
     return result;
 }
-ll_stackless_stack_frames_depth__ = ll_stackless_stack_frames_depth;
+ll_stackless_stack_frames_depth___ = ll_stackless_stack_frames_depth;
 
 //
 
@@ -50,30 +50,29 @@ function ll_stack_too_big() {
     }
     return result;
 }
-ll_stack_too_big__ = ll_stack_too_big;
+ll_stack_too_big___ = ll_stack_too_big;
 
-function slp_new_frame(targetvar, func, resume_blocknum, vars) {
-    //LOG("slp_new_frame("+targetvar+","+function_name(func)+","+resume_blocknum+","+vars.toSource()+")");
+function slp_new_frame(targetvar, func, resume_blocknum, varnames, vars) {
     LOG("slp_new_frame("+function_name(func)+")");
-    var f             = new Object();
-    f.func            = func;
-    f.targetvar       = targetvar;
-    f.resume_blocknum = resume_blocknum;
-    f.vars            = vars;
-    f.f_back          = null;
+    var f = new Object({func:func, vars:vars, f_back:null});
+    var s = "block=" + resume_blocknum + ";";
+    for (var i = 0;i < vars.length;i++) {
+        if (varnames[i] == targetvar) {
+            s += targetvar + "=slp_return_value;"
+        } else {
+            s += varnames[i]  + "=slp_frame_stack_top.vars[" + i + "];";
+        }
+    }
+    s += "slp_frame_stack_top=null;";
+    f.resumecode = s
     slp_frame_stack_bottom.f_back = f; // push below bottom, to keep stack
     slp_frame_stack_bottom        = f; // correctly sorted after unwind
+    LOG(f.resumecode);
 }
 
 function slp_new_frame_simple(func) {
     LOG("slp_new_frame_simple("+function_name(func)+")");
-    var f             = new Object();
-    f.func            = func;
-    f.targetvar       = undefined;
-    f.resume_blocknum = undefined;
-    f.vars            = undefined;
-    f.f_back          = null;
-    return f;   // note: the non-simple version returns nothing
+    return new Object({func:func, f_back:null});    // note: the non-simple version returns nothing
 }
 
 function ll_stack_unwind() {
@@ -83,10 +82,10 @@ function ll_stack_unwind() {
     } else {
         slp_frame_stack_top = slp_frame_stack_bottom = slp_new_frame_simple(ll_stack_unwind);
     }
-    LOG('slp_frame_stack_top='+slp_frame_stack_top + ', slp_frame_stack_bottom='+slp_frame_stack_bottom)
+    LOG('slp_frame_stack_top='+slp_frame_stack_top + ', slp_frame_stack_bottom='+slp_frame_stack_bottom);
     return slp_return_value;
 }
-ll_stack_unwind__ = ll_stack_unwind;
+ll_stack_unwind___ = ll_stack_unwind;
 
 function    slp_return_current_frame_to_caller() {
     LOG("slp_return_current_frame_to_caller");
@@ -102,7 +101,7 @@ function slp_end_of_yielding_function() {
     LOG("slp_end_of_yielding_function");
     if (!slp_frame_stack_top) log('slp_end_of_yielding_function !slp_frame_stack_top'); // can only resume from slp_return_current_frame_to_caller()
     if (!slp_return_value)    log('slp_end_of_yielding_function !slp_return_value');
-    LOG('slp_return_value is going to ' + function_name(slp_return_value.func))
+    LOG('slp_return_value is going to ' + function_name(slp_return_value.func));
     slp_frame_stack_top = slp_return_value;
     return null;
 }

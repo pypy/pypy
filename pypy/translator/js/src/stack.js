@@ -14,11 +14,11 @@ function ll_stack_too_big() {
     }
     return false;
 }
-ll_stack_too_big__ = ll_stack_too_big;
+ll_stack_too_big___ = ll_stack_too_big;
 
 function ll_stack_unwind() {
     throw "Recursion limit exceeded";
 }
-ll_stack_unwind__ = ll_stack_unwind;
+ll_stack_unwind___ = ll_stack_unwind;
 
 // End of helpers

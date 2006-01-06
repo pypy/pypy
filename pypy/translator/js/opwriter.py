@@ -234,7 +234,7 @@ class OpWriter(object):
         op_args = [arg for arg in op.args
                    if arg.concretetype is not lltype.Void]
 
-        if op.opname == 'invoke:direct_call':
+        if op.opname in ('invoke:direct_call', 'invoke:indirect_call'):
             functionref = self.db.repr_arg(op_args[0])
         else:   #operation
             opname = op.opname.split(':',1)[1]

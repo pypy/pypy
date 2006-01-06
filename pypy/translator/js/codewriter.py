@@ -164,12 +164,7 @@ class CodeWriter(object):
         if self.js.stackless:   # XXX and this funcnode has resumepoints
             self.append("if (slp_frame_stack_top) {")
             self.indent_more()
-            self.append('var t = slp_frame_stack_top.vars')
-            for i, k in enumerate(self._usedvars.keys()):
-                self.append('%-19s = t[%d]' % (k, i))
-            self.append('%-19s = slp_frame_stack_top.resume_blocknum' % 'block')
-            self.append('eval(slp_frame_stack_top.targetvar + " = slp_return_value")')
-            self.append('slp_frame_stack_top = null')
+            self.append('eval(slp_frame_stack_top.resumecode)')
             self.indent_less()
             self.append('}')
 
@@ -207,10 +202,11 @@ class CodeWriter(object):
                 self.append("slp_stack_depth--")
                 selfdecl = self.decl.split('(')[0]
                 usedvars = ', '.join(self._usedvars.keys())
+                usedvarnames = '"' + '", "'.join(self._usedvars.keys()) + '"'
                 self.append('if (slp_frame_stack_bottom) {')
                 self.indent_more()
-                self.append('slp_new_frame("%s", %s, %d, new Array(%s))' %
-                    (targetvar, selfdecl, self._resume_blocknum, usedvars))
+                self.append('slp_new_frame("%s", %s, %d, new Array(%s), new Array(%s))' %
+                    (targetvar, selfdecl, self._resume_blocknum, usedvarnames, usedvars))
                 if specialreturnvalue:
                     self.append("return " + specialreturnvalue)
                 else:
