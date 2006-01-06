@@ -1,4 +1,4 @@
-from rdflib import Graph, URIRef, BNode
+from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
 from logilab.constraint.fd import Equals, AllDistinct, BinaryExpression, Expression 
 from logilab.constraint.fd import  FiniteDomain as fd
@@ -71,23 +71,25 @@ class List(ClassDomain):
 
 class Property(ClassDomain):
     # Property contains the relationship between a class instance and a value
-    # - a pair. To accomodate global assertions like 'range' and 'domain' anonymous
-    # pairs are allowed, ie None as key
+    # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
+    # for range and domain must be filled in by rdfs:range and rdfs:domain 
+
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
-        self._dict = {}
+        self._dict = Linkeddict()
+        self.range = []
+        self.domain = []
 
     def getValues(self):
-        return self._dict.items()
+        items = self._dict.items()
+        res = []
+        for k,v in items:
+            for i in v:
+                res.append((k,i))
+        return res
 
     def setValues(self, values):
-        for k,v in values:
-            self._dict.setdefault(k,[])
-            if type(v) == list:
-                self._dict[k] = v
-            else:
-                if not v in self._dict[k]:
-                    self._dict[k].append(v)
+        self._dict = Linkeddict(values)
 
     def removeValues(self, values):
         for k,v in values:
@@ -124,13 +126,13 @@ class FunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = FunctionalCardinality(name, 1)
+        self.constraint = FunctionalCardinality(name)
         
 class InverseFunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = InverseFunctionalCardinality(name, 1)
+        self.constraint = InverseFunctionalCardinality(name)
 
 class TransitiveProperty(Property):
     
@@ -192,25 +194,22 @@ class Ontology(Graph):
                 ns =''
                 func = p
             if ns in namespaces.values():
+                #predicate is one of builtin OWL predicates
                 pred = getattr(self, func)
                 res = pred(s, p, o) 
                 if not res :
                     continue
                 if type(res) != list :
                     res = [res]
-                avar = self.make_var(fd, s) 
+                avar = self.make_var(ClassDomain, s) 
             else:
                 res = [o]
                 avar = self.make_var(Property, p)
                 # Set the values of the property p to o
-                sub = self.make_var(fd, s) 
-                obj = self.make_var(fd, o) 
+                sub = self.make_var(ClassDomain, s) 
+                obj = self.make_var(Thing, o) 
                 res = self.variables[avar].getValues() 
-                self.variables[avar].setValues(res + ((sub, obj),))
-            if self.variables.get(avar) and type(self.variables[avar]) == fd:
-                self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
-            else:
-                self.variables[avar] = fd(res)
+                self.variables[avar].setValues(res + [(sub, obj)])
 
     def merge_constraints(self):
         # Make the intersection of multiple rdfs:range constraints on the same variable
@@ -240,9 +239,7 @@ class Ontology(Graph):
         first = list(self.objects(subject, rdf_first)) 
         assert len(first) == 1
         if type(first[0]) == URIRef:
-            var = self.make_var(fd, first[0])
-            if var not in self.variables.keys():
-                self.variables[var] = ClassDomain(var)
+            var = self.make_var(ClassDomain, first[0])
         res += first
         
         rest = list(self.objects(subject, rdf_rest)) 
@@ -252,24 +249,25 @@ class Ontology(Graph):
            res += self.get_list(rest[0])
         return res
 
-    def make_var(self, cls=fd, *args):
-        res = []
-        for a in args:
-            if type(a) == URIRef:
-                if a.find('#') != -1:
-                    ns,name = a.split('#')
-                else:
-                    ns,name = a,''
-                if ns not in uris.keys():
-                    uris[ns] = ns.split('/')[-1]
-                    namespaces[uris[ns]] = ns
-                mangle_name = uris[ns] + '_' + name    
-                res.append(mangle_name)
+    def make_var(self, cls=fd, a=''):
+        if type(a) == URIRef:
+            if a.find('#') != -1:
+                ns,name = a.split('#')
             else:
-                res.append(a)
-        var = '.'.join([str(a.replace('-','_')) for a in res])
+                ns,name = a,''
+            if ns not in uris.keys():
+                uris[ns] = ns.split('/')[-1]
+            a = uris[ns] + '_' + name    
+        var = str(a.replace('-','_'))
+        if not cls:
+            return var
         if not var in self.variables.keys():
             self.variables[var] = cls(var)
+        elif type(self.variables[var]) != cls:
+            olddom = self.variables[var]
+            newdom = cls(var)
+            newdom.setValues(olddom.getValues())
+            self.variables[var] = newdom
         return var 
 
     def find_prop(self, s):
@@ -284,7 +282,7 @@ class Ontology(Graph):
         if type(s) == BNode:
             pr = list( self.subjects(p,s) )
             if len(pr) == 0:
-                return
+                pr = list( self.subjects(r,s) )
             return pr[0]
         else:
             return s
@@ -296,42 +294,33 @@ class Ontology(Graph):
 
     def find_property(self, s):
         prop = self.find_prop(s)
-        cls = self.find_cls(s)
-        if cls :
-            avar = self.make_var(ClassDomain, cls, prop)
-        else:
-            avar = self.make_var(ClassDomain, prop)
-        if not self.variables.get(avar):
-            self.variables[avar] = ClassDomain(avar)
+        avar = self.make_var(Property, prop)
         return avar
     
 #---------------- Implementation ----------------
 
     def type(self, s, p, var):
-        
-        #if (type(var) == URIRef and not 
-        if not (var in [URIRef(namespaces['owl']+'#'+x) for x in builtin_voc]):
+        if not (var in [URIRef(namespaces[ns]+'#'+x) for x in builtin_voc for ns in namespaces]):
             # var is not one of the builtin classes
-            svar = self.make_var(ClassDomain, s)
             avar = self.make_var(ClassDomain, var)
-            self.variables[svar].setValues(self.variables[avar].getValues())
+            svar = self.make_var(self.variables[avar].__class__, s)
             constrain = BinaryExpression([svar, avar],"%s in %s" %(svar,  avar))
             self.constraints.append(constrain)
-        else: # type(s) != BNode:
+        else:
             # var is a builtin class
-            svar = self.make_var(ClassDomain, s)
-            print "===",var
-            cls =builtin_voc[var.split('#')[-1]](name=svar)
+            cls =builtin_voc[var.split('#')[-1]]
+            svar = self.make_var(cls, s)
+            cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
-            vals = self.variables[svar].getValues()
-            cls.setValues(vals)
-            self.variables[svar] =  cls
 
     def first(self, s, p, var):
         pass
 
     def rest(self, s, p, var):
+        pass
+
+    def onProperty(self, s, p, var):
         pass
 
 #---Class Axioms---#000000#FFFFFF-----------------------------------------------
@@ -340,8 +329,8 @@ class Ontology(Graph):
         # s is a subclass of var means that the 
         # class extension of s is a subset of the
         # class extension of var. 
-        avar = self.make_var(ClassDomain, var)
-        svar = self.make_var(ClassDomain, s)
+        avar = self.make_var(None, var)
+        svar = self.make_var(None, s)
         cons = SubClassConstraint( svar, avar)
         self.constraints.append(cons)
 
@@ -350,21 +339,22 @@ class Ontology(Graph):
         self.subClassOf(var, p, s)
 
     def disjointWith(self, s, p, var):
-        avar = self.make_var(ClassDomain, var)
-        svar = self.make_var(ClassDomain, s)
+        avar = self.make_var(None, var)
+        svar = self.make_var(None, s)
         constrain = DisjointClassConstraint(svar, avar) 
         self.constraints.append(constrain)
 
     def complementOf(self, s, p, var):
         # add constraint of not var
         # TODO: implementthis for OWL DL
-        avar = self.make_var(ClassDomain, var)
-        svar = self.make_var(ClassDomain, s)
+##        avar = self.make_var(ClassDomain, var)
+##        svar = self.make_var(ClassDomain, s)
+            pass
 
     def oneOf(self, s, p, var):
         res = self.get_list(var)
-        prop = self.find_uriref(s)
-        avar = self.make_var(fd, prop)
+        #prop = self.find_uriref(s)
+        avar = self.make_var(None, s)
         if self.variables.get(avar) and type(self.variables[avar]) == fd:
             self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
         else:
@@ -388,13 +378,6 @@ class Ontology(Graph):
     def range(self, s, p, var):
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(Property, s)
-        vals = get_values(self.variables[avar], self.variables)  
-        for k,v in self.variables[svar].getValues():
-            for x in v:
-                if not x in vals:
-                    vals.append(x)
-        vals =[(None,val) for val in vals]
-        self.variables[svar].setValues(vals)
         cons = RangeConstraint(svar, avar)
         self.constraints.append(cons)
 
@@ -424,37 +407,42 @@ class Ontology(Graph):
     def equivalentProperty(self, s, p, var):
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
-        cons = EquivalentConstraint( svar, avar)
+        cons = EquivalentPropertyConstraint( svar, avar)
         self.constraints.append(cons)
 
     def inverseOf(self, s, p, var):
-        # TODO: implement this 
-        pass
+        avar = self.make_var(Property, var)
+        svar = self.make_var(Property, s)
+        con = InverseofConstraint(svar, avar)
+        self.constraints.append(con)
 
 #---Property restrictions------------------------------------------------------
 
     def maxCardinality(self, s, p, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
         avar = self.find_property(s)
-        constrain = MaxCardinality(avar,int(var))
+        cls =self.make_var(None, self.find_cls(s))
+        constrain = MaxCardinality(avar, cls, int(var))
         self.constraints.append(constrain) 
 
     def minCardinality(self, s, p, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
         avar = self.find_property(s)
-        constrain = MinCardinality(avar,int(var))
+        cls =self.make_var(None, self.find_cls(s))
+        constrain = MinCardinality(avar, cls, int(var))
         self.constraints.append(constrain) 
 
     def cardinality(self, s, p, var):
         """ Len of finite domain of the property shall be equal to var"""
         avar = self.find_property(s)
+        cls =self.make_var(None, self.find_cls(s))
         # Check if var is an int, else find the int buried in the structure
-        constrain = Cardinality(avar,int(var))
+        constrain = Cardinality(avar, cls, int(var))
         self.constraints.append(constrain) 
 
     def differentFrom(self, s, p, var):
         s_var = self.make_var(ClassDomain, s)
-        var_var = self.make_var(fd, var)
+        var_var = self.make_var(Thing, var)
         constrain = BinaryExpression([s_var, var_var],"%s != %s" %(s_var,  var_var))
         self.constraints.append(constrain)
 
@@ -464,13 +452,11 @@ class Ontology(Graph):
         return res
 
     def sameAs(self, s, p, var):
-        constrain = BinaryExpression([self.make_var(ClassDomain, s), self.make_var(ClassDomain, var)],
-               "%s == %s" %(self.make_var(ClassDomain, s), self.make_var(ClassDomain, var)))
+        s_var = self.make_var(None, s)
+        var_var = self.make_var(None, var)
+        constrain = BinaryExpression([s_var, var_var],
+               "%s == %s" %(s_var, var_var))
         self.constraints.append(constrain)
-
-    def onProperty(self, s, p, var):
-        # TODO: implement this 
-        pass
 
     def hasValue(self, s, p, var):
         # TODO: implement this 
@@ -485,7 +471,7 @@ class Ontology(Graph):
         pass
 
     def imports(self, s, p, var):
-        # TODO: implement this 
+        # PP TODO: implement this 
         pass
 
 # ----------------- Helper classes ----------------
@@ -507,17 +493,19 @@ class OwlConstraint(AbstractConstraint):
 class MaxCardinality(OwlConstraint):
     """Contraint: all values must be distinct"""
 
-    def __init__(self, variable, cardinality):
+    def __init__(self, variable, cls, cardinality):
         OwlConstraint.__init__(self, variable)
         self.__cost = 1
         self.cardinality = cardinality
+        self.cls = cls
 
     def __repr__(self):
         return '<%s  %s %i>' % (self.__class__.__name__, str(self._variables[0]), self.cardinality)
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-        if len(domains[self._variables[0]]) > self.cardinality:
+        prop = Linkeddict(domains[self.variable].getValues())
+        if len(prop[self.cls]) > self.cardinality:
             raise ConsistencyFailure("Maxcardinality exceeded")
         else:
             return 1
@@ -526,8 +514,8 @@ class MinCardinality(MaxCardinality):
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-          
-        if len(domains[self._variables[0]]) < self.cardinality:
+        prop = Linkeddict(domains[self.variable].getValues())
+        if len(prop[self.cls]) < self.cardinality:
             raise ConsistencyFailure("MinCardinality not accomplished")
         else:
             return 1
@@ -536,8 +524,8 @@ class Cardinality(MaxCardinality):
     
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-          
-        if len(domains[self._variables[0]]) != self.cardinality:
+        prop = Linkeddict(domains[self.variable].getValues())
+        if len(prop[self.cls]) != self.cardinality:
             raise ConsistencyFailure("Cardinality constraint not met")
         else:
             return 1
@@ -545,12 +533,14 @@ class Cardinality(MaxCardinality):
 
 def get_values(dom, domains, attr = 'getValues'):
     res = []
+    if type(dom) == Literal:
+        return [dom]
     for val in getattr(dom, attr)():
         res.append(val)
         if type(val) == tuple:
             val = val[0]
         if val in domains.keys():
-            res.extend(get_values(val, domains, attr))
+            res.extend(get_values(domains[val], domains, attr))
     #res[dom] = 1
     return res
 
@@ -558,15 +548,15 @@ class SubClassConstraint(OwlConstraint):
 
     def __init__(self, variable, cls_or_restriction):
         OwlConstraint.__init__(self, variable)
-        self.super = cls_or_restriction
+        self.object = cls_or_restriction
         self.variable = variable
 
     def __repr__(self):
-        return '<%s  %s %s>' % (self.__class__.__name__, str(self._variables[0]), self.super)
+        return '<%s  %s %s>' % (self.__class__.__name__, str(self._variables[0]), self.object)
 
     def narrow(self, domains):
         subdom = domains[self.variable]
-        superdom = domains[self.super]
+        superdom = domains[self.object]
         bases = get_values(superdom, domains, 'getBases')  
         subdom.bases += [bas for bas in bases if bas not in subdom.bases]
         vals = get_values(subdom, domains, 'getValues')
@@ -576,11 +566,11 @@ class DisjointClassConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
-        superdom = domains[self.super]
+        superdom = domains[self.object]
         bases = get_values(superdom, domains, 'getBases')  
         subdom.bases += [bas for bas in bases if bas not in subdom.bases]
         vals1 = get_values(superdom, domains, 'getValues')  
-        vals2 = get_values(variable, domains, 'getValues')  
+        vals2 = get_values(subdom, domains, 'getValues')  
         for i in vals1:
             if i in vals2:
                 raise ConsistencyFailure()
@@ -589,39 +579,46 @@ class ComplementClassConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
-        superdom = domains[self.super]
+        superdom = domains[self.object]
 
 class RangeConstraint(SubClassConstraint):
 
     def narrow(self, domains):
-        subdom = domains[self.variable]
-        superdom = domains[self.super]
-        vals = get_values(superdom, domains, 'getValues')  
-        res = []
-        svals = get_values(subdom, domains, 'getValues')
-        for k,val in svals: 
-            for v in val:
-                if not v in vals:
-                    res.append((k,v)) 
-        subdom.removeValues(res)
+        propdom = domains[self.variable]
+        rangedom = domains[self.object]
+        newrange = get_values(rangedom, domains, 'getValues')  
+        range = []
+        prop = Linkeddict(propdom.getValues())
+        oldrange = propdom.range#get(None)
+        if oldrange:
+            for v in oldrange:
+                if v in newrange:
+                    range.append(v)
+        else:
+            range = newrange
+        propdom.range = range
+#        propdom.setValues(prop.items())
+        for pval in sum(prop.values(),[]):
+            if pval not in range:
+                raise ConsistencyFailure("Value %r not in range %r"%(pval,range))
 
 class DomainConstraint(SubClassConstraint):
 
     def narrow(self, domains):
-        subdom = domains[self.variable]
-        superdom = domains[self.super]
-        vals = get_values(superdom, domains, 'getValues')  
+        propdom = domains[self.variable]
+        domaindom = domains[self.object]
+        vals = get_values(domaindom, domains, 'getValues')  
         res = []
-        for k,val in get_values(subdom, domains, 'getValues'):
-            if not k in vals and k != superdom:
+        for k,val in get_values(propdom, domains, 'getValues'):
+            if not k in vals and k != domaindom:
                 res.append((k,val))
-        subdom.removeValues(res)
+        propdom.removeValues(res)
 
 class SubPropertyConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
-        superdom = domains[self.super]
+        superdom = domains[self.object]
         vals = get_values(superdom, domains, 'getValues')  
         for val in subdom.getValues():
             if not val in vals:
@@ -632,25 +629,26 @@ class EquivalentPropertyConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         subdom = domains[self.variable]
-        superdom = domains[self.super]
+        superdom = domains[self.object]
         vals = get_values(superdom, domains, 'getValues')  
         for val in subdom.getValues():
             if not val in vals:
                 raise ConsistencyFailure("Value not in prescribed range")
 
-class FunctionalCardinality(MaxCardinality):
+class FunctionalCardinality(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         domain = domains[self.variable].getValues()
-        for cls, val in domain:
-            if len(val) != self.cardinality:
+        domain_dict = Linkeddict(domain)
+        for cls, val in domain_dict.items():
+            if len(val) != 1:
                 raise ConsistencyFailure("Maxcardinality exceeded")
         else:
             return 0
 
-class InverseFunctionalCardinality(MaxCardinality):
+class InverseFunctionalCardinality(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def narrow(self, domains):
@@ -658,27 +656,36 @@ class InverseFunctionalCardinality(MaxCardinality):
         domain = domains[self.variable].getValues()
         vals = {}
         for cls, val in domain:
-            for v in val:
-                if vals.has_key(v):
-                    raise ConsistencyFailure("Maxcardinality exceeded")
-                else:
-                    vals[v] = 1
+            if vals.has_key(val):
+                raise ConsistencyFailure("Maxcardinality exceeded")
+            else:
+                vals[val] = 1
         else:
             return 0
 
+class Linkeddict(dict):
+    def __init__(self, values=()):
+        for k,v in values:
+            dict.setdefault(self,k,[])
+            if type(v) == list:
+                dict.__setitem__(self, k, v)
+            else:
+                if not v in dict.__getitem__(self,k):
+                    dict.__getitem__(self,k).append(v)
+##            dict.__getitem__(self,k).append(v)
+            
 class TransitiveConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         domain = domains[self.variable].getValues()
-        domain_dict = dict( domain )
+        domain_dict = Linkeddict(domain)
         for cls, val in domain:
-            for v in val:
-                if v in domain_dict:
-                    val.extend(domain_dict[v])
-            domain_dict[cls] = val
-        domains[self.variable].setValues(domain_dict.items())
+            if  val in domain_dict:
+                for v in domain_dict[val]:
+                    domain.append((cls,v))
+        domains[self.variable].setValues(domain)
 
 class SymmetricConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
@@ -686,9 +693,24 @@ class SymmetricConstraint(OwlConstraint):
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         domain = domains[self.variable].getValues()
-        domain_dict = dict( domain )
         for cls, val in domain:
-            for v in val:
-                domain_dict.setdefault(v, [])
-                domain_dict[v].append(cls)
-        domains[self.variable].setValues(domain_dict.items())
+            if not (val, cls) in domain:
+                domain.append((val,cls))
+        domains[self.variable].setValues(domain)
+
+class InverseofConstraint(SubClassConstraint):
+    """Contraint: all values must be distinct"""
+
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        obj_domain = domains[self.object].getValues()
+        sub_domain = domains[self.variable].getValues()
+        res = []
+        for cls, val in obj_domain:
+            if not (val,cls) in sub_domain:
+                raise ConsistencyFailure("Inverseof failed") 
+        for cls, val in sub_domain:
+            if not (val,cls) in obj_domain:
+                raise ConsistencyFailure("Inverseof failed") 
+##            res.append((val, cls))
+##        domains[self.variable].setValues(res)

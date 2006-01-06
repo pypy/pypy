@@ -17,7 +17,7 @@ def test_makevar():
     name = O.make_var(ClassDomain, var)
     cod = name+' = 1'
     exec cod
-    assert O.make_var(ClassDomain, var) in locals() 
+    assert O.make_var(None, var) in locals() 
     assert isinstance(O.variables[name], ClassDomain)
      
 def test_subClassof():
@@ -25,10 +25,11 @@ def test_subClassof():
     a = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#A')
     b = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#B')
     c = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#C')
-    O.subClassOf(b, None, a)
-    O.subClassOf(c, None, b)
     A = O.make_var(ClassDomain, a)
     C = O.make_var(ClassDomain, c)
+    C = O.make_var(ClassDomain, b)
+    O.subClassOf(b, None, a)
+    O.subClassOf(c, None, b)
     for con in O.constraints:
         con.narrow(O.variables)
     assert len(O.variables) == 3
@@ -100,8 +101,10 @@ def test_type():
     pred = URIRef('type')
     obj = URIRef('o')
     O = Ontology()
+    O.make_var(ClassDomain, obj)
     O.type(sub, pred , obj)
-    assert O.variables[O.make_var(ClassDomain, sub)].__class__  == ClassDomain
+    
+    assert O.variables[O.make_var(None, sub)].__class__  == ClassDomain
 
 def test_ObjectProperty():
     sub = URIRef('a')
@@ -109,7 +112,7 @@ def test_ObjectProperty():
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O = Ontology()
     O.type(sub, pred , obj)
-    assert O.variables[O.make_var(ClassDomain, sub)].__class__  == ObjectProperty
+    assert O.variables[O.make_var(None, sub)].__class__  == ObjectProperty
 
 def test_range():
     O = Ontology()
@@ -123,7 +126,7 @@ def test_range():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
-    assert O.variables['a_'].getValues() == [(None,[1,2,3,4]),]
+    assert O.variables['a_'].range == [1,2,3,4]
 
 def test_merge():
     O = Ontology()
@@ -140,7 +143,7 @@ def test_merge():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 2
     O.consistency()
-    assert O.variables['a_'].getValues() == [(None, [3,4]),]
+    assert O.variables['a_'].range == [ 3,4]
 
 def test_domain():
     O = Ontology()
@@ -154,7 +157,7 @@ def test_domain():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
-    assert O.variables['a_'].getValues() == [(O.variables['b_'], [None]),]
+    assert O.variables['a_'].getValues() == [(O.variables['b_'], None),]
 
 def test_domain_merge():
     O = Ontology()
@@ -165,9 +168,8 @@ def test_domain_merge():
     obj = URIRef('c')
     O.variables['c_'] = ClassDomain('c')
     O.domain(sub, None , obj)
-    pred = URIRef('type')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, pred , obj)
+    O.type(sub, None , obj)
     
     assert len(O.constraints) == 2
     for con in O.constraints:
@@ -204,7 +206,7 @@ def test_functionalproperty():
     obj = URIRef('c')
     O.type(sub, None, obj)
     O.variables['p_'].setValues([('individ_',42)])
-    assert len(O.constraints) == 2
+    #assert len(O.constraints) == 2
     #add another valueof the property
     O.variables['p_'].setValues([('individ_',42),('individ_',43)])
     #check that consistency raises
@@ -226,12 +228,12 @@ def test_inversefunctionalproperty():
     obj = URIRef('c')
     O.type(sub, None, obj)
     O.variables['p_'].setValues([('individ_',42)])
-    assert len(O.constraints) == 2
+    #assert len(O.constraints) == 2
     #add another individual with the same value for the property
     sub = URIRef('individ2')
     obj = URIRef('c')
     O.type(sub, None, obj)
-    O.variables['p_'].setValues([('individ2_',42)])
+    O.variables['p_'].setValues([('individ_',42),('individ2_',42)])
     #check that consistency raises
     py.test.raises(ConsistencyFailure, O.consistency)
     
@@ -256,7 +258,7 @@ def test_Transitiveproperty():
     O.type(sub, None, obj)
     O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
     O.consistency()
-    assert ('Italy_', ['Tuscanny_', 'Chianti_']) in O.variables['subRegionOf_'].getValues()
+    assert ('Italy_', 'Chianti_') in O.variables['subRegionOf_'].getValues()
     
 def test_symmetricproperty():
     
@@ -265,6 +267,7 @@ def test_symmetricproperty():
     sub = URIRef('friend')
     obj = URIRef(namespaces['owl']+'#SymmetricProperty')
     O.type(sub, None, obj)
+    assert O.variables[O.make_var(None, sub)].__class__.__name__=='SymmetricProperty'
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
@@ -276,8 +279,9 @@ def test_symmetricproperty():
     sub = URIRef('Alice')
     O.type(sub, None, obj)
     O.variables['friend_'].setValues([('Bob_','Alice_')])
+    print O.variables['friend_']._dict
     O.consistency()
-    assert ('Alice_', ['Bob_']) in O.variables['friend_'].getValues()
+    assert ('Alice_', 'Bob_') in O.variables['friend_'].getValues()
 
 def no_test_maxcardinality():
     
@@ -301,6 +305,4 @@ def no_test_maxcardinality():
     O.maxCardinality(sub, None, 1)
     O.variables['friend_'].setValues([('Bob_',['Alice_','Finn_'])])
     O.consistency(verbose=5)
-    print O.variables
-    print O.constraints
     assert not '_anon' in O.variables
