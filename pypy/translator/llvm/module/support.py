@@ -3,11 +3,6 @@ extdeclarations = """
 %last_exception_type  = internal global %RPYTHON_EXCEPTION_VTABLE* null
 %last_exception_value = internal global %RPYTHON_EXCEPTION* null
 
-; XXXX This in a translation option - move to exception.py!
-;8208=8192+16 in the next line because the last one (16 bytes maxsize) might start at 8190 for instance.
-%exception_ringbuffer = internal global [8208 x sbyte] zeroinitializer
-%exception_ringbuffer_index = internal global uint 0
-
 declare ccc uint %strlen(sbyte*)
 declare ccc void %llvm.memset(sbyte*, ubyte, uint, uint)
 declare ccc void %llvm.memcpy(sbyte*, sbyte*, uint, uint)

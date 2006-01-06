@@ -111,6 +111,10 @@ class GenLLVM(object):
         self.write_extern_decls(codewriter)
         self._checkpoint('write externs type declarations')
 
+        # write exception declarations
+        ep = self.db.exceptionpolicy
+        codewriter.write_lines(ep.llvm_declcode())
+
         # write node type declarations
         for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
@@ -148,7 +152,7 @@ class GenLLVM(object):
 
         # write exception implementaions
         ep = self.db.exceptionpolicy
-        codewriter.write_lines(ep.llvmcode(self.entrynode))
+        codewriter.write_lines(ep.llvm_implcode(self.entrynode))
 
         # write all node implementations
         for typ_decl in self.db.getnodes():
