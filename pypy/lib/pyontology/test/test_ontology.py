@@ -157,7 +157,7 @@ def test_domain():
     O.type(sub, pred , obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
-    assert O.variables['a_'].getValues() == [(O.variables['b_'], None),]
+    assert O.variables['a_'].domain == ['b_']
 
 def test_domain_merge():
     O = Ontology()
@@ -283,26 +283,30 @@ def test_symmetricproperty():
     O.consistency()
     assert ('Alice_', 'Bob_') in O.variables['friend_'].getValues()
 
-def no_test_maxcardinality():
+def test_inverseof():
     
     O = Ontology()
-    #Make functional property
-    sub = URIRef('friend')
+    own = URIRef('owner')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, None, obj)
+    O.type(own, None, obj)
+    owned = URIRef('ownedby')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(owned, None, obj)
+    O.inverseOf(own, None, owned)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
     O.type(sub, None, obj)
-    #Make individual with a cardinality restriction of the property
+    #Make individual with a property value
     sub = URIRef('Bob')
     obj = URIRef('c')
     O.type(sub, None, obj)
-    sub = BNode('anon')
-    obj = URIRef(namespaces['owl']+'#Restriction')
+    sub = URIRef('Fiat')
+    obj = URIRef('car')
     O.type(sub, None, obj)
-    O.onProperty(sub, None, URIRef('friend'))
-    O.maxCardinality(sub, None, 1)
-    O.variables['friend_'].setValues([('Bob_',['Alice_','Finn_'])])
-    O.consistency(verbose=5)
+    O.variables['owner_'].setValues([('Bob_','Fiat_')])
+    py.test.raises(ConsistencyFailure, O.consistency)
+    O.variables['ownedby_'].setValues([('Fiat_','Bob_')])
+    print O.variables
+    O.consistency()
     assert not '_anon' in O.variables

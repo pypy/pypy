@@ -385,15 +385,6 @@ class Ontology(Graph):
         # The classes that has this property (s) must belong to the class extension of var
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(Property, s)
-        assert isinstance(self.variables[svar], Property)
-        assert isinstance(self.variables[avar], ClassDomain)
-        vals = get_values(self.variables[avar], self.variables)  
-        if len(vals) == 0 :
-            vals = [(self.variables[avar], None)]
-        for k,v in self.variables[svar].getValues():
-            if not k in vals:
-                vals.append((k,v))
-        self.variables[svar].setValues(vals)
         cons = DomainConstraint(svar, avar)
         self.constraints.append(cons)
 
@@ -541,7 +532,6 @@ def get_values(dom, domains, attr = 'getValues'):
             val = val[0]
         if val in domains.keys():
             res.extend(get_values(domains[val], domains, attr))
-    #res[dom] = 1
     return res
 
 class SubClassConstraint(OwlConstraint):
@@ -587,9 +577,9 @@ class RangeConstraint(SubClassConstraint):
         propdom = domains[self.variable]
         rangedom = domains[self.object]
         newrange = get_values(rangedom, domains, 'getValues')  
+        print rangedom
         range = []
-        prop = Linkeddict(propdom.getValues())
-        oldrange = propdom.range#get(None)
+        oldrange = propdom.range
         if oldrange:
             for v in oldrange:
                 if v in newrange:
@@ -597,7 +587,7 @@ class RangeConstraint(SubClassConstraint):
         else:
             range = newrange
         propdom.range = range
-#        propdom.setValues(prop.items())
+        prop = Linkeddict(propdom.getValues())
         for pval in sum(prop.values(),[]):
             if pval not in range:
                 raise ConsistencyFailure("Value %r not in range %r"%(pval,range))
@@ -607,12 +597,20 @@ class DomainConstraint(SubClassConstraint):
     def narrow(self, domains):
         propdom = domains[self.variable]
         domaindom = domains[self.object]
-        vals = get_values(domaindom, domains, 'getValues')  
-        res = []
-        for k,val in get_values(propdom, domains, 'getValues'):
-            if not k in vals and k != domaindom:
-                res.append((k,val))
-        propdom.removeValues(res)
+        newdomain = get_values(domaindom, domains, 'getValues') +[self.object]
+        domain = []
+        olddomain = propdom.domain
+        if olddomain:
+            for v in olddomain:
+                if v in newdomain:
+                    domain.append(v)
+        else:
+            domain = newdomain
+        propdom.domain = domain
+        prop = Linkeddict(propdom.getValues())
+        for pval in prop.keys():
+            if pval not in domain:
+                raise ConsistencyFailure("Value %r not in range %r"%(pval, domain))
 
 class SubPropertyConstraint(SubClassConstraint):
 
