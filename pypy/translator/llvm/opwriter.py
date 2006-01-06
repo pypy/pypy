@@ -30,7 +30,7 @@ class OpReprInvoke(OpReprCall):
     def __init__(self, op, db):
         super(OpReprInvoke, self).__init__(op, db)
         
-        if op.opname == 'direct_call':
+        if op.opname in ('direct_call', 'indirect_call'):
             self.functionref = self.argrefs[0]
             self.argrefs = self.argrefs[1:]
             self.argtypes = self.argtypes[1:]            
@@ -89,7 +89,7 @@ class OpWriter(object):
             return [self.db.repr_tmpvar() for ii in range(count)]
         
     def write_operation(self, op):
-        if op.opname == "direct_call":
+        if op.opname in ("direct_call", 'indirect_call'):
             opr = OpReprCall(op, self.db)
         else:
             opr = OpRepr(op, self.db)
@@ -254,6 +254,8 @@ class OpWriter(object):
     def direct_call(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
                              opr.argtypes[1:], opr.argrefs[1:])
+
+    indirect_call = direct_call # XXX for now
 
     def malloc(self, opr):
         arg_type = opr.op.args[0].value
