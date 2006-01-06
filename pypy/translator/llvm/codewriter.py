@@ -131,17 +131,11 @@ class CodeWriter(object):
         self._indent("%(targetvar)s = cast %(fromtype)s "
                      "%(fromvar)s to %(targettype)s" % locals())
 
-    # XXX refactor - should only be one getelementptr
-    def raw_getelementptr(self, targetvar, type, typevar, *indices):
-        word = self.word_repr
+    def getelementptr(self, targetvar, type, typevar, indices, getptr=True):
+        # XXX comment getptr
+        if getptr:
+            indices = [(self.word_repr, 0)] + list(indices)
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, " % locals()
-        res += ", ".join(["%s %s" % (t, i) for t, i in indices])
-        self._indent(res)
-
-    def getelementptr(self, targetvar, type, typevar, *indices):
-        word = self.word_repr
-        res = "%(targetvar)s = getelementptr " \
-              "%(type)s %(typevar)s, %(word)s 0, " % locals()
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
         self._indent(res)
 
@@ -155,22 +149,21 @@ class CodeWriter(object):
     def unwind(self):
         self._indent("unwind")
 
-    def call(self, targetvar, returntype, functionref, argrefs, argtypes,
+    def call(self, targetvar, returntype, functionref, argtypes, argrefs,
              tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
 
         tail = self._resolvetail(tail, cconv)        
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
 
         if returntype == 'void':
-            self._indent("%scall %s void %s(%s)" % (tail,
-                                                    cconv,
-                                                    functionref,
-                                                    args))
+            return_str = ''
         else:
-            self._indent("%s = %scall %s %s %s(%s)" % (targetvar,
-                                                       tail,
-                                                       cconv,
-                                                       returntype,
-                                                       functionref,
-                                                       args))
-            
+            return_str = '%s = ' % targetvar
+
+        self._indent("%s%scall %s %s %s(%s)" % (return_str,
+                                                tail,
+                                                cconv,
+                                                returntype,
+                                                functionref,
+                                                args))
+        

@@ -86,6 +86,9 @@ class GenLLVM(object):
         self.db.setup_all()
         self._checkpoint('setup_all externs')
 
+        for node in self.db.getnodes():
+            node.post_setup_transform()
+        
         self._print_node_stats()
 
         # create ll file from c code
@@ -290,7 +293,12 @@ def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
     if optimize:
         backend_optimizations(t, ssa_form=False)
     else:
-        backend_optimizations(t, ssa_form=False, mallocs=False, inline_threshold=0, merge_if_blocks_to_switch=False, propagate=False)
+        backend_optimizations(t, ssa_form=False,
+                              inline_threshold=0,
+                              mallocs=False,
+                              merge_if_blocks_to_switch=False,
+                              propagate=False)
+
     # note: this is without policy transforms
     if view:
         t.view()

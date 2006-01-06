@@ -1,349 +1,278 @@
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.log import log 
 log = log.opwriter
 
-def repr_if_variable(db, arg):
-    if isinstance(arg, Variable):
-        return db.repr_arg(arg)
+class OpRepr(object):
+    __slots__ = "db op retref rettype argrefs argtypes".split()
+    def __init__(self, op, db):
+        self.db = db
+        self.op = op
+        self.argrefs = db.repr_arg_multi(op.args)
+        self.argtypes = db.repr_arg_type_multi(op.args)
+        self.retref = db.repr_arg(op.result)
+        self.rettype = db.repr_arg_type(op.result)
 
-class OpWriter(object):
-    binary_operations = {'int_mul': 'mul',
-                         'int_add': 'add',
-                         'int_sub': 'sub',
-                         'int_floordiv': 'div',
-                         'int_mod': 'rem',
-                         'int_and': 'and',
-                         'int_or': 'or',
-                         'int_xor': 'xor',
-                         'int_lt': 'setlt',
-                         'int_le': 'setle',
-                         'int_eq': 'seteq',
-                         'int_ne': 'setne',
-                         'int_ge': 'setge',
-                         'int_gt': 'setgt',
+class OpReprCall(OpRepr):
+    __slots__ = "db op retref rettype argrefs argtypes".split()
+    def __init__(self, op, db):
+        super(OpReprCall, self).__init__(op, db)
+        self.argrefs = [aref for arg, aref in zip(op.args, self.argrefs)
+                        if arg.concretetype is not lltype.Void]
+        self.argtypes = [atype for arg, atype in zip(op.args, self.argtypes)
+                         if arg.concretetype is not lltype.Void]
+        if self.db.is_function_ptr(self.op.result):
+            self.rettype  = "%s (%s)*" % (self.rettype,
+                                          ", ".join(self.argtypes[1:]))
 
-                         'llong_mul': 'mul',
-                         'llong_add': 'add',
-                         'llong_sub': 'sub',
-                         'llong_floordiv': 'div',
-                         'llong_mod': 'rem',
-                         'llong_and': 'and',
-                         'llong_or': 'or',
-                         'llong_xor': 'xor',
-                         'llong_lt': 'setlt',
-                         'llong_le': 'setle',
-                         'llong_eq': 'seteq',
-                         'llong_ne': 'setne',
-                         'llong_ge': 'setge',
-                         'llong_gt': 'setgt',
+class OpReprInvoke(OpReprCall):
+    __slots__ = "db op retref rettype argrefs argtypes functionref".split()
+    def __init__(self, op, db):
+        super(OpReprInvoke, self).__init__(op, db)
+        
+        if op.opname == 'direct_call':
+            self.functionref = self.argrefs[0]
+            self.argrefs = self.argrefs[1:]
+            self.argtypes = self.argtypes[1:]            
+        else:
+            self.functionref = '%pypyop_' + op.opname
 
-                         'uint_mul': 'mul',
-                         'uint_add': 'add',
-                         'uint_sub': 'sub',
-                         'uint_floordiv': 'div',
-                         'uint_mod': 'rem',
-                         'uint_and': 'and',
-                         'uint_or': 'or',
-                         'uint_xor': 'xor',
-                         'uint_lt': 'setlt',
-                         'uint_le': 'setle',
-                         'uint_eq': 'seteq',
-                         'uint_ne': 'setne',
-                         'uint_ge': 'setge',
-                         'uint_gt': 'setgt',
+class OpWriter(object):            
+    
+    binary_operations = {
+        'float_mul'     : 'mul',
+        'float_add'     : 'add',
+        'float_sub'     : 'sub',
+        'float_truediv' : 'div',
+        
+        'ptr_eq'        : 'seteq',
+        'ptr_ne'        : 'setne' }
 
-                         'unichar_lt': 'setlt',
-                         'unichar_le': 'setle',
-                         'unichar_eq': 'seteq',
-                         'unichar_ne': 'setne',
-                         'unichar_ge': 'setge',
-                         'unichar_gt': 'setgt',
+    # generic numeric ops
+    for tt in 'int llong uint'.split():
+        for oo in 'mul add sub and or xor'.split():
+            binary_operations['%s_%s' % (tt, oo)] = oo
+        binary_operations['%s_floordiv' % tt] = 'div'
+        binary_operations['%s_mod' % tt] = 'rem'
 
-                         'float_mul': 'mul',
-                         'float_add': 'add',
-                         'float_sub': 'sub',
-                         'float_truediv': 'div',
-                         'float_lt': 'setlt',
-                         'float_le': 'setle',
-                         'float_eq': 'seteq',
-                         'float_ne': 'setne',
-                         'float_ge': 'setge',
-                         'float_gt': 'setgt',
+    # comparison ops
+    for tt in 'int llong uint unichar float'.split():
+        for oo in 'lt le eq ne ge gt'.split():
+            binary_operations['%s_%s' % (tt, oo)] = 'set%s' % oo
 
-                         'ptr_eq': 'seteq',
-                         'ptr_ne': 'setne',
+
+    shift_operations = {'int_lshift': 'shl',
+                        'int_rshift': 'shr',
+                        
+                        'uint_lshift': 'shl',
+                        'uint_rshift': 'shr',
+                        
+                        'llong_lshift': 'shl',
+                        'llong_rshift': 'shr',
                          }
 
-    shift_operations  = {'int_lshift': 'shl',
-                         'int_rshift': 'shr',
+    char_operations = {'char_lt': 'setlt',
+                       'char_le': 'setle',
+                       'char_eq': 'seteq',
+                       'char_ne': 'setne',
+                       'char_ge': 'setge',
+                       'char_gt': 'setgt'}
 
-                         'uint_lshift': 'shl',
-                         'uint_rshift': 'shr',
-                         
-                         'llong_lshift': 'shl',
-                         'llong_rshift': 'shr',
-                         }
-
-
-    char_operations  = {'char_lt': 'setlt',
-                        'char_le': 'setle',
-                        'char_eq': 'seteq',
-                        'char_ne': 'setne',
-                        'char_ge': 'setge',
-                        'char_gt': 'setgt'}
-
-    def __init__(self, db, codewriter, node, block):
+    def __init__(self, db, codewriter):
         self.db = db
         self.codewriter = codewriter
-        self.node = node
-        self.block = block
 
-    def write_operation(self, op):
-        invoke = op.opname.startswith('invoke:')
-        if invoke:
-            self.invoke(op)
+    def _tmp(self, count=1):
+        if count == 1:
+            return self.db.repr_tmpvar()
         else:
-            if op.opname in self.binary_operations:
-                self.binaryop(op)
-            elif op.opname in self.shift_operations:
-                self.shiftop(op)
-            elif op.opname in self.char_operations:
-                self.char_binaryop(op)
-            elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
-                if op.opname == 'cast_char_to_int':
-                    self.cast_char_to_int(op)
-                else:
-                    self.cast_primitive(op)
-            else:
-                meth = getattr(self, op.opname, None)
-                if not meth:
-                    raise Exception, "operation %s not found" % op.opname
-                meth(op)    
+            return [self.db.repr_tmpvar() for ii in range(count)]
+        
+    def write_operation(self, op):
+        if op.opname == "direct_call":
+            opr = OpReprCall(op, self.db)
+        else:
+            opr = OpRepr(op, self.db)
 
-    def _generic_pow(self, op, onestr): 
-        mult_type = self.db.repr_arg_type(op.args[0])
-        mult_val = self.db.repr_arg(op.args[0])
-        last_val = mult_val
+        if op.opname in self.binary_operations:
+            self.binaryop(opr)
+        elif op.opname in self.shift_operations:
+            self.shiftop(opr)
+        elif op.opname in self.char_operations:
+            self.char_binaryop(opr)
+        elif op.opname.startswith('cast_') or op.opname.startswith('truncate_'):
+            if op.opname == 'cast_char_to_int':
+                self.cast_char_to_int(opr)
+            else:
+                self.cast_primitive(opr)
+        else:
+            meth = getattr(self, op.opname, None)
+            if not meth:
+                raise Exception, "operation %s not found" % op.opname
+            meth(opr)            
+
+    def write_invoke_op(self, op, node, block):
+        opr = OpReprInvoke(op, self.db)
+        ep = self.db.exceptionpolicy
+        ep.invoke(self.codewriter, opr.retref, opr.rettype, opr.functionref,
+                  opr.argrefs, opr.argtypes, node, block)
+    
+    def _generic_pow(self, opr, onestr): 
+
+        # XXX This broken as... will only work for constants
         try:
             value = "NO VALUE"
-            value = op.args[1].value
+            value = opr.op.args[1].value
             operand = int(value)
         except Exception, exc:
             msg = 'XXX: Error: _generic_pow: Variable '\
                   '%s - failed to convert to int %s' % (value, str(exc))
             self.codewriter.comment(msg)
             raise Exception(msg)
+
+        mult_type = opr.argtypes[0]
+        mult_val = opr.argrefs[0]
+        last_val = mult_val
         
         if operand < 1:
             res_val = onestr
         else:
             res_val = mult_val
             for ii in range(operand - 1):
-                res_val = self.db.repr_tmpvar()
-                self.codewriter.binaryop("mul", 
-                                         res_val,
-                                         mult_type,
-                                         last_val,
-                                         mult_val)
+                res_val = self._tmp()
+                self.codewriter.binaryop("mul", res_val, mult_type,
+                                         last_val, mult_val)
                 last_val = res_val
-        targetvar = self.db.repr_arg(op.result)
-        self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
+        self.codewriter.cast(opr.retref, mult_type, res_val, mult_type)        
 
-    def _skipped(self, op):
-        self.codewriter.comment('***Skipping operation %s()' % (op.opname,))
+    def _skipped(self, opr):
+        self.codewriter.comment('***Skipping operation %s()' % opr.op.opname)
     keepalive = _skipped
 
-    def int_abs(self, op):
-        functionref = '%pypyop_' + op.opname
-        self.codewriter.call(self.db.repr_arg(op.result),
-                             self.db.repr_arg_type(op.result),
-                             functionref,
-                             [self.db.repr_arg(op.args[0])],
-                             [self.db.repr_arg_type(op.args[0])])
+    def int_abs(self, opr):
+        assert len(opr.argrefs) == 1
+        functionref = '%pypyop_' + opr.op.opname
+        self.codewriter.call(opr.retref, opr.rettype, functionref,
+                             opr.argtypes, opr.argrefs)
+
     float_abs = int_abs
     llong_abs = int_abs
 
-    def int_pow(self, op):
-        self._generic_pow(op, "1") 
+    def int_pow(self, opr):
+        self._generic_pow(opr, "1") 
     uint_pow = int_pow
     
-    def float_pow(self, op):
-        self._generic_pow(op, "1.0") 
+    def float_pow(self, opr):
+        self._generic_pow(opr, "1.0") 
 
-    def _generic_neg(self, op, zerostr): 
-        self.codewriter.binaryop("sub", 
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 zerostr, 
-                                 self.db.repr_arg(op.args[0]),
-                                 )
-    def int_neg(self, op):
-        self._generic_neg(op, "0")
+    def _generic_neg(self, opr, zerostr): 
+        self.codewriter.binaryop("sub", opr.retref, opr.argtypes[0],
+                                 zerostr, opr.argrefs[0])
 
-    #this is really generated, don't know why
+    def int_neg(self, opr):
+        self._generic_neg(opr, "0")
+
+    # this is really generated, don't know why
     # XXX rxe: Surely that cant be right?
     uint_neg = int_neg
 
-    def float_neg(self, op):
-        self._generic_neg(op, "0.0") 
+    def float_neg(self, opr):
+        self._generic_neg(opr, "0.0") 
 
-    def bool_not(self, op):
-        self.codewriter.binaryop("xor",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]), 
-                                 "true")
+    def bool_not(self, opr):
+        self.codewriter.binaryop("xor", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], "true")
 
-    def int_invert(self, op):
-        self.codewriter.binaryop("xor",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]), 
-                                 -1)
+    def int_invert(self, opr):
+        self.codewriter.binaryop("xor", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], -1)
 
-    def uint_invert(self, op):
-        self.codewriter.binaryop("xor",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]), 
-                                 str((1L<<32) - 1))
+    def uint_invert(self, opr):
+        self.codewriter.binaryop("xor", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], str((1L<<32) - 1))
 
-    def binaryop(self, op):
-        name = self.binary_operations[op.opname]
-        assert len(op.args) == 2
-        self.codewriter.binaryop(name,
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]),
-                                 self.db.repr_arg(op.args[1]))
+    def binaryop(self, opr):
+        assert len(opr.argrefs) == 2
+        name = self.binary_operations[opr.op.opname]
+        self.codewriter.binaryop(name, opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], opr.argrefs[1])
 
-    def char_binaryop(self, op):
-        name = self.char_operations[op.opname]
-        assert len(op.args) == 2
-        res = self.db.repr_arg(op.result)
-        c1 = self.db.repr_tmpvar()
-        c2 = self.db.repr_tmpvar()
-        self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
-        self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
-        self.codewriter.binaryop(name, res, "ubyte", c1, c2)
+    def char_binaryop(self, opr):
+        assert len(opr.argrefs) == 2
+        name = self.char_operations[opr.op.opname]
+        c1, c2 = self._tmp(2)
+        self.codewriter.cast(c1, "sbyte", opr.argrefs[0], "ubyte")
+        self.codewriter.cast(c2, "sbyte", opr.argrefs[1], "ubyte")
+        self.codewriter.binaryop(name, opr.retref, "ubyte", c1, c2)
 
-
-    def shiftop(self, op):
+    def shiftop(self, opr):
+        op = opr.op
         name = self.shift_operations[op.opname]
-        assert len(op.args) == 2
+
         if isinstance(op.args[1], Constant):
-            tmpvar = self.db.repr_arg(op.args[1])
+            var = opr.argrefs[1]
         else:
-            tmpvar = self.db.repr_tmpvar()
-            self.codewriter.cast(tmpvar, self.db.repr_arg_type(op.args[1]), self.db.repr_arg(op.args[1]), 'ubyte')
-        self.codewriter.shiftop(name,
-                                self.db.repr_arg(op.result),
-                                self.db.repr_arg_type(op.args[0]),
-                                self.db.repr_arg(op.args[0]),
-                                tmpvar)
+            var = self._tmp()
+            self.codewriter.cast(var, opr.argtypes[1], opr.argrefs[1], 'ubyte')
+            
+        self.codewriter.shiftop(name, opr.retref, opr.argtypes[0],
+                                opr.argrefs[0], var)
 
-    def cast_char_to_int(self, op):
+    def cast_char_to_int(self, opr):
         " works for all casts "
-        assert len(op.args) == 1
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        fromvar = self.db.repr_arg(op.args[0])
-        fromtype = self.db.repr_arg_type(op.args[0])
-        intermediate = self.db.repr_tmpvar()
-        self.codewriter.cast(intermediate, fromtype, fromvar, "ubyte")
-        self.codewriter.cast(targetvar, "ubyte", intermediate, targettype)
+        assert len(opr.argrefs) == 1
+        intermediate = self._tmp()
+        self.codewriter.cast(intermediate, opr.argtypes[0],
+                             opr.argrefs[0], "ubyte")
+        self.codewriter.cast(opr.retref, "ubyte", intermediate, opr.rettype)
 
-    def cast_primitive(self, op):
+    def cast_primitive(self, opr):
         " works for all casts "
-        assert len(op.args) == 1
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        fromvar = self.db.repr_arg(op.args[0])
-        fromtype = self.db.repr_arg_type(op.args[0])
-        self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
+        assert len(opr.argrefs) == 1
+        self.codewriter.cast(opr.retref, opr.argtypes[0],
+                             opr.argrefs[0], opr.rettype)
     same_as = cast_primitive
 
-    def int_is_true(self, op):
-        self.codewriter.binaryop("setne",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]),
-                                 "0")
+    def int_is_true(self, opr):
+        self.codewriter.binaryop("setne", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], "0")
     uint_is_true = int_is_true
     llong_is_true = int_is_true
 
-    def float_is_true(self, op):
-        self.codewriter.binaryop("setne",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]),
-                                 "0.0")
+    def float_is_true(self, opr):
+        self.codewriter.binaryop("setne", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], "0.0")
 
-    def ptr_nonzero(self, op):
-        self.codewriter.binaryop("setne",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]),
-                                 "null")
+    def ptr_nonzero(self, opr):
+        self.codewriter.binaryop("setne", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], "null")
 
-    def ptr_iszero(self, op):
-        self.codewriter.binaryop("seteq",
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 self.db.repr_arg(op.args[0]),
-                                 "null")
+    def ptr_iszero(self, opr):
+        self.codewriter.binaryop("seteq", opr.retref, opr.argtypes[0],
+                                 opr.argrefs[0], "null")
 
-    def direct_call(self, op):
-        op_args = [arg for arg in op.args
-                   if arg.concretetype is not lltype.Void]
-        assert len(op_args) >= 1
-        targetvar = self.db.repr_arg(op.result)
-        returntype = self.db.repr_arg_type(op.result)
-        functionref = self.db.repr_arg(op_args[0])
-        argrefs = self.db.repr_arg_multi(op_args[1:])
-        argtypes = self.db.repr_arg_type_multi(op_args[1:])
-        if self.db.is_function_ptr(op.result):
-            returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
-        self.codewriter.call(targetvar, returntype,
-                             functionref, argrefs, argtypes)
+    def direct_call(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
+                             opr.argtypes[1:], opr.argrefs[1:])
 
-    def malloc_exception(self, op): 
-        arg_type = op.args[0].value
-        targetvar = self.db.repr_arg(op.result) 
-        type_ = self.db.repr_type(arg_type)
-        tmpvar1 = self.db.repr_tmpvar()
-        tmpvar2 = self.db.repr_tmpvar()
-        tmpvar3 = self.db.repr_tmpvar()
+    def malloc(self, opr):
+        arg_type = opr.op.args[0].value
+        self.db.gcpolicy.malloc(self.codewriter, opr.retref, opr.rettype,
+                                atomic=arg_type._is_atomic())
 
-        ptr_type = type_ + '*'
-        self.codewriter.raw_getelementptr(tmpvar1, ptr_type, "null", ("int", 1))
-        self.codewriter.cast(tmpvar2, ptr_type, tmpvar1, 'uint')
-        self.codewriter.call(tmpvar3, 'sbyte*', '%malloc_exception', [tmpvar2], ['uint'])
-        self.codewriter.cast(targetvar, 'sbyte*', tmpvar3, type_+'*')
+    def malloc_varsize(self, opr):
 
-    def malloc(self, op): 
-        arg_type = op.args[0].value
-        targetvar = self.db.repr_arg(op.result) 
-        type_ = self.db.repr_type(arg_type)
-        gp = self.db.gcpolicy
-        gp.malloc(self.codewriter, targetvar, type_,
-                  atomic=arg_type._is_atomic())
-
-    def malloc_varsize(self, op):
-        arg_type = op.args[0].value
+        # XXX transformation
+        arg_type = opr.op.args[0].value
         if isinstance(arg_type, lltype.Array) and arg_type.OF is lltype.Void:
             # This is a backend decision to NOT represent a void array with
             # anything and save space - therefore not varsized anymore
-            self.malloc(op)
+            self.malloc(opr)
             return
-        
-        targetvar = self.db.repr_arg(op.result)
-        type_ = self.db.repr_type(arg_type) + "*"
-        type_cons = self.db.repr_constructor(arg_type)
-        argrefs = self.db.repr_arg_multi(op.args[1:])
-        argtypes = self.db.repr_arg_type_multi(op.args[1:])
-        self.codewriter.call(targetvar, type_, type_cons, argrefs, argtypes)
+
+        self.codewriter.call(opr.retref, opr.rettype,
+                             self.db.repr_constructor(arg_type),
+                             opr.argtypes[1:], opr.argrefs[1:])
 
     def _getindexhelper(self, name, struct):
         assert name in list(struct._names)
@@ -355,186 +284,139 @@ class OpWriter(object):
             index = -1
         return index
 
-    def getfield(self, op): 
-        tmpvar = self.db.repr_tmpvar()
-        struct, structtype = self.db.repr_argwithtype(op.args[0])
-        index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        if targettype != "void":
+    def getfield(self, opr):
+        op = opr.op
+        if opr.rettype != "void":
+            index = self._getindexhelper(op.args[1].value,
+                                         op.args[0].concretetype.TO)
             assert index != -1
-            self.codewriter.getelementptr(tmpvar, structtype, struct,
-                                          ("uint", index))        
-            self.codewriter.load(targetvar, targettype, tmpvar)
+            tmpvar = self._tmp()
+            self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
+                                          opr.argrefs[0], [("uint", index)])
+            self.codewriter.load(opr.retref, opr.rettype, tmpvar)
         else:
-            self._skipped(op)
+            self._skipped(opr)
  
-    def getsubstruct(self, op): 
-        struct, structtype = self.db.repr_argwithtype(op.args[0])
-        index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        assert targettype != "void"
-        self.codewriter.getelementptr(targetvar, structtype, 
-                                      struct, ("uint", index))        
+    def getsubstruct(self, opr): 
+        index = self._getindexhelper(opr.op.args[1].value,
+                                     opr.op.args[0].concretetype.TO)
+        assert opr.rettype != "void"
+        self.codewriter.getelementptr(opr.retref, opr.argtypes[0], 
+                                      opr.argrefs[0], [("uint", index)])        
          
-    def setfield(self, op): 
-        tmpvar = self.db.repr_tmpvar()
-        struct, structtype = self.db.repr_argwithtype(op.args[0])
-        index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
-        valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
-        if valuetype != "void": 
-            #Structure types require uint constants!
-            #see: http://llvm.cs.uiuc.edu/docs/LangRef.html#i_getelementptr
-            self.codewriter.getelementptr(tmpvar, structtype, struct,
-                                          ("uint", index))
-            self.codewriter.store(valuetype, valuevar, tmpvar) 
+    def setfield(self, opr): 
+        op = opr.op
+        if opr.argtypes[2] != "void":
+            tmpvar = self._tmp()
+            index = self._getindexhelper(op.args[1].value,
+                                         op.args[0].concretetype.TO)
+            self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
+                                          opr.argrefs[0], [("uint", index)])
+            self.codewriter.store(opr.argtypes[2], opr.argrefs[2], tmpvar)
+
         else:
-            self._skipped(op)
+            self._skipped(opr)
             
-    def getarrayitem(self, op):        
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
-        index = self.db.repr_arg(op.args[1])
-        indextype = self.db.repr_arg_type(op.args[1])
-        tmpvar = self.db.repr_tmpvar()
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        if targettype != "void":
+    def getarrayitem(self, opr):        
+        if opr.rettype != "void":
+            arraytype, indextype = opr.argtypes
+            array, index = opr.argrefs
+            tmpvar = self._tmp()
             self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          ("uint", 1), (indextype, index))
-            self.codewriter.load(targetvar, targettype, tmpvar)
+                                          [("uint", 1), (indextype, index)])
+            self.codewriter.load(opr.retref, opr.rettype, tmpvar)
         else:
-            self._skipped(op)
+            self._skipped(opr)
 
-    def getarraysubstruct(self, op):        
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
-        index = self.db.repr_arg(op.args[1])
-        indextype = self.db.repr_arg_type(op.args[1])
-        targetvar = self.db.repr_arg(op.result)
-        self.codewriter.getelementptr(targetvar, arraytype, array,
-                                      ("uint", 1), (indextype, index))
+    def getarraysubstruct(self, opr):        
+        arraytype, indextype = opr.argtypes
+        array, index = opr.argrefs
+        self.codewriter.getelementptr(opr.retref, arraytype, array,
+                                      [("uint", 1), (indextype, index)])
 
-    def setarrayitem(self, op):
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
-        index = self.db.repr_arg(op.args[1])
-        indextype = self.db.repr_arg_type(op.args[1])
-
-        tmpvar = self.db.repr_tmpvar()
-
-        valuevar = self.db.repr_arg(op.args[2]) 
-        valuetype = self.db.repr_arg_type(op.args[2])
+    def setarrayitem(self, opr):
+        array, index, valuevar = opr.argrefs
+        arraytype, indextype, valuetype = opr.argtypes
+        tmpvar = self._tmp()
         if valuetype != "void":
             self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                      ("uint", 1), (indextype, index))
+                                          [("uint", 1), (indextype, index)])
             self.codewriter.store(valuetype, valuevar, tmpvar) 
         else:
-            self._skipped(op)
+            self._skipped(opr)
 
-    def getarraysize(self, op):
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
-        tmpvar = self.db.repr_tmpvar()
-        self.codewriter.getelementptr(tmpvar, arraytype, array, ("uint", 0))
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        self.codewriter.load(targetvar, targettype, tmpvar)
+    def getarraysize(self, opr):
+        tmpvar = self._tmp()
+        self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
+                                      opr.argrefs[0], [("uint", 0)])
+        self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
-    def adr_delta(self, op):
-        tmp = self.db.repr_tmpvar
-        addr1, addr2 = tmp(), tmp()
-        arg1, argtype1 = self.db.repr_argwithtype(op.args[0])
-        arg2, argtype2 = self.db.repr_argwithtype(op.args[1])
-        self.codewriter.cast(addr1, argtype1, arg1, "int")
-        self.codewriter.cast(addr2, argtype2, arg2, "int")
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        self.codewriter.binaryop("sub",
-                                 targetvar, targettype,
-                                 addr1, addr2,)
+        
+    # XXX use machine word size
+    
+    def adr_delta(self, opr):
+        addr1, addr2 = self._tmp(2)
+        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], "int")
+        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], "int")
+        self.codewriter.binaryop("sub", opr.retref, opr.rettype, addr1, addr2)
 
-    def _op_adr_generic(self, op, llvm_op):
-        tmp = self.db.repr_tmpvar
-        addr, res = tmp(), tmp()
-        arg, argtype = self.db.repr_argwithtype(op.args[0])
-        self.codewriter.cast(addr, argtype, arg, "int")
-        arg2, argtype2 = self.db.repr_argwithtype(op.args[1])        
-        self.codewriter.binaryop(llvm_op,
-                                 res, "int",
-                                 addr, arg2)
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        self.codewriter.cast(targetvar, "int", res, targettype)
+    def _op_adr_generic(self, opr, llvm_op):
+        addr, res = self._tmp(2)
+        self.codewriter.cast(addr, opr.argtypes[0], opr.argrefs[0], "int")
+        self.codewriter.binaryop(llvm_op, res, "int", addr, opr.argrefs[1])
+        self.codewriter.cast(opr.retref, "int", res, opr.rettype)
 
-    def adr_add(self, op):
-        self._op_adr_generic(op, "add")
+    def adr_add(self, opr):
+        self._op_adr_generic(opr, "add")
 
-    def adr_sub(self, op):
-        self._op_adr_generic(op, "sub")
+    def adr_sub(self, opr):
+        self._op_adr_generic(opr, "sub")
 
-    def _op_adr_comparison_generic(self, op, llvm_op):
-        tmp = self.db.repr_tmpvar
-        addr1, addr2 = tmp(), tmp()
-        arg1, argtype1 = self.db.repr_argwithtype(op.args[0])
-        arg2, argtype2 = self.db.repr_argwithtype(op.args[1])
-        self.codewriter.cast(addr1, argtype1, arg1, "int")
-        self.codewriter.cast(addr2, argtype2, arg2, "int")
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        assert targettype == "bool"
-        self.codewriter.binaryop(llvm_op,
-                                 targetvar, "int",
-                                 addr1, addr2)
+    def _op_adr_cmp(self, opr, llvm_op):
+        addr1, addr2 = self._tmp(2)
+        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], "int")
+        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], "int")
+        assert opr.rettype == "bool"
+        self.codewriter.binaryop(llvm_op, opr.retref, "int", addr1, addr2)
 
-    def adr_eq(self, op):
-        self._op_adr_comparison_generic(op, "seteq")
+    def adr_eq(self, opr):
+        self._op_adr_cmp(opr, "seteq")
 
-    def adr_ne(self, op):
-        self._op_adr_comparison_generic(op, "setne")
+    def adr_ne(self, opr):
+        self._op_adr_cmp(opr, "setne")
 
-    def adr_le(self, op):
-        self._op_adr_comparison_generic(op, "setle")
+    def adr_le(self, opr):
+        self._op_adr_cmp(opr, "setle")
 
-    def adr_gt(self, op):
-        self._op_adr_comparison_generic(op, "setgt")
+    def adr_gt(self, opr):
+        self._op_adr_cmp(opr, "setgt")
 
-    def adr_lt(self, op):
-        self._op_adr_comparison_generic(op, "setlt")
+    def adr_lt(self, opr):
+        self._op_adr_cmp(opr, "setlt")
 
-    def adr_ge(self, op):
-        self._op_adr_comparison_generic(op, "setge")
+    def adr_ge(self, opr):
+        self._op_adr_cmp(opr, "setge")
 
-    def raw_malloc(self, op):
-        # XXX ignore raise as not last op
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        argrefs = self.db.repr_arg_multi(op.args)
-        argtypes = self.db.repr_arg_type_multi(op.args)
-        self.codewriter.call(targetvar, targettype, "%raw_malloc",
-                             argrefs, argtypes)
-    def raw_free(self, op):
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        argrefs = self.db.repr_arg_multi(op.args)
-        argtypes = self.db.repr_arg_type_multi(op.args)
-        self.codewriter.call(targetvar, targettype, "%raw_free",
-                             argrefs, argtypes)
+    # XXX Not sure any of this makes sense - maybe seperate policy for
+    # different flavours of mallocs?  Well it depend on what happens the GC
+    # developments
+    def raw_malloc(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, "%raw_malloc",
+                             opr.argtypes, opr.argrefs)
+    def raw_free(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, "%raw_free",
+                             opr.argtypes, opr.argrefs)
 
-    def raw_memcopy(self, op):
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        argrefs = self.db.repr_arg_multi(op.args)
-        argtypes = self.db.repr_arg_type_multi(op.args)
-        self.codewriter.call(targetvar, targettype, "%raw_memcopy",
-                             argrefs, argtypes)
+    def raw_memcopy(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, "%raw_memcopy",
+                             opr.argtypes, opr.argrefs)
 
-    def raw_store(self, op):
-        tmp = self.db.repr_tmpvar
-
-        (arg_addr, arg_dummy,
-         arg_incr, arg_value) = self.db.repr_arg_multi(op.args)
+    def raw_store(self, opr):
+        arg_addr, arg_dummy, arg_incr, arg_value = opr.argrefs
         (argtype_addr, argtype_dummy,
-         argtype_incr, argtype_value) = self.db.repr_arg_type_multi(op.args)
+         argtype_incr, argtype_value) = opr.argtypes
 
-        cast_addr = tmp()
+        cast_addr = self._tmp()
         addr_type = argtype_value + "*"
 
         # cast to the correct type before arithmetic/storing
@@ -542,168 +424,54 @@ class OpWriter(object):
 
         # pointer arithmetic
         if arg_incr:
-            incr_addr = tmp()
-            self.codewriter.raw_getelementptr(incr_addr,
-                                              addr_type,
-                                              cast_addr,
-                                              ("int", arg_incr))
+            incr_addr = self._tmp()
+            self.codewriter.getelementptr(incr_addr,
+                                          addr_type,
+                                          cast_addr,
+                                          [("int", arg_incr)],
+                                          getptr=False)
             cast_addr = incr_addr
         self.codewriter.store(argtype_value, arg_value, cast_addr)
 
         
-    def raw_load(self, op):
-        tmp = self.db.repr_tmpvar
+    def raw_load(self, opr):
+        arg_addr, arg_dummy, arg_incr = opr.argrefs
+        argtype_addr, argtype_dummy, argtype_incr = opr.argtypes
 
-        arg_addr, arg_dummy, arg_incr = self.db.repr_arg_multi(op.args)
-        argtype_addr, argtype_dummy, argtype_incr = \
-                                      self.db.repr_arg_type_multi(op.args)
-        targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-
-        cast_addr = tmp()
-        addr_type = targettype + "*"
+        cast_addr = self._tmp()
+        addr_type = opr.rettype + "*"
 
         # cast to the correct type before arithmetic/loading
         self.codewriter.cast(cast_addr, argtype_addr, arg_addr, addr_type)
+
         # pointer arithmetic
         if arg_incr:
-            incr_addr = tmp()
-            self.codewriter.raw_getelementptr(incr_addr,
-                                              addr_type,
-                                              cast_addr,
-                                              ("int", arg_incr))
+            incr_addr = self._tmp()
+            self.codewriter.getelementptr(incr_addr,
+                                          addr_type,
+                                          cast_addr,
+                                          [("int", arg_incr)],
+                                          getptr=False)
             cast_addr = incr_addr
 
-        self.codewriter.load(targetvar, targettype, cast_addr) 
+        self.codewriter.load(opr.retref, opr.rettype, cast_addr) 
         
     # ______________________________________________________________________
-    # exception specific
+    # 
+    # XXX exception specific - move to policy?
 
-    def last_exception_type_ptr(self, op):
+    def malloc_exception(self, opr): 
+        tmpvar1, tmpvar2, tmpvar3 = self._tmp(3)
+        cw = self.codewriter
+        cw.getelementptr(tmpvar1, opr.rettype, "null", [("int", 1)], getptr=False)
+        cw.cast(tmpvar2, opr.rettype, tmpvar1, 'uint')
+        cw.call(tmpvar3, 'sbyte*', '%malloc_exception', ['uint'], [tmpvar2])
+        cw.cast(opr.retref, 'sbyte*', tmpvar3, opr.rettype)
+
+    def last_exception_type_ptr(self, opr):
+        op = opr.op
         e = self.db.translator.rtyper.getexceptiondata()
         self.codewriter.load('%' + str(op.result),
                              self.db.repr_type(e.lltype_of_exception_type),
                              '%last_exception_type')
 
-    def invoke(self, op):
-        ep = self.db.exceptionpolicy
-
-        op_args = [arg for arg in op.args
-                   if arg.concretetype is not lltype.Void]
-
-        if op.opname == 'invoke:direct_call':
-            functionref = self.db.repr_arg(op_args[0])
-
-        else:
-            # operation - provided by genexterns 
-            opname = op.opname.split(':', 1)[1]
-            op_args = ['%pypyop_' + opname] + op_args
-            functionref = op_args[0]
-        
-        assert len(op_args) >= 1
-        
-        # at least one label and one exception label
-        assert len(self.block.exits) >= 2   
-
-        link = self.block.exits[0]
-        assert link.exitcase is None
-
-        targetvar   = self.db.repr_arg(op.result)
-        returntype  = self.db.repr_arg_type(op.result)
-        argrefs     = self.db.repr_arg_multi(op_args[1:])
-        argtypes    = self.db.repr_arg_type_multi(op_args[1:])
-
-        none_label  = self.node.block_to_name[link.target]
-        block_label = self.node.block_to_name[self.block]
-        exc_label   = block_label + '_exception_handling'
-        
-        # use longhand form
-        if self.db.is_function_ptr(op.result):
-            returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
-
-        ep.invoke(self.codewriter, targetvar, returntype, functionref,
-                  argrefs, argtypes, none_label, exc_label)
-
-        # write exception handling blocks
-        
-        e = self.db.translator.rtyper.getexceptiondata()
-        ll_exception_match = self.db.repr_value(e.fn_exception_match._obj)        
-        lltype_of_exception_type = self.db.repr_type(e.lltype_of_exception_type)
-        lltype_of_exception_value = self.db.repr_type(e.lltype_of_exception_value)
-        
-        # start with the exception handling block
-        # * load the last exception type
-        # * check it with call to ll_exception_match()
-        # * branch to to correct block?
-        
-        self.codewriter.label(exc_label)
-
-        catch_all = False
-        found_blocks_info = []
-        last_exception_type = None
-
-        # XXX tmp - debugging info 
-
-        # block_label = "block28"
-        # exc_label = "block28_exception_handling"
-        # ll_exception_match = function for catching exception
-        # lltype_of_exception_type, lltype_of_exception_value = generic
-        # catch_all = ???
-        # found_blocks_info = list of found block data to write those blocks 
-        # last_exception_type = Load exception pointer once for handle and not found blocks
-
-        # link = iteration thru rest of links in block 
-        # etype = node for exception
-        # current_exception_type = repr for node etype
-        # target = label of the destination block 
-        # exc_found_label = label of intermediate exc found block
-        # last_exc_type_var = ????
-        # last_exc_value_var = ???
-        
-        for link in self.block.exits[1:]:
-            assert issubclass(link.exitcase, Exception)
-
-            # information for found blocks
-            target = self.node.block_to_name[link.target]
-            exc_found_label = block_label + '_exception_found_branchto_' + target
-            link_exc_type = repr_if_variable(self.db, link.last_exception)
-            link_exc_value = repr_if_variable(self.db, link.last_exc_value)
-            found_blocks_info.append((exc_found_label, target,
-                                      link_exc_type, link_exc_value))
-
-            # XXX fix database to handle this case
-            etype = self.db.obj2node[link.llexitcase._obj]
-            current_exception_type = etype.get_ref()
-            not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
-
-            # catch specific exception (class) type
-
-            # load pointer only once
-            if not last_exception_type:
-                last_exception_type = self.db.repr_tmpvar()
-                self.codewriter.load(last_exception_type,
-                                     lltype_of_exception_type,
-                                     '%last_exception_type')
-                self.codewriter.newline()
-
-            ll_issubclass_cond = self.db.repr_tmpvar()
-
-            self.codewriter.call(ll_issubclass_cond,
-                                 'bool',
-                                 ll_exception_match,
-                                 [last_exception_type, current_exception_type],
-                                 [lltype_of_exception_type, lltype_of_exception_type])
-
-            self.codewriter.br(ll_issubclass_cond,
-                               not_this_exception_label,
-                               exc_found_label)
-
-            self.codewriter.label(not_this_exception_label)
-
-        if not catch_all:
-            ep.reraise(self.node, self.codewriter)
-
-        ep.fetch_exceptions(self.codewriter,
-                            found_blocks_info,
-                            lltype_of_exception_type,
-                            lltype_of_exception_value)

@@ -201,25 +201,25 @@ class StructVarsizeNode(StructNode):
         super(StructVarsizeNode, self).setup()
     
     def get_typerepr(self):
-            try:
-                return self._get_typerepr_cache
-            except:
-                # last type is a special case and need to be worked out recursively
-                types = self._get_types[:-1]
-                types_repr = [self.db.repr_type(T) for name, T in types]
-                types_repr.append(self._get_lastnode().get_typerepr())
-                result = "{%s}" % ", ".join(types_repr)
-                self._get_typerepr_cache = result
-                return result
+        try:
+            return self._get_typerepr_cache
+        except:
+            # last type is a special case and need to be worked out recursively
+            types = self._get_types[:-1]
+            types_repr = [self.db.repr_type(T) for name, T in types]
+            types_repr.append(self._get_lastnode().get_typerepr())
+            result = "{%s}" % ", ".join(types_repr)
+            self._get_typerepr_cache = result
+            return result
          
     def get_ref(self):
         if self._get_ref_cache:
             return self._get_ref_cache
         ref = super(StructVarsizeNode, self).get_ref()
         typeval = self.db.repr_type(lltype.typeOf(self.value))
-        ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-                                        ref,
-                                        typeval)
+        ref = "cast(%s* %s to %s*)" % (self.get_typerepr(),
+                                       ref,
+                                       typeval)
         self._get_ref_cache = ref
         return ref
     
@@ -229,6 +229,6 @@ class StructVarsizeNode(StructNode):
         p, c = lltype.parentlink(self.value)
         assert p is None, "child arrays are NOT needed by rtyper"
         fromptr = "%s*" % self.get_typerepr()
-        refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
+        refptr = "getelementptr(%s %s, int 0)" % (fromptr, ref)
         ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
         return ref

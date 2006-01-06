@@ -26,6 +26,11 @@ class LLVMNode(object):
         pass
 
     # __________________ before "implementation" ____________________
+
+
+    def post_setup_transform(self):
+        pass
+    
     def writedatatypedecl(self, codewriter):
         """ write out declare names of data types 
             (structs/arrays/function pointers)

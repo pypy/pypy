@@ -116,9 +116,9 @@ class ArrayNode(ConstantLLVMNode):
 
     def get_ref(self):
         typeval = self.db.repr_type(lltype.typeOf(self.value))
-        ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-                                        self.ref,
-                                        typeval)
+        ref = "cast(%s* %s to %s*)" % (self.get_typerepr(),
+                                       self.ref,
+                                       typeval)
 
         p, c = lltype.parentlink(self.value)
         assert p is None, "child arrays are NOT needed by rtyper"

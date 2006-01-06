@@ -41,9 +41,9 @@ class GcPolicy:
 
         elemindices = list(indices_to_array)
         elemindices += [("uint", 1), (lentype, "%actuallen")]
-        codewriter.getelementptr("%size", ref + "*", "null", *elemindices) 
+        codewriter.getelementptr("%size", ref + "*", "null", elemindices) 
         codewriter.cast("%usize", elemtype + "*", "%size", uword)
-        self.malloc(codewriter, "%ptr", "sbyte", "%usize", atomic=atomic)
+        self.malloc(codewriter, "%ptr", "sbyte*", "%usize", atomic=atomic)
         codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
 
         indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
@@ -51,21 +51,21 @@ class GcPolicy:
         # the following accesses the length field of the array 
         codewriter.getelementptr("%arraylength", ref + "*", 
                                  "%result", 
-                                 *indices_to_arraylength)
+                                 indices_to_arraylength)
         codewriter.store(lentype, "%len", "%arraylength")
 
         #if is_str:
         #    indices_to_hash = (("uint", 0),)
         #    codewriter.getelementptr("%ptrhash", ref + "*", 
         #                             "%result", 
-        #                             *indices_to_hash)
+        #                             indices_to_hash)
         #    codewriter.store("int", "0", "%ptrhash")
 
 
         #if ARRAY is STR.chars:
         #    codewriter.getelementptr("%ptrendofchar", ref + "*", 
         #                             "%result", 
-        #                             *elemindices)
+        #                             elemindices)
         #    codewriter.store(elemtype, "0", "%ptrendofchar")
 
         codewriter.ret(ref + "*", "%result")
@@ -122,10 +122,10 @@ class BoehmGcPolicy(GcPolicy):
         cnt = '.%d' % self.n_malloced
         atomic = is_atomic and '_atomic' or ''
         t = '''
-%%malloc_Size%(cnt)s  = getelementptr %(type_)s* null, %(uword)s %(s)s
-%%malloc_SizeU%(cnt)s = cast %(type_)s* %%malloc_Size%(cnt)s to %(uword)s
+%%malloc_Size%(cnt)s  = getelementptr %(type_)s null, %(uword)s %(s)s
+%%malloc_SizeU%(cnt)s = cast %(type_)s %%malloc_Size%(cnt)s to %(uword)s
 %%malloc_Ptr%(cnt)s   = call fastcc sbyte* %%pypy_malloc%(atomic)s(%(uword)s %%malloc_SizeU%(cnt)s)
-%(targetvar)s = cast sbyte* %%malloc_Ptr%(cnt)s to %(type_)s*
+%(targetvar)s = cast sbyte* %%malloc_Ptr%(cnt)s to %(type_)s
 ''' % locals()
 
         if is_atomic:

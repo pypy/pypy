@@ -1,4 +1,5 @@
-from pypy.objspace.flow.model import c_last_exception
+from pypy.objspace.flow.model import Variable, c_last_exception
+
 from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 from pypy.translator.llvm.backendopt.exception import create_exception_handling
 
@@ -26,6 +27,7 @@ else:
 ''' % (RINGBUFFER_ENTRY_MAXSIZE, RINGBUGGER_OVERSIZE, RINGBUGGER_SIZE-1)
 
     def __init__(self, db):
+        self.db = db
         raise Exception, 'ExceptionPolicy should not be used directly'
 
     def transform(self, translator, graph=None):
@@ -54,7 +56,6 @@ else:
         elif r in 'ubyte sbyte ushort short uint int ulong long'.split():
             return ' 0'
         return 'null'
-
 
     def _nonoderesult(self, node):
         returntype, name, dummy = node.getdecl_parts()
@@ -184,6 +185,12 @@ internal fastcc void %%unwind() {
     def llc_options(self):
         return '-enable-correct-eh-support'
 
+
+
+def repr_if_variable(db, arg):
+    if isinstance(arg, Variable):
+        return db.repr_arg(arg)
+
 class ExplicitExceptionPolicy(ExceptionPolicy):
     """ uses issubclass() and last_exception tests after each call """
     def __init__(self, db):
@@ -227,11 +234,20 @@ internal fastcc void %%unwind() {
             for graph in translator.flowgraphs.itervalues():
                 create_exception_handling(translator, graph)
 
-
     def invoke(self, codewriter, targetvar, returntype, functionref,
-               argrefs, argtypes, label, except_label):
+               argrefs, argtypes,
+               node, block): # XXX Unsure of these being passed in
 
         assert functionref != '%keepalive'
+
+        # at least one label and one exception label
+        assert len(block.exits) >= 2
+        link = block.exits[0]
+        assert link.exitcase is None
+
+        none_label  = node.block_to_name[link.target]
+        block_label = node.block_to_name[block]
+        exc_label   = block_label + '_exception_handling'
 
         tmp = '%%invoke.tmp.%d' % self.invoke_count
         exc = '%%invoke.exc.%d' % self.invoke_count
@@ -240,10 +256,94 @@ internal fastcc void %%unwind() {
         # XXX Hardcoded type...
         type_ = "%RPYTHON_EXCEPTION_VTABLE*"
 
-        codewriter.call(targetvar, returntype, functionref, argrefs, argtypes)
+        codewriter.call(targetvar, returntype, functionref, argtypes, argrefs)
         codewriter.load(tmp, type_, "%last_exception_type")
         codewriter.binaryop("seteq", exc, type_, tmp, "null")
-        codewriter.br(exc, except_label, label)
+        codewriter.br(exc, exc_label, none_label)
+
+        # write exception handling blocks
+        
+        e = self.db.translator.rtyper.getexceptiondata()
+        ll_exception_match = self.db.repr_value(e.fn_exception_match._obj)        
+        lltype_of_exception_type = self.db.repr_type(e.lltype_of_exception_type)
+        lltype_of_exception_value = self.db.repr_type(e.lltype_of_exception_value)
+        
+        # start with the exception handling block
+        # * load the last exception type
+        # * check it with call to ll_exception_match()
+        # * branch to to correct block?
+        
+        codewriter.label(exc_label)
+
+        catch_all = False
+        found_blocks_info = []
+        last_exception_type = None
+
+        # XXX tmp - debugging info 
+
+        # block_label = "block28"
+        # exc_label = "block28_exception_handling"
+        # ll_exception_match = function for catching exception
+        # lltype_of_exception_type, lltype_of_exception_value = generic
+        # catch_all = ???
+        # found_blocks_info = list of found block data to write those blocks 
+        # last_exception_type = Load exception pointer once for handle and not found blocks
+
+        # link = iteration thru rest of links in block 
+        # etype = node for exception
+        # current_exception_type = repr for node etype
+        # target = label of the destination block 
+        # exc_found_label = label of intermediate exc found block
+        # last_exc_type_var = ????
+        # last_exc_value_var = ???
+        
+        for link in block.exits[1:]:
+            assert issubclass(link.exitcase, Exception)
+
+            # information for found blocks
+            target = node.block_to_name[link.target]
+            exc_found_label = block_label + '_exception_found_branchto_' + target
+            link_exc_type = repr_if_variable(self.db, link.last_exception)
+            link_exc_value = repr_if_variable(self.db, link.last_exc_value)
+            found_blocks_info.append((exc_found_label, target,
+                                      link_exc_type, link_exc_value))
+
+            # XXX fix database to handle this case
+            etype = self.db.obj2node[link.llexitcase._obj]
+            current_exception_type = etype.get_ref()
+            not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
+
+            # catch specific exception (class) type
+
+            # load pointer only once
+            if not last_exception_type:
+                last_exception_type = self.db.repr_tmpvar()
+                codewriter.load(last_exception_type,
+                                lltype_of_exception_type,
+                                '%last_exception_type')
+                codewriter.newline()
+
+            ll_issubclass_cond = self.db.repr_tmpvar()
+
+            codewriter.call(ll_issubclass_cond,
+                            'bool',
+                            ll_exception_match,
+                            [lltype_of_exception_type, lltype_of_exception_type],
+                            [last_exception_type, current_exception_type])
+
+            codewriter.br(ll_issubclass_cond,
+                          not_this_exception_label,
+                          exc_found_label)
+
+            codewriter.label(not_this_exception_label)
+
+        if not catch_all:
+            self.reraise(node, codewriter)
+
+        self.fetch_exceptions(codewriter,
+                              found_blocks_info,
+                              lltype_of_exception_type,
+                              lltype_of_exception_value)
 
     def write_exceptblock(self, funcnode, codewriter, block):
         """ Raises an exception - called from FuncNode """

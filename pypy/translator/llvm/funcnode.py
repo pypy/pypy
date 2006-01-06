@@ -41,16 +41,9 @@ class FuncNode(ConstantLLVMNode):
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
 
-        self.db.exceptionpolicy.transform(self.db.translator,
-                                          self.graph)
-
-        remove_exception_mallocs(self.db.translator, self.graph, self.ref)
-
         #XXX experimental
         #from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
         #merge_mallocs(self.db.translator, self.graph, self.ref)
-
-        remove_double_links(self.db.translator, self.graph)
 
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
@@ -75,7 +68,13 @@ class FuncNode(ConstantLLVMNode):
         traverse(visit, self.graph)
 
     # ______________________________________________________________________
-    # main entry points from genllvm    
+    # main entry points from genllvm 
+
+    def post_setup_transform(self):
+        self.db.exceptionpolicy.transform(self.db.translator, self.graph)
+        remove_exception_mallocs(self.db.translator, self.graph, self.ref)
+        remove_double_links(self.db.translator, self.graph)
+    
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
@@ -196,19 +195,23 @@ class FuncNode(ConstantLLVMNode):
                                   block.exitswitch.concretetype)
 
     def write_block_operations(self, codewriter, block):
-        opwriter = OpWriter(self.db, codewriter, self, block)
-        
+        # XXX We dont need multiple of these
+        opwriter = OpWriter(self.db, codewriter)
+
+        invoke_op = None
+        block_ops = block.operations        
         if block.exitswitch == c_last_exception:
-            invoke_prefix = 'invoke:'
-            # could raise an exception and should therefor have a function
-            # implementation that can be invoked by the llvm-code.
-            op = block.operations[len(block.operations) - 1]
-            assert not op.opname.startswith(invoke_prefix)
-            op.opname = invoke_prefix + op.opname
+            invoke_op = block.operations[-1]
+            block_ops = block.operations[:-1]
 
         # emit operations
-        for op in block.operations:
+        for op in block_ops:
             opwriter.write_operation(op)
+
+        if invoke_op:
+            # could raise an exception and should therefore have a function
+            # implementation that can be invoked by the llvm-code.
+            opwriter.write_invoke_op(invoke_op, self, block)
 
     # ______________________________________________________________________
     # actual block writers

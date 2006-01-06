@@ -93,7 +93,7 @@ class ExternalFuncNode(ConstantLLVMNode):
 
         # call
         codewriter.call(returnval, expected_rettype, self.ref,
-                        expected_argrefs, expected_argtypes)
+                        expected_argtypes, expected_argrefs)
 
         if self.wrapper.rettype:
             # cast to desired return type

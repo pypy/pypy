@@ -82,5 +82,5 @@ class ExtOpaqueNode(ConstantLLVMNode):
             codewriter.call(self.db.repr_tmpvar(),
                             "sbyte*",
                             "%RPyOpaque_LLVM_SETUP_ThreadLock",
-                            argrefs, argtypes)
+                            argtypes, argrefs)
             # XXX Check result
