@@ -255,7 +255,7 @@ class OpWriter(object):
         self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
                              opr.argtypes[1:], opr.argrefs[1:])
 
-    indirect_call = direct_call # XXX for now
+    indirect_call = direct_call
 
     def malloc(self, opr):
         arg_type = opr.op.args[0].value

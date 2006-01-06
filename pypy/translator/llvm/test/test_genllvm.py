@@ -45,6 +45,28 @@ def test_invoke_function_pointer():
     assert f(0) == invokepointer(0)
     assert f(1) == invokepointer(1)
 
+def test_invoke_function_pointer2(): 
+    def f1(x):
+        if x>0:
+            raise Exception("bla")
+        return 10
+    def f2(x):
+        return 5
+
+    l = [f1, f2]
+
+    def invokepointer(i,j): 
+        try:
+            return l[i](i)
+        except:
+            return 123
+
+    f = compile_function(invokepointer, [int, int])
+    assert f(0, 0) == invokepointer(0, 0)
+    assert f(0, 1) == invokepointer(0, 1)
+    assert f(1, 0) == invokepointer(1, 0)
+    assert f(1, 1) == invokepointer(1, 1)
+
 def test_simple_branching():
     def simple5(b):
         if b:
