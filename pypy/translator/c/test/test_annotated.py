@@ -266,4 +266,19 @@ class TestAnnotatedTestCase:
         def f(i=r_longlong):
             return int(i)
         fn = self.getcompiled(f)
-        assert f(0) == 0
+        assert fn(0) == 0
+
+    def test_function_ptr(self):
+        def f1():
+            return 1
+        def f2():
+            return 2
+        def g(i=int):
+            if i:
+                f = f1
+            else:
+                f = f2
+            return f()
+        fn = self.getcompiled(g)
+        assert fn(0) == 2
+        assert fn(1) == 1

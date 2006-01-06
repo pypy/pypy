@@ -312,9 +312,9 @@ class GraphState(object):
             for st in stlist:
                 op = st.origblock.operations[st.origposition]
                 if op.opname == 'direct_call':
+                    v = v.value
+                elif op.opname == 'indirect_call':
                     v = op.args[0]
-                    if isinstance(v, Constant):
-                        v = v.value
                 else:
                     v = '?'
                 print 'In %r:' % (v,)
@@ -672,6 +672,15 @@ class BlockBuilder(object):
         if a_result is None:
             a_result = self.residualize(op, args_a)
         return a_result
+
+    def op_indirect_call(self, op, *args_a):
+        # XXX not really sure what the right thing to do is:
+        # right now there is no test that produces indirect_call
+        # the slight ugliness involved is, that it is necessary to
+        # change the operation from an indirect_call to a direct_call
+        # when the first argument of the indirect_call is discovered to be
+        # constant
+        assert 0, "XXX"
 
     def handle_call(self, op, a_func, *args_a):
         v_func = a_func.maybe_get_constant()

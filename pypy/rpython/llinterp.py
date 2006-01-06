@@ -224,6 +224,11 @@ class LLFrame(object):
     def eval_operation(self, operation):
         log.operation("considering", operation)
         ophandler = self.getoperationhandler(operation.opname)
+        # XXX slighly unnice but an important safety check
+        if operation.opname == 'direct_call':
+            assert isinstance(operation.args[0], Constant)
+        elif operation.opname == 'indirect_call':
+            assert isinstance(operation.args[0], Variable)
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
         if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast']:
@@ -313,6 +318,8 @@ class LLFrame(object):
             return self.invoke_callable_with_pyexceptions(f, *args)
         frame = self.__class__(graph, args, self.llinterpreter, self)
         return frame.eval()
+
+    op_indirect_call = op_direct_call  # XXX for now
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:

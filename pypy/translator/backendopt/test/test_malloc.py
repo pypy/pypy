@@ -13,10 +13,10 @@ def check_malloc_removed(graph):
             for op in node.operations:
                 if op.opname == 'malloc':
                     count1 += 1
-                if op.opname == 'direct_call':
+                if op.opname in ('direct_call', 'indirect_call'):
                     count2 += 1
     assert count1 == 0   # number of mallocs left
-    assert count2 == 0   # number of direct_calls left
+    assert count2 == 0   # number of calls left
 
 def check(fn, signature, args, expected_result, must_be_removed=True):
     t = TranslationContext()

@@ -228,6 +228,8 @@ class OpWriter(object):
         argrefs = self.db.repr_arg_multi(op_args[1:])
         self.codewriter.call(targetvar, functionref, argrefs)
 
+    indirect_call = direct_call  # XXX for now
+
     def invoke(self, op):
         op_args = [arg for arg in op.args
                    if arg.concretetype is not lltype.Void]

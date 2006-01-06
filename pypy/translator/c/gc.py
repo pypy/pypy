@@ -99,7 +99,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
             return 'pypy_DecRf_%s(%s);' % (defnode.barename, expr)
 
     def push_alive_op_result(self, opname, expr, T):
-        if opname !='direct_call' and T != PyObjPtr:
+        if opname not in ('direct_call', 'indirect_call') and T != PyObjPtr:
             return self.push_alive(expr, T)
         return ''
 

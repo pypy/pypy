@@ -8,7 +8,8 @@ from pypy.rpython.lltypesystem.lltype import Bool
 n_calls = n_calls_patched = 0
 
 def create_exception_handling(translator, graph):
-    """After an exception in a direct_call, that is not catched by an explicit
+    """After an exception in a direct_call (or indirect_call), that is not caught
+    by an explicit
     except statement, we need to reraise the exception. So after this
     direct_call we need to test if an exception had occurred. If so, we return
     from the current graph with an unused value (false/0/0.0/null).
@@ -23,7 +24,7 @@ def create_exception_handling(translator, graph):
             last_operation -= 1
         for i in range(last_operation, -1, -1):
             op = block.operations[i]
-            if op.opname != 'direct_call':
+            if op.opname not in ('direct_call', 'indirect_call'):
                 continue
             n_calls += 1
             called_can_raise = True #XXX maybe we even want a list of possible exceptions

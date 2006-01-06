@@ -56,7 +56,7 @@ def remove_void(translator):
         graph.startblock.inputargs = args
         for block in graph.iterblocks():
             for op in block.operations:
-                if op.opname == 'direct_call':
+                if op.opname in ('direct_call', 'indirect_call'):
                     args = [arg for arg in op.args
                                 if arg.concretetype is not Void]
                     op.args = args

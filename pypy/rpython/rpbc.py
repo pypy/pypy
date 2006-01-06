@@ -312,7 +312,10 @@ class FunctionsPBCRepr(CanBeNull, Repr):
         vlist += callparse.callparse(self.rtyper, anygraph, hop, opname)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
-        v = hop.genop('direct_call', vlist, resulttype = rresult)
+        if isinstance(vlist[0], Constant):
+            v = hop.genop('direct_call', vlist, resulttype = rresult)
+        else:
+            v = hop.genop('indirect_call', vlist, resulttype = rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 
 class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):

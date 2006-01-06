@@ -434,6 +434,8 @@ class FunctionCodeGenerator(object):
         line = '%s\n%s' % (line, self.check_directcall_result(op, err))
         return line
 
+    OP_INDIRECT_CALL = OP_DIRECT_CALL # XXX for now
+
     def check_directcall_result(self, op, err):
         return 'if (RPyExceptionOccurred())\n\tFAIL(%s);' % err
 

@@ -118,7 +118,8 @@ def propagate_consts(graph):
 _op = """getarrayitem setarrayitem malloc malloc_varsize flavored_malloc
          flavored_free getfield setfield getsubstruct getarraysubstruct
          getarraysize raw_malloc raw_free raw_memcopy raw_load
-         raw_store direct_call cast_pointer cast_ptr_to_int""".split()
+         raw_store direct_call indirect_call cast_pointer
+         cast_ptr_to_int""".split()
 from pypy.objspace.flow.operation import FunctionByName
 _op += FunctionByName.keys() #operations with PyObjects are dangerous
 cannot_constant_fold = {}

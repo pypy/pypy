@@ -62,8 +62,11 @@ class PtrRepr(Repr):
         if isinstance(vlist[0], flowmodel.Constant):
             if hasattr(vlist[0].value, 'graph'):
                 hop.llops.record_extra_call(vlist[0].value.graph)
+            opname = 'direct_call'
+        else:
+            opname = 'indirect_call'
         hop.exception_is_here()
-        return hop.genop('direct_call', vlist,
+        return hop.genop(opname, vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
 
 

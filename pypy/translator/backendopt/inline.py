@@ -34,8 +34,7 @@ def find_callsites(graph, calling_what):
     def visit(block):
         if isinstance(block, Block):
             for i, op in enumerate(block.operations):
-                if not (op.opname == "direct_call" and
-                    isinstance(op.args[0], Constant)):
+                if not op.opname == "direct_call":
                     continue
                 funcobj = op.args[0].value._obj
                 graph = getattr(funcobj, 'graph', None)
@@ -335,8 +334,7 @@ def static_callers(translator, ignore_primitives=False):
     def build_call_graph(node):
         if isinstance(node, Block):
             for op in node.operations:
-                if (op.opname == "direct_call" and
-                    isinstance(op.args[0], Constant)):
+                if op.opname == "direct_call":
                     funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:

@@ -378,13 +378,13 @@ def has_no_side_effects(translator, graph, seen=None):
                 if op.opname in lloperations_with_side_effects:
                     raise HasSideEffects
                 if op.opname == "direct_call":
-                    if isinstance(op.args[0], Variable):
-                        raise HasSideEffects
                     g = get_graph(op.args[0], translator)
                     if g is None:
                         raise HasSideEffects
                     if not has_no_side_effects(translator, g, seen + [graph]):
                         raise HasSideEffects
+                elif op.opname == "indirect_call":
+                    raise HasSideEffects
         traverse(visit, graph)
     except HasSideEffects:
         return False

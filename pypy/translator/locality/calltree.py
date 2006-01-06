@@ -68,21 +68,20 @@ class CallTree:
             for op in block.operations:
                 if op.opname == 'direct_call':
                     fnarg = op.args[0]
-                    if isinstance(fnarg, Constant):
-                        fnptr = fnarg.value
-                        fn = fnptr._obj
-                        graph = fn.graph
-                        try:
-                            callednode = self.graphs2nodes[graph]
-                        except KeyError:
-                            s = "No node found for graph %s" % graph.name
-                            log.calltree.findCallees(s)
-                            continue
-                        else:
-                            res.append(callednode)
-                    else:
-                        s = "Node %s calls Variable %s" % (node.name, fnarg)
+                    fnptr = fnarg.value
+                    fn = fnptr._obj
+                    graph = fn.graph
+                    try:
+                        callednode = self.graphs2nodes[graph]
+                    except KeyError:
+                        s = "No node found for graph %s" % graph.name
                         log.calltree.findCallees(s)
+                        continue
+                    else:
+                        res.append(callednode)
+                elif op.opname == 'indirect_call':
+                    s = "Node %s calls Variable %s" % (node.name, op.args[0])
+                    log.calltree.findCallees(s)
         return res
 
     def simulate(self):
