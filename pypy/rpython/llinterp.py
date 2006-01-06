@@ -319,7 +319,16 @@ class LLFrame(object):
         frame = self.__class__(graph, args, self.llinterpreter, self)
         return frame.eval()
 
-    op_indirect_call = op_direct_call  # XXX for now
+    def op_indirect_call(self, f, *args):
+        graphs = args[-1]
+        args = args[:-1]
+        if graphs is not None:
+            obj = self.llinterpreter.typer.type_system.deref(f)
+            if hasattr(obj, 'graph'):
+                assert obj.graph in graphs 
+        else:
+            print "this should ideally not happen", f, graphs, args
+        return self.op_direct_call(f, *args)
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:
