@@ -315,10 +315,7 @@ class FunctionsPBCRepr(CanBeNull, Repr):
         if isinstance(vlist[0], Constant):
             v = hop.genop('direct_call', vlist, resulttype = rresult)
         else:
-            print row_of_graphs
-            c = Constant(row_of_graphs.values())
-            c.concretetype = Void
-            vlist.append(c)
+            vlist.append(hop.inputconst(Void, row_of_graphs.values()))
             v = hop.genop('indirect_call', vlist, resulttype = rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 

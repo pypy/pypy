@@ -65,9 +65,7 @@ class PtrRepr(Repr):
             opname = 'direct_call'
         else:
             opname = 'indirect_call'
-            c = flowmodel.Constant(None)
-            c.concretetype = Void
-            vlist.append(c)
+            vlist.append(hop.inputconst(Void, None))
         hop.exception_is_here()
         return hop.genop(opname, vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
