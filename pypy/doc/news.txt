@@ -9,6 +9,17 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+Preliminary EU reports released
+===============================
+
+After many hours of writing and typo-hunting we finally finished the
+`EU-reports`_. They contain most of the material found on our regular
+documentation page but also a lot of new material not covered there. Note that
+all these documents are not approved by the European Union and therefore only
+preliminary. *(01/06/2006)*
+
+.. _`EU-reports`: http://codespeak.net/pypy/dist/pypy/doc/index-report.html
+
 Next PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
 ===============================================================
 
