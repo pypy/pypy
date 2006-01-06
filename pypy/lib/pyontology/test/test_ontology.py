@@ -279,7 +279,6 @@ def test_symmetricproperty():
     sub = URIRef('Alice')
     O.type(sub, None, obj)
     O.variables['friend_'].setValues([('Bob_','Alice_')])
-    print O.variables['friend_']._dict
     O.consistency()
     assert ('Alice_', 'Bob_') in O.variables['friend_'].getValues()
 
@@ -307,6 +306,5 @@ def test_inverseof():
     O.variables['owner_'].setValues([('Bob_','Fiat_')])
     py.test.raises(ConsistencyFailure, O.consistency)
     O.variables['ownedby_'].setValues([('Fiat_','Bob_')])
-    print O.variables
     O.consistency()
     assert not '_anon' in O.variables
