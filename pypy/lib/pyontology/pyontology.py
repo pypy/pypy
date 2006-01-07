@@ -67,8 +67,10 @@ class ClassDomain(AbstractDomain):
         self.values = values
 
 class List(ClassDomain):
-    pass
-
+    def __init__(self, name='', values=[], bases = []):
+        ClassDomain.__init__(self, name, values, bases)
+        self.constraint = ListConstraint(name)
+        
 class Property(ClassDomain):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
@@ -217,8 +219,8 @@ class Ontology(Graph):
         return Solver().solve(rep, verbose)
 
     def consistency(self, verbose=0):
-        rep = Repository(self.variables.keys(), self.variables, self.constraints)
-        rep.consistency(verbose)
+        self.rep = Repository(self.variables.keys(), self.variables, self.constraints[:])
+        self.rep.consistency(verbose)
  
     def get_list(self, subject):
         res = []
@@ -244,7 +246,9 @@ class Ontology(Graph):
             if ns not in uris.keys():
                 uris[ns] = ns.split('/')[-1]
             a = uris[ns] + '_' + name    
-        var = str(a.replace('-','_'))
+            var = str(a.replace('-','_'))
+        else:
+            var = a
         if not cls:
             return var
         if not var in self.variables.keys():
@@ -301,10 +305,23 @@ class Ontology(Graph):
                 self.constraints.append(cls.constraint)
 
     def first(self, s, var):
-        pass
+        avar = self.make_var(None, var)
+        svar = self.make_var(List, s)
+        vals = []
+        vals += self.variables[svar].getValues()
+        vals.insert(0, avar)
+        self.variables[svar].setValues(vals)
 
     def rest(self, s, var):
-        pass
+        if var == URIRef(namespaces['rdf']+'#nil'):
+            return 
+        else:
+            avar = self.make_var(List, var)
+        svar = self.make_var(List, s)
+        vals = []
+        vals += self.variables[svar].getValues()
+        vals.append( avar)
+        self.variables[svar].setValues(vals)
 
     def onProperty(self, s, var):
         pass
@@ -473,12 +490,12 @@ class OwlConstraint(AbstractConstraint):
         return self.__cost
 
 
-class MaxCardinality(OwlConstraint):
+class MaxCardinality(AbstractConstraint):
     """Contraint: all values must be distinct"""
 
     def __init__(self, variable, cls, cardinality):
-        OwlConstraint.__init__(self, variable)
-        self.__cost = 1
+        AbstractConstraint.__init__(self, [variable, cls])
+        self.__cost = 2
         self.cardinality = cardinality
         self.cls = cls
 
@@ -526,10 +543,10 @@ def get_values(dom, domains, attr = 'getValues'):
             res.extend(get_values(domains[val], domains, attr))
     return res
 
-class SubClassConstraint(OwlConstraint):
+class SubClassConstraint(AbstractConstraint):
 
     def __init__(self, variable, cls_or_restriction):
-        OwlConstraint.__init__(self, variable)
+        AbstractConstraint.__init__(self, [variable, cls_or_restriction])
         self.object = cls_or_restriction
         self.variable = variable
 
@@ -569,7 +586,6 @@ class RangeConstraint(SubClassConstraint):
         propdom = domains[self.variable]
         rangedom = domains[self.object]
         newrange = get_values(rangedom, domains, 'getValues')  
-        print rangedom
         range = []
         oldrange = propdom.range
         if oldrange:
@@ -702,8 +718,28 @@ class InverseofConstraint(SubClassConstraint):
         for cls, val in sub_domain:
             if not (val,cls) in obj_domain:
                 raise ConsistencyFailure("Inverseof failed") 
-##            res.append((val, cls))
-##        domains[self.variable].setValues(res)
+
+class ListConstraint(AbstractConstraint):
+    """Contraint: all values must be distinct"""
+    def __init__(self, variable):
+        AbstractConstraint.__init__(self, [variable])
+        self.variable = variable
+        self.__cost = 10
+
+    def estimateCost(self, domains):
+        return self.__cost
+
+    def narrow(self, domains):
+        """narrowing algorithm for the constraint"""
+        vals =[]
+        vals += domains[self.variable].getValues()
+        while True:
+            if vals[-1] in domains.keys() and isinstance(domains[vals[-1]], List):
+                vals = vals[:-1] + domains[vals[-1]].getValues()
+            else:
+                break
+        domains[self.variable].setValues(vals)
+        return 1
 
 class HasvalueConstraint:
     pass

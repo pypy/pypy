@@ -317,3 +317,18 @@ def no_test_hasvalue():
     #Make class
     O.variables['owner_'].setValues([('Fiat_', 42)])
     O.consistency()
+
+def test_List():
+    O = Ontology()
+    own = URIRef('favlist')
+    obj = URIRef(namespaces['rdf']+'#List')
+    O.type(own, obj)
+    O.first(own, 0)
+    O.rest(own,  URIRef('1'))
+    O.first( URIRef('1'), 1)
+    O.rest( URIRef('1'),  URIRef('2'))
+    O.first( URIRef('2'), 2)
+    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
+    assert len(O.constraints) == 1
+    O.consistency(5)
+    assert O.rep._domains['favlist_'].getValues() == [0,1,2]
