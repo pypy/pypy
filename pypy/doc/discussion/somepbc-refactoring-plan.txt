@@ -91,22 +91,7 @@ Implementation plan
 Status
 ======
 
-* the branch is here
-
-* pypy/annotation/desc.py looks good.
-
-* translator.py is heading in the right direction by having been split
-  in two classes: a TranslationContext that is just a bag of graphs, and
-  an obsolete Translator subclass that provides all the interactive
-  methods (that should eventually be done via the translator/goal/driver
-  code, but probably not as part of the same refactoring).
-
-* the annotator has now "synthetic classes", i.e. ClassDefs that
-  point back to the ClassDesc abstracting the user class, instead
-  of pointing directly back to the user class.  It's needed to reimplement
-  class specialization.  All annotator tests pass at the moment.
-
-* we started looking in the RTyper (but it's still completely broken).
+Done, branch merged.
 
 
 RTyping PBCs of functions
