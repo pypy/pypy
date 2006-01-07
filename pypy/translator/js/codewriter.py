@@ -140,8 +140,6 @@ class CodeWriter(object):
         labels = ','.join(["'%s':%s" % (value, label) for value, label in value_labels])
         #XXX for performance this Object should become global
         self.append("if (!(block = {%s}[%s])) block = %s" % (labels, cond, defaultdest))
-        self._goto_block('block')
-        self.skip_closeblock() 
 
     def openfunc(self, decl, funcnode, blocks): 
         self.decl     = decl
