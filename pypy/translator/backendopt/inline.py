@@ -82,62 +82,60 @@ def _find_exception_type(block):
         return None
     return ops[-4].args[2].value
 
-def _inline_function(translator, graph, block, index_operation):
-    op = block.operations[index_operation]
-    graph_to_inline = op.args[0].value._obj.graph
-    exception_guarded = False
-    if (block.exitswitch == c_last_exception and
-        index_operation == len(block.operations) - 1):
-        exception_guarded = True
-        if len(collect_called_graphs(graph_to_inline, translator)) != 0:
-            raise CannotInline("can't handle exceptions yet")
-    entrymap = mkentrymap(graph_to_inline)
-    beforeblock = block
-    afterblock = split_block(translator, graph, block, index_operation)
-    assert afterblock.operations[0] is op
-    #vars that need to be passed through the blocks of the inlined function
-    passon_vars = {beforeblock: [arg for arg in beforeblock.exits[0].args
-                                     if isinstance(arg, Variable)]}
-    copied_blocks = {}
-    varmap = {}
-    def get_new_name(var):
+
+
+class Inliner(object):
+    def __init__(self, translator, graph, block, index_operation):
+        self.translator = translator
+        self.graph = graph
+        self.varmap = {}
+        self.beforeblock = block
+        self.copied_blocks = {}
+        self.do_inline(block, index_operation)
+
+    def get_new_name(self, var):
         if var is None:
             return None
         if isinstance(var, Constant):
             return var
-        if var not in varmap:
-            varmap[var] = copyvar(translator, var)
-        return varmap[var]
-    def get_new_passon_var_names(block):
-        result = [copyvar(translator, var) for var in passon_vars[beforeblock]]
-        passon_vars[block] = result
+        if var not in self.varmap:
+            self.varmap[var] = copyvar(self.translator, var)
+        return self.varmap[var]
+        
+    def get_new_passon_var_names(self, block):
+        result = [copyvar(self.translator, var) for var in self.passon_vars[self.beforeblock]]
+        self.passon_vars[block] = result
         return result
-    def copy_operation(op):
-        args = [get_new_name(arg) for arg in op.args]
-        return SpaceOperation(op.opname, args, get_new_name(op.result))
-    def copy_block(block):
-        if block in copied_blocks:
+        
+    def copy_operation(self, op):
+        args = [self.get_new_name(arg) for arg in op.args]
+        return SpaceOperation(op.opname, args, self.get_new_name(op.result))
+
+    def copy_block(self, block):
+        if block in self.copied_blocks:
             "already there"
-            return copied_blocks[block]
-        args = ([get_new_name(var) for var in block.inputargs] +
-                get_new_passon_var_names(block))
+            return self.copied_blocks[block]
+        args = ([self.get_new_name(var) for var in block.inputargs] +
+                self.get_new_passon_var_names(block))
         newblock = Block(args)
-        copied_blocks[block] = newblock
-        newblock.operations = [copy_operation(op) for op in block.operations]
-        newblock.exits = [copy_link(link, block) for link in block.exits]
-        newblock.exitswitch = get_new_name(block.exitswitch)
+        self.copied_blocks[block] = newblock
+        newblock.operations = [self.copy_operation(op) for op in block.operations]
+        newblock.exits = [self.copy_link(link, block) for link in block.exits]
+        newblock.exitswitch = self.get_new_name(block.exitswitch)
         newblock.exc_handler = block.exc_handler
         return newblock
-    def copy_link(link, prevblock):
-        newargs = [get_new_name(a) for a in link.args] + passon_vars[prevblock]
-        newlink = Link(newargs, copy_block(link.target), link.exitcase)
-        newlink.prevblock = copy_block(link.prevblock)
-        newlink.last_exception = get_new_name(link.last_exception)
-        newlink.last_exc_value = get_new_name(link.last_exc_value)
+
+    def copy_link(self, link, prevblock):
+        newargs = [self.get_new_name(a) for a in link.args] + self.passon_vars[prevblock]
+        newlink = Link(newargs, self.copy_block(link.target), link.exitcase)
+        newlink.prevblock = self.copy_block(link.prevblock)
+        newlink.last_exception = self.get_new_name(link.last_exception)
+        newlink.last_exc_value = self.get_new_name(link.last_exc_value)
         if hasattr(link, 'llexitcase'):
             newlink.llexitcase = link.llexitcase
         return newlink
-    def generate_keepalive(vars):
+        
+    def generate_keepalive(self, vars):
         keepalive_ops = []
         for v in vars:
             if isinstance(v, Constant):
@@ -149,133 +147,155 @@ def _inline_function(translator, graph, block, index_operation):
             keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
         return keepalive_ops
 
-    linktoinlined = beforeblock.exits[0]
-    assert linktoinlined.target is afterblock
-    copiedstartblock = copy_block(graph_to_inline.startblock)
-    copiedstartblock.isstartblock = False
-    #find args passed to startblock of inlined function
-    passon_args = []
-    for arg in op.args[1:]:
-        if isinstance(arg, Constant):
-            passon_args.append(arg)
-        else:
-            index = afterblock.inputargs.index(arg)
-            passon_args.append(linktoinlined.args[index])
-    passon_args += passon_vars[beforeblock]
-    #rewire blocks
-    linktoinlined.target = copiedstartblock
-    linktoinlined.args = passon_args
-    afterblock.inputargs = [op.result] + afterblock.inputargs
-    afterblock.operations = generate_keepalive(afterblock.inputargs) + afterblock.operations[1:]
-    if graph_to_inline.returnblock in entrymap:
-        copiedreturnblock = copied_blocks[graph_to_inline.returnblock]
-        linkfrominlined = Link([copiedreturnblock.inputargs[0]] + passon_vars[graph_to_inline.returnblock], afterblock)
-        linkfrominlined.prevblock = copiedreturnblock
-        copiedreturnblock.exitswitch = None
-        copiedreturnblock.exits = [linkfrominlined]
-        assert copiedreturnblock.exits[0].target == afterblock
-    if graph_to_inline.exceptblock in entrymap:
-        #let links to exceptblock of the graph to inline go to graphs exceptblock
-        copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]
-        if not exception_guarded:
-            # find all copied links that go to copiedexceptblock
-            for link in entrymap[graph_to_inline.exceptblock]:
-                copiedblock = copied_blocks[link.prevblock]
-                for copiedlink in copiedblock.exits:
-                    if copiedlink.target is copiedexceptblock:
-                        copiedlink.args = copiedlink.args[:2]
-                        copiedlink.target = graph.exceptblock
-                        for a1, a2 in zip(copiedlink.args,
-                                          graph.exceptblock.inputargs):
-                            if hasattr(a2, 'concretetype'):
-                                assert a1.concretetype == a2.concretetype
-                            else:
-                                # if graph.exceptblock was never used before
-                                a2.concretetype = a1.concretetype
-        else:
-            def find_args_in_exceptional_case(link, block, etype, evalue):
-                linkargs = []
-                for arg in link.args:
-                    if arg == link.last_exception:
-                        linkargs.append(etype)
-                    elif arg == link.last_exc_value:
-                        linkargs.append(evalue)
-                    elif isinstance(arg, Constant):
-                        linkargs.append(arg)
-                    else:
-                        index = afterblock.inputargs.index(arg)
-                        linkargs.append(passon_vars[block][index - 1])
-                return linkargs
-            exc_match = Constant(
-                translator.rtyper.getexceptiondata().fn_exception_match)
-            exc_match.concretetype = typeOf(exc_match.value)
-            #try to match the exceptions for simple cases
-            for link in entrymap[graph_to_inline.exceptblock]:
-                copiedblock = copied_blocks[link.prevblock]
-                copiedlink = copiedblock.exits[0]
-                eclass = _find_exception_type(copiedblock)
-                #print copiedblock.operations
-                if eclass is None:
-                    continue
-                etype = copiedlink.args[0]
-                evalue = copiedlink.args[1]
-                for exceptionlink in afterblock.exits[1:]:
-                    if exc_match.value(eclass, exceptionlink.llexitcase):
-                        copiedblock.operations += generate_keepalive(
-                            passon_vars[link.prevblock])
-                        copiedlink.target = exceptionlink.target
-                        linkargs = find_args_in_exceptional_case(exceptionlink,
-                                                                 link.prevblock,
-                                                                 etype, evalue)
-                        copiedlink.args = linkargs
-                        break
-            #XXXXX don't look: insert blocks that do exception matching
-            #for the cases where direct matching did not work
-            blocks = []
-            for i, link in enumerate(afterblock.exits[1:]):
-                etype = copyvar(translator, copiedexceptblock.inputargs[0])
-                evalue = copyvar(translator, copiedexceptblock.inputargs[1])
-                block = Block([etype, evalue] + get_new_passon_var_names(link.target))
-                res = Variable()
-                res.concretetype = Bool
-                translator.annotator.bindings[res] = annmodel.SomeBool()
-                cexitcase = Constant(link.llexitcase)
-                cexitcase.concretetype = typeOf(cexitcase.value)
-                args = [exc_match, etype, cexitcase]
-                block.operations.append(SpaceOperation("direct_call", args, res))
-                block.exitswitch = res
-                linkargs = find_args_in_exceptional_case(link, link.target,
-                                                         etype, evalue)
-                l = Link(linkargs, link.target)
-                l.prevblock = block
-                l.exitcase = True
-                l.llexitcase = True
-                block.exits.append(l)
-                if i > 0:
-                    l = Link(blocks[-1].inputargs, block)
-                    l.prevblock = blocks[-1]
-                    l.exitcase = False
-                    l.llexitcase = False
-                    blocks[-1].exits.insert(0, l)
-                blocks.append(block)
-            blocks[-1].exits = blocks[-1].exits[:1]
-            blocks[-1].operations = []
-            blocks[-1].exitswitch = None
-            blocks[-1].exits[0].exitcase = None
-            del blocks[-1].exits[0].llexitcase
-            linkargs = copiedexceptblock.inputargs
-            copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
-            copiedexceptblock.operations += generate_keepalive(linkargs)
-    if exception_guarded:
-        assert afterblock.exits[0].exitcase is None
-        afterblock.exits = [afterblock.exits[0]]
-        afterblock.exitswitch = None
-    #cleaning up -- makes sense to be here, because I insert quite
-    #some empty blocks and blocks that can be joined
-    checkgraph(graph)
-    eliminate_empty_blocks(graph)
-    join_blocks(graph)
-    remove_identical_vars(graph)
+    def find_args_in_exceptional_case(self, link, block, etype, evalue, afterblock):
+        linkargs = []
+        for arg in link.args:
+            if arg == link.last_exception:
+                linkargs.append(etype)
+            elif arg == link.last_exc_value:
+                linkargs.append(evalue)
+            elif isinstance(arg, Constant):
+                linkargs.append(arg)
+            else:
+                index = afterblock.inputargs.index(arg)
+                linkargs.append(self.passon_vars[block][index - 1])
+        return linkargs
+
+    def do_inline(self, block, index_operation):
+        # original
+        op = block.operations[index_operation]
+        graph_to_inline = op.args[0].value._obj.graph
+        exception_guarded = False
+        if (block.exitswitch == c_last_exception and
+            index_operation == len(block.operations) - 1):
+            exception_guarded = True
+            if len(collect_called_graphs(graph_to_inline, self.translator)) != 0:
+                raise CannotInline("can't handle exceptions yet")
+        entrymap = mkentrymap(graph_to_inline)
+        afterblock = split_block(self.translator, self.graph, block, index_operation)
+        assert afterblock.operations[0] is op
+        #vars that need to be passed through the blocks of the inlined function
+        self.passon_vars = {
+            self.beforeblock: [arg for arg in self.beforeblock.exits[0].args
+                                   if isinstance(arg, Variable)]}
+
+        linktoinlined = self.beforeblock.exits[0]
+        assert linktoinlined.target is afterblock
+        copiedstartblock = self.copy_block(graph_to_inline.startblock)
+        copiedstartblock.isstartblock = False
+        #find args passed to startblock of inlined function
+        passon_args = []
+        for arg in op.args[1:]:
+            if isinstance(arg, Constant):
+                passon_args.append(arg)
+            else:
+                index = afterblock.inputargs.index(arg)
+                passon_args.append(linktoinlined.args[index])
+        passon_args += self.passon_vars[self.beforeblock]
+        #rewire blocks
+        linktoinlined.target = copiedstartblock
+        linktoinlined.args = passon_args
+        afterblock.inputargs = [op.result] + afterblock.inputargs
+        afterblock.operations = self.generate_keepalive(afterblock.inputargs) + afterblock.operations[1:]
+        if graph_to_inline.returnblock in entrymap:
+            copiedreturnblock = self.copied_blocks[graph_to_inline.returnblock] # XXX
+            linkfrominlined = Link([copiedreturnblock.inputargs[0]] + self.passon_vars[graph_to_inline.returnblock], afterblock)
+            linkfrominlined.prevblock = copiedreturnblock
+            copiedreturnblock.exitswitch = None
+            copiedreturnblock.exits = [linkfrominlined]
+            assert copiedreturnblock.exits[0].target == afterblock
+        if graph_to_inline.exceptblock in entrymap:
+            #let links to exceptblock of the graph to inline go to graphs exceptblock
+            copiedexceptblock = self.copied_blocks[graph_to_inline.exceptblock] #XXX 
+            if not exception_guarded:
+                # find all copied links that go to copiedexceptblock
+                for link in entrymap[graph_to_inline.exceptblock]:
+                    copiedblock = self.copied_blocks[link.prevblock]
+                    for copiedlink in copiedblock.exits:
+                        if copiedlink.target is copiedexceptblock:
+                            copiedlink.args = copiedlink.args[:2]
+                            copiedlink.target = self.graph.exceptblock
+                            for a1, a2 in zip(copiedlink.args,
+                                              self.graph.exceptblock.inputargs):
+                                if hasattr(a2, 'concretetype'):
+                                    assert a1.concretetype == a2.concretetype
+                                else:
+                                    # if self.graph.exceptblock was never used before
+                                    a2.concretetype = a1.concretetype
+            else:
+                exc_match = Constant(
+                    self.translator.rtyper.getexceptiondata().fn_exception_match)
+                exc_match.concretetype = typeOf(exc_match.value)
+                #try to match the exceptions for simple cases
+                for link in entrymap[graph_to_inline.exceptblock]:
+                    copiedblock = self.copied_blocks[link.prevblock]
+                    copiedlink = copiedblock.exits[0]
+                    eclass = _find_exception_type(copiedblock)
+                    #print copiedblock.operations
+                    if eclass is None:
+                        continue
+                    etype = copiedlink.args[0]
+                    evalue = copiedlink.args[1]
+                    for exceptionlink in afterblock.exits[1:]:
+                        if exc_match.value(eclass, exceptionlink.llexitcase):
+                            copiedblock.operations += self.generate_keepalive(
+                                self.passon_vars[link.prevblock])
+                            copiedlink.target = exceptionlink.target
+                            linkargs = self.find_args_in_exceptional_case(exceptionlink,
+                                                                          link.prevblock,
+                                                                          etype, evalue, afterblock)
+                            copiedlink.args = linkargs
+                            break
+                #XXXXX don't look: insert blocks that do exception matching
+                #for the cases where direct matching did not work
+                blocks = []
+                for i, link in enumerate(afterblock.exits[1:]):
+                    etype = copyvar(self.translator, copiedexceptblock.inputargs[0])
+                    evalue = copyvar(self.translator, copiedexceptblock.inputargs[1])
+                    block = Block([etype, evalue] + self.get_new_passon_var_names(link.target))
+                    res = Variable()
+                    res.concretetype = Bool
+                    self.translator.annotator.bindings[res] = annmodel.SomeBool()
+                    cexitcase = Constant(link.llexitcase)
+                    cexitcase.concretetype = typeOf(cexitcase.value)
+                    args = [exc_match, etype, cexitcase]
+                    block.operations.append(SpaceOperation("direct_call", args, res))
+                    block.exitswitch = res
+                    linkargs = self.find_args_in_exceptional_case(link, link.target,
+                                                                  etype, evalue, afterblock)
+                    l = Link(linkargs, link.target)
+                    l.prevblock = block
+                    l.exitcase = True
+                    l.llexitcase = True
+                    block.exits.append(l)
+                    if i > 0:
+                        l = Link(blocks[-1].inputargs, block)
+                        l.prevblock = blocks[-1]
+                        l.exitcase = False
+                        l.llexitcase = False
+                        blocks[-1].exits.insert(0, l)
+                    blocks.append(block)
+                blocks[-1].exits = blocks[-1].exits[:1]
+                blocks[-1].operations = []
+                blocks[-1].exitswitch = None
+                blocks[-1].exits[0].exitcase = None
+                del blocks[-1].exits[0].llexitcase
+                linkargs = copiedexceptblock.inputargs
+                copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
+                copiedexceptblock.operations += self.generate_keepalive(linkargs)
+        if exception_guarded:
+            assert afterblock.exits[0].exitcase is None
+            afterblock.exits = [afterblock.exits[0]]
+            afterblock.exitswitch = None
+        #cleaning up -- makes sense to be here, because I insert quite
+        #some empty blocks and blocks that can be joined
+        checkgraph(self.graph)
+        eliminate_empty_blocks(self.graph)
+        join_blocks(self.graph)
+        remove_identical_vars(self.graph)
+
+
+_inline_function = Inliner
 
 # ____________________________________________________________
 #
