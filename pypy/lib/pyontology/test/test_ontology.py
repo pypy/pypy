@@ -28,8 +28,8 @@ def test_subClassof():
     A = O.make_var(ClassDomain, a)
     C = O.make_var(ClassDomain, c)
     C = O.make_var(ClassDomain, b)
-    O.subClassOf(b, None, a)
-    O.subClassOf(c, None, b)
+    O.subClassOf(b, a)
+    O.subClassOf(c, b)
     for con in O.constraints:
         con.narrow(O.variables)
     assert len(O.variables) == 3
@@ -90,8 +90,8 @@ def test_equivalentClass():
     b = URIRef('B')
     c = URIRef('C')
     O = Ontology()
-    O.equivalentClass(c, None, a)
-    O.equivalentClass(c, None, b)
+    O.equivalentClass(c, a)
+    O.equivalentClass(c, b)
     A = O.make_var(ClassDomain, a)
     B = O.make_var(ClassDomain, b)
     assert O.variables[A].values == O.variables[B].values
@@ -102,7 +102,7 @@ def test_type():
     obj = URIRef('o')
     O = Ontology()
     O.make_var(ClassDomain, obj)
-    O.type(sub, pred , obj)
+    O.type(sub, obj)
     
     assert O.variables[O.make_var(None, sub)].__class__  == ClassDomain
 
@@ -111,7 +111,7 @@ def test_ObjectProperty():
     pred = URIRef('type')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O = Ontology()
-    O.type(sub, pred , obj)
+    O.type(sub, obj)
     assert O.variables[O.make_var(None, sub)].__class__  == ObjectProperty
 
 def test_range():
@@ -119,11 +119,11 @@ def test_range():
     sub = URIRef('a')
     obj = URIRef('b')
     O.variables['b_'] = fd([1,2,3,4])
-    O.range(sub, None , obj)
+    O.range(sub, obj)
     sub = URIRef('a')
     pred = URIRef('type')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, pred , obj)
+    O.type(sub, obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
     assert O.variables['a_'].range == [1,2,3,4]
@@ -133,14 +133,14 @@ def test_merge():
     sub = URIRef('a')
     obj = URIRef('b')
     O.variables['b_'] = fd([1,2,3,4])
-    O.range(sub, None , obj)
+    O.range(sub, obj)
     obj = URIRef('c')
     O.variables['c_'] = fd([3,4,5,6])
-    O.range(sub, None , obj)
+    O.range(sub, obj)
     sub = URIRef('a')
     pred = URIRef('type')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, pred , obj)
+    O.type(sub, obj)
     assert len(O.constraints) == 2
     O.consistency()
     assert O.variables['a_'].range == [ 3,4]
@@ -150,11 +150,11 @@ def test_domain():
     sub = URIRef('a')
     obj = URIRef('b')
     O.variables['b_'] = ClassDomain('b')
-    O.domain(sub, None , obj)
+    O.domain(sub, obj)
     sub = URIRef('a')
     pred = URIRef('type')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, pred , obj)
+    O.type(sub, obj)
     assert len(O.constraints) == 1
     O.constraints[0].narrow(O.variables)
     assert O.variables['a_'].domain == ['b_']
@@ -164,12 +164,12 @@ def test_domain_merge():
     sub = URIRef('a')
     obj = URIRef('b')
     O.variables['b_'] = ClassDomain('b')
-    O.domain(sub, None , obj)
+    O.domain(sub, obj)
     obj = URIRef('c')
     O.variables['c_'] = ClassDomain('c')
-    O.domain(sub, None , obj)
+    O.domain(sub, obj)
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, None , obj)
+    O.type(sub, obj)
     
     assert len(O.constraints) == 2
     for con in O.constraints:
@@ -180,10 +180,10 @@ def test_subproperty():
     O = Ontology()
     sub = URIRef('a')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     b = URIRef('b')
-    O.type(b, None, obj)
-    O.subPropertyOf(sub, None, b)
+    O.type(b, obj)
+    O.subPropertyOf(sub, b)
     assert len(O.constraints) ==1
     O.variables['a_'].setValues([('individ_',42)])
     O.consistency()
@@ -196,15 +196,15 @@ def test_functionalproperty():
     #Make functional property
     sub = URIRef('p')
     obj = URIRef(namespaces['owl']+'#FunctionalProperty')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make individual with a value of the property
     sub = URIRef('individ')
     obj = URIRef('c')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     O.variables['p_'].setValues([('individ_',42)])
     #assert len(O.constraints) == 2
     #add another valueof the property
@@ -218,21 +218,21 @@ def test_inversefunctionalproperty():
     #Make functional property
     sub = URIRef('p')
     obj = URIRef(namespaces['owl']+'#InverseFunctionalProperty')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make individual with a value of the property
     sub = URIRef('individ')
     obj = URIRef('c')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     O.variables['p_'].setValues([('individ_',42)])
     #assert len(O.constraints) == 2
     #add another individual with the same value for the property
     sub = URIRef('individ2')
     obj = URIRef('c')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     O.variables['p_'].setValues([('individ_',42),('individ2_',42)])
     #check that consistency raises
     py.test.raises(ConsistencyFailure, O.consistency)
@@ -243,19 +243,19 @@ def test_Transitiveproperty():
     #Make functional property
     sub = URIRef('subRegionOf')
     obj = URIRef(namespaces['owl']+'#TransitiveProperty')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make individual with a value of the property
     sub = URIRef('Italy')
     obj = URIRef('c')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     sub = URIRef('Tuscanny')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     sub = URIRef('Chianti')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
     O.consistency()
     assert ('Italy_', 'Chianti_') in O.variables['subRegionOf_'].getValues()
@@ -266,45 +266,54 @@ def test_symmetricproperty():
     #Make functional property
     sub = URIRef('friend')
     obj = URIRef(namespaces['owl']+'#SymmetricProperty')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     assert O.variables[O.make_var(None, sub)].__class__.__name__=='SymmetricProperty'
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make individual with a value of the property
     sub = URIRef('Bob')
     obj = URIRef('c')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     sub = URIRef('Alice')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     O.variables['friend_'].setValues([('Bob_','Alice_')])
     O.consistency()
     assert ('Alice_', 'Bob_') in O.variables['friend_'].getValues()
 
 def test_inverseof():
-    
     O = Ontology()
     own = URIRef('owner')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(own, None, obj)
+    O.type(own, obj)
     owned = URIRef('ownedby')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(owned, None, obj)
-    O.inverseOf(own, None, owned)
+    O.type(owned, obj)
+    O.inverseOf(own, owned)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     #Make individual with a property value
     sub = URIRef('Bob')
     obj = URIRef('c')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     sub = URIRef('Fiat')
     obj = URIRef('car')
-    O.type(sub, None, obj)
+    O.type(sub, obj)
     O.variables['owner_'].setValues([('Bob_','Fiat_')])
     py.test.raises(ConsistencyFailure, O.consistency)
     O.variables['ownedby_'].setValues([('Fiat_','Bob_')])
     O.consistency()
-    assert not '_anon' in O.variables
+    
+def no_test_hasvalue():
+    O = Ontology()
+    own = URIRef('owner')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(own, obj)
+    O.hasValue(own, 42)
+    py.test.raises(ConsistencyFailure, O.consistency)
+    #Make class
+    O.variables['owner_'].setValues([('Fiat_', 42)])
+    O.consistency()

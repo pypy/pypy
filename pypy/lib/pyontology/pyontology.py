@@ -196,7 +196,7 @@ class Ontology(Graph):
             if ns in namespaces.values():
                 #predicate is one of builtin OWL predicates
                 pred = getattr(self, func)
-                res = pred(s, p, o) 
+                res = pred(s, o) 
                 if not res :
                     continue
                 if type(res) != list :
@@ -211,20 +211,6 @@ class Ontology(Graph):
                 res = self.variables[avar].getValues() 
                 self.variables[avar].setValues(res + [(sub, obj)])
 
-    def merge_constraints(self):
-        # Make the intersection of multiple rdfs:range constraints on the same variable
-        cons_dict = {}
-        new_cons =[]
-        for con in self.constraints:
-            if isinstance(con, RangeConstraint):
-                cons_dict.setdefault(con.variable, [])
-                cons_dict[con.variable].append(con)
-            else:
-                new_cons.append(con)
-        for k,v in cons_dict.items():
-            for con in v:
-                pass
-                
     def solve(self,verbose=0):
         #self.merge_constraints()
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
@@ -299,7 +285,7 @@ class Ontology(Graph):
     
 #---------------- Implementation ----------------
 
-    def type(self, s, p, var):
+    def type(self, s, var):
         if not (var in [URIRef(namespaces[ns]+'#'+x) for x in builtin_voc for ns in namespaces]):
             # var is not one of the builtin classes
             avar = self.make_var(ClassDomain, var)
@@ -314,18 +300,18 @@ class Ontology(Graph):
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
 
-    def first(self, s, p, var):
+    def first(self, s, var):
         pass
 
-    def rest(self, s, p, var):
+    def rest(self, s, var):
         pass
 
-    def onProperty(self, s, p, var):
+    def onProperty(self, s, var):
         pass
 
 #---Class Axioms---#000000#FFFFFF-----------------------------------------------
 
-    def subClassOf(self, s, p, var):
+    def subClassOf(self, s, var):
         # s is a subclass of var means that the 
         # class extension of s is a subset of the
         # class extension of var. 
@@ -334,24 +320,24 @@ class Ontology(Graph):
         cons = SubClassConstraint( svar, avar)
         self.constraints.append(cons)
 
-    def equivalentClass(self, s, p, var):
-        self.subClassOf(s, p, var)
-        self.subClassOf(var, p, s)
+    def equivalentClass(self, s, var):
+        self.subClassOf(s, var)
+        self.subClassOf(var, s)
 
-    def disjointWith(self, s, p, var):
+    def disjointWith(self, s, var):
         avar = self.make_var(None, var)
         svar = self.make_var(None, s)
         constrain = DisjointClassConstraint(svar, avar) 
         self.constraints.append(constrain)
 
-    def complementOf(self, s, p, var):
+    def complementOf(self, s, var):
         # add constraint of not var
         # TODO: implementthis for OWL DL
 ##        avar = self.make_var(ClassDomain, var)
 ##        svar = self.make_var(ClassDomain, s)
             pass
 
-    def oneOf(self, s, p, var):
+    def oneOf(self, s, var):
         res = self.get_list(var)
         #prop = self.find_uriref(s)
         avar = self.make_var(None, s)
@@ -360,11 +346,11 @@ class Ontology(Graph):
         else:
             self.variables[avar] = fd(res)
 
-    def unionOf(self,s, p, var):
+    def unionOf(self,s, var):
         res = self.get_list(var)
         return res #There might be doubles (but fd takes care of that)
 
-    def intersectionOf(self, s, p, var):
+    def intersectionOf(self, s, var):
         res = self.get_list(var)
         result = {}.fromkeys(res[0])
         for el in res:
@@ -375,33 +361,33 @@ class Ontology(Graph):
 
 #---Property Axioms---#000000#FFFFFF--------------------------------------------
 
-    def range(self, s, p, var):
+    def range(self, s, var):
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(Property, s)
         cons = RangeConstraint(svar, avar)
         self.constraints.append(cons)
 
-    def domain(self, s, p, var):
+    def domain(self, s, var):
         # The classes that has this property (s) must belong to the class extension of var
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(Property, s)
         cons = DomainConstraint(svar, avar)
         self.constraints.append(cons)
 
-    def subPropertyOf(self, s, p, var):
+    def subPropertyOf(self, s, var):
         # s is a subproperty of var
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
         cons = SubPropertyConstraint( svar, avar)
         self.constraints.append(cons)
 
-    def equivalentProperty(self, s, p, var):
+    def equivalentProperty(self, s, var):
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
         cons = EquivalentPropertyConstraint( svar, avar)
         self.constraints.append(cons)
 
-    def inverseOf(self, s, p, var):
+    def inverseOf(self, s, var):
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
         con = InverseofConstraint(svar, avar)
@@ -409,21 +395,21 @@ class Ontology(Graph):
 
 #---Property restrictions------------------------------------------------------
 
-    def maxCardinality(self, s, p, var):
+    def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
         avar = self.find_property(s)
         cls =self.make_var(None, self.find_cls(s))
         constrain = MaxCardinality(avar, cls, int(var))
         self.constraints.append(constrain) 
 
-    def minCardinality(self, s, p, var):
+    def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
         avar = self.find_property(s)
         cls =self.make_var(None, self.find_cls(s))
         constrain = MinCardinality(avar, cls, int(var))
         self.constraints.append(constrain) 
 
-    def cardinality(self, s, p, var):
+    def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
         avar = self.find_property(s)
         cls =self.make_var(None, self.find_cls(s))
@@ -431,37 +417,43 @@ class Ontology(Graph):
         constrain = Cardinality(avar, cls, int(var))
         self.constraints.append(constrain) 
 
-    def differentFrom(self, s, p, var):
+    def differentFrom(self, s, var):
         s_var = self.make_var(ClassDomain, s)
         var_var = self.make_var(Thing, var)
         constrain = BinaryExpression([s_var, var_var],"%s != %s" %(s_var,  var_var))
         self.constraints.append(constrain)
 
-    def distinctMembers(self, s, p, var):
+    def distinctMembers(self, s, var):
         res = self.get_list(var)
         self.constraints.append(AllDistinct([self.make_var(ClassDomain, y) for y in res]))
         return res
 
-    def sameAs(self, s, p, var):
+    def sameAs(self, s, var):
         s_var = self.make_var(None, s)
         var_var = self.make_var(None, var)
         constrain = BinaryExpression([s_var, var_var],
                "%s == %s" %(s_var, var_var))
         self.constraints.append(constrain)
 
-    def hasValue(self, s, p, var):
+    def hasValue(self, s, var):
+        if type(var) != URIRef:
+            value = var
+        else:
+            value = self.make_var(None, var)
+        prop = self.find_prop(s)
+        cls = self.make_var(None, self.find_cls(s))
+        con = HasvalueConstraint(prop, cls, value)
+        self.constraints.append(con)
+        
+    def allValuesFrom(self, s, var):
         # TODO: implement this 
         pass
 
-    def allValuesFrom(self, s, p, var):
+    def someValuesFrom(self, s, var):
         # TODO: implement this 
         pass
 
-    def someValuesFrom(self, s, p, var):
-        # TODO: implement this 
-        pass
-
-    def imports(self, s, p, var):
+    def imports(self, s, var):
         # PP TODO: implement this 
         pass
 
@@ -712,3 +704,6 @@ class InverseofConstraint(SubClassConstraint):
                 raise ConsistencyFailure("Inverseof failed") 
 ##            res.append((val, cls))
 ##        domains[self.variable].setValues(res)
+
+class HasvalueConstraint:
+    pass
