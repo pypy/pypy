@@ -24,7 +24,7 @@ class compile_function(object):
         t = Translator(function)
         a = t.annotate(annotation)
         t.specialize()
-        t.backend_optimizations(inline_threshold=0, mallocs=False, merge_if_blocks_to_switch=False)
+        t.backend_optimizations(inline_threshold=0, mallocs=False)
         #t.backend_optimizations()
         if view:
             t.view()

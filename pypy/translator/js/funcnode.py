@@ -83,13 +83,39 @@ class FuncNode(Node):
     def write_block_branches(self, codewriter, block):
         if block.exitswitch == c_last_exception:
             return
+
         if len(block.exits) == 1:
             codewriter.br_uncond(self.blockindex[block.exits[0].target], block.exits[0])
-        elif len(block.exits) == 2:
-            cond = self.db.repr_arg(block.exitswitch)
+            return
+
+        cond = self.db.repr_arg(block.exitswitch)
+        if block.exitswitch.concretetype == lltype.Bool:
+            assert len(block.exits) == 2
             codewriter.br(cond,
                           self.blockindex[block.exits[0].target], block.exits[0],
                           self.blockindex[block.exits[1].target], block.exits[1])
+
+        elif block.exitswitch.concretetype in \
+            (lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
+             lltype.UnsignedLongLong, lltype.Char, lltype.UniChar):
+            defaultlink = None
+            value_labels = []
+            for link in block.exits:
+                if link.exitcase is 'default':
+                    defaultlink = link
+                    continue
+
+                exitcase = link.llexitcase
+                if block.exitswitch.concretetype in [lltype.Char, lltype.UniChar]:
+                    exitcase = ord(exitcase)
+                value_labels.append( (exitcase,
+                                      self.blockindex[link.target]) )
+
+            codewriter.switch(cond, self.blockindex[defaultlink.target], value_labels)
+
+        else:
+           raise BranchException("exitswitch type '%s' not supported" %
+                                 block.exitswitch.concretetype)  
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)

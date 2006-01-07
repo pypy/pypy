@@ -134,6 +134,15 @@ class CodeWriter(object):
         self.append('}')
         self.skip_closeblock()
 
+    def switch(self, cond, defaultdest, value_labels):
+        if not defaultdest:
+            raise TypeError('switches must have a default case.') 
+        labels = ','.join(["'%s':%s" % (value, label) for value, label in value_labels])
+        #XXX for performance this Object should become global
+        self.append("if (!(block = {%s}[%s])) block = %s" % (labels, cond, defaultdest))
+        self._goto_block('block')
+        self.skip_closeblock() 
+
     def openfunc(self, decl, funcnode, blocks): 
         self.decl     = decl
         self.funcnode = funcnode
