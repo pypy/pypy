@@ -575,3 +575,4 @@ def allattributenames(classdef):
     for cdef1 in classdef.getmro():
         for attrname in cdef1.attrs:
             yield cdef1, attrname
+
