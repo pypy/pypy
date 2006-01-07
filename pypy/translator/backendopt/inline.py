@@ -1,6 +1,6 @@
 import sys
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-from pypy.translator.simplify import remove_identical_vars
+from pypy.translator.simplify import remove_identical_vars, get_graph
 from pypy.translator.unsimplify import copyvar, split_block
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
@@ -18,16 +18,24 @@ class CannotInline(Exception):
     pass
 
 
-def collect_called_functions(graph):
-    funcs = {}
-    def visit(obj):
-        if not isinstance(obj, Block):
-            return
-        for op in obj.operations:
+def collect_called_graphs(graph, translator):
+    graphs_or_something = {}
+    for block in graph.iterblocks():
+        for op in block.operations:
             if op.opname == "direct_call":
-                funcs[op.args[0]] = True
-    traverse(visit, graph)
-    return funcs
+                graph = get_graph(op.args[0], translator)
+                if graph is not None:
+                    graphs_or_something[graph] = True
+                else:
+                    graphs_or_something[op.args[0]] = True
+            if op.opname == "indirect_call":
+                graphs = op.args[-1].value
+                if graphs is None:
+                    graphs_or_something[op.args[0]] = True
+                else:
+                    for graph in graphs:
+                        graphs_or_something[graph] = True
+    return graphs_or_something
 
 def find_callsites(graph, calling_what):
     callsites = []
@@ -81,7 +89,7 @@ def _inline_function(translator, graph, block, index_operation):
     if (block.exitswitch == c_last_exception and
         index_operation == len(block.operations) - 1):
         exception_guarded = True
-        if len(collect_called_functions(graph_to_inline)) != 0:
+        if len(collect_called_graphs(graph_to_inline, translator)) != 0:
             raise CannotInline("can't handle exceptions yet")
     entrymap = mkentrymap(graph_to_inline)
     beforeblock = block
@@ -277,6 +285,7 @@ OP_WEIGHTS = {'same_as': 0,
               'cast_pointer': 0,
               'keepalive': 0,
               'direct_call': 2,    # guess
+              'indirect_call': 2,  # guess
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               }
 

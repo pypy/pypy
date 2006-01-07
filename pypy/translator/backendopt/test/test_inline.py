@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
-from pypy.translator.backendopt.inline import collect_called_functions
+from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
@@ -277,7 +277,7 @@ def test_auto_inlining_small_call_big():
             return -1
     eval_func, t = check_auto_inlining(f, [int], threshold=10)
     f_graph = graphof(t, f)
-    assert len(collect_called_functions(f_graph)) == 0
+    assert len(collect_called_graphs(f_graph, t)) == 0
 
     result = eval_func([10])
     assert result == 45
@@ -357,3 +357,27 @@ def test_measure_median_execution_cost():
     graph = t.buildflowgraph(f)
     res = measure_median_execution_cost(graph)
     assert res == 19
+
+def test_indirect_call_with_exception():
+    class MyExc(Exception):
+        pass
+    def x1():
+        return 1
+    def x2():
+        return 2
+    def x3(x):
+        if x:
+            f = x1
+        else:
+            f = x2
+        return f()
+    def x4():
+        try:
+            x3(0)
+            x3(1)
+        except MyExc:
+            return 0
+        return 1
+    assert x4() == 1
+    py.test.raises(CannotInline, check_inline, x3, x4, [])
+
