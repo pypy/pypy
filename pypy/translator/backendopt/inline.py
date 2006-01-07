@@ -79,9 +79,8 @@ def _find_exception_type(block):
         block.exits[0].args[1] != ops[-1].result or
         not isinstance(ops[-4].args[1], Constant) or
         ops[-4].args[1].value != "typeptr"):
-        return None
-    return ops[-4].args[2].value
-
+        return None, None
+    return ops[-4].args[2].value, block.exits[0]
 
 
 class Inliner(object):
@@ -185,7 +184,11 @@ class Inliner(object):
         if not self.exception_guarded:
             self.rewire_exceptblock_no_guard(afterblock, copiedexceptblock)
         else:
+            # first try to match exceptions using a very simple heuristic
             self.rewire_exceptblock_with_guard(afterblock, copiedexceptblock)
+            # generate blocks that do generic matching for cases when the
+            # heuristic did not work
+            self.generic_exception_matching(afterblock, copiedexceptblock)
 
     def rewire_exceptblock_no_guard(self, afterblock, copiedexceptblock):
          # find all copied links that go to copiedexceptblock
@@ -204,21 +207,19 @@ class Inliner(object):
                             a2.concretetype = a1.concretetype
     
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
-        exc_match = Constant(
-            self.translator.rtyper.getexceptiondata().fn_exception_match)
-        exc_match.concretetype = typeOf(exc_match.value)
-        #try to match the exceptions for simple cases
+        # this rewiring does not always succeed. in the cases where it doesn't
+        # there will be generic code inserted
+        exc_match = self.translator.rtyper.getexceptiondata().fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
             copiedblock = self.copied_blocks[link.prevblock]
-            copiedlink = copiedblock.exits[0]
-            eclass = _find_exception_type(copiedblock)
+            eclass, copiedlink = _find_exception_type(copiedblock)
             #print copiedblock.operations
             if eclass is None:
                 continue
             etype = copiedlink.args[0]
             evalue = copiedlink.args[1]
             for exceptionlink in afterblock.exits[1:]:
-                if exc_match.value(eclass, exceptionlink.llexitcase):
+                if exc_match(eclass, exceptionlink.llexitcase):
                     copiedblock.operations += self.generate_keepalive(
                         self.passon_vars[link.prevblock])
                     copiedlink.target = exceptionlink.target
@@ -226,8 +227,13 @@ class Inliner(object):
                         exceptionlink, link.prevblock, etype, evalue, afterblock)
                     copiedlink.args = linkargs
                     break
+
+    def generic_exception_matching(self, afterblock, copiedexceptblock):
         #XXXXX don't look: insert blocks that do exception matching
         #for the cases where direct matching did not work
+        exc_match = Constant(
+            self.translator.rtyper.getexceptiondata().fn_exception_match)
+        exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
             etype = copyvar(self.translator, copiedexceptblock.inputargs[0])
