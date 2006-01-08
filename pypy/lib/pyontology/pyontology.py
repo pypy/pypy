@@ -468,18 +468,16 @@ class Ontology(Graph):
         self.constraints.append(constrain)
 
     def hasValue(self, s, var):
-        if type(var) != URIRef:
-            value = var
-        else:
-            value = self.make_var(None, var)
-        prop = self.find_prop(s)
-        cls = self.make_var(None, self.find_cls(s))
-        con = HasvalueConstraint(prop, cls, value)
-        self.constraints.append(con)
+        svar = self.make_var(Restriction, s)
+        avar = self.make_var(None, var)
+        constrain = HasvalueConstraint(svar, avar)
+        self.constraints.append(constrain)
         
     def allValuesFrom(self, s, var):
-        # TODO: implement this 
-        pass
+        svar = self.make_var(Restriction, s)
+        avar = self.make_var(None, var)
+        constrain = AllValueConstraint(svar, avar)
+        self.constraints.append(constrain)
 
     def someValuesFrom(self, s, var):
         svar = self.make_var(Restriction, s)
@@ -815,7 +813,6 @@ class SomeValueConstraint(AbstractConstraint):
         return 100
         
     def narrow(self, domains):
-        print self.variable,self.List
         val = domains[self.List].getValues()
         property = domains[self.variable].property
         cls = domains[self.variable].cls
@@ -828,5 +825,46 @@ class SomeValueConstraint(AbstractConstraint):
                     "The value of the property %s in the class %s has no values from %r"
                         %(property, cls, val))
 
-class HasvalueConstraint:
-    pass
+class AllValueConstraint(AbstractConstraint):
+
+    def __init__(self, variable, List):
+        AbstractConstraint.__init__(self, [variable, List])
+        self.variable = variable
+        self.List = List
+
+    def estimateCost(self, domains):
+        return 100
+        
+    def narrow(self, domains):
+        val = domains[self.List].getValues()
+        property = domains[self.variable].property
+        cls = domains[self.variable].cls
+        prop = Linkeddict(domains[property].getValues())
+        for v in prop[cls]:
+            if not v in val:
+                raise ConsistencyFailure(
+                    "The value of the property %s in the class %s has a value not from %r"
+                        %(property, cls, val))
+
+class HasvalueConstraint(AbstractConstraint):
+    def __init__(self, variable, List):
+        AbstractConstraint.__init__(self, [variable])
+        self.variable = variable
+        self.List = List
+
+    def estimateCost(self, domains):
+        return 100
+        
+    def narrow(self, domains):
+        val = self.List #domains[self.List].getValues()
+        property = domains[self.variable].property
+        cls = domains[self.variable].cls
+        prop = Linkeddict(domains[property].getValues())
+        for v in prop[cls]:
+            if v == val:
+                break
+        else:
+            raise ConsistencyFailure(
+                    "The value of the property %s in the class %s has a value not from %r"
+                        %(property, cls, val))
+
