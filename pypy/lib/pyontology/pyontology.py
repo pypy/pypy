@@ -233,7 +233,7 @@ class Ontology(Graph):
         return Solver().solve(rep, verbose)
 
     def consistency(self, verbose=0):
-        self.rep = Repository(self.variables.keys(), self.variables, self.constraints[:])
+        self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
         self.rep.consistency(verbose)
  
     def get_list(self, subject):
@@ -267,11 +267,11 @@ class Ontology(Graph):
             return var
         if not var in self.variables.keys():
             self.variables[var] = cls(var)
-        elif type(self.variables[var]) != cls:
-            olddom = self.variables[var]
-            newdom = cls(var)
-            newdom.setValues(olddom.getValues())
-            self.variables[var] = newdom
+##        elif type(self.variables[var]) != cls:
+##            olddom = self.variables[var]
+##            newdom = cls(var)
+##            newdom.setValues(olddom.getValues())
+##            self.variables[var] = newdom
         return var 
 
     def find_prop(self, s):
@@ -374,7 +374,7 @@ class Ontology(Graph):
 
     def oneOf(self, s, var):
         avar = self.make_var(List, var)
-        svar = self.make_var(None, s)
+        svar = self.make_var(ClassDomain, s)
         cons = OneofPropertyConstraint(svar, avar)
         self.constraints.append(cons)
 
@@ -430,15 +430,15 @@ class Ontology(Graph):
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
         svar =self.make_var(Restriction, s)
-        avar =self.make_var(None, var)
-        constrain = MaxCardinality(avar, cls, var)
+        #avar =self.make_var(None, var)
+        constrain = MaxCardinality(svar, None, int(var))
         self.constraints.append(constrain) 
 
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
         avar = self.find_property(s)
         cls =self.make_var(None, self.find_cls(s))
-        constrain = MinCardinality(avar, cls, int(var))
+        constrain = MinCardinality(avar, None, int(var))
         self.constraints.append(constrain) 
 
     def cardinality(self, s, var):
@@ -446,7 +446,7 @@ class Ontology(Graph):
         avar = self.find_property(s)
         cls =self.make_var(None, self.find_cls(s))
         # Check if var is an int, else find the int buried in the structure
-        constrain = Cardinality(avar, cls, int(var))
+        constrain = Cardinality(avar, None, int(var))
         self.constraints.append(constrain) 
 
     def differentFrom(self, s, var):
@@ -599,6 +599,9 @@ class ComplementClassConstraint(SubClassConstraint):
         superdom = domains[self.object]
 
 class RangeConstraint(SubClassConstraint):
+
+    def estimateCost(self, domains):
+        return 200
 
     def narrow(self, domains):
         propdom = domains[self.variable]
@@ -798,5 +801,6 @@ class OneofPropertyConstraint(AbstractConstraint):
         else:
             domains[self.variable].setValues(val)
             return 1
+
 class HasvalueConstraint:
     pass
