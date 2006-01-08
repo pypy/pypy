@@ -149,8 +149,22 @@ class SymmetricProperty(Property):
         self.constraint = SymmetricConstraint(name)
 
 class Restriction(ClassDomain):
-    pass
-
+    """ A owl:restriction is an anonymous class that links a class to a restriction on a property
+        The restriction is only applied to the property in the conntext of the specific task. In order
+        to construct a constraint to check the restriction three things are thus needed :
+            1. The property to which the restriction applies - this comes from the onProperty tripple. 
+                the property is saved in the Restriction class' property attribute
+            2. The restriction itself. This comes from one of the property restrictions triples (oneOf, 
+                maxCardinality ....). It adds a constraint class
+            3. The class in which context the restriction should be applied. This comes from subClassOf, 
+                The class is saved in the restrictions clsattribute
+        """
+    def __init__(self, name='', values=[], bases = []):
+        ClassDomain.__init__(self, name, values, bases)
+        self.constraint = RestrictionConstraint(name)
+        self.property = None
+        self.cls = None
+        
 builtin_voc = {
                'Thing' : Thing,
                'Class' : ClassDomain,
@@ -298,8 +312,10 @@ class Ontology(Graph):
             self.constraints.append(constrain)
         else:
             # var is a builtin class
+            svar = self.make_var(None, s)
             cls =builtin_voc[var.split('#')[-1]]
-            svar = self.make_var(cls, s)
+            if not (self.variables.has_key(svar) and isinstance(self.variables, cls)):
+                svar = self.make_var(cls, s)
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
@@ -324,7 +340,9 @@ class Ontology(Graph):
         self.variables[svar].setValues(vals)
 
     def onProperty(self, s, var):
-        pass
+        svar =self.make_var(Restriction, s)
+        avar =self.make_var(Property, var)
+        self.variables[svar].property = avar
 
 #---Class Axioms---#000000#FFFFFF-----------------------------------------------
 
@@ -333,7 +351,7 @@ class Ontology(Graph):
         # class extension of s is a subset of the
         # class extension of var. 
         avar = self.make_var(None, var)
-        svar = self.make_var(None, s)
+        svar = self.make_var(ClassDomain, s)
         cons = SubClassConstraint( svar, avar)
         self.constraints.append(cons)
 
@@ -355,13 +373,10 @@ class Ontology(Graph):
             pass
 
     def oneOf(self, s, var):
-        res = self.get_list(var)
-        #prop = self.find_uriref(s)
-        avar = self.make_var(None, s)
-        if self.variables.get(avar) and type(self.variables[avar]) == fd:
-            self.variables[avar] = fd(list(self.variables[avar].getValues()) + res)
-        else:
-            self.variables[avar] = fd(res)
+        avar = self.make_var(List, var)
+        svar = self.make_var(None, s)
+        cons = OneofPropertyConstraint(svar, avar)
+        self.constraints.append(cons)
 
     def unionOf(self,s, var):
         res = self.get_list(var)
@@ -414,9 +429,9 @@ class Ontology(Graph):
 
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
-        avar = self.find_property(s)
-        cls =self.make_var(None, self.find_cls(s))
-        constrain = MaxCardinality(avar, cls, int(var))
+        svar =self.make_var(Restriction, s)
+        avar =self.make_var(None, var)
+        constrain = MaxCardinality(avar, cls, var)
         self.constraints.append(constrain) 
 
     def minCardinality(self, s, var):
@@ -496,6 +511,7 @@ class MaxCardinality(AbstractConstraint):
     def __init__(self, variable, cls, cardinality):
         AbstractConstraint.__init__(self, [variable, cls])
         self.__cost = 2
+        self.variable = variable
         self.cardinality = cardinality
         self.cls = cls
 
@@ -506,7 +522,7 @@ class MaxCardinality(AbstractConstraint):
         """narrowing algorithm for the constraint"""
         prop = Linkeddict(domains[self.variable].getValues())
         if len(prop[self.cls]) > self.cardinality:
-            raise ConsistencyFailure("Maxcardinality exceeded")
+            raise ConsistencyFailure("Maxcardinality of %i exceeded by the value %i" %(self.cardinality,len(prop[self.cls])))
         else:
             return 1
 
@@ -516,7 +532,7 @@ class MinCardinality(MaxCardinality):
         """narrowing algorithm for the constraint"""
         prop = Linkeddict(domains[self.variable].getValues())
         if len(prop[self.cls]) < self.cardinality:
-            raise ConsistencyFailure("MinCardinality not accomplished")
+            raise ConsistencyFailure("MinCardinalityof %i exceeded by the value %i" %(self.cardinality,len(prop[self.cls])))
         else:
             return 1
         
@@ -526,7 +542,7 @@ class Cardinality(MaxCardinality):
         """narrowing algorithm for the constraint"""
         prop = Linkeddict(domains[self.variable].getValues())
         if len(prop[self.cls]) != self.cardinality:
-            raise ConsistencyFailure("Cardinality constraint not met")
+            raise ConsistencyFailure("Cardinality of %i exceeded by the value %i" %(self.cardinality,len(prop[self.cls])))
         else:
             return 1
 
@@ -556,6 +572,8 @@ class SubClassConstraint(AbstractConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
+        if isinstance(superdom, Restriction):
+            superdom.cls = self.variable
         bases = get_values(superdom, domains, 'getBases')  
         subdom.bases += [bas for bas in bases if bas not in subdom.bases]
         vals = get_values(subdom, domains, 'getValues')
@@ -741,5 +759,41 @@ class ListConstraint(AbstractConstraint):
         domains[self.variable].setValues(vals)
         return 1
 
+class RestrictionConstraint(AbstractConstraint):
+    def __init__(self, variable):
+        AbstractConstraint.__init__(self, [variable])
+        self.variable = variable
+
+    def estimateCost(self, domains):
+        return 90
+
+    def narrow(self, domains):
+        prop = domains[self.variable].property
+        cls = domains[self.variable].cls
+        props = domains[prop].getValues()
+        props.append((cls, None))
+        domains[prop].setValues(props)
+        
+class OneofPropertyConstraint(AbstractConstraint):
+
+    def __init__(self, variable, List):
+        AbstractConstraint.__init__(self, [variable, List])
+        self.variable = variable
+        self.List = List
+
+    def estimateCost(self, domains):
+        return 100
+        
+    def narrow(self, domains):
+        property = domains[self.variable].property
+        cls = domains[self.variable].cls
+        val = domains[self.List].getValues()
+        prop = Linkeddict(domains[property].getValues())
+        for v in prop[cls]:
+            if not v in val:
+                raise ConsistencyFailure(
+                    "The value of the property %s in the class %s is not oneof %r"
+                        %(property, cls, val))
+                        
 class HasvalueConstraint:
     pass
