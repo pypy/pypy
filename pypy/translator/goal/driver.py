@@ -47,7 +47,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log = log
 
         if options is None:
-            options = DEFAULT_OPTIONS 
+            options = DEFAULT_OPTIONS
         self.options = options
  
         self.done = {}
@@ -341,7 +341,7 @@ class TranslationDriver(SimpleTaskEngine):
         if args is None:
             args = []
         if options is None:
-            options = DEFAULT_OPTIONS.copy()
+            options = DEFAULT_OPTIONS
 
         driver = TranslationDriver(options, default_goal, disable)
             

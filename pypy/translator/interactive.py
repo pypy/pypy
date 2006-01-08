@@ -3,7 +3,7 @@ import optparse
 from pypy.translator.translator import TranslationContext
 from pypy.translator.goal import driver
 
-DEFAULT_OPTIONS = optparse.Values(defaults={
+DEFAULT_OPTIONS = {
   'gc': 'ref',
 
   'thread': False, # influences GC policy
@@ -15,8 +15,10 @@ DEFAULT_OPTIONS = optparse.Values(defaults={
    'backend': None,
    'lowmem': False,
 
-   'fork_before': None
-})
+   'fork_before': None,
+
+   'merge_if_blocks': True
+}
 
 class Translation(object):
 
@@ -27,8 +29,9 @@ class Translation(object):
         graph = self.context.buildflowgraph(entry_point)
         self.context._prebuilt_graphs[entry_point] = graph
 
-        self.driver = driver.TranslationDriver(DEFAULT_OPTIONS)
-        
+        self.driver = driver.TranslationDriver(
+            optparse.Values(defaults=DEFAULT_OPTIONS))
+         
         # hook into driver events
         driver_own_event = self.driver._event
         def _event(kind, goal, func):
@@ -44,6 +47,10 @@ class Translation(object):
     GOAL_USES_OPTS = {
         'annotate': ['debug'],
         'rtype': ['insist'],
+        'backendopt': ['merge_if_blocks'],
+        'database_c': ['gc', 'stackless'],
+        'source_llvm': ['gc', 'stackless'],
+        'source_c': [],
     }
 
     def driver_event(self, kind, goal, func):
@@ -72,13 +79,20 @@ class Translation(object):
     def update_options(self, argtypes, kwds):
         if argtypes or kwds.get('policy'):
             self.ensure_setup(argtypes, kwds.get('policy'))
-        for optname, value in kwds:
+        for optname, value in kwds.iteritems():
             if optname in self.frozen_options:
                 if getattr(self.driver.options, optname) != value:
                      raise Exception("incosistent option supplied: %s" % optname)
             else:
                 setattr(self.driver.options, optname, value)
                 self.frozen_options[optname] = True
+
+    def ensure_backend(self, backend=None):
+        if backend is not None:
+            self.update_options(None, {'backend': backend})
+        if self.driver.options.backend is None:
+            raise Exception("a backend should have been specified at this point")
+        return self.driver.options.backend
 
     # backend independent
 
@@ -90,15 +104,32 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         return self.driver.rtype()
 
-    # backend depedent xxx
+    # backend depedent
+    # xxx finish
+    # xxx how to skip a goal?
 
-    def source(self, argtypes, **kwds):
+    def backendopt(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend()
+        self.driver.backendopt()
+
+    def backendopt_c(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('c')
+        self.driver.backendopt()
+            
+    def source(self, argtypes=None, **kwds):
         backend = self.ensure_backend()
         self.update_options(argtypes, kwds)
         getattr(self.driver, 'source_'+backend)()
        
-    def source_c(self, argtypes, **kwds):
+    def source_c(self, argtypes=None, **kwds):
         self.ensure_backend('c')
+        self.update_options(argtypes, kwds)
+        self.driver.source_c()
+
+    def source_llvm(self, argtypes=None, **kwds):
+        self.ensure_backend('llvm')
         self.update_options(argtypes, kwds)
         self.driver.source_c()
         

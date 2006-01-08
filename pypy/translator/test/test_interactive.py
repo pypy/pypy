@@ -38,3 +38,36 @@ def test_simple_rtype():
     t = Translation(f, [int, int])
     t.annotate()
     py.test.raises(Exception, "t.rtype([int, int],debug=False)")
+
+def test_simple_backendopt():
+    def f(x, y):
+        return x,y
+
+    t = Translation(f, [int, int], backend='c')
+    t.backendopt()
+
+    t = Translation(f, [int, int])
+    t.backendopt_c()
+
+    t = Translation(f, [int, int])
+    py.test.raises(Exception, "t.backendopt()")
+
+def test_simple_source():
+    def f(x, y):
+        return x,y
+
+    t = Translation(f, backend='c')
+    t.annotate([int, int])
+    t.source()
+
+    t = Translation(f, [int, int])
+    t.source_c()
+
+    # this doesn't work, there is to be a bug in llvm backend code
+    #t = Translation(f, [int, int], backend='llvm')
+    #t.source()
+    #t = Translation(f, [int, int])
+    #t.source_llvm()
+
+    t = Translation(f, [int, int])
+    py.test.raises(Exception, "t.source()")
