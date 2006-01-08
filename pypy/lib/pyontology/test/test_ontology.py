@@ -358,3 +358,20 @@ def test_oneofrestriction():
     O.type(own, obj)
     O.subClassOf(own,restrict)
     py.test.raises(ConsistencyFailure, O.consistency)
+
+def test_oneofclassenumeration():
+    O = Ontology()
+    restrict = BNode('anon')
+    own = URIRef('favlist')
+    obj = URIRef(namespaces['rdf']+'#List')
+    O.type(own, obj)
+    O.first(own, URIRef('first'))
+    O.rest(own,  URIRef('1'))
+    O.first( URIRef('1'), URIRef('second'))
+    O.rest( URIRef('1'),  URIRef('2'))
+    O.first( URIRef('2'), URIRef('third'))
+    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
+    O.oneOf(restrict, own)
+    O.type(restrict, namespaces['owl']+'#Class')
+    O.consistency(4)
+    assert len(O.rep._domains[restrict].getValues()) == 3

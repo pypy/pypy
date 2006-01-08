@@ -785,15 +785,18 @@ class OneofPropertyConstraint(AbstractConstraint):
         return 100
         
     def narrow(self, domains):
-        property = domains[self.variable].property
-        cls = domains[self.variable].cls
         val = domains[self.List].getValues()
-        prop = Linkeddict(domains[property].getValues())
-        for v in prop[cls]:
-            if not v in val:
-                raise ConsistencyFailure(
-                    "The value of the property %s in the class %s is not oneof %r"
-                        %(property, cls, val))
-                        
+        if isinstance(domains[self.variable],Restriction):
+            property = domains[self.variable].property
+            cls = domains[self.variable].cls
+            prop = Linkeddict(domains[property].getValues())
+            for v in prop[cls]:
+                if not v in val:
+                    raise ConsistencyFailure(
+                        "The value of the property %s in the class %s is not oneof %r"
+                            %(property, cls, val))
+        else:
+            domains[self.variable].setValues(val)
+            return 1
 class HasvalueConstraint:
     pass
