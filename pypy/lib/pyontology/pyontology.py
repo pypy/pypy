@@ -482,8 +482,10 @@ class Ontology(Graph):
         pass
 
     def someValuesFrom(self, s, var):
-        # TODO: implement this 
-        pass
+        svar = self.make_var(Restriction, s)
+        avar = self.make_var(None, var)
+        constrain = SomeValueConstraint(svar, avar)
+        self.constraints.append(constrain)
 
     def imports(self, s, var):
         # PP TODO: implement this 
@@ -801,6 +803,30 @@ class OneofPropertyConstraint(AbstractConstraint):
         else:
             domains[self.variable].setValues(val)
             return 1
+
+class SomeValueConstraint(AbstractConstraint):
+
+    def __init__(self, variable, List):
+        AbstractConstraint.__init__(self, [variable, List])
+        self.variable = variable
+        self.List = List
+
+    def estimateCost(self, domains):
+        return 100
+        
+    def narrow(self, domains):
+        print self.variable,self.List
+        val = domains[self.List].getValues()
+        property = domains[self.variable].property
+        cls = domains[self.variable].cls
+        prop = Linkeddict(domains[property].getValues())
+        for v in prop[cls]:
+            if v in val:
+                break
+        else:
+            raise ConsistencyFailure(
+                    "The value of the property %s in the class %s has no values from %r"
+                        %(property, cls, val))
 
 class HasvalueConstraint:
     pass
