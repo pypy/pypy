@@ -89,7 +89,7 @@ class Inliner(object):
         self.graph = graph
         self.varmap = {}
         self.beforeblock = block
-        self.copied_blocks = {}
+        self._copied_blocks = {}
         self.op = block.operations[index_operation]
         self.graph_to_inline = self.op.args[0].value._obj.graph
         self.exception_guarded = False
@@ -98,6 +98,7 @@ class Inliner(object):
             self.exception_guarded = True
             if len(collect_called_graphs(self.graph_to_inline, self.translator)) != 0:
                 raise CannotInline("can't handle exceptions yet")
+        self._passon_vars = {}
         self.entrymap = mkentrymap(self.graph_to_inline)
         self.do_inline(block, index_operation)
         self.cleanup()
@@ -111,9 +112,12 @@ class Inliner(object):
             self.varmap[var] = copyvar(self.translator, var)
         return self.varmap[var]
         
-    def get_new_passon_var_names(self, block):
-        result = [copyvar(self.translator, var) for var in self.passon_vars[self.beforeblock]]
-        self.passon_vars[block] = result
+    def passon_vars(self, cache_key):
+        if cache_key in self._passon_vars:
+            return self._passon_vars[cache_key]
+        result = [copyvar(self.translator, var)
+                      for var in self.original_passon_vars]
+        self._passon_vars[cache_key] = result
         return result
         
     def copy_operation(self, op):
@@ -121,13 +125,12 @@ class Inliner(object):
         return SpaceOperation(op.opname, args, self.get_new_name(op.result))
 
     def copy_block(self, block):
-        if block in self.copied_blocks:
-            "already there"
-            return self.copied_blocks[block]
+        if block in self._copied_blocks:
+            return self._copied_blocks[block]
         args = ([self.get_new_name(var) for var in block.inputargs] +
-                self.get_new_passon_var_names(block))
+                self.passon_vars(block))
         newblock = Block(args)
-        self.copied_blocks[block] = newblock
+        self._copied_blocks[block] = newblock
         newblock.operations = [self.copy_operation(op) for op in block.operations]
         newblock.exits = [self.copy_link(link, block) for link in block.exits]
         newblock.exitswitch = self.get_new_name(block.exitswitch)
@@ -135,7 +138,7 @@ class Inliner(object):
         return newblock
 
     def copy_link(self, link, prevblock):
-        newargs = [self.get_new_name(a) for a in link.args] + self.passon_vars[prevblock]
+        newargs = [self.get_new_name(a) for a in link.args] + self.passon_vars(prevblock)
         newlink = Link(newargs, self.copy_block(link.target), link.exitcase)
         newlink.prevblock = self.copy_block(link.prevblock)
         newlink.last_exception = self.get_new_name(link.last_exception)
@@ -156,7 +159,7 @@ class Inliner(object):
             keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
         return keepalive_ops
 
-    def find_args_in_exceptional_case(self, link, block, etype, evalue, afterblock):
+    def find_args_in_exceptional_case(self, link, block, etype, evalue, afterblock, passon_vars):
         linkargs = []
         for arg in link.args:
             if arg == link.last_exception:
@@ -167,12 +170,14 @@ class Inliner(object):
                 linkargs.append(arg)
             else:
                 index = afterblock.inputargs.index(arg)
-                linkargs.append(self.passon_vars[block][index - 1])
+                linkargs.append(passon_vars[index - 1])
         return linkargs
 
     def rewire_returnblock(self, afterblock):
-        copiedreturnblock = self.copied_blocks[self.graph_to_inline.returnblock] # XXX
-        linkfrominlined = Link([copiedreturnblock.inputargs[0]] + self.passon_vars[self.graph_to_inline.returnblock], afterblock)
+        copiedreturnblock = self.copy_block(self.graph_to_inline.returnblock)
+        linkargs = ([copiedreturnblock.inputargs[0]] +
+                    self.passon_vars(self.graph_to_inline.returnblock))
+        linkfrominlined = Link(linkargs, afterblock)
         linkfrominlined.prevblock = copiedreturnblock
         copiedreturnblock.exitswitch = None
         copiedreturnblock.exits = [linkfrominlined]
@@ -180,7 +185,7 @@ class Inliner(object):
        
     def rewire_exceptblock(self, afterblock):
         #let links to exceptblock of the graph to inline go to graphs exceptblock
-        copiedexceptblock = self.copied_blocks[self.graph_to_inline.exceptblock] #XXX 
+        copiedexceptblock = self.copy_block(self.graph_to_inline.exceptblock)
         if not self.exception_guarded:
             self.rewire_exceptblock_no_guard(afterblock, copiedexceptblock)
         else:
@@ -193,7 +198,7 @@ class Inliner(object):
     def rewire_exceptblock_no_guard(self, afterblock, copiedexceptblock):
          # find all copied links that go to copiedexceptblock
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
-            copiedblock = self.copied_blocks[link.prevblock]
+            copiedblock = self.copy_block(link.prevblock)
             for copiedlink in copiedblock.exits:
                 if copiedlink.target is copiedexceptblock:
                     copiedlink.args = copiedlink.args[:2]
@@ -211,7 +216,7 @@ class Inliner(object):
         # there will be generic code inserted
         exc_match = self.translator.rtyper.getexceptiondata().fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
-            copiedblock = self.copied_blocks[link.prevblock]
+            copiedblock = self.copy_block(link.prevblock)
             eclass, copiedlink = _find_exception_type(copiedblock)
             #print copiedblock.operations
             if eclass is None:
@@ -220,11 +225,11 @@ class Inliner(object):
             evalue = copiedlink.args[1]
             for exceptionlink in afterblock.exits[1:]:
                 if exc_match(eclass, exceptionlink.llexitcase):
-                    copiedblock.operations += self.generate_keepalive(
-                        self.passon_vars[link.prevblock])
+                    passon_vars = self.passon_vars(link.prevblock)
+                    copiedblock.operations += self.generate_keepalive(passon_vars)
                     copiedlink.target = exceptionlink.target
                     linkargs = self.find_args_in_exceptional_case(
-                        exceptionlink, link.prevblock, etype, evalue, afterblock)
+                        exceptionlink, link.prevblock, etype, evalue, afterblock, passon_vars)
                     copiedlink.args = linkargs
                     break
 
@@ -238,7 +243,8 @@ class Inliner(object):
         for i, link in enumerate(afterblock.exits[1:]):
             etype = copyvar(self.translator, copiedexceptblock.inputargs[0])
             evalue = copyvar(self.translator, copiedexceptblock.inputargs[1])
-            block = Block([etype, evalue] + self.get_new_passon_var_names(link.target))
+            passon_vars = self.passon_vars(i)
+            block = Block([etype, evalue] + passon_vars)
             res = Variable()
             res.concretetype = Bool
             self.translator.annotator.bindings[res] = annmodel.SomeBool()
@@ -248,7 +254,8 @@ class Inliner(object):
             block.operations.append(SpaceOperation("direct_call", args, res))
             block.exitswitch = res
             linkargs = self.find_args_in_exceptional_case(link, link.target,
-                                                          etype, evalue, afterblock)
+                                                          etype, evalue, afterblock,
+                                                          passon_vars)
             l = Link(linkargs, link.target)
             l.prevblock = block
             l.exitcase = True
@@ -272,14 +279,16 @@ class Inliner(object):
 
       
     def do_inline(self, block, index_operation):
-        # original
         afterblock = split_block(self.translator, self.graph, block, index_operation)
+        # these variables have to be passed along all the links in the inlined
+        # graph because the original function needs them in the blocks after
+        # the inlined function
+        # for every inserted block we need a new copy of these variables,
+        # this copy is created with the method passon_vars
+        self.original_passon_vars = [arg for arg in self.beforeblock.exits[0].args
+                                         if isinstance(arg, Variable)]
         assert afterblock.operations[0] is self.op
         #vars that need to be passed through the blocks of the inlined function
-        self.passon_vars = {
-            self.beforeblock: [arg for arg in self.beforeblock.exits[0].args
-                                   if isinstance(arg, Variable)]}
-
         linktoinlined = self.beforeblock.exits[0]
         assert linktoinlined.target is afterblock
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
@@ -292,7 +301,7 @@ class Inliner(object):
             else:
                 index = afterblock.inputargs.index(arg)
                 passon_args.append(linktoinlined.args[index])
-        passon_args += self.passon_vars[self.beforeblock]
+        passon_args += self.original_passon_vars
         #rewire blocks
         linktoinlined.target = copiedstartblock
         linktoinlined.args = passon_args
