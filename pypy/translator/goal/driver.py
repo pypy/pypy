@@ -52,15 +52,11 @@ class TranslationDriver(SimpleTaskEngine):
  
         self.done = {}
 
-        maybe_skip = []
-        if disable:
-             for goal in  self.backend_select_goals(disable):
-                 maybe_skip.extend(self._depending_on_closure(goal))
-        self.maybe_skip = dict.fromkeys(maybe_skip).keys()
+        self.disable(disable)
 
         if default_goal:
             default_goal, = self.backend_select_goals([default_goal])
-            if default_goal in self.maybe_skip:
+            if default_goal in self._maybe_skip():
                 default_goal = None
         
         self.default_goal = default_goal
@@ -90,6 +86,17 @@ class TranslationDriver(SimpleTaskEngine):
                 assert goal in self.tasks
                 l.append(goal)
         return l
+
+    def disable(self, to_disable):
+        self._disabled = to_disable
+
+    def _maybe_skip(self):
+        maybe_skip = []
+        if self._disabled:
+             for goal in  self.backend_select_goals(self._disabled):
+                 maybe_skip.extend(self._depending_on_closure(goal))
+        return dict.fromkeys(maybe_skip).keys()
+
 
     def setup(self, entry_point, inputtypes, policy=None, extra={}, empty_translator=None):
         standalone = inputtypes is None
@@ -333,7 +340,7 @@ class TranslationDriver(SimpleTaskEngine):
         elif isinstance(goals, str):
             goals = [goals]
         goals = self.backend_select_goals(goals)
-        return self._execute(goals, task_skip = self.maybe_skip)
+        return self._execute(goals, task_skip = self._maybe_skip())
 
     def from_targetspec(targetspec_dic, options=None, args=None, empty_translator=None, 
                         disable=[],

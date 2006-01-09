@@ -51,11 +51,13 @@ class Translation(object):
         'database_c': ['gc', 'stackless'],
         'source_llvm': ['gc', 'stackless'],
         'source_c': [],
+        'compile_c': [],
+        'compile_llvm': [],
     }
 
     def driver_event(self, kind, goal, func):
         if kind == 'pre':
-             print goal
+             #print goal
              self.ensure_setup()
         elif kind == 'post':
             used_opts = dict.fromkeys(self.GOAL_USES_OPTS[goal], True)
@@ -97,6 +99,10 @@ class Translation(object):
             self.update_options(None, {'gc': 'boehm'})
         return backend
 
+    # disable some goals (steps)
+    def disable(self, to_disable):
+        self.driver.disable(to_disable)
+
     # backend independent
 
     def annotate(self, argtypes=None, **kwds):
@@ -108,8 +114,6 @@ class Translation(object):
         return self.driver.rtype()
 
     # backend depedent
-    # xxx finish
-    # xxx how to skip a goal?
 
     def backendopt(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
@@ -122,17 +126,35 @@ class Translation(object):
         self.driver.backendopt()
             
     def source(self, argtypes=None, **kwds):
-        backend = self.ensure_backend()
         self.update_options(argtypes, kwds)
+        backend = self.ensure_backend()
         getattr(self.driver, 'source_'+backend)()
        
     def source_c(self, argtypes=None, **kwds):
-        self.ensure_backend('c')
         self.update_options(argtypes, kwds)
+        self.ensure_backend('c')
         self.driver.source_c()
 
     def source_llvm(self, argtypes=None, **kwds):
-        self.ensure_backend('llvm')
         self.update_options(argtypes, kwds)
-        self.driver.source_c()
-        
+        self.ensure_backend('llvm')
+        self.driver.source_llvm()
+
+    def compile(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        backend = self.ensure_backend()
+        getattr(self.driver, 'compile_'+backend)()
+        return self.driver.c_entryp
+       
+    def compile_c(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('c')
+        self.driver.compile_c()
+        return self.driver.c_entryp
+
+    def compile_llvm(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('llvm')
+        self.driver.compile_llvm()
+        return self.driver.c_entryp
+  
