@@ -6,7 +6,6 @@ from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 
 from pypy.translator.llvm.genllvm import genllvm_compile
-from pypy.translator.translator import Translator
 
 def p():
     print 'Running on top of CPython:'
