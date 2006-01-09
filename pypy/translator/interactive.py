@@ -1,7 +1,7 @@
 import optparse
 
 from pypy.translator.translator import TranslationContext
-from pypy.translator.goal import driver
+from pypy.translator import driver
 
 DEFAULT_OPTIONS = {
   'gc': 'ref',

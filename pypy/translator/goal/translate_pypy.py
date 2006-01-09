@@ -256,7 +256,7 @@ def main():
     targetspec_dic, options, args = parse_options_and_load_target()
 
     from pypy.translator import translator
-    from pypy.translator.goal import driver
+    from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
  
     t = translator.TranslationContext()
