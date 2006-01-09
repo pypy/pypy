@@ -2,7 +2,7 @@ import autopath
 import py
 import _socket, thread
 from pypy.translator.c.test.test_genc import compile
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
 from pypy.module._socket.test import echoserver
 
 
@@ -73,9 +73,9 @@ def test_newsocket_annotation():
     from pypy.module._socket.rpython import rsocket
     def does_stuff():
         return rsocket.newsocket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-    t = Translator(does_stuff)
-    a = t.annotate([])
-    assert a.gettype(t.graphs[0].getreturnvar()) == int
+    t = TranslationContext()
+    s = t.buildannotator().build_types(does_stuff, [])
+    assert s.knowntype == int
 
 def test_newsocket():
     from pypy.module._socket.rpython import rsocket
