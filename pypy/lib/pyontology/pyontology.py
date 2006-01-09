@@ -20,6 +20,9 @@ Class = URIRef(u'http://www.w3.org/2002/07/owl#Class')
 rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
 rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
 
+def getUriref(ns, obj):
+    return URIRef(namespaces[ns]+'#'+obj)
+
 class ClassDomain(AbstractDomain):
 
     # Class domain is intended as a (abstract/virtual) domain for implementing
@@ -166,25 +169,24 @@ class Restriction(ClassDomain):
         self.cls = None
         
 builtin_voc = {
-               'Thing' : Thing,
-               'Class' : ClassDomain,
-               'ObjectProperty' : ObjectProperty,
-               'AllDifferent' : AllDifferent ,
-##               'AnnotationProperty' : AnnotationProperty,
-               'DataRange' : DataRange,
-               'DatatypeProperty' : DatatypeProperty,
-##               'DeprecatedClass' : DeprecatedClass,
-##               'DeprecatedProperty' : DeprecatedProperty,
-               'FunctionalProperty' : FunctionalProperty,
-               'InverseFunctionalProperty' : InverseFunctionalProperty,
-##               'Nothing' : Nothing,
-##               'ObjectProperty' : ObjectProperty,
-##               'Ontology' : Ontology,
-##               'OntologyProperty' : OntologyProperty,
-               'Restriction' : Restriction,
-               'SymmetricProperty' : SymmetricProperty,
-               'TransitiveProperty' : TransitiveProperty,
-               'List' : List
+               getUriref('owl', 'Thing') : Thing,
+               getUriref('owl', 'Class') : ClassDomain,
+               getUriref('owl', 'ObjectProperty') : ObjectProperty,
+               getUriref('owl', 'AllDifferent') : AllDifferent ,
+##               getUriref('owl', 'AnnotationProperty') : AnnotationProperty,
+               getUriref('owl', 'DataRange') : DataRange,
+               getUriref('owl', 'DatatypeProperty') : DatatypeProperty,
+##               getUriref('owl', 'DeprecatedClass') : DeprecatedClass,
+##               getUriref('owl', 'DeprecatedProperty') : DeprecatedProperty,
+               getUriref('owl', 'FunctionalProperty') : FunctionalProperty,
+               getUriref('owl', 'InverseFunctionalProperty') : InverseFunctionalProperty,
+               getUriref('owl', 'Nothing') : Nothing,
+##               getUriref('owl', 'Ontology') : Ontology,
+##               getUriref('owl', 'OntologyProperty') : OntologyProperty,
+               getUriref('owl', 'Restriction') : Restriction,
+               getUriref('owl', 'SymmetricProperty') : SymmetricProperty,
+               getUriref('owl', 'TransitiveProperty') : TransitiveProperty,
+               getUriref('rdf', 'List') : List
               }
   
 class Ontology(Graph):
@@ -210,7 +212,7 @@ class Ontology(Graph):
                 ns =''
                 func = p
             if ns in namespaces.values():
-                #predicate is one of builtin OWL predicates
+                #predicate is one of builtin OWL or rdf predicates
                 pred = getattr(self, func)
                 res = pred(s, o) 
                 if not res :
@@ -267,44 +269,12 @@ class Ontology(Graph):
             return var
         if not var in self.variables.keys():
             self.variables[var] = cls(var)
-##        elif type(self.variables[var]) != cls:
-##            olddom = self.variables[var]
-##            newdom = cls(var)
-##            newdom.setValues(olddom.getValues())
-##            self.variables[var] = newdom
         return var 
 
-    def find_prop(self, s):
-        p = URIRef(u'http://www.w3.org/2002/07/owl#onProperty')
-        pr = list(self.objects(s,p))
-        assert len(pr) == 1
-        return pr[0]
-
-    def find_cls(self, s):
-        p = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
-        r = URIRef(u'http://www.w3.org/2000/01/rdf-schema#subClassOf')
-        if type(s) == BNode:
-            pr = list( self.subjects(p,s) )
-            if len(pr) == 0:
-                pr = list( self.subjects(r,s) )
-            return pr[0]
-        else:
-            return s
-               
-    def find_uriref(self, s):
-        while type(s) == BNode:
-            s = list(self.subjects(None,s))[0]
-        return s
-
-    def find_property(self, s):
-        prop = self.find_prop(s)
-        avar = self.make_var(Property, prop)
-        return avar
-    
 #---------------- Implementation ----------------
 
     def type(self, s, var):
-        if not (var in [URIRef(namespaces[ns]+'#'+x) for x in builtin_voc for ns in namespaces]):
+        if not var in builtin_voc :
             # var is not one of the builtin classes
             avar = self.make_var(ClassDomain, var)
             svar = self.make_var(self.variables[avar].__class__, s)
@@ -313,8 +283,8 @@ class Ontology(Graph):
         else:
             # var is a builtin class
             svar = self.make_var(None, s)
-            cls =builtin_voc[var.split('#')[-1]]
-            if not (self.variables.has_key(svar) and isinstance(self.variables, cls)):
+            cls =builtin_voc[var]
+            if not (self.variables.has_key(svar) and isinstance(self.variables[svar], cls)):
                 svar = self.make_var(cls, s)
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
@@ -430,7 +400,6 @@ class Ontology(Graph):
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
         svar =self.make_var(Restriction, s)
-        #avar =self.make_var(None, var)
         constrain = MaxCardinality(svar, None, int(var))
         self.constraints.append(constrain) 
 
@@ -509,20 +478,25 @@ class MaxCardinality(AbstractConstraint):
     """Contraint: all values must be distinct"""
 
     def __init__(self, variable, cls, cardinality):
-        AbstractConstraint.__init__(self, [variable, cls])
+        AbstractConstraint.__init__(self, [variable])
         self.__cost = 2
         self.variable = variable
         self.cardinality = cardinality
-        self.cls = cls
+        #self.cls = cls
 
     def __repr__(self):
         return '<%s  %s %i>' % (self.__class__.__name__, str(self._variables[0]), self.cardinality)
 
+    def estimateCost(self, domains):
+        return 80
+    
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-        prop = Linkeddict(domains[self.variable].getValues())
-        if len(prop[self.cls]) > self.cardinality:
-            raise ConsistencyFailure("Maxcardinality of %i exceeded by the value %i" %(self.cardinality,len(prop[self.cls])))
+        prop = domains[self.variable].property
+        props = Linkeddict(domains[prop].getValues())
+        cls = domains[self.variable].cls
+        if len(props[cls]) > self.cardinality:
+            raise ConsistencyFailure("Maxcardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
         else:
             return 1
 
@@ -530,9 +504,11 @@ class MinCardinality(MaxCardinality):
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-        prop = Linkeddict(domains[self.variable].getValues())
-        if len(prop[self.cls]) < self.cardinality:
-            raise ConsistencyFailure("MinCardinalityof %i exceeded by the value %i" %(self.cardinality,len(prop[self.cls])))
+        prop = domains[self.variable].property
+        props = Linkeddict(domains[prop].getValues())
+        cls = domains[self.variable].cls
+        if len(props[cls]) < self.cardinality:
+            raise ConsistencyFailure("MinCardinality of %i not achieved by the value %i" %(self.cardinality,len(props[cls])))
         else:
             return 1
         
@@ -540,9 +516,11 @@ class Cardinality(MaxCardinality):
     
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-        prop = Linkeddict(domains[self.variable].getValues())
-        if len(prop[self.cls]) != self.cardinality:
-            raise ConsistencyFailure("Cardinality of %i exceeded by the value %i" %(self.cardinality,len(prop[self.cls])))
+        prop = domains[self.variable].property
+        props = Linkeddict(domains[prop].getValues())
+        cls = domains[self.variable].cls
+        if len(props[cls]) != self.cardinality:
+            raise ConsistencyFailure("Cardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
         else:
             return 1
 
@@ -606,7 +584,7 @@ class RangeConstraint(SubClassConstraint):
     def narrow(self, domains):
         propdom = domains[self.variable]
         rangedom = domains[self.object]
-        newrange = get_values(rangedom, domains, 'getValues')  
+        newrange = rangedom.getValues()
         range = []
         oldrange = propdom.range
         if oldrange:
