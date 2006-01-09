@@ -1,7 +1,8 @@
 import py
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.inline import inline_function
-from pypy.translator.translator import TranslationContext, Translator, graphof
+from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.llinterp import LLInterpreter
 
@@ -132,11 +133,11 @@ def test_dont_remove_with__del__():
             os.write(1, str(delcalls[0]) + "\n")
             i += 1
         return 1
-    t = Translator(f)
+    t = TranslationContext()
     t.buildannotator().build_types(f, [int])
     t.buildrtyper().specialize()
     graph = graphof(t, f)
-    t.backend_optimizations()
+    backend_optimizations(t)
     op = graph.startblock.exits[0].target.exits[1].target.operations[0]
     assert op.opname == "malloc"
 
