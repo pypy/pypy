@@ -1,5 +1,4 @@
 import sys
-from pypy.translator.translator import Translator
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rlist import *

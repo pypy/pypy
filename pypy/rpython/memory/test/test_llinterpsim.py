@@ -3,7 +3,6 @@ import py
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, PyObject
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException,log
-from pypy.translator.translator import Translator
 from pypy.rpython.rlist import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython import rstr

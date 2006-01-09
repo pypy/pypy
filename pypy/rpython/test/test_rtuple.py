@@ -1,4 +1,3 @@
-from pypy.translator.translator import Translator
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr

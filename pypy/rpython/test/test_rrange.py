@@ -1,4 +1,3 @@
-from pypy.translator.translator import Translator
 from pypy.rpython.rrange import *
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import intmask

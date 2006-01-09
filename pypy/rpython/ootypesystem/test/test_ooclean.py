@@ -1,4 +1,3 @@
-from pypy.translator.translator import Translator
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.test.test_llinterp import get_interpreter

@@ -1,5 +1,4 @@
 import random
-from pypy.translator.translator import Translator
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rstr import parse_fmt_string, ll_find, ll_rfind, STR
 from pypy.rpython.rtyper import RPythonTyper, TyperError
