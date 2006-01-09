@@ -1,7 +1,6 @@
 from __future__ import division
 import py
 
-from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
