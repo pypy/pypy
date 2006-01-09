@@ -1,6 +1,7 @@
 from pypy.rpython.memory.lladdress import *
 from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.translator.c.test.test_genc import compile
+from pypy.rpython.objectmodel import free_non_gc_object
 
 def test_null():
     def f():
@@ -86,3 +87,16 @@ def test_pointer_comparison():
     fc = compile(f, [])
     res = fc()
     assert res == int('011100' * 2, 2)
+
+def test_flavored_malloc():
+    class A(object):
+        _alloc_flavor_ = "raw"
+        def __init__(self, val):
+            self.val = val
+    def f(x):
+        a = A(x + 1)
+        result = a.val
+        free_non_gc_object(a)
+        return result
+    fn = compile(f, [int])
+    assert fn(1) == 2

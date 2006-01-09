@@ -434,7 +434,9 @@ class FunctionCodeGenerator(object):
         line = '%s\n%s' % (line, self.check_directcall_result(op, err))
         return line
 
-    OP_INDIRECT_CALL = OP_DIRECT_CALL # XXX for now
+    # the following works since the extra arguments that indirect_call has
+    # is of type Void, which is removed by OP_DIRECT_CALL
+    OP_INDIRECT_CALL = OP_DIRECT_CALL
 
     def check_directcall_result(self, op, err):
         return 'if (RPyExceptionOccurred())\n\tFAIL(%s);' % err
@@ -557,6 +559,27 @@ class FunctionCodeGenerator(object):
         result += self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
         result += '\n%s->%s = %s;' % (eresult, lenfld, elength)
         return result
+
+    def OP_FLAVORED_MALLOC(self, op, err):
+        print op
+        TYPE = self.lltypemap(op.result).TO
+        typename = self.db.gettype(TYPE)
+        eresult = self.expr(op.result)
+        esize = 'sizeof(%s)' % cdecl(typename, '')
+        flavor = op.args[0].value
+        if flavor == "raw": 
+            return "OP_RAW_MALLOC(%s, %s, %s);" % (esize, eresult, err) 
+        else:
+            raise NotImplementedError
+
+    def OP_FLAVORED_FREE(self, op, err):
+        flavor = op.args[0].value
+        if flavor == "raw":
+            return "OP_RAW_FREE(%s, %s, %s)" % (self.expr(op.args[1]),
+                                                self.expr(op.result),
+                                                err)
+        else:
+            raise NotImplementedError
 
     def OP_CAST_POINTER(self, op, err):
         TYPE = self.lltypemap(op.result)
