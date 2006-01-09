@@ -63,11 +63,20 @@ def test_simple_source():
     t = Translation(f, [int, int])
     t.source_c()
 
-    # this doesn't work, there is to be a bug in llvm backend code
-    #t = Translation(f, [int, int], backend='llvm')
-    #t.source()
-    #t = Translation(f, [int, int])
-    #t.source_llvm()
-
     t = Translation(f, [int, int])
     py.test.raises(Exception, "t.source()")
+
+def test_simple_source_llvm():
+    from pypy.translator.llvm.test.runtest import llvm_test
+    llvm_test()
+
+    def f(x,y):
+        return x+y
+
+
+    t = Translation(f, [int, int], backend='llvm')
+    t.source(gc='boehm')
+    
+    t = Translation(f, [int, int])
+    t.source_llvm()
+    

@@ -92,7 +92,10 @@ class Translation(object):
             self.update_options(None, {'backend': backend})
         if self.driver.options.backend is None:
             raise Exception("a backend should have been specified at this point")
-        return self.driver.options.backend
+        backend = self.driver.options.backend
+        if backend == 'llvm':
+            self.update_options(None, {'gc': 'boehm'})
+        return backend
 
     # backend independent
 
