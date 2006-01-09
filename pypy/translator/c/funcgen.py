@@ -561,7 +561,6 @@ class FunctionCodeGenerator(object):
         return result
 
     def OP_FLAVORED_MALLOC(self, op, err):
-        print op
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
