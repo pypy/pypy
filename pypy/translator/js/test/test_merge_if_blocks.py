@@ -15,7 +15,7 @@ def test_merge_if_blocks_simple():
         assert simple(i) == merge_if_blocks_simple(i)
 
 def test_merge_if_blocks_basic():
-    py.skip("merge_if_block failing because link exit values are not used")
+    py.test.skip("merge_if_block failing because link exit values are not used")
     def merge_if_blocks_basic(i):
         if i == 5:
             return 1005
@@ -27,7 +27,7 @@ def test_merge_if_blocks_basic():
         assert basic(i) == merge_if_blocks_basic(i)
 
 def test_merge_if_blocks_chr():
-    py.skip("merge_if_block failing because link exit values are not used")
+    py.test.skip("merge_if_block failing because link exit values are not used")
     def merge_if_blocks_chr(i):
         c = chr(i)
         if c == '\x05':
@@ -40,7 +40,7 @@ def test_merge_if_blocks_chr():
         assert basic(i) == merge_if_blocks_chr(i)
 
 def test_merge_if_blocks_uni():
-    py.skip("merge_if_block failing because link exit values are not used")
+    py.test.skip("merge_if_block failing because link exit values are not used")
     def merge_if_blocks_uni(i):
         c = unichr(i)
         if c == u'\x05':
@@ -54,7 +54,7 @@ def test_merge_if_blocks_uni():
 
 
 def test_merge_if_blocks_many():
-    py.skip("merge_if_block failing because link exit values are not used")
+    py.test.skip("merge_if_block failing because link exit values are not used")
     def merge_if_blocks_many(i):
         if i == 0:
             return 1000 

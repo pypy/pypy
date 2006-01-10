@@ -1,5 +1,6 @@
 import py, os
-from pypy.translator.translator import Translator
+from pypy.translator.translator import TranslationContext
+from pypy.translator.backendopt.all import backend_optimizations                                 
 from pypy.translator.js.js import JS
 from pypy.translator.js.test.browsertest import jstest
 from pypy.translator.js import conftest
@@ -21,11 +22,11 @@ class compile_function(object):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
-        t = Translator(function)
-        a = t.annotate(annotation)
-        t.specialize()
-        t.backend_optimizations(inline_threshold=0, mallocs=False)
-        #t.backend_optimizations()
+        t = TranslationContext()
+        t.buildannotator().build_types(function, annotation)
+        t.buildrtyper().specialize() 
+        backend_optimizations(t, inline_threshold=0, mallocs=False)
+        #backend_optimizations(t)
         if view:
             t.view()
         self.js = JS(t, function, stackless)
