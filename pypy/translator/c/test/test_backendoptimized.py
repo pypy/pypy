@@ -77,25 +77,6 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         res = fn()
         assert res == 42
 
-    def test_casttoandfromint(self):
-        class A(object):
-            pass
-        def f():
-            a = A()
-            return objectmodel.cast_object_to_int(a)
-        def g():
-            a = A()
-            i = objectmodel.cast_object_to_int(a)
-            return objectmodel.cast_object_to_int(
-                objectmodel.cast_int_to_object(i, A)) == i
-        fn = self.getcompiled(f)
-        res = fn()
-        # cannot really test anything about 'res' here
-        gn = self.getcompiled(g)
-        res = gn()
-        assert res
-    
-
 
 class TestTypedOptimizedSwitchTestCase:
 

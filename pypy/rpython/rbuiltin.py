@@ -301,18 +301,6 @@ def rtype_runtime_type_info(hop):
     return hop.genop('runtime_type_info', vlist,
                  resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
 
-def rtype_cast_object_to_int(hop):
-    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
-    vlist = hop.inputargs(hop.args_r[0])
-    return hop.genop('cast_ptr_to_int', vlist,
-                 resulttype = rint.signed_repr)
-
-def rtype_cast_int_to_object(hop):
-    assert isinstance(hop.args_r[0], rint.IntegerRepr)
-    vlist = [hop.inputarg(rint.signed_repr, arg=0)]
-    return hop.genop('cast_int_to_ptr', vlist,
-                 resulttype = hop.r_result.lowleveltype)
-
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
@@ -326,8 +314,6 @@ BUILTIN_TYPER[rarithmetic.r_longlong] = rtype_r_longlong
 BUILTIN_TYPER[rarithmetic.r_ulonglong] = rtype_r_ulonglong
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
-BUILTIN_TYPER[objectmodel.cast_object_to_int] = rtype_cast_object_to_int
-BUILTIN_TYPER[objectmodel.cast_int_to_object] = rtype_cast_int_to_object
 BUILTIN_TYPER[rstack.yield_current_frame_to_caller] = (
     rtype_yield_current_frame_to_caller)
 

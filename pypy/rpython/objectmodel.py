@@ -37,29 +37,7 @@ def free_non_gc_object(obj):
     obj.__class__ = FREED_OBJECT
 
 
-# support for cast from object to int and back
-
-__int_to_weakref = {}
-
-def cast_object_to_int(obj):
-    i = id(obj)
-    if i not in __int_to_weakref:
-        __int_to_weakref[i] = weakref.ref(obj)
-    return i
-
-def cast_int_to_object(i, expected_class):
-    # only ints are valid that are the result of cast_object_to_int
-    if i not in __int_to_weakref:
-        raise ValueError("not a valid object")
-    obj = __int_to_weakref[i]()
-    if obj is not None:
-        if type(obj) != expected_class:
-            raise ValueError("class of obj != expected_class")
-        return obj
-    else:
-        return FREED_OBJECT()
-
-# __ invoke XXX this doesn't seem completely the right place for this
+# __ hlinvoke XXX this doesn't seem completely the right place for this
 
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
