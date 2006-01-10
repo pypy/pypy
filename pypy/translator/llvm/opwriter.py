@@ -254,7 +254,8 @@ class OpWriter(object):
     def direct_call(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, opr.argrefs[0],
                              opr.argtypes[1:], opr.argrefs[1:])
-
+    # the following works since the extra arguments that indirect_call has
+    # is of type Void, which is removed by direct_call
     indirect_call = direct_call
 
     def malloc(self, opr):
@@ -275,6 +276,29 @@ class OpWriter(object):
         self.codewriter.call(opr.retref, opr.rettype,
                              self.db.repr_constructor(arg_type),
                              opr.argtypes[1:], opr.argrefs[1:])
+
+    def flavored_malloc(self, opr):
+        #TYPE = self.lltypemap(opr.op.result).TO
+        #typename = self.db.gettype(TYPE)
+        #eresult = self.expr(opr.op.result)
+        #esize = 'sizeof(%s)' % cdecl(typename, '')
+        flavor = opr.op.args[0].value
+        if flavor == "raw": 
+            self.codewriter.call(opr.retref, opr.rettype, "%raw_malloc",
+                                 opr.argtypes[1:], opr.argrefs[1:]) 
+            #return "OP_RAW_MALLOC(%s, %s);" % (esize, eresult) 
+        else:
+            raise NotImplementedError
+
+    def flavored_free(self, opr):
+        flavor = opr.op.args[0].value
+        if flavor == "raw":
+            self.codewriter.call(opr.retref, opr.rettype, "%raw_free",
+                                 opr.argtypes[1:], opr.argrefs[1:])
+            #return "OP_RAW_FREE(%s, %s)" % (self.expr(opr.op.args[1]),
+            #                                self.expr(opr.op.result))
+        else:
+            raise NotImplementedError
 
     def _getindexhelper(self, name, struct):
         assert name in list(struct._names)
