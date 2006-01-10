@@ -55,6 +55,12 @@ class Translation(object):
         'compile_llvm': [],
     }
 
+    def view(self):
+        self.context.view()
+
+    def viewcg(self):
+        self.context.viewcg()
+
     def driver_event(self, kind, goal, func):
         if kind == 'pre':
              #print goal
