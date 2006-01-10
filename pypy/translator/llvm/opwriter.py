@@ -278,25 +278,17 @@ class OpWriter(object):
                              opr.argtypes[1:], opr.argrefs[1:])
 
     def flavored_malloc(self, opr):
-        #TYPE = self.lltypemap(opr.op.result).TO
-        #typename = self.db.gettype(TYPE)
-        #eresult = self.expr(opr.op.result)
-        #esize = 'sizeof(%s)' % cdecl(typename, '')
         flavor = opr.op.args[0].value
+        type_  = opr.rettype[:-1] #XXX stripping of *
         if flavor == "raw": 
-            self.codewriter.call(opr.retref, opr.rettype, "%raw_malloc",
-                                 opr.argtypes[1:], opr.argrefs[1:]) 
-            #return "OP_RAW_MALLOC(%s, %s);" % (esize, eresult) 
+            self.codewriter.malloc(opr.retref, type_)
         else:
             raise NotImplementedError
 
     def flavored_free(self, opr):
         flavor = opr.op.args[0].value
         if flavor == "raw":
-            self.codewriter.call(opr.retref, opr.rettype, "%raw_free",
-                                 opr.argtypes[1:], opr.argrefs[1:])
-            #return "OP_RAW_FREE(%s, %s)" % (self.expr(opr.op.args[1]),
-            #                                self.expr(opr.op.result))
+            self.codewriter.free(opr.argtypes[1], opr.argrefs[1])
         else:
             raise NotImplementedError
 

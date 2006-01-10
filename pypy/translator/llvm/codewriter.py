@@ -166,4 +166,9 @@ class CodeWriter(object):
                                                 returntype,
                                                 functionref,
                                                 args))
-        
+
+    def malloc(self, targetvar, vartype):
+        self._indent("%s = malloc %s" % (targetvar, vartype))
+
+    def free(self, vartype, varref):
+        self._indent("free %s %s" % (vartype, varref))

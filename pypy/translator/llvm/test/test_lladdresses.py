@@ -104,7 +104,6 @@ def test_pointer_comparison():
     assert res == int('011100' * 2, 2)
 
 def test_flavored_malloc():
-    py.test.skip("not supported yet")
     class A(object):
         _alloc_flavor_ = "raw"
         def __init__(self, val):
