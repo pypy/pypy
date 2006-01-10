@@ -1,12 +1,14 @@
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.simplify import get_graph
 from pypy.objspace.flow.model import traverse, Block
 
-def translate(func, argtypes):
+def translate(func, argtypes, backend_optimize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
     t.buildrtyper().specialize()
-    backend_optimizations(t)
+    if backend_optimize:
+        backend_optimizations(t)
     return graphof(t, func), t
 
 def test_remove_direct_call_without_side_effects():
@@ -94,3 +96,34 @@ def test_remove_identical_variables():
     graph = TranslationContext().buildflowgraph(g)
     for block in graph.iterblocks():
         assert len(block.inputargs) <= 2   # at most 'pc' and 'code'
+
+def test_get_graph():
+    import os
+    def list_basic_ops(i, j):
+        l = [1,2,3]
+        l.insert(0, 42)
+        del l[1]
+        l.append(i)
+        listlen = len(l)
+        l.extend(l)
+        del l[listlen:]
+        l += [5,6]
+        l[1] = i
+        return l[j]
+    def external_function():
+        return os.system("ls")
+    graph, t = translate(list_basic_ops, [int, int], False) 
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname == "direct_call":
+                print op
+                graph = get_graph(op.args[0], t)
+                assert graph is not None
+    graph, t = translate(external_function, [], False) 
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname == "direct_call":
+                print op
+                graph = get_graph(op.args[0], t)
+                assert graph is None
+

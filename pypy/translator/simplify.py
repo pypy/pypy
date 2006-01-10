@@ -20,15 +20,19 @@ def get_graph(arg, translator):
         return None
     try:
         callable = f._obj._callable
-        #external function calls don't have a real graph
+        # external function calls don't have a real graph
         if getattr(callable, "suggested_primitive", False):
             return None
-        return graphof(translator, callable)
-    except AttributeError, KeyError:
-        pass
+    except (AttributeError, KeyError, AssertionError):
+        return None
     try:
         return f._obj.graph
     except AttributeError:
+        return None
+    try:
+        callable = f._obj._callable
+        return graphof(translator, callable)
+    except (AttributeError, KeyError, AssertionError):
         return None
 
 
