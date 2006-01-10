@@ -11,6 +11,7 @@ from pypy.objspace.flow.model import c_last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
 
 def get_graph(arg, translator):
+    from pypy.translator.translator import graphof
     if isinstance(arg, Variable):
         return None
     f = arg.value
@@ -22,8 +23,7 @@ def get_graph(arg, translator):
         #external function calls don't have a real graph
         if getattr(callable, "suggested_primitive", False):
             return None
-        if callable in translator.flowgraphs:
-            return translator.flowgraphs[callable]
+        return graphof(translator, callable)
     except AttributeError, KeyError:
         pass
     try:
