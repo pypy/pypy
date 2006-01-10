@@ -312,7 +312,7 @@ class GraphState(object):
             for st in stlist:
                 op = st.origblock.operations[st.origposition]
                 if op.opname == 'direct_call':
-                    v = v.value
+                    v = op.args[0].value
                 elif op.opname == 'indirect_call':
                     v = op.args[0]
                 else:
