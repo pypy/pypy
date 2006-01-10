@@ -3,6 +3,7 @@
 .. _`lib-python/2.4.1/dis.py`: ../../lib-python/2.4.1/dis.py
 .. _`annotation/`:
 .. _`pypy/annotation`: ../../pypy/annotation
+.. _`pypy/annotation/annrpython.py`: ../../pypy/annotation/annrpython.py
 .. _`annotation/binaryop.py`: ../../pypy/annotation/binaryop.py
 .. _`pypy/annotation/builtin.py`: ../../pypy/annotation/builtin.py
 .. _`pypy/annotation/model.py`: ../../pypy/annotation/model.py
@@ -67,7 +68,6 @@
 .. _`tool/tb_server/`: ../../pypy/tool/tb_server
 .. _`pypy/translator`:
 .. _`translator/`: ../../pypy/translator
-.. _`pypy/translator/annrpython.py`: ../../pypy/translator/annrpython.py
 .. _`translator/c/`: ../../pypy/translator/c
 .. _`pypy/translator/c/extfunc.py`: ../../pypy/translator/c/extfunc.py
 .. _`pypy/translator/c/src/`: ../../pypy/translator/c/src

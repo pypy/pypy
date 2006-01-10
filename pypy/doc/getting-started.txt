@@ -556,7 +556,7 @@ or start off at one of the following points:
 
 *  `pypy/annotation`_ contains the data model for the type annotation that
    can be inferred about a graph.  The graph "walker" that uses this is in
-   `pypy/translator/annrpython.py`_.
+   `pypy/annotation/annrpython.py`_.
 
 *  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
