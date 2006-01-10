@@ -1,7 +1,7 @@
 import autopath
 
 from pypy.objspace.std.multimethod import *
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 
 class W_Root(object):
     pass

@@ -7,7 +7,7 @@ For each high-level operation 'hop', the rtype_*() methods produce low-level
 operations that are collected in the 'llops' list defined here.  When necessary,
 conversions are inserted.
 
-This logic borrows a bit from pypy.translator.annrpython, without the fixpoint
+This logic borrows a bit from pypy.annotation.annrpython, without the fixpoint
 computation part.
 """
 

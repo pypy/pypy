@@ -1,6 +1,6 @@
 import autopath
-import pypy.translator.test.test_annrpython
-parent = pypy.translator.test.test_annrpython.TestAnnotateTestCase
+import pypy.annotation.test.test_annrpython
+parent = pypy.annotation.test.test_annrpython.TestAnnotateTestCase
 
 
 class TestAnnotateAndSimplifyTestCase(parent):

@@ -1,7 +1,7 @@
 import types, sys
 from pypy.annotation.model import SomeValue, debugname
 from pypy.annotation.annset import AnnotationSet
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 
 indent1 = ['']
 

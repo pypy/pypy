@@ -1,4 +1,4 @@
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE

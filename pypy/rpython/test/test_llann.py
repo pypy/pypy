@@ -21,7 +21,7 @@ class TestLowLevelAnnotateTestCase:
     def setup_class(cls): 
         cls.space = FlowObjSpace() 
 
-    from pypy.translator.annrpython import RPythonAnnotator
+    from pypy.annotation.annrpython import RPythonAnnotator
 
     def annotate(self, ll_function, argtypes):
         self.a = self.RPythonAnnotator()

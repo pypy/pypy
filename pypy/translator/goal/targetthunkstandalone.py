@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.translator.ann_override import PyPyAnnotatorPolicy
+from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 
 # WARNING: this requires the annotator.
 # There is no easy way to build all caches manually,

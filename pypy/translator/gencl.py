@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Constant, Variable, last_exception
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph, default_extra_passes, transform_slice

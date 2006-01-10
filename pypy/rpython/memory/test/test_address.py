@@ -2,7 +2,7 @@ import py
 import sys
 
 from pypy.annotation import model as annmodel
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import graphof
 from pypy.objspace.flow import FlowObjSpace
 from pypy.rpython.rtyper import RPythonTyper

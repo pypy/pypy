@@ -3,7 +3,7 @@ import autopath
 import py.test
 from pypy.tool.udir import udir
 
-from pypy.translator.annrpython import annmodel
+from pypy.annotation.annrpython import annmodel
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
 from pypy.annotation import specialize
@@ -42,7 +42,7 @@ class TestAnnotateTestCase:
     def setup_class(cls): 
         cls.space = FlowObjSpace() 
 
-    from pypy.translator.annrpython import RPythonAnnotator
+    from pypy.annotation.annrpython import RPythonAnnotator
 
     def make_fun(self, func):
         import inspect
@@ -1673,7 +1673,7 @@ class TestAnnotateTestCase:
     def test_emulated_pbc_call_simple(self):
         def f(a,b):
             return a + b
-        from pypy.translator import annrpython
+        from pypy.annotation import annrpython
         a = annrpython.RPythonAnnotator()
         from pypy.annotation import model as annmodel
 
@@ -1692,7 +1692,7 @@ class TestAnnotateTestCase:
     def test_emulated_pbc_call_callback(self):
         def f(a,b):
             return a + b
-        from pypy.translator import annrpython
+        from pypy.annotation import annrpython
         a = annrpython.RPythonAnnotator()
         from pypy.annotation import model as annmodel
 

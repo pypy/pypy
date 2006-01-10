@@ -1,7 +1,7 @@
 import thread
 import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
 from pypy.module.thread.rpython.ll_thread import *
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.test.test_llinterp import interpret
 
 

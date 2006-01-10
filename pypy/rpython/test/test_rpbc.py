@@ -877,7 +877,7 @@ def test_hlinvoke_simple():
     def f(a,b):
         return a + b
     from pypy.translator import translator
-    from pypy.translator import annrpython
+    from pypy.annotation import annrpython
     a = annrpython.RPythonAnnotator()
     from pypy.annotation import model as annmodel
     
@@ -915,7 +915,7 @@ def test_hlinvoke_simple2():
         return a + b
     def f2(a,b):
         return a - b
-    from pypy.translator import annrpython
+    from pypy.annotation import annrpython
     a = annrpython.RPythonAnnotator()
     from pypy.annotation import model as annmodel
     
@@ -968,7 +968,7 @@ def test_hlinvoke_hltype():
     def f(a):
         return A(a)
 
-    from pypy.translator import annrpython
+    from pypy.annotation import annrpython
     a = annrpython.RPythonAnnotator()
     from pypy.annotation import model as annmodel
 
@@ -1017,7 +1017,7 @@ def test_hlinvoke_method_hltype():
         def f(self, a):
             return A(a)
 
-    from pypy.translator import annrpython
+    from pypy.annotation import annrpython
     a = annrpython.RPythonAnnotator()
     from pypy.annotation import model as annmodel
 
@@ -1077,7 +1077,7 @@ def test_hlinvoke_pbc_method_hltype():
         def f(self, a):
             return A(a)
 
-    from pypy.translator import annrpython
+    from pypy.annotation import annrpython
     a = annrpython.RPythonAnnotator()
     from pypy.annotation import model as annmodel
 

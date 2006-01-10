@@ -1,7 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator import annrpython
+from pypy.annotation import annrpython
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.rtyper import RPythonTyper

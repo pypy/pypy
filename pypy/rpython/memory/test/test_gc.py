@@ -2,7 +2,7 @@ import py
 import sys
 
 from pypy.annotation import model as annmodel
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.gc import GCError, MarkSweepGC, SemiSpaceGC
 from pypy.rpython.memory.gc import DeferredRefcountingGC, DummyGC

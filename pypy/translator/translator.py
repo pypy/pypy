@@ -62,7 +62,7 @@ class TranslationContext(object):
     def buildannotator(self, policy=None):
         if self.annotator is not None:
             raise ValueError("we already have an annotator")
-        from pypy.translator.annrpython import RPythonAnnotator
+        from pypy.annotation.annrpython import RPythonAnnotator
         self.annotator = RPythonAnnotator(self, policy=policy)
         return self.annotator
 
@@ -244,7 +244,7 @@ class Translator(TranslationContext):
         if input_arg_types is None:
             ann = self.annotator
         else:
-            from pypy.translator.annrpython import RPythonAnnotator
+            from pypy.annotation.annrpython import RPythonAnnotator
             ann = RPythonAnnotator(self)
         if func is None:
             codes = [self.generatecode1(gencls, input_arg_types,
