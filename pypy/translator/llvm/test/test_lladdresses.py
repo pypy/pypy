@@ -103,9 +103,22 @@ def test_pointer_comparison():
     res = fc()
     assert res == int('011100' * 2, 2)
 
-def test_flavored_malloc():
+def test_flavored_malloci_raw():
     class A(object):
         _alloc_flavor_ = "raw"
+        def __init__(self, val):
+            self.val = val
+    def f(x):
+        a = A(x + 1)
+        result = a.val
+        free_non_gc_object(a)
+        return result
+    fn = compile(f, [int])
+    assert fn(1) == 2 
+
+def test_flavored_malloc_alloca():
+    class A(object):
+        _alloc_flavor_ = "alloca"
         def __init__(self, val):
             self.val = val
     def f(x):

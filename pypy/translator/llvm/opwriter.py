@@ -282,6 +282,8 @@ class OpWriter(object):
         type_  = opr.rettype[:-1] #XXX stripping of *
         if flavor == "raw": 
             self.codewriter.malloc(opr.retref, type_)
+        elif flavor == "alloca": 
+            self.codewriter.alloca(opr.retref, type_)
         else:
             raise NotImplementedError
 
@@ -289,6 +291,8 @@ class OpWriter(object):
         flavor = opr.op.args[0].value
         if flavor == "raw":
             self.codewriter.free(opr.argtypes[1], opr.argrefs[1])
+        elif flavor == "alloca":
+            self.codewriter.comment('***Skipping free of stack allocated data')
         else:
             raise NotImplementedError
 

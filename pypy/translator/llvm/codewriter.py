@@ -167,6 +167,9 @@ class CodeWriter(object):
                                                 functionref,
                                                 args))
 
+    def alloca(self, targetvar, vartype):
+        self._indent("%s = alloca %s" % (targetvar, vartype))
+
     def malloc(self, targetvar, vartype):
         self._indent("%s = malloc %s" % (targetvar, vartype))
 
