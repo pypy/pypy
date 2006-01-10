@@ -123,6 +123,9 @@ class FlowGraphPage(GraphPage):
                 graphs += graphsof(translator, func)
         else:
             graphs = self.translator.graphs
+            if not graphs and hasattr(translator, 'entrypoint'):
+                graphs = list(graphs)
+                graphs += graphsof(translator, translator.entrypoint)
         gs = [(graph.name, graph) for graph in graphs]
         if self.annotator and self.annotator.blocked_graphs:
             for block, was_annotated in self.annotator.annotated.items():
