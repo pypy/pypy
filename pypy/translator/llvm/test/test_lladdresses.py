@@ -118,7 +118,7 @@ def test_flavored_malloci_raw():
 
 def test_flavored_malloc_alloca():
     class A(object):
-        _alloc_flavor_ = "alloca"
+        _alloc_flavor_ = "stack"
         def __init__(self, val):
             self.val = val
     def f(x):
