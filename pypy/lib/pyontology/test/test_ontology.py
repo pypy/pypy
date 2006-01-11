@@ -17,12 +17,12 @@ def rdf_list(ont, name, data):
     ont.type(owllist, obj)
     own =owllist
     for i,dat in enumerate(data[:-1]):
-        next = URIRef( 'anon'+str(i))
+        next = URIRef( name + str(i))
         print next,i,dat,own
-        ont.first(own, URIRef(dat))
+        ont.first(own, dat)
         ont.rest(own,  next)
         own = next
-    ont.first(own, URIRef(data[-1]))
+    ont.first(own, data[-1])
     ont.rest(own,  URIRef(namespaces['rdf']+'#nil'))
     return owllist
 
@@ -434,31 +434,32 @@ def test_allvaluesfrom_datarange():
     O.variables['p_'].setValues([(cls,1)])
     py.test.raises(ConsistencyFailure, O.consistency)
 
-def no_test_unionof():
+def test_unionof():
     O = Ontology()
-    datarange = BNode('anon')
-    own = URIRef('favlist')
-    obj = URIRef(namespaces['rdf']+'#List')
-    O.type(own, obj)
-    O.first(own, URIRef('first'))
-    O.rest(own,  URIRef('1'))
-    O.first( URIRef('1'), URIRef('second'))
-    O.rest( URIRef('1'),  URIRef('2'))
-    O.first( URIRef('2'), URIRef('third'))
-    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
-    O.unionOf(datarange, own)
-    O.type(datarange, namespaces['owl']+'#DataRange')
-    restrict = BNode('anon1')
-    obj = URIRef(namespaces['owl']+'#Restriction')
-    O.type(restrict, obj)
-    p = URIRef('p')
-    O.onProperty(restrict,p)
-    obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(p, obj)
-    O.allValuesFrom(restrict, datarange)
-    cls = URIRef('class')
-    obj = URIRef(namespaces['owl']+'#Class')
-    O.type(cls, obj)
-    O.subClassOf(cls,restrict)
-    O.variables['p_'].setValues([(cls,1)])
-    py.test.raises(ConsistencyFailure, O.consistency)
+    cls = BNode('anon')
+    own1 = BNode('liist1')
+    own2 = BNode('liist2')
+    list1 = rdf_list(O, 'favlist1', ['1', '2', '3'])
+    list2 = rdf_list(O, 'favlist2', ['3', '4', '5'])
+    own = rdf_list(O, 'favlist', [own1, own2])
+    O.oneOf( own1, list1)
+    O.oneOf( own2, list2)
+    O.unionOf(cls, own)
+    O.type(cls, namespaces['owl']+'#Class')
+    O.consistency(3)
+    assert O.rep._domains[cls].getValues() == ['1', '2', '3', '4', '5']
+
+def test_intersectionof():
+    O = Ontology()
+    cls = BNode('anon')
+    own1 = BNode('liist1')
+    own2 = BNode('liist2')
+    list1 = rdf_list(O, 'favlist1', ['1', '2', '3'])
+    list2 = rdf_list(O, 'favlist2', ['3', '4', '5'])
+    own = rdf_list(O, 'favlist', [own1, own2])
+    O.oneOf( own1, list1)
+    O.oneOf( own2, list2)
+    O.intersectionOf(cls, own)
+    O.type(cls, namespaces['owl']+'#Class')
+    O.consistency(3)
+    assert O.rep._domains[cls].getValues() == ['3']

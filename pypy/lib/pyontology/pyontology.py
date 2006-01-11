@@ -189,15 +189,18 @@ builtin_voc = {
                getUriref('rdf', 'List') : List
               }
   
-class Ontology(Graph):
+class Ontology:
 
     def __init__(self):
-        Graph.__init__(self)
+        self.graph = Graph()
         self.variables = {}
         self.constraints = []
         self.seen = {}
         self.var2ns ={}
 
+    def add(self, triples):
+        self.graph.add(triples)
+        
     def add_file(self, f):
         tmp = Graph()
         tmp.load(f)
@@ -205,7 +208,7 @@ class Ontology(Graph):
             self.add(i)
 
     def attach_fd(self):
-        for (s, p, o) in (self.triples((None, None, None))):
+        for (s, p, o) in (self.graph.triples((None,)*3)):
             if p.find('#') != -1:
                 ns, func = p.split('#')
             else:
@@ -238,21 +241,6 @@ class Ontology(Graph):
         self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
         self.rep.consistency(verbose)
  
-    def get_list(self, subject):
-        res = []
-        first = list(self.objects(subject, rdf_first)) 
-        assert len(first) == 1
-        if type(first[0]) == URIRef:
-            var = self.make_var(ClassDomain, first[0])
-        res += first
-        
-        rest = list(self.objects(subject, rdf_rest)) 
-        if "#nil" in rest[0] :
-           return res
-        else:
-           res += self.get_list(rest[0])
-        return res
-
     def make_var(self, cls=fd, a=''):
         if type(a) == URIRef:
             if a.find('#') != -1:
@@ -349,17 +337,16 @@ class Ontology(Graph):
         self.constraints.append(cons)
 
     def unionOf(self,s, var):
-        res = self.get_list(var)
-        return res #There might be doubles (but fd takes care of that)
+        avar = self.make_var(List, var)
+        svar = self.make_var(ClassDomain, s)
+        cons = UnionofConstraint(svar, avar)
+        self.constraints.append(cons)
 
     def intersectionOf(self, s, var):
-        res = self.get_list(var)
-        result = {}.fromkeys(res[0])
-        for el in res:
-            for cls in result.keys():
-                if cls not in el:
-                   result.pop(cls)
-        return result.keys()
+        avar = self.make_var(List, var)
+        svar = self.make_var(ClassDomain, s)
+        cons = IntersectionofConstraint(svar, avar)
+        self.constraints.append(cons)
 
 #---Property Axioms---#000000#FFFFFF--------------------------------------------
 
@@ -424,10 +411,11 @@ class Ontology(Graph):
         constrain = BinaryExpression([s_var, var_var],"%s != %s" %(s_var,  var_var))
         self.constraints.append(constrain)
 
-    def distinctMembers(self, s, var):
-        res = self.get_list(var)
-        self.constraints.append(AllDistinct([self.make_var(ClassDomain, y) for y in res]))
-        return res
+#XXX need to change this
+##    def distinctMembers(self, s, var):
+##        res = self.get_list(var)
+##        self.constraints.append(AllDistinct([self.make_var(ClassDomain, y) for y in res]))
+##        return res
 
     def sameAs(self, s, var):
         s_var = self.make_var(None, s)
@@ -779,6 +767,49 @@ class OneofPropertyConstraint(AbstractConstraint):
         else:
             domains[self.variable].setValues(val)
             return 1
+
+class UnionofConstraint(AbstractConstraint):
+
+    def __init__(self, variable, List):
+        AbstractConstraint.__init__(self, [variable, List])
+        self.variable = variable
+        self.List = List
+
+    def estimateCost(self, domains):
+        return 200
+        
+    def narrow(self, domains):
+        val = domains[self.List].getValues()
+        union = []
+        for v in val:
+            for u in domains[v].getValues():
+                if not u in union:
+                    union.append(u)
+        cls = domains[self.variable].setValues(union)
+        
+class IntersectionofConstraint(AbstractConstraint):
+
+    def __init__(self, variable, List):
+        AbstractConstraint.__init__(self, [variable, List])
+        self.variable = variable
+        self.List = List
+
+    def estimateCost(self, domains):
+        return 200
+        
+    def narrow(self, domains):
+        val = domains[self.List].getValues()
+        intersection = domains[val[0]].getValues()
+        for v in val[1:]:
+            vals= domains[v].getValues()
+            remove = []
+            for u in intersection:
+                if not u in vals:
+                    remove.append(u)
+            for u in remove:
+                intersection.remove(u)
+        cls = domains[self.variable].setValues(intersection)
+        
 
 class SomeValueConstraint(AbstractConstraint):
 
