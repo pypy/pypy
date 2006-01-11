@@ -157,6 +157,13 @@ class L3Frame(object):
         y = self.getint()
         self.stack_int.append(x + y)
 
+    def op_int_is_true(self):
+        x = self.getint()
+        if x:
+            self.stack_int.append(1)
+        else:
+            self.stack_int.append(0)
+
     def op_direct_call(self):
         block = self.block
         assert block.called_graphs is not None
