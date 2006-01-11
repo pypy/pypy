@@ -245,3 +245,55 @@ def test_indirect_call():
     a2crep = a2state.creation_points.keys()[0]
     assert a1crep.changes and a2crep.changes
     assert not a1crep.escapes and a2crep.escapes
+
+def test_getarray():
+    class A(object):
+        pass
+    def f():
+        a = A()
+        l = [None]
+        l[0] = a
+    t, adi, graph = build_adi(f, [])
+    avar = graph.startblock.operations[0].result
+    state = adi.getstate(avar)
+    assert len(state.creation_points) == 1
+    crep = state.creation_points.keys()[0]
+    assert crep.changes
+    assert crep.escapes
+
+def test_flow_blocksonce():
+    class A(object):
+        pass
+    def f():
+        a = 0
+        for i in range(10):
+            a += i
+        b = A()
+        b.x = 1
+        return b.x + 2
+    t, adi, graph = build_adi(f, [])
+    avar = graph.startblock.exits[0].target.exits[1].target.operations[0].result
+    state = adi.getstate(avar)
+    assert not state.does_escape()
+
+def test_call_external():
+    import time
+    def f():
+        return time.time()
+    #does not crash
+    t, adi, graph = build_adi(f, [])
+
+def test_getsubstruct():
+    def f(i):
+        s = "hello"
+        return s[i]
+    # does not crash
+    t, adi, graph = build_adi(f, [int])
+
+def test_big():
+    from pypy.translator.goal.targetrpystonex import make_target_definition
+    entrypoint, _, _ = make_target_definition(10)
+    # does not crash
+    t, adi, graph = build_adi(entrypoint, [int])
+
+    

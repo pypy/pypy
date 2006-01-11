@@ -77,6 +77,7 @@ class AbstractDataFlowInterpreter(object):
         self.constant_cps = {} # const: creationpoint
         self.dependencies = {} # creationpoint: {block: graph containing it}
         self.functionargs = {} # graph: list of state of args
+        self.flown_blocks = {} # block: True
     
     def getstate(self, var_or_const):
         if not isonheap(var_or_const):
@@ -129,6 +130,7 @@ class AbstractDataFlowInterpreter(object):
 
     def flow_block(self, block, graph):
         print "flowing in block %s of function %s" % (block, graph.name)
+        self.flown_blocks[block] = True
         if block is graph.returnblock:
             if isonheap(block.inputargs[0]):
                 changed = self.getstate(block.inputargs[0]).setescapes()
@@ -139,7 +141,7 @@ class AbstractDataFlowInterpreter(object):
                 changed = self.getstate(block.inputargs[0]).setescapes()
                 self.handle_changed(changed)
             if isonheap(block.inputargs[0]):
-                changed = self.gestate(block.inputargs[1]).setescapes()
+                changed = self.getstate(block.inputargs[1]).setescapes()
                 self.handle_changed(changed)
             return
         self.curr_block = block
@@ -154,7 +156,9 @@ class AbstractDataFlowInterpreter(object):
             targetargs = self.getstates(exit.target.inputargs)
             print "   newargs", args
             print "   targetargs", targetargs
-            if multicontains(targetargs, args):
+            # flow every block at least once:
+            if (multicontains(targetargs, args) and
+                exit.target in self.flown_blocks):
                 print "   not necessary"
                 continue
             else:
@@ -203,6 +207,7 @@ class AbstractDataFlowInterpreter(object):
 
     def register_state_dependency(self, state1, state2):
         "state1 depends on state2: if state2 does escape/change, so does state1"
+        # change state1 according to how state2 is now
         escapes = state2.does_escape()
         if escapes and not state1.does_escape():
             changed = state1.setescapes()
@@ -211,19 +216,26 @@ class AbstractDataFlowInterpreter(object):
         if changes and not state1:
             changed = state1.setchanges()
             self.handle_changed(changed)
+        # register a dependency of the current block on state2:
+        # that means that if state2 changes the current block will be reflown
+        # triggering this function again and thus updating state1
         self.register_block_dependency(state2)
 
     # _____________________________________________________________________
     # operation implementations
 
-    def malloc(self, op, type):
+    def malloc(self, op, typestate):
         return VarState(self.get_creationpoint(op.result, "malloc"))
+
+    def malloc_varsize(self, op, typestate, lengthstate):
+        return VarState(self.get_creationpoint(op.result, "malloc_varsize"))
 
     def cast_pointer(self, op, state):
         return state
     
     def setfield(self, op, objstate, fieldname, valuestate):
         changed = objstate.setchanges()
+        self.handle_changed(changed)
         if valuestate is not None:
             # be pessimistic for now:
             # everything that gets stored into a structure escapes and changes
@@ -233,15 +245,46 @@ class AbstractDataFlowInterpreter(object):
             changed = valuestate.setescapes()
             self.handle_changed(changed)
         return None
+
+    def setarrayitem(self, op, objstate, indexstate, valuestate):
+        changed = objstate.setchanges()
+        self.handle_changed(changed)
+        if valuestate is not None:
+            # everything that gets stored into a structure escapes and changes
+            self.handle_changed(changed)
+            changed = valuestate.setchanges()
+            self.handle_changed(changed)
+            changed = valuestate.setescapes()
+            self.handle_changed(changed)
+        return None
+
+    def getarrayitem(self, op, objstate, indexstate):
+        if isonheap(op.result):
+            return VarState(self.get_creationpoint(op.result, "getarrayitem"))
     
     def getfield(self, op, objstate, fieldname):
         if isonheap(op.result):
             # assume that getfield creates a new value
             return VarState(self.get_creationpoint(op.result, "getfield"))
 
+    def getsubstruct(self, op, objstate, fieldname):
+        # since this is really an embedded struct, it has the same
+        # state, the same creationpoints, etc.
+        return objstate
+
+    def getarraysize(self, op, arraystate):
+        pass
+
     def direct_call(self, op, function, *args):
         graph = get_graph(op.args[0], self.translation_context)
-        result, funcargs = self.schedule_function(graph)
+        if graph is None:
+            if len(filter(None, args)):
+                raise NotImplementedError, "can't handle call %s" % (op, )
+            else:
+                result = None
+                funcargs = [None] * len(args)
+        else:
+            result, funcargs = self.schedule_function(graph)
         assert len(args) == len(funcargs)
         for localarg, funcarg in zip(args, funcargs):
             if localarg is None:
@@ -267,8 +310,15 @@ class AbstractDataFlowInterpreter(object):
             # assume that a call creates a new value
             return VarState(self.get_creationpoint(op.result, "indirect_call"))
 
-    def ptr_iszero(self, op, ptr):
+    def ptr_iszero(self, op, ptrstate):
         return None
+
+    cast_ptr_to_int = ptr_iszero
+
+    def same_as(self, op, objstate):
+        return objstate
+
+    
  
 def isonheap(var_or_const):
     return isinstance(var_or_const.concretetype, lltype.Ptr)
