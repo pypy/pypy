@@ -87,8 +87,8 @@ class L3Frame(object):
         "NOT_RPYTHON"
         def make_missing_handler(opname):
             def missing_handler(self):
-                print 'XXX missing handler for operation', opname
-                raise NotImplementedError
+                raise NotImplementedError('XXX missing handler for %r'%opname)
+            return missing_handler
         cls.dispatch_table = []
         for opname in model.very_low_level_ops:
             try:
