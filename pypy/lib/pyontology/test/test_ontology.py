@@ -11,6 +11,21 @@ except ImportError:
 from pypy.lib.pyontology.pyontology import * # Ontology, ClassDomain, SubClassConstraint 
 from rdflib import Graph, URIRef, BNode
 
+def rdf_list(ont, name, data):
+    owllist = URIRef(name)
+    obj = URIRef(namespaces['rdf']+'#List')
+    ont.type(owllist, obj)
+    own =owllist
+    for i,dat in enumerate(data[:-1]):
+        next = URIRef( 'anon'+str(i))
+        print next,i,dat,own
+        ont.first(own, URIRef(dat))
+        ont.rest(own,  next)
+        own = next
+    ont.first(own, URIRef(data[-1]))
+    ont.rest(own,  URIRef(namespaces['rdf']+'#nil'))
+    return owllist
+
 def test_makevar():
     O = Ontology()
     var = URIRef(u'http://www.w3.org/2002/03owlt/unionOf/premises004#A-and-B')
@@ -350,15 +365,7 @@ def test_oneofrestriction():
     O.type(p, obj)
     p = URIRef('favlist')
     O.oneOf(restrict, p)
-    own = URIRef('favlist')
-    obj = URIRef(namespaces['rdf']+'#List')
-    O.type(own, obj)
-    O.first(own, 0)
-    O.rest(own,  URIRef('1'))
-    O.first( URIRef('1'), 1)
-    O.rest( URIRef('1'),  URIRef('2'))
-    O.first( URIRef('2'), 2)
-    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
+    own = rdf_list(O, 'favlist', [0, 1, 2])
     own = URIRef('class')
     obj = URIRef(namespaces['rdf']+'#Class')
     O.type(own, obj)
@@ -368,49 +375,27 @@ def test_oneofrestriction():
 def test_oneofclassenumeration():
     O = Ontology()
     restrict = BNode('anon')
-    own = URIRef('favlist')
-    obj = URIRef(namespaces['rdf']+'#List')
-    O.type(own, obj)
-    O.first(own, URIRef('first'))
-    O.rest(own,  URIRef('1'))
-    O.first( URIRef('1'), URIRef('second'))
-    O.rest( URIRef('1'),  URIRef('2'))
-    O.first( URIRef('2'), URIRef('third'))
-    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
+    own = rdf_list(O, 'favlist', ['first', 'second', 'third'])
     O.oneOf(restrict, own)
     O.type(restrict, namespaces['owl']+'#Class')
     O.consistency(4)
+    print O.rep._domains
     assert len(O.rep._domains[restrict].getValues()) == 3
 
 def test_oneofdatarange():
     O = Ontology()
     restrict = BNode('anon')
-    own = URIRef('favlist')
-    obj = URIRef(namespaces['rdf']+'#List')
-    O.type(own, obj)
-    O.first(own, URIRef('first'))
-    O.rest(own,  URIRef('1'))
-    O.first( URIRef('1'), URIRef('second'))
-    O.rest( URIRef('1'),  URIRef('2'))
-    O.first( URIRef('2'), URIRef('third'))
-    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
+    own = rdf_list(O, 'favlist', ['1','2','3'])
     O.oneOf(restrict, own)
     O.type(restrict, namespaces['owl']+'#DataRange')
     O.consistency(4)
+    print O.rep._domains
     assert len(O.rep._domains[restrict].getValues()) == 3
 
 def test_somevaluesfrom_datarange():
     O = Ontology()
     datarange = BNode('anon')
-    own = URIRef('favlist')
-    obj = URIRef(namespaces['rdf']+'#List')
-    O.type(own, obj)
-    O.first(own, URIRef('first'))
-    O.rest(own,  URIRef('1'))
-    O.first( URIRef('1'), URIRef('second'))
-    O.rest( URIRef('1'),  URIRef('2'))
-    O.first( URIRef('2'), URIRef('third'))
-    O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
+    own = rdf_list(O, 'favlist', ['1','2','3'])
     O.oneOf(datarange, own)
     O.type(datarange, namespaces['owl']+'#DataRange')
     restrict = BNode('anon1')
@@ -431,6 +416,27 @@ def test_somevaluesfrom_datarange():
 def test_allvaluesfrom_datarange():
     O = Ontology()
     datarange = BNode('anon')
+    own = rdf_list(O, 'favlist', ['1','2','3'])
+    O.oneOf(datarange, own)
+    O.type(datarange, namespaces['owl']+'#DataRange')
+    restrict = BNode('anon1')
+    obj = URIRef(namespaces['owl']+'#Restriction')
+    O.type(restrict, obj)
+    p = URIRef('p')
+    O.onProperty(restrict,p)
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(p, obj)
+    O.allValuesFrom(restrict, datarange)
+    cls = URIRef('class')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(cls, obj)
+    O.subClassOf(cls,restrict)
+    O.variables['p_'].setValues([(cls,1)])
+    py.test.raises(ConsistencyFailure, O.consistency)
+
+def no_test_unionof():
+    O = Ontology()
+    datarange = BNode('anon')
     own = URIRef('favlist')
     obj = URIRef(namespaces['rdf']+'#List')
     O.type(own, obj)
@@ -440,7 +446,7 @@ def test_allvaluesfrom_datarange():
     O.rest( URIRef('1'),  URIRef('2'))
     O.first( URIRef('2'), URIRef('third'))
     O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
-    O.oneOf(datarange, own)
+    O.unionOf(datarange, own)
     O.type(datarange, namespaces['owl']+'#DataRange')
     restrict = BNode('anon1')
     obj = URIRef(namespaces['owl']+'#Restriction')
