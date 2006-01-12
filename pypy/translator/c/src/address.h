@@ -19,7 +19,11 @@
 #define OP_RAW_MALLOC(size,r,err)                                           \
     r = (void*) malloc(size);                                              \
     if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");\
- 
+
+#ifdef MS_WINDOWS
+#define alloca  _alloca
+#endif
+
 #define OP_STACK_MALLOC(size,r,err)                                           \
     r = (void*) alloca(size);                                              \
     if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");\
