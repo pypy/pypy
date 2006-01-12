@@ -44,6 +44,7 @@ class Module(MixedModule):
 ##         #'compilest'    : 'pyparser.compilest',
 
          # PyPy extension
+	 'source2ast' : "pyparser.source2ast",
          'decode_string_literal': 'pyparser.decode_string_literal',
          'install_compiler_hook' : 'pypy.interpreter.pycompiler.install_compiler_hook',
          'rules' : 'pypy.interpreter.pyparser.pythonparse.grammar_rules',

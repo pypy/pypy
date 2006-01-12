@@ -200,6 +200,18 @@ def sequence2st(space, w_sequence):
     return space.wrap( STType(space, syntaxtree) )
 
 
+def source2ast(space, source):
+    from pypy.interpreter.pyparser.pythonutil import AstBuilder, PYTHON_PARSER
+    builder = AstBuilder(space=space)
+    PYTHON_PARSER.parse_source(source, 'file_input', builder)
+    ast_tree = builder.rule_stack[-1]
+    return space.wrap(ast_tree)
+source2ast.unwrap_spec = [ObjSpace, str]
+
+
+
+
+
 def decode_string_literal(space, s, w_encoding=None):
     from pypy.interpreter.pyparser.parsestring import parsestr
     if space.is_true(w_encoding):
