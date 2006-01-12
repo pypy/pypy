@@ -223,6 +223,12 @@ should probably not try to evade it too much. Thus we propose again a
 mini-language embedding horn-clauses and logic stuff into 'normal'
 (unsuspecting) Python programs.
 
+Existing python/prolog projects can be found at :
+http://christophe.delord.free.fr/en/pylog/ and
+http://aima.cs.berkeley.edu/python/logic.html. There might be more of
+them.
+
+
 Databases and Requests
 ----------------------
 
