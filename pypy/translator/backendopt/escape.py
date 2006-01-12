@@ -2,6 +2,7 @@ from pypy.annotation.model import setunion
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import get_graph
+from pypy.rpython.rmodel import inputconst
 
 class CreationPoint(object):
     def __init__(self, creation_method="?"):
@@ -147,6 +148,7 @@ class AbstractDataFlowInterpreter(object):
         self.curr_block = block
         self.curr_graph = graph
         print "inputargs", self.getstates(block.inputargs)
+        
         for op in block.operations:
             self.flow_operation(op)
         print "checking exits..."
@@ -313,13 +315,14 @@ class AbstractDataFlowInterpreter(object):
     def ptr_iszero(self, op, ptrstate):
         return None
 
-    cast_ptr_to_int = ptr_iszero
+    cast_ptr_to_int = keepalive = ptr_nonzero = ptr_iszero
+
+    def ptr_eq(self, op, ptr1state, ptr2state):
+        return None
 
     def same_as(self, op, objstate):
         return objstate
 
-    
- 
 def isonheap(var_or_const):
     return isinstance(var_or_const.concretetype, lltype.Ptr)
 
@@ -331,3 +334,20 @@ def multicontains(l1, l2):
         elif not a.contains(b):
             return False
     return True
+
+def malloc_to_stack(t):
+    aib = AbstractDataFlowInterpreter(t)
+    for graph in t.graphs:
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'malloc':
+                    if graph.startblock not in aib.flown_blocks:
+                        aib.schedule_function(graph)
+                        aib.complete()
+                    varstate = aib.getstate(op.result)
+                    assert len(varstate.creation_points) == 1
+                    crep = varstate.creation_points.keys()[0]
+                    if not crep.escapes:
+                        print "moving object from heap to stack %s in %s" % (op, graph.name)
+                        op.opname = 'flavored_malloc'
+                        op.args.insert(0, inputconst(lltype.Void, 'stack'))

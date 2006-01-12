@@ -1,5 +1,6 @@
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter 
+from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter, malloc_to_stack
+from pypy.rpython.llinterp import LLInterpreter
 
 def build_adi(function, types):
     t = TranslationContext()
@@ -10,6 +11,23 @@ def build_adi(function, types):
     adi.schedule_function(graph)
     adi.complete()
     return t, adi, graph
+
+def check_malloc_removal(function, types, args, expected_result, must_remove=True):
+    t = TranslationContext()
+    t.buildannotator().build_types(function, types)
+    t.buildrtyper().specialize()
+    interp = LLInterpreter(t.rtyper)
+    graph = graphof(t, function)
+    res = interp.eval_graph(graph, args)
+    assert res == expected_result
+    malloc_to_stack(t)
+    if must_remove:
+        for block in graph.iterblocks():
+            for op in block.operations:
+                assert op.opname != "malloc"
+    res = interp.eval_graph(graph, args)
+    assert res == expected_result
+    return t
 
 def test_simple():
     class A(object):
@@ -64,7 +82,6 @@ def test_loop():
     assert crep.changes
     assert not crep.escapes
     avarinloop = graph.startblock.exits[0].target.inputargs[1]
-    #t.view()
     state1 = adi.getstate(avarinloop)
     assert crep in state1.creation_points
     assert len(state1.creation_points) == 2
@@ -126,7 +143,6 @@ def test_aliasing():
 def test_call():
     class A(object):
         pass
-    globala = A()
     def g(b):
         return b.i + 2
     def f():
@@ -290,10 +306,60 @@ def test_getsubstruct():
     # does not crash
     t, adi, graph = build_adi(f, [int])
 
+def test_raise_escapes():
+    def f():
+        a = ValueError()
+        raise a
+    t, adi, graph = build_adi(f, [])
+    avar = graph.startblock.operations[0].result
+    state = adi.getstate(avar)
+    assert state.does_escape()
+    assert state.does_change()
+
+
 def test_big():
     from pypy.translator.goal.targetrpystonex import make_target_definition
     entrypoint, _, _ = make_target_definition(10)
     # does not crash
     t, adi, graph = build_adi(entrypoint, [int])
 
-    
+ 
+#__________________________________________________________
+# malloc removal tests
+
+def test_remove_simple():
+    class A(object):
+        pass
+    def f():
+        a = A()
+        a.x = 1
+        return a.x
+    check_malloc_removal(f, [], [], 1)
+
+def test_remove_aliasing():
+    class A:
+        pass
+    def fn6(n):
+        a1 = A()
+        a1.x = 5
+        a2 = A()
+        a2.x = 6
+        if n > 0:
+            a = a1
+        else:
+            a = a2
+        a.x = 12
+        return a1.x
+    t = check_malloc_removal(fn6, [int], [2], 12)
+
+def test_remove_call():
+    class A(object):
+        pass
+    def g(b):
+        return b.i + 2
+    def f():
+        a = A()
+        a.i = 2
+        return g(a)
+    t = check_malloc_removal(f, [], [], 4)
+
