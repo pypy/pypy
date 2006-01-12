@@ -463,3 +463,18 @@ def test_intersectionof():
     O.type(cls, namespaces['owl']+'#Class')
     O.consistency(3)
     assert O.rep._domains[cls].getValues() == ['3']
+
+def test_differentfrom():
+    O = Ontology()
+    cls = BNode('anon')
+    own1 = BNode('liist1')
+    own2 = BNode('liist2')
+    list1 = rdf_list(O, 'favlist1', ['1', '2', '3'])
+    list2 = rdf_list(O, 'favlist2', ['3', '4', '5'])
+    own = rdf_list(O, 'favlist', [own1, own2])
+    O.oneOf( own1, list1)
+    O.oneOf( own2, list2)
+    O.intersectionOf(cls, own)
+    O.type(cls, namespaces['owl']+'#Class')
+    O.consistency(3)
+    assert O.rep._domains[cls].getValues() == ['3']

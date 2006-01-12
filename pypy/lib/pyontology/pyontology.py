@@ -70,10 +70,11 @@ class ClassDomain(AbstractDomain):
         self.values = values
 
 class List(ClassDomain):
+
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
         self.constraint = ListConstraint(name)
-        
+
 class Property(ClassDomain):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
@@ -450,24 +451,25 @@ class Ontology:
 
 class OwlConstraint(AbstractConstraint):
 
+    cost = 1
+    
     def __init__(self, variable):
         AbstractConstraint.__init__(self, [variable])
         self.variable = variable
-        self.__cost = 1 
 
     def __repr__(self):
         return '<%s  %s>' % (self.__class__.__name__, str(self._variables[0]))
 
     def estimateCost(self, domains):
-        return self.__cost
+        return self.cost
 
 
 class MaxCardinality(AbstractConstraint):
     """Contraint: all values must be distinct"""
 
-    def __init__(self, variable, cls, cardinality):
+    def __init__(self, variable, cardinality):
         AbstractConstraint.__init__(self, [variable])
-        self.__cost = 2
+        self.cost = 80
         self.variable = variable
         self.cardinality = cardinality
         #self.cls = cls
@@ -476,7 +478,7 @@ class MaxCardinality(AbstractConstraint):
         return '<%s  %s %i>' % (self.__class__.__name__, str(self._variables[0]), self.cardinality)
 
     def estimateCost(self, domains):
-        return 80
+        return self.cost
     
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
@@ -512,7 +514,6 @@ class Cardinality(MaxCardinality):
         else:
             return 1
 
-
 def get_values(dom, domains, attr = 'getValues'):
     res = []
     if type(dom) == Literal:
@@ -527,10 +528,15 @@ def get_values(dom, domains, attr = 'getValues'):
 
 class SubClassConstraint(AbstractConstraint):
 
+    cost=1
+    
     def __init__(self, variable, cls_or_restriction):
         AbstractConstraint.__init__(self, [variable, cls_or_restriction])
         self.object = cls_or_restriction
         self.variable = variable
+
+    def estimateCost(self, domains):
+        return self.cost
 
     def __repr__(self):
         return '<%s  %s %s>' % (self.__class__.__name__, str(self._variables[0]), self.object)
@@ -566,9 +572,8 @@ class ComplementClassConstraint(SubClassConstraint):
 
 class RangeConstraint(SubClassConstraint):
 
-    def estimateCost(self, domains):
-        return 200
-
+    cost = 200
+    
     def narrow(self, domains):
         propdom = domains[self.variable]
         rangedom = domains[self.object]
@@ -706,20 +711,17 @@ class InverseofConstraint(SubClassConstraint):
             if not (val,cls) in obj_domain:
                 raise ConsistencyFailure("Inverseof failed") 
 
-class ListConstraint(AbstractConstraint):
+class ListConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
-    def __init__(self, variable):
-        AbstractConstraint.__init__(self, [variable])
-        self.variable = variable
-        self.__cost = 10
 
-    def estimateCost(self, domains):
-        return self.__cost
+    cost = 10
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         vals =[]
         vals += domains[self.variable].getValues()
+        if vals == []:
+            return 0
         while True:
             if vals[-1] in domains.keys() and isinstance(domains[vals[-1]], List):
                 vals = vals[:-1] + domains[vals[-1]].getValues()
@@ -728,13 +730,9 @@ class ListConstraint(AbstractConstraint):
         domains[self.variable].setValues(vals)
         return 1
 
-class RestrictionConstraint(AbstractConstraint):
-    def __init__(self, variable):
-        AbstractConstraint.__init__(self, [variable])
-        self.variable = variable
+class RestrictionConstraint(OwlConstraint):
 
-    def estimateCost(self, domains):
-        return 90
+    cost = 90
 
     def narrow(self, domains):
         prop = domains[self.variable].property
@@ -750,9 +748,11 @@ class OneofPropertyConstraint(AbstractConstraint):
         self.variable = variable
         self.List = List
 
+    cost = 100
+
     def estimateCost(self, domains):
-        return 100
-        
+        return self.cost
+
     def narrow(self, domains):
         val = domains[self.List].getValues()
         if isinstance(domains[self.variable],Restriction):
@@ -768,16 +768,10 @@ class OneofPropertyConstraint(AbstractConstraint):
             domains[self.variable].setValues(val)
             return 1
 
-class UnionofConstraint(AbstractConstraint):
+class UnionofConstraint(OneofPropertyConstraint):
 
-    def __init__(self, variable, List):
-        AbstractConstraint.__init__(self, [variable, List])
-        self.variable = variable
-        self.List = List
+    cost = 200
 
-    def estimateCost(self, domains):
-        return 200
-        
     def narrow(self, domains):
         val = domains[self.List].getValues()
         union = []
@@ -787,16 +781,10 @@ class UnionofConstraint(AbstractConstraint):
                     union.append(u)
         cls = domains[self.variable].setValues(union)
         
-class IntersectionofConstraint(AbstractConstraint):
+class IntersectionofConstraint(OneofPropertyConstraint):
 
-    def __init__(self, variable, List):
-        AbstractConstraint.__init__(self, [variable, List])
-        self.variable = variable
-        self.List = List
+    cost = 200
 
-    def estimateCost(self, domains):
-        return 200
-        
     def narrow(self, domains):
         val = domains[self.List].getValues()
         intersection = domains[val[0]].getValues()
@@ -811,15 +799,9 @@ class IntersectionofConstraint(AbstractConstraint):
         cls = domains[self.variable].setValues(intersection)
         
 
-class SomeValueConstraint(AbstractConstraint):
+class SomeValueConstraint(OneofPropertyConstraint):
 
-    def __init__(self, variable, List):
-        AbstractConstraint.__init__(self, [variable, List])
-        self.variable = variable
-        self.List = List
-
-    def estimateCost(self, domains):
-        return 100
+    cost = 100
         
     def narrow(self, domains):
         val = domains[self.List].getValues()
@@ -834,15 +816,9 @@ class SomeValueConstraint(AbstractConstraint):
                     "The value of the property %s in the class %s has no values from %r"
                         %(property, cls, val))
 
-class AllValueConstraint(AbstractConstraint):
+class AllValueConstraint(OneofPropertyConstraint):
 
-    def __init__(self, variable, List):
-        AbstractConstraint.__init__(self, [variable, List])
-        self.variable = variable
-        self.List = List
-
-    def estimateCost(self, domains):
-        return 100
+    cost = 100
         
     def narrow(self, domains):
         val = domains[self.List].getValues()
@@ -856,16 +832,19 @@ class AllValueConstraint(AbstractConstraint):
                         %(property, cls, val))
 
 class HasvalueConstraint(AbstractConstraint):
+
     def __init__(self, variable, List):
         AbstractConstraint.__init__(self, [variable])
         self.variable = variable
         self.List = List
 
+    cost = 100
+
     def estimateCost(self, domains):
-        return 100
-        
+        return self.cost
+
     def narrow(self, domains):
-        val = self.List #domains[self.List].getValues()
+        val = self.List
         property = domains[self.variable].property
         cls = domains[self.variable].cls
         prop = Linkeddict(domains[property].getValues())
