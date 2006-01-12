@@ -1,8 +1,9 @@
 
 import py
-from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject
+from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException,log
+from pypy.rpython.rmodel import inputconst
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.rlist import *
 from pypy.rpython.rint import signed_repr
@@ -384,6 +385,40 @@ def test_id():
         for j in [0, 1]:
             result = interpret(getids, [i, j])
             assert result
+
+def test_stack_malloc():
+    class A(object):
+        pass
+    def f():
+        a = A()
+        a.i = 1
+        return a.i
+    interp, graph = get_interpreter(f, [])
+    graph.startblock.operations[0].opname = "flavored_malloc"
+    graph.startblock.operations[0].args.insert(0, inputconst(Void, "stack"))
+    result = interp.eval_graph(graph, [])
+    assert result == 1
+
+def test_invalid_stack_access():
+    class A(object):
+        pass
+    globala = A()
+    globala.next = None
+    globala.i = 1
+    def g(a):
+        globala.next = a
+    def f():
+        a = A()
+        a.i = 2
+        g(a)
+    def h():
+        f()
+        return globala.next.i
+    interp, graph = get_interpreter(h, [])
+    fgraph = graph.startblock.operations[0].args[0].value._obj.graph
+    fgraph.startblock.operations[0].opname = "flavored_malloc"
+    fgraph.startblock.operations[0].args.insert(0, inputconst(Void, "stack"))
+    py.test.raises(AttributeError, "interp.eval_graph(graph, [])")
 #__________________________________________________________________
 # example functions for testing the LLInterpreter
 _snap = globals().copy()

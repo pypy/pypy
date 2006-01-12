@@ -3,6 +3,7 @@ from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ul
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.objectmodel import FREED_OBJECT
 
 import sys
 import math
@@ -100,6 +101,7 @@ class LLFrame(object):
         self.f_back = f_back
         self.curr_block = None
         self.curr_operation_index = 0
+        self.alloca_objects = []
 
     # _______________________________________________________
     # variable setters/getters helpers
@@ -156,6 +158,9 @@ class LLFrame(object):
             nextblock, args = self.eval_block(nextblock)
             if nextblock is None:
                 self.llinterpreter.active_frame = self.f_back
+                for obj in self.alloca_objects:
+                    #XXX slighly unclean
+                    obj._setobj(None)
                 return args
 
     def eval_block(self, block):
@@ -353,6 +358,13 @@ class LLFrame(object):
 
     def op_flavored_malloc(self, flavor, obj):
         assert isinstance(flavor, str)
+        if flavor == "stack":
+            if isinstance(obj, self.llt.Struct) and obj._arrayfld is None:
+                result = self.llt.malloc(obj)
+                self.alloca_objects.append(result)
+                return result
+            else:
+                raise ValueError("cannot allocate variable-sized things on the stack")
         return self.llt.malloc(obj, flavor=flavor)
 
     def op_flavored_free(self, flavor, obj):
