@@ -36,14 +36,14 @@ don't know if they will share, in Pypy, the same syntax and the same
 machinery.
 
 Also it has been said that CLP will be inspired from what is done in
-the Oz programming language, which provides different programming
-'paradigms' with a very well thought-out integration between said
-paradigms. For instance, imperative features can be mixed, to some
-extent, with logic programming (the later can be 'embedded' in the
-former); or constraint programming goes with stateless concurrency,
-another important feature of Oz. We still don't know to what extent
-the Oz level of integration will be pursued in the context of Pypy,
-esp. WP 9 and 10.
+the Oz programming language (http://www.mozart-oz.org/), which
+provides different programming 'paradigms' with a very well
+thought-out integration between said paradigms. For instance,
+imperative features can be mixed, to some extent, with logic
+programming (the later can be 'embedded' in the former); or constraint
+programming goes with stateless concurrency, another important feature
+of Oz. We still don't know to what extent the Oz level of integration
+will be pursued in the context of Pypy, esp. WP 9 and 10.
 
 Lastly, here we mainly discuss syntactical issues: those are probably
 the least difficult aspects of getting CLP into python; getting an
@@ -308,7 +308,7 @@ For constraint programming:
 
 * Adapt the core algorithms from logilab.constraints to RPython
 * Stuff it into Pypy
-* Enhance (tm) it with concurrency aspects
+* Enhance (tm) it with concurrency aspects (using tis's tasklets)
 
 Logic programming:
 
