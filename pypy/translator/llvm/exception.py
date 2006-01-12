@@ -168,7 +168,7 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):
         codewriter.unwind()
 
     def llc_options(self):
-    	if sys.platform == 'linux2' and sys.maxint == 2**64-1:
+    	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
 		s = ' -enable-ia64-dag-isel'
 	else:
 		s = ''
@@ -351,7 +351,7 @@ class ExplicitExceptionPolicy(ExceptionPolicy):
         codewriter.ret(returntype, self._noresult2(returntype))
 
     def llc_options(self):
-    	if sys.platform == 'linux2' and sys.maxint == 2**64-1:
+    	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
 		s = '-enable-ia64-dag-isel'
 	else:
 		s = ''
