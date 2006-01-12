@@ -568,6 +568,8 @@ class FunctionCodeGenerator(object):
         flavor = op.args[0].value
         if flavor == "raw": 
             return "OP_RAW_MALLOC(%s, %s, %s);" % (esize, eresult, err) 
+        elif flavor == "stack": 
+            return "OP_STACK_MALLOC(%s, %s, %s);" % (esize, eresult, err) 
         else:
             raise NotImplementedError
 
