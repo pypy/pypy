@@ -209,9 +209,6 @@ def source2ast(space, source):
 source2ast.unwrap_spec = [ObjSpace, str]
 
 
-
-
-
 def decode_string_literal(space, s, w_encoding=None):
     from pypy.interpreter.pyparser.parsestring import parsestr
     if space.is_true(w_encoding):
