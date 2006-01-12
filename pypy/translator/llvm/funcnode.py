@@ -72,7 +72,9 @@ class FuncNode(ConstantLLVMNode):
 
     def post_setup_transform(self):
         self.db.exceptionpolicy.transform(self.db.translator, self.graph)
-        remove_exception_mallocs(self.db.translator, self.graph, self.ref)
+	import sys
+	if sys.maxint == 2**31-1:	#XXX not yet 64bit compatible
+        	remove_exception_mallocs(self.db.translator, self.graph, self.ref)
         remove_double_links(self.db.translator, self.graph)
     
     def writedecl(self, codewriter): 

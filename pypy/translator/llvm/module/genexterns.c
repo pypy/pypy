@@ -1,7 +1,7 @@
 
 // we hand craft these in module/support.ll
 char *RPyString_AsString(RPyString*);
-int RPyString_Size(RPyString*);
+int RPyString_Size(RPyString*);	//XXX int->long
 RPyString *RPyString_FromString(char *);
 int RPyExceptionOccurred(void);
 char* LLVM_RPython_StartupCode(void);

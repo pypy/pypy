@@ -168,7 +168,11 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):
         codewriter.unwind()
 
     def llc_options(self):
-        return '-enable-correct-eh-support'
+    	if sys.platform == 'linux2' and sys.maxint == 2**64-1:
+		s = ' -enable-ia64-dag-isel'
+	else:
+		s = ''
+        return '-enable-correct-eh-support' + s
 
 class ExplicitExceptionPolicy(ExceptionPolicy):
     """ uses issubclass() and last_exception tests after each call """
@@ -347,5 +351,9 @@ class ExplicitExceptionPolicy(ExceptionPolicy):
         codewriter.ret(returntype, self._noresult2(returntype))
 
     def llc_options(self):
-        return ''
+    	if sys.platform == 'linux2' and sys.maxint == 2**64-1:
+		s = '-enable-ia64-dag-isel'
+	else:
+		s = ''
+        return s
     

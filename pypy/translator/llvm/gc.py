@@ -130,7 +130,7 @@ class BoehmGcPolicy(GcPolicy):
 
         if is_atomic:
             t += '''
-        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, uint %%malloc_SizeU%(cnt)s, uint 0)
+        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, %(uword)s %%malloc_SizeU%(cnt)s, uint 0)
         ''' % locals()
         codewriter.write_lines(t)
 
