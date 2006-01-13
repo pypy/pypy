@@ -1,7 +1,7 @@
 
 // we hand craft these in module/support.ll
 char *RPyString_AsString(RPyString*);
-int RPyString_Size(RPyString*);	//XXX int->long
+long RPyString_Size(RPyString*);
 RPyString *RPyString_FromString(char *);
 int RPyExceptionOccurred(void);
 char* LLVM_RPython_StartupCode(void);
@@ -13,7 +13,7 @@ RPyFREXP_RESULT *ll_frexp_result(double, int);
 RPyMODF_RESULT *ll_modf_result(double, double);
 RPySTAT_RESULT *ll_stat_result(int, int, int, int, int, int, int, int, int, int);
 void RPYTHON_RAISE_OSERROR(int error);
-RPyListOfString *_RPyListOfString_New(int);
+RPyListOfString *_RPyListOfString_New(long);
 void _RPyListOfString_SetItem(RPyListOfString *, int, RPyString *);
 
 // overflows/zeros/values raising operations
@@ -45,7 +45,7 @@ char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
 }
 
 // raw malloc code
-char *raw_malloc(int size) {
+char *raw_malloc(long size) {
   return malloc(size);
 }
 
@@ -53,7 +53,7 @@ void raw_free(void *ptr) {
   free(ptr);
 }
 
-void raw_memcopy(char *ptr1, char *ptr2, int size) {
+void raw_memcopy(char *ptr1, char *ptr2, long size) {
   memcpy((void *) ptr2, (void *) ptr1, size);
 }
 

@@ -15,11 +15,11 @@
 
 #define USING_BOEHM_GC
 
-char *pypy_malloc(unsigned int size) {
+char *pypy_malloc(unsigned long size) {
   return GC_MALLOC(size);
 }
 
-char *pypy_malloc_atomic(unsigned int size) {
+char *pypy_malloc_atomic(unsigned long size) {
   return GC_MALLOC_ATOMIC(size);
 }
 

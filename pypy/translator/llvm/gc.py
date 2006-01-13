@@ -128,9 +128,9 @@ class BoehmGcPolicy(GcPolicy):
 %(targetvar)s = cast sbyte* %%malloc_Ptr%(cnt)s to %(type_)s
 ''' % locals()
 
-        if is_atomic:
+        if is_atomic:   #Boehm aligns on 8 byte boundaries
             t += '''
-        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, %(uword)s %%malloc_SizeU%(cnt)s, uint 0)
+        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, %(uword)s %%malloc_SizeU%(cnt)s, %(uword)s 8)
         ''' % locals()
         codewriter.write_lines(t)
 

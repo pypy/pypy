@@ -99,7 +99,12 @@ class GenLLVM(object):
         codewriter, self.filename = self.create_codewriter()
         self._checkpoint('open file and create codewriter')        
         return codewriter
-    
+
+    def _set_wordsize(self, s):
+        s = s.replace('UWORD', self.db.get_machine_uword())
+        s = s.replace( 'WORD', self.db.get_machine_word())
+        return s
+
     def write_headers(self, codewriter):
         # write external function headers
         codewriter.header_comment('External Function Headers')
@@ -130,7 +135,7 @@ class GenLLVM(object):
         codewriter.header_comment("Function Prototypes")
 
         # write external protos
-        codewriter.write_lines(extdeclarations)
+        codewriter.write_lines(self._set_wordsize(extdeclarations))
 
         # write node protos
         for typ_decl in self.db.getnodes():
@@ -144,7 +149,7 @@ class GenLLVM(object):
         # write external function implementations
         codewriter.header_comment('External Function Implementation')
         codewriter.write_lines(self.llexterns_functions)
-        codewriter.write_lines(extfunctions)
+        codewriter.write_lines(self._set_wordsize(extfunctions))
         self.write_extern_impls(codewriter)
         self.write_setup_impl(codewriter)
         

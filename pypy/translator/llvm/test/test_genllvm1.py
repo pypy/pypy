@@ -54,13 +54,17 @@ class TestGenLLVM(object):
         assert shr(42,2) == llvmsnippet.shiftright(42,2)
 
 class TestFloat(object):
+    def _almost_equal(self, a, b):
+        _epsilon = 0.0000001
+        return a >= b - _epsilon and a <= b + _epsilon
+
     def test_float_f1(self):
         f = compile_function(llvmsnippet.float_f1, [float])
-        assert f(1.0) == 2.2
+        assert self._almost_equal(f(1.0), 2.2)
 
     def test_float_int_bool(self):
         f = compile_function(llvmsnippet.float_int_bool, [float])
-        assert f(3.0) == 9.0
+        assert self._almost_equal(f(3.0), 9.0)
 
 
 class TestString(object):

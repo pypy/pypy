@@ -29,6 +29,10 @@ else:
 }
 ''' % (RINGBUFFER_ENTRY_MAXSIZE, RINGBUFFER_OVERSIZE, RINGBUFFER_SIZE - 1)
 
+import sys
+if sys.maxint != 2**31-1: #XXX need to move the ringbuffer code to another level anyway
+	ringbuffer_decl = ringbuffer_code = ''
+
 invokeunwind_code = '''
 ccc %(returntype)s%%__entrypoint__%(entrypointname)s {
     %%result = invoke %(cconv)s %(returntype)s%%%(entrypointname)s to label %%no_exception except label %%exception

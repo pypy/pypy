@@ -80,7 +80,7 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
     #ball = str(dirpath.join('%s_all.bc' % b))
     #cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
 
-    use_gcc = sys.platform == 'linux2'
+    use_gcc = sys.platform == 'linux2' and sys.maxint == 2**31-1
     profile = False
     cleanup = False
 

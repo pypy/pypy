@@ -4,8 +4,8 @@ extdeclarations = """
 %last_exception_value = internal global %RPYTHON_EXCEPTION* null
 
 declare ccc uint %strlen(sbyte*)
-declare ccc void %llvm.memset(sbyte*, ubyte, uint, uint)
-declare ccc void %llvm.memcpy(sbyte*, sbyte*, uint, uint)
+declare ccc void %llvm.memset(sbyte*, ubyte, UWORD, UWORD)
+declare ccc void %llvm.memcpy(sbyte*, sbyte*, UWORD, UWORD)
 """
 
 extfunctions = """
@@ -15,10 +15,10 @@ internal fastcc sbyte* %RPyString_AsString(%RPyString* %structstring) {
     ret sbyte* %source1
 }
 
-internal fastcc int %RPyString_Size(%RPyString* %structstring) {
+internal fastcc WORD %RPyString_Size(%RPyString* %structstring) {
     %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
-    %size = load int* %sizeptr	;XXX int ->long
-    ret int %size
+    %size = load WORD* %sizeptr
+    ret WORD %size
 }
 
 internal fastcc int %RPyExceptionOccurred() {
@@ -30,12 +30,13 @@ internal fastcc int %RPyExceptionOccurred() {
 
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %lenu      = call ccc uint %strlen(sbyte* %s)
-    %len       = cast uint %lenu to int
-    %rpy       = call fastcc %RPyString* %pypy_RPyString_New__Signed(int %len)
+    %lenuword  = cast uint %lenu to UWORD
+    %lenword   = cast uint %lenu to WORD
+    %rpy       = call fastcc %RPyString* %pypy_RPyString_New__Signed(WORD %lenword)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 
-    call ccc void %llvm.memcpy(sbyte* %rpystr, sbyte* %s, uint %lenu, uint 0)
+    call ccc void %llvm.memcpy(sbyte* %rpystr, sbyte* %s, UWORD %lenuword, UWORD 0)
 
     ret %RPyString* %rpy
 }
