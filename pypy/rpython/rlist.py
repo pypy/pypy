@@ -518,8 +518,6 @@ def ll_insert_nonneg(l, index, newitem):
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass
-def dum_inplace():pass
-def dum_newlist():pass
 
 def ll_pop_nonneg(func, l, index):
     if func is dum_checkidx and (index >= l.length):
