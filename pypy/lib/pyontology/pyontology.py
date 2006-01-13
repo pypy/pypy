@@ -160,14 +160,13 @@ class Restriction(ClassDomain):
                 the property is saved in the Restriction class' property attribute
             2. The restriction itself. This comes from one of the property restrictions triples (oneOf, 
                 maxCardinality ....). It adds a constraint class
-            3. The class in which context the restriction should be applied. This comes from subClassOf, 
-                The class is saved in the restrictions clsattribute
+            3. The class in which context the restriction should be applied. This comes from subClassOf, type...
+                The class is saved in the restrictions cls attribute
         """
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
         self.constraint = RestrictionConstraint(name)
         self.property = None
-        self.cls = None
         
 builtin_voc = {
                getUriref('owl', 'Thing') : Thing,
@@ -267,7 +266,7 @@ class Ontology:
             # var is not one of the builtin classes
             avar = self.make_var(ClassDomain, var)
             svar = self.make_var(self.variables[avar].__class__, s)
-            constrain = BinaryExpression([svar, avar],"%s in %s" %(svar,  avar))
+            constrain = TypeConstraint(svar,  avar)
             self.constraints.append(constrain)
         else:
             # var is a builtin class
@@ -388,22 +387,20 @@ class Ontology:
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
         svar =self.make_var(Restriction, s)
-        constrain = MaxCardinality(svar, None, int(var))
+        constrain = MaxCardinality(svar, int(var))
         self.constraints.append(constrain) 
 
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
-        avar = self.find_property(s)
-        cls =self.make_var(None, self.find_cls(s))
-        constrain = MinCardinality(avar, None, int(var))
+        svar =self.make_var(Restriction, s)
+        constrain = MinCardinality(svar, int(var))
         self.constraints.append(constrain) 
 
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
-        avar = self.find_property(s)
-        cls =self.make_var(None, self.find_cls(s))
+        svar =self.make_var(Restriction, s)
         # Check if var is an int, else find the int buried in the structure
-        constrain = Cardinality(avar, None, int(var))
+        constrain = Cardinality(svar, int(var))
         self.constraints.append(constrain) 
 
     def differentFrom(self, s, var):
@@ -472,7 +469,6 @@ class MaxCardinality(AbstractConstraint):
         self.cost = 80
         self.variable = variable
         self.cardinality = cardinality
-        #self.cls = cls
 
     def __repr__(self):
         return '<%s  %s %i>' % (self.__class__.__name__, str(self._variables[0]), self.cardinality)
@@ -484,7 +480,7 @@ class MaxCardinality(AbstractConstraint):
         """narrowing algorithm for the constraint"""
         prop = domains[self.variable].property
         props = Linkeddict(domains[prop].getValues())
-        cls = domains[self.variable].cls
+        cls = domains[self.variable].getValues()[0]
         if len(props[cls]) > self.cardinality:
             raise ConsistencyFailure("Maxcardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
         else:
@@ -496,7 +492,7 @@ class MinCardinality(MaxCardinality):
         """narrowing algorithm for the constraint"""
         prop = domains[self.variable].property
         props = Linkeddict(domains[prop].getValues())
-        cls = domains[self.variable].cls
+        cls = domains[self.variable].getValues()[0]
         if len(props[cls]) < self.cardinality:
             raise ConsistencyFailure("MinCardinality of %i not achieved by the value %i" %(self.cardinality,len(props[cls])))
         else:
@@ -508,7 +504,7 @@ class Cardinality(MaxCardinality):
         """narrowing algorithm for the constraint"""
         prop = domains[self.variable].property
         props = Linkeddict(domains[prop].getValues())
-        cls = domains[self.variable].cls
+        cls = domains[self.variable].getValues()[0]
         if len(props[cls]) != self.cardinality:
             raise ConsistencyFailure("Cardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
         else:
@@ -544,12 +540,11 @@ class SubClassConstraint(AbstractConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
-        if isinstance(superdom, Restriction):
-            superdom.cls = self.variable
-        bases = get_values(superdom, domains, 'getBases')  
-        subdom.bases += [bas for bas in bases if bas not in subdom.bases]
-        vals = get_values(subdom, domains, 'getValues')
-        superdom.values += [val for val in vals if val not in superdom.values]
+        vals = []
+        vals += superdom.getValues()
+        vals += subdom.getValues() +[self.variable]
+        superdom.setValues(vals)
+        return 0
 
 class DisjointClassConstraint(SubClassConstraint):
 
@@ -632,6 +627,17 @@ class EquivalentPropertyConstraint(SubClassConstraint):
         for val in subdom.getValues():
             if not val in vals:
                 raise ConsistencyFailure("Value not in prescribed range")
+
+class TypeConstraint(SubClassConstraint):
+    cost = 1
+    def narrow(self, domains):
+        subdom = domains[self.variable]
+        superdom = domains[self.object]
+        vals = []
+        vals += superdom.getValues()  
+        vals.append(self.variable)
+        superdom.setValues(vals)
+        return 1
 
 class FunctionalCardinality(OwlConstraint):
     """Contraint: all values must be distinct"""
@@ -736,10 +742,15 @@ class RestrictionConstraint(OwlConstraint):
 
     def narrow(self, domains):
         prop = domains[self.variable].property
-        cls = domains[self.variable].cls
-        props = domains[prop].getValues()
-        props.append((cls, None))
-        domains[prop].setValues(props)
+        vals = domains[self.variable].getValues()
+        if vals:
+            cls = vals[0]
+            props = domains[prop].getValues()
+            props.append((cls, None))
+            domains[prop].setValues(props)
+            return 1
+        else:
+            return 0
         
 class OneofPropertyConstraint(AbstractConstraint):
 
@@ -757,7 +768,7 @@ class OneofPropertyConstraint(AbstractConstraint):
         val = domains[self.List].getValues()
         if isinstance(domains[self.variable],Restriction):
             property = domains[self.variable].property
-            cls = domains[self.variable].cls
+            cls = domains[self.variable].getValues()[0]
             prop = Linkeddict(domains[property].getValues())
             for v in prop[cls]:
                 if not v in val:
@@ -806,7 +817,7 @@ class SomeValueConstraint(OneofPropertyConstraint):
     def narrow(self, domains):
         val = domains[self.List].getValues()
         property = domains[self.variable].property
-        cls = domains[self.variable].cls
+        cls = domains[self.variable].getValues()[0]
         prop = Linkeddict(domains[property].getValues())
         for v in prop[cls]:
             if v in val:
@@ -823,7 +834,7 @@ class AllValueConstraint(OneofPropertyConstraint):
     def narrow(self, domains):
         val = domains[self.List].getValues()
         property = domains[self.variable].property
-        cls = domains[self.variable].cls
+        cls = domains[self.variable].getValues()[0]
         prop = Linkeddict(domains[property].getValues())
         for v in prop[cls]:
             if not v in val:
@@ -846,7 +857,7 @@ class HasvalueConstraint(AbstractConstraint):
     def narrow(self, domains):
         val = self.List
         property = domains[self.variable].property
-        cls = domains[self.variable].cls
+        cls = domains[self.variable].getValues()[0]
         prop = Linkeddict(domains[property].getValues())
         for v in prop[cls]:
             if v == val:
