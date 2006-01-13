@@ -462,12 +462,19 @@ def test_differentfrom():
     cls = BNode('anon')
     own1 = BNode('liist1')
     own2 = BNode('liist2')
-    list1 = rdf_list(O, 'favlist1', ['1', '2', '3'])
-    list2 = rdf_list(O, 'favlist2', ['3', '4', '5'])
-    own = rdf_list(O, 'favlist', [own1, own2])
-    O.oneOf( own1, list1)
-    O.oneOf( own2, list2)
-    O.intersectionOf(cls, own)
-    O.type(cls, namespaces['owl']+'#Class')
+    O.differentFrom(cls, own1)
+    O.differentFrom(own1, own2)
+    O.differentFrom(cls, own2)
+    O.differentFrom(own2,cls)
+    O.type(cls, namespaces['owl']+'#Thing')
+    O.type(own1, namespaces['owl']+'#Thing')
+    O.type(own2, namespaces['owl']+'#Thing')
     O.consistency(3)
-    assert O.rep._domains[cls].getValues() == ['3']
+    assert len(O.rep._constraints) == 4
+
+def test_differentfromconsistency():
+    O = Ontology()
+    cls = BNode('anon')
+    O.differentFrom(cls, cls)
+    O.type(cls, namespaces['owl']+'#Thing')
+    py.test.raises(ConsistencyFailure, O.consistency, 3)

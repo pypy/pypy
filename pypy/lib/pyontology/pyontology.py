@@ -1,6 +1,6 @@
 from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
-from logilab.constraint.fd import Equals, AllDistinct, BinaryExpression, Expression 
+from logilab.constraint.fd import BinaryExpression
 from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
 import sys
@@ -404,9 +404,9 @@ class Ontology:
         self.constraints.append(constrain) 
 
     def differentFrom(self, s, var):
-        s_var = self.make_var(ClassDomain, s)
+        s_var = self.make_var(Thing, s)
         var_var = self.make_var(Thing, var)
-        constrain = BinaryExpression([s_var, var_var],"%s != %s" %(s_var,  var_var))
+        constrain = DifferentfromConstraint(s_var, var_var)
         self.constraints.append(constrain)
 
 #XXX need to change this
@@ -716,6 +716,15 @@ class InverseofConstraint(SubClassConstraint):
         for cls, val in sub_domain:
             if not (val,cls) in obj_domain:
                 raise ConsistencyFailure("Inverseof failed") 
+
+class DifferentfromConstraint(SubClassConstraint):
+
+    def narrow(self, domains):
+        if self.variable == self.object:
+            raise ConsistencyFailure("%s can't be differentFrom itself" % self.variable)
+        else:
+            return 0
+
 
 class ListConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
