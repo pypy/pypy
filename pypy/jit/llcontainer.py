@@ -230,3 +230,6 @@ def make_default(T, length, a_parent, parentindex):
         # primitive initialized to zero
         a = LLAbstractValue(const(T._defl()))
     return a
+
+def hasllcontent(a_ptr):
+    return isinstance(a_ptr.content, LLVirtualContainer)

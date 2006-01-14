@@ -558,6 +558,7 @@ def ll_pop_zero(func, l):
         items[newlength] = nullptr(ITEM.TO)
     _ll_list_resize_le(l, newlength)
     return res
+ll_pop_zero.oopspec = 'list.pop(l, 0)'
 
 def ll_pop(func, l, index):
     length = l.length
@@ -861,6 +862,7 @@ def ll_newlist(LIST, length):
     l.items = malloc(LIST.items.TO, length)
     return l
 ll_newlist = typeMethod(ll_newlist)
+ll_newlist.oopspec = 'newlist(length)'
 
 def ll_length(l):
     return l.length
@@ -874,6 +876,7 @@ def ll_fixed_newlist(LIST, length):
     l = malloc(LIST, length)
     return l
 ll_fixed_newlist = typeMethod(ll_fixed_newlist)
+ll_fixed_newlist.oopspec = 'newlist(length)'
 
 def ll_fixed_length(l):
     return len(l)

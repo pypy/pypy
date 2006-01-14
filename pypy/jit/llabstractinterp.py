@@ -5,8 +5,10 @@ from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.jit.llvalue import LLAbstractValue, const, newvar, dupvar
+from pypy.jit.llvalue import ll_no_return_value
 from pypy.jit.llvalue import FlattenMemo, MatchMemo, FreezeMemo, UnfreezeMemo
 from pypy.jit.llcontainer import LLAbstractContainer, virtualcontainervalue
+from pypy.jit.llcontainer import hasllcontent
 
 # ____________________________________________________________
 
@@ -138,16 +140,16 @@ class LLSuspendedBlockState(LLBlockState):
 
 # ____________________________________________________________
 
-ll_no_return_value = LLAbstractValue(const(None, lltype.Void))
-
 
 class Policy(object):
     def __init__(self, inlining=False, const_propagate=False,
-                       concrete_propagate=True, concrete_args=True):
+                       concrete_propagate=True, concrete_args=True,
+                       oopspec=False):
         self.inlining = inlining
         self.const_propagate = const_propagate
         self.concrete_propagate = concrete_propagate
         self.concrete_args = concrete_args
+        self.oopspec = oopspec
 
 # hint-driven policy
 best_policy = Policy(inlining=True, const_propagate=True, concrete_args=False)
@@ -689,6 +691,13 @@ class BlockBuilder(object):
         fnobj = v_func.value._obj
         if not hasattr(fnobj, 'graph'):
             return None
+
+        if self.interp.policy.oopspec and hasattr(fnobj._callable, 'oopspec'):
+            a_result = self.handle_highlevel_operation(op, fnobj._callable,
+                                                       *args_a)
+            if a_result is not None:
+                return a_result
+
         if getattr(fnobj._callable, 'suggested_primitive', False):
             return None
 
@@ -745,7 +754,7 @@ class BlockBuilder(object):
         return a_real_result
 
     def op_getfield(self, op, a_ptr, a_attrname):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
             return a_ptr.content.getfield(c_attrname.value)
@@ -756,7 +765,7 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname], constant_op)
 
     def op_getsubstruct(self, op, a_ptr, a_attrname):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
             # the difference with op_getfield() is only that the following
@@ -765,12 +774,12 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname], getattr)
 
     def op_getarraysize(self, op, a_ptr):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             return LLAbstractValue(const(a_ptr.content.length))
         return self.residualize(op, [a_ptr], len)
 
     def op_getarrayitem(self, op, a_ptr, a_index):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             c_index = a_index.maybe_get_constant()
             if c_index is not None:
                 return a_ptr.content.getfield(c_index.value)
@@ -794,7 +803,7 @@ class BlockBuilder(object):
         return self.residualize(op, [a_T, a_size])
 
     def op_setfield(self, op, a_ptr, a_attrname, a_value):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             c_attrname = a_attrname.maybe_get_constant()
             assert c_attrname is not None
             a_ptr.content.setfield(c_attrname.value, a_value)
@@ -802,7 +811,7 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_attrname, a_value])
 
     def op_setarrayitem(self, op, a_ptr, a_index, a_value):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             c_index = a_index.maybe_get_constant()
             if c_index is not None:
                 a_ptr.content.setfield(c_index.value, a_value)
@@ -810,7 +819,7 @@ class BlockBuilder(object):
         return self.residualize(op, [a_ptr, a_index, a_value])
 
     def op_cast_pointer(self, op, a_ptr):
-        if a_ptr.content is not None:
+        if hasllcontent(a_ptr):
             down_or_up = lltype.castable(op.result.concretetype,
                                          a_ptr.content.getconcretetype())
             # the following works because if a structure is virtual, then
@@ -837,6 +846,50 @@ class BlockBuilder(object):
                 print 'virtual:', op
                 self.residual_operations.append(op)
         return ll_no_return_value
+
+    # High-level operation dispatcher
+    def handle_highlevel_operation(self, op, ll_func, *args_a):
+        # parse the oopspec and fill in the arguments
+        operation_name, args = ll_func.oopspec.split('(', 1)
+        assert args.endswith(')')
+        args = args[:-1] + ','     # trailing comma to force tuple syntax
+        argnames = ll_func.func_code.co_varnames[:len(args_a)]
+        d = dict(zip(argnames, args_a))
+        argtuple = eval(args, d)
+        args_a = []
+        for a in argtuple:
+            if not isinstance(a, LLAbstractValue):
+                a = LLAbstractValue(const(a))
+            args_a.append(a)
+        # end of rather XXX'edly hackish parsing
+
+        if operation_name == 'newlist':
+            from pypy.jit.vlist import oop_newlist
+            handler = oop_newlist
+        else:
+            # dispatch on the 'self' argument if it is virtual
+            a_self = args_a[0]
+            args_a = args_a[1:]
+            if not isinstance(a_self, LLAbstractContainer):
+                return None
+            type_name, operation_name = operation_name.split('.')
+            if a_self.type_name != type_name:
+                return None
+            try:
+                handler = getattr(a_self, 'oop_' + operation_name)
+            except AttributeError:
+                print 'MISSING HANDLER: oop_%s' % (operation_name,)
+                return None
+        try:
+            a_result = handler(op, *args_a)
+        except NotImplementedError:
+            return None
+        if a_result is None:
+            a_result = ll_no_return_value
+        assert op.result.concretetype == a_result.getconcretetype(), (
+            "type mismatch: %s\nreturned %s\nexpected %s" % (
+            handler, a_result.getconcretetype(), op.result.concretetype))
+        return a_result
 
 
 class InsertNextLink(Exception):

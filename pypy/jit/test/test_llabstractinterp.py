@@ -54,13 +54,16 @@ def abstrinterp(ll_function, argvalues, arghints, policy=Policy()):
     result1 = llinterp.eval_graph(graph1, argvalues)
     result2 = llinterp.eval_graph(graph2, argvalues2)
     assert result1 == result2
-    # return a summary of the instructions left in graph2
+    return graph2, summary(interp)
+
+def summary(interp):
+    # return a summary of the instructions left in all the residual graphs
     insns = {}
     for copygraph in interp.itercopygraphs():
         for block in copygraph.iterblocks():
             for op in block.operations:
                 insns[op.opname] = insns.get(op.opname, 0) + 1
-    return graph2, insns
+    return insns
 
 P_INLINE = Policy(inlining=True)
 P_CONST_INLINE = Policy(inlining=True, const_propagate=True)

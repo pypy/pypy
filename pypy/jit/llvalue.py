@@ -24,7 +24,7 @@ class LLAbstractValue(object):
     def __repr__(self):
         if self.runtimevar is None:
             if self.content is None:
-                return '<invalid!>'
+                return '<dummy>'
             else:
                 return '<virtual %s>' % (self.content,)
         else:
@@ -47,7 +47,7 @@ class LLAbstractValue(object):
                 # don't use 'memo' here: for now, shared LLAbstractValues
                 # need to become distinct LLFrozenRuntimeValues.
                 return LLFrozenRuntimeValue(self)
-        else:
+        elif self.content is not None:
             # virtual container: preserve sharing
             if self in memo.seen:
                 return memo.seen[self]    # already seen
@@ -56,15 +56,21 @@ class LLAbstractValue(object):
                 memo.seen[self] = result
                 result.fz_content = self.content.freeze(memo)
                 return result
+        else:
+            return frozen_dummy_value   # dummy
 
     def getconcretetype(self):
         if self.runtimevar is not None:
             return self.runtimevar.concretetype
-        else:
+        elif self.content is not None:
             return lltype.Ptr(self.content.T)
+        else:
+            raise ValueError("ll_dummy_value.getconcretetype()")
 
     def forcevarorconst(self, builder):
         if self.runtimevar is None:
+            if self.content is None:
+                raise ValueError("ll_dummy_value.forcevarorconst()")
             self.runtimevar = self.content.build_runtime_container(builder)
             self.content = None
         return self.runtimevar
@@ -83,10 +89,12 @@ class LLAbstractValue(object):
             if not self.concrete:   # skip concrete values, they don't need
                                     # to be present in the residual graph at all
                 memo.result.append(self)
-        else:
+        elif self.content is not None:
             if self not in memo.seen:
                 memo.seen[self] = True
                 self.content.flatten(memo)
+        else:
+            pass    # dummy
 
 # ____________________________________________________________
 
@@ -97,6 +105,18 @@ class LLFrozenValue(object):
     # frozen by creating LLFrozenValues of the same shape.  In the
     # frozen values, the Variable is forgotten, because it was only
     # relevant in the finished block.
+
+
+class LLFrozenDummyValue(LLFrozenValue):
+
+    def flatten(self, memo):
+        pass
+
+    def unfreeze(self, memo):
+        return ll_dummy_value
+
+    def match(self, a_value, memo):
+        return True    # a dummy matches anything
 
 
 class LLFrozenConcreteValue(LLFrozenValue):
@@ -236,3 +256,7 @@ def dupvar(v):
     v1 = Variable(v)
     v1.concretetype = v.concretetype
     return v1
+
+ll_no_return_value = LLAbstractValue(const(None, lltype.Void))
+ll_dummy_value = LLAbstractValue()
+frozen_dummy_value = LLFrozenDummyValue()
