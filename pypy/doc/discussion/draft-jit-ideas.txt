@@ -84,3 +84,13 @@ Machine code backends and register allocation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 xxx
+
+Alternative: RPython interface to code generation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As a first step, to allow experimentation with code generation without
+all the difficulties of the L3 graph model and L3 interpreter, we could
+provide a set of primitive RPython functions that enable simple code
+generation.
+
+TBD
