@@ -68,8 +68,12 @@ class BaseListRepr(Repr):
             self.external_item_repr, self.item_repr = externalvsinternal(rtyper, item_repr)
         self.listitem = listitem
         self.list_cache = {}
+        self.list_builder = ListBuilder()
         # setup() needs to be called to finish this initialization
-        
+
+    def _setup_repr_final(self):
+        self.list_builder.setup(self)
+
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
 
@@ -146,6 +150,46 @@ class BaseListRepr(Repr):
                                            temp),
                               rstr.list_str_close_bracket))
 
+class ListBuilder(object):
+    """Interface to allow lazy list building by the JIT."""
+    # This should not keep a reference to the RTyper, even indirectly via
+    # the list_repr.
+
+    def setup(self, list_repr):
+        # Precompute the c_newitem and c_setitem_nonneg function pointers,
+        # needed below.
+        if list_repr.rtyper is None:
+            return     # only for test_rlist, which doesn't need this anyway
+        LIST = list_repr.LIST
+        LISTPTR = list_repr.lowleveltype
+        ITEM = list_repr.item_repr.lowleveltype
+        self.LIST = LIST
+        self.LISTPTR = LISTPTR
+
+        argtypes = [Signed]
+        fnptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist, argtypes)
+        self.c_newlist = inputconst(typeOf(fnptr), fnptr)
+
+        bk = list_repr.rtyper.annotator.bookkeeper
+        argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
+        fnptr = list_repr.rtyper.annotate_helper_fn(ll_setitem_nonneg, argtypes)
+        self.c_setitem_nonneg = inputconst(typeOf(fnptr), fnptr)
+
+    def build(self, llop, items_v):
+        """Make the operations that would build a list containing the
+        provided items."""
+        # This is called by the JIT with llop.rtyper == None, so
+        # llop.gendirectcall() doesn't work.  Instead, we need to call
+        # directly the c_newitem and c_setitem_nonneg precomputed above.
+        c_list = inputconst(Void, self.LIST)
+        c_len  = inputconst(Signed, len(items_v))
+        v_result = llop.genop('direct_call', [self.c_newlist, c_list, c_len],
+                              resulttype = self.LISTPTR)
+        for i, v in enumerate(items_v):
+            llop.genop('direct_call', [self.c_setitem_nonneg, v_result,
+                                       inputconst(Signed, i), v])
+        return v_result
+
 class ListRepr(BaseListRepr):
 
     def _setup_repr(self):
@@ -161,6 +205,7 @@ class ListRepr(BaseListRepr):
                                           "ll_newlist": ll_newlist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
+                                          "list_builder": self.list_builder.build,
                                       })
                              )
 
@@ -233,6 +278,7 @@ class FixedSizeListRepr(BaseListRepr):
                                      "ll_newlist": ll_fixed_newlist,
                                      "ll_length": ll_fixed_length,
                                      "ll_items": ll_fixed_items,
+                                     "list_builder": self.list_builder.build,
                                 })
 
             self.LIST.become(ITEMARRAY)

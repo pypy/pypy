@@ -538,14 +538,30 @@ class RPythonTyper:
 
         return self.type_system.getcallable(graph, getconcretetype)
 
-    def annotate_helper(self, ll_function, arglltypes):
-        """Annotate the given low-level helper function
-        and return it as a function pointer object.
+    def annotate_helper(self, ll_function, argtypes):
+        """Annotate the given low-level helper function and return its graph
         """
-        args_s = [annmodel.lltype_to_annotation(T) for T in arglltypes]
+        args_s = []
+        for s in argtypes:
+            # assume 's' is a low-level type, unless it is already an annotation
+            if not isinstance(s, annmodel.SomeObject):
+                s = annmodel.lltype_to_annotation(s)
+            args_s.append(s)
+        # hack for bound methods
+        if hasattr(ll_function, 'im_func'):
+            bk = self.annotator.bookkeeper
+            args_s.insert(0, bk.immutablevalue(ll_function.im_self))
+            ll_function = ll_function.im_func
         helper_graph = annotate_lowlevel_helper(self.annotator,
                                                 ll_function, args_s)
         return helper_graph
+
+    def annotate_helper_fn(self, ll_function, argtypes):
+        """Annotate the given low-level helper function
+        and return it as a function pointer
+        """
+        graph = self.annotate_helper(ll_function, argtypes)
+        return self.getcallable(graph)
 
     def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None,
                                   destrptr=None):

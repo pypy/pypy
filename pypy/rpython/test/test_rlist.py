@@ -1,10 +1,12 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
+from pypy.translator.translator import TranslationContext
+from pypy.objspace.flow.model import Constant, Variable
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():
@@ -891,3 +893,37 @@ def test_memoryerror():
     res = interpret(fn, [2])
     assert res == 0
     interpret_raises(MemoryError, fn, [sys.maxint])
+
+def test_list_builder():
+    def fixed_size_case():
+        return [42]
+    def variable_size_case():
+        lst = []
+        lst.append(42)
+        return lst
+
+    for fn in [fixed_size_case, variable_size_case]:
+        t = TranslationContext()
+        t.buildannotator().build_types(fn, [])
+        t.buildrtyper().specialize()
+        LIST = t.graphs[0].getreturnvar().concretetype.TO
+        llop = LowLevelOpList(None)
+        v0 = Constant(42)
+        v0.concretetype = Signed
+        v1 = Variable()
+        v1.concretetype = Signed
+        vr = LIST.list_builder(llop, [v0, v1])
+        assert len(llop) == 3
+        assert llop[0].opname == 'direct_call'
+        assert llop[0].args[1].concretetype == Void
+        assert llop[0].args[1].value == LIST
+        assert llop[0].args[2].concretetype == Signed
+        assert llop[0].args[2].value == 2
+        assert llop[0].result is vr
+        for op, i, vi in [(llop[1], 0, v0), (llop[2], 1, v1)]:
+            assert op.opname == 'direct_call'
+            assert op.args[-3] is vr
+            assert op.args[-2].concretetype == Signed
+            assert op.args[-2].value == i
+            assert op.args[-1] is vi
+            assert op.result.concretetype is Void

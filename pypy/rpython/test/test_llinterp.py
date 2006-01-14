@@ -1,7 +1,6 @@
 
 import py
 from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
-from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.translator import TranslationContext
