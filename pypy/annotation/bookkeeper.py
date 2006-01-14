@@ -18,7 +18,7 @@ from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.annotation import description
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
-from pypy.rpython.objectmodel import r_dict
+from pypy.rpython.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
@@ -302,6 +302,8 @@ class Bookkeeper:
         if x is sys: # special case constant sys to someobject
             return SomeObject()
         tp = type(x)
+        if issubclass(tp, Symbolic): # symbolic constants support
+            return x.annotation()
         if tp is bool:
             result = SomeBool()
         elif tp is int:

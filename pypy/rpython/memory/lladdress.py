@@ -119,3 +119,29 @@ supported_access_types = {"signed":    lltype.Signed,
                           "char":      lltype.Char,
                           "address":   Address,
                           }
+
+# sizeof, offsetof
+
+from pypy.rpython.objectmodel import Symbolic
+
+class OffsetOf(Symbolic):
+
+    def __init__(self, TYPE, fldname):
+        self.TYPE = TYPE
+        self.fldname = fldname
+
+    def annotation(self):
+        from pypy.annotation import model
+        return model.SomeInteger()
+
+    def __repr__(self):
+        return "<OffsetOf %r %r>" % (self.TYPE, self.fldname)
+
+def sizeof(TYPE, n=None):
+    pass
+
+def offsetof(TYPE, fldname):
+    return OffsetOf(TYPE, fldname)
+
+def itemoffsetof(TYPE, n=None):
+    pass

@@ -502,6 +502,15 @@ BUILTIN_ANALYZERS[lladdress.raw_free] = raw_free
 BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
 
 #_________________________________
+# offsetof/sizeof
+
+def offsetof(TYPE, fldname):
+    return SomeInteger()
+
+BUILTIN_ANALYZERS[lladdress.offsetof] = offsetof
+
+
+#_________________________________
 # external functions
 
 

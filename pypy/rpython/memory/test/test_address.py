@@ -112,6 +112,21 @@ class TestAddressAnnotation(object):
         assert not f(0)
         assert not f(-1)
 
+    def test_simple_offsetof(self):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.memory.lladdress import offsetof
+        S = lltype.GcStruct(('x', lltype.Bool), ('y', lltype.Signed))
+        def f():
+            return offsetof(S, 'x') + offsetof(S, 'y')
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == int
+        coff = offsetof(S, 'y')
+        def f():
+            return coff
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == int
 
 class TestAddressRTyping(object):
     def test_null(self):

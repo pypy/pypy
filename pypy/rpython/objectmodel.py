@@ -3,6 +3,11 @@ This file defines utilities for manipulating objects in an
 RPython-compliant way.
 """
 
+class Symbolic(object):
+
+    def annotation(self):
+        return None
+
 import new
 import weakref
 
