@@ -36,10 +36,30 @@ def run(fn, argvalues):
     return graph2, summary(interp)
 
 
-def test_newlist():
-    py.test.skip("in-progress")
+def test_fixed_newlistfill_force():
     def fn(n):
         lst = [5] * n
-        return len(lst)
+        hint(lst, nonvirtual=True)
     graph2, insns = run(fn, [12])
-    assert insns == {}
+    assert insns == {'direct_call': 13}
+
+def test_newlistfill_force():
+    def fn(n):
+        lst = [5] * n
+        if n < 0:
+            lst.append(6)
+        hint(lst, nonvirtual=True)
+    graph2, insns = run(fn, [12])
+    assert insns == {'direct_call': 13}
+
+def test_newlist_force():
+    py.test.skip("in-progress")
+    def fn(n):
+        lst = []
+        lst.append(n)
+        lst.append(5)
+        lst.append(12)
+        lst.pop()
+        hint(lst, nonvirtual=True)
+    graph2, insns = run(fn, [12])
+    assert insns == {'direct_call': 3}

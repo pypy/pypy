@@ -667,6 +667,8 @@ class BlockBuilder(object):
                     raise RestartCompleting
                 a = LLAbstractValue(c)
                 a.concrete = True
+        if hints.get('nonvirtual'):
+            a.forcevarorconst(self)   # for testing only
         return a
 
     def op_direct_call(self, op, *args_a):

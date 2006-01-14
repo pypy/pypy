@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.rtyper import LowLevelOpList
 from pypy.jit.llvalue import LLAbstractValue, newvar, const, ll_dummy_value
 from pypy.jit.llcontainer import LLAbstractContainer
 
@@ -38,14 +39,13 @@ class LLVirtualList(LLAbstractContainer):
         return LLVirtualList(self.T, items_a)
 
     def build_runtime_container(self, builder):
-        cno = const(len(self.items_a))
-        v_result = builder.gendirectcall(self.T.ll_newlist, cno)
-        cdum = const(rlist.dum_nocheck, lltype.Void)
-        for i, a in enumerate(self.items_a):
-            ci = const(i)
-            v_item = a.forcevarorconst(builder)
-            builder.gendirectcall(rlist.ll_setitem_nonneg,
-                                  cdum, v_result, ci, v_item)
+        items_v = [a.forcevarorconst(builder) for a in self.items_a]
+        llop = LowLevelOpList(None)
+        v_result = self.T.list_builder(llop, items_v)
+        print 'list_builder:'
+        for op in llop:
+            print '\t', op
+            builder.residual_operations.append(op)
         return v_result
 
     # ____________________________________________________________
@@ -73,11 +73,11 @@ class LLVirtualList(LLAbstractContainer):
         return self.items_a.pop(c_index.value)
 
 
-def oop_newlist(op, a_numitems):
+def oop_newlist(op, a_numitems, a_item=ll_dummy_value):
     c_numitems = a_numitems.maybe_get_constant()
     if c_numitems is None:
         raise NotImplementedError
     LIST = op.result.concretetype.TO
-    items_a = [ll_dummy_value] * c_numitems.value
+    items_a = [a_item] * c_numitems.value
     virtuallist = LLVirtualList(LIST, items_a)
     return LLAbstractValue(content=virtuallist)
