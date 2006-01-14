@@ -170,9 +170,9 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):
     def llc_options(self):
     	import sys
     	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
-		s = ' -enable-ia64-dag-isel'
+            s = ' -enable-ia64-dag-isel'
 	else:
-		s = ''
+            s = ''
         return '-enable-correct-eh-support' + s
 
 class ExplicitExceptionPolicy(ExceptionPolicy):
@@ -354,8 +354,8 @@ class ExplicitExceptionPolicy(ExceptionPolicy):
     def llc_options(self):
     	import sys
     	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
-		s = '-enable-ia64-dag-isel'
+            s = '-enable-ia64-dag-isel'
 	else:
-		s = ''
+            s = ''
         return s
     
