@@ -51,6 +51,12 @@ class LLVirtualList(LLAbstractContainer):
     # ____________________________________________________________
     # High-level operations
 
+    def oop_len(self, op):
+        return LLAbstractValue(const(len(self.items_a)))
+
+    def oop_nonzero(self, op):
+        return LLAbstractValue(const(bool(self.items_a)))
+
     def oop_getitem(self, op, a_index):
         c_index = a_index.maybe_get_constant()
         if c_index is None:
@@ -63,8 +69,20 @@ class LLVirtualList(LLAbstractContainer):
             raise NotImplementedError
         self.items_a[c_index.value] = a_newobj
 
+    def oop_delitem(self, op, a_index):
+        c_index = a_index.maybe_get_constant()
+        if c_index is None:
+            raise NotImplementedError
+        del self.items_a[c_index.value]
+
     def oop_append(self, op, a_newobj):
         self.items_a.append(a_newobj)
+
+    def oop_insert(self, op, a_index, a_newobj):
+        c_index = a_index.maybe_get_constant()
+        if c_index is None:
+            raise NotImplementedError
+        self.items_a.insert(c_index.value, a_newobj)
 
     def oop_pop(self, op, a_index=None):
         if a_index is None:
@@ -74,6 +92,23 @@ class LLVirtualList(LLAbstractContainer):
             if c_index is None:
                 raise NotImplementedError
             return self.items_a.pop(c_index.value)
+
+    def oop_reverse(self, op):
+        self.items_a.reverse()
+
+    def oop_copy(self, op):
+        items_a = list(self.items_a)
+        LIST = op.result.concretetype.TO
+        virtuallist = LLVirtualList(LIST, items_a)
+        return LLAbstractValue(content=virtuallist)
+
+    def oop_concat(self, op, a_other):
+        if not isinstance(a_other.content, LLVirtualList):
+            raise NotImplementedError
+        items_a = self.items_a + a_other.content.items_a
+        LIST = op.result.concretetype.TO
+        virtuallist = LLVirtualList(LIST, items_a)
+        return LLAbstractValue(content=virtuallist)
 
 
 def oop_newlist(op, a_numitems, a_item=ll_dummy_value):

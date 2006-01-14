@@ -528,13 +528,16 @@ def ll_copy(RESLIST, l):
         new_items[i] = items[i]
         i += 1
     return new_lst
+ll_copy.oopspec = 'list.copy(l)'
 
 def ll_len(l):
     return l.ll_length()
+ll_len.oopspec = 'list.len(l)'
 
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
     return bool(l) and l.ll_length() != 0
+ll_list_is_true.oopspec = 'list.nonzero(l)'
 
 def ll_append(l, newitem):
     length = l.length
@@ -712,6 +715,7 @@ def ll_concat(RESLIST, l1, l2):
         i += 1
         j += 1
     return l
+ll_concat.oopspec = 'list.concat(l1, l2)'
 
 def ll_extend(l1, l2):
     len1 = l1.length

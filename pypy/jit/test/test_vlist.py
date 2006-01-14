@@ -62,3 +62,36 @@ def test_newlist_force():
         hint(lst, nonvirtual=True)
     graph2, insns = run(fn, [12])
     assert insns == {'direct_call': 3}
+
+def test_simple_purely_virtual():
+    def fn(n):
+        return len([5]*n)
+    graph2, insns = run(fn, [12])
+    assert insns == {}
+
+def test_copy():
+    def fn(n):
+        lst = []
+        lst.append(n)
+        lst.append(n)
+        return len(list(lst))
+    graph2, insns = run(fn, [12])
+    assert insns == {}
+
+def test_is_true():
+    def fn(n):
+        lst = [5] * n
+        if lst:
+            return 654
+        else:
+            return 321
+    graph2, insns = run(fn, [12])
+    assert insns == {}
+
+def test_concat():
+    def fn(n):
+        lst1 = [2, 3]
+        lst2 = [4] * n
+        return len(lst1 + lst2)
+    graph2, insns = run(fn, [12])
+    assert insns == {}
