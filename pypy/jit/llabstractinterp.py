@@ -153,6 +153,8 @@ class Policy(object):
 
 # hint-driven policy
 best_policy = Policy(inlining=True, const_propagate=True, concrete_args=False)
+best_policy_oopspec = Policy(inlining=True, const_propagate=True, concrete_args=False,
+                             oopspec=True)
 
 
 class LLAbstractInterp(object):
