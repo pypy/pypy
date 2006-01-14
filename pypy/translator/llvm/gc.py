@@ -113,8 +113,13 @@ class BoehmGcPolicy(GcPolicy):
     def gc_libraries(self):
         return ['gc', 'pthread'] # XXX on windows?
 
-
     def malloc(self, codewriter, targetvar, type_, size=1, atomic=False):
+        import sys
+    	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
+            boundary_size = 8
+	else:
+            boundary_size = 0            
+
         is_atomic = atomic
         uword = self.db.get_machine_uword()
         s = str(size)
@@ -130,9 +135,10 @@ class BoehmGcPolicy(GcPolicy):
 
         if is_atomic:   #Boehm aligns on 8 byte boundaries
             t += '''
-        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, %(uword)s %%malloc_SizeU%(cnt)s, %(uword)s 8)
+        call ccc void %%llvm.memset(sbyte* %%malloc_Ptr%(cnt)s, ubyte 0, %(uword)s %%malloc_SizeU%(cnt)s, %(uword)s %(boundary_size)s)
         ''' % locals()
         codewriter.write_lines(t)
+
 
     def pyrex_code(self):
         return '''
