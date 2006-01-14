@@ -53,7 +53,6 @@ def test_newlistfill_force():
     assert insns == {'direct_call': 13}
 
 def test_newlist_force():
-    py.test.skip("in-progress")
     def fn(n):
         lst = []
         lst.append(n)

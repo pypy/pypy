@@ -540,6 +540,7 @@ def ll_append(l, newitem):
     length = l.length
     _ll_list_resize_ge(l, length+1)
     l.items[length] = newitem
+ll_append.oopspec = 'list.append(l, newitem)'
 
 # this one is for the special case of insert(0, x)
 def ll_prepend(l, newitem):
@@ -552,6 +553,7 @@ def ll_prepend(l, newitem):
         items[dst] = items[src]
         dst = src
     items[0] = newitem
+ll_prepend.oopspec = 'list.insert(l, 0, newitem)'
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.length
@@ -563,6 +565,7 @@ def ll_insert_nonneg(l, index, newitem):
         items[dst] = items[src]
         dst = src
     items[index] = newitem
+ll_insert_nonneg.oopspec = 'list.insert(l, index, newitem)'
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass
@@ -573,6 +576,7 @@ def ll_pop_nonneg(func, l, index):
     res = l.items[index]
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
+ll_pop_nonneg.oopspec = 'list.pop(l, index)'
 
 def ll_pop_default(func, l):
     length = l.length
@@ -587,6 +591,7 @@ def ll_pop_default(func, l):
         items[index] = nullptr(ITEM.TO)
     _ll_list_resize_le(l, newlength)
     return res
+ll_pop_default.oopspec = 'list.pop(l)'
 
 def ll_pop_zero(func, l):
     length = l.length
@@ -617,6 +622,7 @@ def ll_pop(func, l, index):
     res = l.items[index]
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
+ll_pop.oopspec = 'list.pop(l, index)'
 
 def ll_reverse(l):
     length = l.ll_length()
@@ -629,11 +635,13 @@ def ll_reverse(l):
         items[length_1_i] = tmp
         i += 1
         length_1_i -= 1
+ll_reverse.oopspec = 'list.reverse(l)'
 
 def ll_getitem_nonneg(func, l, index):
     if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
     return l.ll_items()[index]
+ll_getitem_nonneg.oopspec = 'list.getitem(l, index)'
 
 def ll_getitem(func, l, index):
     length = l.ll_length()
@@ -642,6 +650,7 @@ def ll_getitem(func, l, index):
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
     return l.ll_items()[index]
+ll_getitem.oopspec = 'list.getitem(l, index)'
 
 def ll_setitem_nonneg(func, l, index, newitem):
     if func is dum_checkidx and (index >= l.ll_length()):
@@ -674,6 +683,7 @@ def ll_delitem_nonneg(func, l, index):
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
     _ll_list_resize_le(l, newlength)
+ll_delitem_nonneg.oopspec = 'list.delitem(l, index)'
 
 def ll_delitem(func, l, i):
     length = l.length
@@ -682,6 +692,7 @@ def ll_delitem(func, l, i):
     if func is dum_checkidx and (i < 0 or i >= length):
         raise IndexError
     ll_delitem_nonneg(dum_nocheck, l, i)
+ll_delitem.oopspec = 'list.delitem(l, i)'
 
 def ll_concat(RESLIST, l1, l2):
     len1 = l1.ll_length()

@@ -872,13 +872,13 @@ class BlockBuilder(object):
             # dispatch on the 'self' argument if it is virtual
             a_self = args_a[0]
             args_a = args_a[1:]
-            if not isinstance(a_self, LLAbstractContainer):
+            if not isinstance(a_self.content, LLAbstractContainer):
                 return None
             type_name, operation_name = operation_name.split('.')
-            if a_self.type_name != type_name:
+            if a_self.content.type_name != type_name:
                 return None
             try:
-                handler = getattr(a_self, 'oop_' + operation_name)
+                handler = getattr(a_self.content, 'oop_' + operation_name)
             except AttributeError:
                 print 'MISSING HANDLER: oop_%s' % (operation_name,)
                 return None

@@ -66,11 +66,14 @@ class LLVirtualList(LLAbstractContainer):
     def oop_append(self, op, a_newobj):
         self.items_a.append(a_newobj)
 
-    def oop_pop(self, op, a_index):
-        c_index = a_index.maybe_get_constant()
-        if c_index is None:
-            raise NotImplementedError
-        return self.items_a.pop(c_index.value)
+    def oop_pop(self, op, a_index=None):
+        if a_index is None:
+            return self.items_a.pop()
+        else:
+            c_index = a_index.maybe_get_constant()
+            if c_index is None:
+                raise NotImplementedError
+            return self.items_a.pop(c_index.value)
 
 
 def oop_newlist(op, a_numitems, a_item=ll_dummy_value):
