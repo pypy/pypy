@@ -915,6 +915,7 @@ def test_list_builder():
         vr = LIST.list_builder(llop, [v0, v1])
         assert len(llop) == 3
         assert llop[0].opname == 'direct_call'
+        assert len(llop[0].args) == 3
         assert llop[0].args[1].concretetype == Void
         assert llop[0].args[1].value == LIST
         assert llop[0].args[2].concretetype == Signed
@@ -922,8 +923,10 @@ def test_list_builder():
         assert llop[0].result is vr
         for op, i, vi in [(llop[1], 0, v0), (llop[2], 1, v1)]:
             assert op.opname == 'direct_call'
-            assert op.args[-3] is vr
-            assert op.args[-2].concretetype == Signed
-            assert op.args[-2].value == i
-            assert op.args[-1] is vi
+            assert len(op.args) == 5
+            assert op.args[1].value is dum_nocheck
+            assert op.args[2] is vr
+            assert op.args[3].concretetype == Signed
+            assert op.args[3].value == i
+            assert op.args[4] is vi
             assert op.result.concretetype is Void

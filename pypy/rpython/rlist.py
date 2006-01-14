@@ -174,6 +174,7 @@ class ListBuilder(object):
         argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
         fnptr = list_repr.rtyper.annotate_helper_fn(ll_setitem_nonneg, argtypes)
         self.c_setitem_nonneg = inputconst(typeOf(fnptr), fnptr)
+        self.c_dum_nocheck = inputconst(Void, dum_nocheck)
 
     def build(self, llop, items_v):
         """Make the operations that would build a list containing the
@@ -186,8 +187,9 @@ class ListBuilder(object):
         v_result = llop.genop('direct_call', [self.c_newlist, c_list, c_len],
                               resulttype = self.LISTPTR)
         for i, v in enumerate(items_v):
-            llop.genop('direct_call', [self.c_setitem_nonneg, v_result,
-                                       inputconst(Signed, i), v])
+            llop.genop('direct_call', [self.c_setitem_nonneg,
+                                       self.c_dum_nocheck,
+                                       v_result, inputconst(Signed, i), v])
         return v_result
 
 class ListRepr(BaseListRepr):
@@ -645,6 +647,7 @@ def ll_setitem_nonneg(func, l, index, newitem):
     if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
     l.ll_items()[index] = newitem
+ll_setitem_nonneg.oopspec = 'list.setitem(l, index, newitem)'
 
 def ll_setitem(func, l, index, newitem):
     length = l.ll_length()
@@ -653,6 +656,7 @@ def ll_setitem(func, l, index, newitem):
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
     l.ll_items()[index] = newitem
+ll_setitem.oopspec = 'list.setitem(l, index, newitem)'
 
 def ll_delitem_nonneg(func, l, index):
     length = l.length
@@ -964,6 +968,7 @@ def ll_alloc_and_set(LIST, count, item):
             items[i] = item
             i += 1
     return l
+ll_alloc_and_set.oopspec = 'newlist(count, item)'
 
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result
