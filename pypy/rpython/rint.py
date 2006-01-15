@@ -443,7 +443,7 @@ ll_to_py_conversion_functions = {
     UnsignedLongLong: ('PyLong_FromUnsignedLongLong', lambda i: pyobjectptr(i)),
     SignedLongLong: ('PyLong_FromLongLong', lambda i: pyobjectptr(i)),
     Unsigned: ('PyLong_FromUnsignedLong', lambda i: pyobjectptr(i)),
-    Signed: ('PyLong_FromLong', lambda i: pyobjectptr(i)),
+    Signed: ('PyInt_FromLong', lambda i: pyobjectptr(i)),
 }
     
 
