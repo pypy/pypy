@@ -3,7 +3,7 @@
 import py
 from pypy.translator.translator import TranslationContext
 from pypy.jit import tl
-from pypy.jit.llabstractinterp import LLAbstractInterp, best_policy_oopspec
+from pypy.jit.llabstractinterp import LLAbstractInterp
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
 #from pypy.translator.backendopt import inline
@@ -22,7 +22,7 @@ def setup_module(mod):
     
 
 def jit_tl(code):
-    interp = LLAbstractInterp(policy=best_policy_oopspec)
+    interp = LLAbstractInterp()
     hints = {0: string_repr.convert_const(code),
              1: 0}
     graph2 = interp.eval(graph1, hints)

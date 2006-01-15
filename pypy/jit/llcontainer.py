@@ -52,7 +52,7 @@ class LLVirtualContainer(LLAbstractContainer):
     def build_runtime_container(self, builder):
         v_result = newvar(lltype.Ptr(self.T))
         if self.a_parent is not None:
-            v_parent = self.a_parent.content.build_runtime_container(builder)
+            v_parent = self.a_parent.forcevarorconst(builder)
             op = SpaceOperation('getsubstruct', [v_parent,
                                                  const(self.parentindex,
                                                        lltype.Void)],
