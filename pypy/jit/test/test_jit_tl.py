@@ -6,6 +6,7 @@ from pypy.jit import tl
 from pypy.jit.llabstractinterp import LLAbstractInterp
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.jit.test.test_llabstractinterp import summary
 #from pypy.translator.backendopt import inline
 
 #py.test.skip("in-progress")
@@ -35,12 +36,7 @@ def jit_tl(code):
     #interp.graphs[0].show()
 
     # return a summary of the instructions left in graph2
-    insns = {}
-    for copygraph in interp.itercopygraphs():
-        for block in copygraph.iterblocks():
-            for op in block.operations:
-                insns[op.opname] = insns.get(op.opname, 0) + 1
-    return insns
+    return summary(interp)
 
 
 def run_jit(code):
