@@ -1,7 +1,6 @@
-======================================================================
- Ideas about syntactic and algorithmic aspects of Constraint and Logic
- Programming in Python (CLPiP)
-======================================================================
+===================================================================================================
+Ideas about syntactic and algorithmic aspects of Constraint and Logic Programming in Python (CLPiP)
+===================================================================================================
 
 ** WORK IN PROGRESS **
 
@@ -70,21 +69,21 @@ where we want to go, syntactically-wise.
 
 Let's start with a quite standard example (the problem being solved
 here is fully described on
-http://www.logilab.org/projects/constraint/documentation) :
+http://www.logilab.org/projects/constraint/documentation)::
 
 
  # import Repository class and fd module, 
  from logilab.constraint import *
  variables = ('c01','c02','c03','c04','c05','c06','c07','c08','c09','c10')
 
-Variables are represented as any string object.
+Variables are represented as any string object::
 
  values = [(room,slot) 
            for room in ('room A','room B','room C') 
            for slot in ('day 1 AM','day 1 PM','day 2 AM','day 2 PM')]
 
 Values can be freely pre-computed using standard python constructs;
-they can be any object; here, tuples of strings.
+they can be any object; here, tuples of strings::
 
  domains = {}
  for v in variables:
@@ -93,7 +92,7 @@ they can be any object; here, tuples of strings.
 The relationship between variables and their possible values is set in
 a dictionnary whose keys are variable designators (strings). Values
 are wrapped into FiniteDomain instances (FiniteDomain has set
-behaviour, plus some implementation subtleties).
+behaviour, plus some implementation subtleties)::
 
  groups = (('c01','c02','c03','c10'),
            ('c02','c06','c08','c09'),
@@ -112,7 +111,7 @@ two variables and a string representing an unary or binary
 relationship. The example complete with all constraints is provided at
 the url mentioned supra.
 
-Then, when everything has been settled, comes the last step :
+Then, when everything has been settled, comes the last step::
 
  r = Repository(variables,domains,constraints)
  solutions = Solver().solve(r)
@@ -138,7 +137,7 @@ Special operator for CLP variable bindings
 ------------------------------------------
 
 First, promote variables from third-class to second-class
-citizenry. Be able to write something like :
+citizenry. Be able to write something like::
 
  domain = [(room,slot) 
            for room in ('room A','room B','room C') 
@@ -146,24 +145,24 @@ citizenry. Be able to write something like :
  c01 := domain
  c02 := domain
 
-This introduces a special operator ':=' which binds a logical variable
-to a domain. More generally :
+This introduces a special operator `:=` which binds a logical variable
+to a domain. More generally::
 
  var := <any iterable>
 
-With respect to normal assignment, we can imagine the following :
+With respect to normal assignment, we can imagine the following::
 
  c01 = 'foo' # raises a NotAssignable or ReadOnly exception
  bar = c01   # takes a reference to the current value of c01 into bar
              # also, meaningless (so ... None) before the solver has run
 
-Problem ... we can't anymore do :
+Problem ... we can't anymore do::
 
  for conf in ('c01','c05','c10'): ...
 
 It should be good to define a kind of first-class designator for these
 kind of variables. A specially-crafted class representing variables
-(in the manner of Lisp's symbols) would suffice :
+(in the manner of Lisp's symbols) would suffice::
 
  for conf in (c01, c05, c10): ...
 
@@ -173,7 +172,7 @@ Domain-specific blocks
 ----------------------
 
 An alternative which avoids the special operator and uses a keyword
-instead could be :
+instead could be::
 
  domain:
     c01 = <iterable>
@@ -182,7 +181,7 @@ instead could be :
 It makes us reuse '=', with twisted (non-standard Python) semantics
 but under a clear lexical umbrella (a 'domain:' block).
 
-It is possible to get further in this direction :
+It is possible to get further in this direction::
 
  problem toto:
      D1 = <domain definition>
@@ -202,12 +201,12 @@ Stuffing constraints
 --------------------
 
 The ugly aspect of py-constraints is the definition of custom
-unary/binary constraints through make_expression, as in :
+unary/binary constraints through make_expression, as in::
 
  fd.make_expression ('var1', 'var2', "frob(var1,var2)")
 
 One solution might be to parse the string at runtime to recover the
-variable names :
+variable names::
 
  fd.make_expression ('frob(var1,var2)')
 
@@ -232,7 +231,7 @@ them.
 Databases and Requests
 ----------------------
 
-Databases contain facts, rules and requests.
+Databases contain facts, rules and requests::
 
  >>> database Numbers: # we def a logic db and enter prolog space
  ...    natural(z)
@@ -247,6 +246,8 @@ Databases contain facts, rules and requests.
 
 Integration in Python
 ---------------------
+
+::
 
  # databases as first class objects
  get_logic_databases() # -> [Numbers]
@@ -273,13 +274,13 @@ Integration in Python
 
 
 Thus, the logic and Python stuff are cleanly separated, and of course
-we forbid lexical capture as in :
+we forbid lexical capture as in::
 
  z = 42
  database Numbers:
      natural(z)
 
-A (maybe) nicer way to ask could be :
+A (maybe) nicer way to ask could be::
 
  database Family :
 
