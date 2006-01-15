@@ -6,14 +6,19 @@ Plan
 
 Short-term plans:
 
-1. Write a small interpreter in RPython for whatever bytecode language,
-   as an example and for testing.  The goal is to turn that interpreter
-   into a JIT.
+1. DONE (jit/tl.py): Write a small interpreter in RPython for whatever
+   bytecode language, as an example and for testing.  The goal is to turn
+   that interpreter into a JIT.
 
-2. Write code that takes LL graphs and "specializes" them, by making a
-   variable constant and propagating it.
+2. MOSTLY DONE (jit/llabstractinterp.py): Write code that takes LL
+   graphs and "specializes" them, by making a variable constant and
+   propagating it.
 
-3. Think more about how to plug 1 into 2 :-)
+3. DONE (jit/test/test_jit_tl.py): Think more about how to plug 1 into 2 :-)
+
+4. Refactor 2 to use `Functions/operations to generate code`_
+
+5. Think about `how to do at run-time what llabstractinterp does statically`_
 
 
 Discussion and details
@@ -21,6 +26,117 @@ Discussion and details
 
 Low-level graphs abstract interpreter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now done in pypy/jit/llabstractinterp.py.  XXX To be documented.
+
+The LLAbstractInterp is a kind of generalized constant propagation,
+malloc removal, and inlining tool.  It takes L2 graphs, uses hints about
+the value of some arguments, and produce a new L2 graph.  It is tuned to
+the following goal: given the L2 graph of an interpreter
+'interp(bytecode)', and a known 'bytecode' to interpret, it produces a
+residual L2 graph in which the interpretation overhead was removed.  In
+other words the combination of LLAbstractInterp and the L2 graph of
+'interp()' works like a compiler for the language accepted by interp().
+
+
+Simple target interpreter for experimentation and testing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+
+Given that PyPy eval loop is quite a large chunk to swallow, ahem,
+analyse, it is nice to have some kind of minimal bytecode eval loop for
+some very simple bytecode written in RPython to use for
+testing/experimenting and as first target.  This is the Toy Language,
+for which we have an interpreter in pypy/jit/tl.py.  The state for this
+interpreter is not much more than an instruction counter and a value
+stack (easy for LLAbstractInterp).  We should try to add more features
+incrementally when we extend LLAbstractInterp.
+
+
+How to do at run-time what llabstractinterp does statically
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Remember from above that LLAbstractInterp together with the L2 graph of
+'interp()' works like a compiler for the language accepted by interp().
+The next goal is to really produce a stand-alone compiler,
+i.e. something that does the same job but more efficiently (and that can
+be translated and executed at run-time, too).  So we need to divide the
+job of LLAbstractInterp into the bits that analyse the L2 graphs of
+interp() and the bits that actually flow real constants, like the value
+of 'bytecode', in the L2 graphs.  The final compiler should only do an
+efficient flowing of the 'bytecode' and the production of new L2 graphs,
+but not the analysis of the L2 graphs of interp(), done in advance.
+
+
+Functions/operations to generate code
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As a first step, to allow experimentation with code generation without
+all the difficulties of the L3 graph model and L3 interpreter, we could
+provide a set of primitive functions that enable simple code generation.
+
+These functions define a reusable interface: when they are run normally
+on top of CPython, they produce -- say -- L2 graphs that can be executed
+normally with the LLInterpreter (or compiled by GenC, etc).  When the
+functions themselves appear in an RPython function, they are turned into
+new, special low-level operations (like lltype.malloc() becomes a
+'malloc' low-level operation).  What these special operations do depends
+on the back-end.  On top of LLInterpreter, these operations would again
+produce L2 graphs, runnable by the same LLInterpreter.  The other cases
+need to be thought out later -- for example, some extended GenC could
+turn them into C code that generates assembler at run-time.
+
+To define these operations, we plan to go over jit/llabstractinterp.py
+and invent the operations while refactoring it.  The goal would be to
+replace all the explicit building of Graph, Block, Link, Operation and
+Variable with calls to such operations.
+
+
+L3 interpreter
+~~~~~~~~~~~~~~~~~~~
+
+L3 is meant to be an RPython-friendly format for graphs, with an
+L3Interpreter written in RPython.  It would be used as a possible target
+for the above code-generating operations: they would produce L3 graphs,
+and when these graphs must be executed, we would use the L3Interpreter.
+This gives a completely RPython implementation of the code-generating
+operations.
+
+About L3Interpreter:
+
+* in RPython
+
+* the code should try to be straightforward (also for efficiency)
+
+* try to avoid needing maximal parameters that need to be 
+  computed over all the graph (makes emitting a graph incrementally harder)
+
+* one major issue to keep in mind is where the information
+  about offsets into low-level data types comes from/is computed
+  (C compiler offset values, vs. made-up values).  This could be
+  factored into a generic 'heap' interface.
+
+* translatable together with an RPython program, and capable
+  of accepting (constant) data and functions from it 
+  in the interpreted graphs
+
+* ideally this should evolve into the intermediate representation
+  used between the JIT and the machine code backends
+
+
+Machine code backends and register allocation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Open.  This is about what to do in GenC with the operations that
+generate code.  We could have code that takes the L3 graph data
+structures and turn them into machine code.  Or we could directly take
+the code-generation operations and turn them into machine code.  Or some
+combination, e.g. with yet other intermediate compilable formats.
+
+
+This should be rewritten into a real nice intro
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+XXX kill this stuff and write a real nice intro
 
 In the context of PyPy architecture a JIT can be envisioned as a
 run-time specialiser (doing constant folding, partial evaluation and
@@ -45,52 +161,3 @@ by writing a pure Python abstract interpreter doing constant-folding
 and partial evaluation of low-level graphs. Increasing abstraction
 this could maybe evolve in the code for generating the specialiser or
 at least be used to analyse which subset of the graphs is relevant.
-
-issue: too fine granularity of low-level implementations of rpython dicts
-
-Simple target interpreter for experimentation and testing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-
-Given that PyPy eval loop is quite a large chunk to swallow, ahem,
-analyse, it would be nice to have some kind of minimal bytecode eval
-loop for some very simple bytecode written in RPython to use for
-testing/experimenting and as first target. Ideally the interpreter
-state for this should not be much more than an instruction counter and
-a value stack.
-
-L3 interpreter
-~~~~~~~~~~~~~~~~~~~
-
-* in RPython
-
-* the code should try to be straightforward (also for efficiency)
-
-* try to avoid needing maximal parameters that need to be 
-  computed over all the graph (makes emitting a graph incrementally harder)
-
-* one major issue to keep in mind is where the information
-  about offsets into low-level data types comes from/is computed
-  (C compiler offset values, vs. made-up values)
-
-* translatable together with an RPython program, and capable
-  of accepting (constant) data and functions from it 
-  in the interpreted graphs
-
-* ideally this should evolve into the intermediate representation
-  used between the JIT and the machine code backends
-
-
-Machine code backends and register allocation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-xxx
-
-Alternative: RPython interface to code generation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As a first step, to allow experimentation with code generation without
-all the difficulties of the L3 graph model and L3 interpreter, we could
-provide a set of primitive RPython functions that enable simple code
-generation.
-
-TBD
