@@ -1,5 +1,6 @@
 import optparse
 
+import autopath
 from pypy.translator.translator import TranslationContext
 from pypy.translator import driver
 
