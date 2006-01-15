@@ -190,13 +190,19 @@ Flow restrictions
   variables should contain values of at most one type as described in
   `Object restrictions`_ at each control flow point, that means for
   example that joining control paths using the same variable to
-  contain both a float and a int should be avoided. Mixing None
-  (basically with the role of a null pointer) and `wrapped objects`
-  and class instances is allowed.
+  contain both a string and a int must be avoided.  It is allowed to
+  mix None (basically with the role of a null pointer) with many other
+  types: `wrapped objects`, class instances, lists, dicts, strings, etc.
+  but *not* with int and floats.
 
 **constants**
 
-  all module globals are considered constants.
+  all module globals are considered constants.  Their binding must not
+  be changed at run-time.  Moreover, global (i.e. prebuilt) lists and
+  dictionaries are supposed to be immutable: modifying e.g. a global
+  list will give inconsistent results.  However, global instances don't
+  have this restriction, so if you need mutable global state, store it
+  in the attributes of some prebuilt singleton instance.
 
 **control structures**
 
@@ -280,26 +286,24 @@ We are using
   arguments (which may be passed as a list instead of a tuple, so write code
   that does not depend on it being a tuple).
 
-+ dynamic dispatch enforces use of very simple signatures, equal for all
-  functions to be called in that context. At the moment, this occurs in the
-  opcode dispatch, only.
++ dynamic dispatch enforces the use of signatures that are equal for all
+  possible called function, or at least "compatible enough".  This
+  concerns mainly method calls, when the method is overridden or in any
+  way given different definitions in different classes.  It also concerns
+  the less common case of explicitly manipulated function objects.
+  Describing the exact compability rules is rather involved (but if you
+  break them, you should get explicit errors from the rtyper and not
+  obscure crashes.)
 
 **builtin functions**
 
-  A few builtin functions will be used, while this set is not defined
-  completely, yet. Some builtin functions are special forms:
+  A number of builtin functions can be used.  The precise set can be
+  found in `pypy/annotation/builtin.py`_ (see ``def builtin_xxx()``).
+  Some builtin functions may be limited in what they support, though.
 
-**len**
-
-+ may be used with basic types that have a length. But len is a special form
-  that is recognized by the compiler.
-
-+ If a certain structure is never touched by len, the compiler might save the
-  length field from the underlying structure.
-
-``int, float, ord, chr``... are available as simple conversion functions.
-
-``int, float, str``... have a special meaning as a type inside of isinstance only.
+  ``int, float, str, ord, chr``... are available as simple conversion
+  functions.  Note that ``int, float, str``... have a special meaning as
+  a type inside of isinstance only.
 
 **classes**
 
@@ -309,9 +313,9 @@ We are using
 
 **objects**
 
-  wrapped objects are borrowed from the object space. Just like in CPython,
-  code that needs e.g. a dictionary can use a wrapped dict and the object space
-  operations on it.
+  in PyPy, wrapped objects are borrowed from the object space. Just like
+  in CPython, code that needs e.g. a dictionary can use a wrapped dict
+  and the object space operations on it.
 
 This layout makes the number of types to take care about quite limited.
 
