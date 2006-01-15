@@ -11,18 +11,18 @@ Scope
 -----
 
 This document tries to shed some light on integration of logic and
-constraint programming into Python using the Pypy
+constraint programming into Python using the PyPy
 framework.
 
-Pypy has been progressively equiped with a parser and compiler
+PyPy has been progressively equiped with a parser and compiler
 flexible enough that it is hoped that developpers can leverage it to
 extend the language *at runtime*. This is quite in the spirit of Lisp
 macros, if not the exact manner.
 
-This takes place in Working Packages 09 and 10 of the EU Pypy funding
+This takes place in Working Packages 09 and 10 of the EU PyPy funding
 project. It is expected that an aspect oriented programming toolkit be
 built using the compiler and parser infrastructure (WP10), and that the
-logic and constraint programming features be added to Pypy (WP9). An
+logic and constraint programming features be added to PyPy (WP9). An
 ontology library will be provided and will serve as our first use
 case for logic programming.
 
@@ -30,8 +30,8 @@ Clarifications
 --------------
 
 This work was described as integration of logic programming *and*
-constraint programming into Pypy. Both are obviously related but we
-don't know if they will share, in Pypy, the same syntax and the same
+constraint programming into PyPy. Both are obviously related but we
+don't know if they will share, in PyPy, the same syntax and the same
 machinery.
 
 Also it has been said that CLP will be inspired from what is done in
@@ -42,11 +42,11 @@ imperative features can be mixed, to some extent, with logic
 programming (the later can be 'embedded' in the former); or constraint
 programming goes with stateless concurrency, another important feature
 of Oz. We still don't know to what extent the Oz level of integration
-will be pursued in the context of Pypy, esp. WP 9 and 10.
+will be pursued in the context of PyPy, esp. WP 9 and 10.
 
 Lastly, here we mainly discuss syntactical issues: those are probably
 the least difficult aspects of getting CLP into python; getting an
-efficient implementation of the canonical algorithms into Pypy will be
+efficient implementation of the canonical algorithms into PyPy will be
 the bulk of the work.
 
 Constraint programming
@@ -145,7 +145,7 @@ citizenry. Be able to write something like::
  c01 := domain
  c02 := domain
 
-This introduces a special operator `:=` which binds a logical variable
+This introduces a special operator ``:=`` which binds a logical variable
 to a domain. More generally::
 
  var := <any iterable>
@@ -178,8 +178,8 @@ instead could be::
     c01 = <iterable>
     c02 = <iterable>
 
-It makes us reuse '=', with twisted (non-standard Python) semantics
-but under a clear lexical umbrella (a 'domain:' block).
+It makes us reuse ``=``, with twisted (non-standard Python) semantics
+but under a clear lexical umbrella (a ``domain:`` block).
 
 It is possible to get further in this direction::
 
@@ -314,14 +314,14 @@ What shall be done
 For constraint programming:
 
 * Adapt the core algorithms from logilab.constraints to RPython
-* Stuff it into Pypy
+* Stuff it into PyPy
 * Enhance (tm) it with concurrency aspects (using tis's tasklets)
 
 Logic programming:
 
 * Investigate how much of above can be reused
 * Pick a strategy (reuse constraints or implement unification)
-* Implement deep into Pypy
+* Implement deep into PyPy
 
 For both:
 
