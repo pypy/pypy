@@ -152,7 +152,8 @@ class Policy(object):
         self.oopspec = oopspec
 
 # hint-driven policy
-best_policy = Policy(inlining=True, const_propagate=True, concrete_args=False)
+best_policy = Policy(inlining=True, const_propagate=True, concrete_args=False,
+                     oopspec=True)
 best_policy_oopspec = Policy(inlining=True, const_propagate=True, concrete_args=False,
                              oopspec=True)
 
@@ -874,10 +875,8 @@ class BlockBuilder(object):
             # dispatch on the 'self' argument if it is virtual
             a_self = args_a[0]
             args_a = args_a[1:]
-            if not isinstance(a_self.content, LLAbstractContainer):
-                return None
             type_name, operation_name = operation_name.split('.')
-            if a_self.content.type_name != type_name:
+            if getattr(a_self.content, 'type_name', None) != type_name:
                 return None
             try:
                 handler = getattr(a_self.content, 'oop_' + operation_name)
