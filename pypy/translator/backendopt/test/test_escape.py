@@ -412,3 +412,16 @@ def test_remove_call():
         return g(a)
     t = check_malloc_removal(f, [], [], 4)
 
+def test_dont_alloca_in_loops():
+    class A(object):
+        pass
+    def f(x):
+        result = 0
+        for i in range(x):
+            a = A()
+            a.i = i
+            result += a.i
+        return result
+    t = check_malloc_removal(f, [int], [3], 3,must_remove=False)
+    graph = graphof(t, f)
+    assert graph.startblock.exits[0].target.exits[0].target.operations[0].opname == "malloc"

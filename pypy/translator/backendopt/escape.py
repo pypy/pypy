@@ -394,6 +394,7 @@ def find_loop_blocks(graph):
 def malloc_to_stack(t):
     aib = AbstractDataFlowInterpreter(t)
     for graph in t.graphs:
+        loop_blocks = find_loop_blocks(graph)
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'malloc':
@@ -403,7 +404,7 @@ def malloc_to_stack(t):
                     varstate = aib.getstate(op.result)
                     assert len(varstate.creation_points) == 1
                     crep = varstate.creation_points.keys()[0]
-                    if not crep.escapes:
+                    if not crep.escapes and block not in loop_blocks:
                         print "moving object from heap to stack %s in %s" % (op, graph.name)
                         op.opname = 'flavored_malloc'
                         op.args.insert(0, inputconst(lltype.Void, 'stack'))
