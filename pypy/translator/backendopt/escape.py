@@ -329,7 +329,7 @@ class AbstractDataFlowInterpreter(object):
     def ptr_eq(self, op, ptr1state, ptr2state):
         return None
 
-    ptr_neq = ptr_eq
+    ptr_ne = ptr_eq
 
     def same_as(self, op, objstate):
         return objstate
