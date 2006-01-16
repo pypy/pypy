@@ -334,7 +334,17 @@ def test_extfunc_onheaparg():
     state = adi.getstate(svar)
     assert not state.does_escape()
     assert state.does_change()
- 
+    
+def test_extfunc_resultonheap():
+    import os
+    def f(i):
+        s = str(i)
+        return len(s)
+    t, adi, graph = build_adi(f, [float])
+    svar = graph.startblock.operations[0].result
+    state = adi.getstate(svar)
+    assert not state.does_escape()
+
 #__________________________________________________________
 # malloc removal tests
 
