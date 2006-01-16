@@ -110,7 +110,7 @@ class AbstractDataFlowInterpreter(object):
         return crep
     
     def schedule_function(self, graph):
-        print "scheduling function:", graph.name
+        #print "scheduling function:", graph.name
         startblock = graph.startblock
         if graph in self.functionargs:
             args = self.functionargs[graph]
@@ -125,6 +125,7 @@ class AbstractDataFlowInterpreter(object):
                     self.setstate(var, varstate)
                 args.append(varstate)
             self.scheduled[startblock] = graph
+            self.functionargs[graph] = args
         resultstate = self.getstate(graph.returnblock.inputargs[0])
         return resultstate, args
 
@@ -146,42 +147,42 @@ class AbstractDataFlowInterpreter(object):
             return
         self.curr_block = block
         self.curr_graph = graph
-        print "inputargs", self.getstates(block.inputargs)
+        #print "inputargs", self.getstates(block.inputargs)
         
         for op in block.operations:
             self.flow_operation(op)
-        print "checking exits..."
+        #print "checking exits..."
         for exit in block.exits:
-            print "exit", exit
+            #print "exit", exit
             args = self.getstates(exit.args)
             targetargs = self.getstates(exit.target.inputargs)
-            print "   newargs", args
-            print "   targetargs", targetargs
+            #print "   newargs", args
+            #print "   targetargs", targetargs
             # flow every block at least once:
             if (multicontains(targetargs, args) and
                 exit.target in self.flown_blocks):
-                print "   not necessary"
+                #print "   not necessary"
                 continue
-            else:
-                print "   scheduling for flowin"
+            #else:
+                #print "   scheduling for flowin"
             for prevstate, origstate, var in zip(args, targetargs,
                                                 exit.target.inputargs):
                 if not isonheap(var):
                     continue
                 newstate = prevstate.merge(origstate)
                 self.setstate(var, newstate)
-            print "   args", self.getstates(exit.target.inputargs)
+            #print "   args", self.getstates(exit.target.inputargs)
             self.scheduled[exit.target] = graph
 
     def flow_operation(self, op):
-        print "handling", op
+        #print "handling", op
         args = self.getstates(op.args)
-        print "args:", args
+        #print "args:", args
         opimpl = getattr(self, 'op_'+op.opname, None)
         if opimpl is None:
             if isonheap(op.result) or filter(None, args):
                 raise NotImplementedError("can't handle %s" % (op.opname, ))
-            print "assuming that '%s' is irrelevant" % op
+            #print "assuming that '%s' is irrelevant" % op
             return
         res = opimpl(op, *args)
         self.setstate(op.result, res)
@@ -207,7 +208,7 @@ class AbstractDataFlowInterpreter(object):
     def register_state_dependency(self, state1, state2):
         "state1 depends on state2: if state2 does escape/change, so does state1"
         # change state1 according to how state2 is now
-        print "registering dependency of %s on %s" % (state1, state2)
+        #print "registering dependency of %s on %s" % (state1, state2)
         escapes = state2.does_escape()
         if escapes and not state1.does_escape():
             changed = state1.setescapes()
@@ -409,17 +410,21 @@ def find_loop_blocks(graph):
 def malloc_to_stack(t):
     aib = AbstractDataFlowInterpreter(t)
     for graph in t.graphs:
+        if graph.startblock not in aib.flown_blocks:
+            aib.schedule_function(graph)
+            aib.complete()
+    for graph in t.graphs:
         loop_blocks = find_loop_blocks(graph)
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'malloc':
-                    if graph.startblock not in aib.flown_blocks:
-                        aib.schedule_function(graph)
-                        aib.complete()
                     varstate = aib.getstate(op.result)
                     assert len(varstate.creation_points) == 1
                     crep = varstate.creation_points.keys()[0]
-                    if not crep.escapes and block not in loop_blocks:
-                        print "moving object from heap to stack %s in %s" % (op, graph.name)
-                        op.opname = 'flavored_malloc'
-                        op.args.insert(0, inputconst(lltype.Void, 'stack'))
+                    if not crep.escapes:
+                        if block not in loop_blocks:
+                            print "moving object from heap to stack %s in %s" % (op, graph.name)
+                            op.opname = 'flavored_malloc'
+                            op.args.insert(0, inputconst(lltype.Void, 'stack'))
+                        else:
+                            print "%s in %s is a non-escaping malloc in a loop" % (op, graph.name)
