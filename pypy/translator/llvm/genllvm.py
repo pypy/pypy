@@ -63,6 +63,7 @@ class GenLLVM(object):
 
         self.source_generated = True
         self._checkpoint('done')
+        codewriter.close()
         return self.filename
 
     def setup(self, func):

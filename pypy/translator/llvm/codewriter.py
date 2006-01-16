@@ -10,6 +10,9 @@ class CodeWriter(object):
         self.file = file
         self.word_repr = db.get_machine_word()
 
+    def close(self): 
+        self.file.close()
+
     def _resolvetail(self, tail, cconv):
         # from: http://llvm.cs.uiuc.edu/docs/LangRef.html
         # The optional "tail" marker indicates whether the callee function
