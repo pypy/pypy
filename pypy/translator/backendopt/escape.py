@@ -140,7 +140,7 @@ class AbstractDataFlowInterpreter(object):
             if isonheap(block.inputargs[0]):
                 changed = self.getstate(block.inputargs[0]).setescapes()
                 self.handle_changed(changed)
-            if isonheap(block.inputargs[0]):
+            if isonheap(block.inputargs[1]):
                 changed = self.getstate(block.inputargs[1]).setescapes()
                 self.handle_changed(changed)
             return
@@ -188,16 +188,14 @@ class AbstractDataFlowInterpreter(object):
         
     def complete(self):
         while self.scheduled:
-            block = self.scheduled.iterkeys().next()
-            graph = self.scheduled.pop(block)
+            block, graph = self.scheduled.popitem()
             self.flow_block(block, graph)
 
     def handle_changed(self, changed):
         for crep in changed:
             if crep not in self.dependencies:
                 continue
-            for block, graph in self.dependencies[crep].iteritems():
-                self.scheduled[block] = graph
+            self.scheduled.update(self.dependencies[crep])
 
     def register_block_dependency(self, state, block=None, graph=None):
         if block is None:
