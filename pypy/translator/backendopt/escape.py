@@ -31,7 +31,6 @@ class VarState(object):
         return True
 
     def merge(self, other):
-        newstate = VarState()
         creation_points = setunion(self.creation_points, other.creation_points)
         newstate = VarState()
         newstate.creation_points = creation_points
