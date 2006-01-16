@@ -177,7 +177,7 @@ class AbstractDataFlowInterpreter(object):
         print "handling", op
         args = self.getstates(op.args)
         print "args:", args
-        opimpl = getattr(self, op.opname, None)
+        opimpl = getattr(self, 'op_'+op.opname, None)
         if opimpl is None:
             if isonheap(op.result) or filter(None, args):
                 raise NotImplementedError("can't handle %s" % (op.opname, ))
@@ -224,16 +224,16 @@ class AbstractDataFlowInterpreter(object):
     # _____________________________________________________________________
     # operation implementations
 
-    def malloc(self, op, typestate):
+    def op_malloc(self, op, typestate):
         return VarState(self.get_creationpoint(op.result, "malloc"))
 
-    def malloc_varsize(self, op, typestate, lengthstate):
+    def op_malloc_varsize(self, op, typestate, lengthstate):
         return VarState(self.get_creationpoint(op.result, "malloc_varsize"))
 
-    def cast_pointer(self, op, state):
+    def op_cast_pointer(self, op, state):
         return state
     
-    def setfield(self, op, objstate, fieldname, valuestate):
+    def op_setfield(self, op, objstate, fieldname, valuestate):
         changed = objstate.setchanges()
         self.handle_changed(changed)
         if valuestate is not None:
@@ -246,7 +246,7 @@ class AbstractDataFlowInterpreter(object):
             self.handle_changed(changed)
         return None
 
-    def setarrayitem(self, op, objstate, indexstate, valuestate):
+    def op_setarrayitem(self, op, objstate, indexstate, valuestate):
         changed = objstate.setchanges()
         self.handle_changed(changed)
         if valuestate is not None:
@@ -258,30 +258,30 @@ class AbstractDataFlowInterpreter(object):
             self.handle_changed(changed)
         return None
 
-    def getarrayitem(self, op, objstate, indexstate):
+    def op_getarrayitem(self, op, objstate, indexstate):
         if isonheap(op.result):
             return VarState(self.get_creationpoint(op.result, "getarrayitem"))
     
-    def getfield(self, op, objstate, fieldname):
+    def op_getfield(self, op, objstate, fieldname):
         if isonheap(op.result):
             # assume that getfield creates a new value
             return VarState(self.get_creationpoint(op.result, "getfield"))
 
-    def getsubstruct(self, op, objstate, fieldname):
+    def op_getsubstruct(self, op, objstate, fieldname):
         # since this is really an embedded struct, it has the same
         # state, the same creationpoints, etc.
         return objstate
 
-    def getarraysubstruct(self, op, arraystate, indexstate):
+    def op_getarraysubstruct(self, op, arraystate, indexstate):
         # since this is really a struct embedded somewhere in the array it has
         # the same state, creationpoints, etc. in most cases the resulting
         # pointer should not be used much anyway
         return arraystate
 
-    def getarraysize(self, op, arraystate):
+    def op_getarraysize(self, op, arraystate):
         pass
 
-    def direct_call(self, op, function, *args):
+    def op_direct_call(self, op, function, *args):
         graph = get_graph(op.args[0], self.translation_context)
         if graph is None:
             for arg in args:
@@ -304,7 +304,7 @@ class AbstractDataFlowInterpreter(object):
             # assume that a call creates a new value
             return VarState(self.get_creationpoint(op.result, "direct_call"))
 
-    def indirect_call(self, op, function, *args):
+    def op_indirect_call(self, op, function, *args):
         graphs = op.args[-1].value
         args = args[:-1]
         if graphs is None:
@@ -328,17 +328,17 @@ class AbstractDataFlowInterpreter(object):
             # assume that a call creates a new value
             return VarState(self.get_creationpoint(op.result, "indirect_call"))
 
-    def ptr_iszero(self, op, ptrstate):
+    def op_ptr_iszero(self, op, ptrstate):
         return None
 
-    cast_ptr_to_int = keepalive = ptr_nonzero = ptr_iszero
+    op_cast_ptr_to_int = op_keepalive = op_ptr_nonzero = op_ptr_iszero
 
-    def ptr_eq(self, op, ptr1state, ptr2state):
+    def op_ptr_eq(self, op, ptr1state, ptr2state):
         return None
 
-    ptr_ne = ptr_eq
+    op_ptr_ne = op_ptr_eq
 
-    def same_as(self, op, objstate):
+    def op_same_as(self, op, objstate):
         return objstate
 
 def isonheap(var_or_const):
