@@ -210,12 +210,13 @@ class AbstractDataFlowInterpreter(object):
     def register_state_dependency(self, state1, state2):
         "state1 depends on state2: if state2 does escape/change, so does state1"
         # change state1 according to how state2 is now
+        print "registering dependency of %s on %s" % (state1, state2)
         escapes = state2.does_escape()
         if escapes and not state1.does_escape():
             changed = state1.setescapes()
             self.handle_changed(changed)
         changes = state2.does_change()
-        if changes and not state1:
+        if changes and not state1.does_change():
             changed = state1.setchanges()
             self.handle_changed(changed)
         # register a dependency of the current block on state2:

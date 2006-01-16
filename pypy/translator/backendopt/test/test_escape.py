@@ -165,7 +165,7 @@ def test_call():
     assert acrep.changes
     assert not acrep.escapes
 
-def DONOTtest_dependencies():
+def test_dependencies():
     class A(object):
         pass
     globala = A()
@@ -179,13 +179,20 @@ def DONOTtest_dependencies():
         # g(a)
         return globala.l[0]
     t, adi, graph = build_adi(f, [])
-    t.view()
     avar = graph.startblock.operations[0].result
     astate = adi.getstate(avar)
     appendgraph = graph.startblock.operations[3].args[0].value._obj.graph
+    appendarg0 = appendgraph.startblock.inputargs[0]
+    appendstate = adi.getstate(appendarg0)
     resizegraph = appendgraph.startblock.operations[2].args[0].value._obj.graph
+    resizearg0 = resizegraph.startblock.inputargs[0]
+    resizestate = adi.getstate(resizearg0)
     reallygraph = resizegraph.startblock.exits[0].target.operations[0].args[0].value._obj.graph
-#    assert astate.does_escape()
+    reallyarg0 = reallygraph.startblock.inputargs[0]
+    reallystate = adi.getstate(reallyarg0)
+    assert reallystate.does_change()
+    assert resizestate.does_change()
+    assert appendstate.does_change()
     assert astate.does_change()
 
 def test_substruct():
@@ -332,19 +339,15 @@ def test_getsubstruct():
 
 def test_getarraysubstruct():
     def createdict(i, j):
-        d = {'hello' : 23,
-             'world' : 21}
-        l = ["hello", "world"]    
-        return d[l[i]] + d[l[j]]
+        d = {2 : 23,
+             3 : 21}
+        return d[i] + d[j]
     # does not crash, for now
     t, adi, graph = build_adi(createdict, [int, int])
-    t.view()
     dvar = graph.startblock.operations[0].result
-    lvar = graph.startblock.operations[3].result
     dstate = adi.getstate(dvar)
-    lstate = adi.getstate(lvar)
     assert dstate.does_change()
-    assert lstate.does_change()
+    assert not dstate.does_escape()
 
 def test_raise_escapes():
     def f():
