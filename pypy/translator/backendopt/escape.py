@@ -310,14 +310,23 @@ class AbstractDataFlowInterpreter(object):
     def indirect_call(self, op, function, *args):
         graphs = op.args[-1].value
         args = args[:-1]
-        for graph in graphs:
-            result, funcargs = self.schedule_function(graph)
-            assert len(args) == len(funcargs)
-            for localarg, funcarg in zip(args, funcargs):
+        if graphs is None:
+            for localarg in args:
                 if localarg is None:
-                    assert funcarg is None
                     continue
-                self.register_state_dependency(localarg, funcarg)
+                changed = localarg.setescapes()
+                self.handle_changed(changed)
+                changed = localarg.setchanges()
+                self.handle_changed(changed)
+        else:
+            for graph in graphs:
+                result, funcargs = self.schedule_function(graph)
+                assert len(args) == len(funcargs)
+                for localarg, funcarg in zip(args, funcargs):
+                    if localarg is None:
+                        assert funcarg is None
+                        continue
+                    self.register_state_dependency(localarg, funcarg)
         if isonheap(op.result):
             # assume that a call creates a new value
             return VarState(self.get_creationpoint(op.result, "indirect_call"))

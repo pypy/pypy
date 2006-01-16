@@ -2,6 +2,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter, malloc_to_stack
 from pypy.translator.backendopt.escape import find_backedges, find_loop_blocks
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.objectmodel import instantiate
 
 def build_adi(function, types):
     t = TranslationContext()
@@ -292,6 +293,20 @@ def test_indirect_call():
     a2crep = a2state.creation_points.keys()[0]
     assert a1crep.changes and a2crep.changes
     assert not a1crep.escapes and a2crep.escapes
+
+def test_indirect_call_unknown_graphs():
+    class A:
+        pass
+    class B:
+        pass
+    def f(i):
+        if i:
+            klass = A
+        else:
+            klass = B
+        a = instantiate(klass)
+    # does not crash
+    t, adi, graph = build_adi(f, [int])
 
 def test_getarray():
     class A(object):
