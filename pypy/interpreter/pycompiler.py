@@ -13,7 +13,7 @@ class AbstractCompiler:
 
     def __init__(self, space):
         self.space = space
-	self.compile_hook = None
+	self.w_compile_hook = space.w_None
 
     def compile(self, source, filename, mode, flags):
         """Compile and return an pypy.interpreter.eval.Code instance."""
@@ -204,7 +204,8 @@ class PythonAstCompiler(PyCodeCompiler):
         from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
-        from pyparser.pythonutil import AstBuilder, PYTHON_PARSER, TARGET_DICT 
+        from pypy.interpreter.astcompiler.ast import Node
+        from pyparser.pythonutil import AstBuilder, PYTHON_PARSER, TARGET_DICT
         from pypy.interpreter.pycode import PyCode
 
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
@@ -219,10 +220,11 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
 
-	if self.compile_hook is not None:
-	    new_tree = space.call_function(self.compile_hook,
-					   space.wrap(ast_tree),
-					   space.wrap(encoding))
+	if not space.is_w(self.w_compile_hook, space.w_None):
+	    w_ast_tree = space.call_function(self.w_compile_hook,
+                                             space.wrap(ast_tree),
+                                             space.wrap(encoding))
+            ast_tree = space.interp_w(Node, w_ast_tree)
         try:
             astcompiler.misc.set_filename(filename, ast_tree)
             flag_names = get_flag_names(space, flags)
@@ -246,9 +248,6 @@ class PythonAstCompiler(PyCodeCompiler):
 
 
 def install_compiler_hook(space, w_callable):
-    if space.is_w(w_callable, space.w_None):
-	space.default_compiler.compile_hook = None
-    else:
 #       if not space.get( w_callable ):
 #	    raise OperationError( space.w_TypeError( space.wrap( "must have a callable" ) )
-        space.default_compiler.compile_hook = w_callable
+        space.default_compiler.w_compile_hook = w_callable
