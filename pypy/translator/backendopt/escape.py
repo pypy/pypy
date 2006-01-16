@@ -338,6 +338,59 @@ def multicontains(l1, l2):
             return False
     return True
 
+def find_backedges(graph):
+    """finds the backedges in the flow graph"""
+    scheduled = [graph.startblock]
+    seen = {}
+    backedges = []
+    while scheduled:
+        current = scheduled.pop()
+        seen[current] = True
+        for link in current.exits:
+            if link.target in seen:
+                backedges.append(link)
+            else:
+                scheduled.append(link.target)
+    return backedges
+
+def compute_reachability(graph):
+    reachable = {}
+    for block in graph.iterblocks():
+        reach = {}
+        scheduled = [block]
+        while scheduled:
+            current = scheduled.pop()
+            for link in current.exits:
+                if link.target in reachable:
+                    reach = setunion(reach, reachable[link.target])
+                    continue
+                if link.target not in reach:
+                    reach[link.target] = True
+        reachable[block] = reach
+    return reachable
+
+def find_loop_blocks(graph):
+    """find the blocks in a graph that are part of a loop"""
+    loop = {}
+    reachable = compute_reachability(graph)
+    for backedge in find_backedges(graph):
+        start = backedge.target
+        end = backedge.prevblock
+        loop[start] = start
+        loop[end] = start
+        scheduled = [start]
+        seen = {}
+        while scheduled:
+            current = scheduled.pop()
+            connects = end in reachable[current]
+            seen[current] = True
+            if connects:
+                loop[current] = start
+            for link in current.exits:
+                if link.target not in seen:
+                    scheduled.append(link.target)
+    return loop
+
 def malloc_to_stack(t):
     aib = AbstractDataFlowInterpreter(t)
     for graph in t.graphs:
