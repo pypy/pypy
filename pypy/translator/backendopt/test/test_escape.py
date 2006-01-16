@@ -165,6 +165,29 @@ def test_call():
     assert acrep.changes
     assert not acrep.escapes
 
+def test_dependencies():
+    class A(object):
+        pass
+    globala = A()
+    globala.l = [1]
+    def g(a):
+        a.append(1)
+        globala.l = a
+    def f():
+        a = [0]
+        a.append(1)
+        # g(a)
+        return globala.l[0]
+    t, adi, graph = build_adi(f, [])
+    t.view()
+    avar = graph.startblock.operations[0].result
+    astate = adi.getstate(avar)
+    appendgraph = graph.startblock.operations[3].args[0].value._obj.graph
+    resizegraph = appendgraph.startblock.operations[2].args[0].value._obj.graph
+    reallygraph = resizegraph.startblock.exits[0].target.operations[0].args[0].value._obj.graph
+#    assert astate.does_escape()
+    assert astate.does_change()
+
 def test_substruct():
     class A(object):
         pass
@@ -307,6 +330,22 @@ def test_getsubstruct():
     # does not crash
     t, adi, graph = build_adi(f, [int])
 
+def test_getarraysubstruct():
+    def createdict(i, j):
+        d = {'hello' : 23,
+             'world' : 21}
+        l = ["hello", "world"]    
+        return d[l[i]] + d[l[j]]
+    # does not crash, for now
+    t, adi, graph = build_adi(createdict, [int, int])
+    t.view()
+    dvar = graph.startblock.operations[0].result
+    lvar = graph.startblock.operations[3].result
+    dstate = adi.getstate(dvar)
+    lstate = adi.getstate(lvar)
+    assert dstate.does_change()
+    assert lstate.does_change()
+
 def test_raise_escapes():
     def f():
         a = ValueError()
@@ -345,6 +384,7 @@ def test_extfunc_resultonheap():
     svar = graph.startblock.operations[0].result
     state = adi.getstate(svar)
     assert not state.does_escape()
+
 
 #__________________________________________________________
 # test loop detection
@@ -422,6 +462,6 @@ def test_dont_alloca_in_loops():
             a.i = i
             result += a.i
         return result
-    t = check_malloc_removal(f, [int], [3], 3,must_remove=False)
+    t = check_malloc_removal(f, [int], [3], 3, must_remove=False)
     graph = graphof(t, f)
     assert graph.startblock.exits[0].target.exits[0].target.operations[0].opname == "malloc"

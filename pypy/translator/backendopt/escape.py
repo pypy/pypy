@@ -274,6 +274,12 @@ class AbstractDataFlowInterpreter(object):
         # state, the same creationpoints, etc.
         return objstate
 
+    def getarraysubstruct(self, op, arraystate, indexstate):
+        # since this is really a struct embedded somewhere in the array it has
+        # the same state, creationpoints, etc. in most cases the resulting
+        # pointer should not be used much anyway
+        return arraystate
+
     def getarraysize(self, op, arraystate):
         pass
 
@@ -322,6 +328,8 @@ class AbstractDataFlowInterpreter(object):
 
     def ptr_eq(self, op, ptr1state, ptr2state):
         return None
+
+    ptr_neq = ptr_eq
 
     def same_as(self, op, objstate):
         return objstate
