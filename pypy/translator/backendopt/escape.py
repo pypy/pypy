@@ -280,11 +280,16 @@ class AbstractDataFlowInterpreter(object):
     def direct_call(self, op, function, *args):
         graph = get_graph(op.args[0], self.translation_context)
         if graph is None:
-            if len(filter(None, args)):
+            if isonheap(op.result):
                 raise NotImplementedError, "can't handle call %s" % (op, )
-            else:
-                result = None
-                funcargs = [None] * len(args)
+            for arg in args:
+                if arg is None:
+                    continue
+                # an external function can change every parameter:
+                changed = arg.setchanges()
+                self.handle_changed(changed)
+            result = None
+            funcargs = [None] * len(args)
         else:
             result, funcargs = self.schedule_function(graph)
         assert len(args) == len(funcargs)
@@ -292,7 +297,8 @@ class AbstractDataFlowInterpreter(object):
             if localarg is None:
                 assert funcarg is None
                 continue
-            self.register_state_dependency(localarg, funcarg)
+            if funcarg is not None:
+                self.register_state_dependency(localarg, funcarg)
         if isonheap(op.result):
             # assume that a call creates a new value
             return VarState(self.get_creationpoint(op.result, "direct_call"))

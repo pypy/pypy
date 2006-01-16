@@ -323,6 +323,17 @@ def test_big():
     # does not crash
     t, adi, graph = build_adi(entrypoint, [int])
 
+def test_extfunc_onheaparg():
+    import os
+    def f(i):
+        s = str(i)
+        os.write(2, s)
+        return len(s)
+    t, adi, graph = build_adi(f, [int])
+    svar = graph.startblock.operations[0].result
+    state = adi.getstate(svar)
+    assert not state.does_escape()
+    assert state.does_change()
  
 #__________________________________________________________
 # malloc removal tests
