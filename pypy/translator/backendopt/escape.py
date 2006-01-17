@@ -424,6 +424,14 @@ def malloc_to_stack(t):
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'malloc':
+                    STRUCT = op.args[0].value
+                    # must not remove mallocs of structures that have a RTTI with a destructor
+                    try:
+                        destr_ptr = lltype.getRuntimeTypeInfo(STRUCT)._obj.destructor_funcptr
+                        if destr_ptr:
+                            continue
+                    except (ValueError, AttributeError), e:
+                        pass
                     varstate = aib.getstate(op.result)
                     assert len(varstate.creation_points) == 1
                     crep = varstate.creation_points.keys()[0]

@@ -483,3 +483,17 @@ def test_dont_alloca_in_loops():
     t = check_malloc_removal(f, [int], [3], 3, must_remove=False)
     graph = graphof(t, f)
     assert graph.startblock.exits[0].target.exits[0].target.operations[0].opname == "malloc"
+
+def test_dont_remove_del_objects():
+    class A(object):
+        def __del__(self):
+            pass
+    def f():
+        a = A()
+        a.i = 1
+        return a.i        
+    t = check_malloc_removal(f, [], [], 1, must_remove=False)
+    graph = graphof(t, f)
+    assert graph.startblock.operations[0].opname == "malloc"
+   
+
