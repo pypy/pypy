@@ -115,7 +115,7 @@ class TestAddressAnnotation(object):
     def test_simple_offsetof(self):
         from pypy.rpython.lltypesystem import lltype
         from pypy.rpython.memory.lladdress import offsetof
-        S = lltype.GcStruct(('x', lltype.Bool), ('y', lltype.Signed))
+        S = lltype.GcStruct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         def f():
             return offsetof(S, 'x') + offsetof(S, 'y')
         a = RPythonAnnotator()
