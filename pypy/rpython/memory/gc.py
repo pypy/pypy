@@ -263,7 +263,7 @@ class SemiSpaceGC(GCBase):
         if not self.fromspace <= obj < self.fromspace + self.space_size:
             return self.copy_non_managed_obj(obj)
 ##         print "copying regularly", obj,
-        if self.is_forwared(obj):
+        if self.is_forwarded(obj):
 ##             print "already copied to", self.get_forwarding_address(obj)
             return self.get_forwarding_address(obj)
         else:
@@ -310,7 +310,7 @@ class SemiSpaceGC(GCBase):
                     j += 1
                 i += 1
 
-    def is_forwared(self, obj):
+    def is_forwarded(self, obj):
         return (obj - self.size_gc_header()).signed[1] < 0
 
     def get_forwarding_address(self, obj):
