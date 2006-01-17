@@ -55,10 +55,10 @@ class Node(Wrappable):
         return res
 
     def __repr__(self):
-	return "Node()"
+        return "Node()"
 
     def descr_repr( self, space ):
-	return space.wrap( self.__repr__() )
+        return space.wrap( self.__repr__() )
     
     def descr_getChildNodes( self, space ):
         lst = self.getChildNodes()
@@ -76,12 +76,12 @@ def descr_Node_new(space, w_subtype, lineno=-1):
 
 Node.typedef = TypeDef('ASTNode',
                        __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
-		       #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
-		       getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
-		       accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
+                       #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
+                       getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
+                       accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        lineno = interp_attrproperty('lineno', cls=Node),
                        filename = interp_attrproperty('filename', cls=Node),
-		       )
+                       )
 
         
 class EmptyNode(Node):
@@ -1212,7 +1212,7 @@ def descr_Compare_new(space, w_subtype, w_expr, w_ops, lineno=-1):
         w_opname = space.getitem(w_tuple, space.wrap(0))
         w_node = space.getitem(w_tuple, space.wrap(1))
         opname = space.str_w(w_opname)
-	node = space.interp_w(Node, w_node)
+        node = space.interp_w(Node, w_node)
         ops.append((opname, node))
     self.ops = ops
     self.lineno = lineno
@@ -3869,9 +3869,9 @@ def descr_TryExcept_new(space, w_subtype, w_body, w_handlers, w_else_, lineno=-1
         w_expr1 = space.getitem( w_tuple, space.wrap(0) )
         w_expr2 = space.getitem( w_tuple, space.wrap(1) )
         w_body = space.getitem( w_tuple, space.wrap(2) )
-	expr1 = space.interp_w(Node, w_expr1, can_be_None=True)
-	expr2 = space.interp_w(Node, w_expr2, can_be_None=True)
-	body = space.interp_w(Node, w_body, can_be_None=False)
+        expr1 = space.interp_w(Node, w_expr1, can_be_None=True)
+        expr2 = space.interp_w(Node, w_expr2, can_be_None=True)
+        body = space.interp_w(Node, w_body, can_be_None=False)
         handlers.append((expr1, expr2, body))
     self.handlers = handlers
     self.else_ = space.interp_w(Node, w_else_, can_be_None=True)

@@ -57,7 +57,7 @@ class NodeInfo:
             self.parent = Node_NodeInfo
 
     def get_argnames(self):
-	args = self.args
+        args = self.args
         return [strip_default(arg.strip())
                 for arg in args.split(',') if arg]
 
@@ -295,56 +295,56 @@ class NodeInfo:
 
 
     def _gen_fget_func(self, buf, attr, prop ):
-	# FGET
-	print >> buf, "    def fget_%s( space, self):" % attr
-	if prop[attr]==P_WRAPPED:
-	    print >> buf, "        return self.%s" % attr
-	elif prop[attr] in (P_INT,P_STR, P_NODE):
-	    print >> buf, "        return space.wrap(self.%s)" % attr
-	elif prop[attr] in (P_INT_LIST, P_STR_LIST, P_NESTED ):
-	    print >> buf, "        return space.newlist( [space.wrap(itm) for itm in self.%s] )" % attr
-	elif prop[attr]==P_NONE:
-	    print >> buf, "        if self.%s is None:" % attr
-	    print >> buf, "            return space.w_None"
-	    print >> buf, "        else:"
-	    print >> buf, "            return space.wrap(self.%s)" % attr
-	else:
-	    assert False, "Unkown node type"
+        # FGET
+        print >> buf, "    def fget_%s( space, self):" % attr
+        if prop[attr]==P_WRAPPED:
+            print >> buf, "        return self.%s" % attr
+        elif prop[attr] in (P_INT,P_STR, P_NODE):
+            print >> buf, "        return space.wrap(self.%s)" % attr
+        elif prop[attr] in (P_INT_LIST, P_STR_LIST, P_NESTED ):
+            print >> buf, "        return space.newlist( [space.wrap(itm) for itm in self.%s] )" % attr
+        elif prop[attr]==P_NONE:
+            print >> buf, "        if self.%s is None:" % attr
+            print >> buf, "            return space.w_None"
+            print >> buf, "        else:"
+            print >> buf, "            return space.wrap(self.%s)" % attr
+        else:
+            assert False, "Unkown node type"
 
     def _gen_fset_func(self, buf, attr, prop ):
-	# FSET
-	print >> buf, "    def fset_%s( space, self, w_arg):" % attr
-	if prop[attr] == P_WRAPPED:
-	    print >> buf, "        self.%s = w_arg" % attr
-	elif prop[attr] == P_INT:
-	    print >> buf, "        self.%s = space.int_w(w_arg)" % attr
-	elif prop[attr] == P_STR:
-	    print >> buf, "        self.%s = space.str_w(w_arg)" % attr
-	elif prop[attr] == P_INT_LIST:
-	    print >> buf, "        del self.%s[:]" % attr
-	    print >> buf, "        for itm in space.unpackiterable(w_arg):"
-	    print >> buf, "            self.%s.append( space.int_w(itm) )" % attr
-	elif prop[attr] == P_STR_LIST:
-	    print >> buf, "        del self.%s[:]" % attr
-	    print >> buf, "        for itm in space.unpackiterable(w_arg):"
-	    print >> buf, "            self.%s.append( space.str_w(itm) )" % attr
-	elif prop[attr] == P_NESTED:
-	    print >> buf, "        del self.%s[:]" % attr
-	    print >> buf, "        for w_itm in space.unpackiterable(w_arg):"
-	    print >> buf, "            self.%s.append( space.interp_w(Node, w_itm))" % attr
-	elif prop[attr] == P_NONE:
+        # FSET
+        print >> buf, "    def fset_%s( space, self, w_arg):" % attr
+        if prop[attr] == P_WRAPPED:
+            print >> buf, "        self.%s = w_arg" % attr
+        elif prop[attr] == P_INT:
+            print >> buf, "        self.%s = space.int_w(w_arg)" % attr
+        elif prop[attr] == P_STR:
+            print >> buf, "        self.%s = space.str_w(w_arg)" % attr
+        elif prop[attr] == P_INT_LIST:
+            print >> buf, "        del self.%s[:]" % attr
+            print >> buf, "        for itm in space.unpackiterable(w_arg):"
+            print >> buf, "            self.%s.append( space.int_w(itm) )" % attr
+        elif prop[attr] == P_STR_LIST:
+            print >> buf, "        del self.%s[:]" % attr
+            print >> buf, "        for itm in space.unpackiterable(w_arg):"
+            print >> buf, "            self.%s.append( space.str_w(itm) )" % attr
+        elif prop[attr] == P_NESTED:
+            print >> buf, "        del self.%s[:]" % attr
+            print >> buf, "        for w_itm in space.unpackiterable(w_arg):"
+            print >> buf, "            self.%s.append( space.interp_w(Node, w_itm))" % attr
+        elif prop[attr] == P_NONE:
             print >> buf, "        self.%s = space.interp_w(Node, w_arg, can_be_None=True)" % attr
-	else: # P_NODE
+        else: # P_NODE
             print >> buf, "        self.%s = space.interp_w(Node, w_arg, can_be_None=False)" % attr
 
     def _gen_attrs(self, buf):
-	prop = self.argprops
-	for attr in self.argnames:
-	    if "fget_%s" % attr not in self.additional_methods:
-		self._gen_fget_func( buf, attr, prop )
+        prop = self.argprops
+        for attr in self.argnames:
+            if "fget_%s" % attr not in self.additional_methods:
+                self._gen_fget_func( buf, attr, prop )
 
-	    if "fset_%s" % attr not in self.additional_methods:
-		self._gen_fset_func( buf, attr, prop )
+            if "fset_%s" % attr not in self.additional_methods:
+                self._gen_fset_func( buf, attr, prop )
 
     def _gen_typedef(self, buf):
         initargs = [strip_default(arg.strip())
@@ -353,7 +353,7 @@ class NodeInfo:
             new_unwrap_spec = ['ObjSpace', 'W_Root'] + ['W_Root'] * len(initargs) + ['int']
         else:
             new_unwrap_spec = ['ObjSpace', 'W_Root', 'int']
-	parent_type = "%s.typedef" % self.parent.name
+        parent_type = "%s.typedef" % self.parent.name
         print >> buf, "def descr_%s_accept( space, w_self, w_visitor):" %self.name
         print >> buf, "    w_callable = space.getattr(w_visitor, space.wrap('visit%s'))" % self.name
         print >> buf, "    args = Arguments(space, [ w_self ])"
@@ -362,38 +362,38 @@ class NodeInfo:
         print >> buf, "%s.typedef = TypeDef('%s', %s, " % (self.name, self.name, parent_type)
         print >> buf, "                     __new__ = interp2app(descr_%s_new, unwrap_spec=[%s])," % (self.name, ', '.join(new_unwrap_spec))
         print >> buf, "                     accept=interp2app(descr_%s_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] )," % self.name
-	for attr in self.argnames:
-	    print >> buf, "                    %s=GetSetProperty(%s.fget_%s, %s.fset_%s )," % (attr,self.name,attr,self.name,attr)
-	print >> buf, "                    )"
+        for attr in self.argnames:
+            print >> buf, "                    %s=GetSetProperty(%s.fget_%s, %s.fset_%s )," % (attr,self.name,attr,self.name,attr)
+        print >> buf, "                    )"
 
 
     def _gen_additional_methods(self, buf):
         for key, value in self.additional_methods.iteritems():
-	    print >> buf, ''.join(value)
+            print >> buf, ''.join(value)
             
     def gen_base_visit(self, buf):
         print >> buf, "    def visit%s(self, node):" % self.name
         print >> buf, "        return self.default( node )"
 
     def gen_print_visit(self, buf):
-	# This is a print visitor for application level tests
+        # This is a print visitor for application level tests
         print >> buf, "    def visit%s(self, node):" % self.name
-	print >> buf, "        print '%s('," % self.name
-	for attr in self.argnames:
-	    if self.argprops[attr] == P_NODE:
-	    	print >> buf, "        node.%s.accept(self)" % attr
-	    	print >> buf, "        print ',',"
-	    if self.argprops[attr] == P_NONE:
-	    	print >> buf, "        if node.%s: node.%s.accept(self)" % (attr,attr)
-	    	print >> buf, "        print ',',"
-	    elif self.argprops[attr] == P_NESTED:
-	    	print >> buf, "        for nd in node.%s:" % attr
-	    	print >> buf, "            nd.accept(self)"
-	    	print >> buf, "        print ',',"
-	    else:
-		print >> buf, "        print node.%s,','," % attr
-	print >> buf, "        print ')',"
-	    
+        print >> buf, "        print '%s('," % self.name
+        for attr in self.argnames:
+            if self.argprops[attr] == P_NODE:
+                    print >> buf, "        node.%s.accept(self)" % attr
+                    print >> buf, "        print ',',"
+            if self.argprops[attr] == P_NONE:
+                    print >> buf, "        if node.%s: node.%s.accept(self)" % (attr,attr)
+                    print >> buf, "        print ',',"
+            elif self.argprops[attr] == P_NESTED:
+                    print >> buf, "        for nd in node.%s:" % attr
+                    print >> buf, "            nd.accept(self)"
+                    print >> buf, "        print ',',"
+            else:
+                print >> buf, "        print node.%s,','," % attr
+        print >> buf, "        print ')',"
+            
 
 
 Node_NodeInfo = NodeInfo("Node","")
@@ -408,77 +408,77 @@ def parse_spec(file):
     kind = None
     fiter = fileinput.input(file)
     for line in fiter:
-	if line.startswith("== OVERRIDES =="):
-	    break
+        if line.startswith("== OVERRIDES =="):
+            break
         comment = line.strip().startswith('#')
-	if comment:
-	    continue
-	# a normal entry
-	try:
-	    name, args = line.split(':')
-	except ValueError:
-	    continue
-	if "(" in name:
-	    name, parent = name.split("(")
-	    parent = parent[:-1]
-	else:
-	    parent = None
-	classes[name] = NodeInfo(name, args, parent)
+        if comment:
+            continue
+        # a normal entry
+        try:
+            name, args = line.split(':')
+        except ValueError:
+            continue
+        if "(" in name:
+            name, parent = name.split("(")
+            parent = parent[:-1]
+        else:
+            parent = None
+        classes[name] = NodeInfo(name, args, parent)
 
 
     for line in fiter:
         mo = None
-	mo = rx_init.match(line)
-	if mo:
-	    kind = 'init'
-	    # some extra code for a Node's __init__ method
-	    name = mo.group(1)
-	    cur = classes[name]
-	    continue
+        mo = rx_init.match(line)
+        if mo:
+            kind = 'init'
+            # some extra code for a Node's __init__ method
+            name = mo.group(1)
+            cur = classes[name]
+            continue
 
-	mo = rx_flatten_nodes.match(line)
-	if mo:
-	    kind = 'flatten_nodes'
-	    # special case for getChildNodes flattening
-	    name = mo.group(1)
-	    attr = mo.group(2)
-	    cur = classes[name]
-	    _cur_ = attr
-	    cur.flatten_nodes[attr] = []
-	    flatten_expect_comment = True
-	    continue
+        mo = rx_flatten_nodes.match(line)
+        if mo:
+            kind = 'flatten_nodes'
+            # special case for getChildNodes flattening
+            name = mo.group(1)
+            attr = mo.group(2)
+            cur = classes[name]
+            _cur_ = attr
+            cur.flatten_nodes[attr] = []
+            flatten_expect_comment = True
+            continue
 
-	mo = rx_additional_methods.match(line)
-	if mo:
-	    kind = 'additional_method'
-	    name = mo.group(1)
-	    methname = mo.group(2)
-	    params = mo.group(3)
-	    cur = classes[name]
-	    _cur_ = methname
-	    cur.additional_methods[_cur_] = ['    def %s(%s):\n' % (methname, params)]
-	    continue
+        mo = rx_additional_methods.match(line)
+        if mo:
+            kind = 'additional_method'
+            name = mo.group(1)
+            methname = mo.group(2)
+            params = mo.group(3)
+            cur = classes[name]
+            _cur_ = methname
+            cur.additional_methods[_cur_] = ['    def %s(%s):\n' % (methname, params)]
+            continue
 
-	mo = rx_descr_news_methods.match(line)
-	if mo:
-	    kind = 'applevel_new'
-	    name = mo.group(1)
-	    cur = classes[name]
-	    cur.applevel_new = [mo.group(0) + '\n']
-	    continue
+        mo = rx_descr_news_methods.match(line)
+        if mo:
+            kind = 'applevel_new'
+            name = mo.group(1)
+            cur = classes[name]
+            cur.applevel_new = [mo.group(0) + '\n']
+            continue
 
-	if kind == 'init':
-	    # some code for the __init__ method
-	    cur.init.append(line)
-	elif kind == 'flatten_nodes':
-	    if flatten_expect_comment:
-		assert line.strip().startswith("#")
-		flatten_expect_comment=False
-	    cur.flatten_nodes[_cur_].append(line)
-	elif kind == 'additional_method':
-	    cur.additional_methods[_cur_].append(' '*4 + line)
-	elif kind == 'applevel_new':
-	    cur.applevel_new.append(line)
+        if kind == 'init':
+            # some code for the __init__ method
+            cur.init.append(line)
+        elif kind == 'flatten_nodes':
+            if flatten_expect_comment:
+                assert line.strip().startswith("#")
+                flatten_expect_comment=False
+            cur.flatten_nodes[_cur_].append(line)
+        elif kind == 'additional_method':
+            cur.additional_methods[_cur_].append(' '*4 + line)
+        elif kind == 'applevel_new':
+            cur.applevel_new.append(line)
             
     for node in classes.values():
         node.setup_parent(classes)
@@ -597,10 +597,10 @@ class Node(Wrappable):
         return res
 
     def __repr__(self):
-	return "Node()"
+        return "Node()"
 
     def descr_repr( self, space ):
-	return space.wrap( self.__repr__() )
+        return space.wrap( self.__repr__() )
     
     def descr_getChildNodes( self, space ):
         lst = self.getChildNodes()
@@ -618,12 +618,12 @@ def descr_Node_new(space, w_subtype, lineno=-1):
 
 Node.typedef = TypeDef('ASTNode',
                        __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
-		       #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
-		       getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
-		       accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
+                       #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
+                       getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
+                       accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        lineno = interp_attrproperty('lineno', cls=Node),
                        filename = interp_attrproperty('filename', cls=Node),
-		       )
+                       )
 
         
 class EmptyNode(Node):
