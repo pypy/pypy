@@ -141,6 +141,7 @@ def sizeof(TYPE, n=None):
     pass
 
 def offsetof(TYPE, fldname):
+    assert fldname in TYPE._flds
     return OffsetOf(TYPE, fldname)
 
 def itemoffsetof(TYPE, n=None):
