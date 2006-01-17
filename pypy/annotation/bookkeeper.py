@@ -17,7 +17,7 @@ from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.annotation import description
 from pypy.interpreter.argument import Arguments, ArgErr
-from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
@@ -306,7 +306,7 @@ class Bookkeeper:
             return x.annotation()
         if tp is bool:
             result = SomeBool()
-        elif tp is int:
+        elif tp is int or tp is r_int:
             result = SomeInteger(nonneg = x>=0)
         elif tp is r_uint:
             result = SomeInteger(nonneg = True, unsigned = True)
@@ -476,7 +476,7 @@ class Bookkeeper:
         assert isinstance(t, (type, types.ClassType))
         if t is bool:
             return SomeBool()
-        elif t is int:
+        elif t is int or t is r_int:
             return SomeInteger()
         elif t is r_uint:
             return SomeInteger(nonneg = True, unsigned = True)
