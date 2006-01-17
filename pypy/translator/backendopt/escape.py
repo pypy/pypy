@@ -181,7 +181,13 @@ class AbstractDataFlowInterpreter(object):
         opimpl = getattr(self, 'op_'+op.opname, None)
         if opimpl is None:
             if isonheap(op.result) or filter(None, args):
-                raise NotImplementedError("can't handle %s" % (op.opname, ))
+                for arg in args:
+                    if arg is not None:
+                        changed = arg.setchanges()
+                        self.handle_changed(changed)
+                        changed = arg.setescapes()
+                        self.handle_changed(changed)
+                #raise NotImplementedError("can't handle %s" % (op.opname, ))
             #print "assuming that '%s' is irrelevant" % op
             return
         res = opimpl(op, *args)
