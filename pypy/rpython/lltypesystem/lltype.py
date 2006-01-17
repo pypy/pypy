@@ -4,6 +4,7 @@ from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
 from types import NoneType
+from sys import maxint
 
 log = py.log.Producer('lltype')
 
@@ -428,9 +429,13 @@ class Primitive(LowLevelType):
 
 
 Signed   = Primitive("Signed", 0)
-SignedLongLong = Primitive("SignedLongLong", r_longlong(0))
 Unsigned = Primitive("Unsigned", r_uint(0))
-UnsignedLongLong = Primitive("UnsignedLongLong", r_ulonglong(0))
+if maxint == 2**31-1:
+    SignedLongLong = Primitive("SignedLongLong", r_longlong(0))
+    UnsignedLongLong = Primitive("UnsignedLongLong", r_ulonglong(0))
+else:
+    SignedLongLong = Signed
+    UnsignedLongLong = Unsigned
 Float    = Primitive("Float", 0.0)
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)

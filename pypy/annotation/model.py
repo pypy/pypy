@@ -34,6 +34,7 @@ from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 import inspect
+from sys import maxint
 
 
 DEBUG = True    # set to False to disable recording of debugging information
@@ -168,6 +169,8 @@ class SomeInteger(SomeFloat):
     def __init__(self, nonneg=False, unsigned=False, size=1):
         self.nonneg = unsigned or nonneg
         self.unsigned = unsigned  # pypy.rpython.rarithmetic.r_uint
+        if maxint != 2**31-1:
+            size = 1    #XXX don't support longlong on 64 bits systems
         self.size = size
         if self.unsigned:
             if self.size == 2:
