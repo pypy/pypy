@@ -4,6 +4,9 @@ from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 from pypy.translator.test import snippet 
 
+if sys.maxint != 2**31-1:
+    py.test.skip("WIP")
+
 def test_zerodiv_int():
     def zerodiv_int(n):
         try:

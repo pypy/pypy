@@ -9,6 +9,9 @@ from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython import ros
 
+if sys.maxint != 2**31-1:
+    py.test.skip("WIP") 
+
 def test_external_function_ll_os_dup():
     def fn():
         return os.dup(0)
