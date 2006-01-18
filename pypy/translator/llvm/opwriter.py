@@ -81,6 +81,8 @@ class OpWriter(object):
     def __init__(self, db, codewriter):
         self.db = db
         self.codewriter = codewriter
+        self.word = db.get_machine_word()
+        self.uword = db.get_machine_uword()
 
     def _tmp(self, count=1):
         if count == 1:
@@ -89,6 +91,8 @@ class OpWriter(object):
             return [self.db.repr_tmpvar() for ii in range(count)]
         
     def write_operation(self, op):
+        #log(op)
+
         if op.opname in ("direct_call", 'indirect_call'):
             opr = OpReprCall(op, self.db)
         else:
@@ -373,20 +377,17 @@ class OpWriter(object):
                                       opr.argrefs[0], [("uint", 0)])
         self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
-        
-    # XXX use machine word size
-    
     def adr_delta(self, opr):
         addr1, addr2 = self._tmp(2)
-        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], "int")
-        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], "int")
+        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], self.word)
+        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], self.word)
         self.codewriter.binaryop("sub", opr.retref, opr.rettype, addr1, addr2)
 
     def _op_adr_generic(self, opr, llvm_op):
         addr, res = self._tmp(2)
-        self.codewriter.cast(addr, opr.argtypes[0], opr.argrefs[0], "int")
-        self.codewriter.binaryop(llvm_op, res, "int", addr, opr.argrefs[1])
-        self.codewriter.cast(opr.retref, "int", res, opr.rettype)
+        self.codewriter.cast(addr, opr.argtypes[0], opr.argrefs[0], self.word)
+        self.codewriter.binaryop(llvm_op, res, self.word, addr, opr.argrefs[1])
+        self.codewriter.cast(opr.retref, self.word, res, opr.rettype)
 
     def adr_add(self, opr):
         self._op_adr_generic(opr, "add")
@@ -396,10 +397,10 @@ class OpWriter(object):
 
     def _op_adr_cmp(self, opr, llvm_op):
         addr1, addr2 = self._tmp(2)
-        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], "int")
-        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], "int")
+        self.codewriter.cast(addr1, opr.argtypes[0], opr.argrefs[0], self.word)
+        self.codewriter.cast(addr2, opr.argtypes[1], opr.argrefs[1], self.word)
         assert opr.rettype == "bool"
-        self.codewriter.binaryop(llvm_op, opr.retref, "int", addr1, addr2)
+        self.codewriter.binaryop(llvm_op, opr.retref, self.word, addr1, addr2)
 
     def adr_eq(self, opr):
         self._op_adr_cmp(opr, "seteq")

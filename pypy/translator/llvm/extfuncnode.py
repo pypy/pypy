@@ -5,9 +5,9 @@ from pypy.translator.c.extfunc import EXTERNALS
 log = log.extfuncnode
 
 class ExtFuncSig(object):
-    def __init__(self, retval, args):
+    def __init__(self, rettype, args):
+        self.rettype = rettype
         self.args = args
-        self.rettype = retval
 
 # signature of external functions differ from C's implementation
 ext_func_sigs = {
@@ -15,8 +15,23 @@ ext_func_sigs = {
     "%LL_stack_too_big" : ExtFuncSig("int", None),
     "%LL_os_lseek" : ExtFuncSig("int", None),
     "%LL_thread_acquirelock" : ExtFuncSig("int", [None, "int"]),
-    "%LL_thread_start" : ExtFuncSig(None, ["sbyte*", "sbyte*"])}
-    
+    "%LL_thread_start" : ExtFuncSig(None, ["sbyte*", "sbyte*"]),
+    }
+
+#on 64 bit systems we need a wrapper for everything the takes or returns an int
+from sys import maxint
+if maxint != 2**31-1:
+    extra_ext_func_sigs = {
+        "%LL_os_dup" : ExtFuncSig("int", ["int"]),
+        "%LL_os_open" : ExtFuncSig("int", [None, "int", "int"]),
+        "%LL_os_write" : ExtFuncSig(None, ["int", None]),
+        "%LL_read_into" : ExtFuncSig(None, ["int", None]),
+        "%LL_os_close" : ExtFuncSig(None, ["int"]),
+        "%pypy_ll_stat_result__Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed" : ExtFuncSig(None, ["int"]*10)
+        }
+    ext_func_sigs.update(extra_ext_func_sigs)
+
+
 class ExternalFuncNode(ConstantLLVMNode):
 
     def __init__(self, db, value):
@@ -28,7 +43,11 @@ class ExternalFuncNode(ConstantLLVMNode):
         mapped_name = EXTERNALS[value._callable]
         self.ref = self.make_ref("%", mapped_name)
         self.wrapper = ext_func_sigs.get(self.ref, None)
-        
+        if self.wrapper is None and maxint != 2**31-1:
+            #XXX if returntype or param in ('int', 'uint'):
+            #         add wrapper to return from long->int
+            pass
+
     def __str__(self):
         return "<ExternalFuncNode %r>" % self.ref
 

@@ -79,6 +79,17 @@ return_block:
 
 """
 
+from sys import maxint
+if maxint != 2**31-1:
+    extfunctions = """
+internal fastcc void %pypy_ll_raise_OSError__Signed(int %errno_0) {
+    %tmp = cast int %errno_0 to long
+    call void %pypy_ll_raise_OSError__Signed(long %tmp)
+    ret void
+}
+
+"""
+
 def write_raise_exc(c_name, exc_repr, codewriter):
 
     l = """
