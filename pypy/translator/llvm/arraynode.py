@@ -47,15 +47,22 @@ class ArrayTypeNode(LLVMNode):
                             self.db.repr_type(self.arraytype))
 
     def writedecl(self, codewriter): 
-        # declaration for constructor
+        return #XXX tmp?
+
         codewriter.declare(self.constructor_decl)
 
     def writeimpl(self, codewriter):
+        return  #XXX tmp?
+
+        current, indices_to_array = self.var_malloc_info()
         log.writeimpl(self.ref)
         gp = self.db.gcpolicy
         gp.write_constructor(codewriter, self.ref, self.constructor_decl,
-                             self.array, atomic=self.array._is_atomic())
+                             current, atomic=self.array._is_atomic())
 
+    def var_malloc_info(self):
+        return self.array, ()
+    
 class VoidArrayTypeNode(LLVMNode):
     __slots__ = "db array ref".split()
 

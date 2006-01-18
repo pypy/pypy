@@ -55,29 +55,37 @@ class StructVarsizeTypeNode(StructTypeNode):
 
     def writedecl(self, codewriter): 
         # declaration for constructor
+        return #XXX
+
         codewriter.declare(self.constructor_decl)
 
     def writeimpl(self, codewriter):
-        log.writeimpl(self.ref)
+        return #XXX
 
-        # build up a list of indices to get to the last 
-        # var-sized struct (or rather the according array) 
-        indices_to_array = []
-        current = self.struct
-        while isinstance(current, lltype.Struct):
-            last_pos = len(current._names_without_voids()) - 1
-            indices_to_array.append(("uint", last_pos)) #struct requires uint consts
-            name = current._names_without_voids()[-1]
-            current = current._flds[name]
-        assert isinstance(current, lltype.Array)
+        log.writeimpl(self.ref)
+        current, indices_to_array = self.var_malloc_info()
         gp = self.db.gcpolicy
         gp.write_constructor(codewriter, 
                              self.ref,
                              self.constructor_decl,
                              current, 
                              indices_to_array,
-                             self.struct._is_atomic(),
-                             is_str=self.struct._name == "rpy_string")
+                             self.struct._is_atomic())
+
+    def var_malloc_info(self):
+        # build up a list of indices to get to the last 
+        # var-sized struct (or rather the according array) 
+        indices_to_array = []
+        current = self.struct
+        while isinstance(current, lltype.Struct):
+            last_pos = len(current._names_without_voids()) - 1
+            # struct requires uint consts
+            indices_to_array.append(("uint", last_pos))
+            name = current._names_without_voids()[-1]
+            current = current._flds[name]
+        assert isinstance(current, lltype.Array)
+
+        return current, indices_to_array
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain

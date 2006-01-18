@@ -269,7 +269,7 @@ class OpWriter(object):
 
     def malloc_varsize(self, opr):
 
-        # XXX transformation
+        # XXX transformation perhaps?
         arg_type = opr.op.args[0].value
         if isinstance(arg_type, lltype.Array) and arg_type.OF is lltype.Void:
             # This is a backend decision to NOT represent a void array with
@@ -277,9 +277,14 @@ class OpWriter(object):
             self.malloc(opr)
             return
 
-        self.codewriter.call(opr.retref, opr.rettype,
-                             self.db.repr_constructor(arg_type),
-                             opr.argtypes[1:], opr.argrefs[1:])
+        node = self.db.obj2node[arg_type]
+        self.db.gcpolicy.var_malloc(self.codewriter, opr.retref, opr.rettype,
+                                    node, opr.argrefs[1],
+                                    atomic=arg_type._is_atomic())
+        #XXX tmp?
+        #self.codewriter.call(opr.retref, opr.rettype,
+        #                     self.db.repr_constructor(arg_type),
+        #                     opr.argtypes[1:], opr.argrefs[1:])
 
     def flavored_malloc(self, opr):
         flavor = opr.op.args[0].value
