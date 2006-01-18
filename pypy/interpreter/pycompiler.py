@@ -13,7 +13,7 @@ class AbstractCompiler:
 
     def __init__(self, space):
         self.space = space
-	self.w_compile_hook = space.w_None
+        self.w_compile_hook = space.w_None
 
     def compile(self, source, filename, mode, flags):
         """Compile and return an pypy.interpreter.eval.Code instance."""
@@ -220,8 +220,8 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
 
-	if not space.is_w(self.w_compile_hook, space.w_None):
-	    w_ast_tree = space.call_function(self.w_compile_hook,
+        if not space.is_w(self.w_compile_hook, space.w_None):
+            w_ast_tree = space.call_function(self.w_compile_hook,
                                              space.wrap(ast_tree),
                                              space.wrap(encoding))
             ast_tree = space.interp_w(Node, w_ast_tree)
