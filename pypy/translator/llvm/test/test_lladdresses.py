@@ -116,6 +116,20 @@ def test_flavored_malloci_raw():
     fn = compile(f, [int])
     assert fn(1) == 2 
 
+def test_flavored_varmalloc_raw():
+    py.test.skip("flavored_malloc not working?")
+    A = lltype.Array(lltype.Signed)
+    VARS = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
+    def f(x, y):
+        #s = lltype.flavored_malloc('gc', VARS, x)
+        s = lltype.malloc(VARS, n=x, flavor='gc')
+        s.a = 42
+        s.b[0] = y * 2
+        return s.b[0] - s.a
+
+    fn = compile(f, [int, int])
+    assert fn(2, 24) == 6
+
 def test_flavored_malloc_alloca():
     class A(object):
         _alloc_flavor_ = "stack"
@@ -128,3 +142,4 @@ def test_flavored_malloc_alloca():
         return result
     fn = compile(f, [int])
     assert fn(1) == 2 
+
