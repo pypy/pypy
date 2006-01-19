@@ -4,7 +4,7 @@
 
 #TODO :
 # * ensure that the store is intact after a failure
-#   (maybe with some anti-bind ops)
+#   (make unify atomic)
 # * provide a way to copy the store to a fresh one
 #   (clone operator)
 # After reading more of the "book", I see some more ops
@@ -33,7 +33,8 @@ class Var(object):
         return self.__str__()
 
     def __eq__(self, thing):
-        return type(thing) == Var and self.name == thing.name
+        return isinstance(thing, Var) \
+               and self.name == thing.name
 
     def __hash__(self):
         return self.name.__hash__()
@@ -64,12 +65,7 @@ class UnificationFailure(Exception):
     def __str__(self):
         return "%s %s can't be unified" % (self.var1,
                                            self.var2)
-
-class Circularity(UnificationFailure):
-    def __str__(self):
-        return "cycle : % %s not unifiable" % (self.var1,
-                                               self.var2)
-               
+              
 #----------- Variable Exceptions-------------------------
 class NotAVariable(VariableException):
     def __str__(self):
@@ -95,9 +91,6 @@ class Store(object):
         self.equisets = {}
         self.unbound = set()
         self.bound = {}
-        # memoizer for unify (avoids infinite loops when
-        # one wants to unify vars with cycles)
-        self.unify_memo = set()
 
     def add_unbound(self, var):
         # register globally
@@ -172,14 +165,12 @@ class Store(object):
         #FIXME in case of failure, the store state is not
         #      properly restored ...
         print "unify %s with %s" % (x,y)
-        # do the memoization work
-        if (x,y) in self.unify_memo: raise Circularity(x,y)
-        self.unify_memo.add((x, y))
+        if not _unifiable(x, y): raise UnificationFailure(x, y)
         # dispatch to the apropriate unifier
         try:
             if x not in self.bound and y not in self.bound:
                 if x != y:
-                    if type(x) is Var:
+                    if isinstance(x, Var):
                         self.bind(x,y)
                     else:
                         self.bind(y,x)
@@ -195,8 +186,7 @@ class Store(object):
     def _unify_bound(self, x, y):
         print "unify bound %s %s" % (x, y)
         vx, vy = (self.bound[x], self.bound[y])
-        if not _unifiable(vx, vy): raise UnificationFailure(x, y)
-        elif type(vx) in [list, set] and isinstance(vy, type(vx)):
+        if type(vx) in [list, set] and isinstance(vy, type(vx)):
             self._unify_iterable(x, y)
         elif type(vx) is dict and isinstance(vy, type(vx)):
             self._unify_mapping(x, y)
@@ -227,13 +217,21 @@ def _iterable(thing):
 
 def _mapping(thing):
     return type(thing) is dict
-        
+
+_unifiable_memo = set()
+
 def _unifiable(term1, term2):
+    _unifiable_memo = set()
+    return _really_unifiable(term1, term2)
+        
+def _really_unifiable(term1, term2):
     """Checks wether two terms can be unified"""
+    if ((id(term1), id(term2))) in _unifiable_memo: return False
+    _unifiable_memo.add((id(term1), id(term2)))
     print "unifiable ? %s %s" % (term1, term2)
     if _iterable(term1):
         if _iterable(term2):
-            return _iter_unifiable(term1, term2)
+            return _iterable_unifiable(term1, term2)
         return False
     if _mapping(term1) and _mapping(term2):
         return _mapping_unifiable(term1, term2)
@@ -241,13 +239,13 @@ def _unifiable(term1, term2):
         return term1 == term2 # same 'atomic' object
     return True
         
-def _iter_unifiable(c1, c2):
+def _iterable_unifiable(c1, c2):
    """Checks wether two iterables can be unified"""
    print "unifiable sequences ? %s %s" % (c1, c2)
    if len(c1) != len(c2): return False
    idx, top = (0, len(c1))
    while(idx < top):
-       if not _unifiable(c1[idx], c2[idx]):
+       if not _really_unifiable(c1[idx], c2[idx]):
            return False
        idx += 1
    return True
@@ -260,8 +258,8 @@ def _mapping_unifiable(m1, m2):
     v1, v2 = (m1.items(), m2.items())
     v1.sort()
     v2.sort()
-    return _iter_unifiable([e[1] for e in v1],
-                           [e[1] for e in v2])
+    return _iterable_unifiable([e[1] for e in v1],
+                               [e[1] for e in v2])
 
 #-- Some utilities -----------------------------------------------
 #--

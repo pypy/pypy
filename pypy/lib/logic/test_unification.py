@@ -75,7 +75,7 @@ class TestUnification:
                             u.var('a'), u.var('b'))
         u.bind(x, [y])
         u.bind(y, [x])
-        raises(u.Circularity, u.unify, x, y)
+        raises(u.UnificationFailure, u.unify, x, y)
         u.bind(z, [1, w])
         u.bind(w, [z, 2])
         raises(u.UnificationFailure, u.unify, z, w)
