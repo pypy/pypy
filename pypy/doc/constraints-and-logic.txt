@@ -327,3 +327,27 @@ For both:
 
 * Adapt the parser/lexer to the syntactic requirements
 
+
+
+Ideas of testbeds
+=================
+
+try to use logic related features in all of these python projects to
+make sure of the design and implementation of logic in pypy.
+
+- rdflib.sparql an implementation of W3C's SPARQL language coupled
+  with redfoot.
+  http://rdflib.net/2005/09/10/rdflib-2.2.2/html/public/rdflib.sparql-module.html
+
+- cwm a rule-based engine for rdf inferencing
+  http://www.w3.org/2000/10/swap/doc/cwm.html
+
+- pychinko an implementation of RETE algorithm for rule-based systems
+  http://www.mindswap.org/~katz/pychinko/
+  http://en.wikipedia.org/wiki/Rete_algorithm
+
+- pylint: using constraints to generate design-related comments and
+  warnings is done in SOUL or doable with pyontology
+  http://www.logilab.org/projects/pylint
+
+- pyontology. DFKI's OWL manipulation tool (see svn)
