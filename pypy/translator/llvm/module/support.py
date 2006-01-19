@@ -88,6 +88,18 @@ internal fastcc void %pypy_ll_raise_OSError__Signed(int %errno_0) {
     ret void
 }
 
+internal fastcc int %pypy_entry_point(%RPyListOfString* %argv) {
+    %result = call long %pypy_entry_point(%RPyListOfString* %argv)
+    %tmp = cast long %result to int
+    ret int %tmp
+}
+
+internal fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, int %index_0, %RPyString* %newstring_0) {
+    %index_0_long = cast int %index_0 to long
+    call void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, long %index_0_long, %RPyString* %newstring_0)
+    ret void
+}
+
 """
 
 def write_raise_exc(c_name, exc_repr, codewriter):
