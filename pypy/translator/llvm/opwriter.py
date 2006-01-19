@@ -457,7 +457,7 @@ class OpWriter(object):
             self.codewriter.getelementptr(incr_addr,
                                           addr_type,
                                           cast_addr,
-                                          [("int", arg_incr)],
+                                          [(self.word, arg_incr)],
                                           getptr=False)
             cast_addr = incr_addr
         self.codewriter.store(argtype_value, arg_value, cast_addr)
@@ -479,7 +479,7 @@ class OpWriter(object):
             self.codewriter.getelementptr(incr_addr,
                                           addr_type,
                                           cast_addr,
-                                          [("int", arg_incr)],
+                                          [(self.word, arg_incr)],
                                           getptr=False)
             cast_addr = incr_addr
 

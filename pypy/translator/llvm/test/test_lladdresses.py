@@ -75,13 +75,13 @@ def test_raw_memcopy():
     def f():
         addr = raw_malloc(100)
         addr.signed[0] = 12
-        (addr + 10).signed[0] = 42
-        (addr + 20).char[0] = "a"
+        (addr + 16).signed[0] = 42
+        (addr + 32).char[0] = "a"
         addr1 = raw_malloc(100)
         raw_memcopy(addr, addr1, 100)
         result = addr1.signed[0] == 12
-        result += (addr1 + 10).signed[0] == 42
-        result += (addr1 + 20).char[0] == "a"
+        result += (addr1 + 16).signed[0] == 42
+        result += (addr1 + 32).char[0] == "a"
         return result
     fc = compile(f, [])
     res = fc()
