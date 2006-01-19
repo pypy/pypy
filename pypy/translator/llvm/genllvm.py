@@ -10,7 +10,7 @@ from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.support import \
-     extdeclarations, extfunctions, write_raise_exc
+     extdeclarations, extfunctions, extfunctions_standalone, write_raise_exc
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
@@ -151,6 +151,8 @@ class GenLLVM(object):
         codewriter.header_comment('External Function Implementation')
         codewriter.write_lines(self.llexterns_functions)
         codewriter.write_lines(self._set_wordsize(extfunctions))
+        if self.standalone:
+            codewriter.write_lines(self._set_wordsize(extfunctions_standalone))
         self.write_extern_impls(codewriter)
         self.write_setup_impl(codewriter)
         
