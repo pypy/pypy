@@ -105,13 +105,7 @@ class Store(object):
     
     def __init__(self):
         # set of all known vars
-        # var->equivalence set mapping for unbound vars
-        # set of equisets (clusters of unbound variables)
-        # var->objects bindings
         self.vars = set()
-        self.equisets = {}
-        self.unbound = set()
-        #self.bound = {}
         # the transaction flag helps manage the change-list
         # for variables
         self.in_transaction = False
@@ -124,8 +118,6 @@ class Store(object):
         self.vars.add(var)
         # put into new singleton equiv. set
         var.val = EqSet([var])
-        #self.equisets[var] = eqset
-        #self.unbound.add(eqset)
 
     #-- BIND -------------------------------------------
 
@@ -174,26 +166,23 @@ class Store(object):
         print "unify %s with %s" % (x,y)
         if not _unifiable(x, y): raise UnificationFailure(x, y)
         # dispatch to the apropriate unifier
-        if not isinstance(x, Var):
+        if not x in self.vars:
+            if not y in self.vars:
+                if x != y: raise UnificationFailure(x, y)
             return self._unify_var_val(y, x)
-        if not isinstance(y, Var):
+        if not y in self.vars:
             return self._unify_var_val(x, y)
-        try:
-            if x.is_bound() and y.is_bound():
-                self._unify_bound(x,y)
-            elif x.isbound():
-                self.bind(x,y)
-            else:
-                self.bind(y,x)
-        except AlreadyBound:
-            raise UnificationFailure(x, y)
+        if _both_are_bound(x, y):
+            self._unify_bound(x,y)
+        elif x.isbound():
+            self.bind(x,y)
+        else:
+            self.bind(y,x)
 
     def _unify_var_val(self, x, y):
-        if not x.is_bound():
-            if x != y:
-                self.bind(x, y)
-        else:
-            raise UnificationFailure(x ,y)
+        if x.is_bound(): raise UnificationFailure(x ,y)
+        if x != y:
+            self.bind(x, y)
         
     def _unify_bound(self, x, y):
         print "unify bound %s %s" % (x, y)
