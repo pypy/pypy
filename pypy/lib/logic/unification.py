@@ -3,8 +3,9 @@
 # crude and buggy ...
 
 #TODO :
-# * ensure that the store is intact after a failure
-#   (make unify atomic)
+# * turn Var into some dataflow-ish thing
+# * ensure that the store supports concurrent access
+#   (using the implicit blocking provided by dataflow vars)
 # * provide a way to copy the store to a fresh one
 #   (clone operator)
 # After reading more of the "book", I see some more ops
@@ -12,7 +13,7 @@
 # space ...
 
 #----------- Variables ----------------------------------
-class EqSet(frozenset):
+class EqSet(set):
     """An equivalence set for variables"""
     pass
 
@@ -25,23 +26,33 @@ class Var(object):
         self.name = name
         self.store = store
         # top-level 'commited' binding
-        self.val = NoValue
+        self._val = NoValue
         # when updated in a 'transaction', keep track
         # of our initial value (for abort cases)
         self.previous = None
-
-    def begin(self):
-        self.previous = self.val
-
-    def commit(self):
-        self.previous = None
-
-    def abort(self):
-        self.val = self.previous
+        self.changed = False
 
     def is_bound(self):
         return not isinstance(self.val, EqSet) \
                and self.val != NoValue
+
+    def commit(self):
+        self.changed = False
+
+    def abort(self):
+        self.val = self.previous
+        self.changed = False
+
+    def set_val(self, val):
+        if self.store.in_transaction:
+            if not self.changed:
+                self.previous = self._val
+                self.changed = True
+                print "in transaction, %s <- %s" % (self.name, val)
+        self._val = val
+    def get_val(self):
+        return self._val
+    val = property(get_val, set_val)
 
     def __str__(self):
         if self.is_bound():
@@ -106,8 +117,6 @@ class Store(object):
     def __init__(self):
         # set of all known vars
         self.vars = set()
-        # the transaction flag helps manage the change-list
-        # for variables
         self.in_transaction = False
 
     def add_unbound(self, var):
@@ -154,13 +163,29 @@ class Store(object):
         print "unbound variables binding : %s %s" % (eqs1, eqs2)
         if eqs1 == eqs2: return
         # merge two equisets into one
-        neweqs = eqs1 | eqs2
+        eqs1 |= eqs2
         # let's reassign everybody to neweqs
-        self._bind(neweqs, neweqs)
+        self._bind(eqs1, eqs1)
 
     #-- UNIFY ------------------------------------------
 
     def unify(self, x, y):
+        self.in_transaction = True
+        try:
+            try:
+                self._really_unify(x, y)
+                for var in self.vars:
+                    if var.changed:
+                        var.commit()
+            except:
+                for var in self.vars:
+                    if var.changed:
+                        var.abort()
+                raise
+        finally:
+            self.in_transaction = False
+
+    def _really_unify(self, x, y):
         #FIXME in case of failure, the store state is not
         #      properly restored ...
         print "unify %s with %s" % (x,y)
@@ -169,10 +194,10 @@ class Store(object):
         if not x in self.vars:
             if not y in self.vars:
                 if x != y: raise UnificationFailure(x, y)
-            return self._unify_var_val(y, x)
-        if not y in self.vars:
-            return self._unify_var_val(x, y)
-        if _both_are_bound(x, y):
+            self._unify_var_val(y, x)
+        elif not y in self.vars:
+            self._unify_var_val(x, y)
+        elif _both_are_bound(x, y):
             self._unify_bound(x,y)
         elif x.isbound():
             self.bind(x,y)
@@ -180,7 +205,7 @@ class Store(object):
             self.bind(y,x)
 
     def _unify_var_val(self, x, y):
-        if x.is_bound(): raise UnificationFailure(x ,y)
+        if x.is_bound(): raise UnificationFailure(x, y)
         if x != y:
             self.bind(x, y)
         
@@ -199,14 +224,14 @@ class Store(object):
         vx, vy = (x.val, y.val)
         idx, top = (0, len(vx))
         while (idx < top):
-            self.unify(vx[idx], vy[idx])
+            self._really_unify(vx[idx], vy[idx])
             idx += 1
 
     def _unify_mapping(self, x, y):
         print "unify mappings %s %s" % (x, y)
         vx, vy = (x.val, y.val)
         for xk in vx.keys():
-            self.unify(vx[xk], vy[xk])
+            self._really_unify(vx[xk], vy[xk])
 
 #-- Unifiability checks---------------------------------------
 #--

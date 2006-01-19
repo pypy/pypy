@@ -60,6 +60,10 @@ class TestUnification:
         u.bind(x, [42, z])
         u.bind(y, [z, 44])
         raises(u.UnificationFailure, u.unify, x, y)
+        # check store consistency
+        assert x.val == [42, z]
+        assert y.val == [z, 44]
+        assert z.val == u.EqSet([z])
 
     def test_unify_failure2(self):
         x,y,z,w = (u.var('x'), u.var('y'),
@@ -68,6 +72,11 @@ class TestUnification:
         u.bind(y, [w, 44])
         u.bind(z, w)
         raises(u.UnificationFailure, u.unify, x, y)
+        # check store consistency
+        assert x.val == [42, z]
+        assert y.val == [w, 44]
+        assert z.val == u.EqSet([z,w])
+        assert w.val == u.EqSet([z,w])
 
     def test_unify_circular(self):
         x, y, z, w, a, b = (u.var('x'), u.var('y'),
@@ -82,4 +91,12 @@ class TestUnification:
         u.bind(a, {1:42, 2:b})
         u.bind(b, {1:a,  2:42})
         raises(u.UnificationFailure, u.unify, a, b)
+        # check store consistency
+        assert x.val == [y]
+        assert y.val == [x]
+        assert z.val == [1, w]
+        assert w.val == [z, 2]
+        assert a.val == {1:42, 2:b}
+        assert b.val == {1:a,  2:42}
+        
         
