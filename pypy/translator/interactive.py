@@ -74,7 +74,7 @@ class Translation(object):
         if not self.driver_setup:
             if argtypes is None:
                  argtypes = []
-            self.driver.setup(self.entry_point, argtypes, policy)
+            self.driver.setup(self.entry_point, argtypes, policy, empty_translator=self.context)
             self.ann_argtypes = argtypes
             self.ann_policy = policy
             self.driver_setup = True
