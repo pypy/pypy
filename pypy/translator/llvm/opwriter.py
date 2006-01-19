@@ -192,8 +192,9 @@ class OpWriter(object):
                                  opr.argrefs[0], -1)
 
     def uint_invert(self, opr):
+        from sys import maxint
         self.codewriter.binaryop("xor", opr.retref, opr.argtypes[0],
-                                 opr.argrefs[0], str((1L<<32) - 1))
+                                 opr.argrefs[0], str(maxint*2+1))
 
     def binaryop(self, opr):
         assert len(opr.argrefs) == 2

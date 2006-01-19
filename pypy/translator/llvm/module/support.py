@@ -41,16 +41,16 @@ internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     ret %RPyString* %rpy
 }
 
-internal fastcc int %pypyop_int_abs(int %x) {
+internal fastcc WORD %pypyop_int_abs(WORD %x) {
 block0:
-    %cond1 = setge int %x, 0
+    %cond1 = setge WORD %x, 0
     br bool %cond1, label %return_block, label %block1
 block1:
-    %x2 = sub int 0, %x
+    %x2 = sub WORD 0, %x
     br label %return_block
 return_block:
-    %result = phi int [%x, %block0], [%x2, %block1]
-    ret int %result
+    %result = phi WORD [%x, %block0], [%x2, %block1]
+    ret WORD %result
 }
 
 internal fastcc long %pypyop_llong_abs(long %x) {
