@@ -1,16 +1,15 @@
-# Oz unification in Python 2.4
+# Oz-like unification of dataflow variables in Python 2.4
 # within a single assignment store
-# crude and buggy ...
+# crude ...
 
 #TODO :
-# * turn Var into some dataflow-ish thing
+# * understand this :
+#   http://www.mozart-oz.org/papers/abstracts/ProgrammingConstraintServices.html
+# * turn Var into some dataflow-ish thing (as far as Python allows)
 # * ensure that the store supports concurrent access
 #   (using the implicit blocking provided by dataflow vars)
-# * provide a way to copy the store to a fresh one
-#   (clone operator)
-# After reading more of the "book", I see some more ops
-# are needed for the store to be part of a computation
-# space ...
+# * add entailment checks
+# * add constraints support
 
 #----------- Variables ----------------------------------
 class EqSet(set):

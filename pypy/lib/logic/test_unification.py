@@ -71,7 +71,9 @@ class TestUnification:
         u.bind(x, [42, z])
         u.bind(y, [w, 44])
         u.bind(z, w)
+        assert u._store.in_transaction == False
         raises(u.UnificationFailure, u.unify, x, y)
+        assert u._store.in_transaction == False
         # check store consistency
         assert x.val == [42, z]
         assert y.val == [w, 44]
