@@ -16,17 +16,36 @@ class EqSet(frozenset):
     """An equivalence set for variables"""
     pass
 
+class NoValue:
+    pass
+
 class Var(object):
 
     def __init__(self, name, store):
         self.name = name
         self.store = store
-        store.add_unbound(self)
+        # top-level 'commited' binding
+        self.val = NoValue
+        # when updated in a 'transaction', keep track
+        # of our initial value (for abort cases)
+        self.previous = None
+
+    def begin(self):
+        self.previous = self.val
+
+    def commit(self):
+        self.previous = None
+
+    def abort(self):
+        self.val = self.previous
+
+    def is_bound(self):
+        return not isinstance(self.val, EqSet) \
+               and self.val != NoValue
 
     def __str__(self):
-        if self in self.store.bound.keys():
-            return "%s = %s" % (self.name,
-                                self.store.bound[self])
+        if self.is_bound():
+            return "%s = %s" % (self.name, self.val)
         return "%s" % self.name
 
     def __repr__(self):
@@ -40,7 +59,9 @@ class Var(object):
         return self.name.__hash__()
 
 def var(name):
-    return Var(name, _store)
+    v = Var(name, _store)
+    _store.add_unbound(v)
+    return v
 
 #----------- Store Exceptions ----------------------------
 class VariableException(Exception):
@@ -90,7 +111,10 @@ class Store(object):
         self.vars = set()
         self.equisets = {}
         self.unbound = set()
-        self.bound = {}
+        #self.bound = {}
+        # the transaction flag helps manage the change-list
+        # for variables
+        self.in_transaction = False
 
     def add_unbound(self, var):
         # register globally
@@ -99,9 +123,9 @@ class Store(object):
         print "adding %s to the store" % var
         self.vars.add(var)
         # put into new singleton equiv. set
-        eqset = EqSet([var])
-        self.equisets[var] = eqset
-        self.unbound.add(eqset)
+        var.val = EqSet([var])
+        #self.equisets[var] = eqset
+        #self.unbound.add(eqset)
 
     #-- BIND -------------------------------------------
 
@@ -113,51 +137,34 @@ class Store(object):
         assert(isinstance(var, Var) and (var in self.vars))
         if var == val:
             return
-        if self._both_are_vars(var, val):
-            if self._both_are_bound(var, val):
+        if _both_are_vars(var, val):
+            if _both_are_bound(var, val):
                 raise AlreadyBound(var.name)
-            if self.bound.has_key(var): # 2.
+            if var.is_bound(): # 2b. var is bound, not var
                 self.bind(val, var)
-            elif self.bound.has_key(val): # 2.
-                self._bind(self.equisets[var],
-                           self.bound[val])
-            else: # 1. 
-                self._merge(self.equisets[var],
-                            self.equisets[val])
-        else: # 3.
-            if self.bound.has_key(var):
+            elif val.is_bound(): # 2a.val is bound, not val
+                self._bind(var.val, val.val)
+            else: # 1. both are unbound
+                self._merge(var.val, val.val)
+        else: # 3. val is really a value
+            if var.is_bound():
                 raise AlreadyBound(var.name)
-            self._bind(self.equisets[var], val)
+            self._bind(var.val, val)
 
-    def _both_are_vars(self, v1, v2):
-        try:
-            return v1 in self.vars and v2 in self.vars
-        except:
-            return False
-
-    def _both_are_bound(self, v1, v2):
-        return self.bound.has_key(v1) and \
-               self.bound.has_key(v2)
 
     def _bind(self, eqs, val):
         print "variable - value binding : %s %s" % (eqs, val)
         # bind all vars in the eqset to obj
-        for name in eqs:
-            del self.equisets[name]
-            self.bound[name] = val
-        self.unbound.remove(eqs)
+        for var in eqs:
+            var.val = val
 
     def _merge(self, eqs1, eqs2):
         print "unbound variables binding : %s %s" % (eqs1, eqs2)
         if eqs1 == eqs2: return
         # merge two equisets into one
         neweqs = eqs1 | eqs2
-        # let's reassign everybody to eqs1
-        for name in neweqs:
-            self.equisets[name] = neweqs
-        self.unbound.remove(eqs1)
-        self.unbound.remove(eqs2)
-        self.unbound.add(neweqs)
+        # let's reassign everybody to neweqs
+        self._bind(neweqs, neweqs)
 
     #-- UNIFY ------------------------------------------
 
@@ -167,25 +174,30 @@ class Store(object):
         print "unify %s with %s" % (x,y)
         if not _unifiable(x, y): raise UnificationFailure(x, y)
         # dispatch to the apropriate unifier
+        if not isinstance(x, Var):
+            return self._unify_var_val(y, x)
+        if not isinstance(y, Var):
+            return self._unify_var_val(x, y)
         try:
-            if x not in self.bound and y not in self.bound:
-                if x != y:
-                    if isinstance(x, Var):
-                        self.bind(x,y)
-                    else:
-                        self.bind(y,x)
-            elif x in self.bound and y in self.bound:
+            if x.is_bound() and y.is_bound():
                 self._unify_bound(x,y)
-            elif x in self.bound:
+            elif x.isbound():
                 self.bind(x,y)
             else:
                 self.bind(y,x)
         except AlreadyBound:
             raise UnificationFailure(x, y)
+
+    def _unify_var_val(self, x, y):
+        if not x.is_bound():
+            if x != y:
+                self.bind(x, y)
+        else:
+            raise UnificationFailure(x ,y)
         
     def _unify_bound(self, x, y):
         print "unify bound %s %s" % (x, y)
-        vx, vy = (self.bound[x], self.bound[y])
+        vx, vy = (x.val, y.val)
         if type(vx) in [list, set] and isinstance(vy, type(vx)):
             self._unify_iterable(x, y)
         elif type(vx) is dict and isinstance(vy, type(vx)):
@@ -195,7 +207,7 @@ class Store(object):
 
     def _unify_iterable(self, x, y):
         print "unify sequences %s %s" % (x, y)
-        vx, vy = (self.bound[x], self.bound[y])
+        vx, vy = (x.val, y.val)
         idx, top = (0, len(vx))
         while (idx < top):
             self.unify(vx[idx], vy[idx])
@@ -203,14 +215,13 @@ class Store(object):
 
     def _unify_mapping(self, x, y):
         print "unify mappings %s %s" % (x, y)
-        vx, vy = (self.bound[x], self.bound[y])
+        vx, vy = (x.val, y.val)
         for xk in vx.keys():
             self.unify(vx[xk], vy[xk])
 
 #-- Unifiability checks---------------------------------------
 #--
 #-- quite costly & could be merged back in unify
-#-- FIXME : memoize _iterable
 
 def _iterable(thing):
     return type(thing) in [list, set]
@@ -218,6 +229,7 @@ def _iterable(thing):
 def _mapping(thing):
     return type(thing) is dict
 
+# memoizer for _unifiable
 _unifiable_memo = set()
 
 def _unifiable(term1, term2):
@@ -262,6 +274,13 @@ def _mapping_unifiable(m1, m2):
                                [e[1] for e in v2])
 
 #-- Some utilities -----------------------------------------------
+
+def _both_are_vars(v1, v2):
+    return isinstance(v1, Var) and isinstance(v2, Var)
+    
+def _both_are_bound(v1, v2):
+    return v1.is_bound() and v2.is_bound()
+
 #--
 #-- the global store
 _store = Store()
