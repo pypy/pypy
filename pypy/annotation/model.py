@@ -452,6 +452,11 @@ class SomeAddress(SomeObject):
     def can_be_none(self):
         return False
 
+class SomeOffset(SomeObject):
+    immutable = True
+    def can_be_none(self):
+        return False
+    
 
 # The following class is used to annotate the intermediate value that
 # appears in expressions of the form:

@@ -120,13 +120,13 @@ class TestAddressAnnotation(object):
             return offsetof(S, 'x') + offsetof(S, 'y')
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert s.knowntype == int
+        assert isinstance(s, annmodel.SomeOffset)
         coff = offsetof(S, 'y')
         def f():
             return coff
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert s.knowntype == int
+        assert isinstance(s, annmodel.SomeOffset)
 
 class TestAddressRTyping(object):
     def test_null(self):

@@ -132,7 +132,7 @@ class OffsetOf(Symbolic):
 
     def annotation(self):
         from pypy.annotation import model
-        return model.SomeInteger()
+        return model.SomeOffset()
 
     def __repr__(self):
         return "<OffsetOf %r %r>" % (self.TYPE, self.fldname)
