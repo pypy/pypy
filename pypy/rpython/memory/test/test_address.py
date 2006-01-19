@@ -217,6 +217,27 @@ class TestAddressRTyping(object):
         graph = graphof(a.translator, f)
         assert graph.startblock.operations[0].result.concretetype == Address
 
+
+    def test_simple_offsetof(self):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.memory.lladdress import offsetof
+        S = lltype.GcStruct('S', ('x', lltype.Bool), ('y', lltype.Signed))
+        def f():
+            return offsetof(S, 'x') + offsetof(S, 'y')
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+        coff = offsetof(S, 'y')
+        def f():
+            return coff
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+
 class TestAddressInLLInterp(object):
     def test_null(self):
         def f():

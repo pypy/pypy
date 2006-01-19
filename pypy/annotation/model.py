@@ -522,6 +522,7 @@ annotation_to_ll_map = [
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), lladdress.Address),
+    (SomeOffset(), lladdress.Offset),
 ]
 
 def annotation_to_lltype(s_val, info=None):

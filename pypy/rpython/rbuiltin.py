@@ -378,6 +378,13 @@ BUILTIN_TYPER[lladdress.raw_malloc] = rtype_raw_malloc
 BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
 BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
 
+def rtype_offsetof(hop):
+    from pypy.rpython.memory.lladdress import Offset
+    TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
+    return hop.inputconst(Offset, lladdress.offsetof(TYPE.value, field.value))
+
+BUILTIN_TYPER[lladdress.offsetof] = rtype_offsetof
+
 # _________________________________________________________________
 # non-gc objects
 

@@ -1,6 +1,7 @@
 import weakref
 import py
 from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.rpython.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
 from types import NoneType
@@ -500,6 +501,8 @@ def typeOf(val):
         if tp is unicode:
             assert len(val) == 1
             return UniChar
+        if issubclass(tp, Symbolic):
+            return val.lltype()
         raise TypeError("typeOf(%r object)" % (tp.__name__,))
 
 class InvalidCast(TypeError):

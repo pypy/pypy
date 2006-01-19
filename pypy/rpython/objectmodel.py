@@ -8,6 +8,9 @@ class Symbolic(object):
     def annotation(self):
         return None
 
+    def lltype(self):
+        return None
+
 import new
 import weakref
 

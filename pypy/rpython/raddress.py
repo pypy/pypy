@@ -1,7 +1,7 @@
 # rtyping of memory address operations
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.memory.lladdress import NULL, Address
+from pypy.rpython.memory.lladdress import NULL, Address, Offset
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.lltypesystem import lltype
 
@@ -110,3 +110,20 @@ class __extend__(pairtype(AddressRepr, AddressRepr)):
         v_addr1, v_addr2 = hop.inputargs(Address, Address)
         return hop.genop('adr_ge', [v_addr1, v_addr2], resulttype=lltype.Bool)
 
+
+class __extend__(annmodel.SomeOffset):
+    def rtyper_makerepr(self, rtyper):
+        return offset_repr
+    
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class OffsetRepr(Repr):
+    lowleveltype = Offset
+
+offset_repr = OffsetRepr()
+
+class __extend__(pairtype(OffsetRepr, OffsetRepr)):
+    def rtype_add((r_offset1, r_offset2), hop):
+        v_offset1, v_offset2 = hop.inputargs(Offset, Offset)
+        return hop.genop('offset_add', [v_offset1, v_offset2], resulttype=Offset)

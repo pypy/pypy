@@ -134,8 +134,13 @@ class OffsetOf(Symbolic):
         from pypy.annotation import model
         return model.SomeOffset()
 
+    def lltype(self):
+        return Offset
+
     def __repr__(self):
         return "<OffsetOf %r %r>" % (self.TYPE, self.fldname)
+
+Offset = lltype.Primitive("Offset", OffsetOf(lltype.Void, ''))
 
 def sizeof(TYPE, n=None):
     pass
