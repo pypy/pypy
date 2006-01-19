@@ -1,6 +1,8 @@
 /* expanded macros of genc's c/int.h */
+#define WORD    long
+#define UWORD   unsigned long
 
-int pypyop_int_neg_ovf(int x) {
+WORD pypyop_int_neg_ovf(WORD x) {
   long r = -x;
   if (x >= 0 || x != -x){
     return r;
@@ -10,8 +12,8 @@ int pypyop_int_neg_ovf(int x) {
   }
 }
 
-int pypyop_int_abs_ovf(int x) {
-  int r = x >= 0 ? x : -x;
+WORD pypyop_int_abs_ovf(WORD x) {
+  WORD r = x >= 0 ? x : -x;
   if (x >= 0 || x != -x) {
     return r;
   } else {
@@ -20,8 +22,8 @@ int pypyop_int_abs_ovf(int x) {
   }
 }
 
-int pypyop_int_add_ovf(int x, int y) {
-  int r = x + y;
+WORD pypyop_int_add_ovf(WORD x, WORD y) {
+  WORD r = x + y;
   
   if ((r^x) >= 0 || (r^y) >= 0) {
     return r;
@@ -31,8 +33,8 @@ int pypyop_int_add_ovf(int x, int y) {
   }
 }
 
-int pypyop_int_sub_ovf(int x, int y) {
-  int r = x - y;
+WORD pypyop_int_sub_ovf(WORD x, WORD y) {
+  WORD r = x - y;
   
   if ((r^x) >= 0 || (r^(~y)) >= 0) {
     return r;
@@ -44,7 +46,7 @@ int pypyop_int_sub_ovf(int x, int y) {
   return r;
 }
 
-int _pypyop_int_mul_ovf(long a, long b, long *longprod) {
+WORD _pypyop_int_mul_ovf(long a, long b, long *longprod) {
   double doubled_longprod;	/* (double)longprod */
   double doubleprod;		/* (double)a * (double)b */
   
@@ -75,11 +77,11 @@ int _pypyop_int_mul_ovf(long a, long b, long *longprod) {
   }
 }
 
-int pypyop_int_mul_ovf(int x, int y) {
+WORD pypyop_int_mul_ovf(WORD x, WORD y) {
   long r;
 
 #ifndef HAVE_LONG_LONG
-  
+ 
   if (_pypyop_int_mul_ovf(x, y, &r)) {
       return r;
   } else {
@@ -98,8 +100,8 @@ int pypyop_int_mul_ovf(int x, int y) {
 #endif
 }
 
-int pypyop_int_lshift_ovf_val(int x, int y) {
-  int r;
+WORD pypyop_int_lshift_ovf_val(WORD x, WORD y) {
+  WORD r;
 
   if (y < 0) {
     raisePyExc_ValueError("negative shift count");
@@ -115,7 +117,7 @@ int pypyop_int_lshift_ovf_val(int x, int y) {
   return r;
 }
 
-int pypyop_int_rshift_val(int x, int y) {
+WORD pypyop_int_rshift_val(WORD x, WORD y) {
   if (y < 0) {
     raisePyExc_ValueError("negative shift count");
     return 0;
@@ -143,7 +145,7 @@ long _pypyop_divmod_adj(long x, long y, long *p_rem) {
   return xdivy;
 }
 
-int pypyop_int_floordiv_ovf_zer(int x, int y) {
+WORD pypyop_int_floordiv_ovf_zer(WORD x, WORD y) {
   if (y) {
     if (y == -1 && x < 0 && ((unsigned long) x << 1) == 0) {
       raisePyExc_OverflowError("integer division");
@@ -157,7 +159,7 @@ int pypyop_int_floordiv_ovf_zer(int x, int y) {
   }
 }
 
-int pypyop_int_floordiv_zer(int x, int y) {
+WORD pypyop_int_floordiv_zer(WORD x, WORD y) {
   if (y) {
     return _pypyop_divmod_adj(x, y, NULL);
   } else {
@@ -166,7 +168,7 @@ int pypyop_int_floordiv_zer(int x, int y) {
   }
 }
 
-unsigned int pypyop_uint_floordiv_zer(unsigned int x, unsigned int y) {
+UWORD pypyop_uint_floordiv_zer(UWORD x, UWORD y) {
   if (y) {
     return x / y;
   } else {
@@ -175,7 +177,7 @@ unsigned int pypyop_uint_floordiv_zer(unsigned int x, unsigned int y) {
   }
 }
 
-int pypyop_int_mod_ovf_zer(int x, int y) {
+WORD pypyop_int_mod_ovf_zer(WORD x, WORD y) {
   long r;
   if (y) {
     if (y == -1 && x < 0 && ((unsigned long) x << 1) == 0) {
@@ -192,7 +194,7 @@ int pypyop_int_mod_ovf_zer(int x, int y) {
   }
 }
 
-int pypyop_int_mod_zer(int x, int y) {
+WORD pypyop_int_mod_zer(WORD x, WORD y) {
   long r;
   if (y) {
       _pypyop_divmod_adj(x, y, &r);
@@ -203,7 +205,7 @@ int pypyop_int_mod_zer(int x, int y) {
   }
 }
 
-unsigned int pypyop_uint_mod_zer(unsigned int x, unsigned int y) {
+UWORD pypyop_uint_mod_zer(UWORD x, UWORD y) {
   unsigned long r;
   if (y) {
       _pypyop_divmod_adj(x, y, &r);

@@ -4,9 +4,6 @@ from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 from pypy.translator.test import snippet 
 
-if sys.maxint != 2**31-1:
-    py.test.skip("WIP")
-
 def test_zerodiv_int():
     def zerodiv_int(n):
         try:
@@ -172,6 +169,8 @@ def test_int_sub_ovf():
     assert f(-sys.maxint) == 123
 
 def test_int_mul_ovf():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures")
     def mul_func(i):
         try:
             return ovfcheck(i * 100)
