@@ -9,9 +9,6 @@ from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython import ros
 
-if sys.maxint != 2**31-1:
-    py.test.skip("WIP") 
-
 def test_external_function_ll_os_dup():
     def fn():
         return os.dup(0)
@@ -60,6 +57,8 @@ def test_os_file_ops_open_close():
     assert os.path.exists(path)
 
 def test_os_file_ops_open_write_close(): 
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     def openwriteclose(): 
         fd = os.open(path, os.O_CREAT|os.O_RDWR, 0777) 
         byteswritten = os.write(fd, path)
@@ -74,6 +73,8 @@ def test_os_file_ops_open_write_close():
     assert open(path).read() == path
 
 def test_os_file_ops_open_write_read_close(): 
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     def openwriteclose_openreadclose():
         fd = os.open(path, os.O_CREAT|os.O_RDWR, 0777) 
         byteswritten = os.write(fd, path+path+path)
@@ -97,6 +98,8 @@ def test_os_file_ops_open_write_read_close():
 # following from translator/c/test/test_extfunc.py Revision: 15320 (jul 29th 2005)
 
 def test_os_stat():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     filename = str(py.magic.autopath())
     def call_stat0():
         st = os.stat(filename)
@@ -116,6 +119,8 @@ def test_os_stat():
     assert f2() == st[2]
 
 def test_os_fstat():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     filename = str(py.magic.autopath())
     def call_fstat0():
         fd = os.open(filename, os.O_RDONLY, 0777)
@@ -148,6 +153,8 @@ def test_os_getcwd():
     assert f1()
 
 def test_math_frexp():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     from math import frexp
     def fn(x):
         res = frexp(x)
@@ -186,6 +193,8 @@ def test_simple_math_functions():
         yield math_function_test, funcname
 
 def test_os_path_exists():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn():
         return os.path.exists(tmpfile)
@@ -196,6 +205,8 @@ def test_os_path_exists():
     assert f() == False
 
 def test_dynamic_string_null_termination():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     # forces malloc / versus pbc for NUL testing of C string
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn(l):
@@ -208,6 +219,8 @@ def test_dynamic_string_null_termination():
     assert f(lfile-2) == False
 
 def test_os_path_isdir():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     directory = "./."
     def fn():
         return os.path.isdir(directory)
@@ -228,6 +241,8 @@ def test_os_isatty():
     assert f(2) == os.isatty(2)
     
 def test_rarith_parts_to_float():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     from pypy.rpython.rarithmetic import parts_to_float
     parts = [
      ["" ,"1","" ,""],
@@ -246,6 +261,8 @@ def test_rarith_parts_to_float():
         assert f(i) == v
 
 def test_rarith_formatd():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     from pypy.rpython.rarithmetic import formatd
     as_float  = [ 0.0  ,  1.5  ,  2.0  ]
     as_string = ["0.00", "1.50", "2.00"]
@@ -421,6 +438,8 @@ def test_simple_start_new_thread():
     assert res == 42
 
 def test_start_new_thread():
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures") 
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     class Arg:

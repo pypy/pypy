@@ -18,20 +18,6 @@ ext_func_sigs = {
     "%LL_thread_start" : ExtFuncSig(None, ["sbyte*", "sbyte*"]),
     }
 
-#on 64 bit systems we need a wrapper for everything the takes or returns an int
-from sys import maxint
-if maxint != 2**31-1:
-    extra_ext_func_sigs = {
-        "%LL_os_dup" : ExtFuncSig("int", ["int"]),
-        "%LL_os_open" : ExtFuncSig("int", [None, "int", "int"]),
-        "%LL_os_write" : ExtFuncSig(None, ["int", None]),
-        "%LL_read_into" : ExtFuncSig(None, ["int", None]),
-        "%LL_os_close" : ExtFuncSig(None, ["int"]),
-        "%pypy_ll_stat_result__Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed" : ExtFuncSig(None, ["int"]*10)
-        }
-    ext_func_sigs.update(extra_ext_func_sigs)
-
-
 class ExternalFuncNode(ConstantLLVMNode):
 
     def __init__(self, db, value):
@@ -42,14 +28,44 @@ class ExternalFuncNode(ConstantLLVMNode):
 
         mapped_name = EXTERNALS[value._callable]
         self.ref = self.make_ref("%", mapped_name)
-        self.wrapper = ext_func_sigs.get(self.ref, None)
-        if self.wrapper is None and maxint != 2**31-1:
-            #XXX if returntype or param in ('int', 'uint'):
-            #         add wrapper to return from long->int
-            pass
+
+    def setup(self):
+        self.db.prepare_type(self.value._TYPE.RESULT)
+        self.db.prepare_type_multi(self.value._TYPE._trueargs()) 
 
     def __str__(self):
         return "<ExternalFuncNode %r>" % self.ref
+
+    def _get_wrapper(self):
+        wrapper = ext_func_sigs.get(self.ref, None)
+
+        from sys import maxint
+        if wrapper is None and maxint != 2**31-1:
+            #log("ref=%s" % self.ref)
+            rettype, args = self.getdecl_parts()
+            conversions = False
+            if   rettype == "long":
+                rettype = "int"
+                conversions = True
+            elif rettype == "ulong":
+                rettype = "uint"
+                conversions = True
+            else:
+                rettype = None
+            for i, a in enumerate(args):
+                if   a == "long":
+                    args[i] = "int"
+                    conversions = True
+                elif a == "ulong":
+                    args[i] = "uint"
+                    conversions = True
+                else:
+                    args[i] = None
+            if conversions:
+                wrapper = ExtFuncSig(rettype, args)
+                #log("    rettype=%s" % str(rettype))
+                #log("    args   =%s" % str(args))
+        return wrapper
 
     def getdecl_parts(self):
         T = self.value._TYPE
@@ -65,8 +81,8 @@ class ExternalFuncNode(ConstantLLVMNode):
         codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
-                                   
-        if self.wrapper is None:
+        wrapper = self._get_wrapper()
+        if wrapper is None:
             return
         
         rettype, argtypes = self.getdecl_parts()
@@ -85,10 +101,10 @@ class ExternalFuncNode(ConstantLLVMNode):
         expected_argtypes = []
 
         # find out what the args/types should be
-        if self.wrapper.args is not None:
-            assert len(self.wrapper.args) == len(argtypes)
+        if wrapper.args is not None:
+            assert len(wrapper.args) == len(argtypes)
             
-            for expected_typ, typ, ref in zip(self.wrapper.args,
+            for expected_typ, typ, ref in zip(wrapper.args,
                                               argtypes,
                                               argrefs):
                 if expected_typ is not None:
@@ -108,17 +124,17 @@ class ExternalFuncNode(ConstantLLVMNode):
             expected_argtypes = argtypes
 
         # find out what the return type should be 
-        expected_rettype = self.wrapper.rettype or rettype
+        expected_rettype = wrapper.rettype or rettype
 
         # call
         codewriter.call(returnval, expected_rettype, self.ref,
                         expected_argtypes, expected_argrefs)
 
-        if self.wrapper.rettype:
+        if wrapper.rettype:
             # cast to desired return type
             tmpval = returnval
             returnval = self.db.repr_tmpvar()
-            codewriter.cast(returnval, self.wrapper.rettype,
+            codewriter.cast(returnval, wrapper.rettype,
                             tmpval, rettype)
             
         codewriter.ret(rettype, returnval)
