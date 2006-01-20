@@ -117,17 +117,41 @@ class TestAddressAnnotation(object):
         from pypy.rpython.memory.lladdress import offsetof
         S = lltype.GcStruct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         def f():
-            return offsetof(S, 'x') + offsetof(S, 'y')
-        a = RPythonAnnotator()
-        s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeOffset)
-        coff = offsetof(S, 'y')
-        def f():
-            return coff
+            return offsetof(S, 'x')
+        f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeOffset)
 
+        coff = offsetof(S, 'y')
+        def f():
+            return coff
+        f()
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeOffset)
+
+    def test_offset_addition(self):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.memory.lladdress import offsetof
+        S = lltype.Struct('S', ('x', lltype.Bool), ('y', lltype.Signed))
+        T = lltype.GcStruct('T', ('r', lltype.Float), ('s1', S), ('s2', S))
+        def f():
+            return offsetof(T, 's1') + offsetof(S, 'x')
+        f()
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeOffset)
+
+        coff = offsetof(T, 's2') + offsetof(S, 'y')
+        def f():
+            return coff
+        f()
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeOffset)
+        
+        
 class TestAddressRTyping(object):
     def test_null(self):
         def f():
@@ -223,7 +247,8 @@ class TestAddressRTyping(object):
         from pypy.rpython.memory.lladdress import offsetof
         S = lltype.GcStruct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         def f():
-            return offsetof(S, 'x') + offsetof(S, 'y')
+            return offsetof(S, 'x')
+        f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
         rtyper = RPythonTyper(a)
@@ -232,6 +257,29 @@ class TestAddressRTyping(object):
         coff = offsetof(S, 'y')
         def f():
             return coff
+        f()
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+    def test_offset_addition(self):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.memory.lladdress import offsetof
+        S = lltype.Struct('S', ('x', lltype.Bool), ('y', lltype.Signed))
+        T = lltype.GcStruct('T', ('r', lltype.Float), ('s1', S), ('s2', S))
+        def f():
+            return offsetof(T, 's1') + offsetof(S, 'x')
+        f()
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+        coff = offsetof(T, 's2') + offsetof(S, 'y')
+        def f():
+            return coff
+        f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
         rtyper = RPythonTyper(a)

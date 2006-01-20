@@ -126,9 +126,9 @@ from pypy.rpython.objectmodel import Symbolic
 
 class OffsetOf(Symbolic):
 
-    def __init__(self, TYPE, fldname):
+    def __init__(self, TYPE, *fldnames):
         self.TYPE = TYPE
-        self.fldname = fldname
+        self.fldnames = fldnames
 
     def annotation(self):
         from pypy.annotation import model
@@ -138,9 +138,18 @@ class OffsetOf(Symbolic):
         return Offset
 
     def __repr__(self):
-        return "<OffsetOf %r %r>" % (self.TYPE, self.fldname)
+        return "<OffsetOf %r %r>" % (self.TYPE, self.fldnames)
 
-Offset = lltype.Primitive("Offset", OffsetOf(lltype.Void, ''))
+    def __add__(self, other):
+        if not isinstance(other, OffsetOf):
+            return NotImplemented
+        t = self.TYPE
+        for f in self.fldnames:
+            t = t._flds[f]
+        assert t == other.TYPE
+        return OffsetOf(self.TYPE, *(self.fldnames + other.fldnames))
+
+Offset = lltype.Primitive("Offset", OffsetOf(lltype.Void))
 
 def sizeof(TYPE, n=None):
     pass
