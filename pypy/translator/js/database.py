@@ -231,12 +231,7 @@ class Database(object):
         return repr
 
     def char_to_str(self, value):
-        x = ord(value)
-        if x >= 128:
-            r = "cast (ubyte %s to sbyte)" % x
-        else:
-            r = str(x)
-        return r
+        return "String.fromCharCode(%s)" % ord(value)
     
     def primitive_to_str(self, type_, value):
         if type_ is lltype.Bool:

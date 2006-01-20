@@ -76,6 +76,9 @@ class OpWriter(object):
         self.block = block
 
     def write_operation(self, op):
+        #log(str(op))
+        #self.codewriter.comment(str(op))
+
         invoke = op.opname.startswith('invoke:')
         if invoke:
             self.invoke(op)
@@ -158,14 +161,8 @@ class OpWriter(object):
         name = self.char_operations[op.opname]
         assert len(op.args) == 2
         res = self.db.repr_arg(op.result)
-        if True:
-            c1 = self.db.repr_arg(op.args[0])
-            c2 = self.db.repr_arg(op.args[1])
-        else:
-            c1 = self.db.repr_tmpvar()
-            c2 = self.db.repr_tmpvar()
-            self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
-            self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
+        c1 = self.db.repr_arg(op.args[0])
+        c2 = self.db.repr_arg(op.args[1])
         self.codewriter.binaryop(name, res, c1, c2)
 
     def cast_char_to_int(self, op):

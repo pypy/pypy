@@ -288,7 +288,7 @@ def test_string_simple():
     f = compile_function(string_simple, [int])
     assert f(0) 
     
-def DONTtest_string_simple_ops():   #issue with casts
+def test_string_simple_ops():
     def string_simple_ops(i): 
         res = 0
         s = str(i)
@@ -301,21 +301,21 @@ def DONTtest_string_simple_ops():   #issue with casts
     f = compile_function(string_simple_ops, [int])
     assert f(5) == ord('5') + 2
         
-def DONTtest_string_getitem1(): #issue with cast sbyte to ubyte
+def test_string_getitem1():
     l = "Hello, World"
     def string_getitem1(i): 
         return ord(l[i])
     f = compile_function(string_getitem1, [int])
     assert f(0) == ord("H")
 
-def DONTtest_string_getitem2(): #issue with cast sbyte to ubyte
+def test_string_getitem2():
     def string_test(i): 
         l = "Hello, World"
         return ord(l[i])
     f = compile_function(string_test, [int])
     assert f(0) == ord("H")
 
-def DONTtest_list_of_string():  #issue with casts
+def test_list_of_string():
     a = ["hello", "world"]
     def string_simple(i, j, k, l):
         s = a[i][j] + a[k][l]

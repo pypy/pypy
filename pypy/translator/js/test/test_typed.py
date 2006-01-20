@@ -75,7 +75,7 @@ def test_nones():
     result = fn()
     assert result == 4
 
-def DONTtest_str_compare(): #issue with skipped/incorrect cast sbyte -> ubyte
+def test_str_compare():
     def testfn_eq(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
@@ -305,7 +305,7 @@ def test_cast_to_int():
     for ii in range(255):
         assert f(ii) == ii
 
-def DONTtest_char_comparisons():    #issue with illegal cast syntax
+def test_char_comparisons():
     def comps(v):
         x = chr(v)
         res = 0

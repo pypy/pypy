@@ -4,6 +4,8 @@ optimized_functions = [
     'll_stritem_nonneg__rpy_stringPtr_Signed',
     'll_stritem__rpy_stringPtr_Signed',
     'll_streq__rpy_stringPtr_rpy_stringPtr',
+    'll_str__IntegerR_SignedConst_Signed',
+    'll_chr2str__Char',
     'll_issubclass__object_vtablePtr_object_vtablePtr'  #TODO
 ]
 
@@ -33,6 +35,12 @@ def optimize_call(statement):
         s0, s1 = params
         return '%s = (%s == %s) || (%s && %s && %s.chars == %s.chars)' %\
                 (targetvar, s0,s1, s0,s1, s0,s1)
+
+    elif funcname == 'll_str__IntegerR_SignedConst_Signed':
+        return '%s = new Object({hash:0, chars:%s + ""})' % (targetvar, params[0])
+
+    elif funcname == 'll_chr2str__Char':
+        return '%s = new Object({hash:0, chars:%s})' % (targetvar, params[0])
 
     return '%s = %s(%s)' % (targetvar, funcname, ', '.join(params))
 

@@ -280,6 +280,10 @@ class CodeWriter(object):
             self.append("%(targetvar)s = 0.0 + %(fromvar)s" % locals())
         elif targettype in ('bool',):
             self.append("%(targetvar)s = %(fromvar)s == 0" % locals())
+        elif targettype in ('ubyte',):
+            self.append("%(targetvar)s = %(fromvar)s.charCodeAt(0)" % locals())
+        elif targettype in ('sbyte',):
+            self.append("%(targetvar)s = String.fromCharCode(%(fromvar)s)" % locals())
         else:
             self.comment("next line should be: %(targetvar)s = cast %(fromtype)s %(fromvar)s to %(targettype)s" % locals())
             self.append("%(targetvar)s = %(fromvar)s" % locals())
