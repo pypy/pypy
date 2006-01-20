@@ -178,14 +178,14 @@ class Store(object):
         if _both_are_vars(var, val):
             if _both_are_bound(var, val):
                 raise AlreadyBound(var.name)
-            if var.is_bound(): # 2b. var is bound, not var
+            if var._is_bound(): # 2b. var is bound, not var
                 self.bind(val, var)
-            elif val.is_bound(): # 2a.val is bound, not val
+            elif val._is_bound(): # 2a.val is bound, not val
                 self._bind(var.val, val.val)
             else: # 1. both are unbound
                 self._merge(var.val, val.val)
         else: # 3. val is really a value
-            if var.is_bound():
+            if var._is_bound():
                 raise AlreadyBound(var.name)
             self._bind(var.val, val)
 
@@ -213,11 +213,11 @@ class Store(object):
                 self._really_unify(x, y)
                 for var in self.vars:
                     if var.changed:
-                        var.commit()
+                        var._commit()
             except:
                 for var in self.vars:
                     if var.changed:
-                        var.abort()
+                        var._abort()
                 raise
         finally:
             self.in_transaction = False
@@ -242,7 +242,7 @@ class Store(object):
             self.bind(y,x)
 
     def _unify_var_val(self, x, y):
-        if x.is_bound(): raise UnificationFailure(x, y)
+        if x._is_bound(): raise UnificationFailure(x, y)
         if x != y:
             self.bind(x, y)
         
@@ -330,7 +330,7 @@ def _both_are_vars(v1, v2):
     return isinstance(v1, Var) and isinstance(v2, Var)
     
 def _both_are_bound(v1, v2):
-    return v1.is_bound() and v2.is_bound()
+    return v1._is_bound() and v2._is_bound()
 
 #--
 #-- the global store
@@ -349,10 +349,9 @@ def unify(var1, var2):
     return _store.unify(var1, var2)
 
 def bound():
-    return _store.bound.keys()
+    return map(_store.vars,
+               lambda v: v.is_bound())
 
 def unbound():
-    res = []
-    for cluster in _store.unbound:
-        res.append('='.join([str(var) for var in cluster]))
-    return res
+    return map(_store.vars,
+               lambda v: not v.is_bound())
