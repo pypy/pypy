@@ -1,83 +1,126 @@
-# Oz-like unification of dataflow variables in Python 2.4
-# within a single assignment store
-# crude ...
+## Oz-like unification of dataflow variables in Python 2.4
+## within a single assignment store
+## crude ...
+
+## Unification over dataflow variables in Oz is a powerful mechanism
+## which is the basis of relational, logic and constraint programming.
+## Please read the stuff in variable.py to understand the nature of
+## dataflow variables.
+##
+## Unification in Oz (almost verbatim from CTM*)
+## =============================================
+##
+## Unification as put in Oz is a very powerful operation. It is
+## provided through the '=' operator.
+##
+## Binding a variable to a value is a special case of an operation
+## called unification. The unification <TERM1>=<TERM2> makes the
+## partial values <TERM1> and <TERM2> equal, if possible, by adding
+## zero or more bindings to the store. For example, f(X Y)=f(1 2) does
+## two bindings: X=1 and Y=2. If the two terms cannot be made equal,
+## then an exception is raised. Unification exists because of partial
+## values; if there would be only complete values, then it would have
+## no meaning.
+##
+## Unification adds information to the single-assignment store (a set
+## of dataflow variables, where each variable is either unbound or
+## bound to some other store entity).
+##
+## Example : if the store has X=foo(A) and Y=foo(25), then doing X=Y
+## will bind A to 25.
+##
+## *failure* is the exception raised when unification cannot
+## happen. For instance (unification of two records) :
+##
+##  person(name:X1 age:23)
+##  person(name:"Auc" age:32)
+##
+## will raise it. The fail statement raises this exception.
+##
+## It is symetric : X=Y means the same as Y=X
+## It can create cyclic structures, as in : X=person(grandfather:X)
+## It can bind cyclic structures :
+##
+##  X=f(a:X b:_)
+##  Y=f(a:_ b:Y)
+##  X=Y
+##
+## creates a two cycles structure writable as : X=f(a:X b:X)
+##
+## Unification algorithm :
+##
+## operation unify(x, y) that unify two partial values x and y in the
+## store st.
+##
+## The Store consists of a set of k variables : x1, ... xk that are
+## partitioned as follows:
+##
+## * set of unbound variables that are equal (also called equivalence
+##   sets of variables). The variables in each set are equal to each
+##   other but not to any other variables.
+##
+## * variables bound to a number, record or procedure (also called
+##   determined variables).
+##
+## Example : st = {x1=foo(a:x2), x2=25, x3=x4=x5, x6, x7=x8} that has
+## 8 variables. It has three equivalence sets :
+## {x3,x4,x5},{x6},{x7,x8}. It has two determined variables x1 and x2.
+##
+## The primitive bind operation : unification is defined in terms of a
+## primitive bind operation on the store st. The operation binds all
+## variables in an equivalence set:
+##
+## * bind(ES,<v>) binds all variables in the equivalence set ES to the
+##   number or record <v>. For example, the operation
+##   bind({x7,x8},foo(a:x2)) binds x7 and x8, which no longer are in
+##   an equivalence set.
+##
+## * bind(ES1,ES2) merges the equivalence set ES1 with the equivalence
+##   set ES2.
+##
+## Algorithm unify(x,y)
+##
+## 1. if x is in the equivalence set ESx and y is in the equivalence
+##    set ESy, then do bind(ESx,ESy). It is a noop if ESx == ESy.
+##
+## 2. if x is in the equivalence set ESx and y is determined**, then do
+##    bind(ESx,y)
+##
+## 3. if y is in the equivalence set ESy and y is determined, then do
+##    bind(ESy,x)
+##
+## 4. if x is bound to l(l1:x1,...,ln:xn) and y is bound to
+##    l'(l'1:y1,...,l'm:ym) with l!=l' or {l1,...,ln}!={l'1,...,l'm},
+##    then raise a failure exception
+##
+## 5. if x is bound to l(l1:x1,...,ln:xn) and y is bound to
+##    l(l1:y1,...,ln:yn), then for i from 1 to n do unify(xi,yi).
+##
+##
+## With cycles : the above algorithm does not handle unification of
+## partial values with cycles. For example, on x=f(a:x) and y=f(a:y) a
+## call to unify(x,y) results in the recursive call unify(x,y), which
+## is identical to the original call, looping forever.  A simple fix
+## is to make sure that unify(x,y) is called at most once for each
+## possible pair of two variables (x,y); We do this through
+## memoization of called pairs.
+
+## * CTM : Concepts, Techniques and Models of Computer Programming
+## ** determined == bound
 
 #TODO :
 # * understand this :
 #   http://www.mozart-oz.org/papers/abstracts/ProgrammingConstraintServices.html
+# * support '_' as shown above
 # * turn Var into some dataflow-ish thing (as far as Python allows)
 # * ensure that the store supports concurrent access
 #   (using the implicit blocking provided by dataflow vars)
 # * add entailment checks
 # * add constraints support
 
-#----------- Variables ----------------------------------
-class EqSet(set):
-    """An equivalence set for variables"""
-    pass
-
-class NoValue:
-    pass
-
-class Var(object):
-
-    def __init__(self, name, store):
-        self.name = name
-        self.store = store
-        # top-level 'commited' binding
-        self._val = NoValue
-        # when updated in a 'transaction', keep track
-        # of our initial value (for abort cases)
-        self.previous = None
-        self.changed = False
-
-    def is_bound(self):
-        return not isinstance(self.val, EqSet) \
-               and self.val != NoValue
-
-    def commit(self):
-        self.changed = False
-
-    def abort(self):
-        self.val = self.previous
-        self.changed = False
-
-    def set_val(self, val):
-        if self.store.in_transaction:
-            if not self.changed:
-                self.previous = self._val
-                self.changed = True
-                print "in transaction, %s <- %s" % (self.name, val)
-        self._val = val
-    def get_val(self):
-        return self._val
-    val = property(get_val, set_val)
-
-    def __str__(self):
-        if self.is_bound():
-            return "%s = %s" % (self.name, self.val)
-        return "%s" % self.name
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __eq__(self, thing):
-        return isinstance(thing, Var) \
-               and self.name == thing.name
-
-    def __hash__(self):
-        return self.name.__hash__()
-
-def var(name):
-    v = Var(name, _store)
-    _store.add_unbound(v)
-    return v
+from variable import EqSet, Var, VariableException, NotAVariable
 
 #----------- Store Exceptions ----------------------------
-class VariableException(Exception):
-    def __init__(self, name):
-        self.name = name
-
 class UnboundVariable(VariableException):
     def __str__(self):
         return "%s has no value yet" % self.name
@@ -97,11 +140,6 @@ class UnificationFailure(Exception):
         return "%s %s can't be unified" % (self.var1,
                                            self.var2)
               
-#----------- Variable Exceptions-------------------------
-class NotAVariable(VariableException):
-    def __str__(self):
-        return "%s is not a variable" % self.name
-
 #----------- Store ------------------------------------
 class Store(object):
     """The Store consists of a set of k variables
@@ -299,6 +337,11 @@ def _both_are_bound(v1, v2):
 _store = Store()
 
 #-- global accessor functions
+def var(name):
+    v = Var(name, _store)
+    _store.add_unbound(v)
+    return v
+
 def bind(var, val):
     return _store.bind(var, val)
 
