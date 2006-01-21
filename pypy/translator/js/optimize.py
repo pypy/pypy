@@ -6,7 +6,8 @@ optimized_functions = [
     'll_streq__rpy_stringPtr_rpy_stringPtr',
     'll_str__IntegerR_SignedConst_Signed',
     'll_chr2str__Char',
-    'll_issubclass__object_vtablePtr_object_vtablePtr'  #TODO
+    'll_issubclass__object_vtablePtr_object_vtablePtr',
+    'll_str__FloatR_FloatConst_Float',
 ]
 
 
@@ -16,33 +17,34 @@ def optimize_call(statement):
     params               = [param.strip() for param in params[:-1].split(',')]
 
     if funcname == 'll_strlen__rpy_stringPtr':
-        return '%s = %s.chars.length' % (targetvar, params[0])
+        return True, '%s = %s.chars.length' % (targetvar, params[0])
 
     elif funcname == 'll_strconcat__rpy_stringPtr_rpy_stringPtr':   
         #XXX javascript of ll_strconcat__rpy_stringPtr_rpy_stringPtr actually does not work, FIX IT!
         #    by outcommenting this code end running js/test/test_genllvm.py -k test_simple_chars
         p = '%s.chars' % '.chars + '.join(params)
-        return '%s = new Object({hash:0, chars:%s})' % (targetvar, p)
+        return True, '%s = new Object({hash:0, chars:%s})' % (targetvar, p)
         
     elif funcname == 'll_stritem_nonneg__rpy_stringPtr_Signed':
-        return '%s = %s.chars[%s]' % (targetvar, params[0], params[1])
+        return True, '%s = %s.chars[%s]' % (targetvar, params[0], params[1])
 
     elif funcname == 'll_stritem__rpy_stringPtr_Signed':
         s, i = params
-        return '%s = %s.chars[%s >= 0 ? %s : %s + %s.chars.length]' % (targetvar, s, i, i, i, s)
+        return True, '%s = %s.chars[%s >= 0 ? %s : %s + %s.chars.length]' % (targetvar, s, i, i, i, s)
 
     elif funcname == 'll_streq__rpy_stringPtr_rpy_stringPtr':
         s0, s1 = params
-        return '%s = (%s == %s) || (%s && %s && %s.chars == %s.chars)' %\
+        return True, '%s = (%s == %s) || (%s && %s && %s.chars == %s.chars)' %\
                 (targetvar, s0,s1, s0,s1, s0,s1)
 
-    elif funcname == 'll_str__IntegerR_SignedConst_Signed':
-        return '%s = new Object({hash:0, chars:%s + ""})' % (targetvar, params[0])
+    elif funcname in ('ll_str__IntegerR_SignedConst_Signed',
+                      'll_str__FloatR_FloatConst_Float'):
+        return True, '%s = new Object({hash:0, chars:%s + ""})' % (targetvar, params[0])
 
     elif funcname == 'll_chr2str__Char':
-        return '%s = new Object({hash:0, chars:%s})' % (targetvar, params[0])
+        return True, '%s = new Object({hash:0, chars:%s})' % (targetvar, params[0])
 
-    return '%s = %s(%s)' % (targetvar, funcname, ', '.join(params))
+    return False, '%s = %s(%s)' % (targetvar, funcname, ', '.join(params))
 
 def optimize_filesize(filename):
     f = open(filename, "r")

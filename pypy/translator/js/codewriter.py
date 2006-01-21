@@ -134,12 +134,14 @@ class CodeWriter(object):
         self.append('}')
         self.skip_closeblock()
 
-    def switch(self, cond, defaultdest, value_labels):
-        if not defaultdest:
-            raise TypeError('switches must have a default case.') 
-        labels = ','.join(["'%s':%s" % (value, label) for value, label in value_labels])
-        #XXX for performance this Object should become global
-        self.append("if (!(block = {%s}[%s])) block = %s" % (labels, cond, defaultdest))
+    def switch(self, cond, mapping, default_code):
+        #XXX the performance of this code can be improved by:
+        #   1. not using eval
+        #   2. storing the object in a global variable
+        labels = ','.join(["%s:%s" % (exitcase, code) for exitcase, code in mapping])
+        self.append("var switch_code = {%s}[%s]" % (labels, cond))
+        self.append("if (!switch_code) switch_code=%s" % default_code)
+        self.append('eval(switch_code)')
 
     def openfunc(self, decl, funcnode, blocks): 
         self.decl     = decl
@@ -202,10 +204,10 @@ class CodeWriter(object):
 
         if not exceptions:
             assert no_exception is None
-            if self.js.stackless:
+            optimized, code = optimize_call('%s = %s(%s)' % (targetvar, functionref, args))
+            if self.js.stackless and not optimized:
                 self.append("slp_stack_depth++")
-            self.append( optimize_call('%s = %s(%s)' % (targetvar, functionref, args)) )
-            if self.js.stackless:
+                self.append(code)
                 self.append("slp_stack_depth--")
                 selfdecl = self.decl.split('(')[0]
                 usedvars = ', '.join(self._usedvars.keys())
@@ -224,17 +226,21 @@ class CodeWriter(object):
                 self.append('case %d:' % self._resume_blocknum)
                 self.indent_more()
                 self._resume_blocknum += 1
+            else:   #not stackless
+                self.append(code)
         else:
             assert no_exception is not None
             no_exception_label, no_exception_exit = no_exception
             self.append('try {')
             self.indent_more()
-            if self.js.stackless:
+            optimized, code = optimize_call('%s = %s(%s)' % (targetvar, functionref, args))
+            if self.js.stackless and not optimized:
                 self.comment('TODO: XXX stackless in combination with exceptions handling')
                 self.append("slp_stack_depth++")
-            self.append( optimize_call('%s = %s(%s)' % (targetvar, functionref, args)) )
-            if self.js.stackless:
+                self.append(code)
                 self.append("slp_stack_depth--")    #XXX we don't actually get here when an exception occurs!
+            else:
+                self.append(code)
             self._phi(no_exception_exit)
             self._goto_block(no_exception_label)
             self.indent_less()

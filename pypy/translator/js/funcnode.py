@@ -99,7 +99,7 @@ class FuncNode(Node):
             (lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
              lltype.UnsignedLongLong, lltype.Char, lltype.UniChar):
             defaultlink = None
-            value_labels = []
+            mapping = []
             for link in block.exits:
                 if link.exitcase is 'default':
                     defaultlink = link
@@ -108,10 +108,30 @@ class FuncNode(Node):
                 exitcase = link.llexitcase
                 if block.exitswitch.concretetype in [lltype.Char, lltype.UniChar]:
                     exitcase = ord(exitcase)
-                value_labels.append( (exitcase,
-                                      self.blockindex[link.target]) )
+                exitcase = "'%s'" % exitcase
 
-            codewriter.switch(cond, self.blockindex[defaultlink.target], value_labels)
+                try:
+                    targetvar       = link.target.inputargs[0]
+                    targetvar_value = self.db.repr_arg(link.args[0])
+                    s = "%s=%s;" % (targetvar, targetvar_value)
+                except:
+                    s = ''
+                targetblock = self.blockindex[link.target]
+
+                code = "'%sblock=%s'" % (s, targetblock)
+                mapping.append( (exitcase, code) )
+
+            try:
+                default_targetvar       = defaultlink.target.inputargs[0]
+                default_targetvar_value = self.db.repr_arg(defaultlink.args[0])
+                s = "%s=%s;" % (default_targetvar, default_targetvar_value)
+            except:
+                s = ''
+            default_targetblock     = self.blockindex[defaultlink.target]
+            default_code  = "'%sblock=%s'" % (s, default_targetblock)
+            if block.exitswitch.concretetype == lltype.Char:
+                cond = "%s.charCodeAt(0)" % cond
+            codewriter.switch(cond, mapping, default_code)
 
         else:
            raise BranchException("exitswitch type '%s' not supported" %
