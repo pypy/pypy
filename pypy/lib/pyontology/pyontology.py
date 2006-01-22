@@ -1,6 +1,5 @@
 from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
-from logilab.constraint.fd import BinaryExpression
 from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
 import sys
@@ -279,7 +278,7 @@ class Ontology:
                 self.constraints.append(cls.constraint)
 
     def first(self, s, var):
-        avar = self.make_var(None, var)
+        avar = self.make_var(ClassDomain, var)
         svar = self.make_var(List, s)
         vals = []
         vals += self.variables[svar].getValues()
@@ -410,16 +409,16 @@ class Ontology:
         self.constraints.append(constrain)
 
 #XXX need to change this
-##    def distinctMembers(self, s, var):
-##        res = self.get_list(var)
-##        self.constraints.append(AllDistinct([self.make_var(ClassDomain, y) for y in res]))
-##        return res
+    def distinctMembers(self, s, var):
+        s_var = self.make_var(AllDifferent, s)
+        var_var = self.make_var(List, var)
+        constrain = AllDifferentConstraint(s_var, var_var)
+        self.constraints.append(constrain)
 
     def sameAs(self, s, var):
         s_var = self.make_var(None, s)
         var_var = self.make_var(None, var)
-        constrain = BinaryExpression([s_var, var_var],
-               "%s == %s" %(s_var, var_var))
+        constrain = SameasConstraint(s_var, var_var)
         self.constraints.append(constrain)
 
     def hasValue(self, s, var):
@@ -510,18 +509,6 @@ class Cardinality(MaxCardinality):
         else:
             return 1
 
-def get_values(dom, domains, attr = 'getValues'):
-    res = []
-    if type(dom) == Literal:
-        return [dom]
-    for val in getattr(dom, attr)():
-        res.append(val)
-        if type(val) == tuple:
-            val = val[0]
-        if val in domains.keys():
-            res.extend(get_values(domains[val], domains, attr))
-    return res
-
 class SubClassConstraint(AbstractConstraint):
 
     cost=1
@@ -551,10 +538,10 @@ class DisjointClassConstraint(SubClassConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
-        bases = get_values(superdom, domains, 'getBases')  
-        subdom.bases += [bas for bas in bases if bas not in subdom.bases]
-        vals1 = get_values(superdom, domains, 'getValues')  
-        vals2 = get_values(subdom, domains, 'getValues')  
+##        bases = get_values(superdom, domains, 'getBases')  
+##        subdom.bases += [bas for bas in bases if bas not in subdom.bases]
+        vals1 = superdom.getValues()  
+        vals2 = subdom.getValues()  
         for i in vals1:
             if i in vals2:
                 raise ConsistencyFailure()
@@ -592,7 +579,7 @@ class DomainConstraint(SubClassConstraint):
     def narrow(self, domains):
         propdom = domains[self.variable]
         domaindom = domains[self.object]
-        newdomain = get_values(domaindom, domains, 'getValues') +[self.object]
+        newdomain = domaindom.getValues() +[self.object]
         domain = []
         olddomain = propdom.domain
         if olddomain:
@@ -612,7 +599,7 @@ class SubPropertyConstraint(SubClassConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
-        vals = get_values(superdom, domains, 'getValues')  
+        vals = superdom.getValues()
         for val in subdom.getValues():
             if not val in vals:
                 vals.append(val)
@@ -623,7 +610,7 @@ class EquivalentPropertyConstraint(SubClassConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
-        vals = get_values(superdom, domains, 'getValues')  
+        vals = superdom.getValues()  
         for val in subdom.getValues():
             if not val in vals:
                 raise ConsistencyFailure("Value not in prescribed range")
@@ -725,6 +712,35 @@ class DifferentfromConstraint(SubClassConstraint):
         else:
             return 0
 
+class SameasConstraint(SubClassConstraint):
+
+    def narrow(self, domains):
+        if self.variable == self.object:
+            return 1
+        else:
+            for dom in domains.values():
+                vals = dom.getValues()
+                if isinstance(dom, Property):
+                    val = Linkeddict(vals)
+                    if self.variable in val.keys() and not self.object in val.keys():
+                        vals +=[(self.object,v) for v in val[self.variable]]
+                        dom.setValues(vals)
+                    elif not self.variable in val.keys() and self.object in val.keys():
+                        vals +=[(self.variable,v) for v in val[self.object]]
+                        dom.setValues(vals)
+                    elif self.variable in val.keys() and self.object in val.keys():
+                        if not val[self.object] == val[self.variable]:
+                            raise ConsistencyFailure("Sameas failure: The two individuals (%s, %s) \
+                                                has different values for property %r"%(self.variable, self.object, dom))
+                else:
+                    if self.variable in vals and not self.object in vals:
+                        vals.append(self.object)
+                    elif not self.variable in vals and self.object in vals:
+                        vals.append(self.variable)
+                    else:
+                        continue
+                    dom.setValues(vals)
+            return 0
 
 class ListConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
@@ -747,7 +763,7 @@ class ListConstraint(OwlConstraint):
 
 class RestrictionConstraint(OwlConstraint):
 
-    cost = 90
+    cost = 70
 
     def narrow(self, domains):
         prop = domains[self.variable].property

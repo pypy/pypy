@@ -116,7 +116,6 @@ def test_type():
 
 def test_ObjectProperty():
     sub = URIRef('a')
-    pred = URIRef('type')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O = Ontology()
     O.type(sub, obj)
@@ -478,3 +477,39 @@ def test_differentfromconsistency():
     O.differentFrom(cls, cls)
     O.type(cls, namespaces['owl']+'#Thing')
     py.test.raises(ConsistencyFailure, O.consistency, 3)
+
+def test_sameas():
+    O = Ontology()
+    cls = BNode('anon')
+    own1 = BNode('liist1')
+    own2 = BNode('liist2')
+    O.sameAs(cls, own1)
+    O.sameAs(own1, own2)
+    O.sameAs(cls, own2)
+    O.type(cls, namespaces['owl']+'#Thing')
+    O.type(own1, namespaces['owl']+'#Thing')
+    O.type(own2, namespaces['owl']+'#Thing')
+    sub = URIRef('a')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, obj)
+    O.variables[O.make_var(None,sub)].setValues([(cls,'1')])
+    O.consistency(3)
+#    assert len(O.rep._constraints) == 4
+    assert ('_liist1','1') in O.rep._domains[O.make_var(None,sub)].getValues()
+
+def test_sameasconsistency():
+    O = Ontology()
+    cls = BNode('anon')
+    own1 = BNode('liist1')
+    O.sameAs(cls, own1)
+    O.type(cls, namespaces['owl']+'#Thing')
+    O.type(own1, namespaces['owl']+'#Thing')
+    sub = URIRef('a')
+    obj = URIRef(namespaces['owl']+'#ObjectProperty')
+    O.type(sub, obj)
+    O.variables[O.make_var(None,sub)].setValues([(cls,'1'), (own1,'2')])
+    print O.variables
+    for dom in O.variables.values() :print type(dom)
+    py.test.raises(ConsistencyFailure, O.consistency, 3)
+
+
