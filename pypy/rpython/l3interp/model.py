@@ -41,7 +41,8 @@ very_low_level_ops = [
 
     #struct operations:
     'getfield_int', 'getfield_char', 'getfield_dbl', 'getfield_ptr', 
-    'getsubstruct', 'setfield', 
+    'getsubstruct',
+    'setfield_int', 'setfield_char', 'setfield_dbl', 'setfield_ptr',
 
     #integer operations:
     'int_abs', 'int_abs_ovf', 'int_add', 'int_add_ovf', 'int_and',

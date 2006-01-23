@@ -125,6 +125,22 @@ def convert_block(block, memo):
                 res = len(clist)
                 clist.append(offset)
             insns.append(res)
+        elif spaceop.opname == 'setfield':
+            v0, v1, v2 = spaceop.args
+            opname = spaceop.opname + '_' + \
+                     getaccesskind(v2.concretetype)
+            insns.append(model.very_low_level_opcode[opname])
+            insns.append(get(v0))
+
+            offset = OffsetOf(v0.concretetype, v1.value)
+            clist = constants['offset']
+            try:
+                res = clist.index(offset)
+            except ValueError:
+                res = len(clist)
+                clist.append(offset)
+            insns.append(res)
+            insns.append(get(v2))
         else:
             insns.append(model.very_low_level_opcode[spaceop.opname])
             for v in spaceop.args:

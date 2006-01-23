@@ -193,6 +193,12 @@ class L3Frame(object):
         o = self.getoffset()
         self.stack_int.append((p + o).signed[0])
 
+    def op_setfield_int(self):
+        p = self.getptr()
+        o = self.getoffset()
+        v = self.getint()
+        (p + o).signed[0] = v
+        
     def op_flavored_malloc(self):
         self.stack_ptr.append(constant_fakeaddress)
 

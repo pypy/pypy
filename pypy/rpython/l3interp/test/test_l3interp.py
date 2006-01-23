@@ -155,8 +155,42 @@ def test_getfield():
         assert isinstance(value, l3interp.L3Integer)
         return value.intval
 
+    assert entry_point(3) == f(3)
+    assert entry_point(0) == f(0)
+
     fn = translate(entry_point, [int])
 
     assert fn(3) == f(3)
     assert fn(0) == f(0)
+        
+
+def test_setfield():
+    class C:
+        def __init__(self, x):
+            self.x = x
+    c = C(1)
+
+    def getorset(n):
+        if n:
+            c.x = n
+            return 0
+        else:
+            return c.x
+
+    getorsetgraph = l3ify(getorset, [int])
+    
+    def entry_point(x):
+        value = l3interp.l3interpret(getorsetgraph, [x], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+    
+    assert entry_point(-3) == 0
+    assert entry_point(0) == -3
+
+    fn = translate(entry_point, [int])
+
+    assert fn(-3) == 0
+    assert fn(0) == -3
+
+
         
