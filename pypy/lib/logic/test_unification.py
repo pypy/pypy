@@ -1,5 +1,6 @@
 import unification as u
 import variable as v
+from constraint import FiniteDomain
 from py.test import raises, skip
 from threading import Thread
 
@@ -46,11 +47,23 @@ class TestUnification:
         assert z.val == 3.14
 
     def test_unify_same(self):
-        x,y,z = (u.var('x'), u.var('y'), u.var('z'))
+        x,y,z,w = (u.var('x'), u.var('y'),
+                   u.var('z'), u.var('w'))
         u.bind(x, [42, z])
         u.bind(y, [z, 42])
+        u.bind(w, [z, 43])
+        raises(u.UnificationFailure, u.unify, x, w)
         u.unify(x, y)
         assert z.val == 42
+
+    def test_double_unification(self):
+        x, y, z = (u.var('x'), u.var('y'),
+                   u.var('z'))
+        u.bind(x, 42)
+        u.bind(y, z)
+        u.unify(x, y)
+        assert z.val == 42
+        #raises(u.UnificationFailure, u.unify, x, y)
 
     def test_unify_values(self):
         x, y = u.var('x'), u.var('y')
@@ -199,7 +212,43 @@ class TestUnification:
         t2.start()
         t1.join()
         t2.join()
-        assert z.val == 0
+        print "Z", z
         assert (t2.raised and not t1.raised) or \
                (t1.raised and not t2.raised)
+        assert z.val == 0
             
+
+    def test_set_var_domain(self):
+        x = u.var('x')
+        u.set_domain(x, [1, 3, 5])
+        assert x.dom == FiniteDomain([1, 3, 5])
+        assert u._store.domains[x] == FiniteDomain([1, 3, 5])
+
+    def test_bind_with_domain(self):
+        x = u.var('x')
+        u.set_domain(x, [1, 2, 3])
+        raises(u.OutOfDomain, u.bind, x, 42)
+        u.bind(x, 3)
+        assert x.val == 3
+
+    def test_bind_with_incompatible_domains(self):
+        x, y = u.var('x'), u.var('y')
+        u.set_domain(x, [1, 2])
+        u.set_domain(y, [3, 4])
+        raises(u.IncompatibleDomains, u.bind, x, y)
+        u.set_domain(y, [2, 4])
+        u.bind(x, y)
+        # check x and y are in the same equiv. set
+        assert x.val == y.val
+
+
+    def test_unify_with_domains(self):
+        x,y,z = u.var('x'), u.var('y'), u.var('z')
+        u.bind(x, [42, z])
+        u.bind(y, [z, 42])
+        u.set_domain(z, [1, 2, 3])
+        raises(u.UnificationFailure, u.unify, x, y)
+        u.set_domain(z, [41, 42, 43])
+        u.unify(x, y)
+        assert z.val == 42
+        assert z.dom == FiniteDomain([41, 42, 43])

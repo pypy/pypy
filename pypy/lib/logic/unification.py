@@ -121,6 +121,7 @@
 import threading
 
 from variable import EqSet, Var, VariableException, NotAVariable
+from constraint import FiniteDomain
 
 #----------- Store Exceptions ----------------------------
 class UnboundVariable(VariableException):
@@ -135,13 +136,27 @@ class AlreadyInStore(VariableException):
     def __str__(self):
         return "%s already in store" % self.name
 
+class OutOfDomain(VariableException):
+    def __str__(self):
+        return "value not in domain of %s" % self.name
+
 class UnificationFailure(Exception):
+    def __init__(self, var1, var2, cause=None):
+        self.var1, self.var2 = (var1, var2)
+        self.cause = cause
+    def __str__(self):
+        diag = "%s %s can't be unified"
+        if self.cause:
+            diag += " because %s" % self.cause
+        return diag % (self.var1, self.var2)
+        
+class IncompatibleDomains(Exception):
     def __init__(self, var1, var2):
         self.var1, self.var2 = (var1, var2)
     def __str__(self):
-        return "%s %s can't be unified" % (self.var1,
-                                           self.var2)
-              
+        return "%s %s have incompatible domains" % \
+               (self.var1, self.var2)
+    
 #----------- Store ------------------------------------
 class Store(object):
     """The Store consists of a set of k variables
@@ -157,6 +172,11 @@ class Store(object):
         # mapping of names to vars (all of them)
         self.vars = set()
         self.names = set()
+        # mapping of vars to domains
+        self.domains = {}
+        # mapping of names to constraints (all...)
+        self.contraints = {}
+        # consistency-preserving stuff
         self.in_transaction = False
         self.lock = threading.Lock()
 
@@ -170,6 +190,15 @@ class Store(object):
         # put into new singleton equiv. set
         var.val = EqSet([var])
 
+    #-- Bind var to domain --------------------
+
+    def set_domain(self, var, dom):
+        assert(isinstance(var, Var) and (var in self.vars))
+        if var.is_bound():
+            raise AlreadyBound
+        var.dom = FiniteDomain(dom)
+        self.domains[var] = var.dom
+
     #-- BIND -------------------------------------------
 
     def bind(self, var, val):
@@ -177,39 +206,54 @@ class Store(object):
            2. (unbound)Variable/(bound)Variable or
            3. (unbound)Variable/Value binding
         """
-        self.lock.acquire()
-        assert(isinstance(var, Var) and (var in self.vars))
-        if var == val:
-            return
-        if _both_are_vars(var, val):
-            if _both_are_bound(var, val):
-                raise AlreadyBound(var.name)
-            if var._is_bound(): # 2b. var is bound, not var
-                self.bind(val, var)
-            elif val._is_bound(): # 2a.val is bound, not val
-                self._bind(var.val, val.val)
-            else: # 1. both are unbound
-                self._merge(var.val, val.val)
-        else: # 3. val is really a value
-            if var._is_bound():
-                raise AlreadyBound(var.name)
-            self._bind(var.val, val)
-        self.lock.release()
+        try:
+            self.lock.acquire()
+            assert(isinstance(var, Var) and (var in self.vars))
+            if var == val:
+                return
+            if _both_are_vars(var, val):
+                if _both_are_bound(var, val):
+                    raise AlreadyBound(var.name)
+                if var._is_bound(): # 2b. var is bound, not var
+                    self.bind(val, var)
+                elif val._is_bound(): # 2a.var is bound, not val
+                    self._bind(var.val, val.val)
+                else: # 1. both are unbound
+                    self._merge(var, val)
+            else: # 3. val is really a value
+                if var._is_bound():
+                    raise AlreadyBound(var.name)
+                self._bind(var.val, val)
+        finally:
+            self.lock.release()
 
 
     def _bind(self, eqs, val):
         # print "variable - value binding : %s %s" % (eqs, val)
-        # bind all vars in the eqset to obj
+        # bind all vars in the eqset to val
         for var in eqs:
+            if var.dom != None:
+                if val not in var.dom.get_values():
+                    # undo the half-done binding
+                    for v in eqs:
+                        v.val = eqs
+                    raise OutOfDomain(var)
             var.val = val
 
-    def _merge(self, eqs1, eqs2):
+    def _merge(self, v1, v2):
+        for v in v1.val:
+            if not _compatible_domains(v, v2.val):
+                raise IncompatibleDomains(v1, v2)
+        self._really_merge(v1.val, v2.val)
+
+    def _really_merge(self, eqs1, eqs2):
         # print "unbound variables binding : %s %s" % (eqs1, eqs2)
         if eqs1 == eqs2: return
         # merge two equisets into one
         eqs1 |= eqs2
-        # let's reassign everybody to neweqs
-        self._bind(eqs1, eqs1)
+        # let's reassign everybody to the merged eq
+        for var in eqs1:
+            var.val = eqs1
 
     #-- UNIFY ------------------------------------------
 
@@ -221,11 +265,13 @@ class Store(object):
                 for var in self.vars:
                     if var.changed:
                         var._commit()
-            except:
+            except Exception, cause:
                 for var in self.vars:
                     if var.changed:
                         var._abort()
-                raise
+                if isinstance(cause, UnificationFailure):
+                    raise
+                raise UnificationFailure(x, y, cause)
         finally:
             self.in_transaction = False
 
@@ -242,7 +288,7 @@ class Store(object):
             self._unify_var_val(x, y)
         elif _both_are_bound(x, y):
             self._unify_bound(x,y)
-        elif x.isbound():
+        elif x._is_bound():
             self.bind(x,y)
         else:
             self.bind(y,x)
@@ -279,6 +325,20 @@ class Store(object):
         for xk in vx.keys():
             self._really_unify(vx[xk], vy[xk])
 
+
+def _compatible_domains(var, eqs):
+    """check that the domain of var is compatible
+       with the domains of the vars in the eqs
+    """
+    if var.dom == None: return True
+    empty = set()
+    for v in eqs:
+        if v.dom == None: continue
+        if v.dom.intersection(var.dom) == empty:
+            return False
+    return True
+
+
 #-- Unifiability checks---------------------------------------
 #--
 #-- quite costly & could be merged back in unify
@@ -293,6 +353,7 @@ def _mapping(thing):
 _unifiable_memo = set()
 
 def _unifiable(term1, term2):
+    global _unifiable_memo
     _unifiable_memo = set()
     return _really_unifiable(term1, term2)
         
@@ -350,6 +411,9 @@ def var(name):
     v = Var(name, _store)
     _store.add_unbound(v)
     return v
+
+def set_domain(var, dom):
+    return _store.set_domain(var, dom)
 
 def bind(var, val):
     return _store.bind(var, val)

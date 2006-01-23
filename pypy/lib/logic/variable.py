@@ -37,6 +37,8 @@ class Var(object):
         self.store = store
         # top-level 'commited' binding
         self._val = NoValue
+        # domain
+        self.dom = None
         # when updated in a 'transaction', keep track
         # of our initial value (for abort cases)
         self.previous = None
@@ -93,9 +95,11 @@ class Var(object):
     #---- Concurrent public ops --------------------------
 
     def is_bound(self):
-        self.mutex.acquire()
-        res = self._is_bound()
-        self.mutex.release()
+        try:
+            self.mutex.acquire()
+            res = self._is_bound()
+        finally:
+            self.mutex.release()
         return res
 
     # should be used by threads that want to block on
