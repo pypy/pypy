@@ -419,4 +419,6 @@ class TestAddressSimulation(object):
         addr = raw_malloc(100)
         (addr + offsetof(S, 'b')).signed[0] = 42
         assert (addr + offsetof(S, 'b')).signed[0] == 42
-        
+        addr.signed[5] = offsetof(S, 'b')
+        offset = addr.signed[5]
+        assert (addr + offset).signed[0] == 42

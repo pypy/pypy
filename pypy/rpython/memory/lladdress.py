@@ -48,6 +48,9 @@ class address(object):
         return simulator.getstruct(fmt, self.intaddress)
 
     def _store(self, fmt, *values):
+        # XXX annoyance: suddenly an OffsetOf changes into a Signed?!
+        if len(values) == 1 and isinstance(values[0], llmemory.OffsetOf):
+            values = [convert_offset_to_int(values[0])]
         simulator.setstruct(fmt, self.intaddress, *values)
 
     def __nonzero__(self):
@@ -67,12 +70,19 @@ class _accessor(object):
     def __setitem__(self, offset, value):
         simulator.setstruct(self.format, self.intaddress + offset * self.size,
                             self.convert_to(value))
-           
+
+
 class _signed_accessor(_accessor):
     format = "l"
     size = struct.calcsize("l")
     convert_from = int
-    convert_to = int
+
+    def convert_to(self, offset):
+        from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+        # XXX same annoyance as in _store
+        if isinstance(offset, llmemory.OffsetOf):
+            return convert_offset_to_int(offset)
+        return int(offset)
 
 class _unsigned_accessor(_accessor):
     format = "L"
