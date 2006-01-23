@@ -118,6 +118,8 @@
 # * add entailment checks
 # * add constraints support
 
+import threading
+
 from variable import EqSet, Var, VariableException, NotAVariable
 
 #----------- Store Exceptions ----------------------------
@@ -156,6 +158,7 @@ class Store(object):
         self.vars = set()
         self.names = set()
         self.in_transaction = False
+        self.lock = threading.Lock()
 
     def add_unbound(self, var):
         # register globally
@@ -174,6 +177,7 @@ class Store(object):
            2. (unbound)Variable/(bound)Variable or
            3. (unbound)Variable/Value binding
         """
+        self.lock.acquire()
         assert(isinstance(var, Var) and (var in self.vars))
         if var == val:
             return
@@ -190,16 +194,17 @@ class Store(object):
             if var._is_bound():
                 raise AlreadyBound(var.name)
             self._bind(var.val, val)
+        self.lock.release()
 
 
     def _bind(self, eqs, val):
-        print "variable - value binding : %s %s" % (eqs, val)
+        # print "variable - value binding : %s %s" % (eqs, val)
         # bind all vars in the eqset to obj
         for var in eqs:
             var.val = val
 
     def _merge(self, eqs1, eqs2):
-        print "unbound variables binding : %s %s" % (eqs1, eqs2)
+        # print "unbound variables binding : %s %s" % (eqs1, eqs2)
         if eqs1 == eqs2: return
         # merge two equisets into one
         eqs1 |= eqs2
