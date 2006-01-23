@@ -74,7 +74,7 @@ way:
          reads a signed integer from the point in memory that is ``index``
          signed integers distant from the ``addr``
         
-    ``addr.signed[offset] = value``:
+    ``addr.signed[index] = value``:
          writes the signed integer ``value`` to the point in memory that is
          ``index`` signed integers distant from the ``addr``
 
@@ -146,7 +146,7 @@ objects:
         the type
 
     ``varsize_offset_to_length(typeid)`` --> offset:
-        returns _the offset to the length (number of items) of the variable
+        returns the offset to the length (number of items) of the variable
         sized type
 
     ``varsize_offsets_to_gcpointers_in_var_part(typeid)`` --> list of offsets:
@@ -307,7 +307,7 @@ Deferred Reference Counting
 Deferred reference counting is a reference counting algorithm that tries to
 reduce the overhead of reference counting at the expense of the immediacy of a
 regular refcounting implementation. To achieve this the refcounts of an
-objects count only the references from other objects on the heap, not
+object only count the references from other objects on the heap, not
 references from the stack. If the refcount of an object reaches zero it can 
 not be freed immediately (since it could be reachable from the stack). Instead
 it is added to a zero-refcount-list. When collection occurs the refcounts of
