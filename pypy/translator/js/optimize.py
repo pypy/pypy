@@ -4,10 +4,14 @@ optimized_functions = [
     'll_stritem_nonneg__rpy_stringPtr_Signed',
     'll_stritem__rpy_stringPtr_Signed',
     'll_streq__rpy_stringPtr_rpy_stringPtr',
-    'll_str__IntegerR_SignedConst_Signed',
     'll_chr2str__Char',
-    'll_issubclass__object_vtablePtr_object_vtablePtr',
+    'll_str__IntegerR_SignedConst_Signed',
     'll_str__FloatR_FloatConst_Float',
+
+    #'ll_issubclass__object_vtablePtr_object_vtablePtr',
+
+    #externals...
+    'll_js_jseval__rpy_stringPtr',
 ]
 
 
@@ -37,12 +41,16 @@ def optimize_call(statement):
         return True, '%s = (%s == %s) || (%s && %s && %s.chars == %s.chars)' %\
                 (targetvar, s0,s1, s0,s1, s0,s1)
 
+    elif funcname == 'll_chr2str__Char':
+        return True, '%s = new Object({hash:0, chars:%s})' % (targetvar, params[0])
+
     elif funcname in ('ll_str__IntegerR_SignedConst_Signed',
                       'll_str__FloatR_FloatConst_Float'):
         return True, '%s = new Object({hash:0, chars:%s + ""})' % (targetvar, params[0])
 
-    elif funcname == 'll_chr2str__Char':
-        return True, '%s = new Object({hash:0, chars:%s})' % (targetvar, params[0])
+    #externals...
+    elif funcname == 'll_js_jseval__rpy_stringPtr':
+        return True, '%s = eval(%s)' % (targetvar, params[0])
 
     return False, '%s = %s(%s)' % (targetvar, funcname, ', '.join(params))
 
