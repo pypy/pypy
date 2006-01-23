@@ -5,7 +5,15 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy
 
+def setup_module(mod):
+    mod._cleanups = []
+
+def teardown_module(mod):
+    while mod._cleanups:
+        mod._cleanups.pop()()
+
 def translate(func, inputargs):
+    from pypy.translator.c.gc import BoehmGcPolicy
     t = TranslationContext()
     pol = policy.AnnotatorPolicy()
     pol.allow_someobjects = False
@@ -14,10 +22,11 @@ def translate(func, inputargs):
 
     from pypy.translator.tool.cbuild import skip_missing_compiler
     from pypy.translator.c import genc
-    builder = genc.CExtModuleBuilder(t, func)
+    builder = genc.CExtModuleBuilder(t, func, gcpolicy=BoehmGcPolicy)
     builder.generate_source()
     skip_missing_compiler(builder.compile)
-    builder.import_module()
+    builder.isolated_import()
+    _cleanups.append(builder.cleanup)
     return builder.get_entry_point()
 
 
