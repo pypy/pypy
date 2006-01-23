@@ -231,6 +231,11 @@ frametop_type_info = declareptrtype(rstack.frame_stack_top, 'frame_stack_top',
                                                   'll_stackless/switch'))
 
 # ___________________________________________________________
+# javascript
+from pypy.rpython import rjs
+declare(rjs.jseval, str, 'll_js/jseval')
+
+# ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations
 standardexceptions = {
     TypeError        : True,
