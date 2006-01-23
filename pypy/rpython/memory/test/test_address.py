@@ -12,6 +12,7 @@ from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory.test.test_llinterpsim import interpret
+from pypy.rpython.lltypesystem import lltype
 
 class TestAddressAnnotation(object):
     def test_null(self):
@@ -411,3 +412,11 @@ class TestAddressSimulation(object):
         assert get_py_object(addr1.address[0])(0) == 1
         assert (addr1 + 10).signed[0] == 42
         assert (addr1 + 20).char[0] == "a"
+
+    def test_add_offsetofs(self):
+        from pypy.rpython.lltypesystem.llmemory import offsetof
+        S = lltype.GcStruct("struct", ('a', lltype.Signed), ('b', lltype.Signed))
+        addr = raw_malloc(100)
+        (addr + offsetof(S, 'b')).signed[0] = 42
+        assert (addr + offsetof(S, 'b')).signed[0] == 42
+        

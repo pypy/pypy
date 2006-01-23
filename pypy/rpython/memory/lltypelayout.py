@@ -87,7 +87,14 @@ def sizeof(TYPE, i=None):
     else:
         return fixedsize + i * varsize
 
-
+def convert_offset_to_int(offset):
+    TYPE = offset.TYPE
+    res = 0
+    for fld in offset.fldnames:
+        layout = get_layout(TYPE)
+        res += layout[fld]
+        TYPE = getattr(TYPE, fld)
+    return res
 # _____________________________________________________________________________
 # the following functions are used to find contained pointers
 

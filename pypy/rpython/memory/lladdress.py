@@ -5,6 +5,8 @@ from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.lltypesystem import lltype
 
 class address(object):
+    #XXX should be _address!
+    
     def __new__(cls, intaddress=0):
         if intaddress == 0:
             null = cls.__dict__.get("NULL")
@@ -22,13 +24,18 @@ class address(object):
         return self.intaddress
 
     def __add__(self, offset):
-        assert isinstance(offset, int)
-        return address(self.intaddress + offset)
+        from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+        if isinstance(offset, int):
+            return address(self.intaddress + offset)
+        else:
+            assert isinstance(offset, llmemory.OffsetOf)
+            return address(self.intaddress + convert_offset_to_int(offset))
 
     def __sub__(self, other):
         if isinstance(other, int):
             return address(self.intaddress - other)
         else:
+            assert isinstance(other, address)
             return self.intaddress - other.intaddress
 
     def __cmp__(self, other):
