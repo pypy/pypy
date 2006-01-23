@@ -169,7 +169,7 @@ class L3Frame(object):
         else:
             self.stack_int.append(0)
 
-    def op_getfield_int(self):
+    def later_op_getfield_int(self):
         p = self.getptr()
         o = self.getoffset()
         self.stack_int.append((p + o).signed[0])
