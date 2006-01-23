@@ -24,6 +24,8 @@ class L3Pointer(L3Value):
     def __init__(self, ptrval):
         self.ptrval = ptrval
 
+class L3Nothing(L3Value):
+    pass
 
 def l3interpret(graph, args_int, args_dbl, args_ptr):
     assert len(args_int) == graph.nargs_int
@@ -40,6 +42,8 @@ def l3interpret(graph, args_int, args_dbl, args_ptr):
         return L3Double(args_dbl.pop())
     if nint == 0 and ndbl == 0 and nptr == 1:
         return L3Pointer(args_ptr.pop())
+    if nint == 0 and ndbl == 0 and nptr == 0:
+        return L3Nothing()
     raise AssertionError("stacks corrupted")
 
 constant_offset = OffsetOf(lltype.Void)

@@ -46,6 +46,14 @@ def test_convert_branch():
     result = l3interp.l3interpret(l3graph, [0], [], [])
     assert isinstance(result, l3interp.L3Integer)
     assert result.intval == 1
+
+def test_void_return():
+    def f():
+        pass
+    l3graph = l3ify(f, [])
+    result = l3interp.l3interpret(l3graph, [], [], [])
+    assert isinstance(result, l3interp.L3Nothing)
+    
     
 def test_convert_getfield():
     class C:

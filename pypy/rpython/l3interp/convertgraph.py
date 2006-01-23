@@ -87,7 +87,8 @@ def convert_block(block, memo):
             return position - stacksizes[kind]    # < 0
 
     for v in block.inputargs:
-        push(v)
+        if v.concretetype is not lltype.Void:
+            push(v)
 
     insns = []
     l3block = model.Block(insns)
@@ -136,8 +137,9 @@ def convert_block(block, memo):
                       'dbl': [],
                       'ptr': []}
         for v in link.args:
-            kind = getkind(v.concretetype)
-            targetregs[kind].append(get(v))
+            if v.concretetype is not lltype.Void:
+                kind = getkind(v.concretetype)
+                targetregs[kind].append(get(v))
         return model.Link(convert_block(link.target, memo),
                           targetregs['int'] or None,
                           targetregs['dbl'] or None,
