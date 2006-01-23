@@ -1,4 +1,6 @@
+from py.test import raises
 import unification as u
+import variable as v
 from threading import Thread
 
 class Consumer(Thread):
@@ -21,6 +23,11 @@ class TestVariable:
 
     def setup_method(self, meth):
         u._store = u.Store()
+
+
+##     def test_no_same_name(self):
+##         x = u.var('x')
+##         raises(v.AlreadyExists, u.var, 'x')
 
     def test_one_thread_reading_one_var(self):
         cons = Consumer()

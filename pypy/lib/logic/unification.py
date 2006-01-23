@@ -10,7 +10,7 @@
 ## Unification in Oz (almost verbatim from CTM*)
 ## =============================================
 ##
-## Unification as put in Oz is a very powerful operation. It is
+## Unification as put in Oz is "a very powerful operation". It is
 ## provided through the '=' operator.
 ##
 ## Binding a variable to a value is a special case of an operation
@@ -152,8 +152,9 @@ class Store(object):
          (also called determined variables)."""
     
     def __init__(self):
-        # set of all known vars
+        # mapping of names to vars (all of them)
         self.vars = set()
+        self.names = set()
         self.in_transaction = False
 
     def add_unbound(self, var):
@@ -162,6 +163,7 @@ class Store(object):
             raise AlreadyInStore(var.name)
         print "adding %s to the store" % var
         self.vars.add(var)
+        self.names.add(var.name)
         # put into new singleton equiv. set
         var.val = EqSet([var])
 

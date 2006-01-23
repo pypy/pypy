@@ -1,14 +1,16 @@
 import unification as u
+import variable as v
 from py.test import raises, skip
+from threading import Thread
 
 class TestUnification:
     
     def setup_method(self, meth):
         u._store = u.Store()
 
-    def test_already_in_store(self):
-        x = u.var('x')
-        raises(u.AlreadyInStore, u.var, 'x')
+##     def test_already_in_store(self):
+##         x = u.var('x')
+##         raises(u.AlreadyInStore, u.var, 'x')
 
     def test_already_bound(self):
         x = u.var('x')
@@ -102,3 +104,26 @@ class TestUnification:
         assert b.val == {1:a,  2:42}
         
         
+    def test_threads_creating_vars(self):
+        def create_var(*args):
+            x = u.var('x')
+
+        def create_var2(*args):
+            raises(v.AlreadyExists, u.var, 'x')
+
+        t1, t2 = (FunThread(create_var),
+                  FunThread(create_var2))
+        t1.start()
+        t2.start()
+        
+
+class FunThread(Thread):
+
+    def __init__(self, fun, *args):
+        Thread.__init__(self)
+        self.fun = fun
+        self.args = args
+
+    def run(self):
+        self.fun(self.args)
+            

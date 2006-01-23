@@ -11,6 +11,10 @@ class NotAVariable(VariableException):
     def __str__(self):
         return "%s is not a variable" % self.name
 
+class AlreadyExists(VariableException):
+    def __str__(self):
+        return "%s already exists" % self.name
+
 #----------- Variables ----------------------------------
 class EqSet(set):
     """An equivalence set for variables"""
@@ -27,6 +31,8 @@ class NoValue:
 class Var(object):
 
     def __init__(self, name, store):
+        if name in store.names:
+            raise AlreadyExists(name)
         self.name = name
         self.store = store
         # top-level 'commited' binding
