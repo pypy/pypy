@@ -49,6 +49,7 @@ class address(object):
 
     def _store(self, fmt, *values):
         # XXX annoyance: suddenly an OffsetOf changes into a Signed?!
+        from pypy.rpython.memory.lltypelayout import convert_offset_to_int
         if len(values) == 1 and isinstance(values[0], llmemory.OffsetOf):
             values = [convert_offset_to_int(values[0])]
         simulator.setstruct(fmt, self.intaddress, *values)

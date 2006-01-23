@@ -102,15 +102,14 @@ def convert_offset_to_int(offset):
 def offsets_to_gc_pointers(TYPE):
     if isinstance(TYPE, lltype.Struct):
         offsets = []
-        layout = get_layout(TYPE)
         for name in TYPE._names:
             FIELD = getattr(TYPE, name)
             if (isinstance(FIELD, lltype.Ptr) and FIELD._needsgc() and
                 FIELD.TO is not lltype.PyObject):
-                offsets.append(layout[name])
+                offsets.append(llmemory.offsetof(TYPE, name))
             elif isinstance(FIELD, lltype.Struct):
                 suboffsets = offsets_to_gc_pointers(FIELD)
-                offsets += [s + layout[name] for s in suboffsets]
+                offsets += [s + llmemory.offsetof(TYPE, name) for s in suboffsets]
         return offsets
     return []
 
@@ -124,7 +123,7 @@ def varsize_offset_to_length(TYPE):
 def varsize_offsets_to_gcpointers_in_var_part(TYPE):
     if isinstance(TYPE, lltype.Array):
         if isinstance(TYPE.OF, lltype.Ptr):
-            return [0]
+            return [llmemory.OffsetOf(TYPE.OF)]
         elif isinstance(TYPE.OF, lltype.Struct):
             return offsets_to_gc_pointers(TYPE.OF)
         return []
