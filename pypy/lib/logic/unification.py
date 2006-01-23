@@ -230,14 +230,13 @@ class Store(object):
             self.in_transaction = False
 
     def _really_unify(self, x, y):
-        #FIXME in case of failure, the store state is not
-        #      properly restored ...
-        print "unify %s with %s" % (x,y)
+        # print "unify %s with %s" % (x,y)
         if not _unifiable(x, y): raise UnificationFailure(x, y)
         # dispatch to the apropriate unifier
         if not x in self.vars:
             if not y in self.vars:
                 if x != y: raise UnificationFailure(x, y)
+                else: return
             self._unify_var_val(y, x)
         elif not y in self.vars:
             self._unify_var_val(x, y)
@@ -249,12 +248,15 @@ class Store(object):
             self.bind(y,x)
 
     def _unify_var_val(self, x, y):
-        if x._is_bound(): raise UnificationFailure(x, y)
-        if x != y:
-            self.bind(x, y)
+        #if x._is_bound(): raise UnificationFailure(x, y)
+        if x.val != y:
+            try:
+                self.bind(x, y)
+            except AlreadyBound:
+                raise UnificationFailure(x, y)
         
     def _unify_bound(self, x, y):
-        print "unify bound %s %s" % (x, y)
+        # print "unify bound %s %s" % (x, y)
         vx, vy = (x.val, y.val)
         if type(vx) in [list, set] and isinstance(vy, type(vx)):
             self._unify_iterable(x, y)
@@ -264,7 +266,7 @@ class Store(object):
             raise UnificationFailure(x, y)
 
     def _unify_iterable(self, x, y):
-        print "unify sequences %s %s" % (x, y)
+        # print "unify sequences %s %s" % (x, y)
         vx, vy = (x.val, y.val)
         idx, top = (0, len(vx))
         while (idx < top):
@@ -272,7 +274,7 @@ class Store(object):
             idx += 1
 
     def _unify_mapping(self, x, y):
-        print "unify mappings %s %s" % (x, y)
+        # print "unify mappings %s %s" % (x, y)
         vx, vy = (x.val, y.val)
         for xk in vx.keys():
             self._really_unify(vx[xk], vy[xk])
@@ -298,7 +300,7 @@ def _really_unifiable(term1, term2):
     """Checks wether two terms can be unified"""
     if ((id(term1), id(term2))) in _unifiable_memo: return False
     _unifiable_memo.add((id(term1), id(term2)))
-    print "unifiable ? %s %s" % (term1, term2)
+    # print "unifiable ? %s %s" % (term1, term2)
     if _iterable(term1):
         if _iterable(term2):
             return _iterable_unifiable(term1, term2)
@@ -311,7 +313,7 @@ def _really_unifiable(term1, term2):
         
 def _iterable_unifiable(c1, c2):
    """Checks wether two iterables can be unified"""
-   print "unifiable sequences ? %s %s" % (c1, c2)
+   # print "unifiable sequences ? %s %s" % (c1, c2)
    if len(c1) != len(c2): return False
    idx, top = (0, len(c1))
    while(idx < top):
@@ -322,7 +324,7 @@ def _iterable_unifiable(c1, c2):
 
 def _mapping_unifiable(m1, m2):
     """Checks wether two mappings can be unified"""
-    print "unifiable mappings ? %s %s" % (m1, m2)
+    # print "unifiable mappings ? %s %s" % (m1, m2)
     if len(m1) != len(m2): return False
     if m1.keys() != m2.keys(): return False
     v1, v2 = (m1.items(), m2.items())

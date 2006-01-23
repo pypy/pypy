@@ -45,6 +45,21 @@ class TestUnification:
         assert y.val == 42
         assert z.val == 3.14
 
+    def test_unify_same(self):
+        x,y,z = (u.var('x'), u.var('y'), u.var('z'))
+        u.bind(x, [42, z])
+        u.bind(y, [z, 42])
+        u.unify(x, y)
+        assert z.val == 42
+
+    def test_unify_values(self):
+        x, y = u.var('x'), u.var('y')
+        u.bind(x, [1, 2, 3])
+        u.bind(y, [1, 2, 3])
+        u.unify(x, y)
+        assert x.val == [1, 2, 3]
+        assert y.val == [1, 2, 3]
+
     def test_unify_lists_success(self):
         x,y,z,w = (u.var('x'), u.var('y'),
                    u.var('z'), u.var('w'))
@@ -159,6 +174,32 @@ class TestUnification:
                (t1.raised and not t2.raised)
     
 
+    def test_threads_unifying_vars(self):
+        x, y, z = u.var('x'), u.var('y'), u.var('z')
+        l1 = range(999)
+        l2 = range(999)
+        l1[-1] = z
+        l2[0] = z
+        l2[-1] = 0
+        u.bind(x, l1)
+        u.bind(y, l2)
 
+        def do_unify(thread, v1, v2):
+            thread.raised = False
+            print thread
+            try:
+                u.unify(v1, v2)
+            except u.UnificationFailure:
+                thread.raised = True
+            print thread
 
+        t1, t2 = (FunThread(do_unify, x, y),
+                  FunThread(do_unify, x, y))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        assert z.val == 0
+        assert (t2.raised and not t1.raised) or \
+               (t1.raised and not t2.raised)
             
