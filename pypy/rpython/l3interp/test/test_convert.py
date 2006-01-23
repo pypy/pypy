@@ -40,7 +40,7 @@ def test_convert_branch():
     assert isinstance(result, l3interp.L3Integer)
     assert result.intval == 1
     
-def dont_test_convert_getfield():
+def test_convert_getfield():
     class C:
         def __init__(self, x):
             self.x = x

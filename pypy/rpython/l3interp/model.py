@@ -1,6 +1,5 @@
-from pypy.rpython.memory import lladdress
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 very_low_level_ops = [
     'nop',
@@ -87,7 +86,7 @@ del i, op
 
 
 primitives = [lltype.Signed, lltype.Unsigned, lltype.Float, lltype.Char,
-              lltype.UniChar, lladdress.Address, lltype.Void]
+              lltype.UniChar, llmemory.Address, lltype.Void]
 
 primitive_to_number = {}
 for i, p in enumerate(primitives):
@@ -113,6 +112,7 @@ class Block(object):
         self.constants_int = constants_int
         self.constants_dbl = constants_dbl
         self.constants_ptr = constants_ptr
+        
         self.constants_offset = constants_offset
         self.called_graphs = called_graphs
 

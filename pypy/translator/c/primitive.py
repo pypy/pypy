@@ -1,6 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.lltypesystem.llmemory import Address, Offset
 from pypy.rpython.memory.lladdress import NULL
 
 # ____________________________________________________________
@@ -58,7 +58,6 @@ def name_address(value):
     assert value == NULL
     return 'NULL' 
 
-
 PrimitiveName = {
     Signed:   name_signed,
     SignedLongLong:   name_signedlonglong,
@@ -83,6 +82,7 @@ PrimitiveType = {
     Bool:     'char @',
     Void:     'void @',
     Address:  'void* @',
+    Offset:   'long @',
     }
 
 PrimitiveErrorValue = {
@@ -96,4 +96,5 @@ PrimitiveErrorValue = {
     Bool:     '((char) -1)',
     Void:     '/* error */',
     Address:  'NULL',
+    Offset:   '0',
     }

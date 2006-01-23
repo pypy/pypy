@@ -3,7 +3,7 @@ from pypy.rpython.l3interp import model
 from pypy.rpython.l3interp.model import Op
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.memory.lladdress import OffsetOf, fakeaddress
+from pypy.rpython.lltypesystem.llmemory import OffsetOf, fakeaddress
 
 
 class LL2L3Converter(object):

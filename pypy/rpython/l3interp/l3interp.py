@@ -2,6 +2,8 @@ from pypy.rpython.l3interp import model
 from pypy.rpython.memory import lladdress
 from pypy.rpython.rarithmetic import r_uint
 from pypy.interpreter.miscutils import InitializedClass
+from pypy.rpython.lltypesystem.llmemory import fakeaddress, OffsetOf
+from pypy.rpython.lltypesystem import lltype
 
 class L3Exception(Exception):
     pass
@@ -40,11 +42,20 @@ def l3interpret(graph, args_int, args_dbl, args_ptr):
         return L3Pointer(args_ptr.pop())
     raise AssertionError("stacks corrupted")
 
+constant_offset = OffsetOf(lltype.Void)
+constant_fakeaddress = fakeaddress(None)
+
 class L3Frame(object):
     
     def __init__(self, graph, stack_int, stack_dbl, stack_ptr):
         self.graph = graph
         self.block = self.graph.startblock
+        if self.block.constants_ptr is None:
+            self.block.constants_ptr = [constant_fakeaddress]
+            self.block.constants_ptr = None
+        if self.block.constants_offset is None:
+            self.block.constants_offset = [constant_offset]
+            self.block.constants_offset = None
         self.i = 0
         self.stack_int = stack_int
         self.stack_dbl = stack_dbl
@@ -140,7 +151,7 @@ class L3Frame(object):
         self.stack_dbl.append(x)
         raise L3Return
 
-    def op_ptr_return(self):
+    def op_adr_return(self):
         x = self.getptr()
         self.restorestacks()
         self.stack_ptr.append(x)
@@ -169,10 +180,13 @@ class L3Frame(object):
         else:
             self.stack_int.append(0)
 
-    def later_op_getfield_int(self):
+    def op_getfield_int(self):
         p = self.getptr()
         o = self.getoffset()
         self.stack_int.append((p + o).signed[0])
+
+    def op_flavored_malloc(self):
+        self.stack_ptr.append(constant_fakeaddress)
 
     def op_direct_call(self):
         block = self.block

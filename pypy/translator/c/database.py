@@ -2,6 +2,8 @@ from pypy.rpython.lltypesystem.lltype import \
      Primitive, Ptr, typeOf, RuntimeTypeInfo, \
      Struct, Array, FuncType, PyObject, Void, \
      ContainerType, OpaqueType
+from pypy.rpython.lltypesystem.llmemory import Offset, Address
+from pypy.rpython.memory.lladdress import NULL
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
@@ -119,7 +121,19 @@ class LowLevelDatabase:
                 raise Exception("don't know about %r" % (T,))
         else:
             T = typeOf(obj)
-            if isinstance(T, Primitive):
+            if T is Offset:
+                assert len(obj.fldnames) <= 1
+                if len(obj.fldnames) == 0:
+                    return '0 /*offsetof*/'
+                else:
+                    return 'offsetof(%s, %s)'%(
+                        self.gettype(obj.TYPE), obj.fldnames[0])
+            elif T is Address and obj is not NULL:
+                if obj.ob is None:
+                    return 'NULL'
+                else:
+                    return self.get(obj.ob)
+            elif isinstance(T, Primitive):
                 return PrimitiveName[T](obj)
             elif isinstance(T, Ptr):
                 if obj:   # test if the ptr is non-NULL
