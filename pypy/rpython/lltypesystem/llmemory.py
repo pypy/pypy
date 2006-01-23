@@ -18,7 +18,7 @@ class OffsetOf(Symbolic):
         return model.SomeOffset()
 
     def lltype(self):
-        return Offset
+        return lltype.Signed
 
     def __repr__(self):
         return "<OffsetOf %r %r>" % (self.TYPE, self.fldnames)
@@ -31,8 +31,6 @@ class OffsetOf(Symbolic):
             t = t._flds[f]
         assert t == other.TYPE
         return OffsetOf(self.TYPE, *(self.fldnames + other.fldnames))
-
-Offset = lltype.Primitive("Offset", OffsetOf(lltype.Void))
 
 def sizeof(TYPE, n=None):
     pass

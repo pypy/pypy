@@ -514,6 +514,7 @@ from pypy.rpython.ootypesystem import ootype
 annotation_to_ll_map = [
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (SomeBool(), lltype.Bool),
+    (SomeOffset(), lltype.Signed),
     (SomeInteger(), lltype.Signed),
     (SomeInteger(size=2), lltype.SignedLongLong),    
     (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
@@ -522,7 +523,6 @@ annotation_to_ll_map = [
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
-    (SomeOffset(), llmemory.Offset),
 ]
 
 def annotation_to_lltype(s_val, info=None):

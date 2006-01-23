@@ -1,33 +1,43 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem.llmemory import Address, Offset
+from pypy.rpython.lltypesystem.llmemory import Address, OffsetOf, fakeaddress
 from pypy.rpython.memory.lladdress import NULL
 
 # ____________________________________________________________
 #
 # Primitives
 
-def name_signed(value):
+def name_signed(value, db):
+    if isinstance(value, Symbolic):
+        assert isinstance(value, OffsetOf)
+        assert len(value.fldnames) <= 1
+        if len(value.fldnames) == 0:
+            return '0 /*offsetof*/'
+        else:
+            structnode = db.gettypedefnode(value.TYPE.TO)
+            return 'offsetof(struct %s, %s)'%(
+                structnode.name,
+                structnode.c_struct_field_name(value.fldnames[0]))
     if value == -sys.maxint-1:   # blame C
         return '(-%dL-1L)' % sys.maxint
     else:
         return '%dL' % value
 
-def name_unsigned(value):
+def name_unsigned(value, db):
     assert value >= 0
     return '%dUL' % value
 
-def name_unsignedlonglong(value):
+def name_unsignedlonglong(value, db):
     assert value >= 0
     return '%dULL' % value
 
-def name_signedlonglong(value):
+def name_signedlonglong(value, db):
     return '%dLL' % value
 
 def isinf(x):
     return x != 0.0 and x / 2 == x
 
-def name_float(value):
+def name_float(value, db):
     if isinf(value):
         if value > 0:
             return '(Py_HUGE_VAL)'
@@ -36,27 +46,31 @@ def name_float(value):
     else:
         return repr(value)
 
-def name_char(value):
+def name_char(value, db):
     assert type(value) is str and len(value) == 1
     if ' ' <= value < '\x7f':
         return "'%s'" % (value.replace("\\", r"\\").replace("'", r"\'"),)
     else:
         return '%d' % ord(value)
 
-def name_bool(value):
+def name_bool(value, db):
     return '%d' % value
 
-def name_void(value):
+def name_void(value, db):
     return '/* nothing */'
 
-def name_unichar(value):
+def name_unichar(value, db):
     assert type(value) is unicode and len(value) == 1
     return '%d' % ord(value)
 
-def name_address(value):
-    # XXX this will need to change!
-    assert value == NULL
-    return 'NULL' 
+def name_address(value, db):
+    if value is NULL:
+        return 'NULL'
+    assert isinstance(value, fakeaddress)
+    if value.ob is None:
+        return 'NULL'
+    else:
+        return db.get(value.ob)
 
 PrimitiveName = {
     Signed:   name_signed,
@@ -82,7 +96,6 @@ PrimitiveType = {
     Bool:     'char @',
     Void:     'void @',
     Address:  'void* @',
-    Offset:   'long @',
     }
 
 PrimitiveErrorValue = {
@@ -96,5 +109,4 @@ PrimitiveErrorValue = {
     Bool:     '((char) -1)',
     Void:     '/* error */',
     Address:  'NULL',
-    Offset:   '0',
     }

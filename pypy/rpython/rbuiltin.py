@@ -381,7 +381,7 @@ BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
 
 def rtype_offsetof(hop):
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
-    return hop.inputconst(llmemory.Offset,
+    return hop.inputconst(lltype.Signed,
                           llmemory.offsetof(TYPE.value, field.value))
 
 BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
