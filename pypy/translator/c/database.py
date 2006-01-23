@@ -126,8 +126,10 @@ class LowLevelDatabase:
                 if len(obj.fldnames) == 0:
                     return '0 /*offsetof*/'
                 else:
-                    return 'offsetof(%s, %s)'%(
-                        self.gettype(obj.TYPE), obj.fldnames[0])
+                    structnode = self.gettypedefnode(obj.TYPE.TO)
+                    return 'offsetof(struct %s, %s)'%(
+                        structnode.name,
+                        structnode.c_struct_field_name(obj.fldnames[0]))
             elif T is Address and obj is not NULL:
                 if obj.ob is None:
                     return 'NULL'

@@ -50,6 +50,10 @@ class L3Frame(object):
     def __init__(self, graph, stack_int, stack_dbl, stack_ptr):
         self.graph = graph
         self.block = self.graph.startblock
+        # XXX aaaaaaaargh!
+        if self.block.constants_int is None:
+            self.block.constants_int = [0]
+            self.block.constants_int = None
         if self.block.constants_ptr is None:
             self.block.constants_ptr = [constant_fakeaddress]
             self.block.constants_ptr = None

@@ -121,3 +121,33 @@ def test_call_translated():
     fn = translate(eval_call, [int]) 
     assert fn(4) == 7 
     assert fn(0) == 3
+
+#----------------------------------------------------------------------
+
+from pypy.rpython.l3interp.test.test_convert import l3ify
+
+def test_getfield():
+    class C:
+        def __init__(self, x):
+            self.x = x
+    one = C(1)
+    two = C(2)
+
+    def f(n):
+        if n:
+            return one.x
+        else:
+            return two.x
+
+    l3graph = l3ify(f, [int])
+
+    def entry_point(x):
+        value = l3interp.l3interpret(l3graph, [x], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+
+    fn = translate(entry_point, [int])
+
+    assert fn(3) == f(3)
+    assert fn(0) == f(0)
+        

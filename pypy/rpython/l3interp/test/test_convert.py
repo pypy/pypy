@@ -7,7 +7,14 @@ def l3ify(f, inputargs):
     t.buildannotator().build_types(f, inputargs)
     t.buildrtyper().specialize()
     conv = convertgraph.LL2L3Converter()
-    return conv.convert_graph(t.graphs[0])
+    g = conv.convert_graph(t.graphs[0])
+    # XXX this vile, vile hack prevents the TranslationContext from
+    # being deallocated which leads to the vtables of certain
+    # important types (like object) going away, which is generally
+    # very, very confusing.
+    # XXX work out why, fix it
+    g.keepthislotalive = t
+    return g
 
 
 def test_convert_add():
