@@ -1,6 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.memory.lladdress import Address, NULL
+from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.memory.lladdress import NULL
 
 # ____________________________________________________________
 #
@@ -53,6 +54,7 @@ def name_unichar(value):
     return '%d' % ord(value)
 
 def name_address(value):
+    # XXX this will need to change!
     assert value == NULL
     return 'NULL' 
 

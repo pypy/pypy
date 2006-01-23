@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.objectmodel import FREED_OBJECT
@@ -543,12 +543,12 @@ class LLFrame(object):
         return lladdress.raw_malloc(size)
 
     def op_raw_free(self, addr):
-        assert self.llt.typeOf(addr) == lladdress.Address
+        assert self.llt.typeOf(addr) == llmemory.Address
         lladdress.raw_free(addr)
 
     def op_raw_memcopy(self, fromaddr, toaddr, size):
-        assert self.llt.typeOf(fromaddr) == lladdress.Address
-        assert self.llt.typeOf(toaddr) == lladdress.Address
+        assert self.llt.typeOf(fromaddr) == llmemory.Address
+        assert self.llt.typeOf(toaddr) == llmemory.Address
         lladdress.raw_memcopy(fromaddr, toaddr, size)
 
     def op_raw_load(self, addr, typ, offset):

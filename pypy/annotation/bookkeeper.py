@@ -20,7 +20,7 @@ from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.memory import lladdress
 
@@ -361,6 +361,8 @@ class Bookkeeper:
         elif isinstance(x, lladdress.address):
             assert x is lladdress.NULL
             result= SomeAddress(is_null=True)
+        elif isinstance(x, llmemory.fakeaddress):
+            result = SomeAddress()
         elif isinstance(x, ootype._static_meth):
             result = SomeOOStaticMeth(ootype.typeOf(x))
         elif isinstance(x, ootype._class):

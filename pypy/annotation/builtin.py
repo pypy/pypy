@@ -504,10 +504,12 @@ BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
 #_________________________________
 # offsetof/sizeof
 
+from pypy.rpython.lltypesystem import llmemory 
+
 def offsetof(TYPE, fldname):
     return SomeOffset()
 
-BUILTIN_ANALYZERS[lladdress.offsetof] = offsetof
+BUILTIN_ANALYZERS[llmemory.offsetof] = offsetof
 
 
 #_________________________________

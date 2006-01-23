@@ -1,5 +1,4 @@
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.memory import lladdress
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 import struct
 
@@ -8,7 +7,7 @@ primitive_to_fmt = {lltype.Signed:          "l",
                     lltype.Char:            "c",
                     lltype.Bool:            "B",
                     lltype.Float:           "d",
-                    lladdress.Address:      "P",
+                    llmemory.Address:       "P",
                     }
 
 

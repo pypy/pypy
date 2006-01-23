@@ -1,8 +1,8 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
-from pypy.rpython.memory.lladdress import NULL, address, Address
+from pypy.rpython.memory.lladdress import NULL, address
 from pypy.rpython.memory.support import AddressLinkedList
 from pypy.rpython.memory import lltypesimulation
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import free_non_gc_object
 
 import sys
@@ -27,7 +27,7 @@ def get_dummy_annotate(gc_class):
 gc_interface = {
     "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed),
     "collect": lltype.FuncType((), lltype.Void),
-    "write_barrier": lltype.FuncType((Address, ) * 3, lltype.Void),
+    "write_barrier": lltype.FuncType((llmemory.Address, ) * 3, lltype.Void),
     }
 
 def dummy_get_roots1():

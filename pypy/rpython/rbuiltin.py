@@ -361,17 +361,18 @@ update_exttable()
 # memory addresses
 
 from pypy.rpython.memory import lladdress
+from pypy.rpython.lltypesystem import llmemory
 
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
-    return hop.genop('raw_malloc', [v_size], resulttype=lladdress.Address)
+    return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
 
 def rtype_raw_free(hop):
-    v_addr, = hop.inputargs(lladdress.Address)
+    v_addr, = hop.inputargs(llmemory.Address)
     return hop.genop('raw_free', [v_addr])
 
 def rtype_raw_memcopy(hop):
-    v_list = hop.inputargs(lladdress.Address, lladdress.Address, lltype.Signed)
+    v_list = hop.inputargs(llmemory.Address, llmemory.Address, lltype.Signed)
     return hop.genop('raw_memcopy', v_list)
 
 BUILTIN_TYPER[lladdress.raw_malloc] = rtype_raw_malloc
@@ -379,11 +380,11 @@ BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
 BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
 
 def rtype_offsetof(hop):
-    from pypy.rpython.memory.lladdress import Offset
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
-    return hop.inputconst(Offset, lladdress.offsetof(TYPE.value, field.value))
+    return hop.inputconst(llmemory.Offset,
+                          llmemory.offsetof(TYPE.value, field.value))
 
-BUILTIN_TYPER[lladdress.offsetof] = rtype_offsetof
+BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 
 # _________________________________________________________________
 # non-gc objects

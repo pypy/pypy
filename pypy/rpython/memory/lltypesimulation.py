@@ -4,7 +4,7 @@ from pypy.rpython.memory.lltypelayout import get_layout, get_fixed_size
 from pypy.rpython.memory.lltypelayout import get_variable_size, sizeof
 from pypy.rpython.memory.lltypelayout import primitive_to_fmt
 from pypy.rpython.memory import lladdress
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 log = py.log.Producer("lltypesim")
 
@@ -15,7 +15,7 @@ def _expose(T, address):
         return simulatorptr(lltype.Ptr(T), address)
     elif T == lltype.Bool:
         return bool(address._load(primitive_to_fmt[T])[0])
-    elif T == lladdress.Address:
+    elif T == llmemory.Address:
         return (self._address + offset).address[0]
     elif isinstance(T, lltype.Primitive):
         return address._load(primitive_to_fmt[T])[0]
@@ -63,7 +63,7 @@ class simulatorptr(object):
                 if isinstance(T, lltype.Primitive):
                     if T == lltype.Void:
                         return None
-                    elif T == lladdress.Address:
+                    elif T == llmemory.Address:
                         return (self._address + offset).address[0]
                     res = (self._address + offset)._load(primitive_to_fmt[T])[0]
                     if T == lltype.Bool:
@@ -92,7 +92,7 @@ class simulatorptr(object):
                 if isinstance(T, lltype.Primitive):
                     if T == lltype.Void:
                         return
-                    if T == lladdress.Address:
+                    if T == llmemory.Address:
                         (self._address + offset).address[0] = value
                     else:
                         (self._address + offset)._store(primitive_to_fmt[T],

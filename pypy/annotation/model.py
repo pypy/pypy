@@ -442,7 +442,7 @@ s_ImpossibleValue = SomeImpossibleValue()
 # ____________________________________________________________
 # memory addresses
 
-from pypy.rpython.memory import lladdress
+from pypy.rpython.lltypesystem import llmemory
 
 class SomeAddress(SomeObject):
     immutable = True
@@ -521,8 +521,8 @@ annotation_to_ll_map = [
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
-    (SomeAddress(), lladdress.Address),
-    (SomeOffset(), lladdress.Offset),
+    (SomeAddress(), llmemory.Address),
+    (SomeOffset(), llmemory.Offset),
 ]
 
 def annotation_to_lltype(s_val, info=None):

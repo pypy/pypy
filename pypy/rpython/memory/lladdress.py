@@ -1,7 +1,8 @@
 import struct
 from pypy.rpython.memory.simulator import MemorySimulator, MemorySimulatorError
 from pypy.rpython.rarithmetic import r_uint
-
+from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython.lltypesystem import lltype
 
 class address(object):
     def __new__(cls, intaddress=0):
@@ -108,85 +109,10 @@ def get_address_of_object(obj):
 def get_py_object(address):
     return simulator.get_py_object(address.intaddress)
 
-
-from pypy.rpython.lltypesystem import lltype
-Address = lltype.Primitive("Address", NULL)
-
-address._TYPE = Address
+address._TYPE = llmemory.Address
 
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,
                           "char":      lltype.Char,
-                          "address":   Address,
+                          "address":   llmemory.Address,
                           }
-
-# sizeof, offsetof
-
-from pypy.rpython.objectmodel import Symbolic
-
-class OffsetOf(Symbolic):
-
-    def __init__(self, TYPE, *fldnames):
-        self.TYPE = TYPE
-        self.fldnames = fldnames
-
-    def annotation(self):
-        from pypy.annotation import model
-        return model.SomeOffset()
-
-    def lltype(self):
-        return Offset
-
-    def __repr__(self):
-        return "<OffsetOf %r %r>" % (self.TYPE, self.fldnames)
-
-    def __add__(self, other):
-        if not isinstance(other, OffsetOf):
-            return NotImplemented
-        t = self.TYPE
-        for f in self.fldnames:
-            t = t._flds[f]
-        assert t == other.TYPE
-        return OffsetOf(self.TYPE, *(self.fldnames + other.fldnames))
-
-Offset = lltype.Primitive("Offset", OffsetOf(lltype.Void))
-
-def sizeof(TYPE, n=None):
-    pass
-
-def offsetof(TYPE, fldname):
-    assert fldname in TYPE._flds
-    return OffsetOf(TYPE, fldname)
-
-def itemoffsetof(TYPE, n=None):
-    pass
-
-class fakeaddress(object):
-    def __init__(self, ob, offset=None):
-        self.ob = ob
-        if offset is None:
-            self.offset = OffsetOf(self.ob._TYPE)
-        else:
-            self.offset = offset
-
-    def __add__(self, other):
-        if not isinstance(other, OffsetOf):
-            return NotImplemented
-        return fakeaddress(self.ob, self.offset + other)
-    
-class _fakeaccessor(object):
-    def __init__(self, addr):
-        self.addr = addr
-    def __getitem__(self, index):
-        assert index == 0
-        ob = self.addr.ob
-        for n in self.addr.offset.fldnames:
-            ob = getattr(ob, n)
-        # XXX will need to do pointers differently!
-        assert lltype.typeOf(ob) == self.TYPE 
-        return ob
-        
-class _signed_fakeaccessor(_fakeaccessor):
-    TYPE = lltype.Signed
-
-fakeaddress.signed = property(_signed_fakeaccessor)

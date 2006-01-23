@@ -9,7 +9,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.lladdress import address, NULL
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
-from pypy.rpython.memory.lladdress import Address
+from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory.test.test_llinterpsim import interpret
 
@@ -114,7 +114,7 @@ class TestAddressAnnotation(object):
 
     def test_simple_offsetof(self):
         from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.memory.lladdress import offsetof
+        from pypy.rpython.lltypesystem.llmemory import offsetof
         S = lltype.GcStruct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         def f():
             return offsetof(S, 'x')
@@ -133,7 +133,7 @@ class TestAddressAnnotation(object):
 
     def test_offset_addition(self):
         from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.memory.lladdress import offsetof
+        from pypy.rpython.lltypesystem.llmemory import offsetof
         S = lltype.Struct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         T = lltype.GcStruct('T', ('r', lltype.Float), ('s1', S), ('s2', S))
         def f():
@@ -244,7 +244,7 @@ class TestAddressRTyping(object):
 
     def test_simple_offsetof(self):
         from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.memory.lladdress import offsetof
+        from pypy.rpython.lltypesystem.llmemory import offsetof
         S = lltype.GcStruct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         def f():
             return offsetof(S, 'x')
@@ -265,7 +265,7 @@ class TestAddressRTyping(object):
 
     def test_offset_addition(self):
         from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.memory.lladdress import offsetof
+        from pypy.rpython.lltypesystem.llmemory import offsetof
         S = lltype.Struct('S', ('x', lltype.Bool), ('y', lltype.Signed))
         T = lltype.GcStruct('T', ('r', lltype.Float), ('s1', S), ('s2', S))
         def f():

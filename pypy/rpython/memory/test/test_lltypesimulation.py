@@ -331,7 +331,7 @@ def test_pointer_equality():
     assert not s0.a != s0.a
     
 def test_struct_with_address():
-    S = lltype.GcStruct("s", ('a', lladdress.Address))
+    S = lltype.GcStruct("s", ('a', llmemory.Address))
     s = malloc(S)
     s.a = lladdress.NULL
     assert s.a == lladdress.NULL
