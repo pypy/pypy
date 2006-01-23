@@ -33,6 +33,10 @@ class Stack(RootStack):
     def pop(self):
         return self.items.pop()
 
+    def drop(self, n):
+        if n > 0:
+            del self.items[-n:]
+
     def top(self, position=0):
         """'position' is 0 for the top of the stack, 1 for the item below,
         and so on.  It must not be negative."""
@@ -83,6 +87,12 @@ class FixedStack(RootStack):
         self.items[ptr] = None
         self.ptr = ptr
         return ret
+
+    def drop(self, n):
+        while n > 0:
+            n -= 1
+            self.ptr -= 1
+            self.items[self.ptr] = None
 
     def top(self, position=0):
         # for a fixed stack, we assume correct indices

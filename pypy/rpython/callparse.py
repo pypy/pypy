@@ -8,28 +8,6 @@ class CallPatternTooComplex(TyperError):
     pass
 
 
-# for parsing call arguments
-class RPythonCallsSpace:
-    """Pseudo Object Space providing almost no real operation.
-    For the Arguments class: if it really needs other operations, it means
-    that the call pattern is too complex for R-Python.
-    """
-    def newtuple(self, items):
-        return NewTupleHolder(items)
-
-    def newdict(self, stuff):
-        raise CallPatternTooComplex, "'**' argument"
-
-    def unpackiterable(self, it, expected_length=None):
-        if it.is_tuple():
-            items = it.items()
-            if (expected_length is not None and
-                expected_length != len(items)):
-                raise ValueError
-            return items
-        raise CallPatternTooComplex, "'*' argument must be a tuple"
-
-
 def getrinputs(rtyper, graph):
     """Return the list of reprs of the input arguments to the 'graph'."""
     return [rtyper.bindingrepr(v) for v in graph.getargs()]
@@ -69,7 +47,7 @@ def callparse(rtyper, graph, hop, opname):
     try:
         holders = arguments.match_signature(signature, defs_h)
     except ArgErr, e:
-        raise TyperError, "signature mismatch: %s" % e.getmsg(arguments, graph.name)
+        raise TyperError, "signature mismatch: %s" % e.getmsg(graph.name)
 
     assert len(holders) == len(rinputs), "argument parsing mismatch"
     vlist = []
@@ -171,3 +149,32 @@ class ItemHolder(Holder):
         r_tup, v_tuple = self.holder.access(hop)
         v = r_tup.getitem(hop, v_tuple, index)
         return hop.llops.convertvar(v, r_tup.items_r[index], repr)
+
+# for parsing call arguments
+class RPythonCallsSpace:
+    """Pseudo Object Space providing almost no real operation.
+    For the Arguments class: if it really needs other operations, it means
+    that the call pattern is too complex for R-Python.
+    """
+    w_tuple = NewTupleHolder
+    def newtuple(self, items):
+        return NewTupleHolder(items)
+
+    def newdict(self, stuff):
+        raise CallPatternTooComplex, "'**' argument"
+
+    def unpackiterable(self, it, expected_length=None):
+        if it.is_tuple():
+            items = it.items()
+            if (expected_length is not None and
+                expected_length != len(items)):
+                raise ValueError
+            return items
+        raise CallPatternTooComplex, "'*' argument must be a tuple"
+
+    def is_w(self, one, other):
+        return one is other
+
+    def type(self, item):
+        return type(item)
+    

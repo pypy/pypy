@@ -832,19 +832,18 @@ class PyFlowGraph(FlowGraph):
             argcount = argcount - 1
         # was return new.code, now we just return the parameters and let
         # the caller create the code object
-        # XXX _code_new_w itself is not really annotable
-        return PyCode(self.space)._code_new_w( argcount, nlocals,
-                                               self.stacksize, self.flags,
-                                               self.lnotab.getCode(),
-                                               self.getConsts(),
-                                               self.names,
-                                               self.varnames,
-                                               self.filename, self.name,
-                                               self.firstline,
-                                               self.lnotab.getTable(),
-                                               self.freevars,
-                                               self.cellvars
-                                               )
+        return PyCode( self.space, argcount, nlocals,
+                       self.stacksize, self.flags,
+                       self.lnotab.getCode(),
+                       self.getConsts(),
+                       self.names,
+                       self.varnames,
+                       self.filename, self.name,
+                       self.firstline,
+                       self.lnotab.getTable(),
+                       self.freevars,
+                       self.cellvars
+                       )
 
     def getConsts(self):
         """Return a tuple for the const slot of the code object

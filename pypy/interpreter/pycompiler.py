@@ -142,7 +142,7 @@ class CPythonCompiler(PyCodeCompiler):
         except TypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(str(e)))
         from pypy.interpreter.pycode import PyCode
-        return PyCode(space)._from_code(c)
+        return PyCode._from_code(space, c)
     compile._annspecialcase_ = "override:cpy_compile"
 
     def _warn_explicit(self, message, category, filename, lineno,

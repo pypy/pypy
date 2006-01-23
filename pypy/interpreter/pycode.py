@@ -4,7 +4,8 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis
+import dis, imp, struct, types
+
 from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
@@ -45,6 +46,7 @@ def cpython_code_signature(code):
         kwargname = None
     return argnames, varargname, kwargname
 
+cpython_magic, = struct.unpack("<i", imp.get_magic())
 
 NESTED    = 1
 GENERATOR = 2
@@ -58,7 +60,6 @@ def setup_frame_classes():
     from pypy.interpreter.generator import GeneratorFrame
 
     def fresh_GeneratorFrame_methods():
-        import types
         from pypy.tool.sourcetools import func_with_new_name
         dic = GeneratorFrame.__dict__.copy()
         for n in dic:
@@ -80,131 +81,19 @@ def setup_frame_classes():
 class PyCode(eval.Code):
     "CPython-style code objects."
 
-    magic = 62061 | 0x0a0d0000       # value for Python 2.4.1
-    
-    def __init__(self, space, co_name=''):
-        self.space = space
-        eval.Code.__init__(self, co_name)
-        self.co_argcount = 0         # #arguments, except *vararg and **kwarg
-        self.co_nlocals = 0          # #local variables
-        self.co_stacksize = 0        # #entries needed for evaluation stack
-        self.co_flags = 0            # CO_..., see above
-        self.co_code = None          # string: instruction opcodes
-        self.co_consts_w = []        # list of constants used (wrapped!)
-        self.co_names = []           # list of strings: names (for attrs..)
-        self.co_varnames = []        # list of strings: local variable names
-        self.co_freevars = []        # list of strings: free variable names
-        self.co_cellvars = []        # list of strings: cell variable names
-        # The rest doesn't count for hash/cmp
-        self.co_filename = ""        # string: where it was loaded from
-        #self.co_name (in base class)# string: name, for reference
-        self.co_firstlineno = 0      # first source line number
-        self.co_lnotab = ""          # string: encoding addr<->lineno mapping
-        self.hidden_applevel = False
-        self.do_fastcall = -1
-
-    def _code_new( self, argcount, nlocals, stacksize, flags,
-                   code, consts, names, varnames, filename,
-                   name, firstlineno, lnotab, freevars, cellvars,
-                   hidden_applevel=False, from_cpython=False):
-        """Initialize a new code objects from parameters from new.code"""
-        # simply try to suck in all attributes we know of
-        # with a lot of boring asserts to enforce type knowledge
-        # XXX get rid of that ASAP with a real compiler!
-        import types
-        x = argcount; assert isinstance(x, int)
-        self.co_argcount = x
-        x = nlocals; assert isinstance(x, int)
-        self.co_nlocals = x
-        x = stacksize; assert isinstance(x, int)
-        self.co_stacksize = x
-        x = flags; assert isinstance(x, int)
-        self.co_flags = x
-        x = code; assert isinstance(x, str)
-        self.co_code = x
-        #self.co_consts = <see below>
-        x = names; assert isinstance(x, tuple)
-        self.co_names = [ str(n) for n in x ]
-        x = varnames; assert isinstance(x, tuple)
-        self.co_varnames = [ str(n) for n in x ]
-        x = freevars; assert isinstance(x, tuple)
-        self.co_freevars = [ str(n) for n in x ]
-        x = cellvars; assert isinstance(x, tuple)
-        self.co_cellvars = [ str(n) for n in x ]
-        x = filename; assert isinstance(x, str)
-        self.co_filename = x
-        x = name; assert isinstance(x, str)
-        self.co_name = x
-        x = firstlineno; assert isinstance(x, int)
-        self.co_firstlineno = x
-        x = lnotab; assert isinstance(x, str)
-        self.co_lnotab = x
-        # recursively _from_code()-ify the code objects in code.co_consts
-        space = self.space
-        newconsts_w = []
-        for const in consts:
-            if isinstance(const, types.CodeType): # from stable compiler
-                const = PyCode(space)._from_code(const, hidden_applevel=hidden_applevel,
-                                                        from_cpython=from_cpython)
-            newconsts_w.append(space.wrap(const))
-        self.co_consts_w = newconsts_w
-        # stick the underlying CPython magic value, if the code object
-        # comes from there
-        if from_cpython:
-            import imp, struct
-            magic, = struct.unpack("<i", imp.get_magic())
-            if magic != self.magic:
-                self.magic = magic
-        self._compute_fastcall()
-        return self
-
-        
-    def _from_code(self, code, hidden_applevel=False, from_cpython=True):
-        """ Initialize the code object from a real (CPython) one.
-            This is just a hack, until we have our own compile.
-            At the moment, we just fake this.
-            This method is called by our compile builtin function.
-        """
-        self.hidden_applevel = hidden_applevel
-        import types
-        assert isinstance(code, types.CodeType)
-        self._code_new( code.co_argcount,
-                        code.co_nlocals,
-                        code.co_stacksize,
-                        code.co_flags,
-                        code.co_code,
-                        code.co_consts,
-                        code.co_names,
-                        code.co_varnames,
-                        code.co_filename,
-                        code.co_name,
-                        code.co_firstlineno,
-                        code.co_lnotab,
-                        code.co_freevars,
-                        code.co_cellvars,
-                        hidden_applevel,
-                        from_cpython )
-        return self
-
-
-
-    def _code_new_w( self, argcount, nlocals, stacksize, flags,
+    def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False):
+                     hidden_applevel=False, magic = 62061 | 0x0a0d0000): # value for Python 2.4.1
         """Initialize a new code objects from parameters given by
         the pypy compiler"""
-        # simply try to suck in all attributes we know of
-        # with a lot of boring asserts to enforce type knowledge
-        # XXX get rid of that ASAP with a real compiler!
-        import types
+        self.space = space
+        eval.Code.__init__(self, name)
         self.co_argcount = argcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
         self.co_flags = flags
         self.co_code = code
-##         for w in consts:
-##             assert isinstance(w,W_Root)
         self.co_consts_w = consts
         self.co_names = names
         self.co_varnames = varnames
@@ -214,9 +103,59 @@ class PyCode(eval.Code):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
+        self.hidden_applevel = hidden_applevel
+        self.magic = magic
         self._compute_fastcall()
-        return self
+        self._signature = cpython_code_signature(self)
 
+    def signature(self):
+        return self._signature
+    
+    def _from_code(space, code, hidden_applevel=False):
+        """ Initialize the code object from a real (CPython) one.
+            This is just a hack, until we have our own compile.
+            At the moment, we just fake this.
+            This method is called by our compile builtin function.
+        """
+        assert isinstance(code, types.CodeType)
+        newconsts_w = []
+        for const in code.co_consts:
+            if isinstance(const, types.CodeType): # from stable compiler
+                const = PyCode._from_code(space, const, hidden_applevel=hidden_applevel)
+
+            newconsts_w.append(space.wrap(const))
+        # stick the underlying CPython magic value, if the code object
+        # comes from there
+        return PyCode(space, code.co_argcount,
+                      code.co_nlocals,
+                      code.co_stacksize,
+                      code.co_flags,
+                      code.co_code,
+                      newconsts_w,
+                      list(code.co_names),
+                      list(code.co_varnames),
+                      code.co_filename,
+                      code.co_name,
+                      code.co_firstlineno,
+                      code.co_lnotab,
+                      list(code.co_freevars),
+                      list(code.co_cellvars),
+                      hidden_applevel, cpython_magic)
+
+    _from_code = staticmethod(_from_code)
+
+    def _code_new_w(space, argcount, nlocals, stacksize, flags,
+                    code, consts, names, varnames, filename,
+                    name, firstlineno, lnotab, freevars, cellvars,
+                    hidden_applevel=False):
+        """Initialize a new code objects from parameters given by
+        the pypy compiler"""
+        return PyCode(space, argcount, nlocals, stacksize, flags, code, consts,
+                      names, varnames, filename, name, firstlineno, lnotab,
+                      freevars, cellvars, hidden_applevel)
+
+    _code_new_w = staticmethod(_code_new_w)
+    
     def _compute_fastcall(self):
         # Speed hack!
         self.do_fastcall = -1
@@ -379,30 +318,26 @@ class PyCode(eval.Code):
                           w_varnames, filename, name, firstlineno,
                           lnotab, w_freevars=NoneNotWrapped,
                           w_cellvars=NoneNotWrapped):
-        code = space.allocate_instance(PyCode, w_subtype)
-        PyCode.__init__(code, space)
         if argcount < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("code: argcount must not be negative"))
-        code.co_argcount   = argcount
-        code.co_nlocals    = nlocals
         if nlocals < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("code: nlocals must not be negative"))        
-        code.co_stacksize  = stacksize 
-        code.co_flags      = flags 
-        code.co_code       = codestring 
-        code.co_consts_w   = space.unpacktuple(w_constants)
-        code.co_names      = unpack_str_tuple(space, w_names)
-        code.co_varnames   = unpack_str_tuple(space, w_varnames)
-        code.co_filename   = filename 
-        code.co_name       = name 
-        code.co_firstlineno= firstlineno 
-        code.co_lnotab     = lnotab 
+        consts_w   = space.unpacktuple(w_constants)
+        names      = unpack_str_tuple(space, w_names)
+        varnames   = unpack_str_tuple(space, w_varnames)
         if w_freevars is not None:
-            code.co_freevars = unpack_str_tuple(space, w_freevars)
+            freevars = unpack_str_tuple(space, w_freevars)
+        else:
+            freevars = []
         if w_cellvars is not None:
-            code.co_cellvars = unpack_str_tuple(space, w_cellvars)
+            cellvars = unpack_str_tuple(space, w_cellvars)
+        else:
+            cellvars = []
+        code = space.allocate_instance(PyCode, w_subtype)
+        PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w, names,
+                      varnames, filename, name, firstlineno, lnotab, freevars, cellvars)
         return space.wrap(code)
     descr_code__new__.unwrap_spec = unwrap_spec 
 

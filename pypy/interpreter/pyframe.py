@@ -80,7 +80,13 @@ class PyFrame(eval.EvalFrame):
         if len(scope_w) > len(self.fastlocals_w):
             raise ValueError, "new fastscope is longer than the allocated area"
         self.fastlocals_w[:len(scope_w)] = scope_w
-        
+        self.init_cells(len(scope_w))
+
+    def init_cells(self, numvars):
+        """Initialize cellvars from self.fastlocals_w
+        This is overridden in PyNestedScopeFrame"""
+        pass
+    
     def getclosure(self):
         return None
 

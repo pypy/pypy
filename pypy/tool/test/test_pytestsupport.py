@@ -13,7 +13,7 @@ def somefunc(x):
 
 def test_AppFrame(space):
     import sys
-    co = PyCode(space)._from_code(somefunc.func_code)
+    co = PyCode._from_code(space, somefunc.func_code)
     pyframe = PyFrame(space, co, space.newdict([]), None)
     runner = AppFrame(pyframe)
     exprinfo.run("f = lambda x: x+1", runner)

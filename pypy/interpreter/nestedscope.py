@@ -99,8 +99,7 @@ class PyNestedScopeFrame(PyInterpFrame):
             else:
                 cell.set(w_value)
 
-    def setfastscope(self, scope_w):
-        PyInterpFrame.setfastscope(self, scope_w)
+    def init_cells(self, num_vars):
         if self.pycode.co_cellvars:
             # the first few cell vars could shadow already-set arguments,
             # in the same order as they appear in co_varnames
@@ -109,10 +108,10 @@ class PyNestedScopeFrame(PyInterpFrame):
             cellvars = code.co_cellvars
             next     = 0
             nextname = cellvars[0]
-            for i in range(len(scope_w)):
+            for i in range(num_vars):
                 if argvars[i] == nextname:
                     # argument i has the same name as the next cell var
-                    w_value = scope_w[i]
+                    w_value = self.fastlocals_w[i]
                     self.cells[next] = Cell(w_value)
                     next += 1
                     try:

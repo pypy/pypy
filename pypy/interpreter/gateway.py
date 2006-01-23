@@ -312,9 +312,14 @@ class BuiltinCodeSignature(Signature):
             del d['setfastscope_UWS_%s' % label]
 
             self.miniglobals['OperationError'] = OperationError
+            self.miniglobals['os'] = os
             source = """if 1: 
                 def _run_UWS_%s(self):
-                    return self.behavior(%s)
+                    try:
+                        return self.behavior(%s)
+                    except MemoryError:
+                        os.write(2, 'Fail in _run() of ' + self.b_name + '\\n')
+                        raise
                 \n""" % (label, ','.join(self.run_args))
             exec compile2(source) in self.miniglobals, d
             d['_run'] = d['_run_UWS_%s' % label]
@@ -327,6 +332,7 @@ class BuiltinCodeSignature(Signature):
                 def create(self, space, code, w_globals):
                     newframe = frame_cls(space, code, w_globals)
                     newframe.behavior = self.behavior
+                    newframe.b_name = self.b_name
                     return newframe
 
             MyBuiltinFrameFactory.__name__ = 'BuiltinFrameFactory_UwS_%s' % label
@@ -339,6 +345,7 @@ class BuiltinCodeSignature(Signature):
         
         factory = frame_uw_factory_cls()
         factory.behavior = func
+        factory.b_name = func.__name__
 
         return factory
         
@@ -687,7 +694,7 @@ class ApplevelCache(SpaceCache):
 def build_applevel_dict(self, space):
     "NOT_RPYTHON"
     from pypy.interpreter.pycode import PyCode
-    pycode = PyCode(space)._from_code(self.code, hidden_applevel=self.hidden_applevel)
+    pycode = PyCode._from_code(space, self.code, hidden_applevel=self.hidden_applevel)
     w_glob = space.newdict([])
     space.setitem(w_glob, space.wrap('__name__'), space.wrap('__builtin__'))
     space.exec_(pycode, w_glob, w_glob)

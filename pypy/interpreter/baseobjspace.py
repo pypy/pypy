@@ -577,7 +577,7 @@ class ObjSpace(object):
         if isinstance(expression, str):
             expression = compile(expression, '?', 'eval')
         if isinstance(expression, types.CodeType):
-            expression = PyCode(self)._from_code(expression)
+            expression = PyCode._from_code(self, expression)
         if not isinstance(expression, PyCode):
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
@@ -589,7 +589,7 @@ class ObjSpace(object):
         if isinstance(statement, str):
             statement = compile(statement, '?', 'exec')
         if isinstance(statement, types.CodeType):
-            statement = PyCode(self)._from_code(statement)
+            statement = PyCode._from_code(self, statement)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         w_key = self.wrap('__builtins__')

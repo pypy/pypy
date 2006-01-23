@@ -634,6 +634,7 @@ class RPythonCallsSpace:
     For the Arguments class: if it really needs other operations, it means
     that the call pattern is too complex for R-Python.
     """
+    w_tuple = SomeTuple
     def newtuple(self, items_s):
         return SomeTuple(items_s)
 
@@ -647,6 +648,13 @@ class RPythonCallsSpace:
                 raise ValueError
             return s_obj.items
         raise CallPatternTooComplex, "'*' argument must be SomeTuple"
+
+    def is_w(self, one, other):
+        return one is other
+
+    def type(self, item):
+        return type(item)
+    
 
 class CallPatternTooComplex(Exception):
     pass
