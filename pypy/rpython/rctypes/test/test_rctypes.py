@@ -14,7 +14,7 @@ class Test_rctypes:
         if sys.platform == 'win32':
             mylib = cdll.LoadLibrary('msvcrt.dll')
         elif sys.platform == 'linux2':
-            mylib = cdll.LoadLibrary('libc')
+            mylib = cdll.LoadLibrary('libc.so.6')
         else:
             py.test.skip("don't know how to load the c lib for %s" % 
                           sys.platform)
