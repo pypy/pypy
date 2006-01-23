@@ -160,3 +160,33 @@ def offsetof(TYPE, fldname):
 
 def itemoffsetof(TYPE, n=None):
     pass
+
+class fakeaddress(object):
+    def __init__(self, ob, offset=None):
+        self.ob = ob
+        if offset is None:
+            self.offset = OffsetOf(self.ob._TYPE)
+        else:
+            self.offset = offset
+
+    def __add__(self, other):
+        if not isinstance(other, OffsetOf):
+            return NotImplemented
+        return fakeaddress(self.ob, self.offset + other)
+    
+class _fakeaccessor(object):
+    def __init__(self, addr):
+        self.addr = addr
+    def __getitem__(self, index):
+        assert index == 0
+        ob = self.addr.ob
+        for n in self.addr.offset.fldnames:
+            ob = getattr(ob, n)
+        # XXX will need to do pointers differently!
+        assert lltype.typeOf(ob) == self.TYPE 
+        return ob
+        
+class _signed_fakeaccessor(_fakeaccessor):
+    TYPE = lltype.Signed
+
+fakeaddress.signed = property(_signed_fakeaccessor)

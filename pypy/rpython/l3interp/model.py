@@ -41,7 +41,8 @@ very_low_level_ops = [
     'getarrayitem', 'getarraysize', 'getarraysubstruct', 'setarrayitem',
 
     #struct operations:
-    'getfield', 'getsubstruct', 'setfield', 
+    'getfield_int', 'getfield_char', 'getfield_dbl', 'getfield_ptr', 
+    'getsubstruct', 'setfield', 
 
     #integer operations:
     'int_abs', 'int_abs_ovf', 'int_add', 'int_add_ovf', 'int_and',
@@ -104,6 +105,7 @@ class Block(object):
                               constants_int=None,
                               constants_dbl=None,
                               constants_ptr=None,
+                              constants_offset=None,
                               called_graphs=None):
         self.insns = insns
         self.exit0 = exit0
@@ -111,6 +113,7 @@ class Block(object):
         self.constants_int = constants_int
         self.constants_dbl = constants_dbl
         self.constants_ptr = constants_ptr
+        self.constants_offset = constants_offset
         self.called_graphs = called_graphs
 
 class Link(object):

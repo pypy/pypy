@@ -3,6 +3,7 @@ from pypy.rpython.l3interp import model
 from pypy.rpython.l3interp.model import Op
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.memory.lladdress import OffsetOf, fakeaddress
 
 
 class LL2L3Converter(object):
@@ -32,6 +33,22 @@ def getkind(T):
     else:
         return 'ptr'
 
+def getaccesskind(T):
+    assert isinstance(T, lltype.LowLevelType)
+    if isinstance(T, lltype.Primitive):
+        if T == lltype.Float:
+            return 'dbl'
+        if T == lltype.Signed:
+            return 'int'
+        if T == lltype.Char:
+            return 'char'
+        elif T == lltype.Void:
+            raise Exception("accessing a Void value?")
+        else:
+            raise Exception("don't know how to acess %s value"%T)
+    else:
+        return 'ptr'
+
 def convert_block(block, memo):
     if block in memo:
         return memo[block]
@@ -41,7 +58,8 @@ def convert_block(block, memo):
                   'ptr': 0}
     constants = {'int': [],
                  'dbl': [],
-                 'ptr': []}
+                 'ptr': [],
+                 'offset':[]}
     var2stack = {}
 
     def push(v):
@@ -54,11 +72,15 @@ def convert_block(block, memo):
         kind = getkind(v.concretetype)
         if isinstance(v, flowmodel.Constant):
             clist = constants[kind]
+            if kind == 'ptr':
+                value = fakeaddress(v.value)
+            else:
+                value = v.value
             try:
-                res = clist.index(v.value)
+                res = clist.index(value)
             except ValueError:
                 res = len(clist)
-                clist.append(v.value)
+                clist.append(value)
             return res
         else:
             position = var2stack[v]
@@ -87,9 +109,25 @@ def convert_block(block, memo):
         return l3block
 
     for spaceop in block.operations:
-        insns.append(model.very_low_level_opcode[spaceop.opname])
-        for v in spaceop.args:
-            insns.append(get(v))
+        if spaceop.opname == 'getfield':
+            opname = spaceop.opname + '_' + \
+                     getaccesskind(spaceop.result.concretetype)
+            insns.append(model.very_low_level_opcode[opname])
+            v0, v1 = spaceop.args
+            insns.append(get(v0))
+
+            offset = OffsetOf(v0.concretetype, v1.value)
+            clist = constants['offset']
+            try:
+                res = clist.index(offset)
+            except ValueError:
+                res = len(clist)
+                clist.append(offset)
+            insns.append(res)
+        else:
+            insns.append(model.very_low_level_opcode[spaceop.opname])
+            for v in spaceop.args:
+                insns.append(get(v))
         if spaceop.result.concretetype is not lltype.Void:
             push(spaceop.result)
 
@@ -127,5 +165,6 @@ def convert_block(block, memo):
     if constants['int']: l3block.constants_int = constants['int']
     if constants['dbl']: l3block.constants_dbl = constants['dbl']
     if constants['ptr']: l3block.constants_ptr = constants['ptr']
+    if constants['offset']: l3block.constants_offset = constants['offset']
 
     return l3block

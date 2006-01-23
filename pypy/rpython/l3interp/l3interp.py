@@ -114,6 +114,11 @@ class L3Frame(object):
         if op >= 0: return self.block.constants_ptr[op]
         else:       return self.stack_ptr[op]
 
+    def getoffset(self):
+        op = self.nextop()
+        assert op >= 0
+        return self.block.constants_offset[op]
+
     def restorestacks(self):
         del self.stack_int[self.base_int:]
         del self.stack_dbl[self.base_dbl:]
@@ -163,6 +168,11 @@ class L3Frame(object):
             self.stack_int.append(1)
         else:
             self.stack_int.append(0)
+
+    def op_getfield_int(self):
+        p = self.getptr()
+        o = self.getoffset()
+        self.stack_int.append((p + o).signed[0])
 
     def op_direct_call(self):
         block = self.block

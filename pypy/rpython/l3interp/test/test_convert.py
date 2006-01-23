@@ -40,4 +40,24 @@ def test_convert_branch():
     assert isinstance(result, l3interp.L3Integer)
     assert result.intval == 1
     
-    
+def test_convert_getfield():
+    class C:
+        def __init__(self, x):
+            self.x = x
+    one = C(1)
+    two = C(2)
+
+    def f(n):
+        if n:
+            return one.x
+        else:
+            return two.x
+    l3graph = l3ify(f, [int])
+    result = l3interp.l3interpret(l3graph, [3], [], [])
+    assert isinstance(result, l3interp.L3Integer)
+    assert result.intval == 1
+
+    result = l3interp.l3interpret(l3graph, [0], [], [])
+    assert isinstance(result, l3interp.L3Integer)
+    assert result.intval == 2
+
