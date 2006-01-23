@@ -127,9 +127,9 @@ offset_repr = OffsetRepr()
 class __extend__(pairtype(OffsetRepr, OffsetRepr)):
     def rtype_add((r_offset1, r_offset2), hop):
         v_offset1, v_offset2 = hop.inputargs(offset_repr, offset_repr)
-        return hop.genop('offset_add', [v_offset1, v_offset2], resulttype=lltype.Signed)
+        return hop.genop('int_add', [v_offset1, v_offset2], resulttype=lltype.Signed)
 
 class __extend__(pairtype(AddressRepr, OffsetRepr)):
     def rtype_add((r_offset1, r_offset2), hop):
         v_offset1, v_offset2 = hop.inputargs(Address, offset_repr)
-        return hop.genop('adr_offset_add', [v_offset1, v_offset2], resulttype=Address)
+        return hop.genop('adr_add', [v_offset1, v_offset2], resulttype=Address)

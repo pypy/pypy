@@ -662,6 +662,14 @@ class LLFrame(object):
                 return func(x, y)
         """ % locals()).compile()
     
+    op_original_int_add = op_int_add
+
+    def op_int_add(self, x, y):
+        if isinstance(x, llmemory.OffsetOf):
+            return x + y
+        else:
+            return self.op_original_int_add(x, y)
+    
     def op_unichar_eq(self, x, y):
         assert isinstance(x, unicode) and len(x) == 1
         assert isinstance(y, unicode) and len(y) == 1
