@@ -63,14 +63,36 @@ class _fakeaccessor(object):
         ob = self.addr.ob
         for n in self.addr.offset.fldnames:
             ob = getattr(ob, n)
-        # XXX will need to do pointers differently!
-        assert lltype.typeOf(ob) == self.TYPE 
-        return ob
+        return self.vet(ob)
+
+    def __setitem__(self, index, value):
+        assert index == 0
+        ob = self.addr.ob
+        for n in self.addr.offset.fldnames[:-1]:
+            ob = getattr(ob, n)
+        fld = self.addr.offset.fldnames[-1]
+        assert lltype.typeOf(value) == self.TYPE
+        assert lltype.typeOf(ob).TO._flds[fld] == self.TYPE
+        setattr(ob, fld, value)
         
 class _signed_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Signed
 
+    def vet(self, value):
+        assert lltype.typeOf(value) == self.TYPE
+        return value
+
+class _address_fakeaccessor(_fakeaccessor):
+    TYPE = None
+
+    def vet(self, value):
+        # XXX is this the right check for "Ptr-ness" ?
+        assert isinstance(value, lltype._ptr)
+        return fakeaddress(value)
+
+
 fakeaddress.signed = property(_signed_fakeaccessor)
+fakeaddress.address = property(_address_fakeaccessor)
 
 Address = lltype.Primitive("Address", fakeaddress(None))
 

@@ -193,6 +193,11 @@ class L3Frame(object):
         o = self.getoffset()
         self.stack_int.append((p + o).signed[0])
 
+    def op_getfield_ptr(self):
+        p = self.getptr()
+        o = self.getoffset()
+        self.stack_ptr.append((p + o).address[0])
+
     def op_setfield_int(self):
         p = self.getptr()
         o = self.getoffset()

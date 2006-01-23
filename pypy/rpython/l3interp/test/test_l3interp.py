@@ -194,3 +194,47 @@ def test_setfield():
 
 
         
+def test_getfield_complex():
+    class C:
+        def __init__(self, x):
+            self.x = x
+    one = C(1)
+    two = C(2)
+
+    class D:
+        def __init__(self, c1, c2):
+            self.c1 = c1
+            self.c2 = c2
+
+    d1 = D(one, two)
+    d2 = D(two, one)
+
+    def f(n, m):
+        if n:
+            if m:
+                return d1.c1.x
+            else:
+                return d1.c2.x
+        else:
+            if m:
+                return d2.c1.x
+            else:
+                return d2.c2.x
+
+    l3graph = l3ify(f, [int, int])
+
+    def entry_point(x, y):
+        value = l3interp.l3interpret(l3graph, [x, y], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+
+    for x in 0, 1:
+        for y in 0, 1:
+            assert entry_point(x, y) == f(x, y)
+
+    fn = translate(entry_point, [int, int])
+
+    for x in 0, 1:
+        for y in 0, 1:
+            assert fn(x, y) == f(x, y)
+

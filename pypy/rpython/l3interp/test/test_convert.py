@@ -76,3 +76,13 @@ def test_convert_getfield():
     assert isinstance(result, l3interp.L3Integer)
     assert result.intval == 2
 
+def dont_test_call():
+    def f():
+        return 2
+    def g():
+        return f()
+    l3graph = l3ify(g, [])
+    result = l3interp.l3interpret(l3graph, [], [], [])
+    assert isinstance(result, l3interp.L3Integer)
+    assert result.intval == g()
+    
