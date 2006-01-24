@@ -298,6 +298,17 @@ class TestUnification:
         assert y.dom == c.FiniteDomain([2, 3])
         assert z.dom == c.FiniteDomain([3, 4])
         assert w.dom == c.FiniteDomain([1, 4, 5])
+        narrowed_doms = u.get_satisfying_domains(k1)
+        assert narrowed_doms == {x:c.FiniteDomain([5]),
+                                 y:c.FiniteDomain([2]),
+                                 z:c.FiniteDomain([3]),
+                                 w:c.FiniteDomain([4, 5])}
+        narrowed_doms = u.get_satisfying_domains(k2)
+        assert narrowed_doms == {x:c.FiniteDomain([5]),
+                                 y:c.FiniteDomain([2]),
+                                 z:c.FiniteDomain([3]),
+                                 w:c.FiniteDomain([4, 5])}
+
 
     def test_satisfy_many_const_failure(self):
         x,y,z,w = (u.var('x'), u.var('y'),
@@ -320,4 +331,9 @@ class TestUnification:
         assert y.dom == c.FiniteDomain([2, 3])
         assert z.dom == c.FiniteDomain([3, 4])
         assert w.dom == c.FiniteDomain([1])
+        narrowed_doms = u.get_satisfying_domains(k1)
+        assert narrowed_doms == {}
+        narrowed_doms = u.get_satisfying_domains(k2)
+        assert narrowed_doms == {}
+        
         

@@ -220,14 +220,8 @@ class Store(object):
         varset = set()
         constset = set()
         compute_dependant_vars(constraint, varset, constset)
-        old_domains = {}
-        for var in varset:
-            old_domains[var] = FiniteDomain(var.dom)
-
-        def restore_domains(domains):
-            for var, dom in domains.items():
-                var.dom = dom
-
+        old_domains = collect_domains(varset)
+        
         for const in constset:
             try:
                 const.narrow()
@@ -236,6 +230,27 @@ class Store(object):
                 return False
         restore_domains(old_domains)
         return True
+
+
+    def get_satisfying_domains(self, constraint):
+        assert constraint in self.constraints
+        varset = set()
+        constset = set()
+        compute_dependant_vars(constraint, varset, constset)
+        old_domains = collect_domains(varset)
+
+        for const in constset:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                return {}
+        narrowed_domains = collect_domains(varset)
+        restore_domains(old_domains)
+        return narrowed_domains
+
+    def satisfy(constraint):
+        pass
 
     #-- BIND -------------------------------------------
 
@@ -393,6 +408,25 @@ def compute_dependant_vars(constraint, varset,
             compute_dependant_vars(const, varset, constset)
 
 
+#-- collect / restore utilities for domains
+
+def collect_domains(varset):
+    """makes a copy of domains of a set of vars
+       into a var -> dom mapping
+    """
+    dom = {}
+    for var in varset:
+        dom[var] = FiniteDomain(var.dom)
+    return dom
+
+def restore_domains(domains):
+    """sets the domain of the vars in the domains mapping
+       to their (previous) value 
+    """
+    for var, dom in domains.items():
+        var.dom = dom
+
+
 #-- Unifiability checks---------------------------------------
 #--
 #-- quite costly & could be merged back in unify
@@ -474,6 +508,9 @@ def add_constraint(constraint):
 
 def satisfiable(constraint):
     return _store.satisfiable(constraint)
+
+def get_satisfying_domains(constraint):
+    return _store.get_satisfying_domains(constraint)
 
 def bind(var, val):
     return _store.bind(var, val)
