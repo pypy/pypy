@@ -22,8 +22,8 @@ def setup_module(mod):
 
         atoi = mylib.atoi
         atoi.restype = c_int
-        atoi.argstype = [c_char_p]
-        atoi.argstype = [POINTER(c_char)]
+        atoi.argtypes = [c_char_p]
+        atoi.argtypes = [POINTER(c_char)]
         def o_atoi(a):
            return atoi(a)
         mod.o_atoi = o_atoi
@@ -52,7 +52,7 @@ class Test_rctypes:
         t.buildrtyper().specialize()
         #d#t.view()
 
-    def x_test_compile_simple(self):
+    def test_compile_simple(self):
         fn = compile(o_atoi, [str])
         res = fn("42")
         assert res == 42

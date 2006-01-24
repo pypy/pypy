@@ -10,7 +10,14 @@ from pypy.rpython.lltypesystem.lltype import Signed
 
 c_int.annotator_type = SomeInteger()
 c_int.ll_type = Signed
-
+c_char_p.annotator_type = None
+c_char_p.ll_type = None
+c_char_p.wrap_arg = staticmethod(
+        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name )
+POINTER( c_char ).annotator_type = None
+POINTER( c_char ).ll_type = None
+POINTER( c_char ).wrap_arg = staticmethod(
+        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name )
 
 class FunctionPointerTranslation(object):
 
@@ -29,7 +36,15 @@ class FunctionPointerTranslation(object):
                          convert_params=self.convert_params) 
 
         def convert_params(self, backend, param_info_list):
-            raise NotImplementedError
+            assert "c" == backend.lower()
+            assert self.argtypes is not None
+            answer = []
+            for ctype_type, (ll_type, arg_name) in zip(self.argtypes, param_info_list):
+                if ll_type == ctype_type.ll_type:
+                    answer.append(arg_name)
+                else:
+                    answer.append(ctype_type.wrap_arg(ll_type, arg_name))
+            return answer
 
 
 class RCDLL(CDLL):
