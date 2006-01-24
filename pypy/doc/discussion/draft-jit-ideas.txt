@@ -90,6 +90,24 @@ and invent the operations while refactoring it.  The goal would be to
 replace all the explicit building of Graph, Block, Link, Operation and
 Variable with calls to such operations.
 
+Functions:
+
+* gengraph() -> (opaque start link object)
+
+* genblock([list-of-CONCRETE_TYPES-of-inputargs]) -> (opaque block object)
+
+* genop(block, opname, [list-of-vars], RESULT_CONCRETE_TYPE) -> (result var)
+
+* genconst(block, llvalue) -> (result var)
+
+* genlink(block, exitcase-or-None, [list-of-vars]) -> (opaque link object)
+
+* genreturnlink(block, return-var) -> (opaque link object)
+
+* closeblock(block, exitswitch-var-or-None)
+
+* closelink(link, block)
+
 
 L3 interpreter
 ~~~~~~~~~~~~~~~~~~~
