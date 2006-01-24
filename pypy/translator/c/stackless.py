@@ -7,7 +7,7 @@ with in http://codespeak.net/svn/user/arigo/hack/misc/stackless.c
 import py
 from pypy.objspace.flow.model import Variable
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.memory.lladdress import Address
+from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.module import ll_stack, ll_stackless
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.funcgen import FunctionCodeGenerator
