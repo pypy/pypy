@@ -89,12 +89,24 @@ class ArrayItemsOffset(AddressOffset):
 
 
 def sizeof(TYPE, n=None):
-    pass
-
+    if n is None:
+        assert not TYPE._is_varsize()
+        return ItemOffset(TYPE)
+    else:
+        if isinstance(TYPE, Array):
+            return itemoffsetof(TYPE, n)
+        elif isinstance(TYPE, Struct):
+            return FieldOffset(TYPE, TYPE._arrayfld) + \
+                   itemoffsetof(TYPE._flds[TYPE._arrayfld], n)
+        else:
+            raise Exception("don't know how to take the size of a %r"%TYPE)
+                   
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
     return FieldOffset(TYPE, fldname)
 
+def itemoffsetof(TYPE, n=0):
+    return ArrayItemsOffset(TYPE) + ItemOffset(TYPE.OF) * n
 # -------------------------------------------------------------
 
 class fakeaddress(object):
