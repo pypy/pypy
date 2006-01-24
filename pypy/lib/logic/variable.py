@@ -39,6 +39,8 @@ class Var(object):
         self._val = NoValue
         # domain
         self.dom = None
+        # constraints
+        self.constraints = set()
         # when updated in a 'transaction', keep track
         # of our initial value (for abort cases)
         self.previous = None
@@ -91,6 +93,10 @@ class Var(object):
 
     def __hash__(self):
         return self.name.__hash__()
+
+
+    def add_constraint(self, constraint):
+        self.constraints.add(constraint)
 
     #---- Concurrent public ops --------------------------
 

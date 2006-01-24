@@ -121,7 +121,7 @@
 import threading
 
 from variable import EqSet, Var, VariableException, NotAVariable
-from constraint import FiniteDomain
+from constraint import FiniteDomain, ConsistencyFailure
 
 #----------- Store Exceptions ----------------------------
 class UnboundVariable(VariableException):
@@ -196,10 +196,46 @@ class Store(object):
             raise AlreadyBound
         var.dom = FiniteDomain(dom)
     
-    #-- Add constraints -------------------------
+    #-- Constraints -------------------------
 
     def add_constraint(self, constraint):
         self.constraints.add(constraint)
+
+    def satisfiable(self, constraint):
+        """ * satisfiable (k) checks that the constraint k
+              can be satisfied wrt its variable domains
+              and other constraints on these variables
+            * does NOT mutate the store
+        """
+        # Satisfiability of one constraints entails
+        # satisfiability of the transitive closure
+        # of all constraints associated with the vars
+        # of our given constraint.
+        # We make a copy of the domains
+        # then traverse the constraints & attached vars
+        # to collect all (in)directly affected vars
+        # then compute narrow() on all (in)directly
+        # affected constraints.
+        assert constraint in self.constraints
+        varset = set()
+        constset = set()
+        compute_dependant_vars(constraint, varset, constset)
+        old_domains = {}
+        for var in varset:
+            old_domains[var] = FiniteDomain(var.dom)
+
+        def restore_domains(domains):
+            for var, dom in domains.items():
+                var.dom = dom
+
+        for const in constset:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                return False
+        restore_domains(old_domains)
+        return True
 
     #-- BIND -------------------------------------------
 
@@ -344,6 +380,19 @@ def _compatible_domains(var, eqs):
     return True
 
 
+def compute_dependant_vars(constraint, varset,
+                           constset):
+    if constraint in constset: return
+    constset.add(constraint)
+    for var in constraint.affectedVariables():
+        varset.add(var)
+        dep_consts = var.constraints
+        for const in dep_consts:
+            if const in constset:
+                continue
+            compute_dependant_vars(const, varset, constset)
+
+
 #-- Unifiability checks---------------------------------------
 #--
 #-- quite costly & could be merged back in unify
@@ -422,6 +471,9 @@ def set_domain(var, dom):
 
 def add_constraint(constraint):
     return _store.add_constraint(constraint)
+
+def satisfiable(constraint):
+    return _store.satisfiable(constraint)
 
 def bind(var, val):
     return _store.bind(var, val)

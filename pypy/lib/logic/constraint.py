@@ -124,6 +124,7 @@ class AbstractConstraint(object):
             if var.dom is None:
                 raise DomainlessVariables
             self._names_to_vars[var.name] = var
+            var.add_constraint(self)
         self._variables = variables
 
     def affectedVariables(self):
