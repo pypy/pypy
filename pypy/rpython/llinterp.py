@@ -665,11 +665,19 @@ class LLFrame(object):
     op_original_int_add = op_int_add
 
     def op_int_add(self, x, y):
-        if isinstance(x, llmemory.OffsetOf):
+        if isinstance(x, llmemory.AddressOffset):
             return x + y
         else:
             return self.op_original_int_add(x, y)
-    
+
+    op_original_int_mul = op_int_mul
+
+    def op_int_mul(self, x, y):
+        if isinstance(x, llmemory.AddressOffset):
+            return x * y
+        else:
+            return self.op_original_int_mul(x, y)
+
     def op_unichar_eq(self, x, y):
         assert isinstance(x, unicode) and len(x) == 1
         assert isinstance(y, unicode) and len(y) == 1
