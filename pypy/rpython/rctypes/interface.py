@@ -1,5 +1,5 @@
 from ctypes import _DLLS
-from implementation import RCDLL as CDLL, RWinDLL as WinDLL, c_int, c_char_p
+from implementation import RCDLL as CDLL, RWinDLL as WinDLL, c_int, c_char_p, c_char, POINTER
 
 cdll = _DLLS( CDLL )
 windll = _DLLS( WinDLL )
