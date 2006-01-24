@@ -1,4 +1,9 @@
-from ctypes import *
+from ctypes import _DLLS
+from implementation import RCDLL as CDLL, RWinDLL as WinDLL, c_int, c_char_p
+
+cdll = _DLLS( CDLL )
+windll = _DLLS( WinDLL )
+
 
 """
 Loading
