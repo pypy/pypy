@@ -252,7 +252,15 @@ class L3Frame(object):
         frame = L3Frame(graph, self.stack_int, self.stack_dbl, self.stack_ptr)
         frame.execute()
 
+    def op_malloc(self):
+        size = self.getoffset()
+        self.stack_ptr.append(malloc(size))
+        
     # ____________________________________________________________
+
+# XXX should this live here?
+def malloc(size):
+    return fakeaddress(lltype.malloc(size.TYPE))
 
 class L3Return(Exception):
     pass

@@ -511,6 +511,11 @@ def offsetof(TYPE, fldname):
 
 BUILTIN_ANALYZERS[llmemory.offsetof] = offsetof
 
+from pypy.rpython.l3interp import l3interp
+def l3malloc(size):
+    return SomeAddress()
+
+BUILTIN_ANALYZERS[l3interp.malloc] = l3malloc
 
 #_________________________________
 # external functions

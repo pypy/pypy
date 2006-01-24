@@ -75,6 +75,13 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 		memset((void*) r, 0, size);                                  \
   }
 
+/* as we said in rbuiltin.py: 
+# XXX this next little bit is a monstrous hack.  the Real Thing awaits
+# some kind of proper GC integration
+if GC integration has happened and this junk is still here, please delete it :)
+*/
+#define OP_CALL_BOEHM_GC_ALLOC(size, r, err) OP_BOEHM_ZERO_MALLOC(size, r, 0, 0, err)
+
 #undef PUSH_ALIVE
 #define PUSH_ALIVE(obj)
 

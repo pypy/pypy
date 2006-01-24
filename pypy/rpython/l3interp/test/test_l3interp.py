@@ -4,6 +4,7 @@ from pypy.rpython.l3interp.model import Op
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy
+from pypy.rpython.lltypesystem import lltype 
 
 def setup_module(mod):
     mod._cleanups = []
@@ -240,7 +241,6 @@ def test_getfield_complex():
 
 
 def test_getitem():
-    from pypy.rpython.lltypesystem import lltype 
 
     A = lltype.GcArray(lltype.Signed)
     a = lltype.malloc(A, 3)
@@ -267,7 +267,6 @@ def test_getitem():
         assert fn(arg) == f(arg)
 
 def test_setitem():
-    from pypy.rpython.lltypesystem import lltype 
 
     A = lltype.GcArray(lltype.Signed)
     a = lltype.malloc(A, 3)
@@ -297,7 +296,6 @@ def test_setitem():
     assert entry_point(1, 0) == 65
 
 def test_getsetitem_complex():
-    from pypy.rpython.lltypesystem import lltype 
 
     A = lltype.GcArray(lltype.Signed)
     AA = lltype.GcArray(lltype.Ptr(A))
@@ -334,3 +332,25 @@ def test_getsetitem_complex():
 
     for x,y,value in (0,0,0), (0,0,11), (0,0,0), (2,1,0), (2,1,26), (2,1,0):
         assert fn(x, y, value) == f(x, y, value)
+
+
+def test_malloc():
+    S = lltype.GcStruct("S", ('x',lltype.Signed))
+
+    def f(n):
+        s = lltype.malloc(S)
+        s.x = n
+        return s.x
+    
+    l3graph = l3ify(f, [int])
+    def entry_point(x):
+        value = l3interp.l3interpret(l3graph, [x], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+
+    assert entry_point(5) == f(5)
+
+    fn = translate(entry_point, [int])
+
+    assert fn(9) == f(9)
+

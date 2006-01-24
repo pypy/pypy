@@ -49,30 +49,36 @@ def getaccesskind(T):
             raise Exception("don't know how to acess %s value"%T)
     else:
         return 'ptr'
-
 def convert_block(block, memo):
     if block in memo:
         return memo[block]
+    converter = BlockConverter(block, memo)
+    return converter.convert()
 
-    stacksizes = {'int': 0,
-                  'dbl': 0,
-                  'ptr': 0}
-    constants = {'int': [],
-                 'dbl': [],
-                 'ptr': [],
-                 'offset':[]}
-    var2stack = {}
+class BlockConverter:
 
-    def push(v):
+    def __init__(self, block, memo):
+        self.block = block
+        self.memo = memo
+        self.stacksizes = {'int': 0,
+                           'dbl': 0,
+                           'ptr': 0}
+        self.constants = {'int': [],
+                          'dbl': [],
+                          'ptr': [],
+                          'offset':[]}
+        self.var2stack = {}
+
+    def push(self, v):
         kind = getkind(v.concretetype)
-        position = stacksizes[kind]
-        stacksizes[kind] += 1
-        var2stack[v] = position
+        position = self.stacksizes[kind]
+        self.stacksizes[kind] += 1
+        self.var2stack[v] = position
 
-    def get(v):
+    def get(self, v):
         kind = getkind(v.concretetype)
         if isinstance(v, flowmodel.Constant):
-            clist = constants[kind]
+            clist = self.constants[kind]
             if kind == 'ptr':
                 value = fakeaddress(v.value)
             else:
@@ -84,11 +90,11 @@ def convert_block(block, memo):
                 clist.append(value)
             return res
         else:
-            position = var2stack[v]
-            return position - stacksizes[kind]    # < 0
+            position = self.var2stack[v]
+            return position - self.stacksizes[kind]    # < 0
 
-    def getoffset(offset):
-        clist = constants['offset']
+    def getoffset(self, offset):
+        clist = self.constants['offset']
         try:
             res = clist.index(offset)
         except ValueError:
@@ -96,118 +102,142 @@ def convert_block(block, memo):
             clist.append(offset)
         return res
 
-    for v in block.inputargs:
-        if v.concretetype is not lltype.Void:
-            push(v)
-
-    insns = []
-    l3block = model.Block(insns)
-    memo[block] = l3block
-
-    if block.operations == ():
-        if len(block.inputargs) == 1:  # return block
-            if block.inputargs[0].concretetype is lltype.Void:
-                l3block.insns.append(Op.void_return)
-            else:
-                kind = getkind(block.inputargs[0].concretetype)
-                l3block.insns.append(model.very_low_level_opcode[
-                    {'int': 'int_return',
-                     'dbl': 'float_return',
-                     'ptr': 'adr_return'}[kind]])
-                l3block.insns.append(-1)
-        else:
-            raise NotImplementedError("except block")
-        return l3block
-
-    for spaceop in block.operations:
-        if spaceop.opname == 'getfield':
-            opname = spaceop.opname + '_' + \
-                     getaccesskind(spaceop.result.concretetype)
-            insns.append(model.very_low_level_opcode[opname])
-            v0, v1 = spaceop.args
-            insns.append(get(v0))
-
-            offset = FieldOffset(v0.concretetype, v1.value)
-            insns.append(getoffset(offset))
-        elif spaceop.opname == 'setfield':
-            v0, v1, v2 = spaceop.args
-            opname = spaceop.opname + '_' + \
-                     getaccesskind(v2.concretetype)
-            insns.append(model.very_low_level_opcode[opname])
-            insns.append(get(v0))
-
-            offset = FieldOffset(v0.concretetype, v1.value)
-            insns.append(getoffset(offset))
-            insns.append(get(v2))
-        elif spaceop.opname == 'getarrayitem':
-            opname = spaceop.opname + '_' + \
-                     getaccesskind(spaceop.result.concretetype)
-            insns.append(model.very_low_level_opcode[opname])
-            v0, v1 = spaceop.args
-            insns.append(get(v0))
-            insns.append(get(v1))
-
-            offset = ArrayItemsOffset(v0.concretetype)
-            insns.append(getoffset(offset))
-
-            offset = ItemOffset(spaceop.result.concretetype)
-            insns.append(getoffset(offset))
-        elif spaceop.opname == 'setarrayitem':
-            array, index, value = spaceop.args
-            opname = spaceop.opname + '_' + \
-                     getaccesskind(value.concretetype)
-            insns.append(model.very_low_level_opcode[opname])
-            insns.append(get(array))
-            insns.append(get(index))
-
-            offset = ArrayItemsOffset(array.concretetype)
-            insns.append(getoffset(offset))
-
-            offset = ItemOffset(value.concretetype)
-            insns.append(getoffset(offset))
-            insns.append(get(value))
-        else:
-            insns.append(model.very_low_level_opcode[spaceop.opname])
-            for v in spaceop.args:
-                insns.append(get(v))
-        if spaceop.result.concretetype is not lltype.Void:
-            push(spaceop.result)
-
-    def convert_link(link):
+    def convert_link(self, link):
         targetregs = {'int': [],
                       'dbl': [],
                       'ptr': []}
         for v in link.args:
             if v.concretetype is not lltype.Void:
                 kind = getkind(v.concretetype)
-                targetregs[kind].append(get(v))
-        return model.Link(convert_block(link.target, memo),
+                targetregs[kind].append(self.get(v))
+        return model.Link(convert_block(link.target, self.memo),
                           targetregs['int'] or None,
                           targetregs['dbl'] or None,
                           targetregs['ptr'] or None)
 
-    if block.exitswitch is None:
-        insns.append(Op.jump)
-        link, = block.exits
-        l3block.exit0 = convert_link(link)
+    def convert(self, memo=None):
+        block = self.block
+        for v in block.inputargs:
+            if v.concretetype is not lltype.Void:
+                self.push(v)
 
-    elif block.exitswitch != flowmodel.Constant(flowmodel.last_exception):
-        link0, link1 = block.exits
-        if link0.exitcase:
-            link0, link1 = link1, link0
-        assert not link0.exitcase
-        assert link1.exitcase
-        insns.append(Op.jump_cond)
-        insns.append(get(block.exitswitch))
-        l3block.exit0 = convert_link(link0)
-        l3block.exit1 = convert_link(link1)
+        self.insns = []
+        l3block = model.Block(self.insns)
+        self.memo[block] = l3block
 
-    else:
-        raise NotImplementedError("exceptions")
+        if block.operations == ():
+            if len(block.inputargs) == 1:  # return block
+                if block.inputargs[0].concretetype is lltype.Void:
+                    l3block.insns.append(Op.void_return)
+                else:
+                    kind = getkind(block.inputargs[0].concretetype)
+                    l3block.insns.append(model.very_low_level_opcode[
+                        {'int': 'int_return',
+                         'dbl': 'float_return',
+                         'ptr': 'adr_return'}[kind]])
+                    l3block.insns.append(-1)
+            else:
+                raise NotImplementedError("except block")
+            return l3block
 
-    if constants['int']: l3block.constants_int = constants['int']
-    if constants['dbl']: l3block.constants_dbl = constants['dbl']
-    if constants['ptr']: l3block.constants_ptr = constants['ptr']
-    if constants['offset']: l3block.constants_offset = constants['offset']
+        for spaceop in block.operations:
+            getattr(self, 'convert_'+spaceop.opname,
+                    self.default_convert)(spaceop)
+            
+        if block.exitswitch is None:
+            self.insns.append(Op.jump)
+            link, = block.exits
+            l3block.exit0 = self.convert_link(link)
 
-    return l3block
+        elif block.exitswitch != flowmodel.Constant(flowmodel.last_exception):
+            link0, link1 = block.exits
+            if link0.exitcase:
+                link0, link1 = link1, link0
+            assert not link0.exitcase
+            assert link1.exitcase
+            self.insns.append(Op.jump_cond)
+            self.insns.append(self.get(block.exitswitch))
+            l3block.exit0 = self.convert_link(link0)
+            l3block.exit1 = self.convert_link(link1)
+
+        else:
+            raise NotImplementedError("exceptions")
+
+        if self.constants['int']: l3block.constants_int = self.constants['int']
+        if self.constants['dbl']: l3block.constants_dbl = self.constants['dbl']
+        if self.constants['ptr']: l3block.constants_ptr = self.constants['ptr']
+        if self.constants['offset']:
+            l3block.constants_offset = self.constants['offset']
+
+        return l3block
+
+    def default_convert(self, spaceop):
+        self.insns.append(model.very_low_level_opcode[spaceop.opname])
+        for v in spaceop.args:
+            self.insns.append(self.get(v))
+        if spaceop.result.concretetype is not lltype.Void:
+            self.push(spaceop.result)
+
+    def convert_getfield(self, spaceop):
+        opname = spaceop.opname + '_' + \
+                 getaccesskind(spaceop.result.concretetype)
+        self.insns.append(model.very_low_level_opcode[opname])
+        v0, v1 = spaceop.args
+        self.insns.append(self.get(v0))
+
+        offset = FieldOffset(v0.concretetype, v1.value)
+        self.insns.append(self.getoffset(offset))
+        self.push(spaceop.result)
+
+    def convert_setfield(self, spaceop):
+        v0, v1, v2 = spaceop.args
+        opname = spaceop.opname + '_' + \
+                 getaccesskind(v2.concretetype)
+        self.insns.append(model.very_low_level_opcode[opname])
+        self.insns.append(self.get(v0))
+
+        offset = FieldOffset(v0.concretetype, v1.value)
+        self.insns.append(self.getoffset(offset))
+        self.insns.append(self.get(v2))
+
+    def convert_getarrayitem(self, spaceop):
+        opname = spaceop.opname + '_' + \
+                 getaccesskind(spaceop.result.concretetype)
+        self.insns.append(model.very_low_level_opcode[opname])
+        v0, v1 = spaceop.args
+        self.insns.append(self.get(v0))
+        self.insns.append(self.get(v1))
+        
+        offset = ArrayItemsOffset(v0.concretetype)
+        self.insns.append(self.getoffset(offset))
+        
+        offset = ItemOffset(spaceop.result.concretetype)
+        self.insns.append(self.getoffset(offset))
+        self.push(spaceop.result)
+
+    def convert_setarrayitem(self, spaceop):
+        array, index, value = spaceop.args
+        opname = spaceop.opname + '_' + \
+                 getaccesskind(value.concretetype)
+        self.insns.append(model.very_low_level_opcode[opname])
+        self.insns.append(self.get(array))
+        self.insns.append(self.get(index))
+        
+        offset = ArrayItemsOffset(array.concretetype)
+        self.insns.append(self.getoffset(offset))
+        
+        offset = ItemOffset(value.concretetype)
+        self.insns.append(self.getoffset(offset))
+        self.insns.append(self.get(value))
+        
+    def convert_malloc(self, spaceop):
+        type, = spaceop.args
+        self.insns.append(Op.malloc)
+        self.insns.append(self.getoffset(ItemOffset(type.value)))
+        self.push(spaceop.result)
+        
+    def convert_malloc_varsize(self, spaceop):
+        TYPE, nitems = spaceop.args
+        
+        raise NotImplementedError
+
