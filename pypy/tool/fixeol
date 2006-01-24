@@ -43,6 +43,7 @@ def can_set_eol_style(path):
                "by fixing the EOL style.")
         print "*"*30 
         #return False
+        path.write(data, mode='wb')
         return True
     return True
 
