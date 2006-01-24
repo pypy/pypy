@@ -92,8 +92,6 @@ Variable with calls to such operations.
 
 Functions:
 
-* newgraph(name) -> (opaque start link object)
-
 * newblock() -> (opaque block object)
 
 * geninputarg(block, CONCRETE_TYPE) -> (input var)
@@ -102,17 +100,15 @@ Functions:
 
 * genconst(block, llvalue) -> (result var)
 
-* newlink(block, [list-of-vars]) -> (opaque link object)
+* closeblock1(block) -> link
 
-* newreturnlink(block, return-var) -> (opaque link object)
+* closeblock2(block, exitswitch-var) -> (false_link, true_link)
 
-* closeblock1(block, link)
+* closelink(link, [link-vars], targetblock)
 
-* closeblock2(block, exitswitch-var, false_link, true_link)
+* closereturnlink(link, return-var)
 
-* closelink(link, targetblock)
-
-* runlink(link, [list-of-llvalues])
+* runblock(block, [list-of-llvalues])
 
 
 L3 interpreter

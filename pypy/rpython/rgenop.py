@@ -8,10 +8,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 
 
-def newgraph(name):
-    startblock_to_throw_away = flowmodel.Block([])   # grumble
-    return flowmodel.FunctionGraph(name, startblock_to_throw_away)
-
 def newblock():
     return flowmodel.Block([])
 
@@ -33,32 +29,27 @@ def genconst(block, llvalue):
     v.concretetype = lltype.typeOf(llvalue)
     return v
 
-def newlink(block, vars):
-    return flowmodel.Link(vars, None)
-
-def newreturnlink(block, var):
-    v = flowmodel.Variable()
-    v.concretetype = var.concretetype
-    pseudoreturnblock = flowmodel.Block([v])
-    pseudoreturnblock.operations = ()
-    return flowmodel.Link([var], pseudoreturnblock)
-
-def closeblock1(block, link):
+def closeblock1(block):
+    link = flowmodel.Link([], None)
     block.closeblock(link)
+    return link
 
-def closeblock2(block, exitswitch, false_link, true_link):
+def closeblock2(block, exitswitch):
     block.exitswitch = exitswitch
+    false_link = flowmodel.Link([], None)
     false_link.exitcase = False
     false_link.llexitcase = False
+    true_link = flowmodel.Link([], None)
     true_link.exitcase = True
     true_link.llexitcase = True
     block.closeblock(false_link, true_link)
+    return false_link, true_link
 
-def closelink(link, targetblock):
+def closelink(link, vars, targetblock):
     if isinstance(link, flowmodel.Link):
-        assert link.target is None, "%r already closed" % (link,)
-        assert ([v.concretetype for v in link.args] ==
+        assert ([v.concretetype for v in vars] ==
                 [v.concretetype for v in targetblock.inputargs])
+        link.args[:] = vars
         link.target = targetblock
     elif isinstance(link, flowmodel.FunctionGraph):
         graph = link
@@ -66,6 +57,13 @@ def closelink(link, targetblock):
         targetblock.isstartblock = True
     else:
         raise TypeError
+
+def closereturnlink(link, returnvar):
+    v = flowmodel.Variable()
+    v.concretetype = returnvar.concretetype
+    pseudoreturnblock = flowmodel.Block([v])
+    pseudoreturnblock.operations = ()
+    closelink(link, [returnvar], pseudoreturnblock)
 
 def _patchgraph(graph):
     returntype = None
@@ -86,10 +84,9 @@ class PseudoRTyper(object):
         from pypy.rpython.typesystem import LowLevelTypeSystem
         self.type_system = LowLevelTypeSystem.instance
 
-def runlink(startlink, args):
+def runblock(block, args):
     from pypy.rpython.llinterp import LLInterpreter
-    assert isinstance(startlink, flowmodel.FunctionGraph), "XXX"
-    graph = startlink  # for now
+    graph = flowmodel.FunctionGraph('?', block)
     _patchgraph(graph)
     flowmodel.checkgraph(graph)
     llinterp = LLInterpreter(PseudoRTyper())
