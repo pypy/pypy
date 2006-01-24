@@ -161,7 +161,6 @@ class LLAbstractInterp(object):
     def __init__(self, policy=best_policy):
         self.graphs = []
         self.graphstates = {}     # {origgraph: {BlockState: GraphState}}
-        self.pendingstates = {}   # {Link-or-GraphState: next-BlockState}
         self.blocks = {}          # {BlockState.key(): list-of-LLBlockStates}
         self.policy = policy
 
@@ -189,9 +188,8 @@ class LLAbstractInterp(object):
             graphstate = self.graphstates[origgraph][frozenstate]
         except KeyError:
             d = self.graphstates.setdefault(origgraph, {})
-            graphstate = GraphState(self, origgraph, inputstate, n=len(d))
+            graphstate = GraphState(self, origgraph, inputstate, frozenstate, n=len(d))
             d[frozenstate] = graphstate
-            self.pendingstates[graphstate] = frozenstate
         #print "SCHEDULE_GRAPH", graphstate
         return graphstate
 
@@ -199,9 +197,7 @@ class LLAbstractInterp(object):
         #print "SCHEDULE", args_a, origblock
         frozenstate = self.schedule_getstate(inputstate)
         args_v = inputstate.getruntimevars()
-        newlink = Link(args_v, None)
-        self.pendingstates[newlink] = frozenstate
-        return newlink
+        return LinkState(args_v, frozenstate)
 
     def schedule_getstate(self, inputstate):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
@@ -252,10 +248,22 @@ class LLAbstractInterp(object):
             raise HintError("cannot trace the origin of %r" % (a,))
 
 
+class LinkState(object):
+    """Wrapper for a residual link and the frozen state that it should go to."""
+
+    def __init__(self, args_v, frozenstate):
+        self.args_v = args_v
+        self.link = Link(args_v, None)
+        self.frozenstate = frozenstate
+
+    def settarget(self, block):
+        self.link.settarget(block)
+
+
 class GraphState(object):
     """Entry state of a graph."""
 
-    def __init__(self, interp, origgraph, inputstate, n):
+    def __init__(self, interp, origgraph, inputstate, frozenstate, n):
         self.interp = interp
         self.origgraph = origgraph
         name = '%s_%d' % (origgraph.name, n)
@@ -269,9 +277,10 @@ class GraphState(object):
                                 self.copygraph.exceptblock.inputargs[1])]:
             if hasattr(orig_v, 'concretetype'):
                 copy_v.concretetype = orig_v.concretetype
-        # The 'args' attribute is needed by try_to_complete(),
-        # which looks for it on either a GraphState or a Link
-        self.args = inputstate.getruntimevars()
+        # The 'args_v' attribute is needed by try_to_complete(),
+        # which looks for it on either a GraphState or a LinkState
+        self.args_v = inputstate.getruntimevars()
+        self.frozenstate = frozenstate
         #self.a_return = None
         self.state = "before"
 
@@ -295,14 +304,14 @@ class GraphState(object):
     def try_to_complete(self):
         graph = self.copygraph
         interp = self.interp
-        pending = [self]
+        pending = [self]   # pending list of a GraphState and many LinkStates
         seen = {}
         did_any_generalization = False
         # follow all possible links, forcing the blocks along the way to be
         # computed
         while pending:
-            next = pending.pop()
-            state = interp.pendingstates[next]
+            next = pending.pop()        # a GraphState or a LinkState
+            state = next.frozenstate
 
             # debugging: print the current call stack
             print
@@ -342,26 +351,26 @@ class GraphState(object):
             # that links with different *fixed* constants don't interfere
             # with each other.
 
-            key = tuple(state.enum_fixed_constants(next.args))
+            key = tuple(state.enum_fixed_constants(next.args_v))
             try:
-                block = state.copyblocks[key]
+                block, blockargs, blockexits = state.copyblocks[key]
             except KeyError:
                 if interp.policy.const_propagate:
-                    # originally, propagate all constants from next.args
+                    # originally, propagate all constants from next.args_v
                     # optimistically to the new block
-                    initial_key = next.args
+                    initial_key = next.args_v
                 else:
                     # don't propagate anything more than required ('fixed')
                     initial_key = key
                 print 'flowin() with initial key', initial_key
-                block = self.flowin(state, initial_key)
-                state.copyblocks[key] = block
+                block, blockargs, blockexits = self.flowin(state, initial_key)
+                state.copyblocks[key] = block, blockargs, blockexits
             else:
                 # check if the tentative constants of the existing block
                 # are compatible with the ones specified by the new link
                 merged_key = []
                 recompute = False
-                for c1, c2 in zip(block.inputargs, next.args):
+                for c1, c2 in zip(blockargs, next.args_v):
                     if isinstance(c1, Constant) and c1 != c2:
                         # incompatibility
                         merged_key.append(None)  # force a Variable
@@ -370,24 +379,25 @@ class GraphState(object):
                         merged_key.append(c1)    # unmodified
                 if recompute:
                     print 'flowin() merged as', merged_key
-                    block = self.flowin(state, merged_key)
-                    state.copyblocks[key] = block
+                    block, blockargs, blockexits = self.flowin(state, merged_key)
+                    state.copyblocks[key] = block, blockargs, blockexits
                     did_any_generalization = True
             next.settarget(block)
-            for link in block.exits:
-                if link.target is None or link.target.operations != ():
-                    if link not in seen:
-                        seen[link] = True
-                        pending.append(link)
+            for ls in blockexits:
+                if ls.frozenstate is not None:
+                    if ls not in seen:
+                        seen[ls] = True
+                        pending.append(ls)
                 else:
-                    # link.target is a return or except block; make sure
-                    # that it is really the one from 'graph' -- by patching
-                    # 'graph' if necessary.
-                    if len(link.target.inputargs) == 1:
+                    # 'ls' is the linkstate of a link to a return or except
+                    # block; make sure that it is really the one from 'graph'
+                    # -- by patching 'graph' if necessary.
+                    # XXX don't use ls.link.target!
+                    if len(ls.link.target.inputargs) == 1:
                         #self.a_return = state.args_a[0]
-                        graph.returnblock = link.target
+                        graph.returnblock = ls.link.target
                     elif len(link.target.inputargs) == 2:
-                        graph.exceptblock = link.target
+                        graph.exceptblock = ls.link.target
                     else:
                         raise Exception("uh?")
 
@@ -444,7 +454,9 @@ class GraphState(object):
                         target = self.copygraph.exceptblock
                     args_v = [builder.binding(v).forcevarorconst(builder)
                               for v in origblock.inputargs]
-                    raise InsertNextLink(Link(args_v, target))
+                    ls = LinkState(args_v, frozenstate=None)
+                    ls.settarget(target)
+                    raise InsertNextLink(ls)
                 else:
                     # finishing a handle_call_inlining(): link back to
                     # the parent, passing the return value
@@ -473,7 +485,7 @@ class GraphState(object):
 
         except InsertNextLink, e:
             # the current operation forces a jump to another block
-            newlinks = [e.link]
+            newlinkstates = [e.linkstate]
 
         else:
             # normal path: build exit links and schedule their target for
@@ -491,19 +503,19 @@ class GraphState(object):
                 else:
                     links = [link for link in origblock.exits
                                   if link.llexitcase == v.value]
-            newlinks = []
+            newlinkstates = []
             for origlink in links:
                 args_a = [builder.binding(v) for v in origlink.args]
                 nextinputstate = LLBlockState(builder.runningstate.back,
                                               args_a, origlink.target)
-                newlink = self.interp.schedule(nextinputstate)
+                newlinkstate = self.interp.schedule(nextinputstate)
                 if newexitswitch is not None:
-                    newlink.exitcase = origlink.exitcase
-                    newlink.llexitcase = origlink.llexitcase
-                newlinks.append(newlink)
+                    newlinkstate.link.exitcase = origlink.exitcase #XXX change later
+                    newlinkstate.link.llexitcase = origlink.llexitcase
+                newlinkstates.append(newlinkstate)
 
-        newblock = builder.buildblock(newexitswitch, newlinks)
-        return newblock
+        newblock = builder.buildblock(newexitswitch, newlinkstates)
+        return newblock, builder.newinputargs, newlinkstates
 
 
 class BlockBuilder(object):
@@ -519,11 +531,11 @@ class BlockBuilder(object):
         self.bindings = self.runningstate.getbindings()
         self.residual_operations = []
 
-    def buildblock(self, newexitswitch, newlinks):
+    def buildblock(self, newexitswitch, newlinkstates):
         b = Block(self.newinputargs)
         b.operations = self.residual_operations
         b.exitswitch = newexitswitch
-        b.closeblock(*newlinks)
+        b.closeblock(*[ls.link for ls in newlinkstates])
         return b
 
     def binding(self, v):
@@ -894,8 +906,8 @@ class BlockBuilder(object):
 
 
 class InsertNextLink(Exception):
-    def __init__(self, link):
-        self.link = link
+    def __init__(self, linkstate):
+        self.linkstate = linkstate
 
 class RestartCompleting(Exception):
     pass
