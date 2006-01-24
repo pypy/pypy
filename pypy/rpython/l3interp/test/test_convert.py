@@ -76,6 +76,29 @@ def test_convert_getfield():
     assert isinstance(result, l3interp.L3Integer)
     assert result.intval == 2
 
+
+def test_convert_getitem():
+    from pypy.rpython.lltypesystem import lltype 
+
+    A = lltype.GcArray(lltype.Signed)
+    a = lltype.malloc(A, 3)
+    a[0] = 1
+    a[1] = 2
+    a[2] = 3
+    
+
+    def f(n):
+        return a[n]
+
+    l3graph = l3ify(f, [int])
+    result = l3interp.l3interpret(l3graph, [0], [], [])
+    assert isinstance(result, l3interp.L3Integer)
+    assert result.intval == 1
+
+    result = l3interp.l3interpret(l3graph, [1], [], [])
+    assert isinstance(result, l3interp.L3Integer)
+    assert result.intval == 2
+    
 def dont_test_call():
     def f():
         return 2

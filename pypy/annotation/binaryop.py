@@ -737,6 +737,10 @@ class __extend__(pairtype(SomeOffset, SomeOffset)):
     def add((s_off1, s_off2)):
         return SomeOffset()
 
+class __extend__(pairtype(SomeOffset, SomeInteger)):
+    def mul((s_off1, s_off2)):
+        return SomeOffset()
+
 class __extend__(pairtype(SomeAddress, SomeOffset)):
     def add((s_addr, s_off)):
         return SomeAddress()

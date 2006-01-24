@@ -28,7 +28,7 @@ class address(object):
         if isinstance(offset, int):
             return address(self.intaddress + offset)
         else:
-            assert isinstance(offset, llmemory.OffsetOf)
+            assert isinstance(offset, llmemory.AddressOffset)
             return address(self.intaddress + convert_offset_to_int(offset))
 
     def __sub__(self, other):
@@ -50,7 +50,7 @@ class address(object):
     def _store(self, fmt, *values):
         # XXX annoyance: suddenly an OffsetOf changes into a Signed?!
         from pypy.rpython.memory.lltypelayout import convert_offset_to_int
-        if len(values) == 1 and isinstance(values[0], llmemory.OffsetOf):
+        if len(values) == 1 and isinstance(values[0], llmemory.AddressOffset):
             values = [convert_offset_to_int(values[0])]
         simulator.setstruct(fmt, self.intaddress, *values)
 
@@ -81,7 +81,7 @@ class _signed_accessor(_accessor):
     def convert_to(self, offset):
         from pypy.rpython.memory.lltypelayout import convert_offset_to_int
         # XXX same annoyance as in _store
-        if isinstance(offset, llmemory.OffsetOf):
+        if isinstance(offset, llmemory.AddressOffset):
             return convert_offset_to_int(offset)
         return int(offset)
 

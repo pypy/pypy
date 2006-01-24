@@ -2,7 +2,7 @@ from pypy.rpython.l3interp import model
 from pypy.rpython.memory import lladdress
 from pypy.rpython.rarithmetic import r_uint
 from pypy.interpreter.miscutils import InitializedClass
-from pypy.rpython.lltypesystem.llmemory import fakeaddress, OffsetOf
+from pypy.rpython.lltypesystem.llmemory import fakeaddress, AddressOffset
 from pypy.rpython.lltypesystem import lltype
 
 class L3Exception(Exception):
@@ -46,7 +46,7 @@ def l3interpret(graph, args_int, args_dbl, args_ptr):
         return L3Nothing()
     raise AssertionError("stacks corrupted")
 
-constant_offset = OffsetOf(lltype.Void)
+constant_offset = AddressOffset()
 constant_fakeaddress = fakeaddress(None)
 
 class L3Frame(object):
@@ -203,6 +203,14 @@ class L3Frame(object):
         o = self.getoffset()
         v = self.getint()
         (p + o).signed[0] = v
+
+    def op_getarrayitem_int(self):
+        a = self.getptr()
+        i = self.getint()
+        items_offset = self.getoffset()
+        s = self.getoffset()
+        v = (a + items_offset + s * i).signed[0]
+        self.stack_int.append(v)
         
     def op_flavored_malloc(self):
         self.stack_ptr.append(constant_fakeaddress)

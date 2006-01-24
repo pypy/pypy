@@ -1,6 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem.llmemory import Address, OffsetOf, fakeaddress
+from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
+     AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset
 from pypy.rpython.memory.lladdress import NULL
 
 # ____________________________________________________________
@@ -9,15 +10,21 @@ from pypy.rpython.memory.lladdress import NULL
 
 def name_signed(value, db):
     if isinstance(value, Symbolic):
-        assert isinstance(value, OffsetOf)
-        assert len(value.fldnames) <= 1
-        if len(value.fldnames) == 0:
-            return '0 /*offsetof*/'
-        else:
+        if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE.TO)
-            return 'offsetof(struct %s, %s)'%(
-                structnode.name,
-                structnode.c_struct_field_name(value.fldnames[0]))
+            return 'offsetof(%s, %s)'%(
+                db.gettype(value.TYPE.TO).replace('@', ''),
+                structnode.c_struct_field_name(value.fldname))
+        elif isinstance(value, ItemOffset):
+            return '(sizeof(%s) * %s)'%(
+                db.gettype(value.TYPE).replace('@', ''), value.repeat)
+        elif isinstance(value, ArrayItemsOffset):
+            return 'offsetof(%s, items)'%(
+                db.gettype(value.TYPE.TO).replace('@', ''))
+        elif type(value) == AddressOffset:
+            return '0'
+        else:
+            raise Exception("unimplemented symbolic %r"%value)
     if value == -sys.maxint-1:   # blame C
         return '(-%dL-1L)' % sys.maxint
     else:

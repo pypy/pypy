@@ -88,13 +88,21 @@ def sizeof(TYPE, i=None):
         return fixedsize + i * varsize
 
 def convert_offset_to_int(offset):
-    TYPE = offset.TYPE
-    res = 0
-    for fld in offset.fldnames:
-        layout = get_layout(TYPE)
-        res += layout[fld]
-        TYPE = getattr(TYPE, fld)
-    return res
+    if isinstance(offset, llmemory.FieldOffset):
+        layout = get_layout(offset.TYPE)
+        return layout[offset.fldname]
+    elif isinstance(offset, llmemory.CompositeOffset):
+        return convert_offset_to_int(offset.first) + \
+               convert_offset_to_int(offset.second)
+    elif type(offset) == llmemory.AddressOffset:
+        return 0
+    elif isinstance(offset, llmemory.ItemOffset):
+        return sizeof(offset.TYPE) * offset.repeat
+    elif isinstance(offset, llmemory.ArrayItemsOffset):
+        return get_fixed_size(lltype.Signed)
+    else:
+        raise Exception("unknown offset type %r"%offset)
+        
 # _____________________________________________________________________________
 # the following functions are used to find contained pointers
 

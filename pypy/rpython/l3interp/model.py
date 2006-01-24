@@ -37,7 +37,8 @@ very_low_level_ops = [
     'float_ne', 'float_neg', 'float_sub', 'float_truediv',
 
     #array operations:
-    'getarrayitem', 'getarraysize', 'getarraysubstruct', 'setarrayitem',
+    'getarrayitem_int', 'getarrayitem_ptr',
+    'getarraysize', 'getarraysubstruct', 'setarrayitem',
 
     #struct operations:
     'getfield_int', 'getfield_char', 'getfield_dbl', 'getfield_ptr', 

@@ -3,7 +3,8 @@ from pypy.rpython.l3interp import model
 from pypy.rpython.l3interp.model import Op
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.llmemory import OffsetOf, fakeaddress
+from pypy.rpython.lltypesystem.llmemory import FieldOffset, \
+     ItemOffset, ArrayItemsOffset, fakeaddress
 
 
 class LL2L3Converter(object):
@@ -86,6 +87,15 @@ def convert_block(block, memo):
             position = var2stack[v]
             return position - stacksizes[kind]    # < 0
 
+    def getoffset(offset):
+        clist = constants['offset']
+        try:
+            res = clist.index(offset)
+        except ValueError:
+            res = len(clist)
+            clist.append(offset)
+        return res
+
     for v in block.inputargs:
         if v.concretetype is not lltype.Void:
             push(v)
@@ -117,14 +127,8 @@ def convert_block(block, memo):
             v0, v1 = spaceop.args
             insns.append(get(v0))
 
-            offset = OffsetOf(v0.concretetype, v1.value)
-            clist = constants['offset']
-            try:
-                res = clist.index(offset)
-            except ValueError:
-                res = len(clist)
-                clist.append(offset)
-            insns.append(res)
+            offset = FieldOffset(v0.concretetype, v1.value)
+            insns.append(getoffset(offset))
         elif spaceop.opname == 'setfield':
             v0, v1, v2 = spaceop.args
             opname = spaceop.opname + '_' + \
@@ -132,15 +136,22 @@ def convert_block(block, memo):
             insns.append(model.very_low_level_opcode[opname])
             insns.append(get(v0))
 
-            offset = OffsetOf(v0.concretetype, v1.value)
-            clist = constants['offset']
-            try:
-                res = clist.index(offset)
-            except ValueError:
-                res = len(clist)
-                clist.append(offset)
-            insns.append(res)
+            offset = FieldOffset(v0.concretetype, v1.value)
+            insns.append(getoffset(offset))
             insns.append(get(v2))
+        elif spaceop.opname == 'getarrayitem':
+            opname = spaceop.opname + '_' + \
+                     getaccesskind(spaceop.result.concretetype)
+            insns.append(model.very_low_level_opcode[opname])
+            v0, v1 = spaceop.args
+            insns.append(get(v0))
+            insns.append(get(v1))
+
+            offset = ArrayItemsOffset(v0.concretetype)
+            insns.append(getoffset(offset))
+
+            offset = ItemOffset(spaceop.result.concretetype)
+            insns.append(getoffset(offset))
         else:
             insns.append(model.very_low_level_opcode[spaceop.opname])
             for v in spaceop.args:

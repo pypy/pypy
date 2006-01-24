@@ -238,3 +238,31 @@ def test_getfield_complex():
         for y in 0, 1:
             assert fn(x, y) == f(x, y)
 
+
+def test_getitem():
+    from pypy.rpython.lltypesystem import lltype 
+
+    A = lltype.GcArray(lltype.Signed)
+    a = lltype.malloc(A, 3)
+    a[0] = 1
+    a[1] = 2
+    a[2] = 3
+    
+
+    def f(n):
+        return a[n]
+
+    l3graph = l3ify(f, [int])
+    def entry_point(x):
+        value = l3interp.l3interpret(l3graph, [x], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+
+    for arg in 0,1,2:
+        assert entry_point(arg) == f(arg)
+
+    fn = translate(entry_point, [int])
+        
+    for arg in 0,1,2:
+        assert fn(arg) == f(arg)
+

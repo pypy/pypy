@@ -7,11 +7,7 @@
 from pypy.rpython.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 
-class OffsetOf(Symbolic):
-
-    def __init__(self, TYPE, *fldnames):
-        self.TYPE = TYPE
-        self.fldnames = fldnames
+class AddressOffset(Symbolic):
 
     def annotation(self):
         from pypy.annotation import model
@@ -20,72 +16,140 @@ class OffsetOf(Symbolic):
     def lltype(self):
         return lltype.Signed
 
-    def __repr__(self):
-        return "<OffsetOf %r %r>" % (self.TYPE, self.fldnames)
-
     def __add__(self, other):
-        if not isinstance(other, OffsetOf):
+        return CompositeOffset(self, other)
+
+
+class ItemOffset(AddressOffset):
+
+    def __init__(self, TYPE, repeat=1):
+        self.TYPE = TYPE
+        self.repeat = repeat
+
+    def __repr__(self):
+        return "<ItemOffset %r %r>" % (self.TYPE, self.repeat)
+
+    def __mul__(self, other):
+        if not isinstance(other, int):
             return NotImplemented
-        t = self.TYPE
-        for f in self.fldnames:
-            t = t._flds[f]
-        assert t == other.TYPE
-        return OffsetOf(self.TYPE, *(self.fldnames + other.fldnames))
+        return ItemOffset(self.TYPE, self.repeat * other)
+
+    def get(self, ob):
+        return ob[self.repeat]
+
+    def set(self, ob, value):
+        ob[self.repeat] = value
+
+    
+class FieldOffset(AddressOffset):
+
+    def __init__(self, TYPE, fldname):
+        self.TYPE = TYPE
+        self.fldname = fldname
+
+    def __repr__(self):
+        return "<FieldOffset %r %r>" % (self.TYPE, self.fldname)
+
+    def get(self, ob):
+        return getattr(ob, self.fldname)
+
+    def set(self, ob, value):
+        setattr(ob, self.fldname, value)
+
+
+class CompositeOffset(AddressOffset):
+
+    def __init__(self, first, second):
+        self.first = first
+        self.second = second
+
+    def __repr__(self):
+        return '< %r + %r >'%(self.first, self.second)
+
+    def get(self, ob):
+        return self.second.get(self.first.get(ob))
+
+    def set(self, ob, value):
+        return self.second.set(self.first.get(ob), value)
+
+
+class ArrayItemsOffset(AddressOffset):
+
+    def __init__(self, TYPE):
+        self.TYPE = TYPE
+
+    def __repr__(self):
+        return '< ArrayItemsOffset >'
+
+    def get(self, ob):
+        return ob
+
+    def set(self, ob, value):
+        raise Exception("can't assign to an array's items")
+
 
 def sizeof(TYPE, n=None):
     pass
 
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
-    return OffsetOf(TYPE, fldname)
+    return FieldOffset(TYPE, fldname)
 
-def itemoffsetof(TYPE, n=None):
-    pass
+# -------------------------------------------------------------
 
 class fakeaddress(object):
     def __init__(self, ob, offset=None):
         self.ob = ob
-        if offset is None:
-            self.offset = OffsetOf(lltype.typeOf(self.ob))
-        else:
-            self.offset = offset
+        self.offset = offset
 
     def __add__(self, other):
-        if not isinstance(other, OffsetOf):
-            return NotImplemented
-        return fakeaddress(self.ob, self.offset + other)
-    
+        if isinstance(other, AddressOffset):
+            if self.offset is None:
+                offset = other
+            else:
+                offset = self.offset + other
+            return fakeaddress(self.ob, offset)
+        return NotImplemented
+
+    def get(self):
+        if self.offset is None:
+            return self.ob
+        else:
+            return self.offset.get(self.ob)
+
+    def set(self, value):
+        if self.offset is None:
+            raise Exception("can't assign to whole object")
+        else:
+            self.offset.set(self.ob, value)
+
+# XXX the indexing in code like
+#     addr.signed[0] = v
+#     is just silly.  remove it.
+
 class _fakeaccessor(object):
     def __init__(self, addr):
         self.addr = addr
     def __getitem__(self, index):
         assert index == 0
-        ob = self.addr.ob
-        for n in self.addr.offset.fldnames:
-            ob = getattr(ob, n)
-        return self.vet(ob)
+        return self.convert(self.addr.get())
 
     def __setitem__(self, index, value):
         assert index == 0
-        ob = self.addr.ob
-        for n in self.addr.offset.fldnames[:-1]:
-            ob = getattr(ob, n)
-        fld = self.addr.offset.fldnames[-1]
-        assert lltype.typeOf(value) == self.TYPE
-        assert lltype.typeOf(ob).TO._flds[fld] == self.TYPE
-        setattr(ob, fld, value)
+        self.addr.set(value)
+
         
 class _signed_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Signed
 
-    def vet(self, value):
+    def convert(self, value):
         assert lltype.typeOf(value) == self.TYPE
         return value
 
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = None
 
-    def vet(self, value):
+    def convert(self, value):
         # XXX is this the right check for "Ptr-ness" ?
         assert isinstance(value, lltype._ptr)
         return fakeaddress(value)
