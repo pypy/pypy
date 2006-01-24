@@ -253,10 +253,17 @@ class LinkState(object):
 
     def __init__(self, args_v, frozenstate):
         self.args_v = args_v
-        self.link = Link(args_v, None)
+        self.link = Link([], None)
         self.frozenstate = frozenstate
 
-    def settarget(self, block):
+    def settarget(self, block, blockargs):
+        args = []
+        for v1, v2 in zip(self.args_v, blockargs):
+            if isinstance(v2, Constant):
+                assert v1 == v2
+            else:
+                args.append(v1)
+        self.link.args = args
         self.link.settarget(block)
 
 
@@ -284,7 +291,7 @@ class GraphState(object):
         #self.a_return = None
         self.state = "before"
 
-    def settarget(self, block):
+    def settarget(self, block, blockargs):
         block.isstartblock = True
         self.copygraph.startblock = block
 
@@ -382,7 +389,7 @@ class GraphState(object):
                     block, blockargs, blockexits = self.flowin(state, merged_key)
                     state.copyblocks[key] = block, blockargs, blockexits
                     did_any_generalization = True
-            next.settarget(block)
+            next.settarget(block, blockargs)
             for ls in blockexits:
                 if ls.frozenstate is not None:
                     if ls not in seen:
@@ -403,8 +410,6 @@ class GraphState(object):
 
         if did_any_generalization:
             raise RestartCompleting
-
-        remove_constant_inputargs(graph)
 
         # the graph should be complete now; sanity-check
         try:
@@ -455,7 +460,7 @@ class GraphState(object):
                     args_v = [builder.binding(v).forcevarorconst(builder)
                               for v in origblock.inputargs]
                     ls = LinkState(args_v, frozenstate=None)
-                    ls.settarget(target)
+                    ls.settarget(target, target.inputargs)
                     raise InsertNextLink(ls)
                 else:
                     # finishing a handle_call_inlining(): link back to
@@ -532,7 +537,7 @@ class BlockBuilder(object):
         self.residual_operations = []
 
     def buildblock(self, newexitswitch, newlinkstates):
-        b = Block(self.newinputargs)
+        b = Block([v for v in self.newinputargs if isinstance(v, Variable)])
         b.operations = self.residual_operations
         b.exitswitch = newexitswitch
         b.closeblock(*[ls.link for ls in newlinkstates])
@@ -934,22 +939,3 @@ def live_variables(block, position):
         if op.result in used:
             result.append(op.result)
     return result
-
-def remove_constant_inputargs(graph):
-    # for simplicity, the logic in GraphState produces graphs that can
-    # pass constants from one block to the next explicitly, via a
-    # link.args -> block.inputargs.  Remove them now.
-    for link in graph.iterlinks():
-        i = 0
-        for v in link.target.inputargs:
-            if isinstance(v, Constant):
-                del link.args[i]
-            else:
-                i += 1
-    for block in graph.iterblocks():
-        i = 0
-        for v in block.inputargs[:]:
-            if isinstance(v, Constant):
-                del block.inputargs[i]
-            else:
-                i += 1
