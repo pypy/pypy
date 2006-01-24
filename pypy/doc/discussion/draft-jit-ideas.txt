@@ -92,21 +92,27 @@ Variable with calls to such operations.
 
 Functions:
 
-* gengraph() -> (opaque start link object)
+* newgraph(name) -> (opaque start link object)
 
-* genblock([list-of-CONCRETE_TYPES-of-inputargs]) -> (opaque block object)
+* newblock() -> (opaque block object)
+
+* geninputarg(block, CONCRETE_TYPE) -> (input var)
 
 * genop(block, opname, [list-of-vars], RESULT_CONCRETE_TYPE) -> (result var)
 
 * genconst(block, llvalue) -> (result var)
 
-* genlink(block, exitcase-or-None, [list-of-vars]) -> (opaque link object)
+* newlink(block, [list-of-vars]) -> (opaque link object)
 
-* genreturnlink(block, return-var) -> (opaque link object)
+* newreturnlink(block, return-var) -> (opaque link object)
 
-* closeblock(block, exitswitch-var-or-None)
+* closeblock1(block, link)
 
-* closelink(link, block)
+* closeblock2(block, exitswitch-var, false_link, true_link)
+
+* closelink(link, targetblock)
+
+* runlink(link, [list-of-llvalues])
 
 
 L3 interpreter
