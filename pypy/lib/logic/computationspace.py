@@ -1,5 +1,5 @@
 ## The Constraint-based computation model
-## --------------------------------------
+## ======================================
 
 ## A computation space collects together basic constraints (in fact
 ## variable domains) and propagators (aka constraints), and puts them
@@ -101,5 +101,94 @@
 ##   space. If there is none, then execution can stop and return with a
 ##   solution. If there is one, then the search strategy decides which
 ##   alternative to choose and commits to that alternative.
+
+## Refinement
+## ============
+
+## a computation space is made of :
+
+## * a single assignment store
+## * a thread store
+## * a mutable store
+
+## operations are :
+
+## * newspace (creation)
+## * wait_stable
+## * choose
+## * ask
+## * commit
+## * clone
+## * inject
+## * merge
+
+## Newspace
+## --------
+
+## newspace p : when given a one-argument procedure p, creates a new
+## computation space and returns a reference to it. In this space, a
+## fresh root variable r and a new thread are created, and p(r) is
+## invoked in the thread.
+
+## There is always a top-level computatio space where threads may
+## interact with the 'external' world.
+
+## Wait_stable
+## -----------
+
+## Waits until the current space becomes stable.
+
+## Choose
+## ------
+
+## Y=choose(N) waits until te current space becomes stable, blocks the
+## current thread, and then creates a choice point with N alternatives in
+## the current space. The blocked choose call waits for an alternative to
+## be chosen by a commit operation on the space. The choose call only
+## defines how many alternatives tere are; it does not specify what toi
+## do for an alternative.Eventually, choose continues its execution with
+## Y=I when alternative I (1=<I=<N) is chosen. A maximum of one choice
+## point may exist in a space at any time.
+
+## Ask
+## ---
+
+## A=Ask(s) asks the space s about its status. As soon as the space
+## becomes stable, A is bound. If s if failed (merged, succeeded), then
+## ask returns failed (merged, succeded). If s is distributable, then it
+## returns alternatives(N), where N is the number of alternatives.
+
+## An example specifying how to use a computation space :
+
+## def my_problem(store):
+##     #declare variables, their domain
+##     x, y, z = var('x'), var('y'), var('z')
+##     #declare constraints
+##     set_domain(x, FiniteDomain([1, 2]))
+##     set_domain(y, FiniteDomain([2, 3]))
+##     set_domain(z, FiniteDomain([42, 43]))
+##     add_constraint(c.Expression([x, y, z], 'x == y + z'))
+##     add_constraint(c.Expression([z, w], 'z < w'))
+##     #set up a distribution strategy
+##     ????
+##     return (x, y, z) 
+
+## space = ComputationSpace(fun=my_problem)
+
+
+from unification import Store, var
+
+class ComputationSpace(object):
+
+    def __init__(self, program, parent=None):
+        self.program = program
+        self.parent = parent
+        self.store = Store()
+        self.root = var('root')
+        self.store.bind(self.root, program(self.store))
+
+        
+    
+
 
 
