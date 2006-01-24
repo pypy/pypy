@@ -58,8 +58,11 @@ class BuiltinFunctionRepr(Repr):
                 bltintyper = rtyper.type_system.rbuiltin.\
                                     BUILTIN_TYPER[self.builtinfunc]
             except KeyError:
-                raise TyperError("don't know about built-in function %r" % (
-                    self.builtinfunc,))
+                if hasattr(self.builtinfunc,"specialize"):
+                    bltintyper = self.builtinfunc.specialize
+                else:
+                    raise TyperError("don't know about built-in function %r" % (
+                        self.builtinfunc,))
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
         return bltintyper(hop2)
