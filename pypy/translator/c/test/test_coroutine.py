@@ -70,9 +70,10 @@ The update sequence during a switch to a coroutine is:
 
 
 class CoState(object):
-    pass
+    def __init__(self):
+        self.last = self.current = self.main = Coroutine()
 
-costate = CoState()
+costate = None
 
 class CoroutineDamage(SystemError):
     pass
@@ -81,6 +82,10 @@ class Coroutine(object):
 
     def __init__(self):
         self.frame = None
+        if costate is None:
+            self.parent = self
+        else:
+            self.parent = costate.main
 
     def bind(self, thunk):
         if self.frame is not None:
@@ -88,23 +93,27 @@ class Coroutine(object):
         self.frame = self._bind(thunk)
 
     def _bind(self, thunk):
-        binder = costate.current
+        self.parent = costate.current
         costate.last.frame = yield_current_frame_to_caller()
         thunk.call()
-        if binder.frame is None:
-            binder = costate.main
-        costate.last, costate.current = costate.current, binder
-        frame, binder.frame = binder.frame, None
-        return frame
+        if self.parent.frame is None:
+            self.parent = costate.main
+        return self._update_state(self.parent)
 
     def switch(self):
         if self.frame is None:
             raise CoroutineDamage
-        costate.last, costate.current = costate.current, self
-        frame, self.frame = self.frame, None
-        costate.last.frame = frame.switch()
+        costate.last.frame = self._update_state(self).switch()
+        # note that last gets updated before assignment!
 
-costate.current = costate.last = costate.main = Coroutine()
+    def _update_state(new):
+        costate.last, costate.current = costate.current, new
+        frame, new.frame = new.frame, None
+        return frame
+    _update_state = staticmethod(_update_state)
+
+costate = CoState()
+
 
 def output(stuff):
     os.write(2, stuff + '\n')
