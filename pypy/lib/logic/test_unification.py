@@ -233,3 +233,12 @@ class TestUnification:
         k = c.Expression([x, y, z], 'x == y + z')
         u.add_constraint(k)
         assert k in u._store.constraints
+
+    def test_narrowing_domains(self):
+        x,y,z = u.var('x'), u.var('y'), u.var('z')
+        x.dom = c.FiniteDomain([1, 2])
+        y.dom = c.FiniteDomain([2, 3])
+        z.dom = c.FiniteDomain([3, 4])
+        k = c.Expression([x, y, z], 'x == y + z')
+        raises(c.ConsistencyFailure, k.narrow)
+        

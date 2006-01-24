@@ -91,8 +91,9 @@ class FiniteDomain(AbstractDomain):
     __len__ = size
     
     def get_values(self):
-        """return all the values in the domain"""
-        return self._values
+        """return all the values in the domain
+           in an indexable sequence"""
+        return list(self._values)
 
     def __iter__(self):
         return iter(self._values)
@@ -118,9 +119,11 @@ class AbstractConstraint(object):
     
     def __init__(self, variables):
         """variables is a list of variables which appear in the formula"""
+        self._names_to_vars = {}
         for var in variables:
             if var.dom is None:
                 raise DomainlessVariables
+            self._names_to_vars[var.name] = var
         self._variables = variables
 
     def affectedVariables(self):
@@ -207,18 +210,18 @@ class Expression(AbstractConstraint):
         """key = (variable,value), value = [has_success,has_failure]"""
         result_cache = {}
         for var_name in self._variables:
-            result_cache[var_name] = {}
+            result_cache[var_name.name] = {}
         return result_cache
 
 
-    def _assign_values(self, domains):
+    def _assign_values(self):
         variables = []
         kwargs = {}
         for variable in self._variables:
-            domain = domains[variable]
+            domain = variable.dom
             values = domain.get_values()
             variables.append((domain.size(), [variable, values, 0, len(values)]))
-            kwargs[variable] = values[0]
+            kwargs[variable.name] = values[0]
         # sort variables to instanciate those with fewer possible values first
         variables.sort()
 
@@ -229,22 +232,23 @@ class Expression(AbstractConstraint):
             for size, curr in variables:
                 if (curr[2] + 1) < curr[-1]:
                     curr[2] += 1
-                    kwargs[curr[0]] = curr[1][curr[2]]
+                    kwargs[curr[0].name] = curr[1][curr[2]]
                     break
                 else:
                     curr[2] = 0
-                    kwargs[curr[0]] = curr[1][0]
+                    kwargs[curr[0].name] = curr[1][0]
             else:
                 # it's over
                 go_on = 0
             
         
-    def narrow(self, domains):
+    def narrow(self):
+        # removed domain arg. (auc, ale)
         """generic narrowing algorithm for n-ary expressions"""
         maybe_entailed = 1
         ffunc = self.filterFunc
         result_cache = self._init_result_cache()
-        for kwargs in self._assign_values(domains):
+        for kwargs in self._assign_values():
             if maybe_entailed:
                 for var, val in kwargs.iteritems():
                     if val not in result_cache[var]:
@@ -259,7 +263,7 @@ class Expression(AbstractConstraint):
 
         try:
             for var, keep in result_cache.iteritems():
-                domain = domains[var]
+                domain = self._names_to_vars[var].dom
                 domain.remove_values([val for val in domain if val not in keep])
                 
         except ConsistencyFailure:
