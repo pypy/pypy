@@ -355,7 +355,7 @@ class Bookkeeper:
 	    _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
         elif hasattr(x, "compute_result_annotation"):
-            result = SomeBuiltin(x.compute_result_annotation, "?" )
+            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
         elif tp in EXTERNAL_TYPE_ANALYZERS:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
