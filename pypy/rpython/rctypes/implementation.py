@@ -24,8 +24,12 @@ class FunctionPointerTranslation(object):
             return id(self)
 
         def specialize(self, hop):
-            return hop.llops.gencapicall(self.__name__, hop.args_v[1:],
-                         resulttype=self.restype.ll_type, _callable=None) 
+            return hop.llops.gencapicall(self.__name__, hop.args_v,
+                         resulttype=self.restype.ll_type, _callable=None,
+                         convert_params=self.convert_params) 
+
+        def convert_params(self, backend, param_info_list):
+            raise NotImplementedError
 
 
 class RCDLL(CDLL):

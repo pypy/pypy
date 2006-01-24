@@ -31,7 +31,11 @@ class CExternalFunctionCodeGenerator(object):
             yield '%s;' % cdecl(self.resulttypename, 'result')
 
     def cfunction_body(self):
-        call = '%s(%s)' % (self.fnptr._name, ', '.join(self.argnames()))
+        try:
+            convert_params = self.fnptr.convert_params
+        except AttributeError:
+            convert_params = lambda backend, args: [arg for _,arg in args]
+        call = '%s(%s)' % (self.fnptr._name, ', '.join(convert_params("c", zip(self.FUNCTYPE.ARGS, self.argnames()))))
         if self.FUNCTYPE.RESULT is not Void:
             yield 'result = %s;' % call
             yield 'if (PyErr_Occurred()) RPyConvertExceptionFromCPython();'

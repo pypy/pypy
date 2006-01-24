@@ -1,4 +1,8 @@
 import py.test
+from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.translator.translator import TranslationContext
+from pypy.translator.c.test.test_genc import compile
+    
 
 def setup_module(mod):
     try:
@@ -27,9 +31,6 @@ def setup_module(mod):
 
 class Test_rctypes:
 
-    from pypy.annotation.annrpython import RPythonAnnotator
-    from pypy.translator.translator import TranslationContext
-    
     def test_simple(self):
 
 
@@ -37,16 +38,22 @@ class Test_rctypes:
         assert res == 42 
 
     def test_annotate_simple(self):
-        a = self.RPythonAnnotator()
+        a = RPythonAnnotator()
         s = a.build_types(o_atoi, [str])
         # result should be an integer
         assert s.knowntype == int
 
     def test_specialize_simple(self):
-        t = self.TranslationContext()
+        t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(o_atoi, [str])
         # result should be an integer
         assert s.knowntype == int
         t.buildrtyper().specialize()
         #d#t.view()
+
+    def x_test_compile_simple(self):
+        fn = compile(o_atoi, [str])
+        res = fn("42")
+        assert res == 42
+
