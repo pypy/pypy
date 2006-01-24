@@ -1,8 +1,13 @@
 from ctypes import _DLLS
-from implementation import RCDLL as CDLL, RWinDLL as WinDLL, c_int, c_char_p, c_char, POINTER
+from implementation import RCDLL as CDLL, c_int, c_char_p, c_char, POINTER
+try:
+    from implementation import RWinDLL as WinDLL
+except ImportError:
+    WinDLL = None
 
 cdll = _DLLS( CDLL )
-windll = _DLLS( WinDLL )
+if WinDLL:
+    windll = _DLLS( WinDLL )
 
 
 """

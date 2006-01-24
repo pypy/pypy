@@ -2,8 +2,11 @@
 The rctypes implementaion is contained here.
 """
 
+import sys
 from ctypes import *
-from ctypes import _FUNCFLAG_CDECL, _FUNCFLAG_STDCALL
+from ctypes import _FUNCFLAG_CDECL
+if sys.platform == "win32":
+    from ctypes import _FUNCFLAG_STDCALL
 from pypy.annotation.model import SomeInteger
 from pypy.rpython.lltypesystem.lltype import Signed
 
@@ -61,15 +64,16 @@ class RCDLL(CDLL):
 
 
 
-class RWinDLL(WinDLL):
-    """
-    This is the restricted version of ctypes' WINDLL class
-    """
+if sys.platform == "win32":
+    class RWinDLL(WinDLL):
+        """
+        This is the restricted version of ctypes' WINDLL class
+        """
 
-    class _StdcallFuncPtr(FunctionPointerTranslation, WinDLL._StdcallFuncPtr):
-        """
-        A simple extension of ctypes function pointers that
-        implements a simple interface to the anotator.
-        """
-        _flags_ = _FUNCFLAG_STDCALL
+        class _StdcallFuncPtr(FunctionPointerTranslation, WinDLL._StdcallFuncPtr):
+            """
+            A simple extension of ctypes function pointers that
+            implements a simple interface to the anotator.
+            """
+            _flags_ = _FUNCFLAG_STDCALL
 
