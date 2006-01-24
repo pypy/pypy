@@ -178,7 +178,7 @@ class Store(object):
         self.contraints = {}
         # consistency-preserving stuff
         self.in_transaction = False
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
     def add_unbound(self, var):
         # register globally
@@ -221,6 +221,7 @@ class Store(object):
                 else: # 1. both are unbound
                     self._merge(var, val)
             else: # 3. val is really a value
+                print "%s, is that you ?" % var
                 if var._is_bound():
                     raise AlreadyBound(var.name)
                 self._bind(var.val, val)
@@ -278,13 +279,15 @@ class Store(object):
     def _really_unify(self, x, y):
         # print "unify %s with %s" % (x,y)
         if not _unifiable(x, y): raise UnificationFailure(x, y)
-        # dispatch to the apropriate unifier
         if not x in self.vars:
             if not y in self.vars:
+                # duh ! x & y not vars
                 if x != y: raise UnificationFailure(x, y)
                 else: return
+            # same call, reverse args. order
             self._unify_var_val(y, x)
         elif not y in self.vars:
+            # x is Var, y a value
             self._unify_var_val(x, y)
         elif _both_are_bound(x, y):
             self._unify_bound(x,y)
@@ -294,7 +297,6 @@ class Store(object):
             self.bind(y,x)
 
     def _unify_var_val(self, x, y):
-        #if x._is_bound(): raise UnificationFailure(x, y)
         if x.val != y:
             try:
                 self.bind(x, y)
@@ -309,10 +311,11 @@ class Store(object):
         elif type(vx) is dict and isinstance(vy, type(vx)):
             self._unify_mapping(x, y)
         else:
-            raise UnificationFailure(x, y)
+            if vx != vy:
+                raise UnificationFailure(x, y)
 
     def _unify_iterable(self, x, y):
-        # print "unify sequences %s %s" % (x, y)
+        print "unify sequences %s %s" % (x, y)
         vx, vy = (x.val, y.val)
         idx, top = (0, len(vx))
         while (idx < top):

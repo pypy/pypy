@@ -25,9 +25,9 @@ class TestVariable:
         u._store = u.Store()
 
 
-##     def test_no_same_name(self):
-##         x = u.var('x')
-##         raises(v.AlreadyExists, u.var, 'x')
+    def test_no_same_name(self):
+        x = u.var('x')
+        raises(v.AlreadyExists, u.var, 'x')
 
     def test_one_thread_reading_one_var(self):
         cons = Consumer()
