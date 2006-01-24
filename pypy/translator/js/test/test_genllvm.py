@@ -70,7 +70,7 @@ def test_int_ops():
         x += x ** 1
         x += x ** 2
         x += i + 1 * i // i - 1
-        return x
+        return int(x+0.0001)
     f = compile_function(ops, [int])
     assert f(1) == ops(1)
     assert f(2) == ops(2)
@@ -89,7 +89,7 @@ def test_uint_ops():
         x += x ** 1
         x += x ** 2
         x += i + 1 * i // i - 1
-        return x
+        return int(x+0.0001)
     f = compile_function(ops, [r_uint])
     assert f(1) == ops(1)
     assert f(2) == ops(2)
