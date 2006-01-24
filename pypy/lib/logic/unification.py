@@ -249,9 +249,21 @@ class Store(object):
         restore_domains(old_domains)
         return narrowed_domains
 
-    def satisfy(constraint):
-        pass
+    def satisfy(self, constraint):
+        assert constraint in self.constraints
+        varset = set()
+        constset = set()
+        compute_dependant_vars(constraint, varset, constset)
+        old_domains = collect_domains(varset)
 
+        for const in constset:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                raise
+        
+        
     #-- BIND -------------------------------------------
 
     def bind(self, var, val):
@@ -511,6 +523,9 @@ def satisfiable(constraint):
 
 def get_satisfying_domains(constraint):
     return _store.get_satisfying_domains(constraint)
+
+def satisfy(constraint):
+    return _store.satisfy(constraint)
 
 def bind(var, val):
     return _store.bind(var, val)

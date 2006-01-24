@@ -277,7 +277,7 @@ class TestUnification:
         assert y.dom == c.FiniteDomain([2, 3])
         assert z.dom == c.FiniteDomain([3, 4])
 
-    def test_satisfy_many_const_success(self):
+    def test_satisfiable_many_const_success(self):
         x,y,z,w = (u.var('x'), u.var('y'),
                    u.var('z'), u.var('w'))
         x.dom = c.FiniteDomain([1, 2, 5])
@@ -310,7 +310,7 @@ class TestUnification:
                                  w:c.FiniteDomain([4, 5])}
 
 
-    def test_satisfy_many_const_failure(self):
+    def test_satisfiable_many_const_failure(self):
         x,y,z,w = (u.var('x'), u.var('y'),
                    u.var('z'), u.var('w'))
         x.dom = c.FiniteDomain([1, 2, 5])
@@ -335,5 +335,42 @@ class TestUnification:
         assert narrowed_doms == {}
         narrowed_doms = u.get_satisfying_domains(k2)
         assert narrowed_doms == {}
+
+    def test_satisfy_many_const_failure(self):
+        x,y,z,w = (u.var('x'), u.var('y'),
+                   u.var('z'), u.var('w'))
+        x.dom = c.FiniteDomain([1, 2, 5])
+        y.dom = c.FiniteDomain([2, 3])
+        z.dom = c.FiniteDomain([3, 4])
+        w.dom = c.FiniteDomain([1])
+        k1 = c.Expression([x, y, z], 'x == y + z')
+        k2 = c.Expression([z, w], 'z < w')
+        u.add_constraint(k1)
+        u.add_constraint(k2)
+        raises(u.ConsistencyFailure, u.satisfy, k1)
+        assert x.dom == c.FiniteDomain([1, 2, 5])
+        assert y.dom == c.FiniteDomain([2, 3])
+        assert z.dom == c.FiniteDomain([3, 4])
+        assert w.dom == c.FiniteDomain([1])
+        raises(u.ConsistencyFailure, u.satisfy, k2)
+        assert x.dom == c.FiniteDomain([1, 2, 5])
+        assert y.dom == c.FiniteDomain([2, 3])
+        assert z.dom == c.FiniteDomain([3, 4])
+        assert w.dom == c.FiniteDomain([1])
         
-        
+    def test_satisfy_many_const_success(self):
+        x,y,z,w = (u.var('x'), u.var('y'),
+                   u.var('z'), u.var('w'))
+        x.dom = c.FiniteDomain([1, 2, 5])
+        y.dom = c.FiniteDomain([2, 3])
+        z.dom = c.FiniteDomain([3, 4])
+        w.dom = c.FiniteDomain([1, 4, 5])
+        k1 = c.Expression([x, y, z], 'x == y + z')
+        k2 = c.Expression([z, w], 'z < w')
+        u.add_constraint(k1)
+        u.add_constraint(k2)
+        u.satisfy(k2)
+        assert x.dom == c.FiniteDomain([5])
+        assert y.dom == c.FiniteDomain([2])
+        assert z.dom == c.FiniteDomain([3])
+        assert w.dom == c.FiniteDomain([4, 5])

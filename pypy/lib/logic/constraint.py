@@ -111,7 +111,7 @@ class FiniteDomain(AbstractDomain):
 
     def intersection(self, other):
         if other is None: return self.get_values()
-        return self.get_values() & other.get_values()
+        return self._values & other._values
 
 #-- Constraints ------------------------------------------
 
