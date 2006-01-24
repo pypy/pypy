@@ -12,8 +12,8 @@ from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
      OpaqueTypeNode, ExtOpaqueTypeNode
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.rpython.memory.lladdress import Address, NULL
-            
+from pypy.rpython.memory.lladdress import address, NULL
+
 log = log.database 
 
 class Database(object): 
@@ -38,7 +38,7 @@ class Database(object):
             lltype.Void: "void",
             lltype.UnsignedLongLong: "ulong",
             lltype.SignedLongLong: "long",
-            Address: "sbyte*"}
+            address: "sbyte*"}
 
         # 32 bit platform
         if sys.maxint == 2**31-1:
@@ -362,7 +362,7 @@ class Database(object):
             repr = str(ord(value))
         elif type_ is lltype.Float:
             repr = self.float_to_str(value)
-        elif type_ is Address:
+        elif type_ is address:
             assert value == NULL
             repr = 'null' 
         else:

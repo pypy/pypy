@@ -4,6 +4,8 @@ from pypy.translator.llvm.test.runtest import compile_function as compile
 from pypy.rpython.objectmodel import free_non_gc_object                                              
 import py
 
+py.test.skip("WIP")
+
 def test_null():
     def f():
         return NULL - NULL
