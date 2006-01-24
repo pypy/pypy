@@ -5,9 +5,9 @@ try:
 except ImportError:
     WinDLL = None
 
-cdll = _DLLS( CDLL )
+cdll = _DLLS(CDLL)
 if WinDLL:
-    windll = _DLLS( WinDLL )
+    windll = _DLLS(WinDLL)
 
 
 """

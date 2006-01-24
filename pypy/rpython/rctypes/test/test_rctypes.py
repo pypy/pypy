@@ -66,7 +66,7 @@ class Test_rctypes:
 class Test_structure:
 
     def setup_class(cls):
-        compile_c_module( [ py.path.local( "_rctypes_test.c" ) ], "_rctypes_test" )
+        compile_c_module([py.path.local("_rctypes_test.c")], "_rctypes_test")
 
     def test_simple_as_extension_module(self):
         import _rctypes_test as t0
@@ -76,14 +76,14 @@ class Test_structure:
 
     def test_simple(self):
         if sys.platform == "win32":
-            dll = cdll.LoadLibrary( "_rctypes_test.pyd" )
+            dll = cdll.LoadLibrary("_rctypes_test.pyd")
         else:
-            dll = cdll.LoadLibrary( "_rctypes_test.so" )
+            dll = cdll.LoadLibrary("_rctypes_test.so")
         in_point = tagpoint()
         in_point.x = 42
         in_point.y = 17
         out_point = tagpoint()
-        assert in_point.x + in_point.y == dll._testfunc_byval( in_point, byref( out_point ) )
+        assert in_point.x + in_point.y == dll._testfunc_byval(in_point, byref(out_point))
         assert out_point.x == 42
         assert out_point.y == 17
 

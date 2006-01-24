@@ -16,11 +16,11 @@ c_int.ll_type = Signed
 c_char_p.annotator_type = None
 c_char_p.ll_type = None
 c_char_p.wrap_arg = staticmethod(
-        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name )
-POINTER( c_char ).annotator_type = None
-POINTER( c_char ).ll_type = None
-POINTER( c_char ).wrap_arg = staticmethod(
-        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name )
+        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name)
+POINTER(c_char).annotator_type = None
+POINTER(c_char).ll_type = None
+POINTER(c_char).wrap_arg = staticmethod(
+        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name)
 
 class FunctionPointerTranslation(object):
 
