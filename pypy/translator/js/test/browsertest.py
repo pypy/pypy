@@ -24,9 +24,9 @@ function runTest() {
         result = %(jstestcase)s;
     } catch (e) {
         try {
-            result = "raise Exception('" + e.toSource() + "')";
+            result = "throw Exception('" + e.toSource() + "')";
         } catch (dummy) {
-            result = "raise Exception('unknown')";
+            result = "throw Exception('unknown')";
         }
     }
 
