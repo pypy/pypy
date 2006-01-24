@@ -3,7 +3,7 @@ from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rstr import STR
-from pypy.rpython import rlist
+from pypy.rpython import rlist, rstr
 from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.module.thread.rpython import ll_thread
@@ -84,11 +84,18 @@ for name in simple_math_functions:
 
 #______________________________________________________
 
+def find_list_of_str(rtyper):
+    for r in rtyper.reprs.itervalues():
+        if isinstance(r, rlist.ListRepr) and r.item_repr is rstr.string_repr:
+            return r.lowleveltype.TO
+    return None
 
 def predeclare_common_types(db, rtyper):
     # Common types
     yield ('RPyString', STR)
-    yield ('RPyListOfString', rlist.LIST_OF_STR)
+    LIST_OF_STR = find_list_of_str(rtyper)
+    if LIST_OF_STR is not None:
+        yield ('RPyListOfString', LIST_OF_STR)
     yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
     yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
@@ -107,15 +114,17 @@ def predeclare_utility_functions(db, rtyper):
     # Such result should be only from C code
     # returned directly as results
 
-    p = lltype.Ptr(rlist.LIST_OF_STR)
+    LIST_OF_STR = find_list_of_str(rtyper)
+    if LIST_OF_STR is not None:
+        p = lltype.Ptr(LIST_OF_STR)
 
-    def _RPyListOfString_New(length=lltype.Signed):
-        return rlist.LIST_OF_STR.ll_newlist(length)
+        def _RPyListOfString_New(length=lltype.Signed):
+            return LIST_OF_STR.ll_newlist(length)
 
-    def _RPyListOfString_SetItem(l=p,
-                                index=lltype.Signed,
-                                newstring=lltype.Ptr(STR)):
-        rlist.ll_setitem_nonneg(rlist.dum_nocheck, l, index, newstring)
+        def _RPyListOfString_SetItem(l=p,
+                                    index=lltype.Signed,
+                                    newstring=lltype.Ptr(STR)):
+            rlist.ll_setitem_nonneg(rlist.dum_nocheck, l, index, newstring)
 
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):
