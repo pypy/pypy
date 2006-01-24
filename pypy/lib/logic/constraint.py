@@ -1,11 +1,16 @@
 # a) new requirement : be able to postpone asking fo the
 # values of the domain
 
+#-- Exceptions ---------------------------------------
+
 class ConsistencyFailure(Exception):
     """The repository is not in a consistent state"""
     pass
 
-
+class DomainlessVariables(Exception):
+    """A constraint can't be defined on variables
+       without a domain"""
+    pass
 
 #-- Domains --------------------------------------------
 
@@ -110,15 +115,17 @@ class FiniteDomain(AbstractDomain):
 #-- Constraints ------------------------------------------
 
 class AbstractConstraint(object):
-    #__implements__ = ConstraintInterface
     
     def __init__(self, variables):
         """variables is a list of variables which appear in the formula"""
+        for var in variables:
+            if var.dom is None:
+                raise DomainlessVariables
         self._variables = variables
 
     def affectedVariables(self):
         """ Return a list of all variables affected by this constraint """
-        return self._variabl
+        return self._variables
 
     def isVariableRelevant(self, variable):
         return variable in self._variables
@@ -170,6 +177,14 @@ class BasicConstraint(object):
         return 1
 
 
+def make_lambda_head(vars):
+    var_ids = ','.join([var.name for var in vars])
+    return 'lambda ' + var_ids + ':'
+
+def expand_expr_template(expr, vars):
+    for var in vars:
+        expr.replace(var.name, var.name + '.val')
+    return expr
 
 class Expression(AbstractConstraint):
     """A constraint represented as a python expression."""
@@ -184,8 +199,8 @@ class Expression(AbstractConstraint):
         try:
             self.filterFunc = Expression._FILTER_CACHE[formula]
         except KeyError:
-            self.filterFunc = eval('lambda %s: %s' % \
-                                        (','.join(variables), formula), {}, {})
+            self.filterFunc = eval(make_lambda_head(variables) \
+                                   + expand_expr_template(formula, variables), {}, {})
             Expression._FILTER_CACHE[formula] = self.filterFunc
 
     def _init_result_cache(self):

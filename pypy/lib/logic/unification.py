@@ -172,10 +172,8 @@ class Store(object):
         # mapping of names to vars (all of them)
         self.vars = set()
         self.names = set()
-        # mapping of vars to domains
-        self.domains = {}
-        # mapping of names to constraints (all...)
-        self.contraints = {}
+        # set of all constraints 
+        self.constraints = set()
         # consistency-preserving stuff
         self.in_transaction = False
         self.lock = threading.RLock()
@@ -197,7 +195,11 @@ class Store(object):
         if var.is_bound():
             raise AlreadyBound
         var.dom = FiniteDomain(dom)
-        self.domains[var] = var.dom
+    
+    #-- Add constraints -------------------------
+
+    def add_constraint(self, constraint):
+        self.constraints.add(constraint)
 
     #-- BIND -------------------------------------------
 
@@ -417,6 +419,9 @@ def var(name):
 
 def set_domain(var, dom):
     return _store.set_domain(var, dom)
+
+def add_constraint(constraint):
+    return _store.add_constraint(constraint)
 
 def bind(var, val):
     return _store.bind(var, val)

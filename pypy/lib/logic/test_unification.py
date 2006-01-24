@@ -1,6 +1,6 @@
 import unification as u
 import variable as v
-from constraint import FiniteDomain
+import constraint as c
 from py.test import raises, skip
 from threading import Thread
 
@@ -192,8 +192,7 @@ class TestUnification:
     def test_set_var_domain(self):
         x = u.var('x')
         u.set_domain(x, [1, 3, 5])
-        assert x.dom == FiniteDomain([1, 3, 5])
-        assert u._store.domains[x] == FiniteDomain([1, 3, 5])
+        assert x.dom == c.FiniteDomain([1, 3, 5])
 
     def test_bind_with_domain(self):
         x = u.var('x')
@@ -222,4 +221,15 @@ class TestUnification:
         u.set_domain(z, [41, 42, 43])
         u.unify(x, y)
         assert z.val == 42
-        assert z.dom == FiniteDomain([41, 42, 43])
+        assert z.dom == c.FiniteDomain([41, 42, 43])
+
+    def test_add_constraint(self):
+        x,y,z = u.var('x'), u.var('y'), u.var('z')
+        raises(c.DomainlessVariables,
+               c.Expression, [x, y, z], 'x == y + z')
+        x.dom = c.FiniteDomain([1, 2])
+        y.dom = c.FiniteDomain([2, 3])
+        z.dom = c.FiniteDomain([3, 4])
+        k = c.Expression([x, y, z], 'x == y + z')
+        u.add_constraint(k)
+        assert k in u._store.constraints
