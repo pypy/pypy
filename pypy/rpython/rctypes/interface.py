@@ -1,5 +1,5 @@
 from ctypes import _DLLS
-from implementation import RCDLL as CDLL, c_int, c_char_p, c_char, POINTER
+from implementation import RCDLL as CDLL, c_int, c_char_p, c_char, POINTER, Structure, byref
 try:
     from implementation import RWinDLL as WinDLL
 except ImportError:
