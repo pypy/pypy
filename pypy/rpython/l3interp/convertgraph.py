@@ -152,6 +152,20 @@ def convert_block(block, memo):
 
             offset = ItemOffset(spaceop.result.concretetype)
             insns.append(getoffset(offset))
+        elif spaceop.opname == 'setarrayitem':
+            array, index, value = spaceop.args
+            opname = spaceop.opname + '_' + \
+                     getaccesskind(value.concretetype)
+            insns.append(model.very_low_level_opcode[opname])
+            insns.append(get(array))
+            insns.append(get(index))
+
+            offset = ArrayItemsOffset(array.concretetype)
+            insns.append(getoffset(offset))
+
+            offset = ItemOffset(value.concretetype)
+            insns.append(getoffset(offset))
+            insns.append(get(value))
         else:
             insns.append(model.very_low_level_opcode[spaceop.opname])
             for v in spaceop.args:

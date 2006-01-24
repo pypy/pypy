@@ -189,8 +189,8 @@ def test_setfield():
 
     fn = translate(entry_point, [int])
 
-    assert fn(-3) == 0
-    assert fn(0) == -3
+    assert fn(9) == 0
+    assert fn(0) == 9
 
 
         
@@ -266,3 +266,71 @@ def test_getitem():
     for arg in 0,1,2:
         assert fn(arg) == f(arg)
 
+def test_setitem():
+    from pypy.rpython.lltypesystem import lltype 
+
+    A = lltype.GcArray(lltype.Signed)
+    a = lltype.malloc(A, 3)
+    a[0] = 1
+    a[1] = 2
+    a[2] = 3
+    
+
+    def f(index, value):
+        if value:
+            a[index] = value
+            return 0
+        return a[index]
+
+    l3graph = l3ify(f, [int, int])
+    def entry_point(x, y):
+        value = l3interp.l3interpret(l3graph, [x, y], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+
+    entry_point(1, 42)
+    assert entry_point(1, 0) == 42
+    
+    fn = translate(entry_point, [int, int])
+        
+    entry_point(1, 65)
+    assert entry_point(1, 0) == 65
+
+def test_getsetitem_complex():
+    from pypy.rpython.lltypesystem import lltype 
+
+    A = lltype.GcArray(lltype.Signed)
+    AA = lltype.GcArray(lltype.Ptr(A))
+    a = lltype.malloc(AA, 3)
+    a[0] = lltype.malloc(A, 1)
+    a[1] = lltype.malloc(A, 2)
+    a[2] = lltype.malloc(A, 3)
+    a[0][0] = 1
+
+    a[1][0] = 2
+    a[1][1] = 3
+
+    a[2][0] = 4
+    a[2][1] = 5
+    a[2][2] = 6
+
+    def f(x, y, value):
+        if value:
+            a[x][y] = value
+            return 0
+        return a[x][y]
+    
+    l3graph = l3ify(f, [int, int, int])
+    def entry_point(x, y, value):
+        value = l3interp.l3interpret(l3graph, [x, y, value], [], [])
+        assert isinstance(value, l3interp.L3Integer)
+        return value.intval
+
+    for x,y,value in (0,0,0), (0,0,9), (0,0,0), (2,1,0), (2,1,14), (2,1,0):
+        assert entry_point(x, y, value) == f(x, y, value)
+
+    
+    fn = translate(entry_point, [int, int, int])
+
+    for x,y,value in (0,0,0), (0,0,11), (0,0,0), (2,1,0), (2,1,26), (2,1,0):
+        assert fn(x, y, value) == f(x, y, value)

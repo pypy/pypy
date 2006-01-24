@@ -212,6 +212,30 @@ class L3Frame(object):
         v = (a + items_offset + s * i).signed[0]
         self.stack_int.append(v)
         
+    def op_getarrayitem_ptr(self):
+        a = self.getptr()
+        i = self.getint()
+        items_offset = self.getoffset()
+        s = self.getoffset()
+        v = (a + items_offset + s * i).address[0]
+        self.stack_ptr.append(v)
+        
+    def op_setarrayitem_int(self):
+        a = self.getptr()
+        i = self.getint()
+        items_offset = self.getoffset()
+        s = self.getoffset()
+        v = self.getint()
+        (a + items_offset + s * i).signed[0] = v
+        
+    def op_setarrayitem_ptr(self):
+        a = self.getptr()
+        i = self.getint()
+        items_offset = self.getoffset()
+        s = self.getoffset()
+        v = self.getptr()
+        (a + items_offset + s * i).address[0] = v
+        
     def op_flavored_malloc(self):
         self.stack_ptr.append(constant_fakeaddress)
 
