@@ -251,10 +251,13 @@ class LLAbstractInterp(object):
 class LinkState(object):
     """Wrapper for a residual link and the frozen state that it should go to."""
 
+    exitcase = None
+    llexitcase = None
+
     def __init__(self, args_v, frozenstate):
         self.args_v = args_v
-        self.link = Link([], None)
         self.frozenstate = frozenstate
+        self.link = None
 
     def settarget(self, block, blockargs):
         args = []
@@ -396,17 +399,28 @@ class GraphState(object):
                         seen[ls] = True
                         pending.append(ls)
                 else:
-                    # 'ls' is the linkstate of a link to a return or except
-                    # block; make sure that it is really the one from 'graph'
-                    # -- by patching 'graph' if necessary.
                     # XXX don't use ls.link.target!
-                    if len(ls.link.target.inputargs) == 1:
-                        #self.a_return = state.args_a[0]
-                        graph.returnblock = ls.link.target
-                    elif len(link.target.inputargs) == 2:
-                        graph.exceptblock = ls.link.target
+                    if ls.link is None or ls.link.target is None:
+                        # resolve the LinkState to go to the return
+                        # or except block
+                        if len(ls.args_v) == 1:
+                            target = graph.returnblock
+                        elif len(ls.args_v) == 2:
+                            target = graph.exceptblock
+                        else:
+                            raise Exception("uh?")
+                        ls.settarget(target, target.inputargs)
                     else:
-                        raise Exception("uh?")
+                        # the LinkState is already going to a return or except
+                        # block; make sure that it is really the one from
+                        # 'graph' -- by patching 'graph' if necessary.
+                        if len(ls.link.target.inputargs) == 1:
+                            #self.a_return = state.args_a[0]
+                            graph.returnblock = ls.link.target
+                        elif len(link.target.inputargs) == 2:
+                            graph.exceptblock = ls.link.target
+                        else:
+                            raise Exception("uh?")
 
         if did_any_generalization:
             raise RestartCompleting
@@ -453,14 +467,9 @@ class GraphState(object):
                     # copies of return and except blocks are *normal* blocks
                     # currently; they are linked to the official return or
                     # except block of the copygraph.
-                    if len(origblock.inputargs) == 1:
-                        target = self.copygraph.returnblock
-                    else:
-                        target = self.copygraph.exceptblock
                     args_v = [builder.binding(v).forcevarorconst(builder)
                               for v in origblock.inputargs]
                     ls = LinkState(args_v, frozenstate=None)
-                    ls.settarget(target, target.inputargs)
                     raise InsertNextLink(ls)
                 else:
                     # finishing a handle_call_inlining(): link back to
@@ -515,8 +524,8 @@ class GraphState(object):
                                               args_a, origlink.target)
                 newlinkstate = self.interp.schedule(nextinputstate)
                 if newexitswitch is not None:
-                    newlinkstate.link.exitcase = origlink.exitcase #XXX change later
-                    newlinkstate.link.llexitcase = origlink.llexitcase
+                    newlinkstate.exitcase = origlink.exitcase
+                    newlinkstate.llexitcase = origlink.llexitcase
                 newlinkstates.append(newlinkstate)
 
         newblock = builder.buildblock(newexitswitch, newlinkstates)
@@ -540,7 +549,14 @@ class BlockBuilder(object):
         b = Block([v for v in self.newinputargs if isinstance(v, Variable)])
         b.operations = self.residual_operations
         b.exitswitch = newexitswitch
-        b.closeblock(*[ls.link for ls in newlinkstates])
+        exits = []
+        for ls in newlinkstates:
+            link = Link([], None)
+            link.exitcase = ls.exitcase
+            link.llexitcase = ls.llexitcase
+            ls.link = link
+            exits.append(link)
+        b.closeblock(*exits)
         return b
 
     def binding(self, v):
