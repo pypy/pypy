@@ -175,21 +175,25 @@ class ListBuilder(object):
         fnptr = list_repr.rtyper.annotate_helper_fn(ll_setitem_nonneg, argtypes)
         self.c_setitem_nonneg = inputconst(typeOf(fnptr), fnptr)
         self.c_dum_nocheck = inputconst(Void, dum_nocheck)
+        self.c_LIST = inputconst(Void, self.LIST)
 
-    def build(self, llop, items_v):
+    def build(self, builder, items_v):
         """Make the operations that would build a list containing the
         provided items."""
-        # This is called by the JIT with llop.rtyper == None, so
-        # llop.gendirectcall() doesn't work.  Instead, we need to call
-        # directly the c_newitem and c_setitem_nonneg precomputed above.
-        c_list = inputconst(Void, self.LIST)
-        c_len  = inputconst(Signed, len(items_v))
-        v_result = llop.genop('direct_call', [self.c_newlist, c_list, c_len],
-                              resulttype = self.LISTPTR)
+        c_list = builder.addconst(self.c_LIST)
+        c_newlist = builder.addconst(self.c_newlist)
+        c_len  = builder.genconst(len(items_v))
+        v_result = builder.genop('direct_call',
+                                 [c_newlist, c_list, c_len],
+                                 self.LISTPTR)
+        c_setitem_nonneg = builder.addconst(self.c_setitem_nonneg)
+        c_dum_nocheck = builder.addconst(self.c_dum_nocheck)
         for i, v in enumerate(items_v):
-            llop.genop('direct_call', [self.c_setitem_nonneg,
-                                       self.c_dum_nocheck,
-                                       v_result, inputconst(Signed, i), v])
+            c_i = builder.genconst(i)
+            builder.genop('direct_call', [c_setitem_nonneg,
+                                          c_dum_nocheck,
+                                          v_result, c_i, v],
+                          Void)
         return v_result
 
 class ListRepr(BaseListRepr):

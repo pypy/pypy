@@ -100,6 +100,8 @@ Functions:
 
 * genconst(block, llvalue) -> (result var)
 
+* addconst(block, const) -> (result var)
+
 * closeblock1(block) -> link
 
 * closeblock2(block, exitswitch-var) -> (false_link, true_link)

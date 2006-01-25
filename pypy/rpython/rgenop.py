@@ -18,6 +18,9 @@ def geninputarg(block, CONCRETE_TYPE):
     return v
 
 def genop(block, opname, vars, RESULT_TYPE):
+    for v in vars:
+        assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
+        
     v = flowmodel.Variable()
     v.concretetype = RESULT_TYPE
     op = flowmodel.SpaceOperation(opname, vars, v)
@@ -28,6 +31,10 @@ def genconst(block, llvalue):
     v = flowmodel.Constant(llvalue)
     v.concretetype = lltype.typeOf(llvalue)
     return v
+
+def addconst(block, const):
+    assert isinstance(const, flowmodel.Constant)
+    return const
 
 def closeblock1(block):
     link = flowmodel.Link([], None)

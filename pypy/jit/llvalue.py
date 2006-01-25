@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rpython.lltypesystem import lltype
-
+from pypy.rpython import rgenop
 
 class LLAbstractValue(object):
     """An abstract value, propagated through the blocks of the low-level
@@ -112,7 +112,7 @@ class LLFrozenDummyValue(LLFrozenValue):
     def flatten(self, memo):
         pass
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         return ll_dummy_value
 
     def match(self, a_value, memo):
@@ -129,7 +129,7 @@ class LLFrozenConcreteValue(LLFrozenValue):
         """
         pass
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         """Create an un-frozen copy of a frozen value recursively,
         creating fresh Variables.
         """
@@ -160,7 +160,7 @@ class LLFrozenRuntimeValue(LLFrozenValue):
         """
         memo.result.append(self)
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         """Create an un-frozen copy of a frozen value recursively,
         creating fresh Variables.
         """
@@ -171,7 +171,7 @@ class LLFrozenRuntimeValue(LLFrozenValue):
             v = propagateconst        # allowed to propagate as a Constant
             assert v.concretetype == self.concretetype
         else:
-            v = newvar(self.concretetype)
+            v = rgenop.geninputarg(block, self.concretetype)
         result = LLAbstractValue(v)
         result.origin.append(self)
         return result
@@ -196,7 +196,7 @@ class LLFrozenVirtualValue(LLFrozenValue):
             memo.seen[self] = True
             self.fz_content.flatten(memo)
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         """Create an un-frozen copy of a frozen value recursively,
         creating fresh Variables.
         """
@@ -206,7 +206,7 @@ class LLFrozenVirtualValue(LLFrozenValue):
         else:
             a = LLAbstractValue()
             memo.seen[self] = a
-            a.content = self.fz_content.unfreeze(memo)
+            a.content = self.fz_content.unfreeze(memo, block)
             return a
 
     def match(self, a_value, memo):

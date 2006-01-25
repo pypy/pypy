@@ -34,18 +34,13 @@ class LLVirtualList(LLAbstractContainer):
         items_a = [a.freeze(memo) for a in self.items_a]
         return LLVirtualList(self.T, items_a)
 
-    def unfreeze(self, memo):
-        items_a = [a.unfreeze(memo) for a in self.items_a]
+    def unfreeze(self, memo, block):
+        items_a = [a.unfreeze(memo, block) for a in self.items_a]
         return LLVirtualList(self.T, items_a)
 
     def build_runtime_container(self, builder):
         items_v = [a.forcevarorconst(builder) for a in self.items_a]
-        llop = LowLevelOpList(None)
-        v_result = self.T.list_builder(llop, items_v)
-        print 'list_builder:'
-        for op in llop:
-            print '\t', op
-            builder.residual_operations.append(op)
+        v_result = self.T.list_builder(builder, items_v)
         return v_result
 
     # ____________________________________________________________

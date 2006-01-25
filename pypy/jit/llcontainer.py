@@ -22,7 +22,7 @@ class LLAbstractContainer(object):
     def freeze(self, memo):
         return self
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         return self
 
 
@@ -50,26 +50,22 @@ class LLVirtualContainer(LLAbstractContainer):
         self.fields[name] = a_value
 
     def build_runtime_container(self, builder):
-        v_result = newvar(lltype.Ptr(self.T))
+        RESULT_TYPE = lltype.Ptr(self.T)
         if self.a_parent is not None:
             v_parent = self.a_parent.forcevarorconst(builder)
-            op = SpaceOperation('getsubstruct', [v_parent,
-                                                 const(self.parentindex,
-                                                       lltype.Void)],
-                                v_result)
-            print 'force:', op
-            builder.residual_operations.append(op)
+            parentindex = builder.addconst(const(self.parentindex,
+                                                 lltype.Void))
+            v_result = builder.genop('getsubstruct',
+                                     [v_parent,parentindex], RESULT_TYPE)
         else:
+            t = builder.addconst(const(self.T, lltype.Void))
             if self.T._is_varsize():
-                op = SpaceOperation('malloc_varsize', [
-                                        const(self.T, lltype.Void),
-                                        const(self.length, lltype.Signed)],
-                                    v_result)
+
+                v_result = builder.genop('malloc_varsize',
+                                         [t, builder.genconst(self.length)],
+                                         RESULT_TYPE)
             else:
-                op = SpaceOperation('malloc', [const(self.T, lltype.Void)],
-                                    v_result)
-            print 'force:', op
-            builder.residual_operations.append(op)
+                v_result = builder.genop('malloc', [t], RESULT_TYPE)
             self.buildcontent(builder, v_result)
         return v_result
 
@@ -81,19 +77,15 @@ class LLVirtualContainer(LLAbstractContainer):
                 T = self.fieldtype(name)
                 if isinstance(T, lltype.ContainerType):
                     # initialize the substructure/subarray
-                    v_subptr = newvar(lltype.Ptr(T))
-                    op = SpaceOperation('getsubstruct',
-                                        [v_target, const(name, lltype.Void)],
-                                        v_subptr)
-                    print 'force:', op
-                    builder.residual_operations.append(op)
+                    c_name = builder.addconst(const(name, lltype.Void))
+                    v_subptr = builder.genop('getsubstruct',
+                                             [v_target, c_name],
+                                             lltype.Ptr(T))
                     assert isinstance(a_value.content, LLVirtualContainer)
                     a_value.content.buildcontent(builder, v_subptr)
                 else:
                     v_value = a_value.forcevarorconst(builder)
-                    op = self.setop(v_target, name, v_value)
-                    print 'force:', op
-                    builder.residual_operations.append(op)
+                    self.setop(builder, v_target, name, v_value)
 
     def flatten(self, memo):
         assert self not in memo.seen; memo.seen[self] = True  # debugging only
@@ -138,13 +130,13 @@ class LLVirtualContainer(LLAbstractContainer):
             result.fields[name] = a_frozen
         return result
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         result = self.__class__(self.T, self.length)
         if self.a_parent is not None:
-            result.a_parent = self.a_parent.unfreeze(memo)
+            result.a_parent = self.a_parent.unfreeze(memo, block)
             result.parentindex = self.parentindex
         for name in self.names:
-            a = self.fields[name].unfreeze(memo)
+            a = self.fields[name].unfreeze(memo, block)
             result.fields[name] = a
         return result
 
@@ -168,11 +160,10 @@ class LLVirtualStruct(LLVirtualContainer):
     def fieldtype(self, name):
         return getattr(self.T, name)
 
-    def setop(self, v_target, name, v_value):
-        return SpaceOperation('setfield', [v_target,
-                                           const(name, lltype.Void),
-                                           v_value],
-                              newvar(lltype.Void))
+    def setop(self, builder, v_target, name, v_value):
+        c_name = builder.addconst(const(name, lltype.Void))
+        builder.genop('setfield', [v_target, c_name, v_value],
+                      lltype.Void)
 
 
 class LLVirtualArray(LLVirtualContainer):
@@ -196,10 +187,10 @@ class LLVirtualArray(LLVirtualContainer):
         return self.T.OF
 
     def setop(self, v_target, name, v_value):
-        return SpaceOperation('setarrayitem', [v_target,
-                                               const(name, lltype.Signed),
-                                               v_value],
-                              newvar(lltype.Void))
+        builder.genop('setarrayitem', [v_target,
+                                       builder.genconst(name),
+                                       v_value],
+                      lltype.Void)
 
 
 def virtualcontainervalue(T, length=None):

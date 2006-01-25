@@ -9,6 +9,7 @@ from pypy.jit.llvalue import ll_no_return_value
 from pypy.jit.llvalue import FlattenMemo, MatchMemo, FreezeMemo, UnfreezeMemo
 from pypy.jit.llcontainer import LLAbstractContainer, virtualcontainervalue
 from pypy.jit.llcontainer import hasllcontent
+from pypy.rpython import rgenop
 
 # ____________________________________________________________
 
@@ -93,15 +94,15 @@ class LLState(LLAbstractContainer):
         result.frozen = True    # for debugging
         return result
 
-    def unfreeze(self, memo):
+    def unfreeze(self, memo, block):
         assert self.frozen, "unfreeze(): state not frozen"
         if self.back is not None:
-            new_back = self.back.unfreeze(memo)
+            new_back = self.back.unfreeze(memo, block)
         else:
             new_back = None
         new_args_a = []
         for v, a in zip(self.getlivevars(), self.args_a):
-            a = a.unfreeze(memo)
+            a = a.unfreeze(memo, block)
             # try to preserve the name
             if isinstance(a.runtimevar, Variable):
                 a.runtimevar.rename(v)
@@ -536,18 +537,17 @@ class BlockBuilder(object):
 
     def __init__(self, interp, initialstate, key):
         self.interp = interp
+        self.newblock = rgenop.newblock()
         memo = UnfreezeMemo(key)
-        self.runningstate = initialstate.unfreeze(memo)
+        self.runningstate = initialstate.unfreeze(memo, self.newblock)
         assert list(memo.propagateconsts) == []   # all items consumed
         self.newinputargs = self.runningstate.getruntimevars()
         assert len(self.newinputargs) == len(key)
         # {Variables-of-origblock: a_value}
         self.bindings = self.runningstate.getbindings()
-        self.residual_operations = []
 
     def buildblock(self, newexitswitch, newlinkstates):
-        b = Block([v for v in self.newinputargs if isinstance(v, Variable)])
-        b.operations = self.residual_operations
+        b = self.newblock
         b.exitswitch = newexitswitch
         exits = []
         for ls in newlinkstates:
@@ -559,6 +559,15 @@ class BlockBuilder(object):
         b.closeblock(*exits)
         return b
 
+    def genop(self, opname, args, RESULT_TYPE):
+        return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
+
+    def genconst(self, llvalue):
+        return rgenop.genconst(self.newblock, llvalue)
+    
+    def addconst(self, const):
+        return rgenop.addconst(self.newblock, const)
+    
     def binding(self, v):
         if isinstance(v, Constant):
             return LLAbstractValue(v)
@@ -598,16 +607,12 @@ class BlockBuilder(object):
             self.record_origin(a_result, args_a)
         return a_result
 
-    def residual(self, opname, args_a, a_result):
-        v_result = a_result.forcevarorconst(self)
-        if isinstance(v_result, Constant):
-            v_result = newvar(v_result.concretetype)
-        op = SpaceOperation(opname,
-                            [a.forcevarorconst(self) for a in args_a],
-                            v_result)
-        print 'keep:', op
-        self.residual_operations.append(op)
-
+    def residual(self, op, args_a):
+        retvar = rgenop.genop(self.newblock, op.opname,
+                              [a.forcevarorconst(self) for a in args_a],
+                              op.result.concretetype)
+        return LLAbstractValue(retvar)
+    
     def residualize(self, op, args_a, constant_op=None):
         if constant_op:
             RESULT = op.result.concretetype
@@ -616,10 +621,9 @@ class BlockBuilder(object):
             a_result = self.constantfold(constant_op, args_a)
             if a_result is not None:
                 return a_result
-        a_result = LLAbstractValue(dupvar(op.result))
+        a_result = self.residual(op, args_a)
         if constant_op:
             self.record_origin(a_result, args_a)
-        self.residual(op.opname, args_a, a_result)
         return a_result
 
     def record_origin(self, a_result, args_a):
@@ -762,8 +766,6 @@ class BlockBuilder(object):
         if not any_concrete:
             return None
 
-        a_result = LLAbstractValue(dupvar(op.result))
-        a_real_result = a_result
         graphstate = self.interp.schedule_graph(args_a, origgraph)
         #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
         if graphstate.state != "during":
@@ -782,12 +784,11 @@ class BlockBuilder(object):
                 ARGS.append(a.getconcretetype())
                 new_args_a.append(a)
         args_a = new_args_a
-        TYPE = lltype.FuncType(ARGS, a_result.getconcretetype())
+        TYPE = lltype.FuncType(ARGS, op.result.concretetype)
         fptr = lltype.functionptr(
            TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
         a_func = LLAbstractValue(const(fptr))
-        self.residual("direct_call", [a_func] + args_a, a_result) 
-        return a_real_result
+        return self.residual(op, [a_func] + args_a) 
 
     def op_getfield(self, op, a_ptr, a_attrname):
         if hasllcontent(a_ptr):
@@ -878,9 +879,7 @@ class BlockBuilder(object):
         for a in memo.result:
             v = a.runtimevar
             if isinstance(v, Variable) and not v.concretetype._is_atomic():
-                op = SpaceOperation('keepalive', [v], newvar(lltype.Void))
-                print 'virtual:', op
-                self.residual_operations.append(op)
+                rgenop.genop(self.newblock, 'keepalive', [v], lltype.Void)
         return ll_no_return_value
 
     # High-level operation dispatcher
