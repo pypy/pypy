@@ -1,71 +1,61 @@
-# (c) 2000-2001 LOGILAB S.A. (Paris, FRANCE).
-# http://www.logilab.fr/ -- mailto:contact@logilab.fr
-#
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 2 of the License, or (at your option) any later
-# version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place - Suite 330, Boston, MA  02111-1307
-# USA.
-
-"""
-distributors - part of Logilab's constraint satisfaction solver.
-"""
-
-__revision__ = '$Id: distributors.py,v 1.25 2005/01/14 15:16:21 alf Exp $'
-
 import math, random
 
-def make_new_domains(domains):
-    """return a shallow copy of dict of domains passed in argument"""
-    domain = {}
-    for key, value in domains.items():
-        domain[key] = value.copy()
-    return domain
+def make_new_domains(variables):
+    """updates variables with copied domains indexed by computation space"""
+    new_doms = {}
+    for var in variables:
+        new_doms[var] = var.dom.copy()
+    return new_doms
 
 class AbstractDistributor(object):
     """_distribute is left unimplemented."""
 
-    def __init__(self, nb_subspaces=2):
+    def __init__(self, c_space, nb_subspaces=2):
         self.nb_subspaces = nb_subspaces
+        self.c_space = c_space
         self.verbose = 0
-        
-    def findSmallestDomain(self, domains):
+            
+    def findSmallestDomain(self):
         """returns the variable having the smallest domain.
         (or one of such varibles if there is a tie)
         """
-        domlist = [(dom.size(), variable ) for variable, dom in domains.items()
-                                           if dom.size() > 1]
-        domlist.sort()
-        return domlist[0][1]
+        vars_ = [var for var in self.c_space.store.get_variables_with_a_domain()
+                 if var.dom.size() > 1]
+        
+        best = vars_[0]
+        for var in vars_:
+            if var.dom.size() < best.dom.size():
+                best = var
+        
+        return best
 
-    def findLargestDomain(self, domains):
+    def findLargestDomain(self):
         """returns the variable having the largest domain.
         (or one of such variables if there is a tie)
         """
-        domlist = [(dom.size(), variable) for variable, dom in domains.items()
-                                          if dom.size() > 1]
-        domlist.sort()
-        return domlist[-1][1]
+        vars_ = [var for var in self.c_space.store.get_variables_with_a_domain()
+                 if var.dom.size() > 1]
+
+        best = vars_[0]
+        for var in vars_:
+            if var.dom.size() > best.dom.size():
+                best = var
+        
+        return best
+
 
     def nb_subdomains(self, domains):
         """return number of sub domains to explore"""
         return self.nb_subspaces
 
-    def distribute(self, domains, verbose=0):
+    def distribute(self, verbose=0):
         """do the minimal job and let concrete class distribute variables
         """
         self.verbose = verbose
+        variables = self.c_space.store.get_variables_with_a_domain()
         replicas = []
-        for i in range(self.nb_subdomains(domains)):
-            replicas.append(make_new_domains(domains))
+        for i in range(self.nb_subdomains(variables)):
+            replicas.append(make_new_domains(variables))
         modified_domains = self._distribute(*replicas)
         for domain in modified_domains:
             domain.reset_flags()
@@ -85,9 +75,6 @@ class NaiveDistributor(AbstractDistributor):
     The first new domain has a size of one,
     and the second has all the other values"""
 
-    def __init__(self):
-        AbstractDistributor.__init__(self)
-        
     def _distribute(self, dom1, dom2):
         """See AbstractDistributor"""
         variable = self.findSmallestDomain(dom1)
@@ -103,9 +90,6 @@ class NaiveDistributor(AbstractDistributor):
 class RandomizingDistributor(AbstractDistributor):
     """distributes domains as the NaiveDistrutor, except that the unique
     value of the first domain is picked at random."""
-
-    def __init__(self):
-        AbstractDistributor.__init__(self)
         
     def _distribute(self, dom1, dom2):
         """See AbstractDistributor"""
@@ -127,16 +111,17 @@ class SplitDistributor(AbstractDistributor):
     If nb_subspaces is 0, then the smallest domain is split in
     domains of size 1"""
     
-    def __init__(self, nb_subspaces=3):
-        AbstractDistributor.__init__(self, nb_subspaces)
+    def __init__(self, c_space, nb_subspaces=3):
+        AbstractDistributor.__init__(self, c_space, nb_subspaces)
         self.__to_split = None
+
     def nb_subdomains(self, domains):
         """See AbstractDistributor"""
-        self.__to_split = self.findSmallestDomain(domains)
+        self.__to_split = self.findSmallestDomain()
         if self.nb_subspaces:
-            return min(self.nb_subspaces, domains[self.__to_split].size())
+            return min(self.nb_subspaces, self.__to_split.dom.size()) #domains[self.__to_split].size())
         else:
-            return domains[self.__to_split].size()
+            return self.__to_split.dom.size() # domains[self.__to_split].size()
     
     def _distribute(self, *args):
         """See AbstractDistributor"""
@@ -159,14 +144,14 @@ class SplitDistributor(AbstractDistributor):
 class DichotomyDistributor(SplitDistributor):
     """distributes domains by splitting the smallest domain in
     two equal parts or as equal as possible"""
-    def __init__(self):
-        SplitDistributor.__init__(self, 2)
+    def __init__(self, c_space):
+        SplitDistributor.__init__(self, c_space, 2)
 
 
 class EnumeratorDistributor(SplitDistributor):
     """distributes domains by splitting the smallest domain
     in domains of size 1."""
-    def __init__(self):
-        SplitDistributor.__init__(self, 0)
+    def __init__(self, c_space):
+        SplitDistributor.__init__(self, c_space, 0)
 
 DefaultDistributor = DichotomyDistributor

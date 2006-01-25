@@ -198,12 +198,17 @@ from constraint import ConsistencyFailure
 class ComputationSpace(object):
 
     def __init__(self, program, parent=None):
+        if parent is None:
+            self.store = Store()
+            self.root = self.store.var('root')
+            self.store.bind(self.root, program(self))
+        else:
+            self.store = parent.store
+            self.root = parent.root
         self.program = program
         self.parent = parent
-        self.store = Store()
         self.status = Unprocessed
-        self.root = self.store.var('root')
-        self.store.bind(self.root, program(self))
+        self.children = set()
 
     def _stable(self):
         #XXX: really ?
@@ -234,10 +239,14 @@ class ComputationSpace(object):
         else:
             self.status = Succeeded
 
-    def make_child(self):
-        return ComputationSpace(self.program, parent=self)
+    def make_children(self):
+        for dommap in self.distributor.distribute():
+            cs = ComputationSpace(lambda cs : True,
+                                  parent=self)
+            self.children.add(cs)
+            for var, dom in dommap.items():
+                var.cs_set_dom(cs, dom)
 
-    def choose(self, alternative):
-        """distribute the domains to new spaces
-           create the spaces"""
+
+
         

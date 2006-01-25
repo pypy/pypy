@@ -37,8 +37,10 @@ class Var(object):
         self.store = store
         # top-level 'commited' binding
         self._val = NoValue
-        # domain
+        # domain in a flat world
         self.dom = None
+        # domains in multiple spaces
+        self.doms = {}
         # constraints
         self.constraints = set()
         # when updated in a 'transaction', keep track
@@ -100,6 +102,11 @@ class Var(object):
 
     is_bound = _is_bound
 
+    def cs_set_dom(self, cs, dom):
+        self.doms[cs] = dom
+
+    def cs_get_dom(self, cs):
+        return self.doms[cs]
 
     #---- Concurrent public ops --------------------------
     # should be used by threads that want to block on

@@ -216,6 +216,12 @@ class Store(object):
     def add_constraint(self, constraint):
         self.constraints.add(constraint)
 
+    def get_variables_with_a_domain(self):
+        varset = set()
+        for var in self.vars:
+            if var.dom: varset.add(var)
+        return varset
+
     def satisfiable(self, constraint):
         """ * satisfiable (k) checks that the constraint k
               can be satisfied wrt its variable domains
