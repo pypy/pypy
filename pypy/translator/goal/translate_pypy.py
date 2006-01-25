@@ -224,7 +224,7 @@ def parse_options_and_load_target():
 
     # target specific defaults taking over
     if 'opt_defaults' in targetspec_dic:
-        opt_parser.set_defaults(targetspec_dic['op_defaults'])
+        opt_parser.set_defaults(targetspec_dic['opt_defaults'])
 
     if options.help:
         opt_parser.print_help()
