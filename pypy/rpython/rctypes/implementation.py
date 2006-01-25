@@ -7,20 +7,50 @@ from ctypes import *
 from ctypes import _FUNCFLAG_CDECL
 if sys.platform == "win32":
     from ctypes import _FUNCFLAG_STDCALL
-from pypy.annotation.model import SomeInteger, SomeCTypesObject
-from pypy.rpython.lltypesystem.lltype import Signed
+from pypy.annotation.model import SomeInteger, SomeCTypesObject, \
+        SomeString, SomeFloat
+from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
+        Unsigned, UnsignedLongLong, Char, Float
 
-c_int.annotator_type = SomeInteger()
-c_int.ll_type = Signed
-c_char_p.annotator_type = None
-c_char_p.ll_type = None
-c_char_p.wrap_arg = staticmethod(
-        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name)
-POINTER(c_char).annotator_type = None
-POINTER(c_char).ll_type = None
-POINTER(c_char).wrap_arg = staticmethod(
-        lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name)
+# ctypes_annotation_list contains various attributes that
+# are used by the pypy annotation.
 
+ctypes_annotation_list = [
+    (c_char,          Char,             None),
+    (c_byte,          Signed,           None),
+    (c_ubyte,         Unsigned,         None),
+    (c_short,         Signed,           None),
+    (c_ushort,        Unsigned,         None),
+    (c_int,           Signed,           None),
+    (c_uint,          Unsigned,         None),
+    (c_long,          Signed,           None),
+    (c_ulong,         Unsigned,         None),
+    (c_longlong,      SignedLongLong,   None),
+    (c_ulonglong,     UnsignedLongLong, None),
+    (c_float,         Float,            None),
+    (c_double,        Float,            None),
+    (c_char_p,        None, 
+            staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
+    (POINTER(c_char), None, 
+            staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
+]
+
+def create_ctypes_annotations():
+    """
+    create_ctypes_annotation creates a map between
+    ctypes, annotation types and low level types.
+    For convenience, an existing map from low level types to
+    annotation types is used ('ll_to_annotation_map').
+    """
+
+    from pypy.annotation.model import ll_to_annotation_map
+    for the_type, ll_type, wrap_arg in ctypes_annotation_list:
+        the_type.annotator_type = ll_to_annotation_map.get(ll_type)
+        the_type.ll_type = ll_type
+        if wrap_arg is not None:
+            the_type.wrap_arg = wrap_arg
+
+create_ctypes_annotations()
 
 class FunctionPointerTranslation(object):
 
