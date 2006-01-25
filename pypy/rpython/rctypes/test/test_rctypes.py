@@ -85,6 +85,16 @@ def setup_module(mod):
 
         mod.py_create_point = py_create_point
 
+        oppoint_type = POINTER(tagpoint)
+        def py_testfunc_POINTER(inpoint):
+            point = tagpoint()
+            oppoint = oppoint_type(point)
+            res  = testfunc_byval(inpoint,oppoint)
+            return res, oppoint
+
+        mod.py_testfunc_POINTER = py_testfunc_POINTER
+        mod.POINTER = POINTER
+
 
 class Test_rctypes:
 
@@ -164,4 +174,12 @@ class Test_structure:
         assert len(s.items) == 2
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == tagpoint
+
+    def test_annotate_POINTER(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_testfunc_POINTER,[tagpoint])
+        assert s.knowntype == tuple
+        assert len(s.items) == 2
+        assert s.items[0].knowntype == int
+        assert s.items[1].knowntype == POINTER(tagpoint)
 

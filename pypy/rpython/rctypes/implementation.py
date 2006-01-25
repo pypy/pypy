@@ -97,6 +97,19 @@ class RByrefObj(object):
 
 RByref = RByrefObj()
 
+
+def RPOINTER(cls):
+    answer = POINTER(cls)
+    def compute_result_annotation(cls, s_arg):
+        """
+        Answer the result annotation of calling 'cls'.
+        """
+        assert answer is cls
+        return SomeCTypesObject(cls)
+    answer.compute_result_annotation = classmethod(compute_result_annotation)
+    return answer
+
+
 class RCDLL(CDLL):
     """
     This is the restricted version of ctypes' CDLL class.
