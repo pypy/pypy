@@ -120,4 +120,8 @@ class TestComputationSpace:
                              z: c.FiniteDomain([4]),
                              w: c.FiniteDomain([6, 7])}.items()]
 
-            
+        for (d1, d2) in zip(new_domains, expected_domains):
+            for (e1, e2) in zip(d1, d2):
+                print e1, '=?', e2
+                assert e1 == e2
+        
