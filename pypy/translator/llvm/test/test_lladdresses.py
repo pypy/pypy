@@ -4,7 +4,6 @@ from pypy.translator.llvm.test.runtest import compile_function as compile
 from pypy.rpython.objectmodel import free_non_gc_object                                              
 import py
 
-
 def test_null():
     def f():
         return NULL - NULL
@@ -89,6 +88,7 @@ def test_raw_memcopy():
     assert res == 3
 
 def test_pointer_comparison():
+    py.test.skip("XXX tmp")
     def f():
         result = 0
         for addr1 in [raw_malloc(1), NULL]:
@@ -104,7 +104,7 @@ def test_pointer_comparison():
     res = fc()
     assert res == int('011100' * 2, 2)
 
-def test_flavored_malloci_raw():
+def test_flavored_malloc1_raw():
     class A(object):
         _alloc_flavor_ = "raw"
         def __init__(self, val):
@@ -116,6 +116,40 @@ def test_flavored_malloci_raw():
         return result
     fn = compile(f, [int])
     assert fn(1) == 2 
+
+def test_flavored_malloc2_raw():
+    from pypy.rpython.memory.support import AddressLinkedList
+
+    def f():
+        addr = raw_malloc(100)
+        ll = AddressLinkedList()
+        ll.append(addr)
+        ll.append(addr + 1)
+        ll.append(addr + 2)
+        a = ll.pop()
+        assert a == addr
+        a = ll.pop()
+        assert a - addr == 1
+        a = ll.pop()
+        assert a - addr == 2
+        assert ll.pop() == NULL
+        assert ll.pop() == NULL
+        ll.append(addr)
+        ll.free()
+        free_non_gc_object(ll)
+        ll = AddressLinkedList()
+        ll.append(addr)
+        ll.append(addr + 1)
+        ll.append(addr + 2)
+        a = ll.pop()
+        res = a - addr
+        ll.free()
+        free_non_gc_object(ll)
+        raw_free(addr)
+        return res
+    
+    fn = compile(f, [])
+    assert fn() == 0 
 
 def test_flavored_varmalloc_raw():
     py.test.skip("flavored_malloc not working?")
@@ -143,4 +177,3 @@ def test_flavored_malloc_alloca():
         return result
     fn = compile(f, [int])
     assert fn(1) == 2 
-
