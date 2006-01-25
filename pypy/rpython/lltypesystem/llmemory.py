@@ -17,6 +17,8 @@ class AddressOffset(Symbolic):
         return lltype.Signed
 
     def __add__(self, other):
+        if not isinstance(other, AddressOffset):
+            return NotImplemented
         return CompositeOffset(self, other)
 
 
@@ -93,9 +95,9 @@ def sizeof(TYPE, n=None):
         assert not TYPE._is_varsize()
         return ItemOffset(TYPE)
     else:
-        if isinstance(TYPE, Array):
+        if isinstance(TYPE, lltype.Array):
             return itemoffsetof(TYPE, n)
-        elif isinstance(TYPE, Struct):
+        elif isinstance(TYPE, lltype.Struct):
             return FieldOffset(TYPE, TYPE._arrayfld) + \
                    itemoffsetof(TYPE._flds[TYPE._arrayfld], n)
         else:
