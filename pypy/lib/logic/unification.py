@@ -270,7 +270,16 @@ class Store(object):
             except ConsistencyFailure:
                 restore_domains(old_domains)
                 raise
-        
+
+    def satisfy_all(self):
+        old_domains = collect_domains(self.vars)
+        for const in self.constraints:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                raise
+                
         
     #-- BIND -------------------------------------------
 
@@ -436,7 +445,8 @@ def collect_domains(varset):
     """
     dom = {}
     for var in varset:
-        dom[var] = FiniteDomain(var.dom)
+        if var.dom:
+            dom[var] = FiniteDomain(var.dom)
     return dom
 
 def restore_domains(domains):

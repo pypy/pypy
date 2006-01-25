@@ -141,22 +141,24 @@
 ## Choose
 ## ------
 
-## Y=choose(N) waits until te current space becomes stable, blocks the
-## current thread, and then creates a choice point with N alternatives in
-## the current space. The blocked choose call waits for an alternative to
-## be chosen by a commit operation on the space. The choose call only
-## defines how many alternatives tere are; it does not specify what toi
-## do for an alternative.Eventually, choose continues its execution with
-## Y=I when alternative I (1=<I=<N) is chosen. A maximum of one choice
-## point may exist in a space at any time.
+## Y=choose(N) waits until the current space becomes stable, blocks the
+## current thread, and then creates a choice point with N alternatives
+## in the current space. The blocked choose call waits for an
+## alternative to be chosen by a commit operation on the space. The
+## choose call only defines how many alternatives there are; it does
+## not specify what to do for an alternative. Eventually, choose
+## continues its execution with Y=I when alternative I (1=<I=<N) is
+## chosen. A maximum of one choice point may exist in a space at any
+## time.
 
 ## Ask
 ## ---
 
 ## A=Ask(s) asks the space s about its status. As soon as the space
-## becomes stable, A is bound. If s if failed (merged, succeeded), then
-## ask returns failed (merged, succeded). If s is distributable, then it
-## returns alternatives(N), where N is the number of alternatives.
+## becomes stable, A is bound. If s if failed (merged, succeeded),
+## then ask returns failed (merged, succeded). If s is distributable,
+## then it returns alternatives(N), where N is the number of
+## alternatives.
 
 ## An example specifying how to use a computation space :
 
@@ -175,8 +177,20 @@
 
 ## space = ComputationSpace(fun=my_problem)
 
+class Unprocessed:
+    pass
+
+class Failed:
+    pass
+
+class Merged:
+    pass
+
+class Succeeded:
+    pass
 
 from unification import Store, var
+from constraint import ConsistencyFailure
 
 class ComputationSpace(object):
 
@@ -184,12 +198,32 @@ class ComputationSpace(object):
         self.program = program
         self.parent = parent
         self.store = Store()
+        self.status = Unprocessed
         self.root = self.store.var('root')
         self.store.bind(self.root, program(self.store))
+
+    def ask(self):
+        # XXX: block on status being not stable for threads
+        if self._stable():
+            return self.status
+        else:
+            #TBD
+            return self.status
+
+    def _stable(self):
+        return self.status in (Failed, Succeeded, Merged)
+
+    def process(self):
+        try:
+            self.store.satisfy_all()
+        except ConsistencyFailure:
+            self.status = Failed
+        else:
+            self.status = Succeeded
+
 
     def branch(self):
         return ComputationSpace(self.program, parent=self)
 
+#    def choose(self, alternative):
 
-    def ask(self):
-        pass
