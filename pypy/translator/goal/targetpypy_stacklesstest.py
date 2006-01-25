@@ -57,14 +57,16 @@ def entry_point(argv):
 take_options = True
 
 stackless_options = {
-    'text': True,
-    'stackless': True,
+    # no backend specific options, yet
     }
 
 # this gets folded into the global options
 
 opt_defaults = {
-    "lowmem": True,
+    'lowmem': True,
+    'text': True,
+    'debug': True,
+    'stackless': True,
     }
 
 def opt_parser():
