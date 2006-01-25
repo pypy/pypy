@@ -178,8 +178,17 @@ class Store(object):
         self.in_transaction = False
         self.lock = threading.RLock()
 
+    #-- Variables ----------------------------
+
+    def var(self, name):
+        """creates a variable of name name and put
+           it into the store"""
+        v = Var(name, self)
+        self.add_unbound(v)
+        return v
+
     def add_unbound(self, var):
-        # register globally
+        """add unbound variable to the store"""
         if var in self.vars:
             raise AlreadyInStore(var.name)
         print "adding %s to the store" % var
@@ -188,9 +197,8 @@ class Store(object):
         # put into new singleton equiv. set
         var.val = EqSet([var])
 
-    #-- Bind var to domain --------------------
-
     def set_domain(self, var, dom):
+        """bind variable to domain"""
         assert(isinstance(var, Var) and (var in self.vars))
         if var.is_bound():
             raise AlreadyBound

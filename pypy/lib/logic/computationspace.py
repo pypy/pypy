@@ -184,11 +184,12 @@ class ComputationSpace(object):
         self.program = program
         self.parent = parent
         self.store = Store()
-        self.root = var('root')
+        self.root = self.store.var('root')
         self.store.bind(self.root, program(self.store))
 
-        
-    
+    def branch(self):
+        return ComputationSpace(self.program, parent=self)
 
 
-
+    def ask(self):
+        pass
