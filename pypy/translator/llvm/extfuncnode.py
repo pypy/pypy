@@ -4,6 +4,8 @@ from pypy.translator.c.extfunc import EXTERNALS
 
 log = log.extfuncnode
 
+from sys import maxint
+
 class ExtFuncSig(object):
     def __init__(self, rettype, args):
         self.rettype = rettype
@@ -14,10 +16,12 @@ ext_func_sigs = {
     "%LL_os_isatty" : ExtFuncSig("int", None),
     "%LL_stack_too_big" : ExtFuncSig("int", None),
     "%LL_os_lseek" : ExtFuncSig("int", None),
-    "%LL_os_write" : ExtFuncSig(None, ["int", None]),
     "%LL_thread_acquirelock" : ExtFuncSig("int", [None, "int"]),
     "%LL_thread_start" : ExtFuncSig(None, ["sbyte*", "sbyte*"]),
     }
+
+if maxint != 2**31-1:
+    ext_func_sigs["%LL_os_write"] = ExtFuncSig(None, ["int", None])
 
 class ExternalFuncNode(ConstantLLVMNode):
 
@@ -40,7 +44,6 @@ class ExternalFuncNode(ConstantLLVMNode):
     def _get_wrapper(self):
         wrapper = ext_func_sigs.get(self.ref, None)
 
-        from sys import maxint
         if wrapper is None and maxint != 2**31-1:
             #log("ref=%s" % self.ref)
             rettype, args = self.getdecl_parts()
