@@ -5,95 +5,78 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.translator.tool.cbuild import compile_c_module
 import sys
     
+try:
+    import ctypes
+except ImportError:
+    py.test.skip("this test needs ctypes installed")
 
-def setup_module(mod):
-    try:
-        import ctypes
-    except ImportError:
-        py.test.skip("this test needs ctypes installed")
-    else:
-        from pypy.rpython.rctypes.interface import cdll, c_char_p, c_int, c_char, POINTER, Structure, byref
-        if sys.platform == 'win32':
-            mylib = cdll.LoadLibrary('msvcrt.dll')
-        elif sys.platform == 'linux2':
-            mylib = cdll.LoadLibrary('libc.so.6')
-        else:
-            py.test.skip("don't know how to load the c lib for %s" % 
-                    sys.platform)
 
-        atoi = mylib.atoi
-        atoi.restype = c_int
-        atoi.argtypes = [c_char_p]
-        atoi.argtypes = [POINTER(c_char)]
-        def o_atoi(a):
-           return atoi(a)
-        mod.o_atoi = o_atoi
-        mod.cdll = cdll
+from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, POINTER, Structure, byref
+if sys.platform == 'win32':
+    mylib = cdll.LoadLibrary('msvcrt.dll')
+elif sys.platform == 'linux2':
+    mylib = cdll.LoadLibrary('libc.so.6')
+else:
+    py.test.skip("don't know how to load the c lib for %s" % 
+            sys.platform)
+atoi = mylib.atoi
+atoi.restype = c_int
+atoi.argtypes = [c_char_p]
+atoi.argtypes = [POINTER(c_char)]
 
-        class tagpoint(Structure):
-            _fields_ = [("x", c_int),
-                        ("y", c_int)]
-        mod.tagpoint = tagpoint
-        mod.byref = byref
+def o_atoi(a):
+   return atoi(a)
 
-        # compile and load our local test C file
-        compile_c_module([py.path.local("_rctypes_test.c")], "_rctypes_test")
+class tagpoint(Structure):
+    _fields_ = [("x", c_int),
+                ("y", c_int)]
+# compile and load our local test C file
+compile_c_module([py.path.local("_rctypes_test.c")], "_rctypes_test")
 
-        if sys.platform == "win32":
-            _rctypes_test = cdll.LoadLibrary("_rctypes_test.pyd")
-        else:
-            _rctypes_test = cdll.LoadLibrary("_rctypes_test.so")
+if sys.platform == "win32":
+    _rctypes_test = cdll.LoadLibrary("_rctypes_test.pyd")
+else:
+    _rctypes_test = cdll.LoadLibrary("_rctypes_test.so")
 
-        # _testfunc_byval
-        testfunc_byval = _rctypes_test._testfunc_byval
-        testfunc_byval.restype = c_int
-        testfunc_byval.argtypes = [tagpoint,POINTER(tagpoint)]
+# _testfunc_byval
+testfunc_byval = _rctypes_test._testfunc_byval
+testfunc_byval.restype = c_int
+testfunc_byval.argtypes = [tagpoint,POINTER(tagpoint)]
 
-        def py_testfunc_byval(inpoint):
-            opoint = tagpoint()
-            res  = testfunc_byval(inpoint,byref(opoint))
+def py_testfunc_byval(inpoint):
+    opoint = tagpoint()
+    res  = testfunc_byval(inpoint,byref(opoint))
 
-            return res, opoint
+    return res, opoint
 
-        mod.py_testfunc_byval = py_testfunc_byval
+# _test_struct
+testfunc_struct = _rctypes_test._testfunc_struct
+testfunc_struct.restype = c_int
+testfunc_struct.argtypes = [tagpoint]
 
-        # _test_struct
-        testfunc_struct = _rctypes_test._testfunc_struct
-        testfunc_struct.restype = c_int
-        testfunc_struct.argtypes = [tagpoint]
+def py_testfunc_struct(inpoint):
+    return testfunc_struct(inpoint)
 
-        def py_testfunc_struct(inpoint):
-            return testfunc_struct(inpoint)
+# _test_struct_id
+testfunc_struct_id = _rctypes_test._testfunc_struct_id
+testfunc_struct_id.restype = tagpoint
+testfunc_struct_id.argtypes = [tagpoint]
 
-        mod.py_testfunc_struct = py_testfunc_struct
+def py_testfunc_struct_id(inpoint):
+    return testfunc_struct_id(inpoint)
 
-        # _test_struct_id
-        testfunc_struct_id = _rctypes_test._testfunc_struct_id
-        testfunc_struct_id.restype = tagpoint
-        testfunc_struct_id.argtypes = [tagpoint]
+def py_create_point():
+    p = tagpoint()
+    p.x = 10
+    p.y = 20
+    return p.x + p.y
 
-        def py_testfunc_struct_id(inpoint):
-            return testfunc_struct_id(inpoint)
-
-        mod.py_testfunc_struct_id = py_testfunc_struct_id
-
-        def py_create_point():
-            p = tagpoint()
-            p.x = 10
-            p.y = 20
-            return p.x + p.y
-
-        mod.py_create_point = py_create_point
-
-        oppoint_type = POINTER(tagpoint)
-        def py_testfunc_POINTER(inpoint):
-            point = tagpoint()
-            oppoint = oppoint_type(point)
-            res  = testfunc_byval(inpoint,oppoint)
-            return res, oppoint
-
-        mod.py_testfunc_POINTER = py_testfunc_POINTER
-        mod.POINTER = POINTER
+oppoint_type = POINTER(tagpoint)
+def py_testfunc_POINTER(inpoint):
+    point = tagpoint()
+    oppoint = oppoint_type(point)
+    res  = testfunc_byval(inpoint,oppoint)
+    return res, oppoint
 
 
 class Test_rctypes:
