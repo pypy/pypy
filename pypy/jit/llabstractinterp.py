@@ -1,6 +1,5 @@
 import operator
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.llvalue import LLAbstractValue, const
@@ -514,15 +513,17 @@ class BlockBuilder(object):
 
     def buildblock(self, newexitswitch, newlinkstates):
         b = self.newblock
-        b.exitswitch = newexitswitch
-        exits = []
+        if newexitswitch is None:
+            link = rgenop.closeblock1(b)
+            newlinkstates[0].link = link
+            return b
+
+        assert len(newlinkstates) == 2
+
+        false_link, true_link = rgenop.closeblock2(b, newexitswitch)
+        cases = {False: false_link, True: true_link}
         for ls in newlinkstates:
-            link = Link([], None)
-            link.exitcase = ls.exitcase
-            link.llexitcase = ls.llexitcase
-            ls.link = link
-            exits.append(link)
-        b.closeblock(*exits)
+            ls.link = cases[ls.exitcase]
         return b
 
     def genop(self, opname, args, RESULT_TYPE):
