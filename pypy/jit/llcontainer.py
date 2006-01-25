@@ -52,17 +52,16 @@ class LLVirtualContainer(LLAbstractContainer):
     def build_runtime_container(self, builder):
         RESULT_TYPE = lltype.Ptr(self.T)
         if self.a_parent is not None:
+            parentindex = const(self.parentindex, lltype.Void)
             v_parent = self.a_parent.forcevarorconst(builder)
-            parentindex = builder.addconst(const(self.parentindex,
-                                                 lltype.Void))
             v_result = builder.genop('getsubstruct',
-                                     [v_parent,parentindex], RESULT_TYPE)
+                                     [v_parent, parentindex], RESULT_TYPE)
         else:
-            t = builder.addconst(const(self.T, lltype.Void))
+            t = const(self.T, lltype.Void)
             if self.T._is_varsize():
-
                 v_result = builder.genop('malloc_varsize',
-                                         [t, builder.genconst(self.length)],
+                                         [t,
+                                          builder.genconst(self.length)],
                                          RESULT_TYPE)
             else:
                 v_result = builder.genop('malloc', [t], RESULT_TYPE)
@@ -77,9 +76,8 @@ class LLVirtualContainer(LLAbstractContainer):
                 T = self.fieldtype(name)
                 if isinstance(T, lltype.ContainerType):
                     # initialize the substructure/subarray
-                    c_name = builder.addconst(const(name, lltype.Void))
                     v_subptr = builder.genop('getsubstruct',
-                                             [v_target, c_name],
+                                             [v_target, const(name, lltype.Void)],
                                              lltype.Ptr(T))
                     assert isinstance(a_value.content, LLVirtualContainer)
                     a_value.content.buildcontent(builder, v_subptr)
@@ -161,8 +159,7 @@ class LLVirtualStruct(LLVirtualContainer):
         return getattr(self.T, name)
 
     def setop(self, builder, v_target, name, v_value):
-        c_name = builder.addconst(const(name, lltype.Void))
-        builder.genop('setfield', [v_target, c_name, v_value],
+        builder.genop('setfield', [v_target, const(name, lltype.Void), v_value],
                       lltype.Void)
 
 

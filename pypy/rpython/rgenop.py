@@ -38,10 +38,6 @@ def genconst(block, llvalue):
     v.concretetype = lltype.typeOf(llvalue)
     return v
 
-def addconst(block, const):
-    assert isinstance(const, flowmodel.Constant)
-    return const
-
 def closeblock1(block):
     link = flowmodel.Link([], None)
     block.closeblock(link)

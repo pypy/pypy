@@ -180,18 +180,16 @@ class ListBuilder(object):
     def build(self, builder, items_v):
         """Make the operations that would build a list containing the
         provided items."""
-        c_list = builder.addconst(self.c_LIST)
         c_newlist = builder.genconst(self.newlist_ptr)
         c_len  = builder.genconst(len(items_v))
         v_result = builder.genop('direct_call',
-                                 [c_newlist, c_list, c_len],
+                                 [c_newlist, self.c_LIST, c_len],
                                  self.LISTPTR)
         c_setitem_nonneg = builder.genconst(self.setitem_nonneg_ptr)
-        c_dum_nocheck = builder.addconst(self.c_dum_nocheck)
         for i, v in enumerate(items_v):
             c_i = builder.genconst(i)
             builder.genop('direct_call', [c_setitem_nonneg,
-                                          c_dum_nocheck,
+                                          self.c_dum_nocheck,
                                           v_result, c_i, v],
                           Void)
         return v_result

@@ -532,9 +532,6 @@ class BlockBuilder(object):
     def genconst(self, llvalue):
         return rgenop.genconst(self.newblock, llvalue)
     
-    def addconst(self, const):
-        return rgenop.addconst(self.newblock, const)
-    
     def binding(self, v):
         if isinstance(v, Constant):
             return LLAbstractValue(v)
