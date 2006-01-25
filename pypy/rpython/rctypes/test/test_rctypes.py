@@ -35,6 +35,34 @@ def setup_module(mod):
         mod.tagpoint = tagpoint
         mod.byref = byref
 
+        # compile and load our local test C file
+        compile_c_module([py.path.local("_rctypes_test.c")], "_rctypes_test")
+
+        if sys.platform == "win32":
+            _rctypes_test = cdll.LoadLibrary("_rctypes_test.pyd")
+        else:
+            _rctypes_test = cdll.LoadLibrary("_rctypes_test.so")
+
+        # _test_struct
+        testfunc_struct = _rctypes_test._testfunc_struct
+        testfunc_struct.restype = c_int
+        testfunc_struct.argtypes = [tagpoint]
+
+        def py_testfunc_struct(inpoint):
+            return testfunc_struct(inpoint)
+
+        mod.py_testfunc_struct = py_testfunc_struct
+
+        # _test_struct_id
+        testfunc_struct_id = _rctypes_test._testfunc_struct_id
+        testfunc_struct_id.restype = tagpoint
+        testfunc_struct_id.argtypes = [tagpoint]
+
+        def py_testfunc_struct_id(inpoint):
+            return testfunc_struct_id(inpoint)
+
+        mod.py_testfunc_struct_id = py_testfunc_struct_id
+
 
 class Test_rctypes:
 
@@ -65,9 +93,6 @@ class Test_rctypes:
 
 class Test_structure:
 
-    def setup_class(cls):
-        compile_c_module([py.path.local("_rctypes_test.c")], "_rctypes_test")
-
     def test_simple_as_extension_module(self):
         import _rctypes_test as t0
         import _rctypes_test as t1
@@ -87,4 +112,24 @@ class Test_structure:
         assert out_point.x == 42
         assert out_point.y == 17
 
+    def test_structure(self):
+        in_point = tagpoint()
+        in_point.x = 10
+        in_point.y = 20
+        res = py_testfunc_struct(in_point)
+        assert res == 30
+
+    def test_annotate_struct(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_testfunc_struct, [int])
+        assert s.knowntype == int
+
+
+    def test_annotate_struct(self):
+        a = RPythonAnnotator()
+        #try:
+        s = a.build_types(py_testfunc_struct_id, [tagpoint])
+        #finally:
+        #    a.translator.view()
+        assert s.knowntype == tagpoint
 

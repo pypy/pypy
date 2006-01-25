@@ -7,7 +7,7 @@ from ctypes import *
 from ctypes import _FUNCFLAG_CDECL
 if sys.platform == "win32":
     from ctypes import _FUNCFLAG_STDCALL
-from pypy.annotation.model import SomeInteger
+from pypy.annotation.model import SomeInteger, SomeCTypesObject
 from pypy.rpython.lltypesystem.lltype import Signed
 
 
@@ -22,13 +22,17 @@ POINTER(c_char).ll_type = None
 POINTER(c_char).wrap_arg = staticmethod(
         lambda ll_type, arg_name: "RPyString_AsString(%s)" % arg_name)
 
+
 class FunctionPointerTranslation(object):
 
         def compute_result_annotation(self, *args_s):
             """
             Answer the annotation of the external function's result
             """
-            return self.restype.annotator_type
+            try:
+                return self.restype.annotator_type
+            except AttributeError:
+                return SomeCTypesObject(self.restype)
 
         def __hash__(self):
             return id(self)
@@ -48,6 +52,13 @@ class FunctionPointerTranslation(object):
                 else:
                     answer.append(ctype_type.wrap_arg(ll_type, arg_name))
             return answer
+
+
+class RStructure(Structure):
+
+    def compute_annotation(cls):
+        return SomeCTypesObject(cls)
+    compute_annotation = classmethod(compute_annotation)
 
 
 class RCDLL(CDLL):

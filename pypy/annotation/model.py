@@ -426,6 +426,15 @@ class SomeExternalObject(SomeObject):
     def can_be_none(self):
         return True
 
+class SomeCTypesObject(SomeObject):
+    """Stands for an object of the ctypes module."""
+
+    def __init__(self, knowntype):
+        self.knowntype = knowntype
+
+    def can_be_none(self):
+        return False
+
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that

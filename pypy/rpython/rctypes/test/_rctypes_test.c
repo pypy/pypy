@@ -28,6 +28,16 @@ EXPORT(int) _testfunc_byval(point in, point *pout)
 	return in.x + in.y;
 }
 
+EXPORT(int) _testfunc_struct(point in)
+{
+	return in.x + in.y;
+}
+
+EXPORT(point) _testfunc_struct_id(point in)
+{
+	return in;
+}
+
 DL_EXPORT(void)
 init_rctypes_test(void)
 {
