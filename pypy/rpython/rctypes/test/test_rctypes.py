@@ -29,6 +29,7 @@ def setup_module(mod):
            return atoi(a)
         mod.o_atoi = o_atoi
         mod.cdll = cdll
+
         class tagpoint(Structure):
             _fields_ = [("x", c_int),
                         ("y", c_int)]
@@ -42,6 +43,19 @@ def setup_module(mod):
             _rctypes_test = cdll.LoadLibrary("_rctypes_test.pyd")
         else:
             _rctypes_test = cdll.LoadLibrary("_rctypes_test.so")
+
+        # _testfunc_byval
+        testfunc_byval = _rctypes_test._testfunc_byval
+        testfunc_byval.restype = c_int
+        testfunc_byval.argtypes = [tagpoint,POINTER(tagpoint)]
+
+        def py_testfunc_byval(inpoint):
+            opoint = tagpoint()
+            res  = testfunc_byval(inpoint,byref(opoint))
+
+            return res, opoint
+
+        mod.py_testfunc_byval = py_testfunc_byval
 
         # _test_struct
         testfunc_struct = _rctypes_test._testfunc_struct
@@ -142,4 +156,12 @@ class Test_structure:
         a = RPythonAnnotator()
         s = a.build_types(py_create_point,[])
         assert s.knowntype == int
+
+    def test_annotate_byval(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_testfunc_byval,[tagpoint])
+        assert s.knowntype == tuple
+        assert len(s.items) == 2
+        assert s.items[0].knowntype == int
+        assert s.items[1].knowntype == tagpoint
 

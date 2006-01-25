@@ -628,7 +628,7 @@ class __extend__(SomeCTypesObject):
     def getattr(cto, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            atype = cto.knowntype._fielddef_[attr]
+            atype = cto.knowntype._fields_def_[attr]
             try:
                 return atype.annotator_type
             except AttributeError:

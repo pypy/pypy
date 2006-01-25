@@ -10,7 +10,6 @@ if sys.platform == "win32":
 from pypy.annotation.model import SomeInteger, SomeCTypesObject
 from pypy.rpython.lltypesystem.lltype import Signed
 
-
 c_int.annotator_type = SomeInteger()
 c_int.ll_type = Signed
 c_char_p.annotator_type = None
@@ -61,7 +60,7 @@ class RStructureMeta(type(Structure)):
         if _fields is not None:
             for attr, atype in _fields:
                 _adict[attr] = atype
-        clsdict['_fielddef_'] = _adict
+        clsdict['_fields_def_'] = _adict
 
         return super(RStructureMeta,mta).__new__(mta, name, bases, clsdict)
 
@@ -80,6 +79,23 @@ class RStructure(Structure):
         return SomeCTypesObject(cls)
     compute_result_annotation = classmethod(compute_result_annotation)
 
+class RByrefObj(object):
+
+    def __init__(self):
+        self.__name__ = 'RByrefObj'
+
+    def compute_result_annotation(cls, s_arg):
+        """
+        Answer the result annotation of calling 'byref'.
+        """
+        return SomeCTypesObject(POINTER(s_arg.knowntype))
+
+    compute_result_annotation = classmethod(compute_result_annotation)
+
+    def __call__(self,obj):
+        return byref(obj)
+
+RByref = RByrefObj()
 
 class RCDLL(CDLL):
     """
