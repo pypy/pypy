@@ -91,12 +91,6 @@ def compile_llvm_variants(revision):
 
 
 def compile(backend):
-    os.chdir(homedir + '/projects/pypy-dist')
-    os.system('rm `find . -name *.pyc`')
-
-    os.chdir(homedir + '/projects/pypy-dist/pypy/_cache')
-    os.system('rm *')
-
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     os.system('/usr/local/bin/python translate_pypy.py --backend=%(backend)s --text --batch targetpypystandalone.py 2>&1' % locals())
 
