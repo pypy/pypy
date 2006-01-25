@@ -6,6 +6,7 @@ that can be used to produce any other kind of graph.
 
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
+from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 
 
 def newblock():
@@ -26,6 +27,11 @@ def genop(block, opname, vars, RESULT_TYPE):
     op = flowmodel.SpaceOperation(opname, vars, v)
     block.operations.append(op)
     return v
+
+def gengraphconst(block, name, target, FUNCTYPE):
+    fptr = lltype.functionptr(FUNCTYPE, name,
+                              graph=buildgraph(target))
+    return genconst(block, fptr)
 
 def genconst(block, llvalue):
     v = flowmodel.Constant(llvalue)
@@ -91,10 +97,17 @@ class PseudoRTyper(object):
         from pypy.rpython.typesystem import LowLevelTypeSystem
         self.type_system = LowLevelTypeSystem.instance
 
-def runblock(block, args):
-    from pypy.rpython.llinterp import LLInterpreter
+def buildgraph(block):
     graph = flowmodel.FunctionGraph('?', block)
     _patchgraph(graph)
     flowmodel.checkgraph(graph)
+    eliminate_empty_blocks(graph)
+    join_blocks(graph)
+    graph.rgenop = True
+    return graph
+
+def runblock(block, args):
+    from pypy.rpython.llinterp import LLInterpreter
+    graph = buildgraph(block)
     llinterp = LLInterpreter(PseudoRTyper())
     return llinterp.eval_graph(graph, args)

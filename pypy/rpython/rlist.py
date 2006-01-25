@@ -168,12 +168,12 @@ class ListBuilder(object):
 
         argtypes = [Signed]
         fnptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist, argtypes)
-        self.c_newlist = inputconst(typeOf(fnptr), fnptr)
+        self.newlist_ptr = fnptr
 
         bk = list_repr.rtyper.annotator.bookkeeper
         argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
         fnptr = list_repr.rtyper.annotate_helper_fn(ll_setitem_nonneg, argtypes)
-        self.c_setitem_nonneg = inputconst(typeOf(fnptr), fnptr)
+        self.setitem_nonneg_ptr = fnptr
         self.c_dum_nocheck = inputconst(Void, dum_nocheck)
         self.c_LIST = inputconst(Void, self.LIST)
 
@@ -181,12 +181,12 @@ class ListBuilder(object):
         """Make the operations that would build a list containing the
         provided items."""
         c_list = builder.addconst(self.c_LIST)
-        c_newlist = builder.addconst(self.c_newlist)
+        c_newlist = builder.genconst(self.newlist_ptr)
         c_len  = builder.genconst(len(items_v))
         v_result = builder.genop('direct_call',
                                  [c_newlist, c_list, c_len],
                                  self.LISTPTR)
-        c_setitem_nonneg = builder.addconst(self.c_setitem_nonneg)
+        c_setitem_nonneg = builder.genconst(self.setitem_nonneg_ptr)
         c_dum_nocheck = builder.addconst(self.c_dum_nocheck)
         for i, v in enumerate(items_v):
             c_i = builder.genconst(i)
