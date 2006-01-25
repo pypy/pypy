@@ -120,7 +120,8 @@
 
 import threading
 
-from variable import EqSet, Var, VariableException, NotAVariable
+from variable import EqSet, Var, \
+     VariableException, NotAVariable, AlreadyInStore
 from constraint import FiniteDomain, ConsistencyFailure
 
 #----------- Store Exceptions ----------------------------
@@ -132,9 +133,9 @@ class AlreadyBound(VariableException):
     def __str__(self):
         return "%s is already bound" % self.name
 
-class AlreadyInStore(VariableException):
+class NotInStore(VariableException):
     def __str__(self):
-        return "%s already in store" % self.name
+        return "%s not in the store" % self.name
 
 class OutOfDomain(VariableException):
     def __str__(self):
@@ -169,9 +170,9 @@ class Store(object):
          (also called determined variables)."""
     
     def __init__(self):
-        # mapping of names to vars (all of them)
         self.vars = set()
-        self.names = set()
+        # mapping of names to vars (all of them)
+        self.names = {}
         # set of all constraints 
         self.constraints = set()
         # consistency-preserving stuff
@@ -193,7 +194,7 @@ class Store(object):
             raise AlreadyInStore(var.name)
         print "adding %s to the store" % var
         self.vars.add(var)
-        self.names.add(var.name)
+        self.names[var.name] = var
         # put into new singleton equiv. set
         var.val = EqSet([var])
 
@@ -203,6 +204,12 @@ class Store(object):
         if var.is_bound():
             raise AlreadyBound
         var.dom = FiniteDomain(dom)
+
+    def get_var_by_name(self, name):
+        try:
+            return self.names[name]
+        except KeyError:
+            raise NotInStore(name)
     
     #-- Constraints -------------------------
 

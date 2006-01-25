@@ -24,10 +24,14 @@ class TestVariable:
     def setup_method(self, meth):
         u._store = u.Store()
 
-
     def test_no_same_name(self):
         x = u.var('x')
-        raises(v.AlreadyExists, u.var, 'x')
+        raises(u.AlreadyInStore, u.var, 'x')
+
+    def test_get_by_name(self):
+        x = u.var('x')
+        assert x == u._store.get_var_by_name('x')
+        raises(u.NotInStore, u._store.get_var_by_name, 'y')
 
     def test_one_thread_reading_one_var(self):
         cons = Consumer()

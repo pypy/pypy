@@ -21,7 +21,7 @@ class TestUnification:
 
     def test_already_in_store(self):
         x = u.var('x')
-        raises(v.AlreadyExists, u.var, 'x')
+        raises(v.AlreadyInStore, u.var, 'x')
 
     def test_already_bound(self):
         x = u.var('x')

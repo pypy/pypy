@@ -141,15 +141,15 @@
 ## Choose
 ## ------
 
-## Y=choose(N) waits until the current space becomes stable, blocks the
-## current thread, and then creates a choice point with N alternatives
-## in the current space. The blocked choose call waits for an
-## alternative to be chosen by a commit operation on the space. The
-## choose call only defines how many alternatives there are; it does
-## not specify what to do for an alternative. Eventually, choose
-## continues its execution with Y=I when alternative I (1=<I=<N) is
-## chosen. A maximum of one choice point may exist in a space at any
-## time.
+## Y=choose(N) waits until the current space becomes stable, blocks
+## the current thread, and then creates a choice point with N
+## alternatives in the current space. The blocked choose call waits
+## for an alternative to be chosen by a commit operation on the
+## space. The choose call only defines how many alternatives there
+## are; it does not specify what to do for an alternative. Eventually,
+## choose continues its execution with Y=I when alternative I
+## (1=<I=<N) is chosen. A maximum of one choice point may exist in a
+## space at any time.
 
 ## Ask
 ## ---
@@ -180,6 +180,9 @@
 class Unprocessed:
     pass
 
+class Working:
+    pass
+
 class Failed:
     pass
 
@@ -200,20 +203,30 @@ class ComputationSpace(object):
         self.store = Store()
         self.status = Unprocessed
         self.root = self.store.var('root')
-        self.store.bind(self.root, program(self.store))
+        self.store.bind(self.root, program(self))
+
+    def _stable(self):
+        #XXX: really ?
+        return self.status in (Failed, Succeeded, Merged)
+
+    def _distributable(self):
+        pass
+        #return not self._stable 
+
+    def set_distributor(self, dist):
+        self.distributor = dist
 
     def ask(self):
         # XXX: block on status being not stable for threads
         if self._stable():
             return self.status
+            #return self.store.nb_candidates()
         else:
             #TBD
             return self.status
 
-    def _stable(self):
-        return self.status in (Failed, Succeeded, Merged)
-
     def process(self):
+        self.status = Working
         try:
             self.store.satisfy_all()
         except ConsistencyFailure:
@@ -221,9 +234,10 @@ class ComputationSpace(object):
         else:
             self.status = Succeeded
 
-
-    def branch(self):
+    def make_child(self):
         return ComputationSpace(self.program, parent=self)
 
-#    def choose(self, alternative):
-
+    def choose(self, alternative):
+        """distribute the domains to new spaces
+           create the spaces"""
+        
