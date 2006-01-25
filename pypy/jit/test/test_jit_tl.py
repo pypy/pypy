@@ -36,7 +36,7 @@ def jit_tl(code):
     #interp.graphs[0].show()
 
     # return a summary of the instructions left in graph2
-    return summary(interp)
+    return summary(graph2)
 
 
 def run_jit(code):

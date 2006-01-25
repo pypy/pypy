@@ -33,8 +33,7 @@ def run(fn, argvalues):
 
     assert result1 == result2
 
-    return graph2, summary(interp)
-
+    return graph2, summary(graph2)
 
 def test_fixed_newlistfill_force():
     def fn(n):

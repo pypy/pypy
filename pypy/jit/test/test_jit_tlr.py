@@ -97,6 +97,6 @@ def test_compile():
     res = llinterp.eval_graph(graph2, [17])
     assert res == 289
 
-    insns = summary(interp)
+    insns = summary(graph2)
     assert insns == {'int_add': 2,
                      'int_is_true': 1}

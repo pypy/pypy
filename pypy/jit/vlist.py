@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rtyper import LowLevelOpList
-from pypy.jit.llvalue import LLAbstractValue, newvar, const, ll_dummy_value
+from pypy.jit.llvalue import LLAbstractValue, const, ll_dummy_value
 from pypy.jit.llcontainer import LLAbstractContainer
 
 

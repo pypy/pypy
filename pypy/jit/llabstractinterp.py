@@ -3,8 +3,7 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-from pypy.jit.llvalue import LLAbstractValue, const, newvar, dupvar
+from pypy.jit.llvalue import LLAbstractValue, const
 from pypy.jit.llvalue import ll_no_return_value
 from pypy.jit.llvalue import FlattenMemo, MatchMemo, FreezeMemo, UnfreezeMemo
 from pypy.jit.llcontainer import LLAbstractContainer, virtualcontainervalue
@@ -176,11 +175,11 @@ class LLAbstractInterp(object):
                 a = LLAbstractValue(const(arghints[i]))
                 a.concrete = self.policy.concrete_args
             else:
-                a = LLAbstractValue(dupvar(v))
+                a = LLAbstractValue(input=v.concretetype)
             args_a.append(a)
         graphstate = self.schedule_graph(args_a, origgraph)
         graphstate.complete()
-        return graphstate.copygraph
+        return rgenop.buildgraph(graphstate.startblock)
 
     def schedule_graph(self, args_a, origgraph):
         inputstate = LLBlockState(None, args_a, origgraph.startblock)
@@ -260,6 +259,9 @@ class LinkState(object):
         self.frozenstate = frozenstate
         self.link = None
 
+    def setreturn(self):
+            rgenop.closereturnlink(self.link, self.args_v[0])
+
     def settarget(self, block, blockargs):
         args = []
         for v1, v2 in zip(self.args_v, blockargs):
@@ -267,8 +269,7 @@ class LinkState(object):
                 assert v1 == v2
             else:
                 args.append(v1)
-        self.link.args = args
-        self.link.settarget(block)
+        rgenop.closelink(self.link, args, block)
 
 
 class GraphState(object):
@@ -277,17 +278,7 @@ class GraphState(object):
     def __init__(self, interp, origgraph, inputstate, frozenstate, n):
         self.interp = interp
         self.origgraph = origgraph
-        name = '%s_%d' % (origgraph.name, n)
-        self.copygraph = FunctionGraph(name, Block([]))   # grumble
-        interp.graphs.append(self.copygraph)
-        for orig_v, copy_v in [(origgraph.getreturnvar(),
-                                self.copygraph.getreturnvar()),
-                               (origgraph.exceptblock.inputargs[0],
-                                self.copygraph.exceptblock.inputargs[0]),
-                               (origgraph.exceptblock.inputargs[1],
-                                self.copygraph.exceptblock.inputargs[1])]:
-            if hasattr(orig_v, 'concretetype'):
-                copy_v.concretetype = orig_v.concretetype
+        self.name = '%s_%d' % (origgraph.name, n)
         # The 'args_v' attribute is needed by try_to_complete(),
         # which looks for it on either a GraphState or a LinkState
         self.args_v = inputstate.getruntimevars()
@@ -296,8 +287,7 @@ class GraphState(object):
         self.state = "before"
 
     def settarget(self, block, blockargs):
-        block.isstartblock = True
-        self.copygraph.startblock = block
+        self.startblock = block
 
     def complete(self):
         assert self.state != "during"
@@ -313,7 +303,6 @@ class GraphState(object):
                 continue
 
     def try_to_complete(self):
-        graph = self.copygraph
         interp = self.interp
         pending = [self]   # pending list of a GraphState and many LinkStates
         seen = {}
@@ -405,21 +394,9 @@ class GraphState(object):
                         # resolve the LinkState to go to the return
                         # or except block
                         if len(ls.args_v) == 1:
-                            target = graph.returnblock
+                            ls.setreturn()
                         elif len(ls.args_v) == 2:
-                            target = graph.exceptblock
-                        else:
-                            raise Exception("uh?")
-                        ls.settarget(target, target.inputargs)
-                    else:
-                        # the LinkState is already going to a return or except
-                        # block; make sure that it is really the one from
-                        # 'graph' -- by patching 'graph' if necessary.
-                        if len(ls.link.target.inputargs) == 1:
-                            #self.a_return = state.args_a[0]
-                            graph.returnblock = ls.link.target
-                        elif len(link.target.inputargs) == 2:
-                            graph.exceptblock = ls.link.target
+                            XXX_handle_exception_here
                         else:
                             raise Exception("uh?")
 
@@ -427,17 +404,6 @@ class GraphState(object):
             raise RestartCompleting
 
         # the graph should be complete now; sanity-check
-        try:
-            checkgraph(graph)
-        except Exception, e:
-            print 'INVALID GRAPH:'
-            import traceback
-            traceback.print_exc()
-            print 'graph.show()...'
-            graph.show()
-            raise
-        eliminate_empty_blocks(graph)
-        join_blocks(graph)
         self.state = "after"
 
     def flowin(self, state, key):
@@ -612,6 +578,10 @@ class BlockBuilder(object):
                               [a.forcevarorconst(self) for a in args_a],
                               op.result.concretetype)
         return LLAbstractValue(retvar)
+
+    def residual_direct_call(self, name, block, args_a,):
+        
+        return LLAbstractValue(retvar)
     
     def residualize(self, op, args_a, constant_op=None):
         if constant_op:
@@ -769,13 +739,13 @@ class BlockBuilder(object):
         graphstate = self.interp.schedule_graph(args_a, origgraph)
         #print 'SCHEDULE_GRAPH', args_a, '==>', graphstate.copygraph.name
         if graphstate.state != "during":
-            print 'ENTERING', graphstate.copygraph.name, args_a
+            print 'ENTERING', graphstate.name, args_a
             graphstate.complete()
             #if graphstate.a_return is not None:
             #    a = graphstate.a_return.unfreeze(UnfreezeMemo())
             #    if a.maybe_get_constant() is not None:
             #        a_real_result = a    # propagate a constant result
-            print 'LEAVING', graphstate.copygraph.name#, graphstate.a_return
+            print 'LEAVING', graphstate.name#, graphstate.a_return
 
         ARGS = []
         new_args_a = []
@@ -785,9 +755,10 @@ class BlockBuilder(object):
                 new_args_a.append(a)
         args_a = new_args_a
         TYPE = lltype.FuncType(ARGS, op.result.concretetype)
-        fptr = lltype.functionptr(
-           TYPE, graphstate.copygraph.name, graph=graphstate.copygraph)
-        a_func = LLAbstractValue(const(fptr))
+        a_func = LLAbstractValue(rgenop.gengraphconst(self.newblock,
+                                                      graphstate.name,
+                                                      graphstate.startblock,
+                                                      TYPE))
         return self.residual(op, [a_func] + args_a) 
 
     def op_getfield(self, op, a_ptr, a_attrname):

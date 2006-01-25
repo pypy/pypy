@@ -15,13 +15,16 @@ class LLAbstractValue(object):
 
     concrete = False   # concrete constants propagate eagerly
 
-    def __init__(self, runtimevar=None, content=None):
+    def __init__(self, runtimevar=None, content=None, input=None):
         self.runtimevar = runtimevar    # None or a Variable or a Constant
         self.content    = content       # None or an LLAbstractContainer
         self.origin     = []  # list of frozen values: the sources that did or
                               # could allow 'self' to be computed as a constant
+        self.input = input
 
     def __repr__(self):
+        if self.input:
+            return '<input>'
         if self.runtimevar is None:
             if self.content is None:
                 return '<dummy>'
@@ -40,6 +43,8 @@ class LLAbstractValue(object):
 
     def freeze(self, memo):
         # turn a run-time value into a frozen value
+        if self.input:
+            return LLFrozenRuntimeValue(self)
         if self.runtimevar is not None:
             if self.concrete:
                 return LLFrozenConcreteValue(self)
@@ -60,6 +65,8 @@ class LLAbstractValue(object):
             return frozen_dummy_value   # dummy
 
     def getconcretetype(self):
+        if self.input:
+            return self.input
         if self.runtimevar is not None:
             return self.runtimevar.concretetype
         elif self.content is not None:
@@ -85,7 +92,9 @@ class LLAbstractValue(object):
         """Recursively flatten the LLAbstractValue into a list of run-time
         LLAbstractValues.
         """
-        if self.runtimevar is not None:
+        if self.input:
+            memo.result.append(self)
+        elif self.runtimevar is not None:
             if not self.concrete:   # skip concrete values, they don't need
                                     # to be present in the residual graph at all
                 memo.result.append(self)
@@ -96,7 +105,8 @@ class LLAbstractValue(object):
         else:
             pass    # dummy
 
-# ____________________________________________________________
+# _____________________________________________________________
+
 
 class LLFrozenValue(object):
     """An abstract value frozen in a saved state.
@@ -152,7 +162,7 @@ class LLFrozenRuntimeValue(LLFrozenValue):
 
     def __init__(self, a_value):
         # get the necessary information from the a_value
-        self.concretetype = a_value.runtimevar.concretetype
+        self.concretetype = a_value.getconcretetype()
         self.origin = a_value.origin
 
     def flatten(self, memo):
@@ -246,16 +256,6 @@ def const(value, T=None):
     c = Constant(value)
     c.concretetype = T or lltype.typeOf(value)
     return c
-
-def newvar(T):
-    v = Variable()
-    v.concretetype = T
-    return v
-
-def dupvar(v):
-    v1 = Variable(v)
-    v1.concretetype = v.concretetype
-    return v1
 
 ll_no_return_value = LLAbstractValue(const(None, lltype.Void))
 ll_dummy_value = LLAbstractValue()

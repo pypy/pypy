@@ -6,7 +6,7 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython import rstr
 from pypy.annotation import model as annmodel
 from pypy.jit.llabstractinterp import LLAbstractInterp, Policy
-
+from pypy.objspace.flow import model as flowmodel
 
 def annotation(a, x):
     T = lltype.typeOf(x)
@@ -54,15 +54,31 @@ def abstrinterp(ll_function, argvalues, arghints, policy=Policy()):
     result1 = llinterp.eval_graph(graph1, argvalues)
     result2 = llinterp.eval_graph(graph2, argvalues2)
     assert result1 == result2
-    return graph2, summary(interp)
+    return graph2, summary(graph2)
 
-def summary(interp):
+def summary(graph):
     # return a summary of the instructions left in all the residual graphs
     insns = {}
-    for copygraph in interp.itercopygraphs():
-        for block in copygraph.iterblocks():
+    graphs = [graph]
+    found = set((graph,))
+    while graphs:
+        graph = graphs.pop()
+        for block in graph.iterblocks():
             for op in block.operations:
                 insns[op.opname] = insns.get(op.opname, 0) + 1
+                for arg in op.args:
+                    if isinstance(arg, flowmodel.Constant):
+                        if (isinstance(arg.concretetype, lltype.Ptr) and
+                            isinstance(arg.concretetype.TO, lltype.FuncType)):
+                            try:
+                                graph = arg.value._obj.graph
+                                graph.rgenop
+                            except AttributeError:
+                                pass
+                            else:
+                                if graph not in found:
+                                    graphs.append(graph)
+                                    found.add(graph)
     return insns
 
 P_INLINE = Policy(inlining=True)

@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.llvalue import LLAbstractValue, newvar, const
+from pypy.jit.llvalue import LLAbstractValue, const
 
 
 class LLAbstractContainer(object):
