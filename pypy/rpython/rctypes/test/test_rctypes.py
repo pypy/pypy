@@ -63,6 +63,14 @@ def setup_module(mod):
 
         mod.py_testfunc_struct_id = py_testfunc_struct_id
 
+        def py_create_point():
+            p = tagpoint()
+            p.x = 10
+            p.y = 20
+            return p.x + p.y
+
+        mod.py_create_point = py_create_point
+
 
 class Test_rctypes:
 
@@ -127,9 +135,11 @@ class Test_structure:
 
     def test_annotate_struct(self):
         a = RPythonAnnotator()
-        #try:
         s = a.build_types(py_testfunc_struct_id, [tagpoint])
-        #finally:
-        #    a.translator.view()
         assert s.knowntype == tagpoint
+
+    def test_create_point(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_create_point,[])
+        assert s.knowntype == int
 

@@ -54,11 +54,31 @@ class FunctionPointerTranslation(object):
             return answer
 
 
+class RStructureMeta(type(Structure)):
+    def __new__(mta,name,bases,clsdict):
+        _fields = clsdict.get('_fields_',None)
+        _adict = {}
+        if _fields is not None:
+            for attr, atype in _fields:
+                _adict[attr] = atype
+        clsdict['_fielddef_'] = _adict
+
+        return super(RStructureMeta,mta).__new__(mta, name, bases, clsdict)
+
 class RStructure(Structure):
+
+    __metaclass__ = RStructureMeta
 
     def compute_annotation(cls):
         return SomeCTypesObject(cls)
     compute_annotation = classmethod(compute_annotation)
+
+    def compute_result_annotation(cls, *args_s):
+        """
+        Answer the result annotation of calling 'cls'.
+        """
+        return SomeCTypesObject(cls)
+    compute_result_annotation = classmethod(compute_result_annotation)
 
 
 class RCDLL(CDLL):

@@ -7,6 +7,7 @@ from pypy.annotation.model import \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
+     SomeCTypesObject,\
      unionof, set, missing_operation, add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
@@ -619,6 +620,21 @@ class __extend__(SomeOOStaticMeth):
         smeth = m.method._example()
         v = smeth(*llargs)
         return ll_to_annotation(v)
+
+class __extend__(SomeCTypesObject):
+    def setattr(cto, s_attr, s_value):
+        pass
+
+    def getattr(cto, s_attr):
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            attr = s_attr.const
+            atype = cto.knowntype._fielddef_[attr]
+            try:
+                return atype.annotator_type
+            except AttributeError:
+                return SomeCTypesObject(atype)
+        else:
+            return SomeObject()
 
 #_________________________________________
 # memory addresses
