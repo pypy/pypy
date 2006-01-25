@@ -665,7 +665,7 @@ class LLFrame(object):
     op_original_int_add = op_int_add
 
     def op_int_add(self, x, y):
-        if isinstance(x, llmemory.AddressOffset):
+        if isinstance(x, llmemory.AddressOffset) or isinstance(y, llmemory.AddressOffset) :
             return x + y
         else:
             return self.op_original_int_add(x, y)

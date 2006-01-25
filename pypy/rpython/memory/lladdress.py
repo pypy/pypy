@@ -3,6 +3,7 @@ from pypy.rpython.memory.simulator import MemorySimulator, MemorySimulatorError
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 
 class address(object):
     #XXX should be _address!
@@ -24,7 +25,6 @@ class address(object):
         return self.intaddress
 
     def __add__(self, offset):
-        from pypy.rpython.memory.lltypelayout import convert_offset_to_int
         if isinstance(offset, int):
             return address(self.intaddress + offset)
         else:
@@ -34,6 +34,8 @@ class address(object):
     def __sub__(self, other):
         if isinstance(other, int):
             return address(self.intaddress - other)
+        elif isinstance(other, llmemory.AddressOffset):
+            return address(self.intaddress - convert_offset_to_int(other))
         else:
             assert isinstance(other, address)
             return self.intaddress - other.intaddress

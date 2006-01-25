@@ -9,6 +9,19 @@ import sys
 
 int_size = lltypesimulation.sizeof(lltype.Signed)
 
+class GCHeaderOffset(llmemory.AddressOffset):
+    def __init__(self, minimal_size):
+        self.minimal_size = minimal_size
+    def __int__(self):
+        from pypy.rpython.memory.lltypelayout import sizeof
+        return sizeof(self.minimal_size)
+    # XXX blech
+    def __radd__(self, other):
+        return int(self) + other
+
+gc_header_two_ints = GCHeaderOffset(
+    lltype.Struct("header", ("a", lltype.Signed), ("b", lltype.Signed)))
+
 class GCError(Exception):
     pass
 
@@ -194,7 +207,7 @@ class MarkSweepGC(GCBase):
             self.heap_size = curr_heap_size
 
     def size_gc_header(self, typeid=0):
-        return int_size * 2
+        return gc_header_two_ints
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
@@ -332,7 +345,7 @@ class SemiSpaceGC(GCBase):
 
 
     def size_gc_header(self, typeid=0):
-        return int_size * 2
+        return gc_header_two_ints
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
@@ -463,5 +476,5 @@ class DeferredRefcountingGC(GCBase):
         addr.signed[1] = typeid
 
     def size_gc_header(self, typeid=0):
-        return int_size * 2
+        return gc_header_two_ints
 

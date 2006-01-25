@@ -88,6 +88,7 @@ def sizeof(TYPE, i=None):
         return fixedsize + i * varsize
 
 def convert_offset_to_int(offset):
+    from pypy.rpython.memory.gc import GCHeaderOffset
     if isinstance(offset, llmemory.FieldOffset):
         layout = get_layout(offset.TYPE)
         return layout[offset.fldname]
@@ -100,6 +101,8 @@ def convert_offset_to_int(offset):
         return sizeof(offset.TYPE) * offset.repeat
     elif isinstance(offset, llmemory.ArrayItemsOffset):
         return get_fixed_size(lltype.Signed)
+    elif isinstance(offset, GCHeaderOffset):
+        return sizeof(offset.minimal_size)
     else:
         raise Exception("unknown offset type %r"%offset)
         

@@ -1,10 +1,10 @@
-from pypy.rpython.memory import lladdress
+from pypy.rpython.memory import lladdress, lltypelayout
 from pypy.rpython.memory.lltypesimulation import simulatorptr, sizeof
 from pypy.rpython.memory.lltypesimulation import nullptr, malloc
 from pypy.rpython.memory.lltypesimulation import init_object_on_address
 from pypy.objspace.flow.model import traverse, Link, Constant, Block
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.rpython.rmodel import IntegerRepr
 
@@ -27,6 +27,8 @@ class LLTypeConverter(object):
         TYPE = lltype.typeOf(val_or_ptr)
         if isinstance(TYPE, lltype.Primitive):
             assert inline_to_ptr is None
+            if isinstance(val_or_ptr, llmemory.AddressOffset):
+                return lltypelayout.convert_offset_to_int(val_or_ptr)
             return val_or_ptr
         elif isinstance(TYPE, lltype.Array):
             return self.convert_array(val_or_ptr, inline_to_ptr)
