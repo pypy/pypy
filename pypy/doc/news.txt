@@ -9,6 +9,21 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+Current PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
+===================================================================
+
+The current sprint is taking place right now in Palma de Mallorca.
+Topics include progressing with the JIT work started in Göteborg
+and Paris, GC and optimisation work, stackless, and
+improving our way to write glue code for C libraries.
+
+Read more in `the announcement`_, there is a `sprint report`_
+for the first three days.
+
+
+.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/mallorca/sprint-announcement.html
+.. _`sprint report`: http://codespeak.net/pipermail/pypy-dev/2006q1/002746.html 
+
 Preliminary EU reports released
 ===============================
 
@@ -20,20 +35,6 @@ preliminary. *(01/06/2006)*
 
 .. _`reports for the EU`: http://codespeak.net/pypy/dist/pypy/doc/index-report.html
 
-Next PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
-===============================================================
-
-The next sprint is organized for end of January in Palma de Mallorca.
-Topics will include progressing with the JIT work started in Göteborg
-and Paris, GC and optimisation work, logic programming, and possibly
-improving our way to write glue code for C libraries. As usual we will
-give newcomer-friendly introductions, and other topics are possible.
-
-Read more in `the announcement`_, see who is  planning to attend
-on the `people page`_.
-
-.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/mallorca/sprint-announcement.html
-.. _`People page`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/mallorca/people.txt
 
 PyPy Sprint in Göteborg 7th - 11th December 2005 
 =================================================
