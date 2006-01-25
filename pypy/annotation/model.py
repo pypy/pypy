@@ -452,11 +452,6 @@ class SomeAddress(SomeObject):
     def can_be_none(self):
         return False
 
-class SomeOffset(SomeObject):
-    immutable = True
-    def can_be_none(self):
-        return False
-    
 
 # The following class is used to annotate the intermediate value that
 # appears in expressions of the form:
@@ -514,7 +509,6 @@ from pypy.rpython.ootypesystem import ootype
 annotation_to_ll_map = [
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (SomeBool(), lltype.Bool),
-    (SomeOffset(), lltype.Signed),
     (SomeInteger(), lltype.Signed),
     (SomeInteger(size=2), lltype.SignedLongLong),    
     (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    

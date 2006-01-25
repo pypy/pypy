@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
-from pypy.annotation.model import SomeExternalObject, SomeOffset
+from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
@@ -732,15 +732,3 @@ class __extend__(pairtype(SomeAddress, SomeObject)):
 class __extend__(pairtype(SomeObject, SomeAddress)):
     def union((s_obj, s_addr)):
         raise UnionError, "union of address and anything else makes no sense"
-
-class __extend__(pairtype(SomeOffset, SomeOffset)):
-    def add((s_off1, s_off2)):
-        return SomeOffset()
-
-class __extend__(pairtype(SomeOffset, SomeInteger)):
-    def mul((s_off1, s_off2)):
-        return SomeOffset()
-
-class __extend__(pairtype(SomeAddress, SomeOffset)):
-    def add((s_addr, s_off)):
-        return SomeAddress()

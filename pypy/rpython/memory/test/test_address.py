@@ -122,7 +122,7 @@ class TestAddressAnnotation(object):
         f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeOffset)
+        assert isinstance(s, annmodel.SomeInteger)
 
         coff = offsetof(S, 'y')
         def f():
@@ -130,7 +130,7 @@ class TestAddressAnnotation(object):
         f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeOffset)
+        assert isinstance(s, annmodel.SomeInteger)
 
     def test_offset_addition(self):
         from pypy.rpython.lltypesystem import lltype
@@ -142,7 +142,7 @@ class TestAddressAnnotation(object):
         f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeOffset)
+        assert isinstance(s, annmodel.SomeInteger)
 
         coff = offsetof(T, 's2') + offsetof(S, 'y')
         def f():
@@ -150,7 +150,7 @@ class TestAddressAnnotation(object):
         f()
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeOffset)
+        assert isinstance(s, annmodel.SomeInteger)
         
         
 class TestAddressRTyping(object):

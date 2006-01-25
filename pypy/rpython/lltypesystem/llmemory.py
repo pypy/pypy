@@ -11,7 +11,7 @@ class AddressOffset(Symbolic):
 
     def annotation(self):
         from pypy.annotation import model
-        return model.SomeOffset()
+        return model.SomeInteger()
 
     def lltype(self):
         return lltype.Signed

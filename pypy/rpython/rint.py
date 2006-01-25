@@ -10,6 +10,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
+from pypy.rpython import objectmodel
 
 
 class __extend__(annmodel.SomeInteger):
@@ -204,6 +205,8 @@ def _rtype_compare_template(hop, func):
 class __extend__(IntegerRepr):
 
     def convert_const(self, value):
+        if isinstance(value, objectmodel.Symbolic):
+            return value
         if not isinstance(value, (int, r_uint, r_int, r_longlong, r_ulonglong)):   # can be bool
             raise TyperError("not an integer: %r" % (value,))
         if self.lowleveltype == Signed:

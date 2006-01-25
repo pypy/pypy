@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
-from pypy.annotation.model import SomeExternalObject, SomeOffset
+from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.model import s_ImpossibleValue
@@ -507,7 +507,7 @@ BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
 from pypy.rpython.lltypesystem import llmemory 
 
 def offsetof(TYPE, fldname):
-    return SomeOffset()
+    return SomeInteger()
 
 BUILTIN_ANALYZERS[llmemory.offsetof] = offsetof
 

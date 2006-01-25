@@ -392,10 +392,10 @@ BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 # XXX this next little bit is a monstrous hack.  the Real Thing awaits
 # some kind of proper GC integration
 from pypy.rpython.l3interp import l3interp
-from pypy.rpython.raddress import offset_repr
+#from pypy.rpython.raddress import offset_repr
 
 def rtype_l3malloc(hop):
-    v_list = hop.inputargs(offset_repr)
+    v_list = hop.inputargs(lltype.Signed)
     return hop.genop("call_boehm_gc_alloc", v_list,
                      resulttype=llmemory.Address)
 
