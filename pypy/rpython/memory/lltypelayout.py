@@ -131,7 +131,7 @@ def varsize_offset_to_length(TYPE):
 def varsize_offsets_to_gcpointers_in_var_part(TYPE):
     if isinstance(TYPE, lltype.Array):
         if isinstance(TYPE.OF, lltype.Ptr):
-            return [llmemory.OffsetOf(TYPE.OF)]
+            return [0]
         elif isinstance(TYPE.OF, lltype.Struct):
             return offsets_to_gc_pointers(TYPE.OF)
         return []
