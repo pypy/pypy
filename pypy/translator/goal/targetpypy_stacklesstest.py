@@ -58,7 +58,13 @@ take_options = True
 
 stackless_options = {
     'text': True,
-    'lowmem': True,
+    'stackless': True,
+    }
+
+# this gets folded into the global options
+
+opt_defaults = {
+    "lowmem": True,
     }
 
 def opt_parser():
