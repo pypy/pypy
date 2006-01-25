@@ -37,7 +37,7 @@ class FuncNode(Node):
                         e          = self.db.translator.rtyper.getexceptiondata()
                         matchptr   = e.fn_exception_match
                         matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
-                        self.db.prepare_arg_value(matchconst) 
+                        self.db.prepare_arg(matchconst) 
                     for link in block.exits[1:]:
                         self.db.prepare_constant(lltype.typeOf(link.llexitcase),
                                                  link.llexitcase)
@@ -47,6 +47,11 @@ class FuncNode(Node):
 
     def write_implementation(self, codewriter):
         graph = self.graph
+
+        from optimize import optimized_functions
+        if graph.name in optimized_functions:
+            return  
+
         log.writeimplemention(graph.name)
         blocks = [x for x in flatten(graph) if isinstance(x, Block)]
         self.blockindex= {}

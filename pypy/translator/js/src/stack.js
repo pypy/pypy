@@ -2,7 +2,7 @@
 
 function ll_stack_too_big_helper(depth) {
     if (depth > 0) {
-        ll_stack_too_big_helper(depth-1)
+        ll_stack_too_big_helper(depth-1);
     }
 }
 

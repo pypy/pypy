@@ -28,7 +28,7 @@ def test_float_return():
 def test_bool_param():
     def bool_param(b):
         return b
-    f = compile_function(bool_param, [str])
+    f = compile_function(bool_param, [bool])
     assert f(False) == bool_param(False)
     assert f(True ) == bool_param(True )
 

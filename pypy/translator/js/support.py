@@ -20,7 +20,7 @@ class JavascriptNameManager(NameManager):
         self.make_reserved_names(reserved_names_string)
 
     def uniquename(self, name):
-        if self.js.compress and name != self.js.entrypoint.func_name and name not in optimized_functions:
+        if self.js.compress and name != self.js.functions[0].func_name and name not in optimized_functions and name != "ll_issubclass__object_vtablePtr_object_vtablePtr":
             name = 'f'
         return NameManager.uniquename(self, name)
 

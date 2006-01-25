@@ -28,19 +28,21 @@ def _path_join(root_path, *paths):
     return path
 
 class JS(object):   # JS = Javascript
-    def __init__(self, translator, entrypoint=None, stackless=False, compress=False, logging=False):
-        self.entrypoint = entrypoint or translator.entrypoint
+    def __init__(self, translator, functions=[], stackless=False, compress=False, logging=False):
+        self.functions  = functions
         self.stackless  = stackless or conftest.option.jsstackless
         self.compress   = compress or conftest.option.jscompress
         self.logging    = logging or conftest.option.jslog
         self.db = Database(translator, self)
 
     def write_source(self):
-        func = self.entrypoint
-        bk   = self.db.translator.annotator.bookkeeper
-        ptr  = getfunctionptr(bk.getdesc(func).cachedgraph(None))
-        c    = inputconst(lltype.typeOf(ptr), ptr)
-        self.db.prepare_arg_value(c)
+        self.graph = []
+        for  func in self.functions:
+            bk   = self.db.translator.annotator.bookkeeper
+            ptr  = getfunctionptr(bk.getdesc(func).cachedgraph(None))
+            c    = inputconst(lltype.typeOf(ptr), ptr)
+            self.db.prepare_arg(c)
+            self.graph.append( self.db.obj2node[c.value._obj].graph )
 
         # set up all nodes
         self.db.setup_all()
@@ -94,9 +96,6 @@ class JS(object):   # JS = Javascript
 
         if self.compress:
             optimize_filesize(str(self.filename))
-
-        entry_point= c.value._obj
-        self.graph = self.db.obj2node[entry_point].graph
 
         log('Written:', self.filename)
         return self.filename

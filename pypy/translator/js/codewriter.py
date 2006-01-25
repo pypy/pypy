@@ -207,14 +207,14 @@ class CodeWriter(object):
             optimized, code = optimize_call('%s = %s(%s)' % (targetvar, functionref, args))
             if self.js.stackless and not optimized:
                 self.append("slp_stack_depth++")
-                self.append(code)
+                self.append(code + ";")
                 self.append("slp_stack_depth--")
                 selfdecl = self.decl.split('(')[0]
                 usedvars = ', '.join(self._usedvars.keys())
                 usedvarnames = '"' + '", "'.join(self._usedvars.keys()) + '"'
                 self.append('if (slp_frame_stack_bottom) {')
                 self.indent_more()
-                self.append('slp_new_frame("%s", %s, %d, new Array(%s), new Array(%s))' %
+                self.append('slp_new_frame("%s", %s, %d, [%s], [%s])' %
                     (targetvar, selfdecl, self._resume_blocknum, usedvarnames, usedvars))
                 if specialreturnvalue:
                     self.append("return " + specialreturnvalue)
@@ -227,7 +227,7 @@ class CodeWriter(object):
                 self.indent_more()
                 self._resume_blocknum += 1
             else:   #not stackless
-                self.append(code)
+                self.append(code + ";")
         else:
             assert no_exception is not None
             no_exception_label, no_exception_exit = no_exception
@@ -295,7 +295,8 @@ class CodeWriter(object):
             self.append("%(targetvar)s = %(fromvar)s" % locals())
 
     def malloc(self, targetvar, type_):
-        self.append('%(targetvar)s = new %(type_)s()' % locals())
+        #self.append('%(targetvar)s = new %(type_)s()' % locals())
+        self.append('%(targetvar)s = %(type_)s' % locals())
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, word 0, " % locals()

@@ -6,6 +6,7 @@ var slp_return_value       = undefined;
 
 var slp_timeout            = false;
 var slp_start_time         = undefined;
+var slp_start_time0        = undefined;
 var slp_stack_depth        = 0;
 var slp_max_stack_depth    = 75;    // XXX make this browser dependent (75:Safari, 750:Firefox/Spidermonkey, more:IE)
 
@@ -40,7 +41,7 @@ function ll_stack_too_big() {
     var result = slp_stack_depth > slp_max_stack_depth;   // Firefox has a recursion limit of 1000 (others allow more)
     LOG("ll_stack_to_big result=" + result);
 
-    if (!result && in_browser && false) {
+    if (!result && in_browser) {
         var t = new Date().getTime();
         var d = t - slp_start_time;
         result = d > 100;
@@ -54,17 +55,17 @@ ll_stack_too_big___ = ll_stack_too_big;
 
 function slp_new_frame(targetvar, func, resume_blocknum, varnames, vars) {
     LOG("slp_new_frame("+function_name(func)+")");
-    var f = new Object({func:func, vars:vars, f_back:null});
+    var f = {func:func, vars:vars, f_back:null};
     var s = "block=" + resume_blocknum + ";";
     for (var i = 0;i < vars.length;i++) {
         if (varnames[i] == targetvar) {
-            s += targetvar + "=slp_return_value;"
+            s += targetvar + "=slp_return_value;";
         } else {
             s += varnames[i]  + "=slp_frame_stack_top.vars[" + i + "];";
         }
     }
     s += "slp_frame_stack_top=null;";
-    f.resumecode = s
+    f.resumecode = s;
     slp_frame_stack_bottom.f_back = f; // push below bottom, to keep stack
     slp_frame_stack_bottom        = f; // correctly sorted after unwind
     LOG(f.resumecode);
@@ -72,7 +73,7 @@ function slp_new_frame(targetvar, func, resume_blocknum, varnames, vars) {
 
 function slp_new_frame_simple(func) {
     LOG("slp_new_frame_simple("+function_name(func)+")");
-    return new Object({func:func, f_back:null});    // note: the non-simple version returns nothing
+    return {func:func, f_back:null};    // note: the non-simple version returns nothing
 }
 
 function ll_stack_unwind() {
@@ -132,11 +133,23 @@ ll_stackless_switch__frame_stack_topPtr = ll_stackless_switch;
 
 // main dispatcher loop
 
+slp_main_loop_counter = 0;
+
 function slp_main_loop() {
     var f_back;
-    log("SLP_MAIN_LOOP");
+    LOG("SLP_MAIN_LOOP");
     slp_timeout    = false;
     slp_start_time = new Date().getTime();
+
+    if (in_browser) {
+        slp_main_loop_counter += 1;
+        var f = slp_frame_stack_top;
+        for (var n_frames= 0;f;n_frames++) {
+            f = f.f_back;
+        }  
+        document.title = "time="+(slp_start_time - slp_start_time0) / 1000.0 + ", slp_main_loop_counter="+slp_main_loop_counter + ", slp_stack_depth="+slp_stack_depth + ", n_frames="+n_frames;
+    }
+
     while (true) {
         slp_frame_stack_bottom = null;
         pending = slp_frame_stack_top;
@@ -146,10 +159,10 @@ function slp_main_loop() {
             LOG('calling: ' + function_name(pending.func));
             slp_stack_depth  = 0;               // we are restarting to recurse
             slp_return_value = pending.func();  // params get initialized in the function because it's a resume!
-            if (slp_timeout) {
-                setTimeout('slp_main_loop()', 0);
-                return undefined;
-            }
+            //if (slp_timeout) {
+            //    setTimeout('slp_main_loop()', 0);
+            //    return undefined;
+            //}
             if (slp_frame_stack_top) {
                 break;
             }
@@ -158,6 +171,10 @@ function slp_main_loop() {
             }
             pending             = f_back;
             slp_frame_stack_top = pending;
+            if (slp_timeout) {
+                setTimeout('slp_main_loop()', 0);
+                return undefined;
+            }
         }
 
         if (slp_frame_stack_bottom) { // returning from switch()
@@ -165,7 +182,7 @@ function slp_main_loop() {
             slp_frame_stack_bottom.f_back = f_back;
         }
     }
-    log("REALLY FINISHED");
+    LOG("REALLY FINISHED");
     handle_result(slp_return_value);
 }
 
@@ -176,6 +193,7 @@ function slp_main_loop() {
 function slp_entry_point(funcstring) {  //new thread().run()
     slp_timeout     = false;
     slp_start_time  = new Date().getTime();
+    slp_start_time0 = slp_start_time;
     slp_stack_depth = 0;    /// initial stack depth
     var result = eval(funcstring);
     if (slp_frame_stack_bottom) { // get with dispatch loop when stack unwound

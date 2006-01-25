@@ -7,7 +7,7 @@ from pypy.translator.js import conftest
 from pypy.translator.js.log import log
 log = log.runtest
 use_browsertest = conftest.option.jsbrowser
-
+#from pypy.translator.js.test.test_jseval import add_callback_function
 
 def _CLI_is_on_path():
     try:
@@ -16,7 +16,6 @@ def _CLI_is_on_path():
         return False
     return True
 
-
 class compile_function(object):
     def __init__(self, function, annotation, stackless=False, view=False):
         if not use_browsertest and not _CLI_is_on_path():
@@ -24,18 +23,29 @@ class compile_function(object):
 
         t = TranslationContext()
         t.buildannotator().build_types(function, annotation)
+
         t.buildrtyper().specialize() 
+
+        #add_callback_function(t.translator)
+
         backend_optimizations(t, inline_threshold=0, mallocs=False)
         #backend_optimizations(t)
         if view:
             t.view()
-        self.js = JS(t, function, stackless)
+        #self.js = JS(t, [function, callback_function], stackless)
+        self.js = JS(t, [function], stackless)
         self.js.write_source()
 
-    def __call__(self, *kwds):
-        args = ', '.join([str(kw).lower() for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
+    def _conv(self, v):
+        if isinstance(v, str):
+            return "{hash:0, chars:'%s'}" % v
+        return str(v).lower()
 
-        function_call = "%s(%s)" % (self.js.graph.name, args)
+    def __call__(self, *kwds):
+        args = ', '.join([self._conv(kw) for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
+
+        entry_function = self.js.graph[0].name
+        function_call = "%s(%s)" % (entry_function, args)
         if self.js.stackless:
             function_call = "slp_entry_point('%s')" % function_call
 

@@ -7,6 +7,7 @@ optimized_functions = [
     'll_chr2str__Char',
     'll_str__IntegerR_SignedConst_Signed',
     'll_str__FloatR_FloatConst_Float',
+    'll_int__rpy_stringPtr_Signed',
 
     #'ll_issubclass__object_vtablePtr_object_vtablePtr',
 
@@ -27,7 +28,7 @@ def optimize_call(statement):
         #XXX javascript of ll_strconcat__rpy_stringPtr_rpy_stringPtr actually does not work, FIX IT!
         #    by outcommenting this code end running js/test/test_genllvm.py -k test_simple_chars
         p = '%s.chars' % '.chars + '.join(params)
-        return True, '%s = new Object({hash:0, chars:%s})' % (targetvar, p)
+        return True, '%s = {hash:0, chars:%s}' % (targetvar, p)
         
     elif funcname == 'll_stritem_nonneg__rpy_stringPtr_Signed':
         return True, '%s = %s.chars[%s]' % (targetvar, params[0], params[1])
@@ -42,15 +43,18 @@ def optimize_call(statement):
                 (targetvar, s0,s1, s0,s1, s0,s1)
 
     elif funcname == 'll_chr2str__Char':
-        return True, '%s = new Object({hash:0, chars:%s})' % (targetvar, params[0])
+        return True, '%s = {hash:0, chars:%s}' % (targetvar, params[0])
 
     elif funcname in ('ll_str__IntegerR_SignedConst_Signed',
                       'll_str__FloatR_FloatConst_Float'):
-        return True, '%s = new Object({hash:0, chars:%s + ""})' % (targetvar, params[0])
+        return True, '%s = {hash:0, chars:%s + ""}' % (targetvar, params[0])
+
+    elif funcname == 'll_int__rpy_stringPtr_Signed' and params[1] == '10':
+        return True, '%s = parseInt(%s)' % (targetvar, params[0])
 
     #externals...
     elif funcname == 'll_js_jseval__rpy_stringPtr':
-        return True, '%s = eval(%s)' % (targetvar, params[0])
+        return True, '%s = eval(%s.chars)' % (targetvar, params[0])
 
     return False, '%s = %s(%s)' % (targetvar, funcname, ', '.join(params))
 

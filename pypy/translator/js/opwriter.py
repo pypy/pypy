@@ -237,14 +237,7 @@ class OpWriter(object):
             opname = op.opname.split(':',1)[1]
             op_args = [opname] + op_args
             functionref = op_args[0]
-            if functionref in extfunctions:
-                #ExternalFuncNode.used_external_functions[functionref] = True
-                log('external function', functionref)
-            else:
-                msg = "exception raising operation %s not found" %(op.opname,)
-                self.codewriter.comment('XXX: Error: ' + msg)
-                # XXX commented out for testing
-                #assert functionref in extfunctions, msg
+            self.codewriter.comment("XXX: Error: exception raising operation %s" % functionref)
 
         assert len(op_args) >= 1
         # at least one label and one exception label
@@ -274,12 +267,12 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result) 
         t        = str(op.args[0]).split()
         if t[0].endswith('Array'):  #XXX ouch do I really want to go down this road
-            type_ = 'Array'
+            type_ = '[];'
         else:
-            type_ = 'Object' #self.db.repr_type(arg_type)
+            type_ = '{};'
         #XXX this should be done correctly for all types offcourse!
-        if type_ == 'Object' and t[1] == 'rpy_string':
-            self.codewriter.append(targetvar + ' = new Object({hash:0, chars:""})')
+        if type_ == '{}' and t[1] == 'rpy_string':
+            self.codewriter.append(targetvar + ' = {hash:0, chars:""};')
         else:
             self.codewriter.comment(str(arg_type))
             self.codewriter.comment(str(op.args[0]))

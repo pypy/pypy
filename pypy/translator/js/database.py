@@ -95,7 +95,7 @@ class Database(object):
         if value not in self.obj2node: 
             self.addpending(value, self.create_constant_node(type_, value))
         
-    def prepare_arg_value(self, const_or_var):
+    def prepare_arg(self, const_or_var):
         """if const_or_var is not already in a dictionary self.obj2node,
         the appropriate node gets constructed and gets added to
         self._pendingsetup and to self.obj2node"""
@@ -119,10 +119,6 @@ class Database(object):
                 self.addpending(value, self.create_constant_node(ct.TO, value))
         else:
             assert isinstance(const_or_var, Variable)
-
-
-    def prepare_arg(self, const_or_var):
-        self.prepare_arg_value(const_or_var)
 
     def setup_all(self):
         while self._pendingsetup: 
@@ -154,15 +150,6 @@ class Database(object):
         else:
             assert isinstance(arg, Variable)
             return str(arg)
-
-    #def repr_type(self, arg):
-    #    try:
-    #        node = self.obj2node.get(arg.value._obj)
-    #        if isinstance(node, ArrayNode):
-    #            return 'Array'
-    #    except:
-    #        pass
-    #    return 'Object'
 
     def repr_concretetype(self, ct): #used by casts
         try:

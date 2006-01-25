@@ -3,6 +3,7 @@ import py
 from pypy.rpython.rstack import stack_unwind, stack_frames_depth, stack_too_big
 from pypy.rpython.rstack import yield_current_frame_to_caller
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.rjs import jseval 
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js import conftest
 
@@ -185,19 +186,24 @@ def test_yield_frame2():
 # and only then check result.
 
 def test_long_running():
-    py.test.skip("stackless feature incomplete (no long running processes yet)")
+    if not conftest.option.jsbrowser:
+            py.test.skip("works only in a browser (use py.test --browser)") 
 
-    n_iterations = 50000
+    start_time = lltype.malloc(lltype.GcArray(lltype.Signed), 1) 
 
-    def g(x):
-        if x > 0:
-            for q in range(1000):
-                pass
-            g(x-1)
-        return x
+    def getTime():
+        return int(jseval("Math.floor(new Date().getTime())"))
+
+    def g():
+        for i in range(100):
+            pass
+        if getTime() - start_time[0] < 10*1000:
+            g()
+        return 123
 
     def lp():
-        return g(n_iterations)
+        start_time[0] = getTime()
+        return g()
 
     data = wrap_stackless_function(lp)
 
