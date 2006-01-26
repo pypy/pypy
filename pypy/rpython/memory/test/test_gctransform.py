@@ -88,4 +88,20 @@ def test_multiple_exits():
         passedname = link.target.exits[0].args[0].name
         assert dyingname != passedname
     
-        
+def test_cleanup_vars_on_call():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f():
+        return lltype.malloc(S)
+    def g():
+        s1 = f()
+        s2 = f()
+        s3 = f()
+        return s1
+    t = rtype_and_transform(g, [], gctransform.GCTransformer)
+    ggraph = graphof(t, g)
+    direct_calls = [op for op in ggraph.startblock.operations if op.opname == "direct_call"]
+    assert len(direct_calls) == 3
+    assert len(direct_calls[0].args) == 1
+    assert direct_calls[1].args[1].value[0] == direct_calls[0].result
+    assert direct_calls[2].args[1].value == [direct_calls[0].result, direct_calls[1].result]
+

@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import SpaceOperation, Variable
 from pypy.translator.unsimplify import insert_empty_block
+from pypy.rpython import rmodel
 import sets
 
 """
@@ -47,6 +48,8 @@ class GCTransformer:
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         for op in block.operations:
             newops.extend(self.replacement_operations(op))
+            if op.opname in ('direct_call', 'indirect_call') and livevars:
+                op.args.append(rmodel.inputconst(lltype.Void, livevars[:]))
             if var_needsgc(op.result):
                 if op.opname not in ('direct_call', 'indirect_call'):
                     newops.extend(self.push_alive(op.result))
@@ -88,4 +91,3 @@ class GCTransformer:
         result.concretetype = lltype.Void
         return [SpaceOperation("pop_alive", [var], result)]
 
-    
