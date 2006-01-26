@@ -13,11 +13,21 @@ import sys
 class CoState(object):
     def __init__(self):
         self.last = self.current = self.main = Coroutine()
+        self.things_to_do = False
+        self.temp_exc = None
+        self.del_first = None
+        self.del_last = None
 
 costate = None
 
 class CoroutineDamage(SystemError):
     pass
+
+class CoroutineExit(SystemExit):
+    # XXX SystemExit's __init__ creates problems in bookkeeper.
+    # XXX discuss this with the gurus :-)
+    def __init__(self):
+        pass
 
 class Coroutine(Wrappable):
 
@@ -36,7 +46,15 @@ class Coroutine(Wrappable):
     def _bind(self, thunk):
         self.parent = costate.current
         costate.last.frame = yield_current_frame_to_caller()
-        thunk.call()
+        try:
+            thunk.call()
+        except CoroutineExit:
+            # ignore a shutdown exception
+            pass
+        except Exception, e:
+            # redirect all unhandled exceptions to the parent
+            costate.things_to_do = True
+            costate.temp_exc = e
         if self.parent.frame is None:
             self.parent = costate.main
         return self._update_state(self.parent)
@@ -46,12 +64,66 @@ class Coroutine(Wrappable):
             raise CoroutineDamage
         costate.last.frame = self._update_state(self).switch()
         # note that last gets updated before assignment!
+        if costate.things_to_do:
+            do_things_to_do(self)
 
     def _update_state(new):
         costate.last, costate.current = costate.current, new
         frame, new.frame = new.frame, None
         return frame
     _update_state = staticmethod(_update_state)
+
+    def kill(self):
+        self._userdel()
+        if costate.current is self:
+            raise CoroutineExit
+        costate.things_to_do = True
+        costate.temp_exc = CoroutineExit()
+        self.parent = costate.current
+        self.switch()
+
+    def __del__(self):
+        # provide the necessary clean-up if this coro is left
+        # with a frame.
+        # note that AppCoroutine has to take care about this
+        # as well, including a check for user-supplied __del__.
+        # Additionally note that in the context of __del__, we are
+        # not in the position to issue a switch.
+        # we defer it completely.
+        if self.frame is not None:
+            postpone_deletion(self)
+
+    def _userdel(self):
+        # override this for exposed coros
+        pass
+
+## later:   or self.space.lookup(self, '__del__') is not None
+
+def postpone_deletion(obj):
+    costate.things_to_do = True
+    if costate.del_first is None:
+        costate.del_first = costate.del_last = obj
+    costate.del_last.parent = obj
+    costate.del_last = obj
+    obj.parent = costate.del_first
+
+def do_things_to_do(obj):
+    if costate.temp_exc is not None:
+        # somebody left an unhandled exception and switched to us.
+        # this both provides default exception handling and the
+        # way to inject an exception, like CoroutineExit.
+        e, costate.temp_exc = costate.temp_exc, None
+        costate.things_to_do = costate.del_first is not None
+        raise e
+    if costate.del_first is not None:
+        obj = costate.del_first
+        costate.del_first = obj.parent
+        obj.parent = costate.current
+        if obj is costate.del_last:
+            costate.del_first = costate.del_last = None
+        obj.kill()
+    else:
+        costate.things_to_do = False
 
 costate = CoState()
 

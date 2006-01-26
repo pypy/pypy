@@ -167,3 +167,43 @@ def test_coroutine2():
         
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 12345678
+
+def test_kill_raise_coro():
+    class T:
+        def __init__(self, func, arg):
+            self.func = func
+            self.arg = arg
+        def call(self):
+            self.func(self.arg, self)
+
+    def g(nrec, t, count=0):
+        t.count = count
+        if nrec < 0:
+            raise ValueError
+        if nrec:
+            g(nrec-1, t, count+1)
+        costate.main.switch()
+
+    def f():
+        coro_g = Coroutine()
+        thunk_g = T(g, 42)
+        coro_g.bind(thunk_g)
+        coro_g.switch()
+        res = thunk_g.count
+        res *= 10
+        res |= coro_g.frame is not None
+        # testing kill
+        coro_g.kill()
+        res *= 10
+        res |= coro_g.frame is None
+        coro_g = Coroutine()
+        thunk_g = T(g, -42)
+        coro_g.bind(thunk_g)
+        try:
+            coro_g.switch()
+        except ValueError:
+            res += 500
+        return res
+    
+    data = wrap_stackless_function(f)
+    assert int(data.strip()) == 4711
