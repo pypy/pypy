@@ -102,6 +102,6 @@ def test_cleanup_vars_on_call():
     direct_calls = [op for op in ggraph.startblock.operations if op.opname == "direct_call"]
     assert len(direct_calls) == 3
     assert len(direct_calls[0].args) == 1
-    assert direct_calls[1].args[1].value[0] == direct_calls[0].result
-    assert direct_calls[2].args[1].value == [direct_calls[0].result, direct_calls[1].result]
+    assert direct_calls[1].args[1].value[0].args[0] == direct_calls[0].result
+    assert [op.args[0] for op in direct_calls[2].args[1].value] == [direct_calls[0].result, direct_calls[1].result]
 
