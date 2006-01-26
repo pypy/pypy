@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.rarithmetic import intmask
 
 from pypy.rpython.rstack import yield_current_frame_to_caller
+from pypy.module.stackless.stackless_flags import StacklessFlags
 
 import sys
 
@@ -138,7 +139,11 @@ class _AppThunk(object):
     def call(self):
         self.space.call_args(self.w_func, self.args)
 
-class AppCoroutine(Coroutine):
+class AppCoroutine(Coroutine, StacklessFlags):
+
+    def __init__(self):
+        Coroutine.__init__(self)
+        self.flags = 0
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
