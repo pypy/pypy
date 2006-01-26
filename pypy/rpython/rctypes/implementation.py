@@ -3,6 +3,7 @@ The rctypes implementaion is contained here.
 """
 
 import sys
+import ctypes
 from ctypes import *
 from ctypes import _FUNCFLAG_CDECL
 if sys.platform == "win32":
@@ -49,6 +50,12 @@ def create_ctypes_annotations():
         the_type.ll_type = ll_type
         if wrap_arg is not None:
             the_type.wrap_arg = wrap_arg
+        else:
+            # !!!! attention !!!!
+            # the basic c_types need some annotation information
+            # at the moment that are exactly the types that have
+            # no 'wrap_arg'. This might change in the future
+            the_type.compute_result_annotation = classmethod(lambda cls, s_arg:SomeCTypesObject(cls))
 
 create_ctypes_annotations()
 
@@ -82,7 +89,12 @@ class FunctionPointerTranslation(object):
                     answer.append(ctype_type.wrap_arg(ll_type, arg_name))
             return answer
 
+class CtypesBasicTypeInstantiationTranslation( FunctionPointerTranslation ):
 
+    compute_result_annotation = classmethod(
+            FunctionPointerTranslation.compute_result_annotation)
+
+    
 class RStructureMeta(type(Structure)):
     def __new__(mta,name,bases,clsdict):
         _fields = clsdict.get('_fields_',None)

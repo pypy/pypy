@@ -11,7 +11,10 @@ except ImportError:
     py.test.skip("this test needs ctypes installed")
 
 
-from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, POINTER, Structure, byref
+from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, \
+        c_char, c_byte, c_ubyte, c_short, c_ushort, c_uint,\
+        c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
+        POINTER, Structure, byref
 if sys.platform == 'win32':
     mylib = cdll.LoadLibrary('msvcrt.dll')
 elif sys.platform == 'linux2':
@@ -77,6 +80,26 @@ def py_testfunc_POINTER(inpoint):
     oppoint = oppoint_type(point)
     res  = testfunc_byval(inpoint,oppoint)
     return res, oppoint
+
+def py_test_simple_cint():
+    return c_int(10)
+
+def py_test_simple_ctypes():
+    return (
+            c_char('a'),
+            c_byte(1),
+            c_ubyte(1),
+            c_short(1),
+            c_ushort(1),
+            c_int(1),
+            c_uint(1),
+            c_long(1),
+            c_ulong(1),
+            c_longlong(1),
+            c_ulonglong(1),
+            c_float(1.0),
+            c_double(1.0)
+    )
 
 
 class Test_rctypes:
@@ -165,4 +188,28 @@ class Test_structure:
         assert len(s.items) == 2
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == POINTER(tagpoint)
+
+    def test_annotate_simple_cint(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_test_simple_cint,[])
+        assert s.knowntype == c_int
+
+    def test_annotate_simple_types(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_test_simple_ctypes,[])
+        assert s.knowntype == tuple
+        assert len(s.items) == 13
+        assert s.items[0].knowntype == c_char
+        assert s.items[1].knowntype == c_byte
+        assert s.items[2].knowntype == c_ubyte
+        assert s.items[3].knowntype == c_short
+        assert s.items[4].knowntype == c_ushort
+        assert s.items[5].knowntype == c_int
+        assert s.items[6].knowntype == c_uint
+        assert s.items[7].knowntype == c_long
+        assert s.items[8].knowntype == c_ulong
+        assert s.items[9].knowntype == c_longlong
+        assert s.items[10].knowntype == c_ulonglong
+        assert s.items[11].knowntype == c_float
+        assert s.items[12].knowntype == c_double
 
