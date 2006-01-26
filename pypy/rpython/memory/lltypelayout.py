@@ -139,5 +139,6 @@ def varsize_offsets_to_gcpointers_in_var_part(TYPE):
             return offsets_to_gc_pointers(TYPE.OF)
         return []
     elif isinstance(TYPE, lltype.Struct):
-        return offsets_to_gc_pointers(getattr(TYPE, TYPE._arrayfld)) 
+        return varsize_offsets_to_gcpointers_in_var_part(getattr(TYPE,
+                                                                 TYPE._arrayfld)) 
     
