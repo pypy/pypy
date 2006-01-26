@@ -98,7 +98,6 @@ class Coroutine(Wrappable):
         # override this for exposed coros
         pass
 
-## later:   or self.space.lookup(self, '__del__') is not None
 
 def postpone_deletion(obj):
     costate.things_to_do = True
@@ -139,7 +138,8 @@ class _AppThunk(object):
     def call(self):
         self.space.call_args(self.w_func, self.args)
 
-class AppCoroutine(Coroutine, StacklessFlags):
+
+class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def __init__(self):
         Coroutine.__init__(self)
@@ -158,9 +158,32 @@ class AppCoroutine(Coroutine, StacklessFlags):
     def w_switch(self):
         self.switch()
 
+    def __del__(self):
+        if self.frame is not None or self.space.lookup(self, '__del__') is not None:
+            postpone_deletion(self)
+
+    def _userdel(self):
+        if self.get_is_zombie():
+            return
+        self.set_is_zombie(True)
+        self.space.userdel(self)
+
+
+# _mixin_ did not work
+for methname in StacklessFlags.__dict__:
+    meth = getattr(StacklessFlags, methname)
+    if hasattr(meth, 'im_func'):
+        setattr(AppCoroutine, meth.__name__, meth.im_func)
+del meth, methname
+
+def w_get_is_zombie(space, self):
+    return space.wrap(self.get_is_zombie())
+AppCoroutine.w_get_is_zombie = w_get_is_zombie
+
 AppCoroutine.typedef = TypeDef("Coroutine",
     __new__ = interp2app(AppCoroutine.descr_method__new__.im_func),
     bind = interp2app(AppCoroutine.w_bind,
                       unwrap_spec=['self', W_Root, Arguments]),
     switch = interp2app(AppCoroutine.w_switch),
+    is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
 )
