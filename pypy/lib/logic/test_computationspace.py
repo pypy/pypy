@@ -60,68 +60,39 @@ class TestComputationSpace:
 
     def test_process_and_ask_success(self):
         spc = cs.ComputationSpace(satisfiable_problem)
-        assert spc.ask() == cs.Unprocessed
-        spc.process()
         assert spc.ask() == cs.Succeeded
-        
 
     def test_process_and_ask_failure(self):
         spc = cs.ComputationSpace(unsatisfiable_problem)
-        assert spc.ask() == cs.Unprocessed
-        spc.process()
         assert spc.ask() == cs.Failed
 
     def test_distribute(self):
         spc = cs.ComputationSpace(satisfiable_problem)
-        spc.process()
-        new_domains = [d.items() for d in
+        new_domains = [tuple(d.items()) for d in
                        spc.distributor.distribute()]
         x, y, z, w = (spc.store.get_var_by_name('x'),
                       spc.store.get_var_by_name('y'),
                       spc.store.get_var_by_name('z'),
                       spc.store.get_var_by_name('w'))
-        expected_domains = [{x: c.FiniteDomain([6]),
+        expected_domains = [tuple({x: c.FiniteDomain([6]),
                              y: c.FiniteDomain([2]),
                              z: c.FiniteDomain([4]),
-                             w: c.FiniteDomain([5])}.items(),
-                            {x: c.FiniteDomain([6]),
+                             w: c.FiniteDomain([5])}.items()),
+                            tuple({x: c.FiniteDomain([6]),
                              y: c.FiniteDomain([2]),
                              z: c.FiniteDomain([4]),
-                             w: c.FiniteDomain([6, 7])}.items()]
+                             w: c.FiniteDomain([6, 7])}.items())]
+        print new_domains, expected_domains
+        assert len(new_domains) == len(expected_domains)
         for (d1, d2) in zip(new_domains, expected_domains):
+            assert len(d1) == len(d2)
             for (e1, e2) in zip(d1, d2):
                 print e1, '=?', e2
                 assert e1 == e2
         # the following assertion fails for mysterious reasons
         # have we discovered a bug in CPython ?
-        # assert set(new_domains) == set(expected_domains)
+        #print hash(new_domains[0]), hash(new_domains[1])
+        #print hash(expected_domains[0]), hash(expected_domains[1])
+        #assert set(new_domains) == set(expected_domains)
 
-    def test_make_children(self):
-        spc = cs.ComputationSpace(satisfiable_problem)
-        x, y, z, w = (spc.store.get_var_by_name('x'),
-                      spc.store.get_var_by_name('y'),
-                      spc.store.get_var_by_name('z'),
-                      spc.store.get_var_by_name('w'))
-        spc.process()
-        spc.make_children()
-        assert len(spc.children) == 2
-        new_domains = []
-        all_vars = spc.store.get_variables_with_a_domain()
-        for child in spc.children:
-            new_domains.append([(var, var.cs_get_dom(child))
-                                for var in all_vars])
-            
-        expected_domains = [{x: c.FiniteDomain([6]),
-                             y: c.FiniteDomain([2]),
-                             z: c.FiniteDomain([4]),
-                             w: c.FiniteDomain([5])}.items(),
-                            {x: c.FiniteDomain([6]),
-                             y: c.FiniteDomain([2]),
-                             z: c.FiniteDomain([4]),
-                             w: c.FiniteDomain([6, 7])}.items()]
-
-        for (d1, d2) in zip(new_domains, expected_domains):
-            for (e1, e2) in zip(d1, d2):
-                print e1, '=?', e2
-                assert e1 == e2
         

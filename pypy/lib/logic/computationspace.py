@@ -177,23 +177,32 @@
 
 ## space = ComputationSpace(fun=my_problem)
 
+from unification import Store, var
+from constraint import ConsistencyFailure
+from threading import Thread, Condition
+
 class Unprocessed:
     pass
 
 class Working:
     pass
 
-class Failed:
+class Failed(Exception):
     pass
 
 class Merged:
+    """Its constraint store has been added to a parent.
+       Any further operation operation on the space is
+       an error.
+    """
     pass
 
 class Succeeded:
+    """It contains no choice points but a solution to
+       the logic program.
+    """
     pass
 
-from unification import Store, var
-from constraint import ConsistencyFailure
 
 class ComputationSpace(object):
 
@@ -207,37 +216,57 @@ class ComputationSpace(object):
             self.root = parent.root
         self.program = program
         self.parent = parent
+        # status
         self.status = Unprocessed
-        self.children = set()
+        self.status_condition = Condition()
+        # run ...
+        self._process()
 
-    def _stable(self):
-        #XXX: really ?
-        return self.status in (Failed, Succeeded, Merged)
-
-    def _distributable(self):
-        pass
-        #return not self._stable 
-
-    def set_distributor(self, dist):
-        self.distributor = dist
-
-    def ask(self):
-        # XXX: block on status being not stable for threads
-        if self._stable():
-            return self.status
-            #return self.store.nb_candidates()
-        else:
-            #TBD
-            return self.status
-
-    def process(self):
-        self.status = Working
+    def _process(self):
         try:
             self.store.satisfy_all()
         except ConsistencyFailure:
             self.status = Failed
         else:
             self.status = Succeeded
+
+    def _stable(self):
+        #XXX: really ?
+        return self.status in (Failed, Succeeded, Merged) \
+               or self._distributable()
+
+    def _suspended(self):
+        pass
+        # additional basic constraints done in an ancestor can
+        # make it runnable ; it is a temporary condition due
+        # to concurrency ; it means that some ancestor space
+        # has not yet transferred all required information to
+        # the space 
+    
+
+    def _distributable(self):
+        if self.status not in (Failed, Succeeded, Merged):
+            return self.distributor.findSmallestDomain() > 1
+        # in The Book : "the space has one thread that is
+        # suspended on a choice point with two or more alternatives.
+        # A space canhave at most one choice point; attempting to
+        # create another gives an error."
+
+    def set_distributor(self, dist):
+        self.distributor = dist
+
+    def ask(self):
+        # XXX: block on status being not stable for threads
+        try:
+            self.status_condition.acquire()
+            while not self._stable():
+                self.status_condition.wait()
+            if self._distributable():
+                return self.distributor.nb_subdomains()
+            return self.status
+        finally:
+            self.status_condition.release()
+
 
     def make_children(self):
         for dommap in self.distributor.distribute():
@@ -248,5 +277,36 @@ class ComputationSpace(object):
                 var.cs_set_dom(cs, dom)
 
 
+    def commit(self, some_number):
+        """if self is distributable, causes the Choose call in the
+           space ot complete and return some_number as a result. This
+           may cause the spzce to resume execution.
+           some_number must satisfy 1=<I=<N where N is the first arg
+           of the Choose call.
+        """
+        pass
+
+    def solve_all(self):
+        """recursively solves the problem
+        """
+        if self.status == Unprocessed:
+            self.process()
+            if self.status == Succeeded: return self.root
+            if self.status == Failed: raise Failed
+            self.make_children()
+            results = set() # to be merged/committed ?
+            for cs in self.children:
+                try:
+                    results.add(cs.solve_all())
+                except Failed:
+                    pass
+            for result in results:
+                # Q: do we (a) merge our children results right now
+                #    or (b) do we pass results up the call chain ?
+                # (b) makes sense for a SolveAll kind of method on cs's
+                # (a) might be more Oz-ish, maybe allowing some very fancy
+                #     stuff with distribution or whatever
+                self.do_something_with(result)
+            
 
         

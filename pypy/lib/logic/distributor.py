@@ -44,7 +44,7 @@ class AbstractDistributor(object):
         return best
 
 
-    def nb_subdomains(self, domains):
+    def nb_subdomains(self):
         """return number of sub domains to explore"""
         return self.nb_subspaces
 
@@ -54,7 +54,7 @@ class AbstractDistributor(object):
         self.verbose = verbose
         variables = self.c_space.store.get_variables_with_a_domain()
         replicas = []
-        for i in range(self.nb_subdomains(variables)):
+        for i in range(self.nb_subdomains()):
             replicas.append(make_new_domains(variables))
         modified_domains = self._distribute(*replicas)
         for domain in modified_domains:
@@ -115,7 +115,7 @@ class SplitDistributor(AbstractDistributor):
         AbstractDistributor.__init__(self, c_space, nb_subspaces)
         self.__to_split = None
 
-    def nb_subdomains(self, domains):
+    def nb_subdomains(self):
         """See AbstractDistributor"""
         self.__to_split = self.findSmallestDomain()
         if self.nb_subspaces:
