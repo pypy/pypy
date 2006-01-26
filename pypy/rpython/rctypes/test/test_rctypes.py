@@ -101,6 +101,9 @@ def py_test_simple_ctypes():
             c_double(1.0)
     )
 
+def py_test_simple_ctypes_non_const():
+    a = 10
+    return c_float( a + 10 )
 
 class Test_rctypes:
 
@@ -212,4 +215,9 @@ class Test_structure:
         assert s.items[10].knowntype == c_ulonglong
         assert s.items[11].knowntype == c_float
         assert s.items[12].knowntype == c_double
+
+    def test_annotate_simple_types_non_const(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_test_simple_ctypes_non_const,[])
+        assert s.knowntype == c_float
 
