@@ -624,23 +624,6 @@ class RPythonAnnotator:
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
 
-    def _registeroperations(loc):
-        # All unary operations
-        for opname in annmodel.UNARY_OPERATIONS:
-            exec """
-def consider_op_%s(self, arg, *args):
-    return arg.%s(*args)
-""" % (opname, opname) in globals(), loc
-        # All binary operations
-        for opname in annmodel.BINARY_OPERATIONS:
-            exec """
-def consider_op_%s(self, arg1, arg2, *args):
-    return pair(arg1,arg2).%s(*args)
-""" % (opname, opname) in globals(), loc
-
-    _registeroperations(locals())
-    del _registeroperations
-
     # XXX "contains" clash with SomeObject method
     def consider_op_contains(self, seq, elem):
         self.bookkeeper.count("contains", seq)
@@ -662,6 +645,24 @@ def consider_op_%s(self, arg1, arg2, *args):
     def consider_op_newslice(self, start, stop, step):
         self.bookkeeper.count('newslice', start, stop, step)
         return annmodel.SomeSlice(start, stop, step)
+
+
+def _registeroperations(ns, model):
+    # All unary operations
+    for opname in model.UNARY_OPERATIONS:
+        exec """
+def consider_op_%s(self, arg, *args):
+    return arg.%s(*args)
+""" % (opname, opname) in globals(), ns
+    # All binary operations
+    for opname in model.BINARY_OPERATIONS:
+        exec """
+def consider_op_%s(self, arg1, arg2, *args):
+    return pair(arg1,arg2).%s(*args)
+""" % (opname, opname) in globals(), ns
+
+# register simple operations handling
+_registeroperations(RPythonAnnotator.__dict__, annmodel)
 
 
 class CannotSimplify(Exception):
