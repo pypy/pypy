@@ -53,25 +53,6 @@ class StructVarsizeTypeNode(StructTypeNode):
     # ______________________________________________________________________
     # main entry points from genllvm 
 
-    def writedecl(self, codewriter): 
-        # declaration for constructor
-        return #XXX
-
-        codewriter.declare(self.constructor_decl)
-
-    def writeimpl(self, codewriter):
-        return #XXX
-
-        log.writeimpl(self.ref)
-        current, indices_to_array = self.var_malloc_info()
-        gp = self.db.gcpolicy
-        gp.write_constructor(codewriter, 
-                             self.ref,
-                             self.constructor_decl,
-                             current, 
-                             indices_to_array,
-                             self.struct._is_atomic())
-
     def var_malloc_info(self):
         # build up a list of indices to get to the last 
         # var-sized struct (or rather the according array) 
