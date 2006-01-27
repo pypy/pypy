@@ -5,7 +5,7 @@ from py.test import raises
 
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import TranslationContext
-from pypy.translator.c import genc
+from pypy.translator.c import genc, newgc
 
 from pypy.rpython.memory.gctransform import GCTransformer
 
@@ -15,7 +15,8 @@ def compile_func(fn, inputtypes):
     t.buildrtyper().specialize()
 #    GCTransformer(t.graphs).transform()
     
-    builder = genc.CExtModuleBuilder(t, fn, use_new_funcgen=True)
+    builder = genc.CExtModuleBuilder(t, fn, use_new_funcgen=True,
+                                     gcpolicy=newgc.RefcountingGcPolicy)
     builder.generate_source()
     skip_missing_compiler(builder.compile)
     builder.import_module()
