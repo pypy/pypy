@@ -43,7 +43,7 @@ def get_executables():  #sorted by revision number (highest first)
     return exes
 
 HEADLINE = 'date                       executable                        richards             pystone'
-FMT      = '%-26s %-30s   %6dms (%6.2fx)   %6d (%6.2fx)'
+FMT      = '%-26s %-30s   %6dms (%6.1fx)   %6d (%6.1fx)'
 
 def main():
     print HEADLINE
