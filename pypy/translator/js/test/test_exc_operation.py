@@ -4,7 +4,7 @@ from pypy.translator.js.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 from pypy.translator.test import snippet 
 
-def DONTtest_zerodiv_int(): #issue no exception raising operations yet
+def test_zerodiv_int(): #issue no exception raising operations yet
     def zerodiv_int(n):
         try:
             r=100/n

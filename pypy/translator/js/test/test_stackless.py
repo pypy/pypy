@@ -194,16 +194,18 @@ def test_long_running():
     def getTime():
         return int(jseval("Math.floor(new Date().getTime())"))
 
-    def g():
-        for i in range(100):
+    def g(n):
+        for i in range(10):
             pass
         if getTime() - start_time[0] < 10*1000:
-            g()
-        return 123
+            x = g(n-1)
+            if x != n-1:
+                jseval("log('x != n-1')")
+        return n
 
     def lp():
         start_time[0] = getTime()
-        return g()
+        return g(100000)
 
     data = wrap_stackless_function(lp)
 

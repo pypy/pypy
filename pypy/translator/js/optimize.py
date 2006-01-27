@@ -8,6 +8,7 @@ optimized_functions = [
     'll_str__IntegerR_SignedConst_Signed',
     'll_str__FloatR_FloatConst_Float',
     'll_int__rpy_stringPtr_Signed',
+    'll_join_strs__Signed_arrayPtr',
 
     #'ll_issubclass__object_vtablePtr_object_vtablePtr',
 
@@ -51,6 +52,9 @@ def optimize_call(statement):
 
     elif funcname == 'll_int__rpy_stringPtr_Signed' and params[1] == '10':
         return True, '%s = parseInt(%s)' % (targetvar, params[0])
+
+    elif funcname == 'll_join_strs__Signed_arrayPtr' and params[0] == '2':
+        return True, '%s = {hash:0, chars:%s + %s}' % (targetvar, params[0], params[1])
 
     #externals...
     elif funcname == 'll_js_jseval__rpy_stringPtr':

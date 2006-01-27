@@ -1,13 +1,12 @@
 import py, os
 from pypy.translator.translator import TranslationContext
-from pypy.translator.backendopt.all import backend_optimizations                                 
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.js.js import JS
 from pypy.translator.js.test.browsertest import jstest
 from pypy.translator.js import conftest
 from pypy.translator.js.log import log
 log = log.runtest
 use_browsertest = conftest.option.jsbrowser
-#from pypy.translator.js.test.test_jseval import add_callback_function
 
 def _CLI_is_on_path():
     try:
@@ -26,9 +25,7 @@ class compile_function(object):
 
         t.buildrtyper().specialize() 
 
-        #add_callback_function(t.translator)
-
-        backend_optimizations(t, inline_threshold=0, mallocs=False)
+        backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0, mallocs=False)
         #backend_optimizations(t)
         if view:
             t.view()

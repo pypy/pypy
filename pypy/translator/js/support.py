@@ -10,7 +10,7 @@ class JavascriptNameManager(NameManager):
         reserved_names_string = '''
                    if    then   else   function  
                    for   while  witch  continue
-                   break super  var
+                   break super  var    do
                    bool  char   int    float
                    Array String Struct Number
                    '''

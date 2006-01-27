@@ -20,6 +20,8 @@ class Database(object):
             lltype.Float: "double",
             lltype.Signed: "int",
             lltype.Unsigned: "uint",
+            lltype.SignedLongLong: "int",
+            lltype.UnsignedLongLong: "uint",
             lltype.UniChar: "uint",
             lltype.Void: "void"}
 

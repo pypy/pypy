@@ -79,6 +79,11 @@ class OpWriter(object):
         #log(str(op))
         #self.codewriter.comment(str(op))
 
+        if op.opname.startswith('llong_'):
+            op.opname = 'int_' + op.opname[6:]
+        elif op.opname.startswith('ullong_'):
+            op.opname = 'uint_' + op.opname[7:]
+
         invoke = op.opname.startswith('invoke:')
         if invoke:
             self.invoke(op)
@@ -97,7 +102,7 @@ class OpWriter(object):
                 if not meth:
                     raise Exception, "operation %s not found" % op.opname
                     return
-                meth(op)    
+                meth(op)
 
     def _generic_pow(self, op, onestr): 
         targetvar = self.db.repr_arg(op.result)
