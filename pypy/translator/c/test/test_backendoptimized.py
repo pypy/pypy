@@ -183,7 +183,6 @@ class TestTypedOptimizedRaisingOps:
             backend_optimizations(t, raisingop2direct_call_all=True)
 
     def test_int_floordiv_zer(self):
-        py.test.skip("WIP")
         def f(x=int):
             try:
                 y = 123 / x
