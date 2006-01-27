@@ -85,12 +85,34 @@ class GCTransformer:
             return [op]
 
     def push_alive(self, var):
+        if var.concretetype.TO is lltype.PyObject:
+            return self.push_alive_pyobj(var)
+        else:
+            return self.push_alive_nopyobj(var)
+
+    def push_alive_nopyobj(self, var):
         result = Variable()
         result.concretetype = lltype.Void
-        return [SpaceOperation("push_alive", [var], result)]
+        return [SpaceOperation("gc_push_alive", [var], result)]
+
+    def push_alive_pyobj(self, var):
+        result = Variable()
+        result.concretetype = lltype.Void
+        return [SpaceOperation("gc_push_alive_pyobj", [var], result)]
 
     def pop_alive(self, var):
+        if var.concretetype.TO is lltype.PyObject:
+            return self.pop_alive_pyobj(var)
+        else:
+            return self.pop_alive_nopyobj(var)
+
+    def pop_alive_nopyobj(self, var):
         result = Variable()
         result.concretetype = lltype.Void
-        return [SpaceOperation("pop_alive", [var], result)]
+        return [SpaceOperation("gc_pop_alive", [var], result)]
+
+    def pop_alive_pyobj(self, var):
+        result = Variable()
+        result.concretetype = lltype.Void
+        return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 

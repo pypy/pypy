@@ -50,7 +50,7 @@ def test_call_function():
             break
     else:
         assert False, "direct_call not found!"
-    assert ggraph.startblock.operations[i + 1].opname != 'push_alive'
+    assert ggraph.startblock.operations[i + 1].opname != 'gc_push_alive'
 
 def test_multiple_exits():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
@@ -71,17 +71,17 @@ def test_multiple_exits():
     #t.view()
     pop_alive_count = 0
     for i, op in enumerate(fgraph.startblock.operations):
-        if op.opname == "pop_alive":
+        if op.opname == "gc_pop_alive":
             var, = op.args
             assert var.concretetype == lltype.Ptr(S)
             pop_alive_count += 1
     
-    assert pop_alive_count == 1, "pop_alive not found!"
+    assert pop_alive_count == 1, "gc_pop_alive not found!"
     for link in fgraph.startblock.exits:
         assert len(link.args) == 2
         ops = link.target.operations
         assert len(ops) == 1
-        assert ops[0].opname == 'pop_alive'
+        assert ops[0].opname == 'gc_pop_alive'
         assert len(ops[0].args) == len(link.target.exits) == \
                len(link.target.exits[0].args) == 1
         dyingname = ops[0].args[0].name
@@ -105,3 +105,16 @@ def test_cleanup_vars_on_call():
     assert direct_calls[1].args[1].value[0].args[0] == direct_calls[0].result
     assert [op.args[0] for op in direct_calls[2].args[1].value] == [direct_calls[0].result, direct_calls[1].result]
 
+def test_pyobj():
+    def f(x):
+        if x:
+            a = 1
+        else:
+            a = "1"
+        return int(a)
+    t = rtype_and_transform(f, [int], gctransform.GCTransformer)
+    fgraph = graphof(t, f)
+    gcops = [op for op in fgraph.startblock.exits[0].target.operations
+                 if op.opname.startswith("gc_")]
+    for op in gcops:
+        assert op.opname.endswith("_pyobj")
