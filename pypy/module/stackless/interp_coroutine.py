@@ -56,12 +56,15 @@ class Coroutine(Wrappable):
             # redirect all unhandled exceptions to the parent
             costate.things_to_do = True
             costate.temp_exc = e
-        if self.parent.frame is None:
-            self.parent = costate.main
+        while self.parent.frame is None:
+            # greenlet behavior is fine
+            self.parent = self.parent.parent
         return self._update_state(self.parent)
 
     def switch(self):
         if self.frame is None:
+            # considered a programming error.
+            # greenlets and tasklets have different ideas about this.
             raise CoroutineDamage
         costate.last.frame = self._update_state(self).switch()
         # note that last gets updated before assignment!
@@ -75,13 +78,16 @@ class Coroutine(Wrappable):
     _update_state = staticmethod(_update_state)
 
     def kill(self):
-        self._userdel()
         if costate.current is self:
             raise CoroutineExit
         costate.things_to_do = True
         costate.temp_exc = CoroutineExit()
         self.parent = costate.current
         self.switch()
+
+    def _kill_finally(self):
+        self._userdel()
+        self.kill()
 
     def __del__(self):
         # provide the necessary clean-up if this coro is left
@@ -121,7 +127,7 @@ def do_things_to_do(obj):
         obj.parent = costate.current
         if obj is costate.del_last:
             costate.del_first = costate.del_last = None
-        obj.kill()
+        obj._kill_finally()
     else:
         costate.things_to_do = False
 
@@ -152,11 +158,20 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return space.wrap(co)
 
     def w_bind(self, w_func, __args__):
+        if self.frame is not None:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot bind a bound Coroutine"))
         thunk = _AppThunk(self.space, w_func, __args__)
         self.bind(thunk)
 
     def w_switch(self):
+        if self.frame is None:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot switch to an unbound Coroutine"))
         self.switch()
+
+    def w_kill(self):
+        self.kill()
 
     def __del__(self):
         if self.frame is not None or self.space.lookup(self, '__del__') is not None:
@@ -185,5 +200,6 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     bind = interp2app(AppCoroutine.w_bind,
                       unwrap_spec=['self', W_Root, Arguments]),
     switch = interp2app(AppCoroutine.w_switch),
+    kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
 )
