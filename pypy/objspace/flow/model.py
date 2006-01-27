@@ -317,7 +317,7 @@ class Constant(Hashable):
 
 
 class SpaceOperation(object):
-    __slots__ = "opname args result offset".split()
+    __slots__ = "opname args result offset cleanup".split()
 
     def __init__(self, opname, args, result, offset=-1):
         self.opname = intern(opname)      # operation name

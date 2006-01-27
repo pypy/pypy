@@ -5,6 +5,10 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
 
 def checkblock(block):
+    if not block.operations == ():
+        # a return/exception block -- don't want to think about them
+        # (even though the test passes for somewhat accidental reasons)
+        return
     vars_in = len([v for v in block.inputargs if var_needsgc(v)])
     push_alives = len([op for op in block.operations
                        if op.opname.startswith('gc_push_alive')])
@@ -123,9 +127,9 @@ def test_cleanup_vars_on_call():
     ggraph = graphof(t, g)
     direct_calls = [op for op in ggraph.startblock.operations if op.opname == "direct_call"]
     assert len(direct_calls) == 3
-    assert len(direct_calls[0].args) == 1
-    assert direct_calls[1].args[1].value[0].args[0] == direct_calls[0].result
-    assert [op.args[0] for op in direct_calls[2].args[1].value] == [direct_calls[0].result, direct_calls[1].result]
+    assert direct_calls[1].cleanup[0].args[0] == direct_calls[0].result
+    assert [op.args[0] for op in direct_calls[2].cleanup] == \
+           [direct_calls[0].result, direct_calls[1].result]
 
 def test_multiply_passed_var():
     S = lltype.GcStruct("S", ('x', lltype.Signed))

@@ -21,6 +21,8 @@ push_alive, pop_alive,
 
 """
 
+EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
+
 def var_needsgc(var):
     vartype = var.concretetype
     return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
@@ -55,11 +57,11 @@ class GCTransformer:
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         for op in block.operations:
             newops.extend(self.replacement_operations(op))
-            if op.opname in ('direct_call', 'indirect_call') and livevars:
+            if op.opname in EXCEPTION_RAISING_OPS and livevars:
                 cleanup_on_exception = []
                 for var in livevars:
                     cleanup_on_exception.extend(self.pop_alive(var))
-                op.args.append(rmodel.inputconst(lltype.Void, cleanup_on_exception))
+                op.cleanup = cleanup_on_exception
             if var_needsgc(op.result):
                 if op.opname not in ('direct_call', 'indirect_call'):
                     newops.extend(self.push_alive(op.result))
