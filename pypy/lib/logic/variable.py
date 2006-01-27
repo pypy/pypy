@@ -109,13 +109,13 @@ class Var(object):
     # should be used by threads that want to block on
     # unbound variables
 
-    def set_dom(self, dom):
-        self.cs_set_dom(self.cs.TLS.current_cs, dom)
+##     def set_dom(self, dom):
+##         self.cs_set_dom(self.cs, dom)
 
-    def get_dom(self):
-        return self.cs_get_dom(self.cs.TLS.current_cs)
+##     def get_dom(self):
+##         return self.cs_get_dom(self.cs)
 
-    dom = property(get_dom, set_dom)
+##     dom = property(get_dom, set_dom)
 
     def get(self):
         """Make threads wait on the variable

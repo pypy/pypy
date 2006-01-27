@@ -11,8 +11,8 @@ def satisfiable_problem(computation_space):
     y.cs_set_dom(cs, c.FiniteDomain([2, 3]))
     z.cs_set_dom(cs, c.FiniteDomain([4, 5]))
     w.cs_set_dom(cs, c.FiniteDomain([1, 4, 5, 6, 7]))
-    cs.add_constraint(c.Expression([x, y, z], 'x == y + z'))
-    cs.add_constraint(c.Expression([z, w], 'z < w'))
+    cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
+    cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, w, y)
@@ -25,8 +25,8 @@ def one_solution_problem(computation_space):
     y.cs_set_dom(cs, c.FiniteDomain([2, 3]))
     z.cs_set_dom(cs, c.FiniteDomain([4, 5]))
     w.cs_set_dom(cs, c.FiniteDomain([1, 4, 5]))
-    cs.add_constraint(c.Expression([x, y, z], 'x == y + z'))
-    cs.add_constraint(c.Expression([z, w], 'z < w'))
+    cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
+    cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, w, y)
@@ -40,8 +40,8 @@ def unsatisfiable_problem(computation_space):
     y.cs_set_dom(cs, c.FiniteDomain([2, 3]))
     z.cs_set_dom(cs, c.FiniteDomain([4, 5]))
     w.cs_set_dom(cs, c.FiniteDomain([1]))
-    cs.add_constraint(c.Expression([x, y, z], 'x == y + z'))
-    cs.add_constraint(c.Expression([z, w], 'z < w'))
+    cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
+    cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, w, y)

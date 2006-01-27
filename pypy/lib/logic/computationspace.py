@@ -213,6 +213,10 @@ class Alternatives(object):
         if other is None: return False
         return self._nbalt == other._nbalt
 
+def NoProblem():
+    """the empty problem, used by clone()"""
+    pass
+
         
 #----------- Store Exceptions ----------------------------
 class UnboundVariable(VariableException):
@@ -247,9 +251,6 @@ class IncompatibleDomains(Exception):
     def __str__(self):
         return "%s %s have incompatible domains" % \
                (self.var1, self.var2)
-
-class Foo(object):
-    pass
     
 #---- ComputationSpace -------------------------------
 class ComputationSpace(object):
@@ -263,13 +264,6 @@ class ComputationSpace(object):
          (also called determined variables)."""
     
     def __init__(self, problem, parent=None):
-        self.parent = parent
-
-        # current/working computation space, per thread
-        # self.TLS = local()
-        self.TLS = Foo()
-        self.TLS.current_cs = self
-
         # consistency-preserving stuff
         self.in_transaction = False
         self.bind_lock = RLock()
@@ -285,16 +279,18 @@ class ComputationSpace(object):
             # set of all constraints 
             self.constraints = set()
             self.root = self.var('__root__')
+            # set up the problem
             self.bind(self.root, problem(self))
+            # check satisfiability of the space
+            self._process()
         else:
             self.vars = parent.vars
             self.names = parent.names
             self.var_const_map = parent.var_const_map
             self.constraints = parent.constraints
             self.root = parent.root
-                
-        # run ...
-        self._process()
+
+#-- Store ------------------------------------------------
 
     #-- Variables ----------------------------
 
@@ -320,7 +316,7 @@ class ComputationSpace(object):
         assert(isinstance(var, Var) and (var in self.vars))
         if var.is_bound():
             raise AlreadyBound
-        var.dom = FiniteDomain(dom)
+        var.cs_set_dom(self, FiniteDomain(dom))
 
     def get_var_by_name(self, name):
         try:
@@ -339,7 +335,7 @@ class ComputationSpace(object):
     def get_variables_with_a_domain(self):
         varset = set()
         for var in self.vars:
-            if var.dom != EmptyDom: varset.add(var)
+            if var.cs_get_dom(self) != EmptyDom: varset.add(var)
         return varset
 
     def satisfiable(self, constraint):
@@ -361,15 +357,15 @@ class ComputationSpace(object):
         varset = set()
         constset = set()
         self._compute_dependant_vars(constraint, varset, constset)
-        old_domains = collect_domains(varset)
+        old_domains = self.collect_domains(varset)
         
         for const in constset:
             try:
                 const.narrow()
             except ConsistencyFailure:
-                restore_domains(old_domains)
+                self.restore_domains(old_domains)
                 return False
-        restore_domains(old_domains)
+        self.restore_domains(old_domains)
         return True
 
 
@@ -379,16 +375,16 @@ class ComputationSpace(object):
         constset = set()
         self._compute_dependant_vars(constraint, varset,
                                      constset)
-        old_domains = collect_domains(varset)
-
+        old_domains = self.collect_domains(varset)
+        
         for const in constset:
             try:
                 const.narrow()
             except ConsistencyFailure:
-                restore_domains(old_domains)
+                self.restore_domains(old_domains)
                 return {}
-        narrowed_domains = collect_domains(varset)
-        restore_domains(old_domains)
+        narrowed_domains = self.collect_domains(varset)
+        self.restore_domains(old_domains)
         return narrowed_domains
 
     def satisfy(self, constraint):
@@ -396,22 +392,22 @@ class ComputationSpace(object):
         varset = set()
         constset = set()
         self._compute_dependant_vars(constraint, varset, constset)
-        old_domains = collect_domains(varset)
+        old_domains = self.collect_domains(varset)
 
         for const in constset:
             try:
                 const.narrow()
             except ConsistencyFailure:
-                restore_domains(old_domains)
+                self.restore_domains(old_domains)
                 raise
 
     def satisfy_all(self):
-        old_domains = collect_domains(self.vars)
+        old_domains = self.collect_domains(self.vars)
         for const in self.constraints:
             try:
                 const.narrow()
             except ConsistencyFailure:
-                restore_domains(old_domains)
+                self.restore_domains(old_domains)
                 raise
                 
     def _compute_dependant_vars(self, constraint, varset,
@@ -426,6 +422,38 @@ class ComputationSpace(object):
                     continue
                 self._compute_dependant_vars(const, varset,
                                             constset)
+
+    def _compatible_domains(self, var, eqs):
+        """check that the domain of var is compatible
+           with the domains of the vars in the eqs
+        """
+        if var.cs_get_dom(self) == EmptyDom: return True
+        empty = set()
+        for v in eqs:
+            if v.cs_get_dom(self) == EmptyDom: continue
+            if v.cs_get_dom(self).intersection(var.cs_get_dom(self)) == empty:
+                return False
+        return True
+
+    #-- collect / restore utilities for domains
+
+    def collect_domains(self, varset):
+        """makes a copy of domains of a set of vars
+           into a var -> dom mapping
+        """
+        dom = {}
+        for var in varset:
+            if var.cs_get_dom(self) != EmptyDom:
+                dom[var] = var.cs_get_dom(self).copy()
+        return dom
+
+    def restore_domains(self, domains):
+        """sets the domain of the vars in the domains mapping
+           to their (previous) value 
+        """
+        for var, dom in domains.items():
+            var.cs_set_dom(self, dom)
+
         
     #-- BIND -------------------------------------------
 
@@ -461,9 +489,8 @@ class ComputationSpace(object):
         # print "variable - value binding : %s %s" % (eqs, val)
         # bind all vars in the eqset to val
         for var in eqs:
-            if var.dom != EmptyDom:
-                if val not in var.dom.get_values():
-                    print val, var.dom, var.dom.get_values()
+            if var.cs_get_dom(self) != EmptyDom:
+                if val not in var.cs_get_dom(self).get_values():
                     # undo the half-done binding
                     for v in eqs:
                         v.val = eqs
@@ -472,7 +499,7 @@ class ComputationSpace(object):
 
     def _merge(self, v1, v2):
         for v in v1.val:
-            if not _compatible_domains(v, v2.val):
+            if not self._compatible_domains(v, v2.val):
                 raise IncompatibleDomains(v1, v2)
         self._really_merge(v1.val, v2.val)
 
@@ -595,7 +622,7 @@ class ComputationSpace(object):
 
     def _distributable_domains(self):
         for var in self.vars:
-            if var.dom.size() > 1 :
+            if var.cs_get_dom(self).size() > 1 :
                 return True
         return False
 
@@ -614,6 +641,14 @@ class ComputationSpace(object):
         finally:
             self.status_condition.release()
 
+    def clone(self):
+        spc = ComputationSpace(NoProblem, parent=self)
+        for var in spc.vars:
+            var.cs_set_dom(spc, var.cs_get_dom(self).copy())
+        return spc
+
+    def inject(self, restricting_problem):
+        pass
 
     def make_children(self):
         for dommap in self.distributor.distribute():
@@ -654,44 +689,8 @@ class ComputationSpace(object):
                 # (a) might be more Oz-ish, maybe allowing some very fancy
                 #     stuff with distribution or whatever
                 self.do_something_with(result)
-            
 
 
-
-
-#-------------------------------------------------------
-
-
-def _compatible_domains(var, eqs):
-    """check that the domain of var is compatible
-       with the domains of the vars in the eqs
-    """
-    if var.dom == EmptyDom: return True
-    empty = set()
-    for v in eqs:
-        if v.dom == EmptyDom: continue
-        if v.dom.intersection(var.dom) == empty:
-            return False
-    return True
-
-#-- collect / restore utilities for domains
-
-def collect_domains(varset):
-    """makes a copy of domains of a set of vars
-       into a var -> dom mapping
-    """
-    dom = {}
-    for var in varset:
-        if var.dom != EmptyDom:
-            dom[var] = FiniteDomain(var.dom)
-    return dom
-
-def restore_domains(domains):
-    """sets the domain of the vars in the domains mapping
-       to their (previous) value 
-    """
-    for var, dom in domains.items():
-        var.dom = dom
 
 
 #-- Unifiability checks---------------------------------------
@@ -762,31 +761,31 @@ def _both_are_bound(v1, v2):
 #--
 #-- the global store
 from problems import dummy_problem
-_store = ComputationSpace(dummy_problem)
+_cs = ComputationSpace(dummy_problem)
 
 #-- global accessor functions
 def var(name):
-    v = Var(name, _store)
-    _store.add_unbound(v)
+    v = Var(name, _cs)
+    _cs.add_unbound(v)
     return v
 
 def set_domain(var, dom):
-    return _store.set_domain(var, dom)
+    return _cs.set_domain(var, dom)
 
 def add_constraint(constraint):
-    return _store.add_constraint(constraint)
+    return _cs.add_constraint(constraint)
 
 def satisfiable(constraint):
-    return _store.satisfiable(constraint)
+    return _cs.satisfiable(constraint)
 
 def get_satisfying_domains(constraint):
-    return _store.get_satisfying_domains(constraint)
+    return _cs.get_satisfying_domains(constraint)
 
 def satisfy(constraint):
-    return _store.satisfy(constraint)
+    return _cs.satisfy(constraint)
 
 def bind(var, val):
-    return _store.bind(var, val)
+    return _cs.bind(var, val)
 
 def unify(var1, var2):
-    return _store.unify(var1, var2)
+    return _cs.unify(var1, var2)

@@ -25,7 +25,7 @@ class NConsumer(Thread):
 class TestVariable:
 
     def setup_method(self, meth):
-        u._store = u.ComputationSpace(dummy_problem)
+        u._cs = u.ComputationSpace(dummy_problem)
 
     def test_no_same_name(self):
         x = u.var('x')
@@ -33,8 +33,8 @@ class TestVariable:
 
     def test_get_by_name(self):
         x = u.var('x')
-        assert x == u._store.get_var_by_name('x')
-        raises(u.NotInStore, u._store.get_var_by_name, 'y')
+        assert x == u._cs.get_var_by_name('x')
+        raises(u.NotInStore, u._cs.get_var_by_name, 'y')
 
     def test_one_thread_reading_one_var(self):
         cons = Consumer()

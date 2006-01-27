@@ -123,11 +123,12 @@ EmptyDom = FiniteDomain([])
 
 class AbstractConstraint(object):
     
-    def __init__(self, variables):
+    def __init__(self, c_space, variables):
         """variables is a list of variables which appear in the formula"""
+        self.cs = c_space
         self._names_to_vars = {}
         for var in variables:
-            if var.dom == EmptyDom:
+            if var.cs_get_dom(self.cs) == EmptyDom:
                 raise DomainlessVariables
             self._names_to_vars[var.name] = var
         self._variables = variables
@@ -199,12 +200,12 @@ class Expression(AbstractConstraint):
     """A constraint represented as a python expression."""
     _FILTER_CACHE = {}
 
-    def __init__(self, variables, formula, typ='fd.Expression'):
+    def __init__(self, c_space, variables, formula, typ='fd.Expression'):
         """variables is a list of variables which appear in the formula
         formula is a python expression that will be evaluated as a boolean"""
         self.formula = formula
         self.type = typ
-        AbstractConstraint.__init__(self, variables)
+        AbstractConstraint.__init__(self, c_space, variables)
         try:
             self.filterFunc = Expression._FILTER_CACHE[formula]
         except KeyError:
@@ -224,7 +225,7 @@ class Expression(AbstractConstraint):
         variables = []
         kwargs = {}
         for variable in self._variables:
-            domain = variable.dom
+            domain = variable.cs_get_dom(self.cs)
             values = domain.get_values()
             variables.append((domain.size(), [variable, values, 0, len(values)]))
             kwargs[variable.name] = values[0]
@@ -269,7 +270,7 @@ class Expression(AbstractConstraint):
 
         try:
             for var, keep in result_cache.iteritems():
-                domain = self._names_to_vars[var].dom
+                domain = self._names_to_vars[var].cs_get_dom(self.cs)
                 domain.remove_values([val for val in domain if val not in keep])
                 
         except ConsistencyFailure:

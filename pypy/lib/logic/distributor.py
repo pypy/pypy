@@ -1,10 +1,10 @@
 import math, random
 
-def make_new_domains(variables):
+def make_new_domains(cs, variables):
     """updates variables with copied domains indexed by computation space"""
     new_doms = {}
     for var in variables:
-        new_doms[var] = var.dom.copy()
+        new_doms[var] = var.cs_get_dom(cs).copy()
     return new_doms
 
 class AbstractDistributor(object):
@@ -12,19 +12,19 @@ class AbstractDistributor(object):
 
     def __init__(self, c_space, nb_subspaces=2):
         self.nb_subspaces = nb_subspaces
-        self.c_space = c_space
+        self.cs = c_space
         self.verbose = 0
             
     def findSmallestDomain(self):
         """returns the variable having the smallest domain.
         (or one of such varibles if there is a tie)
         """
-        vars_ = [var for var in self.c_space.get_variables_with_a_domain()
-                 if var.dom.size() > 1]
+        vars_ = [var for var in self.cs.get_variables_with_a_domain()
+                 if var.cs_get_dom(self.cs).size() > 1]
         
         best = vars_[0]
         for var in vars_:
-            if var.dom.size() < best.dom.size():
+            if var.cs_get_dom(self.cs).size() < best.cs_get_dom(self.cs).size():
                 best = var
         
         return best
@@ -33,12 +33,12 @@ class AbstractDistributor(object):
         """returns the variable having the largest domain.
         (or one of such variables if there is a tie)
         """
-        vars_ = [var for var in self.c_space.get_variables_with_a_domain()
-                 if var.dom.size() > 1]
+        vars_ = [var for var in self.cs.get_variables_with_a_domain()
+                 if var.cs_get_dom(self.cs).size() > 1]
 
         best = vars_[0]
         for var in vars_:
-            if var.dom.size() > best.dom.size():
+            if var.cs_get_dom(self.cs).size() > best.cs_get_dom(self.cs).size():
                 best = var
         
         return best
@@ -52,10 +52,10 @@ class AbstractDistributor(object):
         """do the minimal job and let concrete class distribute variables
         """
         self.verbose = verbose
-        variables = self.c_space.get_variables_with_a_domain()
+        variables = self.cs.get_variables_with_a_domain()
         replicas = []
         for i in range(self.nb_subdomains()):
-            replicas.append(make_new_domains(variables))
+            replicas.append(make_new_domains(self.cs, variables))
         modified_domains = self._distribute(*replicas)
         for domain in modified_domains:
             domain.reset_flags()
@@ -119,9 +119,9 @@ class SplitDistributor(AbstractDistributor):
         """See AbstractDistributor"""
         self.__to_split = self.findSmallestDomain()
         if self.nb_subspaces:
-            return min(self.nb_subspaces, self.__to_split.dom.size()) #domains[self.__to_split].size())
+            return min(self.nb_subspaces, self.__to_split.cs_get_dom(self.cs).size()) #domains[self.__to_split].size())
         else:
-            return self.__to_split.dom.size() # domains[self.__to_split].size()
+            return self.__to_split.cs_get_dom(self.cs).size() # domains[self.__to_split].size()
     
     def _distribute(self, *args):
         """See AbstractDistributor"""
