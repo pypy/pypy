@@ -1,6 +1,5 @@
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.llvalue import LLAbstractValue, const
+from pypy.jit.llvalue import LLAbstractValue, AConstant, const
 
 
 class LLAbstractContainer(object):
@@ -53,7 +52,7 @@ class LLVirtualContainer(LLAbstractContainer):
         RESULT_TYPE = lltype.Ptr(self.T)
         if self.a_parent is not None:
             parentindex = const(self.parentindex, lltype.Void)
-            v_parent = self.a_parent.forcevarorconst(builder)
+            v_parent = self.a_parent.forcegenvarorconst(builder)
             v_result = builder.genop('getsubstruct',
                                      [v_parent, parentindex], RESULT_TYPE)
         else:
@@ -82,7 +81,7 @@ class LLVirtualContainer(LLAbstractContainer):
                     assert isinstance(a_value.content, LLVirtualContainer)
                     a_value.content.buildcontent(builder, v_subptr)
                 else:
-                    v_value = a_value.forcevarorconst(builder)
+                    v_value = a_value.forcegenvarorconst(builder)
                     self.setop(builder, v_target, name, v_value)
 
     def flatten(self, memo):
@@ -216,7 +215,7 @@ def make_default(T, length, a_parent, parentindex):
         a.content.parentindex = parentindex
     else:
         # primitive initialized to zero
-        a = LLAbstractValue(const(T._defl()))
+        a = LLAbstractValue(AConstant(T._defl()))
     return a
 
 def hasllcontent(a_ptr):

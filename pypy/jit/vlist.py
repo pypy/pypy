@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rtyper import LowLevelOpList
-from pypy.jit.llvalue import LLAbstractValue, const, ll_dummy_value
+from pypy.jit.llvalue import LLAbstractValue, AConstant, ll_dummy_value
 from pypy.jit.llcontainer import LLAbstractContainer
 
 
@@ -39,7 +39,7 @@ class LLVirtualList(LLAbstractContainer):
         return LLVirtualList(self.T, items_a)
 
     def build_runtime_container(self, builder):
-        items_v = [a.forcevarorconst(builder) for a in self.items_a]
+        items_v = [a.forcegenvarorconst(builder) for a in self.items_a]
         v_result = self.T.list_builder(builder, items_v)
         return v_result
 
@@ -47,10 +47,10 @@ class LLVirtualList(LLAbstractContainer):
     # High-level operations
 
     def oop_len(self, op):
-        return LLAbstractValue(const(len(self.items_a)))
+        return LLAbstractValue(AConstant(len(self.items_a)))
 
     def oop_nonzero(self, op):
-        return LLAbstractValue(const(bool(self.items_a)))
+        return LLAbstractValue(AConstant(bool(self.items_a)))
 
     def oop_getitem(self, op, a_index):
         c_index = a_index.maybe_get_constant()

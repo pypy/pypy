@@ -100,7 +100,7 @@ Functions:
 
 * genconst(block, llvalue) -> (result var)
 
-* addconst(block, const) -> (result var)
+* gencallableconst(block, name, target-block, FUNCTYPE) -> (result var)
 
 * closeblock1(block) -> link
 

@@ -1,8 +1,8 @@
 import operator
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.llvalue import LLAbstractValue, const
+from pypy.jit.llvalue import LLAbstractValue, AConstant, AVariable, const
 from pypy.jit.llvalue import ll_no_return_value
 from pypy.jit.llvalue import FlattenMemo, MatchMemo, FreezeMemo, UnfreezeMemo
 from pypy.jit.llcontainer import LLAbstractContainer, virtualcontainervalue
@@ -41,7 +41,7 @@ class LLState(LLAbstractContainer):
             assert len(incoming_link_args) == len(selfvalues)
             for linkarg, fr in zip(incoming_link_args, selfvalues):
                 if fr.fixed:
-                    assert isinstance(linkarg, Constant), (
+                    assert isinstance(linkarg, AConstant), (
                         "unexpected Variable %r reaching the fixed input arg %r"
                         % (linkarg, fr))
                     yield linkarg
@@ -51,7 +51,7 @@ class LLState(LLAbstractContainer):
     def getruntimevars(self):
         assert not self.frozen, "getruntimevars(): not for frozen states"
         return [a.runtimevar for a in self.flatten()]
-
+    
     def flatten(self, memo=None):
         if memo is None:
             memo = FlattenMemo()
@@ -102,8 +102,8 @@ class LLState(LLAbstractContainer):
         for v, a in zip(self.getlivevars(), self.args_a):
             a = a.unfreeze(memo, block)
             # try to preserve the name
-            if isinstance(a.runtimevar, Variable):
-                a.runtimevar.rename(v)
+            #if isinstance(a.runtimevar, Variable):
+            #    a.runtimevar.rename(v)
             new_args_a.append(a)
         return self.__class__(new_back, new_args_a, *self.localkey())
 
@@ -171,10 +171,10 @@ class LLAbstractInterp(object):
         args_a = []
         for i, v in enumerate(origgraph.getargs()):
             if i in arghints:
-                a = LLAbstractValue(const(arghints[i]))
+                a = LLAbstractValue(AConstant(arghints[i]))
                 a.concrete = self.policy.concrete_args
             else:
-                a = LLAbstractValue(input=v.concretetype)
+                a = LLAbstractValue(AVariable(v.concretetype))
             args_a.append(a)
         graphstate = self.schedule_graph(args_a, origgraph)
         graphstate.complete()
@@ -192,11 +192,11 @@ class LLAbstractInterp(object):
         #print "SCHEDULE_GRAPH", graphstate
         return graphstate
 
-    def schedule(self, inputstate):
+    def schedule(self, inputstate, builder):
         #print "SCHEDULE", args_a, origblock
         frozenstate = self.schedule_getstate(inputstate)
         args_v = inputstate.getruntimevars()
-        return LinkState(args_v, frozenstate)
+        return LinkState(builder, args_v, frozenstate)
 
     def schedule_getstate(self, inputstate):
         # NOTA BENE: copyblocks can get shared between different copygraphs!
@@ -253,19 +253,21 @@ class LinkState(object):
     exitcase = None
     llexitcase = None
 
-    def __init__(self, args_v, frozenstate):
+    def __init__(self, builder, args_v, frozenstate):
         self.args_v = args_v
+        self.args_genv = [v.getgenvar(builder) for v in args_v]
         self.frozenstate = frozenstate
         self.link = None
 
     def setreturn(self):
-            rgenop.closereturnlink(self.link, self.args_v[0])
+        rgenop.closereturnlink(self.link, self.args_genv[0])
 
     def settarget(self, block, blockargs):
         args = []
-        for v1, v2 in zip(self.args_v, blockargs):
-            if isinstance(v2, Constant):
-                assert v1 == v2
+        for v1, v2 in zip(self.args_genv, blockargs):
+            assert isinstance(v2, (AVariable, AConstant))
+            if isinstance(v2, AConstant):
+                assert v1.value == v2.value # sanity check violating encapsulation
             else:
                 args.append(v1)
         rgenop.closelink(self.link, args, block)
@@ -370,7 +372,7 @@ class GraphState(object):
                 merged_key = []
                 recompute = False
                 for c1, c2 in zip(blockargs, next.args_v):
-                    if isinstance(c1, Constant) and c1 != c2:
+                    if isinstance(c1, AConstant) and c1 != c2:
                         # incompatibility
                         merged_key.append(None)  # force a Variable
                         recompute = True
@@ -418,7 +420,7 @@ class GraphState(object):
             for a1, a2, k in zip(state.flatten(),
                                  builder.runningstate.flatten(),
                                  key):
-                if isinstance(k, Constant):
+                if isinstance(k, AConstant):
                     arglist.append('%s => %s' % (a1, k))
                 else:
                     arglist.append('%s => %s' % (a1, a2))
@@ -435,7 +437,7 @@ class GraphState(object):
                     # except block of the copygraph.
                     args_v = [builder.binding(v).forcevarorconst(builder)
                               for v in origblock.inputargs]
-                    ls = LinkState(args_v, frozenstate=None)
+                    ls = LinkState(builder, args_v, frozenstate=None)
                     raise InsertNextLink(ls)
                 else:
                     # finishing a handle_call_inlining(): link back to
@@ -477,7 +479,7 @@ class GraphState(object):
             else:
                 a = builder.bindings[origblock.exitswitch]
                 v = a.forcevarorconst(builder)
-                if isinstance(v, Variable):
+                if isinstance(v, AVariable):
                     newexitswitch = v
                     links = origblock.exits
                 else:
@@ -488,7 +490,7 @@ class GraphState(object):
                 args_a = [builder.binding(v) for v in origlink.args]
                 nextinputstate = LLBlockState(builder.runningstate.back,
                                               args_a, origlink.target)
-                newlinkstate = self.interp.schedule(nextinputstate)
+                newlinkstate = self.interp.schedule(nextinputstate, builder)
                 if newexitswitch is not None:
                     newlinkstate.exitcase = origlink.exitcase
                     newlinkstate.llexitcase = origlink.llexitcase
@@ -520,7 +522,7 @@ class BlockBuilder(object):
 
         assert len(newlinkstates) == 2
 
-        false_link, true_link = rgenop.closeblock2(b, newexitswitch)
+        false_link, true_link = rgenop.closeblock2(b, newexitswitch.getgenvar(self))
         cases = {False: false_link, True: true_link}
         for ls in newlinkstates:
             ls.link = cases[ls.exitcase]
@@ -533,8 +535,9 @@ class BlockBuilder(object):
         return rgenop.genconst(self.newblock, llvalue)
     
     def binding(self, v):
+        assert isinstance(v, (Constant, Variable))
         if isinstance(v, Constant):
-            return LLAbstractValue(v)
+            return LLAbstractValue(AConstant(v.value, v.concretetype))
         else:
             return self.bindings[v]
 
@@ -564,7 +567,7 @@ class BlockBuilder(object):
         # can constant-fold
         print 'fold:', constant_op.__name__, concretevalues
         concreteresult = constant_op(*concretevalues)
-        a_result = LLAbstractValue(const(concreteresult))
+        a_result = LLAbstractValue(AConstant(concreteresult))
         if any_concrete and self.interp.policy.concrete_propagate:
             a_result.concrete = True
         else:
@@ -572,14 +575,23 @@ class BlockBuilder(object):
         return a_result
 
     def residual(self, op, args_a):
-        retvar = rgenop.genop(self.newblock, op.opname,
-                              [a.forcevarorconst(self) for a in args_a],
-                              op.result.concretetype)
-        return LLAbstractValue(retvar)
+        T= op.result.concretetype
+        retvar = self.genop(op.opname,
+                              [a.forcegenvarorconst(self) for a in args_a],
+                              T)
+        return LLAbstractValue(AVariable(T, genvar=retvar))
 
-    def residual_direct_call(self, name, block, args_a,):
+    def residual_direct_call(self, FUNCTYPE, name, target, args_a):
+        T = FUNCTYPE.RESULT
+        gen_fn_const = rgenop.gencallableconst(self.newblock,
+                                               name,
+                                               target,
+                                               FUNCTYPE)
+        retvar = self.genop('direct_call', [gen_fn_const] +
+                              [a.forcegenvarorconst(self) for a in args_a],
+                              T)
+        return LLAbstractValue(AVariable(T, genvar=retvar))
         
-        return LLAbstractValue(retvar)
     
     def residualize(self, op, args_a, constant_op=None):
         if constant_op:
@@ -723,7 +735,7 @@ class BlockBuilder(object):
         parentstate = LLSuspendedBlockState(self.runningstate.back, alive_a,
                                             origblock, origposition)
         nextstate = LLBlockState(parentstate, args_a, origgraph.startblock)
-        raise InsertNextLink(self.interp.schedule(nextstate))
+        raise InsertNextLink(self.interp.schedule(nextstate, self))
 
     def handle_call_residual(self, op, origgraph, *args_a):
         # residual call: for now we need to force all arguments
@@ -751,13 +763,9 @@ class BlockBuilder(object):
             if not a.concrete:
                 ARGS.append(a.getconcretetype())
                 new_args_a.append(a)
-        args_a = new_args_a
         TYPE = lltype.FuncType(ARGS, op.result.concretetype)
-        a_func = LLAbstractValue(rgenop.gengraphconst(self.newblock,
-                                                      graphstate.name,
-                                                      graphstate.startblock,
-                                                      TYPE))
-        return self.residual(op, [a_func] + args_a) 
+        return self.residual_direct_call(TYPE, graphstate.name,
+                                         graphstate.startblock, new_args_a)
 
     def op_getfield(self, op, a_ptr, a_attrname):
         if hasllcontent(a_ptr):
@@ -781,7 +789,7 @@ class BlockBuilder(object):
 
     def op_getarraysize(self, op, a_ptr):
         if hasllcontent(a_ptr):
-            return LLAbstractValue(const(a_ptr.content.length))
+            return LLAbstractValue(AConstant(a_ptr.content.length))
         return self.residualize(op, [a_ptr], len)
 
     def op_getarrayitem(self, op, a_ptr, a_index):
@@ -846,9 +854,10 @@ class BlockBuilder(object):
         memo = FlattenMemo()
         a_ptr.flatten(memo)
         for a in memo.result:
-            v = a.runtimevar
-            if isinstance(v, Variable) and not v.concretetype._is_atomic():
-                rgenop.genop(self.newblock, 'keepalive', [v], lltype.Void)
+            if (a.is_variable and
+                not a.getconcretetype()._is_atomic()):
+                self.genop('keepalive', [a.forcegenvarorconst()],
+                             lltype.Void)
         return ll_no_return_value
 
     # High-level operation dispatcher
@@ -863,7 +872,7 @@ class BlockBuilder(object):
         args_a = []
         for a in argtuple:
             if not isinstance(a, LLAbstractValue):
-                a = LLAbstractValue(const(a))
+                a = LLAbstractValue(AConstant(a))
             args_a.append(a)
         # end of rather XXX'edly hackish parsing
 

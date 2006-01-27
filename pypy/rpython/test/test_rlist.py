@@ -1,6 +1,5 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
@@ -902,12 +901,33 @@ def test_list_builder():
         lst.append(42)
         return lst
 
+    from pypy.rpython import rgenop
+
+    class DummyBlockBuilder:
+
+        def __init__(self):
+            self.newblock = rgenop.newblock()
+
+        def genop(self, opname, args, RESULT_TYPE):
+            return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
+
+        def genconst(self, llvalue):
+            return rgenop.genconst(self.newblock, llvalue)
+
+        # inspection
+        def __getitem__(self, index):
+            return self.newblock.operations[index]
+
+        def __len__(self):
+            return len(self.newblock.operations)
+
+
     for fn in [fixed_size_case, variable_size_case]:
         t = TranslationContext()
         t.buildannotator().build_types(fn, [])
         t.buildrtyper().specialize()
         LIST = t.graphs[0].getreturnvar().concretetype.TO
-        llop = LowLevelOpList(None)
+        llop = DummyBlockBuilder()
         v0 = Constant(42)
         v0.concretetype = Signed
         v1 = Variable()
