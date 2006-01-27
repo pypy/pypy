@@ -3,7 +3,7 @@ from pypy.translator.c.support import USESLOTS # set to False if necessary while
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
-from pypy.objspace.flow.model import traverse, c_last_exception
+from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, PyObject, Void, Bool, Signed, Unsigned, SignedLongLong, UnsignedLongLong,Char, UniChar, pyobjectptr, Struct, Array
 
@@ -206,11 +206,9 @@ class FunctionCodeGenerator(object):
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
-        def visit(block):
-            if isinstance(block, Block):
-                allblocks.append(block)
-                blocknum[block] = len(blocknum)
-        traverse(visit, graph)
+        for block in graph.iterblocks():
+            allblocks.append(block)
+            blocknum[block] = len(blocknum)
 
         assert graph.startblock is allblocks[0]
 
