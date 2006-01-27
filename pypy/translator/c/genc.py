@@ -19,12 +19,14 @@ class CBuilder(object):
     _compiled = False
     symboltable = None
     stackless = False
+    use_new_funcgen = False
     
-    def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False):
+    def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False, use_new_funcgen=False):
         self.translator = translator
         self.entrypoint = entrypoint
         self.gcpolicy = gcpolicy
         self.thread_enabled = thread_enabled
+        self.use_new_funcgen = use_new_funcgen
 
         if libraries is None:
             libraries = []
@@ -38,6 +40,7 @@ class CBuilder(object):
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData
             db.stacklessdata = StacklessData(db)
+        db.use_new_funcgen = self.use_new_funcgen
 
         # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
