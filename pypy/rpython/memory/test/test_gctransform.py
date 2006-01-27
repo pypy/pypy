@@ -1,6 +1,25 @@
 from pypy.rpython.memory import gctransform
+from pypy.rpython.memory.gctransform import var_needsgc
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
+from pypy.objspace.flow.model import Variable
+
+def checkblock(block):
+    vars_in = len([v for v in block.inputargs if var_needsgc(v)])
+    push_alives = len([op for op in block.operations
+                       if op.opname.startswith('gc_push_alive')])
+    pop_alives = len([op for op in block.operations
+                      if op.opname.startswith('gc_pop_alive')])
+    calls = len([op for op in block.operations
+                 if 'direct_call' in op.opname and var_needsgc(op.result)])
+    if pop_alives == len(block.operations):
+        # it's a block we inserted
+        return
+    for link in block.exits:
+        vars_out = len([v for v in link.args
+                        if isinstance(v, Variable) and var_needsgc(v)])
+        assert vars_in + push_alives + calls == pop_alives + vars_out
+    
 
 def rtype_and_transform(func, inputtypes, transformcls):
     t = TranslationContext()
@@ -9,6 +28,9 @@ def rtype_and_transform(func, inputtypes, transformcls):
     transformer = transformcls(t.graphs)
     transformer.transform()
     t.checkgraphs()
+    for graph in t.graphs:
+        for block in graph.iterblocks():
+            checkblock(block)
     return t
 
 def test_simple():
@@ -104,6 +126,21 @@ def test_cleanup_vars_on_call():
     assert len(direct_calls[0].args) == 1
     assert direct_calls[1].args[1].value[0].args[0] == direct_calls[0].result
     assert [op.args[0] for op in direct_calls[2].args[1].value] == [direct_calls[0].result, direct_calls[1].result]
+
+def test_multiply_passed_var():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(x):
+        if x:
+            a = lltype.malloc(S)
+            a.x = 1
+            b = a
+        else:
+            a = lltype.malloc(S)
+            a.x = 1
+            b = lltype.malloc(S)
+            b.x = 2
+        return a.x + b.x
+    t = rtype_and_transform(f, [int], gctransform.GCTransformer)
 
 def test_pyobj():
     def f(x):

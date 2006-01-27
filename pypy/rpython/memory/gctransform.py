@@ -37,11 +37,18 @@ class GCTransformer:
         self.links_to_split = {} # link -> vars to pop_alive across the link
         for block in graph.iterblocks():
             self.transform_block(block)
-        for link, vars in self.links_to_split.iteritems():
+        for link, livecounts in self.links_to_split.iteritems():
             newops = []
-            for var in vars:
-                newops.extend(self.pop_alive(var))
-            insert_empty_block(None, link, newops)
+            for var, livecount in livecounts.iteritems():
+                for i in range(livecount):
+                    newops.extend(self.pop_alive(var))
+                for i in range(-livecount):
+                    newops.extend(self.push_alive(var))
+            if newops:
+                if len(link.prevblock.exits) == 1:
+                    link.prevblock.operations.extend(newops)
+                else:
+                    insert_empty_block(None, link, newops)
 
     def transform_block(self, block):
         newops = []
@@ -60,10 +67,6 @@ class GCTransformer:
         if len(block.exits) == 0:
             # everything is fine already for returnblocks and exceptblocks
             pass
-        elif len(block.exits) == 1:
-            for var in livevars:
-                if var not in block.exits[0].args:
-                    newops.extend(self.pop_alive(var))
         else:
             deadinallexits = sets.Set(livevars)
             for link in block.exits:
@@ -71,9 +74,11 @@ class GCTransformer:
             for var in deadinallexits:
                 newops.extend(self.pop_alive(var))
             for link in block.exits:
-                deadvarsforlink = sets.Set(livevars) - deadinallexits - sets.Set(link.args)
-                if deadvarsforlink:
-                    self.links_to_split[link] = deadvarsforlink
+                livecounts = dict.fromkeys(sets.Set(livevars) - deadinallexits, 1)
+                for v in link.args:
+                    if v in livecounts:
+                        livecounts[v] -= 1
+                self.links_to_split[link] = livecounts
         if newops:
             block.operations = newops
 
