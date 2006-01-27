@@ -235,3 +235,32 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
 )
+
+"""
+Considerations about "current"
+------------------------------
+Both greenlets and tasklets have some perception
+of a "current" object, which represents the
+currently running tasklet/greenlet.
+
+There is an issue how to make these structures
+co-exist without interference.
+One possible approach is to use the coroutines
+as the basic implementation and always use
+one level of indirection for the higher structures.
+This allows for easy coexistence.
+
+An alternative is to arrange things in a way that
+does not interfere. Then the different classes
+need to keep track of their own "current".
+After a stackless task switch, stackless gets
+a new current. After a greenlet's switch, greenlet
+gets a new current.
+
+This concept has a collision, because there is also
+some notation of a "main". The solution is to let
+every exposed class create its own main in advance.
+This is nice, because the different concepts
+can completely co-exist.
+
+"""
