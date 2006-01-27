@@ -179,3 +179,15 @@ if sys.platform == "win32":
             """
             _flags_ = _FUNCFLAG_STDCALL
 
+def RARRAY(typ,length):
+    answer = ARRAY(typ,length)
+    def compute_result_annotation(cls, *arg_s):
+        """
+        Answer the result annotation of calling 'cls'.
+        """
+        assert answer is cls
+        return SomeCTypesObject(cls)
+    answer.compute_result_annotation = classmethod(compute_result_annotation)
+    return answer
+
+

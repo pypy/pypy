@@ -14,7 +14,8 @@ except ImportError:
 from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, \
         c_char, c_byte, c_ubyte, c_short, c_ushort, c_uint,\
         c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
-        POINTER, Structure, byref
+        POINTER, Structure, byref, ARRAY
+
 if sys.platform == 'win32':
     mylib = cdll.LoadLibrary('msvcrt.dll')
 elif sys.platform == 'linux2':
@@ -104,6 +105,18 @@ def py_test_simple_ctypes():
 def py_test_simple_ctypes_non_const():
     a = 10
     return c_float( a + 10 )
+
+c_int_10 = ARRAY(c_int,10)
+
+def py_test_annotate_array():
+    return c_int_10()
+
+def py_test_annotate_array_content():
+    my_array = c_int_10()
+    my_array[0] = c_int(1)
+    my_array[1] = 2
+
+    return my_array[0]
 
 class Test_rctypes:
 
@@ -220,4 +233,16 @@ class Test_structure:
         a = RPythonAnnotator()
         s = a.build_types(py_test_simple_ctypes_non_const,[])
         assert s.knowntype == c_float
+
+    def test_annotate_array(self):
+        a = RPythonAnnotator()
+        s = a.build_types(py_test_annotate_array,[])
+        assert s.knowntype == c_int_10
+
+    def test_annotate_array_access(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_test_annotate_array_content,[])
+        assert s.knowntype == int
+        #d#t.view()
 

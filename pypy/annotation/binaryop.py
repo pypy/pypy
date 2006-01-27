@@ -13,6 +13,7 @@ from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
+from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -732,3 +733,18 @@ class __extend__(pairtype(SomeAddress, SomeObject)):
 class __extend__(pairtype(SomeObject, SomeAddress)):
     def union((s_obj, s_addr)):
         raise UnionError, "union of address and anything else makes no sense"
+
+class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
+    def setitem((s_cto, s_index), s_value):
+        pass
+
+    def getitem((s_cto, s_index)):
+        if s_index.is_constant() and isinstance(s_index.const, int):
+            index = s_index.const
+            try:
+                return s_cto.knowntype._type_.annotator_type
+            except AttributeError:
+                return SomeCTypesObject(s_cto.knowntype._type_)
+        else:
+            return SomeObject()
+
