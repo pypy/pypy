@@ -1,3 +1,4 @@
+from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
@@ -5,13 +6,20 @@ from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.propagate import propagate_all
 from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
 from pypy.translator import simplify
+from pypy.translator.backendopt.escape import malloc_to_stack
 
 
-def backend_optimizations(translator, inline_threshold=1,
+def backend_optimizations(translator, raisingop2direct_call_all=False,
+                                      inline_threshold=1,
                                       mallocs=True,
                                       ssa_form=True,
                                       merge_if_blocks_to_switch=True,
-                                      propagate=False):
+                                      propagate=False,
+                                      heap2stack=False):
+
+    if raisingop2direct_call_all:
+        raisingop2direct_call(translator)
+
     # remove obvious no-ops
     for graph in translator.graphs:
         remove_same_as(graph)
@@ -36,6 +44,9 @@ def backend_optimizations(translator, inline_threshold=1,
                 simplify.transform_dead_op_vars(graph, translator)
     if propagate:
         propagate_all(translator)
+
+    if heap2stack:
+        malloc_to_stack(translator)
 
     if merge_if_blocks_to_switch:
         for graph in translator.graphs:

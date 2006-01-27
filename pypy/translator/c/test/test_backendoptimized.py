@@ -1,4 +1,4 @@
-import autopath
+import py
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython import objectmodel
@@ -174,3 +174,23 @@ class TestTypedOptimizedSwitchTestCase:
             y = ord(x)
             assert fn(y) == f(y)
 
+class TestTypedOptimizedRaisingOps:
+
+    class CodeGenerator(_TestTypedTestCase):
+        def process(self, t):
+            _TestTypedTestCase.process(self, t)
+            self.t = t
+            backend_optimizations(t, raisingop2direct_call_all=True)
+
+    def test_int_floordiv_zer(self):
+        py.test.skip("WIP")
+        def f(x=int):
+            try:
+                y = 123 / x
+            except:
+                y = 456
+            return y
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        for x in (0,1,2,3,9,27,48, -9):
+            assert fn(x) == f(x)
