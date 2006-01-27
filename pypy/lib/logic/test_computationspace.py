@@ -474,8 +474,5 @@ class TestComputationSpace:
         assert new_spc.ask() == cs.Succeeded
         assert w.cs_get_dom(spc) == c.FiniteDomain([5, 6, 7])
         assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
-
-##         with-space(spc):
-##             assert w.dom == ... [5, 6, 7]
-##         with-space(new_spc):
-##             assert w.dom == ... [5]
+        spc.commit(0)
+        new_spc.commit(0)

@@ -1,16 +1,20 @@
 import math, random
+from threading import Thread
+from state import Succeeded, Distributable, Failed, Merged
 
-def make_new_domains(cs, variables):
-    """updates variables with copied domains indexed by computation space"""
+def arrange_domains(cs, variables):
+    """build a data structure from var to dom
+       that satisfies distribute & friends"""
     new_doms = {}
     for var in variables:
         new_doms[var] = var.cs_get_dom(cs).copy()
     return new_doms
 
-class AbstractDistributor(object):
+class AbstractDistributor(Thread):
     """_distribute is left unimplemented."""
 
     def __init__(self, c_space, nb_subspaces=2):
+        Thread.__init__(self)
         self.nb_subspaces = nb_subspaces
         self.cs = c_space
         self.verbose = 0
@@ -47,7 +51,7 @@ class AbstractDistributor(object):
     def nb_subdomains(self):
         """return number of sub domains to explore"""
         return self.nb_subspaces
-
+       
     def distribute(self, verbose=0):
         """do the minimal job and let concrete class distribute variables
         """
@@ -55,7 +59,7 @@ class AbstractDistributor(object):
         variables = self.cs.get_variables_with_a_domain()
         replicas = []
         for i in range(self.nb_subdomains()):
-            replicas.append(make_new_domains(self.cs, variables))
+            replicas.append(arrange_domains(self.cs, variables))
         modified_domains = self._distribute(*replicas)
         for domain in modified_domains:
             domain.reset_flags()
@@ -122,7 +126,34 @@ class SplitDistributor(AbstractDistributor):
             return min(self.nb_subspaces, self.__to_split.cs_get_dom(self.cs).size()) #domains[self.__to_split].size())
         else:
             return self.__to_split.cs_get_dom(self.cs).size() # domains[self.__to_split].size()
-    
+
+    ### new threaded distributor
+
+    def run(self):
+        while self.cs.status == Distributable:
+            choice = self.cs.choose(self.nb_subdomains())
+            if self.cs.status == Failed:
+                return
+            self.new_distribute(choice)
+            self.cs._process()
+
+    def new_distribute(self, choice):
+        """See AbstractDistributor"""
+        variable = self.findSmallestDomain()
+        #variables = self.cs.get_variables_with_a_domain()
+        #domains = arrange_domains(self.cs, variables)
+        nb_subspaces = self.nb_subdomains()
+        values = variable.cs_get_dom(self.cs).get_values()
+        nb_elts = max(1, len(values)*1./nb_subspaces)
+        start, end = (int(math.floor(index * nb_elts)),
+                      int(math.floor((index + 1) * nb_elts)))
+        variable.cs_get_dom(self.cs).remove_values(values[:start])
+        variable.cs_get_dom(self.cs).remove_values(values[end:])
+
+
+    ### current tests rely on this old
+    ### do_everything-at-once version
+        
     def _distribute(self, *args):
         """See AbstractDistributor"""
         variable = self.__to_split

@@ -103,6 +103,7 @@ class Var(object):
         self._doms[cs] = dom
 
     def cs_get_dom(self, cs):
+        self._doms.setdefault(cs, FiniteDomain([]))
         return self._doms[cs]
 
     #---- Concurrent public ops --------------------------

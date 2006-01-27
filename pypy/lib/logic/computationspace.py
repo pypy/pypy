@@ -179,30 +179,16 @@
 
 from threading import Thread, Condition, RLock, local
 
+from state import Succeeded, Distributable, Failed, Merged
+
 from variable import EqSet, Var, \
      VariableException, NotAVariable, AlreadyInStore
 from constraint import FiniteDomain, ConsistencyFailure
+from distributor import DefaultDistributor
+
 
 EmptyDom = FiniteDomain([])
 
-class Succeeded:
-    """It contains no choice points but a solution to
-       the logic program.
-    """
-    pass
-
-class Distributable:
-    pass
-
-class Failed(Exception):
-    pass
-
-class Merged:
-    """Its constraint store has been added to a parent.
-       Any further operation operation on the space is
-       an error.
-    """
-    pass
 
 class Alternatives(object):
 
@@ -262,6 +248,9 @@ class ComputationSpace(object):
          other but not to any other variables.
        * variables bound to a number, record or procedure
          (also called determined variables)."""
+
+    _nb_choices = 0
+
     
     def __init__(self, problem, parent=None):
         # consistency-preserving stuff
@@ -269,6 +258,7 @@ class ComputationSpace(object):
         self.bind_lock = RLock()
         self.status = None
         self.status_condition = Condition()
+        self.distributor = DefaultDistributor(self)
         
         if parent is None:
             self.vars = set()
@@ -283,6 +273,8 @@ class ComputationSpace(object):
             self.bind(self.root, problem(self))
             # check satisfiability of the space
             self._process()
+            if self.status == Distributable:
+                self.distributor.start()
         else:
             self.vars = parent.vars
             self.names = parent.names
@@ -290,6 +282,13 @@ class ComputationSpace(object):
             self.constraints = parent.constraints
             self.root = parent.root
 
+        # create a unique choice point
+        self.CHOICE = self._make_choice_var()
+
+    def __del__(self):
+        self.status = Failed
+        self.bind(self.CHOICE, 0)
+        
 #-- Store ------------------------------------------------
 
     #-- Variables ----------------------------
@@ -615,6 +614,7 @@ class ComputationSpace(object):
     def _distributable(self):
         if self.status not in (Failed, Succeeded, Merged):
             return self._distributable_domains()
+        return False
         # in The Book : "the space has one thread that is
         # suspended on a choice point with two or more alternatives.
         # A space canhave at most one choice point; attempting to
@@ -645,10 +645,43 @@ class ComputationSpace(object):
         spc = ComputationSpace(NoProblem, parent=self)
         for var in spc.vars:
             var.cs_set_dom(spc, var.cs_get_dom(self).copy())
+        # check satisfiability of the space
+        spc._process()
+        if spc.status == Distributable:
+            spc.distributor.start()
         return spc
 
     def inject(self, restricting_problem):
+        """add additional stuff into a space"""
         pass
+
+    def commit(self, choice):
+        """if self is distributable, causes the Choose call in the
+           space to complete and return some_number as a result. This
+           may cause the spzce to resume execution.
+           some_number must satisfy 1=<I=<N where N is the first arg
+           of the Choose call.
+        """
+        self.bind(self.CHOICE, choice)
+
+    def choose(self, nb_choices):
+        """
+        waits for stability
+        blocks until commit provides a value
+        between 0 and nb_choices
+        at most one choose running in a given space
+        at a given time
+        ----
+        this is used by the distributor thread
+        """
+        self.ask()
+        choice = self.CHOICE.get()
+        self.CHOICE = self._make_choice_var()
+        return choice    
+
+    def _make_choice_var(self):
+        ComputationSpace._nb_choices += 1
+        return self.var('__choice__'+str(self._nb_choices))
 
     def make_children(self):
         for dommap in self.distributor.distribute():
@@ -657,16 +690,6 @@ class ComputationSpace(object):
             self.children.add(cs)
             for var, dom in dommap.items():
                 var.cs_set_dom(cs, dom)
-
-
-    def commit(self, some_number):
-        """if self is distributable, causes the Choose call in the
-           space ot complete and return some_number as a result. This
-           may cause the spzce to resume execution.
-           some_number must satisfy 1=<I=<N where N is the first arg
-           of the Choose call.
-        """
-        pass
 
     def solve_all(self):
         """recursively solves the problem
