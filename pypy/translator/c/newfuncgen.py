@@ -226,7 +226,10 @@ class FunctionCodeGenerator(object):
             for op in block.operations:
                 err   = 'err%d_%d' % (myblocknum, len(to_release))
                 macro = 'OP_%s' % op.opname.upper()
-                meth  = getattr(self, macro, None)
+                if op.opname.startswith('gc_'):
+                    meth = getattr(self.gcpolicy, macro, None)
+                else:
+                    meth = getattr(self, macro, None)
                 if meth:
                     line = meth(op, err)
                 else:
