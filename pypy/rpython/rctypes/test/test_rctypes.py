@@ -151,7 +151,8 @@ def py_test_annotate_array_content_index_error_on_positive_index():
 
 def py_test_annotate_array_content_index_error_on_negative_index():
     my_array = c_int_10()
-    return my_array[-10]
+    return my_array[-11]
+
 
 class Test_rctypes:
 
