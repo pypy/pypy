@@ -217,7 +217,14 @@ class AppTestMethod:
             def f(self):
                 pass
         assert repr(B.f) == "<unbound method B.f>"
-        assert repr(B().f).startswith("<bound method B.f of <") 
+        assert repr(B().f).startswith("<bound method B.f of <")
+
+
+    def test_method_call(self):
+        class C:
+            def __init__(self, **kw):
+                pass
+        c = C(type='test')
 
 class TestMethod: 
     def setup_method(self, method):

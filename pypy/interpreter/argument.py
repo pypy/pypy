@@ -244,8 +244,6 @@ class Arguments(AbstractArguments):
 
     ###  Construction  ###
 
-    blind_arguments = 0
-
     def __init__(self, space, args_w=None, kwds_w=None,
                  w_stararg=None, w_starstararg=None):
         self.space = space
@@ -403,11 +401,11 @@ class Arguments(AbstractArguments):
             input_argcount = len(args_w) + blindargs
 
         # check that no keyword argument conflicts with these
-        # note that for this purpose we ignore the first blind_arguments,
+        # note that for this purpose we ignore the first blindargs,
         # which were put into place by prepend().  This way, keywords do
         # not conflict with the hidden extra argument bound by methods.
-        if kwds_w and input_argcount > self.blind_arguments:
-            for name in argnames[self.blind_arguments:input_argcount]:
+        if kwds_w and input_argcount > blindargs:
+            for name in argnames[blindargs:input_argcount]:
                 if name in kwds_w:
                     raise ArgErrMultipleValues(name)
 
