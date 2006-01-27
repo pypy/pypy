@@ -171,9 +171,7 @@ class FunctionCodeGenerator(object):
             linklocalvars = linklocalvars or {}
             for v in to_release:
                 linklocalvars[v] = self.expr(v)
-            is_alive_and_dies = linklocalvars.copy()
             assignments = []
-            multiple_times_alive = []
             for a1, a2 in zip(link.args, link.target.inputargs):
                 a2type, a2typename = self.lltypes[id(a2)]
                 if a2type is Void:
@@ -184,25 +182,8 @@ class FunctionCodeGenerator(object):
                     src = self.expr(a1)
                 dest = LOCALVAR % a2.name
                 assignments.append((a2typename, dest, src))
-                if a1 in is_alive_and_dies:
-                    del is_alive_and_dies[a1]
-                else:
-                    #assert self.lltypemap(a1) == self.lltypemap(a2)
-                    multiple_times_alive.append(a2)
-            # warning, the order below is delicate to get right:
-            # 1. forget the old variables that are not passed over
-            for v in is_alive_and_dies:
-                line = self.pop_alive(v, linklocalvars[v])
-                if line:
-                    yield line
-            # 2. perform the assignments with collision-avoidance
             for line in gen_assignments(assignments):
                 yield line
-            # 3. keep alive the new variables if needed
-            for a2 in multiple_times_alive:
-                line = self.push_alive(a2)
-                if line:
-                    yield line
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -226,11 +207,13 @@ class FunctionCodeGenerator(object):
                 macro = 'OP_%s' % op.opname.upper()
                 if op.opname.startswith('gc_'):
                     meth = getattr(self.gcpolicy, macro, None)
+                    if meth:
+                        line = meth(self, op, err)
                 else:
                     meth = getattr(self, macro, None)
-                if meth:
-                    line = meth(op, err)
-                else:
+                    if meth:
+                        line = meth(op, err)
+                if meth is None:
                     lst = [self.expr(v) for v in op.args]
                     lst.append(self.expr(op.result))
                     lst.append(err)
@@ -243,13 +226,6 @@ class FunctionCodeGenerator(object):
                 if line.find(err) >= 0:
                     reachable_err = len(to_release)
                 to_release.append(op.result)
-
-                T = self.lltypemap(op.result)
-                if T is not Void:
-                    res = LOCALVAR % op.result.name
-                    line = push_alive_op_result(op.opname, res, T)
-                    if line:
-                        yield line
 
             fallthrough = False
             if len(block.exits) == 0:

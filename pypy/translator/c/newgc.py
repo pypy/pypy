@@ -283,6 +283,27 @@ class RefcountingGcPolicy(BasicGcPolicy):
                                                 eresult,
                                                 err)
 
+    def OP_GC_PUSH_ALIVE(self, funcgen, op, err):
+        expr = funcgen.expr(op.args[0])
+        defnode = self.db.gettypedefnode(op.args[0].concretetype.TO)
+        assert defnode.gcheader is not None
+        return 'pypy_IncRf_%s(%s);' % (defnode.barename, expr)
+        
+    def OP_GC_POP_ALIVE(self, funcgen, op, err):
+        expr = funcgen.expr(op.args[0])
+        defnode = self.db.gettypedefnode(op.args[0].concretetype.TO)
+        assert defnode.gcheader is not None
+        return 'pypy_DecRf_%s(%s);' % (defnode.barename, expr)
+        
+    def OP_GC_PUSH_ALIVE_PYOBJ(self, funcgen, op, err):
+        expr = funcgen.expr(op.args[0])
+        return 'Py_XINCREF(%s);' % expr
+
+    def OP_GC_POP_ALIVE_PYOBJ(self, funcgen, op, err):
+        expr = funcgen.expr(op.args[0])
+        return 'Py_XDECREF(%s);' % expr
+        
+
 class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'refcnt rtti'
     globalcontainer = True
