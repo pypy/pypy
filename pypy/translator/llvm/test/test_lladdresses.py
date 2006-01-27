@@ -88,7 +88,6 @@ def test_raw_memcopy():
     assert res == 3
 
 def test_pointer_comparison():
-    py.test.skip("XXX tmp")
     def f():
         result = 0
         for addr1 in [raw_malloc(1), NULL]:

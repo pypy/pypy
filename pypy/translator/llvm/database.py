@@ -363,7 +363,8 @@ class Database(object):
         elif type_ is lltype.Float:
             repr = self.float_to_str(value)
         elif type_ is llmemory.Address:
-            assert value == NULL
+            # XXXXX things are happening in the gc world...
+            # assert value == NULL
             repr = 'null' 
         else:
             repr = str(value)
