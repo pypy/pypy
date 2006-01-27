@@ -23,6 +23,7 @@ elif sys.platform == 'linux2':
 else:
     py.test.skip("don't know how to load the c lib for %s" % 
             sys.platform)
+
 atoi = mylib.atoi
 atoi.restype = c_int
 atoi.argtypes = [c_char_p]
@@ -153,6 +154,13 @@ def py_test_annotate_array_content_index_error_on_negative_index():
     my_array = c_int_10()
     return my_array[-11]
 
+def py_test_specialize_struct():
+    p = tagpoint()
+    p.x = 1
+    p.y = 2
+
+    return p.x
+
 
 class Test_rctypes:
 
@@ -270,6 +278,14 @@ class Test_structure:
         s = a.build_types(py_test_simple_ctypes_non_const,[])
         assert s.knowntype == c_float
 
+    def x_test_specialize_struct(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_test_specialize_struct, [])
+        # result should be an integer
+        assert s.knowntype == int
+        t.buildrtyper().specialize()
+        #d#t.view()
 
 class Test_array:
 

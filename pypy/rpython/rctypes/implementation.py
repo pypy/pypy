@@ -88,12 +88,12 @@ class FunctionPointerTranslation(object):
                 else:
                     answer.append(ctype_type.wrap_arg(ll_type, arg_name))
             return answer
-
-class CtypesBasicTypeInstantiationTranslation( FunctionPointerTranslation ):
-
-    compute_result_annotation = classmethod(
-            FunctionPointerTranslation.compute_result_annotation)
-
+#
+#class CtypesBasicTypeInstantiationTranslation( FunctionPointerTranslation ):
+#
+#    compute_result_annotation = classmethod(
+#            FunctionPointerTranslation.compute_result_annotation)
+#
     
 class RStructureMeta(type(Structure)):
     def __new__(mta,name,bases,clsdict):
@@ -113,6 +113,9 @@ class RStructure(Structure):
     def compute_annotation(cls):
         return SomeCTypesObject(cls)
     compute_annotation = classmethod(compute_annotation)
+
+    def specialize(self, hop):
+        raise NotImplementedError
 
     def compute_result_annotation(cls, *args_s):
         """
