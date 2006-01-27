@@ -18,6 +18,7 @@ from pypy.annotation.model import unionof, UnionError, set, missing_operation, T
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable
+from pypy.annotation.listdef import ListDef
 
 # convenience only!
 def immutablevalue(x):
@@ -739,12 +740,33 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         pass
 
     def getitem((s_cto, s_index)):
-        if s_index.is_constant() and isinstance(s_index.const, int):
-            index = s_index.const
+        if s_index.is_constant():
+            idx = s_index.const
+            knowntype = s_cto.knowntype
             try:
-                return s_cto.knowntype._type_.annotator_type
+                length = knowntype._length_
             except AttributeError:
-                return SomeCTypesObject(s_cto.knowntype._type_)
-        else:
-            return SomeObject()
+                pass
+            else:
+                if idx < 0:
+                    idx += length
+                if idx >= length:
+                    raise IndexError( "invalid index" )
+                elif idx < 0:
+                    raise IndexError( "invalid index" )
+        try:
+            return s_cto.knowntype._type_.annotator_type
+        except AttributeError:
+            return SomeCTypesObject(s_cto.knowntype._type_)
+
+class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
+    def setitem((s_cto, s_slice), s_iterable):
+        pass
+
+    def getitem((s_cto, s_slice)):
+        try:
+            listdef = ListDef(None, s_cto.knowntype._type_.annotator_type)
+        except AttributeError:
+            listdef = ListDef(None, SomeCTypesObject(s_cto.knowntype._type_))
+        return SomeList(listdef)
 

@@ -129,6 +129,29 @@ def py_test_annotate_pointer_content():
 
     return my_pointer[0]
 
+def py_test_annotate_array_slice_content():
+    my_array = c_int_10()
+    #f#my_array[0:7] = c_int(1) * 7
+    my_array[0:5] = range(5)
+
+    return my_array[0:5]
+
+def py_test_annotate_array_content_variable_index():
+    my_array = c_int_10()
+    my_array[2] = 2
+    sum = 0
+    for idx in range(10):
+        sum += my_array[idx]
+
+    return sum
+
+def py_test_annotate_array_content_index_error_on_positive_index():
+    my_array = c_int_10()
+    return my_array[10]
+
+def py_test_annotate_array_content_index_error_on_negative_index():
+    my_array = c_int_10()
+    return my_array[-10]
 
 class Test_rctypes:
 
@@ -276,4 +299,31 @@ class Test_array:
         assert s.knowntype == int
         #t#t.view()
 
+    def test_annotate_array_slice_access(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_test_annotate_array_slice_content,[])
+        #t#t.view()
+        #d#print "v90:", s, type(s)
+        assert s.knowntype == list
+        s.listdef.listitem.s_value.knowntype == int
+
+    def test_annotate_array_access_variable(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_test_annotate_array_content_variable_index,[])
+        assert s.knowntype == int
+        #t#t.view()
+
+    def test_annotate_array_access_index_error_on_positive_index(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        
+        py.test.raises(IndexError, "s = a.build_types(py_test_annotate_array_content_index_error_on_positive_index,[])")
+
+    def test_annotate_array_access_index_error_on_negative_index(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        
+        py.test.raises(IndexError, "s = a.build_types(py_test_annotate_array_content_index_error_on_negative_index,[])")
 
