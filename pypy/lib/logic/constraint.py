@@ -109,11 +109,17 @@ class FiniteDomain(AbstractDomain):
         if other is None: return False
         return self._values == other._values
 
+    def __ne__(self, other):
+        return not self == other
+
     def intersection(self, other):
         if other is None: return self.get_values()
         return self._values & other._values
 
+
 #-- Constraints ------------------------------------------
+
+EmptyDom = FiniteDomain([])
 
 class AbstractConstraint(object):
     
@@ -121,10 +127,9 @@ class AbstractConstraint(object):
         """variables is a list of variables which appear in the formula"""
         self._names_to_vars = {}
         for var in variables:
-            if var.dom is None:
+            if var.dom == EmptyDom:
                 raise DomainlessVariables
             self._names_to_vars[var.name] = var
-            var.add_constraint(self)
         self._variables = variables
 
     def affectedVariables(self):
@@ -194,12 +199,12 @@ class Expression(AbstractConstraint):
     """A constraint represented as a python expression."""
     _FILTER_CACHE = {}
 
-    def __init__(self, variables, formula, type='fd.Expression'):
+    def __init__(self, variables, formula, typ='fd.Expression'):
         """variables is a list of variables which appear in the formula
         formula is a python expression that will be evaluated as a boolean"""
-        AbstractConstraint.__init__(self, variables)
         self.formula = formula
-        self.type = type
+        self.type = typ
+        AbstractConstraint.__init__(self, variables)
         try:
             self.filterFunc = Expression._FILTER_CACHE[formula]
         except KeyError:

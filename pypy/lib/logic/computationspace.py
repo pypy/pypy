@@ -1,4 +1,4 @@
-## The Constraint-based computation model
+# The Constraint-based computation model
 ## ======================================
 
 ## A computation space collects together basic constraints (in fact
@@ -177,14 +177,21 @@
 
 ## space = ComputationSpace(fun=my_problem)
 
-from unification import Store, var
-from constraint import ConsistencyFailure
-from threading import Thread, Condition
+from threading import Thread, Condition, RLock, local
 
-class Unprocessed:
+from variable import EqSet, Var, \
+     VariableException, NotAVariable, AlreadyInStore
+from constraint import FiniteDomain, ConsistencyFailure
+
+EmptyDom = FiniteDomain([])
+
+class Succeeded:
+    """It contains no choice points but a solution to
+       the logic program.
+    """
     pass
 
-class Working:
+class Distributable:
     pass
 
 class Failed(Exception):
@@ -197,38 +204,372 @@ class Merged:
     """
     pass
 
-class Succeeded:
-    """It contains no choice points but a solution to
-       the logic program.
-    """
+class Alternatives(object):
+
+    def __init__(self, nb_alternatives):
+        self._nbalt = nb_alternatives
+
+    def __eq__(self, other):
+        if other is None: return False
+        return self._nbalt == other._nbalt
+
+        
+#----------- Store Exceptions ----------------------------
+class UnboundVariable(VariableException):
+    def __str__(self):
+        return "%s has no value yet" % self.name
+
+class AlreadyBound(VariableException):
+    def __str__(self):
+        return "%s is already bound" % self.name
+
+class NotInStore(VariableException):
+    def __str__(self):
+        return "%s not in the store" % self.name
+
+class OutOfDomain(VariableException):
+    def __str__(self):
+        return "value not in domain of %s" % self.name
+
+class UnificationFailure(Exception):
+    def __init__(self, var1, var2, cause=None):
+        self.var1, self.var2 = (var1, var2)
+        self.cause = cause
+    def __str__(self):
+        diag = "%s %s can't be unified"
+        if self.cause:
+            diag += " because %s" % self.cause
+        return diag % (self.var1, self.var2)
+        
+class IncompatibleDomains(Exception):
+    def __init__(self, var1, var2):
+        self.var1, self.var2 = (var1, var2)
+    def __str__(self):
+        return "%s %s have incompatible domains" % \
+               (self.var1, self.var2)
+
+class Foo(object):
     pass
-
-
+    
+#---- ComputationSpace -------------------------------
 class ComputationSpace(object):
-
-    def __init__(self, program, parent=None):
-        if parent is None:
-            self.store = Store()
-            self.root = self.store.var('root')
-            self.store.bind(self.root, program(self))
-        else:
-            self.store = parent.store
-            self.root = parent.root
-        self.program = program
+    """The Store consists of a set of k variables
+       x1,...,xk that are partitioned as follows: 
+       * set of unbound variables that are equal
+         (also called equivalence sets of variables).
+         The variables in each set are equal to each
+         other but not to any other variables.
+       * variables bound to a number, record or procedure
+         (also called determined variables)."""
+    
+    def __init__(self, problem, parent=None):
         self.parent = parent
-        # status
-        self.status = Unprocessed
+
+        # current/working computation space, per thread
+        # self.TLS = local()
+        self.TLS = Foo()
+        self.TLS.current_cs = self
+
+        # consistency-preserving stuff
+        self.in_transaction = False
+        self.bind_lock = RLock()
+        self.status = None
         self.status_condition = Condition()
+        
+        if parent is None:
+            self.vars = set()
+            # mapping of names to vars (all of them)
+            self.names = {}
+            # mapping of vars to constraints
+            self.var_const_map = {}
+            # set of all constraints 
+            self.constraints = set()
+            self.root = self.var('__root__')
+            self.bind(self.root, problem(self))
+        else:
+            self.vars = parent.vars
+            self.names = parent.names
+            self.var_const_map = parent.var_const_map
+            self.constraints = parent.constraints
+            self.root = parent.root
+                
         # run ...
         self._process()
 
+    #-- Variables ----------------------------
+
+    def var(self, name):
+        """creates a variable of name name and put
+           it into the store"""
+        v = Var(name, self)
+        self.add_unbound(v)
+        return v
+
+    def add_unbound(self, var):
+        """add unbound variable to the store"""
+        if var in self.vars:
+            raise AlreadyInStore(var.name)
+        print "adding %s to the store" % var
+        self.vars.add(var)
+        self.names[var.name] = var
+        # put into new singleton equiv. set
+        var.val = EqSet([var])
+
+    def set_domain(self, var, dom):
+        """bind variable to domain"""
+        assert(isinstance(var, Var) and (var in self.vars))
+        if var.is_bound():
+            raise AlreadyBound
+        var.dom = FiniteDomain(dom)
+
+    def get_var_by_name(self, name):
+        try:
+            return self.names[name]
+        except KeyError:
+            raise NotInStore(name)
+    
+    #-- Constraints -------------------------
+
+    def add_constraint(self, constraint):
+        self.constraints.add(constraint)
+        for var in constraint.affectedVariables():
+            self.var_const_map.setdefault(var, [])
+            self.var_const_map[var].append(constraint)
+
+    def get_variables_with_a_domain(self):
+        varset = set()
+        for var in self.vars:
+            if var.dom != EmptyDom: varset.add(var)
+        return varset
+
+    def satisfiable(self, constraint):
+        """ * satisfiable (k) checks that the constraint k
+              can be satisfied wrt its variable domains
+              and other constraints on these variables
+            * does NOT mutate the store
+        """
+        # Satisfiability of one constraints entails
+        # satisfiability of the transitive closure
+        # of all constraints associated with the vars
+        # of our given constraint.
+        # We make a copy of the domains
+        # then traverse the constraints & attached vars
+        # to collect all (in)directly affected vars
+        # then compute narrow() on all (in)directly
+        # affected constraints.
+        assert constraint in self.constraints
+        varset = set()
+        constset = set()
+        self._compute_dependant_vars(constraint, varset, constset)
+        old_domains = collect_domains(varset)
+        
+        for const in constset:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                return False
+        restore_domains(old_domains)
+        return True
+
+
+    def get_satisfying_domains(self, constraint):
+        assert constraint in self.constraints
+        varset = set()
+        constset = set()
+        self._compute_dependant_vars(constraint, varset,
+                                     constset)
+        old_domains = collect_domains(varset)
+
+        for const in constset:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                return {}
+        narrowed_domains = collect_domains(varset)
+        restore_domains(old_domains)
+        return narrowed_domains
+
+    def satisfy(self, constraint):
+        assert constraint in self.constraints
+        varset = set()
+        constset = set()
+        self._compute_dependant_vars(constraint, varset, constset)
+        old_domains = collect_domains(varset)
+
+        for const in constset:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                raise
+
+    def satisfy_all(self):
+        old_domains = collect_domains(self.vars)
+        for const in self.constraints:
+            try:
+                const.narrow()
+            except ConsistencyFailure:
+                restore_domains(old_domains)
+                raise
+                
+    def _compute_dependant_vars(self, constraint, varset,
+                               constset):
+        if constraint in constset: return
+        constset.add(constraint)
+        for var in constraint.affectedVariables():
+            varset.add(var)
+            dep_consts = self.var_const_map[var]
+            for const in dep_consts:
+                if const in constset:
+                    continue
+                self._compute_dependant_vars(const, varset,
+                                            constset)
+        
+    #-- BIND -------------------------------------------
+
+    def bind(self, var, val):
+        """1. (unbound)Variable/(unbound)Variable or
+           2. (unbound)Variable/(bound)Variable or
+           3. (unbound)Variable/Value binding
+        """
+        try:
+            self.bind_lock.acquire()
+            assert(isinstance(var, Var) and (var in self.vars))
+            if var == val:
+                return
+            if _both_are_vars(var, val):
+                if _both_are_bound(var, val):
+                    raise AlreadyBound(var.name)
+                if var._is_bound(): # 2b. var is bound, not var
+                    self.bind(val, var)
+                elif val._is_bound(): # 2a.var is bound, not val
+                    self._bind(var.val, val.val)
+                else: # 1. both are unbound
+                    self._merge(var, val)
+            else: # 3. val is really a value
+                print "%s, is that you ?" % var
+                if var._is_bound():
+                    raise AlreadyBound(var.name)
+                self._bind(var.val, val)
+        finally:
+            self.bind_lock.release()
+
+
+    def _bind(self, eqs, val):
+        # print "variable - value binding : %s %s" % (eqs, val)
+        # bind all vars in the eqset to val
+        for var in eqs:
+            if var.dom != EmptyDom:
+                if val not in var.dom.get_values():
+                    print val, var.dom, var.dom.get_values()
+                    # undo the half-done binding
+                    for v in eqs:
+                        v.val = eqs
+                    raise OutOfDomain(var)
+            var.val = val
+
+    def _merge(self, v1, v2):
+        for v in v1.val:
+            if not _compatible_domains(v, v2.val):
+                raise IncompatibleDomains(v1, v2)
+        self._really_merge(v1.val, v2.val)
+
+    def _really_merge(self, eqs1, eqs2):
+        # print "unbound variables binding : %s %s" % (eqs1, eqs2)
+        if eqs1 == eqs2: return
+        # merge two equisets into one
+        eqs1 |= eqs2
+        # let's reassign everybody to the merged eq
+        for var in eqs1:
+            var.val = eqs1
+
+    #-- UNIFY ------------------------------------------
+
+    def unify(self, x, y):
+        self.in_transaction = True
+        try:
+            try:
+                self._really_unify(x, y)
+                for var in self.vars:
+                    if var.changed:
+                        var._commit()
+            except Exception, cause:
+                for var in self.vars:
+                    if var.changed:
+                        var._abort()
+                if isinstance(cause, UnificationFailure):
+                    raise
+                raise UnificationFailure(x, y, cause)
+        finally:
+            self.in_transaction = False
+
+    def _really_unify(self, x, y):
+        # print "unify %s with %s" % (x,y)
+        if not _unifiable(x, y): raise UnificationFailure(x, y)
+        if not x in self.vars:
+            if not y in self.vars:
+                # duh ! x & y not vars
+                if x != y: raise UnificationFailure(x, y)
+                else: return
+            # same call, reverse args. order
+            self._unify_var_val(y, x)
+        elif not y in self.vars:
+            # x is Var, y a value
+            self._unify_var_val(x, y)
+        elif _both_are_bound(x, y):
+            self._unify_bound(x,y)
+        elif x._is_bound():
+            self.bind(x,y)
+        else:
+            self.bind(y,x)
+
+    def _unify_var_val(self, x, y):
+        if x.val != y:
+            try:
+                self.bind(x, y)
+            except AlreadyBound:
+                raise UnificationFailure(x, y)
+        
+    def _unify_bound(self, x, y):
+        # print "unify bound %s %s" % (x, y)
+        vx, vy = (x.val, y.val)
+        if type(vx) in [list, set] and isinstance(vy, type(vx)):
+            self._unify_iterable(x, y)
+        elif type(vx) is dict and isinstance(vy, type(vx)):
+            self._unify_mapping(x, y)
+        else:
+            if vx != vy:
+                raise UnificationFailure(x, y)
+
+    def _unify_iterable(self, x, y):
+        print "unify sequences %s %s" % (x, y)
+        vx, vy = (x.val, y.val)
+        idx, top = (0, len(vx))
+        while (idx < top):
+            self._really_unify(vx[idx], vy[idx])
+            idx += 1
+
+    def _unify_mapping(self, x, y):
+        # print "unify mappings %s %s" % (x, y)
+        vx, vy = (x.val, y.val)
+        for xk in vx.keys():
+            self._really_unify(vx[xk], vy[xk])
+
+#-- Computation Space -----------------------------------------
+
+
     def _process(self):
         try:
-            self.store.satisfy_all()
+            self.satisfy_all()
         except ConsistencyFailure:
             self.status = Failed
         else:
-            self.status = Succeeded
+            if self._distributable():
+                self.status = Distributable
+            else:
+                self.status = Succeeded
 
     def _stable(self):
         #XXX: really ?
@@ -246,11 +587,17 @@ class ComputationSpace(object):
 
     def _distributable(self):
         if self.status not in (Failed, Succeeded, Merged):
-            return self.distributor.findSmallestDomain() > 1
+            return self._distributable_domains()
         # in The Book : "the space has one thread that is
         # suspended on a choice point with two or more alternatives.
         # A space canhave at most one choice point; attempting to
         # create another gives an error."
+
+    def _distributable_domains(self):
+        for var in self.vars:
+            if var.dom.size() > 1 :
+                return True
+        return False
 
     def set_distributor(self, dist):
         self.distributor = dist
@@ -262,7 +609,7 @@ class ComputationSpace(object):
             while not self._stable():
                 self.status_condition.wait()
             if self._distributable():
-                return self.distributor.nb_subdomains()
+                return Alternatives(self.distributor.nb_subdomains())
             return self.status
         finally:
             self.status_condition.release()
@@ -309,4 +656,137 @@ class ComputationSpace(object):
                 self.do_something_with(result)
             
 
+
+
+
+#-------------------------------------------------------
+
+
+def _compatible_domains(var, eqs):
+    """check that the domain of var is compatible
+       with the domains of the vars in the eqs
+    """
+    if var.dom == EmptyDom: return True
+    empty = set()
+    for v in eqs:
+        if v.dom == EmptyDom: continue
+        if v.dom.intersection(var.dom) == empty:
+            return False
+    return True
+
+#-- collect / restore utilities for domains
+
+def collect_domains(varset):
+    """makes a copy of domains of a set of vars
+       into a var -> dom mapping
+    """
+    dom = {}
+    for var in varset:
+        if var.dom != EmptyDom:
+            dom[var] = FiniteDomain(var.dom)
+    return dom
+
+def restore_domains(domains):
+    """sets the domain of the vars in the domains mapping
+       to their (previous) value 
+    """
+    for var, dom in domains.items():
+        var.dom = dom
+
+
+#-- Unifiability checks---------------------------------------
+#--
+#-- quite costly & could be merged back in unify
+
+def _iterable(thing):
+    return type(thing) in [list, set]
+
+def _mapping(thing):
+    return type(thing) is dict
+
+# memoizer for _unifiable
+_unifiable_memo = set()
+
+def _unifiable(term1, term2):
+    global _unifiable_memo
+    _unifiable_memo = set()
+    return _really_unifiable(term1, term2)
         
+def _really_unifiable(term1, term2):
+    """Checks wether two terms can be unified"""
+    if ((id(term1), id(term2))) in _unifiable_memo: return False
+    _unifiable_memo.add((id(term1), id(term2)))
+    # print "unifiable ? %s %s" % (term1, term2)
+    if _iterable(term1):
+        if _iterable(term2):
+            return _iterable_unifiable(term1, term2)
+        return False
+    if _mapping(term1) and _mapping(term2):
+        return _mapping_unifiable(term1, term2)
+    if not(isinstance(term1, Var) or isinstance(term2, Var)):
+        return term1 == term2 # same 'atomic' object
+    return True
+        
+def _iterable_unifiable(c1, c2):
+   """Checks wether two iterables can be unified"""
+   # print "unifiable sequences ? %s %s" % (c1, c2)
+   if len(c1) != len(c2): return False
+   idx, top = (0, len(c1))
+   while(idx < top):
+       if not _really_unifiable(c1[idx], c2[idx]):
+           return False
+       idx += 1
+   return True
+
+def _mapping_unifiable(m1, m2):
+    """Checks wether two mappings can be unified"""
+    # print "unifiable mappings ? %s %s" % (m1, m2)
+    if len(m1) != len(m2): return False
+    if m1.keys() != m2.keys(): return False
+    v1, v2 = (m1.items(), m2.items())
+    v1.sort()
+    v2.sort()
+    return _iterable_unifiable([e[1] for e in v1],
+                               [e[1] for e in v2])
+
+#-- Some utilities -----------------------------------------------
+
+def _both_are_vars(v1, v2):
+    return isinstance(v1, Var) and isinstance(v2, Var)
+    
+def _both_are_bound(v1, v2):
+    return v1._is_bound() and v2._is_bound()
+
+
+
+#--
+#-- the global store
+from problems import dummy_problem
+_store = ComputationSpace(dummy_problem)
+
+#-- global accessor functions
+def var(name):
+    v = Var(name, _store)
+    _store.add_unbound(v)
+    return v
+
+def set_domain(var, dom):
+    return _store.set_domain(var, dom)
+
+def add_constraint(constraint):
+    return _store.add_constraint(constraint)
+
+def satisfiable(constraint):
+    return _store.satisfiable(constraint)
+
+def get_satisfying_domains(constraint):
+    return _store.get_satisfying_domains(constraint)
+
+def satisfy(constraint):
+    return _store.satisfy(constraint)
+
+def bind(var, val):
+    return _store.bind(var, val)
+
+def unify(var1, var2):
+    return _store.unify(var1, var2)

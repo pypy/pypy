@@ -1,6 +1,7 @@
-# First cut at representing Oz dataflow variable
-
 import threading
+
+from constraint import FiniteDomain
+
 
 #----------- Exceptions ---------------------------------
 class VariableException(Exception):
@@ -30,19 +31,15 @@ class NoValue:
 
 class Var(object):
 
-    def __init__(self, name, store):
-        if name in store.names:
+    def __init__(self, name, cs):
+        if name in cs.names:
             raise AlreadyInStore(name)
         self.name = name
-        self.store = store
+        self.cs = cs
         # top-level 'commited' binding
         self._val = NoValue
-        # domain in a flat world
-        self.dom = None
         # domains in multiple spaces
-        self.doms = {}
-        # constraints
-        self.constraints = set()
+        self._doms = {cs : FiniteDomain([])}
         # when updated in a 'transaction', keep track
         # of our initial value (for abort cases)
         self.previous = None
@@ -51,7 +48,7 @@ class Var(object):
         self.mutex = threading.Lock()
         self.value_condition = threading.Condition(self.mutex)
 
-    # for consumption by the global store
+    # for consumption by the global cs
 
     def _is_bound(self):
         return not isinstance(self._val, EqSet) \
@@ -69,7 +66,7 @@ class Var(object):
     # value accessors
     def _set_val(self, val):
         self.value_condition.acquire()
-        if self.store.in_transaction:
+        if self.cs.in_transaction:
             if not self.changed:
                 self.previous = self._val
                 self.changed = True
@@ -103,15 +100,27 @@ class Var(object):
     is_bound = _is_bound
 
     def cs_set_dom(self, cs, dom):
-        self.doms[cs] = dom
+        self._doms[cs] = dom
 
     def cs_get_dom(self, cs):
-        return self.doms[cs]
+        return self._doms[cs]
 
     #---- Concurrent public ops --------------------------
     # should be used by threads that want to block on
     # unbound variables
+
+    def set_dom(self, dom):
+        self.cs_set_dom(self.cs.TLS.current_cs, dom)
+
+    def get_dom(self):
+        return self.cs_get_dom(self.cs.TLS.current_cs)
+
+    dom = property(get_dom, set_dom)
+
     def get(self):
+        """Make threads wait on the variable
+           being bound
+        """
         try:
             self.value_condition.acquire()
             while not self._is_bound():

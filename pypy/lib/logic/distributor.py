@@ -19,7 +19,7 @@ class AbstractDistributor(object):
         """returns the variable having the smallest domain.
         (or one of such varibles if there is a tie)
         """
-        vars_ = [var for var in self.c_space.store.get_variables_with_a_domain()
+        vars_ = [var for var in self.c_space.get_variables_with_a_domain()
                  if var.dom.size() > 1]
         
         best = vars_[0]
@@ -33,7 +33,7 @@ class AbstractDistributor(object):
         """returns the variable having the largest domain.
         (or one of such variables if there is a tie)
         """
-        vars_ = [var for var in self.c_space.store.get_variables_with_a_domain()
+        vars_ = [var for var in self.c_space.get_variables_with_a_domain()
                  if var.dom.size() > 1]
 
         best = vars_[0]
@@ -52,7 +52,7 @@ class AbstractDistributor(object):
         """do the minimal job and let concrete class distribute variables
         """
         self.verbose = verbose
-        variables = self.c_space.store.get_variables_with_a_domain()
+        variables = self.c_space.get_variables_with_a_domain()
         replicas = []
         for i in range(self.nb_subdomains()):
             replicas.append(make_new_domains(variables))

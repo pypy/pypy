@@ -1,7 +1,10 @@
-from py.test import raises
-import unification as u
-import variable as v
 from threading import Thread
+
+from py.test import raises
+
+import computationspace as u
+import variable as v
+from problems import *
 
 class Consumer(Thread):
 
@@ -22,7 +25,7 @@ class NConsumer(Thread):
 class TestVariable:
 
     def setup_method(self, meth):
-        u._store = u.Store()
+        u._store = u.ComputationSpace(dummy_problem)
 
     def test_no_same_name(self):
         x = u.var('x')
