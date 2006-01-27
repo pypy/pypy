@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.rpython.rarithmetic import intmask
+from pypy.interpreter.function import StaticMethod
 
 from pypy.rpython.rstack import yield_current_frame_to_caller
 from pypy.module.stackless.stackless_flags import StacklessFlags
@@ -201,6 +202,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
         self.switch()
+        appcostate.current = self
 
     def w_kill(self):
         self.kill()
@@ -227,6 +229,24 @@ def w_get_is_zombie(space, self):
     return space.wrap(self.get_is_zombie())
 AppCoroutine.w_get_is_zombie = w_get_is_zombie
 
+def w_coro_get_current(space):
+    return space.wrap(appcostate.current)
+
+def w_coro_get_main(space):
+    return space.wrap(appcostate.main)
+
+def installStaticMethod(space, w_klass, func, name=None):
+    if name is None:
+        name = func.__name__
+    smeth = StaticMethod(space.wrap(interp2app(func, name)))
+    space.setattr(w_klass, space.wrap(name), space.wrap(smeth))
+
+def post_install(module):
+    space = module.space
+    w_klass = space.getattr(space.wrap(module), space.wrap('Coroutine'))
+    installStaticMethod(space, w_klass, w_coro_get_current, 'get_current')
+    installStaticMethod(space, w_klass, w_coro_get_main, 'get_main')
+                           
 AppCoroutine.typedef = TypeDef("Coroutine",
     __new__ = interp2app(AppCoroutine.descr_method__new__.im_func),
     bind = interp2app(AppCoroutine.w_bind,
@@ -235,6 +255,12 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
 )
+
+class AppCoState(object):
+    def __init__(self):
+        self.current = self.main = AppCoroutine()
+
+appcostate = AppCoState()
 
 """
 Considerations about "current"
