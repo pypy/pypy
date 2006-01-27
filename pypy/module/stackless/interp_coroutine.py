@@ -104,6 +104,31 @@ class Coroutine(Wrappable):
         # override this for exposed coros
         pass
 
+    def is_alive(self):
+        return self.frame is not None or self is costate.current
+
+    def is_zombie(self):
+        return self.frame is not None and check_for_zombie(self)
+
+    def get_current():
+        return costate.current
+    get_current = staticmethod(get_current)
+
+    def get_main():
+        return costate.main
+    get_main = staticmethod(get_main)
+
+
+def check_for_zombie(self):
+    if costate.del_first is not None:
+        co = costate.del_first
+        while True:
+            if co is self:
+                return True
+            co = co.parent
+            if co is costate.del_first:
+                break
+    return False
 
 def postpone_deletion(obj):
     costate.things_to_do = True
@@ -136,9 +161,14 @@ costate = CoState()
 
 class _AppThunk(object):
 
-    def __init__(self, space, w_callable, args):
+    def __init__(self, space, w_obj, args):
         self.space = space
-        self.w_func = w_callable
+        if space.lookup(w_obj, '__call__') is None:
+            raise OperationError(
+                space.w_TypeError, 
+                space.mod(space.wrap('object %r is not callable'),
+                          space.newtuple([w_obj])))
+        self.w_func = w_obj
         self.args = args
 
     def call(self):
@@ -158,13 +188,15 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return space.wrap(co)
 
     def w_bind(self, w_func, __args__):
+        space = self.space
         if self.frame is not None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot bind a bound Coroutine"))
-        thunk = _AppThunk(self.space, w_func, __args__)
+        thunk = _AppThunk(space, w_func, __args__)
         self.bind(thunk)
 
     def w_switch(self):
+        space = self.space
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
