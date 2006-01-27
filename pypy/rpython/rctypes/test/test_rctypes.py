@@ -107,6 +107,7 @@ def py_test_simple_ctypes_non_const():
     return c_float( a + 10 )
 
 c_int_10 = ARRAY(c_int,10)
+c_int_p_test = POINTER(c_int)
 
 def py_test_annotate_array():
     return c_int_10()
@@ -117,6 +118,17 @@ def py_test_annotate_array_content():
     my_array[1] = 2
 
     return my_array[0]
+
+def py_test_annotate_pointer_content():
+    # Never run this function!
+    # See test_annotate_pointer_access_as_array_or_whatever
+    # for the weird reasons why this gets annotated
+    my_pointer = c_int_p_test(10)
+    my_pointer[0] = c_int(1)
+    my_pointer[1] = 2
+
+    return my_pointer[0]
+
 
 class Test_rctypes:
 
@@ -234,6 +246,9 @@ class Test_structure:
         s = a.build_types(py_test_simple_ctypes_non_const,[])
         assert s.knowntype == c_float
 
+
+class Test_array:
+
     def test_annotate_array(self):
         a = RPythonAnnotator()
         s = a.build_types(py_test_annotate_array,[])
@@ -245,4 +260,20 @@ class Test_structure:
         s = a.build_types(py_test_annotate_array_content,[])
         assert s.knowntype == int
         #d#t.view()
+
+    def test_annotate_pointer_access_as_array(self):
+        """
+        Make sure that pointers work the same way as arrays, for 
+        ctypes compatibility.
+
+        :Note: This works because pointer and array classes both
+        have a _type_ attribute, that contains the type of the 
+        object pointed to or in the case of an array the element type. 
+        """
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_test_annotate_pointer_content,[])
+        assert s.knowntype == int
+        #t#t.view()
+
 
