@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
-UNARY_OPERATIONS = "same_as hint getfield setfield".split()
+UNARY_OPERATIONS = "same_as hint getfield setfield direct_call".split()
 
 BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_eq".split()
 
@@ -38,11 +38,19 @@ class SomeLLAbstractValue(annmodel.SomeObject):
         self.concretetype = T
         assert self.__class__ != SomeLLAbstractValue
 
+    def reorigin(self, bookkeeper):
+        return self
+
 class SomeLLAbstractConstant(SomeLLAbstractValue):
 
     def __init__(self, T, origins):
         SomeLLAbstractValue.__init__(self, T)
         self.origins = origins
+
+    def reorigin(self, bookkeeper):
+        origin = bookkeeper.myorigin()
+        origin.merge(self.origins)
+        return SomeLLAbstractConstant(self.concretetype, {origin: True})
 
 class SomeLLConcreteValue(SomeLLAbstractValue):
     pass
@@ -85,6 +93,15 @@ class __extend__(SomeLLAbstractConstant):
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
+    def direct_call(hs_f1, *args_hs):
+        bookkeeper = getbookkeeper()
+        graph = hs_f1.const._obj.graph
+        hs_res = bookkeeper.annotator.recursivecall(graph, bookkeeper.position_key, args_hs)
+        if isinstance(hs_res, SomeLLAbstractValue):
+            return hs_res.reorigin(bookkeeper)
+        else:
+            return hs_res # impossible value
+        
 class __extend__(SomeLLAbstractContainer):
 
     def setfield(hs_s1, hs_fieldname, hs_value):

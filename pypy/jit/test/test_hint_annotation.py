@@ -203,10 +203,21 @@ def test_container_union():
     assert len(hs.origins) == 1
     assert len(hs.origins.keys()[0].origins) == 2
 
+def test_simple_call():
+    def ll2(x, y):
+        return x + (y + 42)
+    def ll1(x, y, z):
+        return ll2(x, y - z)
+    hs = hannotate(ll1, [int, int, int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 1
 
 
+def CUR_GOAL_test_hannotate_tl():
+    from pypy.jit import tl
 
-    
+    hannotate(tl.interp, [str, int])
 
   
 
