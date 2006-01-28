@@ -1,4 +1,5 @@
 from pypy.rpython.memory import gctransform
+from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
@@ -26,9 +27,15 @@ def checkblock(block):
         # it's a block we inserted
         return
     for link in block.exits:
+        fudge = 0
+        if (block.exitswitch is c_last_exception and link.exitcase is not None
+            and var_needsgc(block.operations[-1].result)):
+            fudge = 1
         refs_out = len([v for v in link.args
                         if isinstance(v, Variable) and var_needsgc(v)])
-        assert refs_in + push_alives + calls == pop_alives + refs_out
+        if link.last_exception is not None and link.last_exception in link.args:
+            refs_out -= 1
+        assert refs_in + push_alives + calls - fudge == pop_alives + refs_out
     
 
 def rtype_and_transform(func, inputtypes, transformcls, specialize=True):
@@ -38,10 +45,10 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True):
         t.buildrtyper().specialize(t)
     transformer = transformcls()
     transformer.transform(t.graphs)
+#    t.view()
     t.checkgraphs()
     for graph in t.graphs:
         for block in graph.iterblocks():
-            print graph, block, block.isstartblock
             checkblock(block)
     return t
 
@@ -191,4 +198,36 @@ def test_noconcretetype():
         elif op.opname == 'gc_pop_alive_pyobj':
             pop_count += 1
     assert push_count == 0 and pop_count == 1
+    
+def test_except_block():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(a, n):
+        if n == 0:
+            raise ValueError
+        a.x = 1
+        return a
+    def g(n):
+        a = lltype.malloc(S)
+        try:
+            return f(a, n).x
+        except ValueError:
+            return 0
+    t = rtype_and_transform(g, [int], gctransform.GCTransformer)
+
+def test_except_block2():
+    # the difference here is that f() returns Void, not a GcStruct
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(a, n):
+        if n == 0:
+            raise ValueError
+        a.x = 1
+    def g(n):
+        a = lltype.malloc(S)
+        try:
+            f(a, n)
+            return a.x
+        except ValueError:
+            return 0
+    t = rtype_and_transform(g, [int], gctransform.GCTransformer)
+    
     

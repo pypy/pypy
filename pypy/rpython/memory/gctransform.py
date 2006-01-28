@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.objspace.flow.model import SpaceOperation, Variable
+from pypy.objspace.flow.model import SpaceOperation, Variable, c_last_exception
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython import rmodel
 import sets
@@ -95,13 +95,26 @@ class GCTransformer:
             # everything is fine already for returnblocks and exceptblocks
             pass
         else:
-            deadinallexits = sets.Set(livevars)
-            for link in block.exits:
-                deadinallexits.difference_update(sets.Set(link.args))
+            if block.exitswitch is c_last_exception:
+                # if we're in a try block, the last operation must
+                # remain the last operation, so don't add a pop_alive
+                # to the block, even if the variable dies in all
+                # linked blocks.
+                deadinallexits = sets.Set([])
+            else:
+                deadinallexits = sets.Set(livevars)
+                for link in block.exits:
+                    deadinallexits.difference_update(sets.Set(link.args))
             for var in deadinallexits:
                 newops.extend(self.pop_alive(var))
             for link in block.exits:
                 livecounts = dict.fromkeys(sets.Set(livevars) - deadinallexits, 1)
+                if (block.exitswitch is c_last_exception and link.exitcase is not None
+                    and livevars[-1] is block.operations[-1].result):
+                    # if the last operation in the block raised an
+                    # exception, it can't have returned anything that
+                    # might need pop_aliving.
+                    del livecounts[livevars[-1]]
                 for v in link.args:
                     if v in livecounts:
                         livecounts[v] -= 1
