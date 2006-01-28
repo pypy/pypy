@@ -39,14 +39,13 @@ class HintBookkeeper(object):
         res.const = const.value
         return res
 
-    def getvirtualstructdef(self, TYPE):
-        from pypy.jit.hintcontainer import VirtualStructDef
+    def getvirtualcontainerdef(self, TYPE):
         try:
             res = self.virtual_containers[self.position_key]
-            assert isinstance(res, VirtualStructDef)
             assert res.T == TYPE
         except KeyError:
-            res = VirtualStructDef(self, TYPE)
+            from pypy.jit.hintcontainer import virtualcontainerdef
+            res = virtualcontainerdef(self, TYPE)
             self.virtual_containers[self.position_key] = res
         return res
         

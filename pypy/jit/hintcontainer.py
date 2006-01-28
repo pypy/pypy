@@ -2,6 +2,27 @@ from pypy.annotation.listdef import ListItem
 from pypy.jit import hintmodel
 from pypy.rpython.lltypesystem import lltype
 
+def virtualcontainerdef(bookkeeper, T):
+    """Build and return a VirtualXxxDef() corresponding to a
+    freshly allocated virtual container.
+    """
+    if isinstance(T, lltype.Struct):
+        cls = VirtualStructDef
+    elif isinstance(T, lltype.Array):
+        cls = VirtualArrayDef
+    else:
+        raise TypeError("unsupported container type %r" % (T,))
+    return cls(bookkeeper, T)
+
+def make_item_annotation(bookkeeper, TYPE):
+    if isinstance(TYPE, lltype.ContainerType):
+        vdef = virtualcontainerdef(bookkeeper, TYPE)
+        return hintmodel.SomeLLAbstractContainer(vdef)
+    else:
+        return hintmodel.SomeLLAbstractConstant(TYPE, {})
+
+# ____________________________________________________________
+
 class FieldValue(ListItem):
 
     def __init__(self, bookkeeper, name, hs_value):
@@ -22,12 +43,7 @@ class VirtualStructDef:
         self.names = TYPE._names
         for name in self.names:
             FIELD_TYPE = self.fieldtype(name)
-            if isinstance(FIELD_TYPE, lltype.ContainerType):
-                assert isinstance(FIELD_TYPE, lltype.Struct)   # for now
-                vstructdef = VirtualStructDef(bookkeeper, FIELD_TYPE)
-                hs = hintmodel.SomeLLAbstractContainer(vstructdef)
-            else:
-                hs = hintmodel.SomeLLAbstractConstant(FIELD_TYPE, {})
+            hs = make_item_annotation(bookkeeper, FIELD_TYPE)
             fv = self.fields[name] = FieldValue(bookkeeper, name, hs)
             fv.itemof[self] = True
 
@@ -53,3 +69,40 @@ class VirtualStructDef:
 
     def __repr__(self):
         return "<VirtualStructDef '%s'>" % (self.T._name,)
+
+# ____________________________________________________________
+
+
+class ArrayItem(ListItem):
+
+    def patch(self):
+        for varraydef in self.itemof:
+            varraydef.arrayitem = self
+
+
+class VirtualArrayDef:
+
+    def __init__(self, bookkeeper, TYPE):
+        self.T = TYPE
+        self.bookkeeper = bookkeeper
+        hs = make_item_annotation(bookkeeper, TYPE.OF)
+        self.arrayitem = ArrayItem(bookkeeper, hs)
+        self.arrayitem.itemof[self] = True
+
+    def read_item(self):
+        self.arrayitem.read_locations[self.bookkeeper.position_key] = True
+        return self.arrayitem.s_value
+
+    def same_as(self, other):
+        return self.arrayitem is other.arrayitem
+
+    def union(self, other):
+        assert self.T == other.T
+        self.arrayitem.merge(other.arrayitem)
+        return self
+
+    def generalize_item(self, hs_value):
+        self.arrayitem.generalize(hs_value)
+
+    def __repr__(self):
+        return "<VirtualArrayDef of %r>" % (self.T.OF,)
