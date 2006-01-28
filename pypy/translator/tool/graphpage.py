@@ -165,6 +165,12 @@ class FlowGraphPage(GraphPage):
                     #info = '(%s) %s' % (var.concretetype, info)
                     info = str(var.concretetype)
                     self.links[var.name] = info
+                    
+        from pypy.jit import hintannotator
+
+        if isinstance(self.annotator, hintannotator.HintAnnotator):
+            return
+
         for graph in graphs:
             traverse(visit, graph)
 
