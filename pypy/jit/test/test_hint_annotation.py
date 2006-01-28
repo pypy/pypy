@@ -1,6 +1,7 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.hintannotator import HintAnnotator
+from pypy.jit.hintbookkeeper import HintBookkeeper
 from pypy.jit.hintmodel import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
@@ -113,6 +114,28 @@ def test_union():
     assert unionof(av1, ac1) == av1
     assert unionof(ac1, av1) == av1
     assert unionof(ac3, av1) == av1
-    assert unionof(av2, ac4) == av1    
+    assert unionof(av2, ac4) == av1
+
+def test_op_meet():
+    def meet(hs1, hs2):
+        HintBookkeeper().enter(None)
+        return pair(hs1, hs2).int_add()
+    av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
+    cv1, cv2 = SomeLLConcreteValue(lltype.Signed), SomeLLConcreteValue(lltype.Signed)
+    ac1, ac2 = SomeLLAbstractConstant(lltype.Signed, {}), SomeLLAbstractConstant(lltype.Signed, {})
+    assert meet(av1, av2) == av1
+    assert meet(cv1, cv2) == cv2
+    assert isinstance(meet(ac1, ac2), SomeLLAbstractConstant)
+    assert meet(ac1, cv1) == cv1
+    assert meet(cv1, ac1) == cv1
+    assert meet(av1, cv1) == av1
+    assert meet(cv1, av1) == av1
+    assert meet(ac1, av1) == av1
+    assert meet(av1, ac1) == av1
+
+
+
+
+
     
     
