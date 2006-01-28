@@ -54,7 +54,7 @@ class __extend__(SomeLLAbstractValue):
 class __extend__(SomeLLAbstractConstant):
 
     def hint(hs_c1, hs_flags):
-        if hs_flags.const.get('variable', False):
+        if hs_flags.const.get('variable', False): # only for testing purposes!!!
             return SomeLLAbstractValue(hs_c1.concretetype)
         assert hs_flags.const['concrete']
         for o in hs_c1.origins:
