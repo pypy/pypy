@@ -205,10 +205,13 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         appcostate.current = self
 
     def w_kill(self):
+        if appcostate.current is self:
+            costate.current = self
         self.kill()
 
     def __del__(self):
-        if self.frame is not None or self.space.lookup(self, '__del__') is not None:
+        if postpone_deletion is not None:
+            # we might be very late (happens with interpreted pypy)
             postpone_deletion(self)
 
     def _userdel(self):
@@ -217,6 +220,13 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.set_is_zombie(True)
         self.space.userdel(self)
 
+    def get_current(space):
+        return space.wrap(appcostate.current)
+    get_current = staticmethod(get_current)
+
+    def get_main(space):
+        return space.wrap(appcostate.main)
+    get_main = staticmethod(get_main)
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
@@ -229,24 +239,24 @@ def w_get_is_zombie(space, self):
     return space.wrap(self.get_is_zombie())
 AppCoroutine.w_get_is_zombie = w_get_is_zombie
 
-def w_coro_get_current(space):
-    return space.wrap(appcostate.current)
-
-def w_coro_get_main(space):
-    return space.wrap(appcostate.main)
-
-def installStaticMethod(space, w_klass, func, name=None):
-    if name is None:
-        name = func.__name__
-    smeth = StaticMethod(space.wrap(interp2app(func, name)))
-    space.setattr(w_klass, space.wrap(name), space.wrap(smeth))
+def makeStaticMethod(module, classname, funcname):
+    space = module.space
+    space.appexec(map(space.wrap, (module, classname, funcname)), """
+        (module, klassname, funcname):
+            klass = getattr(module, klassname)
+            func = getattr(klass, funcname)
+            setattr(klass, funcname, staticmethod(func.im_func))
+    """)
 
 def post_install(module):
-    space = module.space
-    w_klass = space.getattr(space.wrap(module), space.wrap('Coroutine'))
-    installStaticMethod(space, w_klass, w_coro_get_current, 'get_current')
-    installStaticMethod(space, w_klass, w_coro_get_main, 'get_main')
-                           
+    appcostate.main.space = module.space
+    makeStaticMethod(module, 'Coroutine', 'get_current')
+    makeStaticMethod(module, 'Coroutine', 'get_main')
+
+# space.appexec("""() :
+
+# maybe use __spacebind__ for postprocessing
+
 AppCoroutine.typedef = TypeDef("Coroutine",
     __new__ = interp2app(AppCoroutine.descr_method__new__.im_func),
     bind = interp2app(AppCoroutine.w_bind,
@@ -254,6 +264,8 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
+    get_current = interp2app(AppCoroutine.get_current),
+    get_main = interp2app(AppCoroutine.get_main),
 )
 
 class AppCoState(object):
