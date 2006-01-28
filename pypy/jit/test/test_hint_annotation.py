@@ -169,6 +169,22 @@ def test_simple_struct():
     assert len(hs.origins) == 1
     assert len(hs.origins.keys()[0].origins) == 2
 
+def test_simple_struct_malloc():
+    S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
+                                      ('world', lltype.Signed))               
+    def ll_function(x):
+        s = lltype.malloc(S)
+        s.hello = x
+        return s.hello + s.world
+
+    hs = hannotate(ll_function, [int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 1
+    assert len(hs.origins.keys()[0].origins) == 1
+
+        
+
 
 
     

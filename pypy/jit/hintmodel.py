@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
-UNARY_OPERATIONS = "same_as hint getfield".split()
+UNARY_OPERATIONS = "same_as hint getfield setfield".split()
 
 BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_eq".split()
 
@@ -46,6 +46,12 @@ class SomeLLConcreteValue(SomeLLAbstractValue):
 class SomeLLAbstractVariable(SomeLLAbstractValue):
     pass
 
+class SomeLLAbstractContainer(SomeLLAbstractValue):
+
+    def __init__(self, contentdef):
+        self.contentdef = contentdef
+        self.concretetype = lltype.Ptr(contentdef.T)
+
 # ____________________________________________________________
 # operations
 
@@ -74,6 +80,15 @@ class __extend__(SomeLLAbstractConstant):
             return SomeLLAbstractConstant(FIELD_TYPE, {origin: True})
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
+
+class __extend__(SomeLLAbstractContainer):
+
+    def setfield(hs_s1, hs_fieldname, hs_value):
+        hs_s1.contentdef.generalize_field(hs_fieldname.const, hs_value)
+
+    def getfield(hs_s1, hs_fieldname):
+        return hs_s1.contentdef.read_field(hs_fieldname.const)
+
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
