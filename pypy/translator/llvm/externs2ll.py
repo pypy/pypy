@@ -24,8 +24,8 @@ support_functions = [
     "%LLVM_RPython_StartupCode",
     ]
 
-def get_genexterns_path():
-    return os.path.join(get_llvm_cpath(), "genexterns.c")
+def get_module_file(name):
+    return os.path.join(get_llvm_cpath(), name)
 
 def get_ll(ccode, function_names):
     function_names += support_functions
@@ -101,6 +101,7 @@ def get_ll(ccode, function_names):
         raise "Can't compile external function code (llcode.c): ERROR:", llcode
     return decl, impl
 
+
 def setup_externs(db):
     rtyper = db.translator.rtyper
     from pypy.translator.c.extfunc import predeclare_all
@@ -122,6 +123,20 @@ def setup_externs(db):
             db.prepare_constant(lltype.typeOf(obj), obj)
         else:
             assert False, "unhandled predeclare %s %s %s" % (c_name, type(obj), obj)
+
+    def annotatehelper(func, *argtypes):
+        graph = db.translator.rtyper.annotate_helper(func, argtypes)
+        fptr = rtyper.getcallable(graph)
+        c = inputconst(lltype.typeOf(fptr), fptr)
+        db.prepare_arg_value(c)
+        decls.append(("ll_" + func.func_name, graph))
+        return graph.name
+
+    if hasattr(db.gcpolicy, 'exc_useringbuf') and db.gcpolicy.exc_useringbuf:
+        from pypy.translator.llvm.externs import ringbuffer as rb
+        g = annotatehelper(rb.ringbuffer_initialise)
+        db.gcpolicy.ringbuf_malloc_name = \
+                 annotatehelper(rb.ringbuffer_malloc, lltype.Signed)
 
     return decls
 
@@ -179,6 +194,9 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
             assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
 
 
+    # append protos
+    ccode.append(open(get_module_file('protos.h')).read())
+
     # include this early to get constants and macros for any further includes
     ccode.append('#include <Python.h>\n')
 
@@ -186,7 +204,6 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode.append('%s\n' % db.gcpolicy.genextern_code())
     
     # append our source file
-    ccode = "".join(ccode)
-    ccode += open(get_genexterns_path()).read()
-    
-    return get_ll(ccode, function_names)
+    ccode.append(open(get_module_file('genexterns.c')).read())
+
+    return get_ll("".join(ccode), function_names)

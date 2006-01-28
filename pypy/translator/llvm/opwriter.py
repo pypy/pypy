@@ -265,8 +265,15 @@ class OpWriter(object):
 
     def malloc(self, opr):
         arg_type = opr.op.args[0].value
+
+        # XXX hack better to look at the actual structure
+        name = str(opr.op.args[0])
+        exc = False
+        if 'Exception' in name or 'Error' in name:
+            exc = True
+
         self.db.gcpolicy.malloc(self.codewriter, opr.retref, opr.rettype,
-                                atomic=arg_type._is_atomic())
+                                atomic=arg_type._is_atomic(), exc_flag=exc)
 
     def malloc_varsize(self, opr):
 
@@ -488,14 +495,6 @@ class OpWriter(object):
     # ______________________________________________________________________
     # 
     # XXX exception specific - move to policy?
-
-    def malloc_exception(self, opr): 
-        tmpvar1, tmpvar2, tmpvar3 = self._tmp(3)
-        cw = self.codewriter
-        cw.getelementptr(tmpvar1, opr.rettype, "null", [("int", 1)], getptr=False)
-        cw.cast(tmpvar2, opr.rettype, tmpvar1, 'uint')
-        cw.call(tmpvar3, 'sbyte*', '%malloc_exception', ['uint'], [tmpvar2])
-        cw.cast(opr.retref, 'sbyte*', tmpvar3, opr.rettype)
 
     def last_exception_type_ptr(self, opr):
         op = opr.op

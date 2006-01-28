@@ -9,7 +9,7 @@ class GcPolicy:
         raise Exception, 'GcPolicy should not be used directly'
     
     def genextern_code(self):
-        return ""
+        return ''
     
     def gc_libraries(self):
         return []
@@ -53,12 +53,20 @@ class RawGcPolicy(GcPolicy):
         #XXX memset
         
 class BoehmGcPolicy(GcPolicy):
-    def __init__(self, db):
+
+    def __init__(self, db, exc_useringbuf=False):
         self.db = db
         self.n_malloced = 0
+        self.exc_useringbuf = exc_useringbuf
         
     def genextern_code(self):
-        return '#include "boehm.h"'
+        r = '#include "boehm.h"\n'
+
+        if self.exc_useringbuf:
+            r += '#define __GC_SETUP_CODE__ ll_ringbuffer_initialise();\n'
+        else:
+            r += '#define __GC_SETUP_CODE__\n'
+        return r
     
     def gc_libraries(self):
         return ['gc', 'pthread'] # XXX on windows?
@@ -71,7 +79,13 @@ def GC_get_heap_size_wrapper():
     return GC_get_heap_size()
 '''
 
-    def _malloc(self, codewriter, targetvar, size=1, atomic=False):
+    def get_count(self, inc=False):
+        if inc:
+            self.n_malloced += 1
+        return '_%d' % self.n_malloced
+
+    def _malloc(self, codewriter, targetvar, size=1, atomic=False,
+                exc_flag=False):
         """ assumes malloc of word size """
         # XXX Boehm aligns on 8 byte boundaries
     	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
@@ -79,9 +93,18 @@ def GC_get_heap_size_wrapper():
 	else:
             boundary_size = 0
 
+        word = self.db.get_machine_word()
         uword = self.db.get_machine_uword()
-        fnname = '%pypy_malloc' + (atomic and '_atomic' or '')
-        codewriter.call(targetvar, 'sbyte*', fnname, [uword], [size])
+
+        if self.exc_useringbuf and exc_flag:
+            fnname = '%pypy_' + self.ringbuf_malloc_name
+        else:
+            fnname = '%pypy_malloc' + (atomic and '_atomic' or '')
+
+        # malloc_size is unsigned right now
+        sizei = '%malloc_sizei' + self.get_count()        
+        codewriter.cast(sizei, uword, size, word)
+        codewriter.call(targetvar, 'sbyte*', fnname, [word], [sizei])
         
         if atomic:
             codewriter.call(None, 'void', '%llvm.memset',
@@ -89,18 +112,17 @@ def GC_get_heap_size_wrapper():
                             [targetvar, 0, size, boundary_size],
                             cconv='ccc')        
 
-    def malloc(self, codewriter, targetvar, type_, size=1, atomic=False):
+    def malloc(self, codewriter, targetvar, type_, size=1, atomic=False,
+               exc_flag=False):
         uword = self.db.get_machine_uword()
-        self.n_malloced += 1
-        cnt = '_%d' % self.n_malloced
-        malloc_ptr = '%malloc_ptr' + cnt
-        malloc_size = '%malloc_size' + cnt
-        malloc_sizeu = '%malloc_sizeu' + cnt
+        malloc_ptr = '%malloc_ptr' + self.get_count(True)
+        malloc_size = '%malloc_size' + self.get_count()
+        malloc_sizeu = '%malloc_sizeu' + self.get_count()
         
         codewriter.getelementptr(malloc_size, type_, 'null',
                                  [(uword, size)], getptr=False)
         codewriter.cast(malloc_sizeu, type_, malloc_size, uword)
-        self._malloc(codewriter, malloc_ptr, malloc_sizeu, atomic)
+        self._malloc(codewriter, malloc_ptr, malloc_sizeu, atomic, exc_flag)
         codewriter.cast(targetvar, 'sbyte*', malloc_ptr, type_)            
 
     def var_malloc(self, codewriter, targetvar,
@@ -108,13 +130,11 @@ def GC_get_heap_size_wrapper():
 
         word = lentype = self.db.get_machine_word()
         uword = self.db.get_machine_uword()
-        self.n_malloced += 1
-        cnt = '_%d' % self.n_malloced
-        malloc_ptr = '%malloc_ptr' + cnt
-        malloc_size = '%malloc_size' + cnt
-        malloc_sizeu = '%malloc_sizeu' + cnt
-        actuallen = '%actuallen' + cnt
-        arraylength = '%arraylength' + cnt
+        malloc_ptr = '%malloc_ptr' + self.get_count(True)
+        malloc_size = '%malloc_size' + self.get_count()
+        malloc_sizeu = '%malloc_sizeu' + self.get_count()
+        actuallen = '%actuallen' + self.get_count()
+        arraylength = '%arraylength' + self.get_count()
         
         ARRAY, indices_to_array = node.var_malloc_info()
         

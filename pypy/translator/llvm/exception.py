@@ -2,8 +2,8 @@ from pypy.objspace.flow.model import Variable, c_last_exception
 
 from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 from pypy.translator.llvm.backendopt.exception import create_exception_handling
-from pypy.translator.llvm.module.excsupport import \
-     ringbuffer_decl, ringbuffer_code, invokeunwind_code, explicit_code
+from pypy.translator.llvm.module.excsupport import invokeunwind_code, \
+                                                   explicit_code
 
 def repr_if_variable(db, arg):
     if isinstance(arg, Variable):
@@ -89,7 +89,7 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):
         returntype, entrypointname = entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
         cconv = DEFAULT_CCONV
-        return invokeunwind_code % locals() + ringbuffer_code
+        return invokeunwind_code % locals()
 
     def invoke(self, codewriter, targetvar, tail_, cconv, returntype,
                functionref, args, label, except_label):
@@ -182,13 +182,13 @@ class ExplicitExceptionPolicy(ExceptionPolicy):
         self.invoke_count = 0
 
     def llvm_declcode(self):
-        return ringbuffer_decl
+        return ''
     
     def llvm_implcode(self, entrynode):
         returntype, entrypointname = entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
         cconv = DEFAULT_CCONV
-        return explicit_code % locals() + ringbuffer_code
+        return explicit_code % locals()
  
     def transform(self, translator, graph=None):
         if graph:

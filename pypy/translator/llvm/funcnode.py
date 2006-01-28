@@ -4,7 +4,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
-from pypy.translator.llvm.backendopt.removeexcmallocs import remove_exception_mallocs
 from pypy.translator.unsimplify import remove_double_links
 log = log.funcnode
 
@@ -72,9 +71,6 @@ class FuncNode(ConstantLLVMNode):
 
     def post_setup_transform(self):
         self.db.exceptionpolicy.transform(self.db.translator, self.graph)
-	import sys
-	if sys.maxint == 2**31-1:	#XXX not yet 64bit compatible
-        	remove_exception_mallocs(self.db.translator, self.graph, self.ref)
         remove_double_links(self.db.translator, self.graph)
     
     def writedecl(self, codewriter): 

@@ -1,22 +1,29 @@
-from pypy.rpython.memory.lladdress import raw_malloc
+from pypy.rpython.memory import lladdress
+from pypy.rpython.lltypesystem import lltype, llmemory
 
-class RingBufferData:
-    size          = 8192
-    entry_maxsize = 16
+# Cant store in class
+size = 8192
+entry_maxsize = 16
+ringbufdata = lltype.malloc(lltype.GcArray(llmemory.Address), 1)
+ringbufindex = lltype.malloc(lltype.GcArray(lltype.Signed), 1)
 
-    def __init__(self):
-        self.index = 0
-    def init(self):
-        self.data = raw_malloc(self.size + self.entry_maxsize)
+def ringbuffer_initialise():
+    ringbufdata[0] = lladdress.raw_malloc(size + entry_maxsize)
 
-ringbuffer = RingBufferData()
-
-def initialise():
-    ringbuffer.init()
-
-def malloc_exception(nbytes):
-    assert nbytes <= ringbuffer.entry_maxsize
-    addr = ringbuffer.data + ringbuffer.index
-    ringbuffer.index = (ringbuffer.index + nbytes) & (ringbuffer.size - 1)
+def ringbuffer_malloc(nbytes):
+    assert nbytes <= entry_maxsize
+    addr = ringbufdata[0] + ringbufindex[0]
+    ringbufindex[0] = (ringbufindex[0] + nbytes) & (size - 1)
     return addr
 
+# XXX would be nice to support something like this
+# ringbufindex = lltype.malloc(lltype.GcArray(lltype.Char), size + entry_maxsize)
+
+# def ringbuffer_initialise():
+#     pass
+
+# def ringbuffer_malloc(nbytes):
+#     assert nbytes <= entry_maxsize
+#     addr = lladdress.get_address_of_object(ringbufdata[ringbufindex[0]])
+#     ringbufindex[0] = (ringbufindex[0] + nbytes) & (size - 1)
+#     return addr
