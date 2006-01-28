@@ -83,3 +83,10 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         assert hs_c1.concretetype == hs_c2.concretetype
         origins = annmodel.setunion(hs_c1.origins, hs_c2.origins)
         return SomeLLAbstractConstant(hs_c1.concretetype, origins)
+
+class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
+                 pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
+                 pairtype(SomeLLConcreteValue, SomeLLConcreteValue)):
+
+    def int_add((hs_c1, hs_c2)):
+        return SomeLLConcreteValue(lltype.Signed)

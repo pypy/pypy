@@ -76,7 +76,14 @@ def test_simple_variable():
         x = hint(x, variable=True) # special hint only for testing purposes!!!
         return x + y
     hs = hannotate(ll_function, [int, int])
-    assert type(hs) is  SomeLLAbstractValue
+    assert type(hs) is SomeLLAbstractValue
     assert hs.concretetype == lltype.Signed
     
-    
+def test_simple_concrete_propagation():
+    def ll_function(x,y):
+        x = hint(x, concrete=True)
+        return x + y
+    hs = hannotate(ll_function, [int, int])
+    assert type(hs) is SomeLLConcreteValue
+    assert hs.concretetype == lltype.Signed
+     
