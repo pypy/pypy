@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem import lltype
 
 UNARY_OPERATIONS = "same_as hint".split()
 
-BINARY_OPERATIONS = "int_add int_sub".split()
+BINARY_OPERATIONS = "int_add int_sub int_gt int_eq".split()
 
 class OriginTreeNode(object):
 
@@ -91,6 +91,12 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
     int_sub = int_add
 
+    def int_gt((hs_c1, hs_c2)):
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        origin.merge(hs_c2.origins)
+        return SomeLLAbstractConstant(lltype.Bool, {origin: True})
+
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
         origins = annmodel.setunion(hs_c1.origins, hs_c2.origins)
@@ -102,3 +108,6 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
 
     def int_add((hs_c1, hs_c2)):
         return SomeLLConcreteValue(lltype.Signed)
+
+    def int_eq((hs_c1, hs_c2)):
+        return SomeLLConcreteValue(lltype.Bool)

@@ -133,6 +133,29 @@ def test_op_meet():
     assert meet(ac1, av1) == av1
     assert meet(av1, ac1) == av1
 
+def test_loop():
+    def ll_function(x, y):
+        while x > 0:
+            y += x
+            x -= 1
+        return y
+    hs = hannotate(ll_function, [int, int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 2
+
+def test_loop1():
+    def ll_function(x, y):
+        while x > 0:
+            x1 = hint(x, concrete=True)
+            if x1 == 7:
+                y += x
+            x -= 1
+        return y
+    hs = hannotate(ll_function, [int, int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 2
 
 
 
