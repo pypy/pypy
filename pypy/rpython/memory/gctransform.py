@@ -28,14 +28,17 @@ def var_needsgc(var):
     return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
 
 class GCTransformer:
-    def __init__(self, graphs):
-        self.graphs = graphs
+    def __init__(self):
+        self.seen_graphs = {}
 
-    def transform(self):
-        for graph in self.graphs:
+    def transform(self, graphs):
+        for graph in graphs:
             self.transform_graph(graph)
 
     def transform_graph(self, graph):
+        if graph in self.seen_graphs:
+            return
+        self.seen_graphs[graph] = True
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
         newops = []

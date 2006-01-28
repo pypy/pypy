@@ -32,8 +32,8 @@ def rtype_and_transform(func, inputtypes, transformcls):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
     t.buildrtyper().specialize(t)
-    transformer = transformcls(t.graphs)
-    transformer.transform()
+    transformer = transformcls()
+    transformer.transform(t.graphs)
     t.checkgraphs()
     for graph in t.graphs:
         for block in graph.iterblocks():
