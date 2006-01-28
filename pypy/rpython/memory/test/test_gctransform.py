@@ -5,11 +5,14 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
 
 def checkblock(block):
-    if not block.operations == ():
+    if block.operations == ():
         # a return/exception block -- don't want to think about them
         # (even though the test passes for somewhat accidental reasons)
         return
-    vars_in = len([v for v in block.inputargs if var_needsgc(v)])
+    if block.isstartblock:
+        refs_in = 0
+    else:
+        refs_in = len([v for v in block.inputargs if var_needsgc(v)])
     push_alives = len([op for op in block.operations
                        if op.opname.startswith('gc_push_alive')])
     pop_alives = len([op for op in block.operations
@@ -20,9 +23,9 @@ def checkblock(block):
         # it's a block we inserted
         return
     for link in block.exits:
-        vars_out = len([v for v in link.args
+        refs_out = len([v for v in link.args
                         if isinstance(v, Variable) and var_needsgc(v)])
-        assert vars_in + push_alives + calls == pop_alives + vars_out
+        assert refs_in + push_alives + calls == pop_alives + refs_out
     
 
 def rtype_and_transform(func, inputtypes, transformcls):
@@ -34,6 +37,7 @@ def rtype_and_transform(func, inputtypes, transformcls):
     t.checkgraphs()
     for graph in t.graphs:
         for block in graph.iterblocks():
+            print graph, block, block.isstartblock
             checkblock(block)
     return t
 
@@ -159,3 +163,15 @@ def test_pyobj():
                  if op.opname.startswith("gc_")]
     for op in gcops:
         assert op.opname.endswith("_pyobj")
+
+def test_pass_gc_pointer():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(s):
+        s.x = 1
+    def g():
+        s = lltype.malloc(S)
+        f(s)
+        return s.x
+    t = rtype_and_transform(g, [], gctransform.GCTransformer)
+    ggraph = graphof(t, g)
+        

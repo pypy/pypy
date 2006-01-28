@@ -37,6 +37,13 @@ class GCTransformer:
 
     def transform_graph(self, graph):
         self.links_to_split = {} # link -> vars to pop_alive across the link
+
+        newops = []
+        for var in graph.startblock.inputargs:
+            if var_needsgc(var):
+                newops.extend(self.push_alive(var))
+        graph.startblock.operations[0:0] = newops
+        
         for block in graph.iterblocks():
             self.transform_block(block)
         for link, livecounts in self.links_to_split.iteritems():
