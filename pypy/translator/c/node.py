@@ -5,7 +5,6 @@ from pypy.rpython.lltypesystem.lltype import \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
      RuntimeTypeInfo, getRuntimeTypeInfo, Char
 from pypy.translator.c.funcgen import FunctionCodeGenerator
-from pypy.translator.c.newfuncgen import FunctionCodeGenerator as NewFunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, somelettersfrom, c_string_constant
@@ -549,11 +548,8 @@ def select_function_code_generator(fnobj, db, functionname):
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
         if hasattr(db, 'stacklessdata'):
-            assert not db.use_new_funcgen, "can't use stackless with the new funcgen yet"
             from pypy.translator.c.stackless import SlpFunctionCodeGenerator
             gencls = SlpFunctionCodeGenerator
-        elif db.use_new_funcgen:
-            gencls = NewFunctionCodeGenerator
         else:
             gencls = FunctionCodeGenerator
         return gencls(fnobj.graph, db, cpython_exc, functionname)
