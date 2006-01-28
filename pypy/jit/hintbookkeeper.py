@@ -31,6 +31,12 @@ class HintBookkeeper(object):
     def compute_at_fixpoint(self):
         pass
 
+    def immutableconstant(self, const):
+        from pypy.jit import hintmodel
+        res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})
+        res.const = const.value
+        return res
+
 # get current bookkeeper
 
 def getbookkeeper():

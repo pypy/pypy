@@ -197,7 +197,7 @@ class RPythonAnnotator:
         elif isinstance(arg, Constant):
             #if arg.value is undefined_value:   # undefined local variables
             #    return annmodel.SomeImpossibleValue()
-            return self.bookkeeper.immutablevalue(arg.value)
+            return self.bookkeeper.immutableconstant(arg)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 

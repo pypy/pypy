@@ -292,6 +292,9 @@ class Bookkeeper:
             dictdef.generalize_value(s_value)
         return SomeDict(dictdef)
 
+    def immutableconstant(self, const):
+        return self.immutablevalue(const.value)
+
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
