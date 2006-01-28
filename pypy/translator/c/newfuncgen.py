@@ -165,26 +165,6 @@ class FunctionCodeGenerator(object):
             if line:
                 yield line
 
-        def gen_link(link, linklocalvars=None):
-            "Generate the code to jump across the given Link."
-            is_alive = {}
-            linklocalvars = linklocalvars or {}
-            for v in to_release:
-                linklocalvars[v] = self.expr(v)
-            assignments = []
-            for a1, a2 in zip(link.args, link.target.inputargs):
-                a2type, a2typename = self.lltypes[id(a2)]
-                if a2type is Void:
-                    continue
-                if a1 in linklocalvars:
-                    src = linklocalvars[a1]
-                else:
-                    src = self.expr(a1)
-                dest = LOCALVAR % a2.name
-                assignments.append((a2typename, dest, src))
-            for line in gen_assignments(assignments):
-                yield line
-            yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
         for block in graph.iterblocks():
@@ -231,7 +211,7 @@ class FunctionCodeGenerator(object):
             elif block.exitswitch is None:
                 # single-exit block
                 assert len(block.exits) == 1
-                for op in gen_link(block.exits[0]):
+                for op in self.gen_link(block.exits[0], to_release, blocknum):
                     yield op
                 yield ''
             elif block.exitswitch == c_last_exception:
@@ -239,7 +219,7 @@ class FunctionCodeGenerator(object):
                 # we handle the non-exceptional case first
                 link = block.exits[0]
                 assert link.exitcase is None
-                for op in gen_link(link):
+                for op in self.gen_link(link, to_release, blocknum):
                     yield op
                 # we must catch the exception raised by the last operation,
                 # which goes to the last err%d_%d label written above.
@@ -277,7 +257,7 @@ class FunctionCodeGenerator(object):
                         d[link.last_exc_value] = 'exc_value'
                     else:
                         yield '\t' + self.pop_alive_expr('exc_value', T2)
-                    for op in gen_link(link, d):
+                    for op in self.gen_link(link, to_release, blocknum, d):
                         yield '\t' + op
                     yield '}'
                 fallthrough = True
@@ -299,14 +279,14 @@ class FunctionCodeGenerator(object):
                             else:
                                 expr = '%s == Py_False' % expr
                         yield 'if (%s) {' % expr
-                        for op in gen_link(link):
+                        for op in self.gen_link(link, to_release, blocknum):
                             yield '\t' + op
                         yield '}'
                     link = block.exits[-1]
                     assert link.exitcase in (False, True)
                     #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
                     #                       self.genc.nameofvalue(link.exitcase, ct))
-                    for op in gen_link(block.exits[-1]):
+                    for op in self.gen_link(block.exits[-1], to_release, blocknum):
                         yield op
                     yield ''
                 elif TYPE in (Signed, Unsigned, SignedLongLong,
@@ -319,7 +299,7 @@ class FunctionCodeGenerator(object):
                             defaultlink = link
                             continue
                         yield 'case %s:' % self.db.get(link.llexitcase)
-                        for op in gen_link(link):
+                        for op in self.gen_link(link, to_release, blocknum):
                             yield '\t' + op
                         yield 'break;'
                         
@@ -327,7 +307,7 @@ class FunctionCodeGenerator(object):
                     if defaultlink is None:
                         raise TypeError('switches must have a default case.')
                     yield 'default:'
-                    for op in gen_link(defaultlink):
+                    for op in self.gen_link(defaultlink, to_release, blocknum):
                         yield '\t' + op
 
                     yield '}'
@@ -345,6 +325,27 @@ class FunctionCodeGenerator(object):
                         yield line
                 else:
                     yield self.pop_alive(to_release[i-1])
+
+    def gen_link(self, link, to_release, blocknum, linklocalvars=None):
+        "Generate the code to jump across the given Link."
+        is_alive = {}
+        linklocalvars = linklocalvars or {}
+        for v in to_release:
+            linklocalvars[v] = self.expr(v)
+        assignments = []
+        for a1, a2 in zip(link.args, link.target.inputargs):
+            a2type, a2typename = self.lltypes[id(a2)]
+            if a2type is Void:
+                continue
+            if a1 in linklocalvars:
+                src = linklocalvars[a1]
+            else:
+                src = self.expr(a1)
+            dest = LOCALVAR % a2.name
+            assignments.append((a2typename, dest, src))
+        for line in gen_assignments(assignments):
+            yield line
+        yield 'goto block%d;' % blocknum[link.target]
 
     def gen_op(self, op, err):
         macro = 'OP_%s' % op.opname.upper()
