@@ -7,7 +7,7 @@ class HintAnnotator(RPythonAnnotator):
 
     def __init__(self):
         RPythonAnnotator.__init__(self)
-        self.bookkeeper = HintBookkeeper() # XXX
+        self.bookkeeper = HintBookkeeper(self) # XXX
 
     def consider_op_malloc(self, hs_TYPE):
         TYPE = hs_TYPE.const

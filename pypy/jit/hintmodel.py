@@ -135,3 +135,8 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
 
     def int_eq((hs_c1, hs_c2)):
         return SomeLLConcreteValue(lltype.Bool)
+
+class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
+
+    def union((hs_cont1, hs_cont2)):
+        return SomeLLAbstractContainer(hs_cont1.contentdef.union(hs_cont2.contentdef))

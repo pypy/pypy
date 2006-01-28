@@ -118,7 +118,7 @@ def test_union():
 
 def test_op_meet():
     def meet(hs1, hs2):
-        HintBookkeeper().enter(None)
+        HintBookkeeper(None).enter(None)
         return pair(hs1, hs2).int_add()
     av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
     cv1, cv2 = SomeLLConcreteValue(lltype.Signed), SomeLLConcreteValue(lltype.Signed)
@@ -182,6 +182,29 @@ def test_simple_struct_malloc():
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 1
     assert len(hs.origins.keys()[0].origins) == 1
+
+def test_container_union():
+    S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
+                                      ('world', lltype.Signed))               
+    def ll_function(cond, x, y):
+        if cond:
+            s = lltype.malloc(S)
+            s.hello = x
+        else:
+            s = lltype.malloc(S)
+            s.world = y
+        return s.hello + s.world
+
+    hs = hannotate(ll_function, [bool, int, int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 1
+    assert len(hs.origins.keys()[0].origins) == 2
+    
+
+    
+
+  
 
         
 

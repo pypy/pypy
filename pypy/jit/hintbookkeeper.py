@@ -4,10 +4,11 @@ TLS = tlsobject()
 
 class HintBookkeeper(object):
 
-    def __init__(self):
+    def __init__(self, hannotator):
         self.pending_specializations = []
         self.origins = {}
         self.virtual_containers = {}
+        self.annotator = hannotator
 
     def enter(self, position_key):
         """Start of an operation.
