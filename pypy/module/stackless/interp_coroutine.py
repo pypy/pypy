@@ -14,7 +14,7 @@ import sys
 
 class CoState(object):
     def __init__(self):
-        self.last = self.current = self.main = Coroutine()
+        self.last = self.current = Coroutine()
         self.things_to_do = False
         self.temp_exc = None
         self.del_first = None
@@ -38,7 +38,7 @@ class Coroutine(Wrappable):
         if costate is None:
             self.parent = self
         else:
-            self.parent = costate.main
+            self.parent = costate.current
         self.thunk = None
 
     def bind(self, thunk):
@@ -82,7 +82,9 @@ class Coroutine(Wrappable):
     _update_state = staticmethod(_update_state)
 
     def kill(self):
-        if costate.current is self:
+#        if costate.current is self:
+ #           raise CoroutineExit
+        if self.frame is None:
             raise CoroutineExit
         costate.things_to_do = True
         costate.temp_exc = CoroutineExit()
@@ -117,10 +119,6 @@ class Coroutine(Wrappable):
     def get_current():
         return costate.current
     get_current = staticmethod(get_current)
-
-    def get_main():
-        return costate.main
-    get_main = staticmethod(get_main)
 
 
 def check_for_zombie(self):
@@ -197,6 +195,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot bind a bound Coroutine"))
         thunk = _AppThunk(space, w_func, __args__)
+        costate.current = appcostate.current
         self.bind(thunk)
 
     def w_switch(self):
@@ -204,6 +203,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
+        costate.current = appcostate.current
         self.switch()
         appcostate.current = self
         ret, appcostate.tempval = appcostate.tempval, space.w_None
@@ -229,9 +229,6 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return space.wrap(appcostate.current)
     get_current = staticmethod(get_current)
 
-    def get_main(space):
-        return space.wrap(appcostate.main)
-    get_main = staticmethod(get_main)
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
@@ -254,9 +251,8 @@ def makeStaticMethod(module, classname, funcname):
     """)
 
 def post_install(module):
-    appcostate.main.space = module.space
+    appcostate.post_install(module.space)
     makeStaticMethod(module, 'Coroutine', 'get_current')
-    makeStaticMethod(module, 'Coroutine', 'get_main')
 
 # space.appexec("""() :
 
@@ -270,12 +266,16 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
     get_current = interp2app(AppCoroutine.get_current),
-    get_main = interp2app(AppCoroutine.get_main),
 )
 
 class AppCoState(object):
     def __init__(self):
-        self.current = self.main = AppCoroutine()
+        self.current = AppCoroutine()
+
+    def post_install(self, space):
+        appcostate.current.space = space
+        appcostate.tempval = space.w_None
+
 
 appcostate = AppCoState()
 
@@ -299,11 +299,5 @@ need to keep track of their own "current".
 After a stackless task switch, stackless gets
 a new current. After a greenlet's switch, greenlet
 gets a new current.
-
-This concept has a collision, because there is also
-some notation of a "main". The solution is to let
-every exposed class create its own main in advance.
-This is nice, because the different concepts
-can completely co-exist.
 
 """
