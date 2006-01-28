@@ -60,7 +60,7 @@ def summary(graph):
     # return a summary of the instructions left in all the residual graphs
     insns = {}
     graphs = [graph]
-    found = set((graph,))
+    found = {graph: True}
     while graphs:
         graph = graphs.pop()
         for block in graph.iterblocks():
@@ -78,7 +78,7 @@ def summary(graph):
                             else:
                                 if graph not in found:
                                     graphs.append(graph)
-                                    found.add(graph)
+                                    found[graph] = True
     return insns
 
 P_INLINE = Policy(inlining=True)
@@ -410,3 +410,28 @@ def test_hint_across_call():
     graph2, insns = abstrinterp(ll_interp, [bytecode], [0],
                                 policy=P_HINT_DRIVEN)
     assert insns == {'int_add': 4, 'int_lt': 1}
+
+def test_conditional_origin():
+    from pypy.rpython.objectmodel import hint
+    def ll_function(x, y, variable):
+        result = 0
+        i = 0
+        while i < 10:
+            if i:
+                z = x
+            else:
+                z = y
+            z = hint(z, concrete=True)
+            if z == 42:
+                result += variable
+            i += 1
+        return result
+    graph2, insns = abstrinterp(ll_function, [42, 71298, -12], [0, 1],
+                                policy=P_HINT_DRIVEN)
+    # the result is not really specified.  In theory, the hint() call could
+    # fix 'i', because 'z' depends on 'i'.  Then we'd get:
+    #    assert insns == {'int_add': 9}
+    #
+    # But llabstractinterp doesn't track this particular dependency for now,
+    # so what we get is:
+    assert insns == {'int_lt': 1, 'int_is_true': 1, 'int_add': 2}
