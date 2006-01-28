@@ -1,6 +1,6 @@
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.hintannotator import HintAnnotator
-from pypy.jit.hintmodel import SomeLLAbstractConstant, SomeLLConcreteValue, OriginTreeNode
+from pypy.jit.hintmodel import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 
@@ -71,3 +71,12 @@ def test_simple_hint_origins():
             assert not o.origins
     assert hs.concretetype == lltype.Signed
  
+def test_simple_variable():
+    def ll_function(x,y):
+        x = hint(x, variable=True) # special hint only for testing purposes!!!
+        return x + y
+    hs = hannotate(ll_function, [int, int])
+    assert type(hs) is  SomeLLAbstractValue
+    assert hs.concretetype == lltype.Signed
+    
+    

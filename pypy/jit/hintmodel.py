@@ -34,9 +34,6 @@ class SomeLLAbstractValue(annmodel.SomeObject):
     def __init__(self, T):
         self.concretetype = T
 
-class SomeLLAbstractVariable(SomeLLAbstractValue):
-    pass
-
 class SomeLLAbstractConstant(SomeLLAbstractValue):
 
     def __init__(self, T, origins):
@@ -57,11 +54,20 @@ class __extend__(SomeLLAbstractValue):
 class __extend__(SomeLLAbstractConstant):
 
     def hint(hs_c1, hs_flags):
+        if hs_flags.const.get('variable', False):
+            return SomeLLAbstractValue(hs_c1.concretetype)
         assert hs_flags.const['concrete']
         for o in hs_c1.origins:
             for o1 in o.visit():
                 o1.fixed = True
         return SomeLLConcreteValue(hs_c1.concretetype)
+
+
+class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
+
+    def int_add((hs_v1, hs_v2)):
+        return SomeLLAbstractValue(lltype.Signed)
+
 
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
