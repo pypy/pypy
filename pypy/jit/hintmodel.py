@@ -28,11 +28,15 @@ class OriginTreeNode(object):
                 seen[o] = True
                 for o1 in o.visit(seen):
                     yield o1
+
+    def __repr__(self):
+        return "O" + (self.fixed and "f" or "")
                     
 class SomeLLAbstractValue(annmodel.SomeObject):
 
     def __init__(self, T):
         self.concretetype = T
+        assert self.__class__ != SomeLLAbstractValue
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
 
@@ -64,7 +68,7 @@ class __extend__(SomeLLAbstractConstant):
 
     def hint(hs_c1, hs_flags):
         if hs_flags.const.get('variable', False): # only for testing purposes!!!
-            return SomeLLAbstractValue(hs_c1.concretetype)
+            return SomeLLAbstractVariable(hs_c1.concretetype)
         assert hs_flags.const['concrete']
         for o in hs_c1.origins:
             for o1 in o.visit():

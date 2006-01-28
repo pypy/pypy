@@ -20,6 +20,8 @@ def hannotate(func, argtypes):
     hs = hannotator.build_graph_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                       {OriginTreeNode(): True})
                                                for v in graph1.getargs()])
+    #hannotator.translator.graphs.append(graph1)
+    #hannotator.translator.view()
     return hs
 
 def test_simple():
@@ -200,7 +202,9 @@ def test_container_union():
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 1
     assert len(hs.origins.keys()[0].origins) == 2
-    
+
+
+
 
     
 
