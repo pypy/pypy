@@ -33,7 +33,7 @@ SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
 
 flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read()[17:-1].split()
 flags += "-globalopt -constmerge -ipsccp -deadargelim -inline -instcombine -scalarrepl -globalsmodref-aa -licm -load-vn -gcse -instcombine -simplifycfg -globaldce".split()
-OPTIMIZATION_SWITCHES = " ".join(flags)
+OPTIMIZATION_SWITCHES = " ".join(flags) + " -inline-threshold=100"
 
 def compile_module(module, source_files, object_files, library_files):
     open("%s_setup.py" % module, "w").write(str(py.code.Source(
