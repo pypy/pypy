@@ -7,12 +7,12 @@ class extendabletype(type):
     the definition of 't' instead of creating a new subclass."""
     def __new__(cls, name, bases, dict):
         if name == '__extend__':
-            cls = bases[0]   # override data into the existing base
-            for key, value in dict.items():
-                if key == '__module__':
-                    continue
+            for cls in bases:
+                for key, value in dict.items():
+                    if key == '__module__':
+                        continue
                     # XXX do we need to provide something more for pickling?
-                setattr(cls, key, value)
+                    setattr(cls, key, value)
             return None
         else:
             return super(extendabletype, cls).__new__(cls, name, bases, dict)

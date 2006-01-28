@@ -1,5 +1,5 @@
 
-from pypy.annotation.pairtype import pairtype, pair
+from pypy.annotation.pairtype import pairtype, pair, extendabletype
 
 def test_binop(): 
     ### Binary operation example
@@ -91,3 +91,20 @@ def test_some_multimethod():
     g = Lisp_Generator()
     pair(g, Block(Switch())).emit(['v1', 'v2'])
     assert g.progn == ["(do 'something)"]
+
+def test_multiple_extend():
+    class A:
+        __metaclass__ = extendabletype
+    class B:
+        __metaclass__ = extendabletype
+
+    class __extend__(A,B):
+
+        def f(self):
+            pass
+
+    assert hasattr(A, 'f')
+    assert hasattr(B, 'f')
+    
+
+        
