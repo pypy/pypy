@@ -39,17 +39,19 @@ class Coroutine(Wrappable):
             self.parent = self
         else:
             self.parent = costate.main
+        self.thunk = None
 
     def bind(self, thunk):
         if self.frame is not None:
             raise CoroutineDamage
-        self.frame = self._bind(thunk)
+        self.thunk = thunk
+        self.frame = self._bind()
 
-    def _bind(self, thunk):
+    def _bind(self):
         self.parent = costate.current
         costate.last.frame = yield_current_frame_to_caller()
         try:
-            thunk.call()
+            self.thunk.call()
         except CoroutineExit:
             # ignore a shutdown exception
             pass
@@ -57,6 +59,7 @@ class Coroutine(Wrappable):
             # redirect all unhandled exceptions to the parent
             costate.things_to_do = True
             costate.temp_exc = e
+        self.thunk = None
         while self.parent.frame is None:
             # greenlet behavior is fine
             self.parent = self.parent.parent
@@ -173,7 +176,7 @@ class _AppThunk(object):
         self.args = args
 
     def call(self):
-        self.space.call_args(self.w_func, self.args)
+        appcostate.tempval = self.space.call_args(self.w_func, self.args)
 
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
@@ -203,6 +206,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 "cannot switch to an unbound Coroutine"))
         self.switch()
         appcostate.current = self
+        ret, appcostate.tempval = appcostate.tempval, space.w_None
+        return ret
 
     def w_kill(self):
         if appcostate.current is self:

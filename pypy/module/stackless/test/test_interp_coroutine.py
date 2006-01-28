@@ -168,7 +168,7 @@ def test_coroutine2():
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 12345678
 
-def test_kill_raise_coro():
+def test_kill_raise_del_coro():
     class T:
         def __init__(self, func, arg):
             self.func = func
