@@ -109,12 +109,15 @@ class GCTransformer:
                 newops.extend(self.pop_alive(var))
             for link in block.exits:
                 livecounts = dict.fromkeys(sets.Set(livevars) - deadinallexits, 1)
-                if (block.exitswitch is c_last_exception and link.exitcase is not None
-                    and livevars and livevars[-1] is block.operations[-1].result):
-                    # if the last operation in the block raised an
-                    # exception, it can't have returned anything that
-                    # might need pop_aliving.
-                    del livecounts[livevars[-1]]
+                if (block.exitswitch is c_last_exception and
+                    link.exitcase is not None):
+                    if livevars and livevars[-1] is block.operations[-1].result:
+                        # if the last operation in the block raised an
+                        # exception, it can't have returned anything that
+                        # might need pop_aliving.
+                        del livecounts[livevars[-1]]
+                    if link.last_exc_value not in link.args:
+                        livecounts[link.last_exc_value] = 1
                 for v in link.args:
                     if v in livecounts:
                         livecounts[v] -= 1

@@ -28,15 +28,16 @@ def checkblock(block):
         return
     for link in block.exits:
         fudge = 0
-        if (block.exitswitch is c_last_exception and link.exitcase is not None
-            and var_needsgc(block.operations[-1].result)):
-            fudge = 1
+        if (block.exitswitch is c_last_exception and link.exitcase is not None):
+            fudge -= 1
+            if var_needsgc(block.operations[-1].result):
+                fudge += 1
         refs_out = len([v for v in link.args
                         if isinstance(v, Variable) and var_needsgc(v)])
-        if link.last_exception is not None and link.last_exception in link.args:
-            refs_out -= 1
         assert refs_in + push_alives + calls - fudge == pop_alives + refs_out
-    
+        
+        if block.exitswitch is c_last_exception and link.exitcase is not None:
+            assert link.last_exc_value in link.args
 
 def rtype_and_transform(func, inputtypes, transformcls, specialize=True):
     t = TranslationContext()
