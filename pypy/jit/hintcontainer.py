@@ -1,5 +1,6 @@
 from pypy.annotation.listdef import ListItem
 from pypy.jit import hintmodel
+from pypy.rpython.lltypesystem import lltype
 
 class FieldValue(ListItem):
 
@@ -20,7 +21,13 @@ class VirtualStructDef:
         self.fields = {}
         self.names = TYPE._names
         for name in self.names:
-            hs = hintmodel.SomeLLAbstractConstant(self.fieldtype(name), {})
+            FIELD_TYPE = self.fieldtype(name)
+            if isinstance(FIELD_TYPE, lltype.ContainerType):
+                assert isinstance(FIELD_TYPE, lltype.Struct)   # for now
+                vstructdef = VirtualStructDef(bookkeeper, FIELD_TYPE)
+                hs = hintmodel.SomeLLAbstractContainer(vstructdef)
+            else:
+                hs = hintmodel.SomeLLAbstractConstant(FIELD_TYPE, {})
             fv = self.fields[name] = FieldValue(bookkeeper, name, hs)
             fv.itemof[self] = True
 

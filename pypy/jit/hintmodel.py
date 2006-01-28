@@ -3,7 +3,8 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
-UNARY_OPERATIONS = "same_as hint getfield setfield direct_call".split()
+UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
+                      direct_call""".split()
 
 BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_eq".split()
 
@@ -93,6 +94,18 @@ class __extend__(SomeLLAbstractConstant):
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
+    def getsubstruct(hs_c1, hs_fieldname):
+        S = hs_c1.concretetype.TO
+        SUB_TYPE = getattr(S, hs_fieldname.const)
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), {origin: True})
+
+    def getarraysize(hs_c1):
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
+
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
         graph = hs_f1.const._obj.graph
@@ -109,6 +122,8 @@ class __extend__(SomeLLAbstractContainer):
 
     def getfield(hs_s1, hs_fieldname):
         return hs_s1.contentdef.read_field(hs_fieldname.const)
+
+    getsubstruct = getfield
 
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):

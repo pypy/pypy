@@ -218,12 +218,3 @@ def CUR_GOAL_test_hannotate_tl():
     from pypy.jit import tl
 
     hannotate(tl.interp, [str, int])
-
-  
-
-        
-
-
-
-    
-    
