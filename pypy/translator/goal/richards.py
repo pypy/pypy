@@ -244,7 +244,7 @@ class DeviceTask(Task):
 
     def fn(self,pkt,r):
         d = r
-        assert isinstance(d, DeviceTaskRec)
+        assert d.__class__ is DeviceTaskRec
         if pkt is None:
             pkt = d.pending
             if pkt is None:
@@ -265,7 +265,7 @@ class HandlerTask(Task):
 
     def fn(self,pkt,r):
         h = r
-        assert isinstance(h, HandlerTaskRec)
+        assert h.__class__ is HandlerTaskRec
         if pkt is not None:
             if pkt.kind == K_WORK:
                 h.workInAdd(pkt)
@@ -297,7 +297,7 @@ class IdleTask(Task):
 
     def fn(self,pkt,r):
         i = r
-        assert isinstance(i, IdleTaskRec)
+        assert i.__class__ is IdleTaskRec
         i.count -= 1
         if i.count == 0:
             return self.hold()
@@ -320,7 +320,7 @@ class WorkTask(Task):
 
     def fn(self,pkt,r):
         w = r
-        assert isinstance(w, WorkerTaskRec)
+        assert w.__class__ is WorkerTaskRec
         if pkt is None:
             return self.waitTask()
 
