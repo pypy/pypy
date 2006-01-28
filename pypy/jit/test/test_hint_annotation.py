@@ -25,3 +25,15 @@ def test_simple():
     assert isinstance(hs, SomeLLAbstractConstant)
     assert len(hs.origins) == 1
     assert hs.concretetype == lltype.Signed
+
+def test_join():
+    def ll_function(cond, x,y):
+        if cond:
+            z = x+y
+        else:
+            z = x-y
+        return z
+    hs = hannotate(ll_function, [bool, int, int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert len(hs.origins) == 2
+    assert hs.concretetype == lltype.Signed
