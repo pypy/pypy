@@ -3,9 +3,9 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
-UNARY_OPERATIONS = "same_as hint".split()
+UNARY_OPERATIONS = "same_as hint getfield".split()
 
-BINARY_OPERATIONS = "int_add int_sub int_gt int_eq".split()
+BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_eq".split()
 
 class OriginTreeNode(object):
 
@@ -65,6 +65,15 @@ class __extend__(SomeLLAbstractConstant):
                 o1.fixed = True
         return SomeLLConcreteValue(hs_c1.concretetype)
 
+    def getfield(hs_c1, hs_fieldname):
+        S = hs_c1.concretetype.TO
+        FIELD_TYPE = getattr(S, hs_fieldname.const)
+        if S._hints.get('immutable', False):
+            origin = getbookkeeper().myorigin()
+            origin.merge(hs_c1.origins)
+            return SomeLLAbstractConstant(FIELD_TYPE, {origin: True})
+        else:
+            return SomeLLAbstractVariable(FIELD_TYPE)
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
@@ -89,7 +98,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    int_sub = int_add
+    int_mul = int_sub = int_add
 
     def int_gt((hs_c1, hs_c2)):
         origin = getbookkeeper().myorigin()

@@ -157,6 +157,17 @@ def test_loop1():
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 2
 
+def test_simple_struct():
+    S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
+                                      ('world', lltype.Signed),
+                        hints={'immutable': True})
+    def ll_function(s):
+        return s.hello * s.world
+    hs = hannotate(ll_function, [annmodel.SomePtr(lltype.Ptr(S))])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 1
+    assert len(hs.origins.keys()[0].origins) == 2
 
 
 
