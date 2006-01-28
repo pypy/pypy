@@ -1,5 +1,5 @@
 from pypy.rpython.memory import gctransform
-from pypy.rpython.memory.gctransform import var_needsgc
+from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
@@ -14,7 +14,10 @@ def checkblock(block):
     else:
         refs_in = len([v for v in block.inputargs if var_needsgc(v)])
     push_alives = len([op for op in block.operations
-                       if op.opname.startswith('gc_push_alive')])
+                       if op.opname.startswith('gc_push_alive')]) + \
+                  len([op for op in block.operations
+                       if var_ispyobj(op.result) and 'direct_call' not in op.opname])
+    
     pop_alives = len([op for op in block.operations
                       if op.opname.startswith('gc_pop_alive')])
     calls = len([op for op in block.operations
@@ -28,10 +31,11 @@ def checkblock(block):
         assert refs_in + push_alives + calls == pop_alives + refs_out
     
 
-def rtype_and_transform(func, inputtypes, transformcls):
+def rtype_and_transform(func, inputtypes, transformcls, specialize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
-    t.buildrtyper().specialize(t)
+    if specialize:
+        t.buildrtyper().specialize(t)
     transformer = transformcls()
     transformer.transform(t.graphs)
     t.checkgraphs()
@@ -173,5 +177,18 @@ def test_pass_gc_pointer():
         f(s)
         return s.x
     t = rtype_and_transform(g, [], gctransform.GCTransformer)
-    ggraph = graphof(t, g)
         
+def test_noconcretetype():
+    def f():
+        return [1][0]
+    t = rtype_and_transform(f, [], gctransform.GCTransformer, specialize=False)
+    fgraph = graphof(t, f)
+    push_count = 0
+    pop_count = 0
+    for op in fgraph.startblock.operations:
+        if op.opname == 'gc_push_alive_pyobj':
+            push_count += 1
+        elif op.opname == 'gc_pop_alive_pyobj':
+            pop_count += 1
+    assert push_count == 0 and pop_count == 1
+    

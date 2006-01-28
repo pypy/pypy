@@ -24,8 +24,23 @@ push_alive, pop_alive,
 EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
 
 def var_needsgc(var):
-    vartype = var.concretetype
-    return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
+    if hasattr(var, 'concretetype'):
+        vartype = var.concretetype
+        return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
+    else:
+        # assume PyObjPtr
+        return True
+
+def var_ispyobj(var):
+    if hasattr(var, 'concretetype'):
+        if isinstance(var.concretetype, lltype.Ptr):
+            return var.concretetype.TO is lltype.PyObject
+        else:
+            return False
+    else:
+        # assume PyObjPtr
+        return True
+    
 
 class GCTransformer:
     def __init__(self):
@@ -73,7 +88,7 @@ class GCTransformer:
                     cleanup_on_exception.extend(self.pop_alive(var))
                 op.cleanup = cleanup_on_exception
             if var_needsgc(op.result):
-                if op.opname not in ('direct_call', 'indirect_call'):
+                if op.opname not in ('direct_call', 'indirect_call') and not var_ispyobj(op.result):
                     newops.extend(self.push_alive(op.result))
                 livevars.append(op.result)
         if len(block.exits) == 0:
@@ -102,7 +117,7 @@ class GCTransformer:
             return [op]
 
     def push_alive(self, var):
-        if var.concretetype.TO is lltype.PyObject:
+        if var_ispyobj(var):
             return self.push_alive_pyobj(var)
         else:
             return self.push_alive_nopyobj(var)
@@ -118,7 +133,7 @@ class GCTransformer:
         return [SpaceOperation("gc_push_alive_pyobj", [var], result)]
 
     def pop_alive(self, var):
-        if var.concretetype.TO is lltype.PyObject:
+        if var_ispyobj(var):
             return self.pop_alive_pyobj(var)
         else:
             return self.pop_alive_nopyobj(var)
