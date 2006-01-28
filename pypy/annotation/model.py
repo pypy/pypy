@@ -429,8 +429,16 @@ class SomeExternalObject(SomeObject):
 class SomeCTypesObject(SomeObject):
     """Stands for an object of the ctypes module."""
 
-    def __init__(self, knowntype):
+    NOMEMORY = "NOMEMORY"
+    OWNSMEMORY = "OWNSMEMORY"
+    MEMORYALIAS = "MEMORYALIAS"
+    MIXEDMEMORYOWNERSHIP = "MIXEDMEMORYOWNERSHIP"
+    
+    def __init__(self, knowntype, memorystate=None):
+        if memorystate is None:
+            memorystate = knowntype.default_memorystate
         self.knowntype = knowntype
+        self.memorystate = memorystate 
 
     def can_be_none(self):
         return False

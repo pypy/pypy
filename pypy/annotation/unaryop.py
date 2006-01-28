@@ -628,7 +628,17 @@ class __extend__(SomeCTypesObject):
     def getattr(cto, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            atype = cto.knowntype._fields_def_[attr]
+            try:
+                atype = cto.knowntype._fields_def_[attr]
+            except AttributeError:
+                # We are dereferencing a pointer by accessing its contents attribute
+                if s_attr.const == "contents":
+                    return SomeCTypesObject(
+                            cto.knowntype._type_, SomeCTypesObject.MEMORYALIAS)
+                else:
+                    raise AttributeError(
+                            "%r object has no attribute %r" % (
+                                cto.knowntype, s_attr.const))
             try:
                 return atype.annotator_type
             except AttributeError:

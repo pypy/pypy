@@ -3,6 +3,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.tool.cbuild import compile_c_module
+from pypy.annotation.model import SomeCTypesObject, SomeObject
 import sys
     
 try:
@@ -82,6 +83,18 @@ def py_testfunc_POINTER(inpoint):
     oppoint = oppoint_type(point)
     res  = testfunc_byval(inpoint,oppoint)
     return res, oppoint
+
+def py_testfunc_POINTER_dereference(inpoint):
+    point = tagpoint()
+    oppoint = oppoint_type(point)
+    res  = testfunc_byval(inpoint,oppoint)
+    return res, oppoint.contents, oppoint[0]
+
+def py_test_mixed_memory_state( randomboolean ):
+    if randomboolean:
+        return tagpoint()
+    else:
+        return oppoint_type(tagpoint()).contents
 
 def py_test_simple_cint():
     return c_int(10)
@@ -222,32 +235,62 @@ class Test_structure:
         s = a.build_types(py_testfunc_struct, [int])
         assert s.knowntype == int
 
-
     def test_annotate_struct(self):
-        a = RPythonAnnotator()
+        t = TranslationContext()
+        a = t.buildannotator()
         s = a.build_types(py_testfunc_struct_id, [tagpoint])
         assert s.knowntype == tagpoint
+        assert s.memorystate == SomeCTypesObject.OWNSMEMORY
 
     def test_create_point(self):
-        a = RPythonAnnotator()
+        t = TranslationContext()
+        a = t.buildannotator()
         s = a.build_types(py_create_point,[])
         assert s.knowntype == int
 
     def test_annotate_byval(self):
-        a = RPythonAnnotator()
+        t = TranslationContext()
+        a = t.buildannotator()
         s = a.build_types(py_testfunc_byval,[tagpoint])
         assert s.knowntype == tuple
         assert len(s.items) == 2
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == tagpoint
+        assert s.items[1].memorystate == SomeCTypesObject.OWNSMEMORY 
 
     def test_annotate_POINTER(self):
-        a = RPythonAnnotator()
+        t = TranslationContext()
+        a = t.buildannotator()
         s = a.build_types(py_testfunc_POINTER,[tagpoint])
         assert s.knowntype == tuple
         assert len(s.items) == 2
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == POINTER(tagpoint)
+        assert s.items[1].memorystate == SomeCTypesObject.MEMORYALIAS 
+        #d#t.view()
+
+    def test_annotate_POINTER_dereference(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_testfunc_POINTER_dereference, [tagpoint])
+        assert s.knowntype == tuple
+        assert len(s.items) == 3
+        assert s.items[0].knowntype == int
+        assert s.items[1].knowntype == tagpoint
+        assert s.items[1].memorystate == SomeCTypesObject.MEMORYALIAS 
+        assert s.items[2].knowntype == tagpoint
+        assert s.items[2].memorystate == SomeCTypesObject.MEMORYALIAS 
+        #d#t.view()
+    
+    def test_annotate_mixed_memorystate(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_test_mixed_memory_state, [int])
+        #d#t.view()
+        assert s.knowntype == tagpoint
+        # This memory state will be supported in the future (#f#)
+        #f#assert s.memorystate == SomeCTypesObject.MIXEDMEMORYOWNERSHIP
+        assert isinstance(s, SomeObject)
 
     def test_annotate_simple_cint(self):
         a = RPythonAnnotator()

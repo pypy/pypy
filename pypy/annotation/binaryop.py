@@ -755,9 +755,13 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
                 elif idx < 0:
                     raise IndexError( "invalid index" )
         try:
+            # This is the case for unboxed values, which
+            # are those having memorystate NOMEMORY
             return s_cto.knowntype._type_.annotator_type
         except AttributeError:
-            return SomeCTypesObject(s_cto.knowntype._type_)
+            return SomeCTypesObject(
+                    s_cto.knowntype._type_,
+                    memorystate=SomeCTypesObject.MEMORYALIAS)
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
     def setitem((s_cto, s_slice), s_iterable):

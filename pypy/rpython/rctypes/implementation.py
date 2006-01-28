@@ -50,12 +50,14 @@ def create_ctypes_annotations():
         the_type.ll_type = ll_type
         if wrap_arg is not None:
             the_type.wrap_arg = wrap_arg
+            the_type.default_memorystate = SomeCTypesObject.OWNSMEMORY
         else:
             # !!!! attention !!!!
             # the basic c_types need some annotation information
             # at the moment that are exactly the types that have
             # no 'wrap_arg'. This might change in the future
             the_type.compute_result_annotation = classmethod(lambda cls, s_arg:SomeCTypesObject(cls))
+            the_type.default_memorystate = SomeCTypesObject.NOMEMORY
 
 create_ctypes_annotations()
 
@@ -110,6 +112,8 @@ class RStructure(Structure):
 
     __metaclass__ = RStructureMeta
 
+    default_memorystate = SomeCTypesObject.OWNSMEMORY
+
     def compute_annotation(cls):
         return SomeCTypesObject(cls)
     compute_annotation = classmethod(compute_annotation)
@@ -121,10 +125,12 @@ class RStructure(Structure):
         """
         Answer the result annotation of calling 'cls'.
         """
-        return SomeCTypesObject(cls)
+        return SomeCTypesObject(cls,SomeCTypesObject.OWNSMEMORY)
     compute_result_annotation = classmethod(compute_result_annotation)
 
 class RByrefObj(object):
+
+    default_memorystate = SomeCTypesObject.MEMORYALIAS
 
     def __init__(self):
         self.__name__ = 'RByrefObj'
@@ -152,6 +158,8 @@ def RPOINTER(cls):
         assert answer is cls
         return SomeCTypesObject(cls)
     answer.compute_result_annotation = classmethod(compute_result_annotation)
+    #o#answer._fields_def_ = {"contents": cls}
+    answer.default_memorystate = SomeCTypesObject.MEMORYALIAS
     return answer
 
 
@@ -189,7 +197,7 @@ def RARRAY(typ,length):
         Answer the result annotation of calling 'cls'.
         """
         assert answer is cls
-        return SomeCTypesObject(cls)
+        return SomeCTypesObject(cls, SomeCTypesObject.OWNSMEMORY)
     answer.compute_result_annotation = classmethod(compute_result_annotation)
     return answer
 
