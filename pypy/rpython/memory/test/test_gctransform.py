@@ -230,4 +230,13 @@ def test_except_block2():
             return 0
     t = rtype_and_transform(g, [int], gctransform.GCTransformer)
     
-    
+def test_no_livevars_with_exception():
+    def g():
+        raise TypeError
+    def f():
+        try:
+            g()
+        except TypeError:
+            return 0
+        return 1
+    t = rtype_and_transform(f, [], gctransform.GCTransformer)
