@@ -43,6 +43,9 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
 class SomeLLConcreteValue(SomeLLAbstractValue):
     pass
 
+class SomeLLAbstractVariable(SomeLLAbstractValue):
+    pass
+
 # ____________________________________________________________
 # operations
 
@@ -66,8 +69,17 @@ class __extend__(SomeLLAbstractConstant):
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
     def int_add((hs_v1, hs_v2)):
-        return SomeLLAbstractValue(lltype.Signed)
+        return SomeLLAbstractVariable(lltype.Signed)
 
+    def union((hs_v1, hs_v2)):
+        raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
+
+class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
+                 pairtype(SomeLLAbstractConstant, SomeLLAbstractVariable)):
+
+    def union((hs_v1, hs_v2)):
+        assert hs_v1.concretetype == hs_v2.concretetype
+        return SomeLLAbstractVariable(hs_v1.concretetype)
 
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 

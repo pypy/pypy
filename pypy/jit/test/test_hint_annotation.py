@@ -1,8 +1,10 @@
+import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.hintannotator import HintAnnotator
 from pypy.jit.hintmodel import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
+from pypy.annotation import model as annmodel
 
 def hannotate(func, argtypes):
     # build the normal ll graphs for ll_function
@@ -76,7 +78,7 @@ def test_simple_variable():
         x = hint(x, variable=True) # special hint only for testing purposes!!!
         return x + y
     hs = hannotate(ll_function, [int, int])
-    assert type(hs) is SomeLLAbstractValue
+    assert type(hs) is SomeLLAbstractVariable
     assert hs.concretetype == lltype.Signed
     
 def test_simple_concrete_propagation():
@@ -86,4 +88,31 @@ def test_simple_concrete_propagation():
     hs = hannotate(ll_function, [int, int])
     assert type(hs) is SomeLLConcreteValue
     assert hs.concretetype == lltype.Signed
-     
+
+def test_union():
+    unionof = annmodel.unionof
+    av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
+    cv1, cv2 = SomeLLConcreteValue(lltype.Signed), SomeLLConcreteValue(lltype.Signed)
+    ac1, ac2 = SomeLLAbstractConstant(lltype.Signed, {}), SomeLLAbstractConstant(lltype.Signed, {})
+    ac3 = SomeLLAbstractConstant(lltype.Signed, {})
+    ac3.const = 3
+    ac4 = SomeLLAbstractConstant(lltype.Signed, {})
+    ac4.const = 4
+    assert unionof(av1, av2) == av1
+    assert unionof(cv1, cv2) == cv2
+    assert unionof(ac1, ac2) == ac1
+    assert unionof(ac3, ac3) == ac3
+    assert unionof(ac3, ac2) == ac1
+    assert unionof(ac4, ac3) == ac1
+    # degenerating cases
+    py.test.raises(annmodel.UnionError, "unionof(cv1, av1)")
+    py.test.raises(annmodel.UnionError, "unionof(av1, cv1)")
+    py.test.raises(annmodel.UnionError, "unionof(ac1, cv1)")
+    py.test.raises(annmodel.UnionError, "unionof(cv1, ac1)")
+    # constant with values
+    assert unionof(av1, ac1) == av1
+    assert unionof(ac1, av1) == av1
+    assert unionof(ac3, av1) == av1
+    assert unionof(av2, ac4) == av1    
+    
+    
