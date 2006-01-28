@@ -204,20 +204,7 @@ class FunctionCodeGenerator(object):
             reachable_err = -1   # the number of the first reachable err label
             for op in block.operations:
                 err   = 'err%d_%d' % (myblocknum, len(to_release))
-                macro = 'OP_%s' % op.opname.upper()
-                if op.opname.startswith('gc_'):
-                    meth = getattr(self.gcpolicy, macro, None)
-                    if meth:
-                        line = meth(self, op, err)
-                else:
-                    meth = getattr(self, macro, None)
-                    if meth:
-                        line = meth(op, err)
-                if meth is None:
-                    lst = [self.expr(v) for v in op.args]
-                    lst.append(self.expr(op.result))
-                    lst.append(err)
-                    line = '%s(%s);' % (macro, ', '.join(lst))
+                line = self.gen_op(op, err)
                 if '\n' in line:
                     for subline in line.split('\n'):
                         yield subline
@@ -358,6 +345,23 @@ class FunctionCodeGenerator(object):
                         yield line
                 else:
                     yield self.pop_alive(to_release[i-1])
+
+    def gen_op(self, op, err):
+        macro = 'OP_%s' % op.opname.upper()
+        if op.opname.startswith('gc_'):
+            meth = getattr(self.gcpolicy, macro, None)
+            if meth:
+                line = meth(self, op, err)
+        else:
+            meth = getattr(self, macro, None)
+            if meth:
+                line = meth(op, err)
+        if meth is None:
+            lst = [self.expr(v) for v in op.args]
+            lst.append(self.expr(op.result))
+            lst.append(err)
+            line = '%s(%s);' % (macro, ', '.join(lst))
+        return line
 
     # ____________________________________________________________
 
