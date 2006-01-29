@@ -3,12 +3,13 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
-UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize getarrayitem
+UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize getarrayitem setarrayitem
+                      cast_pointer
                       direct_call
                       int_is_true int_neg
                       cast_char_to_int""".split()
 
-BINARY_OPERATIONS = """int_add int_sub int_mul int_and
+BINARY_OPERATIONS = """int_add int_sub int_mul int_and int_rshift
                        int_gt int_lt int_le int_ge int_eq int_ne""".split()
 
 class OriginTreeNode(object):
@@ -158,6 +159,11 @@ class __extend__(SomeLLAbstractContainer):
         origin = getbookkeeper().myorigin()
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
+    def cast_pointer(hs_s1):
+        TO = getbookkeeper().current_op_concretetype()
+        res_vstruct =hs_s1.contentdef.cast(TO)
+        return SomeLLAbstractContainer(res_vstruct)
+
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
     def int_add((hs_v1, hs_v2)):
@@ -181,7 +187,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    int_and = int_mul = int_sub = int_add
+    int_rshift = int_and = int_mul = int_sub = int_add
 
     def int_gt((hs_c1, hs_c2)):
         origin = getbookkeeper().myorigin()

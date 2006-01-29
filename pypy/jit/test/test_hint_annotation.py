@@ -213,6 +213,25 @@ def test_simple_call():
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 1
 
+def test_simple_cast_pointer():
+    GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
+    GCS2 = lltype.GcStruct('s2', ('sub', GCS1), ('y', lltype.Signed))
+    PGCS1 = lltype.Ptr(GCS1)
+    PGCS2 = lltype.Ptr(GCS2)
+    def ll1():
+        s2 = lltype.malloc(GCS2)
+        return lltype.cast_pointer(PGCS1, s2)
+    hs = hannotate(ll1, [])
+    assert isinstance(hs, SomeLLAbstractContainer)
+    assert hs.concretetype == PGCS1
+    def ll1():
+        s2 = lltype.malloc(GCS2)
+        s1 = s2.sub
+        return lltype.cast_pointer(PGCS2, s1)
+    hs = hannotate(ll1, [])
+    assert isinstance(hs, SomeLLAbstractContainer)
+    assert hs.concretetype == PGCS2
+
 
 def CUR_GOAL_test_hannotate_tl():
     from pypy.jit import tl

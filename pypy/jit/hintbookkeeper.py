@@ -39,6 +39,11 @@ class HintBookkeeper(object):
         res.const = const.value
         return res
 
+    def current_op_concretetype(self):
+        _, block, i = self.position_key
+        op = block.operations[i]
+        return op.result.concretetype
+
     def getvirtualcontainerdef(self, TYPE):
         try:
             res = self.virtual_containers[self.position_key]
