@@ -210,6 +210,7 @@ class ListRepr(BaseListRepr):
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
                                           "list_builder": self.list_builder.build,
+                                          "ITEM": ITEM,
                                       })
                              )
 
@@ -283,6 +284,7 @@ class FixedSizeListRepr(BaseListRepr):
                                      "ll_length": ll_fixed_length,
                                      "ll_items": ll_fixed_items,
                                      "list_builder": self.list_builder.build,
+                                     "ITEM": ITEM,
                                 })
 
             self.LIST.become(ITEMARRAY)
@@ -487,7 +489,7 @@ def _ll_list_resize_really(l, newsize):
         p = new_allocated - 1
     while p >= 0:
             newitems[p] = items[p]
-            ITEM = typeOf(l).TO.items.TO.OF
+            ITEM = typeOf(l).TO.ITEM
             if isinstance(ITEM, Ptr):
                 items[p] = nullptr(ITEM.TO)
             p -= 1
@@ -591,7 +593,7 @@ def ll_pop_default(func, l):
     newlength = index
     items = l.items
     res = items[index]
-    ITEM = typeOf(l).TO.items.TO.OF
+    ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
         items[index] = nullptr(ITEM.TO)
     _ll_list_resize_le(l, newlength)
@@ -611,7 +613,7 @@ def ll_pop_zero(func, l):
         items[j] = items[j1]
         j = j1
         j1 += 1
-    ITEM = typeOf(l).TO.items.TO.OF
+    ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
     _ll_list_resize_le(l, newlength)
@@ -684,7 +686,7 @@ def ll_delitem_nonneg(func, l, index):
         items[j] = items[j1]
         j = j1
         j1 += 1
-    ITEM = typeOf(l).TO.items.TO.OF
+    ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
     _ll_list_resize_le(l, newlength)
@@ -779,7 +781,7 @@ def ll_listslice_minusone(RESLIST, l1):
 
 def ll_listdelslice_startonly(l, start):
     newlength = start
-    ITEM = typeOf(l).TO.items.TO.OF
+    ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
         j = l.length - 1
         items = l.items
@@ -801,7 +803,7 @@ def ll_listdelslice(l, slice):
         items[j] = items[i]
         i += 1
         j += 1
-    ITEM = typeOf(l).TO.items.TO.OF
+    ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
         j = l.length - 1
         while j >= newlength:
