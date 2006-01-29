@@ -5,8 +5,8 @@ from pypy.jit.hintbookkeeper import HintBookkeeper
 
 class HintAnnotator(RPythonAnnotator):
 
-    def __init__(self):
-        RPythonAnnotator.__init__(self)
+    def __init__(self, policy=None):
+        RPythonAnnotator.__init__(self, policy=policy)
         self.bookkeeper = HintBookkeeper(self) # XXX
 
     def consider_op_malloc(self, hs_TYPE):

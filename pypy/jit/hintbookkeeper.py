@@ -44,16 +44,21 @@ class HintBookkeeper(object):
         op = block.operations[i]
         return op.result.concretetype
 
-    def getvirtualcontainerdef(self, TYPE):
+    def getvirtualcontainerdef(self, TYPE, constructor=None):
         try:
             res = self.virtual_containers[self.position_key]
             assert res.T == TYPE
         except KeyError:
-            from pypy.jit.hintcontainer import virtualcontainerdef
-            res = virtualcontainerdef(self, TYPE)
+            if constructor is None:
+                from pypy.jit.hintcontainer import virtualcontainerdef
+                constructor = virtualcontainerdef
+            res = constructor(self, TYPE)
             self.virtual_containers[self.position_key] = res
         return res
-        
+
+    def warning(self, msg):
+        return self.annotator.warning(msg)
+
 # get current bookkeeper
 
 def getbookkeeper():

@@ -6,8 +6,12 @@ from pypy.jit.hintmodel import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.annotation import model as annmodel
+from pypy.annotation.policy import AnnotatorPolicy
 
-def hannotate(func, argtypes):
+P_OOPSPEC = AnnotatorPolicy()
+P_OOPSPEC.oopspec = True
+
+def hannotate(func, argtypes, policy=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -16,7 +20,7 @@ def hannotate(func, argtypes):
     rtyper.specialize()
     graph1 = graphof(t, func)
     # build hint annotator types
-    hannotator = HintAnnotator()
+    hannotator = HintAnnotator(policy=policy)
     hs = hannotator.build_graph_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                       {OriginTreeNode(): True})
                                                for v in graph1.getargs()])
@@ -212,6 +216,16 @@ def test_simple_call():
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 1
+
+def test_simple_list_operations():
+    def ll_function(x, y, index):
+        l = [x]
+        l.append(y)
+        return l[index]
+    hs = hannotate(ll_function, [int, int, int], policy=P_OOPSPEC)
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 2
 
 def test_simple_cast_pointer():
     GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))

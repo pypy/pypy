@@ -3,6 +3,15 @@ from pypy.annotation import model as annmodel
 from pypy.jit import hintmodel
 from pypy.rpython.lltypesystem import lltype
 
+
+class AbstractContainerDef(object):
+
+    def __init__(self, bookkeeper, TYPE):
+        self.T = TYPE
+        self.bookkeeper = bookkeeper
+
+# ____________________________________________________________
+
 def virtualcontainerdef(bookkeeper, T, vparent=None):
     """Build and return a VirtualXxxDef() corresponding to a
     freshly allocated virtual container.
@@ -35,11 +44,10 @@ class FieldValue(ListItem):
             vstructdef.fields[self.name] = self
 
 
-class VirtualStructDef:
+class VirtualStructDef(AbstractContainerDef):
  
     def __init__(self, bookkeeper, TYPE, vparent=None):
-        self.T = TYPE
-        self.bookkeeper = bookkeeper
+        AbstractContainerDef.__init__(self, bookkeeper, TYPE)
         self.fields = {}
         self.names = TYPE._names
         for name in self.names:
@@ -96,11 +104,10 @@ class ArrayItem(ListItem):
             varraydef.arrayitem = self
 
 
-class VirtualArrayDef:
+class VirtualArrayDef(AbstractContainerDef):
 
     def __init__(self, bookkeeper, TYPE):
-        self.T = TYPE
-        self.bookkeeper = bookkeeper
+        AbstractContainerDef.__init__(self, bookkeeper, TYPE)
         hs = make_item_annotation(bookkeeper, TYPE.OF)
         self.arrayitem = ArrayItem(bookkeeper, hs)
         self.arrayitem.itemof[self] = True

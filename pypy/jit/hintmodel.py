@@ -126,12 +126,25 @@ class __extend__(SomeLLAbstractConstant):
 
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
-        graph = hs_f1.const._obj.graph
-        hs_res = bookkeeper.annotator.recursivecall(graph, bookkeeper.position_key, args_hs)
+        fnobj = hs_f1.const._obj
+        if (getattr(bookkeeper.annotator.policy, 'oopspec', False) and
+            hasattr(fnobj._callable, 'oopspec')):
+            # try to handle the call as a high-level operation
+            try:
+                return handle_highlevel_operation(bookkeeper, fnobj._callable,
+                                                  *args_hs)
+            except NotImplementedError:
+                pass
+        # normal call
+        if not hasattr(fnobj, 'graph'):
+            raise NotImplementedError("XXX call to externals or primitives")
+        hs_res = bookkeeper.annotator.recursivecall(fnobj.graph,
+                                                    bookkeeper.position_key,
+                                                    args_hs)
         if isinstance(hs_res, SomeLLAbstractValue):
-            return hs_res.reorigin(bookkeeper)
-        else:
-            return hs_res # impossible value
+            hs_res = hs_res.reorigin(bookkeeper)
+        #else: it's a SomeImpossibleValue
+        return hs_res
 
     def int_neg(hs_c1):
         origin = getbookkeeper().myorigin()
@@ -248,3 +261,41 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
     def union((hs_cont1, hs_cont2)):
         return SomeLLAbstractContainer(hs_cont1.contentdef.union(hs_cont2.contentdef))
+
+# ____________________________________________________________
+
+def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
+    # parse the oopspec and fill in the arguments
+    operation_name, args = ll_func.oopspec.split('(', 1)
+    assert args.endswith(')')
+    args = args[:-1] + ','     # trailing comma to force tuple syntax
+    argnames = ll_func.func_code.co_varnames[:len(args_hs)]
+    d = dict(zip(argnames, args_hs))
+    argtuple = eval(args, d)
+    args_hs = []
+    for hs in argtuple:
+        if not isinstance(hs, SomeLLAbstractValue):
+            hs = bookkeeper.immutablevalue(hs)
+        args_hs.append(hs)
+    # end of rather XXX'edly hackish parsing
+
+    if operation_name == 'newlist':
+        from pypy.jit.hintvlist import oop_newlist
+        handler = oop_newlist
+    else:
+        # dispatch on the 'self' argument if it is virtual
+        hs_self = args_hs[0]
+        args_hs = args_hs[1:]
+        type_name, operation_name = operation_name.split('.')
+        if not isinstance(hs_self, SomeLLAbstractContainer):
+            raise NotImplementedError
+        if getattr(hs_self.contentdef, 'type_name', None) != type_name:
+            raise NotImplementedError
+        try:
+            handler = getattr(hs_self.contentdef, 'oop_' + operation_name)
+        except AttributeError:
+            bookkeeper.warning('missing handler: oop_%s' % (operation_name,))
+            raise NotImplementedError
+
+    hs_result = handler(*args_hs)   # which may raise NotImplementedError
+    return hs_result
