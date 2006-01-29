@@ -1,4 +1,5 @@
 from pypy.annotation.listdef import ListItem
+from pypy.annotation import model as annmodel
 from pypy.jit import hintmodel
 from pypy.rpython.lltypesystem import lltype
 
@@ -18,6 +19,8 @@ def make_item_annotation(bookkeeper, TYPE):
     if isinstance(TYPE, lltype.ContainerType):
         vdef = virtualcontainerdef(bookkeeper, TYPE)
         return hintmodel.SomeLLAbstractContainer(vdef)
+    elif isinstance(TYPE, lltype.Ptr):
+        return annmodel.s_ImpossibleValue
     else:
         return hintmodel.SomeLLAbstractConstant(TYPE, {})
 
