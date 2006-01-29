@@ -20,6 +20,18 @@ class CoState(object):
         self.del_first = None
         self.del_last = None
 
+    def cast_current(self, current):
+        if self.current is not current:
+            c = self.current
+            c.frame, current.frame = current.frame, c.frame
+            self.current = current
+
+    def cast_main(self, main):
+        if self.main is not main:
+            c = self.main
+            c.frame, main.frame = main.frame, c.frame
+            self.main = main
+
 costate = None
 
 class CoroutineDamage(SystemError):
@@ -47,13 +59,6 @@ class Coroutine(Wrappable):
         else:
             self.parent = costate.current
         self.thunk = None
-
-    def _get_current(self):
-        # must be overridden for every distinguished subclass
-        return costate.current
-    def _set_current(self, new):
-        # must be overridden for every distinguished subclass
-        costate.current = new
 
     def bind(self, thunk):
         if self.frame is not None:
@@ -89,11 +94,11 @@ class Coroutine(Wrappable):
         if costate.things_to_do:
             do_things_to_do(self)
 
-    def _update_state(self, new):
-        costate.last = self._get_current()
-        self._set_current(new)
+    def _update_state(new):
+        costate.last, costate.current = costate.current, new
         frame, new.frame = new.frame, None
         return frame
+    _update_state = staticmethod(_update_state)
 
     def kill(self):
 #        if costate.current is self:
@@ -130,8 +135,13 @@ class Coroutine(Wrappable):
     def is_zombie(self):
         return self.frame is not None and check_for_zombie(self)
 
-    def get_current(self):
-        return self._get_current()
+    def getcurrent():
+        return costate.current
+    getcurrent = staticmethod(getcurrent)
+
+    def getmain():
+        return costate.main
+    getmain = staticmethod(getmain)
 
 
 def check_for_zombie(self):
@@ -196,13 +206,6 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         Coroutine.__init__(self)
         self.flags = 0
 
-    def _get_current(self):
-        # must be overridden for every distinguished subclass
-        return appcostate.current
-    def _set_current(self, new):
-        # must be overridden for every distinguished subclass
-        appcostate.current = new
-
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
         AppCoroutine.__init__(co)
@@ -215,18 +218,24 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot bind a bound Coroutine"))
         thunk = _AppThunk(space, w_func, __args__)
+        costate.current = appcostate.current
         self.bind(thunk)
+        appcostate.current = costate.current
 
     def w_switch(self):
         space = self.space
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
+        costate.current = appcostate.current
         self.switch()
+        appcostate.current = self
         ret, appcostate.tempval = appcostate.tempval, space.w_None
         return ret
 
     def w_kill(self):
+        if appcostate.current is self:
+            costate.current = self
         self.kill()
 
     def __del__(self):
@@ -240,9 +249,15 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.set_is_zombie(True)
         self.space.userdel(self)
 
-    def get_current(space):
-        return space.wrap(self._get_current())
-    get_current = staticmethod(get_current)
+    def getcurrent(space):
+        costate.cast_current(appcostate.current)
+        return space.wrap(appcostate.current)
+    getcurrent = staticmethod(getcurrent)
+
+    def getmain(space):
+        costate.cast_main(appcostate.main)
+        return space.wrap(appcostate.main)
+    getmain = staticmethod(getmain)
 
 
 # _mixin_ did not work
@@ -267,7 +282,8 @@ def makeStaticMethod(module, classname, funcname):
 
 def post_install(module):
     appcostate.post_install(module.space)
-    makeStaticMethod(module, 'Coroutine', 'get_current')
+    makeStaticMethod(module, 'Coroutine', 'getcurrent')
+    makeStaticMethod(module, 'Coroutine', 'getmain')
 
 # space.appexec("""() :
 
@@ -280,12 +296,13 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
-    get_current = interp2app(AppCoroutine.get_current),
+    getcurrent = interp2app(AppCoroutine.getcurrent),
+    getmain = interp2app(AppCoroutine.getmain),
 )
 
 class AppCoState(object):
     def __init__(self):
-        self.current = AppCoroutine()
+        self.current = self.main = AppCoroutine()
 
     def post_install(self, space):
         appcostate.current.space = space
