@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
+from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
+     c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython import rmodel
 import sets
@@ -168,3 +169,47 @@ class GCTransformer:
         result.concretetype = lltype.Void
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
+    # ----------------------------------------------------------------
+
+    def _deallocator_body_for_type(self, v, TYPE, depth=1):
+        if isinstance(TYPE, lltype.Array):
+            
+            inner = list(self._deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
+            if inner:
+                yield '    '*depth + 'i_%d = 0'%(depth,)
+                yield '    '*depth + 'l_%d = len(%s)'%(depth, v)
+                yield '    '*depth + 'while i_%d < l_%d:'%(depth, depth)
+                yield '    '*depth + '    v_%d = %s[i_%d]'%(depth, v, depth)
+                for line in inner:
+                    yield line
+                yield '    '*depth + '    i_%d += 1'%(depth,)
+        elif isinstance(TYPE, lltype.Struct):
+            for name in TYPE._names:
+                inner = list(self._deallocator_body_for_type(
+                    v + '_' + name, TYPE._flds[name], depth))
+                if inner:
+                    yield '    '*depth + v + '_' + name + ' = ' + v + '.' + name
+                    for line in inner:
+                        yield line
+        elif isinstance(TYPE, lltype.Ptr):
+            yield '    '*depth + 'pop_alive(%s)'%v
+
+    def deallocation_graph_for_type(self, translator, TYPE, var):
+        def compute_ll_ops(hop):
+            hop.llops.extend(self.pop_alive(hop.args_v[1]))
+            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
+        def pop_alive(var):
+            pass
+        pop_alive.compute_ll_ops = compute_ll_ops
+        pop_alive.llresult = lltype.Void
+
+        body = '\n'.join(self._deallocator_body_for_type('v', TYPE))
+        if not body:
+            return
+        src = 'def deallocator(v):\n' + body
+        d = {'pop_alive':pop_alive}
+        exec src in d
+        this = d['deallocator']
+        g = translator.rtyper.annotate_helper(this, [lltype.Ptr(TYPE)])
+        translator.rtyper.specialize_more_blocks()
+        return g

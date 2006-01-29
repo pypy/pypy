@@ -240,3 +240,40 @@ def test_no_livevars_with_exception():
             return 0
         return 1
     t = rtype_and_transform(f, [], gctransform.GCTransformer)
+
+# ----------------------------------------------------------------------
+
+def make_deallocator(TYPE, view=False):
+    def f():
+        pass
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    t.buildrtyper().specialize(t)
+    
+    transformer = gctransform.GCTransformer()
+    v = Variable()
+    v.concretetype = TYPE
+    graph = transformer.deallocation_graph_for_type(t, TYPE, v)
+    if view:
+        t.view()
+    return graph
+
+def dont_test_deallocator_simple():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    dgraph = make_deallocator(S)
+    assert dgraph is None
+
+def test_deallocator_less_simple():
+    TPtr = lltype.Ptr(lltype.GcStruct("T", ('a', lltype.Signed)))
+    S = lltype.GcStruct(
+        "S",
+        ('x', lltype.Signed),
+        ('y', TPtr),
+        ('z', TPtr),
+        )
+    dgraph = make_deallocator(S)
+
+def test_deallocator_less_simple2():
+    S = lltype.GcArray(lltype.Ptr(lltype.GcStruct("S", ('x', lltype.Signed))))
+    dgraph = make_deallocator(S)
+    
