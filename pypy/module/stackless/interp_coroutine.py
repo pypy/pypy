@@ -10,7 +10,7 @@ from pypy.interpreter.function import StaticMethod
 from pypy.rpython.rstack import yield_current_frame_to_caller
 from pypy.module.stackless.stackless_flags import StacklessFlags
 
-import sys
+import sys, os
 
 class CoState(object):
     def __init__(self):
@@ -31,6 +31,13 @@ class CoroutineExit(SystemExit):
     def __init__(self):
         pass
 
+DEBUG = True
+
+def D(msg, x):
+    if DEBUG:
+        txt = "%s %s\n" % (msg, hex(id(x)))
+        os.write(2, txt)
+
 class Coroutine(Wrappable):
 
     def __init__(self):
@@ -39,6 +46,8 @@ class Coroutine(Wrappable):
             self.parent = self
         else:
             self.parent = costate.current
+        D("new coro, self", self)
+        D("  parent", self.parent)
         self.thunk = None
 
     def bind(self, thunk):
@@ -70,8 +79,11 @@ class Coroutine(Wrappable):
             # considered a programming error.
             # greenlets and tasklets have different ideas about this.
             raise CoroutineDamage
+        D("switch begin self", self)
         costate.last.frame = self._update_state(self).switch()
         # note that last gets updated before assignment!
+        D("switch end self", self)
+        D("  costate.last", costate.last)
         if costate.things_to_do:
             do_things_to_do(self)
 
@@ -180,6 +192,7 @@ class _AppThunk(object):
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def __init__(self):
+        D("new appcoro self", self)
         Coroutine.__init__(self)
         self.flags = 0
 
@@ -196,15 +209,26 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 "cannot bind a bound Coroutine"))
         thunk = _AppThunk(space, w_func, __args__)
         costate.current = appcostate.current
+        D("w_bind self", self)
         self.bind(thunk)
+        D("return from w_bind self", self)
+        D("  costate.current", costate.current)
+        D("  appcostate.current", appcostate.current)
+        appcostate.current = costate.current
 
     def w_switch(self):
         space = self.space
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
+        D("w_switch begin self", self)
+        D("  costate.current", costate.current)
+        D("  appcostate.current", appcostate.current)
         costate.current = appcostate.current
+        D("  --> appcostate.current before switch", appcostate.current)
         self.switch()
+        D("  after switch self", self)
+        D("  after switch -> appcostate.current was", appcostate.current)
         appcostate.current = self
         ret, appcostate.tempval = appcostate.tempval, space.w_None
         return ret
@@ -299,5 +323,10 @@ need to keep track of their own "current".
 After a stackless task switch, stackless gets
 a new current. After a greenlet's switch, greenlet
 gets a new current.
+
+More thoughts:
+--------------
+Whenever we switch, whatever object we are jumping
+at, we need to save the source continuation somewhere.
 
 """
