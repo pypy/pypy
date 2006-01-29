@@ -4,9 +4,11 @@ from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize getarrayitem
-                      direct_call""".split()
+                      direct_call
+                      cast_char_to_int""".split()
 
-BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_lt int_le int_ge int_eq int_ne".split()
+BINARY_OPERATIONS = """int_add int_sub int_mul int_and
+                       int_gt int_lt int_le int_ge int_eq int_ne""".split()
 
 class OriginTreeNode(object):
 
@@ -124,6 +126,11 @@ class __extend__(SomeLLAbstractConstant):
             return hs_res.reorigin(bookkeeper)
         else:
             return hs_res # impossible value
+
+    def cast_char_to_int(hs_c1):
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
         
 class __extend__(SomeLLAbstractContainer):
 
@@ -161,7 +168,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    int_mul = int_sub = int_add
+    int_and = int_mul = int_sub = int_add
 
     def int_gt((hs_c1, hs_c2)):
         origin = getbookkeeper().myorigin()
