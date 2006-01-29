@@ -98,11 +98,13 @@ def newset(set, *sets):
     return set
 
 def reorigin(hs_v1, *deps_hs):
+    """Make a copy of hs_v1 with its origins removed and replaced by myorigin().
+    Optionally, the origins of other annotations can also be added.
+    """
     if isinstance(hs_v1, SomeLLAbstractConstant):
         deps_origins = [hs_dep.origins for hs_dep in deps_hs
                         if isinstance(hs_dep, SomeLLAbstractConstant)]
-        d = newset(hs_v1.origins,
-                   {getbookkeeper().myorigin(): True},
+        d = newset({getbookkeeper().myorigin(): True},
                    *deps_origins)
         return SomeLLAbstractConstant(hs_v1.concretetype, d)
     else:
@@ -165,7 +167,8 @@ class __extend__(SomeLLAbstractConstant):
         hs_res = bookkeeper.annotator.recursivecall(fnobj.graph,
                                                     bookkeeper.position_key,
                                                     args_hs)
-        return reorigin(hs_res)
+        # for now, keep the origins of 'hs_res' in the new result:
+        return reorigin(hs_res, hs_res)
 
     def unary_char(hs_c1):
         d = setadd(hs_c1.origins, getbookkeeper().myorigin())
