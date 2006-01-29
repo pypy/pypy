@@ -460,6 +460,67 @@ def mkentrymap(funcgraph):
         lst.append(link)
     return result
 
+def copygraph(graph):
+    "Make a copy of a flow graph."
+    blockmap = {}
+    varmap = {}
+
+    def copyvar(v):
+        if isinstance(v, Variable):
+            try:
+                return varmap[v]
+            except KeyError:
+                v2 = varmap[v] = Variable(v)
+                if hasattr(v, 'concretetype'):
+                    v2.concretetype = v.concretetype
+                return v2
+        else:
+            return v
+
+    def copyblock(block):
+        newblock = Block([copyvar(v) for v in block.inputargs])
+        if block.operations == ():
+            newblock.operations = ()
+        else:
+            def copyoplist(oplist):
+                result = []
+                for op in oplist:
+                    copyop = SpaceOperation(op.opname,
+                                            [copyvar(v) for v in op.args],
+                                            copyvar(op.result))
+                    copyop.offset = op.offset
+                    if hasattr(op, 'cleanup'):
+                        copyop.cleanup = copyoplist(op.cleanup)
+                    result.append(copyop)
+                return result
+            newblock.operations = copyoplist(block.operations)
+        newblock.exitswitch = copyvar(block.exitswitch)
+        newblock.exc_handler = block.exc_handler
+        return newblock
+
+    for block in graph.iterblocks():
+        blockmap[block] = copyblock(block)
+
+    if graph.returnblock not in blockmap:
+        blockmap[graph.returnblock] = copyblock(graph.returnblock)
+    if graph.exceptblock not in blockmap:
+        blockmap[graph.exceptblock] = copyblock(graph.exceptblock)
+
+    for block, newblock in blockmap.items():
+        newlinks = []
+        for link in block.exits:
+            newlink = link.copy(copyvar)
+            newlink.target = blockmap[link.target]
+            newlinks.append(newlink)
+        newblock.closeblock(*newlinks)
+
+    newstartblock = blockmap[graph.startblock]
+    newstartblock.isstartblock = True
+    newgraph = FunctionGraph(graph.name, newstartblock)
+    newgraph.returnblock = blockmap[graph.returnblock]
+    newgraph.exceptblock = blockmap[graph.exceptblock]
+    return newgraph
+
 def checkgraph(graph):
     "Check the consistency of a flow graph."
     if not __debug__:

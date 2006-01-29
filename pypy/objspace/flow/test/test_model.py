@@ -48,6 +48,10 @@ graph = pieces.graph
 def test_checkgraph():
     checkgraph(graph)
 
+def test_copygraph():
+    graph2 = copygraph(graph)
+    checkgraph(graph2)
+
 def test_graphattributes():
     assert graph.startblock is pieces.startblock
     assert graph.returnblock is pieces.headerblock.exits[0].target
