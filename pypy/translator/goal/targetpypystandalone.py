@@ -84,6 +84,8 @@ def target(driver, args):
     usemodules = []
     if options.thread:
         usemodules.append('thread')
+    if options.stackless:
+        usemodules.append('stackless')
         
     space = StdObjSpace(nofaking=True,
                         compiler="ast", # interpreter/astcompiler
