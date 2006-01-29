@@ -3,10 +3,10 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
-UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
+UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize getarrayitem
                       direct_call""".split()
 
-BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_eq".split()
+BINARY_OPERATIONS = "int_add int_sub int_mul int_gt int_lt int_le int_ge int_eq int_ne".split()
 
 class OriginTreeNode(object):
 
@@ -156,6 +156,8 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         origin.merge(hs_c1.origins)
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Bool, {origin: True})
+
+    int_lt = int_le = int_ge = int_eq = int_ne = int_gt
 
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
