@@ -519,6 +519,8 @@ def copygraph(graph):
     newgraph = FunctionGraph(graph.name, newstartblock)
     newgraph.returnblock = blockmap[graph.returnblock]
     newgraph.exceptblock = blockmap[graph.exceptblock]
+    for key, value in graph.__dict__.items():
+        newgraph.__dict__.setdefault(key, value)
     return newgraph
 
 def checkgraph(graph):
