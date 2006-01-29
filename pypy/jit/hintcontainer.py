@@ -29,7 +29,9 @@ def make_item_annotation(bookkeeper, TYPE, vparent=None):
     elif isinstance(TYPE, lltype.Ptr):
         return annmodel.s_ImpossibleValue
     else:
-        return hintmodel.SomeLLAbstractConstant(TYPE, {})
+        hs_c = hintmodel.SomeLLAbstractConstant(TYPE, {})
+        hs_c.const = TYPE._defl()
+        return hs_c
 
 # ____________________________________________________________
 

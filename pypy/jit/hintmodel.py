@@ -138,6 +138,9 @@ class __extend__(SomeLLAbstractConstant):
                                                   *args_hs)
             except NotImplementedError:
                 pass
+        # don't try to annotate suggested_primitive graphs
+        if getattr(getattr(fnobj, '_callable', None), 'suggested_primitive', False):
+            return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
@@ -284,6 +287,16 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
 
     int_lt = int_le = int_ge = int_ne = int_gt = int_eq
     uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
+
+class __extend__(pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
+                 pairtype(SomeLLAbstractConstant, SomeLLConcreteValue)):
+
+    def union((hs_c1, hs_c2)):
+        assert hs_c1.concretetype == hs_c2.concretetype
+        #if hasattr(hs_c1, 'const') or hasattr(hs_c2, 'const'):
+        return SomeLLConcreteValue(hs_c1.concretetype) # MAYBE
+        #else:
+        #    raise annmodel.UnionError("%s %s don't mix, unless the constant is constant" % (hs_c1, hs_c2))
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 

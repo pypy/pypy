@@ -114,8 +114,13 @@ def test_union():
     # degenerating cases
     py.test.raises(annmodel.UnionError, "unionof(cv1, av1)")
     py.test.raises(annmodel.UnionError, "unionof(av1, cv1)")
-    py.test.raises(annmodel.UnionError, "unionof(ac1, cv1)")
-    py.test.raises(annmodel.UnionError, "unionof(cv1, ac1)")
+
+    # MAYBE...
+    #py.test.raises(annmodel.UnionError, "unionof(ac1, cv1)")
+    #py.test.raises(annmodel.UnionError, "unionof(cv1, ac1)")
+    assert unionof(cv1, ac1) == cv1
+    assert unionof(ac1, cv1) == cv1
+    
     # constant with values
     assert unionof(av1, ac1) == av1
     assert unionof(ac1, av1) == av1
@@ -258,7 +263,7 @@ def test_simple_cast_pointer():
     assert hs.concretetype == PGCS2
 
 
-def CUR_GOAL_test_hannotate_tl():
+def test_hannotate_tl():
     from pypy.jit import tl
 
     hannotate(tl.interp, [str, int])
