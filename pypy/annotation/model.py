@@ -447,6 +447,7 @@ class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
     immutable = True
+    annotationcolor = (160,160,160)
 
     def can_be_none(self):
         return False

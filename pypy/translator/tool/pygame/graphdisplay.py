@@ -451,6 +451,8 @@ class GraphDisplay(Display):
         word = self.viewer.at_position(pos)
         if word in self.layout.links:
             info = self.layout.links[word]
+            if isinstance(info, tuple):
+                info = info[0]
             self.setstatusbar(info)
             self.sethighlight(word)
             return

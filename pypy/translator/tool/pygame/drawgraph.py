@@ -264,10 +264,17 @@ class GraphRenderer:
         self.visibleedges = []
 
     def wordcolor(self, word):
-        if word == self.highlight_word:
-            return ((255,255,80), (128,0,0))
+        info = self.highlightwords[word]
+        if isinstance(info, tuple) and len(info) >= 2:
+            color = info[1]
         else:
-            return ((128,0,0), None)
+            color = None
+        if color is None:
+            color = (128,0,0)
+        if word == self.highlight_word:
+            return ((255,255,80), color)
+        else:
+            return (color, None)
 
     def setscale(self, scale):
         scale = max(min(scale, self.SCALEMAX), self.SCALEMIN)

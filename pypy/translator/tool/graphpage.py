@@ -143,7 +143,8 @@ class FlowGraphPage(GraphPage):
         if self.annotator:
             for var, s_value in self.annotator.bindings.items():
                 info = '%s: %s' % (var.name, s_value)
-                self.links[var.name] = info
+                annotationcolor = getattr(s_value, 'annotationcolor', None)
+                self.links[var.name] = info, annotationcolor
                 self.current_value[var.name] = s_value
                 self.caused_by[var.name] = (
                     self.annotator.binding_caused_by.get(var))
@@ -151,6 +152,10 @@ class FlowGraphPage(GraphPage):
                 cause_history = (
                     self.annotator.binding_cause_history.get(var, []))
                 self.binding_history[var.name] = zip(history, cause_history)
+                    
+        from pypy.jit import hintannotator
+        if isinstance(self.annotator, hintannotator.HintAnnotator):
+            return
 
         def visit(node):
             if isinstance(node, Block):
@@ -165,11 +170,6 @@ class FlowGraphPage(GraphPage):
                     #info = '(%s) %s' % (var.concretetype, info)
                     info = str(var.concretetype)
                     self.links[var.name] = info
-                    
-        from pypy.jit import hintannotator
-
-        if isinstance(self.annotator, hintannotator.HintAnnotator):
-            return
 
         for graph in graphs:
             traverse(visit, graph)
