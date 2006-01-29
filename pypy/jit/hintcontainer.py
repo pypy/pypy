@@ -1,4 +1,4 @@
-import weakref
+import weakref, itertools
 from pypy.annotation.listdef import ListItem
 from pypy.annotation import model as annmodel
 from pypy.jit import hintmodel
@@ -6,20 +6,17 @@ from pypy.rpython.lltypesystem import lltype
 
 
 class AbstractContainerDef(object):
-    __counter = 0
+    __counter = itertools.count()
     __cache   = {}
 
     def __init__(self, bookkeeper, TYPE):
         self.T = TYPE
         self.bookkeeper = bookkeeper
         # hack to try to produce a repr that shows identifications
-        try:
-            weakdict = AbstractContainerDef.__cache[TYPE]
-        except KeyError:
-            weakdict = weakref.WeakValueDictionary()
-            AbstractContainerDef.__cache[self.__class__, TYPE] = weakdict
-        weakdict[AbstractContainerDef.__counter] = self
-        AbstractContainerDef.__counter += 1
+        key = (self.__class__, TYPE)
+        weakdict = AbstractContainerDef.__cache.setdefault(key,
+            weakref.WeakValueDictionary())
+        weakdict[AbstractContainerDef.__counter.next()] = self
 
     def __repr__(self):
         items = AbstractContainerDef.__cache[self.__class__, self.T].items()
