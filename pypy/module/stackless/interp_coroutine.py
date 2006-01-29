@@ -14,7 +14,7 @@ import sys, os
 
 class CoState(object):
     def __init__(self):
-        self.last = self.current = Coroutine()
+        self.last = self.current = self.main = Coroutine()
         self.things_to_do = False
         self.temp_exc = None
         self.del_first = None
@@ -46,9 +46,14 @@ class Coroutine(Wrappable):
             self.parent = self
         else:
             self.parent = costate.current
-        D("new coro, self", self)
-        D("  parent", self.parent)
         self.thunk = None
+
+    def _get_current(self):
+        # must be overridden for every distinguished subclass
+        return costate.current
+    def _set_current(self, new):
+        # must be overridden for every distinguished subclass
+        costate.current = new
 
     def bind(self, thunk):
         if self.frame is not None:
@@ -79,19 +84,16 @@ class Coroutine(Wrappable):
             # considered a programming error.
             # greenlets and tasklets have different ideas about this.
             raise CoroutineDamage
-        D("switch begin self", self)
         costate.last.frame = self._update_state(self).switch()
         # note that last gets updated before assignment!
-        D("switch end self", self)
-        D("  costate.last", costate.last)
         if costate.things_to_do:
             do_things_to_do(self)
 
-    def _update_state(new):
-        costate.last, costate.current = costate.current, new
+    def _update_state(self, new):
+        costate.last = self._get_current()
+        self._set_current(new)
         frame, new.frame = new.frame, None
         return frame
-    _update_state = staticmethod(_update_state)
 
     def kill(self):
 #        if costate.current is self:
@@ -128,9 +130,8 @@ class Coroutine(Wrappable):
     def is_zombie(self):
         return self.frame is not None and check_for_zombie(self)
 
-    def get_current():
-        return costate.current
-    get_current = staticmethod(get_current)
+    def get_current(self):
+        return self._get_current()
 
 
 def check_for_zombie(self):
@@ -192,9 +193,15 @@ class _AppThunk(object):
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def __init__(self):
-        D("new appcoro self", self)
         Coroutine.__init__(self)
         self.flags = 0
+
+    def _get_current(self):
+        # must be overridden for every distinguished subclass
+        return appcostate.current
+    def _set_current(self, new):
+        # must be overridden for every distinguished subclass
+        appcostate.current = new
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
@@ -208,34 +215,18 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot bind a bound Coroutine"))
         thunk = _AppThunk(space, w_func, __args__)
-        costate.current = appcostate.current
-        D("w_bind self", self)
         self.bind(thunk)
-        D("return from w_bind self", self)
-        D("  costate.current", costate.current)
-        D("  appcostate.current", appcostate.current)
-        appcostate.current = costate.current
 
     def w_switch(self):
         space = self.space
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
-        D("w_switch begin self", self)
-        D("  costate.current", costate.current)
-        D("  appcostate.current", appcostate.current)
-        costate.current = appcostate.current
-        D("  --> appcostate.current before switch", appcostate.current)
         self.switch()
-        D("  after switch self", self)
-        D("  after switch -> appcostate.current was", appcostate.current)
-        appcostate.current = self
         ret, appcostate.tempval = appcostate.tempval, space.w_None
         return ret
 
     def w_kill(self):
-        if appcostate.current is self:
-            costate.current = self
         self.kill()
 
     def __del__(self):
@@ -250,7 +241,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.space.userdel(self)
 
     def get_current(space):
-        return space.wrap(appcostate.current)
+        return space.wrap(self._get_current())
     get_current = staticmethod(get_current)
 
 
