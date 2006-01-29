@@ -1,5 +1,5 @@
 from pypy.rpython.memory import gctransform
-from pypy.objspace.flow.model import c_last_exception
+from pypy.objspace.flow.model import c_last_exception, Variable
 from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
@@ -13,7 +13,7 @@ def checkblock(block):
     if block.isstartblock:
         refs_in = 0
     else:
-        refs_in = len([v for v in block.inputargs if var_needsgc(v)])
+        refs_in = len([v for v in block.inputargs if isinstance(v, Variable) and var_needsgc(v)])
     push_alives = len([op for op in block.operations
                        if op.opname.startswith('gc_push_alive')]) + \
                   len([op for op in block.operations
@@ -32,8 +32,7 @@ def checkblock(block):
             fudge -= 1
             if var_needsgc(block.operations[-1].result):
                 fudge += 1
-        refs_out = len([v for v in link.args
-                        if isinstance(v, Variable) and var_needsgc(v)])
+        refs_out = len([v for v in link.args if var_needsgc(v)])
         assert refs_in + push_alives + calls - fudge == pop_alives + refs_out
         
         if block.exitswitch is c_last_exception and link.exitcase is not None:

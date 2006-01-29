@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.objspace.flow.model import SpaceOperation, Variable, c_last_exception
+from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython import rmodel
 import sets
@@ -116,11 +116,13 @@ class GCTransformer:
                         # exception, it can't have returned anything that
                         # might need pop_aliving.
                         del livecounts[livevars[-1]]
-                    if link.last_exc_value not in link.args:
-                        livecounts[link.last_exc_value] = 1
+                    livecounts[link.last_exc_value] = 1
                 for v in link.args:
                     if v in livecounts:
                         livecounts[v] -= 1
+                    elif var_needsgc(v):
+                        assert isinstance(v, Constant)
+                        livecounts[v] = -1
                 self.links_to_split[link] = livecounts
         if newops:
             block.operations = newops
