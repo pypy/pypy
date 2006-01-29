@@ -7,6 +7,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize g
                       cast_pointer
                       direct_call
                       int_is_true int_neg
+                      cast_int_to_uint
                       cast_char_to_int
                       cast_bool_to_int""".split()
 
@@ -141,8 +142,17 @@ class __extend__(SomeLLAbstractConstant):
         origin = getbookkeeper().myorigin()
         origin.merge(hs_c1.origins)
         return SomeLLAbstractConstant(lltype.Bool, {origin: True})
+
+class __extend__(SomeLLConcreteValue):
+
+    def cast_int_to_uint(hs_cv1):
+        return SomeLLConcreteValue(lltype.Unsigned)
+
+    def int_neg(hs_cv1):
+        return SomeLLConcreteValue(lltype.Signed)
+
+    cast_bool_to_int = cast_char_to_int = int_neg
     
-        
 class __extend__(SomeLLAbstractContainer):
 
     def setfield(hs_s1, hs_fieldname, hs_value):
@@ -167,6 +177,9 @@ class __extend__(SomeLLAbstractContainer):
         TO = getbookkeeper().current_op_concretetype()
         res_vstruct =hs_s1.contentdef.cast(TO)
         return SomeLLAbstractContainer(res_vstruct)
+
+# ____________________________________________________________
+# binary
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
@@ -193,13 +206,13 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
     int_floordiv = int_rshift = int_and = int_mul = int_sub = int_add
 
-    def int_gt((hs_c1, hs_c2)):
+    def int_eq((hs_c1, hs_c2)):
         origin = getbookkeeper().myorigin()
         origin.merge(hs_c1.origins)
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Bool, {origin: True})
 
-    int_lt = int_le = int_ge = int_eq = int_ne = int_gt
+    int_lt = int_le = int_ge = int_ne = int_gt = int_eq
 
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
@@ -213,8 +226,12 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
     def int_add((hs_c1, hs_c2)):
         return SomeLLConcreteValue(lltype.Signed)
 
+    int_floordiv = int_rshift = int_and = int_mul = int_sub = int_add
+
     def int_eq((hs_c1, hs_c2)):
         return SomeLLConcreteValue(lltype.Bool)
+
+    int_lt = int_le = int_ge = int_ne = int_gt = int_eq
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
