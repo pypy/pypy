@@ -7,9 +7,10 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize g
                       cast_pointer
                       direct_call
                       int_is_true int_neg
-                      cast_char_to_int""".split()
+                      cast_char_to_int
+                      cast_bool_to_int""".split()
 
-BINARY_OPERATIONS = """int_add int_sub int_mul int_and int_rshift
+BINARY_OPERATIONS = """int_add int_sub int_mul int_and int_rshift int_floordiv
                        int_gt int_lt int_le int_ge int_eq int_ne""".split()
 
 class OriginTreeNode(object):
@@ -134,7 +135,7 @@ class __extend__(SomeLLAbstractConstant):
         origin.merge(hs_c1.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    cast_char_to_int = int_neg
+    cast_bool_to_int = cast_char_to_int = int_neg
 
     def int_is_true(hs_c1):
         origin = getbookkeeper().myorigin()
@@ -151,6 +152,9 @@ class __extend__(SomeLLAbstractContainer):
         return hs_s1.contentdef.read_field(hs_fieldname.const)
 
     getsubstruct = getfield
+
+    def setarrayitem(hs_a1, hs_index, hs_value):
+        hs_a1.contentdef.generalize_item(hs_value)
 
     def getarrayitem(hs_a1, hs_index):
         return hs_a1.contentdef.read_item()
@@ -187,7 +191,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    int_rshift = int_and = int_mul = int_sub = int_add
+    int_floordiv = int_rshift = int_and = int_mul = int_sub = int_add
 
     def int_gt((hs_c1, hs_c2)):
         origin = getbookkeeper().myorigin()
