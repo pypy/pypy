@@ -285,7 +285,7 @@ def test_getvarrayitem():
     hs_n = ha.binding(g1.getargs()[0])
     assert hs_n.origins.keys()[0].fixed
 
-def INPROG_test_simple_fixed_call():
+def test_simple_fixed_call():
     def ll_help(cond, x, y):
         if cond:
             z = x+y

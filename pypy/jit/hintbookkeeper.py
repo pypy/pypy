@@ -11,10 +11,10 @@ class GraphDesc(object):
         self.origgraph = origgraph
         self._cache = {}
 
-    def specialize(self, input_args_hs):
+    def specialize(self, input_args_hs, key=None, alt_name=None):
         from pypy.jit import hintmodel
         # get the specialized graph -- for now, no specialization
-        graph = self.cachedgraph(None)
+        graph = self.cachedgraph(key, alt_name)
 
         # modify input_args_hs in-place to change their origin
         for i in range(len(input_args_hs)):

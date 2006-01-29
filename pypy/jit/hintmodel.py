@@ -23,6 +23,7 @@ BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_fl
 class OriginFlags(object):
 
     fixed = False
+    read_positions = None
 
     def __repr__(self):
         if self.fixed:
@@ -30,6 +31,20 @@ class OriginFlags(object):
         else:
             s = ""
         return "<%sorigin>" % (s,)
+
+    def read_fixed(self):
+        if self.read_positions is None:
+            self.read_positions = {}
+        self.read_positions[getbookkeeper().position_key] = True
+        return self.fixed
+
+    def set_fixed(self):
+        if not self.fixed:
+            self.fixed = True
+            if self.read_positions:
+                annotator = getbookkeeper().annotator
+                for p in self.read_positions:
+                    annotator.reflowfromposition(p)
 
 class SomeLLAbstractValue(annmodel.SomeObject):
 
@@ -125,7 +140,7 @@ class __extend__(SomeLLAbstractConstant):
             return SomeLLAbstractVariable(hs_c1.concretetype)
         assert hs_flags.const['concrete']
         for o in hs_c1.origins:
-            o.fixed = True
+            o.set_fixed()
         return SomeLLConcreteValue(hs_c1.concretetype)
 
     def getfield(hs_c1, hs_fieldname):
@@ -165,8 +180,13 @@ class __extend__(SomeLLAbstractConstant):
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
         desc = bookkeeper.getdesc(fnobj.graph)
+        key = None
+        alt_name = None
+        if bookkeeper.myorigin().read_fixed():
+            key = 'fixed'
+            alt_name = fnobj.graph.name + '_HFixed'
         input_args_hs = list(args_hs)
-        graph = desc.specialize(input_args_hs)
+        graph = desc.specialize(input_args_hs, key=key, alt_name=alt_name)
         hs_res = bookkeeper.annotator.recursivecall(graph,
                                                     bookkeeper.position_key,
                                                     input_args_hs)
@@ -179,6 +199,8 @@ class __extend__(SomeLLAbstractConstant):
                     [o] = hs_inputarg.origins.keys()
                     if o in hs_res.origins:
                         deps_hs.append(hs_arg)
+            if key == 'fixed':
+                deps_hs.append(hs_res)
             hs_res = reorigin(hs_res, *deps_hs)
         return hs_res
 
