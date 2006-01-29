@@ -8,11 +8,14 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize g
                       direct_call
                       int_is_true int_neg
                       uint_is_true
+                      cast_int_to_char
                       cast_int_to_uint
+                      cast_uint_to_int
                       cast_char_to_int
                       cast_bool_to_int""".split()
 
-BINARY_OPERATIONS = """int_add int_sub int_mul int_and int_rshift int_floordiv
+BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_floordiv
+                       uint_add uint_sub uint_mul uint_mod uint_and uint_rshift uint_floordiv
                        int_gt int_lt int_le int_ge int_eq int_ne
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne""".split()
 
@@ -146,12 +149,19 @@ class __extend__(SomeLLAbstractConstant):
         #else: it's a SomeImpossibleValue
         return hs_res
 
-    def int_neg(hs_c1):
+    def unary_char(hs_c1):
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        return SomeLLAbstractConstant(lltype.Char, {origin: True})
+
+    cast_int_to_char = unary_char
+    
+    def unary_int(hs_c1):
         origin = getbookkeeper().myorigin()
         origin.merge(hs_c1.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    cast_bool_to_int = cast_char_to_int = int_neg
+    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = unary_int
 
     def int_is_true(hs_c1):
         origin = getbookkeeper().myorigin()
@@ -165,11 +175,16 @@ class __extend__(SomeLLConcreteValue):
     def cast_int_to_uint(hs_cv1):
         return SomeLLConcreteValue(lltype.Unsigned)
 
-    def int_neg(hs_cv1):
+    def unary_int(hs_cv1):
         return SomeLLConcreteValue(lltype.Signed)
 
-    cast_bool_to_int = cast_char_to_int = int_neg
+    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = unary_int
 
+    def unary_char(hs_c1):
+        return SomeLLConcreteValue(lltype.Char)
+
+    cast_int_to_char = unary_char
+ 
     def int_is_true(hs_cv1):
         return SomeLLConcreteValue(lltype.Bool)
 
@@ -226,7 +241,15 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         origin.merge(hs_c2.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
-    int_floordiv = int_rshift = int_and = int_mul = int_sub = int_add
+    int_floordiv = int_rshift = int_and = int_mul = int_mod = int_sub = int_add
+
+    def uint_add((hs_c1, hs_c2)):
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        origin.merge(hs_c2.origins)
+        return SomeLLAbstractConstant(lltype.Unsigned, {origin: True})
+    
+    uint_floordiv = uint_rshift = uint_and = uint_mul = uint_mod = uint_sub = uint_add
 
     def int_eq((hs_c1, hs_c2)):
         origin = getbookkeeper().myorigin()
@@ -249,7 +272,12 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
     def int_add((hs_c1, hs_c2)):
         return SomeLLConcreteValue(lltype.Signed)
 
-    int_floordiv = int_rshift = int_and = int_mul = int_sub = int_add
+    int_floordiv = int_rshift = int_and = int_mul = int_mod = int_sub = int_add
+
+    def uint_add((hs_c1, hs_c2)):
+        return SomeLLConcreteValue(lltype.Unsigned)
+
+    uint_floordiv = uint_rshift = uint_and = uint_mul = uint_mod = uint_sub = uint_add
 
     def int_eq((hs_c1, hs_c2)):
         return SomeLLConcreteValue(lltype.Bool)
