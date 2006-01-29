@@ -94,6 +94,16 @@ class __extend__(SomeLLAbstractConstant):
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
+    def getarrayitem(hs_c1, hs_index):
+        A = hs_c1.concretetype.TO
+        READ_TYPE = A.OF
+        if A._hints.get('immutable', False):
+            origin = getbookkeeper().myorigin()
+            origin.merge(hs_c1.origins)
+            return SomeLLAbstractConstant(READ_TYPE, {origin: True})
+        else:
+            return SomeLLAbstractVariable(READ_TYPE)
+
     def getsubstruct(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
         SUB_TYPE = getattr(S, hs_fieldname.const)
@@ -125,6 +135,8 @@ class __extend__(SomeLLAbstractContainer):
 
     getsubstruct = getfield
 
+    def getarrayitem(hs_a1, hs_index):
+        return hs_a1.contentdef.read_item()
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
