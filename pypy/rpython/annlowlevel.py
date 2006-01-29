@@ -44,6 +44,10 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False
 
     def default_specialize(pol, funcdesc, args_s):
+        if hasattr(funcdesc, 'pyobj') and hasattr(funcdesc.pyobj, 'llresult'):
+            # XXX bug mwh to write some tests for this stuff
+            funcdesc.overridden = True
+            return annmodel.lltype_to_annotation(funcdesc.pyobj.llresult)
         key = []
         new_args_s = []
         for s_obj in args_s:
