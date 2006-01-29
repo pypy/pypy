@@ -1,10 +1,34 @@
 import py.test
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
-from pypy.translator.c.test.test_genc import compile
+from pypy.translator.c.test.test_genc import compile, compile_db
+#o#from pypy.translator.c import compile
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.annotation.model import SomeCTypesObject, SomeObject
 import sys
+
+
+def compile(fn, argtypes, view=False):
+    from pypy.translator.c.database import LowLevelDatabase
+    from pypy.rpython.lltypesystem.lltype import pyobjectptr
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, argtypes)
+    t.buildrtyper().specialize()
+    if view:
+        t.view()
+    #t#backend_optimizations(t)
+    db = LowLevelDatabase(t)
+    entrypoint = db.get(pyobjectptr(fn))
+    db.complete()
+    module = compile_db(db)
+    compiled_fn = getattr(module, entrypoint)
+    def checking_fn(*args, **kwds):
+        res = compiled_fn(*args, **kwds)
+        mallocs, frees = module.malloc_counters()
+        assert mallocs == frees
+        return res
+    return checking_fn
     
 try:
     import ctypes
@@ -174,6 +198,15 @@ def py_test_specialize_struct():
 
     return p.x
 
+def _py_test_compile_struct( p, x, y ):
+    p.x = x
+    p.y = y
+
+    return p
+
+def py_test_compile_struct( x, y ):
+    return _py_test_compile_struct( tagpoint(), x, y ).x
+    
 
 class Test_rctypes:
 
@@ -321,14 +354,34 @@ class Test_structure:
         s = a.build_types(py_test_simple_ctypes_non_const,[])
         assert s.knowntype == c_float
 
-    def x_test_specialize_struct(self):
+    def test_specialize_struct(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_test_specialize_struct, [])
         # result should be an integer
         assert s.knowntype == int
-        t.buildrtyper().specialize()
+        try:
+            t.buildrtyper().specialize()
+        finally:
+            #d#t.view()
+            pass
+
+    def test_specialize_struct_1(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types( py_test_compile_struct, [ int, int ] )
         #d#t.view()
+        try:
+            t.buildrtyper().specialize()
+        finally:
+            #d#t.view()
+            pass
+
+    def test_compile_struct(self):
+        fn = compile( py_test_compile_struct, [ int, int ], True )
+        res = fn( 42, -42 )
+        assert res == 42
+
 
 class Test_array:
 
@@ -357,13 +410,13 @@ class Test_array:
         a = t.buildannotator()
         s = a.build_types(py_test_annotate_pointer_content,[])
         assert s.knowntype == int
-        #t#t.view()
+        #d#t.view()
 
     def test_annotate_array_slice_access(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_test_annotate_array_slice_content,[])
-        #t#t.view()
+        #d#t.view()
         #d#print "v90:", s, type(s)
         assert s.knowntype == list
         s.listdef.listitem.s_value.knowntype == int

@@ -11,7 +11,11 @@ if sys.platform == "win32":
 from pypy.annotation.model import SomeInteger, SomeCTypesObject, \
         SomeString, SomeFloat
 from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
-        Unsigned, UnsignedLongLong, Char, Float
+        Unsigned, UnsignedLongLong, Char, Float, Ptr, GcStruct, \
+        Void
+from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
+from pypy.rpython.error import TyperError
+
 
 # ctypes_annotation_list contains various attributes that
 # are used by the pypy annotation.
@@ -118,8 +122,12 @@ class RStructure(Structure):
         return SomeCTypesObject(cls)
     compute_annotation = classmethod(compute_annotation)
 
-    def specialize(self, hop):
-        raise NotImplementedError
+    def specialize( cls, highLevelOperation ):
+        ctypesStructureType = highLevelOperation.r_result.lowleveltype  
+        return highLevelOperation.llops.genop(
+                "malloc", [ inputconst( Void, ctypesStructureType ) ],
+                highLevelOperation.r_result )
+    specialize = classmethod(specialize)
 
     def compute_result_annotation(cls, *args_s):
         """
@@ -127,6 +135,21 @@ class RStructure(Structure):
         """
         return SomeCTypesObject(cls,SomeCTypesObject.OWNSMEMORY)
     compute_result_annotation = classmethod(compute_result_annotation)
+
+    def createLowLevelRepresentation( rtyper, annotationObject ):
+        """
+        Answer the correspondending low level object.
+        """
+        if annotationObject.memorystate == annotationObject.OWNSMEMORY:
+            return CtypesMemoryOwningStructureRepresentation( 
+                    rtyper, annotationObject )
+        elif annotationObject.memorystate == annotationObject.MEMORYALIAS:
+            return CtypesMemoryAliasStructureRepresentation(
+                    rtyper, annotationObject )
+        else:
+            raise TyperError( "Unkown memory state in %r" % annotationObject )
+    createLowLevelRepresentation = staticmethod( createLowLevelRepresentation )
+
 
 class RByrefObj(object):
 
@@ -158,6 +181,9 @@ def RPOINTER(cls):
         assert answer is cls
         return SomeCTypesObject(cls)
     answer.compute_result_annotation = classmethod(compute_result_annotation)
+    # We specialcased accessing pointers be getting their contents attribute
+    # because we can't use the memory state from 'cls'.
+    # So the obvious way to do it is obsolete (#o#).
     #o#answer._fields_def_ = {"contents": cls}
     answer.default_memorystate = SomeCTypesObject.MEMORYALIAS
     return answer
@@ -201,4 +227,62 @@ def RARRAY(typ,length):
     answer.compute_result_annotation = classmethod(compute_result_annotation)
     return answer
 
+
+class AbstractCtypesRepresentation( Repr ):
+    """
+    The abstract base class of all ctypes low level representations.
+    """
+
+
+class AbstractCtypesStructureRepresentation( AbstractCtypesRepresentation ):
+    """
+    The abstract base class of ctypes structures' low level representation.
+    """
+
+    def __init__( self, rtyper, annotationObject ):
+        # XXX This .ll_type may not work for pointers or structures
+        # conating structures
+        fields = [ ( name, ctypesType.ll_type )
+                        for name, ctypesType in annotationObject.knowntype._fields_ ]
+        self.lowleveltype = Ptr(
+                GcStruct( 
+                    'CtypesStructure_%s' %
+                    annotationObject.knowntype.__name__, *fields ) )
+
+
+class CtypesMemoryOwningStructureRepresentation( AbstractCtypesStructureRepresentation ):
+    """
+    The lowlevel representation of a ctypes structure that owns its memory.
+    """
+
+    def rtype_setattr( self, highLevelOperation ):
+        #d#print highLevelOperation.args_v
+        #d#print highLevelOperation.args_r
+        #d#print highLevelOperation.args_s
+        highLevelOperation.genop( 
+                "setfield", 
+                highLevelOperation.inputargs(
+                    *highLevelOperation.args_r[ :3 ] ) )
+
+    def rtype_getattr( self, highLevelOperation ):
+        return highLevelOperation.genop( 
+                "getfield", 
+                highLevelOperation.inputargs(
+                    *highLevelOperation.args_r[ :2 ] ),
+                highLevelOperation.r_result )
+
+
+
+class CtypesMemoryAliasStructureRepresentation( AbstractCtypesStructureRepresentation ):
+    """
+    The lowlevel representation of a ctypes structure that is an alias to
+    someone else's memory.
+    """
+
+class __extend__( SomeCTypesObject ):
+    def rtyper_makerepr( self, rtyper ):
+        return self.knowntype.createLowLevelRepresentation( rtyper, self )
+        
+    def rtyper_makekey( self ):
+        return self.__class__, self.knowntype, self.memorystate
 
