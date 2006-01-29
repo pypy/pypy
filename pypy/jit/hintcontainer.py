@@ -1,3 +1,4 @@
+import weakref
 from pypy.annotation.listdef import ListItem
 from pypy.annotation import model as annmodel
 from pypy.jit import hintmodel
@@ -5,10 +6,26 @@ from pypy.rpython.lltypesystem import lltype
 
 
 class AbstractContainerDef(object):
+    __counter = 0
+    __cache   = {}
 
     def __init__(self, bookkeeper, TYPE):
         self.T = TYPE
         self.bookkeeper = bookkeeper
+        # hack to try to produce a repr that shows identifications
+        try:
+            weakdict = AbstractContainerDef.__cache[TYPE]
+        except KeyError:
+            weakdict = weakref.WeakValueDictionary()
+            AbstractContainerDef.__cache[self.__class__, TYPE] = weakdict
+        weakdict[AbstractContainerDef.__counter] = self
+        AbstractContainerDef.__counter += 1
+
+    def __repr__(self):
+        items = AbstractContainerDef.__cache[self.__class__, self.T].items()
+        keys = [key for key, containerdef in items if containerdef.same_as(self)]
+        tag = min(keys)
+        return "<%s #%d>" % (self.__class__.__name__, tag)
 
 # ____________________________________________________________
 
@@ -93,9 +110,6 @@ class VirtualStructDef(AbstractContainerDef):
     def generalize_field(self, name, hs_value):
         self.fields[name].generalize(hs_value)
 
-    def __repr__(self):
-        return "<VirtualStructDef '%s'>" % (self.T._name,)
-
 # ____________________________________________________________
 
 
@@ -128,6 +142,3 @@ class VirtualArrayDef(AbstractContainerDef):
 
     def generalize_item(self, hs_value):
         self.arrayitem.generalize(hs_value)
-
-    def __repr__(self):
-        return "<VirtualArrayDef of %r>" % (self.T.OF,)

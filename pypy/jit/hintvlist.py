@@ -17,6 +17,14 @@ class VirtualListDef(AbstractContainerDef):
         self.listitem.read_locations[self.bookkeeper.position_key] = True
         return self.listitem.s_value
 
+    def same_as(self, other):
+        return self.listitem == other.listitem
+
+    def union(self, other):
+        assert self.T == other.T
+        self.listitem.merge(other.listitem)
+        return self
+
     def generalize_item(self, hs_value):
         assert hs_value.concretetype == self.T.ITEM
         self.listitem.generalize(hs_value)
