@@ -82,7 +82,7 @@ class GCTransformer:
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         for op in block.operations:
             newops.extend(self.replacement_operations(op))
-            if op.opname in EXCEPTION_RAISING_OPS and livevars:
+            if 1 or op.opname in EXCEPTION_RAISING_OPS:
                 cleanup_on_exception = []
                 for var in livevars:
                     cleanup_on_exception.extend(self.pop_alive(var))
@@ -116,7 +116,9 @@ class GCTransformer:
                         # exception, it can't have returned anything that
                         # might need pop_aliving.
                         del livecounts[livevars[-1]]
-                    livecounts[link.last_exc_value] = 1
+                    for v in link.last_exception, link.last_exc_value:
+                        if var_needsgc(v):
+                            livecounts[v] = 1
                 for v in link.args:
                     if v in livecounts:
                         livecounts[v] -= 1
