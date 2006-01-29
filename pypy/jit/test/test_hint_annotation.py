@@ -21,6 +21,7 @@ def hannotate(func, argtypes, policy=None, annotator=False):
     graph1 = graphof(t, func)
     # build hint annotator types
     hannotator = HintAnnotator(policy=policy)
+    hannotator.base_translator = t
     hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
@@ -283,6 +284,30 @@ def test_getvarrayitem():
     g1 = graphof(ha.translator, ll1)
     hs_n = ha.binding(g1.getargs()[0])
     assert hs_n.origins.keys()[0].fixed
+
+def INPROG_test_simple_fixed_call():
+    def ll_help(cond, x, y):
+        if cond:
+            z = x+y
+        else:
+            z = x-y
+        return z
+    def ll_function(cond, x,y, y1):
+        z1 = ll_help(cond, x, y1)
+        z = ll_help(cond, x, y)
+        z = hint(z, concrete=True)
+        return z
+    hs, ha  = hannotate(ll_function, [bool, int, int, int], annotator=True)
+    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.concretetype == lltype.Signed
+    ll_help_graph = graphof(ha.base_translator, ll_help)
+    gdesc = ha.bookkeeper.getdesc(ll_help_graph)
+    for o in ha.binding(gdesc._cache[None].getreturnvar()).origins:
+        assert not o.fixed
+    assert len(gdesc._cache) == 2
+    for o in ha.binding(gdesc._cache['fixed'].getreturnvar()).origins:
+        assert o.fixed
+    
  
 def test_hannotate_tl():
     from pypy.jit import tl
