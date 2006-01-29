@@ -58,10 +58,15 @@ class VirtualListDef(AbstractContainerDef):
         pass
 
     def oop_copy(self):
-        XXX
+        bk = self.bookkeeper
+        vlistdef = bk.getvirtualcontainerdef(self.T, VirtualListDef)
+        vlistdef.generalize_item(self.read_item())
+        return hintmodel.SomeLLAbstractContainer(vlistdef)
 
     def oop_concat(self, hs_other):
-        XXX
+        assert isinstance(hs_other, hintmodel.SomeLLAbstractContainer) # for now
+        assert hs_other.contentdef.T == self.T
+        return self.oop_copy()
 
 # ____________________________________________________________
 

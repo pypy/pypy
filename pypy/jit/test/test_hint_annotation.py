@@ -227,6 +227,17 @@ def test_simple_list_operations():
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 2
 
+def test_some_more_list_operations():
+    def ll_function(x, y, index):
+        l = []
+        l.append(x)
+        l[0] = y
+        return (l+list(l))[index]
+    hs = hannotate(ll_function, [int, int, int], policy=P_OOPSPEC)
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
+    assert len(hs.origins) == 2
+
 def test_simple_cast_pointer():
     GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
     GCS2 = lltype.GcStruct('s2', ('sub', GCS1), ('y', lltype.Signed))
