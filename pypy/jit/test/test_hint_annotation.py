@@ -20,11 +20,11 @@ def hannotate(func, argtypes, policy=None, annotator=False):
     rtyper.specialize()
     graph1 = graphof(t, func)
     # build hint annotator types
-    hannotator = HintAnnotator(t, policy=policy)
-    t.annotator = hannotator   # XXX?
-    hs = hannotator.build_graph_types(graph1, [SomeLLAbstractConstant(v.concretetype,
-                                                                      {OriginFlags(): True})
-                                               for v in graph1.getargs()])
+    hannotator = HintAnnotator(policy=policy)
+    hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
+                                                                {OriginFlags(): True})
+                                         for v in graph1.getargs()])
+    t = hannotator.translator
     #t.view()
     if annotator:
         return hs, hannotator
@@ -209,14 +209,14 @@ def test_container_union():
     assert len(hs.origins) == 3
 
 def test_simple_call():
-    def ll2(x, y):
+    def ll2(x, y, z):
         return x + (y + 42)
     def ll1(x, y, z):
-        return ll2(x, y - z)
+        return ll2(x, y - z, x + y + z)
     hs = hannotate(ll1, [int, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 7
+    assert len(hs.origins) == 5
 
 def test_simple_list_operations():
     def ll_function(x, y, index):

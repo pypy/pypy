@@ -164,11 +164,23 @@ class __extend__(SomeLLAbstractConstant):
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
-        hs_res = bookkeeper.annotator.recursivecall(fnobj.graph,
+        desc = bookkeeper.getdesc(fnobj.graph)
+        input_args_hs = list(args_hs)
+        graph = desc.specialize(input_args_hs)
+        hs_res = bookkeeper.annotator.recursivecall(graph,
                                                     bookkeeper.position_key,
-                                                    args_hs)
-        # for now, keep the origins of 'hs_res' in the new result:
-        return reorigin(hs_res, hs_res)
+                                                    input_args_hs)
+        # look on which input args the hs_res result depends on
+        if isinstance(hs_res, SomeLLAbstractConstant):
+            deps_hs = []
+            for hs_inputarg, hs_arg in zip(input_args_hs, args_hs):
+                if isinstance(hs_inputarg, SomeLLAbstractConstant):
+                    assert len(hs_inputarg.origins) == 1
+                    [o] = hs_inputarg.origins.keys()
+                    if o in hs_res.origins:
+                        deps_hs.append(hs_arg)
+            hs_res = reorigin(hs_res, *deps_hs)
+        return hs_res
 
     def unary_char(hs_c1):
         d = setadd(hs_c1.origins, getbookkeeper().myorigin())

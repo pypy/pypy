@@ -1,6 +1,42 @@
 from pypy.tool.tls import tlsobject
+from pypy.objspace.flow.model import copygraph
 
 TLS = tlsobject()
+
+
+class GraphDesc(object):
+
+    def __init__(self, bookkeeper, origgraph):
+        self.bookkeeper = bookkeeper
+        self.origgraph = origgraph
+        self._cache = {}
+
+    def specialize(self, input_args_hs):
+        from pypy.jit import hintmodel
+        # get the specialized graph -- for now, no specialization
+        graph = self.cachedgraph(None)
+
+        # modify input_args_hs in-place to change their origin
+        for i in range(len(input_args_hs)):
+            old = self.bookkeeper.enter((graph, i))
+            try:
+                input_args_hs[i] = hintmodel.reorigin(input_args_hs[i])
+            finally:
+                self.bookkeeper.leave(old)
+
+        return graph
+
+    def cachedgraph(self, key, alt_name=None):
+        try:
+            return self._cache[key]
+        except KeyError:
+            graph = copygraph(self.origgraph)
+            if alt_name is not None:
+                graph.name = alt_name
+            self._cache[key] = graph
+            self.bookkeeper.annotator.translator.graphs.append(graph)
+            return graph
+
 
 class HintBookkeeper(object):
 
@@ -8,18 +44,31 @@ class HintBookkeeper(object):
         self.pending_specializations = []
         self.originflags = {}
         self.virtual_containers = {}
+        self.descs = {}
         self.annotator = hannotator
+
+    def getdesc(self, graph):
+        try:
+            return self.descs[graph]
+        except KeyError:
+            self.descs[graph] = desc = GraphDesc(self, graph)
+            return desc
 
     def enter(self, position_key):
         """Start of an operation.
         The operation is uniquely identified by the given key."""
+        res = getattr(self, 'position_key', None)
         self.position_key = position_key
         TLS.bookkeeper = self
+        return res
 
-    def leave(self):
+    def leave(self, old=None):
         """End of an operation."""
-        del TLS.bookkeeper
-        del self.position_key
+        if old is None:
+            del TLS.bookkeeper
+            del self.position_key
+        else:
+            self.position_key = old
 
     def myorigin(self):
         try:
