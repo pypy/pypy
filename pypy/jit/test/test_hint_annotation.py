@@ -11,7 +11,7 @@ from pypy.annotation.policy import AnnotatorPolicy
 P_OOPSPEC = AnnotatorPolicy()
 P_OOPSPEC.oopspec = True
 
-def hannotate(func, argtypes, policy=None):
+def hannotate(func, argtypes, policy=None, annotator=False):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -20,13 +20,16 @@ def hannotate(func, argtypes, policy=None):
     rtyper.specialize()
     graph1 = graphof(t, func)
     # build hint annotator types
-    hannotator = HintAnnotator(policy=policy)
+    hannotator = HintAnnotator(t, policy=policy)
     hs = hannotator.build_graph_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                       {OriginTreeNode(): True})
                                                for v in graph1.getargs()])
     #hannotator.translator.graphs.append(graph1)
     #hannotator.translator.view()
-    return hs
+    if annotator:
+        return hs, hannotator
+    else:
+        return hs
 
 def test_simple():
     def ll_function(x, y):
@@ -262,7 +265,32 @@ def test_simple_cast_pointer():
     assert isinstance(hs, SomeLLAbstractContainer)
     assert hs.concretetype == PGCS2
 
+def test_getarrayitem():
+    A = lltype.GcArray(lltype.Signed, hints={'immutable': True})
+    a = lltype.malloc(A, 10)
+    def ll1(n):
+        v = a[n]
+        v = hint(v, concrete=True)
+        return v
+    hs, ha = hannotate(ll1, [int], annotator=True)
+    assert isinstance(hs, SomeLLConcreteValue)
+    g1 = graphof(ha.translator, ll1)
+    hs_n = ha.binding(g1.getargs()[0])
+    assert hs_n.origins.keys()[0].fixed
 
+def test_getvarrayitem():
+    A = lltype.GcArray(lltype.Signed, hints={'immutable': True})
+    def ll1(n):
+        a = lltype.malloc(A, 10)
+        v = a[n]
+        v = hint(v, concrete=True)
+        return v
+    hs, ha = hannotate(ll1, [int], annotator=True)
+    assert isinstance(hs, SomeLLConcreteValue)
+    g1 = graphof(ha.translator, ll1)
+    hs_n = ha.binding(g1.getargs()[0])
+    assert hs_n.origins.keys()[0].fixed
+ 
 def test_hannotate_tl():
     from pypy.jit import tl
 
