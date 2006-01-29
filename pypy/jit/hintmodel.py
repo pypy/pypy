@@ -7,12 +7,14 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize g
                       cast_pointer
                       direct_call
                       int_is_true int_neg
+                      uint_is_true
                       cast_int_to_uint
                       cast_char_to_int
                       cast_bool_to_int""".split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_and int_rshift int_floordiv
-                       int_gt int_lt int_le int_ge int_eq int_ne""".split()
+                       int_gt int_lt int_le int_ge int_eq int_ne
+                       uint_gt uint_lt uint_le uint_ge uint_eq uint_ne""".split()
 
 class OriginTreeNode(object):
 
@@ -143,6 +145,8 @@ class __extend__(SomeLLAbstractConstant):
         origin.merge(hs_c1.origins)
         return SomeLLAbstractConstant(lltype.Bool, {origin: True})
 
+    uint_is_true = int_is_true
+
 class __extend__(SomeLLConcreteValue):
 
     def cast_int_to_uint(hs_cv1):
@@ -152,6 +156,11 @@ class __extend__(SomeLLConcreteValue):
         return SomeLLConcreteValue(lltype.Signed)
 
     cast_bool_to_int = cast_char_to_int = int_neg
+
+    def int_is_true(hs_cv1):
+        return SomeLLConcreteValue(lltype.Bool)
+
+    uint_is_true = int_is_true
     
 class __extend__(SomeLLAbstractContainer):
 
@@ -213,6 +222,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         return SomeLLAbstractConstant(lltype.Bool, {origin: True})
 
     int_lt = int_le = int_ge = int_ne = int_gt = int_eq
+    uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
 
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
@@ -232,6 +242,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
         return SomeLLConcreteValue(lltype.Bool)
 
     int_lt = int_le = int_ge = int_ne = int_gt = int_eq
+    uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
