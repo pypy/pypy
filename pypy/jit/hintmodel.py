@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import lltype
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize getarrayitem
                       direct_call
+                      int_is_true int_neg
                       cast_char_to_int""".split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_and
@@ -127,10 +128,18 @@ class __extend__(SomeLLAbstractConstant):
         else:
             return hs_res # impossible value
 
-    def cast_char_to_int(hs_c1):
+    def int_neg(hs_c1):
         origin = getbookkeeper().myorigin()
         origin.merge(hs_c1.origins)
         return SomeLLAbstractConstant(lltype.Signed, {origin: True})
+
+    cast_char_to_int = int_neg
+
+    def int_is_true(hs_c1):
+        origin = getbookkeeper().myorigin()
+        origin.merge(hs_c1.origins)
+        return SomeLLAbstractConstant(lltype.Bool, {origin: True})
+    
         
 class __extend__(SomeLLAbstractContainer):
 
@@ -144,6 +153,10 @@ class __extend__(SomeLLAbstractContainer):
 
     def getarrayitem(hs_a1, hs_index):
         return hs_a1.contentdef.read_item()
+
+    def getarraysize(hs_a1):
+        origin = getbookkeeper().myorigin()
+        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
