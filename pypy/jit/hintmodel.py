@@ -20,31 +20,17 @@ BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_fl
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne
                        getarrayitem""".split()
 
-class OriginTreeNode(object):
+class OriginFlags(object):
 
     fixed = False
 
-    def __init__(self, origins=None):
-        if origins is None:
-            origins = {}
-        self.origins = origins
-
-    def merge(self, nodes):
-        self.origins.update(nodes)
-
-    def visit(self, seen=None):
-        if seen is None:
-            seen = {}
-        yield self
-        for o in self.origins:
-            if o not in seen:
-                seen[o] = True
-                for o1 in o.visit(seen):
-                    yield o1
-
     def __repr__(self):
-        return "O" + (self.fixed and "f" or "")
-                    
+        if self.fixed:
+            s = "fixed "
+        else:
+            s = ""
+        return "<%sorigin>" % (s,)
+
 class SomeLLAbstractValue(annmodel.SomeObject):
 
     def __init__(self, T):
@@ -56,6 +42,22 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
     def __init__(self, T, origins):
         SomeLLAbstractValue.__init__(self, T)
         self.origins = origins
+
+    def fmt_origins(self, origins):
+        counts = {}
+        for o in origins:
+            x = repr(o)
+            counts[x] = counts.get(x, 0) + 1
+        items = counts.items()
+        items.sort()
+        lst = []
+        for key, count in items:
+            s = ''
+            if count > 1:
+                s += '%d*' % count
+            s += key
+            lst.append(s)
+        return '<%s>' % (', '.join(lst),)
 
 class SomeLLConcreteValue(SomeLLAbstractValue):
     pass
@@ -69,14 +71,29 @@ class SomeLLAbstractContainer(SomeLLAbstractValue):
         self.contentdef = contentdef
         self.concretetype = lltype.Ptr(contentdef.T)
 
+
+setunion = annmodel.setunion
+
+def setadd(set, newitem):
+    if newitem not in set:
+        set = set.copy()
+        set[newitem] = True
+    return set
+
+def newset(set, *sets):
+    set = set.copy()
+    for s2 in sets:
+        set.update(s2)
+    return set
+
 def reorigin(hs_v1, *deps_hs):
     if isinstance(hs_v1, SomeLLAbstractConstant):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_v1.origins)
-        for hs_dep in deps_hs:
-            if isinstance(hs_v1, SomeLLAbstractConstant):
-                origin.merge(hs_dep.origins)
-        return SomeLLAbstractConstant(hs_v1.concretetype, {origin: True})
+        deps_origins = [hs_dep.origins for hs_dep in deps_hs
+                        if isinstance(hs_dep, SomeLLAbstractConstant)]
+        d = newset(hs_v1.origins,
+                   {getbookkeeper().myorigin(): True},
+                   *deps_origins)
+        return SomeLLAbstractConstant(hs_v1.concretetype, d)
     else:
         return hs_v1
 
@@ -95,31 +112,27 @@ class __extend__(SomeLLAbstractConstant):
             return SomeLLAbstractVariable(hs_c1.concretetype)
         assert hs_flags.const['concrete']
         for o in hs_c1.origins:
-            for o1 in o.visit():
-                o1.fixed = True
+            o.fixed = True
         return SomeLLConcreteValue(hs_c1.concretetype)
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         if S._hints.get('immutable', False):
-            origin = getbookkeeper().myorigin()
-            origin.merge(hs_c1.origins)
-            return SomeLLAbstractConstant(FIELD_TYPE, {origin: True})
+            d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+            return SomeLLAbstractConstant(FIELD_TYPE, d)
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
     def getsubstruct(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
         SUB_TYPE = getattr(S, hs_fieldname.const)
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), {origin: True})
+        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d)
 
     def getarraysize(hs_c1):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
+        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+        return SomeLLAbstractConstant(lltype.Signed, d)
 
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
@@ -144,23 +157,20 @@ class __extend__(SomeLLAbstractConstant):
         return reorigin(hs_res)
 
     def unary_char(hs_c1):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        return SomeLLAbstractConstant(lltype.Char, {origin: True})
+        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+        return SomeLLAbstractConstant(lltype.Char, d)
 
     cast_int_to_char = unary_char
     
     def unary_int(hs_c1):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
+        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+        return SomeLLAbstractConstant(lltype.Signed, d)
 
     cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = unary_int
 
     def int_is_true(hs_c1):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        return SomeLLAbstractConstant(lltype.Bool, {origin: True})
+        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+        return SomeLLAbstractConstant(lltype.Bool, d)
 
     uint_is_true = int_is_true
 
@@ -230,43 +240,39 @@ class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
     def int_add((hs_c1, hs_c2)):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        origin.merge(hs_c2.origins)
-        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
+        d = newset(hs_c1.origins, hs_c2.origins,
+                   {getbookkeeper().myorigin(): True})
+        return SomeLLAbstractConstant(lltype.Signed, d)
 
     int_floordiv = int_rshift = int_and = int_mul = int_mod = int_sub = int_add
 
     def uint_add((hs_c1, hs_c2)):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        origin.merge(hs_c2.origins)
-        return SomeLLAbstractConstant(lltype.Unsigned, {origin: True})
+        d = newset(hs_c1.origins, hs_c2.origins,
+                   {getbookkeeper().myorigin(): True})
+        return SomeLLAbstractConstant(lltype.Unsigned, d)
     
     uint_floordiv = uint_rshift = uint_and = uint_mul = uint_mod = uint_sub = uint_add
 
     def int_eq((hs_c1, hs_c2)):
-        origin = getbookkeeper().myorigin()
-        origin.merge(hs_c1.origins)
-        origin.merge(hs_c2.origins)
-        return SomeLLAbstractConstant(lltype.Bool, {origin: True})
+        d = newset(hs_c1.origins, hs_c2.origins,
+                   {getbookkeeper().myorigin(): True})
+        return SomeLLAbstractConstant(lltype.Bool, d)
 
     int_lt = int_le = int_ge = int_ne = int_gt = int_eq
     uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
 
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
-        origins = annmodel.setunion(hs_c1.origins, hs_c2.origins)
-        return SomeLLAbstractConstant(hs_c1.concretetype, origins)
+        d = newset(hs_c1.origins, hs_c2.origins)
+        return SomeLLAbstractConstant(hs_c1.concretetype, d)
 
     def getarrayitem((hs_c1, hs_index)):
         A = hs_c1.concretetype.TO
         READ_TYPE = A.OF
         if A._hints.get('immutable', False):
-            origin = getbookkeeper().myorigin()
-            origin.merge(hs_c1.origins)
-            origin.merge(hs_index.origins)
-            return SomeLLAbstractConstant(READ_TYPE, {origin: True})
+            d = newset(hs_c1.origins, hs_index.origins,
+                       {getbookkeeper().myorigin(): True})
+            return SomeLLAbstractConstant(READ_TYPE, d)
         else:
             return SomeLLAbstractVariable(READ_TYPE)
 

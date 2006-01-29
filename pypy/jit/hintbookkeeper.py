@@ -6,7 +6,7 @@ class HintBookkeeper(object):
 
     def __init__(self, hannotator):
         self.pending_specializations = []
-        self.origins = {}
+        self.originflags = {}
         self.virtual_containers = {}
         self.annotator = hannotator
 
@@ -23,11 +23,11 @@ class HintBookkeeper(object):
 
     def myorigin(self):
         try:
-            origin = self.origins[self.position_key]
+            origin = self.originflags[self.position_key]
         except KeyError:
             from pypy.jit import hintmodel
-            origin = hintmodel.OriginTreeNode()
-            self.origins[self.position_key] = origin
+            origin = hintmodel.OriginFlags()
+            self.originflags[self.position_key] = origin
         return origin
 
     def compute_at_fixpoint(self):

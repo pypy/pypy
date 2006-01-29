@@ -21,11 +21,11 @@ def hannotate(func, argtypes, policy=None, annotator=False):
     graph1 = graphof(t, func)
     # build hint annotator types
     hannotator = HintAnnotator(t, policy=policy)
+    t.annotator = hannotator   # XXX?
     hs = hannotator.build_graph_types(graph1, [SomeLLAbstractConstant(v.concretetype,
-                                                                      {OriginTreeNode(): True})
+                                                                      {OriginFlags(): True})
                                                for v in graph1.getargs()])
-    #hannotator.translator.graphs.append(graph1)
-    #hannotator.translator.view()
+    #t.view()
     if annotator:
         return hs, hannotator
     else:
@@ -36,7 +36,7 @@ def test_simple():
         return x + y
     hs = hannotate(ll_function, [int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
-    assert len(hs.origins) == 1
+    assert len(hs.origins) == 3
     assert hs.concretetype == lltype.Signed
 
 def test_join():
@@ -48,7 +48,7 @@ def test_join():
         return z
     hs = hannotate(ll_function, [bool, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
     assert hs.concretetype == lltype.Signed
 
 
@@ -74,13 +74,9 @@ def test_simple_hint_origins():
         return z # origin of z1
     hs = hannotate(ll_function, [bool, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
     for o in hs.origins:
         assert o.fixed
-        assert len(o.origins) == 2
-        for o in o.origins:
-            assert o.fixed
-            assert not o.origins
     assert hs.concretetype == lltype.Signed
  
 def test_simple_variable():
@@ -156,7 +152,7 @@ def test_loop():
     hs = hannotate(ll_function, [int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
 
 def test_loop1():
     def ll_function(x, y):
@@ -169,7 +165,7 @@ def test_loop1():
     hs = hannotate(ll_function, [int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
 
 def test_simple_struct():
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
@@ -180,8 +176,7 @@ def test_simple_struct():
     hs = hannotate(ll_function, [annmodel.SomePtr(lltype.Ptr(S))])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 1
-    assert len(hs.origins.keys()[0].origins) == 2
+    assert len(hs.origins) == 4
 
 def test_simple_struct_malloc():
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
@@ -194,8 +189,7 @@ def test_simple_struct_malloc():
     hs = hannotate(ll_function, [int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 1
-    assert len(hs.origins.keys()[0].origins) == 1
+    assert len(hs.origins) == 2
 
 def test_container_union():
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
@@ -212,8 +206,7 @@ def test_container_union():
     hs = hannotate(ll_function, [bool, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 1
-    assert len(hs.origins.keys()[0].origins) == 2
+    assert len(hs.origins) == 3
 
 def test_simple_call():
     def ll2(x, y):
@@ -223,7 +216,7 @@ def test_simple_call():
     hs = hannotate(ll1, [int, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 1
+    assert len(hs.origins) == 7
 
 def test_simple_list_operations():
     def ll_function(x, y, index):
@@ -233,7 +226,7 @@ def test_simple_list_operations():
     hs = hannotate(ll_function, [int, int, int], policy=P_OOPSPEC)
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
 
 def test_some_more_list_operations():
     def ll_function(x, y, index):
@@ -244,7 +237,7 @@ def test_some_more_list_operations():
     hs = hannotate(ll_function, [int, int, int], policy=P_OOPSPEC)
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
 
 def test_simple_cast_pointer():
     GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
@@ -293,5 +286,4 @@ def test_getvarrayitem():
  
 def test_hannotate_tl():
     from pypy.jit import tl
-
-    hannotate(tl.interp, [str, int])
+    hannotate(tl.interp, [str, int], policy=P_OOPSPEC)

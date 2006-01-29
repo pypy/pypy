@@ -1,5 +1,6 @@
 from pypy.annotation.listdef import ListItem
-from pypy.jit import hintmodel
+from pypy.jit.hintmodel import SomeLLAbstractConstant
+from pypy.jit.hintmodel import SomeLLAbstractContainer, reorigin
 from pypy.jit.hintbookkeeper import getbookkeeper
 from pypy.jit.hintcontainer import AbstractContainerDef, make_item_annotation
 from pypy.rpython.lltypesystem import lltype
@@ -34,15 +35,15 @@ class VirtualListDef(AbstractContainerDef):
 
     def oop_len(self):
         origin = getbookkeeper().myorigin()
-        return hintmodel.SomeLLAbstractConstant(lltype.Signed, {origin: True})
+        return SomeLLAbstractConstant(lltype.Signed, {origin: True})
 
     def oop_nonzero(self):
         origin = getbookkeeper().myorigin()
-        return hintmodel.SomeLLAbstractConstant(lltype.Bool, {origin: True})
+        return SomeLLAbstractConstant(lltype.Bool, {origin: True})
 
     def oop_getitem(self, hs_index):
         assert hs_index.concretetype == lltype.Signed
-        return self.read_item()
+        return reorigin(self.read_item(), hs_index)
 
     def oop_setitem(self, hs_index, hs_value):
         assert hs_index.concretetype == lltype.Signed
@@ -60,7 +61,7 @@ class VirtualListDef(AbstractContainerDef):
 
     def oop_pop(self, hs_index=None):
         assert hs_index is None or hs_index.concretetype == lltype.Signed
-        return self.read_item()
+        return reorigin(self.read_item(), hs_index)
 
     def oop_reverse(self):
         pass
@@ -69,10 +70,10 @@ class VirtualListDef(AbstractContainerDef):
         bk = self.bookkeeper
         vlistdef = bk.getvirtualcontainerdef(self.T, VirtualListDef)
         vlistdef.generalize_item(self.read_item())
-        return hintmodel.SomeLLAbstractContainer(vlistdef)
+        return SomeLLAbstractContainer(vlistdef)
 
     def oop_concat(self, hs_other):
-        assert isinstance(hs_other, hintmodel.SomeLLAbstractContainer) # for now
+        assert isinstance(hs_other, SomeLLAbstractContainer) # for now
         assert hs_other.contentdef.T == self.T
         return self.oop_copy()
 
@@ -82,4 +83,4 @@ def oop_newlist(hs_numitems, hs_item=None):
     bk = getbookkeeper()
     LIST = bk.current_op_concretetype().TO
     vlistdef = bk.getvirtualcontainerdef(LIST, VirtualListDef)
-    return hintmodel.SomeLLAbstractContainer(vlistdef)
+    return SomeLLAbstractContainer(vlistdef)
