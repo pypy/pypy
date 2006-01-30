@@ -7,6 +7,7 @@ from pypy.translator.tool.cbuild import compile_c_module
 from pypy.annotation.model import SomeCTypesObject, SomeObject
 import sys
 
+thisdir = py.magic.autopath().dirpath()
 
 def compile(fn, argtypes, view=False):
     from pypy.translator.c.database import LowLevelDatabase
@@ -61,12 +62,12 @@ class tagpoint(Structure):
     _fields_ = [("x", c_int),
                 ("y", c_int)]
 # compile and load our local test C file
-compile_c_module([py.path.local("_rctypes_test.c")], "_rctypes_test")
+compile_c_module([thisdir.join("_rctypes_test.c")], "_rctypes_test")
 
 if sys.platform == "win32":
     _rctypes_test = cdll.LoadLibrary("_rctypes_test.pyd")
 else:
-    _rctypes_test = cdll.LoadLibrary("_rctypes_test.so")
+    _rctypes_test = cdll.LoadLibrary(str(thisdir.join("_rctypes_test.so")))
 
 # _testfunc_byval
 testfunc_byval = _rctypes_test._testfunc_byval
@@ -247,7 +248,7 @@ class Test_structure:
         if sys.platform == "win32":
             dll = cdll.LoadLibrary("_rctypes_test.pyd")
         else:
-            dll = cdll.LoadLibrary("_rctypes_test.so")
+            dll = cdll.LoadLibrary(str(thisdir.join("_rctypes_test.so")))
         in_point = tagpoint()
         in_point.x = 42
         in_point.y = 17
@@ -369,7 +370,7 @@ class Test_structure:
     def test_specialize_struct_1(self):
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types( py_test_compile_struct, [ int, int ] )
+        s = a.build_types(py_test_compile_struct, [int, int]) 
         #d#t.view()
         try:
             t.buildrtyper().specialize()
@@ -378,7 +379,7 @@ class Test_structure:
             pass
 
     def test_compile_struct(self):
-        fn = compile( py_test_compile_struct, [ int, int ], True )
+        fn = compile(py_test_compile_struct, [int, int])
         res = fn( 42, -42 )
         assert res == 42
 
@@ -387,13 +388,13 @@ class Test_array:
 
     def test_annotate_array(self):
         a = RPythonAnnotator()
-        s = a.build_types(py_test_annotate_array,[])
+        s = a.build_types(py_test_annotate_array, [])
         assert s.knowntype == c_int_10
 
     def test_annotate_array_access(self):
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(py_test_annotate_array_content,[])
+        s = a.build_types(py_test_annotate_array_content, [])
         assert s.knowntype == int
         #d#t.view()
 
@@ -408,14 +409,14 @@ class Test_array:
         """
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(py_test_annotate_pointer_content,[])
+        s = a.build_types(py_test_annotate_pointer_content, [])
         assert s.knowntype == int
         #d#t.view()
 
     def test_annotate_array_slice_access(self):
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(py_test_annotate_array_slice_content,[])
+        s = a.build_types(py_test_annotate_array_slice_content, [])
         #d#t.view()
         #d#print "v90:", s, type(s)
         assert s.knowntype == list
@@ -424,7 +425,7 @@ class Test_array:
     def test_annotate_array_access_variable(self):
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(py_test_annotate_array_content_variable_index,[])
+        s = a.build_types(py_test_annotate_array_content_variable_index, [])
         assert s.knowntype == int
         #t#t.view()
 
