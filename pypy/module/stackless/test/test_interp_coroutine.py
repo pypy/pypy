@@ -5,6 +5,8 @@ testing coroutines at interprepter level
 import os
 from pypy.module.stackless.interp_coroutine import costate, Coroutine
 
+costate.__init__()
+
 def wrap_stackless_function(fn):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.c.genc import CStandaloneBuilder
