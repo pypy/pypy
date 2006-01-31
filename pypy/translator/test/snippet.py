@@ -1144,6 +1144,12 @@ def div_func(i=numtype):
     except (OverflowError, ZeroDivisionError):
         raise
     
+def mul_func(x=numtype, y=numtype):
+    try:
+        return ovfcheck(x * y)
+    except OverflowError:
+        raise
+    
 def mod_func(i=numtype):
     try:
         return ovfcheck((-maxint-1) % i)
