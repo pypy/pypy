@@ -216,7 +216,7 @@ def DONOTtest_nullptr_cast():
     assert not p10
     
 
-def DONOTtest_hash():
+def test_hash():
     S = ForwardReference()
     S.become(Struct('S', ('p', Ptr(S))))
     assert S == S
@@ -224,6 +224,8 @@ def DONOTtest_hash():
     S1 = Struct('S', ('p', Ptr(S)))
     assert S1 == S
     assert S == S1
+    r_S = pickle.loads(pickle.dumps(S))
+    r_S1 = pickle.loads(pickle.dumps(S1))
     assert hash(S1) == hash(S)
 
 def DONOTtest_array_with_non_container_elements():
