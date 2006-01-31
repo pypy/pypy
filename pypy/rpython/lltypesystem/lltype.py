@@ -1,9 +1,9 @@
-import weakref
 import py
 from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
 from pypy.rpython.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
+from pypy.tool.picklesupport import getstate_with_slots, setstate_with_slots, pickleable_weakref
 from types import NoneType
 from sys import maxint
 
@@ -117,6 +117,9 @@ class LowLevelType(object):
 
     def _is_varsize(self):
         return False
+
+    __getstate__ = getstate_with_slots
+    __setstate__ = setstate_with_slots
 
 NFOUND = object()
 
@@ -647,7 +650,7 @@ class _ptr(object):
             obj0 = pointing_to
         else:
             self._set_weak(True)
-            obj0 = weakref.ref(pointing_to)
+            obj0 = pickleable_weakref(pointing_to)
         self._set_solid(solid)
         self._set_obj0(obj0)
         
@@ -751,6 +754,9 @@ class _ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
+    __getstate__ = getstate_with_slots
+    __setstate__ = setstate_with_slots
+
 assert not '__dict__' in dir(_ptr)
 
 class _parentable(object):
@@ -766,7 +772,7 @@ class _parentable(object):
         self._TYPE = TYPE
 
     def _setparentstructure(self, parent, parentindex):
-        self._wrparent = weakref.ref(parent)
+        self._wrparent = pickleable_weakref(parent)
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
         if (isinstance(self._parent_type, Struct)
@@ -789,6 +795,8 @@ class _parentable(object):
     def _check(self):
         self._parentstructure()
 
+    __getstate__ = getstate_with_slots
+    __setstate__ = setstate_with_slots
 
 def _struct_variety(flds, cache={}):
     flds = list(flds)
@@ -801,7 +809,12 @@ def _struct_variety(flds, cache={}):
             __slots__ = flds
         cache[tag] = _struct1
         return _struct1
-            
+ 
+#for pickling support:
+def _get_empty_instance_of_struct_variety(flds):
+    cls = _struct_variety(flds)
+    return object.__new__(cls)
+
 class _struct(_parentable):
     _kind = "structure"
 
@@ -842,6 +855,11 @@ class _struct(_parentable):
 
     def __str__(self):
         return 'struct %s { %s }' % (self._TYPE._name, self._str_fields())
+
+    def __reduce__(self):
+        return _get_empty_instance_of_struct_variety, (self.__slots__, ), getstate_with_slots(self) 
+
+    __setstate__ = setstate_with_slots
 
 class _array(_parentable):
     _kind = "array"
