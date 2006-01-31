@@ -116,17 +116,9 @@ Circumventing proxies
 ----------------------------
 
 Some proxies don't let extended HTTP commands through.  If you have an
-error complaining about a bad request, you can ask subversion to use the
-alternate port 8080 to connect to codespeak.net by adding the following
-lines in a file ``~/.subversion/servers`` (on Unix) or
-``%APPDATA%\Subversion\servers`` (on Windows)::
-
-    [groups]
-    codespeak = codespeak.net
-
-    [codespeak]
-    http-proxy-host = codespeak.net
-    http-proxy-port = 8080
+error complaining about a bad request, you should use https: instead of
+http: in the subversion URL. This will make use of SSL encryption, which
+cannot be intercepted by proxies.
 
 How to Avoid Line-ending Hell
 -----------------------------
