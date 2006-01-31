@@ -112,11 +112,7 @@
 # * understand this :
 #   http://www.mozart-oz.org/papers/abstracts/ProgrammingConstraintServices.html
 # * support '_' as shown above
-# * turn Var into some dataflow-ish thing (as far as Python allows)
-# * ensure that the store supports concurrent access
-#   (using the implicit blocking provided by dataflow vars)
 # * add entailment checks
-# * add constraints support
 
 import threading
 

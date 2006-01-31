@@ -188,6 +188,27 @@ class TestUnification:
         assert (t2.raised and not t1.raised) or \
                (t1.raised and not t2.raised)
     
+    def test_threads_waiting_for_unbound_var(self):
+        import time
+        start_time = time.time()
+
+        def wait_on_unbound(thread, var, start_time):
+            thread.val = var.get()
+            thread.waited = time.time() - start_time
+
+        x = u.var('x')
+        t1, t2 = (FunThread(wait_on_unbound, x, start_time),
+                  FunThread(wait_on_unbound, x, start_time))
+        t1.start()
+        t2.start()
+        time.sleep(1)
+        u.bind(x, 42)
+        t1.join()
+        t2.join()
+        assert t1.val == 42
+        assert t2.val == 42
+        assert t1.waited > 1
+        assert t2.waited > 1
 
     def test_set_var_domain(self):
         x = u.var('x')
