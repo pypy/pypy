@@ -145,8 +145,8 @@ class SplitDistributor(AbstractDistributor):
         nb_subspaces = self.nb_subdomains()
         values = variable.cs_get_dom(self.cs).get_values()
         nb_elts = max(1, len(values)*1./nb_subspaces)
-        start, end = (int(math.floor(index * nb_elts)),
-                      int(math.floor((index + 1) * nb_elts)))
+        start, end = (int(math.floor(choice * nb_elts)),
+                      int(math.floor((choice + 1) * nb_elts)))
         variable.cs_get_dom(self.cs).remove_values(values[:start])
         variable.cs_get_dom(self.cs).remove_values(values[end:])
 
