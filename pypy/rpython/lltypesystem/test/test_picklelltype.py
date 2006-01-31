@@ -180,13 +180,20 @@ def test_best_effort_gced_parent_for_arrays():
     gc.collect()
     py.test.raises(RuntimeError, "r_p1_5.v")        
 
-def DONOTtest_functions():
-    F = FuncType((Signed,), Signed)
-    py.test.raises(TypeError, "Struct('x', ('x', F))")
+def example_func(x):
+    return x + 1
+example_func.suggested_primitive = True
 
+def test_functions():
+    F = FuncType((Signed,), Signed)
     PF = Ptr(F)
-    pf = PF._example()
-    assert pf(0) == 0
+    r_PF = pickle.loads(pickle.dumps(PF))
+    assert PF == r_PF
+    pf = functionptr(F, 'example_func', _callable=example_func, graph="dummy")
+    r_pf = pickle.loads(pickle.dumps(pf))
+    assert pf(0) == 1
+    assert pf._obj._callable.suggested_primitive
+    assert pf._obj.graph == "dummy"
     py.test.raises(TypeError, pf, 0, 0)
     py.test.raises(TypeError, pf, 'a')
 
@@ -215,7 +222,6 @@ def DONOTtest_nullptr_cast():
     assert typeOf(p10) == Ptr(S1)
     assert not p10
     
-
 def test_hash():
     S = ForwardReference()
     S.become(Struct('S', ('p', Ptr(S))))
@@ -328,12 +334,13 @@ def DONOTtest_runtime_type_info():
     s1.sub.x = 1
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
     
-def DONOTtest_flavor_malloc():
+def test_flavor_malloc():
     S = Struct('s', ('x', Signed))
     py.test.raises(TypeError, malloc, S)
     p = malloc(S, flavor="raw")
-    assert typeOf(p).TO == S
-    assert not isweak(p, S)
+    r_p = pickle.loads(pickle.dumps(p))
+    assert typeOf(r_p).TO == S
+    assert not isweak(r_p, S)
     
 def DONOTtest_opaque():
     O = OpaqueType('O')
@@ -346,22 +353,6 @@ def DONOTtest_opaque():
     assert typeOf(p2) == Ptr(S)
     assert typeOf(p2.stuff) == Ptr(O)
     assert parentlink(p2.stuff._obj) == (p2._obj, 'stuff')
-
-def DONOTtest_is_atomic():
-    U = Struct('inlined', ('z', Signed))
-    A = Ptr(RuntimeTypeInfo)
-    P = Ptr(GcStruct('p'))
-    Q = GcStruct('q', ('i', Signed), ('u', U), ('p', P))
-    O = OpaqueType('O')
-    F = GcForwardReference()
-    assert A._is_atomic() is True
-    assert P._is_atomic() is False
-    assert Q.i._is_atomic() is True
-    assert Q.u._is_atomic() is True
-    assert Q.p._is_atomic() is False
-    assert Q._is_atomic() is False
-    assert O._is_atomic() is False
-    assert F._is_atomic() is False
 
 def DONOTtest_adtmeths():
     def h_newstruct():

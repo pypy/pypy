@@ -927,6 +927,19 @@ class _func(object):
     def __hash__(self):
         return hash(frozendict(self.__dict__))
 
+    def __getstate__(self):
+        import pickle, types
+        __dict__ = self.__dict__.copy()
+        try:
+            pickle.dumps(self._callable)
+        except pickle.PicklingError:
+            __dict__['_callable'] = None
+        return __dict__
+
+    def __setstate__(self, __dict__):
+        import new
+        self.__dict__ = __dict__
+
 class _opaque(_parentable):
     def __init__(self, TYPE, parent=None, parentindex=None, **attrs):
         _parentable.__init__(self, TYPE)
