@@ -180,7 +180,6 @@ class TestTypedOptimizedRaisingOps:
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            backend_optimizations(t)
 
     def test_int_floordiv_zer(self):
         def f(x=int):
