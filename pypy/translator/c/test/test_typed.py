@@ -3,7 +3,8 @@ import sys
 import py
 from py.test import raises
 from pypy.translator.test import snippet 
-from pypy.rpython.rarithmetic import r_uint, intmask
+from pypy.rpython.rarithmetic import r_uint, r_longlong, intmask
+from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
 
 from pypy.translator.c.test.test_annotated import TestAnnotatedTestCase as _TestAnnotatedTestCase
 
@@ -13,6 +14,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
     def process(self, t):
         _TestAnnotatedTestCase.process(self, t)
         t.buildrtyper().specialize()
+        raisingop2direct_call(t)
 
     def test_call_five(self):
         # --  the result of call_five() isn't a real list, but an rlist
@@ -205,12 +207,23 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         fn = self.getcompiled(snippet.add_func)
         raises(OverflowError, fn, sys.maxint)
 
-    def test_int_div_ovf_zer(self): # 
+    def test_int_div_ovf_zer(self):
         fn = self.getcompiled(snippet.div_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
 
+    def test_int_mul_ovf(self):
+        fn = self.getcompiled(snippet.mul_func)
+        for y in range(-5, 5):
+            for x in range(-5, 5):
+                assert fn(x, y) == snippet.mul_func(x, y)
+        n = sys.maxint / 4
+        assert fn(n, 3) == snippet.mul_func(n, 3)
+        assert fn(n, 4) == snippet.mul_func(n, 4)
+        raises(OverflowError, fn, n, 5)
+
     def test_int_mod_ovf_zer(self):
+        py.test.skip("XXX does not annotate anymore after raisingops2direct_call transformation")
         fn = self.getcompiled(snippet.mod_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)

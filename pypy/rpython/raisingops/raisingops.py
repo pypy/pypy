@@ -1,26 +1,252 @@
-from pypy.rpython.rarithmetic import r_longlong
+from pypy.rpython.rarithmetic import r_longlong, r_uint, intmask
 
-def _pypyop_divmod_adj(x, y, p_rem=None):
-  xdivy = r_longlong(x / y)
-  xmody = r_longlong(x - xdivy * y)
+#XXX original SIGNED_RIGHT_SHIFT_ZERO_FILLS not taken into account
+#XXX assuming HAVE_LONG_LONG (int_mul_ovf)
+#XXX should int_mod and int_floordiv return an intmask(...) instead?
+
+def int_floordiv_zer(x, y):
+    '''#define OP_INT_FLOORDIV_ZER(x,y,r,err) \
+        if ((y)) { OP_INT_FLOORDIV(x,y,r,err); } \
+        else FAIL_ZER(err, "integer division")
+    '''
+    if y:
+        return int_floordiv(x, y)
+    else:
+        raise ZeroDivisionError("integer division")
+
+def uint_floordiv_zer(x, y):
+    '''#define OP_UINT_FLOORDIV_ZER(x,y,r,err) \
+        if ((y)) { OP_UINT_FLOORDIV(x,y,r,err); } \
+        else FAIL_ZER(err, "unsigned integer division")
+    '''
+    if y:
+        return x / y
+    else:
+        raise ZeroDivisionError("unsigned integer division")
+
+def int_neg_ovf(x):
+    '''#define OP_INT_NEG_OVF(x,r,err) \
+        OP_INT_NEG(x,r,err); \
+        if ((x) >= 0 || (x) != -(x)); \
+        else FAIL_OVF(err, "integer negate")
+    '''
+    r = -x
+    if x >= 0 or x != r:
+        return r
+    else:
+        raise OverflowError("integer negate")
+
+def int_abs_ovf(x):
+    '''#define OP_INT_ABS_OVF(x,r,err) \
+        OP_INT_ABS(x,r,err); \
+        if ((x) >= 0 || (x) != -(x)); \
+        else FAIL_OVF(err, "integer absolute")
+    '''
+    if x >= 0:
+        r = x
+    else:
+        r = -x
+    if x >= 0 or x != r:
+        return r
+    else:
+        raise OverflowError("integer absolute")
+
+def int_add_ovf(x, y):
+    '''#define OP_INT_ADD_OVF(x,y,r,err) \
+        OP_INT_ADD(x,y,r,err); \
+        if ((r^(x)) >= 0 || (r^(y)) >= 0); \
+        else FAIL_OVF(err, "integer addition")
+    '''
+    r = x + y
+    if r^x >= 0 or r^y >= 0:
+        return r
+    else:
+        raise OverflowError("integer addition")
+
+def int_sub_ovf(x, y):
+    '''#define OP_INT_SUB_OVF(x,y,r,err) \
+        OP_INT_SUB(x,y,r,err); \
+        if ((r^(x)) >= 0 || (r^~(y)) >= 0); \
+        else FAIL_OVF(err, "integer subtraction")
+    '''
+    r = x - y
+    if r^x >= 0 or r^~y >= 0:
+        return r
+    else:
+        raise OverflowError("integer subtraction")
+
+def int_lshift_ovf(x, y):
+    '''#define OP_INT_LSHIFT_OVF(x,y,r,err) \
+        OP_INT_LSHIFT(x,y,r,err); \
+        if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
+                FAIL_OVF(err, "x<<y loosing bits or changing sign")
+    '''
+    r = x << y
+    if x != _Py_ARITHMETIC_RIGHT_SHIFT(r, y):
+        raise OverflowError("x<<y loosing bits or changing sign")
+    else:
+        return r
+
+def int_rshift_val(x, y):
+    '''#define OP_INT_RSHIFT_VAL(x,y,r,err) \
+        if ((y) >= 0) { OP_INT_RSHIFT(x,y,r,err); } \
+        else FAIL_VAL(err, "negative shift count")
+    '''
+    if y >= 0:
+        return _Py_ARITHMETIC_RIGHT_SHIFT(x, y)
+    else:
+        raise ValueError("negative shift count")
+
+def int_lshift_val(x, y):
+    '''#define OP_INT_LSHIFT_VAL(x,y,r,err) \
+        if ((y) >= 0) { OP_INT_LSHIFT(x,y,r,err); } \
+        else FAIL_VAL(err, "negative shift count")
+    '''
+    if y >= 0:
+        return x << y
+    else:
+        raise ValueError("negative shift count")
+
+def int_lshift_ovf_val(x, y):
+    '''#define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \
+        if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r,err); } \
+        else FAIL_VAL(err, "negative shift count")
+    '''
+    if y >= 0:
+        return int_lshift_ovf(x, y)
+    else:
+        raise ValueError("negative shift count")
+
+def int_floordiv_ovf(x, y):
+    '''#define OP_INT_FLOORDIV_OVF(x,y,r,err) \
+        if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
+                FAIL_OVF(err, "integer division"); \
+        OP_INT_FLOORDIV(x,y,r,err)
+    '''
+    if y == -1 and x < 0 and (r_uint(x) << 1) == 0:
+        raise OverflowError("integer division")
+    else:
+        return int_floordiv(x, y)
+
+def int_floordiv_ovf_zer(x, y):
+    '''#define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
+        if ((y)) { OP_INT_FLOORDIV_OVF(x,y,r,err); } \
+        else FAIL_ZER(err, "integer division")
+    '''
+    if y:
+        return int_floordiv_ovf(x, y)
+    else:
+        raise ZeroDivisionError("integer division")
+
+def int_mod_ovf(x, y):
+    '''#define OP_INT_MOD_OVF(x,y,r,err) \
+        if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
+                FAIL_OVF(err, "integer modulo"); \
+        OP_INT_MOD(x,y,r,err)
+    '''
+    if y == -1 and x < 0 and (r_uint(x) << 1) == 0:
+        raise OverflowError("integer modulo")
+    else:
+        return int_mod(x, y)
+
+def int_mod_zer(x, y):
+    '''#define OP_INT_MOD_ZER(x,y,r,err) \
+        if ((y)) { OP_INT_MOD(x,y,r,err); } \
+        else FAIL_ZER(err, "integer modulo")
+    '''
+    if y:
+        return int_mod(x, y)
+    else:
+        raise ZeroDivisionError("integer modulo")
+
+def uint_mod_zer(x, y):
+    '''#define OP_UINT_MOD_ZER(x,y,r,err) \
+        if ((y)) { OP_UINT_MOD(x,y,r,err); } \
+        else FAIL_ZER(err, "unsigned integer modulo")
+    '''
+    if y:
+        return x % y
+    else:
+        raise ZeroDivisionError("unsigned integer modulo")
+
+def int_mod_ovf_zer(x, y):
+    '''#define OP_INT_MOD_OVF_ZER(x,y,r,err) \
+        if ((y)) { OP_INT_MOD_OVF(x,y,r,err); } \
+        else FAIL_ZER(err, "integer modulo")
+    '''
+    if y:
+        return int_mod_ovf(x, y)
+    else:
+        ZeroDivisionError("integer modulo")
+
+# Helpers...
+
+def int_floordiv(x, y):
+    xdivy = r_longlong(x / y)
+    xmody = r_longlong(x - xdivy * y)
   
-  # If the signs of x and y differ, and the remainder is non-0,
-  # C89 doesn't define whether xdivy is now the floor or the
-  # ceiling of the infinitely precise quotient.  We want the floor,
-  # and we have it iff the remainder's sign matches y's.
-  if xmody and ((y ^ xmody) < 0):
+    # If the signs of x and y differ, and the remainder is non-0,
+    # C89 doesn't define whether xdivy is now the floor or the
+    # ceiling of the infinitely precise quotient.  We want the floor,
+    # and we have it iff the remainder's sign matches y's.
+    if xmody and ((y ^ xmody) < 0):
+        xmody += y
+        xdivy -= 1
+        assert xmody and ((y ^ xmody) >= 0)
+
+    return xdivy
+
+def int_mod(x, y):
+    xdivy = r_longlong(x / y)
+    xmody = r_longlong(x - xdivy * y)
   
-    xmody += y
-    xdivy -= 1
-    assert xmody and ((y ^ xmody) >= 0)
+    # If the signs of x and y differ, and the remainder is non-0,
+    # C89 doesn't define whether xdivy is now the floor or the
+    # ceiling of the infinitely precise quotient.  We want the floor,
+    # and we have it iff the remainder's sign matches y's.
+    if xmody and ((y ^ xmody) < 0):
+        xmody += y
+        xdivy -= 1
+        assert xmody and ((y ^ xmody) >= 0)
 
-  #XXX was a pointer
-  # if p_rem
-  #  p_rem = xmody;
-  return xdivy
+    return xmody
 
-def int_floordiv_zer(x,y):
-  if y:
-    return _pypyop_divmod_adj(x, y)
-  else:
-    raise ZeroDivisionError("integer division")
+def _Py_ARITHMETIC_RIGHT_SHIFT(i, j):
+    '''
+// Py_ARITHMETIC_RIGHT_SHIFT
+// C doesn't define whether a right-shift of a signed integer sign-extends
+// or zero-fills.  Here a macro to force sign extension:
+// Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J)
+//    Return I >> J, forcing sign extension.
+// Requirements:
+//    I is of basic signed type TYPE (char, short, int, long, or long long).
+//    TYPE is one of char, short, int, long, or long long, although long long
+//    must not be used except on platforms that support it.
+//    J is an integer >= 0 and strictly less than the number of bits in TYPE
+//    (because C doesn't define what happens for J outside that range either).
+// Caution:
+//    I may be evaluated more than once.
+
+#ifdef SIGNED_RIGHT_SHIFT_ZERO_FILLS
+    #define Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J) \
+            ((I) < 0 ? ~((~(unsigned TYPE)(I)) >> (J)) : (I) >> (J))
+#else
+    #define Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J) ((I) >> (J))
+#endif
+    '''
+    return i >> j
+
+def int_mul_ovf(x, y):
+    '''{ \
+        PY_LONG_LONG lr = (PY_LONG_LONG)(x) * (PY_LONG_LONG)(y); \
+        r = (long)lr; \
+        if ((PY_LONG_LONG)r == lr); \
+        else FAIL_OVF(err, "integer multiplication"); \
+    }
+    '''
+    lr = r_longlong(x) * r_longlong(y);
+    r  = intmask(lr)
+    if r_longlong(r) == lr:
+        return r
+    else:
+        raise OverflowError("integer multiplication")

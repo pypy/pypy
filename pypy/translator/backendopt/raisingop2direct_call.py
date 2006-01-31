@@ -6,13 +6,17 @@ def raisingop2direct_call(translator):
     """search for operations that could raise an exception and change that
     operation into a direct_call to a function from the raisingops directory.
     This function also needs to be annotated and specialized.
+
+    note: this could be extended to allow for any operation to be changed into
+          a direct_call to a (RPython) function!
     """
     seen = {}
     for op in all_operations(translator):
         s = op.opname
         if not s.startswith('int_') and not s.startswith('uint_') and not s.startswith('float_'):
             continue
-        if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val'):
+        if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val') and \
+           not s in ('int_floordiv', 'int_mod'):
             continue
         func = getattr(pypy.rpython.raisingops.raisingops, s, None)
         assert func, "exception raising operation %s was not found" % s

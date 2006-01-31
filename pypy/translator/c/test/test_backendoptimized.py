@@ -9,7 +9,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
     def process(self, t):
         _TestTypedTestCase.process(self, t)
         self.t = t
-        backend_optimizations(t, merge_if_blocks_to_switch=False)
+        backend_optimizations(t, raisingop2direct_call_all=False, merge_if_blocks_to_switch=False)
 
     def test_remove_same_as(self):
         def f(n=bool):
@@ -180,7 +180,7 @@ class TestTypedOptimizedRaisingOps:
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            backend_optimizations(t, raisingop2direct_call_all=True)
+            backend_optimizations(t)
 
     def test_int_floordiv_zer(self):
         def f(x=int):
