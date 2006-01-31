@@ -76,8 +76,7 @@ def test_simple_hint_origins():
     hs = hannotate(ll_function, [bool, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert len(hs.origins) == 4
-    for o in hs.origins:
-        assert o.fixed
+    assert hs.is_fixed()
     assert hs.concretetype == lltype.Signed
  
 def test_simple_variable():
@@ -292,21 +291,46 @@ def test_simple_fixed_call():
         else:
             z = x-y
         return z
-    def ll_function(cond, x,y, y1):
-        z1 = ll_help(cond, x, y1)
+    def ll_function(cond, x,y, x1, y1):
+        z1 = ll_help(cond, x1, y1)
         z = ll_help(cond, x, y)
         z = hint(z, concrete=True)
         return z
-    hs, ha  = hannotate(ll_function, [bool, int, int, int], annotator=True)
+    hs, ha  = hannotate(ll_function, [bool, int, int, int, int], annotator=True)
     assert isinstance(hs, SomeLLConcreteValue)
     assert hs.concretetype == lltype.Signed
     ll_help_graph = graphof(ha.base_translator, ll_help)
     gdesc = ha.bookkeeper.getdesc(ll_help_graph)
-    for o in ha.binding(gdesc._cache[None].getreturnvar()).origins:
-        assert not o.fixed
+    assert not ha.binding(gdesc._cache[None].getreturnvar()).is_fixed()
     assert len(gdesc._cache) == 2
-    for o in ha.binding(gdesc._cache['fixed'].getreturnvar()).origins:
-        assert o.fixed
+    assert ha.binding(gdesc._cache['fixed'].getreturnvar()).is_fixed()    
+
+def test_specialize_calls():
+    def ll_add(x, y):
+        return x+y
+    def ll_function(x,y):
+        z0 = ll_add(y, 2)
+        z1 = ll_add(x, y)
+        x1 = hint(x, concrete=True)
+        z2 = ll_add(x1, y)
+        return z2
+    hs, ha  = hannotate(ll_function, [int, int], annotator=True)
+    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.concretetype == lltype.Signed
+    ll_add_graph = graphof(ha.base_translator, ll_add)
+    gdesc = ha.bookkeeper.getdesc(ll_add_graph)    
+    assert len(gdesc._cache) == 3
+    assert 'Cx' in gdesc._cache
+    assert 'fx' in gdesc._cache
+    v1, v2 = gdesc._cache['Cx'].getargs()
+    assert isinstance(ha.binding(v1), SomeLLConcreteValue)
+    assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
+    assert not ha.binding(v2).is_fixed()
+    v1, v2 = gdesc._cache['fx'].getargs()
+    assert isinstance(ha.binding(v1), SomeLLAbstractConstant)
+    assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
+    assert ha.binding(v1).is_fixed()
+    assert not ha.binding(v2).is_fixed()    
     
  
 def test_hannotate_tl():

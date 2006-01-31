@@ -74,14 +74,20 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
             lst.append(s)
         return '<%s>' % (', '.join(lst),)
 
+    def is_fixed(self):
+        for o in self.origins:
+            if not o.fixed:
+                return False
+        return True
+
     def annotationcolor(self):
         """Compute the color of the variables with this annotation
         for the pygame viewer
         """
-        for o in self.origins:
-            if not o.fixed:
-                return None
-        return (50,140,0)
+        if self.is_fixed():
+            return (50,140,0)
+        else:
+            return None
     annotationcolor = property(annotationcolor)
 
 class SomeLLConcreteValue(SomeLLAbstractValue):
@@ -182,11 +188,49 @@ class __extend__(SomeLLAbstractConstant):
         desc = bookkeeper.getdesc(fnobj.graph)
         key = None
         alt_name = None
+        to_fix = []
         if bookkeeper.myorigin().read_fixed():
             key = 'fixed'
             alt_name = fnobj.graph.name + '_HFixed'
+        else:
+            key = []
+            specialize = False
+            for i, arg_hs in enumerate(args_hs):
+                if isinstance(arg_hs, SomeLLConcreteValue):
+                    key.append('C')
+                    specialize = True
+                elif isinstance(arg_hs, SomeLLAbstractConstant):
+                    if arg_hs.origins:
+                        fixed = True
+                        for o in arg_hs.origins:
+                            if not o.read_fixed():
+                                fixed = False
+                                break
+                        if fixed:
+                            key.append('f')
+                            # fix the corresponding SomeLLAbstractConstant
+                            # in the input signature of the specialized callee
+                            to_fix.append(i)
+                            specialize = True
+                            continue
+                    
+                    key.append('x')
+                else:
+                    key.append('x')
+            if specialize:
+                key = ''.join(key)
+                alt_name = fnobj.graph.name + '_H'+key
+            else:
+                key = None
+                                    
         input_args_hs = list(args_hs)
         graph = desc.specialize(input_args_hs, key=key, alt_name=alt_name)
+        
+        for i in to_fix:
+            inp_arg_hs = input_args_hs[i]
+            assert len(inp_arg_hs.origins) == 1
+            inp_arg_hs.origins.keys()[0].set_fixed()
+        
         hs_res = bookkeeper.annotator.recursivecall(graph,
                                                     bookkeeper.position_key,
                                                     input_args_hs)
@@ -355,7 +399,7 @@ class __extend__(pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
         #if hasattr(hs_c1, 'const') or hasattr(hs_c2, 'const'):
         return SomeLLConcreteValue(hs_c1.concretetype) # MAYBE
         #else:
-        #    raise annmodel.UnionError("%s %s don't mix, unless the constant is constant" % (hs_c1, hs_c2))
+        #raise annmodel.UnionError("%s %s don't mix, unless the constant is constant" % (hs_c1, hs_c2))
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
