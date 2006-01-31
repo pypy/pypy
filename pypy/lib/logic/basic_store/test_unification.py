@@ -4,6 +4,9 @@ import constraint as c
 from py.test import raises, skip
 from threading import Thread
 
+def near(v1, v2, err):
+    return abs(v1 - v2) < err
+
 class FunThread(Thread):
 
     def __init__(self, fun, *args):
@@ -207,8 +210,8 @@ class TestUnification:
         t2.join()
         assert t1.val == 42
         assert t2.val == 42
-        assert t1.waited > 1
-        assert t2.waited > 1
+        assert near(t1.waited, 1, .1)
+        assert near(t2.waited, 1, .1)
 
     def test_set_var_domain(self):
         x = u.var('x')
