@@ -18,6 +18,9 @@ class AbstractDistributor(Thread):
         self.nb_subspaces = nb_subspaces
         self.cs = c_space
         self.verbose = 0
+
+    def set_space(self, space):
+        self.cs = space
             
     def findSmallestDomain(self):
         """returns the variable having the smallest domain.
@@ -132,8 +135,6 @@ class SplitDistributor(AbstractDistributor):
     def run(self):
         while self.cs.status == Distributable:
             choice = self.cs.choose(self.nb_subdomains())
-            if self.cs.status == Failed:
-                return
             self.new_distribute(choice)
             self.cs._process()
 

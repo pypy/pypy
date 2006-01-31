@@ -489,7 +489,7 @@ class TestComputationSpace:
         spc = space.ComputationSpace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternatives(2)
 
-    def test_distribute(self):
+    def test_old_distribute(self):
         spc = space.ComputationSpace(problems.satisfiable_problem)
         new_domains = [tuple(d.items()) for d in
                        spc.distributor.distribute()]
@@ -512,13 +512,8 @@ class TestComputationSpace:
             for (e1, e2) in zip(d1, d2):
                 print e1, '=?', e2
                 assert e1 == e2
-        # the following assertion fails for mysterious reasons
-        # have we discovered a bug in CPython ?
-        #print hash(new_domains[0]), hash(new_domains[1])
-        #print hash(expected_domains[0]), hash(expected_domains[1])
-        #assert set(new_domains) == set(expected_domains)
 
-    def test_clone(self):
+    def test_clone_and_distribute(self):
         spc = space.ComputationSpace(problems.satisfiable_problem)
         w = spc.get_var_by_name('w')
         assert spc.ask() == space.Alternatives(2)
@@ -529,5 +524,17 @@ class TestComputationSpace:
         assert new_spc.ask() == space.Succeeded
         assert w.cs_get_dom(spc) == c.FiniteDomain([5, 6, 7])
         assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
-        spc.commit(0)
-        new_spc.commit(0)
+
+    def test_inject(self):
+        def more_constraints(space):
+            space.add_constraint(c.Expression(space, [w], 'w == 5'))
+        spc = space.ComputationSpace(problems.satisfiable_problem)
+        w = spc.get_var_by_name('w')
+        assert spc.ask() == space.Alternatives(2)
+        new_spc = spc.clone()
+        new_spc.inject(more_constraints)
+        assert spc.ask() == space.Alternatives(2)
+        assert new_spc.ask() == space.Succeeded
+        assert w.cs_get_dom(spc) == c.FiniteDomain([5, 6, 7])
+        assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
+        

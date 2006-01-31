@@ -160,23 +160,6 @@
 ## then it returns alternatives(N), where N is the number of
 ## alternatives.
 
-## An example specifying how to use a computation space :
-
-## def my_problem(store):
-##     #declare variables, their domain
-##     x, y, z = var('x'), var('y'), var('z')
-##     #declare constraints
-##     set_domain(x, FiniteDomain([1, 2]))
-##     set_domain(y, FiniteDomain([2, 3]))
-##     set_domain(z, FiniteDomain([42, 43]))
-##     add_constraint(c.Expression([x, y, z], 'x == y + z'))
-##     add_constraint(c.Expression([z, w], 'z < w'))
-##     #set up a distribution strategy
-##     ????
-##     return (x, y, z) 
-
-## space = ComputationSpace(fun=my_problem)
-
 from threading import Thread, Condition, RLock, local
 
 from state import Succeeded, Distributable, Failed, Merged
@@ -249,9 +232,10 @@ class ComputationSpace(object):
        * variables bound to a number, record or procedure
          (also called determined variables)."""
 
+    # we have to enforce only one distributor
+    # thread running in one space at the same time
     _nb_choices = 0
 
-    
     def __init__(self, problem, parent=None):
         # consistency-preserving stuff
         self.in_transaction = False
@@ -644,15 +628,15 @@ class ComputationSpace(object):
         spc = ComputationSpace(NoProblem, parent=self)
         for var in spc.vars:
             var.cs_set_dom(spc, var.cs_get_dom(self).copy())
-        # check satisfiability of the space
-        spc._process()
+        spc.distributor.set_space(spc)
         if spc.status == Distributable:
             spc.distributor.start()
         return spc
 
     def inject(self, restricting_problem):
-        """add additional stuff into a space"""
-        pass
+        """add additional entities into a space"""
+        restricting_problem(self)
+        self._process()
 
     def commit(self, choice):
         """if self is distributable, causes the Choose call in the
@@ -681,39 +665,6 @@ class ComputationSpace(object):
     def _make_choice_var(self):
         ComputationSpace._nb_choices += 1
         return self.var('__choice__'+str(self._nb_choices))
-
-    def make_children(self):
-        for dommap in self.distributor.distribute():
-            cs = ComputationSpace(lambda cs : True,
-                                  parent=self)
-            self.children.add(cs)
-            for var, dom in dommap.items():
-                var.cs_set_dom(cs, dom)
-
-    def solve_all(self):
-        """recursively solves the problem
-        """
-        if self.status == Unprocessed:
-            self.process()
-            if self.status == Succeeded: return self.root
-            if self.status == Failed: raise Failed
-            self.make_children()
-            results = set() # to be merged/committed ?
-            for cs in self.children:
-                try:
-                    results.add(cs.solve_all())
-                except Failed:
-                    pass
-            for result in results:
-                # Q: do we (a) merge our children results right now
-                #    or (b) do we pass results up the call chain ?
-                # (b) makes sense for a SolveAll kind of method on cs's
-                # (a) might be more Oz-ish, maybe allowing some very fancy
-                #     stuff with distribution or whatever
-                self.do_something_with(result)
-
-
-
 
 #-- Unifiability checks---------------------------------------
 #--
@@ -778,36 +729,3 @@ def _both_are_vars(v1, v2):
 def _both_are_bound(v1, v2):
     return v1._is_bound() and v2._is_bound()
 
-
-
-#--
-#-- the global store
-#from problems import dummy_problem
-#_cs = ComputationSpace(dummy_problem)
-
-#-- global accessor functions
-## def var(name):
-##     v = Var(name, _cs)
-##     _cs.add_unbound(v)
-##     return v
-
-## def set_domain(var, dom):
-##     return _cs.set_domain(var, dom)
-
-## def add_constraint(constraint):
-##     return _cs.add_constraint(constraint)
-
-## def satisfiable(constraint):
-##     return _cs.satisfiable(constraint)
-
-## def get_satisfying_domains(constraint):
-##     return _cs.get_satisfying_domains(constraint)
-
-## def satisfy(constraint):
-##     return _cs.satisfy(constraint)
-
-## def bind(var, val):
-##     return _cs.bind(var, val)
-
-## def unify(var1, var2):
-##     return _cs.unify(var1, var2)
