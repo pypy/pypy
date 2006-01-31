@@ -35,6 +35,7 @@ class Var(object):
         if name in cs.names:
             raise AlreadyInStore(name)
         self.name = name
+        # the creation-time space
         self.cs = cs
         # top-level 'commited' binding
         self._val = NoValue
