@@ -14,7 +14,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
     def process(self, t):
         _TestAnnotatedTestCase.process(self, t)
         t.buildrtyper().specialize()
-        raisingop2direct_call(t)
+        #raisingop2direct_call(t)
 
     def test_call_five(self):
         # --  the result of call_five() isn't a real list, but an rlist
@@ -223,7 +223,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         raises(OverflowError, fn, n, 5)
 
     def test_int_mod_ovf_zer(self):
-        py.test.skip("XXX does not annotate anymore after raisingops2direct_call transformation")
+        #py.test.skip("XXX does not annotate anymore after raisingops2direct_call transformation")
         fn = self.getcompiled(snippet.mod_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
