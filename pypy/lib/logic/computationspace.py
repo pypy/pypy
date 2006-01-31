@@ -476,7 +476,6 @@ class ComputationSpace(object):
                 else: # 1. both are unbound
                     self._merge(var, val)
             else: # 3. val is really a value
-                print "%s, is that you ?" % var
                 if var._is_bound():
                     raise AlreadyBound(var.name)
                 self._bind(var.val, val)
@@ -783,32 +782,32 @@ def _both_are_bound(v1, v2):
 
 #--
 #-- the global store
-from problems import dummy_problem
-_cs = ComputationSpace(dummy_problem)
+#from problems import dummy_problem
+#_cs = ComputationSpace(dummy_problem)
 
 #-- global accessor functions
-def var(name):
-    v = Var(name, _cs)
-    _cs.add_unbound(v)
-    return v
+## def var(name):
+##     v = Var(name, _cs)
+##     _cs.add_unbound(v)
+##     return v
 
-def set_domain(var, dom):
-    return _cs.set_domain(var, dom)
+## def set_domain(var, dom):
+##     return _cs.set_domain(var, dom)
 
-def add_constraint(constraint):
-    return _cs.add_constraint(constraint)
+## def add_constraint(constraint):
+##     return _cs.add_constraint(constraint)
 
-def satisfiable(constraint):
-    return _cs.satisfiable(constraint)
+## def satisfiable(constraint):
+##     return _cs.satisfiable(constraint)
 
-def get_satisfying_domains(constraint):
-    return _cs.get_satisfying_domains(constraint)
+## def get_satisfying_domains(constraint):
+##     return _cs.get_satisfying_domains(constraint)
 
-def satisfy(constraint):
-    return _cs.satisfy(constraint)
+## def satisfy(constraint):
+##     return _cs.satisfy(constraint)
 
-def bind(var, val):
-    return _cs.bind(var, val)
+## def bind(var, val):
+##     return _cs.bind(var, val)
 
-def unify(var1, var2):
-    return _cs.unify(var1, var2)
+## def unify(var1, var2):
+##     return _cs.unify(var1, var2)
