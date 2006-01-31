@@ -49,4 +49,4 @@ def unsatisfiable_problem(computation_space):
 def dummy_problem(computation_space):
     ret = computation_space.var('__dummy__')
     ret.dom = c.FiniteDomain([1, 2])
-    return ret
+    return (ret)
