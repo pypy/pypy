@@ -54,9 +54,10 @@ class SomeLLAbstractValue(annmodel.SomeObject):
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
 
-    def __init__(self, T, origins):
+    def __init__(self, T, origins, eager_concrete=False):
         SomeLLAbstractValue.__init__(self, T)
         self.origins = origins
+        self.eager_concrete = eager_concrete
 
     def fmt_origins(self, origins):
         counts = {}
@@ -84,14 +85,13 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         """Compute the color of the variables with this annotation
         for the pygame viewer
         """
-        if self.is_fixed():
+        if self.eager_concrete:
+            return (0,100,0)
+        elif self.is_fixed():
             return (50,140,0)
         else:
             return None
     annotationcolor = property(annotationcolor)
-
-class SomeLLConcreteValue(SomeLLAbstractValue):
-    annotationcolor = (0,100,0)
 
 class SomeLLAbstractVariable(SomeLLAbstractValue):
     pass
@@ -127,7 +127,7 @@ def reorigin(hs_v1, *deps_hs):
                         if isinstance(hs_dep, SomeLLAbstractConstant)]
         d = newset({getbookkeeper().myorigin(): True},
                    *deps_origins)
-        return SomeLLAbstractConstant(hs_v1.concretetype, d)
+        return SomeLLAbstractConstant(hs_v1.concretetype, d, eager_concrete=hs_v1.eager_concrete)
     else:
         return hs_v1
 
@@ -147,7 +147,9 @@ class __extend__(SomeLLAbstractConstant):
         if hs_flags.const.get('concrete', False):
             for o in hs_c1.origins:
                 o.set_fixed()
-            return SomeLLConcreteValue(hs_c1.concretetype)
+            hs_concrete = reorigin(hs_c1)
+            hs_concrete.eager_concrete = True
+            return hs_concrete 
         else:
             assert hs_flags.const['forget']
             assert isinstance(hs_c1, SomeLLAbstractConstant)
@@ -180,8 +182,8 @@ class __extend__(SomeLLAbstractConstant):
             key = []
             specialize = False
             for i, arg_hs in enumerate(args_hs):
-                if isinstance(arg_hs, SomeLLConcreteValue):
-                    key.append('C')
+                if isinstance(arg_hs, SomeLLAbstractConstant) and arg_hs.eager_concrete:
+                    key.append('E')
                     specialize = True
                 else:
                     key.append('x')
@@ -242,28 +244,15 @@ class __extend__(SomeLLAbstractConstant):
     def define_unary(TYPE):
         def const_unary(hs_c1):
             d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-            return SomeLLAbstractConstant(TYPE, d)
+            return SomeLLAbstractConstant(TYPE, d, eager_concrete=hs_c1.eager_concrete)
         return const_unary
 
     cast_int_to_char = define_unary(lltype.Char)
     
     cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = define_unary(lltype.Signed)
 
-    uint_is_true = int_is_true = define_unary(lltype.Bool)
-
-class __extend__(SomeLLConcreteValue):
-
-    def define_unary(TYPE):
-        def concrete_unary(hs_cv1):
-            return SomeLLConcreteValue(TYPE)
-        return concrete_unary
-
     cast_int_to_uint = define_unary(lltype.Unsigned)
 
-    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = define_unary(lltype.Signed)
-
-    cast_int_to_char = define_unary(lltype.Char)
- 
     uint_is_true = int_is_true = define_unary(lltype.Bool)
     
 class __extend__(SomeLLAbstractContainer):
@@ -307,6 +296,8 @@ class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
 
     def union((hs_v1, hs_v2)):
         assert hs_v1.concretetype == hs_v2.concretetype
+        if getattr(hs_v1, 'eager_concrete', False) or getattr(hs_v2, 'eager_concrete', False):
+            raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
         return SomeLLAbstractVariable(hs_v1.concretetype)
 
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
@@ -315,7 +306,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         def const_binary((hs_c1, hs_c2)):
             d = newset(hs_c1.origins, hs_c2.origins,
                        {getbookkeeper().myorigin(): True})
-            return SomeLLAbstractConstant(TYPE, d)
+            return SomeLLAbstractConstant(TYPE, d, eager_concrete= hs_c1.eager_concrete or hs_c2.eager_concrete)
         return const_binary
             
     int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
@@ -330,7 +321,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
         d = newset(hs_c1.origins, hs_c2.origins)
-        return SomeLLAbstractConstant(hs_c1.concretetype, d)
+        return SomeLLAbstractConstant(hs_c1.concretetype, d, eager_concrete=hs_c1.eager_concrete and hs_c2.eager_concrete)
 
     def getarrayitem((hs_c1, hs_index)):
         A = hs_c1.concretetype.TO
@@ -338,40 +329,9 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         if A._hints.get('immutable', False):
             d = newset(hs_c1.origins, hs_index.origins,
                        {getbookkeeper().myorigin(): True})
-            return SomeLLAbstractConstant(READ_TYPE, d)
+            return SomeLLAbstractConstant(READ_TYPE, d, eager_concrete=hs_c1.eager_concrete)
         else:
             return SomeLLAbstractVariable(READ_TYPE)
-
-class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
-                 pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
-                 pairtype(SomeLLConcreteValue, SomeLLConcreteValue)):
-
-    def define_binary(TYPE):
-        def concrete_binary((hs_c1, hs_c2)):
-            return SomeLLConcreteValue(TYPE)
-        return concrete_binary
-
-    int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
-    int_floordiv = int_rshift = int_and = int_add
-
-    uint_mul = uint_mod = uint_sub = uint_add = define_binary(lltype.Unsigned)
-    uint_floordiv = uint_rshift = uint_and = uint_add
-
-    int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
-    uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
-
-    def getarrayitem((hs_c1, hs_index)):
-        return SomeLLConcreteValue(hs_c1.concretetype.TO.OF)
-
-class __extend__(pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
-                 pairtype(SomeLLAbstractConstant, SomeLLConcreteValue)):
-
-    def union((hs_c1, hs_c2)):
-        assert hs_c1.concretetype == hs_c2.concretetype
-        #if hasattr(hs_c1, 'const') or hasattr(hs_c2, 'const'):
-        return SomeLLAbstractConstant(hs_c1.concretetype, {}) # MAYBE
-        #else:
-        #raise annmodel.UnionError("%s %s don't mix, unless the constant is constant" % (hs_c1, hs_c2))
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 

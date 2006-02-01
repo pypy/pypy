@@ -62,7 +62,8 @@ def test_simple_hint_result():
         z = hint(z, concrete=True)
         return z
     hs = hannotate(ll_function, [bool, int, int])
-    assert isinstance(hs, SomeLLConcreteValue)
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.eager_concrete
     assert hs.concretetype == lltype.Signed
   
 def test_simple_hint_origins():
@@ -97,13 +98,14 @@ def test_simple_concrete_propagation():
         x = hint(x, concrete=True)
         return x + y
     hs = hannotate(ll_function, [int, int])
-    assert type(hs) is SomeLLConcreteValue
+    assert type(hs) is SomeLLAbstractConstant
+    assert hs.eager_concrete
     assert hs.concretetype == lltype.Signed
 
 def test_union():
     unionof = annmodel.unionof
     av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
-    cv1, cv2 = SomeLLConcreteValue(lltype.Signed), SomeLLConcreteValue(lltype.Signed)
+    cv1, cv2 = SomeLLAbstractConstant(lltype.Signed, {}, eager_concrete=True), SomeLLAbstractConstant(lltype.Signed, {}, eager_concrete=True)
     ac1, ac2 = SomeLLAbstractConstant(lltype.Signed, {}), SomeLLAbstractConstant(lltype.Signed, {})
     ac3 = SomeLLAbstractConstant(lltype.Signed, {})
     ac3.const = 3
@@ -136,13 +138,14 @@ def test_op_meet():
         HintBookkeeper(None).enter(None)
         return pair(hs1, hs2).int_add()
     av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
-    cv1, cv2 = SomeLLConcreteValue(lltype.Signed), SomeLLConcreteValue(lltype.Signed)
+    cv1, cv2 = SomeLLAbstractConstant(lltype.Signed, {}, True), SomeLLAbstractConstant(lltype.Signed, {}, True)
     ac1, ac2 = SomeLLAbstractConstant(lltype.Signed, {}), SomeLLAbstractConstant(lltype.Signed, {})
     assert meet(av1, av2) == av1
-    assert meet(cv1, cv2) == cv2
+    res = meet(cv1, cv2)
+    assert res.eager_concrete
     assert isinstance(meet(ac1, ac2), SomeLLAbstractConstant)
-    assert meet(ac1, cv1) == cv1
-    assert meet(cv1, ac1) == cv1
+    assert meet(ac1, cv1).eager_concrete
+    assert meet(cv1, ac1).eager_concrete
     assert meet(av1, cv1) == av1
     assert meet(cv1, av1) == av1
     assert meet(ac1, av1) == av1
@@ -271,7 +274,7 @@ def test_getarrayitem():
         v = hint(v, concrete=True)
         return v
     hs, ha = hannotate(ll1, [int], annotator=True)
-    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.eager_concrete
     g1 = graphof(ha.translator, ll1)
     hs_n = ha.binding(g1.getargs()[0])
     assert hs_n.origins.keys()[0].fixed
@@ -284,7 +287,7 @@ def test_getvarrayitem():
         v = hint(v, concrete=True)
         return v
     hs, ha = hannotate(ll1, [int], annotator=True)
-    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.eager_concrete
     g1 = graphof(ha.translator, ll1)
     hs_n = ha.binding(g1.getargs()[0])
     assert hs_n.origins.keys()[0].fixed
@@ -302,7 +305,7 @@ def test_simple_fixed_call():
         z = hint(z, concrete=True)
         return z
     hs, ha  = hannotate(ll_function, [bool, int, int, int, int], annotator=True)
-    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.eager_concrete
     assert hs.concretetype == lltype.Signed
     ll_help_graph = graphof(ha.base_translator, ll_help)
     gdesc = ha.bookkeeper.getdesc(ll_help_graph)
@@ -320,15 +323,16 @@ def test_specialize_calls():
         z2 = ll_add(x1, y)
         return z2
     hs, ha  = hannotate(ll_function, [int, int], annotator=True)
-    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.eager_concrete
     assert hs.concretetype == lltype.Signed
     ll_add_graph = graphof(ha.base_translator, ll_add)
     gdesc = ha.bookkeeper.getdesc(ll_add_graph)    
     assert len(gdesc._cache) == 2
-    assert 'Cx' in gdesc._cache
-    v1, v2 = gdesc._cache['Cx'].getargs()
-    assert isinstance(ha.binding(v1), SomeLLConcreteValue)
+    assert 'Ex' in gdesc._cache
+    v1, v2 = gdesc._cache['Ex'].getargs()
+    assert isinstance(ha.binding(v1), SomeLLAbstractConstant)
     assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
+    assert ha.binding(v1).eager_concrete
     assert not ha.binding(v2).is_fixed()
 
 def test_propagate_fixing_across_func_arguments():
@@ -343,7 +347,7 @@ def test_propagate_fixing_across_func_arguments():
         z = ll_func2(z)
         return z
     hs, ha = hannotate(ll_function, [bool, int, int], annotator=True)
-    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.eager_concrete
     assert hs.concretetype == lltype.Signed
     ll_function_graph = graphof(ha.base_translator, ll_function)
     gdesc = ha.bookkeeper.getdesc(ll_function_graph)
