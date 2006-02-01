@@ -61,6 +61,7 @@ def o_atoi(a):
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
                 ("y", c_int)]
+
 # compile and load our local test C file
 compile_c_module([thisdir.join("_rctypes_test.c")], "_rctypes_test")
 
@@ -196,18 +197,25 @@ def py_test_specialize_struct():
     p = tagpoint()
     p.x = 1
     p.y = 2
-
     return p.x
 
 def _py_test_compile_struct( p, x, y ):
     p.x = x
     p.y = y
-
     return p
 
 def py_test_compile_struct( x, y ):
     return _py_test_compile_struct( tagpoint(), x, y ).x
     
+def py_test_compile_pointer( x, y ):
+    return _py_test_compile_pointer( oppoint_type( tagpoint() ), x, y ).x
+
+def _py_test_compile_pointer( p, x, y ):
+    s = p.contents
+    s.x = x
+    s.y = y
+    return s
+
 
 class Test_rctypes:
 
@@ -300,7 +308,7 @@ class Test_structure:
         assert len(s.items) == 2
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == POINTER(tagpoint)
-        assert s.items[1].memorystate == SomeCTypesObject.MEMORYALIAS 
+        assert s.items[1].memorystate == SomeCTypesObject.OWNSMEMORY 
         #d#t.view()
 
     def test_annotate_POINTER_dereference(self):
@@ -311,9 +319,9 @@ class Test_structure:
         assert len(s.items) == 3
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == tagpoint
-        assert s.items[1].memorystate == SomeCTypesObject.MEMORYALIAS 
+        assert s.items[1].memorystate == SomeCTypesObject.OWNSMEMORY 
         assert s.items[2].knowntype == tagpoint
-        assert s.items[2].memorystate == SomeCTypesObject.MEMORYALIAS 
+        assert s.items[2].memorystate == SomeCTypesObject.OWNSMEMORY 
         #d#t.view()
     
     def test_annotate_mixed_memorystate(self):
@@ -379,9 +387,25 @@ class Test_structure:
             pass
 
     def test_compile_struct(self):
-        fn = compile(py_test_compile_struct, [int, int])
+        fn = compile( py_test_compile_struct, [ int, int ], False )
         res = fn( 42, -42 )
         assert res == 42
+
+    def test_specialize_POINTER_dereference(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_testfunc_POINTER_dereference, [tagpoint])
+        assert s.knowntype == tuple
+        try:
+            t.buildrtyper().specialize()
+        finally:
+            t.view()
+            pass
+
+    def x_test_compile_pointer(self):
+        fn = compile( py_test_compile_pointer, [ int, int ], True and False )
+        res = fn( -42, 42 )
+        assert res == -42
 
 
 class Test_array:

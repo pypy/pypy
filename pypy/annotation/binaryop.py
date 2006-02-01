@@ -761,7 +761,7 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         except AttributeError:
             return SomeCTypesObject(
                     s_cto.knowntype._type_,
-                    memorystate=SomeCTypesObject.MEMORYALIAS)
+                    memorystate=s_cto.memorystate)
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
     def setitem((s_cto, s_slice), s_iterable):
