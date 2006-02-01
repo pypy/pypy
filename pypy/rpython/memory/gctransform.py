@@ -216,6 +216,20 @@ class GCTransformer:
         destroy.compute_ll_ops = compute_destroy_ll_ops
         destroy.llresult = lltype.Void
 
+        destrptr = None
+        
+        if isinstance(TYPE, lltype.Struct):
+            rtti = None
+            try:
+                rtti = lltype.getRuntimeTypeInfo(TYPE)
+            except ValueError:
+                pass
+            if rtti is not None:
+                if hasattr(rtti._obj, 'destructor_funcptr'):
+                    destrptr = rtti._obj.destructor_funcptr
+
+        assert destrptr is None
+
         body = '\n'.join(self._deallocator_body_for_type('v', TYPE))
         
         src = 'def deallocator(v):\n' + body + '\n    destroy(v)\n'

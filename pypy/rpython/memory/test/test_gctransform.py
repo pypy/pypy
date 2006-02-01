@@ -4,6 +4,7 @@ from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
+import py
 
 def checkblock(block):
     if block.operations == ():
@@ -285,3 +286,20 @@ def test_deallocator_less_simple():
     assert len(ops['gc_pop_alive']) == 2
     assert len(ops['getfield']) == 2
     assert len(ops['gc_free']) == 1
+
+def test_deallocator_with_destructor():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(s):
+        s.x = 1
+    def type_info_S(p):
+        return lltype.getRuntimeTypeInfo(S)
+    qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
+                                            lltype.Ptr(lltype.RuntimeTypeInfo)),
+                            "type_info_S", 
+                            _callable=type_info_S)
+    dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
+                                            lltype.Void), 
+                            "destructor_funcptr", 
+                            _callable=f)
+    pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
+    py.test.raises(AssertionError, "make_deallocator(S)")
