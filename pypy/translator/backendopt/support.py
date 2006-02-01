@@ -23,3 +23,12 @@ def annotate(translator, func, result, args):
     fptr   = functionptr(FuncType(args, result.concretetype), func.func_name, graph=graph)
     c      = inputconst(typeOf(fptr), fptr) 
     return c
+
+def md5digest(translator):
+    import md5
+    m = md5.new()
+    for op in all_operations(translator):
+        m.update(op.opname + str(op.result))
+        for a in op.args:
+            m.update(str(a))
+    return m.digest()[:]

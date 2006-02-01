@@ -10,24 +10,45 @@ def raisingop2direct_call(translator):
     note: this could be extended to allow for any operation to be changed into
           a direct_call to a (RPython) function!
     """
-    seen = {}
-    for op in all_operations(translator):
+    #special_operations = "int_floordiv int_mod".split()
+
+    def is_raisingop(op):
         s = op.opname
         if not s.startswith('int_') and not s.startswith('uint_') and not s.startswith('float_'):
+           return False
+        if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val'): #not s in special_operations:
+           return False
+        return True
+    
+    seen = {}
+    for op in all_operations(translator):
+        if not is_raisingop(op):
             continue
-        if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val') and \
-           not s in ('int_floordiv', 'int_mod'):
-            continue
-        func = getattr(pypy.rpython.raisingops.raisingops, s, None)
-        assert func, "exception raising operation %s was not found" % s
-        if s not in seen:
-            seen[s] = 0
-            log.info(s)
-        seen[s] += 1
+        func = getattr(pypy.rpython.raisingops.raisingops, op.opname, None)
+        assert func, "exception raising operation %s was not found" % op.opname
+        if op.opname not in seen:
+            seen[op.opname] = 0
+        seen[op.opname] += 1
         op.args.insert(0, annotate(translator, func, op.result, op.args))
         op.opname = 'direct_call'
+
+    #statistics...
     for k, v in seen.iteritems():
-        log("%4dx %s" % (v, k))
+        log.info("%dx %s" % (v, k))
+
+    #specialize newly annotated functions
     if seen != {}:
         translator.rtyper.specialize_more_blocks()
+
+    #rename some operations (that were introduced in the newly specialized graphs)
+    #so this transformation becomes idempotent... 
+    #for op in all_operations(translator):
+    #   if op.opname in special_operations:
+    #       log('renamed %s to %s_' % (op.opname, op.opname))
+    #       op.opname += '_' 
+
+    #selfdiagnostics... assert that there are no more raisingops
+    for op in all_operations(translator):
+        assert not is_raisingop(op)
+
     #translator.view()

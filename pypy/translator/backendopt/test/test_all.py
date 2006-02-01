@@ -1,5 +1,6 @@
 import py
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.backendopt.support import md5digest
 from pypy.translator.backendopt.test.test_malloc import check_malloc_removed
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import Constant
@@ -56,7 +57,6 @@ def test_big():
     assert res == 83
 
 
-
 def test_for_loop():
     def f(n):
         total = 0
@@ -89,6 +89,7 @@ def test_list_comp():
     res = interp.eval_graph(f_graph, [11, 22])
     assert res == 33
 
+
 def test_premature_death():
     import os
     from pypy.annotation import listdef
@@ -120,7 +121,32 @@ def test_premature_death():
     interp = LLInterpreter(t.rtyper)
     interp.eval_graph(entry_point_graph, [argv])
 
-    
 
+def test_idempotent():
+    def s(x):
+        res = 0
+        i = 1
+        while i <= x:
+            res += i
+            i += 1
+        return res
 
- 
+    def g(x):
+        return s(100) + s(1) + x 
+
+    def idempotent(n1, n2):
+        c = [i for i in range(n2)]
+        return 33 + big() + g(10)
+
+    t  = translateopt(idempotent, [int, int], raisingop2direct_call_all=True)
+    digest1 = md5digest(t)
+
+    digest2 = md5digest(t)
+    assert digest1 == digest2
+
+    #XXX Inlining is currently non-idempotent.
+    #    Maybe it just renames variables but it changes the graph in some way.
+    backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0)
+    digest3 = md5digest(t)
+    assert digest1 == digest3
+
