@@ -26,7 +26,7 @@ def hannotate(func, argtypes, policy=None, annotator=False):
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
     t = hannotator.translator
-    #t.view()
+    t.view()
     if annotator:
         return hs, hannotator
     else:
@@ -319,19 +319,12 @@ def test_specialize_calls():
     assert hs.concretetype == lltype.Signed
     ll_add_graph = graphof(ha.base_translator, ll_add)
     gdesc = ha.bookkeeper.getdesc(ll_add_graph)    
-    assert len(gdesc._cache) == 3
+    assert len(gdesc._cache) == 2
     assert 'Cx' in gdesc._cache
-    assert 'fx' in gdesc._cache
     v1, v2 = gdesc._cache['Cx'].getargs()
     assert isinstance(ha.binding(v1), SomeLLConcreteValue)
     assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
     assert not ha.binding(v2).is_fixed()
-    v1, v2 = gdesc._cache['fx'].getargs()
-    assert isinstance(ha.binding(v1), SomeLLAbstractConstant)
-    assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
-    assert ha.binding(v1).is_fixed()
-    assert not ha.binding(v2).is_fixed()    
-    
  
 def test_hannotate_tl():
     from pypy.jit import tl

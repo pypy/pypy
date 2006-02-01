@@ -173,7 +173,6 @@ class __extend__(SomeLLAbstractConstant):
         desc = bookkeeper.getdesc(fnobj.graph)
         key = None
         alt_name = None
-        to_fix = []
         if bookkeeper.myorigin().read_fixed():
             key = 'fixed'
             alt_name = fnobj.graph.name + '_HFixed'
@@ -184,22 +183,6 @@ class __extend__(SomeLLAbstractConstant):
                 if isinstance(arg_hs, SomeLLConcreteValue):
                     key.append('C')
                     specialize = True
-                elif isinstance(arg_hs, SomeLLAbstractConstant):
-                    if arg_hs.origins:
-                        fixed = True
-                        for o in arg_hs.origins:
-                            if not o.read_fixed():
-                                fixed = False
-                                break
-                        if fixed:
-                            key.append('f')
-                            # fix the corresponding SomeLLAbstractConstant
-                            # in the input signature of the specialized callee
-                            to_fix.append(i)
-                            specialize = True
-                            continue
-                    
-                    key.append('x')
                 else:
                     key.append('x')
             if specialize:
@@ -210,11 +193,6 @@ class __extend__(SomeLLAbstractConstant):
                                     
         input_args_hs = list(args_hs)
         graph = desc.specialize(input_args_hs, key=key, alt_name=alt_name)
-        
-        for i in to_fix:
-            inp_arg_hs = input_args_hs[i]
-            assert len(inp_arg_hs.origins) == 1
-            inp_arg_hs.origins.keys()[0].set_fixed()
         
         hs_res = bookkeeper.annotator.recursivecall(graph,
                                                     bookkeeper.position_key,
