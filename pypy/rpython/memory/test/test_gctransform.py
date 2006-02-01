@@ -258,10 +258,15 @@ def make_deallocator(TYPE, view=False):
         t.view()
     return graph
 
-def dont_test_deallocator_simple():
+def test_deallocator_simple():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
     dgraph = make_deallocator(S)
-    assert dgraph is None
+    ops = []
+    for block in dgraph.iterblocks():
+        ops.extend([op for op in block.operations if op.opname != 'same_as']) # XXX
+    assert len(ops) == 1
+    op, = ops
+    assert op.opname == 'gc_free'
 
 def test_deallocator_less_simple():
     TPtr = lltype.Ptr(lltype.GcStruct("T", ('a', lltype.Signed)))
@@ -272,8 +277,11 @@ def test_deallocator_less_simple():
         ('z', TPtr),
         )
     dgraph = make_deallocator(S)
+    ops = {}
+    for block in dgraph.iterblocks():
+        for op in block.operations:
+            ops.setdefault(op.opname, []).append(op)
 
-def test_deallocator_less_simple2():
-    S = lltype.GcArray(lltype.Ptr(lltype.GcStruct("S", ('x', lltype.Signed))))
-    dgraph = make_deallocator(S)
-    
+    assert len(ops['gc_pop_alive']) == 2
+    assert len(ops['getfield']) == 2
+    assert len(ops['gc_free']) == 1

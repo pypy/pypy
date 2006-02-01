@@ -169,6 +169,12 @@ class GCTransformer:
         result.concretetype = lltype.Void
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
+    def free(self, var):
+        result = Variable()
+        result.concretetype = lltype.Void
+        return [SpaceOperation("gc_free", [var], result)]        
+    
+
     # ----------------------------------------------------------------
 
     def _deallocator_body_for_type(self, v, TYPE, depth=1):
@@ -195,21 +201,37 @@ class GCTransformer:
             yield '    '*depth + 'pop_alive(%s)'%v
 
     def deallocation_graph_for_type(self, translator, TYPE, var):
-        def compute_ll_ops(hop):
+        def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
         def pop_alive(var):
             pass
-        pop_alive.compute_ll_ops = compute_ll_ops
+        pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
         pop_alive.llresult = lltype.Void
+        def compute_destroy_ll_ops(hop):
+            hop.llops.extend(self.free(hop.args_v[1]))
+            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
+        def destroy(var):
+            pass
+        destroy.compute_ll_ops = compute_destroy_ll_ops
+        destroy.llresult = lltype.Void
 
         body = '\n'.join(self._deallocator_body_for_type('v', TYPE))
-        if not body:
-            return
-        src = 'def deallocator(v):\n' + body
-        d = {'pop_alive':pop_alive}
+        
+        src = 'def deallocator(v):\n' + body + '\n    destroy(v)\n'
+        d = {'pop_alive':pop_alive,
+             'destroy':destroy}
+        print
+        print src
+        print
         exec src in d
         this = d['deallocator']
         g = translator.rtyper.annotate_helper(this, [lltype.Ptr(TYPE)])
         translator.rtyper.specialize_more_blocks()
-        return g
+        opcount = 0
+        for block in g.iterblocks():
+            opcount += len(block.operations)
+        if opcount == 0:
+            return None
+        else:
+            return g
