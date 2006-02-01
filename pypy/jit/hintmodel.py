@@ -153,25 +153,6 @@ class __extend__(SomeLLAbstractConstant):
             assert isinstance(hs_c1, SomeLLAbstractConstant)
             return reorigin(hs_c1)
 
-    def getfield(hs_c1, hs_fieldname):
-        S = hs_c1.concretetype.TO
-        FIELD_TYPE = getattr(S, hs_fieldname.const)
-        if S._hints.get('immutable', False):
-            d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-            return SomeLLAbstractConstant(FIELD_TYPE, d)
-        else:
-            return SomeLLAbstractVariable(FIELD_TYPE)
-
-    def getsubstruct(hs_c1, hs_fieldname):
-        S = hs_c1.concretetype.TO
-        SUB_TYPE = getattr(S, hs_fieldname.const)
-        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d)
-
-    def getarraysize(hs_c1):
-        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-        return SomeLLAbstractConstant(lltype.Signed, d)
-
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
         fnobj = hs_f1.const._obj
@@ -252,43 +233,51 @@ class __extend__(SomeLLAbstractConstant):
             hs_res = reorigin(hs_res, *deps_hs)
         return hs_res
 
-    def unary_char(hs_c1):
-        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-        return SomeLLAbstractConstant(lltype.Char, d)
+    def getfield(hs_c1, hs_fieldname):
+        S = hs_c1.concretetype.TO
+        FIELD_TYPE = getattr(S, hs_fieldname.const)
+        if S._hints.get('immutable', False):
+            d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+            return SomeLLAbstractConstant(FIELD_TYPE, d)
+        else:
+            return SomeLLAbstractVariable(FIELD_TYPE)
 
-    cast_int_to_char = unary_char
-    
-    def unary_int(hs_c1):
+    def getsubstruct(hs_c1, hs_fieldname):
+        S = hs_c1.concretetype.TO
+        SUB_TYPE = getattr(S, hs_fieldname.const)
+        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d)
+
+    def getarraysize(hs_c1):
         d = setadd(hs_c1.origins, getbookkeeper().myorigin())
         return SomeLLAbstractConstant(lltype.Signed, d)
 
-    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = unary_int
+    def define_unary(TYPE):
+        def const_unary(hs_c1):
+            d = setadd(hs_c1.origins, getbookkeeper().myorigin())
+            return SomeLLAbstractConstant(TYPE, d)
+        return const_unary
 
-    def int_is_true(hs_c1):
-        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-        return SomeLLAbstractConstant(lltype.Bool, d)
+    cast_int_to_char = define_unary(lltype.Char)
+    
+    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = define_unary(lltype.Signed)
 
-    uint_is_true = int_is_true
+    uint_is_true = int_is_true = define_unary(lltype.Bool)
 
 class __extend__(SomeLLConcreteValue):
 
-    def cast_int_to_uint(hs_cv1):
-        return SomeLLConcreteValue(lltype.Unsigned)
+    def define_unary(TYPE):
+        def concrete_unary(hs_cv1):
+            return SomeLLConcreteValue(TYPE)
+        return concrete_unary
 
-    def unary_int(hs_cv1):
-        return SomeLLConcreteValue(lltype.Signed)
+    cast_int_to_uint = define_unary(lltype.Unsigned)
 
-    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = unary_int
+    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = define_unary(lltype.Signed)
 
-    def unary_char(hs_c1):
-        return SomeLLConcreteValue(lltype.Char)
-
-    cast_int_to_char = unary_char
+    cast_int_to_char = define_unary(lltype.Char)
  
-    def int_is_true(hs_cv1):
-        return SomeLLConcreteValue(lltype.Bool)
-
-    uint_is_true = int_is_true
+    uint_is_true = int_is_true = define_unary(lltype.Bool)
     
 class __extend__(SomeLLAbstractContainer):
 
@@ -335,26 +324,20 @@ class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
 
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
-    def int_add((hs_c1, hs_c2)):
-        d = newset(hs_c1.origins, hs_c2.origins,
-                   {getbookkeeper().myorigin(): True})
-        return SomeLLAbstractConstant(lltype.Signed, d)
+    def define_binary(TYPE):
+        def const_binary((hs_c1, hs_c2)):
+            d = newset(hs_c1.origins, hs_c2.origins,
+                       {getbookkeeper().myorigin(): True})
+            return SomeLLAbstractConstant(TYPE, d)
+        return const_binary
+            
+    int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
+    int_floordiv = int_rshift = int_and = int_add 
 
-    int_floordiv = int_rshift = int_and = int_mul = int_mod = int_sub = int_add
+    uint_mul = uint_mod = uint_sub = uint_add = define_binary(lltype.Unsigned)
+    uint_floordiv = uint_rshift = uint_and = uint_add
 
-    def uint_add((hs_c1, hs_c2)):
-        d = newset(hs_c1.origins, hs_c2.origins,
-                   {getbookkeeper().myorigin(): True})
-        return SomeLLAbstractConstant(lltype.Unsigned, d)
-    
-    uint_floordiv = uint_rshift = uint_and = uint_mul = uint_mod = uint_sub = uint_add
-
-    def int_eq((hs_c1, hs_c2)):
-        d = newset(hs_c1.origins, hs_c2.origins,
-                   {getbookkeeper().myorigin(): True})
-        return SomeLLAbstractConstant(lltype.Bool, d)
-
-    int_lt = int_le = int_ge = int_ne = int_gt = int_eq
+    int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
     uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
 
     def union((hs_c1, hs_c2)):
@@ -376,20 +359,18 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLConcreteValue),
                  pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
                  pairtype(SomeLLConcreteValue, SomeLLConcreteValue)):
 
-    def int_add((hs_c1, hs_c2)):
-        return SomeLLConcreteValue(lltype.Signed)
+    def define_binary(TYPE):
+        def concrete_binary((hs_c1, hs_c2)):
+            return SomeLLConcreteValue(TYPE)
+        return concrete_binary
 
-    int_floordiv = int_rshift = int_and = int_mul = int_mod = int_sub = int_add
+    int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
+    int_floordiv = int_rshift = int_and = int_add
 
-    def uint_add((hs_c1, hs_c2)):
-        return SomeLLConcreteValue(lltype.Unsigned)
+    uint_mul = uint_mod = uint_sub = uint_add = define_binary(lltype.Unsigned)
+    uint_floordiv = uint_rshift = uint_and = uint_add
 
-    uint_floordiv = uint_rshift = uint_and = uint_mul = uint_mod = uint_sub = uint_add
-
-    def int_eq((hs_c1, hs_c2)):
-        return SomeLLConcreteValue(lltype.Bool)
-
-    int_lt = int_le = int_ge = int_ne = int_gt = int_eq
+    int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
     uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
 
     def getarrayitem((hs_c1, hs_index)):
