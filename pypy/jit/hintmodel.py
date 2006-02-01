@@ -144,10 +144,14 @@ class __extend__(SomeLLAbstractConstant):
     def hint(hs_c1, hs_flags):
         if hs_flags.const.get('variable', False): # only for testing purposes!!!
             return SomeLLAbstractVariable(hs_c1.concretetype)
-        assert hs_flags.const['concrete']
-        for o in hs_c1.origins:
-            o.set_fixed()
-        return SomeLLConcreteValue(hs_c1.concretetype)
+        if hs_flags.const.get('concrete', False):
+            for o in hs_c1.origins:
+                o.set_fixed()
+            return SomeLLConcreteValue(hs_c1.concretetype)
+        else:
+            assert hs_flags.const['forget']
+            assert isinstance(hs_c1, SomeLLAbstractConstant)
+            return reorigin(hs_c1)
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
@@ -397,7 +401,7 @@ class __extend__(pairtype(SomeLLConcreteValue, SomeLLAbstractConstant),
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
         #if hasattr(hs_c1, 'const') or hasattr(hs_c2, 'const'):
-        return SomeLLConcreteValue(hs_c1.concretetype) # MAYBE
+        return SomeLLAbstractConstant(hs_c1.concretetype, {}) # MAYBE
         #else:
         #raise annmodel.UnionError("%s %s don't mix, unless the constant is constant" % (hs_c1, hs_c2))
 
@@ -410,7 +414,7 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 
     def getarrayitem((hs_a1, hs_index)):
         hs_res = hs_a1.contentdef.read_item()
-        return reorigin(hs_res, hs_index)
+        return reorigin(hs_res, hs_res, hs_index)
 
 
 # ____________________________________________________________

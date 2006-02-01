@@ -103,7 +103,7 @@ def interp(code='', pc=0):
         elif opcode == BR_COND_STK:
             offset = stack.pop()
             if stack.pop():
-                pc += offset
+                pc += hint(offset, forget=True)
 
         elif opcode == CALL:
             offset = char2int(code[pc])

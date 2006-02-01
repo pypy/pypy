@@ -117,8 +117,8 @@ def test_union():
     # MAYBE...
     #py.test.raises(annmodel.UnionError, "unionof(ac1, cv1)")
     #py.test.raises(annmodel.UnionError, "unionof(cv1, ac1)")
-    assert unionof(cv1, ac1) == cv1
-    assert unionof(ac1, cv1) == cv1
+    assert unionof(cv1, ac1) == ac1
+    assert unionof(ac1, cv1) == ac1
     
     # constant with values
     assert unionof(av1, ac1) == av1
@@ -226,7 +226,7 @@ def test_simple_list_operations():
     hs = hannotate(ll_function, [int, int, int], policy=P_OOPSPEC)
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
 
 def test_some_more_list_operations():
     def ll_function(x, y, index):
@@ -237,7 +237,7 @@ def test_some_more_list_operations():
     hs = hannotate(ll_function, [int, int, int], policy=P_OOPSPEC)
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
-    assert len(hs.origins) == 2
+    assert len(hs.origins) == 4
 
 def test_simple_cast_pointer():
     GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))

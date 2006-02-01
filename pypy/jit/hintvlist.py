@@ -43,7 +43,8 @@ class VirtualListDef(AbstractContainerDef):
 
     def oop_getitem(self, hs_index):
         assert hs_index.concretetype == lltype.Signed
-        return reorigin(self.read_item(), hs_index)
+        hs_res = self.read_item()
+        return reorigin(hs_res, hs_res, hs_index)
 
     def oop_setitem(self, hs_index, hs_value):
         assert hs_index.concretetype == lltype.Signed
@@ -61,7 +62,8 @@ class VirtualListDef(AbstractContainerDef):
 
     def oop_pop(self, hs_index=None):
         assert hs_index is None or hs_index.concretetype == lltype.Signed
-        return reorigin(self.read_item(), hs_index)
+        hs_res = self.read_item()
+        return reorigin(hs_res, hs_res, hs_index)
 
     def oop_reverse(self):
         pass
