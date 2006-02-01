@@ -47,7 +47,7 @@ class LLInstruction(Instruction):
             _frame_type = LLInstruction._frame_type
         except AttributeError:
             from pypy.rpython.llinterp import LLFrame
-            _frame_type = LLInstruction._frame_type = type('*frame*', (),
+            _frame_type = LLInstruction._frame_type = type('*Frame*', (),
                                                            LLFrame.__dict__.copy())
         return object.__new__(_frame_type)
 
