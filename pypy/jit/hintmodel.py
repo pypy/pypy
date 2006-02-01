@@ -193,6 +193,15 @@ class __extend__(SomeLLAbstractConstant):
                                     
         input_args_hs = list(args_hs)
         graph = desc.specialize(input_args_hs, key=key, alt_name=alt_name)
+
+        # propagate fixing of arguments in the function to the caller
+        for inp_arg_hs, arg_hs in zip(input_args_hs, args_hs):
+            if isinstance(arg_hs, SomeLLAbstractConstant):
+                assert len(inp_arg_hs.origins) == 1
+                [o] = inp_arg_hs.origins.keys()
+                if o.read_fixed():
+                    for o in arg_hs.origins:
+                        o.set_fixed()
         
         hs_res = bookkeeper.annotator.recursivecall(graph,
                                                     bookkeeper.position_key,

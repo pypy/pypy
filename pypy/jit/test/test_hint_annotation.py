@@ -26,7 +26,7 @@ def hannotate(func, argtypes, policy=None, annotator=False):
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
     t = hannotator.translator
-    t.view()
+    #t.view()
     if annotator:
         return hs, hannotator
     else:
@@ -73,12 +73,17 @@ def test_simple_hint_origins():
             z = x-y
         z1 = hint(z, concrete=True)
         return z # origin of z1
-    hs = hannotate(ll_function, [bool, int, int])
+    hs, ha = hannotate(ll_function, [bool, int, int], annotator=True)
     assert isinstance(hs, SomeLLAbstractConstant)
     assert len(hs.origins) == 4
     assert hs.is_fixed()
     assert hs.concretetype == lltype.Signed
- 
+    ll_function_graph = graphof(ha.base_translator, ll_function)
+    gdesc = ha.bookkeeper.getdesc(ll_function_graph)
+    _, x_v, y_v = gdesc._cache[None].getargs()
+    assert ha.binding(x_v).is_fixed()
+    assert ha.binding(y_v).is_fixed()
+    
 def test_simple_variable():
     def ll_function(x,y):
         x = hint(x, variable=True) # special hint only for testing purposes!!!
@@ -325,7 +330,27 @@ def test_specialize_calls():
     assert isinstance(ha.binding(v1), SomeLLConcreteValue)
     assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
     assert not ha.binding(v2).is_fixed()
- 
+
+def test_propagate_fixing_across_func_arguments():
+    def ll_func2(z):
+        z = hint(z, concrete=True)
+        return z + 1
+    def ll_function(cond, x,y):
+        if cond:
+            z = x+y
+        else:
+            z = x-y
+        z = ll_func2(z)
+        return z
+    hs, ha = hannotate(ll_function, [bool, int, int], annotator=True)
+    assert isinstance(hs, SomeLLConcreteValue)
+    assert hs.concretetype == lltype.Signed
+    ll_function_graph = graphof(ha.base_translator, ll_function)
+    gdesc = ha.bookkeeper.getdesc(ll_function_graph)
+    _, x_v, y_v = gdesc._cache[None].getargs()
+    assert ha.binding(x_v).is_fixed()
+    assert ha.binding(y_v).is_fixed()
+    
 def test_hannotate_tl():
     from pypy.jit import tl
     hannotate(tl.interp, [str, int], policy=P_OOPSPEC)
