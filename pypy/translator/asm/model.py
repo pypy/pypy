@@ -42,10 +42,18 @@ class LLInstruction(Instruction):
                              map[self.dest],
                              *[map[s] for s in self.sources])
 
+    def _frame(self):
+        try:
+            _frame_type = LLInstruction._frame_type
+        except AttributeError:
+            from pypy.rpython.llinterp import LLFrame
+            _frame_type = LLInstruction._frame_type = type('*frame*', (),
+                                                           LLFrame.__dict__.copy())
+        return object.__new__(_frame_type)
+
     def execute(self, machine):
-        from pypy.rpython.llinterp import LLFrame
         sources = map(machine.get_register, self.sources)
-        result = LLFrame.__dict__['op_' + self.opname](None, *sources)
+        result = getattr(self._frame(), 'op_' + self.opname)(*sources)
         machine.store_register(self.dest, result)
 
 
