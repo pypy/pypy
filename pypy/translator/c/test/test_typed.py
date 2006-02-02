@@ -4,8 +4,6 @@ import py
 from py.test import raises
 from pypy.translator.test import snippet 
 from pypy.rpython.rarithmetic import r_uint, r_longlong, intmask
-from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
-
 from pypy.translator.c.test.test_annotated import TestAnnotatedTestCase as _TestAnnotatedTestCase
 
 
@@ -223,7 +221,6 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         raises(OverflowError, fn, n, 5)
 
     def test_int_mod_ovf_zer(self):
-        #py.test.skip("XXX does not annotate anymore after raisingops2direct_call transformation")
         fn = self.getcompiled(snippet.mod_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)

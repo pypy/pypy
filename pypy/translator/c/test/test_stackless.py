@@ -4,7 +4,6 @@ from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.rpython.rstack import stack_unwind, stack_frames_depth, stack_too_big
 from pypy.rpython.rstack import yield_current_frame_to_caller
-from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
 import os
 
 def wrap_stackless_function(fn):
@@ -17,7 +16,6 @@ def wrap_stackless_function(fn):
     t = TranslationContext()
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
-    raisingop2direct_call(t)
 
     cbuilder = CStandaloneBuilder(t, entry_point)
     cbuilder.stackless = True

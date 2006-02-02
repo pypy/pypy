@@ -19,13 +19,16 @@ def raisingop2direct_call(translator):
         if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val'): #not s in special_operations:
            return False
         return True
-    
+
+    log('starting')
     seen = {}
     for op in all_operations(translator):
         if not is_raisingop(op):
             continue
         func = getattr(pypy.rpython.raisingops.raisingops, op.opname, None)
-        assert func, "exception raising operation %s was not found" % op.opname
+        if not func:
+            log.warning("%s not found" % op.opname)
+            continue
         if op.opname not in seen:
             seen[op.opname] = 0
         seen[op.opname] += 1
@@ -34,7 +37,7 @@ def raisingop2direct_call(translator):
 
     #statistics...
     for k, v in seen.iteritems():
-        log.info("%dx %s" % (v, k))
+        log("%dx %s" % (v, k))
 
     #specialize newly annotated functions
     if seen != {}:
@@ -49,6 +52,8 @@ def raisingop2direct_call(translator):
 
     #selfdiagnostics... assert that there are no more raisingops
     for op in all_operations(translator):
-        assert not is_raisingop(op)
+        if is_raisingop(op):
+            log.warning("%s not transformed" % op.opname)
 
     #translator.view()
+    log('finished')
