@@ -4,7 +4,9 @@ class StrategyDistributionMismatch(Exception):
     pass
 
 def dfs_one_solution(problem):
-    """depth-first single-solution search"""
+    """depth-first single-solution search
+       assumes the space default distributor is
+       dichotomic"""
 
     def do_dfs(space):
         status = space.ask()
