@@ -22,3 +22,10 @@ def test_simple_loop_with_new_style_class_creation():
     while i < LOOPS:
         NewStyleFoo()
         i += 1
+
+def test_simple_loop_with_new_style_class_new():
+    i = 0
+    new = object.__new__
+    while i < LOOPS:
+        new(NewStyleFoo)
+        i += 1
