@@ -323,7 +323,7 @@ class ComputationSpace(object):
             raise NotInStore(name)
 
     def is_bound(self, var):
-        """check wether a var is bound is locally bound"""
+        """check wether a var is locally bound"""
         if self.TOP:
             return var.is_bound()
         return len(var.cs_get_dom(self)) == 1
@@ -334,10 +334,10 @@ class ComputationSpace(object):
 
     def val(self, var):
         """return the local binding without blocking"""
-        if self.TOP:
+        if self.TOP: # the real thing
             return var.val
-        if self.is_bound(var):
-            return var.cs_get_dom(self)[0]
+        if self.is_bound(var): # the speculative val
+            return self.dom(var)[0]
         return NoValue
     
     #-- Constraints -------------------------
