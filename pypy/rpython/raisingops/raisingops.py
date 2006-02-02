@@ -177,39 +177,45 @@ def int_mod_ovf_zer(x, y):
     if y:
         return int_mod_ovf(x, y)
     else:
-        ZeroDivisionError("integer modulo")
+        raise ZeroDivisionError("integer modulo")
 
 # Helpers...
 
 def int_floordiv(x, y):
-    xdivy = r_longlong(x / y)
-    xmody = r_longlong(x - xdivy * y)
-  
-    # If the signs of x and y differ, and the remainder is non-0,
-    # C89 doesn't define whether xdivy is now the floor or the
-    # ceiling of the infinitely precise quotient.  We want the floor,
-    # and we have it iff the remainder's sign matches y's.
-    if xmody and ((y ^ xmody) < 0):
-        xmody += y
-        xdivy -= 1
-        assert xmody and ((y ^ xmody) >= 0)
+    return x / y
 
-    return xdivy
+#def int_floordiv(x, y):
+#    xdivy = r_longlong(x / y)
+#    xmody = r_longlong(x - xdivy * y)
+#  
+#    # If the signs of x and y differ, and the remainder is non-0,
+#    # C89 doesn't define whether xdivy is now the floor or the
+#    # ceiling of the infinitely precise quotient.  We want the floor,
+#    # and we have it iff the remainder's sign matches y's.
+#    if xmody and ((y ^ xmody) < 0):
+#        xmody += y
+#        xdivy -= 1
+#        assert xmody and ((y ^ xmody) >= 0)
+#
+#    return xdivy
 
 def int_mod(x, y):
-    xdivy = r_longlong(x / y)
-    xmody = r_longlong(x - xdivy * y)
-  
-    # If the signs of x and y differ, and the remainder is non-0,
-    # C89 doesn't define whether xdivy is now the floor or the
-    # ceiling of the infinitely precise quotient.  We want the floor,
-    # and we have it iff the remainder's sign matches y's.
-    if xmody and ((y ^ xmody) < 0):
-        xmody += y
-        xdivy -= 1
-        assert xmody and ((y ^ xmody) >= 0)
+    return x % y
 
-    return xmody
+#def int_mod(x, y):
+#    xdivy = r_longlong(x / y)
+#    xmody = r_longlong(x - xdivy * y)
+#  
+#    # If the signs of x and y differ, and the remainder is non-0,
+#    # C89 doesn't define whether xdivy is now the floor or the
+#    # ceiling of the infinitely precise quotient.  We want the floor,
+#    # and we have it iff the remainder's sign matches y's.
+#    if xmody and ((y ^ xmody) < 0):
+#        xmody += y
+#        xdivy -= 1
+#        assert xmody and ((y ^ xmody) >= 0)
+#
+#    return xmody
 
 def _Py_ARITHMETIC_RIGHT_SHIFT(i, j):
     '''
@@ -236,17 +242,38 @@ def _Py_ARITHMETIC_RIGHT_SHIFT(i, j):
     '''
     return i >> j
 
-def int_mul_ovf(x, y):
-    '''{ \
-        PY_LONG_LONG lr = (PY_LONG_LONG)(x) * (PY_LONG_LONG)(y); \
-        r = (long)lr; \
-        if ((PY_LONG_LONG)r == lr); \
-        else FAIL_OVF(err, "integer multiplication"); \
-    }
-    '''
-    lr = r_longlong(x) * r_longlong(y);
-    r  = intmask(lr)
-    if r_longlong(r) == lr:
-        return r
-    else:
-        raise OverflowError("integer multiplication")
+#XXX some code from src/int.h seems missing
+#def int_mul_ovf(x, y): #HAVE_LONG_LONG version
+#    '''{ \
+#        PY_LONG_LONG lr = (PY_LONG_LONG)(x) * (PY_LONG_LONG)(y); \
+#        r = (long)lr; \
+#        if ((PY_LONG_LONG)r == lr); \
+#        else FAIL_OVF(err, "integer multiplication"); \
+#    }
+#    '''
+#    lr = r_longlong(x) * r_longlong(y);
+#    r  = intmask(lr)
+#    if r_longlong(r) == lr:
+#        return r
+#    else:
+#        raise OverflowError("integer multiplication")
+
+#not HAVE_LONG_LONG version
+def int_mul_ovf(a, b):          #long a, long b, long *longprod):
+    longprod = a * b
+    doubleprod = float(a) * float(b)
+    doubled_longprod = float(longprod)
+
+    # Fast path for normal case:  small multiplicands, and no info is lost in either method.
+    if doubled_longprod == doubleprod:
+        return longprod
+
+    # Somebody somewhere lost info.  Close enough, or way off?  Note
+    # that a != 0 and b != 0 (else doubled_longprod == doubleprod == 0).
+    # The difference either is or isn't significant compared to the
+    # true value (of which doubleprod is a good approximation).
+    # absdiff/absprod <= 1/32 iff 32 * absdiff <= absprod -- 5 good bits is "close enough"
+    if 32.0 * abs(doubled_longprod - doubleprod) <= abs(doubleprod):
+        return longprod
+
+    raise OverflowError("integer multiplication")
