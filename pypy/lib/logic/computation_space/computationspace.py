@@ -160,11 +160,18 @@
 ## then it returns alternatives(N), where N is the number of
 ## alternatives.
 
+## Merge
+## -----
+
+## Merge(S Y) binds Y to the root variable of space S and discards the
+## space
+
+
 from threading import Thread, Condition, RLock, local
 
 from state import Succeeded, Distributable, Failed, Merged
 
-from variable import EqSet, Var, \
+from variable import EqSet, Var, NoValue, \
      VariableException, NotAVariable, AlreadyInStore
 from constraint import FiniteDomain, ConsistencyFailure
 from distributor import DefaultDistributor
@@ -243,8 +250,10 @@ class ComputationSpace(object):
         self.status = None
         self.status_condition = Condition()
         self.distributor = DefaultDistributor(self)
+        self.TOP = False
         
         if parent is None:
+            self.TOP = True
             self.vars = set()
             # mapping of names to vars (all of them)
             self.names = {}
@@ -306,6 +315,30 @@ class ComputationSpace(object):
             return self.names[name]
         except KeyError:
             raise NotInStore(name)
+
+    def find_vars(self, *names):
+        try:
+            return [self.names[name] for name in names]
+        except KeyError:
+            raise NotInStore(name)
+
+    def is_bound(self, var):
+        """check wether a var is bound is locally bound"""
+        if self.TOP:
+            return var.is_bound()
+        return len(var.cs_get_dom(self)) == 1
+
+    def dom(self, var):
+        """return the local domain"""
+        return var.cs_get_dom(self)
+
+    def val(self, var):
+        """return the local binding without blocking"""
+        if self.TOP:
+            return var.val
+        if self.is_bound(var):
+            return var.cs_get_dom(self)[0]
+        return NoValue
     
     #-- Constraints -------------------------
 
@@ -568,6 +601,9 @@ class ComputationSpace(object):
 
 #-- Computation Space -----------------------------------------
 
+    def _make_choice_var(self):
+        ComputationSpace._nb_choices += 1
+        return self.var('__choice__'+str(self._nb_choices))
 
     def _process(self):
         try:
@@ -586,7 +622,7 @@ class ComputationSpace(object):
                or self._distributable()
 
     def _suspended(self):
-        pass
+        raise NotImplemented
         # additional basic constraints done in an ancestor can
         # make it runnable ; it is a temporary condition due
         # to concurrency ; it means that some ancestor space
@@ -614,6 +650,8 @@ class ComputationSpace(object):
 
     def ask(self):
         # XXX: block on status being not stable for threads
+        #      use a df var instead of explicit waiting
+        # XXX: truly df vars needed (not one-shot bindings)
         try:
             self.status_condition.acquire()
             while not self._stable():
@@ -662,9 +700,12 @@ class ComputationSpace(object):
         self.CHOICE = self._make_choice_var()
         return choice    
 
-    def _make_choice_var(self):
-        ComputationSpace._nb_choices += 1
-        return self.var('__choice__'+str(self._nb_choices))
+    def merge(self):
+        assert self.status == Succeeded
+        # the following ought to be atomic (?)
+        for var in self.root.val:
+            var.val = var.cs_get_dom(self).get_values()[0]
+        self.status = Merged
 
 #-- Unifiability checks---------------------------------------
 #--

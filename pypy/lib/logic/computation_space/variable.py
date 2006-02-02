@@ -55,7 +55,7 @@ class Var(object):
         return not isinstance(self._val, EqSet) \
                and self._val != NoValue
 
-    # 'transaction' support
+    # atomic unification support
 
     def _commit(self):
         self.changed = False
@@ -111,17 +111,9 @@ class Var(object):
     # should be used by threads that want to block on
     # unbound variables
 
-##     def set_dom(self, dom):
-##         self.cs_set_dom(self.cs, dom)
-
-##     def get_dom(self):
-##         return self.cs_get_dom(self.cs)
-
-##     dom = property(get_dom, set_dom)
-
     def get(self):
         """Make threads wait on the variable
-           being bound
+           being bound in the top-level space
         """
         try:
             self.value_condition.acquire()

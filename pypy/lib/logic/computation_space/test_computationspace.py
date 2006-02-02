@@ -518,6 +518,7 @@ class TestComputationSpace:
         w = spc.get_var_by_name('w')
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
+        # following couple of ops superceeded by inject()
         new_spc.add_constraint(c.Expression(new_spc, [w], 'w == 5'))
         new_spc._process()
         assert spc.ask() == space.Alternatives(2)
@@ -538,3 +539,31 @@ class TestComputationSpace:
         assert w.cs_get_dom(spc) == c.FiniteDomain([5, 6, 7])
         assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
         
+    def test_merge(self):
+        spc = space.ComputationSpace(problems.satisfiable_problem)
+        x, y, z, w = spc.find_vars('x', 'y', 'z', 'w')
+        assert spc.TOP
+        assert spc.ask() == space.Alternatives(2)
+        assert spc.dom(x) == c.FiniteDomain([6])
+        assert spc.dom(y) == c.FiniteDomain([2])
+        assert spc.dom(z) == c.FiniteDomain([4])
+        assert spc.dom(w) == c.FiniteDomain([5, 6, 7])
+
+        def more_constraints(space):
+            space.add_constraint(c.Expression(space, [w], 'w == 5'))
+
+        nspc = spc.clone()
+        nspc.inject(more_constraints)
+        x, y, z, w = nspc.find_vars('x', 'y', 'z', 'w')
+        assert not nspc.TOP
+        assert nspc.dom(x) == c.FiniteDomain([6])
+        assert nspc.dom(y) == c.FiniteDomain([2])
+        assert nspc.dom(z) == c.FiniteDomain([4])
+        assert nspc.dom(w) == c.FiniteDomain([5])
+        assert nspc.ask() == space.Succeeded
+        nspc.merge()
+        assert nspc.ask() == space.Merged
+        assert x.val == 6
+        assert y.val == 2
+        assert w.val == 5
+        assert (x, w, y) == nspc.root.val
