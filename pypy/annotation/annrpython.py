@@ -20,7 +20,7 @@ class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
-    def __init__(self, translator=None, policy = None):
+    def __init__(self, translator=None, policy=None, bookkeeper=None):
         if translator is None:
             # interface for tests
             from pypy.translator.translator import TranslationContext
@@ -49,7 +49,9 @@ class RPythonAnnotator:
         self.reflowcounter = {}
         self.return_bindings = {} # map return Variables to their graphs
         # --- end of debugging information ---
-        self.bookkeeper = Bookkeeper(self)
+        if bookkeeper is None:
+            bookkeeper = Bookkeeper(self)
+        self.bookkeeper = bookkeeper
         self.frozen = False
         # user-supplied annotation logic for functions we don't want to flow into
         if policy is None:

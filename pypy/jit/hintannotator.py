@@ -6,8 +6,9 @@ from pypy.jit.hintbookkeeper import HintBookkeeper
 class HintAnnotator(RPythonAnnotator):
 
     def __init__(self, translator=None, policy=None):
-        RPythonAnnotator.__init__(self, translator, policy=policy)
-        self.bookkeeper = HintBookkeeper(self) # XXX
+        bookkeeper = HintBookkeeper(self)
+        RPythonAnnotator.__init__(self, translator, policy=policy,
+                                  bookkeeper=bookkeeper)
 
     def build_types(self, origgraph, input_args_hs):
         desc = self.bookkeeper.getdesc(origgraph)
