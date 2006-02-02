@@ -16,6 +16,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize s
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_floordiv
                        uint_add uint_sub uint_mul uint_mod uint_and uint_rshift uint_floordiv
+                       char_gt char_lt char_le char_ge char_eq char_ne
                        int_gt int_lt int_le int_ge int_eq int_ne
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne
                        getarrayitem""".split()
@@ -317,6 +318,8 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
     int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
     uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
+
+    char_gt = char_lt = char_le = char_ge = char_eq = char_ne = int_eq
 
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype

@@ -237,8 +237,16 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
     else:
         return abs(vy*(x-x0) - vx*(y-y0))
 
+FIXUP = True
+
 def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
     result = []
+    if FIXUP:
+        q = line.find('"')
+        lt = line.find("<")
+        if lt != -1 and (q == -1 or q > lt):
+            lq = line.rfind(">")
+            line = line[:lt] + '"?' + line[lt+1:lq] + '"'+line[lq+1:]
     for word in re_word.findall(line):
         if word.startswith('"'):
             word = eval(word)
