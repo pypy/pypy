@@ -66,8 +66,52 @@ potentially unbounded list of messages, i.e a list whose tail is an
 unbound dataflow variable. Receiving a message is reading a stream
 element. Each variable is bound by only one thread".
 
-If you practice UNIX pipes, you know what all this is about. Also see
-http://www.jpaulmorrison.com/fbp/.
+If you practice UNIX pipes, you have some basis to understand
+this. Also see http://www.jpaulmorrison.com/fbp/.
 
 
-[more to come]
+Synchronization
+---------------
+
+The combination of threads and dataflow variables leads to implicit
+synchronization : that means synchronization is not textually visible
+in the source code but follow from the semantics of dataflow variables
+; using such a variable implies synchronization on the variable being
+bound to a value.
+
+Eager execution (the mere fact of executing statements as they present
+themselves to the interpreter, withou delay) plus dataflow vars also
+implies "supply-driven synchronization" ; operations wait
+(synchronize) on the availability of their arguments. 
+
+One important benefit is that the dependencies between parts of a
+program are implicitly and dynamically computed (it depends on the
+availability of the data instead of decision of the programmer).
+
+Doing computations with only partial information is possible ("partial
+values can be seen as complete values that are only partially known").
+
+Dataflow variables
+------------------
+
+Dataflow variables were originally discovered by people working on
+logic programming and were called logic variables. They have
+well-defined logic semantics.
+
+"A dataflow variable is stateful, because it can change state
+(transition from unbound to bound to a value) -- but it can be bound
+to only one value in its lifetime (single-assignement variable is a
+term used sometimes to describe them).
+
+A dataflow variable is stateless, because binding is monotonic. That
+means we can only add information to the binding, but not remove or
+alter information".
+
+Difference with single-assignment variables
+-------------------------------------------
+
+A single-assignment variable is a mutable variable that can be
+assigned only once. This differ form a dataflow variable in that the
+latter can be assigned (perhaps multiple times) to many partial
+values, provided the partial values are compatible with each other
+[that probably means : unifiable].
