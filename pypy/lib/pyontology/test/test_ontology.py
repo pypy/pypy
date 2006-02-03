@@ -49,6 +49,14 @@ def test_subClassof():
     assert len(O.variables) == 3
     assert 'C_' in O.variables['A_'].getValues()
 
+def test_addvalue():
+    O = Ontology()
+    a = O.make_var(Property, 'a')
+    O.variables[a].addValue('key', 42)
+    assert O.variables[a].getValues() == [('key', 42)]
+    O.variables[a].addValue('key', 43)
+    assert O.variables[a].getValues() == [('key', 42),('key',43)]
+
 def no_test_ClassDomain():
     a = ClassDomain()
     cls =  1
@@ -495,7 +503,7 @@ def test_sameas():
     O.variables[O.make_var(None,sub)].setValues([(cls,'1')])
     O.consistency(3)
 #    assert len(O.rep._constraints) == 4
-    assert ('_liist1','1') in O.rep._domains[O.make_var(None,sub)].getValues()
+    assert ('liist1','1') in O.rep._domains[O.make_var(None,sub)].getValues()
 
 def test_sameasconsistency():
     O = Ontology()

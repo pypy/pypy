@@ -2,7 +2,8 @@ from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
 from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
-import sys
+import sys, py
+import time
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
@@ -21,6 +22,18 @@ rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
 
 def getUriref(ns, obj):
     return URIRef(namespaces[ns]+'#'+obj)
+
+def check_format(f):
+    if type(f) == str:
+        tmp = file(f, "r")
+    else:
+        tmp = f
+    start = tmp.read(10)
+    if "<?xml" in start:
+        format = "xml"
+    else:
+        format = "n3"
+    return format
 
 class ClassDomain(AbstractDomain):
 
@@ -92,6 +105,10 @@ class Property(ClassDomain):
             for i in v:
                 res.append((k,i))
         return res
+    
+    def addValue(self, key, val):
+        self._dict.setdefault(key, [])
+        self._dict[key].append(val)
 
     def setValues(self, values):
         self._dict = Linkeddict(values)
@@ -190,21 +207,22 @@ builtin_voc = {
   
 class Ontology:
 
-    def __init__(self):
-        self.graph = Graph()
+    def __init__(self, store = 'default'):
+        self.graph = Graph(store)
+        if store != 'default':
+            self.graph.open(py.path.local().join("db").strpath)
         self.variables = {}
         self.constraints = []
         self.seen = {}
         self.var2ns ={}
 
-    def add(self, triples):
-        self.graph.add(triples)
+    def add(self, triple):
+        self.graph.add(triple)
         
-    def add_file(self, f):
-        tmp = Graph()
-        tmp.load(f)
-        for i in tmp.triples((None,)*3):
-            self.add(i)
+    def add_file(self, f, format=None):
+        if not format:
+            format = check_format(f)
+        self.graph.load(f,format=format)
 
     def attach_fd(self):
         for (s, p, o) in (self.graph.triples((None,)*3)):
@@ -223,13 +241,11 @@ class Ontology:
                     res = [res]
                 avar = self.make_var(ClassDomain, s) 
             else:
-                res = [o]
                 avar = self.make_var(Property, p)
                 # Set the values of the property p to o
                 sub = self.make_var(ClassDomain, s) 
                 obj = self.make_var(Thing, o) 
-                res = self.variables[avar].getValues() 
-                self.variables[avar].setValues(res + [(sub, obj)])
+                res = self.variables[avar].addValue(sub, obj) 
 
     def solve(self,verbose=0):
         #self.merge_constraints()
@@ -254,12 +270,15 @@ class Ontology:
             var = a
         if not cls:
             return var
-        if not var in self.variables.keys():
+        if not var in self.variables:
             self.variables[var] = cls(var)
         return var 
 
 #---------------- Implementation ----------------
 
+    def comment(self, s, var):
+        pass
+        
     def type(self, s, var):
         if not var in builtin_voc :
             # var is not one of the builtin classes
