@@ -26,6 +26,15 @@ def test_call_nested_function():
     while x < n:
         x = plus2(x) 
 
+def test_call_nested_function_many_args():
+    def plus2(x, y1, y2, y3, y4):
+        return x + 1
+
+    x = 0
+    n = N
+    while x < n:
+        x = plus2(x, 2, 3, 4, 5) 
+
 #
 class MyOldStyleClass:
     def my_method(self, x):
