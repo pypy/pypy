@@ -131,6 +131,9 @@ class TestConnectedIPv4:
         tn.close()
 
     def test_connect(self):
+        import sys
+        if sys.byteorder == 'little':
+            py.test.skip("endian issue on little endian architectures")
         import os
         from pypy.module._socket.rpython import rsocket
         def does_stuff():
