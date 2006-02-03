@@ -26,6 +26,17 @@ def test_call_nested_function():
     while x < n:
         x = plus2(x) 
 
+def test_call_nested_function_other_count():
+    def plus2(x):
+        return x + 1.0
+
+    x = 0.0
+    c = 0
+    n = N
+    while c < n:
+        x = plus2(x) 
+        c += 1
+        
 def test_call_nested_function_many_args():
     def plus2(x, y1, y2, y3, y4):
         return x + 1
