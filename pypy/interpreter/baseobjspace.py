@@ -1,6 +1,6 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
@@ -480,42 +480,41 @@ class ObjSpace(object):
     def call_function(self, w_func, *args_w):
         # XXX start of hack for performance
         from pypy.interpreter.function import Function, Method
-        if (isinstance(w_func, Method) and
-            w_func.w_instance is not None and
-            len(args_w) <= 3):
-            return self.call_function(w_func.w_function, w_func.w_instance, *args_w)
-            
-        from pypy.interpreter.function import Function
+        if isinstance(w_func, Method):
+            w_inst = w_func.w_instance
+            if w_inst is not None:
+                func = w_func.w_function
+                return func.funccall(w_inst, *args_w)
+            else:
+                w_func = w_func.w_function
+
         if isinstance(w_func, Function):
-            if len(args_w) == 0:
-                w_res = w_func.code.fastcall_0(self, w_func)
-                if w_res is not None:
-                    return w_res
-            elif len(args_w) == 1:
-                w_res = w_func.code.fastcall_1(self, w_func, args_w[0])
-                if w_res is not None:
-                    return w_res
-            elif len(args_w) == 2:
-                w_res = w_func.code.fastcall_2(self, w_func, args_w[0],
-                                               args_w[1])
-                if w_res is not None:
-                    return w_res
-            elif len(args_w) == 3:
-                w_res = w_func.code.fastcall_3(self, w_func, args_w[0],
-                                               args_w[1], args_w[2])
-                if w_res is not None:
-                    return w_res
-            elif len(args_w) == 4:
-                w_res = w_func.code.fastcall_4(self, w_func, args_w[0],
-                                               args_w[1], args_w[2], args_w[3])
-                if w_res is not None:
-                    return w_res
-            args = Arguments(self, list(args_w))
-            return w_func.call_args(args)
+            return w_func.funccall(*args_w)
         # XXX end of hack for performance
 
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
+
+    def call_valuestack(self, w_func, nargs, valuestack):
+        # XXX start of hack for performance
+        from pypy.interpreter.function import Function, Method
+        if isinstance(w_func, Method):
+            w_inst = w_func.w_instance
+            if w_inst is not None:
+                func = w_func.w_function
+                return func.funccall_obj_valuestack(w_inst, nargs, valuestack)
+            else:
+                w_func = w_func.w_function
+
+        if isinstance(w_func, Function):
+            return w_func.funccall_valuestack(nargs, valuestack)
+        # XXX end of hack for performance
+
+        args = ArgumentsFromValuestack(self, valuestack, nargs)
+        try:
+            return self.call_args(w_func, args)
+        finally:
+            args.valuestack = None
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))

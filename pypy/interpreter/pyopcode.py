@@ -657,37 +657,13 @@ class PyInterpFrame(pyframe.PyFrame):
         
     def CALL_FUNCTION(f, oparg):
         # XXX start of hack for performance
-        if oparg == 0:      # 0 arg, 0 keyword arg
-            w_function = f.valuestack.pop()
-            w_result = f.space.call_function(w_function)
-            f.valuestack.push(w_result)
-        elif oparg == 1:    # 1 arg, 0 keyword arg
-            w_arg = f.valuestack.pop()
-            w_function = f.valuestack.pop()
-            w_result = f.space.call_function(w_function, w_arg)
-            f.valuestack.push(w_result)
-        elif oparg == 2:    # 2 args, 0 keyword arg
-            w_arg2 = f.valuestack.pop()
-            w_arg1 = f.valuestack.pop()
-            w_function = f.valuestack.pop()
-            w_result = f.space.call_function(w_function, w_arg1, w_arg2)
-            f.valuestack.push(w_result)
-        elif oparg == 3:    # 3 args, 0 keyword arg
-            w_arg3 = f.valuestack.pop()
-            w_arg2 = f.valuestack.pop()
-            w_arg1 = f.valuestack.pop()
-            w_function = f.valuestack.pop()
-            w_result = f.space.call_function(w_function, w_arg1, w_arg2, w_arg3)
-            f.valuestack.push(w_result)
-        elif (oparg >> 8) & 0xff == 0:
+        if (oparg >> 8) & 0xff == 0:
             # Only positional arguments
             nargs = oparg & 0xff
-            args = ArgumentsFromValuestack(f.space, f.valuestack, nargs)
             w_function = f.valuestack.top(nargs)
             try:
-                w_result = f.space.call_args(w_function, args)
+                w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
             finally:
-                args.valuestack = None
                 f.valuestack.drop(nargs + 1)
             f.valuestack.push(w_result)
         # XXX end of hack for performance
