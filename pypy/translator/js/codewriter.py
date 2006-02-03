@@ -249,16 +249,17 @@ class CodeWriter(object):
             self.indent_more()
             catch_all = False
             for i, exception in enumerate(exceptions):
-                exception_match, exception_ref, exception_target, exit = exception
+                exception_match, exception_node, exception_target, exit = exception
                 if i:
                     else_ = 'else '
                 else:
                     else_ = ''
-                if exception_ref.startswith('structinstance_object_vtable'):
+                name = ''.join(getattr(exception_node.value, 'name'))[:-1]
+                if name == 'Exception': #or if all but one of all possibly thown exceptions are caught (need to detect this)
                     catch_all = True
                     matcher   = ''
                 else:
-                    matcher   = 'if (%s(e.typeptr, %s) == true) ' % (exception_match, exception_ref)
+                    matcher   = 'if (%s(e.typeptr, %s) == true) ' % (exception_match, exception_node.ref)
                 self.append('%s%s{' % (else_, matcher))
                 self.indent_more()
                 self._phi(exit)

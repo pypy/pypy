@@ -157,10 +157,13 @@ class OpWriter(object):
     def binaryop(self, op):
         name = self.binary_operations[op.opname]
         assert len(op.args) == 2
+        targetvar = self.db.repr_arg(op.result)
         self.codewriter.binaryop(name,
-                                 self.db.repr_arg(op.result),
+                                 targetvar,
                                  self.db.repr_arg(op.args[0]),
                                  self.db.repr_arg(op.args[1]))
+        if op.opname.endswith('int_floordiv'):
+            self.codewriter.append('%s = Math.floor(%s)' % (targetvar, targetvar))
 
     def char_binaryop(self, op):
         name = self.char_operations[op.opname]
@@ -260,9 +263,9 @@ class OpWriter(object):
         for exit in self.block.exits[1:]:
             assert issubclass(exit.exitcase, Exception)
             exception_match  = self.db.translator.rtyper.getexceptiondata().fn_exception_match._obj._name
-            exception_ref    = self.db.obj2node[exit.llexitcase._obj].ref #get _ref()
+            exception_node   = self.db.obj2node[exit.llexitcase._obj] #.ref #get _ref()
             exception_target = self.node.blockindex[exit.target]
-            exception        = (exception_match, exception_ref, exception_target, exit)
+            exception        = (exception_match, exception_node, exception_target, exit)
             exceptions.append(exception)
 
         self.codewriter.call(targetvar, functionref, argrefs, no_exception, exceptions)

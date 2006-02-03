@@ -4,7 +4,7 @@ from pypy.translator.js.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 from pypy.translator.test import snippet 
 
-def test_zerodiv_int(): #issue no exception raising operations yet
+def test_zerodiv_int():
     def zerodiv_int(n):
         try:
             r=100/n
@@ -15,7 +15,7 @@ def test_zerodiv_int(): #issue no exception raising operations yet
     for i in (-50,0,50):
         assert f(i) == zerodiv_int(i)
 
-def DONTtest_zerodiv_uint():    #issue no exception raising operations yet
+def test_zerodiv_uint():
     def zerodiv_uint(n):
         try:
             r=100/n
@@ -26,7 +26,7 @@ def DONTtest_zerodiv_uint():    #issue no exception raising operations yet
     for i in (0,50,100):
         assert f(i) == zerodiv_uint(i)
 
-def DONTtest_zerodivrem_int():  #issue no exception raising operations yet
+def test_zerodivrem_int():
     def zerodivrem_int(n):
         try:
             r=100%n
@@ -37,7 +37,7 @@ def DONTtest_zerodivrem_int():  #issue no exception raising operations yet
     for i in (-50,0,50):
         assert f(i) == zerodivrem_int(i)
 
-def DONTtest_zerodivrem_uint(): #issue no exception raising operations yet
+def test_zerodivrem_uint():
     def zerodivrem_uint(n):
         try:
             r=100%n
@@ -48,7 +48,8 @@ def DONTtest_zerodivrem_uint(): #issue no exception raising operations yet
     for i in (0,50,100):
         assert f(i) == zerodivrem_uint(i)
 
-def DONTtest_neg_int_ovf(): #issue no exception raising operations yet
+def test_neg_int_ovf():
+    py.test.skip("overflow detection not quiet working because javascript's Number has larger range")
     def neg_int_ovf(n):
         try:
             r=ovfcheck(-n)
@@ -59,7 +60,8 @@ def DONTtest_neg_int_ovf(): #issue no exception raising operations yet
     for i in (-sys.maxint-1, -sys.maxint, 0, sys.maxint-1, sys.maxint):
         assert f(i) == neg_int_ovf(i)
 
-def DONTtest_abs_int_ovf(): #issue no exception raising operations yet
+def test_abs_int_ovf():
+    py.test.skip("overflow detection not quiet working because javascript's Number has larger range")
     def abs_int_ovf(n):
         try:
             r=ovfcheck(abs(n))
@@ -72,36 +74,79 @@ def DONTtest_abs_int_ovf(): #issue no exception raising operations yet
 
 ############################
 
-def test_int_overflow():
-    py.test.skip("ovf operator exception not implemented")
-    fn = compile_function(snippet.add_func, [int])
-    raises(OverflowError, fn, sys.maxint)
+#raises(...) fails because we do'nt reraise javascript exceptions on the python level
+
+def test_int_ovf():
+    py.test.skip("issue unknown (when raising OverflowError)")
+    def int_ovf_fn(i):
+        try:
+            return snippet.add_func(i)
+        except OverflowError:
+            return 123
+        except:
+            return 1234
+    fn = compile_function(int_ovf_fn, [int])
+    for i in (-sys.maxint-1, -1, 0, 1, sys.maxint):
+        assert fn(i) == int_ovf_fn(i)
 
 def test_int_div_ovf_zer():
-    py.test.skip("ovf_zer operator exception not implemented")
-    fn = compile_function(snippet.div_func, [int])
-    raises(OverflowError, fn, -1)
-    raises(ZeroDivisionError, fn, 0)
+    def int_div_ovf_zer_fn(i):
+        try:
+            return snippet.div_func(i)
+        except OverflowError:
+            return 123
+        except ZeroDivisionError:
+            return 1234
+        except:
+            return 12345
+    fn = compile_function(int_div_ovf_zer_fn, [int])
+    for i in (-sys.maxint-1, -1, 0, 1, sys.maxint):
+        assert fn(i) == int_div_ovf_zer_fn(i)
 
 def test_int_mod_ovf_zer():
-    py.test.skip("ovf_zer operator exception not implemented")
-    fn = compile_function(snippet.mod_func, [int])
-    raises(OverflowError, fn, -1)
-    raises(ZeroDivisionError, fn, 0)
+    py.test.skip("issue unknown")
+    def int_mod_ovf_zer_fn(i):
+        try:
+            return snippet.mod_func(i)
+        except OverflowError:
+            return 123
+        except ZeroDivisionError:
+            return 1234
+        except:
+            return 12345
+    fn = compile_function(int_mod_ovf_zer_fn, [int])
+    for i in (-sys.maxint-1, -1, 0, 1, sys.maxint):
+        assert fn(i) == int_mod_ovf_zer_fn(i)
 
 def test_int_rshift_val():
-    py.test.skip("val operator exception not implemented")
-    fn = compile_function(snippet.rshift_func, [int])
-    raises(ValueError, fn, -1)
+    py.test.skip("issue unknown")
+    def rshift_fn(i):
+        try:
+            return snippet.rshift_func(i)
+        except ValueError:
+            return 123
+        except:
+            return 1234
+    fn = compile_function(rshift_fn, [int])
+    for i in (-sys.maxint-1, -1, 0, 1, sys.maxint):
+        assert fn(i) == rshift_fn(i)
 
 def test_int_lshift_ovf_val():
-    py.test.skip("ovf_val operator exception not implemented")
-    fn = compile_function(snippet.lshift_func, [int])
-    raises(ValueError, fn, -1)
-    raises(OverflowError, fn, 1)
+    def lshift_fn(i):
+        try:
+            return snippet.lshift_func(i)
+        except ValueError:
+            return 123
+        except OverflowError:
+            return 1234
+        except:
+            return 12345
+    fn = compile_function(lshift_fn, [int])
+    for i in (-sys.maxint-1, -1, 0, 1, sys.maxint):
+        assert fn(i) == lshift_fn(i)
 
 def test_uint_arith():
-    py.test.skip("zer operator exception not implemented")
+    py.test.skip("unsigned number becomes negative because we should cast to unsigned when necessary")
     def fn(i):
         try:
             return ~(i*(i+1))/(i-1)
@@ -113,7 +158,6 @@ def test_uint_arith():
         assert f(i) == fn(i)
 
 def test_int_add_ovf():
-    py.test.skip("ovf operator exception not implemented")
     def add_func(i):
         try:
             return ovfcheck(i + 1)
@@ -126,22 +170,29 @@ def test_int_add_ovf():
     assert f(sys.maxint) == 123
 
 def test_int_sub_ovf():
-    py.test.skip("ovf operator exception not implemented")
     def sub_func(i):
         try:
             return ovfcheck(i - 1)
         except OverflowError:
             return 123
+    n_ovf = 0
     f = compile_function(sub_func, [int])
-    assert f(0) == sub_func(0)
-    assert f(0) == 1
-    assert f(sys.maxint) == sub_func(sys.maxint)
-    assert f(sys.maxint) == 123
+    for i in (-1, 0, 1, sys.maxint, -sys.maxint, -sys.maxint-1):
+        result = f(i)
+        assert result == sub_func(i)
+        n_ovf += result == 123
+    assert n_ovf == 1
 
+#As JavaScript uses floating-point numbers the accuracy is only assured
+#for integers between: -9007199254740992 (-2^53) and 9007199254740992 (2^53)
 def test_shift_with_overflow():
-    py.test.skip("shift operator exception not implemented")
-    shl = compile_function(llvmsnippet.shiftleft, [int, int])
-    shr = compile_function(llvmsnippet.shiftright, [int, int])
+    py.test.skip("Numbers are not limited to sys.maxint ")
+    def shiftleft(x, y):
+        return x << y
+    def shiftright(x, y):
+        return x >> y
+    shl = compile_function(shiftleft , [int, int])
+    shr = compile_function(shiftright, [int, int])
     for i in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
         for j in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
             assert shl(i, j) == i << j
