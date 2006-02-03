@@ -83,6 +83,7 @@ class GCTransformer:
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         for op in block.operations:
             newops.extend(self.replacement_operations(op))
+            # XXX for now we assume that everything can raise
             if 1 or op.opname in EXCEPTION_RAISING_OPS:
                 cleanup_on_exception = []
                 for var in livevars:
@@ -136,6 +137,31 @@ class GCTransformer:
             return m(op)
         else:
             return [op]
+
+    def replace_setfield(self, op):
+        if not var_needsgc(op.args[2]):
+            return [op]
+        oldval = Variable()
+        oldval.concretetype = op.args[2].concretetype
+        getoldvalop = SpaceOperation("getfield", [op.args[0], op.args[1]], oldval)
+        result = [getoldvalop]
+        result.extend(self.pop_alive(oldval))
+        result.extend(self.push_alive(op.args[2]))
+        result.append(op)
+        return result
+
+    def replace_setarrayitem(self, op):
+        if not var_needsgc(op.args[2]):
+            return [op]
+        oldval = Variable()
+        oldval.concretetype = op.args[2].concretetype
+        getoldvalop = SpaceOperation("getarrayitem",
+                                     [op.args[0], op.args[1]], oldval)
+        result = [getoldvalop]
+        result.extend(self.pop_alive(oldval))
+        result.extend(self.push_alive(op.args[2]))
+        result.append(op)
+        return result
 
     def push_alive(self, var):
         if var_ispyobj(var):

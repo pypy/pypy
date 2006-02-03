@@ -39,6 +39,13 @@ def checkblock(block):
         if block.exitswitch is c_last_exception and link.exitcase is not None:
             assert link.last_exc_value in link.args
 
+def getops(graph):
+    ops = {}
+    for block in graph.iterblocks():
+        for op in block.operations:
+            ops.setdefault(op.opname, []).append(op)
+    return ops
+
 def rtype_and_transform(func, inputtypes, transformcls, specialize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
@@ -242,7 +249,48 @@ def test_no_livevars_with_exception():
         return 1
     t = rtype_and_transform(f, [], gctransform.GCTransformer)
 
+# ______________________________________________________________________
+# test write barrier placement
+
+def test_simple_barrier():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    T = lltype.GcStruct("T", ('s', lltype.Ptr(S)))
+    def f():
+        s1 = lltype.malloc(S)
+        s1.x = 1
+        s2 = lltype.malloc(S)
+        s2.x = 2
+        t = lltype.malloc(T)
+        t.s = s1
+        t.s = s2
+        return t
+    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    graph = graphof(t, f)
+    ops = getops(graph)
+    assert len(ops['getfield']) == 2
+    assert len(ops['setfield']) == 4
+
+def test_arraybarrier():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    A = lltype.GcArray(lltype.Ptr(S))
+    def f():
+        s1 = lltype.malloc(S)
+        s1.x = 1
+        s2 = lltype.malloc(S)
+        s2.x = 2
+        a = lltype.malloc(A, 1)
+        a[0] = s1
+        a[0] = s2
+    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    graph = graphof(t, f)
+    ops = getops(graph)
+    assert len(ops['getarrayitem']) == 2
+    assert len(ops['setarrayitem']) == 2
+    assert len(ops['setfield']) == 2
+
+
 # ----------------------------------------------------------------------
+# test deallocators
 
 def make_deallocator(TYPE, view=False):
     def f():
@@ -278,13 +326,23 @@ def test_deallocator_less_simple():
         ('z', TPtr),
         )
     dgraph = make_deallocator(S)
-    ops = {}
-    for block in dgraph.iterblocks():
-        for op in block.operations:
-            ops.setdefault(op.opname, []).append(op)
-
+    ops = getops(dgraph)
     assert len(ops['gc_pop_alive']) == 2
     assert len(ops['getfield']) == 2
+    assert len(ops['gc_free']) == 1
+
+def test_deallocator_array():
+    TPtr = lltype.Ptr(lltype.GcStruct("T", ('a', lltype.Signed)))
+    GcA = lltype.GcArray(('x', TPtr), ('y', TPtr))
+    A = lltype.Array(('x', TPtr), ('y', TPtr))
+    APtr = lltype.Ptr(GcA)
+    S = lltype.GcStruct('S', ('t', TPtr), ('x', lltype.Signed), ('aptr', APtr),
+                             ('rest', A))
+    dgraph = make_deallocator(S)
+    ops = getops(dgraph)
+    assert len(ops['gc_pop_alive']) == 4
+    assert len(ops['getfield']) == 4
+    assert len(ops['getarraysubstruct']) == 1
     assert len(ops['gc_free']) == 1
 
 def test_deallocator_with_destructor():
