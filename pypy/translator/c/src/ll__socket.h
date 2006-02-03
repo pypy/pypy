@@ -173,7 +173,7 @@ RPySOCKET_SOCKNAME *LL__socket_getpeername(int fd)
     host->refcount--; // XXX this is not sane, but there is no better way
                       // at the moment.
 #endif
-    return ll__socket_sockname(host, addr.sin_port, 0, 0);
+    return ll__socket_sockname(host, ntohs(addr.sin_port), 0, 0);
 }
 
 /* ____________________________________________________________________________ */
