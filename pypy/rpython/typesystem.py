@@ -58,6 +58,16 @@ class TypeSystem(object):
 in a graph."""
         raise NotImplementedError()
 
+    def perform_normalizations(self, rtyper):
+        """Prepare the annotator's internal data structures for rtyping
+        with the specified type system.
+        """
+        # default implementation
+        from pypy.translator.transform import insert_stackcheck
+        from pypy.rpython.normalizecalls import perform_normalizations
+        insert_stackcheck(rtyper.annotator)
+        perform_normalizations(rtyper)
+
 class LowLevelTypeSystem(TypeSystem):
     name = "lltypesystem"
     callable_trait = (lltype.FuncType, lltype.functionptr)

@@ -25,11 +25,9 @@ from pypy.rpython.lltypesystem.lltype import \
      attachRuntimeTypeInfo, Primitive
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.unsimplify import insert_empty_block
-from pypy.translator.transform import insert_stackcheck
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, BrokenReprTyperError
 from pypy.rpython.rmodel import warning, HalfConcreteWrapper
-from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.rmodel import log
 from pypy.rpython.typesystem import LowLevelTypeSystem,\
@@ -41,12 +39,15 @@ class RPythonTyper:
     def __init__(self, annotator, type_system="lltype"):
         self.annotator = annotator
 
-        if type_system == "lltype":
-            self.type_system = LowLevelTypeSystem.instance
-        elif type_system == "ootype":
-            self.type_system = ObjectOrientedTypeSystem.instance
+        if isinstance(type_system, str):
+            if type_system == "lltype":
+                self.type_system = LowLevelTypeSystem.instance
+            elif type_system == "ootype":
+                self.type_system = ObjectOrientedTypeSystem.instance
+            else:
+                raise TyperError("Unknown type system %r!" % type_system)
         else:
-            raise TyperError("Unknown type system %r!" % type_system)
+            self.type_system = type_system
         self.type_system_deref = self.type_system.deref
         self.reprs = {}
         self._reprs_must_call_setup = []
@@ -132,13 +133,12 @@ class RPythonTyper:
         """Main entry point: specialize all annotated blocks of the program."""
         self.crash_on_first_typeerror = crash_on_first_typeerror
         # specialize depends on annotator simplifications
-        insert_stackcheck(self.annotator)
         if not dont_simplify_again:
             self.annotator.simplify()
             
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self)
+        self.type_system.perform_normalizations(self)
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}
@@ -474,25 +474,24 @@ class RPythonTyper:
 
     # __________ regular operations __________
 
-    def _registeroperations(loc):
+    def _registeroperations(cls, model):
+        ns = cls.__dict__
         # All unary operations
-        for opname in annmodel.UNARY_OPERATIONS:
+        for opname in model.UNARY_OPERATIONS:
             exec py.code.compile("""
                 def translate_op_%s(self, hop):
                     r_arg1 = hop.args_r[0]
                     return r_arg1.rtype_%s(hop)
-                """ % (opname, opname)) in globals(), loc
+                """ % (opname, opname)) in globals(), ns
         # All binary operations
-        for opname in annmodel.BINARY_OPERATIONS:
+        for opname in model.BINARY_OPERATIONS:
             exec py.code.compile("""
                 def translate_op_%s(self, hop):
                     r_arg1 = hop.args_r[0]
                     r_arg2 = hop.args_r[1]
                     return pair(r_arg1, r_arg2).rtype_%s(hop)
-                """ % (opname, opname)) in globals(), loc
-
-    _registeroperations(locals())
-    del _registeroperations
+                """ % (opname, opname)) in globals(), ns
+    _registeroperations = classmethod(_registeroperations)
 
     # this one is not in BINARY_OPERATIONS
     def translate_op_contains(self, hop):
@@ -578,6 +577,9 @@ class RPythonTyper:
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
         attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
+
+# register operations from annotation model
+RPythonTyper._registeroperations(annmodel)
 
 # ____________________________________________________________
 
