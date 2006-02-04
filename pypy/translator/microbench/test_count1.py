@@ -7,6 +7,18 @@ def test_loop():
         x = x + 1
 
 #
+def test_count_in_slot():
+    class X(object):
+        __slots__ = 'x'
+    x = X()
+    c = 0
+    x.x = 0
+    n = N
+    while c < n:
+        x.x = x.x + 1
+        c += 1
+    
+#
 def plus1(x):
     return x + 1
 
