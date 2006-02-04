@@ -50,6 +50,15 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
+    def funcrun(self, func, args):
+        frame = self.create_frame(func.space, func.w_func_globals,
+                                  func.closure)
+        sig = self.signature()
+        scope_w = args.parse(func.name, sig, func.defs_w)
+        frame.setfastscope(scope_w)
+        return frame.run()
+
+        
     # a performance hack (see gateway.BuiltinCode1/2/3 and pycode.PyCode)
     def fastcall_0(self, space, func):
         return None

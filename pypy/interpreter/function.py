@@ -34,20 +34,8 @@ class Function(Wrappable):
         return "<Function %s>" % self.name
 
     def call_args(self, args):
-        frame = self.code.create_frame(self.space, self.w_func_globals,
-                                       self.closure)
-        sig = self.code.signature()
-        # XXX start of hack for performance
-        if frame.setfastscope is PyFrame.setfastscope:
-            args_matched = args.parse_into_scope(frame.fastlocals_w, self.name,
-                                                 sig, self.defs_w)
-            frame.init_cells(args_matched)
-        # XXX end of hack for performance
-        else:
-            scope_w = args.parse(self.name, sig, self.defs_w)
-            frame.setfastscope(scope_w)
-        return frame.run()
-
+        return self.code.funcrun(self, args) # delegate activation to code
+    
     def funccall(self, *args_w): # speed hack
         if len(args_w) == 0:
             w_res = self.code.fastcall_0(self.space, self)

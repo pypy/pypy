@@ -63,6 +63,9 @@ class AbstractArguments:
         "Return a new Arguments with a new argument inserted first."
         return ArgumentsPrepended(self, w_firstarg)
 
+    def popfirst(self):
+        return None, None
+
     def match_signature(self, signature, defaults_w):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
@@ -88,6 +91,9 @@ class ArgumentsPrepended(AbstractArguments):
     def firstarg(self):
         "Return the first argument for inspection."
         return self.w_firstarg
+
+    def popfirst(self):
+        return self.w_firstarg, self.args
 
     def __repr__(self):
         return 'ArgumentsPrepended(%r, %r)' % (self.args, self.w_firstarg)
@@ -151,6 +157,13 @@ class ArgumentsFromValuestack(AbstractArguments):
             return None
         return self.valuestack.top(self.nargs - 1)
 
+    def popfirst(self):
+        if self.nargs <= 0:
+            return None, None
+        valuestack = self.valuestack
+        newnargs = self.nargs-1
+        return valuestack.top(newnargs), ArgumentsFromValuestack(self.space, valuestack, newnargs)
+        
     def __repr__(self):
         return 'ArgumentsFromValuestack(%r, %r)' % (self.valuestack, self.nargs)
 
@@ -169,7 +182,8 @@ class ArgumentsFromValuestack(AbstractArguments):
         elif self.nargs < argcount:
             raise ValueError, "not enough arguments (%d expected)" % argcount
         data_w = [None] * self.nargs
-        for i in range(self.nargs):
+        nargs = self.nargs
+        for i in range(nargs):
             data_w[i] = self.valuestack.top(nargs - 1 - i)
         return data_w
 

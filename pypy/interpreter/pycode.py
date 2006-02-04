@@ -216,6 +216,16 @@ class PyCode(eval.Code):
             return frame.run()
         return None
 
+    def funcrun(self, func, args):
+        frame = self.create_frame(self.space, func.w_func_globals,
+                                  func.closure)
+        sig = self._signature
+        # speed hack
+        args_matched = args.parse_into_scope(frame.fastlocals_w, func.name,
+                                             sig, func.defs_w)
+        frame.init_cells(args_matched)
+        return frame.run()
+
     def create_frame(self, space, w_globals, closure=None):
         "Create an empty PyFrame suitable for this code object."
         # select the appropriate kind of frame

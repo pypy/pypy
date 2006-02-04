@@ -506,11 +506,16 @@ class BuiltinCode(eval.Code):
             try:
                 arity, fastfunc = make_fastfunc(func, unwrap_spec)
             except FastFuncNotSupported:
-                pass
+                if unwrap_spec == [ObjSpace, Arguments]:
+                    self.__class__ = BuiltinCodePassThroughArguments0
+                    self.func__args__ = func
+                elif unwrap_spec == [ObjSpace, W_Root, Arguments]:
+                    self.__class__ = BuiltinCodePassThroughArguments1
+                    self.func__args__ = func
             else:
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
- 
+
 
     def create_frame(self, space, w_globals, closure=None):
         return self.framefactory.create(space, self, w_globals)
@@ -523,6 +528,44 @@ class BuiltinCode(eval.Code):
 
 
 # (verbose) performance hack below
+
+class BuiltinCodePassThroughArguments0(BuiltinCode):
+
+    def funcrun(self, func, args):
+        space = func.space
+        try:
+            w_result = self.func__args__(space, args)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+class BuiltinCodePassThroughArguments1(BuiltinCode):
+
+    def funcrun(self, func, args):
+        space = func.space
+        w_obj, newargs = args.popfirst()
+        if w_obj is not None:
+            try:
+                w_result = self.func__args__(space, w_obj, newargs)
+            except KeyboardInterrupt: 
+                raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+            except MemoryError: 
+                raise OperationError(space.w_MemoryError, space.w_None) 
+            except RuntimeError, e: 
+                raise OperationError(space.w_RuntimeError, 
+                                     space.wrap("internal error: " + str(e))) 
+            if w_result is None:
+                w_result = space.w_None
+            return w_result
+        else:
+            return BuiltinCode.funcrun(self, func, args)
 
 class BuiltinCode0(BuiltinCode):
     def fastcall_0(self, space, w_func):
