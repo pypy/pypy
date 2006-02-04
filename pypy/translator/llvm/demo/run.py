@@ -7,6 +7,7 @@ from pypy.annotation.listdef import ListDef
 
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.genc import CStandaloneBuilder
+from pypy.translator.c.gc import BoehmGcPolicy
     
 from pypy.translator.llvm.genllvm import genllvm_compile
 
@@ -22,7 +23,7 @@ def c(name):
     t.buildrtyper().specialize()
     from pypy.translator.backendopt.all import backend_optimizations
     backend_optimizations(t)
-    cbuilder = CStandaloneBuilder(t, entry_point)
+    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=BoehmGcPolicy)
     cbuilder.generate_source()
     cbuilder.compile()
     os.system("XXX")
