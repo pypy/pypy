@@ -7,6 +7,15 @@ def test_loop():
         x = x + 1
 
 #
+def test_loop_other_count():
+    x = 0.0
+    n = N
+    c = 0
+    while c < n:
+        x = x + 1.0
+        c += 1
+
+#
 def test_count_in_slot():
     class X(object):
         __slots__ = 'x'
@@ -16,6 +25,15 @@ def test_count_in_slot():
     n = N
     while c < n:
         x.x = x.x + 1
+        c += 1
+
+def test_count_in_dict():
+    d = {'a': 0, 'b': 0}
+    c = 0
+    d['x'] = 0
+    n = N
+    while c < n:
+        d['x'] = d['x'] + 1
         c += 1
     
 #
