@@ -224,6 +224,52 @@ class UnwrapSpecRecipe:
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
 
+    # unwrapping code for fastfunc argument handling
+
+    def fastfunc_unwrap(self, el, info):
+        self.dispatch("fastfunc_unwrap", el, None, info)
+
+    def fastfunc_unwrap_function(self, (func, cls), ignore, info):
+        raise FastFuncNotSupported
+
+    def fastfunc_unwrap__Wrappable(self, el, ignore, info):
+        name = el.__name__
+        cur = info.narg
+        info.unwrap.append("space.interp_w(%s, w%d)" % (name, cur))
+        info.miniglobals[name] = el
+        info.narg += 1
+
+    def fastfunc_unwrap__ObjSpace(self, el, ignore, info):
+        if info.index != 0:
+            raise FastFuncNotSupported
+        info.unwrap.append("space")
+        
+    def fastfunc_unwrap__W_Root(self, el, ignore, info):
+        cur = info.narg
+        info.unwrap.append("w%d" % cur)
+        info.narg += 1
+
+    def fastfunc_unwrap__Arguments(self, el, ignore, info):
+        raise FastFuncNotSupported
+
+    def fastfunc_unwrap_starargs(self, el, ignore, info):
+        raise FastFuncNotSupported
+
+    def fastfunc_unwrap_args_w(self, el, ignore, info):
+        raise FastFuncNotSupported
+
+    def fastfunc_unwrap_w_args(self, el, ignore, info):
+        raise FastFuncNotSupported
+
+    def fastfunc_unwrap__object(self, el, ignore, info):
+        if el not in (int, str, float):
+            assert False, "unsupported basic type in uwnrap_spec"
+        name = el.__name__
+        cur = info.narg
+        info.unwrap.append("space.%s_w(w%d)" % (name,cur))
+        info.narg +=1 
+
+
 class BuiltinFrame(eval.Frame):
     "Frame emulation for BuiltinCode."
     # Subclasses of this are defined with the function to delegate to attached through miniglobals.
@@ -356,7 +402,46 @@ def make_builtin_frame_factory(func, orig_sig, unwrap_spec):
                                               BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec))
     return emit_sig.make_frame_factory(func)
 
+class FastFuncNotSupported(Exception):
+    pass
 
+class FastFuncInfo(object):
+    def __init__(self):
+        self.index = 0
+        self.narg = 0
+        self.unwrap = []
+        self.miniglobals = {}
+
+def make_fastfunc(func, unwrap_spec):
+    info = FastFuncInfo()
+    recipe = UnwrapSpecRecipe().fastfunc_unwrap
+    for el in unwrap_spec:
+        recipe(el, info)
+        info.index += 1
+        if info.narg > 4:
+            raise FastFuncNotSupported
+    args = ['space'] + ['w%d' % n for n in range(info.narg)]
+    if args == info.unwrap:
+        fastfunc = func
+    else:
+        # try to avoid excessive bloat
+        if func.__module__ == 'pypy.interpreter.astcompiler.ast':
+            raise FastFuncNotSupported
+        if (not func.__module__.startswith('pypy.module.__builtin__') and
+            not func.__module__.startswith('pypy.module.sys') and
+            not func.__module__.startswith('pypy.module.math')):
+            if not func.__name__.startswith('descr'):
+                raise FastFuncNotSupported
+        d = {}
+        info.miniglobals['func'] = func
+        source = """if 1: 
+            def fastfunc_%s_%d(%s):
+                return func(%s)
+            \n""" % (func.__name__, info.narg, ', '.join(args), ', '.join(info.unwrap))
+        exec compile2(source) in info.miniglobals, d
+        fastfunc = d['fastfunc_%s_%d' % (func.__name__, info.narg)]
+    return info.narg, fastfunc
+        
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
     hidden_applevel = True
@@ -417,21 +502,15 @@ class BuiltinCode(eval.Code):
         self.framefactory = make_builtin_frame_factory(func, orig_sig, unwrap_spec)
 
         # speed hack
-        if unwrap_spec == [ObjSpace]:
-            self.__class__ = BuiltinCode0
-            self.fastfunc_0 = func
-        if unwrap_spec == [ObjSpace, W_Root]:
-            self.__class__ = BuiltinCode1
-            self.fastfunc_1 = func
-        elif unwrap_spec == [ObjSpace, W_Root, W_Root]:
-            self.__class__ = BuiltinCode2
-            self.fastfunc_2 = func
-        elif unwrap_spec == [ObjSpace, W_Root, W_Root, W_Root]:
-            self.__class__ = BuiltinCode3
-            self.fastfunc_3 = func
-        elif unwrap_spec == [ObjSpace, W_Root, W_Root, W_Root, W_Root]:
-            self.__class__ = BuiltinCode4
-            self.fastfunc_4 = func
+        if 0 <= len(unwrap_spec) <= 5:
+            try:
+                arity, fastfunc = make_fastfunc(func, unwrap_spec)
+            except FastFuncNotSupported:
+                pass
+            else:
+                self.__class__ = globals()['BuiltinCode%d' % arity]
+                setattr(self, 'fastfunc_%d' % arity, fastfunc)
+ 
 
     def create_frame(self, space, w_globals, closure=None):
         return self.framefactory.create(space, self, w_globals)
