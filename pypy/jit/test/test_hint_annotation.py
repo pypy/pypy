@@ -377,3 +377,23 @@ def test_hannotate_plus_minus():
         return acc
     assert ll_plus_minus("+-+", 0, 2) == 2
     hannotate(ll_plus_minus, [str, int, int])
+
+def test_invalid_hint_1():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    def ll_getitem_switch(s):
+        n = s.x    # -> variable
+        return hint(n, concrete=True)
+    py.test.raises(HintError, hannotate,
+                   ll_getitem_switch, [annmodel.SomePtr(lltype.Ptr(S))])
+
+def test_invalid_hint_2():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    def ll_getitem_switch(s):
+        if s.x > 0:   # variable exitswitch
+            sign = 1
+        else:
+            sign = -1
+        return hint(sign, concrete=True)
+    py.test.skip("in-progress: I think we expect a HintError here, do we?")
+    py.test.raises(HintError, hannotate,
+                   ll_getitem_switch, [annmodel.SomePtr(lltype.Ptr(S))])

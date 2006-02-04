@@ -21,6 +21,9 @@ BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_fl
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne
                        getarrayitem""".split()
 
+class HintError(Exception):
+    pass
+
 class OriginFlags(object):
 
     fixed = False
@@ -140,6 +143,14 @@ class __extend__(SomeLLAbstractValue):
     def same_as(hs_v1):
         return hs_v1
 
+    def hint(hs_v1, hs_flags):
+        if hs_flags.const.get('variable', False): # only for testing purposes!!!
+            return SomeLLAbstractVariable(hs_c1.concretetype)
+        if hs_flags.const.get('concrete', False):
+            raise HintError("cannot make a concrete from %r" % (hs_v1,))
+        if hs_flags.const.get('forget', False):
+            XXX    # not implemented
+
 class __extend__(SomeLLAbstractConstant):
 
     def hint(hs_c1, hs_flags):
@@ -151,8 +162,7 @@ class __extend__(SomeLLAbstractConstant):
             hs_concrete = reorigin(hs_c1)
             hs_concrete.eager_concrete = True
             return hs_concrete 
-        else:
-            assert hs_flags.const['forget']
+        if hs_flags.const.get('forget', False):
             assert isinstance(hs_c1, SomeLLAbstractConstant)
             return reorigin(hs_c1)
 
@@ -283,8 +293,21 @@ class __extend__(SomeLLAbstractContainer):
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
-    def int_add((hs_v1, hs_v2)):
-        return SomeLLAbstractVariable(lltype.Signed)
+    def define_binary(TYPE):
+        def var_binary((hs_v1, hs_v2)):
+            return SomeLLAbstractVariable(TYPE)
+        return var_binary
+
+    int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
+    int_floordiv = int_rshift = int_and = int_add 
+
+    uint_mul = uint_mod = uint_sub = uint_add = define_binary(lltype.Unsigned)
+    uint_floordiv = uint_rshift = uint_and = uint_add
+
+    int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
+    uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
+
+    char_gt = char_lt = char_le = char_ge = char_eq = char_ne = int_eq
 
     def getarrayitem((hs_v1, hs_v2)):
         return SomeLLAbstractVariable(hs_v1.concretetype.TO.OF)
