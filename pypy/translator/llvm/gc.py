@@ -98,6 +98,7 @@ def GC_get_heap_size_wrapper():
 
         if self.exc_useringbuf and exc_flag:
             fnname = '%pypy_' + self.ringbuf_malloc_name
+            atomic = False
         else:
             fnname = '%pypy_malloc' + (atomic and '_atomic' or '')
 
