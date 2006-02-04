@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy
+from pypy import conftest
 
 P_OOPSPEC = AnnotatorPolicy()
 P_OOPSPEC.oopspec = True
@@ -26,7 +27,8 @@ def hannotate(func, argtypes, policy=None, annotator=False):
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
     t = hannotator.translator
-    #t.view()
+    if conftest.option.view:
+        t.view()
     if annotator:
         return hs, hannotator
     else:

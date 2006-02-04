@@ -38,7 +38,9 @@ option = py.test.Config.addoptions("pypy options",
                help="(mixed) modules to use."),
         Option('--compiler', action="store", type="string", dest="compiler",
                metavar="[ast|cpython]", default='ast',
-               help="""select compiling approach. see pypy/doc/README.compiling""")
+               help="""select compiling approach. see pypy/doc/README.compiling"""),
+        Option('--view', action="store_true", dest="view", default=False,
+               help="view translation tests' flow graphs with Pygame"),
     )
 
 _SPACECACHE={}
@@ -160,7 +162,7 @@ class PyPyTestFunction(py.test.Function):
                 raise self.Failed(excinfo=appsupport.AppExceptionInfo(space, e))
             raise 
 
-_pygame_warned = False
+_pygame_imported = False
 
 class IntTestFunction(PyPyTestFunction):
     def execute(self, target, *args):
@@ -175,11 +177,11 @@ class IntTestFunction(PyPyTestFunction):
             check_keyboard_interrupt(e)
             raise
         if 'pygame' in sys.modules:
-            global _pygame_warned
-            if not _pygame_warned:
-                _pygame_warned = True
-                py.test.skip("DO NOT FORGET to remove the Pygame invocation "
-                             "before checking in :-)")
+            global _pygame_imported
+            if not _pygame_imported:
+                _pygame_imported = True
+                assert option.view, ("should not invoke Pygame "
+                                     "if conftest.option.view is False")
 
 class AppTestFunction(PyPyTestFunction): 
     def execute(self, target, *args):

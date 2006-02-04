@@ -9,6 +9,7 @@ from pypy.rpython.rint import signed_repr
 from pypy.rpython import rstr
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.rarithmetic import r_uint, ovfcheck
+from pypy import conftest
 
 # switch on logging of interp to show more info on failing tests
 
@@ -43,11 +44,13 @@ def timelog(prefix, call, *args, **kwds):
     #print "%.2f secs" %(elapsed,)
     return res 
 
-def gengraph(func, argtypes=[], viewbefore=False, policy=None,
+def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
              type_system="lltype"):
     t = TranslationContext()
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes)
+    if viewbefore == 'auto':
+        viewbefore = conftest.option.view
     if viewbefore:
         a.simplify()
         t.view()
@@ -62,7 +65,7 @@ def gengraph(func, argtypes=[], viewbefore=False, policy=None,
 
 _lastinterpreted = []
 _tcache = {}
-def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
+def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                     someobjects=False, type_system="lltype"):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
     try: 
@@ -85,17 +88,19 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
         _lastinterpreted.append(key) 
         if len(_lastinterpreted) >= 4: 
             del _tcache[_lastinterpreted.pop(0)]
+    if view == 'auto':
+        view = conftest.option.view
     if view:
         t.view()
     return interp, graph
 
-def interpret(func, values, view=False, viewbefore=False, policy=None,
+def interpret(func, values, view='auto', viewbefore='auto', policy=None,
               someobjects=False, type_system="lltype"):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                                     someobjects, type_system=type_system)
     return interp.eval_graph(graph, values)
 
-def interpret_raises(exc, func, values, view=False, viewbefore=False,
+def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
                      policy=None, someobjects=False, type_system="lltype"):
     interp, graph  = get_interpreter(func, values, view, viewbefore, policy,
                              someobjects, type_system=type_system)
@@ -148,7 +153,7 @@ def test_call_raise_twice():
     interpret_raises(ValueError, call_raise_twice, [43, 7])
 
 def test_call_raise_intercept():
-    res = interpret(call_raise_intercept, [41], view=False)
+    res = interpret(call_raise_intercept, [41])
     assert res == 41
     res = interpret(call_raise_intercept, [42])
     assert res == 42
