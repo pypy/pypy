@@ -175,22 +175,23 @@ class ListBuilder(object):
         argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
         fnptr = list_repr.rtyper.annotate_helper_fn(ll_setitem_nonneg, argtypes)
         self.setitem_nonneg_ptr = fnptr
-        self.c_dum_nocheck = inputconst(Void, dum_nocheck)
-        self.c_LIST = inputconst(Void, self.LIST)
+        #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
+        #self.c_LIST = inputconst(Void, self.LIST)
 
     def build(self, builder, items_v):
         """Make the operations that would build a list containing the
         provided items."""
+        from pypy.rpython import rgenop
         c_newlist = builder.genconst(self.newlist_ptr)
         c_len  = builder.genconst(len(items_v))
         v_result = builder.genop('direct_call',
-                                 [c_newlist, self.c_LIST, c_len],
+                                 [c_newlist, rgenop.placeholder(self.LIST), c_len],
                                  self.LISTPTR)
         c_setitem_nonneg = builder.genconst(self.setitem_nonneg_ptr)
         for i, v in enumerate(items_v):
             c_i = builder.genconst(i)
             builder.genop('direct_call', [c_setitem_nonneg,
-                                          self.c_dum_nocheck,
+                                          rgenop.placeholder(dum_nocheck),
                                           v_result, c_i, v],
                           Void)
         return v_result

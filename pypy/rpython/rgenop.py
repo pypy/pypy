@@ -33,11 +33,7 @@ def _inputvars(vars):
         vars = vars.ll_items()
     res = []
     for v in vars:
-        if isinstance(v, flowmodel.Constant): 
-           # XXX for now: pass through Void constants
-           assert v.concretetype == lltype.Void
-        else:
-            v = from_opaque_object(v)
+        v = from_opaque_object(v)
         assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
         res.append(v)
     return res
@@ -61,7 +57,30 @@ def gencallableconst(blockcontainer, name, targetcontainer, FUNCTYPE):
 def genconst(blockcontainer, llvalue):
     v = flowmodel.Constant(llvalue)
     v.concretetype = lltype.typeOf(llvalue)
+    if v.concretetype == lltype.Void: # XXX genconst should not really be used for Void constants
+        assert not isinstance(llvalue, str) and not isinstance(llvalue, lltype.LowLevelType)
     return to_opaque_object(v)
+
+# XXX
+# temporary interface; it's unclera if genop itself should change to ease dinstinguishing
+# Void special args from the rest. Or there should be variation for the ops involving them
+
+def placeholder(dummy):
+    c = flowmodel.Constant(dummy)
+    c.concretetype = lltype.Void
+    return to_opaque_object(c)    
+
+def constFieldName(name):
+    assert isinstance(name, str)
+    c = flowmodel.Constant(name)
+    c.concretetype = lltype.Void
+    return to_opaque_object(c)
+
+def constTYPE(TYPE):
+    assert isinstance(TYPE, lltype.LowLevelType)
+    c = flowmodel.Constant(TYPE)
+    c.concretetype = lltype.Void
+    return to_opaque_object(c)
 
 def closeblock1(blockcontainer):
     block = from_opaque_object(blockcontainer.obj)
