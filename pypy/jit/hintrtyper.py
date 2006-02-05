@@ -17,17 +17,11 @@ class HintTyper(RPythonTyper):
     def __init__(self, hannotator):
     	RPythonTyper.__init__(self, hannotator, 
                               type_system=HintTypeSystem.instance)
-        self._canonical_reprs = {}
-
-    def fixedrepr(self, lowleveltype):
-        key = True, lowleveltype
-        try:
-            repr =  self._canonical_reprs[key]
-        except KeyError:
-            hs = hintmodel.SomeLLAbstractConstant(lowleveltype, {})
-            hs.eager_concrete = True
-            repr = self._canonical_reprs[key] = self.getrepr(hs)
-        return repr
+        self._fixed_reprs = {}
+        # insert the precomputed fixed reprs
+        for key, value in hintrconstant.__dict__.items():
+            if isinstance(value, hintrconstant.LLFixedConstantRepr):
+                self._fixed_reprs[value.lowleveltype] = value
 
 # register operations from model
 HintTyper._registeroperations(hintmodel)

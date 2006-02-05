@@ -39,11 +39,20 @@ def hannotate(func, argtypes, policy=None, annotator=False):
 def test_canonical_reprs():
     from pypy.jit import hintrconstant
     htyper = HintTyper(None)
-    r_fixed_signed = htyper.fixedrepr(lltype.Signed)
+    r_fixed_signed = hintrconstant.getfixedrepr(htyper, lltype.Signed)
     assert isinstance(r_fixed_signed, hintrconstant.LLFixedConstantRepr)
     assert r_fixed_signed.lowleveltype == lltype.Signed
-    r_fixed_signed2 = htyper.fixedrepr(lltype.Signed)
+    r_fixed_signed2 = hintrconstant.getfixedrepr(htyper, lltype.Signed)
     assert r_fixed_signed2 is r_fixed_signed
+
+def test_simple_fixed():
+    def ll_function(x, y):
+        return hint(x + y, concrete=True)
+    hs, ha  = hannotate(ll_function, [int, int], annotator=True)
+    htyper = HintTyper(ha)
+    htyper.specialize()
+    if conftest.option.view:
+        ha.translator.view()
 
 def test_simple():
     py.test.skip("in-progress")
