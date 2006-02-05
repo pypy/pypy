@@ -118,4 +118,28 @@ def test_rtype_build_loop():
     assert res == 1
     res = runblock(blockcontainer, [7])
     assert res == 5040
-    
+
+def test_rtype_void_constant_construction():
+    def fieldname_foo():
+        return constFieldName("foo")
+    res = interpret(fieldname_foo, [])
+    c = from_opaque_object(res)
+    assert isinstance(c, flowmodel.Constant)
+    assert c.concretetype == lltype.Void
+    assert c.value == "foo"
+
+    def type_Signed():
+        return constTYPE(lltype.Signed)
+    res = interpret(type_Signed, [])
+    c = from_opaque_object(res)
+    assert isinstance(c, flowmodel.Constant)
+    assert c.concretetype == lltype.Void
+    assert c.value == lltype.Signed
+
+    def dummy():
+        return placeholder(None)
+    res = interpret(dummy, [])
+    c = from_opaque_object(res)
+    assert isinstance(c, flowmodel.Constant)
+    assert c.concretetype == lltype.Void
+    assert c.value == None

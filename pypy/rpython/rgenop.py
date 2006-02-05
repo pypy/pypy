@@ -218,12 +218,17 @@ def setspecialize(func):
 
 # annotations
 from pypy.annotation import model as annmodel
+
+s_ConstOrVar = annmodel.SomeExternalObject(flowmodel.Variable)
+s_Link = annmodel.SomeExternalObject(flowmodel.Link)
+s_LinkPair = annmodel.SomePtr(lltype.Ptr(LINKPAIR))
+
 setannotation(initblock, None)
-setannotation(geninputarg, annmodel.SomeExternalObject(flowmodel.Variable))
-setannotation(genop, annmodel.SomeExternalObject(flowmodel.Variable))
-setannotation(genconst, annmodel.SomeExternalObject(flowmodel.Variable))
-setannotation(closeblock1, annmodel.SomeExternalObject(flowmodel.Link))
-setannotation(closeblock2, annmodel.SomePtr(lltype.Ptr(LINKPAIR)))
+setannotation(geninputarg, s_ConstOrVar)
+setannotation(genop, s_ConstOrVar)
+setannotation(genconst, s_ConstOrVar)
+setannotation(closeblock1, s_Link)
+setannotation(closeblock2, s_LinkPair)
 setannotation(closelink, None)
 setannotation(closereturnlink, None)
 
@@ -236,3 +241,19 @@ setspecialize(closeblock1)
 setspecialize(closeblock2)
 setspecialize(closelink)
 setspecialize(closereturnlink)
+
+# XXX(for now) void constant constructors
+setannotation(constFieldName, s_ConstOrVar)
+setannotation(constTYPE, s_ConstOrVar)
+setannotation(placeholder, s_ConstOrVar)
+
+def set_specialize_void_constant_constructor(func):
+    # for now
+    def specialize_as_constant(hop):
+        llvalue = func(hop.args_s[0].const)
+        return hop.inputconst(lltype.typeOf(llvalue), llvalue)
+    func.specialize = specialize_as_constant
+
+set_specialize_void_constant_constructor(placeholder)
+set_specialize_void_constant_constructor(constFieldName)
+set_specialize_void_constant_constructor(constTYPE)
