@@ -1,5 +1,6 @@
 from pypy.tool.tls import tlsobject
 from pypy.objspace.flow.model import copygraph
+from pypy.annotation import model as annmodel
 
 TLS = tlsobject()
 
@@ -92,6 +93,14 @@ class HintBookkeeper(object):
         _, block, i = self.position_key
         op = block.operations[i]
         return op.result.concretetype
+
+    def current_op_binding(self):
+        _, block, i = self.position_key
+        op = block.operations[i]
+        hs_res = self.annotator.binding(op.result, extquery=True)
+        if hs_res is None:
+            hs_res = annmodel.s_ImpossibleValue
+        return hs_res
 
     def getvirtualcontainerdef(self, TYPE, constructor=None):
         try:

@@ -231,7 +231,11 @@ class __extend__(SomeLLAbstractConstant):
             if key == 'fixed':
                 deps_hs.append(hs_res)
             hs_res = reorigin(hs_res, *deps_hs)
-        return hs_res
+
+        # we need to make sure that hs_res does not become temporarily less
+        # general as a result of calling another specialized version of the
+        # function
+        return annmodel.unionof(hs_res, bookkeeper.current_op_binding())
 
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
