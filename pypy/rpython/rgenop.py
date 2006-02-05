@@ -7,43 +7,71 @@ that can be used to produce any other kind of graph.
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
+from pypy.rpython.module.support import init_opaque_object
+from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 
+# for debugging, sanity checks in non-RPython code
+reveal = from_opaque_object
+
+def initblock(opaqueptr):
+    init_opaque_object(opaqueptr, flowmodel.Block([]))
 
 def newblock():
-    return flowmodel.Block([])
+    blockcontainer = lltype.malloc(BLOCKCONTAINERTYPE)
+    initblock(blockcontainer.obj)
+    return blockcontainer
 
-def geninputarg(block, CONCRETE_TYPE):
+def geninputarg(blockcontainer, CONCRETE_TYPE):
+    block = from_opaque_object(blockcontainer.obj)
     v = flowmodel.Variable()
     v.concretetype = CONCRETE_TYPE
     block.inputargs.append(v)
-    return v
+    return to_opaque_object(v)
 
-def genop(block, opname, vars, RESULT_TYPE):
+def _inputvars(vars):
+    if not isinstance(vars, list):
+        vars = vars.ll_items()
+    res = []
     for v in vars:
+        if isinstance(v, flowmodel.Constant): 
+           # XXX for now: pass through Void constants
+           assert v.concretetype == lltype.Void
+        else:
+            v = from_opaque_object(v)
         assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
-        
+        res.append(v)
+    return res
+    
+def genop(blockcontainer, opname, vars, RESULT_TYPE):
+    block = from_opaque_object(blockcontainer.obj) 
+    opvars = _inputvars(vars)    
     v = flowmodel.Variable()
     v.concretetype = RESULT_TYPE
-    op = flowmodel.SpaceOperation(opname, vars, v)
+    op = flowmodel.SpaceOperation(opname, opvars, v)
     block.operations.append(op)
-    return v
+    return to_opaque_object(v)
 
-def gencallableconst(block, name, target, FUNCTYPE):
+def gencallableconst(blockcontainer, name, targetcontainer, FUNCTYPE):
+    # is name useful, is it runtime variable?
+    target = from_opaque_object(targetcontainer.obj)
     fptr = lltype.functionptr(FUNCTYPE, name,
-                              graph=buildgraph(target))
-    return genconst(block, fptr)
+                              graph=_buildgraph(target))
+    return genconst(blockcontainer, fptr)
 
-def genconst(block, llvalue):
+def genconst(blockcontainer, llvalue):
     v = flowmodel.Constant(llvalue)
     v.concretetype = lltype.typeOf(llvalue)
-    return v
+    return to_opaque_object(v)
 
-def closeblock1(block):
+def closeblock1(blockcontainer):
+    block = from_opaque_object(blockcontainer.obj)
     link = flowmodel.Link([], None)
     block.closeblock(link)
-    return link
+    return to_opaque_object(link)
 
-def closeblock2(block, exitswitch):
+def closeblock2into(blockcontainer, exitswitch, linkpair):
+    block = from_opaque_object(blockcontainer.obj)
+    exitswitch = from_opaque_object(exitswitch)
     assert isinstance(exitswitch, flowmodel.Variable)
     block.exitswitch = exitswitch
     false_link = flowmodel.Link([], None)
@@ -53,9 +81,15 @@ def closeblock2(block, exitswitch):
     true_link.exitcase = True
     true_link.llexitcase = True
     block.closeblock(false_link, true_link)
-    return false_link, true_link
+    linkpair.item0 = to_opaque_object(false_link)
+    linkpair.item1 = to_opaque_object(true_link)
 
-def closelink(link, vars, targetblock):
+def closeblock2(blockcontainer, exitswitch):
+    linkpair = lltype.malloc(LINKPAIR)
+    closeblock2into(blockcontainer, exitswitch, linkpair) 
+    return linkpair
+
+def _closelink(link, vars, targetblock):
     if isinstance(link, flowmodel.Link):
         for v in vars:
             assert isinstance(v, (flowmodel.Variable, flowmodel.Constant))
@@ -70,12 +104,20 @@ def closelink(link, vars, targetblock):
     else:
         raise TypeError
 
+def closelink(link, vars, targetblockcontainer):
+    link = from_opaque_object(link)
+    targetblock = from_opaque_object(targetblockcontainer.obj)
+    vars = _inputvars(vars)
+    return _closelink(link, vars, targetblock) 
+
 def closereturnlink(link, returnvar):
+    returnvar = from_opaque_object(returnvar)
+    link = from_opaque_object(link)
     v = flowmodel.Variable()
     v.concretetype = returnvar.concretetype
     pseudoreturnblock = flowmodel.Block([v])
     pseudoreturnblock.operations = ()
-    closelink(link, [returnvar], pseudoreturnblock)
+    _closelink(link, [returnvar], pseudoreturnblock)
 
 def _patchgraph(graph):
     returntype = None
@@ -96,7 +138,7 @@ class PseudoRTyper(object):
         from pypy.rpython.typesystem import LowLevelTypeSystem
         self.type_system = LowLevelTypeSystem.instance
 
-def buildgraph(block):
+def _buildgraph(block):
     graph = flowmodel.FunctionGraph('?', block)
     _patchgraph(graph)
     flowmodel.checkgraph(graph)
@@ -105,8 +147,33 @@ def buildgraph(block):
     graph.rgenop = True
     return graph
 
-def runblock(block, args):
+def buildgraph(blockcontainer):
+    block = from_opaque_object(blockcontainer.obj)
+    return _buildgraph(block)
+
+def runblock(blockcontainer, args):
+    block = from_opaque_object(blockcontainer.obj)
     from pypy.rpython.llinterp import LLInterpreter
-    graph = buildgraph(block)
+    graph = _buildgraph(block)
     llinterp = LLInterpreter(PseudoRTyper())
     return llinterp.eval_graph(graph, args)
+
+# ____________________________________________________________
+# RTyping of the above functions
+
+from pypy.rpython.extfunctable import declaretype, declareptrtype, declare
+
+blocktypeinfo = declaretype(flowmodel.Block, "Block")
+vartypeinfo   = declareptrtype(flowmodel.Variable, "VarOrConst")
+consttypeinfo = declareptrtype(flowmodel.Constant, "VarOrConst")
+consttypeinfo.set_lltype(vartypeinfo.get_lltype())   # force same lltype
+linktypeinfo  = declareptrtype(flowmodel.Link, "Link")
+
+BLOCKCONTAINERTYPE = blocktypeinfo.get_lltype()
+LINKTYPE = linktypeinfo.get_lltype()
+
+fieldnames = ['item%d' % i for i in range(2)]
+lltypes = [lltype.Ptr(LINKTYPE)]*2
+fields = tuple(zip(fieldnames, lltypes))    
+LINKPAIR = lltype.GcStruct('tuple2', *fields)
+

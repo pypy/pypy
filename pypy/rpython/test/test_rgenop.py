@@ -1,15 +1,44 @@
 from pypy.rpython.rgenop import *
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.module.support import from_opaque_object
+from pypy.objspace.flow import model as flowmodel
 
 
-def test_square():
+def build_square():
     """def square(v0): return v0*v0"""
     block = newblock()
     v0 = geninputarg(block, Signed)
     v1 = genop(block, 'int_mul', [v0, v0], Signed)
     link = closeblock1(block)
     closereturnlink(link, v1)
+    return block
 
+def test_square():
+    block = build_square()
+    res = runblock(block, [17])
+    assert res == 289
+
+def NO_test_rtype_newblock():
+    def emptyblock():
+        return newblock()
+    blockcontainer = interpret(emptyblock, [])
+    block = from_opaque_object(blockcontainer.obj)
+    assert isinstance(block, flowmodel.Block)
+
+def NO_test_rtype_geninputarg():
+    def onearg():
+        block = newblock()
+        v0 = geninputarg(block, Signed)
+        return v0
+    opaquev = interpret(onearg, [])
+    v = from_opaque_object(opaquev)
+    assert isinstance(v, flowmodel.Variable)
+    
+
+def NO_test_rtype_build_square():
+    blockcontainer = interpret(build_square, [])
+    block = from_opaque_object(blockcontainer.obj)
     res = runblock(block, [17])
     assert res == 289
 
@@ -25,7 +54,8 @@ def test_if():
     v0 = geninputarg(block, Signed)
     const0 = genconst(block, 0)
     v1 = genop(block, 'int_lt', [v0, const0], Bool)
-    false_link, true_link = closeblock2(block, v1)
+    exitspair = closeblock2(block, v1)
+    false_link, true_link = exitspair.item0, exitspair.item1
     closereturnlink(true_link, const0)
     closereturnlink(false_link, v0)
 
@@ -57,7 +87,8 @@ def test_loop():
     result1 = genop(loopblock, 'int_mul', [result0, i0], Signed)
     i1 = genop(loopblock, 'int_add', [i0, const1], Signed)
     v2 = genop(loopblock, 'int_le', [i1, v1], Bool)
-    false_link, true_link = closeblock2(loopblock, v2)
+    exitspair = closeblock2(loopblock, v2)
+    false_link, true_link = exitspair.item0, exitspair.item1
     closereturnlink(false_link, result1)
     closelink(true_link, [result1, i1, v1], loopblock)
     

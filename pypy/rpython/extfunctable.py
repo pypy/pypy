@@ -59,6 +59,8 @@ class ExtTypeInfo:
                 self._TYPE = OPAQUE
         return self._TYPE
 
+    def set_lltype(self, TYPE):
+        self._TYPE = TYPE
 
 class ImportMe:
     "Lazily imported module, for circular imports :-/"

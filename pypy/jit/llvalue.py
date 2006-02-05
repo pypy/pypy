@@ -92,7 +92,9 @@ class LLAbstractValue(object):
             if self.content is None:
                 raise ValueError("ll_dummy_value.forcevarorconst()")
             genvar = self.content.build_runtime_container(builder)
-            assert self.content.T == genvar.concretetype.TO # sanity check
+            # sanity check violating encapsulation
+            var = rgenop.reveal(genvar)
+            assert self.content.T == var.concretetype.TO
             self.runtimevar = AVariable(lltype.Ptr(self.content.T), genvar=genvar)
             self.content = None
         return self.runtimevar

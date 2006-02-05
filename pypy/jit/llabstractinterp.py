@@ -258,20 +258,24 @@ class LinkState(object):
         self.args_genv = [v.getgenvar(builder) for v in args_v]
         self.frozenstate = frozenstate
         self.link = None
+        self.target_set = False
 
     def setreturn(self):
         rgenop.closereturnlink(self.link, self.args_genv[0])
+        self.target_set = True
 
     def settarget(self, block, blockargs):
         args = []
         for v1, v2 in zip(self.args_genv, blockargs):
             assert isinstance(v2, (AVariable, AConstant))
             if isinstance(v2, AConstant):
-                assert v1.value == v2.value # sanity check violating encapsulation
+                # sanity check violating encapsulation
+                v1 = rgenop.reveal(v1)
+                assert v1.value == v2.value
             else:
                 args.append(v1)
         rgenop.closelink(self.link, args, block)
-
+        self.target_set = True
 
 class GraphState(object):
     """Entry state of a graph."""
@@ -286,10 +290,12 @@ class GraphState(object):
         self.frozenstate = frozenstate
         #self.a_return = None
         self.state = "before"
+        self.target_set = False
 
     def settarget(self, block, blockargs):
         self.startblock = block
-
+        self.target_set = True
+        
     def complete(self):
         assert self.state != "during"
         if self.state == "after":
@@ -390,8 +396,7 @@ class GraphState(object):
                         seen[ls] = True
                         pending.append(ls)
                 else:
-                    # XXX don't use ls.link.target!
-                    if ls.link is None or ls.link.target is None:
+                    if ls.link is None or not ls.target_set:
                         # resolve the LinkState to go to the return
                         # or except block
                         if len(ls.args_v) == 1:
@@ -522,7 +527,9 @@ class BlockBuilder(object):
 
         assert len(newlinkstates) == 2
 
-        false_link, true_link = rgenop.closeblock2(b, newexitswitch.getgenvar(self))
+        exitspair = rgenop.closeblock2(b, newexitswitch.getgenvar(self))
+        false_link, true_link = exitspair.item0, exitspair.item1
+        
         cases = {False: false_link, True: true_link}
         for ls in newlinkstates:
             ls.link = cases[ls.exitcase]
