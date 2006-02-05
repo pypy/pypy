@@ -14,11 +14,17 @@ for fname in os.listdir('.'):
     exec 'import ' + microbench
     microbenches.append(microbench)
 
-def run():
+def run(test_cases):
     MINIMUM_MICROBENCH_TIME = 1.0
 
     for microbench in microbenches:
         for k in [s for s in globals()[microbench].__dict__ if s.startswith('test_')] :
+            if test_cases:
+                for tc in test_cases:
+                    if k.startswith(tc):
+                        break
+                else:
+                    continue
             testcase = microbench + '.' + k + '()'
             start = time.clock()
             n = 0
@@ -30,9 +36,20 @@ def run():
             print '%s took %.2f seconds' % (testcase, duration / float(n))
 
 if __name__ == '__main__':
-    for n, exe in enumerate(sys.argv[1:]):
+    args = sys.argv[1:]
+    if '-k' in args:
+        i = args.index('-k')
+        executables = args[:i]
+        test_cases  = args[i+1:]
+        limit = '-k ' + ' '.join(test_cases)
+    else:
+        executables = args
+        test_cases  = []
+        limit = ''
+
+    for n, exe in enumerate(executables):
         print 'exe:', exe
-        data = [s for s in os.popen(exe + ' microbench.py 2>&1').readlines() if not s.startswith('debug:')]
+        data = [s for s in os.popen(exe + ' microbench.py %s 2>&1' % limit).readlines() if not s.startswith('debug:')]
         benchdata = {}
         for d in data:
             testcase, took, duration, seconds = d.split()
@@ -48,5 +65,5 @@ if __name__ == '__main__':
                 slowdown, testcase = r
                 print '%5.2fx slower on %s' % (slowdown, testcase)
         
-    if len(sys.argv) == 1:
-        run()
+    if not executables:
+        run(test_cases)
