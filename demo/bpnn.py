@@ -184,19 +184,18 @@ def demo():
 
 if __name__ == '__main__':
     print 'Loading...'
-    from pypy.translator.translator import Translator
-    t = Translator(demo)
+    from pypy.translator.interactive import Translation
+    t = Translation(demo)
     
     print 'Annotating...'
-    a = t.annotate([])
-    a.simplify()
+    t.annotate([])
     t.viewcg()
 
     print 'Specializing...'
-    t.specialize()   # enable this to see (some) lower-level Cish operations
+    t.rtype()   # enable this to see (some) lower-level Cish operations
     
     print 'Compiling...'
-    f = t.ccompile()
+    f = t.compile_c()
 
     print 'Running...'
     T = time.time()
