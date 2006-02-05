@@ -9,20 +9,21 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
-Current PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
+PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
 ===================================================================
 
-The current sprint is taking place right now in Palma de Mallorca.
-Topics include progressing with the JIT work started in Göteborg
+The Mallorca sprint that took place in Palma de Mallorca is over.
+Topics included progressing with the JIT work started in Göteborg
 and Paris, GC and optimisation work, stackless, and
 improving our way to write glue code for C libraries.
 
 Read more in `the announcement`_, there is a `sprint report`_
-for the first three days.
+for the first three days and `one for the rest of the sprint`_.
 
 
 .. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/mallorca/sprint-announcement.html
 .. _`sprint report`: http://codespeak.net/pipermail/pypy-dev/2006q1/002746.html 
+.. _`one for the rest of the sprint`: http://codespeak.net/pipermail/pypy-dev/2006q1/002749.html 
 
 Preliminary EU reports released
 ===============================
