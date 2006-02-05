@@ -17,11 +17,7 @@ class HintTyper(RPythonTyper):
     def __init__(self, hannotator):
     	RPythonTyper.__init__(self, hannotator, 
                               type_system=HintTypeSystem.instance)
-        self._fixed_reprs = {}
-        # insert the precomputed fixed reprs
-        for key, value in hintrconstant.__dict__.items():
-            if isinstance(value, hintrconstant.LLFixedConstantRepr):
-                self._fixed_reprs[value.lowleveltype] = value
+        self._fixed_reprs = hintrconstant.PRECOMPUTED_FIXED_REPRS.copy()
 
 # register operations from model
 HintTyper._registeroperations(hintmodel)

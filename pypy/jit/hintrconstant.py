@@ -44,3 +44,9 @@ def getfixedrepr(rtyper, lowleveltype):
         return r
 
 fixed_signed_repr = LLFixedConstantRepr(lltype.Signed)
+
+# collect the global precomputed reprs
+PRECOMPUTED_FIXED_REPRS = {}
+for _r in globals().values():
+    if isinstance(_r, LLFixedConstantRepr):
+        PRECOMPUTED_FIXED_REPRS[_r.lowleveltype] = _r
