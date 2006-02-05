@@ -52,9 +52,6 @@ dependant on CPython anymore and becomes faster.
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
 
-**WARNING**: because of an ongoing major refactoring some of the examples
-below don't work in the svn version. Please use the 0.8.0 release for now!
-
 If you want to play with the ongoing development PyPy version 
 you can check it out from the repository using subversion. Download 
 and install subversion_ if you don't allready have it. Then you can
@@ -327,9 +324,9 @@ To start the interactive translator do::
 
 Test snippets of translatable code are provided in the file
 ``pypy/translator/test/snippet.py``, which is imported under the name
-``test``.  For example::
+``snippet``.  For example::
 
-    >>> t = Translator(test.is_perfect_number)
+    >>> t = Translation(snippet.is_perfect_number)
     >>> t.view()
         
 After that, the graph viewer pops up, that lets you interactively inspect the
@@ -342,13 +339,10 @@ trying out the type annotator
 We have a type annotator that can completely infer types for functions like
 ``is_perfect_number`` (as well as for much larger examples)::
 
-    >>> a = t.annotate([int])
+    >>> t.annotate([int])
     >>> t.view()
 
-Move the mouse over variable names (in red) to see their inferred types. To
-perform simplifications based on the annotation you can do::
-
-    >>> a.simplify()
+Move the mouse over variable names (in red) to see their inferred types.
 
 
 translating the flow graph to C code
@@ -356,12 +350,12 @@ translating the flow graph to C code
 
 The graph can be turned into C code::
 
-   >>> t.specialize()
-   >>> f = t.ccompile()
+   >>> t.rtype()
+   >>> f = t.compile_c()
 
 The first command replaces the operations with other low level versions that
-only use low level types that are available in C (e.g. int). This can also be
-ommited although it is not recommended. To try out the compiled version::
+only use low level types that are available in C (e.g. int). To try out the
+compiled version::
 
    >>> f(5)
    False
@@ -379,24 +373,20 @@ hints.  Please note that you do not need the CFrontend to compile, make
 tools-only.
 
 The LLVM backend is still experimental.  However, it is very close to C backend
-functionality.  At the point of writing, it is missing a few essential
-operations, stackless support and threading support.  Calling compiled LLVM
-code from CPython is more restrictive than the C backend - the return type and
-the arguments of the entry function must be ints, floats or bools.  The
-emphasis of the LLVM backend is to compile standalone executables - please see
-the pypy/translator/llvm/demo directory for examples.
+functionality. At the point of writing, it is mostly missing stackless and
+threading support as well as the possibility to use reference counting. Calling
+compiled LLVM code from CPython is more restrictive than the C backend - the
+return type and the arguments of the entry function must be ints, floats or
+bools.  The emphasis of the LLVM backend is to compile standalone executables -
+please see the pypy/translator/llvm/demo directory for examples.
 
 Here is a simple example to try::
 
-   >>> t = Translator(test.my_gcd)
+   >>> t = Translation(snippet.my_gcd)
    >>> a = t.annotate([int, int])
-   >>> t.specialize()
-   >>> print t.llvm()
-
-   <...  really huge amount of LLVM code  ...>
-
-   >>> f = t.llvmcompile()
-   >>> f.pypy_my_gcd_wrapper(15, 10)
+   >>> t.rtype()
+   >>> f = t.compile_llvm()
+   >>> f(15, 10)
    5
 
 
