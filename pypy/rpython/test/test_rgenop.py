@@ -40,7 +40,7 @@ def test_rtype_build_square():
     res = runblock(blockcontainer, [17])
     assert res == 289
 
-def test_if():
+def build_if():
     """
     def f(v0):
         if v0 < 0:
@@ -56,13 +56,23 @@ def test_if():
     false_link, true_link = exitspair.item0, exitspair.item1
     closereturnlink(true_link, const0)
     closereturnlink(false_link, v0)
+    return block
 
+def test_if():
+    block = build_if()
     res = runblock(block, [-1])
     assert res == 0
     res = runblock(block, [42])
     assert res == 42
 
-def test_loop():
+def test_rtype_build_if():
+    blockcontainer = interpret(build_if, [])
+    res = runblock(blockcontainer, [-1])
+    assert res == 0
+    res = runblock(blockcontainer, [42])
+    assert res == 42
+
+def build_loop():
     """
     def f(v0):
         i = 1
@@ -89,10 +99,23 @@ def test_loop():
     false_link, true_link = exitspair.item0, exitspair.item1
     closereturnlink(false_link, result1)
     closelink(true_link, [result1, i1, v1], loopblock)
-    
+    return block    
+
+def test_loop():
+    block = build_loop()
     res = runblock(block, [0])
     assert res == 1
     res = runblock(block, [1])
     assert res == 1
     res = runblock(block, [7])
     assert res == 5040
+
+def test_rtype_build_loop():
+    blockcontainer = interpret(build_loop, [])
+    res = runblock(blockcontainer, [0])
+    assert res == 1
+    res = runblock(blockcontainer, [1])
+    assert res == 1
+    res = runblock(blockcontainer, [7])
+    assert res == 5040
+    
