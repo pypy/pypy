@@ -16,6 +16,49 @@ def test_loop_other_count():
         c += 1
 
 #
+def test_loop_unrolled():
+    '''32x the following bytecodes
+    28 LOAD_FAST                0 (x)
+    31 LOAD_CONST               2 (1)
+    34 BINARY_ADD
+    35 STORE_FAST               0 (x)'''
+    x = 0
+    n = N
+    while x < n:
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+        x = x + 1
+
+#
 def test_count_in_slot():
     class X(object):
         __slots__ = 'x'
