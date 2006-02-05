@@ -9,6 +9,8 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
+from pypy.rpython.module.support import from_rstr
+
 
 # for debugging, sanity checks in non-RPython code
 reveal = from_opaque_object
@@ -37,8 +39,11 @@ def _inputvars(vars):
         assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
         res.append(v)
     return res
-    
+
+# is opname a runtime value?
 def genop(blockcontainer, opname, vars, RESULT_TYPE):
+    if not isinstance(opname, str):
+        opname = from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj) 
     opvars = _inputvars(vars)    
     v = flowmodel.Variable()
@@ -188,6 +193,7 @@ consttypeinfo = declareptrtype(flowmodel.Constant, "VarOrConst")
 consttypeinfo.set_lltype(vartypeinfo.get_lltype())   # force same lltype
 linktypeinfo  = declareptrtype(flowmodel.Link, "Link")
 
+CONSTORVAR = consttypeinfo.get_lltype()
 BLOCKCONTAINERTYPE = blocktypeinfo.get_lltype()
 LINKTYPE = linktypeinfo.get_lltype()
 
@@ -196,3 +202,43 @@ lltypes = [lltype.Ptr(LINKTYPE)]*2
 fields = tuple(zip(fieldnames, lltypes))    
 LINKPAIR = lltype.GcStruct('tuple2', *fields)
 
+# helpers
+def setannotation(func, TYPE):
+    func.compute_result_annotation = lambda *args_s: TYPE 
+
+def setspecialize(func):
+    # for now
+    def specialize_as_direct_call(hop):
+        FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r], hop.r_result.lowleveltype)
+        args_v = hop.inputargs(*hop.args_r)
+        funcptr = lltype.functionptr(FUNCTYPE, func.__name__, _callable=func)
+        cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
+        return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
+    func.specialize = specialize_as_direct_call
+
+# annotations
+from pypy.annotation import model as annmodel
+setannotation(initblock, None)
+setannotation(geninputarg, annmodel.SomeExternalObject(flowmodel.Variable))
+setannotation(genop, annmodel.SomeExternalObject(flowmodel.Variable))
+setannotation(genconst, annmodel.SomeExternalObject(flowmodel.Variable))
+setannotation(closeblock1, annmodel.SomeExternalObject(flowmodel.Link))
+setannotation(closeblock2, annmodel.SomePtr(lltype.Ptr(LINKPAIR)))
+setannotation(closelink, None)
+setannotation(closereturnlink, None)
+
+# specialize
+setspecialize(initblock)
+setspecialize(geninputarg)
+setspecialize(genop)
+setspecialize(genconst)
+setspecialize(closeblock1)
+setspecialize(closeblock2)
+setspecialize(closelink)
+setspecialize(closereturnlink)
+
+
+    
+
+
+    

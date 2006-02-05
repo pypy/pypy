@@ -19,14 +19,14 @@ def test_square():
     res = runblock(block, [17])
     assert res == 289
 
-def NO_test_rtype_newblock():
+def test_rtype_newblock():
     def emptyblock():
         return newblock()
     blockcontainer = interpret(emptyblock, [])
     block = from_opaque_object(blockcontainer.obj)
     assert isinstance(block, flowmodel.Block)
 
-def NO_test_rtype_geninputarg():
+def test_rtype_geninputarg():
     def onearg():
         block = newblock()
         v0 = geninputarg(block, Signed)
@@ -35,11 +35,9 @@ def NO_test_rtype_geninputarg():
     v = from_opaque_object(opaquev)
     assert isinstance(v, flowmodel.Variable)
     
-
-def NO_test_rtype_build_square():
+def test_rtype_build_square():
     blockcontainer = interpret(build_square, [])
-    block = from_opaque_object(blockcontainer.obj)
-    res = runblock(block, [17])
+    res = runblock(blockcontainer, [17])
     assert res == 289
 
 def test_if():
