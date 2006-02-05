@@ -633,9 +633,11 @@ class __extend__(pairtype(SomePtr, SomeInteger)):
         return ll_to_annotation(v)
     getitem.can_only_throw = []
 
-    def setitem((p, int1), s_value):
-        v_lltype = annotation_to_lltype(s_value)
-        p.ll_ptrtype._example()[0] = v_lltype._defl()
+    def setitem((p, int1), s_value):   # just doing checking
+        example = p.ll_ptrtype._example()
+        if example[0] is not None:  # ignore Void s_value
+            v_lltype = annotation_to_lltype(s_value)
+            example[0] = v_lltype._defl()
     setitem.can_only_throw = []
 
 class __extend__(pairtype(SomePtr, SomeObject)):

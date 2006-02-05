@@ -93,10 +93,11 @@ class BaseListRepr(Repr):
             result = self.prepare_const(n)
             self.list_cache[key] = result
             r_item = self.item_repr
-            items = result.ll_items()
-            for i in range(n):
-                x = listobj[i]
-                items[i] = r_item.convert_const(x)
+            if r_item.lowleveltype is not Void:
+                items = result.ll_items()
+                for i in range(n):
+                    x = listobj[i]
+                    items[i] = r_item.convert_const(x)
             return result
 
     def prepare_const(self, nitems):

@@ -569,10 +569,11 @@ class __extend__(SomePtr):
         return SomeObject.len(p)
 
     def setattr(p, s_attr, s_value): # just doing checking
-        assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
-        v_lltype = annotation_to_lltype(s_value)
-        setattr(p.ll_ptrtype._example(), s_attr.const,
-                v_lltype._defl())
+        assert s_attr.is_constant(), "setattr on ptr %r with non-constant field-name" % p.ll_ptrtype
+        example = p.ll_ptrtype._example()
+        if getattr(example, s_attr.const) is not None:  # ignore Void s_value
+            v_lltype = annotation_to_lltype(s_value)
+            setattr(example, s_attr.const, v_lltype._defl())
 
     def simple_call(p, *args_s):
         llargs = [annotation_to_lltype(arg_s)._defl() for arg_s in args_s]

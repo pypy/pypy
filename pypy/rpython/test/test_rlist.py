@@ -950,3 +950,37 @@ def test_list_builder():
             assert op.args[3].value == i
             assert op.args[4] is vi
             assert op.result.concretetype is Void
+
+class Freezing:
+    def _freeze_(self):
+        return True
+
+def test_voidlist_prebuilt():
+    frlist = [Freezing()] * 17
+    def mylength(l):
+        return len(l)
+    def f():
+        return mylength(frlist)
+    res = interpret(f, [])
+    assert res == 17
+
+def test_voidlist_fixed():
+    fr = Freezing()
+    def f():
+        return len([fr, fr])
+    res = interpret(f, [])
+    assert res == 2
+
+def test_voidlist_nonfixed():
+    class Freezing:
+        def _freeze_(self):
+            return True
+    fr = Freezing()
+    def f():
+        lst = [fr, fr]
+        lst.append(fr)
+        del lst[1]
+        assert lst[0] is fr
+        return len(lst)
+    res = interpret(f, [])
+    assert res == 2
