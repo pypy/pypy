@@ -8,31 +8,19 @@ Can be used for interactive testing of the translator.
 
 Example:
 
-    t = Translator(func)
+    t = Translation(func)
     t.view()                           # control flow graph
 
-    print t.source()                   # original source
-    print t.c()                        # C translation
-    print t.cl()                       # common lisp translation
-    print t.llvm()                     # LLVM translation
-
-    t.simplify()                       # flow graph simplification
-    a = t.annotate([int])              # pass the list of args types
-    a.simplify()                       # simplification by annotator
+    t.annotate([int])                  # pass the list of args types
     t.view()                           # graph + annotations under the mouse
 
-    t.call(arg)                        # call original function
-    t.dis()                            # bytecode disassemble
-
-    t.specialize()                     # use low level operations 
-    f = t.ccompile()                   # C compilation
-    mod = t.llvmcompile()              # LLVM compilation
+    t.rtype()                          # use low level operations 
+    f = t.compile_c()                  # C compilation
     assert f(arg) == func(arg)         # sanity check (for C)
-    assert mod.pypy_func_wrapper(arg) == func(arg)     # sanity check (for LLVM)
     
 
 Some functions are provided for the benefit of interactive testing.
-Try dir(test) for list of current snippets.
+Try dir(snippet) for list of current snippets.
 
 For extra features start this script with a -h option.
 """
@@ -54,7 +42,7 @@ options:
 
 
 import autopath, os, sys
-from pypy.translator.translator import Translator
+from pypy.translator.interactive import Translation
 from pypy.rpython.rtyper import *
 from pypy.rpython.rarithmetic import *
 
@@ -233,8 +221,7 @@ if __name__ == '__main__':
         setup_readline()
     except ImportError, err:
         print "Disabling readline support (%s)" % err
-    from pypy.translator.test import snippet as test
-    #from pypy.translator.llvm.test import llvmsnippet as test2
+    from pypy.translator.test import snippet
     from pypy.rpython.rtyper import RPythonTyper
 
     if (os.getcwd() not in sys.path and
