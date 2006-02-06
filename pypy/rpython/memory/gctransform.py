@@ -289,8 +289,7 @@ class RefcountingGCTransformer(GCTransformer):
         intconst = rmodel.inputconst(lltype.Void, int)
         refcount = varoftype(lltype.Signed)
         result.append(SpaceOperation("raw_load", [adr2, intconst, zero], refcount))
-        newrefcount = Variable()
-        newrefcount.concretetype = lltype.Signed
+        newrefcount = varoftype(lltype.Signed)
         result.append(SpaceOperation("int_add",
                                      [refcount, rmodel.inputconst(lltype.Signed, 1)],
                                      newrefcount))
