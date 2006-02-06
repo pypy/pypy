@@ -45,6 +45,8 @@ def free_non_gc_object(obj):
     obj.__class__ = FREED_OBJECT
 
 
+# the obtained address will not keep the object alive. e.g. if the object is
+# only reachable through an address, it might get collected
 def cast_ptr_to_adr(obj):
     from pypy.rpython.memory.lltypesimulation import simulatorptr
     assert isinstance(obj, simulatorptr)
