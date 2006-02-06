@@ -306,18 +306,15 @@ def test_arraybarrier():
 # ----------------------------------------------------------------------
 # test deallocators
 
-def make_deallocator(TYPE, view=False):
+def make_deallocator(TYPE):
     def f():
         pass
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize(t)
-    
     transformer = gctransform.GCTransformer(t)
-    v = Variable()
-    v.concretetype = TYPE
-    graph = transformer.static_deallocation_graph_for_type(TYPE, v)
-    if view:
+    graph = transformer.static_deallocation_graph_for_type(TYPE)
+    if conftest.option.view:
         t.view()
     return graph
 

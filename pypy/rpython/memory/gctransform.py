@@ -228,7 +228,7 @@ class GCTransformer:
         elif isinstance(TYPE, lltype.Ptr):
             yield '    '*depth + 'pop_alive(%s)'%v
 
-    def static_deallocation_graph_for_type(self, TYPE, var):
+    def static_deallocation_graph_for_type(self, TYPE):
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
