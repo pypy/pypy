@@ -1,6 +1,8 @@
 Some rough notes about the Oz threading model
 =============================================
 
+(almost verbatim from CTM)
+
 Scheduling
 ----------
 
@@ -94,6 +96,9 @@ values can be seen as complete values that are only partially known").
 Dataflow variables
 ------------------
 
+(see http://www.sics.se/~frej/flow_java/ for an implementation of
+dataflow variables in Java).
+
 Dataflow variables were originally discovered by people working on
 logic programming and were called logic variables. They have
 well-defined logic semantics.
@@ -113,5 +118,6 @@ Difference with single-assignment variables
 A single-assignment variable is a mutable variable that can be
 assigned only once. This differ form a dataflow variable in that the
 latter can be assigned (perhaps multiple times) to many partial
-values, provided the partial values are compatible with each other
-[that probably means : unifiable].
+values, provided the partial values are compatible (unifiable) with
+each other.
+
