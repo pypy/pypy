@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
@@ -289,13 +290,44 @@ class RefcountingGCTransformer(GCTransformer):
                 if hasattr(rtti._obj, 'destructor_funcptr'):
                     destrptr = rtti._obj.destructor_funcptr
 
-        assert destrptr is None
-
-        body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE))
-        
-        src = 'def deallocator(v):\n' + body + '\n    destroy(v)\n'
+        if destrptr is not None:
+            const_destrptr = Constant(destrptr)
+            const_destrptr.concretetype = lltype.typeOf(destrptr)
+            def compute_call_del_ops(hop):
+                hop.exception_is_here()
+                return hop.genop("direct_call", [const_destrptr, hop.args_v[1]],
+                                 resulttype=lltype.Void)
+            def call_del(var):
+                pass
+            call_del.compute_ll_ops = compute_call_del_ops
+            call_del.llresult = lltype.Void
+            body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE, 2))
+            src = """
+def deallocator(v):
+    addr = cast_obj_to_adr(v)
+    gcheader = addr - gc_header_offset
+    # refcount is at zero, temporarily bump it to 1:
+    gcheader.signed[0] = 1
+    try:
+        call_del(v)
+    except Exception:
+        os.write(0, "a destructor raised an exception, ignoring it")
+    refcount = gcheader.signed[0] - 1
+    gcheader.signed[0] = refcount
+    if refcount == 0:
+%s
+        destroy(v)
+""" % (body, )
+        else:
+            call_del = None
+            body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE))
+            src = 'def deallocator(v):\n' + body + '\n    destroy(v)\n'
         d = {'pop_alive':pop_alive,
-             'destroy':destroy}
+             'destroy':destroy,
+             'call_del': call_del,
+             'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
+             'cast_obj_to_adr': objectmodel.cast_ptr_to_adr,
+             'os': py.std.os}
         print
         print src
         print
@@ -332,6 +364,8 @@ class RefcountingGCTransformer(GCTransformer):
                 need_dynamic_destructor = True
         if not need_dynamic_destructor:
             return self._decref_graph_for_type_static(TYPE)
+        else:
+            return self._decref_graph_for_type_dynamic(TYPE)
 
     def _decref_graph_for_type_static(self, TYPE):
         graph = self.static_deallocation_graph_for_type(TYPE)
@@ -357,6 +391,9 @@ class RefcountingGCTransformer(GCTransformer):
         self.seen_graphs[g] = True
         self.decref_graphs[TYPE] = g
         return g
+
+    def _decref_graph_for_type_dynamic(self, TYPE):
+        pass
 
 def varoftype(concretetype):
     var = Variable()

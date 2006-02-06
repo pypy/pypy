@@ -5,6 +5,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
 from pypy import conftest
+
 import py
 
 def checkblock(block):
@@ -389,4 +390,5 @@ def test_deallocator_with_destructor():
                             "destructor_funcptr", 
                             _callable=f)
     pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
-    py.test.raises(AssertionError, "make_deallocator(S)")
+    graph = make_deallocator(S)
+
