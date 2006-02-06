@@ -5,6 +5,7 @@ from pypy.interpreter import eval, baseobjspace
 from pypy.interpreter.miscutils import Stack, FixedStack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
+from pypy.rpython.rarithmetic import r_uint, intmask
 import opcode
 
 # Define some opcodes used
@@ -48,7 +49,7 @@ class PyFrame(eval.EvalFrame):
             self.valuestack = Stack()
         self.blockstack = Stack()
         self.last_exception = None
-        self.next_instr = 0
+        self.next_instr = r_uint(0) # Force it unsigned for performace reasons.
         self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
@@ -95,7 +96,7 @@ class PyFrame(eval.EvalFrame):
         "Interpreter main loop!"
         try:
             executioncontext.call_trace(self)
-            self.last_instr = -1
+            self.last_instr = 0
             while True:
                 try:
                     try:
@@ -103,7 +104,7 @@ class PyFrame(eval.EvalFrame):
                             while True:
                                 # fetch and dispatch the next opcode
                                 # dispatch() is abstract, see pyopcode.
-                                self.last_instr = self.next_instr
+                                self.last_instr = intmask(self.next_instr)
                                 executioncontext.bytecode_trace(self)
                                 self.next_instr = self.last_instr
                                 self.dispatch()
@@ -281,11 +282,11 @@ class PyFrame(eval.EvalFrame):
             
     def get_last_lineno(self):
         "Returns the line number of the instruction currently being executed."
-        return pytraceback.offset2lineno(self.pycode, self.next_instr-1)
+        return pytraceback.offset2lineno(self.pycode, intmask(self.next_instr)-1)
 
     def get_next_lineno(self):
         "Returns the line number of the next instruction to execute."
-        return pytraceback.offset2lineno(self.pycode, self.next_instr)
+        return pytraceback.offset2lineno(self.pycode, intmask(self.next_instr))
 
     def fget_f_builtins(space, self):
         return self.builtin.getdict()
@@ -524,7 +525,7 @@ class SContinueLoop(ControlFlowException):
     def state_unpack_variables(self, space):
         return [space.wrap(self.jump_to)]
     def state_pack_variables(self, space, w_jump_to):
-        self.jump_to = space.int_w(w_jump_to)
+        self.jump_to = space.uint_w(w_jump_to)
 
 class SReturnValue(ControlFlowException):
     """Signals a 'return' statement.

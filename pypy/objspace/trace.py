@@ -4,7 +4,7 @@
 """
 
 from pypy.tool import pydis
-
+from pypy.rpython.rarithmetic import intmask
 # __________________________________________________________________________
 #
 # Tracing Events 
@@ -16,7 +16,7 @@ class ExecBytecode(object):
     def __init__(self, frame):
         self.frame = frame
         self.code = frame.pycode
-        self.index = frame.next_instr
+        self.index = intmask(frame.next_instr)
 
 class EnterFrame(object):
     def __init__(self, frame):
