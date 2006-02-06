@@ -4,7 +4,7 @@ from pypy.rpython.test import test_llinterp
 from pypy.rpython.objectmodel import instantiate, we_are_translated
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-
+from pypy.rpython.rarithmetic import r_uint, intmask
 from pypy.annotation.builtin import *
 from pypy.rpython.module.support import to_rstr
 import py
@@ -285,3 +285,14 @@ def test_chr():
     assert res == '?'
     res = interpret(f, [-1])
     assert res == '?'
+
+
+def test_intmask():
+    def f(x=r_uint):
+        try:
+            return intmask(x)
+        except ValueError:
+            return 0
+
+    res = interpret(f, [r_uint(5)])
+    assert type(res) is int and res == 5

@@ -159,6 +159,7 @@ def rtype_builtin_list(hop):
 #def rtype_r_dict(hop): see rdict.py
 
 def rtype_intmask(hop):
+    hop.exception_cannot_occur()
     vlist = hop.inputargs(lltype.Signed)
     return vlist[0]
 
