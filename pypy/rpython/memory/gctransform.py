@@ -315,34 +315,48 @@ class RefcountingGCTransformer(GCTransformer):
             self.static_deallocator_graphs[TYPE] = g
             return g
             
-
     def decref_graph_for_type(self, TYPE):
         if TYPE in self.decref_graphs:
             return self.decref_graphs[TYPE]
         if isinstance(TYPE, lltype.GcArray):
-            graph = self.static_deallocation_graph_for_type(TYPE)
-            def compute_destructor_ll_ops(hop):
-                assert hop.args_v[1].concretetype.TO == TYPE
-                return hop.genop("direct_call",
-                                 [const_funcptr_fromgraph(graph), hop.args_v[1]],
-                                 resulttype=lltype.Void)
-            def destructor(var):
+            need_dynamic_destructor = False
+        if isinstance(TYPE, lltype.GcStruct):
+            rtti = None
+            try:
+                rtti = lltype.getRuntimeTypeInfo(TYPE)
+            except ValueError:
                 pass
-            destructor.compute_ll_ops = compute_destructor_ll_ops
-            destructor.llresult = lltype.Void
-            def decref(array):
-                arrayadr = objectmodel.cast_ptr_to_adr(array)
-                gcheader = arrayadr - RefcountingGCTransformer.gc_header_offset
-                refcount = gcheader.signed[0] - 1
-                gcheader.signed[0] = refcount
-                if refcount == 0:
-                    destructor(array)
-            g = self.translator.rtyper.annotate_helper(decref, [lltype.Ptr(TYPE)])
-            self.translator.rtyper.specialize_more_blocks()
-            # the produced deallocator graph does not need to be transformed
-            self.seen_graphs[g] = True
-            self.decref_graphs[TYPE] = g
-            return g
+            if rtti is None:
+                need_dynamic_destructor = False
+            else:
+                need_dynamic_destructor = True
+        if not need_dynamic_destructor:
+            return self._decref_graph_for_type_static(TYPE)
+
+    def _decref_graph_for_type_static(self, TYPE):
+        graph = self.static_deallocation_graph_for_type(TYPE)
+        def compute_destructor_ll_ops(hop):
+            assert hop.args_v[1].concretetype.TO == TYPE
+            return hop.genop("direct_call",
+                             [const_funcptr_fromgraph(graph), hop.args_v[1]],
+                             resulttype=lltype.Void)
+        def destructor(var):
+            pass
+        destructor.compute_ll_ops = compute_destructor_ll_ops
+        destructor.llresult = lltype.Void
+        def decref(array):
+            arrayadr = objectmodel.cast_ptr_to_adr(array)
+            gcheader = arrayadr - RefcountingGCTransformer.gc_header_offset
+            refcount = gcheader.signed[0] - 1
+            gcheader.signed[0] = refcount
+            if refcount == 0:
+                destructor(array)
+        g = self.translator.rtyper.annotate_helper(decref, [lltype.Ptr(TYPE)])
+        self.translator.rtyper.specialize_more_blocks()
+        # the produced deallocator graph does not need to be transformed
+        self.seen_graphs[g] = True
+        self.decref_graphs[TYPE] = g
+        return g
 
 def varoftype(concretetype):
     var = Variable()

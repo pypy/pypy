@@ -363,6 +363,17 @@ def test_decref_array():
     dgraph = make_deallocator(GcA, attr="decref_graph_for_type")
     ops = getops(dgraph)
 
+def test_decref_struct():
+    TPtr = lltype.Ptr(lltype.GcStruct("T", ('a', lltype.Signed)))
+    GcA = lltype.GcArray(('x', TPtr), ('y', TPtr))
+    A = lltype.Array(('x', TPtr), ('y', TPtr))
+    APtr = lltype.Ptr(GcA)
+    S = lltype.GcStruct('S', ('t', TPtr), ('x', lltype.Signed), ('aptr', APtr),
+                             ('rest', A))
+    dgraph = make_deallocator(S, attr="decref_graph_for_type")
+    ops = getops(dgraph)
+    
+
 def test_deallocator_with_destructor():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
     def f(s):
