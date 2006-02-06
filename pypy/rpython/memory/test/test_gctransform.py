@@ -4,6 +4,7 @@ from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
+from pypy import conftest
 import py
 
 def checkblock(block):
@@ -46,18 +47,20 @@ def getops(graph):
             ops.setdefault(op.opname, []).append(op)
     return ops
 
-def rtype_and_transform(func, inputtypes, transformcls, specialize=True):
+def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize(t)
     transformer = transformcls()
     transformer.transform(t.graphs)
-#    t.view()
+    if conftest.option.view:
+        t.view()
     t.checkgraphs()
-    for graph in t.graphs:
-        for block in graph.iterblocks():
-            checkblock(block)
+    if check:
+        for graph in t.graphs:
+            for block in graph.iterblocks():
+                checkblock(block)
     return t
 
 def test_simple():
@@ -249,6 +252,16 @@ def test_no_livevars_with_exception():
         return 1
     t = rtype_and_transform(f, [], gctransform.GCTransformer)
 
+def test_refcounting_incref_simple():
+    class C:
+        pass
+    def f():
+        c = C()
+        c.x = 1
+        return c.x
+    t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
+   
+
 # ______________________________________________________________________
 # test write barrier placement
 
@@ -302,7 +315,7 @@ def make_deallocator(TYPE, view=False):
     transformer = gctransform.GCTransformer()
     v = Variable()
     v.concretetype = TYPE
-    graph = transformer.deallocation_graph_for_type(t, TYPE, v)
+    graph = transformer.static_deallocation_graph_for_type(t, TYPE, v)
     if view:
         t.view()
     return graph

@@ -1,8 +1,9 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython import rmodel
+from pypy.rpython.memory import gc
 import sets
 
 """
@@ -203,10 +204,10 @@ class GCTransformer:
 
     # ----------------------------------------------------------------
 
-    def _deallocator_body_for_type(self, v, TYPE, depth=1):
+    def _static_deallocator_body_for_type(self, v, TYPE, depth=1):
         if isinstance(TYPE, lltype.Array):
             
-            inner = list(self._deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
+            inner = list(self._static_deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
             if inner:
                 yield '    '*depth + 'i_%d = 0'%(depth,)
                 yield '    '*depth + 'l_%d = len(%s)'%(depth, v)
@@ -217,7 +218,7 @@ class GCTransformer:
                 yield '    '*depth + '    i_%d += 1'%(depth,)
         elif isinstance(TYPE, lltype.Struct):
             for name in TYPE._names:
-                inner = list(self._deallocator_body_for_type(
+                inner = list(self._static_deallocator_body_for_type(
                     v + '_' + name, TYPE._flds[name], depth))
                 if inner:
                     yield '    '*depth + v + '_' + name + ' = ' + v + '.' + name
@@ -226,7 +227,7 @@ class GCTransformer:
         elif isinstance(TYPE, lltype.Ptr):
             yield '    '*depth + 'pop_alive(%s)'%v
 
-    def deallocation_graph_for_type(self, translator, TYPE, var):
+    def static_deallocation_graph_for_type(self, translator, TYPE, var):
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -256,7 +257,7 @@ class GCTransformer:
 
         assert destrptr is None
 
-        body = '\n'.join(self._deallocator_body_for_type('v', TYPE))
+        body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE))
         
         src = 'def deallocator(v):\n' + body + '\n    destroy(v)\n'
         d = {'pop_alive':pop_alive,
@@ -275,3 +276,30 @@ class GCTransformer:
             return None
         else:
             return g
+
+class RefcountingGCTransformer(GCTransformer):
+    gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
+    def push_alive_nopyobj(self, var):
+        adr1 = varoftype(llmemory.Address)
+        result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
+        adr2 = varoftype(llmemory.Address)
+        offset = rmodel.inputconst(lltype.Signed, self.gc_header_offset)
+        result.append(SpaceOperation("adr_sub", [adr1, offset], adr2))
+        zero = rmodel.inputconst(lltype.Signed, 0)
+        intconst = rmodel.inputconst(lltype.Void, int)
+        refcount = varoftype(lltype.Signed)
+        result.append(SpaceOperation("raw_load", [adr2, intconst, zero], refcount))
+        newrefcount = Variable()
+        newrefcount.concretetype = lltype.Signed
+        result.append(SpaceOperation("int_add",
+                                     [refcount, rmodel.inputconst(lltype.Signed, 1)],
+                                     newrefcount))
+        result.append(SpaceOperation("raw_store",
+                                     [adr2, intconst, zero, newrefcount],
+                                     varoftype(lltype.Void)))
+        return result
+
+def varoftype(concretetype):
+    var = Variable()
+    var.concretetype = concretetype
+    return var
