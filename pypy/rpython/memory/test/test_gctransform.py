@@ -52,7 +52,7 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize(t)
-    transformer = transformcls()
+    transformer = transformcls(t)
     transformer.transform(t.graphs)
     if conftest.option.view:
         t.view()
@@ -260,8 +260,9 @@ def test_refcounting_incref_simple():
         c.x = 1
         return c.x
     t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
-   
 
+
+  
 # ______________________________________________________________________
 # test write barrier placement
 
@@ -312,10 +313,10 @@ def make_deallocator(TYPE, view=False):
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize(t)
     
-    transformer = gctransform.GCTransformer()
+    transformer = gctransform.GCTransformer(t)
     v = Variable()
     v.concretetype = TYPE
-    graph = transformer.static_deallocation_graph_for_type(t, TYPE, v)
+    graph = transformer.static_deallocation_graph_for_type(TYPE, v)
     if view:
         t.view()
     return graph

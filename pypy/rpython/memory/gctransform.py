@@ -45,7 +45,8 @@ def var_ispyobj(var):
     
 
 class GCTransformer:
-    def __init__(self):
+    def __init__(self, translator):
+        self.translator = translator
         self.seen_graphs = {}
 
     def transform(self, graphs):
@@ -227,7 +228,7 @@ class GCTransformer:
         elif isinstance(TYPE, lltype.Ptr):
             yield '    '*depth + 'pop_alive(%s)'%v
 
-    def static_deallocation_graph_for_type(self, translator, TYPE, var):
+    def static_deallocation_graph_for_type(self, TYPE, var):
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -267,8 +268,10 @@ class GCTransformer:
         print
         exec src in d
         this = d['deallocator']
-        g = translator.rtyper.annotate_helper(this, [lltype.Ptr(TYPE)])
-        translator.rtyper.specialize_more_blocks()
+        g = self.translator.rtyper.annotate_helper(this, [lltype.Ptr(TYPE)])
+        # the produced deallocator graph does not need to be transformed
+        self.seen_graphs[g] = True
+        self.translator.rtyper.specialize_more_blocks()
         opcount = 0
         for block in g.iterblocks():
             opcount += len(block.operations)
@@ -278,7 +281,9 @@ class GCTransformer:
             return g
 
 class RefcountingGCTransformer(GCTransformer):
+
     gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
+    
     def push_alive_nopyobj(self, var):
         adr1 = varoftype(llmemory.Address)
         result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
@@ -297,6 +302,7 @@ class RefcountingGCTransformer(GCTransformer):
                                      [adr2, intconst, zero, newrefcount],
                                      varoftype(lltype.Void)))
         return result
+
 
 def varoftype(concretetype):
     var = Variable()
