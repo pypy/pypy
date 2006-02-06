@@ -260,7 +260,8 @@ def test_refcounting_incref_simple():
         c.x = 1
         return c.x
     t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
-
+    ops = getops(graphof(t, f))
+    assert len(ops['direct_call']) == 2
 
   
 # ______________________________________________________________________
@@ -278,7 +279,7 @@ def test_simple_barrier():
         t.s = s1
         t.s = s2
         return t
-    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     graph = graphof(t, f)
     ops = getops(graph)
     assert len(ops['getfield']) == 2
@@ -295,7 +296,7 @@ def test_arraybarrier():
         a = lltype.malloc(A, 1)
         a[0] = s1
         a[0] = s2
-    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     graph = graphof(t, f)
     ops = getops(graph)
     assert len(ops['getarrayitem']) == 2
@@ -306,14 +307,14 @@ def test_arraybarrier():
 # ----------------------------------------------------------------------
 # test deallocators
 
-def make_deallocator(TYPE):
+def make_deallocator(TYPE, attr="static_deallocation_graph_for_type"):
     def f():
         pass
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize(t)
-    transformer = gctransform.GCTransformer(t)
-    graph = transformer.static_deallocation_graph_for_type(TYPE)
+    transformer = gctransform.RefcountingGCTransformer(t)
+    graph = getattr(transformer, attr)(TYPE)
     if conftest.option.view:
         t.view()
     return graph
@@ -355,6 +356,12 @@ def test_deallocator_array():
     assert len(ops['getfield']) == 4
     assert len(ops['getarraysubstruct']) == 1
     assert len(ops['gc_free']) == 1
+
+def test_decref_array():
+    TPtr = lltype.Ptr(lltype.GcStruct("T", ('a', lltype.Signed)))
+    GcA = lltype.GcArray(('x', TPtr), ('y', TPtr))
+    dgraph = make_deallocator(GcA, attr="decref_graph_for_type")
+    ops = getops(dgraph)
 
 def test_deallocator_with_destructor():
     S = lltype.GcStruct("S", ('x', lltype.Signed))

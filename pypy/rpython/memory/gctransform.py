@@ -2,7 +2,9 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
-from pypy.rpython import rmodel
+from pypy.translator.translator import graphof
+from pypy.annotation import model as annmodel
+from pypy.rpython import rmodel, objectmodel
 from pypy.rpython.memory import gc
 import sets
 
@@ -44,7 +46,7 @@ def var_ispyobj(var):
         return True
     
 
-class GCTransformer:
+class GCTransformer(object):
     def __init__(self, translator):
         self.translator = translator
         self.seen_graphs = {}
@@ -140,30 +142,6 @@ class GCTransformer:
         else:
             return [op]
 
-    def replace_setfield(self, op):
-        if not var_needsgc(op.args[2]):
-            return [op]
-        oldval = Variable()
-        oldval.concretetype = op.args[2].concretetype
-        getoldvalop = SpaceOperation("getfield", [op.args[0], op.args[1]], oldval)
-        result = [getoldvalop]
-        result.extend(self.pop_alive(oldval))
-        result.extend(self.push_alive(op.args[2]))
-        result.append(op)
-        return result
-
-    def replace_setarrayitem(self, op):
-        if not var_needsgc(op.args[2]):
-            return [op]
-        oldval = Variable()
-        oldval.concretetype = op.args[2].concretetype
-        getoldvalop = SpaceOperation("getarrayitem",
-                                     [op.args[0], op.args[1]], oldval)
-        result = [getoldvalop]
-        result.extend(self.pop_alive(oldval))
-        result.extend(self.push_alive(op.args[2]))
-        result.append(op)
-        return result
 
     def push_alive(self, var):
         if var_ispyobj(var):
@@ -205,6 +183,59 @@ class GCTransformer:
 
     # ----------------------------------------------------------------
 
+
+class RefcountingGCTransformer(GCTransformer):
+
+    gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
+
+    def __init__(self, translator):
+        super(RefcountingGCTransformer, self).__init__(translator)
+        # create incref graph
+        def incref(adr):
+            if adr:
+                gcheader = adr - RefcountingGCTransformer.gc_header_offset
+                gcheader.signed[0] = gcheader.signed[0] + 1
+        self.increfgraph = self.translator.rtyper.annotate_helper(
+            incref, [annmodel.SomeAddress()])
+        self.translator.rtyper.specialize_more_blocks()
+        self.increfptr = const_funcptr_fromgraph(self.increfgraph)
+        self.seen_graphs[self.increfgraph] = True
+        # cache graphs:
+        self.decref_graphs = {}
+        self.static_deallocator_graphs = {}
+
+    def push_alive_nopyobj(self, var):
+        adr1 = varoftype(llmemory.Address)
+        result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
+        result.append(SpaceOperation("direct_call", [self.increfptr, adr1],
+                                     varoftype(lltype.Void)))
+        return result
+
+    def replace_setfield(self, op):
+        if not var_needsgc(op.args[2]):
+            return [op]
+        oldval = Variable()
+        oldval.concretetype = op.args[2].concretetype
+        getoldvalop = SpaceOperation("getfield", [op.args[0], op.args[1]], oldval)
+        result = [getoldvalop]
+        result.extend(self.pop_alive(oldval))
+        result.extend(self.push_alive(op.args[2]))
+        result.append(op)
+        return result
+
+    def replace_setarrayitem(self, op):
+        if not var_needsgc(op.args[2]):
+            return [op]
+        oldval = Variable()
+        oldval.concretetype = op.args[2].concretetype
+        getoldvalop = SpaceOperation("getarrayitem",
+                                     [op.args[0], op.args[1]], oldval)
+        result = [getoldvalop]
+        result.extend(self.pop_alive(oldval))
+        result.extend(self.push_alive(op.args[2]))
+        result.append(op)
+        return result
+
     def _static_deallocator_body_for_type(self, v, TYPE, depth=1):
         if isinstance(TYPE, lltype.Array):
             
@@ -229,6 +260,8 @@ class GCTransformer:
             yield '    '*depth + 'pop_alive(%s)'%v
 
     def static_deallocation_graph_for_type(self, TYPE):
+        if TYPE in self.static_deallocator_graphs:
+            return self.static_deallocator_graphs[TYPE]
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -276,35 +309,49 @@ class GCTransformer:
         for block in g.iterblocks():
             opcount += len(block.operations)
         if opcount == 0:
+            self.static_deallocator_graphs[TYPE] = None
             return None
         else:
+            self.static_deallocator_graphs[TYPE] = g
             return g
+            
 
-class RefcountingGCTransformer(GCTransformer):
-
-    gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
-    
-    def push_alive_nopyobj(self, var):
-        adr1 = varoftype(llmemory.Address)
-        result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
-        adr2 = varoftype(llmemory.Address)
-        offset = rmodel.inputconst(lltype.Signed, self.gc_header_offset)
-        result.append(SpaceOperation("adr_sub", [adr1, offset], adr2))
-        zero = rmodel.inputconst(lltype.Signed, 0)
-        intconst = rmodel.inputconst(lltype.Void, int)
-        refcount = varoftype(lltype.Signed)
-        result.append(SpaceOperation("raw_load", [adr2, intconst, zero], refcount))
-        newrefcount = varoftype(lltype.Signed)
-        result.append(SpaceOperation("int_add",
-                                     [refcount, rmodel.inputconst(lltype.Signed, 1)],
-                                     newrefcount))
-        result.append(SpaceOperation("raw_store",
-                                     [adr2, intconst, zero, newrefcount],
-                                     varoftype(lltype.Void)))
-        return result
-
+    def decref_graph_for_type(self, TYPE):
+        if TYPE in self.decref_graphs:
+            return self.decref_graphs[TYPE]
+        if isinstance(TYPE, lltype.GcArray):
+            graph = self.static_deallocation_graph_for_type(TYPE)
+            def compute_destructor_ll_ops(hop):
+                assert hop.args_v[1].concretetype.TO == TYPE
+                return hop.genop("direct_call",
+                                 [const_funcptr_fromgraph(graph), hop.args_v[1]],
+                                 resulttype=lltype.Void)
+            def destructor(var):
+                pass
+            destructor.compute_ll_ops = compute_destructor_ll_ops
+            destructor.llresult = lltype.Void
+            def decref(array):
+                arrayadr = objectmodel.cast_ptr_to_adr(array)
+                gcheader = arrayadr - RefcountingGCTransformer.gc_header_offset
+                refcount = gcheader.signed[0] - 1
+                gcheader.signed[0] = refcount
+                if refcount == 0:
+                    destructor(array)
+            g = self.translator.rtyper.annotate_helper(decref, [lltype.Ptr(TYPE)])
+            self.translator.rtyper.specialize_more_blocks()
+            # the produced deallocator graph does not need to be transformed
+            self.seen_graphs[g] = True
+            self.decref_graphs[TYPE] = g
+            return g
 
 def varoftype(concretetype):
     var = Variable()
     var.concretetype = concretetype
     return var
+
+def const_funcptr_fromgraph(graph):
+    FUNC = lltype.FuncType([v.concretetype for v in graph.startblock.inputargs],
+                           graph.returnblock.inputargs[0].concretetype)
+    return rmodel.inputconst(lltype.Ptr(FUNC),
+                             lltype.functionptr(FUNC, graph.name, graph=graph))
+
