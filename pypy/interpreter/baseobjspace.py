@@ -101,7 +101,7 @@ class UnpackValueError(ValueError):
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/pypy/index.cgi?doc/objspace.html"""
+    http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
     
     full_exceptions = True  # full support for exceptions (normalization & more)
 
