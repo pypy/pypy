@@ -77,12 +77,13 @@ class PyFrame(eval.EvalFrame):
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""
-        if len(scope_w) > len(self.fastlocals_w):
+        scope_len = len(scope_w)
+        if scope_len > len(self.fastlocals_w):
             raise ValueError, "new fastscope is longer than the allocated area"
-        self.fastlocals_w[:len(scope_w)] = scope_w
-        self.init_cells(len(scope_w))
+        self.fastlocals_w[:scope_len] = scope_w
+        self.init_cells()
 
-    def init_cells(self, numvars):
+    def init_cells(self):
         """Initialize cellvars from self.fastlocals_w
         This is overridden in PyNestedScopeFrame"""
         pass

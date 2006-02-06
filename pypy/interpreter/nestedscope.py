@@ -99,25 +99,11 @@ class PyNestedScopeFrame(PyInterpFrame):
             else:
                 cell.set(w_value)
 
-    def init_cells(self, num_vars):
-        if self.pycode.co_cellvars:
-            # the first few cell vars could shadow already-set arguments,
-            # in the same order as they appear in co_varnames
-            code     = self.pycode
-            argvars  = code.co_varnames
-            cellvars = code.co_cellvars
-            next     = 0
-            nextname = cellvars[0]
-            for i in range(num_vars):
-                if argvars[i] == nextname:
-                    # argument i has the same name as the next cell var
-                    w_value = self.fastlocals_w[i]
-                    self.cells[next] = Cell(w_value)
-                    next += 1
-                    try:
-                        nextname = cellvars[next]
-                    except IndexError:
-                        break   # all cell vars initialized this way
+    def init_cells(self):
+        args_to_copy = self.pycode._args_as_cellvars
+        for i in range(len(args_to_copy)):
+            argnum = args_to_copy[i]
+            self.cells[i] = Cell(self.fastlocals_w[argnum])
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars

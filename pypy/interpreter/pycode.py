@@ -107,6 +107,31 @@ class PyCode(eval.Code):
         self.magic = magic
         self._compute_fastcall()
         self._signature = cpython_code_signature(self)
+        # Precompute what arguments need to be copied into cellvars
+        self._args_as_cellvars = []
+        
+        if self.co_cellvars:
+            argcount = self.co_argcount
+            assert argcount >= 0     # annotator hint
+            if self.co_flags & CO_VARARGS:
+                argcount += 1
+            if self.co_flags & CO_VARKEYWORDS:
+                argcount += 1
+            # the first few cell vars could shadow already-set arguments,
+            # in the same order as they appear in co_varnames
+            argvars  = self.co_varnames
+            cellvars = self.co_cellvars
+            next     = 0
+            nextname = cellvars[0]
+            for i in range(argcount):
+                if argvars[i] == nextname:
+                    # argument i has the same name as the next cell var
+                    self._args_as_cellvars.append(i)
+                    next += 1
+                    try:
+                        nextname = cellvars[next]
+                    except IndexError:
+                        break   # all cell vars initialized this way
 
     def signature(self):
         return self._signature
@@ -223,7 +248,7 @@ class PyCode(eval.Code):
         # speed hack
         args_matched = args.parse_into_scope(frame.fastlocals_w, func.name,
                                              sig, func.defs_w)
-        frame.init_cells(args_matched)
+        frame.init_cells()
         return frame.run()
 
     def create_frame(self, space, w_globals, closure=None):
@@ -239,8 +264,6 @@ class PyCode(eval.Code):
         Frame = frame_classes[choose]
         return Frame(space, self, w_globals, closure)
 
-    signature = cpython_code_signature
-    
     def getvarnames(self):
         return self.co_varnames
 

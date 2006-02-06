@@ -142,4 +142,30 @@ def test_call_method_of_new_style_class():
     while x < n:
         x = c.my_method(x) 
 
+
+def func_with_arg_in_cellvars(x, y, z):
+    return 
+    def nested():
+        return x, y, z
+
+def func_without_arg_in_cellvars(x, y, z):
+    return 
+    i = None
+    def nested():
+        return i
+    
+def test_call_function_with_arguments_in_cellvars():
+    n = N
+    c = 0
+    while c < n:
+        func_with_arg_in_cellvars(c, n, test_call_function_with_arguments_in_cellvars)
+        c = c + 1
+
+def test_call_function_without_arguments_in_cellvars():
+    n = N
+    c = 0
+    while c < n:
+        func_without_arg_in_cellvars(c, n, test_call_function_without_arguments_in_cellvars)
+        c = c + 1
+
 #
