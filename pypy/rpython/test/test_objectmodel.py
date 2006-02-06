@@ -165,3 +165,21 @@ def test_hint():
         return x
     res = interpret(f, [])
     assert res == 5
+
+def test_cast_ptr_to_adr():
+    from pypy.rpython import objectmodel
+    from pypy.rpython.memory.test.test_llinterpsim import interpret
+    class A(object):
+        pass
+    def f(x):
+        if x:
+            a = A()
+        else:
+            a = None
+        adr_a = objectmodel.cast_ptr_to_adr(a)
+        return bool(adr_a)
+    res = interpret(f, [1])
+    assert res
+    res = interpret(f, [0])
+    assert not res
+

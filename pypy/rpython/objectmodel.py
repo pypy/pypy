@@ -45,6 +45,11 @@ def free_non_gc_object(obj):
     obj.__class__ = FREED_OBJECT
 
 
+def cast_ptr_to_adr(obj):
+    from pypy.rpython.memory.lltypesimulation import simulatorptr
+    assert isinstance(obj, simulatorptr)
+    return obj._address
+
 # __ hlinvoke XXX this doesn't seem completely the right place for this
 
 def hlinvoke(repr, llcallable, *args):

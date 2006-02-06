@@ -315,6 +315,9 @@ def robjmodel_keepalive_until_here(*args_s):
 def robjmodel_hint(s, **kwds_s):
     return s
 
+def robjmodel_cast_ptr_to_adr(s):
+    return SomeAddress()
+
 def rstack_yield_current_frame_to_caller():
     return SomeExternalObject(pypy.rpython.rstack.frame_stack_top)
     
@@ -360,6 +363,7 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hint] = robjmodel_hint
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.cast_ptr_to_adr] = robjmodel_cast_ptr_to_adr
 BUILTIN_ANALYZERS[pypy.rpython.rstack.yield_current_frame_to_caller] = (
     rstack_yield_current_frame_to_caller)
 

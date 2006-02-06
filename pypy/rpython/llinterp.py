@@ -3,7 +3,7 @@ from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ul
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.objectmodel import FREED_OBJECT
+from pypy.rpython import objectmodel
 
 import sys
 import math
@@ -428,6 +428,10 @@ class LLFrame(object):
         assert isinstance(self.llt.typeOf(ptr1).TO, (self.llt.Array,
                                                      self.llt.Struct))
         return self.llt.cast_ptr_to_int(ptr1)
+
+    def op_cast_ptr_to_adr(self, ptr):
+        assert isinstance(ptr, self.llt._ptr)
+        return objectmodel.cast_ptr_to_adr(ptr)
 
     def op_cast_int_to_float(self, i):
         assert type(i) is int

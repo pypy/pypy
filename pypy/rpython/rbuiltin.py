@@ -436,3 +436,11 @@ def rtype_hint(hop, **kwds_s):
     return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
 
 BUILTIN_TYPER[objectmodel.hint] = rtype_hint
+
+def rtype_cast_ptr_to_adr(hop):
+    vlist = hop.inputargs(hop.args_r[0])
+    assert isinstance(vlist[0].concretetype, lltype.Ptr)
+    return hop.genop('cast_ptr_to_adr', vlist,
+                     resulttype = llmemory.Address)
+
+BUILTIN_TYPER[objectmodel.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
