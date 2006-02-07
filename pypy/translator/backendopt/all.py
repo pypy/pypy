@@ -9,7 +9,7 @@ from pypy.translator import simplify
 from pypy.translator.backendopt.escape import malloc_to_stack
 
 
-def backend_optimizations(translator, raisingop2direct_call_all=True,
+def backend_optimizations(translator, raisingop2direct_call_all=False,
                                       inline_threshold=1,
                                       mallocs=True,
                                       ssa_form=True,
