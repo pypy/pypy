@@ -127,12 +127,36 @@ class Var(object):
 
 #-- stream stuff -----------------------------
 
-import Queue
+from Queue import Queue
 
-class Stream(Queue.Queue):
+class StreamUserBug(Exception):
+    pass
+
+class Stream(Queue):
     """a stream is potentially unbounded list
        of messages, i.e a list whose tail is
        an unbound dataflow variable
     """
 
-    
+    def __init__(self, size=5, stuff=None):
+        self.elts = stuff
+        self.idx = 0
+        Queue.__init__(self, size)
+
+    def get(self):
+        if self.elts is None:
+            Queue.get(self)
+        else:
+            try:
+                v = self.elts[self.idx]
+                self.idx += 1
+                return v
+            except IndexError:
+                self.idx = 0
+                return self.get()
+
+    def put(self, elt):
+        if self.elts is None:
+            Queue.put(self, elt)
+        else:
+            raise NoImplemented

@@ -1,10 +1,23 @@
 from threading import Thread
+import operator
 
 from py.test import raises
 
 import computationspace as space
 import variable as v
 from problems import dummy_problem
+
+#-- utilities ---------------------
+
+class FunThread(Thread):
+
+    def __init__(self, fun, *args):
+        Thread.__init__(self)
+        self.fun = fun
+        self.args = args
+
+    def run(self):
+        self.fun(self, *self.args)
 
 class Consumer(Thread):
 
@@ -21,6 +34,8 @@ class NConsumer(Thread):
 
     def run(self):
         val = [var.get() for var in self.vars]
+
+#-- meat ----------------------------
 
 class TestVariable:
 
@@ -71,16 +86,92 @@ class TestVariable:
         for i in range(10):
             assert vars_[i].val == str(i)
 
-    def test_producer_consummer_sreams(self):
+##     def test_basic_producer_consummer_sream(self):
+##         # this one is quite silly
+##         sp = space.ComputationSpace(dummy_problem)
+
+##         def generate(thread, var, n, limit):
+##             s = var.get()
+##             while n<limit:
+##                 print n
+##                 s.put(n)
+##                 n += 1
+##             s.put(None)
+        
+##         def reduc(thread, var, fun):
+##             stream = var.get()
+##             val = stream.get()
+##             while (val != None):
+##                 print val
+##                 thread.result = fun(thread.result, val)
+##                 val = stream.get()
+
+##         s = sp.var('s')
+##         s.bind(v.Stream())
+        
+##         generator = FunThread(generate, s, 1, 5)
+##         reductor = FunThread(reduc, s, operator.mul)
+##         reductor.result = 2
+
+##         generator.start()
+##         reductor.start()
+##         generator.join()
+##         reductor.join()
+
+##         print  reductor.result
+##         assert 0
+
+    def test_daisychain_stream(self):
+        # chained stupidity
         sp = space.ComputationSpace(dummy_problem)
 
-        def generate(var, n, limit):
-            if n<limit:
-                var.get().put(n)
-            else:
-                var.get().put(None)
-        
-        def reduc(var, fun, a):
-            val = var.get()
+        s1 = sp.var('s1')
+        s2 = sp.var('s2')
+
+        stream1 = v.Stream(stuff=[1, 2, 3, s2])
+        stream2 = v.Stream(stuff=[4, 5, 6, None])
+
+        s1.bind(stream1)
+        s2.bind(stream2)
+
+        def woman_in_chains(thread, stream_variable):
+            stream = stream_variable.get()
+            val = stream.get()
             while val != None:
-                pass
+                thread.result = val
+                val = stream.get()
+                if isinstance(val, v.Var):
+                    stream = val.get()
+                    val = stream.get()
+
+        woman = FunThread(woman_in_chains, s1)
+        woman.start()
+        woman.join()
+
+        assert woman.result == 6
+                
+    def test_cyclicproducer_consummer_sream(self):
+        # infinite sillyness
+        sp = space.ComputationSpace(dummy_problem)
+
+        circular = sp.var('circular')
+        s = v.Stream(stuff=[0, 1, 2, circular])
+        circular.bind(s)
+
+        def touch10(thread, stream_variable):
+            stream = stream_variable.get()
+            val = None
+            for i in range(10):
+                val = stream.get()
+                if isinstance(val, v.Var):
+                    # at stream tail is a var
+                    stream = val.get()
+                    val = stream.get()
+                assert i % 3 == val 
+            thread.result = val
+
+        toucher = FunThread(touch10, circular)
+        toucher.start()
+        toucher.join()
+
+        assert toucher.result == 0

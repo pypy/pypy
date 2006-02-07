@@ -321,7 +321,7 @@ class ComputationSpace(object):
                 elif val._is_bound(): # 2a.var is bound, not val
                     self._bind(var.val, val.val)
                 else: # 1. both are unbound
-                    self._merge(var, val)
+                    self._alias(var, val)
             else: # 3. val is really a value
                 if var._is_bound():
                     raise AlreadyBound(var.name)
@@ -342,13 +342,13 @@ class ComputationSpace(object):
                     raise OutOfDomain(var)
             var.val = val
 
-    def _merge(self, v1, v2):
+    def _alias(self, v1, v2):
         for v in v1.val:
             if not self._compatible_domains(v, v2.val):
                 raise IncompatibleDomains(v1, v2)
-        self._really_merge(v1.val, v2.val)
+        self._really_alias(v1.val, v2.val)
 
-    def _really_merge(self, eqs1, eqs2):
+    def _really_alias(self, eqs1, eqs2):
         # print "unbound variables binding : %s %s" % (eqs1, eqs2)
         if eqs1 == eqs2: return
         # merge two equisets into one
