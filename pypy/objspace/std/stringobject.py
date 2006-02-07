@@ -926,6 +926,49 @@ def ord__String(space, w_str):
 def getnewargs__String(space, w_str):
     return space.newtuple([W_StringObject(space, w_str._value)])
 
+def repr__String(space, w_str):
+    s = w_str._value
+
+    i = 0
+    buf = [' '] * (len(s) * 4 + 2) # safely overallocate
+
+    quote = "'"
+    if quote in s and '"' not in s:
+        quote = '"'
+
+    buf[i] = quote
+
+    for c in s:
+        i += 1
+        bs_char = None # character quoted by backspace
+
+        if c == '\\' or c == quote:
+            bs_char = c
+        elif c == '\t': bs_char = 't'
+        elif c == '\r': bs_char = 'r'
+        elif c == '\n': bs_char = 'n'
+        elif not '\x20' <= c < '\x7f':
+            n = ord(c)
+            buf[i] = '\\'
+            i += 1
+            buf[i] = 'x'
+            i += 1
+            buf[i] = "0123456789abcdef"[n>>4]
+            i += 1
+            buf[i] = "0123456789abcdef"[n&0xF]
+        else:
+            buf[i] = c
+
+        if bs_char is not None:
+            buf[i] = '\\'
+            i += 1
+            buf[i] = bs_char
+
+    i += 1
+    buf[i] = quote
+
+    return space.wrap("".join(buf[:i+1])) # buffer was overallocated, so slice
+
    
 app = gateway.applevel(r'''
     def str_translate__String_ANY_ANY(s, table, deletechars=''):
@@ -941,25 +984,6 @@ app = gateway.applevel(r'''
 
         L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
         return ''.join(L)
-
-    def repr__String(s):
-        quote = "'"
-        if quote in s and '"' not in s:
-            quote = '"'
-        repr = quote
-        for c in s:
-            if c == '\\' or c == quote: 
-                repr += '\\'+c
-            elif c == '\t': repr += '\\t'
-            elif c == '\r': repr += '\\r'
-            elif c == '\n': repr += '\\n'
-            elif not '\x20' <= c < '\x7f':
-                n = ord(c)
-                repr += '\\x'+"0123456789abcdef"[n>>4]+"0123456789abcdef"[n&0xF]
-            else:
-                repr += c
-        repr += quote
-        return repr
 
     def str_decode__String_ANY_ANY(str, encoding=None, errors=None):
         import codecs
@@ -1001,7 +1025,6 @@ app2 = gateway.applevel('''
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
 str_encode__String_ANY_ANY = app.interphook('str_encode__String_ANY_ANY') 
-repr__String = app.interphook('repr__String') 
 mod__String_ANY = app2.interphook('mod__String_ANY') 
 
 # register all methods
