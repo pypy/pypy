@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import Constant, Variable, Block
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.simplify import simplify_graph
+from pypy import conftest
 
 selectormap = {
     'setitem:with:': 'at:put:',
@@ -100,13 +101,14 @@ class GenSqueak:
         simplify_graph(graph)
         remove_direct_loops(t, graph)
         checkgraph(graph)
-        #self.translator.view()
+
+        if conftest.option.view:
+            self.translator.view()
 
         self.nameof(graph) #add to pending
         file = self.sqdir.join('%s.st' % graph.name).open('w')
         self.gen_source(file)
         file.close()
-        #self.translator.view()
 
 
     def gen_source(self, file):

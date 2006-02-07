@@ -2,6 +2,7 @@ import autopath
 import py, sys
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import TranslationContext
+from pypy import conftest
 
 from pypy.translator.test import snippet 
 
@@ -42,7 +43,7 @@ class TestAnnotatedTestCase:
     def getcompiled(self, func, view=False):
         t = self.annotatefunc(func)
         self.process(t)
-        if view:
+        if view or conftest.option.view:
             t.view()
         t.checkgraphs()
         return self.compilefunc(t, func)

@@ -11,6 +11,7 @@ from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.translator.tool.cbuild import enable_fast_compilation
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy import conftest
 
 # XXX this tries to make compiling faster for full-scale testing
 # XXX tcc leaves some errors undetected! Bad!
@@ -32,7 +33,7 @@ def compile(fn, argtypes, view=False):
     a = t.buildannotator()
     a.build_types(fn, argtypes)
     t.buildrtyper().specialize()
-    if view:
+    if view or conftest.option.view:
         t.view()
     backend_optimizations(t)
     db = LowLevelDatabase(t)

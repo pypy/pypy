@@ -2,6 +2,7 @@ from pypy.tool.udir import udir
 from pypy.translator.squeak.gensqueak import GenSqueak
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.ootypesystem.ootype import *
+from pypy import conftest
 
 
 def build_sqfunc(func, args=[], view=False):
@@ -10,7 +11,7 @@ def build_sqfunc(func, args=[], view=False):
    t = TranslationContext()
    t.buildannotator().build_types(func, args)
    t.buildrtyper(type_system="ootype").specialize()
-   if view:
+   if view or conftest.option.view:
       t.viewcg()
    GenSqueak(udir, t)
 
