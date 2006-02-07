@@ -373,8 +373,12 @@ def deallocator(addr):
         call_destructor_for_rtti.llresult = lltype.Void
         call_destructor_for_rtti.compute_ll_ops = call_destructor_for_rtti_compute_ops
         def dealloc(addr):
+            # bump refcount to 1
+            gcheader = addr - RefcountingGCTransformer.gc_header_offset
+            gcheader.signed[0] = 1
             v = objectmodel.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
+            gcheader.signed[0] = 0
             call_destructor_for_rtti(addr, rtti)
         g = self.translator.rtyper.annotate_helper(dealloc, [llmemory.Address])
         self.dynamic_deallocator_graphs[TYPE] = g
@@ -407,6 +411,8 @@ def deallocator(addr):
         destructor.compute_ll_ops = compute_destructor_ll_ops
         destructor.llresult = lltype.Void
         def decref(obj):
+            if not obj:
+                return
             objadr = objectmodel.cast_ptr_to_adr(obj)
             gcheader = objadr - RefcountingGCTransformer.gc_header_offset
             refcount = gcheader.signed[0] - 1
