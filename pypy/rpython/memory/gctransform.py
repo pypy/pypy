@@ -294,16 +294,6 @@ class RefcountingGCTransformer(GCTransformer):
             destrptr = None
 
         if destrptr is not None:
-            const_destrptr = Constant(destrptr)
-            const_destrptr.concretetype = lltype.typeOf(destrptr)
-            def compute_call_del_ops(hop):
-                hop.exception_is_here()
-                return hop.genop("direct_call", [const_destrptr, hop.args_v[1]],
-                                 resulttype=lltype.Void)
-            def call_del(var):
-                pass
-            call_del.compute_ll_ops = compute_call_del_ops
-            call_del.llresult = lltype.Void
             body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE, 2))
             src = """
 def deallocator(addr):
@@ -312,7 +302,7 @@ def deallocator(addr):
     # refcount is at zero, temporarily bump it to 1:
     gcheader.signed[0] = 1
     try:
-        call_del(v)
+        destrptr(v)
     except Exception:
         os.write(0, "a destructor raised an exception, ignoring it")
     refcount = gcheader.signed[0] - 1
@@ -326,9 +316,9 @@ def deallocator(addr):
             body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE))
             src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
                    body + '\n    destroy(v)\n')
-        d = {'pop_alive':pop_alive,
-             'destroy':destroy,
-             'call_del': call_del,
+        d = {'pop_alive': pop_alive,
+             'destroy': destroy,
+             'destrptr': destrptr,
              'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
              'cast_adr_to_ptr': objectmodel.cast_adr_to_ptr,
              'PTR_TYPE': lltype.Ptr(TYPE),
