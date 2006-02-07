@@ -26,7 +26,23 @@ def entry_point(argv):
     debug(str(result))
     return 0
 
+
 # _____ Define and setup target ___
 
 def target(*args):
     return entry_point, None
+
+if __name__ == '__main__':
+    from pypy.translator.interactive import Translation
+
+    t = Translation(entry_point)
+    t.view()
+    t.annotate([str])
+    t.view()
+    t.rtype(backend="c")
+    t.view()
+    t.backendopt()
+    t.view()
+    f = t.compile_c()
+    f("")
+
