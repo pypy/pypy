@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
-from pypy.rpython import rmodel, objectmodel
+from pypy.rpython import rmodel, objectmodel, rptr
 from pypy.rpython.memory import gc
 import sets
 
@@ -204,6 +204,7 @@ class RefcountingGCTransformer(GCTransformer):
         # cache graphs:
         self.decref_graphs = {}
         self.static_deallocator_graphs = {}
+        self.dynamic_deallocator_graphs = {}
 
     def push_alive_nopyobj(self, var):
         adr1 = varoftype(llmemory.Address)
@@ -350,7 +351,34 @@ def deallocator(addr):
         else:
             self.static_deallocator_graphs[TYPE] = g
             return g
-    
+
+    def dynamic_deallocation_graph_for_type(self, TYPE):
+        if TYPE in self.dynamic_deallocator_graphs:
+            return self.dynamic_deallocator_graphs[TYPE]
+
+        rtti = self.get_rtti(TYPE)
+        assert rtti is not None
+        queryptr = rtti._obj.query_funcptr
+        RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
+        QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
+        def call_destructor_for_rtti(v, rtti):
+            pass
+        def call_destructor_for_rtti_compute_ops(hop):
+            _, v_addr, v_rtti = hop.inputargs(lltype.Void, llmemory.Address, hop.args_r[2])
+            return hop.genop("gc_call_rtti_destructor", [v_addr, v_rtti],
+                             resulttype = lltype.Void) 
+        call_destructor_for_rtti.llresult = lltype.Void
+        call_destructor_for_rtti.compute_ll_ops = call_destructor_for_rtti_compute_ops
+        def dealloc(addr):
+            v = objectmodel.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
+            rtti = queryptr(v)
+            call_destructor_for_rtti(addr, rtti)
+        g = self.translator.rtyper.annotate_helper(dealloc, [llmemory.Address])
+        self.translator.rtyper.specialize_more_blocks()
+        self.dynamic_deallocator_graphs[TYPE] = g
+        self.seen_graphs[g] = True
+        return g
+
     def decref_graph_for_type(self, TYPE):
         if TYPE in self.decref_graphs:
             return self.decref_graphs[TYPE]

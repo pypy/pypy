@@ -62,7 +62,7 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
         for graph in t.graphs:
             for block in graph.iterblocks():
                 checkblock(block)
-    return t
+    return t, transformer
 
 def test_simple():
     def f():
@@ -76,7 +76,7 @@ def test_fairly_simple():
         c = C()
         c.x = 1
         return c.x
-    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(f, [], gctransform.GCTransformer)
 
 def test_return_gcpointer():
     class C:
@@ -85,7 +85,7 @@ def test_return_gcpointer():
         c = C()
         c.x = 1
         return c
-    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(f, [], gctransform.GCTransformer)
     
 def test_call_function():
     class C:
@@ -96,7 +96,7 @@ def test_call_function():
         return c
     def g():
         return f().x
-    t = rtype_and_transform(g, [], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(g, [], gctransform.GCTransformer)
     ggraph = graphof(t, g)
     for i, op in enumerate(ggraph.startblock.operations):
         if op.opname == "direct_call":
@@ -117,7 +117,7 @@ def test_multiple_exits():
         else:
             x = e
         return x
-    t = rtype_and_transform(f, [int], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(f, [int], gctransform.GCTransformer)
     fgraph = graphof(t, f)
     from pypy.translator.backendopt.ssa import SSI_to_SSA
     SSI_to_SSA(fgraph) # *cough*
@@ -150,7 +150,7 @@ def test_cleanup_vars_on_call():
         s2 = f()
         s3 = f()
         return s1
-    t = rtype_and_transform(g, [], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(g, [], gctransform.GCTransformer)
     ggraph = graphof(t, g)
     direct_calls = [op for op in ggraph.startblock.operations if op.opname == "direct_call"]
     assert len(direct_calls) == 3
@@ -171,7 +171,7 @@ def test_multiply_passed_var():
             b = lltype.malloc(S)
             b.x = 2
         return a.x + b.x
-    t = rtype_and_transform(f, [int], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(f, [int], gctransform.GCTransformer)
 
 def test_pyobj():
     def f(x):
@@ -180,7 +180,7 @@ def test_pyobj():
         else:
             a = "1"
         return int(a)
-    t = rtype_and_transform(f, [int], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(f, [int], gctransform.GCTransformer)
     fgraph = graphof(t, f)
     gcops = [op for op in fgraph.startblock.exits[0].target.operations
                  if op.opname.startswith("gc_")]
@@ -195,12 +195,12 @@ def test_pass_gc_pointer():
         s = lltype.malloc(S)
         f(s)
         return s.x
-    t = rtype_and_transform(g, [], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(g, [], gctransform.GCTransformer)
         
 def test_noconcretetype():
     def f():
         return [1][0]
-    t = rtype_and_transform(f, [], gctransform.GCTransformer, specialize=False)
+    t, transformer = rtype_and_transform(f, [], gctransform.GCTransformer, specialize=False)
     fgraph = graphof(t, f)
     push_count = 0
     pop_count = 0
@@ -224,7 +224,7 @@ def test_except_block():
             return f(a, n).x
         except ValueError:
             return 0
-    t = rtype_and_transform(g, [int], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(g, [int], gctransform.GCTransformer)
 
 def test_except_block2():
     # the difference here is that f() returns Void, not a GcStruct
@@ -240,7 +240,7 @@ def test_except_block2():
             return a.x
         except ValueError:
             return 0
-    t = rtype_and_transform(g, [int], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(g, [int], gctransform.GCTransformer)
     
 def test_no_livevars_with_exception():
     def g():
@@ -251,7 +251,7 @@ def test_no_livevars_with_exception():
         except TypeError:
             return 0
         return 1
-    t = rtype_and_transform(f, [], gctransform.GCTransformer)
+    t, transformer = rtype_and_transform(f, [], gctransform.GCTransformer)
 
 def test_refcounting_incref_simple():
     class C:
@@ -260,7 +260,7 @@ def test_refcounting_incref_simple():
         c = C()
         c.x = 1
         return c.x
-    t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
+    t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     ops = getops(graphof(t, f))
     assert len(ops['direct_call']) == 2
 
@@ -280,7 +280,7 @@ def test_simple_barrier():
         t.s = s1
         t.s = s2
         return t
-    t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
+    t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     graph = graphof(t, f)
     ops = getops(graph)
     assert len(ops['getfield']) == 2
@@ -297,7 +297,7 @@ def test_arraybarrier():
         a = lltype.malloc(A, 1)
         a[0] = s1
         a[0] = s2
-    t = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
+    t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     graph = graphof(t, f)
     ops = getops(graph)
     assert len(ops['getarrayitem']) == 2
@@ -318,11 +318,11 @@ def make_deallocator(TYPE, attr="static_deallocation_graph_for_type"):
     graph = getattr(transformer, attr)(TYPE)
     if conftest.option.view:
         t.view()
-    return graph
+    return graph, t
 
 def test_deallocator_simple():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
-    dgraph = make_deallocator(S)
+    dgraph, t = make_deallocator(S)
     ops = []
     for block in dgraph.iterblocks():
         ops.extend([op for op in block.operations if op.opname != 'same_as']) # XXX
@@ -338,7 +338,7 @@ def test_deallocator_less_simple():
         ('y', TPtr),
         ('z', TPtr),
         )
-    dgraph = make_deallocator(S)
+    dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
     assert len(ops['gc_pop_alive']) == 2
     assert len(ops['getfield']) == 2
@@ -351,7 +351,7 @@ def test_deallocator_array():
     APtr = lltype.Ptr(GcA)
     S = lltype.GcStruct('S', ('t', TPtr), ('x', lltype.Signed), ('aptr', APtr),
                              ('rest', A))
-    dgraph = make_deallocator(S)
+    dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
     assert len(ops['gc_pop_alive']) == 4
     assert len(ops['getfield']) == 4
@@ -361,7 +361,7 @@ def test_deallocator_array():
 def test_decref_array():
     TPtr = lltype.Ptr(lltype.GcStruct("T", ('a', lltype.Signed)))
     GcA = lltype.GcArray(('x', TPtr), ('y', TPtr))
-    dgraph = make_deallocator(GcA, attr="decref_graph_for_type")
+    dgraph, t = make_deallocator(GcA, attr="decref_graph_for_type")
     ops = getops(dgraph)
 
 def test_decref_struct():
@@ -371,7 +371,7 @@ def test_decref_struct():
     APtr = lltype.Ptr(GcA)
     S = lltype.GcStruct('S', ('t', TPtr), ('x', lltype.Signed), ('aptr', APtr),
                              ('rest', A))
-    dgraph = make_deallocator(S, attr="decref_graph_for_type")
+    dgraph, t = make_deallocator(S, attr="decref_graph_for_type")
     ops = getops(dgraph)
     
 
@@ -390,5 +390,27 @@ def test_deallocator_with_destructor():
                             "destructor_funcptr", 
                             _callable=f)
     pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
-    graph = make_deallocator(S)
+    graph, t = make_deallocator(S)
 
+
+def test_dynamic_deallocator():
+    class A(object):
+        pass
+    class B(A):
+        pass
+    def f(x):
+        a = A()
+        a.x = 1
+        b = B()
+        b.x = 2
+        b.y = 3
+        if x:
+            c = a
+        else:
+            c = b
+        return c.x
+    t, transformer = rtype_and_transform(f, [int], gctransform.RefcountingGCTransformer, check=False)
+    fgraph = graphof(t, f)
+    TYPE = fgraph.startblock.operations[0].result.concretetype.TO
+    graph = transformer.dynamic_deallocation_graph_for_type(TYPE)
+    
