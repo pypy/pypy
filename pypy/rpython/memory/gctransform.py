@@ -52,6 +52,13 @@ class GCTransformer(object):
         self.translator = translator
         self.seen_graphs = {}
 
+    def get_lltype_of_exception_value(self):
+        if self.translator is not None and self.translator.rtyper is not None:
+            exceptiondata = self.translator.rtyper.getexceptiondata()
+            return exceptiondata.lltype_of_exception_value
+        else:
+            return Ptr(PyObject)
+
     def transform(self, graphs):
         for graph in graphs:
             self.transform_graph(graph)
@@ -82,6 +89,11 @@ class GCTransformer(object):
                     link.prevblock.operations.extend(newops)
                 else:
                     insert_empty_block(None, link, newops)
+
+        v = Variable('vanishing_exc_value')
+        v.concretetype = self.get_lltype_of_exception_value()
+        graph.exc_cleanup = (v, self.pop_alive(v))
+                    
         if self.translator.rtyper is not None:
             self.translator.rtyper.specialize_more_blocks()
 
@@ -301,8 +313,10 @@ class RefcountingGCTransformer(GCTransformer):
         rtti = self.get_rtti(TYPE) 
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
             destrptr = rtti._obj.destructor_funcptr
+            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
         else:
             destrptr = None
+            DESTR_ARG = None
 
         if destrptr is not None:
             body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE, 2))
@@ -312,8 +326,9 @@ def deallocator(addr):
     gcheader = addr - gc_header_offset
     # refcount is at zero, temporarily bump it to 1:
     gcheader.signed[0] = 1
+    destr_v = cast_pointer(DESTR_ARG, v)
     try:
-        destrptr(v)
+        destrptr(destr_v)
     except Exception:
         os.write(0, "a destructor raised an exception, ignoring it")
     refcount = gcheader.signed[0] - 1
@@ -332,7 +347,9 @@ def deallocator(addr):
              'destrptr': destrptr,
              'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
              'cast_adr_to_ptr': objectmodel.cast_adr_to_ptr,
+             'cast_pointer': lltype.cast_pointer,
              'PTR_TYPE': lltype.Ptr(TYPE),
+             'DESTR_ARG': DESTR_ARG,
              'os': py.std.os}
         print
         print src
