@@ -70,3 +70,17 @@ class TestVariable:
             cons.join()
         for i in range(10):
             assert vars_[i].val == str(i)
+
+    def test_producer_consummer_sreams(self):
+        sp = space.ComputationSpace(dummy_problem)
+
+        def generate(var, n, limit):
+            if n<limit:
+                var.get().put(n)
+            else:
+                var.get().put(None)
+        
+        def reduc(var, fun, a):
+            val = var.get()
+            while val != None:
+                pass

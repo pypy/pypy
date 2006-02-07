@@ -30,12 +30,13 @@ class NoValue:
     pass
 
 class Var(object):
+    """Single-assignment variable"""
 
     def __init__(self, name, cs):
         if name in cs.names:
             raise AlreadyInStore(name)
         self.name = name
-        # the creation-time space
+        # the creation-time (top-level) space
         self.cs = cs
         # top-level 'commited' binding
         self._val = NoValue
@@ -46,8 +47,7 @@ class Var(object):
         self.previous = None
         self.changed = False
         # a condition variable for concurrent access
-        self.mutex = threading.Lock()
-        self.value_condition = threading.Condition(self.mutex)
+        self.value_condition = threading.Condition()
 
     # for consumption by the global cs
 
@@ -94,12 +94,13 @@ class Var(object):
     def __hash__(self):
         return self.name.__hash__()
 
-
-    def add_constraint(self, constraint):
-        self.constraints.add(constraint)
+    def bind(self, val):
+        """top-level space bind"""
+        self.cs.bind(self, val)
 
     is_bound = _is_bound
 
+    #-- domain setter/getter is per space
     def cs_set_dom(self, cs, dom):
         self._doms[cs] = dom
 
@@ -107,7 +108,7 @@ class Var(object):
         self._doms.setdefault(cs, FiniteDomain([]))
         return self._doms[cs]
 
-    #---- Concurrent public ops --------------------------
+    #-- Dataflow ops with concurrent semantics ------
     # should be used by threads that want to block on
     # unbound variables
 
@@ -122,3 +123,16 @@ class Var(object):
             return self.val
         finally:
             self.value_condition.release()
+
+
+#-- stream stuff -----------------------------
+
+import Queue
+
+class Stream(Queue.Queue):
+    """a stream is potentially unbounded list
+       of messages, i.e a list whose tail is
+       an unbound dataflow variable
+    """
+
+    
