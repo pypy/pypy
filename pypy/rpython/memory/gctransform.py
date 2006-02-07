@@ -237,6 +237,14 @@ class RefcountingGCTransformer(GCTransformer):
         result.append(op)
         return result
 
+    def get_rtti(self, TYPE):
+        if isinstance(TYPE, lltype.Struct):
+            try:
+                return lltype.getRuntimeTypeInfo(TYPE)
+            except ValueError:
+                pass
+        return None
+
     def _static_deallocator_body_for_type(self, v, TYPE, depth=1):
         if isinstance(TYPE, lltype.Array):
             
@@ -278,17 +286,11 @@ class RefcountingGCTransformer(GCTransformer):
         destroy.compute_ll_ops = compute_destroy_ll_ops
         destroy.llresult = lltype.Void
 
-        destrptr = None
-        
-        if isinstance(TYPE, lltype.Struct):
-            rtti = None
-            try:
-                rtti = lltype.getRuntimeTypeInfo(TYPE)
-            except ValueError:
-                pass
-            if rtti is not None:
-                if hasattr(rtti._obj, 'destructor_funcptr'):
-                    destrptr = rtti._obj.destructor_funcptr
+        rtti = self.get_rtti(TYPE) 
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            destrptr = rtti._obj.destructor_funcptr
+        else:
+            destrptr = None
 
         if destrptr is not None:
             const_destrptr = Constant(destrptr)
@@ -346,29 +348,20 @@ def deallocator(v):
         else:
             self.static_deallocator_graphs[TYPE] = g
             return g
-            
+    
     def decref_graph_for_type(self, TYPE):
         if TYPE in self.decref_graphs:
             return self.decref_graphs[TYPE]
-        if isinstance(TYPE, lltype.GcArray):
+        need_dynamic_destructor = False
+        rtti = self.get_rtti(TYPE)
+        if rtti is None:
             need_dynamic_destructor = False
-        if isinstance(TYPE, lltype.GcStruct):
-            rtti = None
-            try:
-                rtti = lltype.getRuntimeTypeInfo(TYPE)
-            except ValueError:
-                pass
-            if rtti is None:
-                need_dynamic_destructor = False
-            else:
-                need_dynamic_destructor = True
-        if not need_dynamic_destructor:
-            return self._decref_graph_for_type_static(TYPE)
         else:
-            return self._decref_graph_for_type_dynamic(TYPE)
-
-    def _decref_graph_for_type_static(self, TYPE):
-        graph = self.static_deallocation_graph_for_type(TYPE)
+            need_dynamic_destructor = True
+        if not need_dynamic_destructor:
+            graph = self.static_deallocation_graph_for_type(TYPE)
+        else:
+            graph = self.dynamic_deallocation_graph_for_type(TYPE)
         def compute_destructor_ll_ops(hop):
             assert hop.args_v[1].concretetype.TO == TYPE
             return hop.genop("direct_call",
@@ -391,9 +384,6 @@ def deallocator(v):
         self.seen_graphs[g] = True
         self.decref_graphs[TYPE] = g
         return g
-
-    def _decref_graph_for_type_dynamic(self, TYPE):
-        pass
 
 def varoftype(concretetype):
     var = Variable()
