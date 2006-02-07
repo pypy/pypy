@@ -365,7 +365,7 @@ def deallocator(addr):
             pass
         def call_destructor_for_rtti_compute_ops(hop):
             _, v_addr, v_rtti = hop.inputargs(lltype.Void, llmemory.Address, hop.args_r[2])
-            return hop.genop("gc_call_rtti_destructor", [v_addr, v_rtti],
+            return hop.genop("gc_call_rtti_destructor", [v_rtti, v_addr],
                              resulttype = lltype.Void) 
         call_destructor_for_rtti.llresult = lltype.Void
         call_destructor_for_rtti.compute_ll_ops = call_destructor_for_rtti_compute_ops
