@@ -213,6 +213,21 @@ class RefcountingGCTransformer(GCTransformer):
                                      varoftype(lltype.Void)))
         return result
 
+    def pop_alive(self, var, rtype=True):
+        if var_ispyobj(var):
+            return self.pop_alive_pyobj(var)
+        else:
+            return self.pop_alive_nopyobj(var, rtype)
+        
+
+    def pop_alive_nopyobj(self, var, rtype=True):
+        PTRTYPE = var.concretetype
+        decref_graph = self.decref_graph_for_type(PTRTYPE.TO, rtype)
+        FUNC = lltype.FuncType([PTRTYPE], lltype.Void)
+        const_fptr = rmodel.inputconst(
+             lltype.Ptr(FUNC), lltype.functionptr(FUNC, decref_graph.name, graph=decref_graph))
+        return [SpaceOperation("direct_call", [const_fptr, var], varoftype(lltype.Void))]
+
     def replace_setfield(self, op):
         if not var_needsgc(op.args[2]):
             return [op]
@@ -269,11 +284,11 @@ class RefcountingGCTransformer(GCTransformer):
         elif isinstance(TYPE, lltype.Ptr):
             yield '    '*depth + 'pop_alive(%s)'%v
 
-    def static_deallocation_graph_for_type(self, TYPE):
+    def static_deallocation_graph_for_type(self, TYPE, rtype=True):
         if TYPE in self.static_deallocator_graphs:
             return self.static_deallocator_graphs[TYPE]
         def compute_pop_alive_ll_ops(hop):
-            hop.llops.extend(self.pop_alive(hop.args_v[1]))
+            hop.llops.extend(self.pop_alive(hop.args_v[1], False))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
         def pop_alive(var):
             pass
@@ -327,11 +342,16 @@ def deallocator(addr):
         print src
         print
         exec src in d
+        PTRS = find_gc_ptrs_in_type(TYPE)
+        for PTR in PTRS:
+            # as a side effect the graphs are cached
+            self.static_deallocation_graph_for_type(PTR.TO, rtype=False)
         this = d['deallocator']
         g = self.translator.rtyper.annotate_helper(this, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
-        self.translator.rtyper.specialize_more_blocks()
+        if rtype:
+            self.translator.rtyper.specialize_more_blocks()
         opcount = 0
         for block in g.iterblocks():
             opcount += len(block.operations)
@@ -342,7 +362,7 @@ def deallocator(addr):
             self.static_deallocator_graphs[TYPE] = g
             return g
 
-    def dynamic_deallocation_graph_for_type(self, TYPE):
+    def dynamic_deallocation_graph_for_type(self, TYPE, rtype=True):
         if TYPE in self.dynamic_deallocator_graphs:
             return self.dynamic_deallocator_graphs[TYPE]
 
@@ -364,12 +384,13 @@ def deallocator(addr):
             rtti = queryptr(v)
             call_destructor_for_rtti(addr, rtti)
         g = self.translator.rtyper.annotate_helper(dealloc, [llmemory.Address])
-        self.translator.rtyper.specialize_more_blocks()
+        if rtype: 
+            self.translator.rtyper.specialize_more_blocks()
         self.dynamic_deallocator_graphs[TYPE] = g
         self.seen_graphs[g] = True
         return g
 
-    def decref_graph_for_type(self, TYPE):
+    def decref_graph_for_type(self, TYPE, rtype=True):
         if TYPE in self.decref_graphs:
             return self.decref_graphs[TYPE]
         need_dynamic_destructor = False
@@ -379,13 +400,16 @@ def deallocator(addr):
         else:
             need_dynamic_destructor = True
         if not need_dynamic_destructor:
-            graph = self.static_deallocation_graph_for_type(TYPE)
+            graph = self.static_deallocation_graph_for_type(TYPE, False)
         else:
-            graph = self.dynamic_deallocation_graph_for_type(TYPE)
+            graph = self.dynamic_deallocation_graph_for_type(TYPE, False)
+        FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
+        const_funcptr = rmodel.inputconst(lltype.Ptr(FUNC),
+                                 lltype.functionptr(FUNC, graph.name, graph=graph))
         def compute_destructor_ll_ops(hop):
             assert hop.args_v[1].concretetype.TO == TYPE
-            return hop.genop("direct_call",
-                             [const_funcptr_fromgraph(graph), hop.args_v[1]],
+            addr = hop.genop("cast_ptr_to_adr", [hop.args_v[1]], resulttype=llmemory.Address)
+            return hop.genop("direct_call", [const_funcptr, addr],
                              resulttype=lltype.Void)
         def destructor(var):
             pass
@@ -399,7 +423,8 @@ def deallocator(addr):
             if refcount == 0:
                 destructor(array)
         g = self.translator.rtyper.annotate_helper(decref, [lltype.Ptr(TYPE)])
-        self.translator.rtyper.specialize_more_blocks()
+        if rtype:
+            self.translator.rtyper.specialize_more_blocks()
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
         self.decref_graphs[TYPE] = g
@@ -416,3 +441,15 @@ def const_funcptr_fromgraph(graph):
     return rmodel.inputconst(lltype.Ptr(FUNC),
                              lltype.functionptr(FUNC, graph.name, graph=graph))
 
+def find_gc_ptrs_in_type(TYPE):
+    if isinstance(TYPE, lltype.Array):
+        return find_gc_ptrs_in_type(TYPE.OF)
+    elif isinstance(TYPE, lltype.Struct):
+        result = []
+        for name in TYPE._names:
+            result.extend(find_gc_ptrs_in_type(TYPE._flds[name]))
+        return result
+    elif isinstance(TYPE, lltype.Ptr) and TYPE._needsgc():
+        return [TYPE]
+    else:
+        return []

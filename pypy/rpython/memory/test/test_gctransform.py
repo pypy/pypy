@@ -262,7 +262,7 @@ def test_refcounting_incref_simple():
         return c.x
     t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     ops = getops(graphof(t, f))
-    assert len(ops['direct_call']) == 2
+    assert len(ops['direct_call']) == 4
 
   
 # ______________________________________________________________________
@@ -340,7 +340,7 @@ def test_deallocator_less_simple():
         )
     dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
-    assert len(ops['gc_pop_alive']) == 2
+    assert len(ops['direct_call']) == 2
     assert len(ops['getfield']) == 2
     assert len(ops['gc_free']) == 1
 
@@ -353,7 +353,7 @@ def test_deallocator_array():
                              ('rest', A))
     dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
-    assert len(ops['gc_pop_alive']) == 4
+    assert len(ops['direct_call']) == 4
     assert len(ops['getfield']) == 4
     assert len(ops['getarraysubstruct']) == 1
     assert len(ops['gc_free']) == 1
