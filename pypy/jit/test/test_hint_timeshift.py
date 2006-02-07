@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.hintannotator import HintAnnotator
 from pypy.jit.hintbookkeeper import HintBookkeeper
 from pypy.jit.hintmodel import *
-from pypy.jit.hintrtyper import HintTyper
+from pypy.jit.hinttimeshift import HintTimeshift
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.annotation import model as annmodel
@@ -36,29 +36,21 @@ def hannotate(func, argtypes, policy=None, annotator=False):
     else:
         return hs
 
-def test_canonical_reprs():
-    from pypy.jit import hintrconstant
-    htyper = HintTyper(None)
-    r_fixed_signed = hintrconstant.getfixedrepr(htyper, lltype.Signed)
-    assert isinstance(r_fixed_signed, hintrconstant.LLFixedConstantRepr)
-    assert r_fixed_signed.lowleveltype == lltype.Signed
-    r_fixed_signed2 = hintrconstant.getfixedrepr(htyper, lltype.Signed)
-    assert r_fixed_signed2 is r_fixed_signed
 
 def test_simple_fixed():
     def ll_function(x, y):
         return hint(x + y, concrete=True)
     hs, ha  = hannotate(ll_function, [int, int], annotator=True)
-    htyper = HintTyper(ha)
-    htyper.specialize()
+    htshift = HintTimeshift(ha)
+    htshift.timeshift()
     if conftest.option.view:
         ha.translator.view()
 
 def test_simple():
-    py.test.skip("in-progress")
+    #py.test.skip("in-progress")
     def ll_function(x, y):
         return x + y
     hs, ha  = hannotate(ll_function, [int, int], annotator=True)
-    htyper = HintTyper(ha)
-    htyper.specialize()
+    htshift = HintTimeshift(ha)
+    htshift.timeshift()
 
