@@ -316,6 +316,7 @@ def make_deallocator(TYPE, attr="static_deallocation_graph_for_type"):
     t.buildrtyper().specialize(t)
     transformer = gctransform.RefcountingGCTransformer(t)
     graph = getattr(transformer, attr)(TYPE)
+    t.rtyper.specialize_more_blocks()
     if conftest.option.view:
         t.view()
     return graph, t
@@ -413,4 +414,4 @@ def test_dynamic_deallocator():
     fgraph = graphof(t, f)
     TYPE = fgraph.startblock.operations[0].result.concretetype.TO
     graph = transformer.dynamic_deallocation_graph_for_type(TYPE)
-    
+    t.rtyper.specialize_more_blocks() 
