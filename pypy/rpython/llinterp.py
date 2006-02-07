@@ -236,7 +236,7 @@ class LLFrame(object):
             assert isinstance(operation.args[0], Variable)
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
-        if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast']:
+        if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast', 'cast_adr_to_ptr']:
             vals.insert(0, operation.result.concretetype)
         retval = ophandler(*vals)
         self.setvar(operation.result, retval)
@@ -432,6 +432,10 @@ class LLFrame(object):
     def op_cast_ptr_to_adr(self, ptr):
         assert isinstance(ptr, self.llt._ptr)
         return objectmodel.cast_ptr_to_adr(ptr)
+
+    def op_cast_adr_to_ptr(self, TYPE, adr):
+        assert self.llt.typeOf(adr) == llmemory.Address
+        return objectmodel.cast_adr_to_ptr(adr, TYPE)
 
     def op_cast_int_to_float(self, i):
         assert type(i) is int

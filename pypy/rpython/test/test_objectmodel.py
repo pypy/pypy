@@ -183,3 +183,16 @@ def test_cast_ptr_to_adr():
     res = interpret(f, [0])
     assert not res
 
+def test_cast_adr_to_ptr():
+    from pypy.rpython import objectmodel
+    from pypy.rpython.memory.test.test_llinterpsim import interpret
+    from pypy.rpython.lltypesystem import lltype
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    Sptr = lltype.Ptr(S)
+    def f():
+        s1 = lltype.malloc(S)
+        adr = objectmodel.cast_ptr_to_adr(s1)
+        s2 = objectmodel.cast_adr_to_ptr(adr, Sptr)
+        return s1 == s2
+    res = interpret(f, [])
+    assert res

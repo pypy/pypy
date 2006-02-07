@@ -52,6 +52,10 @@ def cast_ptr_to_adr(obj):
     assert isinstance(obj, simulatorptr)
     return obj._address
 
+def cast_adr_to_ptr(adr, EXPECTED_TYPE):
+    from pypy.rpython.memory.lltypesimulation import simulatorptr
+    return simulatorptr(EXPECTED_TYPE, adr)
+   
 # __ hlinvoke XXX this doesn't seem completely the right place for this
 
 def hlinvoke(repr, llcallable, *args):
