@@ -249,7 +249,7 @@ class RefcountingGCTransformer(GCTransformer):
         return result
 
     def get_rtti(self, TYPE):
-        if isinstance(TYPE, lltype.Struct):
+        if isinstance(TYPE, lltype.GcStruct):
             try:
                 return lltype.getRuntimeTypeInfo(TYPE)
             except ValueError:
