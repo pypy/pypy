@@ -305,8 +305,8 @@ class RefcountingGCTransformer(GCTransformer):
             call_del.llresult = lltype.Void
             body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE, 2))
             src = """
-def deallocator(v):
-    addr = cast_obj_to_adr(v)
+def deallocator(addr):
+    v = cast_adr_to_ptr(addr, PTR_TYPE)
     gcheader = addr - gc_header_offset
     # refcount is at zero, temporarily bump it to 1:
     gcheader.signed[0] = 1
@@ -323,19 +323,21 @@ def deallocator(v):
         else:
             call_del = None
             body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE))
-            src = 'def deallocator(v):\n' + body + '\n    destroy(v)\n'
+            src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
+                   body + '\n    destroy(v)\n')
         d = {'pop_alive':pop_alive,
              'destroy':destroy,
              'call_del': call_del,
              'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
-             'cast_obj_to_adr': objectmodel.cast_ptr_to_adr,
+             'cast_adr_to_ptr': objectmodel.cast_adr_to_ptr,
+             'PTR_TYPE': lltype.Ptr(TYPE),
              'os': py.std.os}
         print
         print src
         print
         exec src in d
         this = d['deallocator']
-        g = self.translator.rtyper.annotate_helper(this, [lltype.Ptr(TYPE)])
+        g = self.translator.rtyper.annotate_helper(this, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
         self.translator.rtyper.specialize_more_blocks()
