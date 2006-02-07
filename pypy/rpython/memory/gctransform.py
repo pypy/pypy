@@ -57,7 +57,7 @@ class GCTransformer(object):
             exceptiondata = self.translator.rtyper.getexceptiondata()
             return exceptiondata.lltype_of_exception_value
         else:
-            return Ptr(PyObject)
+            return lltype.Ptr(lltype.PyObject)
 
     def transform(self, graphs):
         for graph in graphs:
@@ -210,11 +210,12 @@ class RefcountingGCTransformer(GCTransformer):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
-        self.increfgraph = self.translator.rtyper.annotate_helper(
-            incref, [annmodel.SomeAddress()])
-        self.translator.rtyper.specialize_more_blocks()
-        self.increfptr = const_funcptr_fromgraph(self.increfgraph)
-        self.seen_graphs[self.increfgraph] = True
+        if self.translator.rtyper is not None:
+            self.increfgraph = self.translator.rtyper.annotate_helper(
+                incref, [annmodel.SomeAddress()])
+            self.translator.rtyper.specialize_more_blocks()
+            self.increfptr = const_funcptr_fromgraph(self.increfgraph)
+            self.seen_graphs[self.increfgraph] = True
         # cache graphs:
         self.decref_graphs = {}
         self.static_deallocator_graphs = {}
