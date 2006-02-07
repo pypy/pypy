@@ -406,13 +406,13 @@ def deallocator(addr):
             pass
         destructor.compute_ll_ops = compute_destructor_ll_ops
         destructor.llresult = lltype.Void
-        def decref(array):
-            arrayadr = objectmodel.cast_ptr_to_adr(array)
-            gcheader = arrayadr - RefcountingGCTransformer.gc_header_offset
+        def decref(obj):
+            objadr = objectmodel.cast_ptr_to_adr(obj)
+            gcheader = objadr - RefcountingGCTransformer.gc_header_offset
             refcount = gcheader.signed[0] - 1
             gcheader.signed[0] = refcount
             if refcount == 0:
-                destructor(array)
+                destructor(obj)
         g = self.translator.rtyper.annotate_helper(decref, [lltype.Ptr(TYPE)])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
