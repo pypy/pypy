@@ -415,3 +415,13 @@ def test_dynamic_deallocator():
     TYPE = fgraph.startblock.operations[0].result.concretetype.TO
     graph = transformer.dynamic_deallocation_graph_for_type(TYPE)
     t.rtyper.specialize_more_blocks() 
+
+def test_recursive_structure():
+    F = lltype.GcForwardReference()
+    S = lltype.GcStruct('abc', ('x', lltype.Ptr(F)))
+    F.become(S)
+    def f():
+        s1 = lltype.malloc(S)
+        s2 = lltype.malloc(S)
+        s1.x = s2
+    t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)

@@ -283,9 +283,6 @@ class RefcountingGCTransformer(GCTransformer):
         if TYPE in self.static_deallocator_graphs:
             return self.static_deallocator_graphs[TYPE]
         PTRS = find_gc_ptrs_in_type(TYPE)
-        for PTR in PTRS:
-            # as a side effect the graphs are cached
-            self.static_deallocation_graph_for_type(PTR.TO)
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -349,11 +346,14 @@ def deallocator(addr):
         for block in g.iterblocks():
             opcount += len(block.operations)
         if opcount == 0:
-            self.static_deallocator_graphs[TYPE] = None
-            return None
+            result = None
         else:
-            self.static_deallocator_graphs[TYPE] = g
-            return g
+            result = g
+        self.static_deallocator_graphs[TYPE] = result
+        for PTR in PTRS:
+            # as a side effect the graphs are cached
+            self.static_deallocation_graph_for_type(PTR.TO)
+        return result
 
     def dynamic_deallocation_graph_for_type(self, TYPE):
         if TYPE in self.dynamic_deallocator_graphs:
