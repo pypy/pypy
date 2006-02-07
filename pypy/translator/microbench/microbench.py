@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """This script computes the relative performance between python
 implementations on a set of microbenchmarks. The script usally is started

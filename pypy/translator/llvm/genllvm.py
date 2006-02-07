@@ -16,6 +16,7 @@ from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.llvm.log import log
+from pypy import conftest
 
 class GenLLVM(object):
 
@@ -312,7 +313,7 @@ def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
                               propagate=False)
 
     # note: this is without policy transforms
-    if view:
+    if view or conftest.option.view:
         t.view()
     return genllvm(t, function, optimize=optimize, **kwds)
 

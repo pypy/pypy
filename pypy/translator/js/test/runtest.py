@@ -5,6 +5,7 @@ from pypy.translator.js.js import JS
 from pypy.translator.js.test.browsertest import jstest
 from pypy.translator.js import conftest
 from pypy.translator.js.log import log
+from pypy.conftest import option
 log = log.runtest
 use_browsertest = conftest.option.jsbrowser
 
@@ -27,7 +28,7 @@ class compile_function(object):
 
         backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0, mallocs=False)
         #backend_optimizations(t)
-        if view:
+        if view or option.view:
             t.view()
         #self.js = JS(t, [function, callback_function], stackless)
         self.js = JS(t, [function], stackless)

@@ -274,17 +274,28 @@ class OpWriter(object):
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
         t        = str(op.args[0]).split()
-        if t[0].endswith('Array'):  #XXX ouch do I really want to go down this road
+        if isinstance(arg_type, lltype.Array):
             type_ = '[];'
         else:
-            type_ = '{};'
-        #XXX this should be done correctly for all types offcourse!
-        if type_ == '{}' and t[1] == 'rpy_string':
-            self.codewriter.append(targetvar + ' = {hash:0, chars:""};')
-        else:
-            self.codewriter.comment(str(arg_type))
-            self.codewriter.comment(str(op.args[0]))
-            self.codewriter.malloc(targetvar, type_)
+            assert isinstance(arg_type, lltype.Struct)
+            type_ = '{'
+            for n, name in enumerate(arg_type._names_without_voids()):
+                if n > 0:
+                    type_ += ', '
+                t = arg_type._flds[name]
+                type_ += self.db.namespace.ensure_non_reserved(name) + ':'
+                if t is lltype.Void:
+                    type_ += 'undefined'
+                elif t is lltype.Bool:
+                    type_ += 'false'
+                elif t is lltype.Char:
+                    type_ += 'String.fromCharCode(0)'
+                elif t is lltype.Float:
+                    type_ += '0.0'
+                else:
+                    type_ += '0'
+            type_ += '};'
+        self.codewriter.malloc(targetvar, type_)
     malloc_exception = malloc
     malloc_varsize = malloc
 
