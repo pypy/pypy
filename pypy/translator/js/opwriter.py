@@ -270,6 +270,32 @@ class OpWriter(object):
 
         self.codewriter.call(targetvar, functionref, argrefs, no_exception, exceptions)
 
+    def _type_repr(self, arg_type):
+        type_ = ''
+        for n, name in enumerate(arg_type._names_without_voids()):
+            if n > 0:
+                type_ += ', '
+            t = arg_type._flds[name]
+            type_ += self.db.namespace.ensure_non_reserved(name) + ':'
+            if t is lltype.Void:
+                type_ += 'undefined'
+            elif t is lltype.Bool:
+                type_ += 'false'
+            elif t is lltype.Char:
+                type_ += 'String.fromCharCode(0)'
+            elif t is lltype.Float:
+                type_ += '0.0'
+            elif isinstance(t, lltype.Array):
+                if t.OF is lltype.Char:
+                    type_ += '""'
+                else:
+                    type_ += '[]'
+            elif isinstance(t, lltype.Struct):
+                type_ += '{' + self._type_repr(t) + '}' #recurse
+            else:   #XXX 'null' for Ptr's?
+                type_ += '0'
+        return type_
+
     def malloc(self, op): 
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
@@ -278,23 +304,8 @@ class OpWriter(object):
             type_ = '[];'
         else:
             assert isinstance(arg_type, lltype.Struct)
-            type_ = '{'
-            for n, name in enumerate(arg_type._names_without_voids()):
-                if n > 0:
-                    type_ += ', '
-                t = arg_type._flds[name]
-                type_ += self.db.namespace.ensure_non_reserved(name) + ':'
-                if t is lltype.Void:
-                    type_ += 'undefined'
-                elif t is lltype.Bool:
-                    type_ += 'false'
-                elif t is lltype.Char:
-                    type_ += 'String.fromCharCode(0)'
-                elif t is lltype.Float:
-                    type_ += '0.0'
-                else:
-                    type_ += '0'
-            type_ += '};'
+            self.codewriter.comment(str(arg_type))
+            type_ = '{' + self._type_repr(arg_type) + '};'
         self.codewriter.malloc(targetvar, type_)
     malloc_exception = malloc
     malloc_varsize = malloc

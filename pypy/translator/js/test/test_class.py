@@ -22,7 +22,7 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple2, [int])
         assert f(2) == 10
 
-    def DONTtest_inherit1(self):    #issue with empty object mallocs
+    def DONTtest_inherit1(self):    #issue unknown
         f = compile_function(llvmsnippet.class_inherit1, [])
         assert f() == 11
 

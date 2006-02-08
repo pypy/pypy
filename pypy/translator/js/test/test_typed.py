@@ -253,7 +253,7 @@ def DONTtest_stringformatting():    #issue also blocked block
     f = compile_function(wrapper, [int])
     assert f(42)
 
-def DONTtest_str2int(): #issue with empty Object malloc
+def test_str2int():
     def fn(i):
         return str(i)
     def wrapper(i):

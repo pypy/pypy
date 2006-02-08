@@ -110,9 +110,11 @@ class CodeWriter(object):
                 src = 'true'
             elif src == 'None':
                 src = 'undefined'
+            if src.startswith('last_exc_value_'):
+                src = 'e'   #i.e. the caught exception
             if dest != src and not dest.startswith('etype_'):
-                if dest.startswith('evalue_') and src.startswith('last_exc_value_'):
-                    src = 'e'   #i.e. the caught exception
+                #if dest.startswith('evalue_') and src.startswith('last_exc_value_'):
+                #    src = 'e'   #i.e. the caught exception 
                 self.append('%s = %s' % (dest, src))
 
     def br_uncond(self, blocknum, exit): 
@@ -262,7 +264,7 @@ class CodeWriter(object):
                     matcher   = 'if (%s(e.typeptr, %s) == true) ' % (exception_match, exception_node.ref)
                 self.append('%s%s{' % (else_, matcher))
                 self.indent_more()
-                self._phi(exit)
+                self._phi(exit) #ERIC
                 self._goto_block(exception_target)
                 self.indent_less()
                 self.append('}')

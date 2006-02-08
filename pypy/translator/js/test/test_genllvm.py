@@ -363,7 +363,7 @@ def test_dict_creation():
     f = compile_function(createdict, [int, int])
     assert f(0,1) == createdict(0,1)
 
-def DONTtest_closure():     #issue empty malloc?
+def DONTtest_closure():     #issue typeptr not initialized?
     class A:
         def set(self, x):
             self.x = x

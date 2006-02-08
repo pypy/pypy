@@ -68,5 +68,8 @@ class compile_function(object):
             res = (1e300 * 1e300) / (1e300 * 1e300)
         else:
             log('javascript result:', s)
-            res = eval(s)
+            try:
+                res = eval(s)
+            except:
+                res = str(s)
         return res
