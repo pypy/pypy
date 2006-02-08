@@ -88,10 +88,11 @@ def GC_get_heap_size_wrapper():
                 exc_flag=False):
         """ assumes malloc of word size """
         # XXX Boehm aligns on 8 byte boundaries
-    	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
-            boundary_size = 8
-	else:
-            boundary_size = 0
+    	#if sys.platform == 'linux2' and sys.maxint == 2**63-1:
+        #    boundary_size = 8
+	#else:
+        #    boundary_size = 0
+        boundary_size = 0
 
         word = self.db.get_machine_word()
         uword = self.db.get_machine_uword()

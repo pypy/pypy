@@ -84,13 +84,13 @@ if maxint != 2**31-1:
     extfunctions += """
 internal fastcc void %pypy_ll_raise_OSError__Signed(int %errno_0) {
     %tmp = cast int %errno_0 to long
-    call void %pypy_ll_raise_OSError__Signed(long %tmp)
+    call fastcc void %pypy_ll_raise_OSError__Signed(long %tmp)
     ret void
 }
 
 internal fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, int %index_0, %RPyString* %newstring_0) {
     %index_0_long = cast int %index_0 to long
-    call void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, long %index_0_long, %RPyString* %newstring_0)
+    call fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %l_1, long %index_0_long, %RPyString* %newstring_0)
     ret void
 }
 
@@ -101,7 +101,7 @@ extfunctions_standalone = """
 if maxint != 2**31-1:
     extfunctions_standalone += """
 internal fastcc int %pypy_entry_point(%RPyListOfString* %argv) {
-    %result = call long %pypy_entry_point(%RPyListOfString* %argv)
+    %result = call fastcc long %pypy_entry_point(%RPyListOfString* %argv)
     %tmp = cast long %result to int
     ret int %tmp
 }

@@ -22,6 +22,7 @@ ext_func_sigs = {
 
 if maxint != 2**31-1:
     ext_func_sigs["%LL_os_write"] = ExtFuncSig(None, ["int", None])
+    ext_func_sigs["%LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
 
 class ExternalFuncNode(ConstantLLVMNode):
 
@@ -94,7 +95,6 @@ class ExternalFuncNode(ConstantLLVMNode):
         arg_desription = ", ".join([
             "%s %s" % (typ_, name)
             for typ_, name in zip(argtypes, argrefs)])
-        
         open_decl = "%s %s(%s)" % (rettype, self.ref, arg_desription)
         codewriter.openfunc(open_decl)
         

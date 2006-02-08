@@ -1,4 +1,4 @@
-
+import sys
 import py
 
 from pypy.rpython.lltypesystem import lltype
@@ -213,6 +213,8 @@ def test_struct_opaque():
 
 def test_floats():  #note: this is known to fail with llvm1.6 and llvm1.7cvs when not using gcc
     " test pbc of floats "
+    if sys.maxint != 2**31-1:
+        py.test.skip("WIP on 64 bit architectures")
     F = lltype.GcStruct("f",
                         ('f1', lltype.Float),
                         ('f2', lltype.Float),
