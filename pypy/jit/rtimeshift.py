@@ -20,3 +20,13 @@ def ll_generate_operation(jitstate, opname, args, RESULTTYPE):
     box = lltype.malloc(REDBOX)
     box.genvar = gvar
     return box
+
+def ll_setup_jitstate():
+    jitstate = lltype.malloc(STATE)
+    jitstate.curblock = rgenop.newblock()
+    return jitstate
+
+def ll_input_redbox(jitstate, TYPE):
+    box = lltype.malloc(REDBOX)
+    box.genvar = rgenop.geninputarg(jitstate.curblock, TYPE)
+    return box

@@ -24,35 +24,26 @@ class HintTimeshift(object):
     def __init__(self, hannotator, rtyper):
         self.hannotator = hannotator
         self.rtyper = rtyper
+        self.varcolor = {}
+        self.varconcretetype = {}
 
     def timeshift(self):
         for graph in self.hannotator.translator.graphs:
             self.timeshift_graph(graph)
+        # RType the helpers found during timeshifting
+        self.rtyper.specialize_more_blocks()
 
     def timeshift_graph(self, graph):
         for block in graph.iterblocks():
             self.timeshift_block(block)
 
     def timeshift_block(self, block):
-        if not block.exits:   # ignore return/except blocks
-            return  # XXX for now
+        for inputarg in block.inputargs:
+            self.introduce_var(inputarg)
+        if not block.exits:
+            return    # nothing else to do
         self.jitstate = flowmodel.Variable('jitstate')
         self.jitstate.concretetype = STATE_PTR
-
-        self.varcolor = {}
-        self.varconcretetype = {}
-
-        def introduce_var(v):
-            self.varconcretetype[v] = v.concretetype
-            if self.is_green(v):
-                color = "green"
-            else:
-                color = "red"
-                v.concretetype = REDBOX_PTR
-            self.varcolor[v] = color
-
-        for inputarg in block.inputargs:
-            introduce_var(inputarg)
 
         # look for "red" operations
         newops = LowLevelOpList(self.rtyper)
@@ -61,7 +52,7 @@ class HintTimeshift(object):
             for arg in op.args:
                 if self.varcolor.get(arg, "green") != "green":
                     green = False
-            introduce_var(op.result)
+            self.introduce_var(op.result)
             if green and self.varcolor[op.result] == "green":
                 # XXX check for side effect ops
                 newops.append(op)
@@ -74,7 +65,8 @@ class HintTimeshift(object):
         # pass 'jitstate' as an extra argument around the whole graph
         block.inputargs.insert(0, self.jitstate)
         for link in block.exits:
-            link.args.insert(0, self.jitstate)
+            if link.target.exits:  # not if going to the return/except block
+                link.args.insert(0, self.jitstate)
 
     def timeshift_op(self, op, newops):
         handler = getattr(self, 'tshift_' + op.opname, self.default_tshift)
@@ -83,6 +75,15 @@ class HintTimeshift(object):
             assert v_res.concretetype == op.result.concretetype
             op1 = flowmodel.SpaceOperation('same_as', [v_res], op.result)
             newops.append(op1)
+
+    def introduce_var(self, v):
+        self.varconcretetype[v] = v.concretetype
+        if self.is_green(v):
+            color = "green"
+        else:
+            color = "red"
+            v.concretetype = REDBOX_PTR
+        self.varcolor[v] = color
 
     def is_green(self, var):
         hs_var = self.hannotator.binding(var)
