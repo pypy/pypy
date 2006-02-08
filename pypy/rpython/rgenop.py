@@ -188,17 +188,18 @@ def runblock(blockcontainer, args):
 from pypy.rpython.extfunctable import declaretype, declareptrtype, declare
 
 blocktypeinfo = declaretype(flowmodel.Block, "Block")
-vartypeinfo   = declareptrtype(flowmodel.Variable, "VarOrConst")
-consttypeinfo = declareptrtype(flowmodel.Constant, "VarOrConst")
-consttypeinfo.set_lltype(vartypeinfo.get_lltype())   # force same lltype
+consttypeinfo = declareptrtype(flowmodel.Constant, "ConstOrVar")
+vartypeinfo   = declareptrtype(flowmodel.Variable, "ConstOrVar")
+vartypeinfo.set_lltype(consttypeinfo.get_lltype())   # force same lltype
 linktypeinfo  = declareptrtype(flowmodel.Link, "Link")
 
-CONSTORVAR = consttypeinfo.get_lltype()
+CONSTORVAR = lltype.Ptr(consttypeinfo.get_lltype())
 BLOCKCONTAINERTYPE = blocktypeinfo.get_lltype()
-LINKTYPE = linktypeinfo.get_lltype()
+BLOCK = lltype.Ptr(BLOCKCONTAINERTYPE)
+LINK = lltype.Ptr(linktypeinfo.get_lltype())
 
 fieldnames = ['item%d' % i for i in range(2)]
-lltypes = [lltype.Ptr(LINKTYPE)]*2
+lltypes = [LINK]*2
 fields = tuple(zip(fieldnames, lltypes))    
 LINKPAIR = lltype.GcStruct('tuple2', *fields)
 
@@ -219,8 +220,8 @@ def setspecialize(func):
 # annotations
 from pypy.annotation import model as annmodel
 
-s_ConstOrVar = annmodel.SomeExternalObject(flowmodel.Variable)
-s_Link = annmodel.SomeExternalObject(flowmodel.Link)
+s_ConstOrVar = annmodel.SomePtr(CONSTORVAR)#annmodel.SomeExternalObject(flowmodel.Variable)
+s_Link = annmodel.SomePtr(LINK)#annmodel.SomeExternalObject(flowmodel.Link)
 s_LinkPair = annmodel.SomePtr(lltype.Ptr(LINKPAIR))
 
 setannotation(initblock, None)

@@ -14,7 +14,7 @@ from pypy import conftest
 P_OOPSPEC = AnnotatorPolicy()
 P_OOPSPEC.oopspec = True
 
-def hannotate(func, argtypes, policy=None, annotator=False):
+def hannotate(func, argtypes, policy=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -31,17 +31,14 @@ def hannotate(func, argtypes, policy=None, annotator=False):
     t = hannotator.translator
     if conftest.option.view:
         t.view()
-    if annotator:
-        return hs, hannotator
-    else:
-        return hs
+    return hs, hannotator, rtyper
 
 
 def test_simple_fixed():
     def ll_function(x, y):
         return hint(x + y, concrete=True)
-    hs, ha  = hannotate(ll_function, [int, int], annotator=True)
-    htshift = HintTimeshift(ha)
+    hs, ha, rtyper = hannotate(ll_function, [int, int])
+    htshift = HintTimeshift(ha, rtyper)
     htshift.timeshift()
     if conftest.option.view:
         ha.translator.view()
@@ -50,7 +47,7 @@ def test_simple():
     #py.test.skip("in-progress")
     def ll_function(x, y):
         return x + y
-    hs, ha  = hannotate(ll_function, [int, int], annotator=True)
-    htshift = HintTimeshift(ha)
+    hs, ha, rtyper = hannotate(ll_function, [int, int])
+    htshift = HintTimeshift(ha, rtyper)
     htshift.timeshift()
 
