@@ -58,7 +58,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    def x_test_div(self):
+    def test_div(self):
         import helper as h
         simple_real = [float(i) for i in xrange(-5, 6)]
         simple_complex = [complex(x, y) for x in simple_real for y in simple_real]
@@ -282,25 +282,26 @@ class AppTestAppComplexTest:
             x /= 3.0    # now check against floating point
             h.assertEqual(hash(x), hash(complex(x, 0.)))
 
-    def x_test_abs(self):
+    def test_abs(self):
         import helper as h
         nums = [complex(x/3., y/7.) for x in xrange(-9,9) for y in xrange(-9,9)]
         for num in nums:
-            self.assertAlmostEqual((num.real**2 + num.imag**2)  ** 0.5, abs(num))
+            h.assertAlmostEqual((num.real**2 + num.imag**2)  ** 0.5, abs(num))
 
-    def x_test_repr(self):
+    def test_repr(self):
         import helper as h
-        self.assertEqual(repr(1+6j), '(1+6j)')
-        self.assertEqual(repr(1-6j), '(1-6j)')
+        h.assertEqual(repr(1+6j), '(1+6j)')
+        h.assertEqual(repr(1-6j), '(1-6j)')
 
-        self.assertNotEqual(repr(-(1+0j)), '(-1+-0j)')
+        h.assertNotEqual(repr(-(1+0j)), '(-1+-0j)')
 
-    def x_test_neg(self):
+    def test_neg(self):
         import helper as h
-        self.assertEqual(-(1+6j), -1-6j)
+        h.assertEqual(-(1+6j), -1-6j)
 
     def x_test_file(self):
         import helper as h
+        import os
         a = 3.33+4.43j
         b = 5.1+2.3j
 
@@ -310,7 +311,7 @@ class AppTestAppComplexTest:
             print >>fo, a, b
             fo.close()
             fo = open(test_support.TESTFN, "rb")
-            self.assertEqual(fo.read(), "%s %s\n" % (a, b))
+            h.assertEqual(fo.read(), "%s %s\n" % (a, b))
         finally:
             if (fo is not None) and (not fo.closed):
                 fo.close()

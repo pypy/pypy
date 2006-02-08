@@ -9,33 +9,80 @@ ERR_WRONG_SECOND = "complex() can't take second arg if first is a string"
 ERR_MALFORMED = "complex() arg is a malformed string"
 
 def _split_complex(s):
-    s = s.replace(' ','')
     slen = len(s)
-    realnum = '0.0'
-    imagnum = '0.0'
-    pc = ''
+    if slen == 0:
+        raise ValueError('complex() arg is a malformed string')
+    realstart = 0
+    realstop = 0
+    imagstart = 0
+    imagstop = 0
+    imagsign = ' '
     i = 0
-    bp = 0
-    while i < slen:
-        c = s[i]
-        if c in ('+','-') and pc not in ('e','E'):
-            bp = i
-            break
-        pc = c
+    # ignore whitespace
+    while i < slen and s[i] == ' ':
         i += 1
-    if bp:
-        if s[-1] not in ['j','J']:
-            raise ValueError('complex() arg is a malformed string')
-        realnum = s[:bp]
-        imagnum = s[bp+1:-1]
-    else:
-        if s[-1] in ['j','J']:
-            imagnum = s[:-1]
+
+    # extract first number
+    realstart = i
+    pc = s[i]
+    while i < slen and s[i] != ' ': 
+        if s[i] in ('+','-') and pc not in ('e','E') and i != realstart:
+            break
+        pc = s[i]
+        i += 1
+
+    realstop = i
+
+    # ignore whitespace
+    while i < slen and s[i] == ' ':
+        i += 1
+
+    # return appropriate strings is only one number is there
+    if i >= slen:
+        if s[realstop-1] in ('j','J'):
+            return '0.0',s[realstart:realstop - 1]
         else:
-            realnum = s
+            return s[realstart:realstop],'0.0'
 
-    return realnum, imagnum
+    # find sign for imaginary part
+    if s[i] == '-' or s[i] == '+':
+        imagsign = s[i]
+    if imagsign == ' ':
+        raise ValueError('complex() arg is a malformed string')
 
+    i+=1
+    # whitespace
+    while i < slen and s[i] == ' ':
+        i += 1
+    if i >= slen:
+        raise ValueError('complex() arg is a malformed string')
+
+    imagstart = i
+    pc = s[i]
+    while i < slen and s[i] != ' ':
+        if s[i] in ('+','-') and pc not in ('e','E'):
+            break
+        pc = s[i]
+        i += 1
+
+    imagstop = i - 1
+    if s[imagstop] not in ('j','J'):
+        raise ValueError('complex() arg is a malformed string')
+    if imagstop <= imagstart:
+        raise ValueError('complex() arg is a malformed string')
+
+    while i<slen and s[i] == ' ':
+        i += 1
+    if i <  slen:
+        raise ValueError('complex() arg is a malformed string')
+
+    realpart = s[realstart:realstop]
+    if imagsign == '-':
+        imagpart = imagsign + s[imagstart:imagstop]
+    else:
+        imagpart = s[imagstart:imagstop]
+
+    return realpart, imagpart
 
 
 def check_second_arg(space, w_c):

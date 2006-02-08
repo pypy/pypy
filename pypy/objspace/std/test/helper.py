@@ -9,6 +9,9 @@ def raises(excp, func, *args):
 def assertEqual(a, b):
     assert a == b
 
+def assertNotEqual(a, b):
+    assert a != b
+
 def assertAlmostEqual(a, b):
     if isinstance(a, complex):
         if isinstance(b, complex):
