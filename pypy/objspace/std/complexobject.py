@@ -61,7 +61,7 @@ def _quot(c1,c2):
         denom = r2 * ratio + i2
         assert i2 != 0.0
         rr = (r1 * ratio + i1) / denom
-        ir = (i1 + ratio - r1) / denom
+        ir = (i1 * ratio - r1) / denom
     return (rr,ir)
 
 def _pow(c1,c2):
