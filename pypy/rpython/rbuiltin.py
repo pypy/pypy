@@ -218,6 +218,7 @@ def rtype_OSError__init__(hop):
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
 def rtype_we_are_translated(hop):
+    hop.exception_cannot_occur()
     return hop.inputconst(lltype.Bool, True)
 
 def rtype_yield_current_frame_to_caller(hop):
