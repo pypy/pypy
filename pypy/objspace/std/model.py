@@ -18,6 +18,7 @@ class StdTypeModel:
             from pypy.objspace.std.booltype   import bool_typedef
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
+            #from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listtype   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
@@ -40,6 +41,7 @@ class StdTypeModel:
         from pypy.objspace.std import boolobject
         from pypy.objspace.std import intobject
         from pypy.objspace.std import floatobject
+        #from pypy.objspace.std import complexobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
@@ -62,6 +64,7 @@ class StdTypeModel:
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
+            #complexobject.W_ComplexObject: [],
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
             dictobject.W_DictObject: [],
@@ -94,13 +97,19 @@ class StdTypeModel:
             (intobject.W_IntObject,     boolobject.delegate_Bool2Int),
             (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
+            #(complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
         self.typeorder[intobject.W_IntObject] += [
             (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
+            #(complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         self.typeorder[longobject.W_LongObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
+            #(complexobject.W_ComplexObject, complexobject.delegate_Long2Complex),
+            ]
+        self.typeorder[floatobject.W_FloatObject] += [
+            #(complexobject.W_ComplexObject, complexobject.delegate_Float2Complex),
             ]
         self.typeorder[stringobject.W_StringObject] += [
          (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),

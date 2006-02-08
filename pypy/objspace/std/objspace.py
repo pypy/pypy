@@ -276,6 +276,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_SliceObject(self, self.wrap(x.start),
                                        self.wrap(x.stop),
                                        self.wrap(x.step))
+        # SD disable for native complex
         if isinstance(x, complex):
             # XXX is this right?   YYY no, this is wrong right now  (CT)
             # ZZZ hum, seems necessary for complex literals in co_consts (AR)
@@ -283,6 +284,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.call_function(c,
                                       self.wrap(x.real), 
                                       self.wrap(x.imag))
+
+        # SD activate for native complex
+        #if isinstance(x, complex):
+        #    return W_ComplexObject(self, x.real, x.imag)
 
         if self.options.nofaking:
             # annotation should actually not get here 
@@ -320,6 +325,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def newfloat(self, floatval):
         return W_FloatObject(self, floatval)
+
+    # SD needed for complex
+    #def newcomplex(self, realval, imagval):
+    #    return W_ComplexObject(self, realval, imagval)
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
