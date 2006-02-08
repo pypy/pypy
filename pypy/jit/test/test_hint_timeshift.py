@@ -28,26 +28,25 @@ def hannotate(func, argtypes, policy=None):
     hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
-    t = hannotator.translator
     if conftest.option.view:
-        t.view()
+        hannotator.translator.view()
     return hs, hannotator, rtyper
 
+def timeshift(ll_function, argtypes):
+    hs, ha, rtyper = hannotate(ll_function, argtypes)
+    htshift = HintTimeshift(ha, rtyper)
+    htshift.timeshift()
+    t = rtyper.annotator.translator
+    t.graphs.extend(ha.translator.graphs)
+    if conftest.option.view:
+        t.view()
 
 def test_simple_fixed():
     def ll_function(x, y):
         return hint(x + y, concrete=True)
-    hs, ha, rtyper = hannotate(ll_function, [int, int])
-    htshift = HintTimeshift(ha, rtyper)
-    htshift.timeshift()
-    if conftest.option.view:
-        ha.translator.view()
+    timeshift(ll_function, [int, int])
 
 def test_simple():
-    #py.test.skip("in-progress")
     def ll_function(x, y):
         return x + y
-    hs, ha, rtyper = hannotate(ll_function, [int, int])
-    htshift = HintTimeshift(ha, rtyper)
-    htshift.timeshift()
-
+    timeshift(ll_function, [int, int])
