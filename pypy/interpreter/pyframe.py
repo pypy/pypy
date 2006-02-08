@@ -7,6 +7,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 from pypy.rpython.rarithmetic import r_uint, intmask
 import opcode
+from pypy.rpython.objectmodel import we_are_translated
+
 
 # Define some opcodes used
 g = globals()
@@ -101,13 +103,10 @@ class PyFrame(eval.EvalFrame):
                 try:
                     try:
                         try:
-                            while True:
-                                # fetch and dispatch the next opcode
-                                # dispatch() is abstract, see pyopcode.
-                                self.last_instr = intmask(self.next_instr)
-                                executioncontext.bytecode_trace(self)
-                                self.next_instr = self.last_instr
-                                self.dispatch()
+                            if we_are_translated():
+                                self.dispatch_translated(executioncontext)
+                            else:
+                                self.dispatch(executioncontext)
                         # catch asynchronous exceptions and turn them
                         # into OperationErrors
                         except KeyboardInterrupt:
@@ -144,7 +143,8 @@ class PyFrame(eval.EvalFrame):
             # obvious reference cycle, so it helps refcounting implementations
             self.last_exception = None
             return w_exitvalue
-
+    eval.insert_stack_check_here = True
+    
     ### line numbers ###
 
     # for f*_f_* unwrapping through unwrap_spec in typedef.py

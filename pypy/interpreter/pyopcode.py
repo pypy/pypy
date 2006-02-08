@@ -13,6 +13,8 @@ from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
+from pypy.rpython.rarithmetic import intmask
+import opcode as pythonopcode # FIXME Needs to be *our* opcode module
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -48,21 +50,28 @@ class PyInterpFrame(pyframe.PyFrame):
     # Currently, they are always setup in pyopcode.py
     # but it could be a custom table.
 
-    def dispatch(self):
-        if we_are_translated():
-            self.dispatch_translated()
-        else:
-            self.dispatch_not_translated()
-
-    def dispatch_not_translated(self):
-        opcode = self.nextop()
-        if self.opcode_has_arg[opcode]:
-            fn = self.dispatch_table_w_arg[opcode]
-            oparg = self.nextarg()
-            fn(self, oparg)
-        else:
-            fn = self.dispatch_table_no_arg[opcode] 
-            fn(self)
+    def dispatch(self, ec):
+        while True:
+            self.last_instr = intmask(self.next_instr)
+            ec.bytecode_trace(self)
+            self.next_instr = self.last_instr
+            opcode = self.nextop()
+            if opcode >= pythonopcode.HAVE_ARGUMENT:
+                oparg = self.nextarg()
+                while True:
+                    if opcode == pythonopcode.EXTENDED_ARG:
+                        opcode = self.nextop()
+                        oparg = oparg<<16 | self.nextarg()
+                        if opcode < pythonopcode.HAVE_ARGUMENT:
+                            raise pyframe.BytecodeCorruption
+                        continue
+                    else:
+                        fn = self.dispatch_table_w_arg[opcode]
+                        fn(self, oparg)                    
+                    break
+            else:
+                fn = self.dispatch_table_no_arg[opcode] 
+                fn(self)
 
     def nextop(self):
         c = self.pycode.co_code[self.next_instr]
@@ -712,13 +721,13 @@ class PyInterpFrame(pyframe.PyFrame):
     def SET_LINENO(f, lineno):
         pass
 
-    def EXTENDED_ARG(f, oparg):
-        opcode = f.nextop()
-        oparg = oparg<<16 | f.nextarg()
-        fn = f.dispatch_table_w_arg[opcode]
-        if fn is None:
-            raise pyframe.BytecodeCorruption
-        fn(f, oparg)
+##     def EXTENDED_ARG(f, oparg):
+##         opcode = f.nextop()
+##         oparg = oparg<<16 | f.nextarg()
+##         fn = f.dispatch_table_w_arg[opcode]
+##         if fn is None:
+##             raise pyframe.BytecodeCorruption
+##         fn(f, oparg)
 
     def MISSING_OPCODE(f):
         ofs = f.next_instr - 1
@@ -734,6 +743,8 @@ class PyInterpFrame(pyframe.PyFrame):
         raise pyframe.BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                            (ofs, ord(c), name) )
 
+    STOP_CODE = MISSING_OPCODE
+
     ### dispatch_table ###
 
     # 'opcode_has_arg' is a class attribute: list of True/False whether opcode takes arg
@@ -744,17 +755,16 @@ class PyInterpFrame(pyframe.PyFrame):
     def __initclass__(cls):
         "NOT_RPYTHON"
         # create the 'cls.dispatch_table' attribute
-        import dis
         opcode_has_arg = []
         dispatch_table_no_arg = []
         dispatch_table_w_arg = []
         missing_opcode = cls.MISSING_OPCODE.im_func
         missing_opcode_w_arg = cls.MISSING_OPCODE_W_ARG.im_func
         for i in range(256):
-            opname = dis.opname[i].replace('+', '_')
+            opname = pythonopcode.opname[i].replace('+', '_')
             fn = getattr(cls, opname, None)
             fn = getattr(fn, 'im_func',fn)
-            has_arg = i >= dis.HAVE_ARGUMENT
+            has_arg = i >= pythonopcode.HAVE_ARGUMENT
             #if fn is missing_opcode and not opname.startswith('<') and i>0:
             #    import warnings
             #    warnings.warn("* Warning, missing opcode %s" % opname)
@@ -775,24 +785,53 @@ class PyInterpFrame(pyframe.PyFrame):
         #XXX performance hack!
         ### Create dispatch with a lot of if,elifs ###
         ### (this gets optimized for translated pypy by the merge_if_blocks transformation) ###
+        if cls.__name__ != 'PyInterpFrame':
+            return
         import py
-        dispatch_code  = 'def dispatch_translated(self):\n'
-        dispatch_code += '    opcode = self.nextop()\n'
-        n_outputed = 0
-        for i in range(256):
-            opname         = dis.opname[i].replace('+', '_')
-            if not hasattr(cls, opname):
+        
+        dispatch_code  = '''
+def dispatch_translated(self, ec):
+    while True:
+        ec.decrease_ticker_bytecode_trace()
+        if self.w_f_trace is not None:
+            self.last_instr = intmask(self.next_instr)
+            ec.do_bytecode_trace(self)
+            self.next_instr = self.last_instr
+        opcode = self.nextop()
+        if opcode >= %s:
+            oparg = self.nextarg()
+            while True:
+                if opcode == %s:
+                    opcode = self.nextop()
+                    oparg = oparg<<16 | self.nextarg()
+                    if opcode < %s:
+                        raise pyframe.BytecodeCorruption
+                    continue
+''' % (pythonopcode.HAVE_ARGUMENT,
+        pythonopcode.EXTENDED_ARG,
+        pythonopcode.HAVE_ARGUMENT)
+        for opname,i in pythonopcode.opmap.iteritems():
+            if i == pythonopcode.EXTENDED_ARG or i < pythonopcode.HAVE_ARGUMENT:
                 continue
-            dispatch_code += '    %s opcode == %d:\n' % (('if', 'elif')[n_outputed > 0], i)
-            opcode_has_arg = cls.opcode_has_arg[i]
-            dispatch_code += '        self.%s(%s)\n'  % (opname, ('', 'self.nextarg()')[opcode_has_arg])
-            n_outputed += 1
-        dispatch_code += '    else:\n'
-        dispatch_code += '        self.MISSING_OPCODE()\n'
+            opname         = opname.replace('+', '_')
+            dispatch_code += '                elif opcode == %d:\n' % i
+            dispatch_code += '                    self.%s(oparg)\n'  % opname
+        dispatch_code +=     '                else:\n'
+        dispatch_code +=     '                    self.MISSING_OPCODE_W_ARG(oparg)\n'
+        dispatch_code +=     '                break\n'
+
+        for opname,i in pythonopcode.opmap.iteritems():
+            if i >= pythonopcode.HAVE_ARGUMENT:
+                continue
+            opname         = opname.replace('+', '_')
+            dispatch_code += '        elif opcode == %d:\n' % i
+            dispatch_code += '            self.%s()\n'  % opname
+        dispatch_code +=     '        else:\n'
+        dispatch_code +=     '            self.MISSING_OPCODE()\n'
         exec py.code.Source(dispatch_code).compile()
-        cls.dispatch_translated = dispatch_translated
-        del dispatch_code, i, opcode_has_arg, opname
- 
+
+        cls.dispatch_translated = dispatch_translated        
+    
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
