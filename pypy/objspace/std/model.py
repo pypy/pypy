@@ -8,6 +8,8 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 import pypy.interpreter.pycode
 import pypy.interpreter.special
 
+WITHCOMPLEX = False
+
 class StdTypeModel:
 
     def __init__(self):
@@ -18,7 +20,8 @@ class StdTypeModel:
             from pypy.objspace.std.booltype   import bool_typedef
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
-            #from pypy.objspace.std.complextype  import complex_typedef
+            if WITHCOMPLEX:
+                from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listtype   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
@@ -41,7 +44,8 @@ class StdTypeModel:
         from pypy.objspace.std import boolobject
         from pypy.objspace.std import intobject
         from pypy.objspace.std import floatobject
-        #from pypy.objspace.std import complexobject
+        if WITHCOMPLEX:
+            from pypy.objspace.std import complexobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
@@ -81,6 +85,8 @@ class StdTypeModel:
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
+        if WITHCOMPLEX:
+            self.typeorder[complexobject.W_ComplexObject] = []
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
 
@@ -114,6 +120,19 @@ class StdTypeModel:
         self.typeorder[stringobject.W_StringObject] += [
          (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
             ]
+        if WITHCOMPLEX:
+            self.typeorder[boolobject.W_BoolObject] += [
+                (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
+                ]
+            self.typeorder[intobject.W_IntObject] += [
+                (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
+                ]
+            self.typeorder[longobject.W_LongObject] += [
+                (complexobject.W_ComplexObject, complexobject.delegate_Long2Complex),
+                ]
+            self.typeorder[floatobject.W_FloatObject] += [
+                (complexobject.W_ComplexObject, complexobject.delegate_Float2Complex),
+                ]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []

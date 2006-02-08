@@ -6,7 +6,7 @@ from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.objspace.std.model import W_Object, UnwrapError
+from pypy.objspace.std.model import W_Object, UnwrapError, WITHCOMPLEX
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
@@ -276,18 +276,23 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_SliceObject(self, self.wrap(x.start),
                                        self.wrap(x.stop),
                                        self.wrap(x.step))
-        # SD disable for native complex
         if isinstance(x, complex):
+            if WITHCOMPLEX:
+                return W_ComplexObject(self, x.real, x.imag)
+            else:
+                c = self.builtin.get('complex') 
+                return self.call_function(c,
+                                          self.wrap(x.real), 
+                                          self.wrap(x.imag))
+
+        # SD disable for native complex
+        #if isinstance(x, complex):
             # XXX is this right?   YYY no, this is wrong right now  (CT)
             # ZZZ hum, seems necessary for complex literals in co_consts (AR)
             c = self.builtin.get('complex') 
-            return self.call_function(c,
-                                      self.wrap(x.real), 
-                                      self.wrap(x.imag))
-
-        # SD activate for native complex
-        #if isinstance(x, complex):
-        #    return W_ComplexObject(self, x.real, x.imag)
+        #    return self.call_function(c,
+        #                              self.wrap(x.real), 
+        #                              self.wrap(x.imag))
 
         if self.options.nofaking:
             # annotation should actually not get here 
@@ -327,8 +332,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_FloatObject(self, floatval)
 
     # SD needed for complex
-    #def newcomplex(self, realval, imagval):
-    #    return W_ComplexObject(self, realval, imagval)
+    if WITHCOMPLEX:
+        def newcomplex(self, realval, imagval):
+            return W_ComplexObject(self, realval, imagval)
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
