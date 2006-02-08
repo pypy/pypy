@@ -902,11 +902,13 @@ def test_list_builder():
         return lst
 
     from pypy.rpython import rgenop
+    from pypy.rpython.module import support
 
     class DummyBlockBuilder:
 
         def __init__(self):
             self.newblock = rgenop.newblock()
+            self.bareblock = support.from_opaque_object(self.newblock.obj)
 
         def genop(self, opname, args, RESULT_TYPE):
             return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
@@ -916,10 +918,10 @@ def test_list_builder():
 
         # inspection
         def __getitem__(self, index):
-            return self.newblock.operations[index]
+            return self.bareblock.operations[index]
 
         def __len__(self):
-            return len(self.newblock.operations)
+            return len(self.bareblock.operations)
 
 
     for fn in [fixed_size_case, variable_size_case]:
@@ -930,9 +932,12 @@ def test_list_builder():
         llop = DummyBlockBuilder()
         v0 = Constant(42)
         v0.concretetype = Signed
+        opq_v0 = support.to_opaque_object(v0)
         v1 = Variable()
         v1.concretetype = Signed
-        vr = LIST.list_builder(llop, [v0, v1])
+        opq_v1 = support.to_opaque_object(v1)
+        vr = LIST.list_builder(llop, [opq_v0, opq_v1])
+        vr = rgenop.reveal(vr)
         assert len(llop) == 3
         assert llop[0].opname == 'direct_call'
         assert len(llop[0].args) == 3
