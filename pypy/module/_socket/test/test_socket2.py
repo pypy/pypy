@@ -10,6 +10,7 @@ def setup_module(mod):
     mod.path = udir.join('fd')
     mod.path.write('fo')
     mod.raises = py.test.raises # make raises available from app-level tests
+    mod.skip = py.test.skip
 
 def test_gethostname():
     host = space.appexec([w_socket], "(_socket): return _socket.gethostname()")
@@ -187,10 +188,14 @@ def test_pton_ipv6():
 
 def app_test_ntoa_exception():
     import _socket
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     raises(_socket.error, _socket.inet_ntoa, "ab")
 
 def app_test_aton_exceptions():
     import _socket
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
         "127.2.0.0.1", "127.2..0", "255.255.255.255"]
     for ip in tests:
@@ -198,6 +203,8 @@ def app_test_aton_exceptions():
 
 def app_test_ntop_exceptions():
     import _socket
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     for family, packed, exception in \
                 [(_socket.AF_INET + _socket.AF_INET6, "", ValueError),
                  (_socket.AF_INET, "a", ValueError),
@@ -207,6 +214,8 @@ def app_test_ntop_exceptions():
 
 def app_test_pton_exceptions():
     import _socket
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     tests = [
         (_socket.AF_INET + _socket.AF_INET6, ""),
         (_socket.AF_INET, "127.0.0.256"),
@@ -264,6 +273,8 @@ def test_timeout():
 
 def app_test_newsocket_error():
     import _socket
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     raises(_socket.error, _socket.socket, 10001, _socket.SOCK_STREAM, 0)
 
 def app_test_socket_fileno():
@@ -274,6 +285,8 @@ def app_test_socket_fileno():
 
 def app_test_socket_close():
     import _socket, errno
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
     fileno = s.fileno()
     s.close()
@@ -287,6 +300,8 @@ def app_test_socket_close():
 
 def app_test_socket_close_error():
     import _socket, os
+    if "pypy" not in _socket.__file__:
+        skip("needs _socket module enabled")
     s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
     os.close(s.fileno())
     raises(_socket.error, s.close)
