@@ -133,10 +133,10 @@ def hash__Complex(space, w_value):
 
     hashreal = _hash_float(space, w_value._real)
     if hashreal == -1:
-        return -1
+        return space.newint(-1)
     hashimg = _hash_float(space, w_value._imag)
     if hashimg == -1:
-        return -1
+        return space.newint(-1)
     combined = hashreal + 1000003 * hashimg
     if (combined == -1):
         combined = -2
@@ -196,7 +196,7 @@ def floordiv__Complex_Complex(space, w_complex1, w_complex2):
 
 def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
     if not isinstance(thirdArg, W_NoneObject):
-        raise poso.OperationError(space.w_ValueError, space.wrap('complex module'))
+        raise poso.OperationError(space.w_ValueError, space.wrap('complex modulo'))
     try:
         v = _w2t(w_complex1)
         exponent = _w2t(w_complex2)
@@ -218,7 +218,7 @@ def pos__Complex(space, w_complex):
     return W_ComplexObject(space, w_complex._real, w_complex._imag)
 
 def abs__Complex(space, w_complex):
-    return space.wrap(math.hypot(w_complex._real, w_complex._imag))
+    return space.newfloat(math.hypot(w_complex._real, w_complex._imag))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
     return space.newbool((w_complex1._real == w_complex2._real) and 
