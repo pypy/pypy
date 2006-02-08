@@ -1,11 +1,18 @@
 import autopath
+import py
 from pypy.objspace.std import complexobject as cobj
 from pypy.objspace.std import complextype as cobjtype
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std import StdObjSpace
+from pypy.objspace.std.model import WITHCOMPLEX
 
 EPS = 1e-9
+
+def setup_module(mod):
+    if not WITHCOMPLEX:
+        py.test.skip("only works if WITHCOMPLEX is enabled")
+    mod.space = StdObjSpace()
 
 class TestW_ComplexObject:
 
@@ -58,9 +65,16 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
+    def setup_class(cls):
+        cls.w_helper = space.appexec([], "():\n    import sys\n    sys.path.append('%s')\n    import helper\n    return helper" % (py.magic.autopath().dirpath(), ))
+
     def test_div(self):
-        import helper as h
-        simple_real = [float(i) for i in xrange(-5, 6)]
+        h = self.helper
+        from random import random
+        # XXX this test passed but took waaaaay to long
+        # look at dist/lib-python/modified-2.4.1/test/test_complex.py
+        #simple_real = [float(i) for i in xrange(-5, 6)]
+        simple_real = [-2.0, 0.0, 1.0]
         simple_complex = [complex(x, y) for x in simple_real for y in simple_real]
         for x in simple_complex:
             for y in simple_complex:
@@ -81,21 +95,21 @@ class AppTestAppComplexTest:
         # raises(OverflowError, pow, 1e200+1j, 1e200+1j)
 
     def test_truediv(self):
-        import helper as h
+        h = self.helper
         h.assertAlmostEqual(complex.__truediv__(2+0j, 1+1j), 1-1j)
         raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
     def test_floordiv(self):
-        import helper as h
+        h = self.helper
         h.assertAlmostEqual(complex.__floordiv__(3+0j, 1.5+0j), 2)
         raises(ZeroDivisionError, complex.__floordiv__, 3+0j, 0+0j)
 
     def test_coerce(self):
-        import helper as h
+        h = self.helper
         h.raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
 
     def x_test_richcompare(self):
-        import helper as h
+        h = self.helper
         h.raises(OverflowError, complex.__eq__, 1+1j, 1L<<10000)
         h.assertEqual(complex.__lt__(1+1j, None), NotImplemented)
         h.assertIs(complex.__eq__(1+1j, 1+1j), True)
@@ -108,7 +122,7 @@ class AppTestAppComplexTest:
         h.raises(TypeError, complex.__ge__, 1+1j, 2+2j)
 
     def test_mod(self):
-        import helper as h
+        h = self.helper
         raises(ZeroDivisionError, (1+1j).__mod__, 0+0j)
 
         a = 3.33+4.43j
@@ -120,11 +134,11 @@ class AppTestAppComplexTest:
             self.fail("modulo parama can't be 0")
 
     def test_divmod(self):
-        import helper as h
+        h = self.helper
         raises(ZeroDivisionError, divmod, 1+1j, 0+0j)
 
     def test_pow(self):
-        import helper as h
+        h = self.helper
         h.assertAlmostEqual(pow(1+1j, 0+0j), 1.0)
         h.assertAlmostEqual(pow(0+0j, 2+0j), 0.0)
         raises(ZeroDivisionError, pow, 0+0j, 1j)
@@ -165,17 +179,17 @@ class AppTestAppComplexTest:
 
     def test_boolcontext(self):
         from random import random
-        import helper as h
+        h = self.helper
         for i in xrange(100):
             assert complex(random() + 1e-6, random() + 1e-6)
         assert not complex(0.0, 0.0)
 
     def test_conjugate(self):
-        import helper as h
+        h = self.helper
         h.assertClose(complex(5.3, 9.8).conjugate(), 5.3-9.8j)
 
     def x_test_constructor(self):
-        import helper as h
+        h = self.helper
         class OS:
             def __init__(self, value): self.value = value
             def __complex__(self): return self.value
@@ -276,31 +290,31 @@ class AppTestAppComplexTest:
         h.raises(TypeError, complex, float2(None))
 
     def test_hash(self):
-        import helper as h
+        h = self.helper
         for x in xrange(-30, 30):
             h.assertEqual(hash(x), hash(complex(x, 0)))
             x /= 3.0    # now check against floating point
             h.assertEqual(hash(x), hash(complex(x, 0.)))
 
     def test_abs(self):
-        import helper as h
+        h = self.helper
         nums = [complex(x/3., y/7.) for x in xrange(-9,9) for y in xrange(-9,9)]
         for num in nums:
             h.assertAlmostEqual((num.real**2 + num.imag**2)  ** 0.5, abs(num))
 
     def test_repr(self):
-        import helper as h
+        h = self.helper
         h.assertEqual(repr(1+6j), '(1+6j)')
         h.assertEqual(repr(1-6j), '(1-6j)')
 
         h.assertNotEqual(repr(-(1+0j)), '(-1+-0j)')
 
     def test_neg(self):
-        import helper as h
+        h = self.helper
         h.assertEqual(-(1+6j), -1-6j)
 
     def x_test_file(self):
-        import helper as h
+        h = self.helper
         import os
         a = 3.33+4.43j
         b = 5.1+2.3j
