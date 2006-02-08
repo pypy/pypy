@@ -94,7 +94,7 @@ class GCTransformer(object):
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
                     
-        if self.translator.rtyper is not None:
+        if self.translator is not None and self.translator.rtyper is not None:
             self.translator.rtyper.specialize_more_blocks()
 
     def transform_block(self, block):
@@ -210,7 +210,7 @@ class RefcountingGCTransformer(GCTransformer):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
-        if self.translator.rtyper is not None:
+        if self.translator is not None and self.translator.rtyper is not None:
             self.increfgraph = self.translator.rtyper.annotate_helper(
                 incref, [annmodel.SomeAddress()])
             self.translator.rtyper.specialize_more_blocks()
