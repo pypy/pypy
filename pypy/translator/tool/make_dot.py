@@ -14,7 +14,7 @@ from pypy.interpreter.pytraceback import offset2lineno
 class DotGen:
 
     def __init__(self, graphname, rankdir=None):
-        self.graphname = graphname + '_'
+        self.graphname = safename(graphname)
         self.lines = []
         self.source = None
         self.emit("digraph %s {" % self.graphname)
@@ -44,7 +44,7 @@ class DotGen:
         self.lines.append(line)
 
     def enter_subgraph(self, name):
-        self.emit("subgraph %s {" % (name,))
+        self.emit("subgraph %s {" % (safename(name),))
 
     def leave_subgraph(self):
         self.emit("}")
@@ -59,7 +59,7 @@ class DotGen:
         attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"').replace('\n', '\\n')))
                  for x in ['label', 'style', 'color', 'dir', 'weight']]
         self.emit('edge [%s];' % ", ".join(attrs))
-        self.emit('%s -> %s' % (name1, name2))
+        self.emit('%s -> %s' % (safename(name1), safename(name2)))
 
     def emit_node(self, name, 
                   shape="diamond", 
@@ -71,7 +71,7 @@ class DotGen:
         d = locals()
         attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"').replace('\n', '\\n')))
                  for x in ['shape', 'label', 'color', 'fillcolor', 'style']]
-        self.emit('%s [%s];' % (name, ", ".join(attrs)))
+        self.emit('%s [%s];' % (safename(name), ", ".join(attrs)))
 
 
 class FlowGraphDotGen(DotGen):
@@ -196,6 +196,24 @@ def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
         names[graphname] = True
         dotgen.emit_subgraph(graphname, graph)
     return dotgen.generate(storedir, target)
+
+def _makecharmap():
+    result = {}
+    for i in range(256):
+        result[chr(i)] = '_%02X' % i
+    for c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789':
+        result[c] = c
+    result['_'] = '__'
+    return result
+CHAR_MAP = _makecharmap()
+del _makecharmap
+
+def safename(name):
+    # turn a random string into something that is a valid dot identifier,
+    # avoiding invalid characters and prepending '_' to make sure it is
+    # not a keyword
+    name = ''.join([CHAR_MAP[c] for c in name])
+    return '_' + name
 
 
 if __name__ == '__main__':
