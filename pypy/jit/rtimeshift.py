@@ -26,6 +26,11 @@ def ll_setup_jitstate():
     jitstate.curblock = rgenop.newblock()
     return jitstate
 
+def ll_close_jitstate(jitstate, return_gvar):
+    link = rgenop.closeblock1(jitstate.curblock)
+    rgenop.closereturnlink(link, return_gvar)
+    return jitstate.curblock
+
 def ll_input_redbox(jitstate, TYPE):
     box = lltype.malloc(REDBOX)
     box.genvar = rgenop.geninputarg(jitstate.curblock, TYPE)

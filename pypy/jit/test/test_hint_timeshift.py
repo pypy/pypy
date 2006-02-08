@@ -8,6 +8,7 @@ from pypy.jit import rtimeshift
 from pypy.jit.test.test_llabstractinterp import annotation
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
+from pypy.rpython import rgenop
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
@@ -47,26 +48,41 @@ def timeshift(ll_function, values):
     graph1 = ha.translator.graphs[0]
     jitstate = rtimeshift.ll_setup_jitstate()
     graph1args = [jitstate]
+    residual_graph_args = []
     assert len(graph1.getargs()) == 1 + len(values)
     for v, llvalue in zip(graph1.getargs()[1:], values):
         color = htshift.varcolor[v]
         if color == "green":
             graph1args.append(llvalue)
         elif color == "red":
-            box = rtimeshift.ll_input_redbox(jitstate, v.concretetype)
+            TYPE = htshift.varconcretetype[v]
+            box = rtimeshift.ll_input_redbox(jitstate, TYPE)
             graph1args.append(box)
+            residual_graph_args.append(llvalue)
         else:
             raise NotImplementedError(color)
     llinterp = LLInterpreter(rtyper)
     result1 = llinterp.eval_graph(graph1, graph1args)
-    return result1, jitstate
+    # now try to run the block produced by the jitstate
+    color = htshift.varcolor[graph1.getreturnvar()]
+    if color == "green":
+        result_gvar = rgenop.genconst(jitstate.curblock, result1)
+    elif color == "red":
+        result_gvar = result1.genvar
+    else:
+        raise NotImplementedError(color)
+    jitblock = rtimeshift.ll_close_jitstate(jitstate, result_gvar)
+    return rgenop.runblock(jitblock, residual_graph_args,
+                           viewbefore = conftest.option.view)
 
 def test_simple_fixed():
     def ll_function(x, y):
         return hint(x + y, concrete=True)
-    timeshift(ll_function, [5, 7])
+    res = timeshift(ll_function, [5, 7])
+    assert res == 12
 
 def test_simple():
     def ll_function(x, y):
         return x + y
-    timeshift(ll_function, [5, 7])
+    res = timeshift(ll_function, [5, 7])
+    assert res == 12

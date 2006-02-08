@@ -175,10 +175,12 @@ def buildgraph(blockcontainer):
     block = from_opaque_object(blockcontainer.obj)
     return _buildgraph(block)
 
-def runblock(blockcontainer, args):
+def runblock(blockcontainer, args, viewbefore=False):
     block = from_opaque_object(blockcontainer.obj)
     from pypy.rpython.llinterp import LLInterpreter
     graph = _buildgraph(block)
+    if viewbefore:
+        graph.show()
     llinterp = LLInterpreter(PseudoRTyper())
     return llinterp.eval_graph(graph, args)
 
