@@ -65,8 +65,7 @@ class BlockConverter:
                            'ptr': 0}
         self.constants = {'int': [],
                           'dbl': [],
-                          'ptr': [],
-                          'offset':[]}
+                          'ptr': []}
         self.var2stack = {}
 
     def push(self, v):
@@ -94,7 +93,7 @@ class BlockConverter:
             return position - self.stacksizes[kind]    # < 0
 
     def getoffset(self, offset):
-        clist = self.constants['offset']
+        clist = self.constants['int']
         try:
             res = clist.index(offset)
         except ValueError:
@@ -166,8 +165,6 @@ class BlockConverter:
         if self.constants['int']: l3block.constants_int = self.constants['int']
         if self.constants['dbl']: l3block.constants_dbl = self.constants['dbl']
         if self.constants['ptr']: l3block.constants_ptr = self.constants['ptr']
-        if self.constants['offset']:
-            l3block.constants_offset = self.constants['offset']
 
         return l3block
 

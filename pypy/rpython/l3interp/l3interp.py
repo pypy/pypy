@@ -61,9 +61,6 @@ class L3Frame(object):
         if self.block.constants_ptr is None:
             self.block.constants_ptr = [constant_fakeaddress]
             self.block.constants_ptr = None
-        if self.block.constants_offset is None:
-            self.block.constants_offset = [constant_offset]
-            self.block.constants_offset = None
         self.i = 0
         self.stack_int = stack_int
         self.stack_dbl = stack_dbl
@@ -133,11 +130,6 @@ class L3Frame(object):
         if op >= 0: return self.block.constants_ptr[op]
         else:       return self.stack_ptr[op]
 
-    def getoffset(self):
-        op = self.nextop()
-        assert op >= 0
-        return self.block.constants_offset[op]
-
     def restorestacks(self):
         del self.stack_int[self.base_int:]
         del self.stack_dbl[self.base_dbl:]
@@ -190,49 +182,49 @@ class L3Frame(object):
 
     def op_getfield_int(self):
         p = self.getptr()
-        o = self.getoffset()
+        o = self.getint()
         self.stack_int.append((p + o).signed[0])
 
     def op_getfield_ptr(self):
         p = self.getptr()
-        o = self.getoffset()
+        o = self.getint()
         self.stack_ptr.append((p + o).address[0])
 
     def op_setfield_int(self):
         p = self.getptr()
-        o = self.getoffset()
+        o = self.getint()
         v = self.getint()
         (p + o).signed[0] = v
 
     def op_getarrayitem_int(self):
         a = self.getptr()
         i = self.getint()
-        items_offset = self.getoffset()
-        s = self.getoffset()
+        items_offset = self.getint()
+        s = self.getint()
         v = (a + items_offset + s * i).signed[0]
         self.stack_int.append(v)
         
     def op_getarrayitem_ptr(self):
         a = self.getptr()
         i = self.getint()
-        items_offset = self.getoffset()
-        s = self.getoffset()
+        items_offset = self.getint()
+        s = self.getint()
         v = (a + items_offset + s * i).address[0]
         self.stack_ptr.append(v)
         
     def op_setarrayitem_int(self):
         a = self.getptr()
         i = self.getint()
-        items_offset = self.getoffset()
-        s = self.getoffset()
+        items_offset = self.getint()
+        s = self.getint()
         v = self.getint()
         (a + items_offset + s * i).signed[0] = v
         
     def op_setarrayitem_ptr(self):
         a = self.getptr()
         i = self.getint()
-        items_offset = self.getoffset()
-        s = self.getoffset()
+        items_offset = self.getint()
+        s = self.getint()
         v = self.getptr()
         (a + items_offset + s * i).address[0] = v
         
@@ -253,7 +245,7 @@ class L3Frame(object):
         frame.execute()
 
     def op_malloc(self):
-        size = self.getoffset()
+        size = self.getint()
         self.stack_ptr.append(malloc(size))
         
     # ____________________________________________________________

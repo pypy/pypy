@@ -107,7 +107,6 @@ class Block(object):
                               constants_int=None,
                               constants_dbl=None,
                               constants_ptr=None,
-                              constants_offset=None,
                               called_graphs=None):
         self.insns = insns
         self.exit0 = exit0
@@ -116,7 +115,6 @@ class Block(object):
         self.constants_dbl = constants_dbl
         self.constants_ptr = constants_ptr
         
-        self.constants_offset = constants_offset
         self.called_graphs = called_graphs
 
 class Link(object):
