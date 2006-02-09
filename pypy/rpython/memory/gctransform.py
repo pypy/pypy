@@ -549,3 +549,52 @@ class BoehmGCTransformer(GCTransformer):
         self.finalizer_graphs[TYPE] = g
         return g
         
+# ___________________________________________________________________
+# calculate some statistics about the number of variables that need
+# to be cared for across a call
+
+relevant_ops = ["direct_call", "indirect_call", "malloc"]
+
+def relevant_gcvars_block(block):
+    import sets
+    result = []
+    def filter_ptr(args):
+        return [arg for arg in args if isinstance(arg.concretetype, lltype.Ptr)]
+    def live_vars_before(index):
+        if index == 0:
+            return sets.Set(filter_ptr(block.inputargs))
+        op = block.operations[index - 1]
+        result = live_vars_before(index - 1).union(filter_ptr(op.args + [op.result]))
+        return result
+    def live_vars_after(index):
+        if index == len(block.operations) - 1:
+            result = sets.Set()
+            for exit in block.exits:
+                result = result.union(filter_ptr(exit.args))
+            return result
+        op = block.operations[index + 1]
+        result = live_vars_after(index + 1).union(filter_ptr(op.args + [op.result]))
+        
+        return result
+    for i, op in enumerate(block.operations):
+        if op.opname not in relevant_ops:
+            continue
+        print op,
+        live_before = live_vars_before(i)
+        live_after = live_vars_after(i)
+        print live_before, live_after
+        result.append(len(live_before.intersection(live_after)))
+    return result
+
+def relevant_gcvars_graph(graph):
+    result = []
+    for block in graph.iterblocks():
+        result += relevant_gcvars_block(block)
+    return result
+
+def relevant_gcvars(t):
+    result = []
+    for graph in t.graphs:
+        result.extend(relevant_gcvars_graph(graph))
+    return result
+

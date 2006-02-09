@@ -1,6 +1,6 @@
 from pypy.rpython.memory import gctransform
 from pypy.objspace.flow.model import c_last_exception, Variable
-from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
+from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj, relevant_gcvars_graph, relevant_gcvars
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
@@ -48,11 +48,15 @@ def getops(graph):
             ops.setdefault(op.opname, []).append(op)
     return ops
 
-def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=True):
+def rtype(func, inputtypes, specialize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize(t)
+    return t    
+
+def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=True):
+    t = rtype(func, inputtypes, specialize)
     transformer = transformcls(t)
     transformer.transform(t.graphs)
     if conftest.option.view:
@@ -448,6 +452,7 @@ def test_recursive_structure():
         s1.x = s2
     t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
 
+
 def test_boehm_finalizer_simple():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
     f, t = make_boehm_finalizer(S)
@@ -492,4 +497,29 @@ def test_boehm_finalizer_nomix___del___and_pyobj():
                             _callable=f)
     pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
     py.test.raises(Exception, "make_boehm_finalizer(S)")
+
+# ______________________________________________________________________
+# test statistics
+
+def test_count_vars_simple():
+    S = lltype.GcStruct('abc', ('x', lltype.Signed))
+    def f():
+        s1 = lltype.malloc(S)
+        s2 = lltype.malloc(S)
+        s1.x = 1
+        s2.x = 2
+        return s1.x + s2.x
+    t = rtype(f, [])
+    assert relevant_gcvars_graph(graphof(t, f)) == [0, 1]
+
+def test_count_vars_big():
+    from pypy.translator.goal.targetrpystonex import make_target_definition
+    from pypy.translator.backendopt.all import backend_optimizations
+    entrypoint, _, _ = make_target_definition(10)
+    t = rtype(entrypoint, [int])
+    backend_optimizations(t)
+    # does not crash
+    rel = relevant_gcvars(t)
+    print rel
+    print sum(rel) / float(len(rel)), max(rel), min(rel)
 
