@@ -58,11 +58,6 @@ class ExecutionContext:
 
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
-        self.decrease_ticker_bytecode_trace()
-        if frame.w_f_trace is not None:
-            self.do_bytecode_trace(frame)
-
-    def decrease_ticker_bytecode_trace(self):
         # First, call yield_thread() before each Nth bytecode,
         #     as selected by sys.setcheckinterval()
         ticker = self.ticker
@@ -70,12 +65,12 @@ class ExecutionContext:
             self.space.threadlocals.yield_thread()
             ticker = self.space.sys.checkinterval
         self.ticker = ticker - 1
-
-
-    def do_bytecode_trace(self, frame):
-        # Tracing logic
-        if self.is_tracing:
+        if frame.w_f_trace is None or self.is_tracing:
             return
+        self._do_bytecode_trace(frame)
+
+
+    def _do_bytecode_trace(self, frame):
         code = getattr(frame, 'pycode')
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
             if frame.last_instr <= frame.instr_prev:

@@ -791,19 +791,21 @@ class PyInterpFrame(pyframe.PyFrame):
         
         dispatch_code  = '''
 def dispatch_translated(self, ec):
+    code = self.pycode.co_code
     while True:
-        ec.decrease_ticker_bytecode_trace()
-        if self.w_f_trace is not None:
-            self.last_instr = intmask(self.next_instr)
-            ec.do_bytecode_trace(self)
-            self.next_instr = self.last_instr
-        opcode = self.nextop()
+        self.last_instr = intmask(self.next_instr)
+        ec.bytecode_trace(self)
+        self.next_instr = self.last_instr
+        opcode = ord(code[self.next_instr])
+        self.next_instr += 1
         if opcode >= %s:
-            oparg = self.nextarg()
+            oparg = ord(code[self.next_instr]) | ord(code[self.next_instr + 1]) << 8
+            self.next_instr += 2
             while True:
                 if opcode == %s:
-                    opcode = self.nextop()
-                    oparg = oparg<<16 | self.nextarg()
+                    opcode = ord(code[self.next_instr])
+                    oparg = oparg << 16 | ord(code[self.next_instr + 1]) | ord(code[self.next_instr + 2]) << 8
+                    self.next_instr += 3
                     if opcode < %s:
                         raise pyframe.BytecodeCorruption
                     continue
