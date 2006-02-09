@@ -64,6 +64,8 @@ class tagpoint(Structure):
                 ("y", c_int)]
 
 # compile and load our local test C file
+# XXX the built module and intermediate files should go to /tmp/usession-*,
+#     see pypy.tool.udir
 compile_c_module([thisdir.join("_rctypes_test.c")], "_rctypes_test")
 
 if sys.platform == "win32":
