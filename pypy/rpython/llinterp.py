@@ -58,7 +58,7 @@ class LLInterpreter(object):
                 continue
             try:
                 print self.typer.annotator.annotated[frame.curr_block].__module__
-            except KeyError:
+            except (KeyError, AttributeError):
                 # if the graph is from the GC it was not produced by the same
                 # translator :-(
                 print "<unknown module>"
