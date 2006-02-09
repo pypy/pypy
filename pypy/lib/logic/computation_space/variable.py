@@ -37,17 +37,17 @@ class Var(object):
             raise AlreadyInStore(name)
         self.name = name
         # the creation-time (top-level) space
-        self.cs = cs
+        self._cs = cs
         # top-level 'commited' binding
         self._val = NoValue
         # domains in multiple spaces
         self._doms = {cs : FiniteDomain([])}
-        # when updated in a 'transaction', keep track
-        # of our initial value (for abort cases)
-        self.previous = None
-        self.changed = False
+        # when updated while unification happens, keep track
+        # of our initial value (for failure cases)
+        self._previous = None
+        self._changed = False
         # a condition variable for concurrent access
-        self.value_condition = threading.Condition()
+        self._value_condition = threading.Condition()
 
     # for consumption by the global cs
 
@@ -58,22 +58,22 @@ class Var(object):
     # atomic unification support
 
     def _commit(self):
-        self.changed = False
+        self._changed = False
 
     def _abort(self):
-        self.val = self.previous
-        self.changed = False
+        self.val = self._previous
+        self._changed = False
 
     # value accessors
     def _set_val(self, val):
-        self.value_condition.acquire()
-        if self.cs.in_transaction:
-            if not self.changed:
-                self.previous = self._val
-                self.changed = True
+        self._value_condition.acquire()
+        if self._cs.in_transaction:
+            if not self._changed:
+                self._previous = self._val
+                self._changed = True
         self._val = val
-        self.value_condition.notifyAll()
-        self.value_condition.release()
+        self._value_condition.notifyAll()
+        self._value_condition.release()
         
     def _get_val(self):
         return self._val
@@ -96,7 +96,7 @@ class Var(object):
 
     def bind(self, val):
         """top-level space bind"""
-        self.cs.bind(self, val)
+        self._cs.bind(self, val)
 
     is_bound = _is_bound
 
@@ -117,46 +117,150 @@ class Var(object):
            being bound in the top-level space
         """
         try:
-            self.value_condition.acquire()
+            self._value_condition.acquire()
             while not self._is_bound():
-                self.value_condition.wait()
+                self._value_condition.wait()
             return self.val
         finally:
-            self.value_condition.release()
+            self._value_condition.release()
 
 
 #-- stream stuff -----------------------------
 
-from Queue import Queue
+class Pair(object):
+    """similar to CONS in Lisp"""
 
-class StreamUserBug(Exception):
-    pass
+    def __init__(self, car, cdr):
+        self._car = car
+        self._cdr = cdr
 
-class Stream(Queue):
-    """a stream is potentially unbounded list
-       of messages, i.e a list whose tail is
-       an unbound dataflow variable
-    """
+    def first(self):
+        return self._car
 
-    def __init__(self, size=5, stuff=None):
-        self.elts = stuff
-        self.idx = 0
-        Queue.__init__(self, size)
+    def rest(self):
+        return self._cdr
+
+    def set_rest(self, stuff):
+        self._cdr = stuff
+
+    def is_empty(self):
+        return self._car is None and self._cdr is None
+
+    def length(self):
+        ln = 0
+        curr = self
+        if curr.first() != None:
+            ln += 1
+        while curr.rest() != None:
+            curr = curr.rest()
+            if curr.first() != None:
+                ln += 1
+            # check for circularity
+            if curr == self: return ln
+        return ln
+
+    def __str__(self):
+        # This will show bogus stuff for trees ...
+        seen = set()
+        strs = []
+
+        def build_elt_str(elt):
+            if elt in seen:
+                strs.pop() ; strs.pop()
+                # show ellipsis when recursing
+                strs.append('...')
+            elif isinstance(elt, Pair):
+                seen.add(elt)
+                build_pair_str(elt)
+            else:
+                if elt is None:
+                    strs.pop()
+                elif isinstance(elt, Var):
+                    strs.append(elt.name)
+                else:
+                    strs.append(str(elt))
+
+        def build_pair_str(pair):
+            build_elt_str(pair._car)
+            strs.append('|')
+            build_elt_str(pair._cdr)
+
+        if self._car is None:
+            return 'nil'
+        build_pair_str(self)
+        return ''.join(strs)
+
+def make_list(data=None):
+    """Builds a list with pairs"""
+    assert (data is None) \
+           or type(data) in (list, tuple, set)
+    if data is None:
+        return Pair(None, None)
+    curr = Pair(data[0], None)
+    head = curr
+    for datum in data[1:]:
+        curr.set_rest(Pair(datum, None))
+        curr = curr.rest()
+    return head
+
+class Stream(object):
+    """A FIFO stream"""
+
+    def __init__(self, elts=Pair(None, None)):
+        self.head = elts
+        if elts.first() == None:
+            self.tail = elts
+        else:
+            curr = elts.rest()
+            prev = elts
+            while isinstance(curr, Pair):
+                prev = curr
+                curr = curr.rest()
+            # last pair of the chain
+            self.tail = prev
+        # head hurts tail sometimes ...
+        self.empty_condition = threading.Condition()
 
     def get(self):
-        if self.elts is None:
-            Queue.get(self)
-        else:
-            try:
-                v = self.elts[self.idx]
-                self.idx += 1
-                return v
-            except IndexError:
-                self.idx = 0
-                return self.get()
+        print self.head
+        # first thing to check is whether
+        # there is stuff to feed
+        self.empty_condition.acquire()
+        try:
+            if self.head == self.tail:
+                # there might remain one element there
+                while self.head.is_empty():
+                    self.empty_condition.wait()
+            # sky is clear : there is something to get
+            elt = self.head.first()
+            # we might want to advance to the next pair
+            if self.head != self.tail:
+                self.head = self.head.rest()
+            else:
+                # or just nullify what we read
+                # to avoid reading it again ...
+                self.head._car = None
+        finally:
+            self.empty_condition.release()
+        return elt
 
-    def put(self, elt):
-        if self.elts is None:
-            Queue.put(self, elt)
-        else:
-            raise NoImplemented
+    def put(self, val):
+        # first, check for emptyness special case
+        self.empty_condition.acquire()
+        try:
+            if self.head.is_empty():
+                # then we put stuff into head
+                # without consing and just return
+                self.head._car = val
+                self.empty_condition.notifyAll()
+                return
+        finally:
+            self.empty_condition.release()
+        # either we did put and return
+        # or nothing done yet
+        new_tail = Pair(val, None)
+        self.tail.set_rest(new_tail)
+        self.tail = new_tail
+
+    def __str__(self):
+        return str(self.head)

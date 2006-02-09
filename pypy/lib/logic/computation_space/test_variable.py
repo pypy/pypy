@@ -86,92 +86,79 @@ class TestVariable:
         for i in range(10):
             assert vars_[i].val == str(i)
 
-##     def test_basic_producer_consummer_sream(self):
-##         # this one is quite silly
-##         sp = space.ComputationSpace(dummy_problem)
+    def test_basic_list(self):
+        s = v.make_list([1, 2, 3])
+        assert s.__str__() == '1|2|3'
+        assert s.length() == 3
+        s.rest().rest().set_rest(s)
+        assert s.length() == 4
+        assert s.__str__() == '1|2|3|...'
+        s. set_rest(s)
+        assert s.__str__() == '1|...'
+        assert s.length() == 2
 
-##         def generate(thread, var, n, limit):
-##             s = var.get()
-##             while n<limit:
-##                 print n
-##                 s.put(n)
-##                 n += 1
-##             s.put(None)
+    def test_producer_consummer_stream(self):
+        sp = space.ComputationSpace(dummy_problem)
+        import time
+
+        def generate(thread, var, n, limit):
+            s = var.get()
+            while n<limit:
+                s.put(limit-n)
+                n += 1
+            s.put(v.NoValue)
         
-##         def reduc(thread, var, fun):
-##             stream = var.get()
-##             val = stream.get()
-##             while (val != None):
-##                 print val
-##                 thread.result = fun(thread.result, val)
-##                 val = stream.get()
+        def reduc(thread, var, fun):
+            stream = var.get()
+            val = stream.get()
+            while (val != v.NoValue):
+                thread.result = fun(thread.result, val)
+                val = stream.get()
 
-##         s = sp.var('s')
-##         s.bind(v.Stream())
+        s = sp.var('s')
+        s.bind(v.Stream())
         
-##         generator = FunThread(generate, s, 1, 5)
-##         reductor = FunThread(reduc, s, operator.mul)
-##         reductor.result = 2
+        generator = FunThread(generate, s, 1, 10)
+        reductor = FunThread(reduc, s, operator.mul)
+        reductor.result = 2
 
-##         generator.start()
-##         reductor.start()
-##         generator.join()
-##         reductor.join()
-
-##         print  reductor.result
-##         assert 0
+        generator.start()
+        reductor.start()
+        generator.join()
+        reductor.join()
+        
+        assert reductor.result == 725760
 
     def test_daisychain_stream(self):
         # chained stupidity
         sp = space.ComputationSpace(dummy_problem)
 
-        s1 = sp.var('s1')
-        s2 = sp.var('s2')
-
-        stream1 = v.Stream(stuff=[1, 2, 3, s2])
-        stream2 = v.Stream(stuff=[4, 5, 6, None])
-
-        s1.bind(stream1)
-        s2.bind(stream2)
-
-        def woman_in_chains(thread, stream_variable):
-            stream = stream_variable.get()
+        def woman_in_chains(thread, S):
+            stream = S.get()
+            assert isinstance(stream, v.Stream)
             val = stream.get()
-            while val != None:
+            while val != v.NoValue:
+                print val
                 thread.result = val
                 val = stream.get()
                 if isinstance(val, v.Var):
                     stream = val.get()
                     val = stream.get()
 
+        s1 = sp.var('s1')
+        s2 = sp.var('s2')
+        stream1 = v.Stream(v.make_list([1, 2, 3, s2]))
+        stream2 = v.Stream(v.make_list([4, 5, 6, v.NoValue]))
+        assert str(stream1) == '1|2|3|s2'
+        assert str(stream2) == '4|5|6|variable.NoValue'
+        
         woman = FunThread(woman_in_chains, s1)
         woman.start()
+
+        s1.bind(stream1)
+        s2.bind(stream2)
+
         woman.join()
 
         assert woman.result == 6
                 
-    def test_cyclicproducer_consummer_sream(self):
-        # infinite sillyness
-        sp = space.ComputationSpace(dummy_problem)
-
-        circular = sp.var('circular')
-        s = v.Stream(stuff=[0, 1, 2, circular])
-        circular.bind(s)
-
-        def touch10(thread, stream_variable):
-            stream = stream_variable.get()
-            val = None
-            for i in range(10):
-                val = stream.get()
-                if isinstance(val, v.Var):
-                    # at stream tail is a var
-                    stream = val.get()
-                    val = stream.get()
-                assert i % 3 == val 
-            thread.result = val
-
-        toucher = FunThread(touch10, circular)
-        toucher.start()
-        toucher.join()
-
-        assert toucher.result == 0
