@@ -264,6 +264,22 @@ def test_refcounting_incref_simple():
     ops = getops(graphof(t, f))
     assert len(ops['direct_call']) == 4
 
+
+def test_boehm_simple():
+    class C:
+        pass
+    def f():
+        c = C()
+        c.x = 1
+        return c.x
+    t, transformer = rtype_and_transform(
+        f, [], gctransform.BoehmGCTransformer, check=False)
+    ops = getops(graphof(t, f))
+    assert 'direct_call' not in ops
+    gcs = [k for k in ops if k.startswith('gc')]
+    assert len(gcs) == 0
+
+
   
 # ______________________________________________________________________
 # test write barrier placement
@@ -308,18 +324,24 @@ def test_arraybarrier():
 # ----------------------------------------------------------------------
 # test deallocators
 
-def make_deallocator(TYPE, attr="static_deallocation_graph_for_type"):
+def make_deallocator(TYPE,
+                     attr="static_deallocation_graph_for_type",
+                     cls=gctransform.RefcountingGCTransformer):
     def f():
         pass
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize(t)
-    transformer = gctransform.RefcountingGCTransformer(t)
+    transformer = cls(t)
     graph = getattr(transformer, attr)(TYPE)
     t.rtyper.specialize_more_blocks()
     if conftest.option.view:
         t.view()
     return graph, t
+
+def make_boehm_finalizer(TYPE):
+    return make_deallocator(TYPE, attr="finalizer_graph_for_type",
+                            cls=gctransform.BoehmGCTransformer)
 
 def test_deallocator_simple():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
@@ -425,3 +447,49 @@ def test_recursive_structure():
         s2 = lltype.malloc(S)
         s1.x = s2
     t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
+
+def test_boehm_finalizer_simple():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    f, t = make_boehm_finalizer(S)
+    assert f is None
+
+def test_boehm_finalizer_pyobj():
+    S = lltype.GcStruct("S", ('x', lltype.Ptr(lltype.PyObject)))
+    f, t = make_boehm_finalizer(S)
+    assert f is not None
+
+def test_boehm_finalizer___del__():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(s):
+        s.x = 1
+    def type_info_S(p):
+        return lltype.getRuntimeTypeInfo(S)
+    qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
+                                            lltype.Ptr(lltype.RuntimeTypeInfo)),
+                            "type_info_S", 
+                            _callable=type_info_S)
+    dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
+                                            lltype.Void), 
+                            "destructor_funcptr", 
+                            _callable=f)
+    pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
+    f, t = make_boehm_finalizer(S)
+    assert f is not None
+
+def test_boehm_finalizer_nomix___del___and_pyobj():
+    S = lltype.GcStruct("S", ('x', lltype.Signed), ('y', lltype.Ptr(lltype.PyObject)))
+    def f(s):
+        s.x = 1
+    def type_info_S(p):
+        return lltype.getRuntimeTypeInfo(S)
+    qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
+                                            lltype.Ptr(lltype.RuntimeTypeInfo)),
+                            "type_info_S", 
+                            _callable=type_info_S)
+    dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
+                                            lltype.Void), 
+                            "destructor_funcptr", 
+                            _callable=f)
+    pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
+    py.test.raises(Exception, "make_boehm_finalizer(S)")
+

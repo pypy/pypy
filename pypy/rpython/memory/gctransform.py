@@ -198,6 +198,27 @@ class GCTransformer(object):
 
     # ----------------------------------------------------------------
 
+def _static_deallocator_body_for_type(v, TYPE, depth=1):
+    if isinstance(TYPE, lltype.Array):
+        inner = list(_static_deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
+        if inner:
+            yield '    '*depth + 'i_%d = 0'%(depth,)
+            yield '    '*depth + 'l_%d = len(%s)'%(depth, v)
+            yield '    '*depth + 'while i_%d < l_%d:'%(depth, depth)
+            yield '    '*depth + '    v_%d = %s[i_%d]'%(depth, v, depth)
+            for line in inner:
+                yield line
+            yield '    '*depth + '    i_%d += 1'%(depth,)
+    elif isinstance(TYPE, lltype.Struct):
+        for name in TYPE._names:
+            inner = list(_static_deallocator_body_for_type(
+                v + '_' + name, TYPE._flds[name], depth))
+            if inner:
+                yield '    '*depth + v + '_' + name + ' = ' + v + '.' + name
+                for line in inner:
+                    yield line
+    elif isinstance(TYPE, lltype.Ptr):
+        yield '    '*depth + 'pop_alive(%s)'%v
 
 class RefcountingGCTransformer(GCTransformer):
 
@@ -269,29 +290,6 @@ class RefcountingGCTransformer(GCTransformer):
                 pass
         return None
 
-    def _static_deallocator_body_for_type(self, v, TYPE, depth=1):
-        if isinstance(TYPE, lltype.Array):
-            
-            inner = list(self._static_deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
-            if inner:
-                yield '    '*depth + 'i_%d = 0'%(depth,)
-                yield '    '*depth + 'l_%d = len(%s)'%(depth, v)
-                yield '    '*depth + 'while i_%d < l_%d:'%(depth, depth)
-                yield '    '*depth + '    v_%d = %s[i_%d]'%(depth, v, depth)
-                for line in inner:
-                    yield line
-                yield '    '*depth + '    i_%d += 1'%(depth,)
-        elif isinstance(TYPE, lltype.Struct):
-            for name in TYPE._names:
-                inner = list(self._static_deallocator_body_for_type(
-                    v + '_' + name, TYPE._flds[name], depth))
-                if inner:
-                    yield '    '*depth + v + '_' + name + ' = ' + v + '.' + name
-                    for line in inner:
-                        yield line
-        elif isinstance(TYPE, lltype.Ptr):
-            yield '    '*depth + 'pop_alive(%s)'%v
-
     def static_deallocation_graph_for_type(self, TYPE):
         if TYPE in self.static_deallocator_graphs:
             return self.static_deallocator_graphs[TYPE]
@@ -320,7 +318,7 @@ class RefcountingGCTransformer(GCTransformer):
             DESTR_ARG = None
 
         if destrptr is not None:
-            body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE, 2))
+            body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 2))
             src = """
 def deallocator(addr):
     v = cast_adr_to_ptr(addr, PTR_TYPE)
@@ -340,7 +338,7 @@ def deallocator(addr):
 """ % (body, )
         else:
             call_del = None
-            body = '\n'.join(self._static_deallocator_body_for_type('v', TYPE))
+            body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
                    body + '\n    destroy(v)\n')
         d = {'pop_alive': pop_alive,
@@ -466,3 +464,91 @@ def find_gc_ptrs_in_type(TYPE):
         return [TYPE]
     else:
         return []
+
+def type_contains_pyobjs(TYPE):
+    if isinstance(TYPE, lltype.Array):
+        return type_contains_pyobjs(TYPE.OF)
+    elif isinstance(TYPE, lltype.Struct):
+        result = []
+        for name in TYPE._names:
+            if type_contains_pyobjs(TYPE._flds[name]):
+                return True
+        return False
+    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO == lltype.PyObject:
+        return True
+    else:
+        return False
+
+
+class BoehmGCTransformer(GCTransformer):
+    gc_header_offset = gc.GCHeaderOffset(lltype.Void)
+
+    def __init__(self, translator):
+        super(BoehmGCTransformer, self).__init__(translator)
+        self.finalizer_graphs = {}
+
+    def push_alive_nopyobj(self, var):
+        return []
+
+    def pop_alive_nopyobj(self, var):
+        return []
+
+    def get_rtti(self, TYPE):
+        if isinstance(TYPE, lltype.GcStruct):
+            try:
+                return lltype.getRuntimeTypeInfo(TYPE)
+            except ValueError:
+                pass
+        return None
+
+    def finalizer_graph_for_type(self, TYPE):
+        if TYPE in self.finalizer_graphs:
+            return self.finalizer_graphs[TYPE]
+        
+        def compute_pop_alive_ll_ops(hop):
+            hop.llops.extend(self.pop_alive(hop.args_v[1]))
+            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
+        def pop_alive(var):
+            pass
+        pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
+        pop_alive.llresult = lltype.Void
+        
+        rtti = self.get_rtti(TYPE)
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            destrptr = rtti._obj.destructor_funcptr
+            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
+        else:
+            destrptr = None
+            DESTR_ARG = None
+
+        if type_contains_pyobjs(TYPE):
+            if destrptr:
+                raise Exception("can't mix PyObjects and __del__ with Boehm")
+
+            static_body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
+            d = {'pop_alive':pop_alive,
+                 'PTR_TYPE':lltype.Ptr(TYPE),
+                 'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr}
+            src = ("def finalizer(addr):\n"
+                   "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
+                   "%s\n")%(static_body,)
+            exec src in d
+            g = self.translator.rtyper.annotate_helper(d['finalizer'], [llmemory.Address])
+        elif destrptr:
+            d = {'PTR_TYPE':DESTR_ARG,
+                 'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr,
+                 'destrptr':destrptr}
+            src = ("def finalizer(addr):\n"
+                   "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
+                   "    destrptr(v)\n")
+            exec src in d
+            g = self.translator.rtyper.annotate_helper(
+                d['finalizer'], [llmemory.Address])
+        else:
+            g = None
+
+        if g:
+            self.seen_graphs[g] = True
+        self.finalizer_graphs[TYPE] = g
+        return g
+        
