@@ -5,11 +5,12 @@ from pypy.translator.c.test.test_genc import compile, compile_db
 #o#from pypy.translator.c import compile
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.annotation.model import SomeCTypesObject, SomeObject
+from pypy import conftest
 import sys
 
 thisdir = py.magic.autopath().dirpath()
 
-def compile(fn, argtypes, view=False):
+def compile(fn, argtypes, view=conftest.option.view):
     from pypy.translator.c.database import LowLevelDatabase
     from pypy.rpython.lltypesystem.lltype import pyobjectptr
     t = TranslationContext()
@@ -387,7 +388,7 @@ class Test_structure:
             pass
 
     def test_compile_struct(self):
-        fn = compile( py_test_compile_struct, [ int, int ], False )
+        fn = compile( py_test_compile_struct, [ int, int ] )
         res = fn( 42, -42 )
         assert res == 42
 
@@ -399,11 +400,11 @@ class Test_structure:
         try:
             t.buildrtyper().specialize()
         finally:
-            t.view()
+            #d#t.view()
             pass
 
     def x_test_compile_pointer(self):
-        fn = compile( py_test_compile_pointer, [ int, int ], True and False )
+        fn = compile( py_test_compile_pointer, [ int, int ] )
         res = fn( -42, 42 )
         assert res == -42
 
