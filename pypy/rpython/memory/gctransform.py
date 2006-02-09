@@ -350,9 +350,6 @@ def deallocator(addr):
              'PTR_TYPE': lltype.Ptr(TYPE),
              'DESTR_ARG': DESTR_ARG,
              'os': py.std.os}
-        print
-        print src
-        print
         exec src in d
         this = d['deallocator']
         g = self.translator.rtyper.annotate_helper(this, [llmemory.Address])
