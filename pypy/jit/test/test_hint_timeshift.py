@@ -4,7 +4,7 @@ from pypy.jit.hintannotator import HintAnnotator
 from pypy.jit.hintbookkeeper import HintBookkeeper
 from pypy.jit.hintmodel import *
 from pypy.jit.hinttimeshift import HintTimeshift
-from pypy.jit import rtimeshift
+from pypy.jit import rtimeshift, hintrtyper
 from pypy.jit.test.test_llabstractinterp import annotation
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
@@ -51,26 +51,28 @@ def timeshift(ll_function, values):
     residual_graph_args = []
     assert len(graph1.getargs()) == 1 + len(values)
     for v, llvalue in zip(graph1.getargs()[1:], values):
-        color = htshift.varcolor[v]
-        if color == "green":
+        r = htshift.hrtyper.bindingrepr(v)
+        residual_v = r.residual_values(llvalue)
+        if len(residual_v) == 0:
+            # green
             graph1args.append(llvalue)
-        elif color == "red":
-            TYPE = htshift.varconcretetype[v]
+        else:
+            # red
+            assert residual_v == [llvalue], "XXX for now"
+            TYPE = htshift.originalconcretetype(v)
             box = rtimeshift.ll_input_redbox(jitstate, TYPE)
             graph1args.append(box)
             residual_graph_args.append(llvalue)
-        else:
-            raise NotImplementedError(color)
     llinterp = LLInterpreter(rtyper)
     result1 = llinterp.eval_graph(graph1, graph1args)
     # now try to run the block produced by the jitstate
-    color = htshift.varcolor[graph1.getreturnvar()]
-    if color == "green":
+    r = htshift.hrtyper.bindingrepr(graph1.getreturnvar())
+    if isinstance(r, hintrtyper.GreenRepr):
         result_gvar = rgenop.genconst(jitstate.curblock, result1)
-    elif color == "red":
+    elif isinstance(r, hintrtyper.RedRepr):
         result_gvar = result1.genvar
     else:
-        raise NotImplementedError(color)
+        raise NotImplementedError(r)
     jitblock = rtimeshift.ll_close_jitstate(jitstate, result_gvar)
     return rgenop.runblock(jitblock, residual_graph_args,
                            viewbefore = conftest.option.view)
@@ -86,3 +88,14 @@ def test_simple():
         return x + y
     res = timeshift(ll_function, [5, 7])
     assert res == 12
+
+def test_convert_const_to_redbox():
+    def ll_function(x, y):
+        x = hint(x, concrete=True)
+        tot = 0
+        while x:    # conversion from green '0' to red 'tot'
+            tot += y
+            x -= 1
+        return tot
+    res = timeshift(ll_function, [7, 2])
+    assert res == 14

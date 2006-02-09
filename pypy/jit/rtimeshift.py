@@ -8,8 +8,18 @@ STATE_PTR = lltype.Ptr(STATE)
 REDBOX = lltype.GcStruct("redbox", ("genvar", rgenop.CONSTORVAR))
 REDBOX_PTR = lltype.Ptr(REDBOX)
 
+SIGNED_REDBOX = lltype.GcStruct("signed_redbox", 
+                                ('basebox', REDBOX),
+                                ("value", lltype.Signed))
+SIGNED_REDBOX_PTR = lltype.Ptr(SIGNED_REDBOX)
+
 
 def ll_gvar_from_redbox(jitstate, box):
+    if not box.genvar:
+        # XXX other ll types!
+        # XXX support for polymorphism needs rethinking
+        sbox = lltype.cast_pointer(SIGNED_REDBOX_PTR, box)
+        box.genvar = ll_gvar_from_const(jitstate, sbox.value)
     return box.genvar
 
 def ll_gvar_from_const(jitstate, value):

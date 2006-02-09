@@ -239,18 +239,6 @@ class RPythonTyper:
         assert isinstance(v, Variable)
         v.concretetype = self.bindingrepr(v).lowleveltype
 
-    def typedconstant(self, c, using_repr=None):
-        """Make a copy of the Constant 'c' and give it a concretetype."""
-        assert isinstance(c, Constant)
-        if using_repr is None:
-            using_repr = self.bindingrepr(c)
-        if not hasattr(c, 'concretetype'):
-            c = inputconst(using_repr, c.value)
-        else:
-            if c.concretetype is not Void:
-                assert typeOf(c.value) == using_repr.lowleveltype
-        return c
-
     def setup_block_entry(self, block):
         if block.operations == () and len(block.inputargs) == 2:
             # special case for exception blocks: force them to return an
@@ -269,6 +257,9 @@ class RPythonTyper:
                 result.append(r)
             return result
 
+    def make_new_lloplist(self, block):
+        return LowLevelOpList(self, block)
+
     def specialize_block(self, block):
         # give the best possible types to the input args
         try:
@@ -281,7 +272,7 @@ class RPythonTyper:
         # specialize all the operations, as far as possible
         if block.operations == ():   # return or except block
             return
-        newops = LowLevelOpList(self, block)
+        newops = self.make_new_lloplist(block)
         varmapping = {}
         for v in block.getvariables():
             varmapping[v] = v    # records existing Variables
@@ -352,24 +343,24 @@ class RPythonTyper:
             if isinstance(a, Variable):
                 a.concretetype = self.exceptiondata.lltype_of_exception_type
             elif isinstance(a, Constant):
-                link.last_exception = self.typedconstant(
-                    a, using_repr=self.exceptiondata.r_exception_type)
+                link.last_exception = inputconst(
+                    self.exceptiondata.r_exception_type, a.value)
 
             a = link.last_exc_value
             if isinstance(a, Variable):
                 a.concretetype = self.exceptiondata.lltype_of_exception_value
             elif isinstance(a, Constant):
-                link.last_exc_value = self.typedconstant(
-                    a, using_repr=self.exceptiondata.r_exception_value)
+                link.last_exc_value = inputconst(
+                    self.exceptiondata.r_exception_value, a.value)
 
             inputargs_reprs = self.setup_block_entry(link.target)
-            newops = LowLevelOpList(self, block)
+            newops = self.make_new_lloplist(block)
             newlinkargs = {}
             for i in range(len(link.args)):
                 a1 = link.args[i]
                 r_a2 = inputargs_reprs[i]
                 if isinstance(a1, Constant):
-                    link.args[i] = self.typedconstant(a1, using_repr=r_a2)
+                    link.args[i] = inputconst(r_a2, a1.value)
                     continue   # the Constant was typed, done
                 if a1 is link.last_exception:
                     r_a1 = self.exceptiondata.r_exception_type
@@ -454,6 +445,9 @@ class RPythonTyper:
                 resultvar not in varmapping):
                 # fresh Variable: rename it to the previously existing op.result
                 varmapping[resultvar] = op.result
+            elif resultvar is op.result:
+                # special case: we got the previous op.result Variable again
+                assert varmapping[resultvar] is resultvar
             else:
                 # renaming unsafe.  Insert a 'same_as' operation...
                 hop.llops.append(SpaceOperation('same_as', [resultvar],
@@ -523,7 +517,9 @@ class RPythonTyper:
         classdef = hop.s_result.classdef
         return rclass.rtype_new_instance(self, classdef, hop.llops)
 
-    def missing_operation(self, hop):
+    generic_translate_operation = None
+
+    def default_translate_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
     # __________ utilities __________
@@ -613,11 +609,16 @@ class HighLevelOp(object):
         return result
 
     def dispatch(self, opname=None):
-        if not opname:
-            opname = self.spaceop.opname
         rtyper = self.rtyper
+        generic = rtyper.generic_translate_operation
+        if generic is not None:
+            res = generic(self)
+            if res is not None:
+                return res
+        if not opname:
+             opname = self.spaceop.opname
         translate_meth = getattr(rtyper, 'translate_op_'+opname,
-                                 rtyper.missing_operation)
+                                 rtyper.default_translate_operation)
         return translate_meth(self)
 
     def inputarg(self, converted_to, arg):
