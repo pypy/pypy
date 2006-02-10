@@ -39,7 +39,7 @@ class __extend__(annmodel.SomeBuiltin):
             # rtype_method_xxx() will read from that hop.args_s[0].
             # See test_method_join in test_rbuiltin.
             # There is no problem with self.s_self being garbage-collected and
-            # its id reused, because the BuiltinMethodepr keeps a reference
+            # its id reused, because the BuiltinMethodRepr keeps a reference
             # to it.
             return (self.__class__, self.methodname, id(self.s_self))
 
