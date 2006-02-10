@@ -353,8 +353,8 @@ def test_deallocator_simple():
     ops = []
     for block in dgraph.iterblocks():
         ops.extend([op for op in block.operations if op.opname != 'same_as']) # XXX
-    assert len(ops) == 2
-    op = ops[1]
+    assert len(ops) == 1
+    op = ops[0]
     assert op.opname == 'gc_free'
 
 def test_deallocator_less_simple():

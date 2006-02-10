@@ -191,9 +191,23 @@ class GCTransformer(object):
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
     def free(self, var):
+        assert var.concretetype == llmemory.Address
         result = Variable()
         result.concretetype = lltype.Void
         return [SpaceOperation("gc_free", [var], result)]        
+
+    annotate_helper_count = 0
+    def annotate_helper(self, ll_helper, args):
+##         import sys
+##         self.annotate_helper_count += 1
+##         f = sys._getframe(1)
+##         TYPE = f.f_locals.get('TYPE')
+##         print "ahc", self.annotate_helper_count, f.f_code.co_name, 
+##         if TYPE:
+##             print len(find_gc_ptrs_in_type(TYPE))
+##         else:
+##             print 
+        return self.translator.rtyper.annotate_helper(ll_helper, args)
     
 
     # ----------------------------------------------------------------
@@ -220,17 +234,24 @@ def _static_deallocator_body_for_type(v, TYPE, depth=1):
     elif isinstance(TYPE, lltype.Ptr):
         yield '    '*depth + 'pop_alive(%s)'%v
 
-## def print_call_chain(ob):
-##     import sys
-##     f = sys._getframe(1)
-##     stack = []
-##     while f:
-##         if f.f_locals.get('self') is ob:
-##             stack.append((f.f_code.co_name, f.f_locals.get('TYPE')))
-##         f = f.f_back
-##     stack.reverse()
-##     for i, (a, b) in enumerate(stack):
-##         print ' '*i, a, repr(b)[:100-i-len(a)], id(b)
+counts = {}
+
+def print_call_chain(ob):
+    import sys
+    f = sys._getframe(1)
+    stack = []
+    flag = False
+    while f:
+        if f.f_locals.get('self') is ob:
+            stack.append((f.f_code.co_name, f.f_locals.get('TYPE')))
+            if not flag:
+                counts[f.f_code.co_name] = counts.get(f.f_code.co_name, 0) + 1
+                print counts
+                flag = True
+        f = f.f_back
+    stack.reverse()
+    for i, (a, b) in enumerate(stack):
+        print ' '*i, a, repr(b)[:100-i-len(a)], id(b)
 
 class RefcountingGCTransformer(GCTransformer):
 
@@ -243,12 +264,40 @@ class RefcountingGCTransformer(GCTransformer):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
+        def compute_destroy_ll_ops(hop):
+            hop.llops.extend(self.free(hop.args_v[1]))
+            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
+        def destroy(var):
+            pass
+        destroy.compute_ll_ops = compute_destroy_ll_ops
+        destroy.llresult = lltype.Void
+        def no_pointer_decref(adr):
+            if adr:
+                gcheader = adr - RefcountingGCTransformer.gc_header_offset
+                refcount = gcheader.signed[0] - 1
+                gcheader.signed[0] = refcount
+                if refcount == 0:
+                    destroy(adr)
+        def no_pointer_dealloc(adr):
+            destroy(adr)
         if self.translator is not None and self.translator.rtyper is not None:
-            self.increfgraph = self.translator.rtyper.annotate_helper(
+            self.increfgraph = self.annotate_helper(
                 incref, [annmodel.SomeAddress()])
             self.translator.rtyper.specialize_more_blocks()
             self.increfptr = const_funcptr_fromgraph(self.increfgraph)
             self.seen_graphs[self.increfgraph] = True
+            
+            self.no_pointer_decref_graph = self.annotate_helper(
+                no_pointer_decref, [annmodel.SomeAddress()])
+            self.translator.rtyper.specialize_more_blocks()
+            self.no_pointer_decref_ptr = const_funcptr_fromgraph(self.no_pointer_decref_graph)
+            self.seen_graphs[self.no_pointer_decref_graph] = True
+
+            self.no_pointer_dealloc_graph = self.annotate_helper(
+                no_pointer_dealloc, [annmodel.SomeAddress()])
+            self.translator.rtyper.specialize_more_blocks()
+            self.no_pointer_dealloc_ptr = const_funcptr_fromgraph(self.no_pointer_dealloc_graph)
+            self.seen_graphs[self.no_pointer_dealloc_graph] = True
         # cache graphs:
         self.decref_graphs = {}
         self.static_deallocator_graphs = {}
@@ -333,6 +382,12 @@ class RefcountingGCTransformer(GCTransformer):
             destrptr = None
             DESTR_ARG = None
 
+        if destrptr is None and not PTRS:
+            #print repr(TYPE)[:80], 'is dealloc easy'
+            g = self.no_pointer_dealloc_graph
+            self.static_deallocator_graphs[TYPE] = g
+            return g
+
         if destrptr is not None:
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 2))
             src = """
@@ -350,13 +405,13 @@ def deallocator(addr):
     gcheader.signed[0] = refcount
     if refcount == 0:
 %s
-        destroy(v)
+        destroy(addr)
 """ % (body, )
         else:
             call_del = None
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
-                   body + '\n    destroy(v)\n')
+                   body + '\n    destroy(addr)\n')
         d = {'pop_alive': pop_alive,
              'destroy': destroy,
              'destrptr': destrptr,
@@ -368,7 +423,7 @@ def deallocator(addr):
              'os': py.std.os}
         exec src in d
         this = d['deallocator']
-        g = self.translator.rtyper.annotate_helper(this, [llmemory.Address])
+        g = self.annotate_helper(this, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
         opcount = 0
@@ -387,6 +442,7 @@ def deallocator(addr):
     def dynamic_deallocation_graph_for_type(self, TYPE):
         if TYPE in self.dynamic_deallocator_graphs:
             return self.dynamic_deallocator_graphs[TYPE]
+        #print_call_chain(self)
 
         rtti = self.get_rtti(TYPE)
         assert rtti is not None
@@ -409,7 +465,7 @@ def deallocator(addr):
             rtti = queryptr(v)
             gcheader.signed[0] = 0
             call_destructor_for_rtti(addr, rtti)
-        g = self.translator.rtyper.annotate_helper(dealloc, [llmemory.Address])
+        g = self.annotate_helper(dealloc, [llmemory.Address])
         self.dynamic_deallocator_graphs[TYPE] = g
         self.seen_graphs[g] = True
         return g
@@ -417,12 +473,18 @@ def deallocator(addr):
     def decref_graph_for_type(self, TYPE):
         if TYPE in self.decref_graphs:
             return self.decref_graphs[TYPE]
+        #print_call_chain(self)
         need_dynamic_destructor = False
         rtti = self.get_rtti(TYPE)
         if rtti is None:
             need_dynamic_destructor = False
         else:
             need_dynamic_destructor = True
+        if rtti is None and not find_gc_ptrs_in_type(TYPE):
+            #print repr(TYPE)[:80], 'is decref easy'
+            g = self.no_pointer_decref_graph
+            self.decref_graphs[TYPE] = g
+            return g
         if not need_dynamic_destructor:
             graph = self.static_deallocation_graph_for_type(TYPE)
         else:
@@ -446,7 +508,7 @@ def deallocator(addr):
             gcheader.signed[0] = refcount
             if refcount == 0:
                 destructor(addr)
-        g = self.translator.rtyper.annotate_helper(decref, [llmemory.Address])
+        g = self.annotate_helper(decref, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
         self.decref_graphs[TYPE] = g
@@ -544,7 +606,7 @@ class BoehmGCTransformer(GCTransformer):
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "%s\n")%(static_body,)
             exec src in d
-            g = self.translator.rtyper.annotate_helper(d['finalizer'], [llmemory.Address])
+            g = self.annotate_helper(d['finalizer'], [llmemory.Address])
         elif destrptr:
             d = {'PTR_TYPE':DESTR_ARG,
                  'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr,
@@ -553,8 +615,7 @@ class BoehmGCTransformer(GCTransformer):
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "    destrptr(v)\n")
             exec src in d
-            g = self.translator.rtyper.annotate_helper(
-                d['finalizer'], [llmemory.Address])
+            g = self.annotate_helper(d['finalizer'], [llmemory.Address])
         else:
             g = None
 
