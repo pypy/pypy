@@ -98,7 +98,13 @@ Functions:
 
 * genop(block, opname, [list-of-vars], RESULT_CONCRETE_TYPE) -> (result var)
 
-* genconst(block, llvalue) -> (result var)
+* genconst(llvalue) -> (result var) # not for Void consts
+
+* constFieldName(name) # Void constant for a name, likely not runtime
+
+* constTYPE(LLTYPE)    # Void constant for a lltype, likely not runtime
+
+* placeholder(dummy)   # likely ignored Void constant, likely not runtime
 
 * gencallableconst(block, name, target-block, FUNCTYPE) -> (result var)
 

@@ -50,7 +50,7 @@ def build_if():
     """
     block = newblock()
     v0 = geninputarg(block, Signed)
-    const0 = genconst(block, 0)
+    const0 = genconst(0)
     v1 = genop(block, 'int_lt', [v0, const0], Bool)
     exitspair = closeblock2(block, v1)
     false_link, true_link = exitspair.item0, exitspair.item1
@@ -84,14 +84,14 @@ def build_loop():
     """
     block = newblock()
     v0 = geninputarg(block, Signed)
-    const1 = genconst(block, 1)
+    const1 = genconst(1)
     link = closeblock1(block)
     loopblock = newblock()
     result0 = geninputarg(loopblock, Signed)
     i0 = geninputarg(loopblock, Signed)
     v1 = geninputarg(loopblock, Signed)
     closelink(link, [const1, const1, v0], loopblock)
-    const1 = genconst(block, 1)
+    const1 = genconst(1)
     result1 = genop(loopblock, 'int_mul', [result0, i0], Signed)
     i1 = genop(loopblock, 'int_add', [i0, const1], Signed)
     v2 = genop(loopblock, 'int_le', [i1, v1], Bool)

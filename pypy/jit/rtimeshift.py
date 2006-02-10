@@ -23,7 +23,7 @@ def ll_gvar_from_redbox(jitstate, box):
     return box.genvar
 
 def ll_gvar_from_const(jitstate, value):
-    return rgenop.genconst(jitstate.curblock, value)
+    return rgenop.genconst(value)
 
 def ll_generate_operation(jitstate, opname, args, RESULTTYPE):
     gvar = rgenop.genop(jitstate.curblock, opname, args, RESULTTYPE)

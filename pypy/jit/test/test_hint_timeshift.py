@@ -68,7 +68,7 @@ def timeshift(ll_function, values):
     # now try to run the block produced by the jitstate
     r = htshift.hrtyper.bindingrepr(graph1.getreturnvar())
     if isinstance(r, hintrtyper.GreenRepr):
-        result_gvar = rgenop.genconst(jitstate.curblock, result1)
+        result_gvar = rgenop.genconst(result1)
     elif isinstance(r, hintrtyper.RedRepr):
         result_gvar = result1.genvar
     else:

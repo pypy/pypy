@@ -120,8 +120,9 @@ class RedRepr(Repr):
 
     def convert_const(self, ll_value):
         assert lltype.typeOf(ll_value) == lltype.Signed # XXX other ll types!
-        # XXX can this really be a static constant  and reused ???
+        # this should be immutable!
         box = lltype.malloc(rtimeshift.SIGNED_REDBOX)
+        box.basebox.genvar = rgenop.genconst(ll_value)
         box.value = ll_value
         box = lltype.cast_pointer(rtimeshift.REDBOX_PTR,  box)
         return box

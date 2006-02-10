@@ -57,9 +57,9 @@ def gencallableconst(blockcontainer, name, targetcontainer, FUNCTYPE):
     target = from_opaque_object(targetcontainer.obj)
     fptr = lltype.functionptr(FUNCTYPE, name,
                               graph=_buildgraph(target))
-    return genconst(blockcontainer, fptr)
+    return genconst(fptr)
 
-def genconst(blockcontainer, llvalue):
+def genconst(llvalue):
     v = flowmodel.Constant(llvalue)
     v.concretetype = lltype.typeOf(llvalue)
     if v.concretetype == lltype.Void: # XXX genconst should not really be used for Void constants
@@ -163,7 +163,7 @@ class PseudoRTyper(object):
         self.type_system = LowLevelTypeSystem.instance
 
 def _buildgraph(block):
-    graph = flowmodel.FunctionGraph('?', block)
+    graph = flowmodel.FunctionGraph('generated', block)
     _patchgraph(graph)
     flowmodel.checkgraph(graph)
     eliminate_empty_blocks(graph)

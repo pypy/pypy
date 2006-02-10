@@ -539,7 +539,7 @@ class BlockBuilder(object):
         return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
 
     def genconst(self, llvalue):
-        return rgenop.genconst(self.newblock, llvalue)
+        return rgenop.genconst(llvalue)
     
     def binding(self, v):
         assert isinstance(v, (Constant, Variable))

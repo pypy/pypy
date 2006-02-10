@@ -914,7 +914,7 @@ def test_list_builder():
             return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
 
         def genconst(self, llvalue):
-            return rgenop.genconst(self.newblock, llvalue)
+            return rgenop.genconst(llvalue)
 
         # inspection
         def __getitem__(self, index):
