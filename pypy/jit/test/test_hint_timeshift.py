@@ -5,7 +5,7 @@ from pypy.jit.hintbookkeeper import HintBookkeeper
 from pypy.jit.hintmodel import *
 from pypy.jit.hinttimeshift import HintTimeshift
 from pypy.jit import rtimeshift, hintrtyper
-from pypy.jit.test.test_llabstractinterp import annotation
+from pypy.jit.test.test_llabstractinterp import annotation, summary
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.rpython import rgenop
@@ -74,20 +74,25 @@ def timeshift(ll_function, values):
     else:
         raise NotImplementedError(r)
     jitblock = rtimeshift.ll_close_jitstate(jitstate, result_gvar)
-    return rgenop.runblock(jitblock, residual_graph_args,
-                           viewbefore = conftest.option.view)
+    residual_graph = rgenop.buildgraph(jitblock)
+    insns = summary(residual_graph)
+    res = rgenop.testgengraph(residual_graph, residual_graph_args,
+                              viewbefore = conftest.option.view)
+    return insns, res
 
 def test_simple_fixed():
     def ll_function(x, y):
         return hint(x + y, concrete=True)
-    res = timeshift(ll_function, [5, 7])
+    insns, res = timeshift(ll_function, [5, 7])
     assert res == 12
+    assert insns == {}
 
 def test_simple():
     def ll_function(x, y):
         return x + y
-    res = timeshift(ll_function, [5, 7])
+    insns, res = timeshift(ll_function, [5, 7])
     assert res == 12
+    assert insns == {'int_add': 1}
 
 def test_convert_const_to_redbox():
     def ll_function(x, y):
@@ -97,5 +102,6 @@ def test_convert_const_to_redbox():
             tot += y
             x -= 1
         return tot
-    res = timeshift(ll_function, [7, 2])
+    insns, res = timeshift(ll_function, [7, 2])
     assert res == 14
+    assert insns == {'int_add': 7}

@@ -175,14 +175,16 @@ def buildgraph(blockcontainer):
     block = from_opaque_object(blockcontainer.obj)
     return _buildgraph(block)
 
-def runblock(blockcontainer, args, viewbefore=False):
-    block = from_opaque_object(blockcontainer.obj)
+def testgengraph(gengraph, args, viewbefore=False):
     from pypy.rpython.llinterp import LLInterpreter
-    graph = _buildgraph(block)
     if viewbefore:
         graph.show()
     llinterp = LLInterpreter(PseudoRTyper())
-    return llinterp.eval_graph(graph, args)
+    return llinterp.eval_graph(gengraph, args)
+    
+def runblock(blockcontainer, args, viewbefore=False):
+    graph = buildgraph(blockcontainer)
+    return testgengraph(graph, args, viewbefore)
 
 # ____________________________________________________________
 # RTyping of the above functions
