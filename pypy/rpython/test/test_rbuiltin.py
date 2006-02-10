@@ -296,3 +296,31 @@ def test_intmask():
 
     res = interpret(f, [r_uint(5)])
     assert type(res) is int and res == 5
+
+def test_cast_primitive():
+    from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+    def llf(u):
+        return lltype.cast_primitive(lltype.Signed, u)
+    res = interpret(llf, [r_uint(-1)], policy=LowLevelAnnotatorPolicy())
+    assert res == -1
+    res = interpret(llf, ['x'], policy=LowLevelAnnotatorPolicy())
+    assert res == ord('x')
+    def llf(v):
+        return lltype.cast_primitive(lltype.Unsigned, v)
+    res = interpret(llf, [-1], policy=LowLevelAnnotatorPolicy())
+    assert res == r_uint(-1)
+    res = interpret(llf, [u'x'], policy=LowLevelAnnotatorPolicy())
+    assert res == ord(u'x')
+    res = interpret(llf, [1.0], policy=LowLevelAnnotatorPolicy())
+    assert res == r_uint(1)
+    def llf(v):
+        return lltype.cast_primitive(lltype.Char, v)
+    res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
+    assert res == 'x'
+    def llf(v):
+        return lltype.cast_primitive(lltype.UniChar, v)
+    res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
+    assert res == u'x'
+ 
+    
+ 

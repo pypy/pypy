@@ -287,3 +287,14 @@ class TestLowLevelAnnotateTestCase:
         assert isinstance(s, annmodel.SomePtr)
         assert s.ll_ptrtype == Ptr(RuntimeTypeInfo)
         
+    def test_cast_primitive(self):
+        def llf(u):
+            return cast_primitive(Signed, u)
+        s = self.annotate(llf, [annmodel.SomeInteger(unsigned=True)])
+        assert s.knowntype == int
+        def llf(s):
+            return cast_primitive(Unsigned, s)
+        s = self.annotate(llf, [annmodel.SomeInteger()])
+        assert s.unsigned == True
+
+ 

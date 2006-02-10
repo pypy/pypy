@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
 from pypy.annotation.model import SomeExternalObject
-from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation
+from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.model import s_ImpossibleValue
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -404,6 +404,10 @@ def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
     return immutablevalue(lltype)
 
+def cast_primitive(T, s_v):
+    assert T.is_constant()
+    return ll_to_annotation(lltype.cast_primitive(T.const, annotation_to_lltype(s_v)._defl()))
+
 def nullptr(T):
     assert T.is_constant()
     p = lltype.nullptr(T.const)
@@ -428,6 +432,7 @@ def runtime_type_info(s_p):
 
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
+BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
 BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
 BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int

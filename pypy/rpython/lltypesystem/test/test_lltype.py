@@ -491,3 +491,20 @@ def test_adt_typemethod():
 
     assert S == Sprime
 
+def test_cast_primitive():
+    cases = [
+        (Float, 1, 1.0),
+        (Signed, 1.0, 1),
+        (Unsigned, 1.0, 1),
+        (Signed, r_uint(-1), -1),
+        (Unsigned, -1, r_uint(-1)),
+        (Char, ord('a'), 'a'),
+        (Char, False,  chr(0)),
+        (Signed, 'x', ord('x')),
+        (Unsigned, u"x", ord(u'x')),
+    ]
+    for TGT, orig_val, expect in cases:
+         res = cast_primitive(TGT, orig_val)
+         assert typeOf(res) == TGT
+         assert res == expect
+        

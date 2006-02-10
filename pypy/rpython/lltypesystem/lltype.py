@@ -508,6 +508,31 @@ def typeOf(val):
             return val.lltype()
         raise TypeError("typeOf(%r object)" % (tp.__name__,))
 
+_to_primitive = {
+    Signed: int,
+    Unsigned: r_uint,
+    Float: float,
+    Char: chr,
+    UniChar: unichr,
+    Bool: bool,
+}
+
+def cast_primitive(TGT, value):
+    ORIG = typeOf(value)
+    if not isinstance(TGT, Primitive) or not isinstance(ORIG, Primitive):
+        raise TypeError, "can only primitive to primitive"
+    if ORIG == TGT:
+        return value
+    if ORIG == Char or ORIG == UniChar:
+        value = ord(value)
+    elif ORIG == Float:
+        value = long(value)
+    cast = _to_primitive.get(TGT)
+    if cast is None:
+        raise TypeError, "unsupported cast"
+    return cast(value)
+ 
+
 class InvalidCast(TypeError):
     pass
 

@@ -5,7 +5,8 @@ from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython import rarithmetic, objectmodel, rstack, rint, raddress
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr
-from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
+from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
+from pypy.rpython import rstr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rdict import rtype_r_dict
@@ -38,7 +39,7 @@ class __extend__(annmodel.SomeBuiltin):
             # rtype_method_xxx() will read from that hop.args_s[0].
             # See test_method_join in test_rbuiltin.
             # There is no problem with self.s_self being garbage-collected and
-            # its id reused, because the BuiltinMethodRepr keeps a reference
+            # its id reused, because the BuiltinMethodepr keeps a reference
             # to it.
             return (self.__class__, self.methodname, id(self.s_self))
 
@@ -294,6 +295,25 @@ def rtype_cast_pointer(hop):
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_cast_primitive(hop):
+    assert hop.args_s[0].is_constant()
+    TGT = hop.args_s[0].const
+    # we don't want these as automatic conversions, so:
+    if TGT == lltype.Char:
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        return hop2.args_r[0].rtype_chr(hop2)
+    elif TGT == lltype.UniChar:
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        return hop2.args_r[0].rtype_unichr(hop2)
+    elif hop.args_r[1] in (rstr.char_repr, rstr.unichar_repr):
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        v = hop2.args_r[0].rtype_ord(hop2)
+        return hop.llops.convertvar(v, rint.signed_repr, hop.r_result)
+    return hop.inputarg(TGT, 1)
+
 def rtype_cast_ptr_to_int(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
@@ -307,6 +327,7 @@ def rtype_runtime_type_info(hop):
                  resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
+BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
