@@ -220,6 +220,18 @@ def _static_deallocator_body_for_type(v, TYPE, depth=1):
     elif isinstance(TYPE, lltype.Ptr):
         yield '    '*depth + 'pop_alive(%s)'%v
 
+## def print_call_chain(ob):
+##     import sys
+##     f = sys._getframe(1)
+##     stack = []
+##     while f:
+##         if f.f_locals.get('self') is ob:
+##             stack.append((f.f_code.co_name, f.f_locals.get('TYPE')))
+##         f = f.f_back
+##     stack.reverse()
+##     for i, (a, b) in enumerate(stack):
+##         print ' '*i, a, repr(b)[:100-i-len(a)], id(b)
+
 class RefcountingGCTransformer(GCTransformer):
 
     gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
@@ -251,11 +263,14 @@ class RefcountingGCTransformer(GCTransformer):
 
     def pop_alive_nopyobj(self, var):
         PTRTYPE = var.concretetype
+        adr1 = varoftype(llmemory.Address)
+        result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
         decref_graph = self.decref_graph_for_type(PTRTYPE.TO)
-        FUNC = lltype.FuncType([PTRTYPE], lltype.Void)
+        FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
         const_fptr = rmodel.inputconst(
              lltype.Ptr(FUNC), lltype.functionptr(FUNC, decref_graph.name, graph=decref_graph))
-        return [SpaceOperation("direct_call", [const_fptr, var], varoftype(lltype.Void))]
+        result.append(SpaceOperation("direct_call", [const_fptr, adr1], varoftype(lltype.Void)))
+        return result
 
     def replace_setfield(self, op):
         if not var_needsgc(op.args[2]):
@@ -293,6 +308,7 @@ class RefcountingGCTransformer(GCTransformer):
     def static_deallocation_graph_for_type(self, TYPE):
         if TYPE in self.static_deallocator_graphs:
             return self.static_deallocator_graphs[TYPE]
+        #print_call_chain(self)
         PTRS = find_gc_ptrs_in_type(TYPE)
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
@@ -415,24 +431,22 @@ def deallocator(addr):
         const_funcptr = rmodel.inputconst(lltype.Ptr(FUNC),
                                  lltype.functionptr(FUNC, graph.name, graph=graph))
         def compute_destructor_ll_ops(hop):
-            assert hop.args_v[1].concretetype.TO == TYPE
-            addr = hop.genop("cast_ptr_to_adr", [hop.args_v[1]], resulttype=llmemory.Address)
-            return hop.genop("direct_call", [const_funcptr, addr],
+            assert hop.args_v[1].concretetype == llmemory.Address
+            return hop.genop("direct_call", [const_funcptr, hop.args_v[1]],
                              resulttype=lltype.Void)
         def destructor(var):
             pass
         destructor.compute_ll_ops = compute_destructor_ll_ops
         destructor.llresult = lltype.Void
-        def decref(obj):
-            if not obj:
+        def decref(addr):
+            if not addr:
                 return
-            objadr = objectmodel.cast_ptr_to_adr(obj)
-            gcheader = objadr - RefcountingGCTransformer.gc_header_offset
+            gcheader = addr - RefcountingGCTransformer.gc_header_offset
             refcount = gcheader.signed[0] - 1
             gcheader.signed[0] = refcount
             if refcount == 0:
-                destructor(obj)
-        g = self.translator.rtyper.annotate_helper(decref, [lltype.Ptr(TYPE)])
+                destructor(addr)
+        g = self.translator.rtyper.annotate_helper(decref, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
         self.decref_graphs[TYPE] = g
