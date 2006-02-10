@@ -321,6 +321,3 @@ def test_cast_primitive():
         return lltype.cast_primitive(lltype.UniChar, v)
     res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
     assert res == u'x'
- 
-    
- 

@@ -34,7 +34,7 @@ def hannotate(func, values, policy=None):
         hannotator.translator.view()
     return hs, hannotator, rtyper
 
-def timeshift(ll_function, values):
+def timeshift(ll_function, values, opt_consts=[]):
     hs, ha, rtyper = hannotate(ll_function, values)
     htshift = HintTimeshift(ha, rtyper)
     htshift.timeshift()
@@ -50,7 +50,7 @@ def timeshift(ll_function, values):
     graph1args = [jitstate]
     residual_graph_args = []
     assert len(graph1.getargs()) == 1 + len(values)
-    for v, llvalue in zip(graph1.getargs()[1:], values):
+    for i, (v, llvalue) in enumerate(zip(graph1.getargs()[1:], values)):
         r = htshift.hrtyper.bindingrepr(v)
         residual_v = r.residual_values(llvalue)
         if len(residual_v) == 0:
@@ -61,6 +61,8 @@ def timeshift(ll_function, values):
             assert residual_v == [llvalue], "XXX for now"
             TYPE = htshift.originalconcretetype(v)
             box = rtimeshift.ll_input_redbox(jitstate, TYPE)
+            if i in opt_consts: # XXX what should happen here interface wise is unclear
+                box = rtimeshift.REDBOX.make_from_const(llvalue)
             graph1args.append(box)
             residual_graph_args.append(llvalue)
     llinterp = LLInterpreter(rtyper)
@@ -70,7 +72,7 @@ def timeshift(ll_function, values):
     if isinstance(r, hintrtyper.GreenRepr):
         result_gvar = rgenop.genconst(result1)
     elif isinstance(r, hintrtyper.RedRepr):
-        result_gvar = result1.genvar
+        result_gvar = rtimeshift.ll_gvar_from_redbox(jitstate, result1, r.original_concretetype)
     else:
         raise NotImplementedError(r)
     jitblock = rtimeshift.ll_close_jitstate(jitstate, result_gvar)
@@ -105,3 +107,17 @@ def test_convert_const_to_redbox():
     insns, res = timeshift(ll_function, [7, 2])
     assert res == 14
     assert insns == {'int_add': 7}
+
+def test_simple_opt_const_propagation2():
+    def ll_function(x, y):
+        return x + y
+    insns, res = timeshift(ll_function, [5, 7], [0, 1])
+    assert res == 12
+    assert insns == {}
+
+def test_simple_opt_const_propagation1():
+    def ll_function(x):
+        return -x
+    insns, res = timeshift(ll_function, [5], [0])
+    assert res == -5
+    assert insns == {}

@@ -18,6 +18,13 @@ HintTypeSystem.instance = HintTypeSystem()
 
 # ___________________________________________________________
 
+
+def originalconcretetype(hs):
+    if isinstance(hs, annmodel.SomeImpossibleValue):
+        return lltype.Void
+    else:
+        return hs.concretetype
+
 class HintRTyper(RPythonTyper):
     
     def __init__(self, hannotator, timeshifter):
@@ -26,6 +33,8 @@ class HintRTyper(RPythonTyper):
         self.green_reprs = PRECOMPUTED_GREEN_REPRS.copy()
         self.red_reprs = {}
         self.timeshifter = timeshifter
+
+    originalconcretetype = staticmethod(originalconcretetype)
 
     def make_new_lloplist(self, block):
         return HintLowLevelOpList(self.timeshifter, block)
@@ -64,21 +73,31 @@ class HintRTyper(RPythonTyper):
         # genop variables, and emits a call to a helper that will generate
         # the same operation at run-time
         # XXX constant propagate if possible
-        v_args = hop.genop('malloc_varsize',
-                           [hop.inputconst(lltype.Void, VARLIST.TO),
-                            hop.inputconst(lltype.Signed, len(hop.args_v))],
-                           resulttype = VARLIST)
-        for i in range(len(hop.args_v)):
-            v_gvar = hop.args_r[i].get_genop_var(hop.args_v[i], hop.llops)
-            hop.genop('setarrayitem', [v_args,
-                                       hop.inputconst(lltype.Signed, i),
-                                       v_gvar])
-        RESTYPE = originalconcretetype(hop.s_result)
-        c_restype = hop.inputconst(lltype.Void, RESTYPE)
-        return hop.gendirectcall(rtimeshift.ll_generate_operation,
+        opdesc = rtimeshift.make_opdesc(hop)
+        if opdesc.nb_args == 1:
+            ll_generate = rtimeshift.ll_generate_operation1
+        elif opdesc.nb_args == 2:
+            ll_generate = rtimeshift.ll_generate_operation2
+        c_opdesc = inputconst(lltype.Void, opdesc)
+        return hop.gendirectcall(ll_generate,
+                                 c_opdesc,
                                  hop.llops.getjitstate(),
-                                 opname2vstr(hop.spaceop.opname),
-                                 v_args, c_restype)
+                                 *hop.args_v)
+        #v_args = hop.genop('malloc_varsize',
+        #                   [hop.inputconst(lltype.Void, VARLIST.TO),
+        #                    hop.inputconst(lltype.Signed, len(hop.args_v))],
+        #                   resulttype = VARLIST)
+        #for i in range(len(hop.args_v)):
+        #    v_gvar = hop.args_r[i].get_genop_var(hop.args_v[i], hop.llops)
+        #    hop.genop('setarrayitem', [v_args,
+        #                               hop.inputconst(lltype.Signed, i),
+        #                               v_gvar])
+        #RESTYPE = originalconcretetype(hop.s_result)
+        #c_restype = hop.inputconst(lltype.Void, RESTYPE)
+        #return hop.gendirectcall(rtimeshift.ll_generate_operation,
+        #                         hop.llops.getjitstate(),
+        #                         opname2vstr(hop.spaceop.opname),
+        #                         v_args, c_restype)
 
 class HintLowLevelOpList(LowLevelOpList):
     """Warning: the HintLowLevelOpList's rtyper is the *original*
@@ -160,14 +179,6 @@ for _r in globals().values():
     if isinstance(_r, GreenRepr):
         PRECOMPUTED_GREEN_REPRS[_r.lowleveltype] = _r
 
-def ll_fixed_items(l):
-    return l
-
-VARLIST = lltype.Ptr(lltype.GcArray(rgenop.CONSTORVAR,
-                                    adtmeths = {
-                                        "ll_items": ll_fixed_items,
-                                    }))
-
 # ____________________________________________________________
 
 class SomeJITState(annmodel.SomeObject):
@@ -193,9 +204,3 @@ jitstate_repr = JITStateRepr()
 def opname2vstr(name):
     lls = string_repr.convert_const(name)
     return inputconst(string_repr.lowleveltype, lls)
-
-def originalconcretetype(hs):
-    if isinstance(hs, annmodel.SomeImpossibleValue):
-        return lltype.Void
-    else:
-        return hs.concretetype

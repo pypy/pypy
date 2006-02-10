@@ -178,7 +178,7 @@ def buildgraph(blockcontainer):
 def testgengraph(gengraph, args, viewbefore=False):
     from pypy.rpython.llinterp import LLInterpreter
     if viewbefore:
-        graph.show()
+        gengraph.show()
     llinterp = LLInterpreter(PseudoRTyper())
     return llinterp.eval_graph(gengraph, args)
     

@@ -196,3 +196,11 @@ def test_cast_adr_to_ptr():
         return s1 == s2
     res = interpret(f, [])
     assert res
+
+def test_llop():
+    from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+    from pypy.rpython import objectmodel
+    from pypy.rpython.lltypesystem import lltype
+    def llf(x, y):
+        return objectmodel.llop.int_add(lltype.Signed, x, y)
+    res = interpret(llf, [5, 7], policy=LowLevelAnnotatorPolicy())
