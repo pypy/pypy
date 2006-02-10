@@ -24,6 +24,7 @@ class HintRTyper(RPythonTyper):
     	RPythonTyper.__init__(self, hannotator, 
                               type_system=HintTypeSystem.instance)
         self.green_reprs = PRECOMPUTED_GREEN_REPRS.copy()
+        self.red_reprs = {}
         self.timeshifter = timeshifter
 
     def make_new_lloplist(self, block):
@@ -35,6 +36,14 @@ class HintRTyper(RPythonTyper):
         except KeyError:
             r = GreenRepr(lowleveltype)
             self.green_reprs[lowleveltype] = r
+            return r
+
+    def getredrepr(self, lowleveltype):
+        try:
+            return self.red_reprs[lowleveltype]
+        except KeyError:
+            r = RedRepr(lowleveltype)
+            self.red_reprs[lowleveltype] = r
             return r
 
     def generic_translate_operation(self, hop):
@@ -95,13 +104,13 @@ class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractConstant)):
         if hs_c.is_fixed() or hs_c.eager_concrete:
             return hrtyper.getgreenrepr(hs_c.concretetype)
         else:
-            return red_repr
+            return hrtyper.getredrepr(hs_c.concretetype)
 
     def rtyper_makekey((ts, hs_c), hrtyper):
         if hs_c.is_fixed() or hs_c.eager_concrete:
             return hs_c.__class__, "green", hs_c.concretetype
         else:
-            return hs_c.__class__, "red"
+            return hs_c.__class__, "red", hs_c.concretetype
 
 class __extend__(pairtype(HintTypeSystem, annmodel.SomeImpossibleValue)):
 
@@ -114,23 +123,19 @@ class __extend__(pairtype(HintTypeSystem, annmodel.SomeImpossibleValue)):
 class RedRepr(Repr):
     lowleveltype = rtimeshift.REDBOX_PTR
 
+    def __init__(self, original_concretetype):
+        self.original_concretetype = original_concretetype
+
     def get_genop_var(self, v, llops):
+        c_TYPE = inputconst(lltype.Void, self.original_concretetype)
         return llops.gendirectcall(rtimeshift.ll_gvar_from_redbox,
-                                   llops.getjitstate(), v)
+                                   llops.getjitstate(), v, c_TYPE)
 
     def convert_const(self, ll_value):
-        assert lltype.typeOf(ll_value) == lltype.Signed # XXX other ll types!
-        # this should be immutable!
-        box = lltype.malloc(rtimeshift.SIGNED_REDBOX)
-        box.basebox.genvar = rgenop.genconst(ll_value)
-        box.value = ll_value
-        box = lltype.cast_pointer(rtimeshift.REDBOX_PTR,  box)
-        return box
+        return rtimeshift.REDBOX.make_from_const(ll_value)
 
     def residual_values(self, ll_value):
         return [ll_value]
-
-red_repr = RedRepr()
 
 class GreenRepr(Repr):
     def __init__(self, lowleveltype):
