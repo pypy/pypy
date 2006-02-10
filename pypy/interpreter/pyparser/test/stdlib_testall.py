@@ -1,6 +1,6 @@
 import autopath
 import py
-from test_astcompiler import check_compile
+from test_astcompiler import compile_with_astcompiler
 
 def setup_module(mod):
     import sys
@@ -12,8 +12,8 @@ def setup_module(mod):
 def check_file_compile(filename):
     print 'Compiling:', filename
     source = open(filename).read()
-    check_compile(source, 'exec', quiet=True, space=std_space)
-
+    #check_compile(source, 'exec', quiet=True, space=std_space)
+    compile_with_astcompiler(source, target='exec', space=std_space)
 
 def test_all():
     p = py.path.local(autopath.pypydir).dirpath().join('lib-python', '2.4.1')

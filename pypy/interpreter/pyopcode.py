@@ -14,7 +14,17 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rarithmetic import intmask
-import opcode as pythonopcode # FIXME Needs to be *our* opcode module
+
+# load opcode.py as pythonopcode from our own lib
+def load_opcode():
+    import new, py
+    global pythonopcode
+    pythonopcode = new.module('opcode')
+    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/2.4.1/opcode.py')
+    execfile(str(opcode_path), pythonopcode.__dict__)
+
+load_opcode()
+
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
