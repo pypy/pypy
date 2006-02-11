@@ -190,12 +190,6 @@ class GCTransformer(object):
         result.concretetype = lltype.Void
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
-    def free(self, var):
-        assert var.concretetype == llmemory.Address
-        result = Variable()
-        result.concretetype = lltype.Void
-        return [SpaceOperation("gc_free", [var], result)]        
-
     annotate_helper_count = 0
     def annotate_helper(self, ll_helper, args):
 ##         import sys
@@ -264,22 +258,15 @@ class RefcountingGCTransformer(GCTransformer):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
-        def compute_destroy_ll_ops(hop):
-            hop.llops.extend(self.free(hop.args_v[1]))
-            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
-        def destroy(var):
-            pass
-        destroy.compute_ll_ops = compute_destroy_ll_ops
-        destroy.llresult = lltype.Void
         def no_pointer_decref(adr):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 refcount = gcheader.signed[0] - 1
                 gcheader.signed[0] = refcount
                 if refcount == 0:
-                    destroy(adr)
+                    objectmodel.llop.gc_free(lltype.Void, adr)
         def no_pointer_dealloc(adr):
-            destroy(adr)
+            objectmodel.llop.gc_free(lltype.Void, adr)
         if self.translator is not None and self.translator.rtyper is not None:
             self.increfgraph = self.annotate_helper(
                 incref, [annmodel.SomeAddress()])
@@ -366,13 +353,6 @@ class RefcountingGCTransformer(GCTransformer):
             pass
         pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
         pop_alive.llresult = lltype.Void
-        def compute_destroy_ll_ops(hop):
-            hop.llops.extend(self.free(hop.args_v[1]))
-            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
-        def destroy(var):
-            pass
-        destroy.compute_ll_ops = compute_destroy_ll_ops
-        destroy.llresult = lltype.Void
 
         rtti = self.get_rtti(TYPE) 
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -405,15 +385,16 @@ def deallocator(addr):
     gcheader.signed[0] = refcount
     if refcount == 0:
 %s
-        destroy(addr)
+        objectmodel.llop.gc_free(lltype.Void, addr)
 """ % (body, )
         else:
             call_del = None
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
-                   body + '\n    destroy(addr)\n')
+                   body + '\n    objectmodel.llop.gc_free(lltype.Void, addr)\n')
         d = {'pop_alive': pop_alive,
-             'destroy': destroy,
+             'objectmodel': objectmodel,
+             'lltype': lltype,
              'destrptr': destrptr,
              'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
              'cast_adr_to_ptr': objectmodel.cast_adr_to_ptr,
@@ -490,16 +471,7 @@ def deallocator(addr):
         else:
             graph = self.dynamic_deallocation_graph_for_type(TYPE)
         FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-        const_funcptr = rmodel.inputconst(lltype.Ptr(FUNC),
-                                 lltype.functionptr(FUNC, graph.name, graph=graph))
-        def compute_destructor_ll_ops(hop):
-            assert hop.args_v[1].concretetype == llmemory.Address
-            return hop.genop("direct_call", [const_funcptr, hop.args_v[1]],
-                             resulttype=lltype.Void)
-        def destructor(var):
-            pass
-        destructor.compute_ll_ops = compute_destructor_ll_ops
-        destructor.llresult = lltype.Void
+        destructor_funcptr = lltype.functionptr(FUNC, graph.name, graph=graph)
         def decref(addr):
             if not addr:
                 return
@@ -507,7 +479,7 @@ def deallocator(addr):
             refcount = gcheader.signed[0] - 1
             gcheader.signed[0] = refcount
             if refcount == 0:
-                destructor(addr)
+                destructor_funcptr(addr)
         g = self.annotate_helper(decref, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
