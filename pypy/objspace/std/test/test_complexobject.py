@@ -60,8 +60,8 @@ class TestW_ComplexObject:
         c = cobj.W_ComplexObject(self.space,0.0,1.0)
         p = cobj.W_ComplexObject(self.space,2.0,0.0)
         r = cobj.pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
-        assert r._real == -1.0
-        assert r._imag == 0.0
+        assert r.realval == -1.0
+        assert r.imagval == 0.0
 
 
 class AppTestAppComplexTest:
@@ -188,7 +188,7 @@ class AppTestAppComplexTest:
         h = self.helper
         h.assertClose(complex(5.3, 9.8).conjugate(), 5.3-9.8j)
 
-    def x_test_constructor(self):
+    def test_constructor(self):
         h = self.helper
         class OS:
             def __init__(self, value): self.value = value

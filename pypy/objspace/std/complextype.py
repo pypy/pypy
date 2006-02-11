@@ -44,7 +44,11 @@ def _split_complex(s):
         if newstop < 0:
             raise ValueError('complex() arg is a malformed string')
         if s[newstop] in ('j','J'):
-            return '0.0',s[realstart:newstop]
+            if realstart == newstop:
+                imagpart = '1.0'
+            else:
+                imagpart = s[realstart:newstop]
+            return '0.0', imagpart
         else:
             return s[realstart:realstop],'0.0'
 
@@ -74,7 +78,7 @@ def _split_complex(s):
         raise ValueError('complex() arg is a malformed string')
     if s[imagstop] not in ('j','J'):
         raise ValueError('complex() arg is a malformed string')
-    if imagstop <= imagstart:
+    if imagstop < imagstart:
         raise ValueError('complex() arg is a malformed string')
 
     while i<slen and s[i] == ' ':
@@ -83,18 +87,28 @@ def _split_complex(s):
         raise ValueError('complex() arg is a malformed string')
 
     realpart = s[realstart:realstop]
-    if imagsign == '-':
-        imagpart = imagsign + s[imagstart:imagstop]
+    if imagstart == imagstop:
+        imagpart = '1.0'
     else:
         imagpart = s[imagstart:imagstop]
+    if imagsign == '-':
+        imagpart = imagsign + imagpart
 
     return realpart, imagpart
 
 
 def check_second_arg(space, w_c):
+    """check, if second 'complex' argument is a string"""
     if space.is_true(space.isinstance(w_c, space.w_str)):
         raise TypeError()
     return True
+
+def simple_arg_check(space, w_r, w_c):
+    """check, if there is a second argument, if first is a string"""
+    if space.is_true(space.isinstance(w_r, space.w_str)) or \
+            space.is_true(space.isinstance(w_r, space.w_unicode)):
+        if not space.eq_w(w_c,space.w_None):
+            raise TypeError
 
 def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     from pypy.objspace.std.complexobject import W_ComplexObject
@@ -102,7 +116,17 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         check_second_arg(space, w_imag)
     except TypeError:
         raise OperationError(space.w_TypeError,space.wrap("complex() second arg can't be a string"))
-
+    try:
+        simple_arg_check(space, w_real, w_imag)
+    except TypeError:
+        raise OperationError(space.w_TypeError, space.wrap(ERR_WRONG_SECOND))
+    # if arguments can be cast to a float, do it
+    try:
+        w_real = cast_float(space,w_real)
+    except:pass
+    try:
+        w_imag = cast_float(space,w_imag)
+    except:pass
     w_complex_first = extract_complex(space, w_real)
     if not space.eq_w(w_complex_first, space.w_None):
         w_real = w_complex_first
@@ -115,9 +139,6 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         return space.add(w_real,w_imag)
     if space.is_true(space.isinstance(w_real, space.w_str)) or \
             space.is_true(space.isinstance(w_real, space.w_unicode)):
-        if not space.eq_w(w_imag,space.w_None):
-            raise OperationError(space.w_ValueError, 
-                    space.wrap(ERR_WRONG_SECOND))
         try:
             realstr, imagstr = _split_complex(space.str_w(w_real))
 
@@ -132,6 +153,7 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         if space.eq_w(w_imag,space.w_None):
             w_imag = space.wrap(0.0)
         try:
+
             realval = space.float_w(w_real)
             imagval = space.float_w(w_imag)
         except ValueError, e:
@@ -145,17 +167,18 @@ app = gateway.applevel(r"""
 def extract_complex(num):
     if not hasattr(num,'__complex__'):
         return None
-    try:
-        cnum = num.__complex__()
-    except:
-        return None
+    cnum = num.__complex__()
     if isinstance(cnum,complex):
         return cnum
     else:
         return None
+
+def cast_float(num):
+    return float(num)
 """, filename=__file__)
 
 extract_complex = app.interphook('extract_complex')
+cast_float = app.interphook('cast_float')
 
 def descr_conjugate(space, w_self):
     from pypy.objspace.std.complexobject import W_ComplexObject
