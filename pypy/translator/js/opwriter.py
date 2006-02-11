@@ -232,8 +232,7 @@ class OpWriter(object):
         functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
         self.codewriter.call(targetvar, functionref, argrefs)
-
-    indirect_call = direct_call  # XXX for now
+    indirect_call = direct_call
 
     def invoke(self, op):
         op_args = [arg for arg in op.args
@@ -270,44 +269,52 @@ class OpWriter(object):
 
         self.codewriter.call(targetvar, functionref, argrefs, no_exception, exceptions)
 
-    def _type_repr(self, arg_type):
+    def _type_repr(self, t):
+        if t is lltype.Void:
+            return 'undefined'
+        elif t is lltype.Bool:
+            return 'false'
+        elif t is lltype.Char:
+            return 'String.fromCharCode(0)'
+        elif t is lltype.Float:
+            return '0.0'
+        elif isinstance(t, lltype.Array):
+            if t.OF is lltype.Char:
+                return '""'
+            else:
+                return '[%s]' % self._type_repr(t.OF)
+        elif isinstance(t, lltype.Struct):
+            return '{%s}' % self._structtype_repr(t)
+        else:   #XXX 'null' for Ptr's? or recurse into Ptr.TO?
+            return '0'
+
+    def _structtype_repr(self, arg_type):
         type_ = ''
         for n, name in enumerate(arg_type._names_without_voids()):
             if n > 0:
                 type_ += ', '
-            t = arg_type._flds[name]
-            type_ += self.db.namespace.ensure_non_reserved(name) + ':'
-            if t is lltype.Void:
-                type_ += 'undefined'
-            elif t is lltype.Bool:
-                type_ += 'false'
-            elif t is lltype.Char:
-                type_ += 'String.fromCharCode(0)'
-            elif t is lltype.Float:
-                type_ += '0.0'
-            elif isinstance(t, lltype.Array):
-                if t.OF is lltype.Char:
-                    type_ += '""'
-                else:
-                    type_ += '[]'
-            elif isinstance(t, lltype.Struct):
-                type_ += '{' + self._type_repr(t) + '}' #recurse
-            else:   #XXX 'null' for Ptr's?
-                type_ += '0'
+            type_ += self.db.namespace.ensure_non_reserved(name) + ':' + self._type_repr(arg_type._flds[name])
         return type_
 
     def malloc(self, op): 
-        arg_type = op.args[0].value
-        targetvar = self.db.repr_arg(op.result) 
-        t        = str(op.args[0]).split()
+        arg_type  = op.args[0].value
+        targetvar = self.db.repr_arg(op.result)
         if isinstance(arg_type, lltype.Array):
-            type_ = '[];'
+            assert len(op.args) == 2
+            n_items = self.db.repr_arg(op.args[1])
+            r       = self._type_repr(arg_type.OF)
+            self.codewriter.malloc(targetvar, '[];')
+            if n_items != '0':
+                self.codewriter.append('for (var t=%s-1;t >= 0;t--) %s[t] = %s' % (n_items, targetvar, r))
         else:
             assert isinstance(arg_type, lltype.Struct)
-            self.codewriter.comment(str(arg_type))
-            type_ = '{' + self._type_repr(arg_type) + '};'
-        self.codewriter.malloc(targetvar, type_)
-    malloc_exception = malloc
+            #XXX op.args is not 1 in case of a varsize struct (ll_join* does this with a rpystring).
+            #    At the moment the varsize array at the end of the struct (if I understand correctly)
+            #    gets a length of zero instead of length op.args[1]
+            #    This could be a problem in cases like test_typed.py -k test_str_join , but javascript
+            #    mostly does the right array resizing later on when we need it!
+            #assert len(op.args) == 1
+            self.codewriter.malloc(targetvar, '{%s};' % self._structtype_repr(arg_type))
     malloc_varsize = malloc
 
     def _getindexhelper(self, name, struct):

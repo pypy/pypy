@@ -48,8 +48,8 @@ class FuncNode(Node):
     def write_implementation(self, codewriter):
         graph = self.graph
 
-        from optimize import optimized_functions
-        if graph.name in optimized_functions:
+        from optimize import is_optimized_function
+        if is_optimized_function(graph.name):
             return  
 
         log.writeimplemention(graph.name)

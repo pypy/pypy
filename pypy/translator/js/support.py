@@ -1,5 +1,5 @@
 from pypy.translator.gensupp import NameManager
-from pypy.translator.js.optimize import optimized_functions
+from pypy.translator.js.optimize import is_optimized_function
 
 class JavascriptNameManager(NameManager):
     def __init__(self, js):
@@ -13,6 +13,7 @@ class JavascriptNameManager(NameManager):
                    break super  var    do
                    bool  char   int    float
                    Array String Struct Number
+                   length
                    '''
         self.reserved_names = {}
         for name in reserved_names_string.split():
@@ -20,7 +21,7 @@ class JavascriptNameManager(NameManager):
         self.make_reserved_names(reserved_names_string)
 
     def uniquename(self, name):
-        if self.js.compress and name != self.js.functions[0].func_name and name not in optimized_functions and name != "ll_issubclass__object_vtablePtr_object_vtablePtr":
+        if self.js.compress and name != self.js.functions[0].func_name and is_optimized_function(name) and name.startswith("ll_issubclass__object_vtablePtr_object_vtablePtr"):
             name = 'f'
         return NameManager.uniquename(self, name)
 

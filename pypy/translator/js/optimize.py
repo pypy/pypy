@@ -1,4 +1,4 @@
-optimized_functions = [
+_optimized_function_names = [
     'll_strlen__rpy_stringPtr',
     'll_strconcat__rpy_stringPtr_rpy_stringPtr',   
     'll_stritem_nonneg__rpy_stringPtr_Signed',
@@ -9,6 +9,10 @@ optimized_functions = [
     'll_str__FloatR_FloatConst_Float',
     'll_int__rpy_stringPtr_Signed',
     'll_join_strs__Signed_arrayPtr',
+    'll_fixed_items__arrayPtr',
+    'll_fixed_length__arrayPtr',
+    'll_len__arrayPtr',
+    'll_math_fmod__Float_Float',
 
     #'ll_issubclass__object_vtablePtr_object_vtablePtr',
 
@@ -16,6 +20,11 @@ optimized_functions = [
     'll_js_jseval__rpy_stringPtr',
 ]
 
+def is_optimized_function(funcname):
+    for s in _optimized_function_names:
+        if funcname.startswith(s):
+            return True
+    return False
 
 def optimize_call(statement):
     targetvar, statement = statement.split(' = ', 1)
@@ -25,39 +34,49 @@ def optimize_call(statement):
     if funcname == 'll_strlen__rpy_stringPtr':
         return True, '%s = %s.chars.length' % (targetvar, params[0])
 
-    elif funcname == 'll_strconcat__rpy_stringPtr_rpy_stringPtr':   
+    elif funcname.startswith('ll_strconcat__rpy_stringPtr_rpy_stringPtr'):   
         #XXX javascript of ll_strconcat__rpy_stringPtr_rpy_stringPtr actually does not work, FIX IT!
         #    by outcommenting this code end running js/test/test_genllvm.py -k test_simple_chars
         p = '%s.chars' % '.chars + '.join(params)
         return True, '%s = {hash:0, chars:%s}' % (targetvar, p)
         
-    elif funcname == 'll_stritem_nonneg__rpy_stringPtr_Signed':
+    elif funcname.startswith('ll_stritem_nonneg__rpy_stringPtr_Signed'):
         return True, '%s = %s.chars[%s]' % (targetvar, params[0], params[1])
 
-    elif funcname == 'll_stritem__rpy_stringPtr_Signed':
+    elif funcname.startswith('ll_stritem__rpy_stringPtr_Signed'):
         s, i = params
         return True, '%s = %s.chars[%s >= 0 ? %s : %s + %s.chars.length]' % (targetvar, s, i, i, i, s)
 
-    elif funcname == 'll_streq__rpy_stringPtr_rpy_stringPtr':
+    elif funcname.startswith('ll_streq__rpy_stringPtr_rpy_stringPtr'):
         s0, s1 = params
         return True, '%s = (%s == %s) || (%s && %s && %s.chars == %s.chars)' %\
                 (targetvar, s0,s1, s0,s1, s0,s1)
 
-    elif funcname == 'll_chr2str__Char':
+    elif funcname.startswith('ll_chr2str__Char'):
         return True, '%s = {hash:0, chars:%s}' % (targetvar, params[0])
 
-    elif funcname in ('ll_str__IntegerR_SignedConst_Signed',
-                      'll_str__FloatR_FloatConst_Float'):
+    elif funcname.startswith('ll_str__IntegerR_SignedConst_Signed') or \
+         funcname.startswith('ll_str__FloatR_FloatConst_Float'):
         return True, '%s = {hash:0, chars:%s + ""}' % (targetvar, params[0])
 
-    elif funcname == 'll_int__rpy_stringPtr_Signed' and params[1] == '10':
+    elif funcname.startswith('ll_int__rpy_stringPtr_Signed') and params[1] == '10':
         return True, '%s = parseInt(%s)' % (targetvar, params[0])
 
-    elif funcname == 'll_join_strs__Signed_arrayPtr' and params[0] == '2':
+    elif funcname.startswith('ll_join_strs__Signed_arrayPtr') and params[0] == '2':
         return True, '%s = {hash:0, chars:%s + %s}' % (targetvar, params[0], params[1])
 
+    elif funcname.startswith('ll_fixed_items__arrayPtr'):
+        return True, '%s = %s' % (targetvar, params[0])
+        
+    elif funcname.startswith('ll_fixed_length__arrayPtr') or \
+         funcname.startswith('ll_len__arrayPtr'):
+        return True, '%s = %s.length' % (targetvar, params[0])
+
+    elif funcname.startswith('ll_math_fmod__Float_Float'):
+        return True, '%s = %s %% %s' % (targetvar, params[0], params[1])
+
     #externals...
-    elif funcname == 'll_js_jseval__rpy_stringPtr':
+    elif funcname.startswith('ll_js_jseval__rpy_stringPtr'):
         return True, '%s = eval(%s.chars)' % (targetvar, params[0])
 
     return False, '%s = %s(%s)' % (targetvar, funcname, ', '.join(params))

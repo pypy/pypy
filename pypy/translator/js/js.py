@@ -62,10 +62,10 @@ class JS(object):   # JS = Javascript
         for node in self.db.getnodes():
             node.write_implementation(codewriter)
 
-        codewriter.comment('Forward struct declarations')
+        codewriter.comment('Forward declarations')
         codewriter.newline()
         for node in self.db.getnodes():
-            node.write_forward_struct_declaration(codewriter)
+            node.write_forward_declaration(codewriter)
         codewriter.newline()
 
         codewriter.comment('Global array and strings data')

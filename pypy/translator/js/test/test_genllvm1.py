@@ -42,7 +42,7 @@ class TestGenLLVM(object):
         for i in range(3):
             assert f(i + 3, i) == llvmsnippet.call_default_arguments(i + 3, i)
 
-    def DONTtest_call_list_default_argument(self):  #issue unknown
+    def DONTtest_call_list_default_argument(self):  #issue we restart every test with a fresh set of globals
         f = compile_function(llvmsnippet.call_list_default_argument, [int])
         for i in range(20):
             assert f(i) == llvmsnippet.call_list_default_argument(i)
@@ -77,7 +77,8 @@ class TestPBC(object):
         assert f(2) == 6
         assert f(3) == 8
 
-    def DONTtest_pbc_function2(self):   #issue unknown
+    def test_pbc_function2(self):
+        py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
         f = compile_function(llvmsnippet.pbc_function2, [int])
         assert f(0) == 13
         assert f(1) == 15

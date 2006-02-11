@@ -347,8 +347,6 @@ def test_channel2():
 
 
 def test_channel3():
-    py.test.skip("would fail because of uncaught exception")
-
     ch = Channel()
         
     def f1(name):
@@ -356,8 +354,8 @@ def test_channel3():
             ch.send(ii)
             
     def f2(name):
-        #while True:
-        for ii in range(6):
+        #while True:    #doesn't annotate
+        for ii in range(16):
             res = ch.receive()
             globals.count += res
             

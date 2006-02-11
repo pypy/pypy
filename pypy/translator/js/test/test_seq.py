@@ -36,7 +36,7 @@ class TestLLVMArray(object):
         f = compile_function(llvmsnippet.bool_array, [])
         assert f() == 1
 
-    def DONTtest_array_arg(self):   #unknown issue
+    def test_array_arg(self):
         f = compile_function(llvmsnippet.array_arg, [int])
         assert f(5) == 0
 
@@ -44,13 +44,13 @@ class TestLLVMArray(object):
         f = compile_function(llvmsnippet.array_len, [])
         assert f() == 10
 
-    def DONTtest_array_append(self):    #unknown issue
+    def test_array_append(self):
         f = compile_function(llvmsnippet.array_append, [int])
         for i in range(3):
             assert f(i) == 0
         assert f(3) == 10
 
-    def DONTtest_array_reverse(self):   #unknown issue
+    def test_array_reverse(self):
         f = compile_function(llvmsnippet.array_reverse, [int])
         assert f(0) == 1
         assert f(1) == 0
@@ -76,7 +76,7 @@ class TestLLVMArray(object):
         for i in range(18):
             assert f(i) == i
 
-    def DONTtest_access_global_array(self): #issue with incorrect array order
+    def DONTtest_access_global_array(self): #issue we restart every test with a fresh set of globals
         f = compile_function(llvmsnippet.access_global_array, [int, int, int])
         for i in range(5):
             for j in range(5):

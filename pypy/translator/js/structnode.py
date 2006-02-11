@@ -43,7 +43,7 @@ class StructNode(Node):
         if p is not None:
             self.db.prepare_constant(lltype.typeOf(p), p)
 
-    def write_forward_struct_declaration(self, codewriter):
+    def write_forward_declaration(self, codewriter):
         codewriter.declare('var ' + self.ref + ' = {};')
         
     def write_global_struct(self, codewriter):
@@ -52,7 +52,7 @@ class StructNode(Node):
         for i, value in enumerate(self._getvalues()):
             name, T = self._name_types[i]
             line = "%s.%s = %s" % (self.ref, self.db.namespace.ensure_non_reserved(name), str(value))
-            log.writeglobaldata(line)
+            #log.writeglobaldata(line)
             codewriter.append(line)
             #lines.append(line)
         #log.writeglobaldata(str(lines))

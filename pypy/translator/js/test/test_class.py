@@ -22,15 +22,18 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple2, [int])
         assert f(2) == 10
 
-    def DONTtest_inherit1(self):    #issue unknown
+    def test_inherit1(self):
+        py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
         f = compile_function(llvmsnippet.class_inherit1, [])
         assert f() == 11
 
-    def DONTtest_inherit2(self):    #issue v200 is not a function
+    def test_inherit2(self):
+        py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
         f = compile_function(llvmsnippet.class_inherit2, [])
         assert f() == 1
 
-    def DONTtest_method_of_base_class(self):    #issue v??? is not a function
+    def test_method_of_base_class(self):
+        py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
         f = compile_function(llvmsnippet.method_of_base_class, [])
         assert f() == 14
 
@@ -38,7 +41,8 @@ class TestClass(object):
         f = compile_function(llvmsnippet.attribute_from_base_class, [])
         assert f() == 4
 
-    def DONTtest_direct_call_of_virtual_method(self):   #issue v??? is not a function
+    def test_direct_call_of_virtual_method(self):
+        py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
         f = compile_function(llvmsnippet.direct_call_of_virtual_method, [])
         assert f() == 14
 
@@ -56,7 +60,7 @@ class TestClass(object):
         assert f(True) == 1
         assert f(False) == 2
 
-    def DONTtest_global_instance(self): #issue unknown TEST THIS!
+    def DONTtest_global_instance(self): #issue we restart every test with a fresh set of globals
         f = compile_function(llvmsnippet.global_instance, [int])
         assert f(-1) == llvmsnippet.global_instance(-1)
         for i in range(20):

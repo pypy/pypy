@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.js.node import Node
 from pypy.translator.js.log import log
-log = log.structnode
+log = log.arraynode
 
 
 class ArrayNode(Node):
@@ -25,15 +25,18 @@ class ArrayNode(Node):
         for item in self.value.items:
             self.db.prepare_constant(self.arraytype, item)
 
-        p, c = lltype.parentlink(self.value)
+        #p, c = lltype.parentlink(self.value)
         p, c = lltype.parentlink(self.value)
         if p is not None:
             self.db.prepare_constant(lltype.typeOf(p), p)
 
+    def write_forward_declaration(self, codewriter):
+        codewriter.declare('var ' + self.ref + ' = [];') 
+
     def write_global_array(self, codewriter):
         fields = [self.db.repr_constant(v)[1] for i, v in enumerate(self.value.items)]
-        line   = "var %s = [%s];" % (self.ref, ", ".join(fields))
-        log.writeglobaldata(line)
+        line   = "%s.push(%s);" % (self.ref, ", ".join(fields))
+        #log.writeglobaldata(line)
         codewriter.append(line)
 
 
@@ -56,7 +59,7 @@ class StrArrayNode(ArrayNode):
                 s += "\\%02x" % ord(c)
         s += '"'
         line = "var " + self.ref + " = " + s
-        log.writeglobaldata(line)
+        #log.writeglobaldata(line)
         codewriter.append(line)
         #return [line]
 

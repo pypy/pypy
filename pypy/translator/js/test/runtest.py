@@ -1,3 +1,8 @@
+'''
+    Skipped tests should still be fixed. (or only run with py.test --browser)
+    Sests with DONT in front of them will probably not be fixed for the time being.
+'''
+
 import py, os
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations

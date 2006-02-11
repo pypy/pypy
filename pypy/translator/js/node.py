@@ -8,7 +8,7 @@ class Node(object):
     def write_implementation(self, codewriter):
         """ write function implementations. """ 
 
-    def write_forward_struct_declaration(self, codewriter):
+    def write_forward_declaration(self, codewriter):    #of arrays and structs
         """ write forward declarations for global data. """ 
 
     def write_global_array(self, codewriter):

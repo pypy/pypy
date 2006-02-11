@@ -257,7 +257,7 @@ def test_list_getitem_pbc():
     assert f(0) == 1
     assert f(1) == 2
     
-def DONTtest_list_list_getitem_pbc(): #issue with incorrect arrayinstance order
+def test_list_list_getitem_pbc():
     l = [[0, 1], [0, 1]]
     def list_list_getitem_pbc(i): 
         return l[i][i]
@@ -363,7 +363,8 @@ def test_dict_creation():
     f = compile_function(createdict, [int, int])
     assert f(0,1) == createdict(0,1)
 
-def DONTtest_closure():     #issue typeptr not initialized?
+def test_closure():
+    py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
     class A:
         def set(self, x):
             self.x = x
