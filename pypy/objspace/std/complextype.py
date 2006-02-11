@@ -1,7 +1,8 @@
-import pypy.objspace.std.stdtypedef as poss
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import gateway
 from pypy.objspace.std.strutil import interp_string_to_float, ParseStringError
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef, newmethod
 
 # ERRORCODES
 
@@ -39,8 +40,11 @@ def _split_complex(s):
 
     # return appropriate strings is only one number is there
     if i >= slen:
-        if s[realstop-1] in ('j','J'):
-            return '0.0',s[realstart:realstop - 1]
+        newstop = realstop - 1
+        if newstop < 0:
+            raise ValueError('complex() arg is a malformed string')
+        if s[newstop] in ('j','J'):
+            return '0.0',s[realstart:newstop]
         else:
             return s[realstart:realstop],'0.0'
 
@@ -66,6 +70,8 @@ def _split_complex(s):
         i += 1
 
     imagstop = i - 1
+    if imagstop < 0:
+        raise ValueError('complex() arg is a malformed string')
     if s[imagstop] not in ('j','J'):
         raise ValueError('complex() arg is a malformed string')
     if imagstop <= imagstart:
@@ -92,16 +98,14 @@ def check_second_arg(space, w_c):
 
 def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     from pypy.objspace.std.complexobject import W_ComplexObject
-    # @@ bad hack
-    try:
-        w_real = space.call_method(w_real,'__complex__')
-    except OperationError:pass
-    # @@ end bad hack
     try:
         check_second_arg(space, w_imag)
     except TypeError:
         raise OperationError(space.w_TypeError,space.wrap("complex() second arg can't be a string"))
 
+    w_complex_first = extract_complex(space, w_real)
+    if not space.eq_w(w_complex_first, space.w_None):
+        w_real = w_complex_first
     if space.is_true(space.isinstance(w_real, space.w_complex)) and \
             space.eq_w(w_imag, space.w_None):
         return w_real
@@ -137,9 +141,25 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
 
     return w_obj
 
+app = gateway.applevel(r"""
+def extract_complex(num):
+    if not hasattr(num,'__complex__'):
+        return None
+    try:
+        cnum = num.__complex__()
+    except:
+        return None
+    if isinstance(cnum,complex):
+        return cnum
+    else:
+        return None
+""", filename=__file__)
+
+extract_complex = app.interphook('extract_complex')
+
 def descr_conjugate(space, w_self):
     from pypy.objspace.std.complexobject import W_ComplexObject
-    return W_ComplexObject(space,w_self._real, -w_self._imag)
+    return W_ComplexObject(space,w_self.realval, -w_self.imagval)
 
 def complexwprop(name):
     def fget(space, w_obj):
@@ -148,15 +168,15 @@ def complexwprop(name):
             raise OperationError(space.w_TypeError,
                                  space.wrap("descriptor is for 'complex'"))
         return space.newfloat(getattr(w_obj, name))
-    return poss.GetSetProperty(fget)
+    return GetSetProperty(fget)
 
-complex_typedef = poss.StdTypeDef("complex",
+complex_typedef = StdTypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number
         
 Create a complex number from a real part and an optional imaginary part.
 This is equivalent to (real + imag*1j) where imag defaults to 0.""",
-    __new__ = poss.newmethod(descr__new__),
-    real = complexwprop('_real'),
-    imag = complexwprop('_imag'),
-    conjugate = poss.newmethod(descr_conjugate)
+    __new__ = newmethod(descr__new__),
+    real = complexwprop('realval'),
+    imag = complexwprop('imagval'),
+    conjugate = newmethod(descr_conjugate)
     )

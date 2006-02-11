@@ -1,25 +1,27 @@
-import pypy.objspace.std.objspace as poso
 from pypy.interpreter import gateway
+from pypy.objspace.std.objspace import W_Object, OperationError
+from pypy.objspace.std.objspace import registerimplementation, register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 from pypy.objspace.std.longobject import _AsDouble
+
 import math
 
-class W_ComplexObject(poso.W_Object):
+class W_ComplexObject(W_Object):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
 
     from pypy.objspace.std.complextype import complex_typedef as typedef
 
     def __init__(w_self, space, realval=0.0, imgval=0.0):
-        poso.W_Object.__init__(w_self, space)
-        w_self._real = float(realval)
-        w_self._imag = float(imgval)
+        W_Object.__init__(w_self, space)
+        w_self.realval = float(realval)
+        w_self.imagval = float(imgval)
 
     def __repr__(self):
-        return "<W_ComplexObject(%f,%f)>" % (self._real, self._imag)
+        return "<W_ComplexObject(%f,%f)>" % (self.realval, self.imagval)
 
-poso.registerimplementation(W_ComplexObject)
+registerimplementation(W_ComplexObject)
 
 c_1 = (1.0, 0.0)
 
@@ -121,7 +123,7 @@ def delegate_Long2Complex(w_long):
     try:
         dval =  _AsDouble(w_long)
     except OverflowError, e:
-        raise poso.OperationError(space.w_OverflowError, space.wrap(str(e)))
+        raise OperationError(space.w_OverflowError, space.wrap(str(e)))
     return W_ComplexObject(space, dval, 0.0)
 
 def delegate_Float2Complex(w_float):
@@ -131,10 +133,10 @@ def delegate_Float2Complex(w_float):
 def hash__Complex(space, w_value):
     #this is straight out of CPython complex implementation
 
-    hashreal = _hash_float(space, w_value._real)
+    hashreal = _hash_float(space, w_value.realval)
     if hashreal == -1:
         return space.newint(-1)
-    hashimg = _hash_float(space, w_value._imag)
+    hashimg = _hash_float(space, w_value.imagval)
     if hashimg == -1:
         return space.newint(-1)
     combined = hashreal + 1000003 * hashimg
@@ -143,7 +145,7 @@ def hash__Complex(space, w_value):
     return space.newint(combined)
 
 def _w2t(w_complex):
-    return w_complex._real, w_complex._imag
+    return w_complex.realval, w_complex.imagval
 
 def _t2w(space, c):
     return W_ComplexObject(space, c[0], c[1])
@@ -161,7 +163,7 @@ def div__Complex_Complex(space, w_complex1, w_complex2):
     try:
         return _t2w(space, _quot(_w2t(w_complex1), _w2t(w_complex2)))
     except ZeroDivisionError, e:
-        raise poso.OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
 truediv__Complex_Complex = div__Complex_Complex
 
@@ -169,7 +171,7 @@ def mod__Complex_Complex(space, w_complex1, w_complex2):
     try:
         div = _quot(_w2t(w_complex1), _w2t(w_complex2))
     except ZeroDivisionError, e:
-        raise poso.OperationError(space.w_ZeroDivisionError, space.wrap("complex remainder"))
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("complex remainder"))
     div = (math.floor(div[0]), 0.0)
     mod = _diff(_w2t(w_complex1), _prod(_w2t(w_complex2), div))
 
@@ -179,7 +181,7 @@ def divmod__Complex_Complex(space, w_complex1, w_complex2):
     try:
         div = _quot(_w2t(w_complex1), _w2t(w_complex2))
     except ZeroDivisionError, e:
-        raise poso.OperationError(space.w_ZeroDivisionError, space.wrap("complex divmod()"))
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("complex divmod()"))
     div = (math.floor(div[0]), 0.0)
     mod = _diff(_w2t(w_complex1), _prod(_w2t(w_complex2), div))
     w_div = _t2w(space, div)
@@ -190,13 +192,13 @@ def floordiv__Complex_Complex(space, w_complex1, w_complex2):
     try:
         div = _quot(_w2t(w_complex1), _w2t(w_complex2))
     except ZeroDivisionError, e:
-        raise poso.OperationError(space.w_ZeroDivisionError, space.wrap("complex floordiv()"))
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("complex floordiv()"))
     div = (math.floor(div[0]), 0.0)
     return _t2w(space, div)
 
 def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
     if not isinstance(thirdArg, W_NoneObject):
-        raise poso.OperationError(space.w_ValueError, space.wrap('complex modulo'))
+        raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
     try:
         v = _w2t(w_complex1)
         exponent = _w2t(w_complex2)
@@ -206,30 +208,30 @@ def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
         else:
             p = _pow(v, exponent)
     except ZeroDivisionError:
-        raise poso.OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
     except OverflowError:
-        raise poso.OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
+        raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
     return _t2w(space, p)
 
 def neg__Complex(space, w_complex):
-    return W_ComplexObject(space, -w_complex._real, -w_complex._imag)
+    return W_ComplexObject(space, -w_complex.realval, -w_complex.imagval)
 
 def pos__Complex(space, w_complex):
-    return W_ComplexObject(space, w_complex._real, w_complex._imag)
+    return W_ComplexObject(space, w_complex.realval, w_complex.imagval)
 
 def abs__Complex(space, w_complex):
-    return space.newfloat(math.hypot(w_complex._real, w_complex._imag))
+    return space.newfloat(math.hypot(w_complex.realval, w_complex.imagval))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1._real == w_complex2._real) and 
-            (w_complex1._imag == w_complex2._imag))
+    return space.newbool((w_complex1.realval == w_complex2.realval) and 
+            (w_complex1.imagval == w_complex2.imagval))
 
 def ne__Complex_Complex(space, w_complex1, w_complex2):
-    return space.newbool((w_complex1._real != w_complex2._real) or 
-            (w_complex1._imag != w_complex2._imag))
+    return space.newbool((w_complex1.realval != w_complex2.realval) or 
+            (w_complex1.imagval != w_complex2.imagval))
 
 def nonzero__Complex(space, w_complex):
-    return space.newbool(w_complex._real or w_complex._imag)
+    return space.newbool(w_complex.realval or w_complex.imagval)
 
 def coerce__Complex_Complex(space, w_complex1, w_complex2):
     return space.newtuple([w_complex1, w_complex2])
@@ -261,4 +263,4 @@ app = gateway.applevel("""
 repr__Complex = app.interphook('repr__Complex') 
 str__Complex = app.interphook('str__Complex') 
 
-poso.register_all(vars())
+register_all(vars())
