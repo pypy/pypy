@@ -289,6 +289,7 @@ class RefcountingGCTransformer(GCTransformer):
         self.decref_graphs = {}
         self.static_deallocator_graphs = {}
         self.dynamic_deallocator_graphs = {}
+        self.queryptr2dynamic_deallocator_graph = {}
 
     def push_alive_nopyobj(self, var):
         adr1 = varoftype(llmemory.Address)
@@ -428,16 +429,10 @@ def deallocator(addr):
         rtti = self.get_rtti(TYPE)
         assert rtti is not None
         queryptr = rtti._obj.query_funcptr
+        if queryptr._obj in self.queryptr2dynamic_deallocator_graph:
+            return self.queryptr2dynamic_deallocator_graph[queryptr._obj]
         RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
         QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
-        def call_destructor_for_rtti(v, rtti):
-            pass
-        def call_destructor_for_rtti_compute_ops(hop):
-            _, v_addr, v_rtti = hop.inputargs(lltype.Void, llmemory.Address, hop.args_r[2])
-            return hop.genop("gc_call_rtti_destructor", [v_rtti, v_addr],
-                             resulttype = lltype.Void) 
-        call_destructor_for_rtti.llresult = lltype.Void
-        call_destructor_for_rtti.compute_ll_ops = call_destructor_for_rtti_compute_ops
         def dealloc(addr):
             # bump refcount to 1
             gcheader = addr - RefcountingGCTransformer.gc_header_offset
@@ -445,9 +440,10 @@ def deallocator(addr):
             v = objectmodel.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
             gcheader.signed[0] = 0
-            call_destructor_for_rtti(addr, rtti)
+            objectmodel.llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
         g = self.annotate_helper(dealloc, [llmemory.Address])
         self.dynamic_deallocator_graphs[TYPE] = g
+        self.queryptr2dynamic_deallocator_graph[queryptr._obj] = g
         self.seen_graphs[g] = True
         return g
 
