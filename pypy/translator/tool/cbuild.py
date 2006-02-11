@@ -285,7 +285,25 @@ class CCompiler:
         else: 
             self.outputfilename = py.path.local(outputfilename) 
 
-    def build(self):
+    def build(self, noerr=False):
+        basename = self.outputfilename.new(ext='')
+        try:
+            try:
+                c = stdoutcapture.Capture(mixed_out_err = True)
+                self._build()
+            finally:
+                foutput, foutput = c.done()
+                data = foutput.read()
+                if data:
+                    fdump = basename.new(ext='errors').open("w")
+                    fdump.write(data)
+                    fdump.close()
+        except:
+            if not noerr:
+                print >>sys.stderr, data
+            raise
+ 
+    def _build(self):
         from distutils.ccompiler import new_compiler 
         compiler = new_compiler()
         compiler.spawn = log_spawned_cmd(compiler.spawn)
@@ -309,8 +327,9 @@ class CCompiler:
                                  library_dirs=self.library_dirs)
 
 def build_executable(*args, **kwds):
+    noerr = kwds.pop('noerr', False)
     compiler = CCompiler(*args, **kwds)
-    compiler.build()
+    compiler.build(noerr=noerr)
     return str(compiler.outputfilename)
 
 def check_boehm_presence():
@@ -327,7 +346,7 @@ int main() {
 }
 """)
         cfile.close()
-        build_executable([cfname], libraries=['gc'])
+        build_executable([cfname], libraries=['gc'], noerr=True)
     except:
         return False
     else:
