@@ -101,10 +101,8 @@ class Coroutine(Wrappable):
     _update_state = staticmethod(_update_state)
 
     def kill(self):
-#        if costate.current is self:
- #           raise CoroutineExit
         if self.frame is None:
-            raise CoroutineExit
+            return
         costate.things_to_do = True
         costate.temp_exc = CoroutineExit()
         self.parent = costate.current
@@ -205,6 +203,10 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def __init__(self):
         Coroutine.__init__(self)
         self.flags = 0
+        if appcostate is None:
+            self.parent = self
+        else:
+            self.parent = appcostate.current
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
@@ -259,6 +261,12 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return space.wrap(appcostate.main)
     getmain = staticmethod(getmain)
 
+    def setmain(space, w_obj):
+        hold = appcostate.main
+        main = space.interp_w(AppCoroutine, w_obj, can_be_None=False)
+        appcostate.main = main
+        main.frame, hold.frame = hold.frame, main.frame
+    setmain = staticmethod(setmain)
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
@@ -284,6 +292,7 @@ def post_install(module):
     appcostate.post_install(module.space)
     makeStaticMethod(module, 'Coroutine', 'getcurrent')
     makeStaticMethod(module, 'Coroutine', 'getmain')
+    makeStaticMethod(module, 'Coroutine', 'setmain')
 
 # space.appexec("""() :
 
@@ -298,6 +307,7 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
     getcurrent = interp2app(AppCoroutine.getcurrent),
     getmain = interp2app(AppCoroutine.getmain),
+    setmain = interp2app(AppCoroutine.setmain),
 )
 
 class AppCoState(object):
@@ -308,7 +318,7 @@ class AppCoState(object):
         appcostate.current.space = space
         appcostate.tempval = space.w_None
 
-
+appcostate = None
 appcostate = AppCoState()
 
 """
