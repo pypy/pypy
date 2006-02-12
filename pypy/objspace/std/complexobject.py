@@ -233,6 +233,13 @@ def ne__Complex_Complex(space, w_complex1, w_complex2):
     return space.newbool((w_complex1.realval != w_complex2.realval) or 
             (w_complex1.imagval != w_complex2.imagval))
 
+def lt__Complex_Complex(space, w_complex1, w_complex2):
+    raise OperationError(space.w_TypeError, space.wrap('cannot compare complex numbers using <, <=, >, >='))
+
+gt__Complex_Complex = lt__Complex_Complex
+ge__Complex_Complex = lt__Complex_Complex
+le__Complex_Complex = lt__Complex_Complex
+
 def nonzero__Complex(space, w_complex):
     return space.newbool(w_complex.realval or w_complex.imagval)
 

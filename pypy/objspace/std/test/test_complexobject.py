@@ -108,7 +108,7 @@ class AppTestAppComplexTest:
         h = self.helper
         h.raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
 
-    def x_test_richcompare(self):
+    def test_richcompare(self):
         h = self.helper
         h.raises(OverflowError, complex.__eq__, 1+1j, 1L<<10000)
         h.assertEqual(complex.__lt__(1+1j, None), NotImplemented)
@@ -313,23 +313,25 @@ class AppTestAppComplexTest:
         h = self.helper
         h.assertEqual(-(1+6j), -1-6j)
 
-    def x_test_file(self):
+    def test_file(self):
         h = self.helper
         import os
+        import tempfile
         a = 3.33+4.43j
         b = 5.1+2.3j
 
         fo = None
         try:
-            fo = open(test_support.TESTFN, "wb")
+            pth = tempfile.mktemp()
+            fo = open(pth,"wb")
             print >>fo, a, b
             fo.close()
-            fo = open(test_support.TESTFN, "rb")
+            fo = open(pth, "rb")
             h.assertEqual(fo.read(), "%s %s\n" % (a, b))
         finally:
             if (fo is not None) and (not fo.closed):
                 fo.close()
             try:
-                os.remove(test_support.TESTFN)
+                os.remove(pth)
             except (OSError, IOError):
                 pass
