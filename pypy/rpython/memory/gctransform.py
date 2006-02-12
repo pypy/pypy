@@ -258,13 +258,13 @@ class RefcountingGCTransformer(GCTransformer):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
-        def no_pointer_decref(adr):
+        def decref(adr, dealloc):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 refcount = gcheader.signed[0] - 1
                 gcheader.signed[0] = refcount
                 if refcount == 0:
-                    objectmodel.llop.gc_free(lltype.Void, adr)
+                    dealloc(adr)
         def no_pointer_dealloc(adr):
             objectmodel.llop.gc_free(lltype.Void, adr)
         if self.translator is not None and self.translator.rtyper is not None:
@@ -274,11 +274,11 @@ class RefcountingGCTransformer(GCTransformer):
             self.increfptr = const_funcptr_fromgraph(self.increfgraph)
             self.seen_graphs[self.increfgraph] = True
             
-            self.no_pointer_decref_graph = self.annotate_helper(
-                no_pointer_decref, [annmodel.SomeAddress()])
+            self.decref_graph = self.annotate_helper(
+                decref, [annmodel.SomeAddress(), lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))])
             self.translator.rtyper.specialize_more_blocks()
-            self.no_pointer_decref_ptr = const_funcptr_fromgraph(self.no_pointer_decref_graph)
-            self.seen_graphs[self.no_pointer_decref_graph] = True
+            self.decref_ptr = const_funcptr_fromgraph(self.decref_graph)
+            self.seen_graphs[self.decref_graph] = True
 
             self.no_pointer_dealloc_graph = self.annotate_helper(
                 no_pointer_dealloc, [annmodel.SomeAddress()])
@@ -302,11 +302,18 @@ class RefcountingGCTransformer(GCTransformer):
         PTRTYPE = var.concretetype
         adr1 = varoftype(llmemory.Address)
         result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
-        decref_graph = self.decref_graph_for_type(PTRTYPE.TO)
+
+        if self.get_rtti(PTRTYPE.TO) is None:
+            graph = self.static_deallocation_graph_for_type(PTRTYPE.TO)
+        else:
+            graph = self.dynamic_deallocation_graph_for_type(PTRTYPE.TO)
+
         FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-        const_fptr = rmodel.inputconst(
-             lltype.Ptr(FUNC), lltype.functionptr(FUNC, decref_graph.name, graph=decref_graph))
-        result.append(SpaceOperation("direct_call", [const_fptr, adr1], varoftype(lltype.Void)))
+        dealloc_fptr = rmodel.inputconst(
+             lltype.Ptr(FUNC), lltype.functionptr(FUNC, graph.name, graph=graph))
+        
+        result.append(SpaceOperation("direct_call", [self.decref_ptr, adr1, dealloc_fptr],
+                                     varoftype(lltype.Void)))
         return result
 
     def replace_setfield(self, op):
@@ -445,41 +452,6 @@ def deallocator(addr):
         self.dynamic_deallocator_graphs[TYPE] = g
         self.queryptr2dynamic_deallocator_graph[queryptr._obj] = g
         self.seen_graphs[g] = True
-        return g
-
-    def decref_graph_for_type(self, TYPE):
-        if TYPE in self.decref_graphs:
-            return self.decref_graphs[TYPE]
-        #print_call_chain(self)
-        need_dynamic_destructor = False
-        rtti = self.get_rtti(TYPE)
-        if rtti is None:
-            need_dynamic_destructor = False
-        else:
-            need_dynamic_destructor = True
-        if rtti is None and not find_gc_ptrs_in_type(TYPE):
-            #print repr(TYPE)[:80], 'is decref easy'
-            g = self.no_pointer_decref_graph
-            self.decref_graphs[TYPE] = g
-            return g
-        if not need_dynamic_destructor:
-            graph = self.static_deallocation_graph_for_type(TYPE)
-        else:
-            graph = self.dynamic_deallocation_graph_for_type(TYPE)
-        FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-        destructor_funcptr = lltype.functionptr(FUNC, graph.name, graph=graph)
-        def decref(addr):
-            if not addr:
-                return
-            gcheader = addr - RefcountingGCTransformer.gc_header_offset
-            refcount = gcheader.signed[0] - 1
-            gcheader.signed[0] = refcount
-            if refcount == 0:
-                destructor_funcptr(addr)
-        g = self.annotate_helper(decref, [llmemory.Address])
-        # the produced deallocator graph does not need to be transformed
-        self.seen_graphs[g] = True
-        self.decref_graphs[TYPE] = g
         return g
 
 def varoftype(concretetype):
