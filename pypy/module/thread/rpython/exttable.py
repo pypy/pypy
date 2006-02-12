@@ -14,6 +14,9 @@ locktypeinfo = declaretype(thread.LockType,
                            "ThreadLock",
                            acquire = (bool,       '%s/acquire_lock' % module),
                            release = (type(None), '%s/release_lock' % module),
+                           # XXX special case for releasing and reaquiring the GIL
+                           # withouth race condtions on exception handling
+                           fused_release_acquire = (type(None), '%s/fused_release_acquire_lock' % module),
                            )
 
 # ____________________________________________________________

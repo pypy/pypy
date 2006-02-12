@@ -23,6 +23,7 @@
 void LL_thread_newlock(struct RPyOpaque_ThreadLock *lock);
 int LL_thread_acquirelock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void LL_thread_releaselock(struct RPyOpaque_ThreadLock *lock);
+void LL_thread_fused_releaseacquirelock(struct RPyOpaque_ThreadLock *lock);
 long LL_thread_start(void *func, void *arg);
 long LL_thread_get_ident(void);
 
@@ -55,6 +56,11 @@ void LL_thread_releaselock(struct RPyOpaque_ThreadLock *lock)
 	else {
 		RPyThreadReleaseLock(lock);
 	}
+}
+
+void LL_thread_fused_releaseacquirelock(struct RPyOpaque_ThreadLock *lock) {
+        LL_thread_releaselock(lock);
+        LL_thread_acquirelock(lock, 1);
 }
 
 long LL_thread_start(void *func, void *arg)

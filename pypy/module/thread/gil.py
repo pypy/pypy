@@ -35,6 +35,7 @@ class GILThreadLocals(OSThreadLocals):
         GIL.release()
         # Other threads can run here
         GIL.acquire(True)
+    yield_thread._annspecialcase_ = 'specialize:yield_thread'
 
     def getGIL(self):
         return self.GIL    # XXX temporary hack!

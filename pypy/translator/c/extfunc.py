@@ -48,9 +48,10 @@ EXTERNALS = {
         'LL_strtod_parts_to_float',
     ll_strtod.ll_strtod_formatd:
         'LL_strtod_formatd',
-    ll_thread.ll_newlock:          'LL_thread_newlock',
-    ll_thread.ll_acquirelock:      'LL_thread_acquirelock',
-    ll_thread.ll_releaselock:      'LL_thread_releaselock',
+    ll_thread.ll_newlock:            'LL_thread_newlock',
+    ll_thread.ll_acquirelock:        'LL_thread_acquirelock',
+    ll_thread.ll_releaselock:        'LL_thread_releaselock',
+    ll_thread.ll_fused_releaseacquirelock: 'LL_thread_fused_releaseacquirelock',
     ll_thread.ll_thread_start:     'LL_thread_start',
     ll_thread.ll_thread_get_ident: 'LL_thread_get_ident',
     ll_stackless.ll_stackless_switch:             'LL_stackless_switch',

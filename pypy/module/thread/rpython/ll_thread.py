@@ -47,6 +47,12 @@ def ll_releaselock(opaqueptr):
     lock.release()
 ll_releaselock.suggested_primitive = True
 
+def ll_fused_releaseacquirelock(opaqueptr):
+    lock = from_opaque_object(opaqueptr)
+    lock.release()
+    lock.acquire(True)
+ll_fused_releaseacquirelock.suggested_primitive = True
+
 def ll_thread_allocate_lock():
     lockcontainer = malloc(LOCKCONTAINERTYPE)
     ll_newlock(lockcontainer.obj)
@@ -57,3 +63,6 @@ def ll_thread_acquire_lock(lockcontainer, waitflag):
 
 def ll_thread_release_lock(lockcontainer):
     ll_releaselock(lockcontainer.obj)
+
+def ll_thread_fused_release_acquire_lock(lockcontainer):
+    ll_fused_releaseacquirelock(lockcontainer.obj)
