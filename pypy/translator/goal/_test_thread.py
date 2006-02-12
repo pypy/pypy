@@ -12,7 +12,6 @@ running = MonitorList()
 
 def f(name, count, modulus):
     running.append(name)
-    i = 0
     print "starting %s %d %d\n" % (name, count, modulus),
     for i in xrange(count):
         if i % modulus == 0:
