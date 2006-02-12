@@ -18,8 +18,9 @@ class W_ComplexObject(W_Object):
         w_self.realval = float(realval)
         w_self.imagval = float(imgval)
 
-    def __repr__(self):
-        return "<W_ComplexObject(%f,%f)>" % (self.realval, self.imagval)
+    def __repr__(w_self):
+        """ representation for debugging purposes """
+        return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)
 
 registerimplementation(W_ComplexObject)
 
@@ -73,7 +74,7 @@ def _pow(c1,c2):
         rr, ir = c_1
     elif r1 == 0.0 and i1 == 0.0:
         if i2 != 0.0 or r2 < 0.0:
-            raise ZeroDivisionError("0.0 to a negative or complex power")
+            raise ZeroDivisionError
         rr, ir = (0.0, 0.0)
     else:
         vabs = math.hypot(r1,i1)
@@ -144,24 +145,26 @@ def hash__Complex(space, w_value):
         combined = -2
     return space.newint(combined)
 
-def _w2t(w_complex):
+def _w2t(space, w_complex):
+    "convert an interplevel complex object to a tuple representation"
+    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return w_complex.realval, w_complex.imagval
 
 def _t2w(space, c):
     return W_ComplexObject(space, c[0], c[1])
 
 def add__Complex_Complex(space, w_complex1, w_complex2):
-    return _t2w(space, _sum(_w2t(w_complex1), _w2t(w_complex2)))
+    return _t2w(space, _sum(_w2t(space, w_complex1), _w2t(space, w_complex2)))
 
 def sub__Complex_Complex(space, w_complex1, w_complex2):
-    return _t2w(space, _diff(_w2t(w_complex1), _w2t(w_complex2)))
+    return _t2w(space, _diff(_w2t(space, w_complex1), _w2t(space, w_complex2)))
 
 def mul__Complex_Complex(space, w_complex1, w_complex2):
-    return _t2w(space, _prod(_w2t(w_complex1), _w2t(w_complex2)))
+    return _t2w(space, _prod(_w2t(space, w_complex1), _w2t(space, w_complex2)))
 
 def div__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        return _t2w(space, _quot(_w2t(w_complex1), _w2t(w_complex2)))
+        return _t2w(space, _quot(_w2t(space, w_complex1), _w2t(space, w_complex2)))
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
@@ -169,28 +172,28 @@ truediv__Complex_Complex = div__Complex_Complex
 
 def mod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div = _quot(_w2t(w_complex1), _w2t(w_complex2))
+        div = _quot(_w2t(space, w_complex1), _w2t(space, w_complex2))
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap("complex remainder"))
     div = (math.floor(div[0]), 0.0)
-    mod = _diff(_w2t(w_complex1), _prod(_w2t(w_complex2), div))
+    mod = _diff(_w2t(space, w_complex1), _prod(_w2t(space, w_complex2), div))
 
     return _t2w(space, mod)
 
 def divmod__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div = _quot(_w2t(w_complex1), _w2t(w_complex2))
+        div = _quot(_w2t(space, w_complex1), _w2t(space, w_complex2))
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap("complex divmod()"))
     div = (math.floor(div[0]), 0.0)
-    mod = _diff(_w2t(w_complex1), _prod(_w2t(w_complex2), div))
+    mod = _diff(_w2t(space, w_complex1), _prod(_w2t(space, w_complex2), div))
     w_div = _t2w(space, div)
     w_mod = _t2w(space, mod)
     return space.newtuple([w_div, w_mod])
 
 def floordiv__Complex_Complex(space, w_complex1, w_complex2):
     try:
-        div = _quot(_w2t(w_complex1), _w2t(w_complex2))
+        div = _quot(_w2t(space, w_complex1), _w2t(space, w_complex2))
     except ZeroDivisionError, e:
         raise OperationError(space.w_ZeroDivisionError, space.wrap("complex floordiv()"))
     div = (math.floor(div[0]), 0.0)
@@ -200,8 +203,8 @@ def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
     if not isinstance(thirdArg, W_NoneObject):
         raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
     try:
-        v = _w2t(w_complex1)
-        exponent = _w2t(w_complex2)
+        v = _w2t(space, w_complex1)
+        exponent = _w2t(space, w_complex2)
         int_exponent = int(exponent[0])
         if exponent[1] == 0.0 and exponent[0] == int_exponent:
             p = _powi(v, int_exponent)

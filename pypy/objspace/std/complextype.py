@@ -12,7 +12,7 @@ ERR_MALFORMED = "complex() arg is a malformed string"
 def _split_complex(s):
     slen = len(s)
     if slen == 0:
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
     realstart = 0
     realstop = 0
     imagstart = 0
@@ -42,7 +42,7 @@ def _split_complex(s):
     if i >= slen:
         newstop = realstop - 1
         if newstop < 0:
-            raise ValueError('complex() arg is a malformed string')
+            raise ValueError
         if s[newstop] in ('j','J'):
             if realstart == newstop:
                 imagpart = '1.0'
@@ -56,14 +56,14 @@ def _split_complex(s):
     if s[i] == '-' or s[i] == '+':
         imagsign = s[i]
     if imagsign == ' ':
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
 
     i+=1
     # whitespace
     while i < slen and s[i] == ' ':
         i += 1
     if i >= slen:
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
 
     imagstart = i
     pc = s[i]
@@ -75,16 +75,16 @@ def _split_complex(s):
 
     imagstop = i - 1
     if imagstop < 0:
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
     if s[imagstop] not in ('j','J'):
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
     if imagstop < imagstart:
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
 
     while i<slen and s[i] == ' ':
         i += 1
     if i <  slen:
-        raise ValueError('complex() arg is a malformed string')
+        raise ValueError
 
     realpart = s[realstart:realstop]
     if imagstart == imagstop:
@@ -152,12 +152,8 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     else:
         if space.eq_w(w_imag,space.w_None):
             w_imag = space.wrap(0.0)
-        try:
-
-            realval = space.float_w(w_real)
-            imagval = space.float_w(w_imag)
-        except ValueError, e:
-            raise OperationError(space.w_ValueError, space.wrap(e.msg))
+        realval = space.float_w(w_real)
+        imagval = space.float_w(w_imag)
     w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
     W_ComplexObject.__init__(w_obj, space, realval, imagval)
 
