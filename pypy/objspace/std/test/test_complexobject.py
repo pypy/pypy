@@ -1,18 +1,15 @@
 import autopath
 import py
+from pypy.objspace.std.model import WITHCOMPLEX
+if not WITHCOMPLEX:
+    py.test.skip("only works if WITHCOMPLEX is enabled")
 from pypy.objspace.std import complexobject as cobj
 from pypy.objspace.std import complextype as cobjtype
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std import StdObjSpace
-from pypy.objspace.std.model import WITHCOMPLEX
 
 EPS = 1e-9
-
-def setup_module(mod):
-    if not WITHCOMPLEX:
-        py.test.skip("only works if WITHCOMPLEX is enabled")
-    mod.space = StdObjSpace()
 
 class TestW_ComplexObject:
 
@@ -66,7 +63,7 @@ class TestW_ComplexObject:
 
 class AppTestAppComplexTest:
     def setup_class(cls):
-        cls.w_helper = space.appexec([], "():\n    import sys\n    sys.path.append('%s')\n    import helper\n    return helper" % (py.magic.autopath().dirpath(), ))
+        cls.w_helper = cls.space.appexec([], "():\n    import sys\n    sys.path.append('%s')\n    import helper\n    return helper" % (py.magic.autopath().dirpath(), ))
 
     def test_div(self):
         h = self.helper
