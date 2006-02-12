@@ -598,11 +598,17 @@ class BoehmGCTransformer(GCTransformer):
 
 relevant_ops = ["direct_call", "indirect_call", "malloc"]
 
-def relevant_gcvars_block(block):
+def filter_for_ptr(arg):
+    return isinstance(arg.concretetype, lltype.Ptr)
+
+def filter_for_nongcptr(arg):
+    return isinstance(arg.concretetype, lltype.Ptr) and not arg.concretetype._needsgc()
+
+def relevant_gcvars_block(block, filter=filter_for_ptr):
     import sets
     result = []
     def filter_ptr(args):
-        return [arg for arg in args if isinstance(arg.concretetype, lltype.Ptr)]
+        return [arg for arg in args if filter(arg)]
     def live_vars_before(index):
         if index == 0:
             return sets.Set(filter_ptr(block.inputargs))
@@ -622,22 +628,20 @@ def relevant_gcvars_block(block):
     for i, op in enumerate(block.operations):
         if op.opname not in relevant_ops:
             continue
-        print op,
         live_before = live_vars_before(i)
         live_after = live_vars_after(i)
-        print live_before, live_after
         result.append(len(live_before.intersection(live_after)))
     return result
 
-def relevant_gcvars_graph(graph):
+def relevant_gcvars_graph(graph, filter=filter_for_ptr):
     result = []
     for block in graph.iterblocks():
-        result += relevant_gcvars_block(block)
+        result += relevant_gcvars_block(block, filter)
     return result
 
-def relevant_gcvars(t):
+def relevant_gcvars(t, filter=filter_for_ptr):
     result = []
     for graph in t.graphs:
-        result.extend(relevant_gcvars_graph(graph))
+        result.extend(relevant_gcvars_graph(graph, filter))
     return result
 

@@ -1,6 +1,6 @@
 from pypy.rpython.memory import gctransform
 from pypy.objspace.flow.model import c_last_exception, Variable
-from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj, relevant_gcvars_graph, relevant_gcvars
+from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
@@ -559,7 +559,7 @@ def test_count_vars_simple():
         s2.x = 2
         return s1.x + s2.x
     t = rtype(f, [])
-    assert relevant_gcvars_graph(graphof(t, f)) == [0, 1]
+    assert gctransform.relevant_gcvars_graph(graphof(t, f)) == [0, 1]
 
 def test_count_vars_big():
     from pypy.translator.goal.targetrpystonex import make_target_definition
@@ -568,7 +568,10 @@ def test_count_vars_big():
     t = rtype(entrypoint, [int])
     backend_optimizations(t)
     # does not crash
-    rel = relevant_gcvars(t)
+    rel = gctransform.relevant_gcvars(t)
     print rel
     print sum(rel) / float(len(rel)), max(rel), min(rel)
 
+    rel = gctransform.relevant_gcvars(t, gctransform.filter_for_nongcptr)
+    print rel
+    print sum(rel) / float(len(rel)), max(rel), min(rel)
