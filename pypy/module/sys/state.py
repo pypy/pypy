@@ -62,7 +62,7 @@ def _pypy_getudir(space):
     return space.wrap(str(udir))
 _pypy_getudir._annspecialcase_ = "override:ignore"
 
-# we need the inderaction because this function will live in a dictionary with other 
+# we need the indirection because this function will live in a dictionary with other 
 # RPYTHON functions and share call sites with them. Better it not be a special-case
 # directly. 
 def pypy_getudir(space):
