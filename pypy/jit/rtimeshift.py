@@ -66,11 +66,10 @@ def ll_gvar_from_const(jitstate, value):
 # emit ops
 
 
-
 class OpDesc(object):
     """
-    Descrption of a low-level operation
-    that can be passed around to low level helper
+    Description of a low-level operation
+    that can be passed around to low level helpers
     to inform op generation
     """
     
