@@ -77,7 +77,7 @@ class ExceptionData:
                 if cls in self.standardexceptions and cls not in FORCE_ATTRIBUTES_INTO_CLASSES:
                     is_standard = True
                     assert not clsdef.attrs, (
-                        "%r should not have grown atributes" % (cls,))
+                        "%r should not have grown attributes" % (cls,))
                 else:
                     is_standard = (cls.__module__ == 'exceptions'
                                    and not clsdef.attrs)
