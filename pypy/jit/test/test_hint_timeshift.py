@@ -62,7 +62,7 @@ def timeshift(ll_function, values, opt_consts=[]):
             TYPE = htshift.originalconcretetype(v)
             box = rtimeshift.ll_input_redbox(jitstate, TYPE)
             if i in opt_consts: # XXX what should happen here interface wise is unclear
-                box = rtimeshift.REDBOX.make_from_const(llvalue)
+                box = rtimeshift.REDBOX.ll_make_from_const(llvalue)
             graph1args.append(box)
             residual_graph_args.append(llvalue)
     llinterp = LLInterpreter(rtyper)

@@ -1,5 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
+from pypy.rpython import annlowlevel
 from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.rstr import string_repr
@@ -101,6 +102,17 @@ class HintRTyper(RPythonTyper):
         #                         opname2vstr(hop.spaceop.opname),
         #                         v_args, c_restype)
 
+class MixLevelAnnotatorPolicy(annlowlevel.LowLevelAnnotatorPolicy):
+
+    def default_specialize(pol, funcdesc, args_s):
+        name = funcdesc.name
+        if name.startswith('ll_') or name.startswith('_ll_'): # xxx can we do better?
+            return annlowlevel.LowLevelAnnotatorPolicy.default_specialize(pol, funcdesc, args_s)
+        else:
+            return funcdesc.cachedgraph(None)
+
+    # TODO finer control specialisations for highlevel helpers ...
+
 class HintLowLevelOpList(LowLevelOpList):
     """Warning: the HintLowLevelOpList's rtyper is the *original*
     rtyper, while the HighLevelOp's rtyper is actually our HintRTyper...
@@ -111,6 +123,23 @@ class HintLowLevelOpList(LowLevelOpList):
 
     def hasparentgraph(self):
         return False   # for now
+
+    def genmixlevelhelpercall(self, function, args_s, args_v):
+        # XXX first approximation, will likely need some fine controlled
+        # specialisation for these helpers too
+        rtyper = self.rtyper
+        rtyper.call_all_setups()  # compute ForwardReferences now
+        graph = rtyper.annotator.annotate_helper(function, args_s,
+                                                 policy=MixLevelAnnotatorPolicy()
+                                                 )
+        self.record_extra_call(graph) # xxx
+
+        # build the 'direct_call' operation
+        f = rtyper.getcallable(graph)
+        c = inputconst(lltype.typeOf(f), f)
+        fobj = rtyper.type_system_deref(f)
+        return self.genop('direct_call', [c]+args_v,
+                          resulttype = lltype.typeOf(fobj).RESULT)
 
     def getjitstate(self):
         v_jitstate = self.originalblock.inputargs[0]
@@ -153,7 +182,7 @@ class RedRepr(Repr):
                                    llops.getjitstate(), v, c_TYPE)
 
     def convert_const(self, ll_value):
-        return rtimeshift.REDBOX.make_from_const(ll_value)
+        return rtimeshift.REDBOX.ll_make_from_const(ll_value)
 
     def residual_values(self, ll_value):
         return [ll_value]

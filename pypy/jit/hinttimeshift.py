@@ -108,10 +108,10 @@ class HintTimeshift(object):
             v_key = rtuple.newtuple(llops, r_key, key_v)
             v_boxes = rlist.newlist(llops, r_box_list, boxes_v)
 
-            v_newjiststate = llops.gendirectcall(rtimeshift.ll_retrieve_jitstate_for_merge,
-                                                 c_state_dic,
-                                                 newinputargs[0], # jitstate
-                                                 v_key, v_boxes)
+
+            v_newjiststate = llops.genmixlevelhelpercall(rtimeshift.retrieve_jitstate_for_merge,
+                                                         [s_state_dic, annmodel.SomePtr(STATE_PTR), s_key_tuple, s_box_list],
+                                                         [c_state_dic, newinputargs[0], v_key, v_boxes])
 
             newinputargs2 = [v_newjiststate]
             i = 0

@@ -17,29 +17,29 @@ STATE = lltype.GcStruct("jitstate", ("curblock", rgenop.BLOCK))
 STATE_PTR = lltype.Ptr(STATE)
 
 
-def make_for_gvar(gvar):
+def ll_make_for_gvar(gvar):
     box = lltype.malloc(REDBOX)
     box.isvar = True
     box.genvar = gvar
     return box
 
-def make_from_const(value):
+def ll_make_from_const(value):
     sbox = lltype.malloc(REDBOX_FOR_SIGNED) # XXX Float, Ptr
     sbox.value = lltype.cast_primitive(lltype.Signed, value)
     box = lltype.cast_pointer(REDBOX_PTR, sbox)
     box.genvar = lltype.nullptr(REDBOX.genvar.TO)
     return box
 
-def getvalue(box, T):
+def ll_getvalue(box, T):
     sbox = lltype.cast_pointer(REDBOX_FOR_SIGNED_PTR, box)
     return lltype.cast_primitive(T, sbox.value)
 
 REDBOX = lltype.GcStruct("redbox", ("genvar", rgenop.CONSTORVAR),
                                    ("isvar", lltype.Bool),
                          adtmeths = {
-    'make_for_gvar': make_for_gvar,
-    'make_from_const': make_from_const,
-    'getvalue': getvalue,
+    'll_make_for_gvar': ll_make_for_gvar,
+    'll_make_from_const': ll_make_from_const,
+    'll_getvalue': ll_getvalue,
     })
 
 REDBOX_PTR = lltype.Ptr(REDBOX)
@@ -55,7 +55,7 @@ REDBOX_FOR_SIGNED_PTR = lltype.Ptr(REDBOX_FOR_SIGNED)
 
 def ll_gvar_from_redbox(jitstate, box, TYPE):
     if not box.genvar:
-        value = box.getvalue(TYPE)
+        value = box.ll_getvalue(TYPE)
         box.genvar = ll_gvar_from_const(jitstate, value)
     return box.genvar
 
@@ -112,13 +112,13 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
     RESULT = opdesc.RESULT
     opname = opdesc.name
     if not argbox.isvar: # const propagate
-        arg = argbox.getvalue(ARG0)
+        arg = argbox.ll_getvalue(ARG0)
         res = opdesc.llop(RESULT, arg)
-        return REDBOX.make_from_const(res)
+        return REDBOX.ll_make_from_const(res)
     op_args = lltype.malloc(VARLIST.TO, 1)
     op_args[0] = ll_gvar_from_redbox(jitstate, argbox, ARG0)
     gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args, RESULT)
-    return REDBOX.make_for_gvar(gvar)
+    return REDBOX.ll_make_for_gvar(gvar)
 
 def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     ARG0 = opdesc.ARG0
@@ -126,27 +126,33 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     RESULT = opdesc.RESULT
     opname = opdesc.name
     if not argbox0.isvar and not argbox1.isvar: # const propagate
-        arg0 = argbox0.getvalue(ARG0)
-        arg1 = argbox1.getvalue(ARG1)
+        arg0 = argbox0.ll_getvalue(ARG0)
+        arg1 = argbox1.ll_getvalue(ARG1)
         res = opdesc.llop(RESULT, arg0, arg1)
-        return REDBOX.make_from_const(res)
+        return REDBOX.ll_make_from_const(res)
     op_args = lltype.malloc(VARLIST.TO, 2)
     op_args[0] = ll_gvar_from_redbox(jitstate, argbox0, ARG0)
     op_args[1] = ll_gvar_from_redbox(jitstate, argbox1, ARG1)
     gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args, RESULT)
-    return REDBOX.make_for_gvar(gvar)
+    return REDBOX.ll_make_for_gvar(gvar)
 
 #def ll_generate_operation(jitstate, opname, args, RESULTTYPE):
 #    gvar = rgenop.genop(jitstate.curblock, opname, args, RESULTTYPE)
-#    return REDBOX.make_for_gvar(gvar)
+#    return REDBOX.ll_make_for_gvar(gvar)
 
 # ____________________________________________________________
 # other jitstate/graph level operations
 
-# XXX dummy for now
-def ll_retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
+
+# XXX dummy for now, playing with mix level annotation
+def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     # modifies redbox in place
+    states_dic[key] = redboxes
+    # fun playing junk
+    if not redboxes[0].isvar and redboxes[0].ll_getvalue(lltype.Signed) == 0:
+        redboxes[0] = redboxes[0]
     return jitstate # XXX
+    
 
 def ll_setup_jitstate():
     jitstate = lltype.malloc(STATE)
@@ -160,4 +166,4 @@ def ll_close_jitstate(jitstate, return_gvar):
 
 def ll_input_redbox(jitstate, TYPE):
     genvar = rgenop.geninputarg(jitstate.curblock, TYPE)
-    return REDBOX.make_for_gvar(genvar)
+    return REDBOX.ll_make_for_gvar(genvar)
