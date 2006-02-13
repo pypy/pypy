@@ -207,19 +207,6 @@ class ListBuilder(object):
         return 1 # bad but not used alone
 
 
-def list_builder(rtyper, list_repr):
-    ITEM = list_repr.item_repr.lowleveltype
-    if rtyper is None: # only for testing!
-        return ListBuilder(list_repr.__class__, ITEM)
-    key = list_repr.__class__, ITEM
-    try:
-        return rtyper._list_builders[key]
-    except KeyError:
-        builder = ListBuilder(list_repr.__class__, ITEM)
-        rtyper._list_builders[key] = builder
-        return builder
-
-
 class ListRepr(BaseListRepr):
 
     def _setup_repr(self):
