@@ -94,6 +94,24 @@ class RPythonAnnotator:
 
         return self.build_graph_types(flowgraph, inputcells)
 
+    def annotate_helper(self, function, args_s, policy=None):
+        saved = self.policy, self.added_blocks
+        if policy is None:
+            from pypy.annotation.policy import AnnotatorPolicy
+            policy = AnnotatorPolicy()
+        self.policy = policy
+        try:
+            self.added_blocks = {}
+            desc = self.bookkeeper.getdesc(function)
+            graph = desc.specialize(args_s)
+            s = self.build_graph_types(graph, args_s)
+            # invoke annotation simplifications for the new blocks
+            self.simplify(block_subset=self.added_blocks)
+        finally:
+            self.policy, self.added_blocks = saved
+        return graph
+
+
     def build_graph_types(self, flowgraph, inputcells):
         checkgraph(flowgraph)
 
