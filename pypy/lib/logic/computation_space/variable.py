@@ -209,8 +209,8 @@ def make_list(data=None):
 class CList(Pair):
     """A List supporting concurrent access"""
 
-    def __init__(self, *args):
-        Pair.__init__(*args)
+    def __init__(self, car, cdr):
+        Pair.__init__(self, car, cdr)
         self.last_condition = threading.Condition()
 
     def set_rest(self, rest):
