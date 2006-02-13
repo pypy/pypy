@@ -127,12 +127,19 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     try:
         w_imag = cast_float(space,w_imag)
     except:pass
+
+    # test for '__complex__' attribute and get result of
+    # __complex__ method
     w_complex_first = extract_complex(space, w_real)
     if not space.eq_w(w_complex_first, space.w_None):
         w_real = w_complex_first
+    
+    # if w_real is a complex number and there is no second
+    # argument, return w_real
     if space.is_true(space.isinstance(w_real, space.w_complex)) and \
             space.eq_w(w_imag, space.w_None):
         return w_real
+
     elif not space.is_true(space.isinstance(w_real, space.w_str)) and \
             not space.eq_w(w_imag, space.w_None):
         w_imag = space.mul(w_imag,space.newcomplex(0.0,1.0))
@@ -177,6 +184,7 @@ extract_complex = app.interphook('extract_complex')
 cast_float = app.interphook('cast_float')
 
 def descr_conjugate(space, w_self):
+    assert space.is_true(space.isinstance(w_self, space.w_complex))
     from pypy.objspace.std.complexobject import W_ComplexObject
     return W_ComplexObject(space,w_self.realval, -w_self.imagval)
 

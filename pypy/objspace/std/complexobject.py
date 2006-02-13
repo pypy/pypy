@@ -217,19 +217,26 @@ def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
     return _t2w(space, p)
 
 def neg__Complex(space, w_complex):
+    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return W_ComplexObject(space, -w_complex.realval, -w_complex.imagval)
 
 def pos__Complex(space, w_complex):
+    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return W_ComplexObject(space, w_complex.realval, w_complex.imagval)
 
 def abs__Complex(space, w_complex):
+    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return space.newfloat(math.hypot(w_complex.realval, w_complex.imagval))
 
 def eq__Complex_Complex(space, w_complex1, w_complex2):
+    assert space.is_true(space.isinstance(w_complex1, space.w_complex))
+    assert space.is_true(space.isinstance(w_complex2, space.w_complex))
     return space.newbool((w_complex1.realval == w_complex2.realval) and 
             (w_complex1.imagval == w_complex2.imagval))
 
 def ne__Complex_Complex(space, w_complex1, w_complex2):
+    assert space.is_true(space.isinstance(w_complex1, space.w_complex))
+    assert space.is_true(space.isinstance(w_complex2, space.w_complex))
     return space.newbool((w_complex1.realval != w_complex2.realval) or 
             (w_complex1.imagval != w_complex2.imagval))
 
@@ -241,6 +248,7 @@ ge__Complex_Complex = lt__Complex_Complex
 le__Complex_Complex = lt__Complex_Complex
 
 def nonzero__Complex(space, w_complex):
+    assert space.is_true(space.isinstance(w_complex, space.w_complex))
     return space.newbool(w_complex.realval or w_complex.imagval)
 
 def coerce__Complex_Complex(space, w_complex1, w_complex2):
