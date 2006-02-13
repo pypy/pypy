@@ -50,7 +50,6 @@ def ll_eq(t1, t2):
             body.append("if not eq%d(t1.item%d, t2.item%d): return False" % (i, i, i))
         body = ('\n'+' '*4).join(body)
         source = source % body
-        print source
         exec source in miniglobals
         ll_eq = miniglobals['ll_eq']
         _gen_eq_function_cache[key] = ll_eq
@@ -75,7 +74,6 @@ def ll_hash(t):
             body.append("retval ^= hash%d(t.item%d)" % (i,i))
         body = ('\n'+' '*4).join(body)
         source = source % body
-        print source
         exec source in miniglobals
         ll_hash = miniglobals['ll_hash']
         _gen_hash_function_cache[key] = ll_hash
