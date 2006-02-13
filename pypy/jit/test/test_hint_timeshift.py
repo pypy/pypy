@@ -121,3 +121,16 @@ def test_simple_opt_const_propagation1():
     insns, res = timeshift(ll_function, [5], [0])
     assert res == -5
     assert insns == {}
+
+def test_loop_merge():
+    def ll_function(x, y):
+        tot = 0
+        x = hint(x, concrete=True)        
+        while x:
+            tot += y
+            x -= 1
+        return tot
+    insns, res = timeshift(ll_function, [7, 2], [0, 1])
+    assert res == 14
+    # not really testing merge logic properly, we would need both a split
+    # (on a red exitswitch) and a join for that, just that the new code doesn't explode

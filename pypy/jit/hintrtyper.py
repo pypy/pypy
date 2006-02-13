@@ -79,10 +79,12 @@ class HintRTyper(RPythonTyper):
         elif opdesc.nb_args == 2:
             ll_generate = rtimeshift.ll_generate_operation2
         c_opdesc = inputconst(lltype.Void, opdesc)
+        args_v = hop.inputargs(*[self.getredrepr(originalconcretetype(hs))
+                                for hs in hop.args_s])
         return hop.gendirectcall(ll_generate,
                                  c_opdesc,
                                  hop.llops.getjitstate(),
-                                 *hop.args_v)
+                                 *args_v)
         #v_args = hop.genop('malloc_varsize',
         #                   [hop.inputconst(lltype.Void, VARLIST.TO),
         #                    hop.inputconst(lltype.Signed, len(hop.args_v))],
@@ -159,6 +161,13 @@ class RedRepr(Repr):
 class GreenRepr(Repr):
     def __init__(self, lowleveltype):
         self.lowleveltype = lowleveltype
+
+    def annotation(self):
+        return annmodel.lltype_to_annotation(self.lowleveltype)
+
+    def erased_annotation(self):
+        # XXX Float, pointers
+        return annmodel.SomeInteger()
 
     def get_genop_var(self, v, llops):
         return llops.gendirectcall(rtimeshift.ll_gvar_from_constant,

@@ -143,6 +143,11 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
 # ____________________________________________________________
 # other jitstate/graph level operations
 
+# XXX dummy for now
+def ll_retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
+    # modifies redbox in place
+    return jitstate # XXX
+
 def ll_setup_jitstate():
     jitstate = lltype.malloc(STATE)
     jitstate.curblock = rgenop.newblock()
