@@ -1,4 +1,5 @@
 import sys
+from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
@@ -71,6 +72,7 @@ class BaseTestListImpl:
                 self.check_list(l1, expected)
 
 class TestListImpl(BaseTestListImpl):
+
 
     def sample_list(self):    # [42, 43, 44, 45]
         rlist = ListRepr(None, signed_repr)
@@ -989,3 +991,56 @@ def test_voidlist_nonfixed():
         return len(lst)
     res = interpret(f, [])
     assert res == 2
+
+
+def test_type_erase_fixed_size():
+    class A(object):
+        pass
+    class B(object):
+        pass
+
+    def f():
+        return [A()], [B()]
+
+    t = TranslationContext()
+    s = t.buildannotator().build_types(f, [])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+
+    s_A_list = s.items[0]
+    s_B_list = s.items[1]
+    
+    r_A_list = rtyper.getrepr(s_A_list)
+    assert isinstance(r_A_list, FixedSizeListRepr)
+    r_B_list = rtyper.getrepr(s_B_list)
+    assert isinstance(r_B_list, FixedSizeListRepr)    
+
+    assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+def test_type_erase_var_size():
+    class A(object):
+        pass
+    class B(object):
+        pass
+
+    def f():
+        la = [A()]
+        lb = [B()]
+        la.append(None)
+        lb.append(None)
+        return la, lb
+
+    t = TranslationContext()
+    s = t.buildannotator().build_types(f, [])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+
+    s_A_list = s.items[0]
+    s_B_list = s.items[1]
+    
+    r_A_list = rtyper.getrepr(s_A_list)
+    assert isinstance(r_A_list, ListRepr)    
+    r_B_list = rtyper.getrepr(s_B_list)
+    assert isinstance(r_B_list, ListRepr)    
+
+    assert r_A_list.lowleveltype == r_B_list.lowleveltype

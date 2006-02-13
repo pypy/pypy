@@ -68,8 +68,8 @@ class BaseListRepr(Repr):
             self.external_item_repr, self.item_repr = externalvsinternal(rtyper, item_repr)
         self.listitem = listitem
         self.list_cache = {}
-        self.list_builder = ListBuilder()
         # setup() needs to be called to finish this initialization
+        self.list_builder = ListBuilder()
 
     def _setup_repr_final(self):
         self.list_builder.setup(self)
@@ -155,12 +155,13 @@ class ListBuilder(object):
     """Interface to allow lazy list building by the JIT."""
     # This should not keep a reference to the RTyper, even indirectly via
     # the list_repr.
-
+        
     def setup(self, list_repr):
         # Precompute the c_newitem and c_setitem_nonneg function pointers,
         # needed below.
         if list_repr.rtyper is None:
             return     # only for test_rlist, which doesn't need this anyway
+        
         LIST = list_repr.LIST
         LISTPTR = list_repr.lowleveltype
         ITEM = list_repr.item_repr.lowleveltype
@@ -178,7 +179,7 @@ class ListBuilder(object):
         #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
         #self.c_LIST = inputconst(Void, self.LIST)
 
-    def build(self, builder, items_v):
+    def __call__(self, builder, items_v):
         """Make the operations that would build a list containing the
         provided items."""
         from pypy.rpython import rgenop
@@ -196,6 +197,29 @@ class ListBuilder(object):
                           Void)
         return v_result
 
+    def __eq__(self, other):
+        return self.LISTPTR == other.LISTPTR
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return 1 # bad but not used alone
+
+
+def list_builder(rtyper, list_repr):
+    ITEM = list_repr.item_repr.lowleveltype
+    if rtyper is None: # only for testing!
+        return ListBuilder(list_repr.__class__, ITEM)
+    key = list_repr.__class__, ITEM
+    try:
+        return rtyper._list_builders[key]
+    except KeyError:
+        builder = ListBuilder(list_repr.__class__, ITEM)
+        rtyper._list_builders[key] = builder
+        return builder
+
+
 class ListRepr(BaseListRepr):
 
     def _setup_repr(self):
@@ -211,7 +235,7 @@ class ListRepr(BaseListRepr):
                                           "ll_newlist": ll_newlist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
-                                          "list_builder": self.list_builder.build,
+                                          "list_builder": self.list_builder,
                                           "ITEM": ITEM,
                                       })
                              )
@@ -285,7 +309,7 @@ class FixedSizeListRepr(BaseListRepr):
                                      "ll_newlist": ll_fixed_newlist,
                                      "ll_length": ll_fixed_length,
                                      "ll_items": ll_fixed_items,
-                                     "list_builder": self.list_builder.build,
+                                     "list_builder": self.list_builder,
                                      "ITEM": ITEM,
                                 })
 
