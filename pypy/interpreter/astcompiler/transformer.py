@@ -1232,9 +1232,13 @@ class Transformer:
                 return self.com_slice(primary, sub, assigning)
 
         subscripts = []
-        for i in range(1, len(nodelist), 2):
+        for i in range(1, len(nodelist)-1, 2):
             subscripts.append(self.com_subscript(nodelist[i]))
-        return Subscript(primary, assigning, subscripts,
+        if len(nodelist) > 3:   # at least one comma
+            sub = Tuple(subscripts, lineno=extractLineNo(nodelist))
+        else:
+            [sub] = subscripts
+        return Subscript(primary, assigning, sub,
                          lineno=extractLineNo(nodelist))
 
     def com_subscript(self, node):

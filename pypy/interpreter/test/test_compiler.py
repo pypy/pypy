@@ -368,6 +368,40 @@ def wrong3():
         w_d = space.newdict([])
         space.exec_(code, w_d, w_d)
 
+    def test_ellipsis(self):
+        snippet = str(py.code.Source(r'''
+            d = {}
+            d[...] = 12
+            assert d.keys()[0] is Ellipsis
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict([])
+        space.exec_(code, w_d, w_d)
+
+    def test_augassign_with_tuple_subscript(self):
+        snippet = str(py.code.Source(r'''
+            class D(object):
+                def __getitem__(self, key):
+                    assert key == self.lastkey
+                    return self.lastvalue
+                def __setitem__(self, key, value):
+                    self.lastkey = key
+                    self.lastvalue = value
+            def one(return_me=[1]):
+                return return_me.pop()
+            d = D()
+            a = 15
+            d[1,2+a,3:7,...,1,] = 6
+            d[one(),17,slice(3,7),...,1] *= 7
+            result = d[1,17,3:7,Ellipsis,1]
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict([])
+        space.exec_(code, w_d, w_d)
+        assert space.int_w(space.getitem(w_d, space.wrap('result'))) == 42
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler

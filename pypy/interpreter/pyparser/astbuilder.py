@@ -461,8 +461,8 @@ def reduce_slice(obj, sliceobj):
         end = sliceobj.value[1]
         return ast.Slice(obj, consts.OP_APPLY, start, end, sliceobj.lineno)
     else:
-        return ast.Subscript(obj, consts.OP_APPLY, [ast.Sliceobj(sliceobj.value,
-                                                                 sliceobj.lineno)], sliceobj.lineno)
+        return ast.Subscript(obj, consts.OP_APPLY, ast.Sliceobj(sliceobj.value,
+                                                                sliceobj.lineno), sliceobj.lineno)
 
 def parse_attraccess(tokens):
     """parses token list like ['a', '.', 'b', '.', 'c', ...]
@@ -928,8 +928,10 @@ def build_trailer(builder, nb):
         if len(atoms) == 3 and isinstance(atoms[1], SlicelistObject):
             builder.push(atoms[1])
         else:
+            # atoms is a list of, alternatively, values and comma tokens,
+            # with '[' and ']' tokens at the end
             subs = []
-            for index in range(1, len(atoms), 2):
+            for index in range(1, len(atoms)-1, 2):
                 atom = atoms[index]
                 if isinstance(atom, SlicelistObject):
                     num_slicevals = 3
@@ -944,7 +946,11 @@ def build_trailer(builder, nb):
                     subs.append(ast.Sliceobj(slicevals, atom.lineno))
                 else:
                     subs.append(atom)
-            builder.push(SubscriptObject('subscript', subs, first_token.lineno))
+            if len(atoms) > 3:   # at least one comma
+                sub = ast.Tuple(subs, first_token.lineno)
+            else:
+                [sub] = subs
+            builder.push(SubscriptObject('subscript', sub, first_token.lineno))
     elif len(atoms) == 2:
         # Attribute access: '.' NAME
         builder.push(atoms[0])
@@ -985,36 +991,23 @@ def build_subscript(builder, nb):
             # test
             builder.push(token)
     else: # elif len(atoms) > 1:
-        items = []
         sliceinfos = [None, None, None]
         infosindex = 0
-        subscript_type = 'subscript'
         for token in atoms:
-            if isinstance(token, TokenObject):
-                if token.name == tok.COLON:
-                    infosindex += 1
-                    subscript_type = 'slice'
-                # elif token.name == tok.COMMA:
-                #     subscript_type = 'subscript'
-                else:
-                    items.append(token)
-                    sliceinfos[infosindex] = token
+            if isinstance(token, TokenObject) and token.name == tok.COLON:
+                infosindex += 1
             else:
-                items.append(token)
                 sliceinfos[infosindex] = token
-        if subscript_type == 'slice':
-            if infosindex == 2:
-                sliceobj_infos = []
-                for value in sliceinfos:
-                    if value is None:
-                        sliceobj_infos.append(ast.Const(builder.wrap_none(), lineno))
-                    else:
-                        sliceobj_infos.append(value)
-                builder.push(SlicelistObject('sliceobj', sliceobj_infos, lineno))
-            else:
-                builder.push(SlicelistObject('slice', sliceinfos, lineno))
+        if infosindex == 2:
+            sliceobj_infos = []
+            for value in sliceinfos:
+                if value is None:
+                    sliceobj_infos.append(ast.Const(builder.wrap_none(), lineno))
+                else:
+                    sliceobj_infos.append(value)
+            builder.push(SlicelistObject('sliceobj', sliceobj_infos, lineno))
         else:
-            builder.push(SubscriptObject('subscript', items, lineno))
+            builder.push(SlicelistObject('slice', sliceinfos, lineno))
 
         
 def build_listmaker(builder, nb):
@@ -1562,17 +1555,9 @@ class ObjectAccessor(ast.Node):
 
     FIXME: think about a more appropriate name
     """
-    def __init__(self, name, value, lineno):
-        self.fake_rulename = name
-        self.value = value
-        self.count = 0
-        self.lineno = lineno # src.getline()
-        self.col = 0  # src.getcol()
 
 class ArglistObject(ObjectAccessor):
     """helper class to build function's arg list
-
-    self.value is the 3-tuple (names, defaults, flags)
     """
     def __init__(self, arguments, stararg, dstararg, lineno):
         self.fake_rulename = 'arglist'
@@ -1592,6 +1577,11 @@ class SubscriptObject(ObjectAccessor):
     
     self.value represents the __getitem__ argument
     """
+    def __init__(self, name, value, lineno):
+        self.fake_rulename = name
+        self.value = value
+        self.lineno = lineno
+
     def __str__(self):
         return "<SubscriptList: (%s)>" % self.value
     
@@ -1601,11 +1591,16 @@ class SubscriptObject(ObjectAccessor):
 class SlicelistObject(ObjectAccessor):
     """helper class to build slice objects
 
-    self.value is a 3-tuple (start, end, step)
-    self.name can either be 'slice' or 'sliceobj' depending
+    self.value is a list [start, end, step]
+    self.fake_rulename can either be 'slice' or 'sliceobj' depending
     on if a step is specfied or not (see Python's AST
     for more information on that)
     """
+    def __init__(self, name, value, lineno):
+        self.fake_rulename = name
+        self.value = value
+        self.lineno = lineno
+
     def __str__(self):
         return "<SliceList: (%s)>" % self.value
     

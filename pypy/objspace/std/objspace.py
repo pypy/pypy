@@ -14,6 +14,7 @@ from pypy.objspace.std import stdtypedef
 from pypy.rpython.rarithmetic import r_longlong
 import sys
 import os
+import __builtin__
 
 _registered_implementations = {}
 def registerimplementation(implcls):
@@ -293,6 +294,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         #    return self.call_function(c,
         #                              self.wrap(x.real), 
         #                              self.wrap(x.imag))
+        if x is __builtin__.Ellipsis:
+            # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
+            return self.w_Ellipsis
 
         if self.options.nofaking:
             # annotation should actually not get here 

@@ -147,6 +147,8 @@ def to_code( rcode, space ):
     return code
 
 def check_compile(expr, target='exec', quiet=False, space=None):
+    if expr == "k[v,]":
+        py.test.skip('bug of the reference "stable compiler"')
     if not quiet:
         print "Compiling:", expr
 

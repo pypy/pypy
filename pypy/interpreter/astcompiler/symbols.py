@@ -459,8 +459,7 @@ class SymbolVisitor(ast.ASTVisitor):
     def visitSubscript(self, node ):
         self.push_assignment( False )
         node.expr.accept( self )
-        for n in node.subs:
-            n.accept( self )
+        node.sub.accept( self )
         self.pop_assignment()
 
     def visitSlice(self, node ):

@@ -1067,12 +1067,9 @@ class CodeGenerator(ast.ASTVisitor):
 
     def _visitSubscript(self, node, aug_flag):
         node.expr.accept( self )
-        for sub in node.subs:
-            sub.accept( self )
+        node.sub.accept( self )
         if aug_flag:
             self.emitop_int('DUP_TOPX', 2)
-        if len(node.subs) > 1:
-            self.emitop_int('BUILD_TUPLE', len(node.subs))
         if node.flags == OP_APPLY:
             self.emit('BINARY_SUBSCR')
         elif node.flags == OP_ASSIGN:
@@ -1422,9 +1419,6 @@ class AugLoadVisitor(ast.ASTVisitor):
         self.main._visitSlice(node, True)
 
     def visitSubscript(self, node):
-        if len(node.subs) > 1:
-            raise SyntaxError( "augmented assignment to tuple is not possible",
-                               node.lineno)
         self.main._visitSubscript(node, True)
 
 
@@ -1457,9 +1451,6 @@ class AugStoreVisitor(ast.ASTVisitor):
         self.main.emit('STORE_SLICE+%d' % slice)
 
     def visitSubscript(self, node):
-        if len(node.subs) > 1:
-            raise SyntaxError("augmented assignment to tuple is not possible",
-                               node.lineno)
         self.main.emit('ROT_THREE')
         self.main.emit('STORE_SUBSCR')
 

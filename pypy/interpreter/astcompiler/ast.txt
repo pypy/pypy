@@ -69,7 +69,7 @@ Backquote(UnaryOp): expr
 Getattr: expr, attrname*str
 CallFunc: node, args!, star_args& = None, dstar_args& = None
 Keyword: name*str, expr
-Subscript: expr, flags*int, subs!
+Subscript: expr, flags*int, sub
 Ellipsis: 
 Sliceobj: nodes!
 Slice: expr, flags*int, lower&, upper&
