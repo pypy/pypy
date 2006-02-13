@@ -137,6 +137,9 @@ class Pair(object):
     def first(self):
         return self._car
 
+    def set_first(self, first):
+        self._cdr = first
+
     def rest(self):
         return self._cdr
 
@@ -202,6 +205,31 @@ def make_list(data=None):
         curr.set_rest(Pair(datum, None))
         curr = curr.rest()
     return head
+
+class CList(Pair):
+    """A List supporting concurrent access"""
+
+    def __init__(self, *args):
+        Pair.__init__(*args)
+        self.last_condition = threading.Condition()
+
+    def set_rest(self, rest):
+        self.last_condition.acquire()
+        try:
+            self._cdr = rest
+            self.last_condition.notifyAll()
+        finally:
+            self.last_condition.release()
+
+    def rest(self):
+        self.last_condition.acquire()
+        try:
+            while self._cdr == None:
+                self.condition.wait()
+            return self._cdr
+        finally:
+            self.last_condition.release()
+        
 
 class Stream(object):
     """A FIFO stream"""

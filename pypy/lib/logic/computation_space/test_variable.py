@@ -130,7 +130,6 @@ class TestVariable:
         assert reductor.result == 725760
 
     def test_daisychain_stream(self):
-        # chained stupidity
         sp = space.ComputationSpace(dummy_problem)
 
         def woman_in_chains(thread, S):
@@ -162,3 +161,43 @@ class TestVariable:
 
         assert woman.result == 6
                 
+    def test_multiple_readers_list(self):
+        sp = space.ComputationSpace(dummy_problem)
+        
+        def generate(thread, L, N):
+            n=N.get()
+            assert 0 < n < 32768
+            l = v.Pair(0, None)
+            L.bind(l)
+            for i in range(1,n):
+                l.set_rest(v.Pair(i, None))
+                l = l.rest()
+            l.set_rest(v.NoValue)
+
+        def reduc(thread, L, fun):
+            l=L.get()
+            thread.result = 0
+            while l != v.NoValue:
+                val = l.first()
+                thread.result = fun(thread.result, val)
+                l = l.rest()
+            
+        L = sp.var('L')
+        N = sp.var('N')
+
+        r1 = FunThread(reduc, L, operator.add)
+        r2 = FunThread(reduc, L, operator.add)
+        r3 = FunThread(reduc, L, operator.add)
+        generator = FunThread(generate, L, N)
+
+        r1.start()
+        r2.start()
+        r3.start()
+        generator.start()
+
+        N.bind(42)
+
+        generator.join()
+        for r in (r1, r2, r3):
+            r.join()
+            assert r.result == 861
