@@ -125,7 +125,7 @@ class ComputationSpace(object):
         """add unbound variable to the store"""
         if var in self.vars:
             raise AlreadyInStore(var.name)
-        print "adding %s to the store" % var
+        #print "adding %s to the store" % var
         self.vars.add(var)
         self.names[var.name] = var
         # put into new singleton equiv. set
@@ -365,11 +365,11 @@ class ComputationSpace(object):
             try:
                 self._really_unify(x, y)
                 for var in self.vars:
-                    if var.changed:
+                    if var._changed:
                         var._commit()
             except Exception, cause:
                 for var in self.vars:
-                    if var.changed:
+                    if var._changed:
                         var._abort()
                 if isinstance(cause, UnificationFailure):
                     raise

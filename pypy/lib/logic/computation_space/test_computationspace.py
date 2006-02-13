@@ -173,6 +173,8 @@ class TestStoreUnification:
                   FunThread(create_var2))
         t1.start()
         t2.start()
+        t1.join()
+        t2.join()
 
 
     def test_threads_binding_vars(self):
@@ -191,7 +193,7 @@ class TestStoreUnification:
             
         x = sp.var('x')
         vars_ = []
-        for nvar in range(1000):
+        for nvar in range(100):
             v = sp.var('x-'+str(nvar))
             sp.bind(x, v)
             vars_.append(v)
