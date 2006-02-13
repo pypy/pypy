@@ -1,3 +1,4 @@
+from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr
@@ -176,3 +177,26 @@ def test_inst_tuple_add_getitem():
     res = interpret(f, [0])
     assert ''.join(res.super.typeptr.name) == "B\00"
     
+
+def test_type_erase():
+    class A(object):
+        pass
+    class B(object):
+        pass
+
+    def f():
+        return (A(), B()), (B(), A())
+
+    t = TranslationContext()
+    s = t.buildannotator().build_types(f, [])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+
+    s_AB_tup = s.items[0]
+    s_BA_tup = s.items[1]
+    
+    r_AB_tup = rtyper.getrepr(s_AB_tup)
+    r_BA_tup = rtyper.getrepr(s_AB_tup)
+
+    assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
+

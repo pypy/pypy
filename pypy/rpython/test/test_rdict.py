@@ -1,4 +1,4 @@
-
+from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython import rstr, rint, rdict
@@ -526,3 +526,27 @@ def test_specific_obscure_bug():
         return res1+len(d2)
     res = interpret(f, [])
     assert res == 2
+
+
+def test_type_erase():
+    class A(object):
+        pass
+    class B(object):
+        pass
+
+    def f():
+        return {A(): B()}, {B(): A()}
+
+    t = TranslationContext()
+    s = t.buildannotator().build_types(f, [])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+
+    s_AB_dic = s.items[0]
+    s_BA_dic = s.items[1]
+    
+    r_AB_dic = rtyper.getrepr(s_AB_dic)
+    r_BA_dic = rtyper.getrepr(s_AB_dic)
+
+    assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
+
