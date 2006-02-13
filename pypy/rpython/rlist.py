@@ -966,6 +966,16 @@ def ll_fixed_length(l):
 def ll_fixed_items(l):
     return l
 
+def newlist(llops, r_list, items_v):
+    LIST = r_list.LIST
+    cno = inputconst(Signed, len(items_v))
+    v_result = llops.gendirectcall(LIST.ll_newlist, cno)
+    v_func = inputconst(Void, dum_nocheck)
+    for i, v_item in enumerate(items_v):
+        ci = inputconst(Signed, i)
+        llops.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
+    return v_result
+
 def rtype_newlist(hop):
     nb_args = hop.nb_args
     r_list = hop.r_result
@@ -979,15 +989,8 @@ def rtype_newlist(hop):
             hop.genop('simple_call', [v_meth, v_item], resulttype = robject.pyobj_repr)
         return v_result
     r_listitem = r_list.item_repr
-    LIST = r_list.LIST
-    cno = hop.inputconst(Signed, nb_args)
-    v_result = hop.gendirectcall(LIST.ll_newlist, cno)
-    v_func = hop.inputconst(Void, dum_nocheck)
-    for i in range(nb_args):
-        ci = hop.inputconst(Signed, i)
-        v_item = hop.inputarg(r_listitem, arg=i)
-        hop.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
-    return v_result
+    items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
+    return newlist(hop.llops, r_list, items_v)
 
 def ll_alloc_and_set(LIST, count, item):
     if count < 0:

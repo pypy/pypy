@@ -550,3 +550,14 @@ def test_type_erase():
 
     assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
+def test_tuple_dict():
+    def f(i):
+        d = {}
+        d[(1, 2)] = 4
+        d[(1, 3)] = 6
+        return d[(1, i)]
+
+    res = interpret(f, [2])
+    assert res == f(2)
+        
+        

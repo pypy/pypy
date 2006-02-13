@@ -1,3 +1,4 @@
+import operator
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
@@ -27,6 +28,59 @@ class __extend__(annmodel.SomeTuple):
     def rtyper_makekey_ex(self, rtyper):
         keys = [rtyper.makekey(s_item) for s_item in self.items]
         return tuple([self.__class__]+keys)
+
+_gen_eq_function_cache = {}
+_gen_hash_function_cache = {}
+
+def gen_eq_function(items_r):
+    eq_funcs = [r_item.get_ll_eq_function() or operator.eq for r_item in items_r]
+    key = tuple(eq_funcs)
+    try:
+        return _gen_eq_function_cache[key]
+    except KeyError:
+        miniglobals = {}
+        source = """
+def ll_eq(t1, t2):
+    %s
+    return True
+"""
+        body = []
+        for i, eq_func in enumerate(eq_funcs):
+            miniglobals['eq%d' % i] = eq_func
+            body.append("if not eq%d(t1.item%d, t2.item%d): return False" % (i, i, i))
+        body = ('\n'+' '*4).join(body)
+        source = source % body
+        print source
+        exec source in miniglobals
+        ll_eq = miniglobals['ll_eq']
+        _gen_eq_function_cache[key] = ll_eq
+        return ll_eq
+
+def gen_hash_function(items_r):
+    hash_funcs = [r_item.get_ll_hash_function() for r_item in items_r]
+    key = tuple(hash_funcs)
+    try:
+        return _gen_hash_function_cache[key]
+    except KeyError:
+        miniglobals = {}
+        source = """
+def ll_hash(t):
+    retval = 0
+    %s
+    return retval
+"""
+        body = []
+        for i, hash_func in enumerate(hash_funcs):
+            miniglobals['hash%d' % i] = hash_func
+            body.append("retval ^= hash%d(t.item%d)" % (i,i))
+        body = ('\n'+' '*4).join(body)
+        source = source % body
+        print source
+        exec source in miniglobals
+        ll_hash = miniglobals['ll_hash']
+        _gen_hash_function_cache[key] = ll_hash
+        return ll_hash
+
 
 
 class TupleRepr(Repr):
@@ -62,6 +116,12 @@ class TupleRepr(Repr):
 
     #def get_eqfunc(self):
     #    return inputconst(Void, self.item_repr.get_ll_eq_function())
+
+    def get_ll_eq_function(self):
+        return gen_eq_function(self.items_r)
+
+    def get_ll_hash_function(self):
+        return gen_hash_function(self.items_r)    
 
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
