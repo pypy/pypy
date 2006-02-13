@@ -12,34 +12,50 @@ from pypy.module.stackless.stackless_flags import StacklessFlags
 
 import sys, os
 
-class CoState(object):
+class BaseCoState(object):
     def __init__(self):
-        self.last = self.current = self.main = Coroutine()
+        self.current = self.main = self.last = None
+    
+class CoState(BaseCoState):
+    def __init__(self):
+        BaseCoState.__init__(self)
+        self.last = self.current = self.main = Coroutine(self)
         self.things_to_do = False
         self.temp_exc = None
-        self.del_first = None
-        self.del_last = None
+        self.to_delete = []
 
-    def cast_current(self, current):
-        if self.current is not current:
-            c = self.current
-            c.frame, current.frame = current.frame, c.frame
-            self.current = current
+    def check_for_zombie(obj):
+        return co in self.to_delete
+    check_for_zombie = staticmethod(check_for_zombie)
 
-    def cast_main(self, main):
-        if self.main is not main:
-            c = self.main
-            c.frame, main.frame = main.frame, c.frame
-            self.main = main
+    def postpone_deletion(obj):
+        costate.to_delete.append(obj)
+        costate.things_to_do = True
+    postpone_deletion = staticmethod(postpone_deletion)
 
-costate = None
+    def do_things_to_do():
+        if costate.temp_exc is not None:
+            # somebody left an unhandled exception and switched to us.
+            # this both provides default exception handling and the
+            # way to inject an exception, like CoroutineExit.
+            e, costate.temp_exc = costate.temp_exc, None
+            costate.things_to_do = len(costate.to_delete)
+            raise e
+        while costate.to_delete:
+            delete, costate.to_delete = costate.to_delete, []
+            for obj in delete:
+                obj.parent = obj.costate.current
+                obj._kill_finally()
+        else:
+            costate.things_to_do = False
+    do_things_to_do = staticmethod(do_things_to_do)
+
 
 class CoroutineDamage(SystemError):
     pass
 
 class CoroutineExit(SystemExit):
     # XXX SystemExit's __init__ creates problems in bookkeeper.
-    # XXX discuss this with the gurus :-)
     def __init__(self):
         pass
 
@@ -52,50 +68,49 @@ def D(msg, x):
 
 class Coroutine(Wrappable):
 
-    def __init__(self):
+    def __init__(self, state=None):
         self.frame = None
-        if costate is None:
-            self.parent = self
-        else:
-            self.parent = costate.current
-        self.thunk = None
+        if state is None:
+            state = costate
+        self.costate = state
+        self.parent = state.current
 
     def bind(self, thunk):
         if self.frame is not None:
             raise CoroutineDamage
-        self.thunk = thunk
-        self.frame = self._bind()
+        self.frame = self._bind(thunk)
 
-    def _bind(self):
-        self.parent = costate.current
-        costate.last.frame = yield_current_frame_to_caller()
+    def _bind(self, thunk):
+        state = self.costate
+        self.parent = state.current
+        state.last.frame = yield_current_frame_to_caller()
         try:
-            self.thunk.call()
+            thunk.call()
         except CoroutineExit:
             # ignore a shutdown exception
             pass
         except Exception, e:
             # redirect all unhandled exceptions to the parent
-            costate.things_to_do = True
-            costate.temp_exc = e
-        self.thunk = None
-        while self.parent.frame is None:
+            state.things_to_do = True
+            state.temp_exc = e
+        while self.parent is not None and self.parent.frame is None:
             # greenlet behavior is fine
             self.parent = self.parent.parent
-        return self._update_state(self.parent)
+        return self._update_state(state, self.parent)
 
     def switch(self):
         if self.frame is None:
             # considered a programming error.
             # greenlets and tasklets have different ideas about this.
             raise CoroutineDamage
-        costate.last.frame = self._update_state(self).switch()
+        state = self.costate
+        state.last.frame = self._update_state(state, self).switch()
         # note that last gets updated before assignment!
         if costate.things_to_do:
-            do_things_to_do(self)
+            costate.do_things_to_do()
 
-    def _update_state(new):
-        costate.last, costate.current = costate.current, new
+    def _update_state(state, new):
+        state.last, state.current = state.current, new
         frame, new.frame = new.frame, None
         return frame
     _update_state = staticmethod(_update_state)
@@ -105,7 +120,8 @@ class Coroutine(Wrappable):
             return
         costate.things_to_do = True
         costate.temp_exc = CoroutineExit()
-        self.parent = costate.current
+        state = self.costate
+        self.parent = state.current
         self.switch()
 
     def _kill_finally(self):
@@ -121,71 +137,32 @@ class Coroutine(Wrappable):
         # not in the position to issue a switch.
         # we defer it completely.
         if self.frame is not None:
-            postpone_deletion(self)
+            costate.postpone_deletion(self)
 
     def _userdel(self):
         # override this for exposed coros
         pass
 
     def is_alive(self):
-        return self.frame is not None or self is costate.current
+        return self.frame is not None or self is self.costate.current
 
     def is_zombie(self):
-        return self.frame is not None and check_for_zombie(self)
+        return self.frame is not None and costate.check_for_zombie(self)
 
     def getcurrent():
         return costate.current
     getcurrent = staticmethod(getcurrent)
 
-    def getmain():
-        return costate.main
-    getmain = staticmethod(getmain)
 
-
-def check_for_zombie(self):
-    if costate.del_first is not None:
-        co = costate.del_first
-        while True:
-            if co is self:
-                return True
-            co = co.parent
-            if co is costate.del_first:
-                break
-    return False
-
-def postpone_deletion(obj):
-    costate.things_to_do = True
-    if costate.del_first is None:
-        costate.del_first = costate.del_last = obj
-    costate.del_last.parent = obj
-    costate.del_last = obj
-    obj.parent = costate.del_first
-
-def do_things_to_do(obj):
-    if costate.temp_exc is not None:
-        # somebody left an unhandled exception and switched to us.
-        # this both provides default exception handling and the
-        # way to inject an exception, like CoroutineExit.
-        e, costate.temp_exc = costate.temp_exc, None
-        costate.things_to_do = costate.del_first is not None
-        raise e
-    if costate.del_first is not None:
-        obj = costate.del_first
-        costate.del_first = obj.parent
-        obj.parent = costate.current
-        if obj is costate.del_last:
-            costate.del_first = costate.del_last = None
-        obj._kill_finally()
-    else:
-        costate.things_to_do = False
-
+costate = None
 costate = CoState()
 
 
 class _AppThunk(object):
 
-    def __init__(self, space, w_obj, args):
+    def __init__(self, space, costate, w_obj, args):
         self.space = space
+        self.costate = costate
         if space.lookup(w_obj, '__call__') is None:
             raise OperationError(
                 space.w_TypeError, 
@@ -195,55 +172,52 @@ class _AppThunk(object):
         self.args = args
 
     def call(self):
-        appcostate.tempval = self.space.call_args(self.w_func, self.args)
+        self.costate.tempval = self.space.call_args(self.w_func, self.args)
 
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
-    def __init__(self):
-        Coroutine.__init__(self)
+    def __init__(self, space):
+        self.space = space
+        state = self._get_state(space)
+        Coroutine.__init__(self, state)
         self.flags = 0
-        if appcostate is None:
-            self.parent = self
-        else:
-            self.parent = appcostate.current
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
-        AppCoroutine.__init__(co)
-        co.space = space
+        AppCoroutine.__init__(co, space)
         return space.wrap(co)
+
+    def _get_state(space):
+        return space.fromcache(AppCoState)
+    _get_state = staticmethod(_get_state)
 
     def w_bind(self, w_func, __args__):
         space = self.space
         if self.frame is not None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot bind a bound Coroutine"))
-        thunk = _AppThunk(space, w_func, __args__)
-        costate.current = appcostate.current
+        state = self.costate
+        thunk = _AppThunk(space, state, w_func, __args__)
         self.bind(thunk)
-        appcostate.current = costate.current
 
     def w_switch(self):
         space = self.space
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
-        costate.current = appcostate.current
+        state = self.costate
         self.switch()
-        appcostate.current = self
-        ret, appcostate.tempval = appcostate.tempval, space.w_None
+        ret, state.tempval = state.tempval, space.w_None
         return ret
 
     def w_kill(self):
-        if appcostate.current is self:
-            costate.current = self
         self.kill()
 
     def __del__(self):
-        if postpone_deletion is not None:
+        if costate.postpone_deletion is not None:
             # we might be very late (happens with interpreted pypy)
-            postpone_deletion(self)
+            costate.postpone_deletion(self)
 
     def _userdel(self):
         if self.get_is_zombie():
@@ -252,21 +226,9 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.space.userdel(self)
 
     def getcurrent(space):
-        costate.cast_current(appcostate.current)
-        return space.wrap(appcostate.current)
+        return space.wrap(AppCoroutine._get_state(space).current)
     getcurrent = staticmethod(getcurrent)
 
-    def getmain(space):
-        costate.cast_main(appcostate.main)
-        return space.wrap(appcostate.main)
-    getmain = staticmethod(getmain)
-
-    def setmain(space, w_obj):
-        hold = appcostate.main
-        main = space.interp_w(AppCoroutine, w_obj, can_be_None=False)
-        appcostate.main = main
-        main.frame, hold.frame = hold.frame, main.frame
-    setmain = staticmethod(setmain)
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
@@ -289,10 +251,9 @@ def makeStaticMethod(module, classname, funcname):
     """)
 
 def post_install(module):
-    appcostate.post_install(module.space)
     makeStaticMethod(module, 'Coroutine', 'getcurrent')
-    makeStaticMethod(module, 'Coroutine', 'getmain')
-    makeStaticMethod(module, 'Coroutine', 'setmain')
+    space = module.space
+    AppCoroutine._get_state(space).post_install()
 
 # space.appexec("""() :
 
@@ -306,45 +267,39 @@ AppCoroutine.typedef = TypeDef("Coroutine",
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
     getcurrent = interp2app(AppCoroutine.getcurrent),
-    getmain = interp2app(AppCoroutine.getmain),
-    setmain = interp2app(AppCoroutine.setmain),
 )
 
-class AppCoState(object):
-    def __init__(self):
-        self.current = self.main = AppCoroutine()
+class AppCoState(BaseCoState):
+    def __init__(self, space):
+        BaseCoState.__init__(self)
+        self.tempval = space.w_None
+        self.space = space
+        
+    def post_install(self):
+        self.current = self.main = self.last = AppCoroutine(self.space)
 
-    def post_install(self, space):
-        appcostate.current.space = space
-        appcostate.tempval = space.w_None
-
-appcostate = None
-appcostate = AppCoState()
 
 """
-Considerations about "current"
-------------------------------
-Both greenlets and tasklets have some perception
-of a "current" object, which represents the
-currently running tasklet/greenlet.
-
-There is an issue how to make these structures
-co-exist without interference.
-One possible approach is to use the coroutines
-as the basic implementation and always use
-one level of indirection for the higher structures.
-This allows for easy coexistence.
-
-An alternative is to arrange things in a way that
-does not interfere. Then the different classes
-need to keep track of their own "current".
-After a stackless task switch, stackless gets
-a new current. After a greenlet's switch, greenlet
-gets a new current.
-
-More thoughts:
+Basic Concept:
 --------------
-Whenever we switch, whatever object we are jumping
-at, we need to save the source continuation somewhere.
 
+All concurrency is expressed by some means of coroutines.
+This is the lowest possible exposable interface.
+
+A coroutine is a structure that controls a sequence
+of continuations in time. It contains a frame object
+that is a restartable stack chain.
+There is always a notation of a "current" and a "last"
+coroutine. Current has no frame and represents the
+running program. last is needed to keep track of the
+coroutine that receives a new frame chain after a switch.
+
+A costate object holds last and current.
+There are different coroutine concepts existing in
+parallel, like plain interp-level coroutines and
+app-level structures like coroutines, greenlets and
+tasklets.
+Every concept is associated with its own costate object.
+This allows for peaceful co-existence of many concepts.
+The type of a switch is determined by the target's costate.
 """
