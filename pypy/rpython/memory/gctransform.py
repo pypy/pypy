@@ -68,12 +68,6 @@ class GCTransformer(object):
             return
         self.seen_graphs[graph] = True
         self.links_to_split = {} # link -> vars to pop_alive across the link
-
-        newops = []
-        for var in graph.startblock.inputargs:
-            if var_needsgc(var):
-                newops.extend(self.push_alive(var))
-        graph.startblock.operations[0:0] = newops
         
         for block in graph.iterblocks():
             self.transform_block(block)
@@ -100,6 +94,11 @@ class GCTransformer(object):
         newops = []
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         livevars2cleanup = {}
+        newops = []
+        if block.isstartblock:
+            for var in block.inputargs:
+                if var_needsgc(var):
+                    newops.extend(self.push_alive(var))
         for op in block.operations:
             newops.extend(self.replacement_operations(op))
             # XXX for now we assume that everything can raise
