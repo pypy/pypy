@@ -152,6 +152,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     if not redboxes[0].isvar and redboxes[0].ll_getvalue(lltype.Signed) == 0:
         redboxes[0] = redboxes[0]
     return jitstate # XXX
+retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype2"
     
 
 def ll_setup_jitstate():
