@@ -308,6 +308,8 @@ all deep integration work of CLP. Logilab constraints pure python
 package already implements search according to Oz (without the
 concurrency parts).
 
+(don't forget to have a serious look at Screamer/CL)
+
 What shall be done 
 ------------------
 
@@ -315,7 +317,8 @@ For constraint programming:
 
 * Adapt the core algorithms from logilab.constraints to RPython
 * Stuff it into PyPy
-* Enhance (tm) it with concurrency aspects (using tis's tasklets)
+* Enhance (tm) it with concurrency aspects (needs preemptive
+  threading)
 
 Logic programming:
 
@@ -326,7 +329,6 @@ Logic programming:
 For both:
 
 * Adapt the parser/lexer to the syntactic requirements
-
 
 
 Ideas of testbeds
