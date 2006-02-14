@@ -15,7 +15,12 @@ import sys, os
 class BaseCoState(object):
     def __init__(self):
         self.current = self.main = self.last = None
-    
+
+    def update(self, new):
+        self.last, self.current = self.current, new
+        frame, new.frame = new.frame, None
+        return frame
+
 class CoState(BaseCoState):
     def __init__(self):
         BaseCoState.__init__(self)
@@ -34,6 +39,8 @@ class CoState(BaseCoState):
     postpone_deletion = staticmethod(postpone_deletion)
 
     def do_things_to_do():
+        if not costate.things_to_do:
+            return
         if costate.temp_exc is not None:
             # somebody left an unhandled exception and switched to us.
             # this both provides default exception handling and the
@@ -85,6 +92,7 @@ class Coroutine(Wrappable):
         self.parent = state.current
         state.last.frame = yield_current_frame_to_caller()
         try:
+            costate.do_things_to_do()
             thunk.call()
         except CoroutineExit:
             # ignore a shutdown exception
@@ -96,7 +104,7 @@ class Coroutine(Wrappable):
         while self.parent is not None and self.parent.frame is None:
             # greenlet behavior is fine
             self.parent = self.parent.parent
-        return self._update_state(state, self.parent)
+        return state.update(self.parent)
 
     def switch(self):
         if self.frame is None:
@@ -104,10 +112,9 @@ class Coroutine(Wrappable):
             # greenlets and tasklets have different ideas about this.
             raise CoroutineDamage
         state = self.costate
-        state.last.frame = self._update_state(state, self).switch()
+        state.last.frame = state.update(self).switch()
         # note that last gets updated before assignment!
-        if costate.things_to_do:
-            costate.do_things_to_do()
+        costate.do_things_to_do()
 
     def _update_state(state, new):
         state.last, state.current = state.current, new
@@ -125,7 +132,10 @@ class Coroutine(Wrappable):
         self.switch()
 
     def _kill_finally(self):
-        self._userdel()
+        try:
+            self._userdel()
+        except Exception:
+            pass # maybe print a warning?
         self.kill()
 
     def __del__(self):
