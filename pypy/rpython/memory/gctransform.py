@@ -99,13 +99,19 @@ class GCTransformer(object):
     def transform_block(self, block):
         newops = []
         livevars = [var for var in block.inputargs if var_needsgc(var)]
+        livevars2cleanup = {}
         for op in block.operations:
             newops.extend(self.replacement_operations(op))
             # XXX for now we assume that everything can raise
             if 1 or op.opname in EXCEPTION_RAISING_OPS:
-                cleanup_on_exception = []
-                for var in livevars:
-                    cleanup_on_exception.extend(self.pop_alive(var))
+                if tuple(livevars) in livevars2cleanup:
+                    cleanup_on_exception = livevars2cleanup[tuple(livevars)]
+                else:
+                    cleanup_on_exception = []
+                    for var in livevars:
+                        cleanup_on_exception.extend(self.pop_alive(var))
+                    cleanup_on_exception = tuple(cleanup_on_exception)
+                    livevars2cleanup[tuple(livevars)] = cleanup_on_exception
                 op.cleanup = cleanup_on_exception
             if var_needsgc(op.result):
                 if op.opname not in ('direct_call', 'indirect_call') and not var_ispyobj(op.result):
