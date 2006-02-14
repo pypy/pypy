@@ -8,7 +8,7 @@ opcode(1,  "NOP")
 opcode(2,  "PUSH")     #1 operand
 opcode(3,  "POP")
 opcode(4,  "SWAP")
-opcode(5,  "ROT")
+opcode(5,  "ROLL")
 
 opcode(6,  "PICK")     #1 operand (DUP = PICK,0)
 opcode(7,  "PUT")      #1 operand

@@ -38,13 +38,19 @@ def interp(code='', pc=0):
             stack.append(a)
             stack.append(b)
 
-        elif opcode == ROT: #rotate stack top to somewhere below
+        elif opcode == ROLL: #rotate stack top to somewhere below
             r = char2int(code[pc])
-            if r > 1:
-                i = len(stack) - r
+            if r < -1:
+                i = len(stack) + r
                 if i < 0:
                     raise IndexError
                 stack.insert( i, stack.pop() )
+            elif r > 1:
+                i = len(stack) - r
+                if i < 0:
+                    raise IndexError
+                stack.append(stack.pop(i))
+                
             pc += 1
 
         elif opcode == PICK:

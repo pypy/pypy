@@ -113,12 +113,19 @@ def test_return():
     assert interp(list2bytecode([PUSH,7, RETURN, PUSH,5])) == 7
 
 def test_rot():
-    code = [PUSH,1, PUSH,2, PUSH,3, ROT,3] 
+    code = [PUSH,1, PUSH,2, PUSH,3, ROLL, 3] 
+    assert interp(list2bytecode(code)) == 1
+    assert interp(list2bytecode(code + [POP])) == 3
+    assert interp(list2bytecode(code + [POP, POP])) == 2
+
+    py.test.raises(IndexError, interp, list2bytecode([PUSH,1, PUSH,2, PUSH,3, ROLL,4]))
+
+    code = [PUSH,1, PUSH,2, PUSH,3, ROLL, -3] 
     assert interp(list2bytecode(code)) == 2
     assert interp(list2bytecode(code + [POP])) == 1
     assert interp(list2bytecode(code + [POP, POP])) == 3
 
-    py.test.raises(IndexError, interp, list2bytecode([PUSH,1, PUSH,2, PUSH,3, ROT,4]))
+    py.test.raises(IndexError, interp, list2bytecode([PUSH,1, PUSH,2, PUSH,3, ROLL,-4]))
 
 def test_call_ret():
     assert interp(list2bytecode([CALL,1, RETURN, PUSH,2])) == 2
