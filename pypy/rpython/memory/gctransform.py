@@ -192,16 +192,17 @@ class GCTransformer(object):
 
     annotate_helper_count = 0
     def annotate_helper(self, ll_helper, args):
-##         import sys
+##         import sys, time
 ##         self.annotate_helper_count += 1
 ##         f = sys._getframe(1)
 ##         TYPE = f.f_locals.get('TYPE')
 ##         print "ahc", self.annotate_helper_count, f.f_code.co_name, 
 ##         if TYPE:
-##             print len(find_gc_ptrs_in_type(TYPE))
-##         else:
-##             print 
-        return self.translator.rtyper.annotate_helper(ll_helper, args)
+##             print repr(TYPE),
+##         T = time.time()
+        r = self.translator.rtyper.annotate_helper(ll_helper, args)
+##         print time.time() - T
+        return r
     
 
     # ----------------------------------------------------------------
@@ -303,10 +304,7 @@ class RefcountingGCTransformer(GCTransformer):
         adr1 = varoftype(llmemory.Address)
         result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
 
-        if self.get_rtti(PTRTYPE.TO) is None:
-            graph = self.static_deallocation_graph_for_type(PTRTYPE.TO)
-        else:
-            graph = self.dynamic_deallocation_graph_for_type(PTRTYPE.TO)
+        graph = self.dynamic_deallocation_graph_for_type(PTRTYPE.TO)
 
         FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
         dealloc_fptr = rmodel.inputconst(
@@ -353,7 +351,6 @@ class RefcountingGCTransformer(GCTransformer):
         if TYPE in self.static_deallocator_graphs:
             return self.static_deallocator_graphs[TYPE]
         #print_call_chain(self)
-        PTRS = find_gc_ptrs_in_type(TYPE)
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -370,7 +367,7 @@ class RefcountingGCTransformer(GCTransformer):
             destrptr = None
             DESTR_ARG = None
 
-        if destrptr is None and not PTRS:
+        if destrptr is None and not find_gc_ptrs_in_type(TYPE):
             #print repr(TYPE)[:80], 'is dealloc easy'
             g = self.no_pointer_dealloc_graph
             self.static_deallocator_graphs[TYPE] = g
@@ -423,9 +420,6 @@ def deallocator(addr):
         else:
             result = g
         self.static_deallocator_graphs[TYPE] = result
-        for PTR in PTRS:
-            # as a side effect the graphs are cached
-            self.static_deallocation_graph_for_type(PTR.TO)
         return result
 
     def dynamic_deallocation_graph_for_type(self, TYPE):
@@ -434,10 +428,15 @@ def deallocator(addr):
         #print_call_chain(self)
 
         rtti = self.get_rtti(TYPE)
-        assert rtti is not None
+        if rtti is None:
+            g = self.static_deallocation_graph_for_type(TYPE)
+            self.dynamic_deallocator_graphs[TYPE] = g
+            return g
+            
         queryptr = rtti._obj.query_funcptr
         if queryptr._obj in self.queryptr2dynamic_deallocator_graph:
             return self.queryptr2dynamic_deallocator_graph[queryptr._obj]
+        
         RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
         QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
         def dealloc(addr):
