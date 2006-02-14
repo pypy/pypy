@@ -259,6 +259,8 @@ def print_call_chain(ob):
     for i, (a, b) in enumerate(stack):
         print ' '*i, a, repr(b)[:100-i-len(a)], id(b)
 
+ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
+
 class RefcountingGCTransformer(GCTransformer):
 
     gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
@@ -280,29 +282,31 @@ class RefcountingGCTransformer(GCTransformer):
         def no_pointer_dealloc(adr):
             objectmodel.llop.gc_free(lltype.Void, adr)
         if self.translator is not None and self.translator.rtyper is not None:
-            self.increfgraph = self.annotate_helper(
+            increfgraph = self.annotate_helper(
                 incref, [annmodel.SomeAddress()])
             self.translator.rtyper.specialize_more_blocks()
-            self.increfptr = const_funcptr_fromgraph(self.increfgraph)
-            self.seen_graphs[self.increfgraph] = True
+            self.increfptr = const_funcptr_fromgraph(increfgraph)
+            self.seen_graphs[increfgraph] = True
             
-            self.decref_graph = self.annotate_helper(
-                decref, [annmodel.SomeAddress(), lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))])
+            decref_graph = self.annotate_helper(
+                decref, [annmodel.SomeAddress(), lltype.Ptr(ADDRESS_VOID_FUNC)])
             self.translator.rtyper.specialize_more_blocks()
-            self.decref_ptr = const_funcptr_fromgraph(self.decref_graph)
-            self.seen_graphs[self.decref_graph] = True
+            self.decref_ptr = const_funcptr_fromgraph(decref_graph)
+            self.seen_graphs[decref_graph] = True
 
-            self.no_pointer_dealloc_graph = self.annotate_helper(
+            no_pointer_dealloc_graph = self.annotate_helper(
                 no_pointer_dealloc, [annmodel.SomeAddress()])
             self.translator.rtyper.specialize_more_blocks()
-            self.no_pointer_dealloc_ptr = const_funcptr_fromgraph(self.no_pointer_dealloc_graph)
-            self.seen_graphs[self.no_pointer_dealloc_graph] = True
-        self.deallocators_needing_transforming = []
+            self.no_pointer_dealloc_ptr = lltype.functionptr(
+                ADDRESS_VOID_FUNC, no_pointer_dealloc_graph.name,
+                graph=no_pointer_dealloc_graph)
+            self.seen_graphs[no_pointer_dealloc_graph] = True
+        self.deallocator_graphs_needing_transforming = []
         # cache graphs:
-        self.decref_graphs = {}
-        self.static_deallocator_graphs = {}
-        self.dynamic_deallocator_graphs = {}
-        self.queryptr2dynamic_deallocator_graph = {}
+        self.decref_funcptrs = {}
+        self.static_deallocator_funcptrs = {}
+        self.dynamic_deallocator_funcptrs = {}
+        self.queryptr2dynamic_deallocator_funcptr = {}
         
 
     def push_alive_nopyobj(self, var):
@@ -317,13 +321,12 @@ class RefcountingGCTransformer(GCTransformer):
         adr1 = varoftype(llmemory.Address)
         result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
 
-        graph = self.dynamic_deallocation_graph_for_type(PTRTYPE.TO)
-
-        FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-        dealloc_fptr = rmodel.inputconst(
-             lltype.Ptr(FUNC), lltype.functionptr(FUNC, graph.name, graph=graph))
-        
-        result.append(SpaceOperation("direct_call", [self.decref_ptr, adr1, dealloc_fptr],
+        dealloc_fptr = self.dynamic_deallocation_funcptr_for_type(PTRTYPE.TO)
+        cdealloc_fptr = rmodel.inputconst(
+            lltype.Ptr(ADDRESS_VOID_FUNC), dealloc_fptr)
+             
+        result.append(SpaceOperation("direct_call",
+                                     [self.decref_ptr, adr1, cdealloc_fptr],
                                      varoftype(lltype.Void)))
         return result
 
@@ -332,7 +335,8 @@ class RefcountingGCTransformer(GCTransformer):
             return [op]
         oldval = Variable()
         oldval.concretetype = op.args[2].concretetype
-        getoldvalop = SpaceOperation("getfield", [op.args[0], op.args[1]], oldval)
+        getoldvalop = SpaceOperation("getfield",
+                                     [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
         result.extend(self.pop_alive(oldval))
         result.extend(self.push_alive(op.args[2]))
@@ -360,19 +364,19 @@ class RefcountingGCTransformer(GCTransformer):
                 pass
         return None
 
-    def static_deallocation_graph_for_type(self, TYPE):
-        if TYPE in self.static_deallocator_graphs:
-            return self.static_deallocator_graphs[TYPE]
-        g = self._static_deallocation_graph_for_type(TYPE)
+    def static_deallocation_funcptr_for_type(self, TYPE):
+        if TYPE in self.static_deallocator_funcptrs:
+            return self.static_deallocator_funcptrs[TYPE]
+        fptr = self._static_deallocation_funcptr_for_type(TYPE)
         self.specialize_more_blocks()
-        for g in self.deallocators_needing_transforming:
+        for g in self.deallocator_graphs_needing_transforming:
             MinimalGCTransformer(self.translator).transform_graph(g)
-        self.deallocators_needing_transforming = []
-        return g
+        self.deallocator_graphs_needing_transforming = []
+        return fptr
 
-    def _static_deallocation_graph_for_type(self, TYPE):
-        if TYPE in self.static_deallocator_graphs:
-            return self.static_deallocator_graphs[TYPE]
+    def _static_deallocation_funcptr_for_type(self, TYPE):
+        if TYPE in self.static_deallocator_funcptrs:
+            return self.static_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
@@ -392,9 +396,9 @@ class RefcountingGCTransformer(GCTransformer):
 
         if destrptr is None and not find_gc_ptrs_in_type(TYPE):
             #print repr(TYPE)[:80], 'is dealloc easy'
-            g = self.no_pointer_dealloc_graph
-            self.static_deallocator_graphs[TYPE] = g
-            return g
+            p = self.no_pointer_dealloc_ptr
+            self.static_deallocator_funcptrs[TYPE] = p
+            return p
 
         if destrptr is not None:
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 2))
@@ -438,32 +442,27 @@ def deallocator(addr):
         if destrptr:
             # however, the direct_call to the destructor needs to get
             # .cleanup attached
-            self.deallocators_needing_transforming.append(g)
-        
-        opcount = 0
-        for block in g.iterblocks():
-            opcount += len(block.operations)
-        if opcount == 0:
-            result = None
-        else:
-            result = g
-        self.static_deallocator_graphs[TYPE] = result
-        return result
+            self.deallocator_graphs_needing_transforming.append(g)
 
-    def dynamic_deallocation_graph_for_type(self, TYPE):
-        if TYPE in self.dynamic_deallocator_graphs:
-            return self.dynamic_deallocator_graphs[TYPE]
+        fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
+             
+        self.static_deallocator_funcptrs[TYPE] = fptr
+        return fptr
+
+    def dynamic_deallocation_funcptr_for_type(self, TYPE):
+        if TYPE in self.dynamic_deallocator_funcptrs:
+            return self.dynamic_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
 
         rtti = self.get_rtti(TYPE)
         if rtti is None:
-            g = self._static_deallocation_graph_for_type(TYPE)
-            self.dynamic_deallocator_graphs[TYPE] = g
-            return g
+            p = self._static_deallocation_funcptr_for_type(TYPE)
+            self.dynamic_deallocator_funcptrs[TYPE] = p
+            return p
             
         queryptr = rtti._obj.query_funcptr
-        if queryptr._obj in self.queryptr2dynamic_deallocator_graph:
-            return self.queryptr2dynamic_deallocator_graph[queryptr._obj]
+        if queryptr._obj in self.queryptr2dynamic_deallocator_funcptr:
+            return self.queryptr2dynamic_deallocator_funcptr[queryptr._obj]
         
         RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
         QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
@@ -476,10 +475,12 @@ def deallocator(addr):
             gcheader.signed[0] = 0
             objectmodel.llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
         g = self.annotate_helper(dealloc, [llmemory.Address])
-        self.dynamic_deallocator_graphs[TYPE] = g
-        self.queryptr2dynamic_deallocator_graph[queryptr._obj] = g
         self.seen_graphs[g] = True
-        return g
+        
+        fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
+        self.dynamic_deallocator_funcptrs[TYPE] = fptr
+        self.queryptr2dynamic_deallocator_funcptr[queryptr._obj] = fptr
+        return fptr
 
 def varoftype(concretetype):
     var = Variable()
@@ -525,7 +526,7 @@ class BoehmGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         super(BoehmGCTransformer, self).__init__(translator)
-        self.finalizer_graphs = {}
+        self.finalizer_funcptrs = {}
 
     def push_alive_nopyobj(self, var):
         return []
@@ -541,9 +542,9 @@ class BoehmGCTransformer(GCTransformer):
                 pass
         return None
 
-    def finalizer_graph_for_type(self, TYPE):
-        if TYPE in self.finalizer_graphs:
-            return self.finalizer_graphs[TYPE]
+    def finalizer_funcptr_for_type(self, TYPE):
+        if TYPE in self.finalizer_funcptrs:
+            return self.finalizer_funcptrs[TYPE]
         
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
@@ -588,8 +589,13 @@ class BoehmGCTransformer(GCTransformer):
 
         if g:
             self.seen_graphs[g] = True
-        self.finalizer_graphs[TYPE] = g
-        return g
+
+            fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
+            self.finalizer_funcptrs[TYPE] = fptr
+            return fptr
+        else:
+            self.finalizer_funcptrs[TYPE] = None
+            return None
         
 # ___________________________________________________________________
 # calculate some statistics about the number of variables that need

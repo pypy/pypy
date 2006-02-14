@@ -329,7 +329,7 @@ def test_arraybarrier():
 # test deallocators
 
 def make_deallocator(TYPE,
-                     attr="static_deallocation_graph_for_type",
+                     attr="static_deallocation_funcptr_for_type",
                      cls=gctransform.RefcountingGCTransformer):
     def f():
         pass
@@ -337,14 +337,17 @@ def make_deallocator(TYPE,
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize(t)
     transformer = cls(t)
-    graph = getattr(transformer, attr)(TYPE)
+    fptr = getattr(transformer, attr)(TYPE)
     t.rtyper.specialize_more_blocks()
     if conftest.option.view:
         t.view()
-    return graph, t
+    if fptr:
+        return fptr._obj.graph, t
+    else:
+        return None, t
 
 def make_boehm_finalizer(TYPE):
-    return make_deallocator(TYPE, attr="finalizer_graph_for_type",
+    return make_deallocator(TYPE, attr="finalizer_funcptr_for_type",
                             cls=gctransform.BoehmGCTransformer)
 
 def test_deallocator_simple():
@@ -446,11 +449,11 @@ def test_caching_dynamic_deallocator():
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize(t)
     transformer = gctransform.RefcountingGCTransformer(t)
-    graph_S = transformer.dynamic_deallocation_graph_for_type(S)
-    graph_S1 = transformer.dynamic_deallocation_graph_for_type(S1)
-    graph_T = transformer.dynamic_deallocation_graph_for_type(T)
-    assert graph_S is not graph_T
-    assert graph_S is graph_S1
+    p_S = transformer.dynamic_deallocation_funcptr_for_type(S)
+    p_S1 = transformer.dynamic_deallocation_funcptr_for_type(S1)
+    p_T = transformer.dynamic_deallocation_funcptr_for_type(T)
+    assert p_S is not p_T
+    assert p_S is p_S1
 
 def test_dynamic_deallocator():
     class A(object):
@@ -468,10 +471,11 @@ def test_dynamic_deallocator():
         else:
             c = b
         return c.x
-    t, transformer = rtype_and_transform(f, [int], gctransform.RefcountingGCTransformer, check=False)
+    t, transformer = rtype_and_transform(
+        f, [int], gctransform.RefcountingGCTransformer, check=False)
     fgraph = graphof(t, f)
     TYPE = fgraph.startblock.operations[0].result.concretetype.TO
-    graph = transformer.dynamic_deallocation_graph_for_type(TYPE)
+    p = transformer.dynamic_deallocation_funcptr_for_type(TYPE)
     t.rtyper.specialize_more_blocks() 
 
 def test_recursive_structure():
@@ -482,7 +486,8 @@ def test_recursive_structure():
         s1 = lltype.malloc(S)
         s2 = lltype.malloc(S)
         s1.x = s2
-    t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
+    t, transformer = rtype_and_transform(
+        f, [], gctransform.RefcountingGCTransformer, check=False)
 
 
 def test_boehm_finalizer_simple():
