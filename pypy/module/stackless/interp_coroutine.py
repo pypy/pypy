@@ -39,8 +39,12 @@ class CoState(BaseCoState):
     postpone_deletion = staticmethod(postpone_deletion)
 
     def do_things_to_do():
-        if not costate.things_to_do:
-            return
+        # inlineable stub
+        if costate.things_to_do:
+            costate._do_things_to_do()
+    do_things_to_do = staticmethod(do_things_to_do)
+
+    def _do_things_to_do():
         if costate.temp_exc is not None:
             # somebody left an unhandled exception and switched to us.
             # this both provides default exception handling and the
@@ -55,7 +59,7 @@ class CoState(BaseCoState):
                 obj._kill_finally()
         else:
             costate.things_to_do = False
-    do_things_to_do = staticmethod(do_things_to_do)
+    _do_things_to_do = staticmethod(_do_things_to_do)
 
 
 class CoroutineDamage(SystemError):
@@ -115,12 +119,6 @@ class Coroutine(Wrappable):
         state.last.frame = state.update(self).switch()
         # note that last gets updated before assignment!
         costate.do_things_to_do()
-
-    def _update_state(state, new):
-        state.last, state.current = state.current, new
-        frame, new.frame = new.frame, None
-        return frame
-    _update_state = staticmethod(_update_state)
 
     def kill(self):
         if self.frame is None:
