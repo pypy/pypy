@@ -164,13 +164,11 @@ class GCTransformer(object):
             return self.push_alive_nopyobj(var)
 
     def push_alive_nopyobj(self, var):
-        result = Variable()
-        result.concretetype = lltype.Void
+        result = varoftype(lltype.Void)
         return [SpaceOperation("gc_push_alive", [var], result)]
 
     def push_alive_pyobj(self, var):
-        result = Variable()
-        result.concretetype = lltype.Void
+        result = varoftype(lltype.Void)
         return [SpaceOperation("gc_push_alive_pyobj", [var], result)]
 
     def pop_alive(self, var):
@@ -180,13 +178,11 @@ class GCTransformer(object):
             return self.pop_alive_nopyobj(var)
 
     def pop_alive_nopyobj(self, var):
-        result = Variable()
-        result.concretetype = lltype.Void
+        result = varoftype(lltype.Void)
         return [SpaceOperation("gc_pop_alive", [var], result)]
 
     def pop_alive_pyobj(self, var):
-        result = Variable()
-        result.concretetype = lltype.Void
+        result = varoftype(lltype.Void)
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
     def specialize_more_blocks(self):
@@ -333,8 +329,7 @@ class RefcountingGCTransformer(GCTransformer):
     def replace_setfield(self, op):
         if not var_needsgc(op.args[2]):
             return [op]
-        oldval = Variable()
-        oldval.concretetype = op.args[2].concretetype
+        oldval = varoftype(op.args[2].concretetype)
         getoldvalop = SpaceOperation("getfield",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
@@ -346,8 +341,7 @@ class RefcountingGCTransformer(GCTransformer):
     def replace_setarrayitem(self, op):
         if not var_needsgc(op.args[2]):
             return [op]
-        oldval = Variable()
-        oldval.concretetype = op.args[2].concretetype
+        oldval = varoftype(op.args[2].concretetype)
         getoldvalop = SpaceOperation("getarrayitem",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
