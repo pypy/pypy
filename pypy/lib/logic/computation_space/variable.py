@@ -146,6 +146,9 @@ class Pair(object):
     def set_rest(self, stuff):
         self._cdr = stuff
 
+    def as_tuple(self):
+        return (self._car, self._cdr)
+
     def is_empty(self):
         return self._car is None and self._cdr is None
 
@@ -179,7 +182,10 @@ class Pair(object):
                 if elt is None:
                     strs.pop()
                 elif isinstance(elt, Var):
-                    strs.append(elt.name)
+                    if elt.is_bound():
+                        strs.append(str(elt.val))
+                    else:
+                        strs.append(elt.name)
                 else:
                     strs.append(str(elt))
 
@@ -292,3 +298,5 @@ class Stream(object):
 
     def __str__(self):
         return str(self.head)
+
+
