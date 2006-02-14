@@ -74,7 +74,7 @@ def test_exceptions():
     run_jit('''
             PUSH 42
             PUSH -42
-            ROLL 2   # at the moment we see a potential IndexError here
+            ROLL -2   # at the moment we see a potential IndexError here
     ''')
 
 def test_calls():
