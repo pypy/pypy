@@ -41,6 +41,7 @@ def setup_readline():
     import os
     histfile = os.path.join(os.environ["HOME"], ".pypytrhist")
     try:
+        getattr(readline, "clear_history", lambda : None)()
         readline.read_history_file(histfile)
     except IOError:
         pass
