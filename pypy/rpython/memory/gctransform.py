@@ -94,8 +94,7 @@ class GCTransformer(object):
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
                     
-        if self.translator is not None and self.translator.rtyper is not None:
-            self.translator.rtyper.specialize_more_blocks()
+        self.specialize_more_blocks()
 
     def transform_block(self, block):
         newops = []
@@ -190,6 +189,10 @@ class GCTransformer(object):
         result.concretetype = lltype.Void
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
+    def specialize_more_blocks(self):
+        if self.translator is not None and self.translator.rtyper is not None:
+            self.translator.rtyper.specialize_more_blocks()
+
     annotate_helper_count = 0
     def annotate_helper(self, ll_helper, args):
 ##         import sys, time
@@ -204,6 +207,14 @@ class GCTransformer(object):
 ##         print time.time() - T
         return r
     
+
+class MinimalGCTransformer(GCTransformer):
+    def push_alive_nopyobj(self, var):
+        return []
+
+    def pop_alive_nopyobj(self, var):
+        return []
+
 
     # ----------------------------------------------------------------
 
@@ -286,11 +297,13 @@ class RefcountingGCTransformer(GCTransformer):
             self.translator.rtyper.specialize_more_blocks()
             self.no_pointer_dealloc_ptr = const_funcptr_fromgraph(self.no_pointer_dealloc_graph)
             self.seen_graphs[self.no_pointer_dealloc_graph] = True
+        self.deallocators_needing_transforming = []
         # cache graphs:
         self.decref_graphs = {}
         self.static_deallocator_graphs = {}
         self.dynamic_deallocator_graphs = {}
         self.queryptr2dynamic_deallocator_graph = {}
+        
 
     def push_alive_nopyobj(self, var):
         adr1 = varoftype(llmemory.Address)
@@ -348,6 +361,16 @@ class RefcountingGCTransformer(GCTransformer):
         return None
 
     def static_deallocation_graph_for_type(self, TYPE):
+        if TYPE in self.static_deallocator_graphs:
+            return self.static_deallocator_graphs[TYPE]
+        g = self._static_deallocation_graph_for_type(TYPE)
+        self.specialize_more_blocks()
+        for g in self.deallocators_needing_transforming:
+            MinimalGCTransformer(self.translator).transform_graph(g)
+        self.deallocators_needing_transforming = []
+        return g
+
+    def _static_deallocation_graph_for_type(self, TYPE):
         if TYPE in self.static_deallocator_graphs:
             return self.static_deallocator_graphs[TYPE]
         #print_call_chain(self)
@@ -412,6 +435,11 @@ def deallocator(addr):
         g = self.annotate_helper(this, [llmemory.Address])
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
+        if destrptr:
+            # however, the direct_call to the destructor needs to get
+            # .cleanup attached
+            self.deallocators_needing_transforming.append(g)
+        
         opcount = 0
         for block in g.iterblocks():
             opcount += len(block.operations)
@@ -429,7 +457,7 @@ def deallocator(addr):
 
         rtti = self.get_rtti(TYPE)
         if rtti is None:
-            g = self.static_deallocation_graph_for_type(TYPE)
+            g = self._static_deallocation_graph_for_type(TYPE)
             self.dynamic_deallocator_graphs[TYPE] = g
             return g
             
