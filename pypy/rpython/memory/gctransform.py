@@ -388,7 +388,7 @@ def deallocator(addr):
     try:
         destrptr(destr_v)
     except Exception:
-        os.write(2, "a destructor raised an exception, ignoring it")
+        os.write(2, "a destructor raised an exception, ignoring it\n")
     refcount = gcheader.signed[0] - 1
     gcheader.signed[0] = refcount
     if refcount == 0:
