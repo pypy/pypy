@@ -24,15 +24,32 @@ class HintTimeshift(object):
         self.rtyper.specialize_more_blocks()
 
     def timeshift_graph(self, graph):
+        self.graph = graph
         entering_links = flowmodel.mkentrymap(graph)
-        
+
         originalblocks = list(graph.iterblocks())
+        returnblock = graph.returnblock
+        # we need to get the jitstate to the before block of the return block
+        before_returnblock = self.insert_before_block(returnblock, entering_links[returnblock])
+        self.pre_process_block(before_returnblock)
         for block in originalblocks:
-            self.pre_process_block(block)
+            self.pre_process_block(block)            
+
         for block in originalblocks:
             self.timeshift_block(block)
-            self.insert_merge_block(block, entering_links[block])
-            
+            if block.operations != ():
+                block_entering_links = entering_links.pop(block)
+                before_block = self.insert_before_block(block, block_entering_links)              
+                self.insert_bookkeeping_enter(block, before_block, len(block_entering_links))
+                
+                self.insert_bookkeeping_leave_block(block, entering_links)
+
+        # fix its concretetypes
+        self.hrtyper.setup_block_entry(before_returnblock)
+        self.hrtyper.insert_link_conversions(before_returnblock)
+        # add booking logic
+        self.insert_bookkeeping_enter(returnblock, before_returnblock,
+                                      len(entering_links[returnblock]))
 
     def pre_process_block(self, block):
         # pass 'jitstate' as an extra argument around the whole graph
@@ -41,98 +58,179 @@ class HintTimeshift(object):
             self.hannotator.bindings[v_jitstate] = s_JITState
             block.inputargs.insert(0, v_jitstate)
             for link in block.exits:
-                # not for links going to the return/except block
                 if link.target.operations != ():
                     link.args.insert(0, v_jitstate)
-            
-    def insert_merge_block(self, block, entering_links):
-        if len(entering_links) > 1: # join
-            # insert before join blocks a block with:
-            # key = (<tuple-of-green-values>)
-            # boxes = [<rest-of-redboxes>]
-            # jitstate = ll_retrieve_jitstate_for_merge({}, # <- constant dict (key->...)
-            #                  jitstate, key, boxes)
-            # and which passes then to the original block the possibly new jitstate,
-            # and possible changed redbox read back again out of the 'boxes' list.
-            # ll_retrieve_jitstate_for_merge is supposed to use the "constant" dict as cache
-            # mapping green values combinations to frozen states for red boxes values
-            # and generated blocks
-                        
-            newinputargs = []
-            args_r = []
-            for var in block.inputargs:
-                newvar = flowmodel.Variable(var)
-                newvar.concretetype = var.concretetype
-                self.hannotator.bindings[newvar] = hs = self.hannotator.bindings[var]
-                args_r.append(self.hrtyper.getrepr(hs))
-                newinputargs.append(newvar)
-            newblock = flowmodel.Block(newinputargs)
+
+    def insert_before_block(self, block, entering_links):
+        newinputargs = []
+        for var in block.inputargs:
+            newvar = flowmodel.Variable(var)
+            newvar.concretetype = var.concretetype
+            self.hannotator.bindings[newvar] = hs = self.hannotator.bindings[var]
+            newinputargs.append(newvar)
+        newblock = flowmodel.Block(newinputargs)
+        if block.isstartblock: # xxx
+            block.isstartblock = False
+            newblock.isstartblock = True
+            self.graph.startblock = newblock
+        else:
             for link in entering_links:
                 link.settarget(newblock)
-
-            getrepr = self.rtyper.getrepr
-
-            items_s = []
-            key_v = []
-            llops = HintLowLevelOpList(self, None)
-            boxes_v = []
             
-            for r, newvar in zip(args_r, newinputargs):
-                if isinstance(r, GreenRepr):
-                    r_from = getrepr(r.annotation())
-                    erased_s = r.erased_annotation()
-                    r_to = getrepr(erased_s)
-                    items_s.append(erased_s)
-                    erased_v = llops.convertvar(newvar, r_from, r_to)
-                    key_v.append(erased_v)
-                elif isinstance(r, RedRepr):
-                    boxes_v.append(newvar)
-                    
-            s_key_tuple = annmodel.SomeTuple(items_s)
-            s_box_list = annmodel.SomeList(listdef.ListDef(None,
-                                                           annmodel.SomePtr(REDBOX_PTR)))
-
-            s_state_dic = annmodel.SomeDict(dictdef.DictDef(None,
-                                                            s_key_tuple,
-                                                            s_box_list # XXX
-                                                            ))
-            r_key = getrepr(s_key_tuple)
-            r_box_list = getrepr(s_box_list)
-            r_state_dic = getrepr(s_state_dic)
-            r_key.setup()
-            r_box_list.setup()
-            r_state_dic.setup()
-
-            c_state_dic = rmodel.inputconst(r_state_dic, {})
+        bridge = flowmodel.Link(newinputargs, block)
+        newblock.closeblock(bridge)
+        return newblock
+                                                         
+    def insert_bookkeeping_enter(self, block, before_block, nentrylinks):
+        newinputargs = before_block.inputargs
+        args_r = []
+        for var in newinputargs:
+            hs = self.hannotator.bindings[var]
+            args_r.append(self.hrtyper.getrepr(hs))
             
-            v_key = rtuple.newtuple(llops, r_key, key_v)
-            v_boxes = rlist.newlist(llops, r_box_list, boxes_v)
+        llops = HintLowLevelOpList(self, None)
+
+        s_box_list = annmodel.SomeList(listdef.ListDef(None,
+                                                       annmodel.SomePtr(REDBOX_PTR)))
+        boxes_v = []
+        for r, newvar in zip(args_r, newinputargs):
+            if isinstance(r, RedRepr):
+                boxes_v.append(newvar)              
+        getrepr = self.rtyper.getrepr
+
+        r_box_list = getrepr(s_box_list)
+        r_box_list.setup()        
+        v_boxes = rlist.newlist(llops, r_box_list, boxes_v)
+
+        if nentrylinks > 1:
+            v_newjiststate = self.bookeeping_enter_for_join(args_r,
+                                                            newinputargs,
+                                                            llops,
+                                                            s_box_list,
+                                                            v_boxes)
+        else:
+            v_newjiststate = newinputargs[0]
 
 
-            v_newjiststate = llops.genmixlevelhelpercall(rtimeshift.retrieve_jitstate_for_merge,
-                                                         [s_state_dic, annmodel.SomePtr(STATE_PTR), s_key_tuple, s_box_list],
-                                                         [c_state_dic, newinputargs[0], v_key, v_boxes])
-
+        bridge = before_block.exits[0]
+        if bridge.target.operations != (): # don't pass the jistate to the return block
             newinputargs2 = [v_newjiststate]
-            i = 0
-            for r, newvar in zip(args_r[1:], newinputargs[1:]):
-                if isinstance(r, RedRepr):
-                    c_dum_nocheck = rmodel.inputconst(lltype.Void, rlist.dum_nocheck)
-                    c_i = rmodel.inputconst(lltype.Signed, i)
-                    v_box = llops.gendirectcall(rlist.ll_getitem_nonneg,
-                                                c_dum_nocheck,
-                                                v_boxes,
-                                                c_i)
-                    newinputargs2.append(v_box)
-                    i += 1
-                else:
-                    newinputargs2.append(newvar)
+        else:
+            newinputargs2 = []
+        i = 0
+        for r, newvar in zip(args_r[1:], newinputargs[1:]):
+            if isinstance(r, RedRepr):
+                c_dum_nocheck = rmodel.inputconst(lltype.Void, rlist.dum_nocheck)
+                c_i = rmodel.inputconst(lltype.Signed, i)
+                v_box = llops.gendirectcall(rlist.ll_getitem_nonneg,
+                                            c_dum_nocheck,
+                                            v_boxes,
+                                            c_i)
+                newinputargs2.append(v_box)
+                i += 1
+            else:
+                newinputargs2.append(newvar)
 
-            newblock.operations[:] = llops
-                            
-            bridge = flowmodel.Link(newinputargs2, block)
-            newblock.closeblock(bridge)
+        # patch before block and bridge
+        before_block.operations[:] = llops
+        bridge.args = newinputargs2 # patch the link
 
+    def bookeeping_enter_simple(self, args_r, newinputargs, llops, s_box_list, v_boxes):
+        v_newjiststate = llops.genmixlevelhelpercall(rtimeshift.enter_block,
+                             [annmodel.SomePtr(STATE_PTR), s_box_list],
+                             [newinputargs[0], v_boxes])
+        return v_newjiststate
+        
+
+
+    # insert before join blocks a block with:
+    # key = (<tuple-of-green-values>)
+    # boxes = [<rest-of-redboxes>]
+    # jitstate = ll_retrieve_jitstate_for_merge({}, # <- constant dict (key->...)
+    #                  jitstate, key, boxes)
+    # and which passes then to the original block the possibly new jitstate,
+    # and possible changed redbox read back again out of the 'boxes' list.
+    # ll_retrieve_jitstate_for_merge is supposed to use the "constant" dict as cache
+    # mapping green values combinations to frozen states for red boxes values
+    # and generated blocks
+    def bookeeping_enter_for_join(self, args_r, newinputargs, llops, s_box_list, v_boxes):
+        getrepr = self.rtyper.getrepr        
+        items_s = []
+        key_v = []
+        for r, newvar in zip(args_r, newinputargs):
+            if isinstance(r, GreenRepr):
+                r_from = getrepr(r.annotation())
+                erased_s = r.erased_annotation()
+                r_to = getrepr(erased_s)
+                items_s.append(erased_s)
+                erased_v = llops.convertvar(newvar, r_from, r_to)
+                key_v.append(erased_v)
+
+
+        s_key_tuple = annmodel.SomeTuple(items_s)
+  
+
+        s_state_dic = annmodel.SomeDict(dictdef.DictDef(None,
+                                                        s_key_tuple,
+                                                        s_box_list # XXX
+                                                        ))
+        r_key = getrepr(s_key_tuple)
+
+        r_state_dic = getrepr(s_state_dic)
+        r_key.setup()
+
+        r_state_dic.setup()
+
+        c_state_dic = rmodel.inputconst(r_state_dic, {})
+
+        v_key = rtuple.newtuple(llops, r_key, key_v)
+
+
+
+        v_newjiststate = llops.genmixlevelhelpercall(rtimeshift.retrieve_jitstate_for_merge,
+                             [s_state_dic, annmodel.SomePtr(STATE_PTR), s_key_tuple, s_box_list],
+                             [c_state_dic, newinputargs[0], v_key, v_boxes])
+        return v_newjiststate
+        
+        
+    def insert_bookkeeping_leave_block(self, block, entering_links):
+        # XXX wrong with exceptions as much else
+        
+        renamemap = {}
+        rename = lambda v: renamemap.get(v, v)
+        inargs = []
+
+        def introduce(v):
+            if isinstance(v, flowmodel.Variable):
+                if v not in renamemap:
+                    vprime = renamemap[v] = flowmodel.Variable(v)
+                    vprime.concretetype = v.concretetype
+                    inargs.append(v)
+
+        newlinks = []
+
+        for link in block.exits:
+            for v in link.args:
+                introduce(v)
+            newlink =  link.copy(rename)
+            newlinks.append(newlink)
+            target = link.target
+            # update entering_links as necessary
+            if target in entering_links:
+                target_entering_links = entering_links[target]
+                target_entering_links.remove(link)
+                target_entering_links.append(newlink)
+        introduce(block.exitswitch)
+
+        inputargs = [rename(v) for v in inargs]
+        newblock = flowmodel.Block(inputargs)
+        newblock.exitswitch = rename(block.exitswitch)
+        newblock.closeblock(*newlinks)
+            
+        inlink = flowmodel.Link(inargs, newblock)
+
+        block.exitswitch = None
+        block.recloseblock(inlink)
 
     def timeshift_block(self, block):
         self.hrtyper.specialize_block(block)

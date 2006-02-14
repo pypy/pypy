@@ -154,6 +154,10 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     return jitstate # XXX
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype2"
     
+# XXX dummy for now
+def enter_block(jistate, redboxes):
+    # XXX do more
+    return jitstate
 
 def ll_setup_jitstate():
     jitstate = lltype.malloc(STATE)
