@@ -292,6 +292,7 @@ def rtype_cast_pointer(hop):
     assert hop.args_s[0].is_constant()
     assert isinstance(hop.args_r[1], rptr.PtrRepr)
     v_type, v_input = hop.inputargs(lltype.Void, hop.args_r[1])
+    hop.exception_cannot_occur()
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
@@ -463,12 +464,14 @@ BUILTIN_TYPER[objectmodel.hint] = rtype_hint
 def rtype_cast_ptr_to_adr(hop):
     vlist = hop.inputargs(hop.args_r[0])
     assert isinstance(vlist[0].concretetype, lltype.Ptr)
+    hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_adr', vlist,
                      resulttype = llmemory.Address)
 
 def rtype_cast_adr_to_ptr(hop):
     assert isinstance(hop.args_r[0], raddress.AddressRepr)
     adr, TYPE = hop.inputargs(hop.args_r[0], lltype.Void)
+    hop.exception_cannot_occur()
     return hop.genop('cast_adr_to_ptr', [adr],
                      resulttype = TYPE.value)
 

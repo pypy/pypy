@@ -563,6 +563,7 @@ class __extend__(SomePtr):
         assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
         v = getattr(p.ll_ptrtype._example(), s_attr.const)
         return ll_to_annotation(v)
+    getattr.can_only_throw = []
 
     def len(p):
         len(p.ll_ptrtype._example())   # just doing checking
@@ -663,4 +664,4 @@ class __extend__(SomeAddress):
         assert s_attr.const in lladdress.supported_access_types
         return SomeTypedAddressAccess(
             lladdress.supported_access_types[s_attr.const])
-
+    getattr.can_only_throw = []

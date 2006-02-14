@@ -379,6 +379,7 @@ class RefcountingGCTransformer(GCTransformer):
         #print_call_chain(self)
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
+            hop.exception_cannot_occur()
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
         def pop_alive(var):
             pass
@@ -400,23 +401,32 @@ class RefcountingGCTransformer(GCTransformer):
             return p
 
         if destrptr is not None:
-            body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 2))
+            body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 3))
             src = """
 def deallocator(addr):
-    v = cast_adr_to_ptr(addr, PTR_TYPE)
-    gcheader = addr - gc_header_offset
-    # refcount is at zero, temporarily bump it to 1:
-    gcheader.signed[0] = 1
-    destr_v = cast_pointer(DESTR_ARG, v)
+    exc_instance = objectmodel.llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
     try:
-        destrptr(destr_v)
-    except Exception:
-        os.write(2, "a destructor raised an exception, ignoring it\\n")
-    refcount = gcheader.signed[0] - 1
-    gcheader.signed[0] = refcount
-    if refcount == 0:
+        v = cast_adr_to_ptr(addr, PTR_TYPE)
+        gcheader = addr - gc_header_offset
+        # refcount is at zero, temporarily bump it to 1:
+        gcheader.signed[0] = 1
+        destr_v = cast_pointer(DESTR_ARG, v)
+        try:
+            destrptr(destr_v)
+        except:
+            try:
+                os.write(2, "a destructor raised an exception, ignoring it\\n")
+            except:
+                pass
+        refcount = gcheader.signed[0] - 1
+        gcheader.signed[0] = refcount
+        if refcount == 0:
 %s
-        objectmodel.llop.gc_free(lltype.Void, addr)
+            objectmodel.llop.gc_free(lltype.Void, addr)
+    except:
+        pass
+    objectmodel.llop.gc_restore_exception(lltype.Void, exc_instance)
+        
 """ % (body, )
         else:
             call_del = None
@@ -432,6 +442,7 @@ def deallocator(addr):
              'cast_pointer': lltype.cast_pointer,
              'PTR_TYPE': lltype.Ptr(TYPE),
              'DESTR_ARG': DESTR_ARG,
+             'EXC_INSTANCE_TYPE': self.translator.rtyper.exceptiondata.lltype_of_exception_value,
              'os': py.std.os}
         exec src in d
         this = d['deallocator']

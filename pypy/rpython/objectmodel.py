@@ -83,6 +83,7 @@ class LLOp(object):
 
     def specialize(self, hop):
         args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
+        hop.exception_is_here()
         return hop.genop(self.opname, args_v, resulttype=hop.r_result.lowleveltype)
 
 class LLOpFactory(object):
