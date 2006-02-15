@@ -19,6 +19,7 @@ def wrap_stackless_function(fn):
 
     cbuilder = CStandaloneBuilder(t, entry_point)
     cbuilder.stackless = True
+    #cbuilder.use_stackless_transformation = True
     cbuilder.generate_source()
     cbuilder.compile()
     return cbuilder.cmdexec('')

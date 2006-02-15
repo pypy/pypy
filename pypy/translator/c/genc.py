@@ -19,6 +19,7 @@ class CBuilder(object):
     _compiled = False
     symboltable = None
     stackless = False
+    use_stackless_transformation = False
     
     def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False):
         self.translator = translator
@@ -38,6 +39,7 @@ class CBuilder(object):
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData
             db.stacklessdata = StacklessData(db)
+            db.use_stackless_transformation = self.use_stackless_transformation
 
         # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
@@ -74,6 +76,10 @@ class CBuilder(object):
         else:
             if self.stackless:
                 defines['USE_STACKLESS'] = '1'
+                if self.use_stackless_transformation: #set in test_stackless.py
+                    from pypy.translator.backendopt.stackless import stackless
+                    from pypy.translator.c.stackless import StacklessData
+                    stackless(translator, StacklessData(db))
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
                                                  defines = defines)

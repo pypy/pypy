@@ -547,7 +547,7 @@ def select_function_code_generator(fnobj, db, functionname):
             fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
-        if hasattr(db, 'stacklessdata'):
+        if hasattr(db, 'stacklessdata') and not db.use_stackless_transformation:
             from pypy.translator.c.stackless import SlpFunctionCodeGenerator
             gencls = SlpFunctionCodeGenerator
         else:
