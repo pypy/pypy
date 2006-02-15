@@ -1,6 +1,6 @@
 import autopath
 from os import listdir
-import py, re
+import glob, os.path, py, re
 
 this_dir = autopath.this_dir
 pypy_dir = autopath.pypydir
@@ -19,13 +19,13 @@ class TestDocStringInserter:
     def test_mkfilelist(self):
         l = mk_std_filelist()
         l.sort()
-        check = [
-            'basestringtype.py', 'unicodetype.py', 'inttype.py',
-            'nonetype.py', 'longtype.py', 'slicetype.py',
-            'itertype.py', 'floattype.py',
-            'dicttype.py', 'dictproxytype.py', 'tupletype.py',
-            'booltype.py', 'objecttype.py', 'stringtype.py',
-            'listtype.py']
+        type_files = os.path.join(pypy_dir, "objspace/std/*type.py")
+        not_wanted = ["typetype.py"]
+        check = []
+        for path in glob.glob(type_files):
+            module = os.path.split(path)[1]
+            if module not in not_wanted:
+                check.append(module)
         check.sort()
         assert l == check
 
