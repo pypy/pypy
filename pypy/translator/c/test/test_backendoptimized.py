@@ -183,7 +183,6 @@ class TestTypedOptimizedRaisingOps:
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            py.test.skip("apparently doesn't work for now, see comments in r22890")
             backend_optimizations(t, raisingop2direct_call_all=True)
 
     def test_int_floordiv_zer(self):
