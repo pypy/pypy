@@ -209,6 +209,15 @@ class GCTransformer(object):
         return r
     
 
+def exception_clean(graph):
+    c = 0
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname in ('direct_call', 'indirect_call'):
+                op.cleanup = None
+                c += 1
+    return c
+
 class MinimalGCTransformer(GCTransformer):
     def push_alive_nopyobj(self, var):
         return []
@@ -292,6 +301,8 @@ class RefcountingGCTransformer(GCTransformer):
             decref_graph = self.annotate_helper(
                 decref, [annmodel.SomeAddress(), lltype.Ptr(ADDRESS_VOID_FUNC)])
             self.translator.rtyper.specialize_more_blocks()
+            nsafecalls = exception_clean(decref_graph)
+            assert nsafecalls == 1
             self.decref_ptr = const_funcptr_fromgraph(decref_graph)
             self.seen_graphs[decref_graph] = True
 
@@ -314,7 +325,7 @@ class RefcountingGCTransformer(GCTransformer):
         adr1 = varoftype(llmemory.Address)
         result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
         result.append(SpaceOperation("direct_call", [self.increfptr, adr1],
-                                     varoftype(lltype.Void)))
+                                     varoftype(lltype.Void), cleanup=None))
         return result
 
     def pop_alive_nopyobj(self, var):
@@ -328,7 +339,7 @@ class RefcountingGCTransformer(GCTransformer):
              
         result.append(SpaceOperation("direct_call",
                                      [self.decref_ptr, adr1, cdealloc_fptr],
-                                     varoftype(lltype.Void)))
+                                     varoftype(lltype.Void), cleanup=None))
         return result
 
     def replace_setfield(self, op):
@@ -485,6 +496,9 @@ def deallocator(addr):
             gcheader.signed[0] = 0
             objectmodel.llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
         g = self.annotate_helper(dealloc, [llmemory.Address])
+        self.specialize_more_blocks()
+        nsafecalls = exception_clean(g)
+        assert nsafecalls == 1        
         self.seen_graphs[g] = True
         
         fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
@@ -589,7 +603,7 @@ class BoehmGCTransformer(GCTransformer):
             d = {'PTR_TYPE':DESTR_ARG,
                  'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr,
                  'destrptr':destrptr}
-            # XXX swallow __del__ exceptions, preserve preexisting ones in case, minimal transform!!
+            # XXX swallow __del__ exceptions, preserve preexisting ones in case!
             src = ("def finalizer(addr):\n"
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "    destrptr(v)\n")
@@ -601,7 +615,7 @@ class BoehmGCTransformer(GCTransformer):
         if g:
             self.seen_graphs[g] = True
             self.specialize_more_blocks()
-            
+            MinimalGCTransformer(self.translator).transform_graph(g)
             fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
             self.finalizer_funcptrs[TYPE] = fptr
             return fptr

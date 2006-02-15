@@ -323,14 +323,18 @@ class Constant(Hashable):
     __reduce__ = __reduce_ex__
 
 
+NOCLEANUP = object()
+
 class SpaceOperation(object):
     __slots__ = "opname args result offset cleanup".split()
 
-    def __init__(self, opname, args, result, offset=-1):
+    def __init__(self, opname, args, result, offset=-1, cleanup=NOCLEANUP):
         self.opname = intern(opname)      # operation name
         self.args   = list(args)  # mixed list of var/const
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
+        if cleanup is not NOCLEANUP:
+            self.cleanup = cleanup
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and 
