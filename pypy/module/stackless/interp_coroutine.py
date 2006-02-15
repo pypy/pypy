@@ -1,3 +1,34 @@
+"""
+Basic Concept:
+--------------
+
+All concurrency is expressed by some means of coroutines.
+This is the lowest possible exposable interface.
+
+A coroutine is a structure that controls a sequence
+of continuations in time. It contains a frame object
+that is a restartable stack chain. This frame object
+is updated on every switch.
+
+The frame can be None. Either the coroutine is not yet
+bound, or it is the current coroutine of some costate.
+See below. XXX rewrite a definition of these terms.
+
+There is always a notation of a "current" and a "last"
+coroutine. Current has no frame and represents the
+running program. last is needed to keep track of the
+coroutine that receives a new frame chain after a switch.
+
+A costate object holds last and current.
+There are different coroutine concepts existing in
+parallel, like plain interp-level coroutines and
+app-level structures like coroutines, greenlets and
+tasklets.
+Every concept is associated with its own costate object.
+This allows for peaceful co-existence of many concepts.
+The type of a switch is determined by the target's costate.
+"""
+
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
@@ -180,7 +211,7 @@ class _AppThunk(object):
         self.args = args
 
     def call(self):
-        self.costate.tempval = self.space.call_args(self.w_func, self.args)
+        self.costate.w_tempval = self.space.call_args(self.w_func, self.args)
 
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
@@ -216,8 +247,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 "cannot switch to an unbound Coroutine"))
         state = self.costate
         self.switch()
-        ret, state.tempval = state.tempval, space.w_None
-        return ret
+        w_ret, state.w_tempval = state.w_tempval, space.w_None
+        return w_ret
 
     def w_kill(self):
         self.kill()
@@ -280,34 +311,8 @@ AppCoroutine.typedef = TypeDef("Coroutine",
 class AppCoState(BaseCoState):
     def __init__(self, space):
         BaseCoState.__init__(self)
-        self.tempval = space.w_None
+        self.w_tempval = space.w_None
         self.space = space
         
     def post_install(self):
         self.current = self.main = self.last = AppCoroutine(self.space)
-
-
-"""
-Basic Concept:
---------------
-
-All concurrency is expressed by some means of coroutines.
-This is the lowest possible exposable interface.
-
-A coroutine is a structure that controls a sequence
-of continuations in time. It contains a frame object
-that is a restartable stack chain.
-There is always a notation of a "current" and a "last"
-coroutine. Current has no frame and represents the
-running program. last is needed to keep track of the
-coroutine that receives a new frame chain after a switch.
-
-A costate object holds last and current.
-There are different coroutine concepts existing in
-parallel, like plain interp-level coroutines and
-app-level structures like coroutines, greenlets and
-tasklets.
-Every concept is associated with its own costate object.
-This allows for peaceful co-existence of many concepts.
-The type of a switch is determined by the target's costate.
-"""
