@@ -589,6 +589,7 @@ class BoehmGCTransformer(GCTransformer):
             d = {'PTR_TYPE':DESTR_ARG,
                  'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr,
                  'destrptr':destrptr}
+            # XXX swallow __del__ exceptions, preserve preexisting ones in case, minimal transform!!
             src = ("def finalizer(addr):\n"
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "    destrptr(v)\n")
@@ -599,7 +600,8 @@ class BoehmGCTransformer(GCTransformer):
 
         if g:
             self.seen_graphs[g] = True
-
+            self.specialize_more_blocks()
+            
             fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
             self.finalizer_funcptrs[TYPE] = fptr
             return fptr
