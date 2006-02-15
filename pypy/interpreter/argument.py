@@ -81,6 +81,15 @@ class AbstractArguments:
         scope_w = [None] * scopelen
         self._match_signature(scope_w, argnames, has_vararg, has_kwarg, defaults_w, 0, None)
         return scope_w
+
+    def normalize(self):
+        """Return an instance of the Arguments class.  (Instances of other
+        classes may not be suitable for long-term storage or multiple
+        usage.)  Also force the type and validity of the * and ** arguments
+        to be checked now.
+        """
+        args_w, kwds_w = self.unpack()
+        return Arguments(self.space, args_w, kwds_w)
     
 class ArgumentsPrepended(AbstractArguments):
     def __init__(self, args, w_firstarg):
@@ -148,9 +157,9 @@ class ArgumentsFromValuestack(AbstractArguments):
     """
 
     def __init__(self, space, valuestack, nargs=0):
-       self.space = space
-       self.valuestack = valuestack
-       self.nargs = nargs
+        self.space = space
+        self.valuestack = valuestack
+        self.nargs = nargs
 
     def firstarg(self):
         if self.nargs <= 0:

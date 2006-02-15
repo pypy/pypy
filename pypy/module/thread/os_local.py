@@ -15,7 +15,7 @@ class Local(Wrappable):
 
     def __init__(self, space, initargs):
         self.space = space
-        self.initargs = initargs
+        self.initargs = initargs.normalize()
         ident = thread.get_ident()
         self.dicts = {ident: space.newdict([])}
 
