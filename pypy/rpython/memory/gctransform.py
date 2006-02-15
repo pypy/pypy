@@ -7,7 +7,7 @@ from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, objectmodel, rptr
 from pypy.rpython.memory import gc
-import sets
+import sets, os
 
 """
 thought experiments
@@ -600,15 +600,20 @@ class BoehmGCTransformer(GCTransformer):
             exec src in d
             g = self.annotate_helper(d['finalizer'], [llmemory.Address])
         elif destrptr:
-            d = {'PTR_TYPE':DESTR_ARG,
-                 'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr,
-                 'destrptr':destrptr}
-            # XXX swallow __del__ exceptions, preserve preexisting ones in case!
-            src = ("def finalizer(addr):\n"
-                   "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
-                   "    destrptr(v)\n")
-            exec src in d
-            g = self.annotate_helper(d['finalizer'], [llmemory.Address])
+            EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
+            def finalizer(addr):
+                exc_instance = objectmodel.llop.gc_fetch_exception(
+                    EXC_INSTANCE_TYPE)
+                try:
+                    v = objectmodel.cast_adr_to_ptr(addr, DESTR_ARG)
+                    destrptr(v)
+                except:
+                    try:
+                        os.write(2, "a destructor raised an exception, ignoring it\n")
+                    except:
+                        pass
+                objectmodel.llop.gc_restore_exception(lltype.Void, exc_instance)
+            g = self.annotate_helper(finalizer, [llmemory.Address])
         else:
             g = None
 
