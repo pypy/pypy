@@ -7,6 +7,14 @@
 
 #define STANDALONE_ENTRY_POINT   slp_standalone_entry_point
 
+#ifdef USING_BOEHM_GC
+#define slp_malloc GC_MALLOC
+#define slp_free(p)
+#else
+#define slp_malloc malloc
+#define slp_free(p)free(p)
+#endif
+
 
 typedef struct slp_frame_s {
   struct slp_frame_s *f_back;
@@ -55,7 +63,7 @@ void *slp_retval_voidptr;
 
 slp_frame_t* slp_new_frame(int size, int state)
 {
-  slp_frame_t* f = (slp_frame_t*) malloc(size);
+  slp_frame_t* f = (slp_frame_t*) slp_malloc(size);
   assert(f != NULL);   /* XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX */
   f->f_back = NULL;
   f->state = state;
@@ -183,7 +191,7 @@ void slp_main_loop(void)
 
 	  }
 
-          free(pending);  /* consumed by the previous call */
+          slp_free(pending);  /* consumed by the previous call */
           if (slp_frame_stack_top)
             break;
           if (!back)
