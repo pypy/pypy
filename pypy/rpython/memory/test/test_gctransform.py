@@ -158,8 +158,8 @@ def test_cleanup_vars_on_call():
     ggraph = graphof(t, g)
     direct_calls = [op for op in ggraph.startblock.operations if op.opname == "direct_call"]
     assert len(direct_calls) == 3
-    assert direct_calls[1].cleanup[0].args[0] == direct_calls[0].result
-    assert [op.args[0] for op in direct_calls[2].cleanup] == \
+    assert direct_calls[1].cleanup[1][0].args[0] == direct_calls[0].result
+    assert [op.args[0] for op in direct_calls[2].cleanup[1]] == \
            [direct_calls[0].result, direct_calls[1].result]
 
 def test_multiply_passed_var():
@@ -563,3 +563,30 @@ def test_count_vars_big():
     rel = gctransform.relevant_gcvars(t, gctransform.filter_for_nongcptr)
     print rel
     print sum(rel) / float(len(rel)), max(rel), min(rel)
+
+# ______________________________________________________________________
+# tests for FrameworkGCTransformer
+
+def test_framework_simple():
+    def g(x):
+        return x + 1
+    class A(object):
+        pass
+    def f():
+        a = A()
+        a.b = g(1)
+        return a.b
+    t, transformer = rtype_and_transform(f, [], gctransform.FrameworkGCTransformer, check=False)
+    graph = graphof(t, f)
+    calls = [(i, op) for i, op in enumerate(graph.startblock.operations)
+                     if op.opname == 'direct_call' and len(op.args) == 2]
+    assert len(calls) == 1
+    [(i, op)] = calls
+    finallyops, exceptops = op.cleanup
+    assert len(finallyops) == 1
+    assert len(exceptops) == 0
+    pushop = graph.startblock.operations[i-1]
+    [popop] = finallyops
+    assert pushop.opname == "gc_push_roots"
+    assert popop.opname  == "gc_pop_roots"
+    assert pushop.args == popop.args

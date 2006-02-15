@@ -100,7 +100,9 @@ class GCTransformer(object):
                 if var_needsgc(var):
                     newops.extend(self.push_alive(var))
         for op in block.operations:
-            newops.extend(self.replacement_operations(op))
+            ops, cleanup_before_exception = self.replacement_operations(op, livevars)
+            newops.extend(ops)
+            op = ops[-1]
             # XXX for now we assume that everything can raise
             if 1 or op.opname in EXCEPTION_RAISING_OPS:
                 if tuple(livevars) in livevars2cleanup:
@@ -111,7 +113,7 @@ class GCTransformer(object):
                         cleanup_on_exception.extend(self.pop_alive(var))
                     cleanup_on_exception = tuple(cleanup_on_exception)
                     livevars2cleanup[tuple(livevars)] = cleanup_on_exception
-                op.cleanup = cleanup_on_exception
+                op.cleanup = tuple(cleanup_before_exception), cleanup_on_exception
             if var_needsgc(op.result):
                 if op.opname not in ('direct_call', 'indirect_call') and not var_ispyobj(op.result):
                     newops.extend(self.push_alive(op.result))
@@ -154,12 +156,12 @@ class GCTransformer(object):
         if newops:
             block.operations = newops
 
-    def replacement_operations(self, op):
+    def replacement_operations(self, op, livevars):
         m = getattr(self, 'replace_' + op.opname, None)
         if m:
-            return m(op)
+            return m(op, livevars)
         else:
-            return [op]
+            return [op], []
 
 
     def push_alive(self, var):
@@ -342,29 +344,27 @@ class RefcountingGCTransformer(GCTransformer):
                                      varoftype(lltype.Void), cleanup=None))
         return result
 
-    def replace_setfield(self, op):
+    def replace_setfield(self, op, livevars):
         if not var_needsgc(op.args[2]):
-            return [op]
+            return [op], []
         oldval = varoftype(op.args[2].concretetype)
         getoldvalop = SpaceOperation("getfield",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
         result.extend(self.push_alive(op.args[2]))
         result.append(op)
-        result.extend(self.pop_alive(oldval))
-        return result
+        return result, self.pop_alive(oldval)
 
-    def replace_setarrayitem(self, op):
+    def replace_setarrayitem(self, op, livevars):
         if not var_needsgc(op.args[2]):
-            return [op]
+            return [op], []
         oldval = varoftype(op.args[2].concretetype)
         getoldvalop = SpaceOperation("getarrayitem",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
         result.extend(self.push_alive(op.args[2]))
         result.append(op)
-        result.extend(self.pop_alive(oldval))
-        return result
+        return result, self.pop_alive(oldval)
 
     def get_rtti(self, TYPE):
         if isinstance(TYPE, lltype.GcStruct):
@@ -627,12 +627,46 @@ class BoehmGCTransformer(GCTransformer):
         else:
             self.finalizer_funcptrs[TYPE] = None
             return None
-        
+
+class FrameworkGCTransformer(BoehmGCTransformer):
+    #def __init__(self, translator):
+    #    super(FrameworkGCTransformer, self).__init__(translator)
+
+    def protect_roots(self, op, livevars):
+        livevars = [var for var in livevars if not var_ispyobj(var)]
+        newops = self.push_roots(livevars)
+        newops.append(op)
+        return newops, self.pop_roots(livevars)
+
+    replace_direct_call    = protect_roots
+    replace_indirect_call  = protect_roots
+    replace_malloc         = protect_roots
+    replace_malloc_varsize = protect_roots
+
+    def push_alive_nopyobj(self, var):
+        return []
+
+    def pop_alive_nopyobj(self, var):
+        return []
+
+    def push_roots(self, vars):
+        if vars:
+            return [SpaceOperation("gc_push_roots", vars, varoftype(lltype.Void))]
+        else:
+            return []
+
+    def pop_roots(self, vars):
+        if vars:
+            return [SpaceOperation("gc_pop_roots", vars, varoftype(lltype.Void))]
+        else:
+            return []
+
+
 # ___________________________________________________________________
 # calculate some statistics about the number of variables that need
 # to be cared for across a call
 
-relevant_ops = ["direct_call", "indirect_call", "malloc"]
+relevant_ops = ["direct_call", "indirect_call", "malloc", "malloc_varsize"]
 
 def filter_for_ptr(arg):
     return isinstance(arg.concretetype, lltype.Ptr)

@@ -55,7 +55,7 @@ class FunctionCodeGenerator(object):
                 if hasattr(op, "cleanup"):
                     if op.cleanup is None:
                         continue
-                    for cleanupop in op.cleanup:
+                    for cleanupop in op.cleanup[0] + op.cleanup[1]:
                         mix.extend(cleanupop.args)
                         mix.append(cleanupop.result)
             for link in block.exits:
@@ -184,6 +184,11 @@ class FunctionCodeGenerator(object):
                 err   = 'err%d_%d' % (myblocknum, i)
                 for line in self.gen_op(op, err):
                     yield line
+                cleanup = getattr(op, 'cleanup', None)
+                if cleanup is not None:
+                    for subop in op.cleanup[0]:
+                        for line in self.gen_op(subop, "should_never_be_jumped_to2"):
+                            yield line
             fallthrough = False
             if len(block.exits) == 0:
                 if len(block.inputargs) == 2:   # exc_cls, exc_value
@@ -303,10 +308,10 @@ class FunctionCodeGenerator(object):
             for i, op in list(enumerate(block.operations))[::-1]:
                 if getattr(op, 'cleanup', None) is None:
                     continue
-                errorcases.setdefault(op.cleanup, []).append(i)
+                errorcases.setdefault(op.cleanup[1], []).append(i)
 
             if fallthrough:
-                firstclean = tuple(block.operations[-1].cleanup)
+                firstclean = tuple(block.operations[-1].cleanup[1])
                 first = errorcases[firstclean]
                 del errorcases[firstclean]
                 first.remove(len(block.operations) - 1)

@@ -118,7 +118,9 @@ class FlowGraphDotGen(DotGen):
     def visit_Block(self, block):
         # do the block itself
         name = self.blockname(block)
-        lines = map(repr, block.operations)
+        lines = []
+        for op in block.operations:
+            lines.extend(repr(op).split('\n'))
         lines.append("")
         numblocks = len(block.exits)
         color = "black"

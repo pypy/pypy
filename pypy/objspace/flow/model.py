@@ -191,10 +191,20 @@ class Block(object):
             txt = "%s(%s)" % (txt, self.exitswitch)
         return txt
 
+    def reallyalloperations(self):
+        "Iterate over all operations, including cleanup sub-operations."
+        for op in self.operations:
+            yield op
+            cleanup = getattr(op, 'cleanup', None)
+            if cleanup is not None:
+                for lst in cleanup:
+                    for subop in lst:
+                        yield subop
+
     def getvariables(self):
         "Return all variables mentioned in this Block."
         result = self.inputargs[:]
-        for op in self.operations:
+        for op in self.reallyalloperations():
             result += op.args
             result.append(op.result)
         return uniqueitems([w for w in result if isinstance(w, Variable)])
@@ -202,7 +212,7 @@ class Block(object):
     def getconstants(self):
         "Return all constants mentioned in this Block."
         result = self.inputargs[:]
-        for op in self.operations:
+        for op in self.reallyalloperations():
             result += op.args
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
@@ -210,7 +220,7 @@ class Block(object):
         for a in mapping:
             assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
-        for op in self.operations:
+        for op in self.reallyalloperations():
             op.args = [mapping.get(a, a) for a in op.args]
             op.result = mapping.get(op.result, op.result)
         self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
@@ -334,6 +344,9 @@ class SpaceOperation(object):
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
         if cleanup is not NOCLEANUP:
+            # None or a pair of tuples of operations:
+            # 0. operations to perform in all cases after 'self'
+            # 1. more operations to perform only in case of exception
             self.cleanup = cleanup
 
     def __eq__(self, other):
@@ -349,7 +362,17 @@ class SpaceOperation(object):
         return hash((self.opname,tuple(self.args),self.result))
 
     def __repr__(self):
-        return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
+        s = "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
+        cleanup = getattr(self, 'cleanup', None)
+        if cleanup is not None:
+            lines = [s]
+            for case, lst in zip(("  finally: ", "   except: "), cleanup):
+                indent = case
+                for subop in lst:
+                    lines.append(indent + repr(subop))
+                    indent = ' ' * len(indent)
+            s = '\n'.join(lines)
+        return s
 
     def __reduce_ex__(self, *args):
         # avoid lots of useless list entities
