@@ -6,7 +6,7 @@ from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, objectmodel, rptr
-from pypy.rpython.memory import gc
+from pypy.rpython.memory import gc, lladdress
 import sets, os
 
 """
@@ -209,6 +209,12 @@ class GCTransformer(object):
         r = self.translator.rtyper.annotate_helper(ll_helper, args)
 ##         print time.time() - T
         return r
+
+    def inittime_helper(self, ll_helper, args_s):
+        graph = self.annotate_helper(ll_helper, args_s)
+        self.translator.rtyper.specialize_more_blocks()
+        self.seen_graphs[graph] = True
+        return const_funcptr_fromgraph(graph)
     
 
 def exception_clean(graph):
@@ -294,27 +300,14 @@ class RefcountingGCTransformer(GCTransformer):
         def no_pointer_dealloc(adr):
             objectmodel.llop.gc_free(lltype.Void, adr)
         if self.translator is not None and self.translator.rtyper is not None:
-            increfgraph = self.annotate_helper(
+            self.increfptr = self.inittime_helper(
                 incref, [annmodel.SomeAddress()])
-            self.translator.rtyper.specialize_more_blocks()
-            self.increfptr = const_funcptr_fromgraph(increfgraph)
-            self.seen_graphs[increfgraph] = True
-            
-            decref_graph = self.annotate_helper(
+            self.decref_ptr = self.inittime_helper(
                 decref, [annmodel.SomeAddress(), lltype.Ptr(ADDRESS_VOID_FUNC)])
-            self.translator.rtyper.specialize_more_blocks()
-            nsafecalls = exception_clean(decref_graph)
+            nsafecalls = exception_clean(self.decref_ptr.value._obj.graph)
             assert nsafecalls == 1
-            self.decref_ptr = const_funcptr_fromgraph(decref_graph)
-            self.seen_graphs[decref_graph] = True
-
-            no_pointer_dealloc_graph = self.annotate_helper(
+            self.no_pointer_dealloc_ptr = self.inittime_helper(
                 no_pointer_dealloc, [annmodel.SomeAddress()])
-            self.translator.rtyper.specialize_more_blocks()
-            self.no_pointer_dealloc_ptr = lltype.functionptr(
-                ADDRESS_VOID_FUNC, no_pointer_dealloc_graph.name,
-                graph=no_pointer_dealloc_graph)
-            self.seen_graphs[no_pointer_dealloc_graph] = True
         self.deallocator_graphs_needing_transforming = []
         # cache graphs:
         self.decref_funcptrs = {}
@@ -407,7 +400,7 @@ class RefcountingGCTransformer(GCTransformer):
 
         if destrptr is None and not find_gc_ptrs_in_type(TYPE):
             #print repr(TYPE)[:80], 'is dealloc easy'
-            p = self.no_pointer_dealloc_ptr
+            p = self.no_pointer_dealloc_ptr.value
             self.static_deallocator_funcptrs[TYPE] = p
             return p
 
@@ -629,14 +622,45 @@ class BoehmGCTransformer(GCTransformer):
             return None
 
 class FrameworkGCTransformer(BoehmGCTransformer):
-    #def __init__(self, translator):
-    #    super(FrameworkGCTransformer, self).__init__(translator)
+    rootstacksize = 640*1024    # XXX adjust
+    ROOTSTACK = lltype.Struct("root_stack", ("top", llmemory.Address),
+                                            ("base", llmemory.Address))
+
+    def __init__(self, translator):
+        super(FrameworkGCTransformer, self).__init__(translator)
+        rootstack = lltype.malloc(self.ROOTSTACK, immortal=True)
+        rootstacksize = self.rootstacksize
+        sizeofaddr = llmemory.sizeof(llmemory.Address)
+
+        def ll_frameworkgc_setup():
+            stackbase = lladdress.raw_malloc(rootstacksize)
+            if not stackbase:
+                raise MemoryError
+            rootstack.top  = stackbase
+            rootstack.base = stackbase
+
+        def ll_push_root(addr):
+            top = rootstack.top
+            top.address[0] = addr
+            rootstack.top = top + sizeofaddr
+
+        def ll_pop_root():
+            top = rootstack.top - sizeofaddr
+            result = top.address[0]
+            rootstack.top = top
+            return result
+
+        self.frameworkgc_setup_ptr = self.inittime_helper(ll_frameworkgc_setup,
+                                                          [])
+        self.push_root_ptr = self.inittime_helper(ll_push_root,
+                                                  [annmodel.SomeAddress()])
+        self.pop_root_ptr = self.inittime_helper(ll_pop_root, [])
 
     def protect_roots(self, op, livevars):
         livevars = [var for var in livevars if not var_ispyobj(var)]
-        newops = self.push_roots(livevars)
+        newops = list(self.push_roots(livevars))
         newops.append(op)
-        return newops, self.pop_roots(livevars)
+        return newops, tuple(self.pop_roots(livevars))
 
     replace_direct_call    = protect_roots
     replace_indirect_call  = protect_roots
@@ -650,16 +674,19 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         return []
 
     def push_roots(self, vars):
-        if vars:
-            return [SpaceOperation("gc_push_roots", vars, varoftype(lltype.Void))]
-        else:
-            return []
+        for var in vars:
+            v = varoftype(llmemory.Address)
+            yield SpaceOperation("cast_ptr_to_adr", [var], v)
+            yield SpaceOperation("direct_call", [self.push_root_ptr, v],
+                                 varoftype(lltype.Void), cleanup=None)
 
     def pop_roots(self, vars):
-        if vars:
-            return [SpaceOperation("gc_pop_roots", vars, varoftype(lltype.Void))]
-        else:
-            return []
+        for var in vars[::-1]:
+            v = varoftype(llmemory.Address)
+            yield SpaceOperation("direct_call", [self.pop_root_ptr],
+                                 v, cleanup=None)
+            yield SpaceOperation("gc_reload_possibly_moved", [v, var],
+                                 varoftype(lltype.Void))
 
 
 # ___________________________________________________________________
