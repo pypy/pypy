@@ -384,7 +384,7 @@ def inlining_heuristic(graph, callers=None, callees=None):
     factor = 1
     if callers is not None:
         if len(callers) == 1:
-            factor = 0.1
+            factor = 0.3
     return (0.9999 * measure_median_execution_cost(graph) +
             static_instruction_count(graph)) * factor
 
