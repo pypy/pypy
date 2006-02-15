@@ -164,3 +164,23 @@ def test_del_raises():
     fn = compile_func(func, [])
     # does not crash
     fn()
+
+def test_wrong_order_setitem():
+    import os
+    class A(object):
+        pass
+    a = A()
+    a.b = None
+    class B(object):
+        def __del__(self):
+            a.freed += 1
+            a.b = None
+    def f(n):
+        a.freed = 0
+        a.b = B()
+        if n:
+            a.b = None
+        return a.freed
+    fn = compile_func(f, [int])
+    res = fn(1)
+    assert res == 1

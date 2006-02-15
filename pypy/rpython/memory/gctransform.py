@@ -349,9 +349,9 @@ class RefcountingGCTransformer(GCTransformer):
         getoldvalop = SpaceOperation("getfield",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
-        result.extend(self.pop_alive(oldval))
         result.extend(self.push_alive(op.args[2]))
         result.append(op)
+        result.extend(self.pop_alive(oldval))
         return result
 
     def replace_setarrayitem(self, op):
@@ -361,9 +361,9 @@ class RefcountingGCTransformer(GCTransformer):
         getoldvalop = SpaceOperation("getarrayitem",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
-        result.extend(self.pop_alive(oldval))
         result.extend(self.push_alive(op.args[2]))
         result.append(op)
+        result.extend(self.pop_alive(oldval))
         return result
 
     def get_rtti(self, TYPE):
