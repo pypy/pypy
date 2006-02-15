@@ -23,8 +23,9 @@ def newblock():
     initblock(blockcontainer.obj)
     return blockcontainer
 
-def geninputarg(blockcontainer, CONCRETE_TYPE):
+def geninputarg(blockcontainer, cvCONCRETE_TYPE):
     block = from_opaque_object(blockcontainer.obj)
+    CONCRETE_TYPE = from_opaque_object(cvCONCRETE_TYPE).value
     v = flowmodel.Variable()
     v.concretetype = CONCRETE_TYPE
     block.inputargs.append(v)
@@ -32,19 +33,23 @@ def geninputarg(blockcontainer, CONCRETE_TYPE):
 
 def _inputvars(vars):
     if not isinstance(vars, list):
-        vars = vars.ll_items()
+        n = vars.ll_length()
+        vars = vars.ll_items()        
+    else:
+        n = len(vars)
     res = []
-    for v in vars:
-        v = from_opaque_object(v)
+    for i in range(n):
+        v = from_opaque_object(vars[i])
         assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
         res.append(v)
     return res
 
 # is opname a runtime value?
-def genop(blockcontainer, opname, vars, RESULT_TYPE):
+def genop(blockcontainer, opname, vars, cvRESULT_TYPE):
     if not isinstance(opname, str):
         opname = from_rstr(opname)
-    block = from_opaque_object(blockcontainer.obj) 
+    block = from_opaque_object(blockcontainer.obj)
+    RESULT_TYPE = from_opaque_object(cvRESULT_TYPE).value
     opvars = _inputvars(vars)    
     v = flowmodel.Variable()
     v.concretetype = RESULT_TYPE
@@ -52,9 +57,10 @@ def genop(blockcontainer, opname, vars, RESULT_TYPE):
     block.operations.append(op)
     return to_opaque_object(v)
 
-def gencallableconst(blockcontainer, name, targetcontainer, FUNCTYPE):
+def gencallableconst(blockcontainer, name, targetcontainer, cvFUNCTYPE):
     # is name useful, is it runtime variable?
     target = from_opaque_object(targetcontainer.obj)
+    FUNCTYPE = from_opaque_object(cvFUNCTYPE).value
     fptr = lltype.functionptr(FUNCTYPE, name,
                               graph=_buildgraph(target))
     return genconst(fptr)

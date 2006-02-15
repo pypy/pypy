@@ -3,18 +3,26 @@ from pypy.rpython import objectmodel
 from pypy.rpython import rgenop
 
 # ____________________________________________________________
-# types and adts
+# types and adtmeths
 
 def ll_fixed_items(l):
     return l
 
+def ll_fixed_length(l):
+    return len(l)
+
 VARLIST = lltype.Ptr(lltype.GcArray(rgenop.CONSTORVAR,
                                     adtmeths = {
                                         "ll_items": ll_fixed_items,
+                                        "ll_length": ll_fixed_length
                                     }))
 
-STATE = lltype.GcStruct("jitstate", ("curblock", rgenop.BLOCK))
-STATE_PTR = lltype.Ptr(STATE)
+def make_types_const(TYPES):
+    n = len(TYPES)
+    l = lltype.malloc(VARLIST.TO, n)
+    for i in range(n):
+        l[i] = rgenop.constTYPE(TYPES[i])
+    return l
 
 
 def ll_make_for_gvar(gvar):
@@ -48,6 +56,12 @@ REDBOX_FOR_SIGNED = lltype.GcStruct("signed_redbox",
                                     ('basebox', REDBOX),
                                     ("value", lltype.Signed))
 REDBOX_FOR_SIGNED_PTR = lltype.Ptr(REDBOX_FOR_SIGNED)
+
+STATE = lltype.GcStruct("jitstate", ("curblock", rgenop.BLOCK),
+                                    ("curoutgoinglink", rgenop.LINK),
+                                    ("curvalue", REDBOX_PTR))
+STATE_PTR = lltype.Ptr(STATE)
+
 
 # ____________________________________________________________
 # ll helpers on boxes
@@ -117,7 +131,8 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
         return REDBOX.ll_make_from_const(res)
     op_args = lltype.malloc(VARLIST.TO, 1)
     op_args[0] = ll_gvar_from_redbox(jitstate, argbox, ARG0)
-    gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args, RESULT)
+    gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
+                        rgenop.constTYPE(RESULT))
     return REDBOX.ll_make_for_gvar(gvar)
 
 def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
@@ -133,7 +148,8 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     op_args = lltype.malloc(VARLIST.TO, 2)
     op_args[0] = ll_gvar_from_redbox(jitstate, argbox0, ARG0)
     op_args[1] = ll_gvar_from_redbox(jitstate, argbox1, ARG1)
-    gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args, RESULT)
+    gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
+                        rgenop.constTYPE(RESULT))
     return REDBOX.ll_make_for_gvar(gvar)
 
 #def ll_generate_operation(jitstate, opname, args, RESULTTYPE):
@@ -144,19 +160,27 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
 # other jitstate/graph level operations
 
 
-# XXX dummy for now, playing with mix level annotation
-def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
-    # modifies redbox in place
-    states_dic[key] = redboxes
-    # fun playing junk
-    if not redboxes[0].isvar and redboxes[0].ll_getvalue(lltype.Signed) == 0:
-        redboxes[0] = redboxes[0]
-    return jitstate # XXX
+# XXX dummy for now, no appropriate caching, just call enter_block
+def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
+    return enter_block(jitstate, redboxes, TYPES)
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype2"
     
-# XXX dummy for now
-def enter_block(jistate, redboxes):
-    # XXX do more
+def enter_block(jitstate, redboxes, TYPES):
+    newblock = rgenop.newblock()
+    incoming = []
+    for i in range(len(redboxes)):
+        redbox = redboxes[i]
+        if redbox.isvar:
+            incoming.append(redbox.genvar)
+            newgenvar = rgenop.geninputarg(newblock, TYPES[i])
+            redboxes[i] = REDBOX.ll_make_for_gvar(newgenvar)
+    rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
+    jitstate.curblock = newblock
+    jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
+    return jitstate
+
+def leave_block(jitstate):
+    jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
     return jitstate
 
 def ll_setup_jitstate():
@@ -164,11 +188,14 @@ def ll_setup_jitstate():
     jitstate.curblock = rgenop.newblock()
     return jitstate
 
-def ll_close_jitstate(jitstate, return_gvar):
-    link = rgenop.closeblock1(jitstate.curblock)
+def ll_end_setup_jitstate(jitstate):
+    jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
+
+def ll_close_jitstate(final_jitstate, return_gvar):
+    link = rgenop.closeblock1(final_jitstate.curblock)
     rgenop.closereturnlink(link, return_gvar)
-    return jitstate.curblock
 
 def ll_input_redbox(jitstate, TYPE):
-    genvar = rgenop.geninputarg(jitstate.curblock, TYPE)
+    genvar = rgenop.geninputarg(jitstate.curblock,
+                                rgenop.constTYPE(TYPE))
     return REDBOX.ll_make_for_gvar(genvar)

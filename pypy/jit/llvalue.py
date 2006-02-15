@@ -200,7 +200,7 @@ class LLFrozenRuntimeValue(LLFrozenValue):
             assert c.concretetype == self.concretetype
             result = LLAbstractValue(c)
         else:
-            gen_v = rgenop.geninputarg(block, self.concretetype)
+            gen_v = rgenop.geninputarg(block, rgenop.constTYPE(self.concretetype))
             result = LLAbstractValue(AVariable(self.concretetype, genvar=gen_v))
         result.origin.append(self)
         return result

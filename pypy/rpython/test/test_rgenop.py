@@ -8,8 +8,8 @@ from pypy.objspace.flow import model as flowmodel
 def build_square():
     """def square(v0): return v0*v0"""
     block = newblock()
-    v0 = geninputarg(block, Signed)
-    v1 = genop(block, 'int_mul', [v0, v0], Signed)
+    v0 = geninputarg(block, constTYPE(Signed))
+    v1 = genop(block, 'int_mul', [v0, v0], constTYPE(Signed))
     link = closeblock1(block)
     closereturnlink(link, v1)
     return block
@@ -29,7 +29,7 @@ def test_rtype_newblock():
 def test_rtype_geninputarg():
     def onearg():
         block = newblock()
-        v0 = geninputarg(block, Signed)
+        v0 = geninputarg(block, constTYPE(Signed))
         return v0
     opaquev = interpret(onearg, [])
     v = from_opaque_object(opaquev)
@@ -49,9 +49,9 @@ def build_if():
             return v0
     """
     block = newblock()
-    v0 = geninputarg(block, Signed)
+    v0 = geninputarg(block, constTYPE(Signed))
     const0 = genconst(0)
-    v1 = genop(block, 'int_lt', [v0, const0], Bool)
+    v1 = genop(block, 'int_lt', [v0, const0], constTYPE(Bool))
     exitspair = closeblock2(block, v1)
     false_link, true_link = exitspair.item0, exitspair.item1
     closereturnlink(true_link, const0)
@@ -83,18 +83,18 @@ def build_loop():
         return result
     """
     block = newblock()
-    v0 = geninputarg(block, Signed)
+    v0 = geninputarg(block, constTYPE(Signed))
     const1 = genconst(1)
     link = closeblock1(block)
     loopblock = newblock()
-    result0 = geninputarg(loopblock, Signed)
-    i0 = geninputarg(loopblock, Signed)
-    v1 = geninputarg(loopblock, Signed)
+    result0 = geninputarg(loopblock, constTYPE(Signed))
+    i0 = geninputarg(loopblock, constTYPE(Signed))
+    v1 = geninputarg(loopblock, constTYPE(Signed))
     closelink(link, [const1, const1, v0], loopblock)
     const1 = genconst(1)
-    result1 = genop(loopblock, 'int_mul', [result0, i0], Signed)
-    i1 = genop(loopblock, 'int_add', [i0, const1], Signed)
-    v2 = genop(loopblock, 'int_le', [i1, v1], Bool)
+    result1 = genop(loopblock, 'int_mul', [result0, i0], constTYPE(Signed))
+    i1 = genop(loopblock, 'int_add', [i0, const1], constTYPE(Signed))
+    v2 = genop(loopblock, 'int_le', [i1, v1], constTYPE(Bool))
     exitspair = closeblock2(loopblock, v2)
     false_link, true_link = exitspair.item0, exitspair.item1
     closereturnlink(false_link, result1)

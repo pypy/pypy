@@ -94,9 +94,9 @@ Functions:
 
 * newblock() -> (opaque block object)
 
-* geninputarg(block, CONCRETE_TYPE) -> (input var)
+* geninputarg(block, consTYPE(CONCRETE_TYPE)) -> (input var)
 
-* genop(block, opname, [list-of-vars], RESULT_CONCRETE_TYPE) -> (result var)
+* genop(block, opname, [list-of-vars], constTYPE(RESULT_CONCRETE_TYPE)) -> (result var)
 
 * genconst(llvalue) -> (result var) # not for Void consts
 
@@ -106,7 +106,7 @@ Functions:
 
 * placeholder(dummy)   # likely ignored Void constant, likely not runtime
 
-* gencallableconst(block, name, target-block, FUNCTYPE) -> (result var)
+* gencallableconst(block, name, target-block, constTYPE(FUNCTYPE)) -> (result var)
 
 * closeblock1(block) -> link
 

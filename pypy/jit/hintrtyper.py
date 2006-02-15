@@ -206,6 +206,7 @@ class RedRepr(Repr):
 class GreenRepr(Repr):
     def __init__(self, lowleveltype):
         self.lowleveltype = lowleveltype
+        self.original_concretetype = lowleveltype        
 
     def annotation(self):
         return annmodel.lltype_to_annotation(self.lowleveltype)

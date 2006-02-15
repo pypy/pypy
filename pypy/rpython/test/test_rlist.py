@@ -913,7 +913,8 @@ def test_list_builder():
             self.bareblock = support.from_opaque_object(self.newblock.obj)
 
         def genop(self, opname, args, RESULT_TYPE):
-            return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
+            return rgenop.genop(self.newblock, opname, args,
+                                rgenop.constTYPE(RESULT_TYPE))
 
         def genconst(self, llvalue):
             return rgenop.genconst(llvalue)

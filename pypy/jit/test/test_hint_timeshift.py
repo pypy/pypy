@@ -65,18 +65,16 @@ def timeshift(ll_function, values, opt_consts=[]):
                 box = rtimeshift.REDBOX.ll_make_from_const(llvalue)
             graph1args.append(box)
             residual_graph_args.append(llvalue)
+    rtimeshift.ll_end_setup_jitstate(jitstate)
+    startblock = jitstate.curblock
     llinterp = LLInterpreter(rtyper)
-    result1 = llinterp.eval_graph(graph1, graph1args)
-    # now try to run the block produced by the jitstate
-    r = htshift.hrtyper.bindingrepr(graph1.getreturnvar())
-    if isinstance(r, hintrtyper.GreenRepr):
-        result_gvar = rgenop.genconst(result1)
-    elif isinstance(r, hintrtyper.RedRepr):
-        result_gvar = rtimeshift.ll_gvar_from_redbox(jitstate, result1, r.original_concretetype)
-    else:
-        raise NotImplementedError(r)
-    jitblock = rtimeshift.ll_close_jitstate(jitstate, result_gvar)
-    residual_graph = rgenop.buildgraph(jitblock)
+    newjitstate = llinterp.eval_graph(graph1, graph1args)
+    # now try to run the blocks produced by the jitstate
+    r = htshift.hrtyper.getrepr(hs)
+    result_gvar = rtimeshift.ll_gvar_from_redbox(newjitstate, newjitstate.curvalue,
+                                                 r.original_concretetype)
+    rtimeshift.ll_close_jitstate(newjitstate, result_gvar)
+    residual_graph = rgenop.buildgraph(startblock)
     insns = summary(residual_graph)
     res = rgenop.testgengraph(residual_graph, residual_graph_args,
                               viewbefore = conftest.option.view)
@@ -122,7 +120,7 @@ def test_simple_opt_const_propagation1():
     assert res == -5
     assert insns == {}
 
-def test_loop_merge():
+def test_loop_folding():
     def ll_function(x, y):
         tot = 0
         x = hint(x, concrete=True)        
@@ -132,5 +130,4 @@ def test_loop_merge():
         return tot
     insns, res = timeshift(ll_function, [7, 2], [0, 1])
     assert res == 14
-    # not really testing merge logic properly, we would need both a split
-    # (on a red exitswitch) and a join for that, just that the new code doesn't explode
+    assert insns == {}

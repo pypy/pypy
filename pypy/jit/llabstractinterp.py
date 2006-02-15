@@ -536,7 +536,8 @@ class BlockBuilder(object):
         return b
 
     def genop(self, opname, args, RESULT_TYPE):
-        return rgenop.genop(self.newblock, opname, args, RESULT_TYPE)
+        return rgenop.genop(self.newblock, opname, args,
+                            rgenop.constTYPE(RESULT_TYPE))
 
     def genconst(self, llvalue):
         return rgenop.genconst(llvalue)
@@ -593,7 +594,7 @@ class BlockBuilder(object):
         gen_fn_const = rgenop.gencallableconst(self.newblock,
                                                name,
                                                target,
-                                               FUNCTYPE)
+                                               rgenop.constTYPE(FUNCTYPE))
         retvar = self.genop('direct_call', [gen_fn_const] +
                               [a.forcegenvarorconst(self) for a in args_a],
                               T)
