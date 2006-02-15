@@ -16,6 +16,22 @@ class AppTestThread(GenericTestThread):
         self.waitfor(lambda: feedback)
         assert feedback == [42]
 
+    def test_start_new_thread_args(self):
+        import thread
+        def f():
+            pass
+        test_args = [
+            (f, [], {}),
+            (f, (), []),
+            ("", (), {}),
+        ]
+        for args in test_args:
+            try:
+                thread.start_new_thread(*args)
+                assert False
+            except TypeError:
+                pass
+
     def test_get_ident(self):
         import thread
         ident = thread.get_ident()
