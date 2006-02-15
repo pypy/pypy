@@ -19,34 +19,42 @@ class FunThread(Thread):
     def run(self):
         self.fun(self, *self.args)
 
+def newspace(problem=problems.dummy_problem):
+    return space.ComputationSpace(problem)
+
 #-- meat ------------------------
 
 class TestStoreUnification:
     
 
     def test_already_in_store(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x = sp.var('x')
         raises(v.AlreadyInStore, sp.var, 'x')
 
     def test_already_bound(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x = sp.var('x')
         sp.bind(x, 42)
-        raises(space.AlreadyBound, sp.bind, x, 42)
+        sp.bind(x, 42)
+        raises(space.UnificationFailure, sp.bind, x, 43)
 
     def test_bind_var_var(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
-        x = sp.var('x')
-        y = sp.var('y')
-        z = sp.var('z')
+        sp = newspace()
+        x, y, z = sp.var('x'), sp.var('y'), sp.var('z')
         sp.bind(x, z)
         assert x.val == space.EqSet([x, z])
         assert y.val == space.EqSet([y])
         assert z.val == space.EqSet([x, z])
+        z.bind(42)
+        assert z.val == 42
+        assert x.val == 42
+        y.bind(42)
+        assert y.val == 42
+        y.bind(z)
 
     def test_bind_var_val(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x, y, z = sp.var('x'), sp.var('y'), sp.var('z')
         sp.bind(x, z)
         sp.bind(y, 42)
@@ -56,7 +64,7 @@ class TestStoreUnification:
         assert z.val == 3.14
 
     def test_unify_same(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         sp.bind(x, [42, z])
@@ -67,7 +75,7 @@ class TestStoreUnification:
         assert z.val == 42
 
     def test_double_unification(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x, y, z = (sp.var('x'), sp.var('y'),
                    sp.var('z'))
         sp.bind(x, 42)
@@ -79,7 +87,7 @@ class TestStoreUnification:
 
 
     def test_unify_values(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x, y = sp.var('x'), sp.var('y')
         sp.bind(x, [1, 2, 3])
         sp.bind(y, [1, 2, 3])
@@ -88,7 +96,7 @@ class TestStoreUnification:
         assert y.val == [1, 2, 3]
 
     def test_unify_lists_success(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         sp.bind(x, [42, z])
@@ -100,7 +108,7 @@ class TestStoreUnification:
         assert w.val == 42
 
     def test_unify_dicts_success(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         sp.bind(x, {1:42, 2:z})
@@ -112,7 +120,7 @@ class TestStoreUnification:
         assert w.val == 42
 
     def test_unify_failure(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         sp.bind(x, [42, z])
         sp.bind(y, [z, 44])
@@ -123,7 +131,7 @@ class TestStoreUnification:
         assert z.val == space.EqSet([z])
 
     def test_unify_failure2(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         sp.bind(x, [42, z])
@@ -139,7 +147,7 @@ class TestStoreUnification:
         assert w.val == space.EqSet([z,w])
 
     def test_unify_circular(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x, y, z, w, a, b = (sp.var('x'), sp.var('y'),
                             sp.var('z'), sp.var('w'),
                             sp.var('a'), sp.var('b'))
@@ -162,12 +170,12 @@ class TestStoreUnification:
         
         
     def test_threads_creating_vars(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         def create_var(thread, *args):
             x = sp.var('x')
 
         def create_var2(thread, *args):
-            raises(v.AlreadyExists, sp.var, 'x')
+            raises(v.AlreadyInStore, sp.var, 'x')
 
         t1, t2 = (FunThread(create_var),
                   FunThread(create_var2))
@@ -178,7 +186,7 @@ class TestStoreUnification:
 
 
     def test_threads_binding_vars(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
 
         def do_stuff(thread, var, val):
             thread.raised = False
@@ -189,7 +197,7 @@ class TestStoreUnification:
             except Exception, e:
                 print e
                 thread.raised = True
-                assert isinstance(e, space.AlreadyBound)
+                assert isinstance(e, space.UnificationFailure)
             
         x = sp.var('x')
         vars_ = []
@@ -217,7 +225,7 @@ class TestStoreUnification:
     
 
     def test_threads_waiting_for_unbound_var(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         import time
         
         def near(v1, v2, err):
@@ -245,13 +253,13 @@ class TestStoreUnification:
 
 
     def test_set_var_domain(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x = sp.var('x')
         sp.set_domain(x, [1, 3, 5])
         assert x.cs_get_dom(sp) == c.FiniteDomain([1, 3, 5])
 
     def test_bind_with_domain(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x = sp.var('x')
         sp.set_domain(x, [1, 2, 3])
         raises(space.OutOfDomain, sp.bind, x, 42)
@@ -259,7 +267,7 @@ class TestStoreUnification:
         assert x.val == 3
 
     def test_bind_with_incompatible_domains(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x, y = sp.var('x'), sp.var('y')
         sp.set_domain(x, [1, 2])
         sp.set_domain(y, [3, 4])
@@ -271,7 +279,7 @@ class TestStoreUnification:
 
 
     def test_unify_with_domains(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         sp.bind(x, [42, z])
         sp.bind(y, [z, 42])
@@ -283,7 +291,7 @@ class TestStoreUnification:
         assert z.cs_get_dom(sp) == c.FiniteDomain([41, 42, 43])
 
     def test_add_constraint(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         raises(c.DomainlessVariables,
                c.Expression, sp, [x, y, z], 'x == y + z')
@@ -295,7 +303,7 @@ class TestStoreUnification:
         assert k in sp.constraints
 
     def test_narrowing_domains_failure(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         x.cs_set_dom(sp, c.FiniteDomain([1, 2]))
         y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
@@ -304,7 +312,7 @@ class TestStoreUnification:
         raises(c.ConsistencyFailure, k.narrow)
 
     def test_narrowing_domains_success(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
         y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
@@ -316,7 +324,7 @@ class TestStoreUnification:
         assert z.cs_get_dom(sp) == c.FiniteDomain([3])
 
     def test_compute_dependant_vars(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
@@ -334,7 +342,7 @@ class TestStoreUnification:
         assert constset == set([k1, k2])
 
     def test_store_satisfiable_success(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
         y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
@@ -347,7 +355,7 @@ class TestStoreUnification:
         assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
         
     def test_store_satisfiable_failure(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         x.cs_set_dom(sp, c.FiniteDomain([1, 2]))
         y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
@@ -360,7 +368,7 @@ class TestStoreUnification:
         assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
 
     def test_satisfiable_many_const_success(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
@@ -394,7 +402,7 @@ class TestStoreUnification:
 
 
     def test_satisfiable_many_const_failure(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
@@ -421,7 +429,7 @@ class TestStoreUnification:
         assert narrowed_doms == {}
 
     def test_satisfy_many_const_failure(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
@@ -444,7 +452,7 @@ class TestStoreUnification:
         assert w.cs_get_dom(sp) == c.FiniteDomain([1])
         
     def test_satisfy_many_const_success(self):
-        sp = space.ComputationSpace(problems.dummy_problem)
+        sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
         x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
@@ -462,6 +470,9 @@ class TestStoreUnification:
         assert z.cs_get_dom(sp) == c.FiniteDomain([3])
         assert w.cs_get_dom(sp) == c.FiniteDomain([4, 5])
 
+#-- computation spaces -------------------------------
+
+import strategies
 
 class TestComputationSpace:
 
@@ -469,30 +480,30 @@ class TestComputationSpace:
         pass
 
     def test_bind_cs_root(self):
-        spc = space.ComputationSpace(problems.satisfiable_problem)
+        spc = newspace(problems.satisfiable_problem)
         assert '__root__' in spc.names
         assert set(['x', 'y', 'w']) == \
                set([var.name for var in spc.root.val])
 
     def test_ask_success(self):
-        spc = space.ComputationSpace(problems.one_solution_problem)
+        spc = newspace(problems.one_solution_problem)
         assert spc.ask() == space.Succeeded
 
     def test_double_ask(self):
-        spc = space.ComputationSpace(problems.one_solution_problem)
+        spc = newspace(problems.one_solution_problem)
         assert spc.ask() == space.Succeeded
         assert spc.ask() == space.Succeeded
         
     def test_ask_failure(self):
-        spc = space.ComputationSpace(problems.unsatisfiable_problem)
+        spc = newspace(problems.unsatisfiable_problem)
         assert spc.ask() == space.Failed
 
     def test_ask_alternatives(self):
-        spc = space.ComputationSpace(problems.satisfiable_problem)
+        spc = newspace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternatives(2)
 
     def test_old_distribute(self):
-        spc = space.ComputationSpace(problems.satisfiable_problem)
+        spc = newspace(problems.satisfiable_problem)
         new_domains = [tuple(d.items()) for d in
                        spc.distributor.distribute()]
         x, y, z, w = (spc.get_var_by_name('x'),
@@ -516,12 +527,13 @@ class TestComputationSpace:
                 assert e1 == e2
 
     def test_clone_and_distribute(self):
-        spc = space.ComputationSpace(problems.satisfiable_problem)
+        spc = newspace(problems.satisfiable_problem)
         w = spc.get_var_by_name('w')
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
         # following couple of ops superceeded by inject()
-        new_spc.add_constraint(c.Expression(new_spc, [w], 'w == 5'))
+        new_spc.add_constraint(c.Expression(new_spc, [w],
+                                            'w == 5'))
         new_spc._process()
         assert spc.ask() == space.Alternatives(2)
         assert new_spc.ask() == space.Succeeded
@@ -530,8 +542,9 @@ class TestComputationSpace:
 
     def test_inject(self):
         def more_constraints(space):
-            space.add_constraint(c.Expression(space, [w], 'w == 5'))
-        spc = space.ComputationSpace(problems.satisfiable_problem)
+            space.add_constraint(c.Expression(space, [w],
+                                              'w == 5'))
+        spc = newspace(problems.satisfiable_problem)
         w = spc.get_var_by_name('w')
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
@@ -542,17 +555,17 @@ class TestComputationSpace:
         assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
         
     def test_merge(self):
-        spc = space.ComputationSpace(problems.satisfiable_problem)
+        spc = newspace(problems.satisfiable_problem)
         x, y, z, w = spc.find_vars('x', 'y', 'z', 'w')
         assert spc.TOP
-        assert spc.ask() == space.Alternatives(2)
         assert spc.dom(x) == c.FiniteDomain([6])
         assert spc.dom(y) == c.FiniteDomain([2])
         assert spc.dom(z) == c.FiniteDomain([4])
         assert spc.dom(w) == c.FiniteDomain([5, 6, 7])
 
         def more_constraints(space):
-            space.add_constraint(c.Expression(space, [w], 'w == 5'))
+            space.add_constraint(c.Expression(space, [w],
+                                              'w == 5'))
 
         nspc = spc.clone()
         nspc.inject(more_constraints)
@@ -569,3 +582,18 @@ class TestComputationSpace:
         assert y.val == 2
         assert w.val == 5
         assert (x, w, y) == nspc.root.val
+
+    def test_scheduling_problem_dfs_one_solution(self):
+        sol = strategies.dfs_one_solution(problems.conference_scheduling)
+
+        sol2 = [var.val for var in sol]
+        assert sol2 == [('room A', 'day 1 AM'),
+                        ('room A', 'day 2 PM'),
+                        ('room C', 'day 2 AM'),
+                        ('room C', 'day 2 PM'),
+                        ('room C', 'day 1 PM'),
+                        ('room C', 'day 1 AM'),
+                        ('room B', 'day 2 PM'),
+                        ('room B', 'day 1 PM'),
+                        ('room B', 'day 2 AM'),
+                        ('room A', 'day 1 PM')]

@@ -13,7 +13,7 @@ def dfs_one_solution(problem):
         if status == csp.Failed:
             return None
         elif status == csp.Succeeded:
-            return [space]
+            return space
         elif status == csp.Alternatives(2):
             new_space = space.clone()
             space.commit(1)
@@ -28,9 +28,8 @@ def dfs_one_solution(problem):
                                                
     
     space = csp.ComputationSpace(problem)
-    outcome = do_dfs(space)
-    if outcome == None: return None
-    space.merge()
-    return space
+    solved_space = do_dfs(space)
+    if solved_space == None: return None
+    return solved_space.merge()
 
 

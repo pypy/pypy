@@ -1,8 +1,9 @@
 from threading import Thread, Condition, RLock, local
 
-from state import Succeeded, Distributable, Failed, Merged
+from state import Succeeded, Distributable, Failed, \
+     Merged, Distributing
 
-from variable import EqSet, Var, NoValue, \
+from variable import EqSet, Var, NoValue, Pair, \
      VariableException, NotAVariable, AlreadyInStore
 from constraint import FiniteDomain, ConsistencyFailure
 from distributor import DefaultDistributor
@@ -16,6 +17,7 @@ class Alternatives(object):
 
     def __eq__(self, other):
         if other is None: return False
+        if not isinstance(other, Alternatives): return False
         return self._nbalt == other._nbalt
 
 def NoProblem():
@@ -58,14 +60,6 @@ class IncompatibleDomains(Exception):
     
 #---- ComputationSpace -------------------------------
 class ComputationSpace(object):
-    """The Store consists of a set of k variables
-       x1,...,xk that are partitioned as follows: 
-       * set of unbound variables that are equal
-         (also called equivalence sets of variables).
-         The variables in each set are equal to each
-         other but not to any other variables.
-       * variables bound to a number, record or procedure
-         (also called determined variables)."""
 
     # we have to enforce only one distributor
     # thread running in one space at the same time
@@ -75,6 +69,7 @@ class ComputationSpace(object):
         # consistency-preserving stuff
         self.in_transaction = False
         self.bind_lock = RLock()
+        self.var_lock = RLock()
         self.status = None
         self.status_condition = Condition()
         self.distributor = DefaultDistributor(self)
@@ -93,6 +88,7 @@ class ComputationSpace(object):
             # set up the problem
             self.bind(self.root, problem(self))
             # check satisfiability of the space
+            self._init_choose_commit()
             self._process()
             if self.status == Distributable:
                 self.distributor.start()
@@ -102,24 +98,144 @@ class ComputationSpace(object):
             self.var_const_map = parent.var_const_map
             self.constraints = parent.constraints
             self.root = parent.root
+            self._init_choose_commit()
 
+    def _init_choose_commit(self):
         # create a unique choice point
-        self.CHOICE = self._make_choice_var()
+        # using two vars as channels betwen
+        # space and distributor threads
+        self.CHOOSE = self._make_choice_var()
+        self.STABLE = self._make_stable_var()
+        # we start stanle
+        self.STABLE.bind(0)
 
-    def __del__(self):
-        self.status = Failed
-        self.bind(self.CHOICE, 0)
+#-- Computation Space -----------------------------------------
+
+    def _make_choice_var(self):
+        ComputationSpace._nb_choices += 1
+        return self.var('__choice__'+str(self._nb_choices))
+
+    def _make_stable_var(self):
+        ComputationSpace._nb_choices += 1
+        return self.var('__stable__'+str(self._nb_choices))
+
+    def _process(self):
+        """auxilary of the distributor
+           XXX: shouldn't only the distributor call it ?
+        """
+        try:
+            self.satisfy_all()
+        except ConsistencyFailure:
+            self.status = Failed
+        else:
+            if self._distributable():
+                self.status = Distributable
+            else:
+                self.status = Succeeded
+
+    def _suspended(self):
+        raise NotImplemented
+        # additional basic constraints done in an ancestor can
+        # make it runnable ; it is a temporary condition due
+        # to concurrency ; it means that some ancestor space
+        # has not yet transferred all required information to
+        # the space 
+    
+
+    def _distributable(self):
+        if self.status not in (Failed, Succeeded, Merged):
+            # sync. barrier with distributor
+            for var in self.vars:
+                if var.cs_get_dom(self).size() > 1 :
+                    return True
+        return False
+        # in The Book : "the space has one thread that is
+        # suspended on a choice point with two or more alternatives.
+        # A space can have at most one choice point; attempting to
+        # create another gives an error."
+
+    def ask(self):
+        print "SPACE Ask() checks stability ..."
+        self.STABLE.get() # that's real stability
+        print "SPACE is stable, resuming Ask()"
+        status = self.status in (Failed, Succeeded, Merged)
+        if status: return self.status
+        if self._distributable():
+            return Alternatives(self.distributor.nb_subdomains())
+        # should be unreachable
+        raise NotImplemented
+
+    def clone(self):
+        #XXX: lazy copy of domains would be nice
+        spc = ComputationSpace(NoProblem, parent=self)
+        for var in spc.vars:
+            var.cs_set_dom(spc, var.cs_get_dom(self).copy())
+        spc.distributor.set_space(spc)
+        if spc.status == Distributable:
+            spc.distributor.start()
+        return spc
+
+    def inject(self, restricting_problem):
+        """add additional entities into a space"""
+        restricting_problem(self)
+        self._process()
+
+    def commit(self, choice):
+        """if self is distributable, causes the Choose call in the
+           space to complete and return some_number as a result. This
+           may cause the spzce to resume execution.
+           some_number must satisfy 1=<I=<N where N is the first arg
+           of the Choose call.
+        """
+        print "SPACE commited to", choice
+        # block future calls to Ask until the distributor
+        # binds STABLE
+        self.STABLE = self._make_stable_var()
+        print "SPACE binds CHOOSE to", choice
+        self.bind(self.CHOOSE, choice)
+
+
+    def choose(self, nb_choices):
+        """
+        waits for stability
+        blocks until commit provides a value
+        between 0 and nb_choices
+        at most one choose running in a given space
+        at a given time
+        ----
+        this is used by the distributor thread
+        """
+        choice = self.CHOOSE.get()
+        return choice    
+
+    def merge(self):
+        """binds root vars to their singleton domains """
+        assert self.status == Succeeded
+        for var in self.root.val:
+            var.bind(var.cs_get_dom(self).get_values()[0])
+        self.status = Merged
+        # shut down the distributor
+        self.distributor.cs = None
+        self.CHOOSE.bind(0)
+        return self.root.val
+
+    def set_distributor(self, dist):
+        self.distributor = dist
         
-#-- Store ------------------------------------------------
+#-- Constraint Store ---------------------------------------
 
     #-- Variables ----------------------------
 
     def var(self, name):
         """creates a single assignment variable of name name
            and puts it into the store"""
-        v = Var(name, self)
-        self.add_unbound(v)
-        return v
+        self.var_lock.acquire()
+        try:
+            v = Var(name, self)
+            self.add_unbound(v)
+            return v
+        finally:
+            self.var_lock.release()
 
     def add_unbound(self, var):
         """add unbound variable to the store"""
@@ -148,9 +264,10 @@ class ComputationSpace(object):
     def find_vars(self, *names):
         """looks up many variables"""
         try:
-            return [self.names[name] for name in names]
+            return [self.names[name]
+                    for name in names]
         except KeyError:
-            raise NotInStore(name)
+            raise NotInStore(str(names))
 
     def is_bound(self, var):
         """check wether a var is locally bound"""
@@ -234,6 +351,7 @@ class ComputationSpace(object):
         return narrowed_domains
 
     def satisfy(self, constraint):
+        """narrows the domains down to satisfiability"""
         assert constraint in self.constraints
         varset = set()
         constset = set()
@@ -308,14 +426,20 @@ class ComputationSpace(object):
            2. (unbound)Variable/(bound)Variable or
            3. (unbound)Variable/Value binding
         """
+        # just introduced complete dataflow behaviour,
+        # where binding several times to compatible
+        # values is allowed provided no information is
+        # removed (this last condition remains to be checked)
+        self.bind_lock.acquire()
         try:
-            self.bind_lock.acquire()
             assert(isinstance(var, Var) and (var in self.vars))
             if var == val:
                 return
             if _both_are_vars(var, val):
                 if _both_are_bound(var, val):
-                    raise AlreadyBound(var.name)
+                    if _unifiable(var, val):
+                        return # XXX check corrrectness
+                    raise UnificationFailure(var, val)
                 if var._is_bound(): # 2b. var is bound, not var
                     self.bind(val, var)
                 elif val._is_bound(): # 2a.var is bound, not val
@@ -324,7 +448,9 @@ class ComputationSpace(object):
                     self._alias(var, val)
             else: # 3. val is really a value
                 if var._is_bound():
-                    raise AlreadyBound(var.name)
+                    if _unifiable(var.val, val):
+                        return # XXX check correctness
+                    raise UnificationFailure(var, val)
                 self._bind(var.val, val)
         finally:
             self.bind_lock.release()
@@ -398,11 +524,8 @@ class ComputationSpace(object):
             self.bind(y,x)
 
     def _unify_var_val(self, x, y):
-        if x.val != y:
-            try:
-                self.bind(x, y)
-            except AlreadyBound:
-                raise UnificationFailure(x, y)
+        if x.val != y: # what else ?
+            self.bind(x, y)
         
     def _unify_bound(self, x, y):
         # print "unify bound %s %s" % (x, y)
@@ -416,7 +539,7 @@ class ComputationSpace(object):
                 raise UnificationFailure(x, y)
 
     def _unify_iterable(self, x, y):
-        print "unify sequences %s %s" % (x, y)
+        #print "unify sequences %s %s" % (x, y)
         vx, vy = (x.val, y.val)
         idx, top = (0, len(vx))
         while (idx < top):
@@ -428,115 +551,6 @@ class ComputationSpace(object):
         vx, vy = (x.val, y.val)
         for xk in vx.keys():
             self._really_unify(vx[xk], vy[xk])
-
-#-- Computation Space -----------------------------------------
-
-    def _make_choice_var(self):
-        ComputationSpace._nb_choices += 1
-        return self.var('__choice__'+str(self._nb_choices))
-
-    def _process(self):
-        try:
-            self.satisfy_all()
-        except ConsistencyFailure:
-            self.status = Failed
-        else:
-            if self._distributable():
-                self.status = Distributable
-            else:
-                self.status = Succeeded
-
-    def _stable(self):
-        #XXX: really ?
-        return self.status in (Failed, Succeeded, Merged) \
-               or self._distributable()
-
-    def _suspended(self):
-        raise NotImplemented
-        # additional basic constraints done in an ancestor can
-        # make it runnable ; it is a temporary condition due
-        # to concurrency ; it means that some ancestor space
-        # has not yet transferred all required information to
-        # the space 
-    
-
-    def _distributable(self):
-        if self.status not in (Failed, Succeeded, Merged):
-            return self._distributable_domains()
-        return False
-        # in The Book : "the space has one thread that is
-        # suspended on a choice point with two or more alternatives.
-        # A space canhave at most one choice point; attempting to
-        # create another gives an error."
-
-    def _distributable_domains(self):
-        for var in self.vars:
-            if var.cs_get_dom(self).size() > 1 :
-                return True
-        return False
-
-    def set_distributor(self, dist):
-        self.distributor = dist
-
-    def ask(self):
-        # XXX: block on status being not stable for threads
-        #      use a df var instead of explicit waiting
-        # XXX: truly df vars needed (not one-shot bindings)
-        try:
-            self.status_condition.acquire()
-            while not self._stable():
-                self.status_condition.wait()
-            if self._distributable():
-                return Alternatives(self.distributor.nb_subdomains())
-            return self.status
-        finally:
-            self.status_condition.release()
-
-    def clone(self):
-        #XXX: lazy copy of domains would be nice
-        spc = ComputationSpace(NoProblem, parent=self)
-        for var in spc.vars:
-            var.cs_set_dom(spc, var.cs_get_dom(self).copy())
-        spc.distributor.set_space(spc)
-        if spc.status == Distributable:
-            spc.distributor.start()
-        return spc
-
-    def inject(self, restricting_problem):
-        """add additional entities into a space"""
-        restricting_problem(self)
-        self._process()
-
-    def commit(self, choice):
-        """if self is distributable, causes the Choose call in the
-           space to complete and return some_number as a result. This
-           may cause the spzce to resume execution.
-           some_number must satisfy 1=<I=<N where N is the first arg
-           of the Choose call.
-        """
-        self.bind(self.CHOICE, choice)
-
-    def choose(self, nb_choices):
-        """
-        waits for stability
-        blocks until commit provides a value
-        between 0 and nb_choices
-        at most one choose running in a given space
-        at a given time
-        ----
-        this is used by the distributor thread
-        """
-        self.ask()
-        choice = self.CHOICE.get()
-        self.CHOICE = self._make_choice_var()
-        return choice    
-
-    def merge(self):
-        assert self.status == Succeeded
-        # the following ought to be atomic (?)
-        for var in self.root.val:
-            var.val = var.cs_get_dom(self).get_values()[0]
-        self.status = Merged
 
 #-- Unifiability checks---------------------------------------
 #--
@@ -593,11 +607,10 @@ def _mapping_unifiable(m1, m2):
     return _iterable_unifiable([e[1] for e in v1],
                                [e[1] for e in v2])
 
-#-- Some utilities -----------------------------------------------
+#-- Some utilities -------------------------------------------
 
 def _both_are_vars(v1, v2):
     return isinstance(v1, Var) and isinstance(v2, Var)
     
 def _both_are_bound(v1, v2):
     return v1._is_bound() and v2._is_bound()
-

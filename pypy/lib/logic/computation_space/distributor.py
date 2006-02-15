@@ -1,6 +1,7 @@
 import math, random
 from threading import Thread
-from state import Succeeded, Distributable, Failed, Merged
+from state import Succeeded, Distributable, \
+     Distributing, Failed, Merged
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
@@ -124,19 +125,32 @@ class SplitDistributor(AbstractDistributor):
 
     def nb_subdomains(self):
         """See AbstractDistributor"""
-        self.__to_split = self.findSmallestDomain()
+        try:
+            self.cs.var_lock.acquire()
+            self.__to_split = self.findSmallestDomain()
+        finally:
+            self.cs.var_lock.release()
         if self.nb_subspaces:
-            return min(self.nb_subspaces, self.__to_split.cs_get_dom(self.cs).size()) #domains[self.__to_split].size())
+            return min(self.nb_subspaces,
+                       self.__to_split.cs_get_dom(self.cs).size()) 
         else:
-            return self.__to_split.cs_get_dom(self.cs).size() # domains[self.__to_split].size()
+            return self.__to_split.cs_get_dom(self.cs).size() 
 
     ### new threaded distributor
 
     def run(self):
         while self.cs.status == Distributable:
+            print "DISTRIBUTOR sleeps on choose()"
             choice = self.cs.choose(self.nb_subdomains())
+            # racey ...
+            print "DISTRIBUTOR choice =", choice
             self.new_distribute(choice)
             self.cs._process()
+            print "DISTRIBUTOR builds new CHOOSE"
+            self.cs.CHOOSE = self.cs._make_choice_var()
+            print "DISTRIBUTOR asserts space stability"
+            self.cs.STABLE.bind(0) # unlocks Ask
+
 
     def new_distribute(self, choice):
         """See AbstractDistributor"""
@@ -152,7 +166,7 @@ class SplitDistributor(AbstractDistributor):
         variable.cs_get_dom(self.cs).remove_values(values[end:])
 
 
-    ### current tests rely on this old
+    ### some tests rely on this old
     ### do_everything-at-once version
         
     def _distribute(self, *args):

@@ -8,6 +8,9 @@ class Succeeded:
 class Distributable:
     pass
 
+class Distributing:
+    pass
+
 class Failed(Exception):
     pass
 

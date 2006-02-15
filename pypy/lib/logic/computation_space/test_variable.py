@@ -356,7 +356,7 @@ class TestStream:
         Ys = sp.var('Ys')
 
         generator = FunThread(dgenerate, 0, Xs)
-        bbuffer = FunThread(bounded_buffer, 4, Xs, Ys)
+        bbuffer = FunThread(bounded_buffer, 8, Xs, Ys)
         summer = FunThread(dsum, Ys, 0, 50)
 
         generator.start()
