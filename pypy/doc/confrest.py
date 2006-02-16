@@ -15,6 +15,7 @@ class PyPyPage(Page):
                    href="https://codespeak.net/issue/pypy-dev/", 
                    class_="menu"), 
             " ", id="menubar")
+            html.a("events", href="events.html", class_="menu"), " ", 
 
 class Project(Project): 
     title = "PyPy" 
