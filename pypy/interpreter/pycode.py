@@ -95,7 +95,7 @@ class PyCode(eval.Code):
         self.co_flags = flags
         self.co_code = code
         self.co_consts_w = consts
-        self.co_names = names
+        self.co_names_w = [space.wrap(aname) for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars
@@ -132,6 +132,8 @@ class PyCode(eval.Code):
                         nextname = cellvars[next]
                     except IndexError:
                         break   # all cell vars initialized this way
+
+    co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
     def signature(self):
         return self._signature
@@ -301,7 +303,7 @@ class PyCode(eval.Code):
         return space.newtuple(self.co_consts_w)
     
     def fget_co_names(space, self):
-        return space.newtuple([space.wrap(name) for name in self.co_names])
+        return space.newtuple(self.co_names_w)
 
     def fget_co_varnames(space, self):
         return space.newtuple([space.wrap(name) for name in self.co_varnames])
@@ -324,12 +326,16 @@ class PyCode(eval.Code):
                     self.co_firstlineno == other.co_firstlineno and
                     self.co_code == other.co_code and
                     len(self.co_consts_w) == len(other.co_consts_w) and
-                    self.co_names == other.co_names and
+                    len(self.co_names_w) == len(other.co_names_w) and
                     self.co_varnames == other.co_varnames and
                     self.co_freevars == other.co_freevars and
                     self.co_cellvars == other.co_cellvars)
         if not areEqual:
             return space.w_False
+
+        for i in range(len(self.co_names_w)):
+            if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
+                return space.w_False
 
         for i in range(len(self.co_consts_w)):
             if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):

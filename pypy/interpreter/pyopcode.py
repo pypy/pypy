@@ -102,10 +102,10 @@ class PyInterpFrame(pyframe.PyFrame):
         return self.pycode.co_consts_w[index]
 
     def getname_u(self, index):
-        return self.pycode.co_names[index]
+        return self.space.str_w(self.pycode.co_names_w[index])
 
     def getname_w(self, index):
-        return self.space.wrap(self.pycode.co_names[index])
+        return self.pycode.co_names_w[index]
 
 
     ################################################################
@@ -471,25 +471,17 @@ class PyInterpFrame(pyframe.PyFrame):
     def LOAD_NAME(f, nameindex):
         if f.w_locals is not f.w_globals:
             w_varname = f.getname_w(nameindex)
-            try:
-                w_value = f.space.getitem(f.w_locals, w_varname)
-            except OperationError, e:
-                if not e.match(f.space, f.space.w_KeyError):
-                    raise
-            else:
+            w_value = f.space.finditem(f.w_locals, w_varname)
+            if w_value is not None:
                 f.valuestack.push(w_value)
                 return
         f.LOAD_GLOBAL(nameindex)    # fall-back
 
     def LOAD_GLOBAL(f, nameindex):
         w_varname = f.getname_w(nameindex)
-        try:
-            w_value = f.space.getitem(f.w_globals, w_varname)
-        except OperationError, e:
-            # catch KeyErrors
-            if not e.match(f.space, f.space.w_KeyError):
-                raise
-            # we got a KeyError, now look in the built-ins
+        w_value = f.space.finditem(f.w_globals, w_varname)
+        if w_value is None:
+            # not in the globals, now look in the built-ins
             varname = f.getname_u(nameindex)
             w_value = f.builtin.getdictvalue(f.space, varname)
             if w_value is None:
