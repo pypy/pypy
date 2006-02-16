@@ -22,7 +22,7 @@ Read more at `accu site`_.
 .. _`accu site`: http://www.accu.org/
 
 Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
-===================================================================
+========================================================================
 
 Developers focusing on adding logic programming to PyPy will meet with
 the team that developed the Oz programming language and the Mozart
