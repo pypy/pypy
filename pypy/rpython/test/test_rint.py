@@ -104,7 +104,7 @@ def test_unsigned():
 def test_specializing_int_functions():
     def f(i):
         return i + 1
-    f._annspecialcase_ = "specialize:argtype0"
+    f._annspecialcase_ = "specialize:argtype(0)"
     def g(n):
         if n > 0:
             return f(r_longlong(0))
@@ -132,7 +132,7 @@ def test_isinstance_vs_int_types():
             if isinstance(x, r_longlong):
                 return int(x)
             return "XXX"
-        wrap._annspecialcase_ = 'specialize:argtype0'
+        wrap._annspecialcase_ = 'specialize:argtype(0)'
 
     space = FakeSpace()
     def wrap(x):

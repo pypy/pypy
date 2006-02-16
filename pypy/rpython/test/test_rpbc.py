@@ -1203,9 +1203,9 @@ def test_multiple_specialized_functions():
         return x
     def mysecond(x, y):  # int,int->int or str,str->str
         return y
-    myadder._annspecialcase_ = 'specialize:argtype0'
-    myfirst._annspecialcase_ = 'specialize:argtype0'
-    mysecond._annspecialcase_ = 'specialize:argtype0'
+    myadder._annspecialcase_ = 'specialize:argtype(0)'
+    myfirst._annspecialcase_ = 'specialize:argtype(0)'
+    mysecond._annspecialcase_ = 'specialize:argtype(0)'
     def f(i):
         if i == 0:
             g = myfirst
@@ -1229,7 +1229,7 @@ def test_specialized_method_of_frozen():
                 return self.tag + '< %d >' % x
             else:
                 return self.tag + x
-        wrap._annspecialcase_ = 'specialize:argtype1'
+        wrap._annspecialcase_ = 'specialize:argtype(1)'
     space1 = space("tag1:")
     space2 = space("tag2:")
     def f(i):

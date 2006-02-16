@@ -1300,7 +1300,7 @@ def _loghelper(func, w_arg):
     # CAUTION:  e*SHIFT may overflow using int arithmetic,
     # so force use of double. */
     return func(x) + (e * float(SHIFT) * func(2.0))
-_loghelper._annspecialcase_ = 'specialize:arg0'
+_loghelper._annspecialcase_ = 'specialize:arg(0)'
 
 def _long_true_divide(a, b):
     try:

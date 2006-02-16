@@ -46,7 +46,7 @@ def _is_generic(w_self, fun):
             if not fun(v[idx]):
                 return space.w_False
         return space.w_True
-_is_generic._annspecialcase_ = "specialize:arg1"
+_is_generic._annspecialcase_ = "specialize:arg(1)"
 
 def _upper(ch):
     if ch.islower():

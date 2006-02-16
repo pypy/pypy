@@ -252,7 +252,7 @@ class TestAnnotatedTestCase:
     def test_specializing_int_functions(self):
         def f(i):
             return i + 1
-        f._annspecialcase_ = "specialize:argtype0"
+        f._annspecialcase_ = "specialize:argtype(0)"
         def g(n=int):
             if n > 0:
                 return f(r_longlong(0))

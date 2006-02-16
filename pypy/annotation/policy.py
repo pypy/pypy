@@ -1,6 +1,6 @@
 # base annotation policy for overrides and specialization
 from pypy.annotation.specialize import default_specialize as default
-from pypy.annotation.specialize import argtype, argvalue, arglistitemtype
+from pypy.annotation.specialize import specialize_argvalue, specialize_argtype, specialize_arglistitemtype
 from pypy.annotation.specialize import memo
 # for some reason, model must be imported first,
 # or we create a cycle.
@@ -36,43 +36,48 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         if directive is None:
             return pol.default_specialize
 
-        name = directive.replace(':', '__')
+        # specialize|override:name[(args)]
+        directive_parts = directive.split('(', 1)
+        if len(directive_parts) == 1:
+            [name] = directive_parts
+            parms = ()
+        else:
+            name, parms = directive_parts
+            try:
+                parms = eval("(lambda *parms: parms)(%s" % parms)
+            except KeyboardInterrupt, SystemExit:
+                raise
+            except:
+                raise Exception, "broken specialize directive parms: %s" % directive
+        name = name.replace(':', '__')
         try:
             specializer = getattr(pol, name)
         except AttributeError:
             raise AttributeError("%r specialize tag not defined in annotation"
-                                 "policy %s" % (directive, pol))
+                                 "policy %s" % (name, pol))
         if directive.startswith('override:'):
             # different signature: override__xyz(*args_s)
+            if parms:
+                raise Exception, "override:* specialisations don't support parameters"
             def specialize_override(funcdesc, args_s):
                 funcdesc.overridden = True
                 return specializer(*args_s)
             return specialize_override
         else:
-            return specializer
+            if not parms:
+                return specializer
+            else:
+                def specialize_with_parms(funcdesc, args_s):
+                    return specializer(funcdesc, args_s, *parms)
+                return specialize_with_parms
         
     # common specializations
 
     default_specialize = staticmethod(default)
     specialize__memo = staticmethod(memo)
-    specialize__arg0 = staticmethod(argvalue(0))
-    specialize__argtype0 = staticmethod(argtype(0))
-    specialize__arglistitemtype0 = staticmethod(arglistitemtype(0))
-    specialize__arg1 = staticmethod(argvalue(1))
-    specialize__argtype1 = staticmethod(argtype(1))
-    specialize__arglistitemtype1 = staticmethod(arglistitemtype(1))
-    specialize__arg2 = staticmethod(argvalue(2))
-    specialize__argtype2 = staticmethod(argtype(2))
-    specialize__arglistitemtype2 = staticmethod(arglistitemtype(2))
-    specialize__arg3 = staticmethod(argvalue(3))
-    specialize__argtype3 = staticmethod(argtype(3))
-    specialize__arglistitemtype3 = staticmethod(arglistitemtype(3))
-    specialize__arg4 = staticmethod(argvalue(4))
-    specialize__argtype4 = staticmethod(argtype(4))
-    specialize__arglistitemtype4 = staticmethod(arglistitemtype(4))
-    specialize__arg5 = staticmethod(argvalue(5))
-    specialize__argtype5 = staticmethod(argtype(5))
-    specialize__arglistitemtype5 = staticmethod(arglistitemtype(5))
+    specialize__arg = staticmethod(specialize_argvalue) # specialize:arg(N)
+    specialize__argtype = staticmethod(specialize_argtype) # specialize:argtype(N)
+    specialize__arglistitemtype = staticmethod(specialize_arglistitemtype)
 
     def override__ignore(pol, *args):
         bk = getbookkeeper()

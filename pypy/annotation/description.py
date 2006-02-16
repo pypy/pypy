@@ -354,9 +354,11 @@ class ClassDesc(Desc):
                 if self.specialize:
                     # make a custom funcdesc that specializes on its first
                     # argument (i.e. 'self').
-                    from pypy.annotation.specialize import argtype
+                    from pypy.annotation.specialize import specialize_argtype
+                    def argtype0(funcdesc, args_s):
+                        return specialize_argtype(funcdesc, args_s, 0)
                     funcdesc = FunctionDesc(self.bookkeeper, value,
-                                            specializer=argtype(0))
+                                            specializer=argtype0)
                     self.classdict[name] = funcdesc
                     continue
                 # NB. if value is, say, AssertionError.__init__, then we

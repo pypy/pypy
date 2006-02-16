@@ -190,7 +190,7 @@ class TimSort:
     # the two cases.  (This is actually needed for technical reasons: the
     # variable 'lower' must contain a known method, which is the case in each
     # specialized version but not in the unspecialized one.)
-    gallop._annspecialcase_ = "specialize:arg4"
+    gallop._annspecialcase_ = "specialize:arg(4)"
 
     # ____________________________________________________________
 

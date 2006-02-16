@@ -20,7 +20,7 @@ def math1(space, f, x):
         raise OperationError(space.w_ValueError,
                              space.wrap("math domain error"))
     return space.wrap(y)
-math1._annspecialcase_ = 'specialize:arg1'
+math1._annspecialcase_ = 'specialize:arg(1)'
 
 def math1_w(space, f, x):
     try:
@@ -32,7 +32,7 @@ def math1_w(space, f, x):
         raise OperationError(space.w_ValueError,
                              space.wrap("math domain error"))
     return r
-math1_w._annspecialcase_ = 'specialize:arg1'
+math1_w._annspecialcase_ = 'specialize:arg(1)'
 
 def math2(space, f, x, snd):
     try:
@@ -44,7 +44,7 @@ def math2(space, f, x, snd):
         raise OperationError(space.w_ValueError,
                              space.wrap("math domain error"))
     return space.wrap(r)
-math2._annspecialcase_ = 'specialize:arg1'
+math2._annspecialcase_ = 'specialize:arg(1)'
 
 def pow(space, x, y):
     """pow(x,y)

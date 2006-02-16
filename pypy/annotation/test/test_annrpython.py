@@ -954,7 +954,7 @@ class TestAnnotateTestCase:
             i = inst(cls)
             assert isinstance(i, cls)
             return i
-        alloc._annspecialcase_ = "specialize:arg0"
+        alloc._annspecialcase_ = "specialize:arg(0)"
 
         def f():
             c1 = alloc(C1)

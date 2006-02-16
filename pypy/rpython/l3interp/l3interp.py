@@ -270,7 +270,7 @@ def followlink1(stack, stackbase, targetregs, constants):
         for i in range(targetlen):
             stack[stackbase + i] = stack[top + i]
         del stack[stackbase + targetlen:]
-followlink1._annspecialcase_ = 'specialize:arglistitemtype0'
+followlink1._annspecialcase_ = 'specialize:arglistitemtype(0)'
 
 def directcall1(stack, nargs, constants, nextop):
     if nargs > 0:
@@ -280,4 +280,4 @@ def directcall1(stack, nargs, constants, nextop):
             if op >= 0: newval = constants[op]
             else:       newval = stack[top + op]
             stack.append(newval)
-directcall1._annspecialcase_ = 'specialize:arglistitemtype0'
+directcall1._annspecialcase_ = 'specialize:arglistitemtype(0)'

@@ -402,7 +402,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             instance.user_setup(self, w_subtype, w_subtype.nslots)
         assert isinstance(instance, cls)
         return instance
-    allocate_instance._annspecialcase_ = "specialize:arg1"
+    allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
     def unpacktuple(self, w_tuple, expected_length=-1):
         assert isinstance(w_tuple, W_TupleObject)

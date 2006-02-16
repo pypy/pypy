@@ -375,25 +375,18 @@ def cartesian_product(lstlst):
 ##    return funcdesc.cachedgraph(s1_type, alt_name='memo_%s' % funcdesc.name, 
 ##                                         builder=builder)
 
+def specialize_argvalue(funcdesc, args_s, i):
+    key = args_s[i].const
+    return funcdesc.cachedgraph(key)
 
-def argvalue(i):
-    def specialize_argvalue(funcdesc, args_s):
-        key = args_s[i].const
-        return funcdesc.cachedgraph(key)        
-    return specialize_argvalue
+def specialize_argtype(funcdesc, args_s, i):
+    key = args_s[i].knowntype
+    return funcdesc.cachedgraph(key)        
 
-def argtype(i):
-    def specialize_argtype(funcdesc, args_s):
-        key = args_s[i].knowntype
-        return funcdesc.cachedgraph(key)        
-    return specialize_argtype
-
-def arglistitemtype(i):
-    def specialize_arglistitemtype(funcdesc, args_s):
-        s = args_s[i]
-        if s.knowntype is not list:
-            key = None
-        else:
-            key = s.listdef.listitem.s_value.knowntype
-        return funcdesc.cachedgraph(key)        
-    return specialize_arglistitemtype
+def specialize_arglistitemtype(funcdesc, args_s, i):
+    s = args_s[i]
+    if s.knowntype is not list:
+        key = None
+    else:
+        key = s.listdef.listitem.s_value.knowntype
+    return funcdesc.cachedgraph(key)        
