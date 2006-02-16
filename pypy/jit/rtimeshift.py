@@ -163,7 +163,7 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
 # XXX dummy for now, no appropriate caching, just call enter_block
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
     return enter_block(jitstate, redboxes, TYPES)
-retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype2"
+retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes, TYPES):
     newblock = rgenop.newblock()
