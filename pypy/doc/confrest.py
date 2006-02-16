@@ -5,17 +5,18 @@ class PyPyPage(Page):
         super(PyPyPage, self).fill()
         self.menubar[:] = html.div(
             html.a("news", href="news.html", class_="menu"), " ",
-            html.a("doc", href="index.html", class_="menu"), " ",
-            html.a("contact", href="contact.html", class_="menu"), " ", 
             html.a("getting-started", 
                    href="getting-started.html", class_="menu"), " ",
-            html.a("EU/project", 
-                   href="http://pypy.org/", class_="menu"), " ",
-            html.a("issue", 
+            html.a("documentation", href="index.html", class_="menu"), " ",
+            html.a("events", href="events.html", class_="menu"), " ", 
+            html.a("svn", href="/svn/pypy", class_="menu"), " ", 
+            html.a("issues", 
                    href="https://codespeak.net/issue/pypy-dev/", 
                    class_="menu"), 
+            html.a("contact", href="contact.html", class_="menu"), " ", 
+            html.a("EU/project", 
+                   href="http://pypy.org/", class_="menu"), " ",
             " ", id="menubar")
-            html.a("events", href="events.html", class_="menu"), " ", 
 
 class Project(Project): 
     title = "PyPy" 

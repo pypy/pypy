@@ -69,7 +69,7 @@ PyPy Sprint in Paris 10th-16th October 2005
 
 The Paris sprint is over. We are all at home again and more or less exhausted.
 The sprint attracted 18 participants and took place in
-`Logilabs offices in Paris`_. We were happy to have five new 
+`Logilab offices in Paris`_. We were happy to have five new 
 developers to the PyPy Community! The focus was on implementing
 `continuation-passing`_ style (stackless), making the translation process
 work for target languages with more powerful object systems and some tiny
@@ -79,7 +79,7 @@ Together with Armin they wrote one about `the rest of the sprint`_ on the
 way back.
 *(10/18/2005)*
 
-.. _`Logilabs offices in Paris`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
+.. _`Logilab offices in Paris`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _`continuation-passing`: http://en.wikipedia.org/wiki/Continuation_passing_style
 .. _`report about day one`: http://codespeak.net/pipermail/pypy-dev/2005q4/002510.html
