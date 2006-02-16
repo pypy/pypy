@@ -3,6 +3,7 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
 import types
+from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.rpython.lltypesystem import lltype
@@ -89,3 +90,36 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s):
     return annotator.annotate_helper(ll_function, args_s, policy= LowLevelAnnotatorPolicy())
+
+# ___________________________________________________________________
+# Mix-level helpers: combining RPython and ll-level
+
+class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
+
+    def __init__(pol, rtyper):
+        pol.rtyper = rtyper
+
+    def default_specialize(pol, funcdesc, args_s):
+        name = funcdesc.name
+        if name.startswith('ll_') or name.startswith('_ll_'): # xxx can we do better?
+            return LowLevelAnnotatorPolicy.default_specialize(pol, funcdesc, args_s)
+        else:
+            return funcdesc.cachedgraph(None)
+
+    def arglltype(i):
+        def specialize_arglltype(pol, funcdesc, args_s):
+            key = pol.rtyper.getrepr(args_s[i]).lowleveltype
+            alt_name = funcdesc.name+"__for_%sLlT" % key._short_name()
+            return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))        
+        return specialize_arglltype
+        
+    specialize__arglltype0 = arglltype(0)
+    specialize__arglltype1 = arglltype(1)
+    specialize__arglltype2 = arglltype(2)
+
+    del arglltype
+
+
+def annotate_mixlevel_helper(rtyper, ll_function, args_s):
+    pol = MixLevelAnnotatorPolicy(rtyper)
+    return rtyper.annotator.annotate_helper(ll_function, args_s, policy=pol)

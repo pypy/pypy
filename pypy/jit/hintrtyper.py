@@ -1,4 +1,3 @@
-from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython import annlowlevel
@@ -103,31 +102,6 @@ class HintRTyper(RPythonTyper):
         #                         opname2vstr(hop.spaceop.opname),
         #                         v_args, c_restype)
 
-class MixLevelAnnotatorPolicy(annlowlevel.LowLevelAnnotatorPolicy):
-
-    def __init__(pol, rtyper):
-        pol.rtyper = rtyper
-
-    def default_specialize(pol, funcdesc, args_s):
-        name = funcdesc.name
-        if name.startswith('ll_') or name.startswith('_ll_'): # xxx can we do better?
-            return annlowlevel.LowLevelAnnotatorPolicy.default_specialize(pol, funcdesc, args_s)
-        else:
-            return funcdesc.cachedgraph(None)
-
-    def arglltype(i):
-        def specialize_arglltype(pol, funcdesc, args_s):
-            key = pol.rtyper.getrepr(args_s[i]).lowleveltype
-            alt_name = funcdesc.name+"__for_%sLlT" % key._short_name()
-            return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))        
-        return specialize_arglltype
-        
-    specialize__arglltype0 = arglltype(0)
-    specialize__arglltype1 = arglltype(1)
-    specialize__arglltype2 = arglltype(2)
-
-    del arglltype
-
 
 class HintLowLevelOpList(LowLevelOpList):
     """Warning: the HintLowLevelOpList's rtyper is the *original*
@@ -145,9 +119,7 @@ class HintLowLevelOpList(LowLevelOpList):
         # specialisation for these helpers too
         rtyper = self.rtyper
         rtyper.call_all_setups()  # compute ForwardReferences now
-        graph = rtyper.annotator.annotate_helper(function, args_s,
-                                                 policy=MixLevelAnnotatorPolicy(rtyper)
-                                                 )
+        graph = annlowlevel.annotate_mixlevel_helper(rtyper, function, args_s)
         self.record_extra_call(graph) # xxx
 
         # build the 'direct_call' operation
