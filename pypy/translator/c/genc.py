@@ -44,6 +44,10 @@ class CBuilder(object):
         # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
 
+        # give the gc a chance to register interest in the start-up functions it
+        # need (we call this for its side-effects of db.get())
+        list(db.gcpolicy.gc_startup_code())
+
         # XXX the following has the side effect to generate
         # some needed things. Find out why.
         pf = self.getentrypointptr()

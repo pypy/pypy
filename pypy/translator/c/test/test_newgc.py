@@ -184,3 +184,24 @@ def test_wrong_order_setitem():
     fn = compile_func(f, [int])
     res = fn(1)
     assert res == 1
+
+# _______________________________________________________________
+# test framework
+
+from pypy.translator.c.test.test_boehm import AbstractTestClass
+
+class TestUsingFramework(AbstractTestClass):
+    from pypy.translator.c.gc import FrameworkGcPolicy as gcpolicy
+
+    def test_nongcing_gc(self):
+        def g(x):
+            return x + 1
+        class A(object):
+            pass
+        def f():
+            a = A()
+            a.b = g(1)
+            return a.b
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 2

@@ -7,8 +7,8 @@ def setup_module(mod):
     if not check_boehm_presence():
         py.test.skip("Boehm GC not present")
 
-class TestUsingBoehm:
-
+class AbstractTestClass:
+    
     # deal with cleanups
     def setup_method(self, meth):
         self._cleanups = []
@@ -18,7 +18,6 @@ class TestUsingBoehm:
             self._cleanups.pop()()
 
     def getcompiled(self, func):
-        from pypy.translator.c.gc import BoehmGcPolicy
         t = TranslationContext(simplifying=True)
         # builds starting-types from func_defs 
         argstypelist = []
@@ -31,7 +30,7 @@ class TestUsingBoehm:
         t.buildrtyper().specialize()
         t.checkgraphs()
         def compile():
-            cbuilder = CExtModuleBuilder(t, func, gcpolicy=BoehmGcPolicy)
+            cbuilder = CExtModuleBuilder(t, func, gcpolicy=self.gcpolicy)
             c_source_filename = cbuilder.generate_source()
             cbuilder.compile()
             mod = cbuilder.isolated_import()
@@ -39,6 +38,9 @@ class TestUsingBoehm:
             return cbuilder.get_entry_point()
         return skip_missing_compiler(compile)
 
+
+class TestUsingBoehm(AbstractTestClass):
+    from pypy.translator.c.gc import BoehmGcPolicy as gcpolicy
 
     def test_malloc_a_lot(self):
         def malloc_a_lot():

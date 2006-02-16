@@ -210,10 +210,12 @@ class GCTransformer(object):
 ##         print time.time() - T
         return r
 
-    def inittime_helper(self, ll_helper, args_s):
+    def inittime_helper(self, ll_helper, args_s, attach_empty_cleanup=False):
         graph = self.annotate_helper(ll_helper, args_s)
         self.translator.rtyper.specialize_more_blocks()
         self.seen_graphs[graph] = True
+        if attach_empty_cleanup:
+            MinimalGCTransformer(self.translator).transform_graph(graph)
         return const_funcptr_fromgraph(graph)
     
 
@@ -634,8 +636,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
 
         def ll_frameworkgc_setup():
             stackbase = lladdress.raw_malloc(rootstacksize)
-            if not stackbase:
-                raise MemoryError
             rootstack.top  = stackbase
             rootstack.base = stackbase
 
@@ -650,8 +650,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             rootstack.top = top
             return result
 
-        self.frameworkgc_setup_ptr = self.inittime_helper(ll_frameworkgc_setup,
-                                                          [])
+        self.frameworkgc_setup_ptr = self.inittime_helper(
+            ll_frameworkgc_setup, [], attach_empty_cleanup=True)
         self.push_root_ptr = self.inittime_helper(ll_push_root,
                                                   [annmodel.SomeAddress()])
         self.pop_root_ptr = self.inittime_helper(ll_pop_root, [])

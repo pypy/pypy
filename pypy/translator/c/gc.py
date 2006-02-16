@@ -267,8 +267,19 @@ class NoneGcPolicy(BoehmGcPolicy):
     zero_malloc = RefcountingGcPolicy.zero_malloc.im_func
     gc_libraries = RefcountingGcPolicy.gc_libraries.im_func
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
-    rtti_type = RefcountingGcPolicy.rtti_type.im_func
 
     def pre_pre_gc_code(self):
         yield '#define USING_NO_GC'
 
+# the framework GC policy -- we are very optimistic tonight
+
+class FrameworkGcPolicy(NoneGcPolicy):
+    transformerclass = gctransform.FrameworkGCTransformer
+
+    def gc_startup_code(self):
+        fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
+        yield '%s();' % (self.db.get(fnptr),)
+
+    def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op, err):
+        args = [funcgen.expr(v) for v in op.args]
+        return '%s = %s; /* for moving GCs */' % (args[1], args[0])
