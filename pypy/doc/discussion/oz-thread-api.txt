@@ -1,4 +1,4 @@
-wSome rough notes about the Oz threading model
+Some rough notes about the Oz threading model
 =============================================
 
 (almost verbatim from CTM)

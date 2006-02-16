@@ -30,16 +30,16 @@ Read more in `the announcement`_.
 .. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
 
 PyCon Sprint at Python Conference 2006 (Dallas, Texas, United States)
-===================================================================
+=====================================================================
 
 Post-PyCon PyPy Sprint is scheduled to take place right after PyCon
 2006 from February 27th to March 2nd 2006.
 
 We hope to see lots of newcomers at this sprint, so we'll give
 friendly introductions. Note that during the Pycon conference we are
-giving PyPy talks which serve well as preparation.  Read more in `the
-announcement`_.
+giving PyPy talks which serve well as preparation.  Read more in the
+`announcement`_.
 
-.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-announcement.html
+.. _`announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-announcement.html
 
 
