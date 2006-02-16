@@ -50,10 +50,12 @@ take_options = True
 
 def opt_parser():
     import py
-    defl = {'thread': False}
+    defl = {'thread': False, 'usemodules': ''}
     parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", add_help_option=False)
     parser.set_defaults(**defl)
     parser.add_option("--thread", action="store_true", dest="thread", help="enable threading")
+    parser.add_option("--usemodules", action="store", type="string", dest="usemodules",
+            help="list of mixed modules to include, comma-separated")
     return parser
 
 def print_help():
@@ -66,8 +68,6 @@ def target(driver, args):
     tgt_options, _ = opt_parser().parse_args(args)
 
     translate_pypy.log_options(tgt_options, "target PyPy options in effect")
-
-    options.thread = tgt_options.thread
 
     global space, w_entry_point
 
@@ -82,7 +82,10 @@ def target(driver, args):
     StdObjSpace.setup_old_style_classes = lambda self: None
 
     usemodules = []
-    if options.thread:
+    if tgt_options.usemodules:
+        usemodules.extend(tgt_options.usemodules.split(","))
+    if tgt_options.thread:
+        # thread might appear twice now, but the objspace can handle this
         usemodules.append('thread')
     if options.stackless:
         usemodules.append('stackless')
