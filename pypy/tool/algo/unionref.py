@@ -100,7 +100,7 @@ class UnionDict(object, UserDict.DictMixin):
         self._data[key1] = self._data[key1].merge(self._data[key2], union)
 
     def copy(self):
-        result = UnionDictionary()
+        result = UnionDict()
         newrefs = {}
         for key, valueref in self._data.iteritems():
             valueref = valueref._findrep()
@@ -112,7 +112,7 @@ class UnionDict(object, UserDict.DictMixin):
         return result
 
     def __repr__(self):
-        return "<UnionDictionary at %s>" % id(self)
+        return "<UnionDict at %s>" % id(self)
 
     def __getitem__(self, key):
         return self._data[key]()
