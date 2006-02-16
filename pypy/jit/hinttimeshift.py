@@ -4,7 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
 from pypy.jit.rtimeshift import STATE_PTR, REDBOX_PTR, VARLIST
 from pypy.jit.rtimeshift import make_types_const
-from pypy.rpython import rmodel, rtuple, rlist, rdict
+from pypy.rpython import rmodel, rtuple, rlist, rdict, rgenop
 from pypy.jit import rtimeshift
 from pypy.jit.hintrtyper import HintRTyper, s_JITState, originalconcretetype
 from pypy.jit.hintrtyper import GreenRepr, RedRepr, HintLowLevelOpList
@@ -196,10 +196,11 @@ class HintTimeshift(object):
 
         s_key_tuple = annmodel.SomeTuple(items_s)
   
-
+        s_dict_value = annmodel.SomeTuple([s_box_list,
+                                           annmodel.SomePtr(rgenop.BLOCK)])
         s_state_dic = annmodel.SomeDict(dictdef.DictDef(None,
                                                         s_key_tuple,
-                                                        s_box_list # XXX
+                                                        s_dict_value
                                                         ))
         r_key = getrepr(s_key_tuple)
 

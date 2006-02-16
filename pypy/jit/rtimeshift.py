@@ -162,7 +162,51 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
 
 # XXX dummy for now, no appropriate caching, just call enter_block
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
-    return enter_block(jitstate, redboxes, TYPES)
+    if key not in states_dic:
+        jitstate = enter_block(jitstate, redboxes, TYPES)
+        states_dic[key] = redboxes[:], jitstate.curblock
+        return jitstate
+
+    oldboxes, oldblock = states_dic[key]
+    incoming = []
+    for i in range(len(redboxes)):
+        oldbox = oldboxes[i]
+        newbox = redboxes[i]
+        if oldbox.isvar: # Allways a match
+            # incoming.append(ll_gvar_from_redbox(jitstate, newbox, TYPES[i]))
+            # XXX: Cheat with Signed for now
+            incoming.append(ll_gvar_from_redbox(jitstate, newbox, lltype.Signed))
+            continue
+        if (not newbox.isvar and ll_getvalue(oldbox, lltype.Signed) ==
+            ll_getvalue(newbox, lltype.Signed)):
+            continue
+        # Missmatch. Generalize to a var
+    else:
+        rgenop.closelink(jitstate.curoutgoinglink, incoming, oldblock)
+        return lltype.nullptr(STATE)
+    
+    # Make a more general block
+    newblock = rgenop.newblock()
+    incoming = []
+    for i in range(len(redboxes)):
+        oldbox = oldboxes[i]
+        newbox = redboxes[i]
+        if (newbox.isvar or oldbox.isvar or
+            ll_getvalue(oldbox, lltype.Signed) !=
+            ll_getvalue(newbox, lltype.Signed)):
+            # incoming.append(ll_gvar_from_redbox(jitstate, newbox, TYPES[i]))
+            # XXX: Cheat with Signed for now
+            incoming.append(ll_gvar_from_redbox(jitstate, newbox, lltype.Signed))
+            newgenvar = rgenop.geninputarg(newblock, TYPES[i])
+            redboxes[i] = REDBOX.ll_make_for_gvar(newgenvar)
+
+    rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
+    jitstate.curblock = newblock
+    jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
+    states_dic[key] = redboxes[:], newblock
+    return jitstate
+            
+
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes, TYPES):
