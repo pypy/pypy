@@ -46,7 +46,7 @@ def timeshift(ll_function, values, opt_consts=[]):
         t.view()
     # run the time-shifted graph-producing graphs
     graph1 = ha.translator.graphs[0]
-    jitstate = rtimeshift.ll_setup_jitstate()
+    jitstate = rtimeshift.ll_setup_jitstate(htshift.QUESTATE_PTR)
     graph1args = [jitstate]
     residual_graph_args = []
     assert len(graph1.getargs()) == 1 + len(values)
@@ -79,6 +79,35 @@ def timeshift(ll_function, values, opt_consts=[]):
     res = rgenop.testgengraph(residual_graph, residual_graph_args,
                               viewbefore = conftest.option.view)
     return insns, res
+
+def test_ll_get_return_queue():
+    t = TranslationContext()
+    a = t.buildannotator()
+    rtyper = t.buildrtyper()
+    rtyper.specialize() # XXX
+
+    htshift = HintTimeshift(None, rtyper)
+
+    questate = htshift.QUESTATE_PTR.TO.ll_newstate()
+
+    def llf(questate):
+        return questate.ll_get_return_queue()
+
+    from pypy.rpython import annlowlevel
+
+    graph = annlowlevel.annotate_mixlevel_helper(rtyper, llf, [
+        annmodel.SomePtr(htshift.QUESTATE_PTR)])
+
+    s = a.binding(graph.getreturnvar())
+
+    assert s == htshift.s_return_queue
+
+    rtyper.specialize_more_blocks()
+
+    llinterp = LLInterpreter(rtyper)
+    rq = llinterp.eval_graph(graph, [questate])
+    assert lltype.typeOf(rq) == rtyper.getrepr(s).lowleveltype
+
 
 def test_simple_fixed():
     def ll_function(x, y):
@@ -131,3 +160,15 @@ def test_loop_folding():
     insns, res = timeshift(ll_function, [7, 2], [0, 1])
     assert res == 14
     assert insns == {}
+
+def test_loop_merging():
+    py.test.skip('Work in progress')
+    def ll_function(x, y):
+        tot = 0
+        while x:
+            tot += y
+            x -= 1
+        return tot
+    insns, res = timeshift(ll_function, [7, 2], [])
+    assert res == 14
+    # assert insns == {}

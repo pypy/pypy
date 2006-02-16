@@ -56,7 +56,6 @@ REDBOX_FOR_SIGNED = lltype.GcStruct("signed_redbox",
                                     ('basebox', REDBOX),
                                     ("value", lltype.Signed))
 REDBOX_FOR_SIGNED_PTR = lltype.Ptr(REDBOX_FOR_SIGNED)
-
 STATE = lltype.GcStruct("jitstate", ("curblock", rgenop.BLOCK),
                                     ("curoutgoinglink", rgenop.LINK),
                                     ("curvalue", REDBOX_PTR))
@@ -227,8 +226,47 @@ def leave_block(jitstate):
     jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
     return jitstate
 
-def ll_setup_jitstate():
-    jitstate = lltype.malloc(STATE)
+def schedule_return(jitstate, redbox):
+    return_queue = jitstate.ll_get_return_queue()
+    curoutgoinglink = jitstate.ll_basestate().curoutgoinglink
+    return_queue.append((curoutgoinglink, redbox))
+
+novars = lltype.malloc(VARLIST.TO, 0)
+
+def dispatch_next(jitstate, outredboxes):
+    return_queue = jitstate.ll_get_return_queue()
+    basestate = jitstate.ll_basestate()
+    first_redbox = return_queue[0][1]
+    finalblock = rgenop.newblock()
+    basestate.curblock = finalblock
+    if not first_redbox.isvar:
+        for link, redbox in return_queue:
+            if (redbox.isvar or
+                redbox.ll_getvalue(lltype.Signed) !=
+                first_redbox.ll_getvalue(lltype.Signed)):
+                break
+        else:
+            for link, _ in return_queue:
+                rgenop.closelink(link, novars, finalblock)
+            finallink = rgenop.closeblock1(finalblock)
+            basestate.curoutgoinglink = finallink
+            basestate.curvalue = first_redbox
+            return -1
+
+    finalvar = rgenop.geninputarg(finalblock,
+                                  rgenop.constTYPE(lltype.Signed))
+    for link, redbox in return_queue:
+        gvar = ll_gvar_from_redbox(jitstate, redbox, lltype.Signed)
+        rgenop.closelink(link, [gvar], finalblock)
+    finallink = rgenop.closeblock1(finalblock)
+    basestate.curoutgoinglink = finallink
+    basestate.curvalue = REDBOX.ll_make_for_gvar(finalvar)
+    return -1
+
+
+def ll_setup_jitstate(EXT_STATE_PTR):
+    jitstate = EXT_STATE_PTR.TO.ll_newstate()
+    jitstate = lltype.cast_pointer(STATE_PTR, jitstate)
     jitstate.curblock = rgenop.newblock()
     return jitstate
 
@@ -236,8 +274,7 @@ def ll_end_setup_jitstate(jitstate):
     jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
 
 def ll_close_jitstate(final_jitstate, return_gvar):
-    link = rgenop.closeblock1(final_jitstate.curblock)
-    rgenop.closereturnlink(link, return_gvar)
+    rgenop.closereturnlink(final_jitstate.curoutgoinglink, return_gvar)
 
 def ll_input_redbox(jitstate, TYPE):
     genvar = rgenop.geninputarg(jitstate.curblock,
