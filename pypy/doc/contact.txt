@@ -32,6 +32,15 @@ the channel here_.
 
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
 
+Meeting PyPy developers
+=======================
+
+The PyPy developers are organising sprints and presenting results at
+conferences all year round. They will be happy to meet in person with
+anyone interested in the project. Here is the list of planned events_.
+
+.. _events: http://codespeak.net/pypy/dist/pypy/doc/events.html
+
 PyPy calendar
 =============
 

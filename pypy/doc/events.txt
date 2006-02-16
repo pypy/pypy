@@ -2,7 +2,10 @@
 
     The PyPy project is a worldwide collaborative effort and its
     members are organising sprints and presenting results at conferences
-    all year round. The list of planned events is as follow:
+    all year round. The list of planned events follows. It is also
+    published under the iCalendar format `over there`.
+
+.. _`over there`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 
 Sprint in Tokyo (Japan)
 ===================================================================
