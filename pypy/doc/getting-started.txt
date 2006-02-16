@@ -19,13 +19,14 @@ opposed to encoding low level details into the language implementation itself.
 Eventually, dynamic optimization techniques - implemented as another
 translation aspect - should become robust against language changes. `more...`_
 
+.. _Python: http://docs.python.org/ref
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html
 
 Just the facts 
 ============== 
 
-getting & running the PyPy 0.8 release 
------------------------------------------
+Downloading & running the PyPy 0.8 release 
+-------------------------------------------
 
 Download one of the following release files and unpack it: 
 
@@ -42,8 +43,9 @@ Download one of the following release files and unpack it:
     * ``svn co http://codespeak.net/svn/pypy/release/0.8.x pypy-0.8.x``
       (the 0.8 maintenance branch)
 
-then change to the ``pypy-0.8.0`` or ``pypy-0.8.x`` directory
-and execute the following command line:: 
+to get it from the subversion repository then change to the
+``pypy-0.8.0`` or ``pypy-0.8.x`` directory and execute the following
+command line::
 
     python pypy/bin/py.py 
 
@@ -100,7 +102,7 @@ may just `start reading sources`_ .
 
 .. _`documentation section`: index.html 
 
-running all of PyPy's tests  
+Running all of PyPy's tests  
 ---------------------------
 
 If you want to see if PyPy works on your machine/platform 
@@ -177,7 +179,7 @@ script name on the command line::
 
     python py.py ../../lib-python/2.4.1/test/pystone.py 10
 
-special PyPy features 
+Special PyPy features 
 -------------------------- 
 
 Interpreter-level console
@@ -232,7 +234,7 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
 
 .. _ `lazily computed objects`:
 
-lazily computed objects 
+Lazily computed objects 
 +++++++++++++++++++++++
 
 One of the original features provided by PyPy is the "thunk" 
@@ -347,7 +349,7 @@ After that, the graph viewer pops up, that lets you interactively inspect the
 flowgraph. To move around, click on something that you want to inspect.
 To get help about how to use it, press 'H'. To close it again, press 'Q'.
 
-trying out the type annotator
+Trying out the type annotator
 +++++++++++++++++++++++++++++
 
 We have a type annotator that can completely infer types for functions like
@@ -359,7 +361,7 @@ We have a type annotator that can completely infer types for functions like
 Move the mouse over variable names (in red) to see their inferred types.
 
 
-translating the flow graph to C code
+Translating the flow graph to C code
 ++++++++++++++++++++++++++++++++++++
 
 The graph can be turned into C code::
@@ -378,7 +380,7 @@ compiled version::
 
 .. _LLVM:
 
-translating the flow graph to LLVM code
+Translating the flow graph to LLVM code
 +++++++++++++++++++++++++++++++++++++++
 
 To translate for LLVM (`low level virtual machine`_) you must first have `LLVM
@@ -404,7 +406,7 @@ Here is a simple example to try::
    5
 
 
-a slightly larger example
+A slightly larger example
 +++++++++++++++++++++++++
 
 There is a small-to-medium demo showing the translator and the annotator::
@@ -423,7 +425,7 @@ compiled and executed.
 
 .. _`translate itself to lower level languages`: 
 
-translating the PyPy interpreter
+Translating the PyPy interpreter
 --------------------------------
 
 Not for the faint of heart nor the owner of a very old machine: you can
@@ -618,12 +620,14 @@ path, you might like to visit:
 Getting involved 
 ================================== 
 
-PyPy employs an open development process.  You are invited 
-to join our `pypy-dev mailing list`_ or look at the other 
-`contact possibilities`_.   We are also doing coding Sprints
-which are separatedly announced and often happen around Python
-conferences such as EuroPython or Pycon. 
+PyPy employs an open development process.  You are invited to join our
+`pypy-dev mailing list`_ or look at the other `contact
+possibilities`_.  We are also doing coding Sprints which are
+separatedly announced and often happen around Python conferences such
+as EuroPython or Pycon. Take a look at the list of upcoming events_ to
+plan where to meet with us.
 
+.. _events: http://codespeak.net/pypy/dist/pypy/doc/events.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: contact.html
 
