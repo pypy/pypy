@@ -15,7 +15,9 @@ project during the Solutions Linux tradeshow in Paris. A lot of
 enthusiasts already knew about the project and were eager to learn
 about the details. Many people discovered PyPy on this occasion and
 said they were interested in the outcome and would keep an eye on its
-progress.
+progress. Read the `talk slides`_.
+
+.. _`talk slides`: http://codespeak.net/pypy/extradoc/talk/solutions-linux-paris-2006.html
 
 
 PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
