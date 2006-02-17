@@ -13,7 +13,7 @@ def update_pypy():
 def update_llvm():
     os.chdir(homedir + '/projects/llvm')
     os.system('cvs -q up 2>&1')
-    os.system('make clean 2>&1')
+    #os.system('make clean 2>&1')
     os.system('make -j3 tools-only 2>&1')
 
 def compile_llvm_variants(revision):
@@ -74,8 +74,12 @@ def bc2x86_exe(tmpdir, revision, name_extra, llc_extra_options):
 
 
 def compile(backend):
-    backend, features = backend.split('--', 1)
-    featureoptions = ''.join([" --" + f for f in features.split('--')])
+    try:
+        backend, features = backend.split('--', 1)
+        featureoptions = ''.join([" --" + f for f in features.split('--')])
+    except:
+        features       = ''
+        featureoptions = ''
 
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     os.system('/usr/local/bin/python translate_pypy.py --backend=%(backend)s%(featureoptions)s --text --batch targetpypystandalone.py 2>&1' % locals())
