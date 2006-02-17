@@ -202,7 +202,7 @@ class _AppThunk(object):
     def __init__(self, space, costate, w_obj, args):
         self.space = space
         self.costate = costate
-        if space.lookup(w_obj, '__call__') is None:
+        if not space.callable(w_obj):
             raise OperationError(
                 space.w_TypeError, 
                 space.mod(space.wrap('object %r is not callable'),

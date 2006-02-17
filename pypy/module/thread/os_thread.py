@@ -63,8 +63,7 @@ printed unless the exception is SystemExit."""
     if w_kwargs is not None and not space.is_true(space.isinstance(w_kwargs, space.w_dict)): 
         raise OperationError(space.w_TypeError, 
                 space.wrap("optional 3rd arg must be a dictionary")) 
-    # XXX using space.lookup here is not very nice
-    if space.lookup(w_callable, "__call__") is None:
+    if not space.is_true(space.callable(w_callable)):
         raise OperationError(space.w_TypeError, 
                 space.wrap("first arg must be callable"))
 
