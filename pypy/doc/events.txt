@@ -7,36 +7,18 @@
 
 .. _`over there`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 
-Sprint in Tokyo (Japan)
+Talks at PyCon 2006 (Dallas, Texas, USA)
 ===================================================================
 
-From April 23rd to April 29th 2006.
+*Feb 24th - Feb 26th 2006.* PyPy developers will speak at `PyCon 2006`_.
 
-Talks at Python UK/ACCU Conference (United Kingdom)
-===================================================================
+.. _`PyCon 2006`: http://us.pycon.org/TX2006/HomePage 
 
-ACCU conference running from April 19th to April 22nd 2006.
+PyCon Sprint 2006 (Dallas, Texas, USA)
+==================================================================
 
-Read more at `accu site`_.
-
-.. _`accu site`: http://www.accu.org/
-
-Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
-========================================================================
-
-Developers focusing on adding logic programming to PyPy will meet with
-the team that developed the Oz programming language and the Mozart
-interpreter.
-
-Read more in `the announcement`_.
-
-.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
-
-PyCon Sprint at Python Conference 2006 (Dallas, Texas, United States of America)
-================================================================================
-
-Post-PyCon PyPy Sprint is scheduled to take place right after PyCon
-2006 from February 27th to March 2nd 2006.
+*Feb 27th - March 2nd 2006.* The Post-PyCon PyPy Sprint is scheduled to
+take place right after PyCon 2006. 
 
 We hope to see lots of newcomers at this sprint, so we'll give
 friendly introductions. Note that during the Pycon conference we are
@@ -45,13 +27,27 @@ giving PyPy talks which serve well as preparation.  Read more in the
 
 .. _`announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-announcement.html
 
+Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
+========================================================================
 
-Talks at PyCon'06 (Dallas, Texas, United States of America)
+*March 6th - March 10th 2006.* Developers focusing on adding logic programming
+to PyPy will meet with
+the team that developed the Oz programming language and the Mozart
+interpreter.
+
+Read more in `the announcement`_.
+
+.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
+
+Talks at Python UK/ACCU Conference (United Kingdom)
 ===================================================================
 
-ACCU conference running from April 19th to April 22nd 2006.
+*April 19th - April 22nd 2006.* Read more at the `ACCU site`_.
 
-Read more at `accu site`_.
+.. _`ACCU site`: http://www.accu.org/
 
-.. _`accu site`: http://www.accu.org/
+Sprint in Tokyo (Japan)
+===================================================================
+
+*April 23rd - April 29th 2006.*
 
