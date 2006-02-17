@@ -89,6 +89,18 @@ class TestObjSpace:
         assert not self.space.exception_match(self.space.w_ValueError,
                                                self.space.w_LookupError)
 
+    def test_lookup(self):
+        w = self.space.wrap
+        w_object_doc = self.space.getattr(self.space.w_object, w("__doc__"))
+        w_instance = self.space.appexec([], "(): return object()")
+        assert self.space.lookup(w_instance, "__doc__") == w_object_doc 
+        assert self.space.lookup(w_instance, "gobbledygook") is None
+        w_instance = self.space.appexec([], """():
+            class Lookup(object):
+                "bla" 
+            return Lookup()""")
+        assert self.space.str_w(self.space.lookup(w_instance, "__doc__")) == "bla"
+
     def test_callable(self):
         def is_callable(w_obj):
             return self.space.is_true(self.space.callable(w_obj))
