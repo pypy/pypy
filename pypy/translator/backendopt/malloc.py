@@ -149,6 +149,8 @@ def _try_inline_malloc(info):
         vars = variables_by_block.setdefault(block, {})
         vars[var] = True
 
+    count = [0]
+
     for block, vars in variables_by_block.items():
 
         def flowin(var, newvarsmap):
@@ -192,6 +194,7 @@ def _try_inline_malloc(info):
                 elif op.result in vars:
                     assert op.opname == "malloc"
                     assert vars == {var: True}
+                    count[0] += 1
                     # drop the "malloc" operation
                 else:
                     newops.append(op)
@@ -232,22 +235,26 @@ def _try_inline_malloc(info):
             newvarsmap = flatconstants.copy()   # dummy initial values
             flowin(var, newvarsmap)
 
-    return True
+    assert count[0]
+    return count[0]
 
 def remove_mallocs_once(graph):
     """Perform one iteration of malloc removal."""
     remove_identical_vars(graph)
     lifetimes = compute_lifetimes(graph)
-    progress = False
+    progress = 0
     for info in lifetimes:
-        if _try_inline_malloc(info):
-            progress = True
+        progress +=  _try_inline_malloc(info)
     return progress
 
 def remove_simple_mallocs(graph):
     """Iteratively remove (inline) the mallocs that can be simplified away."""
-    done_something = False
-    while remove_mallocs_once(graph):
-        log.malloc('simple mallocs removed in %r' % graph.name)
-        done_something = True
-    return done_something
+    tot = 0
+    while True:
+        count = remove_mallocs_once(graph)
+        if count:
+            log.malloc('%d simple mallocs removed in %r' % (count, graph.name))
+            tot += count
+        else:
+            break
+    return tot
