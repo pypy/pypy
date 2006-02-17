@@ -331,12 +331,8 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
 
         # add the checks for the unwinding case just after the directcall
         # in the source
-        unwind_check = "if (slp_frame_stack_bottom)\n\tgoto %s;" % (savelabel,)
-        exception_check = (super(SlpFunctionCodeGenerator, self)
-                           .check_directcall_result(op, err))
-        return '%s\n  %s:\n%s' % (unwind_check,
-                                    resumelabel,
-                                    exception_check)
+        return 'if (RPyExceptionOccurred()) {\n\tif (slp_frame_stack_bottom)\n\t\tgoto %s;\n\tFAIL(%s);\n}\n  %s:' %\
+            (savelabel, err, resumelabel)
 
     def OP_YIELD_CURRENT_FRAME_TO_CALLER(self, op, err):
         # special handling of this operation: call stack_unwind() to force the

@@ -77,6 +77,7 @@ void LL_stackless_stack_unwind(void)
 
     slp_frame_stack_top = slp_frame_stack_bottom =
         slp_new_frame(sizeof(slp_frame_t), 0);
+    RPyRaisePseudoException();
     return ;
 
  resume:
@@ -90,6 +91,7 @@ struct RPyOpaque_frame_stack_top *slp_return_current_frame_to_caller(void)
   assert(slp_frame_stack_bottom != NULL);
   slp_frame_stack_bottom->f_back = slp_new_frame(sizeof(slp_frame_t), 3);
   slp_frame_stack_top = slp_frame_stack_bottom = NULL;  /* stop unwinding */
+  RPyExceptionClear();
   return (struct RPyOpaque_frame_stack_top *) result;
 }
 
@@ -114,6 +116,7 @@ LL_stackless_switch(struct RPyOpaque_frame_stack_top *c)
 	f = slp_new_frame(sizeof(slp_frame_1ptr_t), 2);
 	((slp_frame_1ptr_t *) f)->p0 = c;
 	slp_frame_stack_top = slp_frame_stack_bottom = f;
+        RPyRaisePseudoException();
 	return NULL;
 
    resume:
@@ -138,6 +141,7 @@ long LL_stackless_stack_frames_depth(void)
 
 	slp_frame_stack_top = slp_frame_stack_bottom =
 		slp_new_frame(sizeof(slp_frame_t), 1);
+        RPyRaisePseudoException();
 	return -1;
 
  resume:
@@ -167,6 +171,7 @@ void slp_main_loop(void)
   while (1)
     {
       slp_frame_stack_bottom = NULL;
+      RPyExceptionClear();
       pending = slp_frame_stack_top;
 
       while (1)

@@ -20,6 +20,10 @@ RPYTHON_EXCEPTION		rpython_exc_value = NULL;
 
 #define RPyExceptionOccurred()	(rpython_exc_type != NULL)
 
+#define RPyRaisePseudoException() rpython_exc_type = (RPYTHON_EXCEPTION_VTABLE)&rpython_exc_type
+
+#define RPyExceptionClear()       rpython_exc_type = NULL
+
 #define RPyRaiseException(etype, evalue)	do {	\
 		assert(!RPyExceptionOccurred());	\
 		rpython_exc_type = etype;		\
