@@ -162,7 +162,6 @@ def test_loop_folding():
     assert insns == {}
 
 def test_loop_merging():
-    py.test.skip('Work in progress')
     def ll_function(x, y):
         tot = 0
         while x:
@@ -171,4 +170,20 @@ def test_loop_merging():
         return tot
     insns, res = timeshift(ll_function, [7, 2], [])
     assert res == 14
-    # assert insns == {}
+    assert insns['int_add'] == 2
+    assert insns['int_is_true'] == 2
+
+    insns, res = timeshift(ll_function, [7, 2], [0])
+    assert res == 14
+    assert insns['int_add'] == 2
+    assert insns['int_is_true'] == 1
+
+    insns, res = timeshift(ll_function, [7, 2], [1])
+    assert res == 14
+    assert insns['int_add'] == 1
+    assert insns['int_is_true'] == 2
+
+    insns, res = timeshift(ll_function, [7, 2], [0, 1])
+    assert res == 14
+    assert insns['int_add'] == 1
+    assert insns['int_is_true'] == 1

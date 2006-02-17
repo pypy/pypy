@@ -180,6 +180,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
             ll_getvalue(newbox, lltype.Signed)):
             continue
         # Missmatch. Generalize to a var
+        break
     else:
         rgenop.closelink(jitstate.curoutgoinglink, incoming, oldblock)
         return lltype.nullptr(STATE)
@@ -226,6 +227,22 @@ def leave_block(jitstate):
     jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
     return jitstate
 
+def leave_block_split(quejitstate, switchredbox, exitindex, redboxes):
+    jitstate = lltype.cast_pointer(STATE_PTR, quejitstate)
+    if not switchredbox.isvar:
+        jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)        
+        return switchredbox.ll_getvalue(lltype.Bool)
+    exitgvar = switchredbox.genvar
+    linkpair = rgenop.closeblock2(jitstate.curblock, exitgvar)    
+    false_link, true_link = linkpair.item0, linkpair.item1
+    later_jitstate = quejitstate.ll_copystate()
+    later_jitstate = lltype.cast_pointer(STATE_PTR, later_jitstate)
+    jitstate.curoutgoinglink = true_link
+    later_jitstate.curoutgoinglink = false_link
+    quejitstate.ll_get_split_queue().append((exitindex, later_jitstate, redboxes))
+    return True
+    
+
 def schedule_return(jitstate, redbox):
     return_queue = jitstate.ll_get_return_queue()
     curoutgoinglink = jitstate.ll_basestate().curoutgoinglink
@@ -234,6 +251,16 @@ def schedule_return(jitstate, redbox):
 novars = lltype.malloc(VARLIST.TO, 0)
 
 def dispatch_next(jitstate, outredboxes):
+    basestate = jitstate.ll_basestate()
+    split_queue = jitstate.ll_get_split_queue()
+    if split_queue:
+        exitindex, later_jitstate, redboxes = split_queue.pop()
+        basestate.curblock = later_jitstate.curblock
+        basestate.curoutgoinglink = later_jitstate.curoutgoinglink
+        basestate.curvalue = later_jitstate.curvalue
+        for box in redboxes:
+            outredboxes.append(box)
+        return exitindex
     return_queue = jitstate.ll_get_return_queue()
     basestate = jitstate.ll_basestate()
     first_redbox = return_queue[0][1]
