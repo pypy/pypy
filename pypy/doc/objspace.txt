@@ -84,7 +84,7 @@ These functions both take and return "wrapped" objects.
 
 *The following functions implement the same operations as those in CPython:*
 
-``id, type, issubtype, iter, repr, str, len, hash,``
+``id, type, issubtype, iter, repr, str, len, hash, callable,``
 
 ``getattr, setattr, delattr, getitem, setitem, delitem,``
 
