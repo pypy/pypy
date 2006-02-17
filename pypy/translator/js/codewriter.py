@@ -212,6 +212,9 @@ class CodeWriter(object):
                 self.append(code + ";")
                 self.append("slp_stack_depth--")
                 selfdecl = self.decl.split('(')[0]
+                #XXX TODO use c/stackless.py...
+                #curpos = block.operations.index(op)
+                #vars = list(variables_to_save_across_op(block, curpos)) 
                 usedvars = ', '.join(self._usedvars.keys())
                 usedvarnames = '"' + '", "'.join(self._usedvars.keys()) + '"'
                 self.append('if (slp_frame_stack_bottom) {')

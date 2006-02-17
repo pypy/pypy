@@ -69,7 +69,6 @@ def test_stackless_manytimes():
     assert data.strip() == '100'
 
 def test_stackless_arguments():
-    py.test.skip("issue with returning rpystrings's because they are actually structs")
     def f(n, d, t):
         if n > 0:
             res = f(n-1, d, t)

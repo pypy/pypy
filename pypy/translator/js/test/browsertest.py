@@ -37,6 +37,9 @@ function runTest() {
 
 function handle_result(result) {
     var resultform = document.forms['resultform'];
+    if (typeof(result) == typeof({})) {
+        result = result.chars;  //assume it's a rpystring
+    }
     resultform.result.value = result;
     resultform.submit();
 };

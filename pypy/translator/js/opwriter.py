@@ -313,7 +313,10 @@ class OpWriter(object):
             #    gets a length of zero instead of length op.args[1]
             #    This could be a problem in cases like test_typed.py -k test_str_join , but javascript
             #    mostly does the right array resizing later on when we need it!
-            #assert len(op.args) == 1
+            l = len(op.args)
+            #assert l == 1
+            if l > 1:   #l is the length of the varsize array at the end of struct
+                log.mallocvarsize('len(op.args)='+str(l) + ", op.args[1]="+str(op.args[1]) )
             self.codewriter.malloc(targetvar, '{%s};' % self._structtype_repr(arg_type))
     malloc_varsize = malloc
 

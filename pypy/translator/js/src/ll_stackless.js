@@ -204,6 +204,9 @@ function slp_entry_point(funcstring) {  //new thread().run()
         slp_main_loop();
         result = slp_return_value;
     }
+    if (typeof(result) == typeof({})) {
+        result = result.chars;  //assume it's a rpystring
+    }
     return result;
 }
 

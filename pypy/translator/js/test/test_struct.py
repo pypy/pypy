@@ -36,6 +36,9 @@ Pgc = lltype.GcStruct("Pgc",
 A = lltype.Array(P)
 Agc = lltype.GcArray(P)
 
+VA = lltype.Array(lltype.Signed)
+VSgc = lltype.GcStruct("VSgc", ('myvar1', lltype.Signed), ('myvarsizearray', VA))
+
 
 def test_struct1():
     s = lltype.malloc(S, immortal=True)
@@ -85,3 +88,12 @@ def test_array3():
         return a[0].myvar2.myvar6.myvar3 + a[n-1].myvar2.myvar6.myvar3
     f = compile_function(array3, [int])
     assert f(3) == array3(3)
+
+def test_varsizestruct1():
+    py.test.skip("issue with malloc_varsize structs")
+    def varsizestruct1(n):
+        vs = lltype.malloc(VSgc, n+5)
+        vs.myvarsizearray[0] = 123
+        return vs.myvar1 + vs.myvarsizearray[0] + len(vs.myvarsizearray)
+    f = compile_function(varsizestruct1, [int])
+    assert f(0) == varsizestruct1(0)
