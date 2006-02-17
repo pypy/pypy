@@ -1,5 +1,5 @@
 import py
-import types
+import types, sys
 import inspect
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import checkgraph, FunctionGraph, SpaceOperation
@@ -14,6 +14,7 @@ from pypy.rpython.objectmodel import instantiate
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():
         normalize_calltable(annotator, callfamily)
+        callfamily.normalized = True
 
 def normalize_calltable(annotator, callfamily):
     """Try to normalize all rows of a table."""
@@ -32,6 +33,7 @@ def normalize_calltable(annotator, callfamily):
             did_something = normalize_calltable_row_signature(annotator, shape,
                                                               row)
             if did_something:
+                assert not callfamily.normalized, "change in call family normalisation"
                 assert nshapes == 1, "XXX call table too complex"
     while True: 
         progress = False
@@ -40,6 +42,7 @@ def normalize_calltable(annotator, callfamily):
                 progress |= normalize_calltable_row_annotation(annotator, row)
         if not progress:
             return   # done
+        assert not callfamily.normalized, "change in call family normalisation"
 
 def normalize_calltable_row_signature(annotator, shape, row):
     graphs = row.values()
@@ -198,10 +201,14 @@ def merge_classpbc_getattr_into_classdef(rtyper):
                 raise TyperError("reading attributes %r: no common base class "
                                  "for %r" % (
                     access_set.attrs.keys(), descs.keys()))
-        access_set.commonbase = commonbase
         extra_access_sets = rtyper.class_pbc_attributes.setdefault(commonbase,
                                                                    {})
-        extra_access_sets[access_set] = len(extra_access_sets)
+        if commonbase in rtyper.class_reprs:
+            assert access_set in extra_access_sets # minimal sanity check
+            return
+        access_set.commonbase = commonbase
+        if access_set not in extra_access_sets:
+            extra_access_sets[access_set] = len(extra_access_sets)
 
 # ____________________________________________________________
 
@@ -218,7 +225,10 @@ def create_class_constructors(annotator):
         # Note that a callfamily of classes must really be in the same
         # attrfamily as well; This property is relied upon on various
         # places in the rtyper
-        descs[0].mergeattrfamilies(*descs[1:])
+        change = descs[0].mergeattrfamilies(*descs[1:])
+        if hasattr(descs[0].getuniqueclassdef(), 'my_instantiate_graph'):
+            assert not change, "after the fact change to a family of classes" # minimal sanity check
+            return
         attrfamily = descs[0].getattrfamily()
         # Put __init__ into the attr family, for ClassesPBCRepr.call()
         s_value = attrfamily.attrs.get('__init__', annmodel.s_ImpossibleValue)
@@ -246,6 +256,8 @@ def create_instantiate_function(annotator, classdef):
     # def my_instantiate():
     #     return instantiate(cls)
     #
+    if hasattr(classdef, 'my_instantiate_graph'):
+        return
     v = Variable()
     block = Block([])
     block.operations.append(SpaceOperation('instantiate1', [], v))
@@ -272,7 +284,9 @@ def assign_inheritance_ids(annotator):
     id_ = 0
     for classdef in annotator.bookkeeper.classdefs:
         if classdef.basedef is None:
+            prevmaxid = getattr(classdef, 'maxid', sys.maxint)
             id_ = assign_id(classdef, id_)
+            assert id_ <= prevmaxid, "non-orthogonal class hierarchy growth"
 
 # ____________________________________________________________
 

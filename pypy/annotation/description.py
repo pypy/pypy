@@ -13,6 +13,7 @@ class CallFamily:
     'd1~d2 if d1 and d2 might be called at the same call site'.
     """
     overridden = False
+    normalized = False
     
     def __init__(self, desc):
         self.descs = { desc: True }
@@ -20,6 +21,7 @@ class CallFamily:
         self.total_calltable_size = 0
 
     def update(self, other):
+        self.normalized = self.normalized or other.normalized
         self.descs.update(other.descs)
         for shape, table in other.calltables.items():
             for row in table:
