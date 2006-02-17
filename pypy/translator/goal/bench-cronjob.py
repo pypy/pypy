@@ -30,7 +30,7 @@ def compile_llvm_variants(revision):
     ll2bc(tmpdir)
     bc2c_exe(tmpdir, revision)
     bc2x86_exe(tmpdir, revision, 'x86'   , '')
-    bc2x86_exe(tmpdir, revision, 'x86dag', '-enable-x86-dag-isel')
+    #bc2x86_exe(tmpdir, revision, 'x86dag', '-enable-x86-dag-isel')
 
 
 def ll2bc(tmpdir):
@@ -74,8 +74,11 @@ def bc2x86_exe(tmpdir, revision, name_extra, llc_extra_options):
 
 
 def compile(backend):
+    backend, features = backend.split('--', 1)
+    featureoptions = ''.join([" --" + f for f in features.split('--')])
+
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    os.system('/usr/local/bin/python translate_pypy.py --backend=%(backend)s --text --batch targetpypystandalone.py 2>&1' % locals())
+    os.system('/usr/local/bin/python translate_pypy.py --backend=%(backend)s%(featureoptions)s --text --batch targetpypystandalone.py 2>&1' % locals())
 
     os.chdir(homedir + '/projects/pypy-dist')
     try:
@@ -84,6 +87,8 @@ def compile(backend):
         revision = 'unknown'
     basename = homedir + '/projects/pypy-dist/pypy/translator/goal/' + 'pypy-' + backend
     realname = basename + '-' + revision
+    if features:
+        realname += "-" + features
 
     pypy = open(basename, 'rb').read()
     if len(pypy) > 0:
@@ -106,7 +111,7 @@ def benchmark():
 
 def main(backends=[]):
     if backends == []:
-        backends = 'llvm c'.split()
+        backends = 'llvm c c--stackless'.split()
     print time.ctime()
     if 'llvm' in backends:
         update_llvm()
