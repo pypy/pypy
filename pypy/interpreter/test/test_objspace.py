@@ -89,6 +89,37 @@ class TestObjSpace:
         assert not self.space.exception_match(self.space.w_ValueError,
                                                self.space.w_LookupError)
 
+    def test_callable(self):
+        def is_callable(w_obj):
+            return self.space.is_true(self.space.callable(w_obj))
+
+        assert is_callable(self.space.w_int)
+        assert not is_callable(self.space.wrap(1))
+        w_func = self.space.appexec([], "():\n def f(): pass\n return f")
+        assert is_callable(w_func)
+        w_lambda_func = self.space.appexec([], "(): return lambda: True")
+        assert is_callable(w_lambda_func)
+        
+        w_instance = self.space.appexec([], """():
+            class Call(object):
+                def __call__(self): pass
+            return Call()""")
+        assert is_callable(w_instance)
+
+        w_instance = self.space.appexec([],
+                "():\n class NoCall(object): pass\n return NoCall()")
+        assert not is_callable(w_instance)
+        self.space.setattr(w_instance, self.space.wrap("__call__"), w_func)
+        assert not is_callable(w_instance)
+
+        w_oldstyle = self.space.appexec([], """():
+            class NoCall:
+                __metaclass__ = _classobj
+            return NoCall()""")
+        assert not is_callable(w_oldstyle)
+        self.space.setattr(w_oldstyle, self.space.wrap("__call__"), w_func)
+        assert is_callable(w_oldstyle)
+
     def test_interp_w(self):
         w = self.space.wrap
 	w_bltinfunction = self.space.builtin.get('len')

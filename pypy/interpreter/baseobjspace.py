@@ -520,6 +520,26 @@ class ObjSpace(object):
         w_meth = self.getattr(w_obj, self.wrap(methname))
         return self.call_function(w_meth, *arg_w)
 
+    def callable(self, w_obj):
+        w_type = self.type(w_obj)
+        w_mro = self.getattr(w_type, self.wrap("__mro__"))
+        for w_supertype in self.unpackiterable(w_mro):
+            w_dict = self.getattr(w_supertype, self.wrap("__dict__"))
+            if self.is_true(
+                    self.call_method(w_dict, "has_key", self.wrap("__call__"))):
+                w_is_oldstyle = self.isinstance(w_obj, self.w_instance)
+                if self.is_true(w_is_oldstyle):
+                    # ugly old style class special treatment, but well ...
+                    try:
+                        self.getattr(w_obj, self.wrap("__call__"))
+                        return self.w_True
+                    except OperationError, e:
+                        if not e.match(self, self.w_AttributeError):
+                            raise
+                        return self.w_False
+                return self.w_True
+        return self.w_False
+
     def isinstance(self, w_obj, w_type):
         w_objtype = self.type(w_obj)
         return self.issubtype(w_objtype, w_type)
