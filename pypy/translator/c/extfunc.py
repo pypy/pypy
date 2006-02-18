@@ -138,15 +138,27 @@ def predeclare_extfunc_helpers(db, rtyper):
         fptr = rtyper.annotate_helper(func, argtypes)
         return (func.__name__, fptr)
 
-    yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
-    yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
-    yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
+    if ll_math.ll_math_frexp in db.externalfuncs:
+        yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
+        yield ('LL_NEED_MATH_FREXP', 1)
+        
+    if ll_math.ll_math_modf in db.externalfuncs:
+        yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
+        yield ('LL_NEED_MATH_MODF', 1)
 
-    args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
-            lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-    yield annotate(ll__socket.ll__socket_addrinfo, *args)
-    args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-    yield annotate(ll__socket.ll__socket_sockname, *args)
+    if (ll_os.ll_os_stat in db.externalfuncs or
+        ll_os.ll_os_fstat in db.externalfuncs):
+        yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
+        yield ('LL_NEED_OS_STAT', 1)
+
+# these helpers don't seem to be used anywhere any more/yet/???
+
+##     args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
+##             lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
+##     yield annotate(ll__socket.ll__socket_addrinfo, *args)
+
+##     args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
+##     yield annotate(ll__socket.ll__socket_sockname, *args)
 
 def predeclare_extfuncs(db, rtyper):
     modules = {}

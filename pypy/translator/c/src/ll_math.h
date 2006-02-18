@@ -71,6 +71,8 @@ double LL_math_pow(double x, double y) {
 	return r;
 }
 
+#ifdef LL_NEED_MATH_FREXP
+
 RPyFREXP_RESULT* LL_math_frexp(double x) {
 	int expo;
 	double m;
@@ -79,6 +81,8 @@ RPyFREXP_RESULT* LL_math_frexp(double x) {
 	LL_MATH_CHECK_ERROR(m, NULL);
 	return ll_frexp_result(m, expo);
 }
+
+#endif
 
 double LL_math_atan2(double x, double y) {
 	double r;
@@ -113,6 +117,8 @@ double LL_math_hypot(double x, double y) {
 }
 
 
+#ifdef LL_NEED_MATH_MODF
+
 RPyMODF_RESULT* LL_math_modf(double x) {
 	double intpart, fracpart;
 	LL_MATH_ERROR_RESET;
@@ -120,6 +126,8 @@ RPyMODF_RESULT* LL_math_modf(double x) {
 	LL_MATH_CHECK_ERROR(fracpart, NULL);
 	return ll_modf_result(fracpart, intpart);
 }
+
+#endif
 
 /* simple math function */
 

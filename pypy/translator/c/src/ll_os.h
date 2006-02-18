@@ -107,6 +107,8 @@ int LL_os_dup(int fd)
 	return fd;
 }
 
+#ifdef LL_NEED_OS_STAT
+
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st) {
   long res0, res1, res2, res3, res4, res5, res6, res7, res8, res9;
   res0 = (long)st.st_mode;
@@ -145,6 +147,8 @@ RPySTAT_RESULT* LL_os_fstat(long fd) {
   }
   return _stat_construct_result_helper(st);
 }
+
+#endif
 
 long LL_os_lseek(long fd, long pos, long how) {
 #if defined(MS_WIN64) || defined(MS_WINDOWS)
