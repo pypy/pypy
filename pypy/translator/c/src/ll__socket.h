@@ -10,6 +10,13 @@
 # include <netinet/in.h>
 #endif
 
+#if !defined(NI_MAXHOST)
+#define NI_MAXHOST 1025
+#endif
+#if !defined(NI_MAXSERV)
+#define NI_MAXSERV 32
+#endif
+
 static int
 setipaddr(char *name, struct sockaddr *addr_ret, size_t addr_ret_size, int af);
 int LL__socket_ntohs(int htons);
