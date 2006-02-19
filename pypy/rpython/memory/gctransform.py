@@ -257,7 +257,7 @@ def _static_deallocator_body_for_type(v, TYPE, depth=1):
                 yield '    '*depth + v + '_' + name + ' = ' + v + '.' + name
                 for line in inner:
                     yield line
-    elif isinstance(TYPE, lltype.Ptr):
+    elif isinstance(TYPE, lltype.Ptr) and TYPE._needsgc():
         yield '    '*depth + 'pop_alive(%s)'%v
 
 counts = {}

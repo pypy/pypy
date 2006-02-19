@@ -489,6 +489,16 @@ def test_recursive_structure():
     t, transformer = rtype_and_transform(
         f, [], gctransform.RefcountingGCTransformer, check=False)
 
+def test_dont_decref_nongc_pointers():
+    S = lltype.GcStruct('S',
+                        ('x', lltype.Ptr(lltype.Struct('T', ('x', lltype.Signed)))),
+                        ('y', lltype.Ptr(lltype.GcStruct('Y', ('x', lltype.Signed))))
+                        )
+    def f():
+        pass
+    graph, t = make_deallocator(S)
+    ops = getops(graph)
+    assert len(ops['direct_call']) == 1
 
 def test_boehm_finalizer_simple():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
