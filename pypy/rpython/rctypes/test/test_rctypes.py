@@ -1,3 +1,7 @@
+"""
+Test the rctypes implementation.
+"""
+
 import py.test
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
@@ -100,13 +104,24 @@ testfunc_struct_id.argtypes = [tagpoint]
 def py_testfunc_struct_id(inpoint):
     return testfunc_struct_id(inpoint)
 
+
+oppoint_type = POINTER(tagpoint)
+
+# _test_struct_id_pointer
+testfunc_struct_pointer_id = _rctypes_test._testfunc_struct_pointer_id
+testfunc_struct_pointer_id.restype = oppoint_type
+testfunc_struct_pointer_id.argtypes = [oppoint_type]
+
+def py_testfunc_struct_pointer_id(inpoint):
+    return testfunc_struct_pointer_id(inpoint)
+
+
 def py_create_point():
     p = tagpoint()
     p.x = 10
     p.y = 20
     return p.x + p.y
 
-oppoint_type = POINTER(tagpoint)
 def py_testfunc_POINTER(inpoint):
     point = tagpoint()
     oppoint = oppoint_type(point)
@@ -287,6 +302,14 @@ class Test_structure:
         assert s.knowntype == tagpoint
         assert s.memorystate == SomeCTypesObject.OWNSMEMORY
 
+    def test_annotate_pointer_to_struct(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(py_testfunc_struct_pointer_id, [oppoint_type])
+        assert s.knowntype == oppoint_type
+        assert s.memorystate == SomeCTypesObject.MEMORYALIAS
+        return t
+
     def test_create_point(self):
         t = TranslationContext()
         a = t.buildannotator()
@@ -334,6 +357,7 @@ class Test_structure:
         #d#t.view()
         assert s.knowntype == tagpoint
         # This memory state will be supported in the future (#f#)
+	# Obviously the test is wrong for now
         #f#assert s.memorystate == SomeCTypesObject.MIXEDMEMORYOWNERSHIP
         assert isinstance(s, SomeObject)
 
@@ -389,6 +413,15 @@ class Test_structure:
             #d#t.view()
             pass
 
+    # This does not work yet, ctype structures and pointers are
+    # missing the ll_type attribute that directly maps ctypes objects
+    # to the lltype system
+    # TODO: Find an indirect way to get that mapping done
+    def x_test_specialize_pointer_to_struct(self):
+        t = self.test_annotate_pointer_to_struct()
+        t.buildrtyper().specialize()
+        t.view()
+
     def test_compile_struct(self):
         fn = compile( py_test_compile_struct, [ int, int ] )
         res = fn( 42, -42 )
@@ -405,7 +438,16 @@ class Test_structure:
             #d#t.view()
             pass
 
-    def x_test_compile_pointer(self):
+    def test_specialize_pointer(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types( py_test_compile_pointer, [ int, int ] )
+        assert s.knowntype == int
+        #d#t.view()
+        t.buildrtyper().specialize()
+        #d#t.view()
+
+    def test_compile_pointer(self):
         fn = compile( py_test_compile_pointer, [ int, int ] )
         res = fn( -42, 42 )
         assert res == -42
