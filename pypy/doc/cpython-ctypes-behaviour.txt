@@ -1,0 +1,93 @@
+===========================
+CPython's Ctype's Behaviour
+===========================
+
+.. contents::
+.. sectnum::
+
+This documents describes ctypes behaviour on CPython, as fas as it
+is know to the author and relevant for rctypes.
+
+Primitive Types
+===============
+All primitive types behave like their CPython counterparts.
+Some types like `c_long` and `c_int` are identical on some hardware platforms,
+depending on size of C's int type on those platforms.
+
+
+Heap Allocated Types
+====================
+Ctypes deals with heap allocated instances of types in a simple
+and straightforward manner. However documentationwise it 
+has some shady corners when it comes to heap allocated types.
+
+Structures
+----------
+Structures allocated by ctypes
+
+Structure instances in ctypes are actually proxies for C-compatible
+memory. The behaviour of such instances is illustrated by the following
+example structure throughout this document::
+
+    class TS( Structure ):
+        _fields_ = [ ( "f0", c_int ), ( "f1", c_float ) ]
+
+    ts0 = TS( 42, -42 )
+    ts1 = TS( -17, 17 )
+
+    p0 = pointer( ts0 )
+    p1 = pointer( ts1 )
+
+You can not assign structures by value as in C or C++.
+But ctypes provides a memmove-function just like C does.
+You do not need to pass a ctype's pointer to the structure type to
+memmove. Instead you can pass the structures directly as in the
+example below::
+
+    memmove( ts0, ts1, sizeof( ts0 ) )
+    assert ts0.f0 == -17
+    assert ts0.f1 == 17 
+
+Structures created from foreign pointers
+########################################
+
+The author is currently not shure, whether the text below
+is correct in all aspects, but carefully planned trials did
+not provide any evidence to the contrary.
+
+Structure instances can also be created by dereferencing pointers
+that where returned by a call to an external function.
+
+More on pointers in the next section.
+
+Pointers, especially pointers to Structures
+-------------------------------------------
+
+Pointer types are created by a factory function named `POINTER`.
+Pointers can be created by either calling and thus istanciating a
+pointer type or by calling another function named `pointer` that
+creates the neccessary pointer type on the fly and returns
+a pointer to the instance. 
+
+Pointers only implement one attribute named contents which 
+references the ctypes instance the pointer points to. Assigning to 
+this attribute only changes the pointers notion of the object it points
+to. The instances themselves are not touched, especially structures are
+not copied by value. 
+
+Pointers to Structures Allocated by The Ctypes
+##############################################
+
+Pointers to structures that where allocated by ctypes contain
+a reference to the structure in the contents attribute
+mentioned above. This reference is know to the garbage collector,
+which means that even if the last structure instance is deallocated,
+the C-compatible memory is not, provides a pointer still points to it.
+
+Pointers to Structures Allocated by Foreign Modules
+###################################################
+
+In this case the structure was probably allocated by the foreign module - at
+least ctypes must assume it was. In this case the pointer's reference to the 
+structure should not be made known to the GC. In the same sense the structure itself
+must record the fact that its C-compatible memory was not allocated by ctypes itself.

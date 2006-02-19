@@ -1,0 +1,125 @@
+====================
+Bootstrapping Ctypes
+====================
+
+.. contents::
+.. sectnum::
+
+
+Abstract and Motivation
+=======================
+
+Bootstrapping Ctypes on PYPY is a 4 steps procedure.
+
+    1) Implement a restricted version of ctypes called rctypes 
+       at interpreter level.
+
+    2) Wrap the libffi provided by CPython's ctypes in a manner
+       that is compatible with CPython's ctypes using the existing
+       ctypes CPython. This means wrapping libffi with libffi.
+
+    3) Port the result of 2 to interpreter level by applying the
+       neccessary changes to make it rctypes compatible.
+
+    4) Refine ctypes and rctypes by adding callbacks, free unions and
+       other stuff needed. 
+
+The most appealing features of this approach are
+
+    -   the ability to implement step 1 and step 2 in parallel.
+
+    -   and the ability to wrap urgently needed modules, like the socket module
+        using the existing ctypes on CPython. Again this work
+        can be done in parallel.
+
+Of course all existing modules that wrap external libraries using ctypes
+will also be available for PyPy.
+
+Design
+======
+
+Restrictions
+------------
+
+Rctypes is desinged with the following restrictions.
+
+    -   All types are defined at module load time and
+        thus need not be rpython.
+
+    -   Free unions are not supported, because it is unclear
+        whether they can be properly annotated.
+
+    -   Callbacks are deferred to steps 4 and 5.
+
+    -   Functions that return structures and pointers with a mixed
+        allocation model are not supported in the initial rctypes version.
+
+    -   Ctypes custom allocators are not supported in the first 4 steps.
+    
+
+Annotation
+----------
+
+Ctypes on CPython tracks all the memory it has allocated by itself,
+may it be referenced by pointers and structures or only pointers.
+Thus memory allocated by ctypes is properly garbage collected and no
+dangling pointers should arise.
+
+Pointers to structures returned by an external function or passed
+to a callback are a different story. For such pointers we have to assume
+that were not be allocated by ctypes, even if they were actually allocated
+by ctypes.
+
+Thus the annotator tracks the memory state of each ctypes object. Pointers
+to structures are annotated differently when they are return by an external
+function. As stated abbove a mixed memory mode function result type is not
+considered rctypes compliant and therefore annotated as `SomeObject` [#].
+
+..[#] This restriction will be lifted in future ctypes versions. 
+
+Memory-Layout
+-------------
+
+Primitive Types
+~~~~~~~~~~~~~~~
+
+Ctypes' primitive types are mapped directly to the correspondending
+PyPy type.
+
+Structures
+~~~~~~~~~~
+Structures will have the following memory layout if they were allocated by ctypes::
+
+    Ptr( GcStruct( "CtypesGcStructure_<ClassName> 
+            ( "c_data" 
+                    (Struct "C-Data_<ClassName>
+                            *<Fieldefintions>) ) ) )
+
+We will try hard not to expose the "c-data" member of the structure
+at rpython level.
+
+Structures that result form dereferencing a pointer will have the following
+layout::
+
+    Ptr( GcStruct( "CtypesStructure_<ClassName>
+        ( "c_data"
+                Ptr( Struct( "C-Data_<ClassName>
+                             *<Fieldefintions>) ) ) ) )
+
+Pointers
+~~~~~~~~
+Pointers pointing to structures allocated by ctypes will have the following memory layout::
+
+    Ptr( GcStruct( "CtypesGCPointer_<ClassName>
+        "contents" Ptr( GcStruct( "CtypesGcStructure_<Name>" ... ) ) ) )
+
+
+Pointers pointing returned from external functions have the follwing layout if the
+point to a structure::
+
+    Ptr( GcStruct( "CtypesPointer_<ClassName>"
+        "contents" Ptr( Struct( "CtypesStructure_<Name>" ... ) ) ) )
+
+Currently it is not decided whether assiging a pointers `contents` attribute from
+a GC-pointer should be allowed. The other case will only become valid if we implement
+structures with mixed memory state.
