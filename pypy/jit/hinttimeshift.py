@@ -111,7 +111,7 @@ class HintTimeshift(object):
         self.s_return_queue = s_return_queue # for the test
         self.QUESTATE_PTR = lltype.Ptr(QUESTATE)
 
-    def getexitindex(self, link, inputargs, args_r):
+    def getexitindex(self, link, inputargs, args_r, entering_links):
         self.latestexitindex += 1
         v_jitstate = flowmodel.Variable('jitstate')
         v_jitstate.concretetype = STATE_PTR
@@ -137,6 +137,9 @@ class HintTimeshift(object):
                 reenter_vars.append(v_value)
 
         reenter_link = flowmodel.Link(reenter_vars, link.target)
+        if link.target in entering_links: # update entering_links
+            entering_links[link.target].append(reenter_link)
+        
         reentry_block.operations[:] = llops
         reentry_block.closeblock(reenter_link)
 
@@ -473,7 +476,7 @@ class HintTimeshift(object):
 
             v_boxes = rlist.newlist(llops, self.r_box_list, boxes_v)
             false_exit = [exit for exit in newblock.exits if exit.exitcase is False][0]
-            exitindex = self.getexitindex(false_exit, inputargs[1:], args_r)
+            exitindex = self.getexitindex(false_exit, inputargs[1:], args_r, entering_links)
             c_exitindex = rmodel.inputconst(lltype.Signed, exitindex)
             v_jitstate = rename(orig_v_jitstate)
             v_quejitstate = llops.genop('cast_pointer', [v_jitstate],
