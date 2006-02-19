@@ -525,11 +525,23 @@ class GraphRenderer:
         self.computevisible()
 
         bbox = self.getboundingbox()
-        self.screen.fill((224, 255, 224), bbox)
-
-        # gray off-bkgnd areas
         ox, oy, width, height = bbox
         dpy_width, dpy_height = self.screen.get_size()
+        # some versions of the SDL misinterpret widely out-of-range values,
+        # so clamp them
+        if ox < 0:
+            width += ox
+            ox = 0
+        if oy < 0:
+            height += oy
+            oy = 0
+        if width > dpy_width:
+            width = dpy_width
+        if height > dpy_height:
+            height = dpy_height
+        self.screen.fill((224, 255, 224), (ox, oy, width, height))
+
+        # gray off-bkgnd areas
         gray = (128, 128, 128)
         if ox > 0:
             self.screen.fill(gray, (0, 0, ox, dpy_height))
