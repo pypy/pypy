@@ -21,26 +21,32 @@ typedef struct tagpoint {
 
 EXPORT(int) _testfunc_byval(point in, point *pout)
 {
-	if (pout) {
-		pout->x = in.x;
-		pout->y = in.y;
-	}
-	return in.x + in.y;
+    if (pout)
+    {
+        pout->x = in.x;
+        pout->y = in.y;
+    }
+    return in.x + in.y;
 }
 
 EXPORT(int) _testfunc_struct(point in)
 {
-	return in.x + in.y;
+    return in.x + in.y;
 }
 
 EXPORT(point) _testfunc_struct_id(point in)
 {
-	return in;
+    return in;
 }
+
+EXPORT(point*) _testfunc_struct_pointer_id( point* pin )
+{
+    return pin;
+}   
 
 DL_EXPORT(void)
 init_rctypes_test(void)
 {
-	Py_InitModule("_rctypes_test", module_methods);
+    Py_InitModule("_rctypes_test", module_methods);
 }
 
