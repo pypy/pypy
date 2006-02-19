@@ -214,7 +214,7 @@ def test_convert_greenvar_to_redvar():
     assert res == 66
     assert insns == {}
 
-def INPROGRESS_test_arith_plus_minus():
+def test_arith_plus_minus():
     def ll_plus_minus(encoded_insn, nb_insn, x, y):
         acc = x
         pc = 0
