@@ -202,3 +202,31 @@ def test_two_loops_merging():
     assert res == 27
     assert insns['int_add'] == 3
     assert insns['int_is_true'] == 3
+
+def test_convert_greenvar_to_redvar():
+    def ll_function(x, y):
+        hint(x, concrete=True)
+        return x - y
+    insns, res = timeshift(ll_function, [70, 4], [0])
+    assert res == 66
+    assert insns['int_sub'] == 1
+    insns, res = timeshift(ll_function, [70, 4], [0, 1])
+    assert res == 66
+    assert insns == {}
+
+def INPROGRESS_test_arith_plus_minus():
+    def ll_plus_minus(encoded_insn, nb_insn, x, y):
+        acc = x
+        pc = 0
+        while pc < nb_insn:
+            op = (encoded_insn >> (pc*4)) & 0xF
+            op = hint(op, concrete=True)
+            if op == 0xA:
+                acc += y
+            elif op == 0x5:
+                acc -= y
+            pc += 1
+        return acc
+    assert ll_plus_minus(0xA5A, 3, 32, 10) == 42
+    insns, res = timeshift(ll_plus_minus, [0xA5A, 3, 32, 10], [0, 1])
+    assert res == 42

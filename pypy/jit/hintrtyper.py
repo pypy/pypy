@@ -206,6 +206,13 @@ for _r in globals().values():
     if isinstance(_r, GreenRepr):
         PRECOMPUTED_GREEN_REPRS[_r.lowleveltype] = _r
 
+
+class __extend__(pairtype(GreenRepr, RedRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        assert r_from.lowleveltype == r_to.original_concretetype
+        return llops.gendirectcall(rtimeshift.REDBOX.ll_make_from_const, v)
+
 # ____________________________________________________________
 
 class SomeJITState(annmodel.SomeObject):
