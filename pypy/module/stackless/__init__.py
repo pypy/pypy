@@ -11,11 +11,11 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'tasklet'    : 'interp_stackless.tasklet',
-        'Coroutine'  : 'interp_coroutine.AppCoroutine',
+        'coroutine'  : 'coroutine.AppCoroutine',
     }
 
     def setup_after_space_initialization(self):
         # post-installing classmethods/staticmethods which
         # are not yet directly supported
-        from pypy.module.stackless.interp_coroutine import post_install
+        from pypy.module.stackless.coroutine import post_install
         post_install(self)

@@ -1,7 +1,7 @@
 from stackless import *
 
-c1 = Coroutine()
-c2 = Coroutine()
+c1 = coroutine()
+c2 = coroutine()
 
 def f(name, n, other):
     print "starting", name, n

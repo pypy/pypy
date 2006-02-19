@@ -1,5 +1,7 @@
 from pypy.conftest import gettestobjspace
 
+# no real testing possible without compiling stackless pypy
+
 class AppTest_Coroutine:
 
     def setup_class(cls):
@@ -9,5 +11,5 @@ class AppTest_Coroutine:
     def test_one(self):
         import stackless
         print stackless.__file__
-        co = stackless.Coroutine()
+        co = stackless.coroutine()
         print co
