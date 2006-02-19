@@ -187,3 +187,16 @@ def test_loop_merging():
     assert res == 14
     assert insns['int_add'] == 1
     assert insns['int_is_true'] == 1
+
+def INPROGRESS_test_two_loops_merging():
+    def ll_function(x, y):
+        tot = 0
+        while x:
+            tot += y
+            x -= 1
+        while y:
+            tot += y
+            y -= 1
+        return tot
+    insns, res = timeshift(ll_function, [7, 3], [])
+    assert res == 27
