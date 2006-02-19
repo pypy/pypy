@@ -110,7 +110,8 @@ def setup_externs(db):
     # XXX Rationalise this
     db.standalone = True
     db.externalfuncs = {}
-    decls = list(predeclare_all(db, rtyper))
+    #XXX extfuncs need init. to use optimize=True
+    decls = list(predeclare_all(db, rtyper, optimize=False))
 
     for c_name, obj in decls:
         if isinstance(obj, lltype.LowLevelType):
@@ -121,6 +122,8 @@ def setup_externs(db):
             db.prepare_arg_value(c)
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):
             db.prepare_constant(lltype.typeOf(obj), obj)
+        elif type(c_name) is str and type(obj) is int:
+            pass    #define c_name obj
         else:
             assert False, "unhandled predeclare %s %s %s" % (c_name, type(obj), obj)
 
@@ -190,6 +193,8 @@ def generate_llfile(db, extern_decls, entrynode, standalone):
                 ccode.append("void raise%s(char *);\n" % c_name)
             else:
                 predeclarefn(c_name, db.obj2node[obj._obj].ref)                
+        elif type(c_name) is str and type(obj) is int:
+            ccode.append("#define\t%s\t%d\n" % (c_name, obj))
         else:
             assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
 

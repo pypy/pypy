@@ -91,7 +91,7 @@ def find_list_of_str(rtyper):
             return r.lowleveltype.TO
     return None
 
-def predeclare_common_types(db, rtyper):
+def predeclare_common_types(db, rtyper, optimize=True):
     # Common types
     yield ('RPyString', STR)
     LIST_OF_STR = find_list_of_str(rtyper)
@@ -103,7 +103,7 @@ def predeclare_common_types(db, rtyper):
     yield ('RPySOCKET_ADDRINFO', ll__socket.ADDRINFO_RESULT)
     yield ('RPySOCKET_SOCKNAME', ll__socket.SOCKNAME)
 
-def predeclare_utility_functions(db, rtyper):
+def predeclare_utility_functions(db, rtyper, optimize=True):
     # Common utility functions
     def RPyString_New(length=lltype.Signed):
         return lltype.malloc(STR, length)
@@ -133,36 +133,39 @@ def predeclare_utility_functions(db, rtyper):
             graph = rtyper.annotate_helper(f, f.func_defaults)
             yield (fname, graph)
 
-def predeclare_extfunc_helpers(db, rtyper):
+def predeclare_extfunc_helpers(db, rtyper, optimize=True):
     def annotate(func, *argtypes):
         fptr = rtyper.annotate_helper(func, argtypes)
         return (func.__name__, fptr)
 
-    if ll_math.ll_math_frexp in db.externalfuncs:
+    if ll_math.ll_math_frexp in db.externalfuncs or not optimize:
         yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
         yield ('LL_NEED_MATH_FREXP', 1)
         
-    if ll_math.ll_math_modf in db.externalfuncs:
+    if ll_math.ll_math_modf in db.externalfuncs or not optimize:
         yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
         yield ('LL_NEED_MATH_MODF', 1)
 
     if (ll_os.ll_os_stat in db.externalfuncs or
-        ll_os.ll_os_fstat in db.externalfuncs):
+        ll_os.ll_os_fstat in db.externalfuncs or
+        not optimize):
         yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
         yield ('LL_NEED_OS_STAT', 1)
 
-    if ll__socket.ll__socket_nextaddrinfo in db.externalfuncs:
+    if (ll__socket.ll__socket_nextaddrinfo in db.externalfuncs or
+        not optimize):
         args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
                 lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
         yield annotate(ll__socket.ll__socket_addrinfo, *args)
         yield ('LL_NEED__SOCKET_ADDRINFO', 1)
         
-    if ll__socket.ll__socket_getpeername in db.externalfuncs:
+    if (ll__socket.ll__socket_getpeername in db.externalfuncs or
+        not optimize):
         args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
         yield annotate(ll__socket.ll__socket_sockname, *args)
         yield ('LL_NEED__SOCKET_SOCKNAME', 1)
 
-def predeclare_extfuncs(db, rtyper):
+def predeclare_extfuncs(db, rtyper, optimize=True):
     modules = {}
     def module_name(c_name):
         frags = c_name[3:].split('_')
@@ -181,7 +184,7 @@ def predeclare_extfuncs(db, rtyper):
         funcptr = lltype._ptr(lltype.Ptr(lltype.typeOf(funcobj)), funcobj) # hum
         yield c_name, funcptr
 
-def predeclare_exception_data(db, rtyper):
+def predeclare_exception_data(db, rtyper, optimize=True):
     # Exception-related types and constants
     exceptiondata = rtyper.getexceptiondata()
 
@@ -205,14 +208,14 @@ def predeclare_exception_data(db, rtyper):
         yield ('RPyExc_%s' % name, exc_llvalue)
 
 
-def predeclare_all(db, rtyper):
+def predeclare_all(db, rtyper, optimize=True):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
                predeclare_extfunc_helpers,
                predeclare_extfuncs,
                ]:
-        for t in fn(db, rtyper):
+        for t in fn(db, rtyper, optimize):
             yield t
 
 # ____________________________________________________________
