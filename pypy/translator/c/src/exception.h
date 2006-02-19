@@ -20,9 +20,15 @@ RPYTHON_EXCEPTION		rpython_exc_value = NULL;
 
 #define RPyExceptionOccurred()	(rpython_exc_type != NULL)
 
-#define RPyRaisePseudoException() rpython_exc_type = (RPYTHON_EXCEPTION_VTABLE)&rpython_exc_type
+#define RPyRaisePseudoException()               do {                           \
+            if (rpython_exc_type == NULL)                                      \
+               rpython_exc_type = (RPYTHON_EXCEPTION_VTABLE)&rpython_exc_type; \
+        } while (0)
 
-#define RPyExceptionClear()       rpython_exc_type = NULL
+#define RPyExceptionClear()                     do {                            \
+            if (rpython_exc_type == (RPYTHON_EXCEPTION_VTABLE)&rpython_exc_type) \
+                rpython_exc_type = NULL;                                            \
+        } while (0)
 
 #define RPyRaiseException(etype, evalue)	do {	\
 		assert(!RPyExceptionOccurred());	\
