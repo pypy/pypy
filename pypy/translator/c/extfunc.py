@@ -151,14 +151,16 @@ def predeclare_extfunc_helpers(db, rtyper):
         yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
         yield ('LL_NEED_OS_STAT', 1)
 
-# these helpers don't seem to be used anywhere any more/yet/???
-
-##     args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
-##             lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-##     yield annotate(ll__socket.ll__socket_addrinfo, *args)
-
-##     args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-##     yield annotate(ll__socket.ll__socket_sockname, *args)
+    if ll__socket.ll__socket_nextaddrinfo in db.externalfuncs:
+        args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
+                lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
+        yield annotate(ll__socket.ll__socket_addrinfo, *args)
+        yield ('LL_NEED__SOCKET_ADDRINFO', 1)
+        
+    if ll__socket.ll__socket_getpeername in db.externalfuncs:
+        args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
+        yield annotate(ll__socket.ll__socket_sockname, *args)
+        yield ('LL_NEED__SOCKET_SOCKNAME', 1)
 
 def predeclare_extfuncs(db, rtyper):
     modules = {}

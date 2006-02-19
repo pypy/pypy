@@ -162,6 +162,8 @@ void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname, int family)
     }
 }
 
+#ifdef LL_NEED__SOCKET_SOCKNAME
+
 RPySOCKET_SOCKNAME *LL__socket_getpeername(int fd)
 {
     struct sockaddr_in addr; // XXX IPv4 only
@@ -182,6 +184,8 @@ RPySOCKET_SOCKNAME *LL__socket_getpeername(int fd)
 #endif
     return ll__socket_sockname(host, ntohs(addr.sin_port), 0, 0);
 }
+
+#endif
 
 /* ____________________________________________________________________________ */
 
@@ -407,6 +411,8 @@ RPyString *LL__socket_gethostbyname(RPyString *name)
 			  sizeof(struct sockaddr_in));
 }
 
+#ifdef LL_NEED__SOCKET_ADDRINFO
+
 RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 {
 	struct addrinfo *info = addr->info;
@@ -438,6 +444,8 @@ RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 		return ret;
 	}
 }
+
+#endif
 
 void LL__socket_freeaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 {
