@@ -82,7 +82,8 @@ class CBuilder(object):
                 defines['USE_STACKLESS'] = '1'
                 if self.use_stackless_transformation: #set in test_stackless.py
                     from pypy.translator.backendopt.stackless import stackless
-                    stackless(translator, db.stacklessdata)
+                    from pypy.translator.c.stackless import StacklessData
+                    stackless(translator, StacklessData(db))
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
                                                  defines = defines)
