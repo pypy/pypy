@@ -194,6 +194,8 @@ class GCTransformer(object):
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
     def specialize_more_blocks(self):
+        if not self.need_specialize:
+            return
         self.need_specialize = False
         if self.translator is not None and self.translator.rtyper is not None:
             self.translator.rtyper.specialize_more_blocks()
