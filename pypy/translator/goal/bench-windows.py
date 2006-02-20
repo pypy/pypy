@@ -49,7 +49,7 @@ def get_result(txt, pattern):
         if line.startswith(pattern):
             break
     else:
-        raise ValueError, 'this is no valid output'
+        raise ValueError, 'this is no valid output: %r' % txt
     return float(line.split()[len(pattern.split())])
 
 def run_cmd(cmd):
