@@ -51,6 +51,7 @@ def var_ispyobj(var):
 class GCTransformer(object):
     def __init__(self, translator):
         self.translator = translator
+        self.need_specialize = False
         self.seen_graphs = {}
 
     def get_lltype_of_exception_value(self):
@@ -88,7 +89,6 @@ class GCTransformer(object):
         v = Variable('vanishing_exc_value')
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
-                    
         self.specialize_more_blocks()
 
     def transform_block(self, block):
@@ -194,11 +194,13 @@ class GCTransformer(object):
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
     def specialize_more_blocks(self):
+        self.need_specialize = False
         if self.translator is not None and self.translator.rtyper is not None:
             self.translator.rtyper.specialize_more_blocks()
 
     annotate_helper_count = 0
     def annotate_helper(self, ll_helper, args):
+        self.need_specialize = True
 ##         import sys, time
 ##         self.annotate_helper_count += 1
 ##         f = sys._getframe(1)
@@ -219,7 +221,6 @@ class GCTransformer(object):
             MinimalGCTransformer(self.translator).transform_graph(graph)
         return const_funcptr_fromgraph(graph)
     
-
 def exception_clean(graph):
     c = 0
     for block in graph.iterblocks():
