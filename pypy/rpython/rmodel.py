@@ -14,7 +14,8 @@ class setupstate:
     NOTINITIALIZED = 0 
     INPROGRESS = 1
     BROKEN = 2 
-    FINISHED = 3 
+    FINISHED = 3
+    DELAYED = 4
 
 class Repr:
     """ An instance of Repr is associated with each instance of SomeXxx.
@@ -46,6 +47,9 @@ class Repr:
         elif self._initialized == setupstate.INPROGRESS: 
             raise AssertionError(
                 "recursive invocation of Repr setup(): %r" %(self,))
+        elif self._initialized == setupstate.DELAYED:
+            raise AssertionError(
+                "Repr setup() is delayed and cannot be called yet: %r" %(self,))
         assert self._initialized == setupstate.NOTINITIALIZED 
         self._initialized = setupstate.INPROGRESS 
         try: 
@@ -72,7 +76,18 @@ class Repr:
         self._setup_repr_final() 
 
     def _setup_repr_final(self): 
-        pass 
+        pass
+
+    def is_setup_delayed(self):
+        return self._initialized == setupstate.DELAYED
+
+    def set_setup_delayed(self, flag):
+        assert self._initialized in (setupstate.NOTINITIALIZED,
+                                     setupstate.DELAYED)
+        if flag:
+            self._initialized = setupstate.DELAYED
+        else:
+            self._initialized = setupstate.NOTINITIALIZED
 
     def __getattr__(self, name):
         # Assume that when an attribute is missing, it's because setup() needs

@@ -228,12 +228,17 @@ class RPythonTyper:
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
         must_setup_more = []
+        delayed = []
         while self._reprs_must_call_setup:
             r = self._reprs_must_call_setup.pop()
-            r.setup()
-            must_setup_more.append(r)
+            if r.is_setup_delayed():
+                delayed.append(r)
+            else:
+                r.setup()
+                must_setup_more.append(r)
         for r in must_setup_more:
             r.setup_final()
+        self._reprs_must_call_setup.extend(delayed)
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)

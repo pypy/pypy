@@ -118,6 +118,7 @@ class MixLevelHelperAnnotator:
         self.rtyper = rtyper
         self.policy = MixLevelAnnotatorPolicy(rtyper)
         self.pending = []     # list of (graph, args_s, s_result)
+        self.delayedreprs = []
 
     def getgraph(self, ll_function, args_s, s_result):
         # get the graph of the mix-level helper ll_function and prepare it for
@@ -131,6 +132,15 @@ class MixLevelHelperAnnotator:
         self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
         self.pending.append((graph, args_s, s_result))
         return graph
+
+    def getdelayedrepr(self, s_value):
+        """Like rtyper.getrepr(), but the resulting repr will not be setup() at
+        all before finish() is called.
+        """
+        r = self.rtyper.getrepr(s_value)
+        r.set_setup_delayed(True)
+        self.delayedreprs.append(r)
+        return r
 
     def finish(self):
         # push all the graphs into the annotator's pending blocks dict at once
@@ -152,5 +162,8 @@ class MixLevelHelperAnnotator:
                                 " found by annotating: %r" %
                                 (graph, s_result, s_real_result))
         rtyper.type_system.perform_normalizations(rtyper)
+        for r in self.delayedreprs:
+            r.set_setup_delayed(False)
         rtyper.specialize_more_blocks()
         del self.pending[:]
+        del self.delayedreprs[:]
