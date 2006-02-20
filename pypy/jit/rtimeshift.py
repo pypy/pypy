@@ -347,8 +347,8 @@ def ll_signed_box(jitstate, value):
     value = lltype.cast_primitive(lltype.Signed, value)
     return ConstRedBox.ll_fromvalue(value)
 
-def ll_var_box(jitstate, cvTYPE):
-    genvar = rgenop.geninputarg(jitstate.curblock, cvTYPE)
+def ll_var_box(jitstate, gv_TYPE):
+    genvar = rgenop.geninputarg(jitstate.curblock, gv_TYPE)
     return VarRedBox(genvar)
     
 def ll_end_setup_jitstate(jitstate):
