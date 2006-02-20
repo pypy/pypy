@@ -93,7 +93,7 @@ class HintTimeshift(object):
                 v_value = llops.genmixlevelhelpercall(rtimeshift.ll_getvalue,
                     [self.s_RedBox, s_TYPE],
                     [v_box, c_TYPE],
-                    annmodel.lltype_to_annotation(r.lowleveltype))
+                    r.annotation())
                                                 
                 reenter_vars.append(v_value)
 
@@ -187,10 +187,9 @@ class HintTimeshift(object):
         return newblock
 
     def make_const_box(self, llops, r_green, v_value):
-        s_value = annmodel.lltype_to_annotation(r_green.lowleveltype)
         v_box = llops.genmixlevelhelpercall(
             rtimeshift.ConstRedBox.ll_fromvalue,
-            [s_value], [v_value], self.s_RedBox)
+            [r_green.annotation()], [v_value], self.s_RedBox)
         return v_box
         
                                                          

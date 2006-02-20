@@ -214,6 +214,19 @@ def test_convert_greenvar_to_redvar():
     assert res == 66
     assert insns == {}
 
+def test_green_across_split():
+    def ll_function(x, y):
+        hint(x, concrete=True)
+        if y > 2:
+            z = x - y
+        else:
+            z = x + y
+        return z
+    insns, res = timeshift(ll_function, [70, 4], [0])
+    assert res == 66
+    assert insns['int_add'] == 1
+    assert insns['int_add'] == 1
+
 def test_arith_plus_minus():
     def ll_plus_minus(encoded_insn, nb_insn, x, y):
         acc = x
