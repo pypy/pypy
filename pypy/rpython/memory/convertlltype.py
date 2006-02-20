@@ -126,6 +126,30 @@ class LLTypeConverter(object):
         assert inline_to_ptr is None, "can't inline function or pyobject"
         return simulatorptr(lltype.Ptr(lltype.typeOf(_obj)),
                             lladdress.get_address_of_object(_obj))
+def collect_constants_and_types(graphs):
+    constants = {}
+    types = {}
+    def collect_args(args):
+        for arg in args:
+            if (isinstance(arg, Constant) and
+                arg.concretetype is not lltype.Void):
+                constants[arg] = None
+                types[arg.concretetype] = True
+    for graph in graphs:
+        for block in graph.iterblocks():
+            collect_args(block.inputargs)
+            for op in block.operations:
+                collect_args(op.args)
+                if op.opname in ("malloc", "malloc_varsize"):
+                    types[op.args[0].value] = True
+        for link in graph.iterlinks():
+            collect_args(link.args)
+            if hasattr(link, "llexitcase"):
+                if isinstance(link.llexitcase, IntegerRepr):
+                    assert 0
+                constants[Constant(link.llexitcase)] = None
+    return constants, types
+          
 
 class FlowGraphConstantConverter(object):
     def __init__(self, graphs, gc=None, qt=None):
@@ -137,30 +161,7 @@ class FlowGraphConstantConverter(object):
         self.query_types = qt
 
     def collect_constants_and_types(self):
-        constants = {}
-        types = {}
-        def collect_args(args):
-            for arg in args:
-                if (isinstance(arg, Constant) and
-                    arg.concretetype is not lltype.Void):
-                    constants[arg] = None
-                    types[arg.concretetype] = True
-        def visit(obj):
-            if isinstance(obj, Link):
-                collect_args(obj.args)
-                if hasattr(obj, "llexitcase"):
-                    if isinstance(obj.llexitcase, IntegerRepr):
-                        assert 0
-                    constants[Constant(obj.llexitcase)] = None
-            elif isinstance(obj, Block):
-                for op in obj.operations:
-                    collect_args(op.args)
-                    if op.opname in ("malloc", "malloc_varsize"):
-                        types[op.args[0].value] = True
-        for graph in self.graphs:
-            traverse(visit, graph)
-        self.constants = constants
-        self.types = types
+        self.constants, self.types = collect_constants_and_types(self.graphs)
 
     def calculate_size(self):
         total_size = 0
