@@ -36,11 +36,11 @@ class LLInterpreter(object):
         try:
             return llframe.eval()
         except LLException, e:
-            print "LLEXCEPTION:", e
+            log.error("LLEXCEPTION: %s" % (e, ))
             self.print_traceback()
             raise
         except Exception, e:
-            print "AN ERROR OCCURED:", e
+            log.error("AN ERROR OCCURED: %s" % (e, ))
             self.print_traceback()
             raise
 
@@ -52,29 +52,31 @@ class LLInterpreter(object):
             frame = frame.f_back
         frames.reverse()
         for frame in frames:
-            print frame.graph.name,
+            logline = frame.graph.name
             if frame.curr_block is None:
-                print "<not running yet>"
+                logline += " <not running yet>"
+                log.traceback(logline)
                 continue
             try:
-                print self.typer.annotator.annotated[frame.curr_block].__module__
+                logline += " " + self.typer.annotator.annotated[frame.curr_block].__module__
             except (KeyError, AttributeError):
                 # if the graph is from the GC it was not produced by the same
                 # translator :-(
-                print "<unknown module>"
+                logline += " <unknown module>"
+            log.traceback(logline)
             for i, operation in enumerate(frame.curr_block.operations):
                 if i == frame.curr_operation_index:
-                    print "E  ",
+                    logline = "E  %s"
                 else:
-                    print "   ",
-                print operation
+                    logline = "   %s"
+                log.traceback(logline % (operation, ))
 
     def find_roots(self):
-        log.findroots("starting")
+        #log.findroots("starting")
         frame = self.active_frame
         roots = []
         while frame is not None:
-            log.findroots("graph", frame.graph.name)
+            #log.findroots("graph", frame.graph.name)
             frame.find_roots(roots)
             frame = frame.f_back
         return roots
@@ -149,7 +151,7 @@ class LLFrame(object):
     def eval(self):
         self.llinterpreter.active_frame = self
         graph = self.graph
-        log.frame("evaluating", graph.name)
+        #log.frame("evaluating", graph.name)
         nextblock = graph.startblock
         args = self.args
         while 1:
@@ -191,7 +193,7 @@ class LLFrame(object):
                 raise LLException(etype, evalue)
             resultvar, = block.getvariables()
             result = self.getval(resultvar)
-            log.operation("returning", repr(result))
+            #log.operation("returning", repr(result))
             return None, result
         elif block.exitswitch is None:
             # single-exit block
@@ -227,7 +229,7 @@ class LLFrame(object):
         return link.target, [self.getval(x) for x in link.args]
 
     def eval_operation(self, operation):
-        log.operation("considering", operation)
+        #log.operation("considering", operation)
         ophandler = self.getoperationhandler(operation.opname)
         # XXX slighly unnice but an important safety check
         if operation.opname == 'direct_call':
@@ -263,7 +265,7 @@ class LLFrame(object):
             self.make_llexception(e)
 
     def find_roots(self, roots):
-        log.findroots(self.curr_block.inputargs)
+        #log.findroots(self.curr_block.inputargs)
         for arg in self.curr_block.inputargs:
             if (isinstance(arg, Variable) and
                 isinstance(self.getval(arg), self.llt._ptr)):
