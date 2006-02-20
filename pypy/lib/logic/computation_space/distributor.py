@@ -1,7 +1,6 @@
 import math, random
 from threading import Thread
-from state import Succeeded, Distributable, \
-     Distributing, Failed, Merged
+from state import Succeeded, Distributable, Failed
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
