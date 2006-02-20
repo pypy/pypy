@@ -112,19 +112,45 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
         return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))        
 
 
-def pre_annotate_mixlevel_helper(rtyper, ll_function, args_s, s_result):
-    # get the graph of the mix-level helper ll_function and prepare it for
-    # being annotated.  Annotation and RTyping should be done in a single shot
-    # at the end with finish_mixlevel_helpers().
-    pol = MixLevelAnnotatorPolicy(rtyper)
-    graph = rtyper.annotator.annotate_helper(ll_function, args_s, policy=pol,
-                                             complete_now=False)
-    rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
-    return graph
+class MixLevelHelperAnnotator:
 
-def finish_mixlevel_helpers(rtyper):
-    pol = MixLevelAnnotatorPolicy(rtyper)
-    rtyper.annotator.complete_helpers(pol)
-    # XXX maybe check that the promized s_results are correct?
-    rtyper.type_system.perform_normalizations(rtyper)
-    rtyper.specialize_more_blocks()
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+        self.policy = MixLevelAnnotatorPolicy(rtyper)
+        self.pending = []     # list of (graph, args_s, s_result)
+
+    def getgraph(self, ll_function, args_s, s_result):
+        # get the graph of the mix-level helper ll_function and prepare it for
+        # being annotated.  Annotation and RTyping should be done in a single shot
+        # at the end with finish().
+        graph = self.rtyper.annotator.annotate_helper(ll_function, args_s,
+                                                      policy = self.policy,
+                                                      complete_now = False)
+        for v_arg, s_arg in zip(graph.getargs(), args_s):
+            self.rtyper.annotator.setbinding(v_arg, s_arg)
+        self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
+        self.pending.append((graph, args_s, s_result))
+        return graph
+
+    def finish(self):
+        # push all the graphs into the annotator's pending blocks dict at once
+        rtyper = self.rtyper
+        ann = rtyper.annotator
+        for graph, args_s, s_result in self.pending:
+            # mark the return block as already annotated, because the return var
+            # annotation was forced in getgraph() above.  This prevents temporary
+            # less general values reaching the return block from crashing the
+            # annotator (on the assert-that-new-binding-is-not-less-general).
+            ann.annotated[graph.returnblock] = graph
+            ann.build_graph_types(graph, args_s, complete_now=False)
+        ann.complete_helpers(self.policy)
+        for graph, args_s, s_result in self.pending:
+            s_real_result = ann.binding(graph.getreturnvar())
+            if s_real_result != s_result:
+                raise Exception("wrong annotation for the result of %r:\n"
+                                "originally specified: %r\n"
+                                " found by annotating: %r" %
+                                (graph, s_result, s_real_result))
+        rtyper.type_system.perform_normalizations(rtyper)
+        rtyper.specialize_more_blocks()
+        del self.pending[:]

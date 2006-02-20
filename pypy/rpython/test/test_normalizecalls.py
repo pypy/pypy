@@ -10,9 +10,11 @@ from pypy.rpython.lltypesystem import lltype
 
 class TestNormalize(object):
 
-    def rtype(self, fn, argtypes=[]):
+    def rtype(self, fn, argtypes, resulttype):
         t = TranslationContext()
-        t.buildannotator().build_types(fn, argtypes)
+        a = t.buildannotator()
+        s = a.build_types(fn, argtypes)
+        assert s == a.typeannotation(resulttype)
         typer = t.buildrtyper()
         typer.specialize()
         #t.view()
@@ -44,7 +46,7 @@ class TestNormalize(object):
         #
         # But all lines get compressed to a single line.
 
-        translator = self.rtype(g, [int])
+        translator = self.rtype(g, [int], annmodel.s_None)
         f1graph = graphof(translator, f1)
         f2graph = graphof(translator, f2)
         s_l1 = translator.annotator.binding(f1graph.getargs()[0])
@@ -65,7 +67,7 @@ class TestNormalize(object):
                 f = f2
             f(a=5, b=6)
 
-        translator = self.rtype(g, [int])
+        translator = self.rtype(g, [int], annmodel.s_None)
         f1graph = graphof(translator, f1)
         f2graph = graphof(translator, f2)
         assert len(f1graph.getargs()) == 2
@@ -104,7 +106,7 @@ class TestNormalize(object):
             except ValueError:
                 return -1
 
-        translator = self.rtype(dummyfn, [int, int])
+        translator = self.rtype(dummyfn, [int, int], int)
         add_one_graph = graphof(translator, add_one)
         oups_graph    = graphof(translator, oups)
         assert add_one_graph.getreturnvar().concretetype == lltype.Signed
@@ -120,7 +122,7 @@ class TestNormalize(object):
                 return 1
         class Sub2(Base):
             def fn(self):
-                return 2
+                return -2
         def dummyfn(n):
             if n == 1:
                 x = Sub1()
@@ -128,7 +130,7 @@ class TestNormalize(object):
                 x = Sub2()
             return x.fn()
 
-        translator = self.rtype(dummyfn, [int])
+        translator = self.rtype(dummyfn, [int], int)
         base_graph = graphof(translator, Base.fn.im_func)
         sub1_graph = graphof(translator, Sub1.fn.im_func)
         sub2_graph = graphof(translator, Sub2.fn.im_func)
@@ -140,11 +142,11 @@ class TestNormalize(object):
         res = llinterp.eval_graph(graphof(translator, dummyfn), [1])
         assert res == 1
         res = llinterp.eval_graph(graphof(translator, dummyfn), [2])
-        assert res == 2
+        assert res == -2
 
 class TestNormalizeAfterTheFact(TestNormalize):
 
-    def rtype(self, fn, argtypes=[]):
+    def rtype(self, fn, argtypes, resulttype):
         class Base:
             def fn(self):
                 raise NotImplementedError
@@ -168,12 +170,14 @@ class TestNormalizeAfterTheFact(TestNormalize):
         typer.specialize()
         #t.view()
 
+        s_result = a.typeannotation(resulttype)
+
         from pypy.rpython import annlowlevel
-        # normalize and rtype fn after the fact
-        graph = annlowlevel.annotate_mixlevel_helper(typer, fn, [a.typeannotation(argtype) for argtype in argtypes])
-        from pypy.rpython.normalizecalls import perform_normalizations
-        perform_normalizations(typer)
-        typer.specialize_more_blocks()
+        # annotate, normalize and rtype fn after the fact
+        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
+        graph = annhelper.getgraph(fn, [a.typeannotation(argtype) for argtype in argtypes],
+                                   s_result)
+        annhelper.finish()
 
         # sanity check prefn
         llinterp = LLInterpreter(typer)

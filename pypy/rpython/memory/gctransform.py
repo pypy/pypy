@@ -666,26 +666,22 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             gcdata.root_stack_top = top
             return result
 
-        frameworkgc_setup_graph = self.mixlevel_helper(
-            frameworkgc_setup, [], annmodel.s_ImpossibleValue)
-        push_root_graph = self.mixlevel_helper(push_root,
-                                               [annmodel.SomeAddress()],
-                                               annmodel.s_ImpossibleValue)
-        pop_root_graph = self.mixlevel_helper(pop_root, [],
-                                              annmodel.SomeAddress())
-        annlowlevel.finish_mixlevel_helpers(self.translator.rtyper)
+        annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
+        frameworkgc_setup_graph = annhelper.getgraph(frameworkgc_setup, [],
+                                                     annmodel.s_None)
+        push_root_graph = annhelper.getgraph(push_root,
+                                             [annmodel.SomeAddress()],
+                                             annmodel.s_None)
+        pop_root_graph = annhelper.getgraph(pop_root, [],
+                                            annmodel.SomeAddress())
+        annhelper.finish()   # at this point, annotate all mix-level helpers
         self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph,
                                                         attach_empty_cleanup=True)
         self.push_root_ptr = self.graph2funcptr(push_root_graph)
         self.pop_root_ptr  = self.graph2funcptr(pop_root_graph)
 
-    def mixlevel_helper(self, helper, args_s, result_s):
-        graph = annlowlevel.pre_annotate_mixlevel_helper(self.translator.rtyper,
-                                                         helper, args_s, result_s)
-        self.seen_graphs[graph] = True
-        return graph
-
     def graph2funcptr(self, graph, attach_empty_cleanup=False):
+        self.seen_graphs[graph] = True
         if attach_empty_cleanup:
             MinimalGCTransformer(self.translator).transform_graph(graph)
         return const_funcptr_fromgraph(graph)

@@ -104,7 +104,8 @@ class RPythonAnnotator:
             self.added_blocks = {}
             desc = self.bookkeeper.getdesc(function)
             graph = desc.specialize(args_s)
-            s = self.build_graph_types(graph, args_s, complete_now=complete_now)
+            if complete_now:
+                self.build_graph_types(graph, args_s)
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
