@@ -94,7 +94,7 @@ class RPythonAnnotator:
 
         return self.build_graph_types(flowgraph, inputcells)
 
-    def annotate_helper(self, function, args_s, policy=None):
+    def annotate_helper(self, function, args_s, policy=None, complete_now=True):
         saved = self.policy, self.added_blocks
         if policy is None:
             from pypy.annotation.policy import AnnotatorPolicy
@@ -104,15 +104,24 @@ class RPythonAnnotator:
             self.added_blocks = {}
             desc = self.bookkeeper.getdesc(function)
             graph = desc.specialize(args_s)
-            s = self.build_graph_types(graph, args_s)
+            s = self.build_graph_types(graph, args_s, complete_now=complete_now)
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
             self.policy, self.added_blocks = saved
         return graph
 
+    def complete_helpers(self, policy):
+        saved = self.policy, self.added_blocks
+        self.policy = policy
+        try:
+            self.added_blocks = {}
+            self.complete()
+            self.simplify(block_subset=self.added_blocks)
+        finally:
+            self.policy, self.added_blocks = saved
 
-    def build_graph_types(self, flowgraph, inputcells):
+    def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
 
         nbarg = len(flowgraph.getargs())
@@ -123,7 +132,8 @@ class RPythonAnnotator:
         # register the entry point
         self.addpendinggraph(flowgraph, inputcells)
         # recursively proceed until no more pending block is left
-        self.complete()
+        if complete_now:
+            self.complete()
         return self.binding(flowgraph.getreturnvar(), extquery=True)
 
     def gettype(self, variable):

@@ -666,17 +666,26 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             gcdata.root_stack_top = top
             return result
 
-        self.frameworkgc_setup_ptr = self.mixlevel_helper(
-            frameworkgc_setup, [], attach_empty_cleanup=True)
-        self.push_root_ptr = self.mixlevel_helper(push_root,
-                                                  [annmodel.SomeAddress()])
-        self.pop_root_ptr = self.mixlevel_helper(pop_root, [])
+        frameworkgc_setup_graph = self.mixlevel_helper(
+            frameworkgc_setup, [], annmodel.s_ImpossibleValue)
+        push_root_graph = self.mixlevel_helper(push_root,
+                                               [annmodel.SomeAddress()],
+                                               annmodel.s_ImpossibleValue)
+        pop_root_graph = self.mixlevel_helper(pop_root, [],
+                                              annmodel.SomeAddress())
+        annlowlevel.finish_mixlevel_helpers(self.translator.rtyper)
+        self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph,
+                                                        attach_empty_cleanup=True)
+        self.push_root_ptr = self.graph2funcptr(push_root_graph)
+        self.pop_root_ptr  = self.graph2funcptr(pop_root_graph)
 
-    def mixlevel_helper(self, helper, args_s, attach_empty_cleanup=False):
-        graph = annlowlevel.annotate_mixlevel_helper(self.translator.rtyper, helper, args_s)
+    def mixlevel_helper(self, helper, args_s, result_s):
+        graph = annlowlevel.pre_annotate_mixlevel_helper(self.translator.rtyper,
+                                                         helper, args_s, result_s)
         self.seen_graphs[graph] = True
-        perform_normalizations(self.translator.rtyper)
-        self.specialize_more_blocks()
+        return graph
+
+    def graph2funcptr(self, graph, attach_empty_cleanup=False):
         if attach_empty_cleanup:
             MinimalGCTransformer(self.translator).transform_graph(graph)
         return const_funcptr_fromgraph(graph)

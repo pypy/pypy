@@ -112,6 +112,19 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
         return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))        
 
 
-def annotate_mixlevel_helper(rtyper, ll_function, args_s):
+def pre_annotate_mixlevel_helper(rtyper, ll_function, args_s, s_result):
+    # get the graph of the mix-level helper ll_function and prepare it for
+    # being annotated.  Annotation and RTyping should be done in a single shot
+    # at the end with finish_mixlevel_helpers().
     pol = MixLevelAnnotatorPolicy(rtyper)
-    return rtyper.annotator.annotate_helper(ll_function, args_s, policy=pol)
+    graph = rtyper.annotator.annotate_helper(ll_function, args_s, policy=pol,
+                                             complete_now=False)
+    rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
+    return graph
+
+def finish_mixlevel_helpers(rtyper):
+    pol = MixLevelAnnotatorPolicy(rtyper)
+    rtyper.annotator.complete_helpers(pol)
+    # XXX maybe check that the promized s_results are correct?
+    rtyper.type_system.perform_normalizations(rtyper)
+    rtyper.specialize_more_blocks()
