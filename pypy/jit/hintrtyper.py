@@ -1,7 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython import annlowlevel
-from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList
+from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.typesystem import TypeSystem
@@ -52,7 +52,7 @@ class HintRTyper(RPythonTyper):
         try:
             return self.red_reprs[lowleveltype]
         except KeyError:
-            r = RedRepr(lowleveltype)
+            r = RedRepr(lowleveltype, self.timeshifter)
             self.red_reprs[lowleveltype] = r
             return r
 
@@ -79,28 +79,17 @@ class HintRTyper(RPythonTyper):
             ll_generate = rtimeshift.ll_generate_operation1
         elif opdesc.nb_args == 2:
             ll_generate = rtimeshift.ll_generate_operation2
+        ts = self.timeshifter
         c_opdesc = inputconst(lltype.Void, opdesc)
+        s_opdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(opdesc)
+        v_jitstate = hop.llops.getjitstate()
         args_v = hop.inputargs(*[self.getredrepr(originalconcretetype(hs))
                                 for hs in hop.args_s])
-        return hop.gendirectcall(ll_generate,
-                                 c_opdesc,
-                                 hop.llops.getjitstate(),
-                                 *args_v)
-        #v_args = hop.genop('malloc_varsize',
-        #                   [hop.inputconst(lltype.Void, VARLIST.TO),
-        #                    hop.inputconst(lltype.Signed, len(hop.args_v))],
-        #                   resulttype = VARLIST)
-        #for i in range(len(hop.args_v)):
-        #    v_gvar = hop.args_r[i].get_genop_var(hop.args_v[i], hop.llops)
-        #    hop.genop('setarrayitem', [v_args,
-        #                               hop.inputconst(lltype.Signed, i),
-        #                               v_gvar])
-        #RESTYPE = originalconcretetype(hop.s_result)
-        #c_restype = hop.inputconst(lltype.Void, RESTYPE)
-        #return hop.gendirectcall(rtimeshift.ll_generate_operation,
-        #                         hop.llops.getjitstate(),
-        #                         opname2vstr(hop.spaceop.opname),
-        #                         v_args, c_restype)
+        args_s = [ts.s_RedBox] * len(args_v)
+        return hop.llops.genmixlevelhelpercall(ll_generate,
+                                               [s_opdesc, ts.s_JITState] + args_s,
+                                               [c_opdesc, v_jitstate]    + args_v,
+                                               ts.s_RedBox)
 
 
 class HintLowLevelOpList(LowLevelOpList):
@@ -114,25 +103,29 @@ class HintLowLevelOpList(LowLevelOpList):
     def hasparentgraph(self):
         return False   # for now
 
-    def genmixlevelhelpercall(self, function, args_s, args_v):
+    def genmixlevelhelpercall(self, function, args_s, args_v, s_result):
         # XXX first approximation, will likely need some fine controlled
         # specialisation for these helpers too
-        rtyper = self.rtyper
-        rtyper.call_all_setups()  # compute ForwardReferences now
-        graph = annlowlevel.annotate_mixlevel_helper(rtyper, function, args_s)
+        rtyper = self.timeshifter.rtyper
+
+        graph = self.timeshifter.annhelper.getgraph(function, args_s, s_result)
         self.record_extra_call(graph) # xxx
 
+        ARGS = [rtyper.getrepr(s_arg).lowleveltype for s_arg in args_s]
+        RESULT = rtyper.getrepr(s_result).lowleveltype
+
+        F = lltype.FuncType(ARGS, RESULT)
+
+        fptr = lltype.functionptr(F, graph.name, graph=graph)
+
         # build the 'direct_call' operation
-        f = rtyper.getcallable(graph)
-        c = inputconst(lltype.typeOf(f), f)
-        fobj = rtyper.type_system_deref(f)
+        c = inputconst(lltype.Ptr(F), fptr)
         return self.genop('direct_call', [c]+args_v,
-                          resulttype = lltype.typeOf(fobj).RESULT)
+                          resulttype = RESULT)
 
     def getjitstate(self):
-        v_jitstate = self.originalblock.inputargs[0]
-        assert v_jitstate.concretetype == rtimeshift.STATE_PTR
-        return v_jitstate
+        assert self.originalblock is not None
+        return self.timeshifter.block2jitstate[self.originalblock]
 
 # ____________________________________________________________
 
@@ -159,18 +152,23 @@ class __extend__(pairtype(HintTypeSystem, annmodel.SomeImpossibleValue)):
         return hs_c.__class__,
 
 class RedRepr(Repr):
-    lowleveltype = rtimeshift.REDBOX_PTR
-
-    def __init__(self, original_concretetype):
+    def __init__(self, original_concretetype, timeshifter):
+        assert original_concretetype is not lltype.Void, (
+            "cannot make red boxes for the lltype Void")
         self.original_concretetype = original_concretetype
+        self.lowleveltype = timeshifter.r_RedBox.lowleveltype
+        self.timeshifter = timeshifter
 
     def get_genop_var(self, v, llops):
-        c_TYPE = inputconst(lltype.Void, self.original_concretetype)
-        return llops.gendirectcall(rtimeshift.ll_gvar_from_redbox,
-                                   llops.getjitstate(), v, c_TYPE)
+        return llops.genmixlevelhelpercall(rtimeshift.ll_gvar_from_redbox,
+                                           [llops.timeshifter.s_RedBox],
+                                           [v],
+                                           annmodel.SomePtr(rgenop.CONSTORVAR))
 
     def convert_const(self, ll_value):
-        return rtimeshift.REDBOX.ll_make_from_const(ll_value)
+        redbox = rtimeshift.ConstRedBox.ll_fromvalue(ll_value)
+        timeshifter = self.timeshifter
+        return timeshifter.annhelper.delayedconst(timeshifter.r_RedBox, redbox)
 
     def residual_values(self, ll_value):
         return [ll_value]
@@ -184,12 +182,20 @@ class GreenRepr(Repr):
         return annmodel.lltype_to_annotation(self.lowleveltype)
 
     def erased_annotation(self):
-        # XXX Float, pointers
-        return annmodel.SomeInteger()
+        T = self.lowleveltype
+        if isinstance(T, lltype.Ptr):
+            return annmodel.SomeAddress()
+        elif T is lltype.Float:
+            return annmodel.SomeFloat()
+        elif T is lltype.Void:
+            return annmodel.s_ImpossibleValue
+        else:
+            return annmodel.SomeInteger()
 
     def get_genop_var(self, v, llops):
-        return llops.gendirectcall(rtimeshift.ll_gvar_from_constant,
-                                   llops.getjitstate(), v)
+        return llops.genmixlevelhelpercall(rtimeshift.ll_gvar_from_constant,
+                                           [self.annotation()], [v],
+                                           annmodel.SomePtr(rgenop.CONSTORVAR))
 
     def convert_const(self, ll_value):
         return ll_value
@@ -211,27 +217,9 @@ class __extend__(pairtype(GreenRepr, RedRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         assert r_from.lowleveltype == r_to.original_concretetype
-        return llops.gendirectcall(rtimeshift.REDBOX.ll_make_from_const, v)
-
-# ____________________________________________________________
-
-class SomeJITState(annmodel.SomeObject):
-    pass
-
-s_JITState = SomeJITState()
-
-class __extend__(pairtype(HintTypeSystem, SomeJITState)):
-
-    def rtyper_makerepr((ts, hs_j), hrtyper):
-        return jitstate_repr
-
-    def rtyper_makekey((ts, hs_j), hrtyper):
-        return hs_j.__class__,
-
-class JITStateRepr(Repr):
-    lowleveltype = rtimeshift.STATE_PTR
-
-jitstate_repr = JITStateRepr()
+        return llops.genmixlevelhelpercall(rtimeshift.ConstRedBox.ll_fromvalue,
+                                           [r_from.annotation()], [v],
+                                           llops.timeshifter.s_RedBox)
 
 # ____________________________________________________________
 

@@ -25,55 +25,93 @@ def make_types_const(TYPES):
     return l
 
 
-def ll_make_for_gvar(gvar):
-    box = lltype.malloc(REDBOX)
-    box.isvar = True
-    box.genvar = gvar
-    return box
+class RedBox(object):
 
-def ll_make_from_const(value):
-    sbox = lltype.malloc(REDBOX_FOR_SIGNED) # XXX Float, Ptr
-    sbox.value = lltype.cast_primitive(lltype.Signed, value)
-    box = lltype.cast_pointer(REDBOX_PTR, sbox)
-    box.genvar = lltype.nullptr(REDBOX.genvar.TO)
-    return box
+    def same_constant(self, other):
+        return False
+
+
+class VarRedBox(RedBox):
+    "A red box that contains a run-time variable."
+
+    def __init__(self, genvar):
+        self.genvar = genvar
+
+    def getgenvar(self):
+        return self.genvar
+
+
+class ConstRedBox(RedBox):
+    "A red box that contains a run-time constant."
+
+    def ll_fromvalue(value):
+        T = lltype.typeOf(value)
+        if isinstance(T, lltype.Ptr):
+            return AddrRedBox(objectmodel.cast_ptr_to_adr(value))
+        elif T is lltype.Float:
+            return DoubleRedBox(value)
+        else:
+            assert T is not lltype.Void, "cannot make red boxes of voids"
+            # XXX what about long longs?
+            return IntRedBox(lltype.cast_primitive(lltype.Signed, value))
+    ll_fromvalue = staticmethod(ll_fromvalue)
+
+    def ll_getvalue(self, T):
+        # note: this is specialized by low-level type T, as a low-level helper
+        if isinstance(T, lltype.Ptr):
+            assert isinstance(self, AddrRedBox)
+            return objectmodel.cast_adr_to_ptr(self.adrvalue, T)
+        elif T is lltype.Float:
+            assert isinstance(self, DoubleRedBox)
+            return self.dblvalue
+        else:
+            assert T is not lltype.Void, "no red box contains voids"
+            assert isinstance(self, IntRedBox)
+            # XXX what about long longs?
+            return lltype.cast_primitive(T, self.intvalue)
 
 def ll_getvalue(box, T):
-    sbox = lltype.cast_pointer(REDBOX_FOR_SIGNED_PTR, box)
-    return lltype.cast_primitive(T, sbox.value)
+    return box.ll_getvalue(T)
+        
 
-REDBOX = lltype.GcStruct("redbox", ("genvar", rgenop.CONSTORVAR),
-                                   ("isvar", lltype.Bool),
-                         adtmeths = {
-    'll_make_for_gvar': ll_make_for_gvar,
-    'll_make_from_const': ll_make_from_const,
-    'll_getvalue': ll_getvalue,
-    })
+class IntRedBox(ConstRedBox):
+    "A red box that contains a constant integer-like value."
 
-REDBOX_PTR = lltype.Ptr(REDBOX)
+    def __init__(self, intvalue):
+        self.intvalue = intvalue
 
-REDBOX_FOR_SIGNED = lltype.GcStruct("signed_redbox", 
-                                    ('basebox', REDBOX),
-                                    ("value", lltype.Signed))
-REDBOX_FOR_SIGNED_PTR = lltype.Ptr(REDBOX_FOR_SIGNED)
-STATE = lltype.GcStruct("jitstate", ("curblock", rgenop.BLOCK),
-                                    ("curoutgoinglink", rgenop.LINK),
-                                    ("curvalue", REDBOX_PTR))
-STATE_PTR = lltype.Ptr(STATE)
+    def getgenvar(self):
+        return rgenop.genconst(self.intvalue)
+
+    def same_constant(self, other):
+        return isinstance(other, IntRedBox) and self.intvalue == other.intvalue
 
 
-# ____________________________________________________________
-# ll helpers on boxes
+class DoubleRedBox(ConstRedBox):
+    "A red box that contains a constant double-precision floating point value."
+
+    def __init__(self, dblvalue):
+        self.dblvalue = dblvalue
+
+    def getgenvar(self):
+        return rgenop.genconst(self.dblvalue)
+
+    def same_constant(self, other):
+        return isinstance(other, DoubleRedBox) and self.intvalue == other.dblvalue
 
 
-def ll_gvar_from_redbox(jitstate, box, TYPE):
-    if not box.genvar:
-        value = box.ll_getvalue(TYPE)
-        box.genvar = ll_gvar_from_const(jitstate, value)
-    return box.genvar
+class AddrRedBox(ConstRedBox):
+    "A red box that contains a constant address."
 
-def ll_gvar_from_const(jitstate, value):
-    return rgenop.genconst(value)
+    def __init__(self, adrvalue):
+        self.adrvalue = adrvalue
+
+    def getgenvar(self):
+        return rgenop.genconst(self.adrvalue)
+
+    def same_constant(self, other):
+        return isinstance(other, AddrRedBox) and self.intvalue == other.adrvalue
+
 
 # ____________________________________________________________
 # emit ops
@@ -124,42 +162,38 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
     ARG0 = opdesc.ARG0
     RESULT = opdesc.RESULT
     opname = opdesc.name
-    if not argbox.isvar: # const propagate
+    if isinstance(argbox, ConstRedBox):
         arg = argbox.ll_getvalue(ARG0)
         res = opdesc.llop(RESULT, arg)
-        return REDBOX.ll_make_from_const(res)
+        return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 1)
-    op_args[0] = ll_gvar_from_redbox(jitstate, argbox, ARG0)
-    gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
-                        rgenop.constTYPE(RESULT))
-    return REDBOX.ll_make_for_gvar(gvar)
+    op_args[0] = argbox.getgenvar()
+    genvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
+                          rgenop.constTYPE(RESULT))
+    return VarRedBox(genvar)
 
 def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     ARG0 = opdesc.ARG0
     ARG1 = opdesc.ARG1
     RESULT = opdesc.RESULT
     opname = opdesc.name
-    if not argbox0.isvar and not argbox1.isvar: # const propagate
+    if isinstance(argbox0, ConstRedBox) and isinstance(argbox1, ConstRedBox):
+        # const propagate
         arg0 = argbox0.ll_getvalue(ARG0)
         arg1 = argbox1.ll_getvalue(ARG1)
         res = opdesc.llop(RESULT, arg0, arg1)
-        return REDBOX.ll_make_from_const(res)
+        return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 2)
-    op_args[0] = ll_gvar_from_redbox(jitstate, argbox0, ARG0)
-    op_args[1] = ll_gvar_from_redbox(jitstate, argbox1, ARG1)
-    gvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
-                        rgenop.constTYPE(RESULT))
-    return REDBOX.ll_make_for_gvar(gvar)
-
-#def ll_generate_operation(jitstate, opname, args, RESULTTYPE):
-#    gvar = rgenop.genop(jitstate.curblock, opname, args, RESULTTYPE)
-#    return REDBOX.ll_make_for_gvar(gvar)
+    op_args[0] = argbox0.getgenvar()
+    op_args[1] = argbox1.getgenvar()
+    genvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
+                          rgenop.constTYPE(RESULT))
+    return VarRedBox(genvar)
 
 # ____________________________________________________________
 # other jitstate/graph level operations
 
 
-# XXX dummy for now, no appropriate caching, just call enter_block
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
     if key not in states_dic:
         jitstate = enter_block(jitstate, redboxes, TYPES)
@@ -171,19 +205,16 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
     for i in range(len(redboxes)):
         oldbox = oldboxes[i]
         newbox = redboxes[i]
-        if oldbox.isvar: # Allways a match
-            # incoming.append(ll_gvar_from_redbox(jitstate, newbox, TYPES[i]))
-            # XXX: Cheat with Signed for now
-            incoming.append(ll_gvar_from_redbox(jitstate, newbox, lltype.Signed))
+        if isinstance(oldbox, VarRedBox):  # Always a match
+            incoming.append(newbox.getgenvar())
             continue
-        if (not newbox.isvar and ll_getvalue(oldbox, lltype.Signed) ==
-            ll_getvalue(newbox, lltype.Signed)):
+        if oldbox.same_constant(newbox):
             continue
-        # Missmatch. Generalize to a var
+        # Mismatch. Generalize to a var
         break
     else:
         rgenop.closelink(jitstate.curoutgoinglink, incoming, oldblock)
-        return lltype.nullptr(STATE)
+        return None
     
     # Make a more general block
     newblock = rgenop.newblock()
@@ -191,22 +222,16 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
     for i in range(len(redboxes)):
         oldbox = oldboxes[i]
         newbox = redboxes[i]
-        if (newbox.isvar or oldbox.isvar or
-            ll_getvalue(oldbox, lltype.Signed) !=
-            ll_getvalue(newbox, lltype.Signed)):
-            # incoming.append(ll_gvar_from_redbox(jitstate, newbox, TYPES[i]))
-            # XXX: Cheat with Signed for now
-            incoming.append(ll_gvar_from_redbox(jitstate, newbox, lltype.Signed))
+        if not oldbox.same_constant(newbox):
+            incoming.append(newbox.getgenvar())
             newgenvar = rgenop.geninputarg(newblock, TYPES[i])
-            redboxes[i] = REDBOX.ll_make_for_gvar(newgenvar)
+            redboxes[i] = VarRedBox(newgenvar)
 
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
     jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
     states_dic[key] = redboxes[:], newblock
     return jitstate
-            
-
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes, TYPES):
@@ -214,10 +239,10 @@ def enter_block(jitstate, redboxes, TYPES):
     incoming = []
     for i in range(len(redboxes)):
         redbox = redboxes[i]
-        if redbox.isvar:
+        if isinstance(redbox, VarRedBox):
             incoming.append(redbox.genvar)
             newgenvar = rgenop.geninputarg(newblock, TYPES[i])
-            redboxes[i] = REDBOX.ll_make_for_gvar(newgenvar)
+            redboxes[i] = VarRedBox(newgenvar)
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
     jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
@@ -227,83 +252,109 @@ def leave_block(jitstate):
     jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
     return jitstate
 
-def leave_block_split(quejitstate, switchredbox, exitindex, redboxes):
-    jitstate = lltype.cast_pointer(STATE_PTR, quejitstate)
-    if not switchredbox.isvar:
+def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
+    if isinstance(switchredbox, IntRedBox):
         jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)        
-        return switchredbox.ll_getvalue(lltype.Bool)
-    exitgvar = switchredbox.genvar
-    linkpair = rgenop.closeblock2(jitstate.curblock, exitgvar)    
-    false_link, true_link = linkpair.item0, linkpair.item1
-    later_jitstate = quejitstate.ll_copystate()
-    later_jitstate = lltype.cast_pointer(STATE_PTR, later_jitstate)
-    jitstate.curoutgoinglink = true_link
-    later_jitstate.curoutgoinglink = false_link
-    quejitstate.ll_get_split_queue().append((exitindex, later_jitstate, redboxes))
-    return True
-    
+        return bool(switchredbox.intvalue)
+    else:
+        exitgvar = switchredbox.getgenvar()
+        linkpair = rgenop.closeblock2(jitstate.curblock, exitgvar)    
+        false_link, true_link = linkpair.item0, linkpair.item1
+        later_jitstate = jitstate.copystate()
+        jitstate.curoutgoinglink = true_link
+        later_jitstate.curoutgoinglink = false_link
+        jitstate.split_queue.append((exitindex, later_jitstate, redboxes))
+        return True
 
 def schedule_return(jitstate, redbox):
-    return_queue = jitstate.ll_get_return_queue()
-    curoutgoinglink = jitstate.ll_basestate().curoutgoinglink
-    return_queue.append((curoutgoinglink, redbox))
+    jitstate.return_queue.append((jitstate.curoutgoinglink, redbox))
 
 novars = lltype.malloc(VARLIST.TO, 0)
 
-def dispatch_next(jitstate, outredboxes):
-    basestate = jitstate.ll_basestate()
-    split_queue = jitstate.ll_get_split_queue()
+def dispatch_next(jitstate, outredboxes, RETURN_TYPE):
+    split_queue = jitstate.split_queue
     if split_queue:
         exitindex, later_jitstate, redboxes = split_queue.pop()
-        basestate.curblock = later_jitstate.curblock
-        basestate.curoutgoinglink = later_jitstate.curoutgoinglink
-        basestate.curvalue = later_jitstate.curvalue
+        jitstate.curblock = later_jitstate.curblock
+        jitstate.curoutgoinglink = later_jitstate.curoutgoinglink
+        jitstate.curvalue = later_jitstate.curvalue
         for box in redboxes:
             outredboxes.append(box)
         return exitindex
-    return_queue = jitstate.ll_get_return_queue()
-    basestate = jitstate.ll_basestate()
+    return_queue = jitstate.return_queue
     first_redbox = return_queue[0][1]
     finalblock = rgenop.newblock()
-    basestate.curblock = finalblock
-    if not first_redbox.isvar:
+    jitstate.curblock = finalblock
+    if isinstance(first_redbox, ConstRedBox):
         for link, redbox in return_queue:
-            if (redbox.isvar or
-                redbox.ll_getvalue(lltype.Signed) !=
-                first_redbox.ll_getvalue(lltype.Signed)):
+            if not redbox.same_constant(first_redbox):
                 break
         else:
             for link, _ in return_queue:
                 rgenop.closelink(link, novars, finalblock)
             finallink = rgenop.closeblock1(finalblock)
-            basestate.curoutgoinglink = finallink
-            basestate.curvalue = first_redbox
+            jitstate.curoutgoinglink = finallink
+            jitstate.curvalue = first_redbox
             return -1
 
-    finalvar = rgenop.geninputarg(finalblock,
-                                  rgenop.constTYPE(lltype.Signed))
+    finalvar = rgenop.geninputarg(finalblock, RETURN_TYPE)
     for link, redbox in return_queue:
-        gvar = ll_gvar_from_redbox(jitstate, redbox, lltype.Signed)
-        rgenop.closelink(link, [gvar], finalblock)
+        genvar = redbox.getgenvar()
+        rgenop.closelink(link, [genvar], finalblock)
     finallink = rgenop.closeblock1(finalblock)
-    basestate.curoutgoinglink = finallink
-    basestate.curvalue = REDBOX.ll_make_for_gvar(finalvar)
+    jitstate.curoutgoinglink = finallink
+    jitstate.curvalue = VarRedBox(finalvar)
     return -1
 
+def ll_gvar_from_redbox(redbox):
+    return redbox.getgenvar()
 
-def ll_setup_jitstate(EXT_STATE_PTR):
-    jitstate = EXT_STATE_PTR.TO.ll_newstate()
-    jitstate = lltype.cast_pointer(STATE_PTR, jitstate)
-    jitstate.curblock = rgenop.newblock()
+def ll_gvar_from_constant(ll_value):
+    return rgenop.genconst(ll_value)
+
+# ____________________________________________________________
+
+class JITState(object):
+    # XXX obscure interface
+
+    def setup(self):
+        self.return_queue = []
+        self.split_queue = []
+        self.curblock = rgenop.newblock()
+        self.curvalue = None
+
+    def end_setup(self):
+        self.curoutgoinglink = rgenop.closeblock1(self.curblock)
+
+    def close(self, return_gvar):
+        rgenop.closereturnlink(self.curoutgoinglink, return_gvar)
+
+    def copystate(self):
+        other = JITState()
+        other.return_queue = self.return_queue
+        other.split_queue = self.split_queue
+        other.curblock = self.curblock
+        other.curoutgoinglink = self.curoutgoinglink
+        other.curvalue = self.curvalue
+        return other
+
+def ll_build_jitstate():
+    jitstate = JITState()
+    jitstate.setup()
     return jitstate
 
+def ll_signed_box(jitstate, value):
+    value = lltype.cast_primitive(lltype.Signed, value)
+    return ConstRedBox.ll_fromvalue(value)
+
+def ll_var_box(jitstate, cvTYPE):
+    genvar = rgenop.geninputarg(jitstate.curblock, cvTYPE)
+    return VarRedBox(genvar)
+    
 def ll_end_setup_jitstate(jitstate):
-    jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)
+    jitstate.end_setup()
+    return jitstate.curblock
 
-def ll_close_jitstate(final_jitstate, return_gvar):
-    rgenop.closereturnlink(final_jitstate.curoutgoinglink, return_gvar)
-
-def ll_input_redbox(jitstate, TYPE):
-    genvar = rgenop.geninputarg(jitstate.curblock,
-                                rgenop.constTYPE(TYPE))
-    return REDBOX.ll_make_for_gvar(genvar)
+def ll_close_jitstate(jitstate):
+    result_genvar = jitstate.curvalue.getgenvar()
+    jitstate.close(result_genvar)

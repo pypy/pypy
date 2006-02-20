@@ -2,46 +2,14 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
-from pypy.jit.rtimeshift import STATE, STATE_PTR, REDBOX_PTR, VARLIST
+from pypy.jit.rtimeshift import VARLIST, RedBox, VarRedBox, ConstRedBox, JITState
 from pypy.jit.rtimeshift import make_types_const
-from pypy.rpython import rmodel, rtuple, rlist, rdict, rgenop
+from pypy.rpython import rmodel, rtuple, rlist, rdict, rgenop, annlowlevel
 from pypy.jit import rtimeshift
-from pypy.jit.hintrtyper import HintRTyper, s_JITState, originalconcretetype
+from pypy.jit.hintrtyper import HintRTyper, originalconcretetype
 from pypy.jit.hintrtyper import GreenRepr, RedRepr, HintLowLevelOpList
 
 # ___________________________________________________________
-
-def define_queue_in_state(rtyper, s_item, fieldname):
-    queue_def = listdef.ListDef(None,
-                                s_item)
-    queue_def.resize()
-    queue_def.mutate()
-
-    s_queue = annmodel.SomeList(queue_def)
-
-    r_queue = rtyper.getrepr(s_queue)
-    r_queue.setup()
-    QUEUE = r_queue.lowleveltype
-
-    def ll_get_queue(questate):
-        pass
-    def _ll_get_queue(questate):
-        return getattr(questate, fieldname)
-
-    llgetq = ll_get_queue
-
-    def ll_get_queue_annotation(queustate_s):
-        return s_queue
-
-    llgetq.compute_result_annotation = ll_get_queue_annotation
-
-    def ll_get_queue_specialize(hop):
-        return hop.gendirectcall(_ll_get_queue, hop.args_v[0])
-
-    llgetq.specialize = ll_get_queue_specialize
-
-    return s_queue, QUEUE, ll_get_queue
- 
 
 class HintTimeshift(object):
     
@@ -50,71 +18,60 @@ class HintTimeshift(object):
         self.rtyper = rtyper
         self.hrtyper = HintRTyper(hannotator, self)
         self.latestexitindex = -1
+        self.block2jitstate = {}
+
+        self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
+
+        self.s_JITState, self.r_JITState = self.s_r_instanceof(JITState)
+        self.s_RedBox, self.r_RedBox = self.s_r_instanceof(RedBox)
 
         getrepr = self.rtyper.getrepr
 
-        box_list_def = listdef.ListDef(None, annmodel.SomePtr(REDBOX_PTR))
+        box_list_def = listdef.ListDef(None, self.s_RedBox)
         box_list_def.mutate()
         self.s_box_list = annmodel.SomeList(box_list_def)
         self.r_box_list = getrepr(self.s_box_list)
         self.r_box_list.setup()
 
-        box_accum_def = listdef.ListDef(None, annmodel.SomePtr(REDBOX_PTR))
+        box_accum_def = listdef.ListDef(None, self.s_RedBox)
         box_accum_def.mutate()
         box_accum_def.resize()
         self.s_box_accum = annmodel.SomeList(box_accum_def)
         self.r_box_accum = getrepr(self.s_box_accum)
         self.r_box_accum.setup()
 
-        s_return_info = annmodel.SomeTuple([annmodel.SomePtr(rgenop.LINK),
-                                           annmodel.SomePtr(REDBOX_PTR)])
+        self.ll_build_jitstate_graph = self.annhelper.getgraph(
+            rtimeshift.ll_build_jitstate,
+            [], self.s_JITState)
+        self.ll_signed_box_graph = self.annhelper.getgraph(
+            rtimeshift.ll_signed_box,
+            [self.s_JITState, annmodel.SomeInteger()],
+            self.s_RedBox)
+        self.ll_var_box_graph = self.annhelper.getgraph(
+            rtimeshift.ll_var_box,
+            [self.s_JITState, annmodel.SomePtr(rgenop.CONSTORVAR)],
+            self.s_RedBox)
+        self.ll_end_setup_jitstate_graph = self.annhelper.getgraph(
+            rtimeshift.ll_end_setup_jitstate,
+            [self.s_JITState],
+            annmodel.SomePtr(rgenop.BLOCK))
+        self.ll_close_jitstate_graph = self.annhelper.getgraph(
+            rtimeshift.ll_close_jitstate,
+            [self.s_JITState],
+            annmodel.s_None)
 
-        defs = define_queue_in_state(rtyper, s_return_info, 'return_queue')
-        s_return_queue, RETURN_QUEUE, ll_get_return_queue = defs
-
-        s_split_info = annmodel.SomeTuple([annmodel.SomeInteger(),
-                                           annmodel.SomePtr(STATE_PTR),
-                                           self.s_box_list])
-
-        defs = define_queue_in_state(rtyper, s_split_info, 'split_queue')
-        s_split_queue, SPLIT_QUEUE, ll_get_split_queue = defs        
-
-
-        def ll_newstate():
-            questate = lltype.malloc(QUESTATE)
-            questate.return_queue = RETURN_QUEUE.TO.ll_newlist(0)
-            questate.split_queue = SPLIT_QUEUE.TO.ll_newlist(0)
-            return questate
-
-        def ll_copystate(questate):
-            newquestate = lltype.malloc(QUESTATE)
-            newquestate.return_queue = questate.return_queue
-            newquestate.split_queue = questate.split_queue
-            basestate = questate.basestate
-            newbasestate = newquestate.basestate
-            newbasestate.curblock = basestate.curblock
-            newbasestate.curoutgoinglink = basestate.curoutgoinglink
-            newbasestate.curvalue = basestate.curvalue
-            return newquestate
-        
-        QUESTATE = lltype.GcStruct("quejitstate",
-                                   ('basestate', STATE),
-                                   ("return_queue", RETURN_QUEUE),
-                                   ("split_queue", SPLIT_QUEUE),                                   
-                                   adtmeths = {
-            'll_get_return_queue': ll_get_return_queue,
-            'll_get_split_queue': ll_get_split_queue,
-            'll_newstate': ll_newstate,
-            'll_copystate': ll_copystate,
-            'll_basestate': lambda questate: questate.basestate})
-
-        self.s_return_queue = s_return_queue # for the test
-        self.QUESTATE_PTR = lltype.Ptr(QUESTATE)
+    def s_r_instanceof(self, cls, can_be_None=True):
+        # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
+        classdesc = self.rtyper.annotator.bookkeeper.getdesc(cls)
+        classdef = classdesc.getuniqueclassdef()
+        s_instance = annmodel.SomeInstance(classdef, can_be_None)
+        r_instance = self.annhelper.getdelayedrepr(s_instance)
+        return s_instance, r_instance
 
     def getexitindex(self, link, inputargs, args_r, entering_links):
         self.latestexitindex += 1
         v_jitstate = flowmodel.Variable('jitstate')
-        v_jitstate.concretetype = STATE_PTR
+        v_jitstate.concretetype = self.r_JITState.lowleveltype
         v_boxes = flowmodel.Variable('boxes')
         v_boxes.concretetype = self.r_box_accum.lowleveltype
       
@@ -132,8 +89,12 @@ class HintTimeshift(object):
             else:
                 c_TYPE = rmodel.inputconst(lltype.Void,
                                            r.lowleveltype)
-                v_value = llops.gendirectcall(REDBOX_PTR.TO.ll_getvalue,
-                                              v_box, c_TYPE)
+                s_TYPE = self.rtyper.annotator.bookkeeper.immutablevalue(r.lowleveltype)
+                v_value = llops.genmixlevelhelpercall(rtimeshift.ll_getvalue,
+                    [self.s_RedBox, s_TYPE],
+                    [v_box, c_TYPE],
+                    annmodel.lltype_to_annotation(r.lowleveltype))
+                                                
                 reenter_vars.append(v_value)
 
         reenter_link = flowmodel.Link(reenter_vars, link.target)
@@ -150,8 +111,8 @@ class HintTimeshift(object):
     def timeshift(self):
         for graph in self.hannotator.translator.graphs:
             self.timeshift_graph(graph)
-        # RType the helpers found during timeshifting
-        self.rtyper.specialize_more_blocks()
+        # Annotate and rType the helpers found during timeshifting
+        self.annhelper.finish()
 
     def timeshift_graph(self, graph):
         self.graph = graph
@@ -159,42 +120,41 @@ class HintTimeshift(object):
         entering_links = flowmodel.mkentrymap(graph)
 
         originalblocks = list(graph.iterblocks())
+        for block in originalblocks:
+            self.timeshift_block(block)
+
         returnblock = graph.returnblock
         # we need to get the jitstate to the before block of the return block
         self.dispatchblock = flowmodel.Block([])
-        self.pre_process_block(self.dispatchblock)
+        self.insert_jitstate_arg(self.dispatchblock)
         before_returnblock = self.insert_before_block(returnblock,
                                  entering_links[returnblock],
                                  closeblock=False)
-        self.pre_process_block(before_returnblock)
+        # fix its concretetypes
+        self.hrtyper.setup_block_entry(before_returnblock)
+        self.insert_jitstate_arg(before_returnblock)
         for block in originalblocks:
-            self.pre_process_block(block)            
+            self.insert_jitstate_arg(block)            
 
         for block in originalblocks:
-            self.timeshift_block(block)
             if block.operations != ():
                 block_entering_links = entering_links.pop(block)
-                before_block = self.insert_before_block(block, block_entering_links)              
+                before_block = self.insert_before_block(block, block_entering_links)
                 self.insert_bookkeeping_enter(block, before_block, len(block_entering_links))
                 
                 self.insert_bookkeeping_leave_block(block, entering_links)
 
-        # fix its concretetypes
-        self.hrtyper.setup_block_entry(before_returnblock)
         self.hrtyper.insert_link_conversions(before_returnblock)
         # add booking logic
         self.insert_return_bookkeeping(before_returnblock)
 
         # fix its concretetypes
-        self.hrtyper.setup_block_entry(self.dispatchblock)
         self.insert_dispatch_logic(returnblock)
 
-
-    def pre_process_block(self, block):
+    def insert_jitstate_arg(self, block):
         # pass 'jitstate' as an extra argument around the whole graph
         if block.operations != ():
-            v_jitstate = flowmodel.Variable('jitstate')
-            self.hannotator.bindings[v_jitstate] = s_JITState
+            v_jitstate = self.getjitstate(block)
             block.inputargs.insert(0, v_jitstate)
             for link in block.exits:
                 if link.target.operations != ():
@@ -207,7 +167,10 @@ class HintTimeshift(object):
         for var in block.inputargs:
             newvar = flowmodel.Variable(var)
             newvar.concretetype = var.concretetype
-            self.hannotator.bindings[newvar] = hs = self.hannotator.bindings[var]
+            try:
+                self.hannotator.bindings[newvar] = hs = self.hannotator.bindings[var]
+            except KeyError:
+                pass
             newinputargs.append(newvar)
         newblock = flowmodel.Block(newinputargs)
         if block.isstartblock: # xxx
@@ -222,14 +185,22 @@ class HintTimeshift(object):
             bridge = flowmodel.Link(newinputargs, block)
             newblock.closeblock(bridge)
         return newblock
+
+    def make_const_box(self, llops, r_green, v_value):
+        s_value = annmodel.lltype_to_annotation(r_green.lowleveltype)
+        v_box = llops.genmixlevelhelpercall(
+            rtimeshift.ConstRedBox.ll_fromvalue,
+            [s_value], [v_value], self.s_RedBox)
+        return v_box
+        
                                                          
     def read_out_box(self, llops, v_boxes, i):
         c_dum_nocheck = rmodel.inputconst(lltype.Void, rlist.dum_nocheck)
         c_i = rmodel.inputconst(lltype.Signed, i)
-        v_box = llops.gendirectcall(rlist.ll_getitem_nonneg,
-                                    c_dum_nocheck,
-                                    v_boxes,
-                                    c_i)
+        s_dum_nocheck = self.rtyper.annotator.bookkeeper.immutablevalue(rlist.dum_nocheck)
+        v_box = llops.gendirectcall(rlist.ll_getitem_nonneg, c_dum_nocheck, v_boxes, c_i)
+
+        v_box = llops.convertvar(v_box, self.r_box_list.item_repr, self.r_RedBox)
         return v_box
 
     def insert_read_out_boxes(self, bridge, llops, v_newjitstate, v_boxes, args_r, newinputargs):
@@ -266,10 +237,8 @@ class HintTimeshift(object):
                 TYPES.append(r.original_concretetype)                
         getrepr = self.rtyper.getrepr
 
-        # XXX factor this out too!
-        v_boxes = rlist.newlist(llops, self.r_box_list, boxes_v)
-        c_TYPES = rmodel.inputconst(VARLIST, make_types_const(TYPES))        
-
+        v_boxes = self.build_box_list(llops, boxes_v)
+        TYPES_gv = make_types_const(TYPES)
 
         if nentrylinks > 1:
             enter_block_logic = self.bookkeeping_enter_for_join
@@ -282,17 +251,23 @@ class HintTimeshift(object):
                           before_block,
                           llops,
                           v_boxes,
-                          c_TYPES)
+                          TYPES_gv)
 
-
-
+    def build_box_list(self, llops, boxes_v):
+        type_erased_v = [llops.convertvar(v_box, self.r_RedBox,
+                                          self.r_box_list.item_repr)
+                         for v_box in boxes_v]
+        v_boxes = rlist.newlist(llops, self.r_box_list, type_erased_v)
+        return v_boxes
 
     def bookkeeping_enter_simple(self, args_r, newinputargs, before_block, llops, v_boxes,
-                                c_TYPES):
+                                TYPES_gv):
+        c_TYPES = rmodel.inputconst(VARLIST, TYPES_gv)
         v_newjitstate = llops.genmixlevelhelpercall(rtimeshift.enter_block,
-                             [annmodel.SomePtr(STATE_PTR), self.s_box_list,
+                             [self.s_JITState, self.s_box_list,
                               annmodel.SomePtr(VARLIST)],
-                             [newinputargs[0], v_boxes, c_TYPES])
+                             [newinputargs[0], v_boxes, c_TYPES],
+                             self.s_JITState)
 
         bridge = before_block.exits[0]
         self.insert_read_out_boxes(bridge, llops, v_newjitstate, v_boxes, args_r, newinputargs)
@@ -309,7 +284,7 @@ class HintTimeshift(object):
     # mapping green values combinations to frozen states for red boxes values
     # and generated blocks
     def bookkeeping_enter_for_join(self, args_r, newinputargs, before_block, llops, v_boxes,
-                                  c_TYPES):
+                                   TYPES_gv):
         getrepr = self.rtyper.getrepr        
         items_s = []
         key_v = []
@@ -322,38 +297,27 @@ class HintTimeshift(object):
                 erased_v = llops.convertvar(newvar, r_from, r_to)
                 key_v.append(erased_v)
 
-
         s_key_tuple = annmodel.SomeTuple(items_s)
-  
-        s_dict_value = annmodel.SomeTuple([self.s_box_list,
-                                           annmodel.SomePtr(rgenop.BLOCK)])
-        s_state_dic = annmodel.SomeDict(dictdef.DictDef(None,
-                                                        s_key_tuple,
-                                                        s_dict_value
-                                                        ))
         r_key = getrepr(s_key_tuple)
-
-        r_state_dic = getrepr(s_state_dic)
         r_key.setup()
-
-        r_state_dic.setup()
-
-        c_state_dic = rmodel.inputconst(r_state_dic, {})
-
         v_key = rtuple.newtuple(llops, r_key, key_v)
-
 
         v_oldjitstate = newinputargs[0]
 
-        v_newjitstate = llops.genmixlevelhelpercall(rtimeshift.retrieve_jitstate_for_merge,
-                             [s_state_dic, annmodel.SomePtr(STATE_PTR), s_key_tuple, self.s_box_list,
-                              annmodel.SomePtr(VARLIST)],
-                             [c_state_dic, v_oldjitstate, v_key, v_boxes, c_TYPES])
+        cache = {}
+        def merge_point(jitstate, key, boxes):
+            return rtimeshift.retrieve_jitstate_for_merge(cache, jitstate,
+                                                          key, boxes, TYPES_gv)
+
+        v_newjitstate = llops.genmixlevelhelpercall(merge_point,
+              [self.s_JITState, s_key_tuple, self.s_box_list],
+              [v_oldjitstate, v_key, v_boxes],
+              self.s_JITState)
 
         v_continue = llops.genop('ptr_nonzero', [v_newjitstate], resulttype=lltype.Bool)
 
         v_newjitstate2 = flowmodel.Variable(v_newjitstate)
-        v_newjitstate2.concretetype = STATE_PTR
+        v_newjitstate2.concretetype = self.r_JITState.lowleveltype
         v_boxes2 = flowmodel.Variable(v_boxes)
         v_boxes2.concretetype = self.r_box_list.lowleveltype
 
@@ -407,7 +371,10 @@ class HintTimeshift(object):
             if isinstance(v, flowmodel.Variable):
                 if v not in renamemap:
                     vprime = renamemap[v] = flowmodel.Variable(v)
-                    self.hannotator.bindings[vprime] = self.hannotator.bindings[v]
+                    try:
+                        self.hannotator.bindings[vprime] = self.hannotator.bindings[v]
+                    except KeyError:
+                        pass
                     vprime.concretetype = v.concretetype
                     inargs.append(v)
 
@@ -417,8 +384,8 @@ class HintTimeshift(object):
         newlinks = []
 
         v_newjitstate = flowmodel.Variable('jitstate')
-        self.hannotator.bindings[v_newjitstate] = s_JITState
-        v_newjitstate.concretetype = STATE_PTR
+        self.hannotator.bindings[v_newjitstate] = self.s_JITState
+        v_newjitstate.concretetype = self.r_JITState.lowleveltype
 
         def rename_on_link(v):
             if v is orig_v_jitstate:
@@ -453,8 +420,9 @@ class HintTimeshift(object):
         if len(newblock.exits) == 1 or isinstance(self.hrtyper.bindingrepr(oldexitswitch), GreenRepr):
             newblock.exitswitch = rename(oldexitswitch)
             v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block,
-                                                [annmodel.SomePtr(STATE_PTR)],
-                                                [rename(orig_v_jitstate)])     
+                                                [self.s_JITState],
+                                                [rename(orig_v_jitstate)],
+                                                self.s_JITState)     
 
             llops.append(flowmodel.SpaceOperation('same_as',
                                    [v_res],
@@ -468,28 +436,26 @@ class HintTimeshift(object):
                 if isinstance(r, RedRepr):
                     boxes_v.append(var)
                 elif isinstance(r, GreenRepr):
-                    boxes_v.append(llops.gendirectcall(rtimeshift.REDBOX.ll_make_from_const, var))
+                    v_box = self.make_const_box(llops, r, var)
+                    boxes_v.append(v_box)
                 else:
                     raise RuntimeError('Unsupported boxtype')
             
-            getrepr = self.rtyper.getrepr
-
-            v_boxes = rlist.newlist(llops, self.r_box_list, boxes_v)
+            v_boxes = self.build_box_list(llops, boxes_v)
             false_exit = [exit for exit in newblock.exits if exit.exitcase is False][0]
             exitindex = self.getexitindex(false_exit, inputargs[1:], args_r, entering_links)
             c_exitindex = rmodel.inputconst(lltype.Signed, exitindex)
             v_jitstate = rename(orig_v_jitstate)
-            v_quejitstate = llops.genop('cast_pointer', [v_jitstate],
-                                        resulttype=self.QUESTATE_PTR)
             v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block_split,
-                                                [annmodel.SomePtr(self.QUESTATE_PTR),
-                                                 annmodel.SomePtr(REDBOX_PTR),
+                                                [self.s_JITState,
+                                                 self.s_RedBox,
                                                  annmodel.SomeInteger(),
                                                  self.s_box_list],
-                                                [v_quejitstate,
+                                                [v_jitstate,
                                                  rename(oldexitswitch),
                                                  c_exitindex,
-                                                 v_boxes])
+                                                 v_boxes],
+                                                annmodel.SomeBool())
             llops.append(flowmodel.SpaceOperation('same_as',
                                                   [inputargs[0]],
                                                   v_newjitstate))
@@ -498,19 +464,17 @@ class HintTimeshift(object):
 
     def insert_return_bookkeeping(self, before_returnblock):
         v_jitstate, v_value = before_returnblock.inputargs
+        
         r_value = self.hrtyper.bindingrepr(v_value)
         llops = HintLowLevelOpList(self, None)
         if isinstance(r_value, GreenRepr):
-            v_value = llops.gendirectcall(rtimeshift.REDBOX.ll_make_from_const,
-                                          v_value)
+            v_value = self.make_const_box(llops, r_value, v_value)
 
-        v_quejitstate = llops.genop('cast_pointer', [v_jitstate],
-                                    resulttype=self.QUESTATE_PTR)
-            
         llops.genmixlevelhelpercall(rtimeshift.schedule_return,
-                                    [annmodel.SomePtr(self.QUESTATE_PTR),
-                                     annmodel.SomePtr(REDBOX_PTR)],
-                                    [v_quejitstate, v_value])
+                                    [self.s_JITState,
+                                     self.s_RedBox],
+                                    [v_jitstate, v_value],
+                                    self.s_JITState)
 
         before_returnblock.operations[:] = llops
         bridge = flowmodel.Link([v_jitstate], self.dispatchblock)
@@ -524,12 +488,16 @@ class HintTimeshift(object):
 
         v_boxes = rlist.newlist(llops, self.r_box_accum, [])
 
-        v_quejitstate = llops.genop('cast_pointer', [v_jitstate],
-                                    resulttype=self.QUESTATE_PTR)
-        
+
+        r_returnvalue = self.hrtyper.bindingrepr(returnblock.inputargs[0])
+        RETURN_TYPE = r_returnvalue.original_concretetype
+        c_TYPE = rmodel.inputconst(rgenop.CONSTORVAR, rgenop.constTYPE(RETURN_TYPE))      
         v_next = llops.genmixlevelhelpercall(rtimeshift.dispatch_next,
-                     [annmodel.SomePtr(self.QUESTATE_PTR), self.s_box_accum],
-                     [v_quejitstate, v_boxes])
+                                             [self.s_JITState,
+                                              self.s_box_accum,
+                                              annmodel.SomePtr(rgenop.CONSTORVAR)],
+                                             [v_jitstate, v_boxes, c_TYPE],
+                                             annmodel.SomeInteger())
 
         dispatchblock.operations[:] = llops
 
@@ -554,10 +522,17 @@ class HintTimeshift(object):
 
         v_returnjitstate = flowmodel.Variable('jitstate')
         returnblock.inputargs = [v_returnjitstate]
-        v_returnjitstate.concretetype = STATE_PTR
+        v_returnjitstate.concretetype = self.r_JITState.lowleveltype
 
-        
+    def getjitstate(self, block):
+        if block not in self.block2jitstate:
+            v_jitstate = flowmodel.Variable('jitstate')
+            v_jitstate.concretetype = self.r_JITState.lowleveltype
+            self.block2jitstate[block] = v_jitstate
+        return self.block2jitstate[block]
+
     def timeshift_block(self, block):
+        self.getjitstate(block)   # force this to be precomputed
         self.hrtyper.specialize_block(block)
 
     def originalconcretetype(self, var):

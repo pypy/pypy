@@ -46,7 +46,8 @@ def timeshift(ll_function, values, opt_consts=[]):
         t.view()
     # run the time-shifted graph-producing graphs
     graph1 = ha.translator.graphs[0]
-    jitstate = rtimeshift.ll_setup_jitstate(htshift.QUESTATE_PTR)
+    llinterp = LLInterpreter(rtyper)
+    jitstate = llinterp.eval_graph(htshift.ll_build_jitstate_graph, [])
     graph1args = [jitstate]
     residual_graph_args = []
     assert len(graph1.getargs()) == 1 + len(values)
@@ -60,53 +61,52 @@ def timeshift(ll_function, values, opt_consts=[]):
             # red
             assert residual_v == [llvalue], "XXX for now"
             TYPE = htshift.originalconcretetype(v)
-            box = rtimeshift.ll_input_redbox(jitstate, TYPE)
+            box = llinterp.eval_graph(htshift.ll_var_box_graph, [jitstate,
+                                                                 rgenop.constTYPE(TYPE)])
             if i in opt_consts: # XXX what should happen here interface wise is unclear
-                box = rtimeshift.REDBOX.ll_make_from_const(llvalue)
+                box = llinterp.eval_graph(htshift.ll_signed_box_graph, [jitstate, llvalue])
             graph1args.append(box)
             residual_graph_args.append(llvalue)
-    rtimeshift.ll_end_setup_jitstate(jitstate)
-    startblock = jitstate.curblock
-    llinterp = LLInterpreter(rtyper)
+    startblock = llinterp.eval_graph(htshift.ll_end_setup_jitstate_graph, [jitstate])
+
     newjitstate = llinterp.eval_graph(graph1, graph1args)
     # now try to run the blocks produced by the jitstate
     r = htshift.hrtyper.getrepr(hs)
-    result_gvar = rtimeshift.ll_gvar_from_redbox(newjitstate, newjitstate.curvalue,
-                                                 r.original_concretetype)
-    rtimeshift.ll_close_jitstate(newjitstate, result_gvar)
+    llinterp.eval_graph(htshift.ll_close_jitstate_graph, [jitstate])
+
     residual_graph = rgenop.buildgraph(startblock)
     insns = summary(residual_graph)
     res = rgenop.testgengraph(residual_graph, residual_graph_args,
                               viewbefore = conftest.option.view)
     return insns, res
 
-def test_ll_get_return_queue():
-    t = TranslationContext()
-    a = t.buildannotator()
-    rtyper = t.buildrtyper()
-    rtyper.specialize() # XXX
+##def test_ll_get_return_queue():
+##    t = TranslationContext()
+##    a = t.buildannotator()
+##    rtyper = t.buildrtyper()
+##    rtyper.specialize() # XXX
 
-    htshift = HintTimeshift(None, rtyper)
+##    htshift = HintTimeshift(None, rtyper)
 
-    questate = htshift.QUESTATE_PTR.TO.ll_newstate()
+##    questate = htshift.QUESTATE_PTR.TO.ll_newstate()
 
-    def llf(questate):
-        return questate.ll_get_return_queue()
+##    def llf(questate):
+##        return questate.ll_get_return_queue()
 
-    from pypy.rpython import annlowlevel
+##    from pypy.rpython import annlowlevel
 
-    graph = annlowlevel.annotate_mixlevel_helper(rtyper, llf, [
-        annmodel.SomePtr(htshift.QUESTATE_PTR)])
+##    graph = annlowlevel.annotate_mixlevel_helper(rtyper, llf, [
+##        annmodel.SomePtr(htshift.QUESTATE_PTR)])
 
-    s = a.binding(graph.getreturnvar())
+##    s = a.binding(graph.getreturnvar())
 
-    assert s == htshift.s_return_queue
+##    assert s == htshift.s_return_queue
 
-    rtyper.specialize_more_blocks()
+##    rtyper.specialize_more_blocks()
 
-    llinterp = LLInterpreter(rtyper)
-    rq = llinterp.eval_graph(graph, [questate])
-    assert lltype.typeOf(rq) == rtyper.getrepr(s).lowleveltype
+##    llinterp = LLInterpreter(rtyper)
+##    rq = llinterp.eval_graph(graph, [questate])
+##    assert lltype.typeOf(rq) == rtyper.getrepr(s).lowleveltype
 
 
 def test_simple_fixed():
@@ -230,3 +230,19 @@ def test_arith_plus_minus():
     assert ll_plus_minus(0xA5A, 3, 32, 10) == 42
     insns, res = timeshift(ll_plus_minus, [0xA5A, 3, 32, 10], [0, 1])
     assert res == 42
+    assert insns == {'int_add': 2,
+                     'int_sub': 1}
+
+def INPROGRESS_test_simple_struct():
+    S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
+                                      ('world', lltype.Signed),
+                        hints={'immutable': True})
+    def ll_function(s):
+        return s.hello * s.world
+    s1 = lltype.malloc(S)
+    s1.hello = 6
+    s1.world = 7
+    insns, res = timeshift(ll_function, [s1], [])
+    assert res == 42
+    assert insns == {'getfield': 2,
+                     'int_mul': 1}
