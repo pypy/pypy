@@ -50,6 +50,30 @@ def unsatisfiable_problem(computation_space):
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, w, y)
 
+def send_more_money(computation_space):
+    cs = computation_space
+
+    variables = (s, e, n, d, m, o, r, y) = cs.make_vars('s', 'e', 'n', 'd', 'm', 'o', 'r', 'y')
+
+    digits = range(10)
+    for var in variables:
+        var.cs_set_dom(cs, c.FiniteDomain(digits))
+
+    # use fd.AllDistinct
+    for v1 in variables:
+        for v2 in variables:
+            if v1 != v2:
+                cs.add_constraint(c.Expression(cs, [v1, v2], '%s != %s' % (v1.name, v2.name)))
+
+    # use fd.NotEquals
+    cs.add_constraint(c.Expression(cs, [s], 's != 0'))
+    cs.add_constraint(c.Expression(cs, [m], 'm != 0'))
+    cs.add_constraint(c.Expression(cs, [s, e, n, d, m, o, r, y],
+                                   '1000*s+100*e+10*n+d+1000*m+100*o+10*r+e == 10000*m+1000*o+100*n+10*e+y'))
+    cs.set_distributor(di.DichotomyDistributor(cs))
+    print cs.constraints
+    return (s, e, n, d, m, o, r, y)
+
 def conference_scheduling(computation_space):
     cs = computation_space
 
@@ -66,15 +90,18 @@ def conference_scheduling(computation_space):
 
     for conf in ('c03','c04','c05','c06'):
         v = cs.get_var_by_name(conf)
-        cs.add_constraint(c.Expression(cs, [v], "%s[0] == 'room C'" % v.name))
+        cs.add_constraint(c.Expression(cs, [v],
+                                       "%s[0] == 'room C'" % v.name))
 
     for conf in ('c01','c05','c10'):
         v = cs.get_var_by_name(conf)
-        cs.add_constraint(c.Expression(cs, [v], "%s[1].startswith('day 1')" % v.name))
+        cs.add_constraint(c.Expression(cs, [v],
+                                       "%s[1].startswith('day 1')" % v.name))
 
     for conf in ('c02','c03','c04','c09'):
         v = cs.get_var_by_name(conf)
-        cs.add_constraint(c.Expression(cs, [v], "%s[1].startswith('day 2')" % v.name))
+        cs.add_constraint(c.Expression(cs, [v],
+                                       "%s[1].startswith('day 2')" % v.name))
 
     groups = (('c01','c02','c03','c10'),
               ('c02','c06','c08','c09'),
