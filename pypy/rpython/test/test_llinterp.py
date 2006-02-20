@@ -23,7 +23,7 @@ def teardown_module(mod):
 def find_exception(exc, interp):
     assert isinstance(exc, LLException)
     import exceptions
-    klass, inst = exc.args
+    klass, inst = exc.args[0], exc.args[1]
     # indirect way to invoke fn_pyexcclass2exc, for memory/test/test_llinterpsim
     f = typer.getexceptiondata().fn_pyexcclass2exc
     obj = typer.type_system.deref(f)

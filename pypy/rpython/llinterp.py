@@ -8,13 +8,24 @@ from pypy.rpython import objectmodel
 import sys
 import math
 import py
+import traceback, cStringIO
 
 log = py.log.Producer('llinterp')
 
 class LLException(Exception):
     def __str__(self):
-        etype, evalue = self.args
-        return '<LLException %r>' % (''.join(etype.name).rstrip('\x00'),)
+        etype = self.args[0]
+        evalue = self.args[0]
+        if len(self.args) > 2:
+            f = cStringIO.StringIO()
+            original_type, original_value, original_tb = self.args[2]
+            traceback.print_exception(original_type, original_value, original_tb,
+                                      file=f)
+            extra = '\n' + f.getvalue().rstrip('\n')
+            extra = extra.replace('\n', '\n | ') + '\n `------'
+        else:
+            extra = ''
+        return '<LLException %r%s>' % (''.join(etype.name).rstrip('\x00'), extra)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -203,7 +214,8 @@ class LLFrame(object):
             link = block.exits[0]
             if e:
                 exdata = self.llinterpreter.typer.getexceptiondata()
-                cls, inst = e.args
+                cls = e.args[0]
+                inst = e.args[1]
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
                     if self.op_direct_call(exdata.fn_exception_match,
@@ -243,7 +255,13 @@ class LLFrame(object):
         retval = ophandler(*vals)
         self.setvar(operation.result, retval)
 
-    def make_llexception(self, exc):
+    def make_llexception(self, exc=None):
+        if exc is None:
+            original = sys.exc_info()
+            exc = original[1]
+            extraargs = (original,)
+        else:
+            extraargs = ()
         typer = self.llinterpreter.typer
         exdata = typer.getexceptiondata()
         if isinstance(exc, OSError):
@@ -254,15 +272,14 @@ class LLFrame(object):
             evalue = self.op_direct_call(exdata.fn_pyexcclass2exc,
                                          self.llt.pyobjectptr(exc_class))
             etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
-        raise LLException(etype, evalue)
+        raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
         obj = self.llinterpreter.typer.type_system.deref(fptr)
         try:
             return obj._callable(*args)
-        except Exception, e:
-            #print "GOT A CPYTHON EXCEPTION:", e.__class__, e
-            self.make_llexception(e)
+        except Exception:
+            self.make_llexception()
 
     def find_roots(self, roots):
         #log.findroots(self.curr_block.inputargs)
@@ -355,8 +372,8 @@ class LLFrame(object):
         else:
             try:
                 return self.llt.malloc(obj, size)
-            except MemoryError, e:
-                self.make_llexception(e)
+            except MemoryError:
+                self.make_llexception()
 
     def op_flavored_malloc(self, flavor, obj):
         assert isinstance(flavor, str)
@@ -532,8 +549,8 @@ class LLFrame(object):
             func = opimpls[%(opname)r]
             try:
                 pyo = func(*[pyo._obj.value for pyo in pyobjs])
-            except Exception, e:
-                self.make_llexception(e)
+            except Exception:
+                self.make_llexception()
             return self.llt.pyobjectptr(pyo)
         """ % locals()).compile()
     del opname
@@ -635,8 +652,8 @@ class LLFrame(object):
                         func = opimpls[%(opname)r]
                         try:
                             return %(adjust_result)s(func(x, y))
-                        except OverflowError, e:
-                            self.make_llexception(e)
+                        except OverflowError:
+                            self.make_llexception()
                 """ % locals()).compile()
         for opname in 'is_true', 'neg', 'abs', 'invert':
             assert opname in opimpls
@@ -658,8 +675,8 @@ class LLFrame(object):
                         func = opimpls[%(opname)r]
                         try:
                             return %(adjust_result)s(func(x))
-                        except OverflowError, e:
-                            self.make_llexception(e)
+                        except OverflowError:
+                            self.make_llexception()
                 """ % locals()).compile()
             
     for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
