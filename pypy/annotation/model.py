@@ -556,7 +556,10 @@ def annotation_to_lltype(s_val, info=None):
 ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
 
 def lltype_to_annotation(T):
-    s = ll_to_annotation_map.get(T)
+    try:
+        s = ll_to_annotation_map.get(T)
+    except TypeError:
+        s = None    # unhashable T, e.g. a Ptr(GcForwardReference())
     if s is None:
         if isinstance(T, ootype.Instance):
             return SomeOOInstance(T)
