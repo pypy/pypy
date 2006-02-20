@@ -5,8 +5,9 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
-from pypy.rpython import rmodel, objectmodel, rptr
+from pypy.rpython import rmodel, objectmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
+from pypy.rpython.normalizecalls import perform_normalizations
 import sets, os
 
 """
@@ -624,37 +625,61 @@ class BoehmGCTransformer(GCTransformer):
             return None
 
 class FrameworkGCTransformer(BoehmGCTransformer):
-    rootstacksize = 640*1024    # XXX adjust
-    ROOTSTACK = lltype.Struct("root_stack", ("top", llmemory.Address),
-                                            ("base", llmemory.Address))
 
     def __init__(self, translator):
         super(FrameworkGCTransformer, self).__init__(translator)
-        rootstack = lltype.malloc(self.ROOTSTACK, immortal=True)
-        rootstacksize = self.rootstacksize
+        class GCData(object):
+            startheapsize = 640*1024    # XXX adjust
+            rootstacksize = 640*1024    # XXX adjust
+        gcdata = GCData()
         sizeofaddr = llmemory.sizeof(llmemory.Address)
+        from pypy.rpython.memory.lladdress import NULL
 
-        def ll_frameworkgc_setup():
-            stackbase = lladdress.raw_malloc(rootstacksize)
-            rootstack.top  = stackbase
-            rootstack.base = stackbase
+        class StackRootIterator:
+            _alloc_flavor_ = 'raw'
+            def __init__(self):
+                self.current = gcdata.root_stack_top
 
-        def ll_push_root(addr):
-            top = rootstack.top
+            def pop(self):
+                while self.current != gcdata.root_stack_base:
+                    self.current -= sizeofaddr
+                    result = self.current.address[0]
+                    if result != NULL:
+                        return result
+                return NULL
+
+        def frameworkgc_setup():
+            stackbase = lladdress.raw_malloc(GCData.rootstacksize)
+            gcdata.root_stack_top  = stackbase
+            gcdata.root_stack_base = stackbase
+#            from pypy.rpython.memory.gc import MarkSweepGC
+#            gcdata.gc = MarkSweepGC(GCData.startheapsize, StackRootIterator)
+
+        def push_root(addr):
+            top = gcdata.root_stack_top
             top.address[0] = addr
-            rootstack.top = top + sizeofaddr
+            gcdata.root_stack_top = top + sizeofaddr
 
-        def ll_pop_root():
-            top = rootstack.top - sizeofaddr
+        def pop_root():
+            top = gcdata.root_stack_top - sizeofaddr
             result = top.address[0]
-            rootstack.top = top
+            gcdata.root_stack_top = top
             return result
 
-        self.frameworkgc_setup_ptr = self.inittime_helper(
-            ll_frameworkgc_setup, [], attach_empty_cleanup=True)
-        self.push_root_ptr = self.inittime_helper(ll_push_root,
+        self.frameworkgc_setup_ptr = self.mixlevel_helper(
+            frameworkgc_setup, [], attach_empty_cleanup=True)
+        self.push_root_ptr = self.mixlevel_helper(push_root,
                                                   [annmodel.SomeAddress()])
-        self.pop_root_ptr = self.inittime_helper(ll_pop_root, [])
+        self.pop_root_ptr = self.mixlevel_helper(pop_root, [])
+
+    def mixlevel_helper(self, helper, args_s, attach_empty_cleanup=False):
+        graph = annlowlevel.annotate_mixlevel_helper(self.translator.rtyper, helper, args_s)
+        self.seen_graphs[graph] = True
+        perform_normalizations(self.translator.rtyper)
+        self.specialize_more_blocks()
+        if attach_empty_cleanup:
+            MinimalGCTransformer(self.translator).transform_graph(graph)
+        return const_funcptr_fromgraph(graph)
 
     def protect_roots(self, op, livevars):
         livevars = [var for var in livevars if not var_ispyobj(var)]
