@@ -649,6 +649,11 @@ class _ptr(object):
         self._set_weak(False)
         self._setobj(pointing_to, solid)
 
+    def _become(self, other):
+        assert self._TYPE == other._TYPE
+        assert not self._weak
+        self._setobj(other._obj, other._solid)
+
     def __eq__(self, other):
         if not isinstance(other, _ptr):
             raise TypeError("comparing pointer with %r object" % (

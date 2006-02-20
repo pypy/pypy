@@ -200,8 +200,9 @@ class RPythonAnnotator:
                         blocked_err.append('-+' * 30 +'\n')
                         log.ERROR(''.join(blocked_err))
 
-            raise AnnotatorError('%d blocks are still blocked' %
-                                 self.annotated.values().count(False))
+            blocked_blocks = [block for block, done in self.annotated.items()
+                                    if done is False]
+            raise AnnotatorError('%d blocks are still blocked' % len(blocked_blocks))
         # make sure that the return variables of all graphs is annotated
         if self.added_blocks is not None:
             newgraphs = [self.annotated[block] for block in self.added_blocks]
