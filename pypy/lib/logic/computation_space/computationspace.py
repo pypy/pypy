@@ -1,7 +1,6 @@
 from threading import Thread, Condition, RLock, local
 
-from state import Succeeded, Distributable, Failed, \
-     Merged, Distributing
+from state import Succeeded, Distributable, Failed
 
 from variable import EqSet, Var, NoValue, Pair, \
      VariableException, NotAVariable, AlreadyInStore
@@ -143,7 +142,7 @@ class ComputationSpace(object):
     
 
     def _distributable(self):
-        if self.status not in (Failed, Succeeded, Merged):
+        if self.status not in (Failed, Succeeded):
             # sync. barrier with distributor
             for var in self.vars:
                 if var.cs_get_dom(self).size() > 1 :
@@ -158,7 +157,7 @@ class ComputationSpace(object):
         print "SPACE Ask() checks stability ..."
         self.STABLE.get() # that's real stability
         print "SPACE is stable, resuming Ask()"
-        status = self.status in (Failed, Succeeded, Merged)
+        status = self.status in (Failed, Succeeded)
         if status: return self.status
         if self._distributable():
             return Alternatives(self.distributor.nb_subdomains())
@@ -213,9 +212,7 @@ class ComputationSpace(object):
         assert self.status == Succeeded
         for var in self.root.val:
             var.bind(var.cs_get_dom(self).get_values()[0])
-        self.status = Merged
         # shut down the distributor
-        self.distributor.cs = None
         self.CHOOSE.bind(0)
         return self.root.val
 
@@ -236,6 +233,12 @@ class ComputationSpace(object):
             return v
         finally:
             self.var_lock.release()
+
+    def make_vars(self, *names):
+        variables = []
+        for name in names:
+            variables.append(self.var(name))
+        return tuple(variables)
 
     def add_unbound(self, var):
         """add unbound variable to the store"""
@@ -292,8 +295,11 @@ class ComputationSpace(object):
     def add_constraint(self, constraint):
         self.constraints.add(constraint)
         for var in constraint.affectedVariables():
-            self.var_const_map.setdefault(var, [])
-            self.var_const_map[var].append(constraint)
+            self.var_const_map.setdefault(var, set())
+            self.var_const_map[var].add(constraint)
+
+    def dependant_constraints(self, var):
+        return self.var_const_map[var]
 
     def get_variables_with_a_domain(self):
         varset = set()
@@ -307,7 +313,7 @@ class ComputationSpace(object):
               and other constraints on these variables
             * does NOT mutate the store
         """
-        # Satisfiability of one constraints entails
+        # Satisfiability of one constraint entails
         # satisfiability of the transitive closure
         # of all constraints associated with the vars
         # of our given constraint.
@@ -333,11 +339,11 @@ class ComputationSpace(object):
 
 
     def get_satisfying_domains(self, constraint):
+        """computes the smallest satisfying domains"""
         assert constraint in self.constraints
         varset = set()
         constset = set()
-        self._compute_dependant_vars(constraint, varset,
-                                     constset)
+        self._compute_dependant_vars(constraint, varset, constset)
         old_domains = self.collect_domains(varset)
         
         for const in constset:
@@ -351,7 +357,7 @@ class ComputationSpace(object):
         return narrowed_domains
 
     def satisfy(self, constraint):
-        """narrows the domains down to satisfiability"""
+        """prune the domains down to smallest satisfying domains"""
         assert constraint in self.constraints
         varset = set()
         constset = set()
@@ -366,14 +372,35 @@ class ComputationSpace(object):
                 raise
 
     def satisfy_all(self):
-        old_domains = self.collect_domains(self.vars)
-        for const in self.constraints:
-            try:
-                const.narrow()
-            except ConsistencyFailure:
-                self.restore_domains(old_domains)
-                raise
-                
+        """really PROPAGATE"""
+        const_q = [(const.estimateCost(), const)
+                   for const in self.constraints]
+        affected_constraints = set()
+        while True:
+            if not const_q:
+                #XXX: estimateCost
+                const_q = [(const.estimateCost(), const)
+                           for const in affected_constraints]
+                if not const_q:
+                    break
+                const_q.sort()
+                affected_constraints.clear()
+            cost, const = const_q.pop(0)
+            entailed = const.narrow()
+            for var in const.affectedVariables():
+                dom = var.cs_get_dom(self)
+                if not dom.has_changed():
+                    continue
+                for dependant_const in self.dependant_constraints(var):
+                    if dependant_const is not const:
+                        affected_constraints.add(dependant_const)
+                dom.reset_flags()
+            if entailed:
+                # we should also remove the constraint from
+                # the set of satifiable constraints
+                if const in affected_constraints:
+                    affected_constraints.remove(const)
+                    
     def _compute_dependant_vars(self, constraint, varset,
                                constset):
         if constraint in constset: return
