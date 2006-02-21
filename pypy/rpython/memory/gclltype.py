@@ -1,25 +1,12 @@
-from pypy.rpython.lltypesystem.lltype import \
-     LowLevelType, ContainerType, Struct, GcStruct, \
-     Array, GcArray, FuncType, OpaqueType, \
-     RuntimeTypeInfo, PyObjectType, PyObject, \
-     GC_CONTAINER, \
-     Signed, Unsigned, Float, Char, Bool, Void, \
-     UniChar, Ptr, typeOf, InvalidCast
 from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
-from pypy.rpython.memory.lltypesimulation import cast_pointer, free
+from pypy.rpython.memory.lltypesimulation import free
 from pypy.rpython.memory.lltypesimulation import simulatorptr as _ptr
 from pypy.rpython.memory.lltypesimulation import malloc, functionptr, nullptr
-from pypy.rpython.memory.lltypesimulation import pyobjectptr, cast_ptr_to_int
+from pypy.rpython.memory.lltypesimulation import pyobjectptr
 
 
 def notimplemented(*args, **kwargs):
     raise NotImplemented
-
-# the following names might have to be imported from lltype as well
-# ForwardReference, GcForwardReference, castable, parentlink
-
-ForwardReference = GcForwardReference = castable = parentlink = notimplemented
-
 
 # the following names from lltype will probably have to be implemented yet:
 # opaqueptr, attachRuntimeTypeInfo, getRuntimeTypeInfo,

@@ -176,18 +176,15 @@ class simulatorptr(object):
     def __repr__(self):
         return '<simulatorptr %s to %s>' % (self._TYPE.TO, self._address)
 
-
-def cast_pointer(PTRTYPE, ptr):
-    if not isinstance(ptr, simulatorptr) or not isinstance(PTRTYPE, lltype.Ptr):
-        raise TypeError, "can only cast pointers to other pointers"
-    CURTYPE = ptr._TYPE
-    down_or_up = lltype.castable(PTRTYPE, CURTYPE)
-    if down_or_up == 0:
-        return ptr
-    # XXX the lltype.cast_pointer does a lot of checks here:
-    # I can't think of a way to do that with simulatorptr.
-    # I'm not sure whether this is the right way to go...
-    return simulatorptr(PTRTYPE, ptr._address)
+    def _cast_to(self, PTRTYPE):
+        CURTYPE = self._TYPE
+        down_or_up = lltype.castable(PTRTYPE, CURTYPE)
+        if down_or_up == 0:
+            return self
+        return simulatorptr(PTRTYPE, self._address)
+    
+    def _cast_to_int(self):
+        return self._address.intaddress
 
 # for now use the simulators raw_malloc
 def malloc(T, n=None, immortal=False, flavor='gc'):
@@ -232,5 +229,3 @@ def pyobjectptr(obj):
     addr = lladdress.get_address_of_object(lltype._pyobject(obj))
     return simulatorptr(lltype.Ptr(lltype.PyObject), addr)
 
-def cast_ptr_to_int(ptr):
-    return ptr._address.intaddress

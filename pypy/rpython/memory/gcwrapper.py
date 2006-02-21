@@ -195,7 +195,7 @@ class GcWrapper(object):
         return [typeid, size]
 
     def get_funcptr_malloc(self):
-        return self.llinterp.llt.functionptr(gc.gc_interface["malloc"], "malloc",
+        return self.llinterp.heap.functionptr(gc.gc_interface["malloc"], "malloc",
                                              _callable=self.gc.malloc)
 
     def adjust_result_malloc(self, address, TYPE, size=0):
@@ -224,7 +224,7 @@ class GcWrapper(object):
             
 
     def get_funcptr_write_barrier(self):
-        return self.llinterp.llt.functionptr(gc.gc_interface["write_barrier"],
+        return self.llinterp.heap.functionptr(gc.gc_interface["write_barrier"],
                                              "write_barrier",
                                              _callable=self.gc.write_barrier)
  
@@ -315,7 +315,7 @@ class AnnotatingGcWrapper(GcWrapper):
         return [self.gcptr, typeid, size]
 
     def get_funcptr_malloc(self):
-        return self.llinterp.llt.functionptr(gc.gc_interface["malloc"], "malloc",
+        return self.llinterp.heap.functionptr(gc.gc_interface["malloc"], "malloc",
                                              _callable=self.gc.malloc,
                                              graph=self.malloc_graph)
 
@@ -338,7 +338,7 @@ class AnnotatingGcWrapper(GcWrapper):
             return self.gcptr, item._address, addr_to, obj._address
             
     def get_funcptr_write_barrier(self):
-        return self.llinterp.llt.functionptr(gc.gc_interface["write_barrier"],
+        return self.llinterp.heap.functionptr(gc.gc_interface["write_barrier"],
                                              "write_barrier",
                                              _callable=self.gc.write_barrier,
                                              graph=self.write_barrier_graph)

@@ -567,34 +567,10 @@ def castable(PTRTYPE, CURTYPE):
     return -u
 
 def cast_pointer(PTRTYPE, ptr):
-    if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, Ptr):
+    CURTYPE = typeOf(ptr)
+    if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
-    CURTYPE = ptr._TYPE
-    down_or_up = castable(PTRTYPE, CURTYPE)
-    if down_or_up == 0:
-        return ptr
-    if not ptr: # null pointer cast
-        return PTRTYPE._defl()
-    if down_or_up > 0:
-        p = ptr
-        while down_or_up:
-            p = getattr(p, typeOf(p).TO._names[0])
-            down_or_up -= 1
-        return _ptr(PTRTYPE, p._obj)
-    u = -down_or_up
-    struc = ptr._obj
-    while u:
-        parent = struc._parentstructure()
-        if parent is None:
-            raise RuntimeError("widening to trash: %r" % ptr)
-        PARENTTYPE = struc._parent_type
-        if getattr(parent, PARENTTYPE._names[0]) is not struc:
-            raise InvalidCast(CURTYPE, PTRTYPE) # xxx different exception perhaps?
-        struc = parent
-        u -= 1
-    if PARENTTYPE != PTRTYPE.TO:
-        raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
-    return _ptr(PTRTYPE, struc)
+    return ptr._cast_to(PTRTYPE)
 
 def _expose(val):
     """XXX A nice docstring here"""
@@ -786,6 +762,41 @@ class _ptr(object):
 
     __getstate__ = getstate_with_slots
     __setstate__ = setstate_with_slots
+
+    def _cast_to(self, PTRTYPE):
+        CURTYPE = self._TYPE
+        down_or_up = castable(PTRTYPE, CURTYPE)
+        if down_or_up == 0:
+            return self
+        if not self: # null pointer cast
+            return PTRTYPE._defl()
+        if down_or_up > 0:
+            p = self
+            while down_or_up:
+                p = getattr(p, typeOf(p).TO._names[0])
+                down_or_up -= 1
+            return _ptr(PTRTYPE, p._obj)
+        u = -down_or_up
+        struc = self._obj
+        while u:
+            parent = struc._parentstructure()
+            if parent is None:
+                raise RuntimeError("widening to trash: %r" % self)
+            PARENTTYPE = struc._parent_type
+            if getattr(parent, PARENTTYPE._names[0]) is not struc:
+                raise InvalidCast(CURTYPE, PTRTYPE) # xxx different exception perhaps?
+            struc = parent
+            u -= 1
+        if PARENTTYPE != PTRTYPE.TO:
+            raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
+        return _ptr(PTRTYPE, struc)
+        
+    def _cast_to_int(self):
+        obj = self._obj
+        while obj._parentstructure():
+            obj = obj._parentstructure() 
+        return id(obj)
+
 
 assert not '__dict__' in dir(_ptr)
 
@@ -1043,11 +1054,7 @@ def pyobjectptr(obj):
     return _ptr(Ptr(PyObject), o) 
 
 def cast_ptr_to_int(ptr):
-    obj = ptr._obj
-    while obj._parentstructure():
-        obj = obj._parentstructure() 
-    return id(obj)
-
+    return ptr._cast_to_int()
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, GcStruct):

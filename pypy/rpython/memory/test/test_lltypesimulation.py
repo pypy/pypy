@@ -1,4 +1,5 @@
 from pypy.rpython.memory.lltypesimulation import *
+from pypy.rpython.lltypesystem.lltype import cast_pointer, cast_ptr_to_int
 
 py.log.setconsumer("lltypesim", None)
 

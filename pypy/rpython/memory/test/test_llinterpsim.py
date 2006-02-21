@@ -40,7 +40,7 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
         
         t, typer, graph = gengraph(func, [annotation(x)
                       for x in values], viewbefore, policy)
-        interp = LLInterpreter(typer, gclltype)
+        interp = LLInterpreter(typer, heap=gclltype)
         _tcache[key] = (t, interp, graph)
         # keep the cache small 
         _lastinterpreted.append(key) 

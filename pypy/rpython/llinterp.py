@@ -30,17 +30,17 @@ class LLException(Exception):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, typer, lltype=lltype):
+    def __init__(self, typer, heap=lltype):
         self.bindings = {}
         self.typer = typer
-        self.llt = lltype  #module that contains the used lltype classes
+        self.heap = heap  #module that provides malloc, etc for lltypes
         self.active_frame = None
-        # XXX hack hack hack: set gc to None because
+        # XXX hack: set gc to None because
         # prepare_graphs_and_create_gc might already use the llinterpreter!
         self.gc = None
-        if hasattr(lltype, "prepare_graphs_and_create_gc"):
+        if hasattr(heap, "prepare_graphs_and_create_gc"):
             flowgraphs = typer.annotator.translator.graphs
-            self.gc = lltype.prepare_graphs_and_create_gc(self, flowgraphs)
+            self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
 
     def eval_graph(self, graph, args=()):
         llframe = LLFrame(graph, args, self)
@@ -102,6 +102,8 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
                         'is_true': True}
+def checkptr(ptr):
+    return isinstance(lltype.typeOf(ptr), lltype.Ptr)
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
@@ -109,7 +111,7 @@ class LLFrame(object):
         self.graph = graph
         self.args = args
         self.llinterpreter = llinterpreter
-        self.llt = llinterpreter.llt
+        self.heap = llinterpreter.heap
         self.bindings = {}
         self.f_back = f_back
         self.curr_block = None
@@ -131,8 +133,8 @@ class LLFrame(object):
             self.setvar(var, val)
 
     def setvar(self, var, val):
-        if var.concretetype is not self.llt.Void:
-            assert self.llinterpreter.typer.type_system.isCompatibleType(self.llt.typeOf(val), var.concretetype)
+        if var.concretetype is not lltype.Void:
+            assert self.llinterpreter.typer.type_system.isCompatibleType(lltype.typeOf(val), var.concretetype)
         assert isinstance(var, Variable)
         self.bindings[var] = val
 
@@ -145,8 +147,8 @@ class LLFrame(object):
             val = varorconst.value
         except AttributeError:
             val = self.bindings[varorconst]
-        if varorconst.concretetype is not self.llt.Void:
-            assert self.llinterpreter.typer.type_system.isCompatibleType(self.llt.typeOf(val), varorconst.concretetype)
+        if varorconst.concretetype is not lltype.Void:
+            assert self.llinterpreter.typer.type_system.isCompatibleType(lltype.typeOf(val), varorconst.concretetype)
         return val
 
     # _______________________________________________________
@@ -270,7 +272,7 @@ class LLFrame(object):
         else:
             exc_class = exc.__class__
             evalue = self.op_direct_call(exdata.fn_pyexcclass2exc,
-                                         self.llt.pyobjectptr(exc_class))
+                                         self.heap.pyobjectptr(exc_class))
             etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
         raise LLException(etype, evalue, *extraargs)
 
@@ -283,12 +285,13 @@ class LLFrame(object):
 
     def find_roots(self, roots):
         #log.findroots(self.curr_block.inputargs)
+        PyObjPtr = lltype.Ptr(lltype.PyObject)
         for arg in self.curr_block.inputargs:
             if (isinstance(arg, Variable) and
-                isinstance(self.getval(arg), self.llt._ptr)):
+                isinstance(getattr(arg, 'concretetype', PyObjPtr), lltype.Ptr)):
                 roots.append(self.getval(arg))
         for op in self.curr_block.operations[:self.curr_operation_index]:
-            if isinstance(self.getval(op.result), self.llt._ptr):
+            if isinstance(getattr(op.result, 'concretetype', PyObjPtr), lltype.Ptr):
                 roots.append(self.getval(op.result))
 
     # __________________________________________________________
@@ -305,8 +308,8 @@ class LLFrame(object):
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
-        FIELDTYPE = getattr(self.llt.typeOf(obj).TO, fieldname)
-        if FIELDTYPE != self.llt.Void:
+        FIELDTYPE = getattr(lltype.typeOf(obj).TO, fieldname)
+        if FIELDTYPE != lltype.Void:
             gc = self.llinterpreter.gc
             if gc is None or not gc.needs_write_barrier(FIELDTYPE):
                 setattr(obj, fieldname, fieldvalue)
@@ -320,8 +323,8 @@ class LLFrame(object):
 
     def op_setarrayitem(self, array, index, item):
         # array should be a pointer
-        ITEMTYPE = self.llt.typeOf(array).TO.OF
-        if ITEMTYPE != self.llt.Void:
+        ITEMTYPE = lltype.typeOf(array).TO.OF
+        if ITEMTYPE != lltype.Void:
             gc = self.llinterpreter.gc
             if gc is None or not gc.needs_write_barrier(ITEMTYPE):
                 array[index] = item
@@ -361,7 +364,7 @@ class LLFrame(object):
             result = self.op_direct_call(malloc, *args)
             return self.llinterpreter.gc.adjust_result_malloc(result, obj)
         else:
-            return self.llt.malloc(obj)
+            return self.heap.malloc(obj)
 
     def op_malloc_varsize(self, obj, size):
         if self.llinterpreter.gc is not None:
@@ -371,45 +374,44 @@ class LLFrame(object):
             return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
         else:
             try:
-                return self.llt.malloc(obj, size)
+                return self.heap.malloc(obj, size)
             except MemoryError:
                 self.make_llexception()
 
     def op_flavored_malloc(self, flavor, obj):
         assert isinstance(flavor, str)
         if flavor == "stack":
-            if isinstance(obj, self.llt.Struct) and obj._arrayfld is None:
-                result = self.llt.malloc(obj)
+            if isinstance(obj, lltype.Struct) and obj._arrayfld is None:
+                result = self.heap.malloc(obj)
                 self.alloca_objects.append(result)
                 return result
             else:
                 raise ValueError("cannot allocate variable-sized things on the stack")
-        return self.llt.malloc(obj, flavor=flavor)
+        return self.heap.malloc(obj, flavor=flavor)
 
     def op_flavored_free(self, flavor, obj):
         assert isinstance(flavor, str)
-        self.llt.free(obj, flavor=flavor)
+        self.heap.free(obj, flavor=flavor)
 
     def op_getfield(self, obj, field):
-        assert isinstance(obj, self.llt._ptr)
+        assert checkptr(obj)
         result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
-        assert self.llt.typeOf(result) == getattr(self.llt.typeOf(obj).TO,
-                                                  field)
+        assert lltype.typeOf(result) == getattr(lltype.typeOf(obj).TO, field)
         return result
 
     def op_getsubstruct(self, obj, field):
-        assert isinstance(obj, self.llt._ptr)
+        assert checkptr(obj)
         result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
-        assert (self.llt.typeOf(result) ==
-                self.llt.Ptr(getattr(self.llt.typeOf(obj).TO, field)))
+        assert (lltype.typeOf(result) ==
+                lltype.Ptr(getattr(lltype.typeOf(obj).TO, field)))
         return result
 
     def op_getarraysubstruct(self, array, index):
-        assert isinstance(array, self.llt._ptr)
+        assert checkptr(array)
         result = array[index]
         return result
         # the diff between op_getarrayitem and op_getarraysubstruct
@@ -417,43 +419,42 @@ class LLFrame(object):
 
     def op_getarraysize(self, array):
         #print array,type(array),dir(array)
-        assert isinstance(self.llt.typeOf(array).TO, self.llt.Array)
+        assert isinstance(lltype.typeOf(array).TO, lltype.Array)
         return len(array)
 
     def op_cast_pointer(self, tp, obj):
         # well, actually this is what's now in the globals.
-        return self.llt.cast_pointer(tp, obj)
+        return lltype.cast_pointer(tp, obj)
 
     def op_ptr_eq(self, ptr1, ptr2):
-        assert isinstance(ptr1, self.llt._ptr)
-        assert isinstance(ptr2, self.llt._ptr)
+        assert checkptr(ptr1)
+        assert checkptr(ptr2)
         return ptr1 == ptr2
 
     def op_ptr_ne(self, ptr1, ptr2):
-        assert isinstance(ptr1, self.llt._ptr)
-        assert isinstance(ptr2, self.llt._ptr)
+        assert checkptr(ptr1)
+        assert checkptr(ptr2)
         return ptr1 != ptr2
 
     def op_ptr_nonzero(self, ptr1):
-        assert isinstance(ptr1, self.llt._ptr)
+        assert checkptr(ptr1)
         return bool(ptr1)
 
     def op_ptr_iszero(self, ptr1):
-        assert isinstance(ptr1, self.llt._ptr)
+        assert checkptr(ptr1)
         return not bool(ptr1)
 
     def op_cast_ptr_to_int(self, ptr1):
-        assert isinstance(ptr1, self.llt._ptr)
-        assert isinstance(self.llt.typeOf(ptr1).TO, (self.llt.Array,
-                                                     self.llt.Struct))
-        return self.llt.cast_ptr_to_int(ptr1)
+        assert checkptr(ptr1)
+        assert isinstance(lltype.typeOf(ptr1).TO, (lltype.Array, lltype.Struct))
+        return lltype.cast_ptr_to_int(ptr1)
 
     def op_cast_ptr_to_adr(self, ptr):
-        assert isinstance(ptr, self.llt._ptr)
+        assert checkptr(ptr)
         return objectmodel.cast_ptr_to_adr(ptr)
 
     def op_cast_adr_to_ptr(self, TYPE, adr):
-        assert self.llt.typeOf(adr) == llmemory.Address
+        assert lltype.typeOf(adr) == llmemory.Address
         return objectmodel.cast_adr_to_ptr(adr, TYPE)
 
     def op_cast_int_to_float(self, i):
@@ -561,58 +562,58 @@ class LLFrame(object):
         exec py.code.Source("""
         def op_%(opname)s(self, *pyobjs):
             for pyo in pyobjs:
-                assert self.llt.typeOf(pyo) == self.llt.Ptr(self.llt.PyObject)
+                assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
             func = opimpls[%(opname)r]
             try:
                 pyo = func(*[pyo._obj.value for pyo in pyobjs])
             except Exception:
                 self.make_llexception()
-            return self.llt.pyobjectptr(pyo)
+            return self.heap.pyobjectptr(pyo)
         """ % locals()).compile()
     del opname
 
     def op_simple_call(self, f, *args):
-        assert self.llt.typeOf(f) == self.llt.Ptr(self.llt.PyObject)
+        assert lltype.typeOf(f) == lltype.Ptr(lltype.PyObject)
         for pyo in args:
-            assert self.llt.typeOf(pyo) == self.llt.Ptr(self.llt.PyObject)
+            assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
         res = f._obj.value(*[pyo._obj.value for pyo in args])
-        return self.llt.pyobjectptr(res)
+        return self.heap.pyobjectptr(res)
 
     # __________________________________________________________
     # operations on addresses
 
     def op_raw_malloc(self, size):
-        assert self.llt.typeOf(size) == self.llt.Signed
+        assert lltype.typeOf(size) == lltype.Signed
         return lladdress.raw_malloc(size)
 
     def op_raw_free(self, addr):
-        assert self.llt.typeOf(addr) == llmemory.Address
+        assert lltype.typeOf(addr) == llmemory.Address
         lladdress.raw_free(addr)
 
     def op_raw_memcopy(self, fromaddr, toaddr, size):
-        assert self.llt.typeOf(fromaddr) == llmemory.Address
-        assert self.llt.typeOf(toaddr) == llmemory.Address
+        assert lltype.typeOf(fromaddr) == llmemory.Address
+        assert lltype.typeOf(toaddr) == llmemory.Address
         lladdress.raw_memcopy(fromaddr, toaddr, size)
 
     def op_raw_load(self, addr, typ, offset):
         assert isinstance(addr, lladdress.address)
         value = getattr(addr, str(typ).lower())[offset]
-        assert self.llt.typeOf(value) == typ
+        assert lltype.typeOf(value) == typ
         return value
 
     def op_raw_store(self, addr, typ, offset, value):
         assert isinstance(addr, lladdress.address)
-        assert self.llt.typeOf(value) == typ
+        assert lltype.typeOf(value) == typ
         getattr(addr, str(typ).lower())[offset] = value
 
     def op_adr_add(self, addr, offset):
         assert isinstance(addr, lladdress.address)
-        assert self.llt.typeOf(offset) is self.llt.Signed
+        assert lltype.typeOf(offset) is lltype.Signed
         return addr + offset
 
     def op_adr_sub(self, addr, offset):
         assert isinstance(addr, lladdress.address)
-        assert self.llt.typeOf(offset) is self.llt.Signed
+        assert lltype.typeOf(offset) is lltype.Signed
         return addr - offset
 
     def op_adr_delta(self, addr1, addr2):
@@ -744,8 +745,8 @@ class LLFrame(object):
     def op_oosetfield(self, inst, name, value):
         assert isinstance(inst, ootype._instance)
         assert isinstance(name, str)
-        FIELDTYPE = self.llt.typeOf(inst)._field_type(name)
-        if FIELDTYPE != self.llt.Void:
+        FIELDTYPE = lltype.typeOf(inst)._field_type(name)
+        if FIELDTYPE != lltype.Void:
             setattr(inst, name, value)
 
     def op_oogetfield(self, inst, name):
