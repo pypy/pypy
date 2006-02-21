@@ -10,7 +10,8 @@ from state import Succeeded, Distributable, Failed, Unknown
 
 from variable import EqSet, Var, NoValue, Pair, \
      VariableException, NotAVariable, AlreadyInStore
-from constraint import FiniteDomain, ConsistencyFailure
+from constraint import FiniteDomain, ConsistencyFailure, \
+     Expression
 from distributor import DefaultDistributor
 
 #FIXME: provide a NoDom token which has nothing
@@ -313,7 +314,14 @@ class ComputationSpace(object):
     
     #-- Constraints -------------------------
 
-    def add_constraint(self, constraint):
+    def add_expression(self, constraint):
+        self.constraints.add(constraint)
+        for var in constraint.affectedVariables():
+            self.var_const_map.setdefault(var, set())
+            self.var_const_map[var].add(constraint)
+
+    def add_constraint(self, vars, const):
+        constraint = Expression(self, vars, const)
         self.constraints.add(constraint)
         for var in constraint.affectedVariables():
             self.var_const_map.setdefault(var, set())

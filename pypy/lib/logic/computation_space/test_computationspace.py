@@ -290,7 +290,7 @@ class TestStoreUnification:
         assert z.val == 42
         assert sp.dom(z) == c.FiniteDomain([41, 42, 43])
 
-    def test_add_constraint(self):
+    def test_add_expression(self):
         sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         raises(c.DomainlessVariables,
@@ -299,7 +299,7 @@ class TestStoreUnification:
         sp.set_dom(y, c.FiniteDomain([2, 3]))
         sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        sp.add_constraint(k)
+        sp.add_expression(k)
         assert k in sp.constraints
 
     def test_narrowing_domains_failure(self):
@@ -333,8 +333,8 @@ class TestStoreUnification:
         sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
-        sp.add_constraint(k1)
-        sp.add_constraint(k2)
+        sp.add_expression(k1)
+        sp.add_expression(k2)
         varset = set()
         constset = set()
         sp._compute_dependant_vars(k1, varset, constset)
@@ -348,7 +348,7 @@ class TestStoreUnification:
         sp.set_dom(y, c.FiniteDomain([2, 3]))
         sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        sp.add_constraint(k)
+        sp.add_expression(k)
         assert sp.satisfiable(k) == True
         assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
         assert sp.dom(y) == c.FiniteDomain([2, 3])
@@ -361,7 +361,7 @@ class TestStoreUnification:
         sp.set_dom(y, c.FiniteDomain([2, 3]))
         sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        sp.add_constraint(k)
+        sp.add_expression(k)
         assert sp.satisfiable(k) == False
         assert sp.dom(x) == c.FiniteDomain([1, 2])
         assert sp.dom(y) == c.FiniteDomain([2, 3])
@@ -377,8 +377,8 @@ class TestStoreUnification:
         sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
-        sp.add_constraint(k1)
-        sp.add_constraint(k2)
+        sp.add_expression(k1)
+        sp.add_expression(k2)
         assert sp.satisfiable(k1) == True
         assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
         assert sp.dom(y) == c.FiniteDomain([2, 3])
@@ -411,8 +411,8 @@ class TestStoreUnification:
         sp.set_dom(w, c.FiniteDomain([1]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
-        sp.add_constraint(k1)
-        sp.add_constraint(k2)
+        sp.add_expression(k1)
+        sp.add_expression(k2)
         assert sp.satisfiable(k1) == False
         assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
         assert sp.dom(y) == c.FiniteDomain([2, 3])
@@ -438,8 +438,8 @@ class TestStoreUnification:
         sp.set_dom(w, c.FiniteDomain([1]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
-        sp.add_constraint(k1)
-        sp.add_constraint(k2)
+        sp.add_expression(k1)
+        sp.add_expression(k2)
         raises(space.ConsistencyFailure, sp.satisfy, k1)
         assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
         assert sp.dom(y) == c.FiniteDomain([2, 3])
@@ -461,8 +461,8 @@ class TestStoreUnification:
         sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
-        sp.add_constraint(k1)
-        sp.add_constraint(k2)
+        sp.add_expression(k1)
+        sp.add_expression(k2)
         sp.satisfy(k2)
         assert sp.dom(x) == c.FiniteDomain([5])
         assert sp.dom(y) == c.FiniteDomain([2])
@@ -524,30 +524,20 @@ class TestComputationSpace:
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
         # following couple of ops superceeded by inject()
-        x = new_spc.get_var_by_name('x')
-        new_spc.add_constraint(c.Expression(new_spc, [x],
-                                            'x == 0'))
-        z = new_spc.get_var_by_name('z')
-        y = new_spc.get_var_by_name('y')
-        new_spc.add_constraint(c.Expression(new_spc, [z, y],
-                                            'z == y'))
-        new_spc.add_constraint(c.Expression(new_spc, [y],
-                                            'y < 2'))
+        x, y, z = new_spc.find_vars('x', 'y', 'z')
+        new_spc.add_constraint([x], 'x == 0')
+        new_spc.add_constraint([z, y], 'z == y')
+        new_spc.add_constraint([y], 'y < 2')
         new_spc._process()
         assert spc.ask() == space.Alternatives(2)
         assert new_spc.ask() == space.Succeeded
 
     def test_inject(self):
         def more_constraints(space):
-            x = new_spc.get_var_by_name('x')
-            space.add_constraint(c.Expression(new_spc, [x],
-                                                'x == 0'))
-            z = space.get_var_by_name('z')
-            y = space.get_var_by_name('y')
-            space.add_constraint(c.Expression(new_spc, [z, y],
-                                                'z == y'))
-            space.add_constraint(c.Expression(new_spc, [y],
-                                            'y < 2'))
+            x, y, z = new_spc.find_vars('x', 'y', 'z')
+            space.add_constraint([x], 'x == 0')
+            space.add_constraint([z, y], 'z == y')
+            space.add_constraint([y], 'y < 2')
 
         spc = newspace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternatives(2)
@@ -569,15 +559,10 @@ class TestComputationSpace:
                                              1, 2])
 
         def more_constraints(space):
-            x = space.get_var_by_name('x')
-            space.add_constraint(c.Expression(space, [x],
-                                                'x == 0'))
-            z = space.get_var_by_name('z')
-            y = space.get_var_by_name('y')
-            space.add_constraint(c.Expression(space, [z, y],
-                                                'z == y'))
-            space.add_constraint(c.Expression(space, [y],
-                                            'y < 2'))
+            x, y, z = space.find_vars('x', 'y', 'z')
+            space.add_constraint([x], 'x == 0')
+            space.add_constraint([z, y], 'z == y')
+            space.add_constraint([y], 'y < 2')
 
         nspc = spc.clone()
         nspc.inject(more_constraints)

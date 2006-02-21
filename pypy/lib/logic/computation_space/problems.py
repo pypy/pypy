@@ -4,7 +4,7 @@ import distributor as di
 
 def dummy_problem(computation_space):
     ret = computation_space.var('__dummy__')
-    computation_space.set_dom(ret, c.FiniteDomain([1, 2]))
+    computation_space.set_dom(ret, c.FiniteDomain([]))
     return (ret)
 
 def satisfiable_problem(computation_space):
@@ -13,7 +13,7 @@ def satisfiable_problem(computation_space):
     cs.set_dom(x, c.FiniteDomain([-4, -2, -1, 0, 1, 2, 4]))
     cs.set_dom(y, c.FiniteDomain([0, 2, 3, 4, 5, 16]))
     cs.set_dom(z, c.FiniteDomain([-2, -1, 0, 1, 2]))
-    cs.add_constraint(c.Expression(cs, [x, y, z], 'y==x**2-z'))
+    cs.add_constraint([x, y, z], 'y==x**2-z')
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, y, z)
@@ -26,8 +26,8 @@ def one_solution_problem(computation_space):
     cs.set_dom(y, c.FiniteDomain([2, 3]))
     cs.set_dom(z, c.FiniteDomain([4, 5]))
     cs.set_dom(w, c.FiniteDomain([1, 4, 5]))
-    cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
-    cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
+    cs.add_constraint([x, y, z], 'x == y + z')
+    cs.add_constraint([z, w], 'z < w')
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, w, y)
@@ -41,8 +41,8 @@ def unsatisfiable_problem(computation_space):
     cs.set_dom(y, c.FiniteDomain([2, 3]))
     cs.set_dom(z, c.FiniteDomain([4, 5]))
     cs.set_dom(w, c.FiniteDomain([1]))
-    cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
-    cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
+    cs.add_constraint([x, y, z], 'x == y + z')
+    cs.add_constraint([z, w], 'z < w')
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
     return (x, w, y)
@@ -60,13 +60,14 @@ def send_more_money(computation_space):
     for v1 in variables:
         for v2 in variables:
             if v1 != v2:
-                cs.add_constraint(c.Expression(cs, [v1, v2], '%s != %s' % (v1.name, v2.name)))
+                cs.add_constraint([v1, v2],
+                                  '%s != %s' % (v1.name, v2.name))
 
     # use fd.NotEquals
-    cs.add_constraint(c.Expression(cs, [s], 's != 0'))
-    cs.add_constraint(c.Expression(cs, [m], 'm != 0'))
-    cs.add_constraint(c.Expression(cs, [s, e, n, d, m, o, r, y],
-                                   '1000*s+100*e+10*n+d+1000*m+100*o+10*r+e == 10000*m+1000*o+100*n+10*e+y'))
+    cs.add_constraint([s], 's != 0')
+    cs.add_constraint([m], 'm != 0')
+    cs.add_constraint([s, e, n, d, m, o, r, y],
+                                   '1000*s+100*e+10*n+d+1000*m+100*o+10*r+e == 10000*m+1000*o+100*n+10*e+y')
     cs.set_distributor(di.DichotomyDistributor(cs))
     print cs.constraints
     return (s, e, n, d, m, o, r, y)
@@ -87,18 +88,15 @@ def conference_scheduling(computation_space):
 
     for conf in ('c03','c04','c05','c06'):
         v = cs.get_var_by_name(conf)
-        cs.add_constraint(c.Expression(cs, [v],
-                                       "%s[0] == 'room C'" % v.name))
+        cs.add_constraint([v], "%s[0] == 'room C'" % v.name)
 
     for conf in ('c01','c05','c10'):
         v = cs.get_var_by_name(conf)
-        cs.add_constraint(c.Expression(cs, [v],
-                                       "%s[1].startswith('day 1')" % v.name))
+        cs.add_constraint([v], "%s[1].startswith('day 1')" % v.name)
 
     for conf in ('c02','c03','c04','c09'):
         v = cs.get_var_by_name(conf)
-        cs.add_constraint(c.Expression(cs, [v],
-                                       "%s[1].startswith('day 2')" % v.name))
+        cs.add_constraint([v], "%s[1].startswith('day 2')" % v.name)
 
     groups = (('c01','c02','c03','c10'),
               ('c02','c06','c08','c09'),
@@ -110,13 +108,10 @@ def conference_scheduling(computation_space):
             for conf2 in g:
                 v1, v2 = cs.find_vars(conf1, conf2)
                 if conf2 > conf1:
-                    cs.add_constraint(c.Expression(cs, [v1,v2],
-                                                   '%s[1] != %s[1]'%\
-                                                   (v1.name,v2.name)))
+                    cs.add_constraint([v1,v2], '%s[1] != %s[1]'% (v1.name,v2.name))
 
     for conf1 in variables:
         for conf2 in variables:
             if conf2 > conf1:
-                cs.add_constraint(c.Expression(cs, [conf1,conf2],
-                                               '%s != %s'%(conf1.name,conf2.name)))
+                cs.add_constraint([conf1,conf2], '%s != %s'%(conf1.name,conf2.name))
     return tuple(variables)
