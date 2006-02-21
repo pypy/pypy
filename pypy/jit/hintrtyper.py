@@ -92,6 +92,10 @@ class HintRTyper(RPythonTyper):
                                                [c_opdesc, v_jitstate]    + args_v,
                                                ts.s_RedBox)
 
+    def translate_op_hint(self, hop):
+        # don't try to generate hint operations, just discard them
+        return hop.inputarg(hop.r_result, arg=0)
+
     def translate_op_getfield(self, hop):
         # XXX check 'immutable'
         PTRTYPE = originalconcretetype(hop.args_s[0])
