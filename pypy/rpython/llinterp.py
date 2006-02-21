@@ -104,6 +104,9 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
 def checkptr(ptr):
     return isinstance(lltype.typeOf(ptr), lltype.Ptr)
 
+def checkadr(addr):
+    return lltype.typeOf(addr) == llmemory.Address
+
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
         assert isinstance(graph, FunctionGraph)
@@ -453,7 +456,7 @@ class LLFrame(object):
         return llmemory.cast_ptr_to_adr(ptr)
 
     def op_cast_adr_to_ptr(self, TYPE, adr):
-        assert lltype.typeOf(adr) == llmemory.Address
+        assert checkadr(adr)
         return llmemory.cast_adr_to_ptr(adr, TYPE)
 
     def op_cast_int_to_float(self, i):
@@ -583,41 +586,41 @@ class LLFrame(object):
 
     def op_raw_malloc(self, size):
         assert lltype.typeOf(size) == lltype.Signed
-        return lladdress.raw_malloc(size)
+        return self.heap.raw_malloc(size)
 
     def op_raw_free(self, addr):
-        assert lltype.typeOf(addr) == llmemory.Address
-        lladdress.raw_free(addr)
+        assert checkadr(addr) 
+        self.heap.raw_free(addr)
 
     def op_raw_memcopy(self, fromaddr, toaddr, size):
-        assert lltype.typeOf(fromaddr) == llmemory.Address
-        assert lltype.typeOf(toaddr) == llmemory.Address
-        lladdress.raw_memcopy(fromaddr, toaddr, size)
+        assert checkadr(fromaddr)
+        assert checkadr(toaddr)
+        self.heap.raw_memcopy(fromaddr, toaddr, size)
 
     def op_raw_load(self, addr, typ, offset):
-        assert isinstance(addr, lladdress.address)
+        assert checkadr(addr)
         value = getattr(addr, str(typ).lower())[offset]
         assert lltype.typeOf(value) == typ
         return value
 
     def op_raw_store(self, addr, typ, offset, value):
-        assert isinstance(addr, lladdress.address)
+        assert checkadr(addr)
         assert lltype.typeOf(value) == typ
         getattr(addr, str(typ).lower())[offset] = value
 
     def op_adr_add(self, addr, offset):
-        assert isinstance(addr, lladdress.address)
+        assert checkadr(addr)
         assert lltype.typeOf(offset) is lltype.Signed
         return addr + offset
 
     def op_adr_sub(self, addr, offset):
-        assert isinstance(addr, lladdress.address)
+        assert checkadr(addr)
         assert lltype.typeOf(offset) is lltype.Signed
         return addr - offset
 
     def op_adr_delta(self, addr1, addr2):
-        assert isinstance(addr1, lladdress.address)
-        assert isinstance(addr2, lladdress.address)
+        assert checkadr(addr1)
+        assert checkadr(addr2)
         return addr1 - addr2
 
     for opname, op in (("eq", "=="), ("ne", "!="), ("le", "<="), ("lt", "<"),
