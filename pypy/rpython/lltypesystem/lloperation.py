@@ -5,6 +5,8 @@ The table of all LL operations.
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(), pyobj=False):
+        # self.opname = ... (set afterwards)
+
         if canfold:
             sideeffects = False
 
@@ -21,6 +23,39 @@ class LLOp(object):
 
         # The operation manipulates PyObjects
         self.pyobj = pyobj
+
+    # __________ make the LLOp instances callable from LL helpers __________
+
+    __name__ = property(lambda self: 'llop_'+self.opname)
+
+    def __call__(self, RESULTTYPE, *args):
+        raise TypeError, "llop is meant to be rtyped and not called direclty"
+
+    def compute_result_annotation(self, RESULTTYPE, *args):
+        from pypy.annotation.model import lltype_to_annotation
+        assert RESULTTYPE.is_constant()
+        return lltype_to_annotation(RESULTTYPE.const)
+
+    def specialize(self, hop):
+        args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
+        hop.exception_is_here()
+        return hop.genop(self.opname, args_v, resulttype=hop.r_result.lowleveltype)
+
+
+def enum_ops_without_sideeffects(raising_is_ok=False):
+    """Enumerate operations that have no side-effects
+    (see also enum_foldable_ops)."""
+    for opname, opdesc in LL_OPERATIONS.iteritems():
+        if not opdesc.sideeffects:
+            if not opdesc.canraise or raising_is_ok:
+                yield opname
+
+def enum_foldable_ops(raising_is_ok=False):
+    """Enumerate operations that can be constant-folded."""
+    for opname, opdesc in LL_OPERATIONS.iteritems():
+        if opdesc.canfold:
+            if not opdesc.canraise or raising_is_ok:
+                yield opname
 
 # ____________________________________________________________
 #
@@ -233,6 +268,14 @@ LL_OPERATIONS = {
     'cast_ptr_to_adr':      LLOp(canfold=True),
     'cast_adr_to_ptr':      LLOp(canfold=True),
 
+    # __________ GC operations __________
+
+    'gc__collect':          LLOp(),
+    'gc_free':              LLOp(),
+    'gc_fetch_exception':   LLOp(),
+    'gc_restore_exception': LLOp(),
+    'gc_call_rtti_destructor': LLOp(),
+
     # __________ misc operations __________
 
     'keepalive':            LLOp(),
@@ -249,3 +292,22 @@ opimpls['simple_call'] = True
 for opname in opimpls:
     LL_OPERATIONS[opname] = LLOp(canraise=(Exception,), pyobj=True)
 del opname, opimpls, FunctionByName
+
+# ____________________________________________________________
+# Post-processing
+
+# Stick the opnames into the LLOp instances
+for opname, opdesc in LL_OPERATIONS.iteritems():
+    opdesc.opname = opname
+del opname, opdesc
+
+# Also export all operations in an attribute-based namespace.
+# Example usage from LL helpers:  z = llop.int_add(Signed, x, y)
+
+class LLOP(object):
+    def _freeze_(self):
+        return True
+llop = LLOP()
+for opname, opdesc in LL_OPERATIONS.iteritems():
+    setattr(llop, opname, opdesc)
+del opname, opdesc

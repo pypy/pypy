@@ -540,6 +540,22 @@ class LLFrame(object):
         assert type(c) is float
         return math.fmod(b,c)
 
+    def op_gc__collect(self):
+        import gc
+        gc.collect()
+
+    def op_gc_free(self, addr):
+        raise NotImplementedError("gc_free")
+
+    def op_gc_fetch_exception(self):
+        raise NotImplementedError("gc_fetch_exception")
+
+    def op_gc_restore_exception(self, exc):
+        raise NotImplementedError("gc_restore_exception")
+
+    def op_gc_call_rtti_destructor(self, rtti, addr):
+        raise NotImplementedError("gc_call_rtti_destructor")
+
     # operations on pyobjects!
     for opname in opimpls.keys():
         exec py.code.Source("""

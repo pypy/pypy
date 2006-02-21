@@ -254,9 +254,9 @@ def malloc_a_lot():
         while j < 20:
             j += 1
             a.append(j)
-    from pypy.rpython import objectmodel
+    from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rpython.lltypesystem import lltype
-    objectmodel.llop.gc__collect(lltype.Void)
+    llop.gc__collect(lltype.Void)
 
 # ____________________________________________________________
     

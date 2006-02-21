@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
@@ -286,7 +287,7 @@ class RefcountingGCTransformer(GCTransformer):
                 if refcount == 0:
                     dealloc(adr)
         def no_pointer_dealloc(adr):
-            objectmodel.llop.gc_free(lltype.Void, adr)
+            llop.gc_free(lltype.Void, adr)
         if self.translator is not None and self.translator.rtyper is not None:
             self.increfptr = self.inittime_helper(
                 incref, [annmodel.SomeAddress()])
@@ -396,7 +397,7 @@ class RefcountingGCTransformer(GCTransformer):
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 3))
             src = """
 def deallocator(addr):
-    exc_instance = objectmodel.llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
+    exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
     try:
         v = cast_adr_to_ptr(addr, PTR_TYPE)
         gcheader = addr - gc_header_offset
@@ -414,19 +415,19 @@ def deallocator(addr):
         gcheader.signed[0] = refcount
         if refcount == 0:
 %s
-            objectmodel.llop.gc_free(lltype.Void, addr)
+            llop.gc_free(lltype.Void, addr)
     except:
         pass
-    objectmodel.llop.gc_restore_exception(lltype.Void, exc_instance)
+    llop.gc_restore_exception(lltype.Void, exc_instance)
         
 """ % (body, )
         else:
             call_del = None
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
-                   body + '\n    objectmodel.llop.gc_free(lltype.Void, addr)\n')
+                   body + '\n    llop.gc_free(lltype.Void, addr)\n')
         d = {'pop_alive': pop_alive,
-             'objectmodel': objectmodel,
+             'llop': llop,
              'lltype': lltype,
              'destrptr': destrptr,
              'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
@@ -475,7 +476,7 @@ def deallocator(addr):
             v = objectmodel.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
             gcheader.signed[0] = 0
-            objectmodel.llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
+            llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
         g = self.annotate_helper(dealloc, [llmemory.Address])
         self.specialize_more_blocks()
         nsafecalls = exception_clean(g)
@@ -583,8 +584,7 @@ class BoehmGCTransformer(GCTransformer):
         elif destrptr:
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
             def finalizer(addr):
-                exc_instance = objectmodel.llop.gc_fetch_exception(
-                    EXC_INSTANCE_TYPE)
+                exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
                 try:
                     v = objectmodel.cast_adr_to_ptr(addr, DESTR_ARG)
                     destrptr(v)
@@ -593,7 +593,7 @@ class BoehmGCTransformer(GCTransformer):
                         os.write(2, "a destructor raised an exception, ignoring it\n")
                     except:
                         pass
-                objectmodel.llop.gc_restore_exception(lltype.Void, exc_instance)
+                llop.gc_restore_exception(lltype.Void, exc_instance)
             g = self.annotate_helper(finalizer, [llmemory.Address])
         else:
             g = None

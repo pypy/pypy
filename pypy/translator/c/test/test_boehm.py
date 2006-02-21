@@ -56,7 +56,7 @@ class TestUsingBoehm(AbstractTestClass):
         fn()
 
     def test__del__(self):
-        from pypy.rpython import objectmodel
+        from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.rpython.lltypesystem import lltype
         class State:
             pass
@@ -78,7 +78,7 @@ class TestUsingBoehm(AbstractTestClass):
             A()
             B()
             C()
-            objectmodel.llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
             return s.a_dels * 10 + s.b_dels
         fn = self.getcompiled(f)
         # we can't demand that boehm has collected all of the objects,
@@ -92,7 +92,7 @@ class TestUsingBoehm(AbstractTestClass):
         assert 0 < res <= 84
 
     def test_del_raises(self):
-        from pypy.rpython import objectmodel
+        from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.rpython.lltypesystem import lltype
         import os
         class A(object):
@@ -109,7 +109,7 @@ class TestUsingBoehm(AbstractTestClass):
             s.dels = 0
             for i in range(10):
                 g()
-            objectmodel.llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
             return s.dels
         fn = self.getcompiled(f)
         # we can't demand that boehm has collected all of the objects,

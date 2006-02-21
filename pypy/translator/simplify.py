@@ -417,7 +417,10 @@ for _op in '''
         pos neg nonzero abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
-        iter get same_as cast_pointer getfield getarrayitem getsubstruct'''.split():
+        iter get'''.split():
+    CanRemove[_op] = True
+from pypy.rpython.lltypesystem.lloperation import enum_ops_without_sideeffects
+for _op in enum_ops_without_sideeffects():
     CanRemove[_op] = True
 del _op
 CanRemoveBuiltins = {

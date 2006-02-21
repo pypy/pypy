@@ -1,5 +1,6 @@
-from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
+from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS, llop
 from pypy.rpython.llinterp import LLFrame
+from pypy.rpython.test.test_llinterp import interpret
 
 # This tests that the LLInterpreter and the LL_OPERATIONS tables are in sync.
 
@@ -20,3 +21,11 @@ def test_table_complete():
 def test_llinterp_complete():
     for opname in LL_OPERATIONS:
         assert opname in LL_INTERP_OPERATIONS
+
+def test_llop():
+    from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+    from pypy.rpython.lltypesystem import lltype
+    def llf(x, y):
+        return llop.int_add(lltype.Signed, x, y)
+    res = interpret(llf, [5, 7], policy=LowLevelAnnotatorPolicy())
+    assert res == 12

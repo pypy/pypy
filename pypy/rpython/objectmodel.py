@@ -62,49 +62,6 @@ def cast_adr_to_ptr(adr, EXPECTED_TYPE):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
 
-# generically insert ll ops
-
-# xxx Another approach would combine a llop function with a factory of names
-
-class LLOp(object):
-
-    def __init__(self, opname):
-        self.opname = opname
-
-    __name__ = property(lambda self: 'llop_'+self.opname)
-
-    def __call__(self, RESULTTYPE, *args):
-        raise TypeError, "llop is meant to be rtyped and not called direclty"
-
-    def compute_result_annotation(self, RESULTTYPE, *args):
-        from pypy.annotation.model import lltype_to_annotation
-        assert RESULTTYPE.is_constant()
-        return lltype_to_annotation(RESULTTYPE.const)
-
-    def specialize(self, hop):
-        args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
-        hop.exception_is_here()
-        return hop.genop(self.opname, args_v, resulttype=hop.r_result.lowleveltype)
-
-class LLOpFactory(object):
-    def __init__(self):
-        self._cache = {}
-        
-    def _freeze_(self):
-        return True
-
-    def __getattr__(self, opname):
-        if opname == 'compute_result_annotation':
-            raise AttributeError
-        try:
-            return self._cache[opname]
-        except KeyError:
-            llop = self._cache[opname] = LLOp(opname)
-            return llop
-        
-llop = LLOpFactory()
-
-
 # ____________________________________________________________
 
 
