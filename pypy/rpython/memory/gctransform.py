@@ -9,23 +9,6 @@ from pypy.rpython import rmodel, objectmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
 import sets, os
 
-"""
-thought experiments
-
-'setfield' obj field value ->
-  a1 <- 'cast_ptr_to_adr' obj
-  a2 <- 'cast_ptr_to_adr' value
-  'direct_call' write_barrier a1, offset(TYPE(obj), field), a2
-
-operations that need hooks:
-
-setfield, setarrayitem, direct_call, indirect_call, malloc, getfield,
-getarrayitem, getsubstruct?
-
-push_alive, pop_alive,
-
-"""
-
 EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
 
 def var_needsgc(var):
