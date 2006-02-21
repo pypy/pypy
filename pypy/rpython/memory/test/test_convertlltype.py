@@ -122,7 +122,7 @@ def test_convertsubstructure():
     lls2 = lltype.malloc(S2)
     lls1 = lltype.cast_pointer(lltype.Ptr(S1), lls2)
     s1 = cvter.convert(lls1)
-    s2 = cast_pointer(lltype.Ptr(S2), s1)
+    s2 = lltype.cast_pointer(lltype.Ptr(S2), s1)
     assert s2.v2 == 0
 
 def test_convertsubstructure_of_array():
