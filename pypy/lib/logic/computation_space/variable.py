@@ -41,7 +41,7 @@ class Var(object):
         # top-level 'commited' binding
         self._val = NoValue
         # domains in multiple spaces
-        self._doms = {cs : FiniteDomain([])}
+        # self._doms = {cs : FiniteDomain([])}
         # when updated while unification happens, keep track
         # of our initial value (for failure cases)
         self._previous = None
@@ -101,12 +101,12 @@ class Var(object):
     is_bound = _is_bound
 
     #-- domain setter/getter is per space
-    def cs_set_dom(self, cs, dom):
-        self._doms[cs] = dom
+##     def cs_set_dom(self, cs, dom):
+##         self._doms[cs] = dom
 
-    def cs_get_dom(self, cs):
-        self._doms.setdefault(cs, FiniteDomain([]))
-        return self._doms[cs]
+##     def cs_get_dom(self, cs):
+##         self._doms.setdefault(cs, FiniteDomain([]))
+##         return self._doms[cs]
 
     #-- Dataflow ops with concurrent semantics ------
     # should be used by threads that want to block on

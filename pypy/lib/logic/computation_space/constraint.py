@@ -1,6 +1,8 @@
 # a) new requirement : be able to postpone asking fo the
 # values of the domain
 
+import operator
+
 #-- Exceptions ---------------------------------------
 
 class ConsistencyFailure(Exception):
@@ -128,7 +130,7 @@ class AbstractConstraint(object):
         self.cs = c_space
         self._names_to_vars = {}
         for var in variables:
-            if var.cs_get_dom(self.cs) == EmptyDom:
+            if self.cs.dom(var) == EmptyDom:
                 raise DomainlessVariables
             self._names_to_vars[var.name] = var
         self._variables = variables
@@ -140,10 +142,10 @@ class AbstractConstraint(object):
     def isVariableRelevant(self, variable):
         return variable in self._variables
 
-    def estimateCost(self, domains):
+    def estimateCost(self):
         """Return an estimate of the cost of the narrowing of the constraint"""
         return reduce(operator.mul,
-                      [domains[var].size() for var in self._variables])
+                      [self.cs.dom(var).size() for var in self._variables])
 
 
 class BasicConstraint(object):
@@ -173,7 +175,7 @@ class BasicConstraint(object):
     def getVariable(self):
         return self._variable
         
-    def narrow(self, domains):
+    def revise3(self, domains):
         domain = domains[self._variable]
         operator = self._operator
         ref = self._reference
@@ -225,7 +227,7 @@ class Expression(AbstractConstraint):
         variables = []
         kwargs = {}
         for variable in self._variables:
-            domain = variable.cs_get_dom(self.cs)
+            domain = self.cs.dom(variable)
             values = domain.get_values()
             variables.append((domain.size(), [variable, values, 0, len(values)]))
             kwargs[variable.name] = values[0]
@@ -233,6 +235,7 @@ class Expression(AbstractConstraint):
         variables.sort()
 
         go_on = 1
+        print 
         while go_on:
             yield kwargs
             # try to instanciate the next variable
@@ -247,9 +250,8 @@ class Expression(AbstractConstraint):
             else:
                 # it's over
                 go_on = 0
-            
         
-    def narrow(self):
+    def revise3(self):
         # removed domain arg. (auc, ale)
         """generic narrowing algorithm for n-ary expressions"""
         maybe_entailed = 1
@@ -267,10 +269,9 @@ class Expression(AbstractConstraint):
                     result_cache[var][val] = 1
             else:
                 maybe_entailed = 0
-
         try:
             for var, keep in result_cache.iteritems():
-                domain = self._names_to_vars[var].cs_get_dom(self.cs)
+                domain = self.cs.dom(self._names_to_vars[var])
                 domain.remove_values([val for val in domain if val not in keep])
                 
         except ConsistencyFailure:
@@ -283,7 +284,7 @@ class Expression(AbstractConstraint):
         return maybe_entailed
 
     def __repr__(self):
-        return '<%s "%s">' % (self.type, self.formula)
+        return '<%s>' % self.formula
 
 class BinaryExpression(Expression):
     """A binary constraint represented as a python expression
@@ -295,7 +296,7 @@ class BinaryExpression(Expression):
         assert len(variables) == 2
         Expression.__init__(self, variables, formula, type)
 
-    def narrow(self, domains):
+    def revise3(self, domains):
         """specialized narrowing algorithm for binary expressions
         Runs much faster than the generic version"""
         maybe_entailed = 1

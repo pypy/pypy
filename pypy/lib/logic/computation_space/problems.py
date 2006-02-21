@@ -4,31 +4,28 @@ import distributor as di
 
 def dummy_problem(computation_space):
     ret = computation_space.var('__dummy__')
-    ret.dom = c.FiniteDomain([1, 2])
+    computation_space.set_dom(ret, c.FiniteDomain([1, 2]))
     return (ret)
 
 def satisfiable_problem(computation_space):
     cs = computation_space
-    x, y, z, w = (cs.var('x'), cs.var('y'),
-                  cs.var('z'), cs.var('w'))
-    x.cs_set_dom(cs, c.FiniteDomain([2, 6]))
-    y.cs_set_dom(cs, c.FiniteDomain([2, 3]))
-    z.cs_set_dom(cs, c.FiniteDomain([4, 5]))
-    w.cs_set_dom(cs, c.FiniteDomain([1, 4, 5, 6, 7]))
-    cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
-    cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
+    x, y, z = cs.var('x'), cs.var('y'), cs.var('z')
+    cs.set_dom(x, c.FiniteDomain([-4, -2, -1, 0, 1, 2, 4]))
+    cs.set_dom(y, c.FiniteDomain([0, 2, 3, 4, 5, 16]))
+    cs.set_dom(z, c.FiniteDomain([-2, -1, 0, 1, 2]))
+    cs.add_constraint(c.Expression(cs, [x, y, z], 'y==x**2-z'))
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
-    return (x, w, y)
+    return (x, y, z)
 
 def one_solution_problem(computation_space):
     cs = computation_space
     x, y, z, w = (cs.var('x'), cs.var('y'),
                   cs.var('z'), cs.var('w'))
-    x.cs_set_dom(cs, c.FiniteDomain([2, 6]))
-    y.cs_set_dom(cs, c.FiniteDomain([2, 3]))
-    z.cs_set_dom(cs, c.FiniteDomain([4, 5]))
-    w.cs_set_dom(cs, c.FiniteDomain([1, 4, 5]))
+    cs.set_dom(x, c.FiniteDomain([2, 6]))
+    cs.set_dom(y, c.FiniteDomain([2, 3]))
+    cs.set_dom(z, c.FiniteDomain([4, 5]))
+    cs.set_dom(w, c.FiniteDomain([1, 4, 5]))
     cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
     cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
     # set up a distribution strategy
@@ -40,10 +37,10 @@ def unsatisfiable_problem(computation_space):
     cs = computation_space
     x, y, z, w = (cs.var('x'), cs.var('y'),
                   cs.var('z'), cs.var('w'))
-    x.cs_set_dom(cs, c.FiniteDomain([2, 6]))
-    y.cs_set_dom(cs, c.FiniteDomain([2, 3]))
-    z.cs_set_dom(cs, c.FiniteDomain([4, 5]))
-    w.cs_set_dom(cs, c.FiniteDomain([1]))
+    cs.set_dom(x, c.FiniteDomain([2, 6]))
+    cs.set_dom(y, c.FiniteDomain([2, 3]))
+    cs.set_dom(z, c.FiniteDomain([4, 5]))
+    cs.set_dom(w, c.FiniteDomain([1]))
     cs.add_constraint(c.Expression(cs, [x, y, z], 'x == y + z'))
     cs.add_constraint(c.Expression(cs, [z, w], 'z < w'))
     # set up a distribution strategy
@@ -57,7 +54,7 @@ def send_more_money(computation_space):
 
     digits = range(10)
     for var in variables:
-        var.cs_set_dom(cs, c.FiniteDomain(digits))
+        cs.set_dom(var, c.FiniteDomain(digits))
 
     # use fd.AllDistinct
     for v1 in variables:
@@ -86,7 +83,7 @@ def conference_scheduling(computation_space):
           for slot in ('day 1 AM','day 1 PM','day 2 AM',
                        'day 2 PM')]
     for v in variables:
-        v.cs_set_dom(cs, c.FiniteDomain(dom_values))
+        cs.set_dom(v, c.FiniteDomain(dom_values))
 
     for conf in ('c03','c04','c05','c06'):
         v = cs.get_var_by_name(conf)

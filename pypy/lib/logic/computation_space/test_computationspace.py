@@ -255,13 +255,13 @@ class TestStoreUnification:
     def test_set_var_domain(self):
         sp = newspace()
         x = sp.var('x')
-        sp.set_domain(x, [1, 3, 5])
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 3, 5])
+        sp.set_dom(x, [1, 3, 5])
+        assert sp.dom(x) == c.FiniteDomain([1, 3, 5])
 
     def test_bind_with_domain(self):
         sp = newspace()
         x = sp.var('x')
-        sp.set_domain(x, [1, 2, 3])
+        sp.set_dom(x, [1, 2, 3])
         raises(space.OutOfDomain, sp.bind, x, 42)
         sp.bind(x, 3)
         assert x.val == 3
@@ -269,10 +269,10 @@ class TestStoreUnification:
     def test_bind_with_incompatible_domains(self):
         sp = newspace()
         x, y = sp.var('x'), sp.var('y')
-        sp.set_domain(x, [1, 2])
-        sp.set_domain(y, [3, 4])
+        sp.set_dom(x, [1, 2])
+        sp.set_dom(y, [3, 4])
         raises(space.IncompatibleDomains, sp.bind, x, y)
-        sp.set_domain(y, [2, 4])
+        sp.set_dom(y, [2, 4])
         sp.bind(x, y)
         # check x and y are in the same equiv. set
         assert x.val == y.val
@@ -283,21 +283,21 @@ class TestStoreUnification:
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         sp.bind(x, [42, z])
         sp.bind(y, [z, 42])
-        sp.set_domain(z, [1, 2, 3])
+        sp.set_dom(z, [1, 2, 3])
         raises(space.UnificationFailure, sp.unify, x, y)
-        sp.set_domain(z, [41, 42, 43])
+        sp.set_dom(z, [41, 42, 43])
         sp.unify(x, y)
         assert z.val == 42
-        assert z.cs_get_dom(sp) == c.FiniteDomain([41, 42, 43])
+        assert sp.dom(z) == c.FiniteDomain([41, 42, 43])
 
     def test_add_constraint(self):
         sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
         raises(c.DomainlessVariables,
                c.Expression, sp, [x, y, z], 'x == y + z')
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
+        sp.set_dom(x, c.FiniteDomain([1, 2]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
         sp.add_constraint(k)
         assert k in sp.constraints
@@ -305,32 +305,32 @@ class TestStoreUnification:
     def test_narrowing_domains_failure(self):
         sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
+        sp.set_dom(x, c.FiniteDomain([1, 2]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        raises(c.ConsistencyFailure, k.narrow)
+        raises(c.ConsistencyFailure, k.revise3)
 
     def test_narrowing_domains_success(self):
         sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        k.narrow()
-        assert x.cs_get_dom(sp) == c.FiniteDomain([5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3])
+        k.revise3()
+        assert sp.dom(x) == c.FiniteDomain([5])
+        assert sp.dom(y) == c.FiniteDomain([2])
+        assert sp.dom(z) == c.FiniteDomain([3])
 
     def test_compute_dependant_vars(self):
         sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
-        w.cs_set_dom(sp, c.FiniteDomain([1, 4, 5]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
+        sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
         sp.add_constraint(k1)
@@ -344,51 +344,51 @@ class TestStoreUnification:
     def test_store_satisfiable_success(self):
         sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
         sp.add_constraint(k)
         assert sp.satisfiable(k) == True
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
         
     def test_store_satisfiable_failure(self):
         sp = newspace()
         x,y,z = sp.var('x'), sp.var('y'), sp.var('z')
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
+        sp.set_dom(x, c.FiniteDomain([1, 2]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
         sp.add_constraint(k)
         assert sp.satisfiable(k) == False
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
+        assert sp.dom(x) == c.FiniteDomain([1, 2])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
 
     def test_satisfiable_many_const_success(self):
         sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
-        w.cs_set_dom(sp, c.FiniteDomain([1, 4, 5]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
+        sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
         sp.add_constraint(k1)
         sp.add_constraint(k2)
         assert sp.satisfiable(k1) == True
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([1, 4, 5])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
+        assert sp.dom(w) == c.FiniteDomain([1, 4, 5])
         assert sp.satisfiable(k2) == True
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([1, 4, 5])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
+        assert sp.dom(w) == c.FiniteDomain([1, 4, 5])
         narrowed_doms = sp.get_satisfying_domains(k1)
         assert narrowed_doms == {x:c.FiniteDomain([5]),
                                  y:c.FiniteDomain([2]),
@@ -405,24 +405,24 @@ class TestStoreUnification:
         sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
-        w.cs_set_dom(sp, c.FiniteDomain([1]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
+        sp.set_dom(w, c.FiniteDomain([1]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
         sp.add_constraint(k1)
         sp.add_constraint(k2)
         assert sp.satisfiable(k1) == False
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([1])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
+        assert sp.dom(w) == c.FiniteDomain([1])
         assert sp.satisfiable(k2) == False
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([1])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
+        assert sp.dom(w) == c.FiniteDomain([1])
         narrowed_doms = sp.get_satisfying_domains(k1)
         assert narrowed_doms == {}
         narrowed_doms = sp.get_satisfying_domains(k2)
@@ -432,43 +432,42 @@ class TestStoreUnification:
         sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
-        w.cs_set_dom(sp, c.FiniteDomain([1]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
+        sp.set_dom(w, c.FiniteDomain([1]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
         sp.add_constraint(k1)
         sp.add_constraint(k2)
         raises(space.ConsistencyFailure, sp.satisfy, k1)
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([1])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
+        assert sp.dom(w) == c.FiniteDomain([1])
         raises(space.ConsistencyFailure, sp.satisfy, k2)
-        assert x.cs_get_dom(sp) == c.FiniteDomain([1, 2, 5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2, 3])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3, 4])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([1])
+        assert sp.dom(x) == c.FiniteDomain([1, 2, 5])
+        assert sp.dom(y) == c.FiniteDomain([2, 3])
+        assert sp.dom(z) == c.FiniteDomain([3, 4])
+        assert sp.dom(w) == c.FiniteDomain([1])
         
     def test_satisfy_many_const_success(self):
         sp = newspace()
         x,y,z,w = (sp.var('x'), sp.var('y'),
                    sp.var('z'), sp.var('w'))
-        x.cs_set_dom(sp, c.FiniteDomain([1, 2, 5]))
-        y.cs_set_dom(sp, c.FiniteDomain([2, 3]))
-        z.cs_set_dom(sp, c.FiniteDomain([3, 4]))
-        w.cs_set_dom(sp, c.FiniteDomain([1, 4, 5]))
+        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
+        sp.set_dom(y, c.FiniteDomain([2, 3]))
+        sp.set_dom(z, c.FiniteDomain([3, 4]))
+        sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
         k1 = c.Expression(sp, [x, y, z], 'x == y + z')
         k2 = c.Expression(sp, [z, w], 'z < w')
         sp.add_constraint(k1)
         sp.add_constraint(k2)
         sp.satisfy(k2)
-        print x.cs_get_dom(sp)
-        assert x.cs_get_dom(sp) == c.FiniteDomain([5])
-        assert y.cs_get_dom(sp) == c.FiniteDomain([2])
-        assert z.cs_get_dom(sp) == c.FiniteDomain([3])
-        assert w.cs_get_dom(sp) == c.FiniteDomain([4, 5])
+        assert sp.dom(x) == c.FiniteDomain([5])
+        assert sp.dom(y) == c.FiniteDomain([2])
+        assert sp.dom(z) == c.FiniteDomain([3])
+        assert sp.dom(w) == c.FiniteDomain([4, 5])
 
 #-- computation spaces -------------------------------
 
@@ -482,14 +481,10 @@ class TestComputationSpace:
     def test_bind_cs_root(self):
         spc = newspace(problems.satisfiable_problem)
         assert '__root__' in spc.names
-        assert set(['x', 'y', 'w']) == \
+        assert set(['x', 'y', 'z']) == \
                set([var.name for var in spc.root.val])
 
     def test_ask_success(self):
-        spc = newspace(problems.one_solution_problem)
-        assert spc.ask() == space.Succeeded
-
-    def test_double_ask(self):
         spc = newspace(problems.one_solution_problem)
         assert spc.ask() == space.Succeeded
         assert spc.ask() == space.Succeeded
@@ -502,98 +497,126 @@ class TestComputationSpace:
         spc = newspace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternatives(2)
 
-    def test_old_distribute(self):
-        spc = newspace(problems.satisfiable_problem)
-        new_domains = [tuple(d.items()) for d in
-                       spc.distributor.distribute()]
-        x, y, z, w = (spc.get_var_by_name('x'),
-                      spc.get_var_by_name('y'),
-                      spc.get_var_by_name('z'),
-                      spc.get_var_by_name('w'))
-        expected_domains = [tuple({x: c.FiniteDomain([6]),
-                             y: c.FiniteDomain([2]),
-                             z: c.FiniteDomain([4]),
-                             w: c.FiniteDomain([5])}.items()),
-                            tuple({x: c.FiniteDomain([6]),
-                             y: c.FiniteDomain([2]),
-                             z: c.FiniteDomain([4]),
-                             w: c.FiniteDomain([6, 7])}.items())]
-        print new_domains, expected_domains
-        assert len(new_domains) == len(expected_domains)
-        for (d1, d2) in zip(new_domains, expected_domains):
-            assert len(d1) == len(d2)
-            for (e1, e2) in zip(d1, d2):
-                print e1, '=?', e2
-                assert e1 == e2
+##     def test_old_distribute(self):
+##         spc = newspace(problems.satisfiable_problem)
+##         new_domains = [tuple(d.items()) for d in
+##                        spc.distributor.distribute()]
+##         x, y, z = (spc.get_var_by_name('x'),
+##                    spc.get_var_by_name('y'),
+##                    spc.get_var_by_name('z'))
+##         expected_domains = [tuple({x: c.FiniteDomain([6]),
+##                              y: c.FiniteDomain([2]),
+##                              z: c.FiniteDomain([4]),
+##                              w: c.FiniteDomain([5])}.items()),
+##                             tuple({x: c.FiniteDomain([6]),
+##                              y: c.FiniteDomain([2]),
+##                              z: c.FiniteDomain([4]),
+##                              w: c.FiniteDomain([6, 7])}.items())]
+##         print new_domains, expected_domains
+##         assert len(new_domains) == len(expected_domains)
+##         for (d1, d2) in zip(new_domains, expected_domains):
+##             assert len(d1) == len(d2)
+##             for (e1, e2) in zip(d1, d2):
+##                 assert e1 == e2
 
-    def test_clone_and_distribute(self):
+    def test_clone_and_process(self):
         spc = newspace(problems.satisfiable_problem)
-        w = spc.get_var_by_name('w')
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
         # following couple of ops superceeded by inject()
-        new_spc.add_constraint(c.Expression(new_spc, [w],
-                                            'w == 5'))
+        x = new_spc.get_var_by_name('x')
+        new_spc.add_constraint(c.Expression(new_spc, [x],
+                                            'x == 0'))
+        z = new_spc.get_var_by_name('z')
+        y = new_spc.get_var_by_name('y')
+        new_spc.add_constraint(c.Expression(new_spc, [z, y],
+                                            'z == y'))
+        new_spc.add_constraint(c.Expression(new_spc, [y],
+                                            'y < 2'))
         new_spc._process()
         assert spc.ask() == space.Alternatives(2)
         assert new_spc.ask() == space.Succeeded
-        assert w.cs_get_dom(spc) == c.FiniteDomain([5, 6, 7])
-        assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
 
     def test_inject(self):
         def more_constraints(space):
-            space.add_constraint(c.Expression(space, [w],
-                                              'w == 5'))
+            x = new_spc.get_var_by_name('x')
+            space.add_constraint(c.Expression(new_spc, [x],
+                                                'x == 0'))
+            z = space.get_var_by_name('z')
+            y = space.get_var_by_name('y')
+            space.add_constraint(c.Expression(new_spc, [z, y],
+                                                'z == y'))
+            space.add_constraint(c.Expression(new_spc, [y],
+                                            'y < 2'))
+
         spc = newspace(problems.satisfiable_problem)
-        w = spc.get_var_by_name('w')
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
         new_spc.inject(more_constraints)
         assert spc.ask() == space.Alternatives(2)
         assert new_spc.ask() == space.Succeeded
-        assert w.cs_get_dom(spc) == c.FiniteDomain([5, 6, 7])
-        assert w.cs_get_dom(new_spc) == c.FiniteDomain([5])
         
     def test_merge(self):
         spc = newspace(problems.satisfiable_problem)
-        x, y, z, w = spc.find_vars('x', 'y', 'z', 'w')
+        x, y, z = spc.find_vars('x', 'y', 'z')
+        print spc.doms
         assert spc.TOP
-        assert spc.dom(x) == c.FiniteDomain([6])
-        assert spc.dom(y) == c.FiniteDomain([2])
-        assert spc.dom(z) == c.FiniteDomain([4])
-        assert spc.dom(w) == c.FiniteDomain([5, 6, 7])
+        assert spc.dom(x) == c.FiniteDomain([-4, -2, -1, 0,
+                                             1, 2, 4])
+        assert spc.dom(y) == c.FiniteDomain([0, 2, 3,
+                                             4, 5, 16])
+        assert spc.dom(z) == c.FiniteDomain([-2, -1, 0,
+                                             1, 2])
 
         def more_constraints(space):
-            space.add_constraint(c.Expression(space, [w],
-                                              'w == 5'))
+            x = space.get_var_by_name('x')
+            space.add_constraint(c.Expression(space, [x],
+                                                'x == 0'))
+            z = space.get_var_by_name('z')
+            y = space.get_var_by_name('y')
+            space.add_constraint(c.Expression(space, [z, y],
+                                                'z == y'))
+            space.add_constraint(c.Expression(space, [y],
+                                            'y < 2'))
 
         nspc = spc.clone()
         nspc.inject(more_constraints)
-        x, y, z, w = nspc.find_vars('x', 'y', 'z', 'w')
+        x, y, z = nspc.find_vars('x', 'y', 'z')
         assert not nspc.TOP
-        assert nspc.dom(x) == c.FiniteDomain([6])
-        assert nspc.dom(y) == c.FiniteDomain([2])
-        assert nspc.dom(z) == c.FiniteDomain([4])
-        assert nspc.dom(w) == c.FiniteDomain([5])
+##         assert nspc.dom(x) == c.FiniteDomain([7])
+##         assert nspc.dom(y) == c.FiniteDomain([6])
+##         assert nspc.dom(z) == c.FiniteDomain([1])
         assert nspc.ask() == space.Succeeded
         nspc.merge()
-        assert nspc.ask() == space.Merged
-        assert x.val == 6
-        assert y.val == 2
-        assert w.val == 5
-        assert (x, w, y) == nspc.root.val
+##         assert x.val == 7
+##         assert y.val == 6
+##         assert z.val == 5
+        assert (x, y, z) == nspc.root.val
 
     def test_scheduling_problem_dfs_one_solution(self):
         sol = strategies.dfs_one_solution(problems.conference_scheduling)
 
         sol2 = [var.val for var in sol]
+        print sol2
         assert sol2 == [('room A', 'day 1 AM'),
-                        ('room A', 'day 2 PM'),
-                        ('room C', 'day 2 AM'),
+                        ('room B', 'day 2 AM'),
                         ('room C', 'day 2 PM'),
+                        ('room C', 'day 2 AM'),
                         ('room C', 'day 1 PM'),
                         ('room C', 'day 1 AM'),
-                        ('room B', 'day 2 PM'),
+                        ('room A', 'day 2 AM'),
                         ('room B', 'day 1 PM'),
-                        ('room B', 'day 2 AM'),
+                        ('room A', 'day 2 PM'),
                         ('room A', 'day 1 PM')]
+
+
+        
+##     def test_send_more_money_dfs(self):
+##         # we need a linear constraint solver
+##         # for this one
+##         sol = strategies.dfs_one_solution(problems.send_more_money)
+
+##         print sol
+##         assert 0
+
+        

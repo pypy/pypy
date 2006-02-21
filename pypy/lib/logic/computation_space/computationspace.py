@@ -1,12 +1,20 @@
+# TODO
+# * support several distribution strategies
+# * add a linear constraint solver (vital for fast
+#   constraint propagation over finite integer domains)
+
+
 from threading import Thread, Condition, RLock, local
 
-from state import Succeeded, Distributable, Failed
+from state import Succeeded, Distributable, Failed, Unknown
 
 from variable import EqSet, Var, NoValue, Pair, \
      VariableException, NotAVariable, AlreadyInStore
 from constraint import FiniteDomain, ConsistencyFailure
 from distributor import DefaultDistributor
 
+#FIXME: provide a NoDom token which has nothing
+#       to do with FiniteDomains
 EmptyDom = FiniteDomain([])
 
 class Alternatives(object):
@@ -79,25 +87,30 @@ class ComputationSpace(object):
             self.vars = set()
             # mapping of names to vars (all of them)
             self.names = {}
-            # mapping of vars to constraints
+            # mapping from vars to constraints
             self.var_const_map = {}
+            # mapping from domains to variables
+            self.doms = {}
             # set of all constraints 
             self.constraints = set()
             self.root = self.var('__root__')
+            self.set_dom(self.root, EmptyDom)
             # set up the problem
             self.bind(self.root, problem(self))
             # check satisfiability of the space
             self._init_choose_commit()
-            self._process()
-            if self.status == Distributable:
-                self.distributor.start()
         else:
             self.vars = parent.vars
             self.names = parent.names
+            # we should really copy stuff
             self.var_const_map = parent.var_const_map
+            self.doms = {} # shall be copied by clone
             self.constraints = parent.constraints
             self.root = parent.root
+            self.distributor = parent.distributor.__class__(self)
             self._init_choose_commit()
+
+        self.distributor.start()
 
     def _init_choose_commit(self):
         # create a unique choice point
@@ -105,23 +118,29 @@ class ComputationSpace(object):
         # space and distributor threads
         self.CHOOSE = self._make_choice_var()
         self.STABLE = self._make_stable_var()
-        # we start stanle
-        self.STABLE.bind(0)
 
 #-- Computation Space -----------------------------------------
 
     def _make_choice_var(self):
         ComputationSpace._nb_choices += 1
-        return self.var('__choice__'+str(self._nb_choices))
+        ch_var = self.var('__choice__'+str(self._nb_choices))
+        self.set_dom(ch_var, EmptyDom)
+        return ch_var
 
     def _make_stable_var(self):
         ComputationSpace._nb_choices += 1
-        return self.var('__stable__'+str(self._nb_choices))
+        st_var = self.var('__stable__'+str(self._nb_choices))
+        self.set_dom(st_var, EmptyDom)
+        return st_var
 
     def _process(self):
         """auxilary of the distributor
-           XXX: shouldn't only the distributor call it ?
         """
+        #XXX: shouldn't only the distributor call it ?
+        #XXX: this is all sequential, but in the future
+        #     when propagators live in threads and are
+        #     awaken by events on variables, this might
+        #     completely disappear
         try:
             self.satisfy_all()
         except ConsistencyFailure:
@@ -132,20 +151,15 @@ class ComputationSpace(object):
             else:
                 self.status = Succeeded
 
-    def _suspended(self):
-        raise NotImplemented
-        # additional basic constraints done in an ancestor can
-        # make it runnable ; it is a temporary condition due
-        # to concurrency ; it means that some ancestor space
-        # has not yet transferred all required information to
-        # the space 
-    
-
     def _distributable(self):
         if self.status not in (Failed, Succeeded):
-            # sync. barrier with distributor
-            for var in self.vars:
-                if var.cs_get_dom(self).size() > 1 :
+            self.status = Unknown
+            # sync. barrier with distributor (?)
+            print "distributable vars :"
+            for var in self.root.val:
+                print "   ", var, " -> ", self.doms[var]
+                if self.dom(var).size() > 1 :
+                    self.status = Distributable
                     return True
         return False
         # in The Book : "the space has one thread that is
@@ -154,24 +168,25 @@ class ComputationSpace(object):
         # create another gives an error."
 
     def ask(self):
-        print "SPACE Ask() checks stability ..."
+        #print "SPACE Ask() checks stability ..."
         self.STABLE.get() # that's real stability
-        print "SPACE is stable, resuming Ask()"
+        #print "SPACE is stable, resuming Ask()"
         status = self.status in (Failed, Succeeded)
         if status: return self.status
         if self._distributable():
             return Alternatives(self.distributor.nb_subdomains())
         # should be unreachable
-        raise NotImplemented
+        print "DOMS", [(var, self.doms[var]) 
+                       for var in self.vars
+                       if self.dom(var) != EmptyDom]
+        raise NotImplementedError
 
     def clone(self):
         #XXX: lazy copy of domains would be nice
         spc = ComputationSpace(NoProblem, parent=self)
         for var in spc.vars:
-            var.cs_set_dom(spc, var.cs_get_dom(self).copy())
-        spc.distributor.set_space(spc)
-        if spc.status == Distributable:
-            spc.distributor.start()
+            spc.set_dom(var, self.dom(var).copy())
+        spc.status = Distributable
         return spc
 
     def inject(self, restricting_problem):
@@ -211,7 +226,7 @@ class ComputationSpace(object):
         """binds root vars to their singleton domains """
         assert self.status == Succeeded
         for var in self.root.val:
-            var.bind(var.cs_get_dom(self).get_values()[0])
+            var.bind(self.dom(var).get_values()[0])
         # shut down the distributor
         self.CHOOSE.bind(0)
         return self.root.val
@@ -250,12 +265,22 @@ class ComputationSpace(object):
         # put into new singleton equiv. set
         var.val = EqSet([var])
 
-    def set_domain(self, var, dom):
+    def set_dom(self, var, dom):
         """bind variable to domain"""
         assert(isinstance(var, Var) and (var in self.vars))
         if var.is_bound():
-            raise AlreadyBound
-        var.cs_set_dom(self, FiniteDomain(dom))
+            print "warning : setting domain %s to bound var %s" \
+                  % (dom, var)
+        self.doms[var] = FiniteDomain(dom)
+
+    def dom(self, var):
+        assert isinstance(var, Var)
+        try:
+            return self.doms[var]
+        except KeyError:
+            print "warning : setting no domain for", var
+            self.doms[var] = EmptyDom
+            return EmptyDom
 
     def get_var_by_name(self, name):
         """looks up one variable"""
@@ -276,11 +301,7 @@ class ComputationSpace(object):
         """check wether a var is locally bound"""
         if self.TOP:
             return var.is_bound()
-        return len(var.cs_get_dom(self)) == 1
-
-    def dom(self, var):
-        """return the local domain"""
-        return var.cs_get_dom(self)
+        return len(self.dom(var)) == 1
 
     def val(self, var):
         """return the local binding without blocking"""
@@ -304,7 +325,7 @@ class ComputationSpace(object):
     def get_variables_with_a_domain(self):
         varset = set()
         for var in self.vars:
-            if var.cs_get_dom(self) != EmptyDom: varset.add(var)
+            if self.dom(var) != EmptyDom: varset.add(var)
         return varset
 
     def satisfiable(self, constraint):
@@ -330,7 +351,7 @@ class ComputationSpace(object):
         
         for const in constset:
             try:
-                const.narrow()
+                const.revise3()
             except ConsistencyFailure:
                 self.restore_domains(old_domains)
                 return False
@@ -348,7 +369,7 @@ class ComputationSpace(object):
         
         for const in constset:
             try:
-                const.narrow()
+                const.revise3()
             except ConsistencyFailure:
                 self.restore_domains(old_domains)
                 return {}
@@ -366,13 +387,15 @@ class ComputationSpace(object):
 
         for const in constset:
             try:
-                const.narrow()
+                const.revise3()
             except ConsistencyFailure:
                 self.restore_domains(old_domains)
                 raise
 
     def satisfy_all(self):
         """really PROPAGATE"""
+      
+        print "propagating on %s" % fif(self.TOP, 'top', 'child')
         const_q = [(const.estimateCost(), const)
                    for const in self.constraints]
         affected_constraints = set()
@@ -386,9 +409,9 @@ class ComputationSpace(object):
                 const_q.sort()
                 affected_constraints.clear()
             cost, const = const_q.pop(0)
-            entailed = const.narrow()
+            entailed = const.revise3()
             for var in const.affectedVariables():
-                dom = var.cs_get_dom(self)
+                dom = self.dom(var)
                 if not dom.has_changed():
                     continue
                 for dependant_const in self.dependant_constraints(var):
@@ -418,11 +441,11 @@ class ComputationSpace(object):
         """check that the domain of var is compatible
            with the domains of the vars in the eqs
         """
-        if var.cs_get_dom(self) == EmptyDom: return True
+        if self.dom(var) == EmptyDom: return True
         empty = set()
         for v in eqs:
-            if v.cs_get_dom(self) == EmptyDom: continue
-            if v.cs_get_dom(self).intersection(var.cs_get_dom(self)) == empty:
+            if self.dom(v) == EmptyDom: continue
+            if self.dom(v).intersection(self.dom(var)) == empty:
                 return False
         return True
 
@@ -434,8 +457,8 @@ class ComputationSpace(object):
         """
         dom = {}
         for var in varset:
-            if var.cs_get_dom(self) != EmptyDom:
-                dom[var] = var.cs_get_dom(self).copy()
+            if self.dom(var) != EmptyDom:
+                dom[var] = self.dom(var).copy()
         return dom
 
     def restore_domains(self, domains):
@@ -443,7 +466,7 @@ class ComputationSpace(object):
            to their (previous) value 
         """
         for var, dom in domains.items():
-            var.cs_set_dom(self, dom)
+            self.set_dom(var, dom)
 
         
     #-- BIND -------------------------------------------
@@ -482,13 +505,12 @@ class ComputationSpace(object):
         finally:
             self.bind_lock.release()
 
-
     def _bind(self, eqs, val):
         # print "variable - value binding : %s %s" % (eqs, val)
         # bind all vars in the eqset to val
         for var in eqs:
-            if var.cs_get_dom(self) != EmptyDom:
-                if val not in var.cs_get_dom(self).get_values():
+            if self.dom(var) != EmptyDom:
+                if val not in self.dom(var).get_values():
                     # undo the half-done binding
                     for v in eqs:
                         v.val = eqs
@@ -641,3 +663,9 @@ def _both_are_vars(v1, v2):
     
 def _both_are_bound(v1, v2):
     return v1._is_bound() and v2._is_bound()
+
+def fif(test, iftrue, iffalse):
+    if test:
+        return iftrue
+    else:
+        return iffalse

@@ -7,7 +7,7 @@ def arrange_domains(cs, variables):
        that satisfies distribute & friends"""
     new_doms = {}
     for var in variables:
-        new_doms[var] = var.cs_get_dom(cs).copy()
+        new_doms[var] = cs.dom(var).copy()
     return new_doms
 
 class AbstractDistributor(Thread):
@@ -27,11 +27,11 @@ class AbstractDistributor(Thread):
         (or one of such varibles if there is a tie)
         """
         vars_ = [var for var in self.cs.get_variables_with_a_domain()
-                 if var.cs_get_dom(self.cs).size() > 1]
+                 if self.cs.dom(var).size() > 1]
         
         best = vars_[0]
         for var in vars_:
-            if var.cs_get_dom(self.cs).size() < best.cs_get_dom(self.cs).size():
+            if self.cs.dom(var).size() < self.cs.dom(best).size():
                 best = var
         
         return best
@@ -41,11 +41,11 @@ class AbstractDistributor(Thread):
         (or one of such variables if there is a tie)
         """
         vars_ = [var for var in self.cs.get_variables_with_a_domain()
-                 if var.cs_get_dom(self.cs).size() > 1]
+                 if self.cs.dom(var).size() > 1]
 
         best = vars_[0]
         for var in vars_:
-            if var.cs_get_dom(self.cs).size() > best.cs_get_dom(self.cs).size():
+            if self.cs.dom(var).size() > self.cs.dom(best).size():
                 best = var
         
         return best
@@ -131,24 +131,23 @@ class SplitDistributor(AbstractDistributor):
             self.cs.var_lock.release()
         if self.nb_subspaces:
             return min(self.nb_subspaces,
-                       self.__to_split.cs_get_dom(self.cs).size()) 
+                       self.cs.dom(self.__to_split).size()) 
         else:
-            return self.__to_split.cs_get_dom(self.cs).size() 
+            return self.cs.dom(self.__to_split).size() 
 
     ### new threaded distributor
 
     def run(self):
+        self.cs._process() # propagate first
+        self.cs.STABLE.bind(0)
         while self.cs.status == Distributable:
-            print "DISTRIBUTOR sleeps on choose()"
             choice = self.cs.choose(self.nb_subdomains())
-            # racey ...
-            print "DISTRIBUTOR choice =", choice
+            # racey ... ?
             self.new_distribute(choice)
             self.cs._process()
-            print "DISTRIBUTOR builds new CHOOSE"
             self.cs.CHOOSE = self.cs._make_choice_var()
-            print "DISTRIBUTOR asserts space stability"
             self.cs.STABLE.bind(0) # unlocks Ask
+        print "-- distributor terminated --"
 
 
     def new_distribute(self, choice):
@@ -157,12 +156,12 @@ class SplitDistributor(AbstractDistributor):
         #variables = self.cs.get_variables_with_a_domain()
         #domains = arrange_domains(self.cs, variables)
         nb_subspaces = self.nb_subdomains()
-        values = variable.cs_get_dom(self.cs).get_values()
+        values = self.cs.dom(variable).get_values()
         nb_elts = max(1, len(values)*1./nb_subspaces)
         start, end = (int(math.floor(choice * nb_elts)),
                       int(math.floor((choice + 1) * nb_elts)))
-        variable.cs_get_dom(self.cs).remove_values(values[:start])
-        variable.cs_get_dom(self.cs).remove_values(values[end:])
+        self.cs.dom(variable).remove_values(values[:start])
+        self.cs.dom(variable).remove_values(values[end:])
 
 
     ### some tests rely on this old

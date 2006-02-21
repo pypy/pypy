@@ -9,6 +9,7 @@ def dfs_one_solution(problem):
        dichotomic"""
 
     def do_dfs(space):
+        print "do_dfs"
         status = space.ask()
         if status == csp.Failed:
             return None
@@ -26,10 +27,13 @@ def dfs_one_solution(problem):
         else:
             raise StrategyDistributionMismatch()
                                                
-    
+    print 1
     space = csp.ComputationSpace(problem)
+    print 2
     solved_space = do_dfs(space)
     if solved_space == None: return None
     return solved_space.merge()
+
+
 
 
