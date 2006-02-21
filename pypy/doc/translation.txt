@@ -1305,7 +1305,7 @@ C. This mapping is done in the file `pypy/translator/c/extfunc.py`_. In there
 is a dictionary called ``EXTERNALS`` which contains mappings from dummy
 functions to strings::
 
-    EXTERNAL = {
+    EXTERNALS = {
         module.ll_function: "LL_c_name_of_function"
         ...
     }
