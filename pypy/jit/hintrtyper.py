@@ -57,7 +57,9 @@ class HintRTyper(RPythonTyper):
             return r
 
     def generic_translate_operation(self, hop):
-        # detect all-green operations
+        # detect constant-foldable all-green operations
+        if hop.spaceop.opname not in rtimeshift.FOLDABLE_OPS:
+            return None
         green = True
         for r_arg in hop.args_r:
             green = green and isinstance(r_arg, GreenRepr)
@@ -73,7 +75,6 @@ class HintRTyper(RPythonTyper):
         # by default, a red operation converts all its arguments to
         # genop variables, and emits a call to a helper that will generate
         # the same operation at run-time
-        # XXX constant propagate if possible
         opdesc = rtimeshift.make_opdesc(hop)
         if opdesc.nb_args == 1:
             ll_generate = rtimeshift.ll_generate_operation1
@@ -90,6 +91,24 @@ class HintRTyper(RPythonTyper):
                                                [s_opdesc, ts.s_JITState] + args_s,
                                                [c_opdesc, v_jitstate]    + args_v,
                                                ts.s_RedBox)
+
+    def translate_op_getfield(self, hop):
+        # XXX check 'immutable'
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        RESTYPE = originalconcretetype(hop.s_result)
+        v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
+                                              green_void_repr)
+        gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
+        gv_resulttype = rgenop.constTYPE(RESTYPE)
+        c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
+        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
+        ts = self.timeshifter
+        v_jitstate = hop.llops.getjitstate()
+        s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getfield,
+            [ts.s_JITState, ts.s_RedBox, s_CONSTORVAR, s_CONSTORVAR],
+            [v_jitstate,    v_argbox,    c_fieldname,  c_resulttype],
+            ts.s_RedBox)
 
 
 class HintLowLevelOpList(LowLevelOpList):

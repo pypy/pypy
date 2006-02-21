@@ -1,6 +1,8 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython import objectmodel
 from pypy.rpython import rgenop
+
+FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 
 # ____________________________________________________________
 # types and adtmeths
@@ -129,10 +131,11 @@ class OpDesc(object):
 
     def __init__(self, opname, ARGS, RESULT):
         self.opname = opname
-        self.llop = getattr(objectmodel.llop, opname)
+        self.llop = lloperation.LL_OPERATIONS[opname]
         self.nb_args = len(ARGS)
         self.ARGS = ARGS
         self.RESULT = RESULT
+        self.canfold = opname in FOLDABLE_OPS
 
     def __getattr__(self, name): # .ARGx -> .ARGS[x]
         if name.startswith('ARG'):
@@ -162,7 +165,7 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
     ARG0 = opdesc.ARG0
     RESULT = opdesc.RESULT
     opname = opdesc.name
-    if isinstance(argbox, ConstRedBox):
+    if opdesc.canfold and isinstance(argbox, ConstRedBox):
         arg = argbox.ll_getvalue(ARG0)
         res = opdesc.llop(RESULT, arg)
         return ConstRedBox.ll_fromvalue(res)
@@ -177,7 +180,8 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     ARG1 = opdesc.ARG1
     RESULT = opdesc.RESULT
     opname = opdesc.name
-    if isinstance(argbox0, ConstRedBox) and isinstance(argbox1, ConstRedBox):
+    if opdesc.canfold and (isinstance(argbox0, ConstRedBox) and
+                           isinstance(argbox1, ConstRedBox)):
         # const propagate
         arg0 = argbox0.ll_getvalue(ARG0)
         arg1 = argbox1.ll_getvalue(ARG1)
@@ -188,6 +192,15 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     op_args[1] = argbox1.getgenvar()
     genvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
                           rgenop.constTYPE(RESULT))
+    return VarRedBox(genvar)
+
+def ll_generate_getfield(jitstate, argbox,
+                         gv_fieldname, gv_resulttype):
+    op_args = lltype.malloc(VARLIST.TO, 2)
+    op_args[0] = argbox.getgenvar()
+    op_args[1] = gv_fieldname
+    genvar = rgenop.genop(jitstate.curblock, 'getfield', op_args,
+                          gv_resulttype)
     return VarRedBox(genvar)
 
 # ____________________________________________________________

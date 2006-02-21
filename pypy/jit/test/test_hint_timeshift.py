@@ -246,7 +246,7 @@ def test_arith_plus_minus():
     assert insns == {'int_add': 2,
                      'int_sub': 1}
 
-def INPROGRESS_test_simple_struct():
+def test_simple_struct():
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
                                       ('world', lltype.Signed),
                         hints={'immutable': True})
