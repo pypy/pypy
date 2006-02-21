@@ -188,3 +188,26 @@ class TestNormalizeAfterTheFact(TestNormalize):
 
         t.checkgraphs()
         return t
+
+    def DONT_test_mix_after_recursion(self):
+        def prefn(n):
+            if n:
+                return 2*prefn(n-1)
+            else:
+                return 1
+        
+        t = TranslationContext()
+        a = t.buildannotator()
+        a.build_types(prefn, [int])
+        typer = t.buildrtyper()
+        typer.specialize()
+        #t.view()
+
+        def f():
+            return 1
+
+        from pypy.rpython import annlowlevel
+        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
+        graph = annhelper.getgraph(f, [], annmodel.SomeInteger())
+        annhelper.finish()
+        
