@@ -657,6 +657,8 @@ class LLFrame(object):
                 """ % locals()).compile()
         for opname in 'is_true', 'neg', 'abs', 'invert':
             assert opname in opimpls
+            if typ is float and opname == 'invert':
+                continue
             if typ is int and opname not in ops_returning_a_bool:
                 adjust_result = 'intmask'
             else:
@@ -667,7 +669,7 @@ class LLFrame(object):
                     func = opimpls[%(opname)r]
                     return %(adjust_result)s(func(x))
             """ % locals()).compile()
-            if typ is int:
+            if typ is int and opname in ('neg', 'abs'):
                 opname += '_ovf'
                 exec py.code.Source("""
                     def op_%(opnameprefix)s_%(opname)s(self, x):
@@ -689,21 +691,21 @@ class LLFrame(object):
                 return func(x, y)
         """ % locals()).compile()
     
-    op_original_int_add = op_int_add
+    original_int_add = op_int_add
 
     def op_int_add(self, x, y):
         if isinstance(x, llmemory.AddressOffset) or isinstance(y, llmemory.AddressOffset) :
             return x + y
         else:
-            return self.op_original_int_add(x, y)
+            return self.original_int_add(x, y)
 
-    op_original_int_mul = op_int_mul
+    original_int_mul = op_int_mul
 
     def op_int_mul(self, x, y):
         if isinstance(x, llmemory.AddressOffset):
             return x * y
         else:
-            return self.op_original_int_mul(x, y)
+            return self.original_int_mul(x, y)
 
     def op_unichar_eq(self, x, y):
         assert isinstance(x, unicode) and len(x) == 1
