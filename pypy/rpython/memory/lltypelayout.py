@@ -41,26 +41,23 @@ def get_layout(TYPE):
         assert 0, "type %s not yet implemented" % (TYPE, )
 
 def get_fixed_size(TYPE):
-    if TYPE._is_varsize():
-        return llmemory.sizeof(TYPE, 0)
-    return llmemory.sizeof(TYPE)
-#    if isinstance(TYPE, lltype.Primitive):
-#        if TYPE == lltype.Void:
-#            return 0
-#        return struct.calcsize(primitive_to_fmt[TYPE])
-#    elif isinstance(TYPE, lltype.Ptr):
-#        return struct.calcsize("P")
-#    elif isinstance(TYPE, lltype.Struct):
-#        return get_layout(TYPE)["_size"]
-#    elif isinstance(TYPE, lltype.Array):
-#        return get_fixed_size(lltype.Unsigned)
-#    elif isinstance(TYPE, lltype.OpaqueType):
-#        return get_fixed_size(lltype.Unsigned)
-#    elif isinstance(TYPE, lltype.FuncType):
-#        return get_fixed_size(lltype.Unsigned)
-#    elif isinstance(TYPE, lltype.PyObjectType):
-#        return get_fixed_size(lltype.Unsigned)
-#    assert 0, "not yet implemented"
+    if isinstance(TYPE, lltype.Primitive):
+        if TYPE == lltype.Void:
+            return 0
+        return struct.calcsize(primitive_to_fmt[TYPE])
+    elif isinstance(TYPE, lltype.Ptr):
+        return struct.calcsize("P")
+    elif isinstance(TYPE, lltype.Struct):
+        return get_layout(TYPE)["_size"]
+    elif isinstance(TYPE, lltype.Array):
+        return get_fixed_size(lltype.Unsigned)
+    elif isinstance(TYPE, lltype.OpaqueType):
+        return get_fixed_size(lltype.Unsigned)
+    elif isinstance(TYPE, lltype.FuncType):
+        return get_fixed_size(lltype.Unsigned)
+    elif isinstance(TYPE, lltype.PyObjectType):
+        return get_fixed_size(lltype.Unsigned)
+    assert 0, "not yet implemented"
 
 def get_variable_size(TYPE):
     if isinstance(TYPE, lltype.Array):
