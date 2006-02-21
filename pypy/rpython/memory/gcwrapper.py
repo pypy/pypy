@@ -1,6 +1,6 @@
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory import lltypelayout
@@ -34,19 +34,16 @@ class QueryTypes(object):
         tttid.sort()
         tttid = zip(*zip(*tttid)[::-1])
         for TYPE, typeid in tttid:
-            varsize = (isinstance(TYPE, lltype.Array) or
-                       (isinstance(TYPE, lltype.Struct) and
-                        TYPE._arrayfld is not None))
+            varsize = self.is_varsize(typeid)
             _is_varsize.append(varsize)
-            _offsets_to_gc_pointers.append(
-                lltypelayout.offsets_to_gc_pointers(TYPE))
-            _fixed_size.append(lltypelayout.get_fixed_size(TYPE))
+            _offsets_to_gc_pointers.append(self.offsets_to_gc_pointers(typeid))
+            _fixed_size.append(self.fixed_size(typeid))
             if varsize:
-                _varsize_item_sizes.append(lltypelayout.get_variable_size(TYPE))
+                _varsize_item_sizes.append(self.varsize_item_sizes(typeid))
                 _varsize_offset_to_variable_part.append(
-                    lltypelayout.get_fixed_size(TYPE))
+                    self.varsize_offset_to_variable_part(typeid))
                 _varsize_offset_to_length.append(
-                    lltypelayout.varsize_offset_to_length(TYPE))
+                    self.varsize_offset_to_length(typeid))
                 _varsize_offsets_to_gcpointers_in_var_part.append(
                     lltypelayout.varsize_offsets_to_gcpointers_in_var_part(TYPE))
             else:
@@ -123,7 +120,47 @@ class QueryTypes(object):
                 self.varsize_offset_to_length,
                 self.varsize_offsets_to_gcpointers_in_var_part)
 
+class SymbolicQueryTypes(QueryTypes):
+    def fixed_size(self, typeid):
+        assert typeid >= 0
+        if self.types[typeid]._is_varsize():
+            return llmemory.sizeof(self.types[typeid], 0)
+        else:
+            return llmemory.sizeof(self.types[typeid])
 
+    def varsize_item_sizes(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return llmemory.ItemOffset(self.types[typeid])
+        else:
+            return 0
+
+    def varsize_offset_to_variable_part(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return llmemory.ArrayItemsOffset(self.types[typeid])
+        else:
+            return 0
+
+    def varsize_offset_to_length(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            TYPE = self.types[typeid]
+            if isinstance(TYPE, lltype.Array):
+                return 0
+            else:
+                return llmemory.FieldOffset(TYPE, TYPE._arrayfld)
+        else:
+            return 0
+
+    def varsize_offsets_to_gcpointers_in_var_part(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return lltypelayout.varsize_offsets_to_gcpointers_in_var_part(
+                self.types[typeid])
+        else:
+            return 0
+    
 def getfunctionptr(annotator, graphfunc):
     """Make a functionptr from the given Python function."""
     graph = annotator.bookkeeper.getdesc(graphfunc).cachedgraph(None)
