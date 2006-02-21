@@ -137,6 +137,9 @@ class fakeaddress(object):
         else:
             self.offset.set(self.ob, value)
 
+    def _cast_to_ptr(self, EXPECTED_TYPE):
+        return lltype.cast_pointer(self.get(), EXPECTED_TYPE)
+
 # XXX the indexing in code like
 #     addr.signed[0] = v
 #     is just silly.  remove it.
@@ -175,3 +178,13 @@ fakeaddress.address = property(_address_fakeaccessor)
 Address = lltype.Primitive("Address", fakeaddress(None))
 
 fakeaddress._TYPE = Address
+
+# the obtained address will not keep the object alive. e.g. if the object is
+# only reachable through an address, it might get collected
+def cast_ptr_to_adr(obj):
+    assert isinstance(lltype.typeOf(obj), lltype.Ptr)
+    return obj._cast_to_adr()
+
+def cast_adr_to_ptr(adr, EXPECTED_TYPE):
+    return adr._cast_to_ptr(EXPECTED_TYPE)
+

@@ -58,6 +58,10 @@ class address(object):
 
     def __nonzero__(self):
         return self.intaddress != 0
+
+    def _cast_to_ptr(self, EXPECTED_TYPE):
+        from pypy.rpython.memory.lltypesimulation import simulatorptr
+        return simulatorptr(EXPECTED_TYPE, self)
     
 
 class _accessor(object):

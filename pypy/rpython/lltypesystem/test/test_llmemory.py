@@ -51,4 +51,32 @@ def test_sizeof():
     py.test.raises(AssertionError, "sizeof(varstruct)")
     sizeof(array, 1)
     sizeof(varstruct, 2)
-    
+
+def test_cast_ptr_to_adr():
+    from pypy.rpython.memory.test.test_llinterpsim import interpret
+    class A(object):
+        pass
+    def f(x):
+        if x:
+            a = A()
+        else:
+            a = None
+        adr_a = cast_ptr_to_adr(a)
+        return bool(adr_a)
+    res = interpret(f, [1])
+    assert res
+    res = interpret(f, [0])
+    assert not res
+
+def test_cast_adr_to_ptr():
+    from pypy.rpython.memory.test.test_llinterpsim import interpret
+    from pypy.rpython.lltypesystem import lltype
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    Sptr = lltype.Ptr(S)
+    def f():
+        s1 = lltype.malloc(S)
+        adr = cast_ptr_to_adr(s1)
+        s2 = cast_adr_to_ptr(adr, Sptr)
+        return s1 == s2
+    res = interpret(f, [])
+    assert res

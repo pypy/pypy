@@ -186,6 +186,9 @@ class simulatorptr(object):
     def _cast_to_int(self):
         return self._address.intaddress
 
+    def _cast_to_adr(self):
+        return self._address
+
 # for now use the simulators raw_malloc
 def malloc(T, n=None, immortal=False, flavor='gc'):
     fixedsize = get_fixed_size(T)

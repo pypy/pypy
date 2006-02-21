@@ -2,7 +2,6 @@ from pypy.translator.interactive import Translation
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rpython.memory import lladdress
-from pypy.rpython import objectmodel
 
 def getcompiled(f, args):
     t = Translation(f)
@@ -18,7 +17,7 @@ def test_offsetof():
     def f():
         s = lltype.malloc(STRUCT)
         s.x = 1
-        adr = objectmodel.cast_ptr_to_adr(s)
+        adr = llmemory.cast_ptr_to_adr(s)
         result = (adr + offsetx).signed[0]
         (adr + offsety).signed[0] = 2
         return result * 10 + s.y
@@ -31,7 +30,7 @@ def test_itemoffsetof():
     itemoffsets = [llmemory.itemoffsetof(ARRAY, i) for i in range(5)]
     def f():
         a = lltype.malloc(ARRAY, 5)
-        adr = objectmodel.cast_ptr_to_adr(a)
+        adr = llmemory.cast_ptr_to_adr(a)
         result = 0
         for i in range(5):
             a[i] = i + 1
@@ -54,7 +53,7 @@ def test_sizeof_constsize_struct():
     offsety = llmemory.offsetof(STRUCT, 'y')
     def f():
         adr = lladdress.raw_malloc(sizeofs)
-        s = objectmodel.cast_adr_to_ptr(adr, STRUCTPTR)
+        s = llmemory.cast_adr_to_ptr(adr, STRUCTPTR)
         s.y = 5 # does not crash
         result = (adr + offsety).signed[0] * 10 + int(offsety < sizeofs)
         lladdress.raw_free(adr)

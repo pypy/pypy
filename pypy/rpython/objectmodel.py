@@ -44,18 +44,6 @@ def free_non_gc_object(obj):
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
 
-# XXX these things don't clearly belong here XXX
-
-# the obtained address will not keep the object alive. e.g. if the object is
-# only reachable through an address, it might get collected
-def cast_ptr_to_adr(obj):
-    from pypy.rpython.memory.lltypesimulation import simulatorptr
-    assert isinstance(obj, simulatorptr)
-    return obj._address
-
-def cast_adr_to_ptr(adr, EXPECTED_TYPE):
-    from pypy.rpython.memory.lltypesimulation import simulatorptr
-    return simulatorptr(EXPECTED_TYPE, adr)
    
 # __ hlinvoke XXX this doesn't seem completely the right place for this
 

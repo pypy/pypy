@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
-from pypy.rpython import rmodel, objectmodel, rptr, annlowlevel
+from pypy.rpython import rmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
 import sets, os
 
@@ -431,7 +431,7 @@ def deallocator(addr):
              'lltype': lltype,
              'destrptr': destrptr,
              'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
-             'cast_adr_to_ptr': objectmodel.cast_adr_to_ptr,
+             'cast_adr_to_ptr': llmemory.cast_adr_to_ptr,
              'cast_pointer': lltype.cast_pointer,
              'PTR_TYPE': lltype.Ptr(TYPE),
              'DESTR_ARG': DESTR_ARG,
@@ -473,7 +473,7 @@ def deallocator(addr):
             # bump refcount to 1
             gcheader = addr - RefcountingGCTransformer.gc_header_offset
             gcheader.signed[0] = 1
-            v = objectmodel.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
+            v = llmemory.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
             gcheader.signed[0] = 0
             llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
@@ -575,7 +575,7 @@ class BoehmGCTransformer(GCTransformer):
             static_body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             d = {'pop_alive':pop_alive,
                  'PTR_TYPE':lltype.Ptr(TYPE),
-                 'cast_adr_to_ptr':objectmodel.cast_adr_to_ptr}
+                 'cast_adr_to_ptr': llmemory.cast_adr_to_ptr}
             src = ("def finalizer(addr):\n"
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "%s\n")%(static_body,)
@@ -586,7 +586,7 @@ class BoehmGCTransformer(GCTransformer):
             def finalizer(addr):
                 exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
                 try:
-                    v = objectmodel.cast_adr_to_ptr(addr, DESTR_ARG)
+                    v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                     destrptr(v)
                 except:
                     try:

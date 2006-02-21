@@ -1,5 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, lloperation
-from pypy.rpython import objectmodel
+from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
 from pypy.rpython import rgenop
 
 FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
@@ -49,7 +48,7 @@ class ConstRedBox(RedBox):
     def ll_fromvalue(value):
         T = lltype.typeOf(value)
         if isinstance(T, lltype.Ptr):
-            return AddrRedBox(objectmodel.cast_ptr_to_adr(value))
+            return AddrRedBox(llmemory.cast_ptr_to_adr(value))
         elif T is lltype.Float:
             return DoubleRedBox(value)
         else:
@@ -62,7 +61,7 @@ class ConstRedBox(RedBox):
         # note: this is specialized by low-level type T, as a low-level helper
         if isinstance(T, lltype.Ptr):
             assert isinstance(self, AddrRedBox)
-            return objectmodel.cast_adr_to_ptr(self.adrvalue, T)
+            return llmemory.cast_adr_to_ptr(self.adrvalue, T)
         elif T is lltype.Float:
             assert isinstance(self, DoubleRedBox)
             return self.dblvalue

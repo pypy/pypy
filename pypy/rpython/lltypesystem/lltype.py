@@ -797,6 +797,9 @@ class _ptr(object):
             obj = obj._parentstructure() 
         return id(obj)
 
+    def _cast_to_adr(self):
+        from pypy.rpython.lltypesystem import llmemory
+        return llmemory.fakeaddress(self)
 
 assert not '__dict__' in dir(_ptr)
 

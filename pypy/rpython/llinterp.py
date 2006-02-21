@@ -3,7 +3,6 @@ from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ul
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython import objectmodel
 
 import sys
 import math
@@ -451,11 +450,11 @@ class LLFrame(object):
 
     def op_cast_ptr_to_adr(self, ptr):
         assert checkptr(ptr)
-        return objectmodel.cast_ptr_to_adr(ptr)
+        return llmemory.cast_ptr_to_adr(ptr)
 
     def op_cast_adr_to_ptr(self, TYPE, adr):
         assert lltype.typeOf(adr) == llmemory.Address
-        return objectmodel.cast_adr_to_ptr(adr, TYPE)
+        return llmemory.cast_adr_to_ptr(adr, TYPE)
 
     def op_cast_int_to_float(self, i):
         assert type(i) is int

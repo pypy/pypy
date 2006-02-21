@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.lltypesystem import lltype, rclass, llmemory
 from pypy.rpython import rarithmetic, objectmodel, rstack, rint, raddress
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr
@@ -475,6 +475,6 @@ def rtype_cast_adr_to_ptr(hop):
     return hop.genop('cast_adr_to_ptr', [adr],
                      resulttype = TYPE.value)
 
-BUILTIN_TYPER[objectmodel.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
-BUILTIN_TYPER[objectmodel.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
+BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
+BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 
