@@ -7,7 +7,6 @@ from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, objectmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
-from pypy.rpython.normalizecalls import perform_normalizations
 import sets, os
 
 """
