@@ -316,7 +316,7 @@ class Bookkeeper:
         elif tp is r_ulonglong:
             result = SomeInteger(nonneg = True, unsigned = True, size = 2)
         elif tp is r_longlong:
-            result = SomeInteger(nonneg = x>0, size = 2)
+            result = SomeInteger(nonneg = x>=0, size = 2)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             if len(x) == 1:
                 result = SomeChar()
