@@ -182,7 +182,7 @@ class BlockConverter:
         v0, v1 = spaceop.args
         self.insns.append(self.get(v0))
 
-        offset = FieldOffset(v0.concretetype, v1.value)
+        offset = FieldOffset(v0.concretetype.TO, v1.value)
         self.insns.append(self.getoffset(offset))
         self.push(spaceop.result)
 
@@ -193,7 +193,7 @@ class BlockConverter:
         self.insns.append(model.very_low_level_opcode[opname])
         self.insns.append(self.get(v0))
 
-        offset = FieldOffset(v0.concretetype, v1.value)
+        offset = FieldOffset(v0.concretetype.TO, v1.value)
         self.insns.append(self.getoffset(offset))
         self.insns.append(self.get(v2))
 
@@ -205,7 +205,7 @@ class BlockConverter:
         self.insns.append(self.get(v0))
         self.insns.append(self.get(v1))
         
-        offset = ArrayItemsOffset(v0.concretetype)
+        offset = ArrayItemsOffset(v0.concretetype.TO)
         self.insns.append(self.getoffset(offset))
         
         offset = ItemOffset(spaceop.result.concretetype)
@@ -220,7 +220,7 @@ class BlockConverter:
         self.insns.append(self.get(array))
         self.insns.append(self.get(index))
         
-        offset = ArrayItemsOffset(array.concretetype)
+        offset = ArrayItemsOffset(array.concretetype.TO)
         self.insns.append(self.getoffset(offset))
         
         offset = ItemOffset(value.concretetype)

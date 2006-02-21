@@ -1,7 +1,8 @@
 import sys
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
-     AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset
+     AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
+     CompositeOffset
 from pypy.rpython.memory.gc import GCHeaderOffset
 from pypy.rpython.memory.lladdress import NULL
 
@@ -13,16 +14,18 @@ def name_signed(value, db):
     if isinstance(value, Symbolic):
         from pypy.translator.c.gc import REFCOUNT_IMMORTAL
         if isinstance(value, FieldOffset):
-            structnode = db.gettypedefnode(value.TYPE.TO)
+            structnode = db.gettypedefnode(value.TYPE)
             return 'offsetof(%s, %s)'%(
-                db.gettype(value.TYPE.TO).replace('@', ''),
+                db.gettype(value.TYPE).replace('@', ''),
                 structnode.c_struct_field_name(value.fldname))
         elif isinstance(value, ItemOffset):
             return '(sizeof(%s) * %s)'%(
                 db.gettype(value.TYPE).replace('@', ''), value.repeat)
         elif isinstance(value, ArrayItemsOffset):
             return 'offsetof(%s, items)'%(
-                db.gettype(value.TYPE.TO).replace('@', ''))
+                db.gettype(value.TYPE).replace('@', ''))
+        elif isinstance(value, CompositeOffset):
+            return '%s + %s' % (name_signed(value.first, db), name_signed(value.second, db))
         elif type(value) == AddressOffset:
             return '0'
         elif type(value) == GCHeaderOffset:
