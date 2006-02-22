@@ -170,7 +170,7 @@ class MixLevelHelperAnnotator:
                                 "originally specified: %r\n"
                                 " found by annotating: %r" %
                                 (graph, s_result, s_real_result))
-        rtyper.type_system.perform_normalizations(rtyper)
+        rtyper.type_system.perform_normalizations(rtyper, insert_stack_checks=False)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         for p, repr, obj in self.delayedconsts:

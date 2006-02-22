@@ -189,7 +189,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
         t.checkgraphs()
         return t
 
-    def DONT_test_mix_after_recursion(self):
+    def test_mix_after_recursion(self):
         def prefn(n):
             if n:
                 return 2*prefn(n-1)
