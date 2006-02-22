@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 """
-Command-line options for translate_pypy:
+Command-line options for translate:
 
     See below
 """
@@ -155,14 +155,14 @@ def load_target(targetspec):
         targetspec += '.py'
     thismod = sys.modules[__name__]
     targetspec_dic = {'__name__':'__rpythonmain__',
-                      'translate_pypy': thismod}
+                      'translate': thismod}
     sys.path.insert(0, os.path.dirname(targetspec))
     execfile(targetspec, targetspec_dic)
     return targetspec_dic
 
 def parse_options_and_load_target():
     opt_parser = optparse.OptionParser(usage="%prog [options] [target] [target-specific-options]",
-                                       prog="translate_pypy",
+                                       prog="translate",
                                        formatter=OptHelpFormatter(),
                                        add_help_option=False)
 

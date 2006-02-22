@@ -82,7 +82,7 @@ def compile(backend):
         featureoptions = ''
 
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    os.system('/usr/local/bin/python translate_pypy.py --backend=%(backend)s%(featureoptions)s --text --batch targetpypystandalone.py 2>&1' % locals())
+    os.system('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s --text --batch targetpypystandalone.py 2>&1' % locals())
 
     os.chdir(homedir + '/projects/pypy-dist')
     try:

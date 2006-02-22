@@ -88,7 +88,7 @@ def target(driver, args):
 
     tgt_options, _ = opt_parser().parse_args(args)
 
-    translate_pypy.log_options(tgt_options, "target PyPy options in effect")
+    translate.log_options(tgt_options, "target PyPy options in effect")
 
     options.thread = tgt_options.thread
 

@@ -1,11 +1,11 @@
-# functions to query information out of the translator and annotator from the debug prompt of translate_pypy
+# functions to query information out of the translator and annotator from the debug prompt of translate
 import types
 import re
 
 import pypy.annotation.model as annmodel
 import pypy.objspace.flow.model as flowmodel
 
-# query used for sanity checks by translate_pypy
+# query used for sanity checks by translate
 
 def short_binding(annotator, var):
     try:

@@ -433,7 +433,7 @@ translate the whole of PyPy to low level C code. This is the largest and
 ultimate example of source that our translation toolchain can process::
 
     cd pypy/translator/goal
-    python translate_pypy.py --run
+    python translate.py --run
 
 By default the translation process will try to use the
 `Boehm-Demers-Weiser garbage collector`_ for the translated PyPy (Use
@@ -476,8 +476,8 @@ you get at the end has been enhanced with commands to facilitate locating
 functions and classes. Type ``help graphs`` for a list of the new commands.
 Help is also available on each of these new commands.
 
-The ``translate_pypy`` script itself takes a number of options controlling
-what to translate and how.  See ``translate_pypy.py -h``. Some of the more
+The ``translate.py`` script itself takes a number of options controlling
+what to translate and how.  See ``translate.py -h``. Some of the more
 interesting options are:
 
    * ``--text``: don't show the flowgraph after the translation is done. This
@@ -487,11 +487,11 @@ interesting options are:
      garbage collector`_ or our own reference counting implementation
      (as we have seen Boehm's collector is the default). 
 
-You can also use the translate_pypy.py script to try out several smaller
+You can also use the translate.py script to try out several smaller
 programs, e.g. a slightly changed version of Pystone::
 
     cd pypy/translator/goal
-    python translate_pypy.py targetrpystone
+    python translate.py targetrpystone
 
 
 .. _`translate PyPy with the thunk object space`:
@@ -504,7 +504,7 @@ It is also possible to experimentally translate a PyPy version using
 the "thunk" object space::
 
     cd pypy/translator/goal
-    python translate_pypy.py --run targetthunkstandalone
+    python translate.py --run targetthunkstandalone
 
 the examples in `lazily computed objects`_ should work in the translated
 result.

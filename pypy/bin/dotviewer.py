@@ -17,7 +17,7 @@ usage = '''
 
 In the first form, show the graph contained in a .dot file.
 In the other forms, connect to a graph server like
-goal/translate_pypy.
+goal/translate.py.
 ''' % (sys.argv[0], sys.argv[0], sys.argv[0])
 
 parser = optparse.OptionParser(usage=usage)
