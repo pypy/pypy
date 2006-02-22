@@ -138,7 +138,7 @@ class fakeaddress(object):
             self.offset.set(self.ob, value)
 
     def _cast_to_ptr(self, EXPECTED_TYPE):
-        return lltype.cast_pointer(self.get(), EXPECTED_TYPE)
+        return lltype.cast_pointer(EXPECTED_TYPE, self.get())
 
 # XXX the indexing in code like
 #     addr.signed[0] = v
