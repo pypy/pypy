@@ -4,7 +4,7 @@ The Translator is a glue class putting together the various pieces of the
 translation-related code.  It can be used for interactive testing of the
 translator; see pypy/bin/translator.py.
 """
-import autopath, os, sys, types
+import autopath, os, sys, types, copy
 
 from pypy.objspace.flow.model import *
 from pypy.translator.simplify import simplify_graph
@@ -21,10 +21,11 @@ class TranslationContext(object):
         'simplifying': True,
         'do_imports_immediately': True,
         'builtins_can_raise_exceptions': False,
+        'import_hints': {},
         }
 
     def __init__(self, **flowing_flags):
-        self.flags = self.FLOWING_FLAGS.copy()
+        self.flags = copy.deepcopy(self.FLOWING_FLAGS)
         self.flags.update(flowing_flags)
         if len(self.flags) > len(self.FLOWING_FLAGS):
             raise TypeError("unexpected keyword argument")

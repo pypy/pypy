@@ -139,7 +139,11 @@ class Stats:
 
     def consider_dict_delitem(self, dic):
         return dic
-            
+
+# this dictionary can be extended by extension writers
+DEFINED_SOMEOBJECTS = { sys: True,
+                        }
+# XXX should this live in the Bookkeeper instance?
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -354,13 +358,17 @@ class Bookkeeper:
                 for ek, ev in x.iteritems():
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
+        elif ishashable(x) and x in DEFINED_SOMEOBJECTS: # sys by default
+            return SomeObject()
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
-	    _module = getattr(x,"__module__","unknown")
+            _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
         elif hasattr(x, "compute_result_annotation"):
             result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
         elif hasattr(tp, "compute_annotation"):
             result = tp.compute_annotation()
+        elif tp in DEFINED_SOMEOBJECTS:
+            return SomeObject()
         elif tp in EXTERNAL_TYPE_ANALYZERS:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
