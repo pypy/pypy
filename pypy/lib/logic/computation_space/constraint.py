@@ -1,6 +1,4 @@
-# a) new requirement : be able to postpone asking fo the
-# values of the domain
-
+from variable import NoDom
 import operator
 
 #-- Exceptions ---------------------------------------
@@ -108,7 +106,7 @@ class FiniteDomain(AbstractDomain):
         return '<FiniteDomain %s>' % str(self.get_values())
 
     def __eq__(self, other):
-        if other is None: return False
+        if other is NoDom: return False
         return self._values == other._values
 
     def __ne__(self, other):
@@ -121,8 +119,6 @@ class FiniteDomain(AbstractDomain):
 
 #-- Constraints ------------------------------------------
 
-EmptyDom = FiniteDomain([])
-
 class AbstractConstraint(object):
     
     def __init__(self, c_space, variables):
@@ -130,7 +126,7 @@ class AbstractConstraint(object):
         self.cs = c_space
         self._names_to_vars = {}
         for var in variables:
-            if self.cs.dom(var) == EmptyDom:
+            if self.cs.dom(var) == NoDom:
                 raise DomainlessVariables
             self._names_to_vars[var.name] = var
         self._variables = variables

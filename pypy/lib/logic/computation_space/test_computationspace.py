@@ -550,7 +550,7 @@ class TestComputationSpace:
         spc = newspace(problems.satisfiable_problem)
         x, y, z = spc.find_vars('x', 'y', 'z')
         print spc.doms
-        assert spc.TOP
+        assert spc.top_level()
         assert spc.dom(x) == c.FiniteDomain([-4, -2, -1, 0,
                                              1, 2, 4])
         assert spc.dom(y) == c.FiniteDomain([0, 2, 3,
@@ -567,7 +567,7 @@ class TestComputationSpace:
         nspc = spc.clone()
         nspc.inject(more_constraints)
         x, y, z = nspc.find_vars('x', 'y', 'z')
-        assert not nspc.TOP
+        assert not nspc.top_level()
 ##         assert nspc.dom(x) == c.FiniteDomain([7])
 ##         assert nspc.dom(y) == c.FiniteDomain([6])
 ##         assert nspc.dom(z) == c.FiniteDomain([1])
@@ -595,13 +595,8 @@ class TestComputationSpace:
                         ('room A', 'day 1 PM')]
 
 
-        
-##     def test_send_more_money_dfs(self):
-##         # we need a linear constraint solver
-##         # for this one
-##         sol = strategies.dfs_one_solution(problems.send_more_money)
-
-##         print sol
-##         assert 0
+    def test_scheduling_problem_dfs_all_solutions(self):
+        sols = strategies.dfs_all_solutions(problems.conference_scheduling)
+        assert len(sols) == 64
 
         

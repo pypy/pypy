@@ -5,11 +5,10 @@ class Succeeded:
     """
     pass
 
-class Distributable:
-    pass
+class Distributable: pass
 
-class Failed(Exception):
-    pass
+class Failed(Exception): pass
 
-class Unknown:
-    pass
+class Unknown: pass
+
+

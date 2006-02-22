@@ -5,7 +5,7 @@ import distributor as di
 def dummy_problem(computation_space):
     ret = computation_space.var('__dummy__')
     computation_space.set_dom(ret, c.FiniteDomain([]))
-    return (ret)
+    return (ret,)
 
 def satisfiable_problem(computation_space):
     cs = computation_space

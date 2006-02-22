@@ -1,8 +1,5 @@
 import threading
 
-from constraint import FiniteDomain
-
-
 #----------- Exceptions ---------------------------------
 class VariableException(Exception):
     def __init__(self, name):
@@ -17,17 +14,11 @@ class NotAVariable(VariableException):
         return "%s is not a variable" % self.name
 
 #----------- Variables ----------------------------------
-class EqSet(set):
-    """An equivalence set for variables"""
+class EqSet(set): pass
 
-##     def __str__(self):
-##         if len(self) == 0:
-##             return ''
-##         for var in self:
-##             '='.join(var.name)
+class NoValue: pass
 
-class NoValue:
-    pass
+class NoDom: pass
 
 class Var(object):
     """Single-assignment variable"""
@@ -115,5 +106,4 @@ class Var(object):
         finally:
             self._value_condition.release()
 
-
-
+    

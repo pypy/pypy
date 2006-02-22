@@ -8,15 +8,11 @@ from threading import Thread, Condition, RLock, local
 
 from state import Succeeded, Distributable, Failed, Unknown
 
-from variable import EqSet, Var, NoValue, Pair, \
+from variable import EqSet, Var, NoValue, NoDom, \
      VariableException, NotAVariable, AlreadyInStore
 from constraint import FiniteDomain, ConsistencyFailure, \
      Expression
 from distributor import DefaultDistributor
-
-#FIXME: provide a NoDom token which has nothing
-#       to do with FiniteDomains
-EmptyDom = FiniteDomain([])
 
 class Alternatives(object):
 
@@ -81,10 +77,10 @@ class ComputationSpace(object):
         self.status = None
         self.status_condition = Condition()
         self.distributor = DefaultDistributor(self)
-        self.TOP = False
+        self.parent = parent
+        self.children = set()
         
         if parent is None:
-            self.TOP = True
             self.vars = set()
             # mapping of names to vars (all of them)
             self.names = {}
@@ -95,7 +91,6 @@ class ComputationSpace(object):
             # set of all constraints 
             self.constraints = set()
             self.root = self.var('__root__')
-            self.set_dom(self.root, EmptyDom)
             # set up the problem
             self.bind(self.root, problem(self))
             # check satisfiability of the space
@@ -105,8 +100,8 @@ class ComputationSpace(object):
             self.names = parent.names
             # we should really copy stuff
             self.var_const_map = parent.var_const_map
-            self.doms = {} # shall be copied by clone
             self.constraints = parent.constraints
+            self.doms = {} # shall be copied by clone
             self.root = parent.root
             self.distributor = parent.distributor.__class__(self)
             self._init_choose_commit()
@@ -125,13 +120,11 @@ class ComputationSpace(object):
     def _make_choice_var(self):
         ComputationSpace._nb_choices += 1
         ch_var = self.var('__choice__'+str(self._nb_choices))
-        self.set_dom(ch_var, EmptyDom)
         return ch_var
 
     def _make_stable_var(self):
         ComputationSpace._nb_choices += 1
         st_var = self.var('__stable__'+str(self._nb_choices))
-        self.set_dom(st_var, EmptyDom)
         return st_var
 
     def _process(self):
@@ -156,7 +149,7 @@ class ComputationSpace(object):
         if self.status not in (Failed, Succeeded):
             self.status = Unknown
             # sync. barrier with distributor (?)
-            print "distributable vars :"
+            print "distributable vars :", self.root.val
             for var in self.root.val:
                 print "   ", var, " -> ", self.doms[var]
                 if self.dom(var).size() > 1 :
@@ -167,6 +160,9 @@ class ComputationSpace(object):
         # suspended on a choice point with two or more alternatives.
         # A space can have at most one choice point; attempting to
         # create another gives an error."
+
+    def top_level(self):
+        return self.parent is None
 
     def ask(self):
         #print "SPACE Ask() checks stability ..."
@@ -179,14 +175,15 @@ class ComputationSpace(object):
         # should be unreachable
         print "DOMS", [(var, self.doms[var]) 
                        for var in self.vars
-                       if self.dom(var) != EmptyDom]
+                       if self.dom(var) != NoDom]
         raise NotImplementedError
 
     def clone(self):
         #XXX: lazy copy of domains would be nice
         spc = ComputationSpace(NoProblem, parent=self)
         for var in spc.vars:
-            spc.set_dom(var, self.dom(var).copy())
+            if self.dom(var) != NoDom:
+                spc.set_dom(var, self.dom(var).copy())
         spc.status = Distributable
         return spc
 
@@ -280,8 +277,8 @@ class ComputationSpace(object):
             return self.doms[var]
         except KeyError:
             print "warning : setting no domain for", var
-            self.doms[var] = EmptyDom
-            return EmptyDom
+            self.doms[var] = NoDom
+            return NoDom
 
     def get_var_by_name(self, name):
         """looks up one variable"""
@@ -300,13 +297,13 @@ class ComputationSpace(object):
 
     def is_bound(self, var):
         """check wether a var is locally bound"""
-        if self.TOP:
+        if self.top_level():
             return var.is_bound()
         return len(self.dom(var)) == 1
 
     def val(self, var):
         """return the local binding without blocking"""
-        if self.TOP: # the real thing
+        if self.top_level(): # the real thing
             return var.val
         if self.is_bound(var): # the speculative val
             return self.dom(var)[0]
@@ -333,7 +330,7 @@ class ComputationSpace(object):
     def get_variables_with_a_domain(self):
         varset = set()
         for var in self.vars:
-            if self.dom(var) != EmptyDom: varset.add(var)
+            if self.dom(var) != NoDom: varset.add(var)
         return varset
 
     def satisfiable(self, constraint):
@@ -403,7 +400,8 @@ class ComputationSpace(object):
     def satisfy_all(self):
         """really PROPAGATE"""
       
-        print "propagating on %s" % fif(self.TOP, 'top', 'child')
+        print "propagating on %s" % fif(self.top_level(),
+                                        'top', 'child')
         const_q = [(const.estimateCost(), const)
                    for const in self.constraints]
         affected_constraints = set()
@@ -449,10 +447,10 @@ class ComputationSpace(object):
         """check that the domain of var is compatible
            with the domains of the vars in the eqs
         """
-        if self.dom(var) == EmptyDom: return True
+        if self.dom(var) == NoDom: return True
         empty = set()
         for v in eqs:
-            if self.dom(v) == EmptyDom: continue
+            if self.dom(v) == NoDom: continue
             if self.dom(v).intersection(self.dom(var)) == empty:
                 return False
         return True
@@ -465,7 +463,7 @@ class ComputationSpace(object):
         """
         dom = {}
         for var in varset:
-            if self.dom(var) != EmptyDom:
+            if self.dom(var) != NoDom:
                 dom[var] = self.dom(var).copy()
         return dom
 
@@ -517,7 +515,7 @@ class ComputationSpace(object):
         # print "variable - value binding : %s %s" % (eqs, val)
         # bind all vars in the eqset to val
         for var in eqs:
-            if self.dom(var) != EmptyDom:
+            if self.dom(var) != NoDom:
                 if val not in self.dom(var).get_values():
                     # undo the half-done binding
                     for v in eqs:
@@ -614,10 +612,11 @@ class ComputationSpace(object):
 #-- quite costly & could be merged back in unify
 
 def _iterable(thing):
-    return type(thing) in [list, set]
+    return type(thing) in [tuple, frozenset]
 
 def _mapping(thing):
-    return type(thing) is dict
+    # should be frozendict (python 2.5 ?)
+    return isinstance(thing, dict)
 
 # memoizer for _unifiable
 _unifiable_memo = set()
