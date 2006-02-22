@@ -71,7 +71,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="\pypy\dist\pypy\translator\c;\Python24\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
-				RuntimeLibrary="4"
+				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="TRUE"
@@ -141,12 +141,6 @@
 				RelativePath="..\..\src\g_prerequisite.h">
 			</File>
 			<File
-				RelativePath="..\..\src\getaddrinfo.c">
-			</File>
-			<File
-				RelativePath="..\..\src\getnameinfo.c">
-			</File>
-			<File
 				RelativePath="..\..\src\int.h">
 			</File>
 			<File
@@ -178,9 +172,6 @@
 			</File>
 			<File
 				RelativePath="..\..\src\mem.h">
-			</File>
-			<File
-				RelativePath="..\..\src\mkuint.py">
 			</File>
 			<File
 				RelativePath="..\..\src\module.h">
@@ -217,181 +208,181 @@
 			</File>
 		</Filter>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\common_header.h">
+			RelativePath="F:\tmp\usession-436\testing_1\common_header.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\forwarddecl.h">
+			RelativePath="F:\tmp\usession-436\testing_1\forwarddecl.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_1.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_1.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_10.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_10.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_11.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_11.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_12.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_12.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_13.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_13.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_14.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_14.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_15.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_15.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_16.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_16.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_17.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_17.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_18.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_18.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_19.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_19.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_2.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_2.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_3.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_3.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_4.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_4.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_5.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_5.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_6.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_6.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_7.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_7.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_8.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_8.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\implement_9.c">
+			RelativePath="F:\tmp\usession-436\testing_1\implement_9.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_1.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_1.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_10.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_10.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_11.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_11.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_12.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_12.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_13.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_13.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_14.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_14.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_15.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_15.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_16.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_16.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_17.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_17.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_18.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_18.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_19.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_19.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_2.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_2.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_20.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_20.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_21.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_21.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_22.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_22.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_23.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_23.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_24.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_24.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_25.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_25.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_26.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_26.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_27.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_27.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_28.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_28.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_29.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_29.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_3.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_3.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_4.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_4.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_5.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_5.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_6.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_6.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_7.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_7.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_8.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_8.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\nonfuncnodes_9.c">
+			RelativePath="F:\tmp\usession-436\testing_1\nonfuncnodes_9.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\slp_defs.h">
+			RelativePath="F:\tmp\usession-436\testing_1\slp_defs.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\slp_impl.c">
+			RelativePath="F:\tmp\usession-436\testing_1\slp_impl.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\slp_signatures.h">
+			RelativePath="F:\tmp\usession-436\testing_1\slp_signatures.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\slp_state_decoding.h">
+			RelativePath="F:\tmp\usession-436\testing_1\slp_state_decoding.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\structdef.h">
+			RelativePath="F:\tmp\usession-436\testing_1\structdef.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\structimpl.c">
+			RelativePath="F:\tmp\usession-436\testing_1\structimpl.c">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-222\testing_1\testing_1.c">
+			RelativePath="F:\tmp\usession-436\testing_1\testing_1.c">
 		</File>
 	</Files>
 	<Globals>
