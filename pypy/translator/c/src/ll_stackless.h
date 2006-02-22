@@ -26,14 +26,33 @@
 
 #define RPyExceptionClear()       rpython_exc_type = NULL
 
+/*
 #define StacklessUnwindAndRPyExceptionHandling(unwind_label, resume_label, exception_label) \
             if (RPyExceptionOccurred()) {   \
                 if (slp_frame_stack_bottom) \
                     goto unwind_label;      \
-            resume_label:                   \
+          resume_label:                   \
                 if (RPyExceptionOccurred()) \
                     FAIL(exception_label);  \
             }
+
+    Following code was supposed to compiler to shorter machine code, but on windows it doesn't.
+    Probably some other code folding is prevented, and there is a tiny increase of 20 kb.
+    I'm leaving the change in here, anyway. Richards is getting a bit slower, PySone
+    is getting faster, all in all speed is slightly increased.
+    We should further investigate and try to use Eric's suggestion of checking certain
+    return values to get even shorter code paths.
+    In any case, these optimizations are still flaky, because we are probably in a high
+    noise level of caching effects and random decisions of the compiler.
+*/
+#define StacklessUnwindAndRPyExceptionHandling(unwind_label, resume_label, exception_label) \
+          resume_label:                   \
+            if (RPyExceptionOccurred()) {   \
+                if (slp_frame_stack_bottom) \
+                    goto unwind_label;      \
+                FAIL(exception_label);      \
+            }
+*/
 #else
 
 #define RPyRaisePseudoException()
