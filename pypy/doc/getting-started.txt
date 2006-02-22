@@ -333,10 +333,10 @@ you need to:
     `Dot Graphviz`_ that does not crash. This is only needed if you want to
     look at the flowgraphs.
 
-To start the interactive translator do::
+To start the interactive translator shell do::
 
     cd pypy/bin
-    python translator.py
+    python translatorshell.py
 
 Test snippets of translatable code are provided in the file
 ``pypy/translator/test/snippet.py``, which is imported under the name
