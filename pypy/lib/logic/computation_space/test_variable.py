@@ -107,7 +107,7 @@ def generate(thread, Xs, n, limit):
     if n<limit:
         sp = newspace()
         Xr = sp.var('Xr')
-        Xs.bind(v.CList(n, Xr))
+        Xs.bind((n, Xr))
         generate(thread, Xr, n+1, limit)
     else:
         Xs.bind(EOL)    
@@ -125,10 +125,10 @@ def dgenerate(thread, n, Xs):
     print "GENERATOR waits on Xs"
     X_Xr = Xs.get()      # destructure Xs
     if X_Xr == None: return
-    X = X_Xr.first()     # ... into X
+    X = X_Xr[0]          # ... into X
     X.bind(n)            # bind X to n
     print "GENERATOR binds X to", n
-    Xr = X_Xr.rest()     # ... and Xr
+    Xr = X_Xr[1]         # ... and Xr
     dgenerate(thread, n+1, Xr)
 
 def dsum(thread, Xs, a, limit):
@@ -146,7 +146,7 @@ def dsum(thread, Xs, a, limit):
         X = sp.var('X')
         Xr = sp.var('Xr')
         print "CLIENT binds Xs to X|Xr"
-        Xs.bind(v.CList(X, Xr))
+        Xs.bind((X, Xr))
         x = X.get() # wait on the value of X
         print "CLIENT got", x
         dsum(thread, Xr, a+x, limit-1)
@@ -168,91 +168,12 @@ def reduc(thread, Xs, a, fun):
     if X_Xr == EOL:
         thread.result = a
         return
-    Xr = X_Xr.rest()
-    reduc(thread, Xr, fun(a, X_Xr.first()), fun)
+    Xr = X_Xr[1]
+    reduc(thread, Xr, fun(a, X_Xr[0]), fun)
 
 #-- meat ----------------------------------------
 
 class TestStream:
-
-    def test_basic_list(self):
-        s = v.make_list([1, 2, 3])
-        assert s.__str__() == '1|2|3'
-        assert s.length() == 3
-        s.rest().rest().set_rest(s)
-        assert s.length() == 4
-        assert s.__str__() == '1|2|3|...'
-        s. set_rest(s)
-        assert s.__str__() == '1|...'
-        assert s.length() == 2
-
-    def test_producer_consummer_stream(self):
-        """test FIFO stream behaviour"""
-        sp = newspace()
-        import time
-
-        def generate(thread, var, n, limit):
-            s = var.get()
-            while n<limit:
-                s.put(limit-n)
-                n += 1
-            s.put(v.NoValue)
-        
-        def reduc(thread, var, fun):
-            stream = var.get()
-            val = stream.get()
-            while (val != v.NoValue):
-                thread.result = fun(thread.result, val)
-                val = stream.get()
-
-        Xs = sp.var('s')
-        Xs.bind(v.Stream())
-        
-        generator = FunThread(generate, Xs, 1, 10)
-        reductor = FunThread(reduc, Xs, operator.mul)
-        reductor.result = 2
-
-        generator.start()
-        reductor.start()
-        generator.join()
-        reductor.join()
-        
-        assert reductor.result == 725760
-
-    def test_daisychain_stream(self):
-        """walk a list whose last element
-           is a var bound to another list
-        """
-        sp = newspace()
-
-        def woman_in_chains(thread, S):
-            stream = S.get()
-            assert isinstance(stream, v.Stream)
-            val = stream.get()
-            while val != v.NoValue:
-                print val
-                thread.result = val
-                val = stream.get()
-                if isinstance(val, v.Var):
-                    stream = val.get()
-                    val = stream.get()
-
-        s1 = sp.var('s1')
-        s2 = sp.var('s2')
-        stream1 = v.Stream(v.make_list([1, 2, 3, s2]))
-        stream2 = v.Stream(v.make_list([4, 5, 6, v.NoValue]))
-        assert str(stream1) == '1|2|3|s2'
-        assert str(stream2) == '4|5|6|variable.NoValue'
-        
-        woman = FunThread(woman_in_chains, s1)
-        woman.start()
-
-        s1.bind(stream1)
-        s2.bind(stream2)
-
-        woman.join()
-
-        assert woman.result == 6
                 
     def test_multiple_readers_eager_list(self):
         """the generator controls the flow"""
@@ -321,7 +242,7 @@ class TestStream:
                 sp = newspace()
                 X_ = sp.var('X_')
                 Xr = sp.var('Xr')
-                Xs.bind(v.CList(X_, Xr))
+                Xs.bind((X_, Xr))
                 return startup(n-1, Xr)
 
             def ask_loop(Ys, Xs, End):
@@ -337,12 +258,12 @@ class TestStream:
                 sp = newspace()
                 Y_Yr = Ys.get()   # destructure Ys
                 if Y_Yr != None: 
-                    Y, Yr = Y_Yr.as_tuple()
-                    X, Xr = Xs.get().as_tuple()
+                    Y, Yr = Y_Yr
+                    X, Xr = Xs.get()
                     Y.bind(X.get())
                     End2 = sp.var('End2')
                     X_ = sp.var('X_')
-                    End.bind(v.CList(X_, End2))
+                    End.bind((X_, End2))
                     ask_loop(Yr, Xr, End2)
                 else:
                     End.bind(None)
