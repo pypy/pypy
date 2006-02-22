@@ -52,7 +52,6 @@
                     goto unwind_label;      \
                 FAIL(exception_label);      \
             }
-*/
 #else
 
 #define RPyRaisePseudoException()
