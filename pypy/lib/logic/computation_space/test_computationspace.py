@@ -560,22 +560,23 @@ class TestComputationSpace:
 
         def more_constraints(space):
             x, y, z = space.find_vars('x', 'y', 'z')
-            space.add_constraint([x], 'x == 0')
-            space.add_constraint([z, y], 'z == y')
-            space.add_constraint([y], 'y < 2')
+            space.add_constraint([x], '3 > x > 1')
+            space.add_constraint([z, y], 'z == -1')
+            space.add_constraint([y], 'y == 3')
 
         nspc = spc.clone()
         nspc.inject(more_constraints)
         x, y, z = nspc.find_vars('x', 'y', 'z')
         assert not nspc.top_level()
-##         assert nspc.dom(x) == c.FiniteDomain([7])
-##         assert nspc.dom(y) == c.FiniteDomain([6])
-##         assert nspc.dom(z) == c.FiniteDomain([1])
+        for v in nspc.vars: print v, "==", v.val, nspc.dom(v)
+        assert nspc.dom(x) == c.FiniteDomain([2])
+        assert nspc.dom(y) == c.FiniteDomain([3])
+        assert nspc.dom(z) == c.FiniteDomain([-1])
         assert nspc.ask() == space.Succeeded
         nspc.merge()
-##         assert x.val == 7
-##         assert y.val == 6
-##         assert z.val == 5
+        assert x.val == 2
+        assert y.val == 3
+        assert z.val == -1
         assert (x, y, z) == nspc.root.val
 
     def test_scheduling_problem_dfs_one_solution(self):
