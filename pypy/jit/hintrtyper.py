@@ -97,21 +97,23 @@ class HintRTyper(RPythonTyper):
         return hop.inputarg(hop.r_result, arg=0)
 
     def translate_op_getfield(self, hop):
-        # XXX check 'immutable'
+        ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
         RESTYPE = originalconcretetype(hop.s_result)
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
+        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
         gv_resulttype = rgenop.constTYPE(RESTYPE)
         c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
         c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
-        ts = self.timeshifter
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getfield,
-            [ts.s_JITState, ts.s_RedBox, s_CONSTORVAR, s_CONSTORVAR],
-            [v_jitstate,    v_argbox,    c_fieldname,  c_resulttype],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR, s_CONSTORVAR],
+            [v_jitstate,    c_fielddesc, v_argbox,    c_fieldname,  c_resulttype],
             ts.s_RedBox)
 
 

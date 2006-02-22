@@ -48,7 +48,7 @@ class ConstRedBox(RedBox):
     def ll_fromvalue(value):
         T = lltype.typeOf(value)
         if isinstance(T, lltype.Ptr):
-            return AddrRedBox(llmemory.cast_ptr_to_adr(value))
+            return AddrRedBox(llmemory.cast_ptr_to_adr(value), rgenop.genconst(value))
         elif T is lltype.Float:
             return DoubleRedBox(value)
         else:
@@ -98,20 +98,24 @@ class DoubleRedBox(ConstRedBox):
         return rgenop.genconst(self.dblvalue)
 
     def same_constant(self, other):
-        return isinstance(other, DoubleRedBox) and self.intvalue == other.dblvalue
+        return isinstance(other, DoubleRedBox) and self.dblvalue == other.dblvalue
 
 
 class AddrRedBox(ConstRedBox):
     "A red box that contains a constant address."
 
-    def __init__(self, adrvalue):
+    # xxx the constant genvar needs to preserve the pointer itself!
+    # for now do it this way, anyway addresses are not the right thing
+    # GC wise
+    def __init__(self, adrvalue, genvar): 
         self.adrvalue = adrvalue
+        self.genvar = genvar 
 
     def getgenvar(self):
-        return rgenop.genconst(self.adrvalue)
+        return self.genvar # created eagerly
 
     def same_constant(self, other):
-        return isinstance(other, AddrRedBox) and self.intvalue == other.adrvalue
+        return isinstance(other, AddrRedBox) and self.adrvalue == other.adrvalue
 
 
 # ____________________________________________________________
@@ -193,8 +197,32 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
                           rgenop.constTYPE(RESULT))
     return VarRedBox(genvar)
 
-def ll_generate_getfield(jitstate, argbox,
+class FieldDesc(object): # xxx should we use offsets instead
+    def __init__(self, PTRTYPE, fieldname):
+        self.PTRTYPE = PTRTYPE
+        self.immutable = PTRTYPE.TO._hints.get('immutable', False)
+        self.fieldname = fieldname
+
+    def _freeze_(self):
+        return True
+
+    def compact_repr(self): # goes in ll helper names
+        return "Fld_%s_in_%s" % (self.fieldname, self.PTRTYPE._short_name())
+
+_fielddesc_cache = {}
+
+def make_fielddesc(PTRTYPE, fieldname):
+    try:
+        return _fielddesc_cache[PTRTYPE, fieldname]
+    except KeyError:
+        fdesc = _fielddesc_cache[PTRTYPE, fieldname] = FieldDesc(PTRTYPE, fieldname)
+        return fdesc
+
+def ll_generate_getfield(jitstate, fielddesc, argbox,
                          gv_fieldname, gv_resulttype):
+    if fielddesc.immutable and isinstance(argbox, ConstRedBox):
+        res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
+        return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 2)
     op_args[0] = argbox.getgenvar()
     op_args[1] = gv_fieldname
@@ -358,6 +386,9 @@ def ll_build_jitstate():
 def ll_signed_box(jitstate, value):
     value = lltype.cast_primitive(lltype.Signed, value)
     return ConstRedBox.ll_fromvalue(value)
+
+def ll_adr_box(jitstate, addr, genvar): # xxx
+    return AddrRedBox(addr, genvar)
 
 def ll_var_box(jitstate, gv_TYPE):
     genvar = rgenop.geninputarg(jitstate.curblock, gv_TYPE)

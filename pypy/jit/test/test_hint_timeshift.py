@@ -6,7 +6,7 @@ from pypy.jit.hintmodel import *
 from pypy.jit.hinttimeshift import HintTimeshift
 from pypy.jit import rtimeshift, hintrtyper
 from pypy.jit.test.test_llabstractinterp import annotation, summary
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import hint
 from pypy.rpython import rgenop
 from pypy.annotation import model as annmodel
@@ -64,7 +64,12 @@ def timeshift(ll_function, values, opt_consts=[]):
             box = llinterp.eval_graph(htshift.ll_var_box_graph, [jitstate,
                                                                  rgenop.constTYPE(TYPE)])
             if i in opt_consts: # XXX what should happen here interface wise is unclear
-                box = llinterp.eval_graph(htshift.ll_signed_box_graph, [jitstate, llvalue])
+                if isinstance(lltype.typeOf(llvalue), lltype.Ptr):
+                    box = llinterp.eval_graph(htshift.ll_adr_box_graph, [jitstate,
+                                                                         llmemory.cast_ptr_to_adr(llvalue),
+                                                                         rgenop.genconst(llvalue)]) # xxx
+                else:
+                    box = llinterp.eval_graph(htshift.ll_signed_box_graph, [jitstate, llvalue])
             graph1args.append(box)
             residual_graph_args.append(llvalue)
     startblock = llinterp.eval_graph(htshift.ll_end_setup_jitstate_graph, [jitstate])
@@ -259,3 +264,6 @@ def test_simple_struct():
     assert res == 42
     assert insns == {'getfield': 2,
                      'int_mul': 1}
+    insns, res = timeshift(ll_function, [s1], [0])
+    assert res == 42
+    assert insns == {}
