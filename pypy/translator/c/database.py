@@ -11,6 +11,7 @@ from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
 from pypy.translator.c.support import log
+from pypy.translator.c.extfunc import do_the_getting
 
 # ____________________________________________________________
 
@@ -23,9 +24,12 @@ class LowLevelDatabase(object):
         self.pendingsetupnodes = []
         self.containernodes = {}
         self.containerlist = []
+        self.latercontainerlist = []
         self.completedcontainers = 0
         self.containerstats = {}
         self.externalfuncs = {}
+        self.helper2ptr = {}
+        
         self.infs = []
         self.namespace = CNameManager()
         if not standalone:
@@ -106,7 +110,10 @@ class LowLevelDatabase(object):
             nodefactory = ContainerNodeFactory[T.__class__]
             node = nodefactory(self, T, container)
             self.containernodes[container] = node
-            self.containerlist.append(node)
+            if getattr(container, 'isgchelper', False):
+                self.latercontainerlist.append(node)
+            else:
+                self.containerlist.append(node)
             kind = getattr(node, 'nodekind', '?')
             self.containerstats[kind] = self.containerstats.get(kind, 0) + 1
         return node
@@ -134,6 +141,9 @@ class LowLevelDatabase(object):
                 raise Exception("don't know about %r" % (obj,))
 
     def complete(self, show_progress=True):
+        assert not self.completed
+        if self.translator and self.translator.rtyper:
+            do_the_getting(self, self.translator.rtyper)
         def dump():
             lst = ['%s: %d' % keyvalue
                    for keyvalue in self.containerstats.items()]
@@ -144,27 +154,40 @@ class LowLevelDatabase(object):
             show_i = (i//1000 + 1) * 1000
         else:
             show_i = -1
-        while True:
-            if hasattr(self, 'pyobjmaker'):
-                self.pyobjmaker.collect_initcode()
-            while self.pendingsetupnodes:
-                lst = self.pendingsetupnodes
-                self.pendingsetupnodes = []
-                for nodedef in lst:
-                    nodedef.setup()
-            if i == len(self.containerlist):
-                break
-            node = self.containerlist[i]
-            for value in node.enum_dependencies():
-                if isinstance(typeOf(value), ContainerType):
-                    self.getcontainernode(value)
-                else:
-                    self.get(value)
-            i += 1
-            self.completedcontainers = i
-            if i == show_i:
-                dump()
-                show_i += 1000
+        work_to_do = True
+        is_later_yet = False
+        while work_to_do:
+            while True:
+                if hasattr(self, 'pyobjmaker'):
+                    self.pyobjmaker.collect_initcode()
+                while self.pendingsetupnodes:
+                    lst = self.pendingsetupnodes
+                    self.pendingsetupnodes = []
+                    for nodedef in lst:
+                        nodedef.setup()
+                if i == len(self.containerlist):
+                    break
+                node = self.containerlist[i]
+                for value in node.enum_dependencies():
+                    if isinstance(typeOf(value), ContainerType):
+                        self.getcontainernode(value)
+                    else:
+                        self.get(value)
+                i += 1
+                self.completedcontainers = i
+                if i == show_i:
+                    dump()
+                    show_i += 1000
+            if not is_later_yet:
+                self.gctransformer.finish()
+                is_later_yet = True
+            if self.latercontainerlist:
+                for node in self.latercontainerlist:
+                    node.make_funcgen()
+                    self.containerlist.append(node)
+                self.latercontainerlist = []
+            else:
+                work_to_do = False
         self.completed = True
         if show_progress:
             dump()

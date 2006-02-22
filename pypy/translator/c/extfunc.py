@@ -129,40 +129,79 @@ def predeclare_utility_functions(db, rtyper, optimize=True):
 
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):
-            # hack: the defaults give the type of the arguments
-            graph = rtyper.annotate_helper(f, f.func_defaults)
-            yield (fname, graph)
+            # XXX this is painful :(
+            if (LIST_OF_STR, fname) in db.helper2ptr:
+                yield (fname, db.helper2ptr[LIST_OF_STR, fname])
+            else:
+                # hack: the defaults give the type of the arguments
+                graph = rtyper.annotate_helper(f, f.func_defaults)
+                db.helper2ptr[LIST_OF_STR, fname] = graph
+                yield (fname, graph)
 
-def predeclare_extfunc_helpers(db, rtyper, optimize=True):
+
+def get_extfunc_helper_ptrs(db, rtyper, optimize=True):
+    # XXX need some way of finding out if the externals needing have
+    # been annotated -- db.externalfuncs gets filled out by
+    # select_function_code_generator which is called from
+    # FuncNode.__init__ (probably...) which is after this gets called.
+    optimize = False 
     def annotate(func, *argtypes):
         fptr = rtyper.annotate_helper(func, argtypes)
+        db.helper2ptr[func] = fptr
         return (func.__name__, fptr)
 
+    r = []
+
     if ll_math.ll_math_frexp in db.externalfuncs or not optimize:
-        yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
-        yield ('LL_NEED_MATH_FREXP', 1)
+        r.append(annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed))
         
     if ll_math.ll_math_modf in db.externalfuncs or not optimize:
-        yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
-        yield ('LL_NEED_MATH_MODF', 1)
+        r.append(annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float))
 
     if (ll_os.ll_os_stat in db.externalfuncs or
         ll_os.ll_os_fstat in db.externalfuncs or
         not optimize):
-        yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
-        yield ('LL_NEED_OS_STAT', 1)
+        r.append(annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10)))
 
     if (ll__socket.ll__socket_nextaddrinfo in db.externalfuncs or
         not optimize):
         args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
                 lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-        yield annotate(ll__socket.ll__socket_addrinfo, *args)
-        yield ('LL_NEED__SOCKET_ADDRINFO', 1)
+        r.append(annotate(ll__socket.ll__socket_addrinfo, *args))
         
     if (ll__socket.ll__socket_getpeername in db.externalfuncs or
         not optimize):
         args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-        yield annotate(ll__socket.ll__socket_sockname, *args)
+        r.append(annotate(ll__socket.ll__socket_sockname, *args))
+
+    return r
+
+def predeclare_extfunc_helpers(db, rtyper, optimize=True):
+    def decl(f):
+        return (f.__name__, db.helper2ptr[f])
+    
+    if ll_math.ll_math_frexp in db.externalfuncs or not optimize:
+        yield decl(ll_math.ll_frexp_result)
+        yield ('LL_NEED_MATH_FREXP', 1)
+        
+    if ll_math.ll_math_modf in db.externalfuncs or not optimize:
+        yield decl(ll_math.ll_modf_result)
+        yield ('LL_NEED_MATH_MODF', 1)
+
+    if (ll_os.ll_os_stat in db.externalfuncs or
+        ll_os.ll_os_fstat in db.externalfuncs or
+        not optimize):
+        yield decl(ll_os.ll_stat_result)
+        yield ('LL_NEED_OS_STAT', 1)
+
+    if (ll__socket.ll__socket_nextaddrinfo in db.externalfuncs or
+        not optimize):
+        yield decl(ll__socket.ll__socket_addrinfo)
+        yield ('LL_NEED__SOCKET_ADDRINFO', 1)
+        
+    if (ll__socket.ll__socket_getpeername in db.externalfuncs or
+        not optimize):
+        yield decl(ll__socket.ll__socket_sockname)
         yield ('LL_NEED__SOCKET_SOCKNAME', 1)
 
 def predeclare_extfuncs(db, rtyper, optimize=True):
@@ -218,7 +257,32 @@ def predeclare_all(db, rtyper, optimize=True):
         for t in fn(db, rtyper, optimize):
             yield t
 
+
+def get_all(db, rtyper, optimize=True):
+    for fn in [predeclare_common_types,
+               predeclare_utility_functions,
+               predeclare_exception_data,
+               get_extfunc_helper_ptrs,
+               predeclare_extfuncs,
+               ]:
+        for t in fn(db, rtyper, optimize):
+            yield t[1]
+
 # ____________________________________________________________
+
+def do_the_getting(db, rtyper):
+
+    decls = list(get_all(db, rtyper))
+    rtyper.specialize_more_blocks()
+
+    for obj in decls:
+        if isinstance(obj, lltype.LowLevelType):
+            db.gettype(obj)
+        elif isinstance(obj, FunctionGraph):
+            db.get(rtyper.getcallable(obj))
+        else:
+            db.get(obj)
+
 
 def pre_include_code_lines(db, rtyper):
     # generate some #defines that go before the #include to provide
@@ -238,11 +302,6 @@ def pre_include_code_lines(db, rtyper):
     yield '#define HAVE_RTYPER'
     decls = list(predeclare_all(db, rtyper))
 
-    # the following line must be done after all predeclare_xxx(), to specialize
-    # the functions created by annotate_helper() above.  But it must be done
-    # before db.get(), to ensure that the database only sees specialized blocks.
-    rtyper.specialize_more_blocks()
-
     for c_name, obj in decls:
         if isinstance(obj, lltype.LowLevelType):
             yield predeclaretype(c_name, obj)
@@ -250,5 +309,3 @@ def pre_include_code_lines(db, rtyper):
             yield predeclare(c_name, rtyper.getcallable(obj))
         else:
             yield predeclare(c_name, obj)
-
-    db.complete()   # because of the get() and gettype() above

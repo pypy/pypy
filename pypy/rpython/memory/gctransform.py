@@ -8,6 +8,7 @@ from pypy.translator.translator import graphof
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
+from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 import sets, os
 
 EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
@@ -32,10 +33,15 @@ def var_ispyobj(var):
     
 
 class GCTransformer(object):
+    finished = False
+
     def __init__(self, translator):
         self.translator = translator
-        self.need_specialize = False
         self.seen_graphs = {}
+        if translator:
+            self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+        else:
+            self.mixlevelannotator = None
 
     def get_lltype_of_exception_value(self):
         if self.translator is not None and self.translator.rtyper is not None:
@@ -72,7 +78,6 @@ class GCTransformer(object):
         v = Variable('vanishing_exc_value')
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
-        self.specialize_more_blocks()
 
     def transform_block(self, block):
         newops = []
@@ -176,35 +181,26 @@ class GCTransformer(object):
         result = varoftype(lltype.Void)
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
-    def specialize_more_blocks(self):
-        if not self.need_specialize:
-            return
-        self.need_specialize = False
-        if self.translator is not None and self.translator.rtyper is not None:
-            self.translator.rtyper.specialize_more_blocks()
+    def annotate_helper(self, ll_helper, ll_args, ll_result):
+        assert not self.finished
+        args_s = map(annmodel.lltype_to_annotation, ll_args)
+        s_result = annmodel.lltype_to_annotation(ll_result)
+        g = self.mixlevelannotator.getgraph(ll_helper, args_s, s_result)
+        FUNC = lltype.FuncType(ll_args, ll_result)
+        ptr = rmodel.inputconst(
+            lltype.Ptr(FUNC),
+            lltype.functionptr(FUNC, g.name, graph=g, isgchelper=True))
+        return g, ptr.value
 
-    annotate_helper_count = 0
-    def annotate_helper(self, ll_helper, args):
-        self.need_specialize = True
-##         import sys, time
-##         self.annotate_helper_count += 1
-##         f = sys._getframe(1)
-##         TYPE = f.f_locals.get('TYPE')
-##         print "ahc", self.annotate_helper_count, f.f_code.co_name, 
-##         if TYPE:
-##             print repr(TYPE),
-##         T = time.time()
-        r = self.translator.rtyper.annotate_helper(ll_helper, args)
-##         print time.time() - T
-        return r
-
-    def inittime_helper(self, ll_helper, args_s, attach_empty_cleanup=False):
-        graph = self.annotate_helper(ll_helper, args_s)
-        self.translator.rtyper.specialize_more_blocks()
+    def inittime_helper(self, ll_helper, ll_args, ll_result):
+        graph, ptr = self.annotate_helper(ll_helper, ll_args, ll_result)
         self.seen_graphs[graph] = True
-        if attach_empty_cleanup:
-            MinimalGCTransformer(self.translator).transform_graph(graph)
-        return const_funcptr_fromgraph(graph)
+        return Constant(ptr, lltype.Ptr(lltype.FuncType(ll_args, ll_result)))
+
+    def finish(self):
+        self.finished = True
+        if self.translator and self.translator.rtyper:
+            self.mixlevelannotator.finish()
     
 def exception_clean(graph):
     c = 0
@@ -274,30 +270,31 @@ class RefcountingGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         super(RefcountingGCTransformer, self).__init__(translator)
+        self.deallocator_graphs_needing_transforming = []
+        self.graphs_needing_exception_cleaning = {}
         # create incref graph
-        def incref(adr):
+        def ll_incref(adr):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
-        def decref(adr, dealloc):
+        def ll_decref(adr, dealloc):
             if adr:
                 gcheader = adr - RefcountingGCTransformer.gc_header_offset
                 refcount = gcheader.signed[0] - 1
                 gcheader.signed[0] = refcount
                 if refcount == 0:
                     dealloc(adr)
-        def no_pointer_dealloc(adr):
+        def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
         if self.translator is not None and self.translator.rtyper is not None:
             self.increfptr = self.inittime_helper(
-                incref, [annmodel.SomeAddress()])
+                ll_incref, [llmemory.Address], lltype.Void)
             self.decref_ptr = self.inittime_helper(
-                decref, [annmodel.SomeAddress(), lltype.Ptr(ADDRESS_VOID_FUNC)])
-            nsafecalls = exception_clean(self.decref_ptr.value._obj.graph)
-            assert nsafecalls == 1
+                ll_decref, [llmemory.Address, lltype.Ptr(ADDRESS_VOID_FUNC)],
+                lltype.Void)
+            self.graphs_needing_exception_cleaning[self.decref_ptr.value._obj.graph] = 1
             self.no_pointer_dealloc_ptr = self.inittime_helper(
-                no_pointer_dealloc, [annmodel.SomeAddress()])
-        self.deallocator_graphs_needing_transforming = []
+                ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
         # cache graphs:
         self.decref_funcptrs = {}
         self.static_deallocator_funcptrs = {}
@@ -356,17 +353,16 @@ class RefcountingGCTransformer(GCTransformer):
                 pass
         return None
 
-    def static_deallocation_funcptr_for_type(self, TYPE):
-        if TYPE in self.static_deallocator_funcptrs:
-            return self.static_deallocator_funcptrs[TYPE]
-        fptr = self._static_deallocation_funcptr_for_type(TYPE)
-        self.specialize_more_blocks()
-        for g in self.deallocator_graphs_needing_transforming:
-            MinimalGCTransformer(self.translator).transform_graph(g)
-        self.deallocator_graphs_needing_transforming = []
-        return fptr
+    def finish(self):
+        super(RefcountingGCTransformer, self).finish()
+        if self.translator and self.translator.rtyper:
+            for g in self.deallocator_graphs_needing_transforming:
+                MinimalGCTransformer(self.translator).transform_graph(g)
+            for g, nsafecalls in self.graphs_needing_exception_cleaning.iteritems():
+                n = exception_clean(g)
+                assert n == nsafecalls
 
-    def _static_deallocation_funcptr_for_type(self, TYPE):
+    def static_deallocation_funcptr_for_type(self, TYPE):
         if TYPE in self.static_deallocator_funcptrs:
             return self.static_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
@@ -374,10 +370,10 @@ class RefcountingGCTransformer(GCTransformer):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             hop.exception_cannot_occur()
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
-        def pop_alive(var):
+        def ll_pop_alive(var):
             pass
-        pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
-        pop_alive.llresult = lltype.Void
+        ll_pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
+        ll_pop_alive.llresult = lltype.Void
 
         rtti = self.get_rtti(TYPE) 
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -396,7 +392,7 @@ class RefcountingGCTransformer(GCTransformer):
         if destrptr is not None:
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE, 3))
             src = """
-def deallocator(addr):
+def ll_deallocator(addr):
     exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
     try:
         v = cast_adr_to_ptr(addr, PTR_TYPE)
@@ -424,9 +420,9 @@ def deallocator(addr):
         else:
             call_del = None
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
-            src = ('def deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
+            src = ('def ll_deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
                    body + '\n    llop.gc_free(lltype.Void, addr)\n')
-        d = {'pop_alive': pop_alive,
+        d = {'pop_alive': ll_pop_alive,
              'llop': llop,
              'lltype': lltype,
              'destrptr': destrptr,
@@ -438,8 +434,8 @@ def deallocator(addr):
              'EXC_INSTANCE_TYPE': self.translator.rtyper.exceptiondata.lltype_of_exception_value,
              'os': py.std.os}
         exec src in d
-        this = d['deallocator']
-        g = self.annotate_helper(this, [llmemory.Address])
+        this = d['ll_deallocator']
+        g, fptr = self.annotate_helper(this, [llmemory.Address], lltype.Void)
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
         if destrptr:
@@ -447,9 +443,9 @@ def deallocator(addr):
             # .cleanup attached
             self.deallocator_graphs_needing_transforming.append(g)
 
-        fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
-             
         self.static_deallocator_funcptrs[TYPE] = fptr
+        for p in find_gc_ptrs_in_type(TYPE):
+            self.static_deallocation_funcptr_for_type(p.TO)
         return fptr
 
     def dynamic_deallocation_funcptr_for_type(self, TYPE):
@@ -459,7 +455,7 @@ def deallocator(addr):
 
         rtti = self.get_rtti(TYPE)
         if rtti is None:
-            p = self._static_deallocation_funcptr_for_type(TYPE)
+            p = self.static_deallocation_funcptr_for_type(TYPE)
             self.dynamic_deallocator_funcptrs[TYPE] = p
             return p
             
@@ -469,7 +465,7 @@ def deallocator(addr):
         
         RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
         QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
-        def dealloc(addr):
+        def ll_dealloc(addr):
             # bump refcount to 1
             gcheader = addr - RefcountingGCTransformer.gc_header_offset
             gcheader.signed[0] = 1
@@ -477,13 +473,10 @@ def deallocator(addr):
             rtti = queryptr(v)
             gcheader.signed[0] = 0
             llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
-        g = self.annotate_helper(dealloc, [llmemory.Address])
-        self.specialize_more_blocks()
-        nsafecalls = exception_clean(g)
-        assert nsafecalls == 1        
+        g, fptr = self.annotate_helper(ll_dealloc, [llmemory.Address], lltype.Void)
+        self.graphs_needing_exception_cleaning[g] = 1
         self.seen_graphs[g] = True
         
-        fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
         self.dynamic_deallocator_funcptrs[TYPE] = fptr
         self.queryptr2dynamic_deallocator_funcptr[queryptr._obj] = fptr
         return fptr
@@ -548,6 +541,13 @@ class BoehmGCTransformer(GCTransformer):
                 pass
         return None
 
+    def finish(self):
+        self.mixlevelannotator.finish()
+        for fptr in self.finalizer_funcptrs.itervalues():
+            if fptr:
+                g = fptr._obj.graph
+                MinimalGCTransformer(self.translator).transform_graph(g)
+
     def finalizer_funcptr_for_type(self, TYPE):
         if TYPE in self.finalizer_funcptrs:
             return self.finalizer_funcptrs[TYPE]
@@ -555,10 +555,10 @@ class BoehmGCTransformer(GCTransformer):
         def compute_pop_alive_ll_ops(hop):
             hop.llops.extend(self.pop_alive(hop.args_v[1]))
             return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
-        def pop_alive(var):
+        def ll_pop_alive(var):
             pass
-        pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
-        pop_alive.llresult = lltype.Void
+        ll_pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
+        ll_pop_alive.llresult = lltype.Void
         
         rtti = self.get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -573,17 +573,17 @@ class BoehmGCTransformer(GCTransformer):
                 raise Exception("can't mix PyObjects and __del__ with Boehm")
 
             static_body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
-            d = {'pop_alive':pop_alive,
+            d = {'pop_alive':ll_pop_alive,
                  'PTR_TYPE':lltype.Ptr(TYPE),
                  'cast_adr_to_ptr': llmemory.cast_adr_to_ptr}
-            src = ("def finalizer(addr):\n"
+            src = ("def ll_finalizer(addr):\n"
                    "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
                    "%s\n")%(static_body,)
             exec src in d
-            g = self.annotate_helper(d['finalizer'], [llmemory.Address])
+            g, fptr = self.annotate_helper(d['ll_finalizer'], [llmemory.Address], lltype.Void)
         elif destrptr:
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
-            def finalizer(addr):
+            def ll_finalizer(addr):
                 exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
                 try:
                     v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
@@ -594,20 +594,14 @@ class BoehmGCTransformer(GCTransformer):
                     except:
                         pass
                 llop.gc_restore_exception(lltype.Void, exc_instance)
-            g = self.annotate_helper(finalizer, [llmemory.Address])
+            g, fptr = self.annotate_helper(ll_finalizer, [llmemory.Address], lltype.Void)
         else:
-            g = None
+            g = fptr = None
 
         if g:
             self.seen_graphs[g] = True
-            self.specialize_more_blocks()
-            MinimalGCTransformer(self.translator).transform_graph(g)
-            fptr = lltype.functionptr(ADDRESS_VOID_FUNC, g.name, graph=g)
-            self.finalizer_funcptrs[TYPE] = fptr
-            return fptr
-        else:
-            self.finalizer_funcptrs[TYPE] = None
-            return None
+        self.finalizer_funcptrs[TYPE] = fptr
+        return fptr
 
 class FrameworkGCTransformer(BoehmGCTransformer):
 

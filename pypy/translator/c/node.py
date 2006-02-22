@@ -430,13 +430,17 @@ class FuncNode(ContainerNode):
         else:
             self.includes = ()
             self.name = db.namespace.uniquename('g_' + self.basename())
-        self.funcgen = select_function_code_generator(obj, db, self.name)
+        if not getattr(obj, 'isgchelper', False):
+            self.make_funcgen()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
+        self.ptrname = self.name
+
+    def make_funcgen(self):
+        self.funcgen = select_function_code_generator(self.obj, self.db, self.name)
         if self.funcgen:
             argnames = self.funcgen.argnames()
-            self.implementationtypename = db.gettype(T, argnames=argnames)
-        self.ptrname = self.name
+            self.implementationtypename = self.db.gettype(self.T, argnames=argnames)
 
     def basename(self):
         return self.obj._name

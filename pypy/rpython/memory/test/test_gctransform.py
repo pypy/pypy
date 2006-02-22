@@ -338,7 +338,7 @@ def make_deallocator(TYPE,
     t.buildrtyper().specialize(t)
     transformer = cls(t)
     fptr = getattr(transformer, attr)(TYPE)
-    t.rtyper.specialize_more_blocks()
+    transformer.finish()
     if conftest.option.view:
         t.view()
     if fptr:
