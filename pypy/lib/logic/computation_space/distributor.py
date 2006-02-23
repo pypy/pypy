@@ -140,17 +140,19 @@ class SplitDistributor(AbstractDistributor):
     def run(self):
         self.cs._process() # propagate first
         self.cs.STABLE.bind(0)
-        while self.cs.status == Distributable:
+        while self.cs._distributable():
             choice = self.cs.choose(self.nb_subdomains())
             # racey ... ?
-            self.new_distribute(choice)
+            self.distribute(choice-1)
             self.cs._process()
+            old_choose_var = self.cs.CHOOSE
             self.cs.CHOOSE = self.cs._make_choice_var()
+            self.cs._del_var(old_choose_var)
             self.cs.STABLE.bind(0) # unlocks Ask
         print "-- distributor terminated --"
 
 
-    def new_distribute(self, choice):
+    def distribute(self, choice):
         """See AbstractDistributor"""
         variable = self.findSmallestDomain()
         #variables = self.cs.get_variables_with_a_domain()
@@ -163,27 +165,6 @@ class SplitDistributor(AbstractDistributor):
         self.cs.dom(variable).remove_values(values[:start])
         self.cs.dom(variable).remove_values(values[end:])
 
-
-    ### some tests rely on this old
-    ### do_everything-at-once version
-        
-    def _distribute(self, *args):
-        """See AbstractDistributor"""
-        variable = self.__to_split
-        nb_subspaces = len(args)
-        values = args[0][variable].get_values()
-        nb_elts = max(1, len(values)*1./nb_subspaces)
-        slices = [(int(math.floor(index * nb_elts)),
-                   int(math.floor((index + 1) * nb_elts)))
-                  for index in range(nb_subspaces)]
-        if self.verbose:
-            print 'Distributing domain for variable', variable
-        modified = []
-        for (dom, (end, start)) in zip(args, slices) :
-            dom[variable].remove_values(values[:end])
-            dom[variable].remove_values(values[start:])
-            modified.append(dom[variable])
-        return modified
 
 class DichotomyDistributor(SplitDistributor):
     """distributes domains by splitting the smallest domain in

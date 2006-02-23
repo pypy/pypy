@@ -231,7 +231,6 @@ class Expression(AbstractConstraint):
         variables.sort()
 
         go_on = 1
-        print 
         while go_on:
             yield kwargs
             # try to instanciate the next variable

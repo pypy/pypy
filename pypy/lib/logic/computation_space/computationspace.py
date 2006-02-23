@@ -2,7 +2,8 @@
 # * support several distribution strategies
 # * add a linear constraint solver (vital for fast
 #   constraint propagation over finite integer domains)
-
+# * make all propagators live in their own threads and
+#   be awakened by variable/domains events
 
 from threading import Thread, Condition, RLock, local
 
@@ -74,9 +75,9 @@ class ComputationSpace(object):
         self.in_transaction = False
         self.bind_lock = RLock()
         self.var_lock = RLock()
-        self.status = None
-        self.status_condition = Condition()
+        self.dist_lock = RLock()
         self.distributor = DefaultDistributor(self)
+        self.status = Unknown
         self.parent = parent
         self.children = set()
         
@@ -103,6 +104,7 @@ class ComputationSpace(object):
             self.constraints = parent.constraints
             self.doms = {} # shall be copied by clone
             self.root = parent.root
+            self.status = parent.status
             self.distributor = parent.distributor.__class__(self)
             self._init_choose_commit()
 
@@ -114,6 +116,23 @@ class ComputationSpace(object):
         # space and distributor threads
         self.CHOOSE = self._make_choice_var()
         self.STABLE = self._make_stable_var()
+
+#-- utilities -------------------------------------------------
+
+    def __str__(self):
+        ret = ["<space:\n"]
+        for v, d in self.doms.items():
+            if self.dom(v) != NoDom:
+                ret.append('  ('+str(v)+':'+str(d)+')\n')
+        ret.append(">")
+        return ' '.join(ret)
+
+    def pretty_doms(self):
+        print "(-- domains --"
+        for v, d in self.doms.items():
+            if d != NoDom:
+                print ' ', str(d)
+        print " -- domains --)"
 
 #-- Computation Space -----------------------------------------
 
@@ -146,16 +165,15 @@ class ComputationSpace(object):
                 self.status = Succeeded
 
     def _distributable(self):
-        if self.status not in (Failed, Succeeded):
-            self.status = Unknown
-            # sync. barrier with distributor (?)
-            print "distributable vars :", self.root.val
-            for var in self.root.val:
-                print "   ", var, " -> ", self.doms[var]
-                if self.dom(var).size() > 1 :
-                    self.status = Distributable
-                    return True
-        return False
+        self.dist_lock.acquire()
+        try:
+            if self.status not in (Failed, Succeeded):
+                for var in self.root.val:
+                    if self.dom(var).size() > 1 :
+                        return True
+            return False
+        finally:
+            self.dist_lock.release()
         # in The Book : "the space has one thread that is
         # suspended on a choice point with two or more alternatives.
         # A space can have at most one choice point; attempting to
@@ -184,7 +202,6 @@ class ComputationSpace(object):
         for var in spc.vars:
             if self.dom(var) != NoDom:
                 spc.set_dom(var, self.dom(var).copy())
-        spc.status = Distributable
         return spc
 
     def inject(self, restricting_problem):
@@ -199,13 +216,14 @@ class ComputationSpace(object):
            some_number must satisfy 1=<I=<N where N is the first arg
            of the Choose call.
         """
-        print "SPACE commited to", choice
+        #print "SPACE commited to", choice
         # block future calls to Ask until the distributor
         # binds STABLE
+        old_stable_var = self.STABLE
         self.STABLE = self._make_stable_var()
-        print "SPACE binds CHOOSE to", choice
+        self._del_var(old_stable_var)
+        #print "SPACE binds CHOOSE to", choice
         self.bind(self.CHOOSE, choice)
-
 
     def choose(self, nb_choices):
         """
@@ -276,7 +294,6 @@ class ComputationSpace(object):
         try:
             return self.doms[var]
         except KeyError:
-            print "warning : setting no domain for", var
             self.doms[var] = NoDom
             return NoDom
 
@@ -308,6 +325,12 @@ class ComputationSpace(object):
         if self.is_bound(var): # the speculative val
             return self.dom(var)[0]
         return NoValue
+
+    def _del_var(self, var):
+        """purely private stuff, use at your own perils"""
+        self.vars.remove(var)
+        if self.doms.has_key(var):
+            del self.doms[var]
     
     #-- Constraints -------------------------
 
@@ -332,6 +355,8 @@ class ComputationSpace(object):
         for var in self.vars:
             if self.dom(var) != NoDom: varset.add(var)
         return varset
+
+    #-- Constraint propagation ---------------
 
     def satisfiable(self, constraint):
         """ * satisfiable (k) checks that the constraint k
@@ -362,7 +387,6 @@ class ComputationSpace(object):
                 return False
         self.restore_domains(old_domains)
         return True
-
 
     def get_satisfying_domains(self, constraint):
         """computes the smallest satisfying domains"""
@@ -399,15 +423,11 @@ class ComputationSpace(object):
 
     def satisfy_all(self):
         """really PROPAGATE"""
-      
-        print "propagating on %s" % fif(self.top_level(),
-                                        'top', 'child')
         const_q = [(const.estimateCost(), const)
                    for const in self.constraints]
         affected_constraints = set()
         while True:
             if not const_q:
-                #XXX: estimateCost
                 const_q = [(const.estimateCost(), const)
                            for const in affected_constraints]
                 if not const_q:

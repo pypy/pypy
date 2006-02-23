@@ -497,32 +497,27 @@ class TestComputationSpace:
         spc = newspace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternatives(2)
 
-##     def test_old_distribute(self):
-##         spc = newspace(problems.satisfiable_problem)
-##         new_domains = [tuple(d.items()) for d in
-##                        spc.distributor.distribute()]
-##         x, y, z = (spc.get_var_by_name('x'),
-##                    spc.get_var_by_name('y'),
-##                    spc.get_var_by_name('z'))
-##         expected_domains = [tuple({x: c.FiniteDomain([6]),
-##                              y: c.FiniteDomain([2]),
-##                              z: c.FiniteDomain([4]),
-##                              w: c.FiniteDomain([5])}.items()),
-##                             tuple({x: c.FiniteDomain([6]),
-##                              y: c.FiniteDomain([2]),
-##                              z: c.FiniteDomain([4]),
-##                              w: c.FiniteDomain([6, 7])}.items())]
-##         print new_domains, expected_domains
-##         assert len(new_domains) == len(expected_domains)
-##         for (d1, d2) in zip(new_domains, expected_domains):
-##             assert len(d1) == len(d2)
-##             for (e1, e2) in zip(d1, d2):
-##                 assert e1 == e2
-
     def test_clone_and_process(self):
         spc = newspace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternatives(2)
         new_spc = spc.clone()
+        assert new_spc.parent == spc
+        assert new_spc.vars == spc.vars
+        assert new_spc.names == spc.names
+        assert new_spc.root == spc.root
+        assert new_spc.constraints == spc.constraints
+        assert new_spc.distributor != spc.distributor
+        it1 = [item for item in spc.doms.items()
+               if item[1] != space.NoDom]
+        it2 = [item for item in new_spc.doms.items()
+               if item[1] != space.NoDom]
+        it1.sort()
+        it2.sort()
+        for (v1, d1), (v2, d2) in zip (it1, it2):
+            assert v1 == v2
+            assert d1 == d2
+            assert id(v1) == id(v2)
+            assert id(d1) != id(d2)
         # following couple of ops superceeded by inject()
         x, y, z = new_spc.find_vars('x', 'y', 'z')
         new_spc.add_constraint([x], 'x == 0')
@@ -580,24 +575,24 @@ class TestComputationSpace:
         assert (x, y, z) == nspc.root.val
 
     def test_scheduling_problem_dfs_one_solution(self):
-        sol = strategies.dfs_one_solution(problems.conference_scheduling)
+        sol = strategies.dfs_one(problems.conference_scheduling)
 
         sol2 = [var.val for var in sol]
-        print sol2
-        assert sol2 == [('room A', 'day 1 AM'),
-                        ('room B', 'day 2 AM'),
-                        ('room C', 'day 2 PM'),
+        assert sol2 == [('room A', 'day 1 PM'),
+                        ('room B', 'day 2 PM'),
                         ('room C', 'day 2 AM'),
-                        ('room C', 'day 1 PM'),
+                        ('room C', 'day 2 PM'),
                         ('room C', 'day 1 AM'),
-                        ('room A', 'day 2 AM'),
-                        ('room B', 'day 1 PM'),
+                        ('room C', 'day 1 PM'),
                         ('room A', 'day 2 PM'),
-                        ('room A', 'day 1 PM')]
+                        ('room B', 'day 1 AM'),
+                        ('room A', 'day 2 AM'),
+                        ('room A', 'day 1 AM')]
 
 
-    def test_scheduling_problem_dfs_all_solutions(self):
-        sols = strategies.dfs_all_solutions(problems.conference_scheduling)
+
+    def test_scheduling_problem_all_solutions(self):
+        sols = strategies.solve_all(problems.conference_scheduling)
         assert len(sols) == 64
 
         
