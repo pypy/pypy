@@ -21,11 +21,10 @@ class TranslationContext(object):
         'simplifying': True,
         'do_imports_immediately': True,
         'builtins_can_raise_exceptions': False,
-        'import_hints': {},
         }
 
     def __init__(self, **flowing_flags):
-        self.flags = copy.deepcopy(self.FLOWING_FLAGS)
+        self.flags = self.FLOWING_FLAGS.copy()
         self.flags.update(flowing_flags)
         if len(self.flags) > len(self.FLOWING_FLAGS):
             raise TypeError("unexpected keyword argument")

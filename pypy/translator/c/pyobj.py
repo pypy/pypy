@@ -15,6 +15,7 @@ from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
 # Should this be registered with the annotator?
 from pypy.interpreter.baseobjspace import ObjSpace
 
+from pypy.annotation.registry import IMPORT_HINTS
 
 class PyObjMaker:
     """Handles 'PyObject*'; factored out from LowLevelDatabase.
@@ -36,9 +37,7 @@ class PyObjMaker:
                                #   objects
         self.debugstack = ()  # linked list of nested nameof()
         self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
-        self.import_hints = {}
-        if translator:
-            self.import_hints = translator.flags['import_hints']
+        self.import_hints = IMPORT_HINTS
 
     def nameof(self, obj, debug=None):
         if debug:

@@ -140,11 +140,6 @@ class Stats:
     def consider_dict_delitem(self, dic):
         return dic
 
-# this dictionary can be extended by extension writers
-DEFINED_SOMEOBJECTS = { sys: True,
-                        }
-# XXX should this live in the Bookkeeper instance?
-
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
@@ -691,7 +686,8 @@ def getbookkeeper():
 
 def delayed_imports():
     # import ordering hack
-    global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS
+    global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS, DEFINED_SOMEOBJECTS
     from pypy.annotation.builtin import BUILTIN_ANALYZERS
     from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
+    from pypy.annotation.registry import DEFINED_SOMEOBJECTS
 
