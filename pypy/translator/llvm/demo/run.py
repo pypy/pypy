@@ -25,8 +25,9 @@ def c(name):
     backend_optimizations(t)
     cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=BoehmGcPolicy)
     cbuilder.generate_source()
-    cbuilder.compile()
-    os.system("XXX")
+    exe_path = cbuilder.compile()
+    print exe_path
+    os.system(exe_path)
     
 def l(name):
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
