@@ -25,7 +25,7 @@
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>28</integer>
+			<integer>23</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Style</key>
@@ -64,7 +64,7 @@ native code}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>27</integer>
+			<integer>22</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Text</key>
@@ -86,7 +86,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>26</integer>
+			<integer>21</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -126,7 +126,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>25</integer>
+			<integer>20</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -167,7 +167,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>24</integer>
+			<integer>19</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -208,7 +208,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>23</integer>
+			<integer>18</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -249,7 +249,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>22</integer>
+			<integer>17</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -284,7 +284,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>21</integer>
+			<integer>16</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -319,7 +319,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>20</integer>
+			<integer>15</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -352,10 +352,10 @@ native code}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>14</integer>
+				<integer>9</integer>
 			</dict>
 			<key>ID</key>
-			<integer>19</integer>
+			<integer>14</integer>
 			<key>Points</key>
 			<array>
 				<string>{270, 513}</string>
@@ -380,10 +380,10 @@ native code}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>13</integer>
+				<integer>8</integer>
 			</dict>
 			<key>ID</key>
-			<integer>18</integer>
+			<integer>13</integer>
 			<key>Points</key>
 			<array>
 				<string>{207, 378}</string>
@@ -408,10 +408,10 @@ native code}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>12</integer>
+				<integer>7</integer>
 			</dict>
 			<key>ID</key>
-			<integer>17</integer>
+			<integer>12</integer>
 			<key>Points</key>
 			<array>
 				<string>{207, 252}</string>
@@ -438,7 +438,7 @@ native code}</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>16</integer>
+			<integer>11</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -471,10 +471,10 @@ native code}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>11</integer>
+				<integer>6</integer>
 			</dict>
 			<key>ID</key>
-			<integer>15</integer>
+			<integer>10</integer>
 			<key>Points</key>
 			<array>
 				<string>{189, 117}</string>
@@ -499,7 +499,7 @@ native code}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>14</integer>
+			<integer>9</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -532,7 +532,7 @@ native code}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>13</integer>
+			<integer>8</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Style</key>
@@ -565,7 +565,7 @@ native code}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>12</integer>
+			<integer>7</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Style</key>
@@ -615,7 +615,7 @@ native code}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>11</integer>
+			<integer>6</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Style</key>
@@ -643,7 +643,7 @@ native code}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>10</integer>
+			<integer>5</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -668,13 +668,13 @@ native code}</string>
 		</dict>
 		<dict>
 			<key>Bounds</key>
-			<string>{{173, 6}, {177, 26}}</string>
+			<string>{{326, 6}, {177, 26}}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>9</integer>
+			<integer>4</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -710,7 +710,7 @@ native code}</string>
 			<key>Class</key>
 			<string>LineGraphic</string>
 			<key>ID</key>
-			<integer>8</integer>
+			<integer>3</integer>
 			<key>Layer</key>
 			<integer>1</integer>
 			<key>Points</key>
@@ -735,7 +735,7 @@ native code}</string>
 			<key>Class</key>
 			<string>LineGraphic</string>
 			<key>ID</key>
-			<integer>7</integer>
+			<integer>2</integer>
 			<key>Layer</key>
 			<integer>1</integer>
 			<key>Points</key>
@@ -760,7 +760,7 @@ native code}</string>
 			<key>Class</key>
 			<string>LineGraphic</string>
 			<key>ID</key>
-			<integer>6</integer>
+			<integer>1</integer>
 			<key>Layer</key>
 			<integer>1</integer>
 			<key>Points</key>
@@ -927,7 +927,7 @@ native code}</string>
 	eT4KCQkJCQk8a2V5PmNvbS5hcHBsZS5wcmludC50aWNrZXQuY2xpZW50PC9rZXk+CgkJ
 	CQkJPHN0cmluZz5jb20uYXBwbGUucHJpbnRpbmdtYW5hZ2VyPC9zdHJpbmc+CgkJCQkJ
 	PGtleT5jb20uYXBwbGUucHJpbnQudGlja2V0Lm1vZERhdGU8L2tleT4KCQkJCQk8ZGF0
-	ZT4yMDA2LTAyLTI1VDE2OjU4OjI2WjwvZGF0ZT4KCQkJCQk8a2V5PmNvbS5hcHBsZS5w
+	ZT4yMDA2LTAyLTI2VDEzOjM2OjQyWjwvZGF0ZT4KCQkJCQk8a2V5PmNvbS5hcHBsZS5w
 	cmludC50aWNrZXQuc3RhdGVGbGFnPC9rZXk+CgkJCQkJPGludGVnZXI+MDwvaW50ZWdl
 	cj4KCQkJCTwvZGljdD4KCQkJPC9hcnJheT4KCQk8L2RpY3Q+CgkJPGtleT5jb20uYXBw
 	bGUucHJpbnQuUGFnZUZvcm1hdC5QTUFkanVzdGVkUGFwZXJSZWN0PC9rZXk+CgkJPGRp
@@ -942,7 +942,7 @@ native code}</string>
 	CQkJPC9hcnJheT4KCQkJCQk8a2V5PmNvbS5hcHBsZS5wcmludC50aWNrZXQuY2xpZW50
 	PC9rZXk+CgkJCQkJPHN0cmluZz5jb20uYXBwbGUucHJpbnRpbmdtYW5hZ2VyPC9zdHJp
 	bmc+CgkJCQkJPGtleT5jb20uYXBwbGUucHJpbnQudGlja2V0Lm1vZERhdGU8L2tleT4K
-	CQkJCQk8ZGF0ZT4yMDA2LTAyLTI1VDE2OjU4OjI2WjwvZGF0ZT4KCQkJCQk8a2V5PmNv
+	CQkJCQk8ZGF0ZT4yMDA2LTAyLTI2VDEzOjM2OjQyWjwvZGF0ZT4KCQkJCQk8a2V5PmNv
 	bS5hcHBsZS5wcmludC50aWNrZXQuc3RhdGVGbGFnPC9rZXk+CgkJCQkJPGludGVnZXI+
 	MDwvaW50ZWdlcj4KCQkJCTwvZGljdD4KCQkJPC9hcnJheT4KCQk8L2RpY3Q+CgkJPGtl
 	eT5jb20uYXBwbGUucHJpbnQuUGFwZXJJbmZvLlBNQ29uc3RyYWluZWRQYXBlcjwva2V5
@@ -1017,14 +1017,14 @@ native code}</string>
 	Y2tldC5wcml2YXRlTG9jazwva2V5PgoJPGZhbHNlLz4KCTxrZXk+Y29tLmFwcGxlLnBy
 	aW50LnRpY2tldC50eXBlPC9rZXk+Cgk8c3RyaW5nPmNvbS5hcHBsZS5wcmludC5QYWdl
 	Rm9ybWF0VGlja2V0PC9zdHJpbmc+CjwvZGljdD4KPC9wbGlzdD4KhpKEmZkPTlNQcmlu
-	dEFsbFBhZ2VzhpKgkoSZmQtOU1BhcGVyTmFtZYaShJmZBkxldHRlcoaShJmZFU5TSG9y
-	aXpvbmFsUGFnaW5hdGlvboaShKGbop4AhpKEmZkWTlNIb3Jpem9udGFsbHlDZW50ZXJl
-	ZIaSppKEmZkJTlNQcmludGVyhpKEhIQJTlNQcmludGVyAJSShJmZEEhQIExhc2VySmV0
-	IDEyMDCGhpKEmZkITlNDb3BpZXOGkoShm4SEAVOiAYaShJmZD05TU2NhbGluZ0ZhY3Rv
-	coaShKGbhIQBZqMBhpKEmZkNTlNSaWdodE1hcmdpboaShKGbuaMkhpKEmZkOTlNCb3R0
-	b21NYXJnaW6GkoShm7mjJIaShJmZDE5TTGVmdE1hcmdpboaShKGbuaMkhpKEmZkLTlNU
-	b3BNYXJnaW6GkoShm7mjJIaShJmZCk5TTGFzdFBhZ2WGkoShm4SXl4J/////hpKEmZkL
-	TlNGaXJzdFBhZ2WGkoShm7aiAYaShJmZDU5TT3JpZW50YXRpb26GkoShm6KeAIaGhg==
+	dEFsbFBhZ2VzhpKgkoSZmQtOU1BhcGVyTmFtZYaShJmZCW5hLWxldHRlcoaShJmZFU5T
+	SG9yaXpvbmFsUGFnaW5hdGlvboaShKGbop4AhpKEmZkWTlNIb3Jpem9udGFsbHlDZW50
+	ZXJlZIaSppKEmZkJTlNQcmludGVyhpKEhIQJTlNQcmludGVyAJSShJmZASCGhpKEmZkI
+	TlNDb3BpZXOGkoShm4SEAVOiAYaShJmZD05TU2NhbGluZ0ZhY3RvcoaShKGbhIQBZqMB
+	hpKEmZkNTlNSaWdodE1hcmdpboaShKGbuaMkhpKEmZkOTlNCb3R0b21NYXJnaW6GkoSh
+	m7mjJIaShJmZDE5TTGVmdE1hcmdpboaShKGbuaMkhpKEmZkLTlNUb3BNYXJnaW6GkoSh
+	m7mjJIaShJmZCk5TTGFzdFBhZ2WGkoShm4SXl4J/////hpKEmZkLTlNGaXJzdFBhZ2WG
+	koShm7aiAYaShJmZDU5TT3JpZW50YXRpb26GkoShm6KeAIaGhg==
 	</data>
 	<key>RowAlign</key>
 	<integer>0</integer>
@@ -1035,7 +1035,7 @@ native code}</string>
 	<key>WindowInfo</key>
 	<dict>
 		<key>Frame</key>
-		<string>{{200, 51}, {555, 781}}</string>
+		<string>{{83, 51}, {555, 781}}</string>
 		<key>VisibleRegion</key>
 		<string>{{0, 0}, {540, 704}}</string>
 		<key>Zoom</key>

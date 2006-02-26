@@ -25,7 +25,7 @@
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>134</integer>
+			<integer>58</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -63,10 +63,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>132</integer>
+				<integer>56</integer>
 			</dict>
 			<key>ID</key>
-			<integer>133</integer>
+			<integer>57</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -114,8 +114,8 @@
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{368.64, 288.36}</string>
-				<string>{306, 351}</string>
+				<string>{373.188, 291.392}</string>
+				<string>{326.13, 351}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -134,16 +134,16 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>126</integer>
+				<integer>52</integer>
 			</dict>
 		</dict>
 		<dict>
 			<key>Bounds</key>
-			<string>{{225, 351}, {117, 45}}</string>
+			<string>{{225, 351}, {117, 108}}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>132</integer>
+			<integer>56</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Text</key>
@@ -154,8 +154,13 @@
 {\colortbl;\red255\green255\blue255;}
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\qc
 
-\f0\b\fs24 \cf0 Builtin Modules
-\f1\b0 \
+\f0\b\fs24 \cf0 Builtin Modules\
+
+\f1\b0 __builtin__\
+sys\
+os\
+...
+\f0\b \
 }</string>
 			</dict>
 		</dict>
@@ -165,10 +170,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>128</integer>
+				<integer>54</integer>
 			</dict>
 			<key>ID</key>
-			<integer>131</integer>
+			<integer>55</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -234,113 +239,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>126</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>Class</key>
-			<string>LineGraphic</string>
-			<key>Head</key>
-			<dict>
-				<key>ID</key>
-				<integer>129</integer>
-			</dict>
-			<key>ID</key>
-			<integer>130</integer>
-			<key>Labels</key>
-			<array>
-				<dict>
-					<key>Label</key>
-					<dict>
-						<key>Align</key>
-						<integer>0</integer>
-						<key>Text</key>
-						<string>{\rtf1\mac\ansicpg10000\cocoartf102
-{\fonttbl\f0\fswiss\fcharset77 Helvetica;}
-{\colortbl;\red255\green255\blue255;}
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
-
-\f0\fs24 \cf0 uses}</string>
-					</dict>
-					<key>LabelVisible</key>
-					<string>YES</string>
-					<key>Offset</key>
-					<real>0.000000e+00</real>
-					<key>Position</key>
-					<real>5.402650e-01</real>
-				</dict>
-				<dict>
-					<key>Label</key>
-					<dict>
-						<key>Align</key>
-						<integer>0</integer>
-					</dict>
-					<key>Offset</key>
-					<real>0.000000e+00</real>
-					<key>Position</key>
-					<real>1.000000e-01</real>
-				</dict>
-				<dict>
-					<key>Label</key>
-					<dict>
-						<key>Align</key>
-						<integer>0</integer>
-					</dict>
-					<key>Offset</key>
-					<real>0.000000e+00</real>
-					<key>Position</key>
-					<real>9.000000e-01</real>
-				</dict>
-			</array>
-			<key>Points</key>
-			<array>
-				<string>{420.327, 297}</string>
-				<string>{428.414, 351}</string>
-			</array>
-			<key>Style</key>
-			<dict>
-				<key>stroke</key>
-				<dict>
-					<key>HeadArrow</key>
-					<string>FilledArrow</string>
-					<key>LineType</key>
-					<integer>1</integer>
-					<key>Pattern</key>
-					<integer>1</integer>
-					<key>TailArrow</key>
-					<string>0</string>
-				</dict>
-			</dict>
-			<key>Tail</key>
-			<dict>
-				<key>ID</key>
-				<integer>126</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>Bounds</key>
-			<string>{{378, 351}, {117, 108}}</string>
-			<key>Class</key>
-			<string>ShapedGraphic</string>
-			<key>ID</key>
-			<integer>129</integer>
-			<key>Shape</key>
-			<string>Rectangle</string>
-			<key>Text</key>
-			<dict>
-				<key>Text</key>
-				<string>{\rtf1\mac\ansicpg10000\cocoartf102
-{\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;}
-{\colortbl;\red255\green255\blue255;}
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\qc
-
-\f0\b\fs24 \cf0 Execution Frame\
-
-\f1\b0 Global Scope\
-Local Scope\
-Value Stack\
-Block Stack\
-}</string>
+				<integer>52</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -349,7 +248,7 @@ Block Stack\
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>128</integer>
+			<integer>54</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -379,10 +278,10 @@ Block Stack\
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>124</integer>
+				<integer>50</integer>
 			</dict>
 			<key>ID</key>
-			<integer>127</integer>
+			<integer>53</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -430,8 +329,8 @@ Block Stack\
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{412.364, 189}</string>
-				<string>{409.909, 81}</string>
+				<string>{412.636, 189}</string>
+				<string>{409.948, 81}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -448,7 +347,7 @@ Block Stack\
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>126</integer>
+				<integer>52</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -457,7 +356,7 @@ Block Stack\
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>126</integer>
+			<integer>52</integer>
 			<key>Shape</key>
 			<string>Octagon</string>
 			<key>Style</key>
@@ -477,7 +376,8 @@ Block Stack\
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\qc
 
 \f0\b\fs24 \cf0 PyPy\
-Bytecode Interpreter}</string>
+Bytecode Interpreter\
+handles control flow}</string>
 			</dict>
 		</dict>
 		<dict>
@@ -486,10 +386,10 @@ Bytecode Interpreter}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>124</integer>
+				<integer>50</integer>
 			</dict>
 			<key>ID</key>
-			<integer>125</integer>
+			<integer>51</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -538,8 +438,8 @@ Compiler}</string>
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{162, 62.9767}</string>
-				<string>{342, 62.9936}</string>
+				<string>{162, 62.9986}</string>
+				<string>{342, 62.9996}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -556,7 +456,7 @@ Compiler}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>123</integer>
+				<integer>49</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -565,7 +465,7 @@ Compiler}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>124</integer>
+			<integer>50</integer>
 			<key>Shape</key>
 			<string>Subprocess</string>
 			<key>Text</key>
@@ -585,7 +485,7 @@ Compiler}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>123</integer>
+			<integer>49</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Text</key>
@@ -723,7 +623,7 @@ Compiler}</string>
 	bD4KCQkJCQk8L2FycmF5PgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5j
 	bGllbnQ8L2tleT4KCQkJCQk8c3RyaW5nPmNvbS5hcHBsZS5wcmludGluZ21hbmFnZXI8
 	L3N0cmluZz4KCQkJCQk8a2V5PmNvbS5hcHBsZS5wcmludC50aWNrZXQubW9kRGF0ZTwv
-	a2V5PgoJCQkJCTxkYXRlPjIwMDYtMDItMjVUMTI6NDI6NDJaPC9kYXRlPgoJCQkJCTxr
+	a2V5PgoJCQkJCTxkYXRlPjIwMDYtMDItMjZUMTM6Mzk6NTZaPC9kYXRlPgoJCQkJCTxr
 	ZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5zdGF0ZUZsYWc8L2tleT4KCQkJCQk8aW50
 	ZWdlcj4wPC9pbnRlZ2VyPgoJCQkJPC9kaWN0PgoJCQk8L2FycmF5PgoJCTwvZGljdD4K
 	CQk8a2V5PmNvbS5hcHBsZS5wcmludC5QYWdlRm9ybWF0LlBNQWRqdXN0ZWRQYXBlclJl
@@ -738,7 +638,7 @@ Compiler}</string>
 	ZSswMjwvcmVhbD4KCQkJCQk8L2FycmF5PgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50
 	LnRpY2tldC5jbGllbnQ8L2tleT4KCQkJCQk8c3RyaW5nPmNvbS5hcHBsZS5wcmludGlu
 	Z21hbmFnZXI8L3N0cmluZz4KCQkJCQk8a2V5PmNvbS5hcHBsZS5wcmludC50aWNrZXQu
-	bW9kRGF0ZTwva2V5PgoJCQkJCTxkYXRlPjIwMDYtMDItMjVUMTI6NDI6NDJaPC9kYXRl
+	bW9kRGF0ZTwva2V5PgoJCQkJCTxkYXRlPjIwMDYtMDItMjZUMTM6Mzk6NTZaPC9kYXRl
 	PgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5zdGF0ZUZsYWc8L2tleT4K
 	CQkJCQk8aW50ZWdlcj4wPC9pbnRlZ2VyPgoJCQkJPC9kaWN0PgoJCQk8L2FycmF5PgoJ
 	CTwvZGljdD4KCQk8a2V5PmNvbS5hcHBsZS5wcmludC5QYXBlckluZm8uUE1QYXBlck5h
@@ -823,9 +723,9 @@ Compiler}</string>
 	<key>WindowInfo</key>
 	<dict>
 		<key>Frame</key>
-		<string>{{62, 331}, {905, 524}}</string>
+		<string>{{104, 285}, {905, 524}}</string>
 		<key>VisibleRegion</key>
-		<string>{{-175, 0}, {890, 447}}</string>
+		<string>{{-167, 0}, {874, 388}}</string>
 		<key>Zoom</key>
 		<string>1</string>
 	</dict>
