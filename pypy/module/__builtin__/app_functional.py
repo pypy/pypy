@@ -258,6 +258,26 @@ class enumerate(object):
     def __iter__(self):
         return self
 
+# ____________________________________________________________
+
+def all( it ):
+    """
+    Implementation of the all() builtin function from 2.5.
+    """
+    for i in it:
+        if not i:
+            return False
+    return True
+    
+def any( it ):
+    """
+    Implementation of the all() builtin function from 2.5.
+    """
+    for i in it:
+        if i:
+            return True
+    return False
+
 
 # ____________________________________________________________
 

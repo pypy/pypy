@@ -27,6 +27,8 @@ class Module(MixedModule):
         # is still needed and should stay where it is.
         'min'           : 'app_functional.min',
         'max'           : 'app_functional.max',
+        'all'           : 'app_functional.all',
+        'any'           : 'app_functional.any',
         'enumerate'     : 'app_functional.enumerate',
         'xrange'        : 'app_functional.xrange',
         'sorted'        : 'app_functional.sorted',

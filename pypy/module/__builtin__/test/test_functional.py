@@ -7,7 +7,7 @@ class AppTestMap:
       assert map(lambda x: x+2, [1, 2, 3, 4]) == [3, 4, 5, 6]
 
    def test_trivial_map_two_seq(self):
-      assert map(lambda x,y: x+y, 
+      assert map(lambda x,y: x+y,
                            [1, 2, 3, 4],[1, 2, 3, 4]) == (
                        [2, 4, 6, 8])
 
@@ -16,23 +16,23 @@ class AppTestMap:
 
    def test_trivial_map_no_arguments(self):
       raises(TypeError, map)
-      
+
    def test_trivial_map_no_function_no_seq(self):
       raises(TypeError, map, None)
 
    def test_trivial_map_no_fuction_one_seq(self):
       assert map(None, [1, 2, 3]) == [1, 2, 3]
-      
+
    def test_trivial_map_no_function(self):
       assert map(None, [1,2,3], [4,5,6], [7,8], [1]) == (
                        [(1, 4, 7, 1), (2, 5, 8, None), (3, 6, None, None)])
-                       
+
    def test_map_identity1(self):
       a = ['1', 2, 3, 'b', None]
       b = a[:]
       assert map(lambda x: x, a) == a
       assert a == b
- 
+
    def test_map_None(self):
       a = ['1', 2, 3, 'b', None]
       b = a[:]
@@ -72,7 +72,7 @@ class AppTestReduce:
    def test_sum(self):
        assert reduce(lambda x, y: x+y, [1,2,3,4], 0) == 10
        assert reduce(lambda x, y: x+y, [1,2,3,4]) == 10
-   
+
    def test_minus(self):
        assert reduce(lambda x, y: x-y, [10, 2, 8]) == 0
        assert reduce(lambda x, y: x-y, [2, 8], 10) == 0
@@ -86,7 +86,7 @@ class AppTestFilter:
        assert filter(None, txt) == txt
        tup = ("a", None, 0, [], 1)
        assert filter(None, tup) == ("a", 1)
-       
+
    def test_function(self):
        assert filter(lambda x: x != "a", "a small text") == " smll text"
 
@@ -131,3 +131,54 @@ class AppTestReversed:
       assert len(r) == 0
       assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
       raises(TypeError, reversed, reversed("hello"))
+
+
+class AppTestAllAny:
+    """
+    These are copied directly and replicated from the Python 2.5 source code.
+    """
+
+    def test_all(self):
+
+        class TestFailingBool:
+            def __nonzero__(self):
+                raise RuntimeError
+        class TestFailingIter:
+            def __iter__(self):
+                raise RuntimeError
+
+        assert all([2, 4, 6]) == True
+        assert all([2, None, 6]) == False
+        raises(RuntimeError, all, [2, TestFailingBool(), 6])
+        raises(RuntimeError, all, TestFailingIter())
+        raises(TypeError, all, 10)               # Non-iterable
+        raises(TypeError, all)                   # No args
+        raises(TypeError, all, [2, 4, 6], [])    # Too many args
+        assert all([]) == True                   # Empty iterator
+        S = [50, 60]
+        assert all(x > 42 for x in S) == True
+        S = [50, 40, 60]
+        assert all(x > 42 for x in S) == False
+
+    def test_any(self):
+
+        class TestFailingBool:
+            def __nonzero__(self):
+                raise RuntimeError
+        class TestFailingIter:
+            def __iter__(self):
+                raise RuntimeError
+
+        assert any([None, None, None]) == False
+        assert any([None, 4, None]) == True
+        raises(RuntimeError, any, [None, TestFailingBool(), 6])
+        raises(RuntimeError, all, TestFailingIter())
+        raises(TypeError, any, 10)               # Non-iterable
+        raises(TypeError, any)                   # No args
+        raises(TypeError, any, [2, 4, 6], [])    # Too many args
+        assert any([]) == False                  # Empty iterator
+        S = [40, 60, 30]
+        assert any(x > 42 for x in S) == True
+        S = [10, 20, 30]
+        assert any(x > 42 for x in S) == False
+

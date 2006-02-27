@@ -81,9 +81,9 @@ class Translation(object):
         else:
             # check consistency
             if argtypes is not None and argtypes != self.ann_argtypes:
-                raise Exception("incosistent argtype supplied")
+                raise Exception("inconsistent argtype supplied")
             if policy is not None and policy != self.ann_policy:
-                raise Exception("incosistent annotation polish supplied")
+                raise Exception("inconsistent annotation polish supplied")
 
     def update_options(self, argtypes, kwds):
         if argtypes or kwds.get('policy'):
@@ -91,7 +91,7 @@ class Translation(object):
         for optname, value in kwds.iteritems():
             if optname in self.frozen_options:
                 if getattr(self.driver.options, optname) != value:
-                     raise Exception("incosistent option supplied: %s" % optname)
+                     raise Exception("inconsistent option supplied: %s" % optname)
             else:
                 setattr(self.driver.options, optname, value)
                 self.frozen_options[optname] = True
