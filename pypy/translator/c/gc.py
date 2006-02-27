@@ -193,7 +193,7 @@ class BoehmGcPolicy(BasicGcPolicy):
                                                                 is_varsize,
                                                                 err)
         if gcinfo and gcinfo.finalizer:
-            result += ('\nGC_REGISTER_FINALIZER(%s, %s, NULL, NULL, NULL);'
+            result += ('\nGC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);'
                        % (eresult, gcinfo.finalizer))
         return result
 
