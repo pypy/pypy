@@ -48,6 +48,7 @@ class Translation(object):
     GOAL_USES_OPTS = {
         'annotate': ['debug'],
         'rtype': ['insist'],
+        'ootype': [],
         'backendopt': ['merge_if_blocks'],
         'database_c': ['gc', 'stackless'],
         'source_llvm': ['gc', 'stackless'],
@@ -119,6 +120,10 @@ class Translation(object):
     def rtype(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         return self.driver.rtype()
+
+    def ootype(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        return self.driver.ootype()
 
     # backend depedent
 

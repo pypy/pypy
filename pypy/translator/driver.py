@@ -187,6 +187,15 @@ class TranslationDriver(SimpleTaskEngine):
     #
     task_rtype = taskdef(task_rtype, ['annotate'], "RTyping")
 
+    def task_ootype(self):
+        # Maybe type_system should simply be an option used in task_rtype
+        opt = self.options
+        rtyper = self.translator.buildrtyper(type_system="ootype")
+        rtyper.specialize(dont_simplify_again=True,
+                          crash_on_first_typeerror=not opt.insist)
+    #
+    task_ootype = taskdef(task_ootype, ['annotate'], "ootyping")
+
     def task_backendopt(self):
         from pypy.translator.backendopt.all import backend_optimizations
         opt = self.options
