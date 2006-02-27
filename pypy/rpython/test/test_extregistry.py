@@ -1,6 +1,6 @@
 import py
 
-py.test.skip('In progress at PyCon')
+##py.test.skip('In progress at PyCon')
 
 from pypy.rpython.extregistry import EXT_REGISTRY_BY_VALUE, EXT_REGISTRY_BY_TYPE
 from pypy.rpython.extregistry import register_func, register_type

@@ -23,6 +23,7 @@ from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.memory import lladdress
+from pypy.rpython.extregistry import EXT_REGISTRY_BY_VALUE, EXT_REGISTRY_BY_TYPE
 
 class Stats:
 
@@ -358,8 +359,12 @@ class Bookkeeper:
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
+        elif ishashable(x) and x in EXT_REGISTRY_BY_VALUE:
+            result = EXT_REGISTRY_BY_VALUE[x].get_annotation(x)
         elif hasattr(x, "compute_result_annotation"):
             result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
+        elif tp in EXT_REGISTRY_BY_TYPE:
+            result = EXT_REGISTRY_BY_TYPE[tp].get_annotation(x)
         elif hasattr(tp, "compute_annotation"):
             result = tp.compute_annotation()
         elif tp in DEFINED_SOMEOBJECTS:
