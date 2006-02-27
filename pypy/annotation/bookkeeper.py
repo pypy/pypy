@@ -24,6 +24,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.memory import lladdress
 from pypy.rpython.extregistry import EXT_REGISTRY_BY_VALUE, EXT_REGISTRY_BY_TYPE
+from pypy.rpython.extregistry import EXT_REGISTRY_BY_METATYPE
 
 class Stats:
 
@@ -367,6 +368,8 @@ class Bookkeeper:
             result = EXT_REGISTRY_BY_TYPE[tp].get_annotation(x)
         elif hasattr(tp, "compute_annotation"):
             result = tp.compute_annotation()
+        elif type(tp) in EXT_REGISTRY_BY_METATYPE:
+            result = EXT_REGISTRY_BY_METATYPE[type(tp)].get_annotation(tp)
         elif tp in DEFINED_SOMEOBJECTS:
             return SomeObject()
         elif tp in EXTERNAL_TYPE_ANALYZERS:
@@ -516,6 +519,10 @@ class Bookkeeper:
             return SomeExternalObject(t)
         elif hasattr(t, "compute_annotation"):
             return t.compute_annotation()
+        elif t in EXT_REGISTRY_BY_TYPE:
+            return EXT_REGISTRY_BY_TYPE[t].get_annotation()
+        elif type(t) in EXT_REGISTRY_BY_METATYPE:
+            return EXT_REGISTRY_BY_METATYPE[type(t)].get_annotation(t)
         elif t.__module__ != '__builtin__' and t not in self.pbctypes:
             classdef = self.getuniqueclassdef(t)
             return SomeInstance(classdef)
