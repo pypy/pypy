@@ -98,9 +98,12 @@ class FunctionPointerTranslation(object):
             return id(self)
 
         def specialize(self, hop):
-            return hop.llops.gencapicall(self.__name__, hop.args_v,
-                         resulttype=self.restype.ll_type, _callable=None,
-                         convert_params=self.convert_params) 
+            return hop.llops.gencapicall(
+                    self.__name__,
+                    hop.args_v,
+                    resulttype = self.restype.ll_type,
+                    _callable=None,
+                    convert_params = self.convert_params ) 
 
         def convert_params(self, backend, param_info_list):
             assert "c" == backend.lower()
@@ -123,11 +126,15 @@ class RStructureMeta(type(Structure)):
     def __new__(mta,name,bases,clsdict):
         _fields = clsdict.get('_fields_',None)
         _adict = {}
+        ll_types = []
         if _fields is not None:
             for attr, atype in _fields:
                 _adict[attr] = atype
+                ll_types.append( ( attr, atype.ll_type ) )
         clsdict['_fields_def_'] = _adict
-        print "_fields_def_ s:", _adict
+        # ll_type is just the C-level data part of the structure
+        clsdict[ "ll_type" ] = Struct( "C-Data_%s" % name, *ll_types )
+        #d#print "_fields_def_ s:", _adict
 
         return super(RStructureMeta,mta).__new__(mta, name, bases, clsdict)
 
@@ -221,7 +228,12 @@ def RPOINTER(cls):
         """
         Create a lowlevel representation for the pointer.
         """
-        return CtypesMemoryOwningPointerRepresentation( rtyper, annotationObject )
+        if annotationObject.memorystate == annotationObject.OWNSMEMORY:
+            return CtypesMemoryOwningPointerRepresentation( rtyper, annotationObject )
+        elif annotationObject.memorystate == annotationObject.MEMORYALIAS:
+            return CtypesMemoryAliasPointerRepresentation( rtyper, annotationObject )
+        else:
+            raise TyperError( "Unkown memory state in %r" % annotationObject )
     answer.createLowLevelRepresentation = staticmethod(
             createLowLevelRepresentation )
 
@@ -248,12 +260,23 @@ def RPOINTER(cls):
     # because we can't use the memory state from 'cls'.
     # So the obvious way to do it is obsolete (#o#).
     answer._fields_def_ = {"contents": cls}
-    print "p _fields_def_:", answer._fields_def_
+    #d#print "p _fields_def_:", answer._fields_def_
 
     # XXX Think about that twice and think about obsoleting
     # the obsoletion above
     answer.default_memorystate = None
     answer.external_function_result_memorystate = SomeCTypesObject.MEMORYALIAS
+    
+    # Add a low level type attribute, which is only used for computing the
+    # result of an external function. In other words this is just the non
+    # gc case
+    try:
+        answer.ll_type = Ptr(
+                Struct(
+                    'CtypesMemoryAliasPointer_%s' % answer.__name__,
+                    ( "contents", answer._type_.ll_type ) ) )
+    except TypeError:
+        pass
     return answer
 
 
@@ -352,7 +375,8 @@ class CtypesMemoryOwningStructureRepresentation( AbstractCtypesStructureRepresen
         fields = [ ( name, ctypesType.ll_type )
                         for name, ctypesType in annotationObject.knowntype._fields_ ]
         name = annotationObject.knowntype.__name__
-        self.c_data_lowleveltype = Struct( "C-Data_%s" % name, *fields )
+        #o#self.c_data_lowleveltype = Struct( "C-Data_%s" % name, *fields )
+        self.c_data_lowleveltype = annotationObject.knowntype.ll_type
         self.lowleveltype = Ptr(
                 GcStruct( 
                     "CtypesStructure_%s" % name,
@@ -382,10 +406,11 @@ class CtypesMemoryOwningPointerRepresentation( AbstractCtypesPointerRepresentati
     def __init__( self, rtyper, annotationObject ):
         self.lowleveltype = Ptr(
                 GcStruct(
-                    'CtypesPointer_%s' % annotationObject.knowntype.__name__,
+                    'CtypesMemoryOwningPointer_%s' % annotationObject.knowntype.__name__,
                     ( "contents",
                       rtyper.getrepr(
-                        annotationObject.knowntype._type_.compute_annotation() ).lowleveltype ) ) )
+                        annotationObject.knowntype._type_.compute_annotation()
+                        ).lowleveltype ) ) )
 
     def rtype_getattr( self, highLevelOperation ):
         inputargs = [ 
@@ -400,6 +425,9 @@ class CtypesMemoryAliasPointerRepresentation( AbstractCtypesPointerRepresentatio
     The lowlevel representation of a cytpes pointer that points
     to memory owned by an external library.
     """
+
+    def __init__( self, rtyper, annotationObject ):
+        self.lowleveltype = annotationObject.knowntype.ll_type
 
         
 class __extend__( SomeCTypesObject ):

@@ -413,14 +413,13 @@ class Test_structure:
             #d#t.view()
             pass
 
-    # This does not work yet, ctype structures and pointers are
-    # missing the ll_type attribute that directly maps ctypes objects
-    # to the lltype system
-    # TODO: Find an indirect way to get that mapping done
-    def x_test_specialize_pointer_to_struct(self):
+    def test_specialize_pointer_to_struct(self):
         t = self.test_annotate_pointer_to_struct()
         t.buildrtyper().specialize()
-        t.view()
+        #d#t.view()
+
+    def x_test_compile_pointer_to_struct(self):
+        fn = compile( py_testfunc_struct_pointer_id, [ oppoint_type ] )
 
     def test_compile_struct(self):
         fn = compile( py_test_compile_struct, [ int, int ] )
