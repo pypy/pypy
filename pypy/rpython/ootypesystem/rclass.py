@@ -119,7 +119,14 @@ class InstanceRepr(AbstractInstanceRepr):
                 if mangled in allmethods:
                     raise TyperError("class attribute overrides method")
                 allclassattributes[mangled] = name, s_value
-                                
+
+        if '__init__' not in selfattrs and \
+                self.classdef.classdesc.find_source_for("__init__") is not None:
+            s_init = self.classdef.classdesc.s_get_value(self.classdef,
+                    '__init__')
+            mangled = mangle("__init__")
+            allmethods[mangled] = "__init__", s_init
+            
         #
         # hash() support
         if self.rtyper.needs_hash_support(self.classdef):

@@ -4,6 +4,7 @@ from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rclass import ClassRepr, InstanceRepr, mangle
 from pypy.rpython.ootypesystem.rclass import rtype_classes_is_
+from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pairtype
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
@@ -15,6 +16,15 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
             return hop.genop('runtimenew', [vclass], resulttype=resulttype)
 
         v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)
+        s_init = classdef.classdesc.s_read_attribute('__init__')
+        if not isinstance(s_init, annmodel.SomeImpossibleValue):
+            vlist = hop.inputargs(self, *hop.args_r[1:])
+            mangled = mangle("__init__")
+            cname = hop.inputconst(ootype.Void, mangled)
+            hop.genop("oosend", [cname, v_instance] + vlist[1:],
+                    resulttype=ootype.Void)
+        else:
+            assert hop.nb_args == 1
         return v_instance
 
 class MethodImplementations(object):

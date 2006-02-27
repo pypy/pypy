@@ -3,31 +3,6 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.test.test_llinterp import interpret
 
 
-def test_easy_call():
-    def f(x):
-        return x+1
-    def g(y):
-        return f(y+2)
-    res = interpret(g, [5])
-    assert res == 8
-
-def test_multiple_call():
-    def f1(x):
-        return x+1
-    def f2(x):
-        return x+2
-    def g(y):
-        if y < 0:
-            f = f1
-        else:
-            f = f2
-        return f(y+3)
-    res = interpret(g, [-1])
-    assert res == 3
-    res = interpret(g, [1])
-    assert res == 6
-
-
 class MyBase:
     def m(self, x):
         return self.z + x
@@ -40,44 +15,6 @@ class MyStrangerSubclass(MyBase):
     def m(self, x, y):
         return x*y
 
-def test_method_call():
-    def f(a, b):
-        obj = MyBase()
-        obj.z = a
-        return obj.m(b)
-    res = interpret(f, [4, 5])
-    assert res == 9
-
-def test_virtual_method_call():
-    def f(a, b):
-        if a > 0:
-            obj = MyBase()
-        else:
-            obj = MySubclass()
-        obj.z = a
-        return obj.m(b)
-    res = interpret(f, [1, 2.3])
-    assert res == 3.3
-    res = interpret(f, [-1, 2.3])
-    assert res == -3.3
-
-def test_stranger_subclass_1():
-    def f1():
-        obj = MyStrangerSubclass()
-        obj.z = 100
-        return obj.m(6, 7)
-    res = interpret(f1, [])
-    assert res == 42
-
-def test_stranger_subclass_2():
-    def f2():
-        obj = MyStrangerSubclass()
-        obj.z = 100
-        return obj.m(6, 7) + MyBase.m(obj, 58)
-    res = interpret(f2, [])
-    assert res == 200
-
-
 class MyBaseWithInit:
     def __init__(self, a):
         self.a1 = a
@@ -87,11 +24,90 @@ class MySubclassWithInit(MyBaseWithInit):
         MyBaseWithInit.__init__(self, a)
         self.b1 = b
 
-def test_class_init():
-    def f(a):
-        instance = MyBaseWithInit(a)
-        return instance.a1
-    assert interpret(f, [5]) == 5
+
+class BaseTestRPBC:
+
+    def test_easy_call(self):
+        def f(x):
+            return x+1
+        def g(y):
+            return f(y+2)
+        res = interpret(g, [5], type_system=self.ts)
+        assert res == 8
+
+    def test_multiple_call(self):
+        def f1(x):
+            return x+1
+        def f2(x):
+            return x+2
+        def g(y):
+            if y < 0:
+                f = f1
+            else:
+                f = f2
+            return f(y+3)
+        res = interpret(g, [-1], type_system=self.ts)
+        assert res == 3
+        res = interpret(g, [1], type_system=self.ts)
+        assert res == 6
+
+
+    def test_method_call(self):
+        def f(a, b):
+            obj = MyBase()
+            obj.z = a
+            return obj.m(b)
+        res = interpret(f, [4, 5], type_system=self.ts)
+        assert res == 9
+
+    def test_virtual_method_call(self):
+        def f(a, b):
+            if a > 0:
+                obj = MyBase()
+            else:
+                obj = MySubclass()
+            obj.z = a
+            return obj.m(b)
+        res = interpret(f, [1, 2.3], type_system=self.ts)
+        assert res == 3.3
+        res = interpret(f, [-1, 2.3], type_system=self.ts)
+        assert res == -3.3
+
+    def test_stranger_subclass_1(self):
+        def f1():
+            obj = MyStrangerSubclass()
+            obj.z = 100
+            return obj.m(6, 7)
+        res = interpret(f1, [], type_system=self.ts)
+        assert res == 42
+
+    def test_stranger_subclass_2(self):
+        def f2():
+            obj = MyStrangerSubclass()
+            obj.z = 100
+            return obj.m(6, 7) + MyBase.m(obj, 58)
+        res = interpret(f2, [], type_system=self.ts)
+        assert res == 200
+
+
+    def test_class_init(self):
+        def f(a):
+            instance = MyBaseWithInit(a)
+            return instance.a1
+        assert interpret(f, [5], type_system=self.ts) == 5
+
+    def test_class_init_2(self):
+        def f(a, b):
+            instance = MySubclassWithInit(a, b)
+            return instance.a1 * instance.b1
+        assert interpret(f, [6, 7], type_system=self.ts) == 42
+
+    def test_class_calling_init(self):
+        def f():
+            instance = MySubclassWithInit(1, 2)
+            instance.__init__(3, 4)
+            return instance.a1 * instance.b1
+        assert interpret(f, [], type_system=self.ts) == 12
 
 def test_class_init_w_kwds():
     def f(a):
@@ -99,24 +115,11 @@ def test_class_init_w_kwds():
         return instance.a1
     assert interpret(f, [5]) == 5
 
-def test_class_init_2():
-    def f(a, b):
-        instance = MySubclassWithInit(a, b)
-        return instance.a1 * instance.b1
-    assert interpret(f, [6, 7]) == 42
-
 def test_class_init_2_w_kwds():
     def f(a, b):
         instance = MySubclassWithInit(a, b=b)
         return instance.a1 * instance.b1
     assert interpret(f, [6, 7]) == 42
-
-def test_class_calling_init():
-    def f():
-        instance = MySubclassWithInit(1, 2)
-        instance.__init__(3, 4)
-        return instance.a1 * instance.b1
-    assert interpret(f, []) == 12
 
 
 class Freezing:
@@ -1308,3 +1311,13 @@ def test_precise_method_call_2():
     for i in [0, 1]:
         res = interpret(f, [i, 1234])
         assert res == f(i, 1234)
+
+
+class TestLltype(BaseTestRPBC):
+
+    ts = "lltype"
+
+class TestOotype(BaseTestRPBC):
+
+    ts = "ootype"
+
