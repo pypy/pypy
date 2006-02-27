@@ -171,7 +171,7 @@ class Block(object):
         self.exc_handler = False          # block at the start of exception handling code
 
     def at(self):
-        if self.operations:
+        if self.operations and self.operations[0].offset >= 0:
             return "@%d" % self.operations[0].offset
         else:
             return ""

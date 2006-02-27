@@ -143,10 +143,10 @@ class FlowGraphDotGen(DotGen):
 
         iargs = " ".join(map(repr, block.inputargs))
         if block.exc_handler:
-            eh = 'EH'
+            eh = ' (EH)'
         else:
             eh = ''
-        data = "%s%s(%s %s)\\ninputargs: %s\\n\\n" % (name, block.at(), block.__class__.__name__, eh, iargs)
+        data = "%s%s%s\\ninputargs: %s\\n\\n" % (name, block.at(), eh, iargs)
         if block.operations and self.func:
             maxoffs = max([op.offset for op in block.operations])
             if maxoffs >= 0:
