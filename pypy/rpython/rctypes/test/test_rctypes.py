@@ -357,7 +357,7 @@ class Test_structure:
         #d#t.view()
         assert s.knowntype == tagpoint
         # This memory state will be supported in the future (#f#)
-	# Obviously the test is wrong for now
+        # Obviously the test is wrong for now
         #f#assert s.memorystate == SomeCTypesObject.MIXEDMEMORYOWNERSHIP
         assert isinstance(s, SomeObject)
 
