@@ -17,3 +17,18 @@ def test_function_pointer():
     assert res == 110
     res = interpret(f, [False], type_system='ootype')
     assert res == 221
+
+def test_call_classes():
+    class A: pass
+    class B(A): pass
+    def f(i):
+        if i == 1:
+            cls = B
+        else:
+            cls = A
+        return cls()
+    res = interpret(f, [0], type_system='ootype')
+    assert ootype.typeOf(res)._name == 'A'
+    res = interpret(f, [1], type_system='ootype')
+    assert ootype.typeOf(res)._name == 'B'
+

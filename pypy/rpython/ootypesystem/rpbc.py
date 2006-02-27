@@ -1,6 +1,6 @@
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.rpbc import get_concrete_calltable
-from pypy.rpython.rclass import rtype_new_instance
+from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rclass import ClassRepr, InstanceRepr, mangle
 from pypy.rpython.ootypesystem.rclass import rtype_classes_is_
@@ -8,10 +8,12 @@ from pypy.annotation.pairtype import pairtype
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
     def rtype_simple_call(self, hop):
-        if self.lowleveltype is not ootype.Void:
-            raise NotImplementedError()
-
         classdef = hop.s_result.classdef
+        if self.lowleveltype is not ootype.Void:
+            vclass = hop.inputarg(self, arg=0)
+            resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
+            return hop.genop('runtimenew', [vclass], resulttype=resulttype)
+
         v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)
         return v_instance
 

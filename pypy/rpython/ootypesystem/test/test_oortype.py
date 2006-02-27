@@ -16,7 +16,7 @@ def gengraph(f, args=[], viewBefore=False, viewAfter=False):
     return graphof(t, f)
 
 def test_simple_class():
-    C = Instance("test", None, {'a': Signed})
+    C = Instance("test", ROOT, {'a': Signed})
     
     def f():
         c = new(C)
@@ -27,7 +27,7 @@ def test_simple_class():
     assert rettype == C
     
 def test_simple_field():
-    C = Instance("test", None, {'a': (Signed, 3)})
+    C = Instance("test", ROOT, {'a': (Signed, 3)})
     
     def f():
         c = new(C)
@@ -39,7 +39,7 @@ def test_simple_field():
     assert rettype == Signed
     
 def test_simple_method():
-    C = Instance("test", None, {'a': (Signed, 3)})
+    C = Instance("test", ROOT, {'a': (Signed, 3)})
     M = Meth([], Signed)
     def m_(self):
        return self.a
@@ -55,7 +55,7 @@ def test_simple_method():
     assert rettype == Signed
 
 def test_truth_value():
-    C = Instance("C", None)
+    C = Instance("C", ROOT)
     NULL = null(C)
     def oof(f):
         if f:

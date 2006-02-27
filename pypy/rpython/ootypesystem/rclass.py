@@ -59,16 +59,27 @@ class InstanceRepr(AbstractInstanceRepr):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
 
         self.baserepr = None
-        b = self.classdef.basedef
-        if b is not None:
-            self.baserepr = getinstancerepr(rtyper, b)
-            b = self.baserepr.lowleveltype
+        if self.classdef is None:
+            self.lowleveltype = ootype.ROOT
+        else:
+            b = self.classdef.basedef
+            if b is not None:
+                self.baserepr = getinstancerepr(rtyper, b)
+                b = self.baserepr.lowleveltype
+            else:
+                b = ootype.ROOT
 
-        self.lowleveltype = ootype.Instance(classdef.shortname, b, {}, {})
+            self.lowleveltype = ootype.Instance(classdef.shortname, b, {}, {})
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
 
     def _setup_repr(self):
+        if self.classdef is None:
+            self.allfields = {}
+            self.allmethods = {}
+            self.allclassattributes = {}
+            return
+
         if self.baserepr is not None:
             allfields = self.baserepr.allfields.copy()
             allmethods = self.baserepr.allmethods.copy()

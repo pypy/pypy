@@ -744,6 +744,9 @@ class LLFrame(object):
         assert isinstance(INST, ootype.Instance)
         return ootype.new(INST)
 
+    def op_runtimenew(self, class_):
+        return ootype.runtimenew(class_)
+
     def op_oosetfield(self, inst, name, value):
         assert isinstance(inst, ootype._instance)
         assert isinstance(name, str)

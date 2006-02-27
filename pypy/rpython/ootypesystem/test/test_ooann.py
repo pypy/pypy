@@ -5,7 +5,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 
 
 def test_simple_new():
-    C = Instance("test", None, {'a': Signed})
+    C = Instance("test", ROOT, {'a': Signed})
     
     def oof():
         c = new(C)
@@ -19,7 +19,7 @@ def test_simple_new():
     assert s.knowntype == int
 
 def test_simple_instanceof():
-    C = Instance("test", None, {'a': Signed})
+    C = Instance("test", ROOT, {'a': Signed})
     
     def oof():
         c = new(C)
@@ -32,7 +32,7 @@ def test_simple_instanceof():
     assert s.knowntype == bool
 
 def test_simple_null():
-    I = Instance("test", None, {'a': Signed})
+    I = Instance("test", ROOT, {'a': Signed})
     
     def oof():
         i = null(I)
@@ -45,7 +45,7 @@ def test_simple_null():
     assert s == annmodel.SomeOOInstance(I)
 
 def test_simple_classof():
-    I = Instance("test", None, {'a': Signed})
+    I = Instance("test", ROOT, {'a': Signed})
     
     def oof():
         i = new(I)
@@ -58,7 +58,7 @@ def test_simple_classof():
     assert s == annmodel.SomeOOClass(I)
 
 def test_simple_runtimenew():
-    I = Instance("test", None, {'a': Signed})
+    I = Instance("test", ROOT, {'a': Signed})
     
     def oof():
         i = new(I)
@@ -73,7 +73,7 @@ def test_simple_runtimenew():
     assert s == annmodel.SomeOOInstance(I)
 
 def test_complex_runtimenew():
-    I = Instance("test", None, {'a': Signed})
+    I = Instance("test", ROOT, {'a': Signed})
     J = Instance("test2", I, {'b': Signed})
     K = Instance("test2", I, {'b': Signed})
     
@@ -94,7 +94,7 @@ def test_complex_runtimenew():
     assert s == annmodel.SomeOOInstance(I)
 
 def test_method():
-    C = Instance("test", None, {"a": (Signed, 3)})
+    C = Instance("test", ROOT, {"a": (Signed, 3)})
 
     M = Meth([C], Signed)
     def m_(self, other):
@@ -114,7 +114,7 @@ def test_method():
     assert s.knowntype == int
 
 def test_unionof():
-    C1 = Instance("C1", None)
+    C1 = Instance("C1", ROOT)
     C2 = Instance("C2", C1)
     C3 = Instance("C3", C1)
 
@@ -158,7 +158,7 @@ def test_null_static_method():
     assert s == annmodel.SomeOOStaticMeth(F)
 
 def test_truth_value():
-    C = Instance("C", None)
+    C = Instance("C", ROOT)
     def oof(f):
         if f:
             c = new(C)
