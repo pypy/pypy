@@ -47,12 +47,17 @@ from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, \
         c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
         POINTER, Structure, byref, ARRAY
 
+# LoadLibrary is deprecated in ctypes, this should be removed at some point
+if "load" in dir(cdll):
+    cdll_load = cdll.load
+else:
+    cdll_load = cdll.LoadLibrary
+
 if sys.platform == 'win32':
-    mylib = cdll.LoadLibrary('msvcrt.dll')
+    mylib = cdll_load('msvcrt.dll')
 elif sys.platform == 'linux2':
-    mylib = cdll.LoadLibrary('libc.so.6')
+    mylib = cdll_load('libc.so.6')
 elif sys.platform == 'darwin':
-    #mylib = cdll.LoadLibrary('c.dylib')
     mylib = cdll.c
 else:
     py.test.skip("don't know how to load the c lib for %s" % 
@@ -76,14 +81,9 @@ class tagpoint(Structure):
 compile_c_module([thisdir.join("_rctypes_test.c")], "_rctypes_test")
 
 if sys.platform == "win32":
-    _rctypes_test = cdll.LoadLibrary("_rctypes_test.pyd")
+    _rctypes_test = cdll_load("_rctypes_test.pyd")
 else:
-    # LoadLibrary is deprecated in ctypes, this should be removed at some 
-    # point
-    if "load" in dir(cdll):
-        _rctypes_test = cdll.load(str(thisdir.join("_rctypes_test.so")))
-    else:
-        _rctypes_test = cdll.LoadLibrary(str(thisdir.join("_rctypes_test.so")))
+    _rctypes_test = cdll_load(str(thisdir.join("_rctypes_test.so")))
 
 # _testfunc_byval
 testfunc_byval = _rctypes_test._testfunc_byval
@@ -280,13 +280,9 @@ class Test_structure:
 
     def test_simple(self):
         if sys.platform == "win32":
-            dll = cdll.LoadLibrary("_rctypes_test.pyd")
+            dll = cdll_load("_rctypes_test.pyd")
         else:
-            # LoadLibrary is deprecated
-            if "load" in dir(cdll):
-                dll = cdll.load(str(thisdir.join("_rctypes_test.so")))
-            else:
-                dll = cdll.LoadLibrary(str(thisdir.join("_rctypes_test.so")))
+            dll = cdll_load(str(thisdir.join("_rctypes_test.so")))
         in_point = tagpoint()
         in_point.x = 42
         in_point.y = 17
