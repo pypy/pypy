@@ -104,7 +104,7 @@ def get_ll(ccode, function_names):
 
 def setup_externs(db):
     rtyper = db.translator.rtyper
-    from pypy.translator.c.extfunc import predeclare_all
+    from pypy.translator.llvm.extfunchelper import predeclare_all
 
     # hacks to make predeclare_all work
     # XXX Rationalise this
