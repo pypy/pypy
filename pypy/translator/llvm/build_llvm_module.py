@@ -1,41 +1,32 @@
-"""
-Build a Python module out of llvmfile and a Pyrex wrapper file.
-"""
+import os
+import sys
 
-import os, sys
-
-from py.process import cmdexec 
-from py import path 
 import py
 
-from pypy.translator.tool.cbuild import make_c_from_pyxfile
-from pypy.translator.tool import stdoutcapture
 from pypy.translator.llvm.log import log
+from pypy.translator.tool import stdoutcapture
+from pypy.translator.tool.cbuild import make_c_from_pyxfile
 
-SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
-    # kill code - hopefully to speed things up
-    "-globaldce -adce -deadtypeelim -simplifycfg",
+import distutils.sysconfig
 
-    # call %malloc -> malloc inst
-    "-raiseallocs",
+def optimizations(simple, use_gcc):
 
-    # clean up disgusting code
-    "-simplifycfg",
-
-    # kill useless allocas
-    "-mem2reg",
-
-    # clean up disgusting code
-    "-simplifycfg",
-
-    "-verify",
-    ]))
-
-flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read()[17:-1].split()
-flags += "-globalopt -constmerge -ipsccp -deadargelim -inline -instcombine -scalarrepl -globalsmodref-aa -licm -load-vn -gcse -instcombine -simplifycfg -globaldce".split()
-OPTIMIZATION_SWITCHES = " ".join(flags) + " -inline-threshold=100"
+    if simple:
+        opts = "-globaldce -adce -deadtypeelim -simplifycfg -raiseallocs " \
+               "-simplifycfg -mem2reg -simplifycfg -verify "
+    else:
+        cmd = "gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1"
+        gccas_output = os.popen(cmd)
+        opts = gccas_output.read()[17:-1] + " "
+        opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
+                "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
+                "-gcse -instcombine -simplifycfg -globaldce "
+    if use_gcc:
+        opts +=  "-inline-threshold=100 "
+    return opts
 
 def compile_module(module, source_files, object_files, library_files):
+
     open("%s_setup.py" % module, "w").write(str(py.code.Source(
         '''
         from distutils.core import setup
@@ -49,60 +40,57 @@ def compile_module(module, source_files, object_files, library_files):
         ''' % locals())))
     cmd ="python %s_setup.py build_ext --inplace --force" % module
     log.build(cmd)
-    cmdexec(cmd)
+    py.process.cmdexec(cmd)
 
-def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_name=None):
-    include_dir = py.magic.autopath().dirpath()
+def make_module_from_llvm(genllvm, llvmfile,
+                          pyxfile=None, optimize=True, exe_name=None,
+                          profile=False, cleanup=False, use_gcc=False):
+
+    # build up list of command lines to run 
+    cmds = []
+
+    # where we are building
     dirpath = llvmfile.dirpath()
-    lastdir = path.local()
+
+    # change into dirpath and store current path to change back
+    lastdir = str(py.path.local())
     os.chdir(str(dirpath))
+
     b = llvmfile.purebasename
-    if pyxfile:
-        modname = pyxfile.purebasename
-        source_files = [ "%s.c" % modname ]
-    else:
-        source_files = []
-    from distutils.sysconfig import EXEC_PREFIX
-    object_files = ["-L%s/lib" % EXEC_PREFIX]
+
+    # run llvm assembler and optimizer
+    simple_optimizations = not optimize
+    opts = optimizations(simple_optimizations, use_gcc)
+    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
+        
+    object_files = ["-L%s/lib" % distutils.sysconfig.EXEC_PREFIX]
     library_files = genllvm.db.gcpolicy.gc_libraries()
     gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
-    if optimize:
-        optimization_switches = OPTIMIZATION_SWITCHES
-    else:
-        optimization_switches = SIMPLE_OPTIMIZATION_SWITCHES
-
-    #XXX outcommented for testing merging extern.ll in main .ll file
-    #cmds = ["llvm-as %s.ll" % b]
-    #
-    #bcfile = dirpath.join("externs", "externs_linked.bc")
-    #cmds.append("llvm-link %s.bc %s -o %s_all.bc" % (b, str(bcfile), b))
-    #ball = str(dirpath.join('%s_all.bc' % b))
-    #cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
-
-    use_gcc = sys.platform == 'linux2' and sys.maxint == 2**31-1
-    profile = False
-    cleanup = False
-
     if sys.platform == 'darwin':
-        import distutils.sysconfig
         libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"
         gc_libs_path = '-L%s -ldl' % libdir
     else:
         gc_libs_path = '-static'
 
-    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, optimization_switches, b)]
+    if pyxfile:
+        modname = pyxfile.purebasename
+        source_files = ["%s.c" % modname]
+    else:
+        source_files = []    
+
     if not use_gcc:
-        cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
+        cmds.append("llc -enable-modschedSB -enable-x86-fastcc %s %s.bc -f -o %s.s" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
+
         if exe_name:
             cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
             cmds.append(cmd)
         object_files.append("%s.o" % b)
     else:
-        cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
+        cmds.append("llc entry_point.bc -march=c -f -o entry_point.c" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
         if exe_name:
-            cmd = "gcc %s.c -c -O2 -pipe" % b
+            cmd = "gcc %s.c -c -O3 -fno-inline -pipe" % b
             if profile:
                 cmd += ' -pg'
             else:
@@ -117,19 +105,18 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
     if cleanup and exe_name and not profile:
         cmds.append('strip ' + exe_name)
         upx = os.popen('which upx 2>&1').read()
-        if upx and not upx.startswith('which'): #compress file even further
+        # compress file
+        if upx and not upx.startswith('which'): 
             cmds.append('upx ' + exe_name)
 
     try:
-        if pyxfile:
-            log.build("modname", modname)
         c = stdoutcapture.Capture(mixed_out_err = True)
-        log.build("working in", path.local())
+        log.build("working in", py.path.local())
         try:
             try:
                 for cmd in cmds:
                     log.build(cmd)
-                    cmdexec(cmd)
+                    py.process.cmdexec(cmd)
                 if pyxfile:
                     make_c_from_pyxfile(pyxfile)
                     compile_module(modname, source_files, object_files, library_files)
@@ -154,8 +141,11 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
             sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
+
     if pyxfile:
+        log.build("modname", modname)
         return testmodule
+
     if exe_name:
         exe_path = str(llvmfile.dirpath().join(exe_name))
         return exe_path
