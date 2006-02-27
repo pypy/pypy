@@ -1,18 +1,18 @@
-from ctypes import _DLLS
-from implementation import RCDLL as CDLL, c_int, c_char_p, \
+from ctypes import cdll
+from implementation import c_int, c_char_p, \
         c_char, c_byte, c_ubyte, \
         c_short, c_ushort, c_uint,\
         c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
         RStructure as Structure, RByref as byref, RPOINTER as POINTER, \
         RARRAY as ARRAY
-try:
-    from implementation import RWinDLL as WinDLL
-except ImportError:
-    WinDLL = None
+#try:
+#    from implementation import RWinDLL as WinDLL
+#except ImportError:
+#    WinDLL = None
 
-cdll = _DLLS(CDLL)
-if WinDLL:
-    windll = _DLLS(WinDLL)
+#cdll = _DLLS(CDLL)
+#if WinDLL:
+#    windll = _DLLS(WinDLL)
 
 
 """

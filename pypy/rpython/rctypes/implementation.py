@@ -9,13 +9,14 @@ from ctypes import _FUNCFLAG_CDECL
 if sys.platform == "win32":
     from ctypes import _FUNCFLAG_STDCALL
 from pypy.annotation.model import SomeInteger, SomeCTypesObject, \
-        SomeString, SomeFloat
+        SomeString, SomeFloat, SomeBuiltin
 from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
         Unsigned, UnsignedLongLong, Char, Float, Ptr, \
         GcStruct, Struct, \
         Void
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.error import TyperError
+from pypy.rpython.extregistry import register_func, register_metatype
 from pypy.annotation.pairtype import pairtype
 
 
@@ -63,11 +64,44 @@ def create_ctypes_annotations():
             # the basic c_types need some annotation information
             # at the moment that are exactly the types that have
             # no 'wrap_arg'. This might change in the future
-            the_type.compute_result_annotation = classmethod(lambda cls, s_arg:SomeCTypesObject(cls))
+            #the_type.compute_result_annotation = classmethod(lambda cls, s_arg:SomeCTypesObject(cls))
+            def do_register(the_type):
+                register_func(the_type, lambda s_arg: SomeCTypesObject(the_type))
+            do_register(the_type)
             the_type.default_memorystate = SomeCTypesObject.NOMEMORY
 
 create_ctypes_annotations()
 
+CFuncPtrType = type(ctypes.CFUNCTYPE(None))
+
+def cfuncptrtype_compute_annotation(type, instance):
+    def compute_result_annotation(*args_s):
+        """
+        Answer the annotation of the external function's result
+        """
+        # Take 3, Check whether we can get away with the cheap
+        # precomputed solution and if not it, use a special
+        # attribute with the memory state
+        try:
+            return instance.restype.annotator_type
+        except AttributeError:
+            return SomeCTypesObject( 
+                    instance.restype, 
+                    instance.restype.external_function_result_memorystate )
+        # Take 2, looks like we need another level of indirection
+        # That's to complicated
+        #o#return self.restype.compute_external_function_result_annotator_type()
+        # TODO: Check whether the function returns a pointer
+        # an correct the memory state appropriately
+        try:
+            return instance.restype.annotator_type
+        except AttributeError:
+            return SomeCTypesObject(instance.restype)
+
+    return SomeBuiltin(compute_result_annotation, 
+        methodname=instance.__name__)
+
+register_metatype(CFuncPtrType, cfuncptrtype_compute_annotation)
 
 class FunctionPointerTranslation(object):
 
@@ -280,32 +314,32 @@ def RPOINTER(cls):
     return answer
 
 
-class RCDLL(CDLL):
-    """
-    This is the restricted version of ctypes' CDLL class.
-    """
-
-    class _CdeclFuncPtr(FunctionPointerTranslation, CDLL._CdeclFuncPtr):
-        """
-        A simple extension of ctypes function pointers that
-        implements a simple interface to the anotator.
-        """
-        _flags_ = _FUNCFLAG_CDECL
-
-
-
-if sys.platform == "win32":
-    class RWinDLL(WinDLL):
-        """
-        This is the restricted version of ctypes' WINDLL class
-        """
-
-        class _StdcallFuncPtr(FunctionPointerTranslation, WinDLL._StdcallFuncPtr):
-            """
-            A simple extension of ctypes function pointers that
-            implements a simple interface to the anotator.
-            """
-            _flags_ = _FUNCFLAG_STDCALL
+# class RCDLL(CDLL):
+#     """
+#     This is the restricted version of ctypes' CDLL class.
+#     """
+# 
+#     class _CdeclFuncPtr(FunctionPointerTranslation, CDLL._CdeclFuncPtr):
+#         """
+#         A simple extension of ctypes function pointers that
+#         implements a simple interface to the anotator.
+#         """
+#         _flags_ = _FUNCFLAG_CDECL
+# 
+# 
+# 
+# if sys.platform == "win32":
+#     class RWinDLL(WinDLL):
+#         """
+#         This is the restricted version of ctypes' WINDLL class
+#         """
+# 
+#         class _StdcallFuncPtr(FunctionPointerTranslation, WinDLL._StdcallFuncPtr):
+#             """
+#             A simple extension of ctypes function pointers that
+#             implements a simple interface to the anotator.
+#             """
+#             _flags_ = _FUNCFLAG_STDCALL
 
 def RARRAY(typ,length):
     answer = ARRAY(typ,length)

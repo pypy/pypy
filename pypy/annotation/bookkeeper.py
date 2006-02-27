@@ -369,7 +369,7 @@ class Bookkeeper:
         elif hasattr(tp, "compute_annotation"):
             result = tp.compute_annotation()
         elif type(tp) in EXT_REGISTRY_BY_METATYPE:
-            result = EXT_REGISTRY_BY_METATYPE[type(tp)].get_annotation(tp)
+            result = EXT_REGISTRY_BY_METATYPE[type(tp)].get_annotation(tp, x)
         elif tp in DEFINED_SOMEOBJECTS:
             return SomeObject()
         elif tp in EXTERNAL_TYPE_ANALYZERS:

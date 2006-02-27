@@ -53,6 +53,25 @@ def test_register_type():
     a = RPythonAnnotator()
     s = a.build_types(func, [])
     assert isinstance(s, annmodel.SomeInteger)
+    
+def test_register_type_with_callable():
+    class DummyType(object):
+        pass
+    
+    dummy_type = DummyType()
+    
+    def func():
+        return dummy_type
+    
+    def get_annotation(instance):
+        assert instance is dummy_type
+        return annmodel.SomeInteger()
+    
+    register_type(DummyType, get_annotation)
+    
+    a = RPythonAnnotator()
+    s = a.build_types(func, [])
+    assert isinstance(s, annmodel.SomeInteger)
 
 def test_register_metatype():
     class MetaType(type):
@@ -66,8 +85,9 @@ def test_register_metatype():
     def func():
         return real_class
     
-    def get_annotation(t):
+    def get_annotation(t, x=None):
         assert t is RealClass
+        assert x is real_class
         return annmodel.SomeInteger()
     
     register_metatype(MetaType, get_annotation)
@@ -86,8 +106,9 @@ def test_register_metatype_2():
     def func(real_class):
         return real_class
     
-    def get_annotation(t):
+    def get_annotation(t, x=None):
         assert t is RealClass
+        assert x is None
         return annmodel.SomeInteger()
     
     register_metatype(MetaType, get_annotation)

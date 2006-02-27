@@ -14,6 +14,13 @@ class ExtRegistryType(object):
     
     def get_annotation(self, instance=None):
         return self.compute_annotation(instance)
+
+class ExtRegistryMetaType(object):
+    def __init__(self, compute_annotation):
+        self.compute_annotation = compute_annotation
+    
+    def get_annotation(self, type, instance=None):
+        return self.compute_annotation(type, instance)
     
 EXT_REGISTRY_BY_VALUE = weakref.WeakKeyDictionary()
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
@@ -42,5 +49,5 @@ def register_type(t, compute_annotation):
     EXT_REGISTRY_BY_TYPE[t] = ExtRegistryType(compute_annotation)
 
 def register_metatype(t, compute_annotation):
-    EXT_REGISTRY_BY_METATYPE[t] = ExtRegistryType(compute_annotation)
+    EXT_REGISTRY_BY_METATYPE[t] = ExtRegistryMetaType(compute_annotation)
     
