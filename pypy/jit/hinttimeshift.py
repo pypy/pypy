@@ -43,13 +43,17 @@ class HintTimeshift(object):
         self.ll_build_jitstate_graph = self.annhelper.getgraph(
             rtimeshift.ll_build_jitstate,
             [], self.s_JITState)
-        self.ll_signed_box_graph = self.annhelper.getgraph(
-            rtimeshift.ll_signed_box,
-            [self.s_JITState, annmodel.SomeInteger()],
+        self.ll_int_box_graph = self.annhelper.getgraph(
+            rtimeshift.ll_int_box,
+            [rgenop.s_ConstOrVar],
             self.s_RedBox)
-        self.ll_adr_box_graph = self.annhelper.getgraph(
-            rtimeshift.ll_adr_box,
-            [self.s_JITState, annmodel.SomeAddress(), annmodel.SomePtr(rgenop.CONSTORVAR)],
+        self.ll_addr_box_graph = self.annhelper.getgraph(
+            rtimeshift.ll_addr_box,
+            [rgenop.s_ConstOrVar],
+            self.s_RedBox)
+        self.ll_double_box_graph = self.annhelper.getgraph(
+            rtimeshift.ll_int_box,
+            [rgenop.s_ConstOrVar],
             self.s_RedBox)
         self.ll_var_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_var_box,

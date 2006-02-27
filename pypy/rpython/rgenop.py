@@ -4,7 +4,7 @@ The functions below produce L2 graphs, but they define an interface
 that can be used to produce any other kind of graph.
 """
 
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
@@ -72,6 +72,16 @@ def genconst(llvalue):
         assert not isinstance(llvalue, str) and not isinstance(llvalue, lltype.LowLevelType)
     return to_opaque_object(v)
 
+def revealconst(T, gv_value):
+    c = from_opaque_object(gv_value)
+    assert isinstance(c, flowmodel.Constant)
+    if isinstance(T, lltype.Ptr):
+        return lltype.cast_pointer(T, c.value)
+    elif T == llmemory.Address:
+        return llmemory.cast_ptr_to_adr(c.value)
+    else:
+        return lltype.cast_primitive(T, c.value)
+                                    
 # XXX
 # temporary interface; it's unclera if genop itself should change to ease dinstinguishing
 # Void special args from the rest. Or there should be variation for the ops involving them
@@ -238,6 +248,7 @@ setannotation(initblock, None)
 setannotation(geninputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
 setannotation(genconst, s_ConstOrVar)
+revealconst.compute_result_annotation = lambda s_T, s_gv: annmodel.lltype_to_annotation(s_T.const)
 setannotation(closeblock1, s_Link)
 setannotation(closeblock2, s_LinkPair)
 setannotation(closelink, None)
@@ -248,6 +259,7 @@ setspecialize(initblock)
 setspecialize(geninputarg)
 setspecialize(genop)
 setspecialize(genconst)
+setspecialize(revealconst)
 setspecialize(closeblock1)
 setspecialize(closeblock2)
 setspecialize(closelink)

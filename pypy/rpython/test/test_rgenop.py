@@ -143,3 +143,19 @@ def test_rtype_void_constant_construction():
     assert isinstance(c, flowmodel.Constant)
     assert c.concretetype == lltype.Void
     assert c.value == None
+
+def test_rtype_revealcosnt():
+    def hide_and_reveal(v):
+        gv = genconst(v)
+        return revealconst(lltype.Signed, gv)
+    res = interpret(hide_and_reveal, [42])
+    assert res == 42
+
+    S = lltype.GcStruct('s', ('x', lltype.Signed))
+    S_PTR = lltype.Ptr(S)
+    def hide_and_reveal_p(p):
+        gv = genconst(p)
+        return revealconst(S_PTR, gv)
+    s = malloc(S)
+    res = interpret(hide_and_reveal_p, [s])
+    assert res == s

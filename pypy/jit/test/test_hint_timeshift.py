@@ -65,11 +65,12 @@ def timeshift(ll_function, values, opt_consts=[]):
                                                                  rgenop.constTYPE(TYPE)])
             if i in opt_consts: # XXX what should happen here interface wise is unclear
                 if isinstance(lltype.typeOf(llvalue), lltype.Ptr):
-                    box = llinterp.eval_graph(htshift.ll_adr_box_graph, [jitstate,
-                                                                         llmemory.cast_ptr_to_adr(llvalue),
-                                                                         rgenop.genconst(llvalue)]) # xxx
+                    ll_box_graph = htshift.ll_addr_box_graph
+                elif isinstance(llvalue, float):
+                    ll_box_graph = htshift.ll_double_box_graph
                 else:
-                    box = llinterp.eval_graph(htshift.ll_signed_box_graph, [jitstate, llvalue])
+                    ll_box_graph = htshift.ll_int_box_graph
+                box = llinterp.eval_graph(ll_box_graph, [rgenop.genconst(llvalue)])
             graph1args.append(box)
             residual_graph_args.append(llvalue)
     startblock = llinterp.eval_graph(htshift.ll_end_setup_jitstate_graph, [jitstate])

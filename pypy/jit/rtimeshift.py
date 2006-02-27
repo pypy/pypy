@@ -45,31 +45,28 @@ class VarRedBox(RedBox):
 class ConstRedBox(RedBox):
     "A red box that contains a run-time constant."
 
+    def __init__(self, genvar):
+        self.genvar = genvar
+
+    def getgenvar(self):
+        return self.genvar
+
     def ll_fromvalue(value):
         T = lltype.typeOf(value)
+        gv = rgenop.genconst(value)
         if isinstance(T, lltype.Ptr):
-            return AddrRedBox(llmemory.cast_ptr_to_adr(value), rgenop.genconst(value))
+            return AddrRedBox(gv)
         elif T is lltype.Float:
-            return DoubleRedBox(value)
+            return DoubleRedBox(gv)
         else:
             assert T is not lltype.Void, "cannot make red boxes of voids"
             # XXX what about long longs?
-            return IntRedBox(lltype.cast_primitive(lltype.Signed, value))
+            return IntRedBox(gv)
     ll_fromvalue = staticmethod(ll_fromvalue)
 
     def ll_getvalue(self, T):
         # note: this is specialized by low-level type T, as a low-level helper
-        if isinstance(T, lltype.Ptr):
-            assert isinstance(self, AddrRedBox)
-            return llmemory.cast_adr_to_ptr(self.adrvalue, T)
-        elif T is lltype.Float:
-            assert isinstance(self, DoubleRedBox)
-            return self.dblvalue
-        else:
-            assert T is not lltype.Void, "no red box contains voids"
-            assert isinstance(self, IntRedBox)
-            # XXX what about long longs?
-            return lltype.cast_primitive(T, self.intvalue)
+        return rgenop.revealconst(T, self.genvar)
 
 def ll_getvalue(box, T):
     return box.ll_getvalue(T)
@@ -78,44 +75,25 @@ def ll_getvalue(box, T):
 class IntRedBox(ConstRedBox):
     "A red box that contains a constant integer-like value."
 
-    def __init__(self, intvalue):
-        self.intvalue = intvalue
-
-    def getgenvar(self):
-        return rgenop.genconst(self.intvalue)
-
     def same_constant(self, other):
-        return isinstance(other, IntRedBox) and self.intvalue == other.intvalue
+        return (isinstance(other, IntRedBox) and
+                self.ll_getvalue(lltype.Signed) == other.ll_getvalue(lltype.Signed))
 
 
 class DoubleRedBox(ConstRedBox):
     "A red box that contains a constant double-precision floating point value."
 
-    def __init__(self, dblvalue):
-        self.dblvalue = dblvalue
-
-    def getgenvar(self):
-        return rgenop.genconst(self.dblvalue)
-
     def same_constant(self, other):
-        return isinstance(other, DoubleRedBox) and self.dblvalue == other.dblvalue
+        return (isinstance(other, DoubleRedBox) and
+                self.ll_getvalue(lltype.Float) == other.ll_getvalue(lltype.Float))
 
 
 class AddrRedBox(ConstRedBox):
     "A red box that contains a constant address."
 
-    # xxx the constant genvar needs to preserve the pointer itself!
-    # for now do it this way, anyway addresses are not the right thing
-    # GC wise
-    def __init__(self, adrvalue, genvar): 
-        self.adrvalue = adrvalue
-        self.genvar = genvar 
-
-    def getgenvar(self):
-        return self.genvar # created eagerly
-
     def same_constant(self, other):
-        return isinstance(other, AddrRedBox) and self.adrvalue == other.adrvalue
+        return (isinstance(other, AddrRedBox) and
+                self.ll_getvalue(llmemory.Address) == other.ll_getvalue(llmemory.Address))
 
 
 # ____________________________________________________________
@@ -295,7 +273,7 @@ def leave_block(jitstate):
 def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
     if isinstance(switchredbox, IntRedBox):
         jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)        
-        return bool(switchredbox.intvalue)
+        return switchredbox.ll_getvalue(lltype.Bool)
     else:
         exitgvar = switchredbox.getgenvar()
         linkpair = rgenop.closeblock2(jitstate.curblock, exitgvar)    
@@ -383,12 +361,14 @@ def ll_build_jitstate():
     jitstate.setup()
     return jitstate
 
-def ll_signed_box(jitstate, value):
-    value = lltype.cast_primitive(lltype.Signed, value)
-    return ConstRedBox.ll_fromvalue(value)
+def ll_int_box(gv):
+    return IntRedBox(gv)
 
-def ll_adr_box(jitstate, addr, genvar): # xxx
-    return AddrRedBox(addr, genvar)
+def ll_double_box(gv):
+    return DoubleRedBox(gv)
+
+def ll_addr_box(gv):
+    return AddrRedBox(gv)
 
 def ll_var_box(jitstate, gv_TYPE):
     genvar = rgenop.geninputarg(jitstate.curblock, gv_TYPE)
