@@ -18,7 +18,6 @@ class AbstractDomain(object):
     """Implements the functionnality related to the changed flag.
     Can be used as a starting point for concrete domains"""
 
-    #__implements__ = DomainInterface
     def __init__(self):
         self.__changed = 0
 
@@ -40,44 +39,24 @@ class FiniteDomain(AbstractDomain):
     Variable Domain with a finite set of possible values
     """
 
-    _copy_count = 0
-    _write_count = 0
-    
     def __init__(self, values):
         """values is a list of values in the domain
         This class uses a dictionnary to make sure that there are
         no duplicate values"""
         AbstractDomain.__init__(self)
-        if isinstance(values,FiniteDomain):
-            # do a copy on write
-            self._cow = True
-            values._cow = True
-            FiniteDomain._copy_count += 1
-            self._values = values._values
-        else:
-            # don't check this there (a)
-            #assert len(values) > 0
-            self.set_values(values)
-            
-        ##self.getValues = self._values.keys
+        self.set_values(values)
 
     def set_values(self, values):
-        self._cow = False
-        FiniteDomain._write_count += 1
         self._values = set(values)
         
     def remove_value(self, value):
         """Remove value of domain and check for consistency"""
 ##         print "removing", value, "from", self._values.keys()
-        if self._cow:
-            self.set_values(self._values)
         del self._values[value]
         self._value_removed()
 
     def remove_values(self, values):
         """Remove values of domain and check for consistency"""
-        if self._cow:
-            self.set_values(self._values)
         if values:
 ##             print "removing", values, "from", self._values.keys()
             for val in values :
@@ -103,7 +82,7 @@ class FiniteDomain(AbstractDomain):
         return FiniteDomain(self)
     
     def __repr__(self):
-        return '<FiniteDomain %s>' % str(self.get_values())
+        return '<FD %s>' % str(self.get_values())
 
     def __eq__(self, other):
         if other is NoDom: return False
@@ -131,17 +110,20 @@ class AbstractConstraint(object):
             self._names_to_vars[var.name] = var
         self._variables = variables
 
-    def affectedVariables(self):
+    def affected_variables(self):
         """ Return a list of all variables affected by this constraint """
         return self._variables
 
     def isVariableRelevant(self, variable):
         return variable in self._variables
 
-    def estimateCost(self):
+    def estimate_cost(self):
         """Return an estimate of the cost of the narrowing of the constraint"""
         return reduce(operator.mul,
                       [self.cs.dom(var).size() for var in self._variables])
+
+    def copy_to(self, space):
+        return self.__class__(space, self._variables)
 
 
 class BasicConstraint(object):
@@ -158,6 +140,9 @@ class BasicConstraint(object):
 
     def __repr__(self):
         return '<%s %s %s>'% (self.__class__, self._variable, self._reference)
+
+    def copy_to(self, space):
+        raise NotImplementedError
 
     def isVariableRelevant(self, variable):
         return variable == self._variable
@@ -211,6 +196,11 @@ class Expression(AbstractConstraint):
                                    + expand_expr_template(formula, variables), {}, {})
             Expression._FILTER_CACHE[formula] = self.filterFunc
 
+
+    def copy_to(self, space):
+        return self.__class__(space, self._variables,
+                              self.formula, self.type)
+
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
         result_cache = {}
@@ -248,7 +238,7 @@ class Expression(AbstractConstraint):
         
     def revise3(self):
         # removed domain arg. (auc, ale)
-        """generic narrowing algorithm for n-ary expressions"""
+        """generic propagation algorithm for n-ary expressions"""
         maybe_entailed = 1
         ffunc = self.filterFunc
         result_cache = self._init_result_cache()
@@ -290,6 +280,9 @@ class BinaryExpression(Expression):
     def __init__(self, variables, formula, type = 'fd.BinaryExpression'):
         assert len(variables) == 2
         Expression.__init__(self, variables, formula, type)
+
+    def copy_to(self, space):
+        raise NotImplementedError
 
     def revise3(self, domains):
         """specialized narrowing algorithm for binary expressions
