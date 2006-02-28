@@ -300,10 +300,13 @@ class Test_structure:
 
     def test_annotate_struct(self):
         a = RPythonAnnotator()
-        s = a.build_types(py_testfunc_struct, [int])
+        s = a.build_types(py_testfunc_struct, [tagpoint])
         assert s.knowntype == int
+        
+        if conftest.option.view:
+            a.translator.view()
 
-    def test_annotate_struct(self):
+    def test_annotate_struct2(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_struct_id, [tagpoint])
@@ -323,6 +326,9 @@ class Test_structure:
         a = t.buildannotator()
         s = a.build_types(py_create_point,[])
         assert s.knowntype == int
+
+        if conftest.option.view:
+            a.translator.view()
 
     def test_annotate_byval(self):
         t = TranslationContext()
@@ -407,8 +413,8 @@ class Test_structure:
         try:
             t.buildrtyper().specialize()
         finally:
-            #d#t.view()
-            pass
+            if conftest.option.view:
+                t.view()
 
     def test_specialize_struct_1(self):
         t = TranslationContext()
@@ -467,12 +473,17 @@ class Test_array:
         s = a.build_types(py_test_annotate_array, [])
         assert s.knowntype == c_int_10
 
+        if conftest.option.view:
+            a.translator.view()
+
     def test_annotate_array_access(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_test_annotate_array_content, [])
         assert s.knowntype == int
-        #d#t.view()
+
+        if conftest.option.view:
+            t.view()
 
     def test_annotate_pointer_access_as_array(self):
         """

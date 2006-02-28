@@ -738,7 +738,12 @@ class _ptr(object):
 
     def __len__(self):
         if isinstance(self._T, Array):
+            if self._T._hints.get('nolength', False):
+                raise TypeError("%r instance has no length attribute" %
+                                    (self._T,))
+
             return len(self._obj.items)
+
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __repr__(self):

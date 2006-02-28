@@ -508,3 +508,8 @@ def test_cast_primitive():
          assert typeOf(res) == TGT
          assert res == expect
         
+def test_array_with_no_length():
+    A = GcArray(Signed, hints={'nolength': True})
+    a = malloc(A, 10)
+    py.test.raises(TypeError, len, a)
+

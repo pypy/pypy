@@ -182,7 +182,8 @@ class ArrayDefNode:
         yield 'struct %s {' % self.name
         for fname, typename in self.gcfields:
             yield '\t' + cdecl(typename, fname) + ';'
-        yield '\tlong length;'
+        if not self.ARRAY._hints.get('nolength', False):
+            yield '\tlong length;'
         line = '%s;' % cdecl(self.itemtypename, 'items[%d]'% self.varlength)
         if self.ARRAY.OF is Void:    # strange
             line = '/* %s */' % line
@@ -216,7 +217,10 @@ class ArrayDefNode:
 
     def debug_offsets(self):
         # generate three offsets for debugging inspection
-        yield 'offsetof(struct %s, length)' % (self.name,)
+        if not self.ARRAY._hints.get('nolength', False):
+            yield 'offsetof(struct %s, length)' % (self.name,)
+        else:
+            yield '-1'
         if self.ARRAY.OF is not Void:
             yield 'offsetof(struct %s, items[0])' % (self.name,)
             yield 'offsetof(struct %s, items[1])' % (self.name,)

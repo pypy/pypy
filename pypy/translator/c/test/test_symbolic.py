@@ -25,6 +25,16 @@ def test_offsetof():
     res = fn()
     assert res == 12
 
+def test_sizeof_array_with_no_length():
+    A = lltype.Array(lltype.Signed, hints={'nolength': True})
+    arraysize = llmemory.sizeof(A, 10)
+    signedsize = llmemory.sizeof(lltype.Signed)
+    def f():
+        return arraysize-signedsize*10
+    fn, t = getcompiled(f, [])
+    res = fn()
+    assert res == 0
+
 def test_itemoffsetof():
     ARRAY = lltype.GcArray(lltype.Signed)
     itemoffsets = [llmemory.itemoffsetof(ARRAY, i) for i in range(5)]
