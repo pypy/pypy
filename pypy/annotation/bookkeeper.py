@@ -23,8 +23,7 @@ from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.memory import lladdress
-from pypy.rpython.extregistry import EXT_REGISTRY_BY_VALUE, EXT_REGISTRY_BY_TYPE
-from pypy.rpython.extregistry import EXT_REGISTRY_BY_METATYPE
+from pypy.rpython import extregistry
 
 class Stats:
 
@@ -360,16 +359,12 @@ class Bookkeeper:
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
-        elif ishashable(x) and x in EXT_REGISTRY_BY_VALUE:
-            result = EXT_REGISTRY_BY_VALUE[x].get_annotation(x)
+        elif extregistry.is_registered(x):
+            result = extregistry.lookup(x).get_annotation(tp, x)
         elif hasattr(x, "compute_result_annotation"):
             result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
-        elif tp in EXT_REGISTRY_BY_TYPE:
-            result = EXT_REGISTRY_BY_TYPE[tp].get_annotation(x)
         elif hasattr(tp, "compute_annotation"):
             result = tp.compute_annotation()
-        elif type(tp) in EXT_REGISTRY_BY_METATYPE:
-            result = EXT_REGISTRY_BY_METATYPE[type(tp)].get_annotation(tp, x)
         elif tp in DEFINED_SOMEOBJECTS:
             return SomeObject()
         elif tp in EXTERNAL_TYPE_ANALYZERS:
@@ -519,10 +514,8 @@ class Bookkeeper:
             return SomeExternalObject(t)
         elif hasattr(t, "compute_annotation"):
             return t.compute_annotation()
-        elif t in EXT_REGISTRY_BY_TYPE:
-            return EXT_REGISTRY_BY_TYPE[t].get_annotation()
-        elif type(t) in EXT_REGISTRY_BY_METATYPE:
-            return EXT_REGISTRY_BY_METATYPE[type(t)].get_annotation(t)
+        elif extregistry.is_registered_type(t):
+            return extregistry.lookup_type(t).get_annotation(t)
         elif t.__module__ != '__builtin__' and t not in self.pbctypes:
             classdef = self.getuniqueclassdef(t)
             return SomeInstance(classdef)

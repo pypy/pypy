@@ -4,7 +4,8 @@ class ExtRegistryFunc(object):
     def __init__(self, compute_result_annotation):
         self.compute_result_annotation = compute_result_annotation
     
-    def get_annotation(self, func):
+    def get_annotation(self, type, func=None):
+        assert func is not None
         from pypy.annotation import model as annmodel
         return annmodel.SomeBuiltin(self.compute_result_annotation, methodname=func.__name__)
 
@@ -12,7 +13,7 @@ class ExtRegistryType(object):
     def __init__(self, compute_annotation):
         self.compute_annotation = compute_annotation
     
-    def get_annotation(self, instance=None):
+    def get_annotation(self, type, instance=None):
         return self.compute_annotation(instance)
 
 class ExtRegistryMetaType(object):
@@ -50,4 +51,29 @@ def register_type(t, compute_annotation):
 
 def register_metatype(t, compute_annotation):
     EXT_REGISTRY_BY_METATYPE[t] = ExtRegistryMetaType(compute_annotation)
-    
+
+def lookup_type(tp):
+    try:
+        return EXT_REGISTRY_BY_TYPE[tp]
+    except KeyError:
+        return EXT_REGISTRY_BY_METATYPE[type(tp)]
+
+def is_registered_type(tp):
+    try:
+        lookup_type(tp)
+    except KeyError:
+        return False
+    return True
+
+def lookup(instance):
+    try:
+        return EXT_REGISTRY_BY_VALUE[instance]
+    except (KeyError, TypeError):
+        return lookup_type(type(instance))
+        
+def is_registered(instance):
+    try:
+        lookup(instance)
+    except KeyError:
+        return False
+    return True
