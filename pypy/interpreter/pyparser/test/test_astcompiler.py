@@ -1,5 +1,5 @@
 import os
-from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
+from pypy.interpreter.pyparser import pythonparse
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pyparser.tuplebuilder import TupleBuilder
 from pypy.interpreter.pycode import PyCode
@@ -63,7 +63,7 @@ TARGET_DICT = {
 def ast_parse_expr(expr, target='single', space=FakeSpace()):
     target = TARGET_DICT[target]
     builder = AstBuilder(space=space)
-    PYTHON_PARSER.parse_source(expr, target, builder)
+    pythonparse.PYTHON_PARSER.parse_source(expr, target, builder)
     return builder.rule_stack[-1]
 
 
@@ -80,10 +80,15 @@ def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
     rcode = codegen.getCode()
     return rcode
 
+
+# Create parser from Grammar_stable, not current grammar.
+stable_grammar, _ = pythonparse.get_grammar_file("stable")
+stable_parser = pythonparse.python_grammar(stable_grammar)
+
 def compile_with_testcompiler(expr, target='exec', space=FakeSpace()):
     target2 = TARGET_DICT['exec'] # xxx exec: single not really tested
     builder = TupleBuilder()
-    PYTHON_PARSER.parse_source(expr, target2, builder)
+    stable_parser.parse_source(expr, target2, builder)
     tuples =  builder.stack[-1].as_tuple(True)
     from pypy.interpreter.stablecompiler import transformer, pycodegen, misc
     ast = transformer.Transformer('<?>').compile_node(tuples)

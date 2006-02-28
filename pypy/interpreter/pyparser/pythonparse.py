@@ -112,6 +112,8 @@ def get_grammar_file( version ):
     """returns the python grammar corresponding to our CPython version"""
     if version == "native":
         _ver = PYTHON_VERSION
+    elif version == "stable":
+        _ver = "_stablecompiler"
     elif version in ("2.3","2.4","2.5a"):
         _ver = version
     return os.path.join( os.path.dirname(__file__), "data", "Grammar" + _ver ), _ver

@@ -1,6 +1,6 @@
 import os
 
-from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
+from pypy.interpreter.pyparser import pythonparse
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pyparser.pythonutil import ast_from_input
 from pypy.interpreter.stablecompiler.transformer import Transformer
@@ -704,12 +704,16 @@ class FakeSpace:
 def ast_parse_expr(expr, target='single'):
     target = TARGET_DICT[target]
     builder = AstBuilder(space=FakeSpace())
-    PYTHON_PARSER.parse_source(expr, target, builder)
+    pythonparse.PYTHON_PARSER.parse_source(expr, target, builder)
     return builder
+
+# Create parser from Grammar_stable, not current grammar.
+stable_grammar, _ = pythonparse.get_grammar_file("stable")
+stable_parser = pythonparse.python_grammar(stable_grammar)
 
 def tuple_parse_expr(expr, target='single'):
     t = Transformer("dummyfile")
-    return ast_from_input(expr, target, t)
+    return ast_from_input(expr, target, t, stable_parser)
 
 def check_expression(expr, target='single'):
     r1 = ast_parse_expr(expr, target)
@@ -786,6 +790,11 @@ def test_snippets():
     for snippet_name in SNIPPETS:
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
+        # To avoid using the stable compiler we pull an explicit AST out of the snippet
+        if source.startswith('# EXPECT:'):
+            firstline,_ = source.split('\n', 1)
+            firstline = firstline[len('# EXPECT:'):].strip()
+            EXPECTED[source] = firstline
         yield check_expression, source, 'exec'
 
 def test_libstuff():

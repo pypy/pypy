@@ -50,7 +50,8 @@ def pypy_parsefile(filename, lineno=False):
     pyf.close()
     return pypy_parse(source, 'exec', lineno)
 
-def internal_pypy_parse(source, mode='exec', lineno=False, flags=0, space=None):
+def internal_pypy_parse(source, mode='exec', lineno=False, flags=0, space=None,
+                        parser = PYTHON_PARSER):
     """This function has no other role than testing the parser's annotation
 
     annotateme() is basically the same code that pypy_parse(), but with the
@@ -60,11 +61,11 @@ def internal_pypy_parse(source, mode='exec', lineno=False, flags=0, space=None):
        tuples (StackElement is only a wrapper class around these tuples)
 
     """
-    builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
+    builder = TupleBuilder(parser.rules, lineno=False)
     if space is not None:
         builder.space = space
     target_rule = TARGET_DICT[mode]
-    PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
+    parser.parse_source(source, target_rule, builder, flags)
     stack_element = builder.stack[-1]
     return (builder.source_encoding, stack_element)
 
@@ -77,7 +78,7 @@ def parse_result_to_nested_tuples(parse_result, lineno=False):
     else:
         return nested_tuples
 
-def pypy_parse(source, mode='exec', lineno=False, flags=0):
+def pypy_parse(source, mode='exec', lineno=False, flags=0, parser = PYTHON_PARSER):
     """
     NOT_RPYTHON !
     parse <source> using PyPy's parser module and return
@@ -90,13 +91,14 @@ def pypy_parse(source, mode='exec', lineno=False, flags=0):
      - The encoding string or None if there were no encoding statement
     nested tuples
     """
-    source_encoding, stack_element = internal_pypy_parse(source, mode, lineno=lineno, flags=lineno)
+    source_encoding, stack_element = internal_pypy_parse(source, mode, lineno=lineno,
+                                                         flags=lineno, parser = parser)
     # convert the stack element into nested tuples (caution, the annotator
     # can't follow this call)
     return parse_result_to_nested_tuples((source_encoding, stack_element), lineno=lineno)
 
 ## convenience functions for computing AST objects using recparser
-def ast_from_input(input, mode, transformer):
+def ast_from_input(input, mode, transformer, parser = PYTHON_PARSER):
     """converts a source input into an AST
 
      - input : the source to be converted
@@ -107,7 +109,7 @@ def ast_from_input(input, mode, transformer):
           here to explicitly import compiler or stablecompiler or
           etc. This is to be fixed in a clean way
     """
-    tuples = pypy_parse(input, mode, True)
+    tuples = pypy_parse(input, mode, True, parser)
     ast = transformer.compile_node(tuples)
     return ast
 
