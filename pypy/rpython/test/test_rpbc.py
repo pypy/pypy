@@ -214,124 +214,136 @@ class BaseTestRPBC:
         res = interpret(f, [1], type_system=self.ts)
         assert res is True
 
-def test_unbound_method():
-    def f():
-        inst = MySubclass()
-        inst.z = 40
-        return MyBase.m(inst, 2)
-    res = interpret(f, [])
-    assert res == 42
+    def test_unbound_method(self):
+        def f():
+            inst = MySubclass()
+            inst.z = 40
+            return MyBase.m(inst, 2)
+        res = interpret(f, [], type_system=self.ts)
+        assert res == 42
 
-def test_call_defaults():
-    def g(a, b=2, c=3):
-        return a+b+c
-    def f1():
-        return g(1)
-    def f2():
-        return g(1, 10)
-    def f3():
-        return g(1, 10, 100)
-    res = interpret(f1, [])
-    assert res == 1+2+3
-    res = interpret(f2, [])
-    assert res == 1+10+3
-    res = interpret(f3, [])
-    assert res == 1+10+100
+    def test_call_defaults(self):
+        def g(a, b=2, c=3):
+            return a+b+c
+        def f1():
+            return g(1)
+        def f2():
+            return g(1, 10)
+        def f3():
+            return g(1, 10, 100)
+        res = interpret(f1, [], type_system=self.ts)
+        assert res == 1+2+3
+        res = interpret(f2, [], type_system=self.ts)
+        assert res == 1+10+3
+        res = interpret(f3, [], type_system=self.ts)
+        assert res == 1+10+100
 
-def test_call_memoized_function():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    def getorbuild(key):
-        a = 1
-        if key is fr1:
-            result = eval("a+2")
-        else:
-            result = eval("a+6")
-        return result
-    getorbuild._annspecialcase_ = "specialize:memo"
-
-    def f1(i):
-        if i > 0:
-            fr = fr1
-        else:
-            fr = fr2
-        return getorbuild(fr)
-
-    res = interpret(f1, [0]) 
-    assert res == 7
-    res = interpret(f1, [1]) 
-    assert res == 3
-
-def test_call_memoized_function_with_bools():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    def getorbuild(key, flag1, flag2):
-        a = 1
-        if key is fr1:
-            result = eval("a+2")
-        else:
-            result = eval("a+6")
-        if flag1:
-            result += 100
-        if flag2:
-            result += 1000
-        return result
-    getorbuild._annspecialcase_ = "specialize:memo"
-
-    def f1(i):
-        if i > 0:
-            fr = fr1
-        else:
-            fr = fr2
-        return getorbuild(fr, i % 2 == 0, i % 3 == 0)
-
-    for n in [0, 1, 2, -3, 6]:
-        res = interpret(f1, [n])
-        assert res == f1(n)
-
-def test_call_memoized_cache():
-
-    # this test checks that we add a separate field 
-    # per specialization and also it uses a subclass of 
-    # the standard pypy.tool.cache.Cache
-
-    from pypy.tool.cache import Cache
-    fr1 = Freezing()
-    fr2 = Freezing()
-
-    class Cache1(Cache): 
-        def _build(self, key): 
-            "NOT_RPYTHON" 
-            if key is fr1:
-                return fr2 
-            else:
-                return fr1 
-
-    class Cache2(Cache): 
-        def _build(self, key): 
-            "NOT_RPYTHON" 
+    def test_call_memoized_function(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        def getorbuild(key):
             a = 1
             if key is fr1:
                 result = eval("a+2")
             else:
                 result = eval("a+6")
             return result
+        getorbuild._annspecialcase_ = "specialize:memo"
 
-    cache1 = Cache1()
-    cache2 = Cache2()
+        def f1(i):
+            if i > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            return getorbuild(fr)
 
-    def f1(i):
-        if i > 0:
-            fr = fr1
-        else:
-            fr = fr2
-        newfr = cache1.getorbuild(fr)
-        return cache2.getorbuild(newfr)
+        res = interpret(f1, [0], type_system=self.ts) 
+        assert res == 7
+        res = interpret(f1, [1], type_system=self.ts) 
+        assert res == 3
 
-    res = interpret(f1, [0], view=0, viewbefore=0)  
-    assert res == 3
-    res = interpret(f1, [1]) 
-    assert res == 7
+    def test_call_memoized_function_with_bools(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        def getorbuild(key, flag1, flag2):
+            a = 1
+            if key is fr1:
+                result = eval("a+2")
+            else:
+                result = eval("a+6")
+            if flag1:
+                result += 100
+            if flag2:
+                result += 1000
+            return result
+        getorbuild._annspecialcase_ = "specialize:memo"
+
+        def f1(i):
+            if i > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            return getorbuild(fr, i % 2 == 0, i % 3 == 0)
+
+        for n in [0, 1, 2, -3, 6]:
+            res = interpret(f1, [n], type_system=self.ts)
+            assert res == f1(n)
+
+    def test_call_memoized_cache(self):
+
+        # this test checks that we add a separate field 
+        # per specialization and also it uses a subclass of 
+        # the standard pypy.tool.cache.Cache
+
+        from pypy.tool.cache import Cache
+        fr1 = Freezing()
+        fr2 = Freezing()
+
+        class Cache1(Cache): 
+            def _build(self, key): 
+                "NOT_RPYTHON" 
+                if key is fr1:
+                    return fr2 
+                else:
+                    return fr1 
+
+        class Cache2(Cache): 
+            def _build(self, key): 
+                "NOT_RPYTHON" 
+                a = 1
+                if key is fr1:
+                    result = eval("a+2")
+                else:
+                    result = eval("a+6")
+                return result
+
+        cache1 = Cache1()
+        cache2 = Cache2()
+
+        def f1(i):
+            if i > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            newfr = cache1.getorbuild(fr)
+            return cache2.getorbuild(newfr)
+
+        res = interpret(f1, [0], type_system=self.ts)  
+        assert res == 3
+        res = interpret(f1, [1], type_system=self.ts) 
+        assert res == 7
+
+    def test_call_memo_with_single_value(self):
+        class A: pass
+        def memofn(cls):
+            return len(cls.__name__)
+        memofn._annspecialcase_ = "specialize:memo"
+
+        def f1():
+            A()    # make sure we have a ClassDef
+            return memofn(A)
+        res = interpret(f1, [], type_system=self.ts)
+        assert res == 1
 
 def test_call_memo_with_class():
     class A: pass
@@ -351,18 +363,6 @@ def test_call_memo_with_class():
     assert res == 1
     res = interpret(f1, [2])
     assert res == 6
-
-def test_call_memo_with_single_value():
-    class A: pass
-    def memofn(cls):
-        return len(cls.__name__)
-    memofn._annspecialcase_ = "specialize:memo"
-
-    def f1():
-        A()    # make sure we have a ClassDef
-        return memofn(A)
-    res = interpret(f1, [])
-    assert res == 1
 
 def test_rpbc_bound_method_static_call():
     class R:

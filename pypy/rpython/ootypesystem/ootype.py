@@ -134,6 +134,9 @@ class StaticMethod(OOType):
     def _example(self):
         _retval = self.RESULT._example()
         return _static_meth(self, _callable=lambda *args: _retval)
+
+    def _defl(self):
+        return null(self)
     
 class Meth(StaticMethod):
 
