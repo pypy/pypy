@@ -9,6 +9,21 @@ from pypy.translator.tool.cbuild import make_c_from_pyxfile
 
 import distutils.sysconfig
 
+def llvm_is_on_path():
+    try:
+        py.path.local.sysfind("llvm-as")
+        py.path.local.sysfind("llvm-gcc")
+    except py.error.ENOENT: 
+        return False 
+    return True
+
+def llvm_version():
+    import os
+    v = os.popen('llvm-as -version 2>&1').readline()
+    v = ''.join([c for c in v if c.isdigit()])
+    v = int(v) / 10.0
+    return v
+
 def optimizations(simple, use_gcc):
 
     if simple:
@@ -21,8 +36,8 @@ def optimizations(simple, use_gcc):
         opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
                 "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
                 "-gcse -instcombine -simplifycfg -globaldce "
-    if use_gcc:
-        opts +=  "-inline-threshold=100 "
+        if use_gcc:
+            opts +=  "-inline-threshold=100 "
     return opts
 
 def compile_module(module, source_files, object_files, library_files):
@@ -46,9 +61,6 @@ def make_module_from_llvm(genllvm, llvmfile,
                           pyxfile=None, optimize=True, exe_name=None,
                           profile=False, cleanup=False, use_gcc=False):
 
-    # build up list of command lines to run 
-    cmds = []
-
     # where we are building
     dirpath = llvmfile.dirpath()
 
@@ -62,7 +74,7 @@ def make_module_from_llvm(genllvm, llvmfile,
     simple_optimizations = not optimize
     opts = optimizations(simple_optimizations, use_gcc)
     cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
-        
+
     object_files = ["-L%s/lib" % distutils.sysconfig.EXEC_PREFIX]
     library_files = genllvm.db.gcpolicy.gc_libraries()
     gc_libs = ' '.join(['-l' + lib for lib in library_files])
@@ -77,10 +89,11 @@ def make_module_from_llvm(genllvm, llvmfile,
         modname = pyxfile.purebasename
         source_files = ["%s.c" % modname]
     else:
-        source_files = []    
+        source_files = []
 
     if not use_gcc:
-        cmds.append("llc -enable-modschedSB -enable-x86-fastcc %s %s.bc -f -o %s.s" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
+        llc_params = llvm_version() > 1.6 and '-enable-x86-fastcc' or ''
+        cmds.append("llc %s %s %s.bc -f -o %s.s" % (llc_params, genllvm.db.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
 
         if exe_name:
@@ -88,7 +101,7 @@ def make_module_from_llvm(genllvm, llvmfile,
             cmds.append(cmd)
         object_files.append("%s.o" % b)
     else:
-        cmds.append("llc entry_point.bc -march=c -f -o entry_point.c" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
+        cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
         if exe_name:
             cmd = "gcc %s.c -c -O3 -fno-inline -pipe" % b
             if profile:
