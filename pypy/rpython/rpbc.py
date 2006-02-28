@@ -468,6 +468,18 @@ class AbstractClassesPBCRepr(Repr):
             r_res = self.rtyper.getrepr(s_res)
             return hop.llops.convertvar(v_res, r_res, hop.r_result)
 
+    def replace_class_with_inst_arg(self, hop, v_inst, s_inst, call_args):
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()   # discard the class pointer argument
+        if call_args:
+            _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
+            hop2.v_s_insertfirstarg(v_inst, s_inst)  # add 'instance'
+            adjust_shape(hop2, s_shape)
+        else:
+            hop2.v_s_insertfirstarg(v_inst, s_inst)  # add 'instance'
+        return hop2
+
+
 class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):
         # turn a PBC of classes to a standard pointer-to-vtable class repr

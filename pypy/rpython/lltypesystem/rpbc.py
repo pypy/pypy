@@ -263,14 +263,8 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
             assert hop.nb_args == 1, ("arguments passed to __init__, "
                                       "but no __init__!")
         else:
-            hop2 = hop.copy()
-            hop2.r_s_popfirstarg()   # discard the class pointer argument
-            if call_args:
-                _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
-                hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
-                adjust_shape(hop2, s_shape)
-            else:
-                hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
+            hop2 = self.replace_class_with_inst_arg(
+                    hop, v_instance, s_instance, call_args)
             hop2.v_s_insertfirstarg(v_init, s_init)   # add 'initfunc'
             hop2.s_result = annmodel.s_None
             hop2.r_result = self.rtyper.getrepr(hop2.s_result)

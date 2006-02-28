@@ -109,17 +109,17 @@ class BaseTestRPBC:
             return instance.a1 * instance.b1
         assert interpret(f, [], type_system=self.ts) == 12
 
-def test_class_init_w_kwds():
-    def f(a):
-        instance = MyBaseWithInit(a=a)
-        return instance.a1
-    assert interpret(f, [5]) == 5
+    def test_class_init_w_kwds(self):
+        def f(a):
+            instance = MyBaseWithInit(a=a)
+            return instance.a1
+        assert interpret(f, [5], type_system=self.ts) == 5
 
-def test_class_init_2_w_kwds():
-    def f(a, b):
-        instance = MySubclassWithInit(a, b=b)
-        return instance.a1 * instance.b1
-    assert interpret(f, [6, 7]) == 42
+    def test_class_init_2_w_kwds(self):
+        def f(a, b):
+            instance = MySubclassWithInit(a, b=b)
+            return instance.a1 * instance.b1
+        assert interpret(f, [6, 7], type_system=self.ts) == 42
 
 
 class Freezing:

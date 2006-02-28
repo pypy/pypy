@@ -10,23 +10,36 @@ from pypy.annotation import description
 from pypy.annotation.pairtype import pairtype
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
+
     def rtype_simple_call(self, hop):
+        return self.call("simple_call", hop)
+
+    def rtype_call_args(self, hop):
+        return self.call("call_args", hop)
+
+    def call(self, opname, hop):
         classdef = hop.s_result.classdef
         if self.lowleveltype is not ootype.Void:
+            # instantiating a class from multiple possible classes
             vclass = hop.inputarg(self, arg=0)
             resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
             return hop.genop('runtimenew', [vclass], resulttype=resulttype)
 
+        # instantiating a single class
         v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)
         s_init = classdef.classdesc.s_read_attribute('__init__')
         if not isinstance(s_init, annmodel.SomeImpossibleValue):
-            vlist = hop.inputargs(self, *hop.args_r[1:])
-            mangled = mangle("__init__")
-            cname = hop.inputconst(ootype.Void, mangled)
-            hop.genop("oosend", [cname, v_instance] + vlist[1:],
-                    resulttype=ootype.Void)
+            s_instance = annmodel.SomeInstance(classdef)
+            hop2 = self.replace_class_with_inst_arg(
+                    hop, v_instance, s_instance, opname == "call_args")
+            hop2.v_s_insertfirstarg(v_instance, s_init)   # add 'initfunc'
+            hop2.s_result = annmodel.s_None
+            hop2.r_result = self.rtyper.getrepr(hop2.s_result)
+            # now hop2 looks like simple_call(initfunc, instance, args...)
+            hop2.dispatch()
         else:
-            assert hop.nb_args == 1
+            assert hop.nb_args == 1, ("arguments passed to __init__, "
+                                      "but no __init__!")
         return v_instance
 
 class MethodImplementations(object):
@@ -84,7 +97,8 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = [desc.funcdesc for desc in s_pbc.descriptions]
         callfamily = descs[0].getcallfamily()
-        shape, index = description.FunctionDesc.variant_for_call_site(bk, callfamily, descs, args)
+        shape, index = description.FunctionDesc.variant_for_call_site(
+                bk, callfamily, descs, args)
         row_of_graphs = callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         hop2 = self.add_instance_arg_to_hop(hop, opname == "call_args")
