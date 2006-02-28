@@ -10,9 +10,10 @@ from pypy.rpython.rmodel import Repr, TyperError, inputconst, inputdesc
 from pypy.rpython.rmodel import warning, mangle, CanBeNull
 from pypy.rpython import robject
 from pypy.rpython import rtuple
-from pypy.rpython.rpbc import SingleFrozenPBCRepr, samesig,\
+from pypy.rpython.rpbc import samesig,\
      commonbase, allattributenames, adjust_shape, FunctionsPBCRepr, \
-     AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr
+     AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr, \
+     AbstractMultipleFrozenPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
 
@@ -26,7 +27,7 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
     
 # ____________________________________________________________
 
-class MultipleFrozenPBCRepr(CanBeNull, Repr):
+class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""
     def __init__(self, rtyper, access_set):
         self.rtyper = rtyper
@@ -36,76 +37,20 @@ class MultipleFrozenPBCRepr(CanBeNull, Repr):
         self.pbc_cache = {}
 
     def _setup_repr(self):
-        llfields = []
-        llfieldmap = {}
-        if self.access_set is not None:
-            attrlist = self.access_set.attrs.keys()
-            attrlist.sort()
-            for attr in attrlist:
-                s_value = self.access_set.attrs[attr]
-                r_value = self.rtyper.getrepr(s_value)
-                mangled_name = mangle('pbc', attr)
-                llfields.append((mangled_name, r_value.lowleveltype))
-                llfieldmap[attr] = mangled_name, r_value
+        llfields = self._setup_repr_fields()
         self.pbc_type.become(Struct('pbc', *llfields))
-        self.llfieldmap = llfieldmap
 
-    def convert_desc(self, frozendesc):
-        if (self.access_set is not None and
-            frozendesc not in self.access_set.descs):
-            raise TyperError("not found in PBC access set: %r" % (frozendesc,))
-        try:
-            return self.pbc_cache[frozendesc]
-        except KeyError:
-            self.setup()
-            result = malloc(self.pbc_type, immortal=True)
-            self.pbc_cache[frozendesc] = result
-            for attr, (mangled_name, r_value) in self.llfieldmap.items():
-                if r_value.lowleveltype is Void:
-                    continue
-                try:
-                    thisattrvalue = frozendesc.read_attribute(attr)
-                except AttributeError:
-                    warning("Desc %r has no attribute %r" % (frozendesc, attr))
-                    continue
-                llvalue = r_value.convert_const(thisattrvalue)
-                setattr(result, mangled_name, llvalue)
-            return result
+    def create_instance(self):
+        return malloc(self.pbc_type, immortal=True)
 
-    def convert_const(self, pbc):
-        if pbc is None:
-            return nullptr(self.pbc_type)
-        if isinstance(pbc, types.MethodType) and pbc.im_self is None:
-            value = pbc.im_func   # unbound method -> bare function
-        frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
-        return self.convert_desc(frozendesc)
-
-    def rtype_getattr(self, hop):
-        attr = hop.args_s[1].const
-        vpbc, vattr = hop.inputargs(self, Void)
-        v_res = self.getfield(vpbc, attr, hop.llops)
-        mangled_name, r_res = self.llfieldmap[attr]
-        return hop.llops.convertvar(v_res, r_res, hop.r_result)
+    def null_instance(self):
+        return nullptr(self.pbc_type)
 
     def getfield(self, vpbc, attr, llops):
-        mangled_name, r_value = self.llfieldmap[attr]
+        mangled_name, r_value = self.fieldmap[attr]
         cmangledname = inputconst(Void, mangled_name)
         return llops.genop('getfield', [vpbc, cmangledname],
                            resulttype = r_value)
-
-class __extend__(pairtype(MultipleFrozenPBCRepr, MultipleFrozenPBCRepr)):
-    def convert_from_to((r_pbc1, r_pbc2), v, llops):
-        if r_pbc1.access_set == r_pbc2.access_set:
-            return v
-        return NotImplemented
-
-class __extend__(pairtype(SingleFrozenPBCRepr, MultipleFrozenPBCRepr)):
-    def convert_from_to((r_pbc1, r_pbc2), v, llops):
-        frozendesc1 = r_pbc1.frozendesc
-        access = frozendesc1.queryattrfamily()
-        if access is r_pbc2.access_set:
-            return inputdesc(r_pbc2, frozendesc1)
-        return NotImplemented
 
 # ____________________________________________________________
 
