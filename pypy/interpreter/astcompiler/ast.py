@@ -4186,6 +4186,63 @@ While.typedef = TypeDef('While', Node.typedef,
                     else_=GetSetProperty(While.fget_else_, While.fset_else_ ),
                     )
 
+class With(Node):
+    def __init__(self, expr, body, var, lineno=-1):
+        Node.__init__(self, lineno)
+        self.expr = expr
+        self.body = body
+        self.var = var
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return self.expr, self.body, self.var
+
+    def getChildNodes(self):
+        return [self.expr, self.body]
+
+    def __repr__(self):
+        return "With(%s, %s, %s)" % (self.expr.__repr__(), self.body.__repr__(), self.var.__repr__())
+
+    def accept(self, visitor):
+        return visitor.visitWith(self)
+
+    def fget_expr( space, self):
+        return space.wrap(self.expr)
+    def fset_expr( space, self, w_arg):
+        self.expr = space.interp_w(Node, w_arg, can_be_None=False)
+    def fget_body( space, self):
+        return space.wrap(self.body)
+    def fset_body( space, self, w_arg):
+        self.body = space.interp_w(Node, w_arg, can_be_None=False)
+    def fget_var( space, self):
+        return space.wrap(self.var)
+    def fset_var( space, self, w_arg):
+        self.var = space.str_w(w_arg)
+
+def descr_With_new(space, w_subtype, w_expr, w_body, w_var, lineno=-1):
+    self = space.allocate_instance(With, w_subtype)
+    expr = space.interp_w(Node, w_expr, can_be_None=False)
+    self.expr = expr
+    body = space.interp_w(Node, w_body, can_be_None=False)
+    self.body = body
+    var = space.str_w(w_var)
+    self.var = var
+    self.lineno = lineno
+    return space.wrap(self)
+
+def descr_With_accept( space, w_self, w_visitor):
+    w_callable = space.getattr(w_visitor, space.wrap('visitWith'))
+    args = Arguments(space, [ w_self ])
+    return space.call_args(w_callable, args)
+
+With.typedef = TypeDef('With', Node.typedef, 
+                     __new__ = interp2app(descr_With_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
+                     accept=interp2app(descr_With_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                    expr=GetSetProperty(With.fget_expr, With.fset_expr ),
+                    body=GetSetProperty(With.fget_body, With.fset_body ),
+                    var=GetSetProperty(With.fget_var, With.fset_var ),
+                    )
+
 class Yield(Node):
     def __init__(self, value, lineno=-1):
         Node.__init__(self, lineno)
@@ -4398,6 +4455,8 @@ class ASTVisitor(object):
     def visitUnarySub(self, node):
         return self.default( node )
     def visitWhile(self, node):
+        return self.default( node )
+    def visitWith(self, node):
         return self.default( node )
     def visitYield(self, node):
         return self.default( node )

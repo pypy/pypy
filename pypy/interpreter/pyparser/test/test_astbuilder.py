@@ -746,6 +746,7 @@ def test_exec_inputs():
             yield check_expression, expr, 'exec'
 
 SNIPPETS = [    
+#    'snippet_with_1.py',
     'snippet_1.py',
     'snippet_several_statements.py',
     'snippet_simple_function.py',

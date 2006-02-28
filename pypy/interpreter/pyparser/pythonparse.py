@@ -25,6 +25,7 @@ class PythonParser(object):
         self.rules = grammar_builder.rules
         # Build first sets for each rule (including anonymous ones)
         grammar.build_first_sets(self.items)
+        self.symbols = grammar_builder.symbols
 
     def parse_source(self, textsrc, goal, builder, flags=0):
         """Parse a python source according to goal"""
@@ -45,7 +46,7 @@ class PythonParser(object):
         return self.parse_lines(lines, goal, builder, flags)
 
     def parse_lines(self, lines, goal, builder, flags=0):
-        goalnumber = pysymbol._cpython_symbols.sym_values[goal]
+        goalnumber = self.symbols.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
 

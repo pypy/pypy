@@ -27,6 +27,7 @@ Pass:
 Break: 
 Continue: 
 For: assign, list, body, else_&
+With: expr, body, var*str
 While: test, body, else_&
 If: tests!, else_&
 Exec: expr, locals&, globals&

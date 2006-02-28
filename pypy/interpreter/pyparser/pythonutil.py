@@ -5,7 +5,6 @@ import parser
 import pythonparse
 from tuplebuilder import TupleBuilder
 from astbuilder import AstBuilder
-from pypy.interpreter.pyparser import pysymbol
 
 PYTHON_PARSER = pythonparse.PYTHON_PARSER
 TARGET_DICT = {
@@ -73,10 +72,7 @@ def parse_result_to_nested_tuples(parse_result, lineno=False):
     """NOT_RPYTHON"""
     source_encoding, stack_element = parse_result
     nested_tuples = stack_element.as_tuple(lineno)
-    if source_encoding is not None:
-        return (pysymbol.encoding_decl, nested_tuples, source_encoding)
-    else:
-        return nested_tuples
+    return nested_tuples
 
 def pypy_parse(source, mode='exec', lineno=False, flags=0, parser = PYTHON_PARSER):
     """

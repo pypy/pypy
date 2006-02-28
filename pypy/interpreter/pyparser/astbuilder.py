@@ -5,11 +5,12 @@ without going through the nested tuples step
 
 from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
-from pypy.interpreter.pyparser.pysymbol import _cpython_symbols as sym
+from pypy.interpreter.pyparser import pythonparse
 import pypy.interpreter.pyparser.pytoken as tok
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.parsestring import parsestr
 
+sym = pythonparse.PYTHON_PARSER.symbols
 DEBUG_MODE = 0
 
 ### Parsing utilites #################################################
@@ -1236,6 +1237,21 @@ def build_while_stmt(builder, nb):
     builder.push(ast.While(test, body, else_, atoms[0].lineno))
 
 
+def build_with_stmt(builder, nb):
+    """with_stmt: 'with' test [ 'as' NAME ] ':' suite"""
+    atoms = get_atoms(builder, nb)
+    # skip 'with'
+    test =  atoms[1]
+    if len(atoms) == 4:
+        body = atoms[3]
+        var = None
+    # if there is an "as" clause
+    else:
+        var = atoms[3]
+        body = atoms[5]
+    builder.push(ast.With(test, body, var, atoms[0].lineno))
+
+
 def build_import_name(builder, nb):
     """import_name: 'import' dotted_as_names
 
@@ -1484,6 +1500,7 @@ ASTRULES = {
     sym['break_stmt'] : build_break_stmt,
     sym['for_stmt'] : build_for_stmt,
     sym['while_stmt'] : build_while_stmt,
+#    sym['with_stmt'] : build_with_stmt,
     sym['import_name'] : build_import_name,
     sym['import_from'] : build_import_from,
     sym['yield_stmt'] : build_yield_stmt,

@@ -26,14 +26,26 @@ parseFile(path) -> AST
 # and replace OWNER, ORGANIZATION, and YEAR as appropriate.
 
 # make sure we import the parser with the correct grammar
-import pypy.interpreter.pyparser.pythonparse
+from pypy.interpreter.pyparser import pythonparse
+
+import pypy.interpreter.pyparser.pythonparse as pythonparse
+
 from pypy.interpreter.stablecompiler.ast import *
 import parser
-import pypy.interpreter.pyparser.pysymbol as symbol
 import pypy.interpreter.pyparser.pytoken as token
 import sys
 
-sym_name = symbol._cpython_symbols.sym_name
+# Create parser from Grammar_stable, not current grammar.
+stable_grammar, _ = pythonparse.get_grammar_file("stable")
+stable_parser = pythonparse.python_grammar(stable_grammar)
+
+sym_name = stable_parser.symbols.sym_name
+
+class symbol:
+    pass
+
+for value, name in sym_name.iteritems():
+    setattr(symbol, name, value)
 
 # transforming is requiring a lot of recursion depth so make sure we have enough
 if sys.getrecursionlimit()<5000:
