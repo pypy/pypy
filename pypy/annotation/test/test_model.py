@@ -186,12 +186,7 @@ def test_oo_union():
     assert unionof(SomeOOInstance(C1),SomeImpossibleValue()) == SomeOOInstance(C1)
     assert unionof(SomeImpossibleValue(), SomeOOInstance(C1)) == SomeOOInstance(C1)
 
-    py.test.raises(AssertionError, "unionof(SomeOOInstance(C1), SomeOOInstance(D))")
-    py.test.raises(AssertionError, "unionof(SomeOOInstance(D), SomeOOInstance(C1))")
-    py.test.raises(AssertionError, "unionof(SomeOOInstance(C1), SomeInteger())")
-    py.test.raises(AssertionError, "unionof(SomeInteger(), SomeOOInstance(C1))")
-    py.test.raises(AssertionError, "unionof(SomeOOInstance(C1), SomeObject())")
-    py.test.raises(AssertionError, "unionof(SomeObject(), SomeOOInstance(C1))")
+    assert unionof(SomeOOInstance(C1), SomeOOInstance(D)) == SomeOOInstance(ROOT)
 
 if __name__ == '__main__':
     for name, value in globals().items():
