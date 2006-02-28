@@ -1,6 +1,6 @@
 import math, random
 from threading import Thread
-from state import Succeeded, Distributable, Failed
+from state import Succeeded, Distributable, Failed, Forsaken
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
@@ -95,7 +95,7 @@ class NaiveDistributor(AbstractDistributor):
 
 
 class RandomizingDistributor(AbstractDistributor):
-    """distributes domains as the NaiveDistrutor, except that the unique
+    """distributes domains as the NaiveDistributor, except that the unique
     value of the first domain is picked at random."""
         
     def _distribute(self, dom1, dom2):
@@ -138,18 +138,25 @@ class SplitDistributor(AbstractDistributor):
     ### new threaded distributor
 
     def run(self):
-        self.cs._process() # propagate first
-        self.cs.STABLE.bind(0)
+        print "-- distributor started (%s) --" % self.cs.id
+        assert not self.cs.STABLE.is_bound()
+        #XXX: are the domains properly set up ?
+        #self.cs._process() # propagate first
+        #better let clone() do this call
+        self.cs.STABLE.bind(True)
         while self.cs._distributable():
+            if self.cs.status == Forsaken:
+                print "-- distributor (%s) ready for GC --" % self.cs.id
+                break
             choice = self.cs.choose(self.nb_subdomains())
-            # racey ... ?
+            print "-- distribution & propagation (%s) --" % self.cs.id
             self.distribute(choice-1)
             self.cs._process()
             old_choose_var = self.cs.CHOOSE
             self.cs.CHOOSE = self.cs._make_choice_var()
             self.cs._del_var(old_choose_var)
-            self.cs.STABLE.bind(0) # unlocks Ask
-        print "-- distributor terminated --"
+            self.cs.STABLE.bind(True) # unlocks Ask
+        print "-- distributor terminated (%s) --" % self.cs.id
 
 
     def distribute(self, choice):
@@ -164,6 +171,7 @@ class SplitDistributor(AbstractDistributor):
                       int(math.floor((choice + 1) * nb_elts)))
         self.cs.dom(variable).remove_values(values[:start])
         self.cs.dom(variable).remove_values(values[end:])
+        self.cs.add_distributed(variable)
 
 
 class DichotomyDistributor(SplitDistributor):
