@@ -148,71 +148,71 @@ class BaseTestRPBC:
         res = interpret(f, [-1], type_system=self.ts)
         assert res == 6
 
-def test_call_frozen_pbc_simple():
-    fr1 = Freezing()
-    fr1.x = 5
-    def f(n):
-        return fr1.mymethod(n)
-    res = interpret(f, [6])
-    assert res == 11
+    def test_call_frozen_pbc_simple(self):
+        fr1 = Freezing()
+        fr1.x = 5
+        def f(n):
+            return fr1.mymethod(n)
+        res = interpret(f, [6], type_system=self.ts)
+        assert res == 11
 
-def test_call_frozen_pbc_simple_w_kwds():
-    fr1 = Freezing()
-    fr1.x = 5
-    def f(n):
-        return fr1.mymethod(y=n)
-    res = interpret(f, [6])
-    assert res == 11
+    def test_call_frozen_pbc_simple_w_kwds(self):
+        fr1 = Freezing()
+        fr1.x = 5
+        def f(n):
+            return fr1.mymethod(y=n)
+        res = interpret(f, [6], type_system=self.ts)
+        assert res == 11
 
-def test_call_frozen_pbc_multiple():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    fr1.x = 5
-    fr2.x = 6
-    def f(n):
-        if n > 0:
-            fr = fr1
-        else:
-            fr = fr2
-        return fr.mymethod(n)
-    res = interpret(f, [1])
-    assert res == 6
-    res = interpret(f, [-1])
-    assert res == 5
+    def test_call_frozen_pbc_multiple(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        fr1.x = 5
+        fr2.x = 6
+        def f(n):
+            if n > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            return fr.mymethod(n)
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 6
+        res = interpret(f, [-1], type_system=self.ts)
+        assert res == 5
 
-def test_call_frozen_pbc_multiple_w_kwds():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    fr1.x = 5
-    fr2.x = 6
-    def f(n):
-        if n > 0:
-            fr = fr1
-        else:
-            fr = fr2
-        return fr.mymethod(y=n)
-    res = interpret(f, [1])
-    assert res == 6
-    res = interpret(f, [-1])
-    assert res == 5
+    def test_call_frozen_pbc_multiple_w_kwds(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        fr1.x = 5
+        fr2.x = 6
+        def f(n):
+            if n > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            return fr.mymethod(y=n)
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 6
+        res = interpret(f, [-1], type_system=self.ts)
+        assert res == 5
 
-def test_is_among_frozen():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    def givefr1():
-        return fr1
-    def givefr2():
-        return fr2
-    def f(i):
-        if i == 1:
-            fr = givefr1()
-        else:
-            fr = givefr2()
-        return fr is fr1
-    res = interpret(f, [0])
-    assert res is False
-    res = interpret(f, [1])
-    assert res is True
+    def test_is_among_frozen(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        def givefr1():
+            return fr1
+        def givefr2():
+            return fr2
+        def f(i):
+            if i == 1:
+                fr = givefr1()
+            else:
+                fr = givefr2()
+            return fr is fr1
+        res = interpret(f, [0], type_system=self.ts)
+        assert res is False
+        res = interpret(f, [1], type_system=self.ts)
+        assert res is True
 
 def test_unbound_method():
     def f():

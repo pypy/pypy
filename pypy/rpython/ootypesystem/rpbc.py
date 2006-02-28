@@ -1,12 +1,12 @@
 from pypy.rpython.rmodel import CanBeNull, Repr, inputconst
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr, \
-        AbstractMultipleFrozenPBCRepr
+        AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr
 from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
 from pypy.rpython.rpbc import get_concrete_calltable
 from pypy.rpython import callparse
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rclass import ClassRepr, InstanceRepr 
-from pypy.rpython.ootypesystem.rclass import rtype_classes_is_, mangle
+from pypy.rpython.ootypesystem.rclass import mangle
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.annotation.pairtype import pairtype
@@ -124,14 +124,6 @@ class __extend__(pairtype(InstanceRepr, MethodsPBCRepr)):
 
     def convert_from_to(_, v, llops):
         return v
-
-
-class __extend__(pairtype(ClassRepr, ClassesPBCRepr)):
-    rtype_is_ = rtype_classes_is_
-
-class __extend__(pairtype(ClassesPBCRepr, ClassRepr)):
-    rtype_is_ = rtype_classes_is_
-
 
 class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""

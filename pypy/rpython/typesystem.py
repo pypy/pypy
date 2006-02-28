@@ -5,6 +5,7 @@ from pypy.annotation.pairtype import extendabletype
 
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython import error
 
 class TypeSystem(object):
     __metaclass__ = extendabletype
@@ -92,6 +93,24 @@ class LowLevelTypeSystem(TypeSystem):
     def isCompatibleType(self, t1, t2):
         return lltype.isCompatibleType(t1, t2)
 
+    def generic_is(self, robj1, robj2, hop):
+        roriginal1 = robj1
+        roriginal2 = robj2
+        if robj1.lowleveltype is lltype.Void:
+            robj1 = robj2
+        elif robj2.lowleveltype is lltype.Void:
+            robj2 = robj1
+        if (not isinstance(robj1.lowleveltype, lltype.Ptr) or
+            not isinstance(robj2.lowleveltype, lltype.Ptr)):
+            raise TyperError('is of instances of the non-pointers: %r, %r' % (
+                roriginal1, roriginal2))
+        if robj1.lowleveltype != robj2.lowleveltype:
+            raise TyperError('is of instances of different pointer types: %r, %r' % (
+                roriginal1, roriginal2))
+            
+        v_list = hop.inputargs(robj1, robj2)
+        return hop.genop('ptr_eq', v_list, resulttype=lltype.Bool)
+
 class ObjectOrientedTypeSystem(TypeSystem):
     name = "ootypesystem"
     callable_trait = (ootype.StaticMethod, ootype.static_meth)
@@ -105,6 +124,23 @@ class ObjectOrientedTypeSystem(TypeSystem):
 
     def isCompatibleType(self, t1, t2):
         return ootype.isCompatibleType(t1, t2)
+
+    def generic_is(self, robj1, robj2, hop):
+        roriginal1 = robj1
+        roriginal2 = robj2
+        if robj1.lowleveltype is lltype.Void:
+            robj1 = robj2
+        elif robj2.lowleveltype is lltype.Void:
+            robj2 = robj1
+        if (not isinstance(robj1.lowleveltype, ootype.Instance) or
+            not isinstance(robj2.lowleveltype, ootype.Instance)) and \
+            (robj1.lowleveltype is not ootype.Class or
+             robj2.lowleveltype is not ootype.Class):
+            raise error.TyperError('is of instances of the non-instances: %r, %r' % (
+                roriginal1, roriginal2))
+            
+        v_list = hop.inputargs(robj1, robj2)
+        return hop.genop('oois', v_list, resulttype=lltype.Bool)
 
 # All typesystems are singletons
 LowLevelTypeSystem.instance = LowLevelTypeSystem()

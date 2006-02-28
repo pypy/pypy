@@ -447,6 +447,78 @@ class __extend__(pairtype(SingleFrozenPBCRepr, AbstractMultipleFrozenPBCRepr)):
             return inputdesc(r_pbc2, frozendesc1)
         return NotImplemented
 
+
+class MethodOfFrozenPBCRepr(Repr):
+    """Representation selected for a PBC of method object(s) of frozen PBCs.
+    It assumes that all methods are the same function bound to different PBCs.
+    The low-level representation can then be a pointer to that PBC."""
+
+    def __init__(self, rtyper, s_pbc):
+        self.rtyper = rtyper
+        self.funcdesc = s_pbc.descriptions.keys()[0].funcdesc
+
+        # a hack to force the underlying function to show up in call_families
+        # (generally not needed, as normalizecalls() should ensure this,
+        # but needed for bound methods that are ll helpers)
+        # XXX sort this out
+        #call_families = rtyper.annotator.getpbccallfamilies()
+        #call_families.find((None, self.function))
+        
+        if s_pbc.can_be_none():
+            raise TyperError("unsupported: variable of type "
+                             "method-of-frozen-PBC or None")
+
+        im_selves = []
+        for desc in s_pbc.descriptions:
+            assert desc.funcdesc is self.funcdesc
+            im_selves.append(desc.frozendesc)
+            
+        self.s_im_self = annmodel.SomePBC(im_selves)
+        self.r_im_self = rtyper.getrepr(self.s_im_self)
+        self.lowleveltype = self.r_im_self.lowleveltype
+
+    def get_s_callable(self):
+        return annmodel.SomePBC([self.funcdesc])
+
+    def get_r_implfunc(self):
+        r_func = self.rtyper.getrepr(self.get_s_callable())
+        return r_func, 1
+
+    def convert_desc(self, mdesc):
+        if mdesc.funcdesc is not self.funcdesc:
+            raise TyperError("not a method bound on %r: %r" % (self.funcdesc, 
+                                                               mdesc))
+        return self.r_im_self.convert_desc(mdesc.frozendesc)
+
+    def convert_const(self, method):
+        mdesc = self.rtyper.annotator.bookkeeper.getdesc(method)
+        return self.convert_desc(mdesc)
+
+    def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
+        # XXX obscure, try to refactor...
+        s_function = annmodel.SomePBC([self.funcdesc])
+        hop2 = hop.copy()
+        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
+        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+        if isinstance(hop2.args_v[0], Constant):
+            boundmethod = hop2.args_v[0].value
+            hop2.args_v[0] = Constant(boundmethod.im_self)
+        if call_args:
+            hop2.swap_fst_snd_args()
+            _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
+            adjust_shape(hop2, s_shape)
+        # a marker that would crash if actually used...
+        c = Constant("obscure-don't-use-me")
+        hop2.v_s_insertfirstarg(c, s_function)   # insert 'function'
+        # now hop2 looks like simple_call(function, self, args...)
+        return hop2.dispatch()
+
 # __ None ____________________________________________________
 class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
     

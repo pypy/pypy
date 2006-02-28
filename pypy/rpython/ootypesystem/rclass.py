@@ -27,21 +27,6 @@ class ClassRepr(AbstractClassRepr):
         vlist = hop.inputargs(class_repr, class_repr)
         return hop.genop('subclassof', vlist, resulttype=ootype.Bool)
 
-
-    def rtype_is_((r_cls1, r_cls2), hop):
-        class_repr = get_type_repr(self.rtyper)
-        vlist = hop.inputargs(class_repr, class_repr)
-        return hop.genop('oosameclass', vlist, resulttype=ootype.Bool)
-
-
-def rtype_classes_is_(_, hop):
-    class_repr = get_type_repr(hop.rtyper)
-    vlist = hop.inputargs(class_repr, class_repr)
-    return hop.genop('oosameclass', vlist, resulttype=ootype.Bool)
-
-class __extend__(pairtype(ClassRepr, ClassRepr)):
-    rtype_is_ = rtype_classes_is_
-
 # ____________________________________________________________
 
 def mangle(name):
