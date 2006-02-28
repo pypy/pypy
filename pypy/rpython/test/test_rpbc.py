@@ -24,6 +24,12 @@ class MySubclassWithInit(MyBaseWithInit):
         MyBaseWithInit.__init__(self, a)
         self.b1 = b
 
+class Freezing:
+    def _freeze_(self):
+        return True
+    def mymethod(self, y):
+        return self.x + y
+
 
 class BaseTestRPBC:
 
@@ -122,31 +128,25 @@ class BaseTestRPBC:
         assert interpret(f, [6, 7], type_system=self.ts) == 42
 
 
-class Freezing:
-    def _freeze_(self):
-        return True
-    def mymethod(self, y):
-        return self.x + y
-
-def test_freezing():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    fr1.x = 5
-    fr2.x = 6
-    def g(fr):
-        return fr.x
-    def f(n):
-        if n > 0:
-            fr = fr1
-        elif n < 0:
-            fr = fr2
-        else:
-            fr = None
-        return g(fr)
-    res = interpret(f, [1])
-    assert res == 5
-    res = interpret(f, [-1])
-    assert res == 6
+    def test_freezing(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        fr1.x = 5
+        fr2.x = 6
+        def g(fr):
+            return fr.x
+        def f(n):
+            if n > 0:
+                fr = fr1
+            elif n < 0:
+                fr = fr2
+            else:
+                fr = None
+            return g(fr)
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 5
+        res = interpret(f, [-1], type_system=self.ts)
+        assert res == 6
 
 def test_call_frozen_pbc_simple():
     fr1 = Freezing()

@@ -1,3 +1,4 @@
+from pypy.rpython.rmodel import CanBeNull, Repr, inputconst
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.rpbc import get_concrete_calltable
 from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
@@ -8,6 +9,7 @@ from pypy.rpython.ootypesystem.rclass import rtype_classes_is_
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.annotation.pairtype import pairtype
+import types
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
 
@@ -128,3 +130,72 @@ class __extend__(pairtype(ClassRepr, ClassesPBCRepr)):
 
 class __extend__(pairtype(ClassesPBCRepr, ClassRepr)):
     rtype_is_ = rtype_classes_is_
+
+
+class MultipleFrozenPBCRepr(CanBeNull, Repr):
+    """Representation selected for multiple non-callable pre-built constants."""
+    def __init__(self, rtyper, access_set):
+        self.rtyper = rtyper
+        self.access_set = access_set
+        self.lowleveltype = ootype.Instance('pbc', ootype.ROOT)
+        self.pbc_cache = {}
+
+    def _setup_repr(self):
+        fields = {}
+        fieldmap = {}
+        if self.access_set is not None:
+            attrlist = self.access_set.attrs.keys()
+            attrlist.sort()
+            for attr in attrlist:
+                s_value = self.access_set.attrs[attr]
+                r_value = self.rtyper.getrepr(s_value)
+                mangled_name = mangle(attr)
+                fields[mangled_name] = r_value.lowleveltype
+                fieldmap[attr] = mangled_name, r_value
+        ootype.addFields(self.lowleveltype, fields)
+        self.fieldmap = fieldmap
+
+    def convert_desc(self, frozendesc):
+        if (self.access_set is not None and
+            frozendesc not in self.access_set.descs):
+            raise TyperError("not found in PBC access set: %r" % (frozendesc,))
+        try:
+            return self.pbc_cache[frozendesc]
+        except KeyError:
+            self.setup()
+            result = ootype.new(self.lowleveltype)
+            self.pbc_cache[frozendesc] = result
+            for attr, (mangled_name, r_value) in self.fieldmap.items():
+                if r_value.lowleveltype is ootype.Void:
+                    continue
+                try:
+                    thisattrvalue = frozendesc.read_attribute(attr)
+                except AttributeError:
+                    warning("Desc %r has no attribute %r" % (frozendesc, attr))
+                    continue
+                llvalue = r_value.convert_const(thisattrvalue)
+                setattr(result, mangled_name, llvalue)
+            return result
+
+    def convert_const(self, pbc):
+        if pbc is None:
+            return ootype.null(self.lowleveltype)
+        if isinstance(pbc, types.MethodType) and pbc.im_self is None:
+            value = pbc.im_func   # unbound method -> bare function
+        frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
+        return self.convert_desc(frozendesc)
+
+    def rtype_getattr(self, hop):
+        attr = hop.args_s[1].const
+        vpbc, vattr = hop.inputargs(self, ootype.Void)
+        v_res = self.getfield(vpbc, attr, hop.llops)
+        mangled_name, r_res = self.fieldmap[attr]
+        return hop.llops.convertvar(v_res, r_res, hop.r_result)
+
+    def getfield(self, vpbc, attr, llops):
+        mangled_name, r_value = self.fieldmap[attr]
+        cmangledname = inputconst(ootype.Void, mangled_name)
+        return llops.genop('oogetfield', [vpbc, cmangledname],
+                           resulttype = r_value)
+
+
