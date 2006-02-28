@@ -26,18 +26,21 @@ def getsig(rtyper, graph):
             getrinputs(rtyper, graph),
             getrresult(rtyper, graph))
 
-def callparse(rtyper, graph, hop, opname):
+def callparse(rtyper, graph, hop, opname, is_method=False):
     """Parse the arguments of 'hop' when calling the given 'graph'.
     """
     rinputs = getrinputs(rtyper, graph)
     space = RPythonCallsSpace()
     def args_h(start):
-        return [VarHolder(i, hop.args_s[i]) for i in range(start, hop.nb_args)]
+        return [VarHolder(i, hop.args_s[i])
+                        for i in range(start, hop.nb_args)]
+    start = 1 - is_method
     if opname == "simple_call":
-        arguments =  Arguments(space, args_h(1))
+        arguments =  Arguments(space, args_h(start))
     elif opname == "call_args":
-        arguments = Arguments.fromshape(space, hop.args_s[1].const, # shape
-                                        args_h(2))
+        arguments = Arguments.fromshape(space,
+                hop.args_s[start].const, # shape
+                args_h(start+1))
     # parse the arguments according to the function we are calling
     signature = graph.signature
     defs_h = []

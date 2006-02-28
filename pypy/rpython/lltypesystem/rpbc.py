@@ -11,7 +11,7 @@ from pypy.rpython.rmodel import warning, mangle, CanBeNull
 from pypy.rpython import robject
 from pypy.rpython import rtuple
 from pypy.rpython.rpbc import SingleFrozenPBCRepr, samesig,\
-     commonbase, allattributenames, FunctionsPBCRepr, \
+     commonbase, allattributenames, adjust_shape, FunctionsPBCRepr, \
      AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
@@ -181,12 +181,6 @@ class MethodOfFrozenPBCRepr(Repr):
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
 
-def adjust_shape(hop2, s_shape):
-    new_shape = (s_shape.const[0]+1,) + s_shape.const[1:]
-    c_shape = Constant(new_shape)
-    s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
-    hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
-    
 # ____________________________________________________________
 
 class MethodsPBCRepr(AbstractMethodsPBCRepr):
@@ -201,7 +195,6 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         return self.redispatch_call(hop, call_args=True)
 
     def redispatch_call(self, hop, call_args):
-        hop2 = hop.copy()
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
         assert isinstance(r_func, (FunctionsPBCRepr,
@@ -214,14 +207,9 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
         v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
 
-        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
-        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
-
+        hop2 = self.add_instance_arg_to_hop(hop, call_args)
         opname = 'simple_call'
         if call_args:
-            hop2.swap_fst_snd_args()
-            _, s_shape = hop2.r_s_popfirstarg()
-            adjust_shape(hop2, s_shape)
             opname = 'call_args'
 
         hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'

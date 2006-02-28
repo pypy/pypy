@@ -492,6 +492,12 @@ class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):
             return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
         return NotImplemented
 
+def adjust_shape(hop2, s_shape):
+    new_shape = (s_shape.const[0]+1,) + s_shape.const[1:]
+    c_shape = Constant(new_shape)
+    s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
+    hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
+
 class AbstractMethodsPBCRepr(Repr):
     """Representation selected for a PBC of MethodDescs.
     It assumes that all the methods come from the same name and have
@@ -541,6 +547,16 @@ class AbstractMethodsPBCRepr(Repr):
         # (as shown for example in test_rclass/test_method_both_A_and_B)
         return llops.convertvar(v_inst, r_inst, self.r_im_self)
 
+    def add_instance_arg_to_hop(self, hop, call_args):
+        hop2 = hop.copy()
+        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
+        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+
+        if call_args:
+            hop2.swap_fst_snd_args()
+            _, s_shape = hop2.r_s_popfirstarg()
+            adjust_shape(hop2, s_shape)
+        return hop2
 # ____________________________________________________________
 
 ##def getsignature(rtyper, func):
