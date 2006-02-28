@@ -260,7 +260,7 @@ def target_parse_grammar_text(txt):
 
 from pprint import pprint
 if __name__ == "__main__":
-    grambuild = parse_grammar(file('data/Grammar2.3'))
+    grambuild = parse_grammar(file('data/Grammar2.5a'))
     for i,r in enumerate(grambuild.items):
         print "%  3d : %s" % (i, r)
     pprint(grambuild.terminals.keys())

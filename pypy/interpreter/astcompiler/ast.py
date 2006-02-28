@@ -1232,6 +1232,63 @@ Compare.typedef = TypeDef('Compare', Node.typedef,
                     ops=GetSetProperty(Compare.fget_ops, Compare.fset_ops ),
                     )
 
+class CondExpr(Node):
+    def __init__(self, test, true_expr, false_expr, lineno=-1):
+        Node.__init__(self, lineno)
+        self.test = test
+        self.true_expr = true_expr
+        self.false_expr = false_expr
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return self.test, self.true_expr, self.false_expr
+
+    def getChildNodes(self):
+        return [self.test, self.true_expr, self.false_expr]
+
+    def __repr__(self):
+        return "CondExpr(%s, %s, %s)" % (self.test.__repr__(), self.true_expr.__repr__(), self.false_expr.__repr__())
+
+    def accept(self, visitor):
+        return visitor.visitCondExpr(self)
+
+    def fget_test( space, self):
+        return space.wrap(self.test)
+    def fset_test( space, self, w_arg):
+        self.test = space.interp_w(Node, w_arg, can_be_None=False)
+    def fget_true_expr( space, self):
+        return space.wrap(self.true_expr)
+    def fset_true_expr( space, self, w_arg):
+        self.true_expr = space.interp_w(Node, w_arg, can_be_None=False)
+    def fget_false_expr( space, self):
+        return space.wrap(self.false_expr)
+    def fset_false_expr( space, self, w_arg):
+        self.false_expr = space.interp_w(Node, w_arg, can_be_None=False)
+
+def descr_CondExpr_new(space, w_subtype, w_test, w_true_expr, w_false_expr, lineno=-1):
+    self = space.allocate_instance(CondExpr, w_subtype)
+    test = space.interp_w(Node, w_test, can_be_None=False)
+    self.test = test
+    true_expr = space.interp_w(Node, w_true_expr, can_be_None=False)
+    self.true_expr = true_expr
+    false_expr = space.interp_w(Node, w_false_expr, can_be_None=False)
+    self.false_expr = false_expr
+    self.lineno = lineno
+    return space.wrap(self)
+
+def descr_CondExpr_accept( space, w_self, w_visitor):
+    w_callable = space.getattr(w_visitor, space.wrap('visitCondExpr'))
+    args = Arguments(space, [ w_self ])
+    return space.call_args(w_callable, args)
+
+CondExpr.typedef = TypeDef('CondExpr', Node.typedef, 
+                     __new__ = interp2app(descr_CondExpr_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
+                     accept=interp2app(descr_CondExpr_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                    test=GetSetProperty(CondExpr.fget_test, CondExpr.fset_test ),
+                    true_expr=GetSetProperty(CondExpr.fget_true_expr, CondExpr.fset_true_expr ),
+                    false_expr=GetSetProperty(CondExpr.fget_false_expr, CondExpr.fset_false_expr ),
+                    )
+
 class Const(Node):
     def __init__(self, value, lineno=-1):
         Node.__init__(self, lineno)
@@ -4231,6 +4288,8 @@ class ASTVisitor(object):
     def visitClass(self, node):
         return self.default( node )
     def visitCompare(self, node):
+        return self.default( node )
+    def visitCondExpr(self, node):
         return self.default( node )
     def visitConst(self, node):
         return self.default( node )

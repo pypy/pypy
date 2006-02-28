@@ -1,0 +1,5 @@
+If you modify the grammar, you need to regenerate interpreter/pyparser/symbol.py
+
+Note that you could delete the old grammars, because the stable compiler only
+supports the latest.
+

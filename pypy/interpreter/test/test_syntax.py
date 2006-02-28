@@ -248,6 +248,15 @@ def checkinvalid(space, s):
         raise
 
 
+class AppTestCondExpr:
+
+    def test_condexpr(self):
+        for s, expected in [("x = 1 if True else 2", 1),
+                            ("x = 1 if False else 2", 2)]:
+            exec s
+            assert x == expected
+
+        
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
     from py.test import raises

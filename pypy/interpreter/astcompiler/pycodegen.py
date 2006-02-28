@@ -525,6 +525,24 @@ class CodeGenerator(ast.ASTVisitor):
     def visitOr(self, node):
         self._visitTest(node, 'JUMP_IF_TRUE')
 
+    def visitCondExpr(self, node):
+        node.test.accept(self)
+
+        end = self.newBlock()
+        falseblock = self.newBlock()
+
+        self.emitop_block('JUMP_IF_FALSE', falseblock)
+
+        self.emit('POP_TOP')
+        node.true_expr.accept(self)
+        self.emitop_block('JUMP_FORWARD', end)
+
+        self.nextBlock(falseblock)
+        self.emit('POP_TOP')
+        node.false_expr.accept(self)
+
+        self.nextBlock(end)
+
     def visitCompare(self, node):
         node.expr.accept( self )
         cleanup = self.newBlock()

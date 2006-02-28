@@ -48,7 +48,7 @@ class PythonParser(object):
         goalnumber = pysymbol._cpython_symbols.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
-    
+
         result = target.match(src, builder)
         if not result:
             line, lineno = src.debug()
@@ -56,7 +56,7 @@ class PythonParser(object):
             raise SyntaxError("invalid syntax", lineno, -1, line)
             # return None
         return builder
-    
+
 _recode_to_utf8 = gateway.applevel(r'''
     def _recode_to_utf8(text, encoding):
         return unicode(text, encoding).encode("utf-8")
@@ -96,7 +96,7 @@ def _check_for_encoding(s):
     if eol2 < 0:
         return _check_line_for_encoding(s[eol + 1:])
     return _check_line_for_encoding(s[eol + 1:eol2])
-    
+
 def _check_line_for_encoding(line):
     """returns the declared encoding or None"""
     i = 0
@@ -112,7 +112,7 @@ def get_grammar_file( version ):
     """returns the python grammar corresponding to our CPython version"""
     if version == "native":
         _ver = PYTHON_VERSION
-    elif version in ("2.3","2.4"):
+    elif version in ("2.3","2.4","2.5a"):
         _ver = version
     return os.path.join( os.path.dirname(__file__), "data", "Grammar" + _ver ), _ver
 
@@ -141,7 +141,7 @@ def reload_grammar(version):
 def parse_file_input(pyf, gram, builder ):
     """Parse a python file"""
     return gram.parse_source( pyf.read(), "file_input", builder )
-    
+
 def parse_single_input(textsrc, gram, builder ):
     """Parse a python single statement"""
     return gram.parse_source( textsrc, "single_input", builder )
@@ -157,4 +157,4 @@ def grammar_rules( space ):
 
 def make_rule( space, w_rule ):
     rule = space.str_w( w_rule )
-    
+

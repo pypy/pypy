@@ -16,7 +16,7 @@ class Options:
          # "ast" uses interpreter/pyparser & interpreter/astcompiler.py 
          # "cpython" uses cpython parser and cpython c-level compiler 
     usemodules = []                        
-    version = "2.4" # "native" / "2.3" / "2.4"
+    version = "2.5a" # "native" / "2.3" / "2.4" / "2.5a"
 
 def run_tb_server(option, opt, value, parser):
     from pypy.tool import tb_server

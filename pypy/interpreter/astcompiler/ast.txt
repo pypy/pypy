@@ -78,6 +78,7 @@ Tuple: nodes!
 AbstractTest:
 Or(AbstractTest): nodes!
 And(AbstractTest): nodes!
+CondExpr: test, true_expr, false_expr
 BitOp:
 Bitor(BitOp): nodes!
 Bitxor(BitOp): nodes!

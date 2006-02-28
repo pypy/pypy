@@ -206,8 +206,22 @@ expressions = [
     "[a, (b,c), d] = e",
     "a, (b, c), d = e",
     ]
-EXPECTED["k[v,]"] = "Module(None, Stmt([Discard(Subscript(Name('k'), 2, Tuple([Name('v')])))]))"
-EXPECTED["m[a,b]"] = "Module(None, Stmt([Discard(Subscript(Name('m'), 2, Tuple([Name('a'), Name('b')])))]))"
+
+# We do not export the following tests because we would have to implement 2.5
+# features in the stable compiler (other than just building the AST).
+expressions_inbetweenversions = expressions + [
+    "1 if True else 2",
+    "1 if False else 2",
+    ]
+
+EXPECTED["k[v,]"] = ("Module(None, Stmt([Discard(Subscript(Name('k'), 2, "
+                     "Tuple([Name('v')])))]))")
+EXPECTED["m[a,b]"] = ("Module(None, Stmt([Discard(Subscript(Name('m'), 2, "
+                      "Tuple([Name('a'), Name('b')])))]))")
+EXPECTED["1 if True else 2"] = ("Module(None, Stmt([Discard(CondExpr("
+                                "Name('True'), Const(1), Const(2)))]))")
+EXPECTED["1 if False else 2"] = ("Module(None, Stmt([Discard(CondExpr("
+                                 "Name('False'), Const(1), Const(2)))]))")
 
 funccalls = [
     "l = func()",
@@ -601,7 +615,7 @@ augassigns = [
 
 TESTS = [
     constants,
-    expressions,
+    expressions_inbetweenversions,
     augassigns,
     comparisons,
     funccalls,

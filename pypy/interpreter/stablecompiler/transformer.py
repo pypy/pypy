@@ -308,9 +308,12 @@ class Transformer:
 
         return Lambda(names, defaults, flags, code, lineno=nodelist[1][2])
 
+    # (This is like lambdef but it uses the old_test instead.)
+    # old_lambdef: 'lambda' [varargslist] ':' old_test
+    old_lambdef = lambdef
+
     def classdef(self, nodelist):
         # classdef: 'class' NAME ['(' testlist ')'] ':' suite
-
         name = nodelist[1][1]
         doc = self.get_docstring(nodelist[-1])
         if nodelist[2][0] == token.COLON:
@@ -579,7 +582,7 @@ class Transformer:
 
     def testlist(self, nodelist):
         # testlist: expr (',' expr)* [',']
-        # testlist_safe: test [(',' test)+ [',']]
+        # testlist_safe: old_test [(',' old_test)+ [',']]
         # exprlist: expr (',' expr)* [',']
         return self.com_binary(Tuple, nodelist)
 
@@ -594,14 +597,32 @@ class Transformer:
         return self.testlist(nodelist)
 
     def test(self, nodelist):
-        # and_test ('or' and_test)* | lambdef
-        if len(nodelist) == 1 and nodelist[0][0] == symbol.lambdef:
-            return self.lambdef(nodelist[0])
-        return self.com_binary(Or, nodelist)
+        # test: or_test ['if' or_test 'else' test] | lambdef
+        if len(nodelist) == 1:
+            if nodelist[0][0] == symbol.lambdef:
+                return self.lambdef(nodelist[0])
+            else:
+                # Normal or-expression
+                return self.com_node(nodelist[0])
+        else:
+            # Here we implement conditional expressions
+            return ast.CondExpr(nodelist[2], nodelist[0], nodelist[4],
+                                nodelist[1].lineno)
 
     def and_test(self, nodelist):
         # not_test ('and' not_test)*
         return self.com_binary(And, nodelist)
+
+    def old_test(self, nodelist):
+        # old_test: or_test | old_lambdef
+        if len(nodelist) == 1 and nodelist[0][0] == symbol.lambdef:
+            return self.lambdef(nodelist[0])
+        assert len(nodelist) == 1
+        return self.com_node(nodelist[0])
+
+    def or_test(self, nodelist):
+        # or_test: and_test ('or' and_test)*
+        return self.com_binary(Or, nodelist)
 
     def not_test(self, nodelist):
         # 'not' not_test | comparison
@@ -1396,6 +1417,8 @@ _doc_nodes = [
     symbol.testlist,
     symbol.testlist_safe,
     symbol.test,
+    symbol.old_test,
+    symbol.or_test,
     symbol.and_test,
     symbol.not_test,
     symbol.comparison,
@@ -1421,54 +1444,10 @@ _cmp_types = {
     token.NOTEQUAL : '!=',
     }
 
-_legal_node_types = [
-    symbol.funcdef,
-    symbol.classdef,
-    symbol.stmt,
-    symbol.small_stmt,
-    symbol.flow_stmt,
-    symbol.simple_stmt,
-    symbol.compound_stmt,
-    symbol.expr_stmt,
-    symbol.print_stmt,
-    symbol.del_stmt,
-    symbol.pass_stmt,
-    symbol.break_stmt,
-    symbol.continue_stmt,
-    symbol.return_stmt,
-    symbol.raise_stmt,
-    symbol.import_stmt,
-    symbol.global_stmt,
-    symbol.exec_stmt,
-    symbol.assert_stmt,
-    symbol.if_stmt,
-    symbol.while_stmt,
-    symbol.for_stmt,
-    symbol.try_stmt,
-    symbol.suite,
-    symbol.testlist,
-    symbol.testlist_safe,
-    symbol.test,
-    symbol.and_test,
-    symbol.not_test,
-    symbol.comparison,
-    symbol.exprlist,
-    symbol.expr,
-    symbol.xor_expr,
-    symbol.and_expr,
-    symbol.shift_expr,
-    symbol.arith_expr,
-    symbol.term,
-    symbol.factor,
-    symbol.power,
-    symbol.atom,
-    ]
-
-if hasattr(symbol, 'yield_stmt'):
-    _legal_node_types.append(symbol.yield_stmt)
-
 _assign_types = [
     symbol.test,
+    symbol.old_test,
+    symbol.or_test,
     symbol.and_test,
     symbol.not_test,
     symbol.comparison,
