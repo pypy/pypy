@@ -83,6 +83,9 @@ class Var(object):
     def __hash__(self):
         return self.name.__hash__()
 
+    def __gt__(self, other):
+        return self.name.__gt__(other.name)
+
     def bind(self, val):
         """top-level space bind"""
         self._cs.bind(self, val)
