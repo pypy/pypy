@@ -421,7 +421,7 @@ class Test_structure:
             #d#t.view()
             pass
 
-    def failing_test_specialize_pointer_to_struct(self):
+    def test_specialize_pointer_to_struct(self):
         t = self.test_annotate_pointer_to_struct()
         t.buildrtyper().specialize()
         #d#t.view()
@@ -434,7 +434,7 @@ class Test_structure:
         res = fn( 42, -42 )
         assert res == 42
 
-    def failing_test_specialize_POINTER_dereference(self):
+    def test_specialize_POINTER_dereference(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_POINTER_dereference, [tagpoint])
