@@ -3,7 +3,7 @@ import py
 ##py.test.skip('In progress at PyCon')
 
 from pypy.rpython.extregistry import EXT_REGISTRY_BY_VALUE, EXT_REGISTRY_BY_TYPE
-from pypy.rpython.extregistry import register_func, register_type
+from pypy.rpython.extregistry import register_value, register_type
 from pypy.rpython.extregistry import register_metatype
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
@@ -14,7 +14,7 @@ from pypy.rpython.test.test_llinterp import interpret
 def dummy(): 
     raiseNameError
 
-register_func(dummy, annmodel.SomeInteger())
+register_value(dummy, compute_result_annotation=annmodel.SomeInteger())
 
 def test_call_dummy():
     def func():
@@ -32,26 +32,11 @@ def test_callable_annotation():
     def return_annotation():
         return annmodel.SomeInteger()
     
-    register_func(dummy2, return_annotation)
+    register_value(dummy2, compute_result_annotation=return_annotation)
     
     def func():
         x = dummy2()
         return x
-    
-    a = RPythonAnnotator()
-    s = a.build_types(func, [])
-    assert isinstance(s, annmodel.SomeInteger)
-
-def test_register_type():
-    class DummyType(object):
-        pass
-    
-    dummy_type = DummyType()
-    
-    def func():
-        return dummy_type
-    
-    register_type(DummyType, annmodel.SomeInteger())
     
     a = RPythonAnnotator()
     s = a.build_types(func, [])
@@ -66,11 +51,11 @@ def test_register_type_with_callable():
     def func():
         return dummy_type
     
-    def get_annotation(instance):
+    def get_annotation(type, instance):
         assert instance is dummy_type
         return annmodel.SomeInteger()
     
-    register_type(DummyType, get_annotation)
+    register_type(DummyType, compute_annotation=get_annotation)
     
     a = RPythonAnnotator()
     s = a.build_types(func, [])
@@ -93,7 +78,7 @@ def test_register_metatype():
         assert x is real_class
         return annmodel.SomeInteger()
     
-    register_metatype(MetaType, get_annotation)
+    register_metatype(MetaType, compute_annotation=get_annotation)
     
     a = RPythonAnnotator()
     s = a.build_types(func, [])
@@ -114,20 +99,22 @@ def test_register_metatype_2():
         assert x is None
         return annmodel.SomeInteger()
     
-    register_metatype(MetaType, get_annotation)
+    register_metatype(MetaType, compute_annotation=get_annotation)
     
     a = RPythonAnnotator()
     s = a.build_types(func, [RealClass])
     assert isinstance(s, annmodel.SomeInteger)
 
-def test_register_func_with_specialization():
+def test_register_value_with_specialization():
     def dummy_func():
         raiseNameError
 
     def dummy_specialize(hop):
         return hop.inputconst(lltype.Signed, 42)
     
-    register_func(dummy_func, annmodel.SomeInteger(), dummy_specialize)
+    register_value(dummy_func, 
+        compute_result_annotation=annmodel.SomeInteger(), 
+        specialize_call=dummy_specialize)
     
     def func():
         return dummy_func()

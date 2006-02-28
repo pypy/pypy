@@ -4,7 +4,7 @@ from implementation import c_int, c_char_p, \
         c_short, c_ushort, c_uint,\
         c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
         RStructure as Structure, RByref as byref, RPOINTER as POINTER, \
-        RARRAY as ARRAY
+        ARRAY
 #try:
 #    from implementation import RWinDLL as WinDLL
 #except ImportError:

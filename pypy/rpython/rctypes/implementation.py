@@ -16,7 +16,8 @@ from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
         Void
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.error import TyperError
-from pypy.rpython.extregistry import register_func, register_metatype
+from pypy.rpython.extregistry import register_value, register_metatype, \
+    register_type
 from pypy.annotation.pairtype import pairtype
 
 
@@ -66,7 +67,8 @@ def create_ctypes_annotations():
             # no 'wrap_arg'. This might change in the future
             #the_type.compute_result_annotation = classmethod(lambda cls, s_arg:SomeCTypesObject(cls))
             def do_register(the_type):
-                register_func(the_type, lambda s_arg: SomeCTypesObject(the_type))
+                register_value(the_type, 
+                compute_result_annotation=lambda s_arg: SomeCTypesObject(the_type))
             do_register(the_type)
             the_type.default_memorystate = SomeCTypesObject.NOMEMORY
 
@@ -97,11 +99,11 @@ def cfuncptrtype_compute_annotation(type, instance):
             return instance.restype.annotator_type
         except AttributeError:
             return SomeCTypesObject(instance.restype)
-
+        
     return SomeBuiltin(compute_result_annotation, 
         methodname=instance.__name__)
 
-def specialize_call(hop):
+def cfuncptrtype_specialize_call(hop):
     # this is necessary to get the original function pointer when specializing
     # the metatype
     cfuncptr = hop.spaceop.args[0].value
@@ -125,8 +127,9 @@ def specialize_call(hop):
             _callable=None,
             convert_params = convert_params ) 
 
-entry = register_metatype(CFuncPtrType, cfuncptrtype_compute_annotation)
-entry.specialize_call = specialize_call
+register_metatype(CFuncPtrType, 
+    compute_annotation=cfuncptrtype_compute_annotation,
+    specialize_call=cfuncptrtype_specialize_call)
 
 class FunctionPointerTranslation(object):
 
@@ -366,17 +369,28 @@ def RPOINTER(cls):
 #             """
 #             _flags_ = _FUNCFLAG_STDCALL
 
-def RARRAY(typ,length):
-    answer = ARRAY(typ,length)
-    def compute_result_annotation(cls, *arg_s):
-        """
-        Answer the result annotation of calling 'cls'.
-        """
-        assert answer is cls
-        return SomeCTypesObject(cls, SomeCTypesObject.OWNSMEMORY)
-    answer.compute_result_annotation = classmethod(compute_result_annotation)
-    return answer
+# def RARRAY(typ,length):
+#     answer = ARRAY(typ,length)
+#     def compute_result_annotation(cls, *arg_s):
+#         """
+#         Answer the result annotation of calling 'cls'.
+#         """
+#         assert answer is cls
+#         return SomeCTypesObject(cls, SomeCTypesObject.OWNSMEMORY)
+#     answer.compute_result_annotation = classmethod(compute_result_annotation)
+#     return answer
 
+ArrayType = type(ARRAY(c_int, 10))
+
+def arraytype_compute_annotation(metatype, type):
+    def compute_result_annotation(*arg_s):
+        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
+    return SomeBuiltin(compute_result_annotation,
+        methodname=type.__name__)
+
+register_type(ArrayType, 
+    compute_annotation=arraytype_compute_annotation,
+    specialize_call=None)
 
 class AbstractCtypesRepresentation( Repr ):
     """
