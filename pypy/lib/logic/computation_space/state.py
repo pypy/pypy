@@ -11,4 +11,4 @@ class Failed(Exception): pass
 
 class Unknown: pass
 
-
+class Forsaken: pass
