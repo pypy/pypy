@@ -59,7 +59,7 @@ def compile_module(module, source_files, object_files, library_files):
 
 def make_module_from_llvm(genllvm, llvmfile,
                           pyxfile=None, optimize=True, exe_name=None,
-                          profile=False, cleanup=False, use_gcc=False):
+                          profile=False, cleanup=False, use_gcc=True):
 
     # where we are building
     dirpath = llvmfile.dirpath()
