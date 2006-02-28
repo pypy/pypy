@@ -2,7 +2,7 @@ from pypy.rpython.ootypesystem.ootype import *
 from pypy.rpython.test.test_llinterp import interpret
 
 def test_simple_field():
-    C = Instance("test", None, {'a': (Signed, 3)})
+    C = Instance("test", ROOT, {'a': (Signed, 3)})
     
     def f():
         c = new(C)
@@ -13,7 +13,7 @@ def test_simple_field():
     assert result == 5
 
 def test_simple_method():
-    C = Instance("test", None, {'a': (Signed, 3)})
+    C = Instance("test", ROOT, {'a': (Signed, 3)})
     M = Meth([], Signed)
     def m_(self):
        return self.a
