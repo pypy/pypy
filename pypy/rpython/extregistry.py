@@ -55,7 +55,7 @@ def register_metatype(t, compute_annotation):
 def lookup_type(tp):
     try:
         return EXT_REGISTRY_BY_TYPE[tp]
-    except KeyError:
+    except (KeyError, TypeError):
         return EXT_REGISTRY_BY_METATYPE[type(tp)]
 
 def is_registered_type(tp):
