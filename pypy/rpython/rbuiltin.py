@@ -11,6 +11,7 @@ from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rdict import rtype_r_dict
 from pypy.tool import sourcetools
+from pypy.rpython import extregistry
 
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
@@ -61,6 +62,9 @@ class BuiltinFunctionRepr(Repr):
             except KeyError:
                 if hasattr(self.builtinfunc,"specialize"):
                     bltintyper = self.builtinfunc.specialize
+                elif extregistry.is_registered(self.builtinfunc):
+                    entry = extregistry.lookup(self.builtinfunc)
+                    bltintyper = entry.specialize
                 else:
                     raise TyperError("don't know about built-in function %r" % (
                         self.builtinfunc,))
