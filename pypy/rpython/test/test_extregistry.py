@@ -7,6 +7,7 @@ from pypy.rpython.extregistry import register_func, register_type
 from pypy.rpython.extregistry import register_metatype
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.translator.translator import TranslationContext
 
 def dummy(): 
     raiseNameError
@@ -116,4 +117,18 @@ def test_register_metatype_2():
     a = RPythonAnnotator()
     s = a.build_types(func, [RealClass])
     assert isinstance(s, annmodel.SomeInteger)
+
+def failing_test_register_func_with_specialization():
+    def dummy_func():
+        raiseNameError
+    
+    register_func(dummy_func, annmodel.SomeInteger())
+    
+    def func():
+        return dummy_func()
+    
+    t = TranslationContext()
+    a = t.buildannotator()
+    s = a.build_types(func, []) 
+    t.buildrtyper().specialize()
     
