@@ -12,35 +12,40 @@ from pypy.annotation.pairtype import pairtype
 class ClassesPBCRepr(AbstractClassesPBCRepr):
 
     def rtype_simple_call(self, hop):
-        return self.call("simple_call", hop)
-
-    def rtype_call_args(self, hop):
-        return self.call("call_args", hop)
-
-    def call(self, opname, hop):
         classdef = hop.s_result.classdef
         if self.lowleveltype is not ootype.Void:
             # instantiating a class from multiple possible classes
             vclass = hop.inputarg(self, arg=0)
             resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
-            return hop.genop('runtimenew', [vclass], resulttype=resulttype)
+            v_instance = hop.genop('runtimenew', [vclass], resulttype=resulttype)
+        else:
+            # instantiating a single class
+            v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)
 
-        # instantiating a single class
-        v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)
-        s_init = classdef.classdesc.s_read_attribute('__init__')
-        if not isinstance(s_init, annmodel.SomeImpossibleValue):
+        inits = []
+        for desc in self.s_pbc.descriptions:
+            if desc.find_source_for('__init__') is not None:
+                unbound = desc.s_get_value(desc.getuniqueclassdef(), '__init__')
+                unbound, = unbound.descriptions
+                bound = unbound.bind_self(desc.getuniqueclassdef())
+                inits.append(bound)
+
+        if inits:
+            s_init = annmodel.SomePBC(inits)
             s_instance = annmodel.SomeInstance(classdef)
-            hop2 = self.replace_class_with_inst_arg(
-                    hop, v_instance, s_instance, opname == "call_args")
-            hop2.v_s_insertfirstarg(v_instance, s_init)   # add 'initfunc'
+            hop2 = hop.copy()
+            hop2.r_s_popfirstarg()   # discard the class pointer argument
+            hop2.v_s_insertfirstarg(v_instance, s_init)  # add 'instance'
             hop2.s_result = annmodel.s_None
             hop2.r_result = self.rtyper.getrepr(hop2.s_result)
-            # now hop2 looks like simple_call(initfunc, instance, args...)
+            # now hop2 looks like simple_call(initmeth, args...)
             hop2.dispatch()
         else:
             assert hop.nb_args == 1, ("arguments passed to __init__, "
                                       "but no __init__!")
         return v_instance
+
+    rtype_call_args = rtype_simple_call
 
 class MethodImplementations(object):
 

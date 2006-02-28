@@ -32,6 +32,24 @@ def test_call_classes():
     res = interpret(f, [1], type_system='ootype')
     assert ootype.typeOf(res)._name == 'B'
 
+def test_call_classes_init():
+    class A: 
+        def __init__(self, a, b=0):
+            self.a = a
+    class B(A): 
+        def __init__(self, a):
+            self.a = a + 1
+    def f(i):
+        if i == 1:
+            cls = B
+        else:
+            cls = A
+        return cls(a=1).a
+    res = interpret(f, [0], type_system='ootype')
+    assert res == 1
+    res = interpret(f, [1], type_system='ootype')
+    assert res == 2
+
 def test_method_call_kwds():
     class A:
         def m(self, a, b=0, c=0):
