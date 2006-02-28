@@ -17,6 +17,7 @@ from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.llvm.log import log
 from pypy import conftest
+from pypy.translator.llvm.buildllvm import llvm_is_on_path
 
 class GenLLVM(object):
 
@@ -298,6 +299,8 @@ def genllvm(translator, entry_point, gcpolicy=None,
     return gen.compile_llvm_source(**kwds)
 
 def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
+    assert llvm_is_on_path()
+    
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
     t = TranslationContext()

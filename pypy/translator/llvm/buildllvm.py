@@ -18,7 +18,6 @@ def llvm_is_on_path():
     return True
 
 def llvm_version():
-    import os
     v = os.popen('llvm-as -version 2>&1').readline()
     v = ''.join([c for c in v if c.isdigit()])
     v = int(v) / 10.0
