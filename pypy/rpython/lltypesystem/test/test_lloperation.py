@@ -11,6 +11,7 @@ LL_INTERP_OPERATIONS = [name[3:] for name in LLFrame.__dict__.keys()
                                              name == 'op_subclassof' or
                                              name == 'op_instanceof' or
                                              name == 'op_classof' or
+                                             name == 'op_runtimenew' or
                                              name.startswith('op_oo'))]
 
 
