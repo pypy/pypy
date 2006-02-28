@@ -255,7 +255,7 @@ class Test_rctypes:
         # result should be an integer
         assert s.knowntype == int
 
-    def failing_test_specialize_simple(self):
+    def test_specialize_simple(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(o_atoi, [str])
@@ -264,7 +264,7 @@ class Test_rctypes:
         t.buildrtyper().specialize()
         #d#t.view()
 
-    def failing_test_compile_simple(self):
+    def test_compile_simple(self):
         fn = compile(o_atoi, [str])
         res = fn("42")
         assert res == 42

@@ -31,7 +31,13 @@ class __extend__(annmodel.SomeBuiltin):
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
-            return self.__class__, getattr(self, 'const', None)
+
+            const = getattr(self, 'const', None)
+
+            if extregistry.is_registered(const):
+                const = extregistry.lookup(const)
+
+            return self.__class__, const
         else:
             # built-in method case
             # NOTE: we hash by id of self.s_self here.  This appears to be
@@ -54,17 +60,17 @@ class BuiltinFunctionRepr(Repr):
     def rtype_simple_call(self, hop):
         try:
             bltintyper = BUILTIN_TYPER[self.builtinfunc]
-        except KeyError:
+        except (KeyError, TypeError):
             try:
                 rtyper = hop.rtyper
                 bltintyper = rtyper.type_system.rbuiltin.\
                                     BUILTIN_TYPER[self.builtinfunc]
-            except KeyError:
+            except (KeyError, TypeError):
                 if hasattr(self.builtinfunc,"specialize"):
                     bltintyper = self.builtinfunc.specialize
                 elif extregistry.is_registered(self.builtinfunc):
                     entry = extregistry.lookup(self.builtinfunc)
-                    bltintyper = entry.specialize
+                    bltintyper = entry.specialize_call
                 else:
                     raise TyperError("don't know about built-in function %r" % (
                         self.builtinfunc,))

@@ -101,7 +101,32 @@ def cfuncptrtype_compute_annotation(type, instance):
     return SomeBuiltin(compute_result_annotation, 
         methodname=instance.__name__)
 
-register_metatype(CFuncPtrType, cfuncptrtype_compute_annotation)
+def specialize_call(hop):
+    # this is necessary to get the original function pointer when specializing
+    # the metatype
+    cfuncptr = hop.spaceop.args[0].value
+
+    def convert_params(backend, param_info_list):
+        assert "c" == backend.lower()
+        assert cfuncptr.argtypes is not None
+        answer = []
+        for ctype_type, (ll_type, arg_name) in zip(cfuncptr.argtypes,
+                                                    param_info_list):
+            if ll_type == ctype_type.ll_type:
+                answer.append(arg_name)
+            else:
+                answer.append(ctype_type.wrap_arg(ll_type, arg_name))
+        return answer
+
+    return hop.llops.gencapicall(
+            cfuncptr.__name__,
+            hop.args_v,
+            resulttype = cfuncptr.restype.ll_type,
+            _callable=None,
+            convert_params = convert_params ) 
+
+entry = register_metatype(CFuncPtrType, cfuncptrtype_compute_annotation)
+entry.specialize_call = specialize_call
 
 class FunctionPointerTranslation(object):
 

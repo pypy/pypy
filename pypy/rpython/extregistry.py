@@ -1,9 +1,9 @@
 import weakref
 
 class ExtRegistryFunc(object):
-    def __init__(self, compute_result_annotation, specialize):
+    def __init__(self, compute_result_annotation, specialize_call):
         self.compute_result_annotation = compute_result_annotation
-        self.specialize = specialize
+        self.specialize_call = specialize_call
     
     def get_annotation(self, type, func=None):
         assert func is not None
@@ -28,7 +28,7 @@ EXT_REGISTRY_BY_VALUE = weakref.WeakKeyDictionary()
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
 EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
-def register_func(func, compute_result_annotation, specialize=None):
+def register_func(func, compute_result_annotation, specialize_call=None):
     from pypy.annotation import model as annmodel
     if isinstance(compute_result_annotation, annmodel.SomeObject):
         s_result = compute_result_annotation
@@ -38,7 +38,8 @@ def register_func(func, compute_result_annotation, specialize=None):
         compute_result_annotation = annotation
     
     EXT_REGISTRY_BY_VALUE[func] = ExtRegistryFunc(compute_result_annotation,
-                                                    specialize)
+                                                    specialize_call)
+    return EXT_REGISTRY_BY_VALUE[func]
     
 def register_type(t, compute_annotation):
     from pypy.annotation import model as annmodel
@@ -51,8 +52,12 @@ def register_type(t, compute_annotation):
     
     EXT_REGISTRY_BY_TYPE[t] = ExtRegistryType(compute_annotation)
 
+    return EXT_REGISTRY_BY_TYPE[t]
+
 def register_metatype(t, compute_annotation):
     EXT_REGISTRY_BY_METATYPE[t] = ExtRegistryMetaType(compute_annotation)
+
+    return EXT_REGISTRY_BY_METATYPE[t]
 
 def lookup_type(tp):
     try:
