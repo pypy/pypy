@@ -831,39 +831,39 @@ class BaseTestRPBC:
         assert res == 3*2+11*7
         
 
-def test_multiple_ll_one_hl_op():
-    class E(Exception):
-        pass
-    class A(object):
-        pass
-    class B(A):
-        pass
-    class C(object):
-        def method(self, x):
-            if x:
-                raise E()
-            else:
-                return A()
-    class D(C):
-        def method(self, x):
-            if x:
-                raise E()
-            else:
-                return B()
-    def call(x):
-        c = D()
-        c.method(x)
-        try:
-            c.method(x + 1)
-        except E:
+    def test_multiple_ll_one_hl_op(self):
+        class E(Exception):
             pass
-        c = C()
-        c.method(x)
-        try:
-            return c.method(x + 1)
-        except E:
-            return None
-    res = interpret(call, [0])
+        class A(object):
+            pass
+        class B(A):
+            pass
+        class C(object):
+            def method(self, x):
+                if x:
+                    raise E()
+                else:
+                    return A()
+        class D(C):
+            def method(self, x):
+                if x:
+                    raise E()
+                else:
+                    return B()
+        def call(x):
+            c = D()
+            c.method(x)
+            try:
+                c.method(x + 1)
+            except E:
+                pass
+            c = C()
+            c.method(x)
+            try:
+                return c.method(x + 1)
+            except E:
+                return None
+        res = interpret(call, [0], type_system=self.ts)
 
 def test_multiple_pbc_with_void_attr():
     class A:

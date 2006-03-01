@@ -129,9 +129,9 @@ class ClassRepr(AbstractClassRepr):
     def rtype_issubtype(self, hop):
         class_repr = get_type_repr(self.rtyper)
         vmeta1, vmeta2 = hop.inputargs(class_repr, class_repr)
-        return hop.gendirectcall(ll_issubtype, vmeta1, vmeta2)
+        return hop.gendirectcall(ll_issubclass, vmeta1, vmeta2)
 
-def ll_issubtype(meta1, meta2):
+def ll_issubclass(meta1, meta2):
     class1 = meta1.class_
     class2 = meta2.class_
     return ootype.subclassof(class1, class2)
