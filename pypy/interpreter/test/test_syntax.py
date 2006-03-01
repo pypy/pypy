@@ -372,6 +372,128 @@ class AppTestWith:
         import types
         assert isinstance(acontextfact.exit_params[2], types.TracebackType)
         
+    def test_with_4(self):
+
+        s = """if 1:
+        # from __future__ import with_statement
+        class ContextFactory:
+
+            class Context:
+                def __init__(self, factory):
+                    self.factory = factory
+
+                def __enter__(self):
+                    self.factory.calls.append('__enter__')
+                    return self.factory.calls
+
+                def __exit__(self, exc_type, exc_value, exc_tb):
+                    self.factory.calls.append('__exit__')
+                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
+
+            def __init__(self):
+                self.calls = list()
+                self.context = self.Context(self)
+
+            def __context__(self):
+                self.calls.append('__context__')
+                return self.context
+            
+        acontextfact = ContextFactory()
+        error = RuntimeError('With Test')
+        for x in 1,:
+            with acontextfact as avar:
+                avar.append('__body__')
+                break
+                avar.append('__after_break__')
+        else:
+            raise AssertionError('Break failed with With, reached else clause')
+        """
+        exec s
+
+        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
+        assert acontextfact.exit_params == (None, None, None)
+        
+    def test_with_5(self):
+
+        s = """if 1:
+        # from __future__ import with_statement
+        class ContextFactory:
+
+            class Context:
+                def __init__(self, factory):
+                    self.factory = factory
+
+                def __enter__(self):
+                    self.factory.calls.append('__enter__')
+                    return self.factory.calls
+
+                def __exit__(self, exc_type, exc_value, exc_tb):
+                    self.factory.calls.append('__exit__')
+                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
+
+            def __init__(self):
+                self.calls = list()
+                self.context = self.Context(self)
+
+            def __context__(self):
+                self.calls.append('__context__')
+                return self.context
+            
+        acontextfact = ContextFactory()
+        error = RuntimeError('With Test')
+        for x in 1,:
+            with acontextfact as avar:
+                avar.append('__body__')
+                continue
+                avar.append('__after_break__')
+        else:
+            avar.append('__continue__')
+        """
+        exec s
+
+        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __continue__'.split()
+        assert acontextfact.exit_params == (None, None, None)
+        
+    def test_with_6(self):
+
+        s = """if 1:
+        # from __future__ import with_statement
+        class ContextFactory:
+
+            class Context:
+                def __init__(self, factory):
+                    self.factory = factory
+
+                def __enter__(self):
+                    self.factory.calls.append('__enter__')
+                    return self.factory.calls
+
+                def __exit__(self, exc_type, exc_value, exc_tb):
+                    self.factory.calls.append('__exit__')
+                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
+
+            def __init__(self):
+                self.calls = list()
+                self.context = self.Context(self)
+
+            def __context__(self):
+                self.calls.append('__context__')
+                return self.context
+            
+        acontextfact = ContextFactory()
+        error = RuntimeError('With Test')
+        def g(acontextfact):
+            with acontextfact as avar:
+                avar.append('__body__')
+                return '__return__'
+                avar.append('__after_return__')
+        acontextfact.calls.append(g(acontextfact))
+        """
+        exec s
+
+        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __return__'.split()
+        assert acontextfact.exit_params == (None, None, None)
+        
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
     from py.test import raises

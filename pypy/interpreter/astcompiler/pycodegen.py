@@ -561,22 +561,29 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop('LOAD_ATTR', '__enter__')
         self.emitop_int('CALL_FUNCTION', 0)
         finally_block = self.newBlock()
+        body = self.newBlock()
+
+        self.setups.append((TRY_FINALLY, body))
 
         if node.var is not None:        # VAR is present
             self._implicitNameOp('STORE', var)
             self.emitop_block('SETUP_FINALLY', finally_block)
+            self.nextBlock(body)
             self._implicitNameOp('LOAD', var)
             self._implicitNameOp('DELETE', var)
             node.var.accept(self)
         else:
             self.emit('POP_TOP')
             self.emitop_block('SETUP_FINALLY', finally_block)
+            self.nextBlock(body)
 
         node.body.accept(self)
         
         self.emit('POP_BLOCK')
+        self.setups.pop()
         self.emitop_obj('LOAD_CONST', self.space.w_None) # WITH_CLEANUP checks for normal exit
         self.nextBlock(finally_block)
+        self.setups.append((END_FINALLY, finally_block))
 
         # find local variable with is context.__exit__
         self._implicitNameOp('LOAD', exit)
@@ -586,6 +593,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop_int('CALL_FUNCTION', 3)
         self.emit('POP_TOP')
         self.emit('END_FINALLY')
+        self.setups.pop()
 
     def visitCompare(self, node):
         node.expr.accept( self )

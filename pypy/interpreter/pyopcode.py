@@ -638,16 +638,19 @@ class PyInterpFrame(pyframe.PyFrame):
         f.blockstack.push(block)
 
     def WITH_CLEANUP(f):
-        v = f.valuestack.top(3)
-        if (f.space.is_w(v, f.space.w_None)): # no exception
-            f.valuestack.push(f.space.w_None)
-            f.valuestack.push(f.space.w_None)
-            f.valuestack.push(f.space.w_None)
+        # see comment in END_FINALLY for stack state
+        w_unroller = f.valuestack.top(3)
+        unroller = f.space.interpclass_w(w_unroller)
+        if (isinstance(unroller, pyframe.SuspendedUnroller)
+            and isinstance(unroller.flowexc, pyframe.SApplicationException)):
+            f.valuestack.push(unroller.flowexc.operr.w_type)
+            f.valuestack.push(unroller.flowexc.operr.w_value)
+            f.valuestack.push(unroller.flowexc.operr.application_traceback)
         else:
-            f.valuestack.push(v.flowexc.operr.w_type)
-            f.valuestack.push(v.flowexc.operr.w_value)
-            f.valuestack.push(v.flowexc.operr.application_traceback)
-
+            f.valuestack.push(f.space.w_None)
+            f.valuestack.push(f.space.w_None)
+            f.valuestack.push(f.space.w_None)
+                      
     def call_function(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
