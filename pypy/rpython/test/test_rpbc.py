@@ -497,313 +497,313 @@ class BaseTestRPBC:
         assert self.read_attr(res, "z") == -7645
         assert self.read_attr(res, "extra") == 42
 
-def test_call_starargs():
-    def g(x=-100, *arg):
-        return x + len(arg)
-    def f(i):
-        if i == -1:
-            return g()
-        elif i == 0:
-            return g(4)
-        elif i == 1:
-            return g(5, 15)
-        elif i == 2:
-            return g(7, 17, 27)
-        else:
-            return g(10, 198, 1129, 13984)
-    res = interpret(f, [-1])
-    assert res == -100
-    res = interpret(f, [0])
-    assert res == 4
-    res = interpret(f, [1])
-    assert res == 6
-    res = interpret(f, [2])
-    assert res == 9
-    res = interpret(f, [3])
-    assert res == 13
-
-def test_conv_from_None():
-    class A(object): pass
-    def none():
-        return None
-    
-    def f(i):
-        if i == 1:
-            return none()
-        else:
-            return "ab"
-    res = interpret(f, [1])
-    assert not res
-    res = interpret(f, [0])
-    assert ''.join(res.chars) == "ab"
+    def test_conv_from_None(self):
+        class A(object): pass
+        def none():
+            return None
         
-    def g(i):
-        if i == 1:
-            return none()
-        else:
-            return A()
-    res = interpret(g, [1])
-    assert not res
-    res = interpret(g, [0])
-    assert res.super.typeptr.name[0] == 'A'
+        def f(i):
+            if i == 1:
+                return none()
+            else:
+                return "ab"
+        res = interpret(f, [1], type_system=self.ts)
+        assert not res
+        res = interpret(f, [0], type_system=self.ts)
+        assert ''.join(res.chars) == "ab"
+            
+        def g(i):
+            if i == 1:
+                return none()
+            else:
+                return A()
+        res = interpret(g, [1], type_system=self.ts)
+        assert not res
+        res = interpret(g, [0], type_system=self.ts)
+        assert self.class_name(res) == 'A'
 
     
-def test_conv_from_classpbcset_to_larger():
-    class A(object): pass
-    class B(A): pass
-    class C(A): pass
+    def test_conv_from_classpbcset_to_larger(self):
+        class A(object): pass
+        class B(A): pass
+        class C(A): pass
 
-    def a():
-        return A
-    def b():
-        return B
-    
-
-    def g(i):
-        if i == 1:
-            cls = a()
-        else:
-            cls = b()
-        return cls()
-
-    res = interpret(g, [0])
-    assert res.super.typeptr.name[0] == 'B'
-    res = interpret(g, [1])
-    assert res.super.typeptr.name[0] == 'A'
-
-    def bc(j):
-        if j == 1:
+        def a():
+            return A
+        def b():
             return B
-        else:
-            return C
+        
 
-    def g(i, j):
-        if i == 1:
-            cls = a()
-        else:
-            cls = bc(j)
-        return cls()
+        def g(i):
+            if i == 1:
+                cls = a()
+            else:
+                cls = b()
+            return cls()
 
-    res = interpret(g, [0, 0])
-    assert res.super.typeptr.name[0] == 'C'
-    res = interpret(g, [0, 1])
-    assert res.super.typeptr.name[0] == 'B'    
-    res = interpret(g, [1, 0])
-    assert res.super.typeptr.name[0] == 'A'    
-    
-def test_call_keywords():
-    def g(a=1, b=2, c=3):
-        return 100*a+10*b+c
+        res = interpret(g, [0], type_system=self.ts)
+        assert self.class_name(res) == 'B'
+        res = interpret(g, [1], type_system=self.ts)
+        assert self.class_name(res) == 'A'
 
-    def f(i):
-        if i == 0:
-            return g(a=7)
-        elif i == 1:
-            return g(b=11)
-        elif i == 2:
-            return g(c=13)
-        elif i == 3:
-            return g(a=7, b=11)
-        elif i == 4:
-            return g(b=7, a=11)
-        elif i == 5:
-            return g(a=7, c=13)
-        elif i == 6:
-            return g(c=7, a=13)
-        elif i == 7:
-            return g(a=7,b=11,c=13)
-        elif i == 8:
-            return g(a=7,c=11,b=13)
-        elif i == 9:
-            return g(b=7,a=11,c=13)
-        else:
-            return g(b=7,c=11,a=13)
+        def bc(j):
+            if j == 1:
+                return B
+            else:
+                return C
 
-    for i in range(11):
-        res = interpret(f, [i])
-        assert res == f(i)
+        def g(i, j):
+            if i == 1:
+                cls = a()
+            else:
+                cls = bc(j)
+            return cls()
 
-def test_call_star_and_keywords():
-    def g(a=1, b=2, c=3):
-        return 100*a+10*b+c
+        res = interpret(g, [0, 0], type_system=self.ts)
+        assert self.class_name(res) == 'C'
+        res = interpret(g, [0, 1], type_system=self.ts)
+        assert self.class_name(res) == 'B'    
+        res = interpret(g, [1, 0], type_system=self.ts)
+        assert self.class_name(res) == 'A'    
+        
+    def test_call_starargs(self):
+        def g(x=-100, *arg):
+            return x + len(arg)
+        def f(i):
+            if i == -1:
+                return g()
+            elif i == 0:
+                return g(4)
+            elif i == 1:
+                return g(5, 15)
+            elif i == 2:
+                return g(7, 17, 27)
+            else:
+                return g(10, 198, 1129, 13984)
+        res = interpret(f, [-1], type_system=self.ts)
+        assert res == -100
+        res = interpret(f, [0], type_system=self.ts)
+        assert res == 4
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 6
+        res = interpret(f, [2], type_system=self.ts)
+        assert res == 9
+        res = interpret(f, [3], type_system=self.ts)
+        assert res == 13
 
-    def f(i, x):
-        if x == 1:
-            j = 11
-        else:
-            j = 22
-        if i == 0:
-            return g(7)
-        elif i == 1:
-            return g(7,*(j,))
-        elif i == 2:
-            return g(7,*(11,j))
-        elif i == 3:
-            return g(a=7)
-        elif i == 4:
-            return g(b=7, *(j,))
-        elif i == 5:
-            return g(b=7, c=13, *(j,))
-        elif i == 6:
-            return g(c=7, b=13, *(j,))
-        elif i == 7:
-            return g(c=7,*(j,))
-        elif i == 8:
-            return g(c=7,*(11,j))
-        else:
-            return 0
+    def test_call_keywords(self):
+        def g(a=1, b=2, c=3):
+            return 100*a+10*b+c
 
-    for i in range(9):
-        for x in range(1):
-            res = interpret(f, [i, x])
-            assert res == f(i, x)
+        def f(i):
+            if i == 0:
+                return g(a=7)
+            elif i == 1:
+                return g(b=11)
+            elif i == 2:
+                return g(c=13)
+            elif i == 3:
+                return g(a=7, b=11)
+            elif i == 4:
+                return g(b=7, a=11)
+            elif i == 5:
+                return g(a=7, c=13)
+            elif i == 6:
+                return g(c=7, a=13)
+            elif i == 7:
+                return g(a=7,b=11,c=13)
+            elif i == 8:
+                return g(a=7,c=11,b=13)
+            elif i == 9:
+                return g(b=7,a=11,c=13)
+            else:
+                return g(b=7,c=11,a=13)
 
-def test_call_star_and_keywords_starargs():
-    def g(a=1, b=2, c=3, *rest):
-        return 1000*len(rest)+100*a+10*b+c
+        for i in range(11):
+            res = interpret(f, [i], type_system=self.ts)
+            assert res == f(i)
 
-    def f(i, x):
-        if x == 1:
-            j = 13
-        else:
-            j = 31
-        if i == 0:
-            return g()
-        elif i == 1:
-            return g(*(j,))
-        elif i == 2:
-            return g(*(13, j))
-        elif i == 3:
-            return g(*(13, j, 19))
-        elif i == 4:
-            return g(*(13, j, 19, 21))
-        elif i == 5:
-            return g(7)
-        elif i == 6:
-            return g(7, *(j,))
-        elif i == 7:
-            return g(7, *(13, j))
-        elif i == 8:
-            return g(7, *(13, 17, j))
-        elif i == 9:
-            return g(7, *(13, 17, j, 21))
-        elif i == 10:
-            return g(7, 9)
-        elif i == 11:
-            return g(7, 9, *(j,))
-        elif i == 12:
-            return g(7, 9, *(j, 17))
-        elif i == 13:
-            return g(7, 9, *(13, j, 19))
-        elif i == 14:
-            return g(7, 9, 11)
-        elif i == 15:
-            return g(7, 9, 11, *(j,))
-        elif i == 16:
-            return g(7, 9, 11, *(13, j))
-        elif i == 17:
-            return g(7, 9, 11, *(13, 17, j))
-        elif i == 18:
-            return g(7, 9, 11, 2)
-        elif i == 19:
-            return g(7, 9, 11, 2, *(j,))
-        elif i == 20:
-            return g(7, 9, 11, 2, *(13, j))
-        else:
-            return 0
+    def test_call_star_and_keywords(self):
+        def g(a=1, b=2, c=3):
+            return 100*a+10*b+c
 
-    for i in range(21):
-        for x in range(1):
-            res = interpret(f, [i, x])
-            assert res == f(i, x)
+        def f(i, x):
+            if x == 1:
+                j = 11
+            else:
+                j = 22
+            if i == 0:
+                return g(7)
+            elif i == 1:
+                return g(7,*(j,))
+            elif i == 2:
+                return g(7,*(11,j))
+            elif i == 3:
+                return g(a=7)
+            elif i == 4:
+                return g(b=7, *(j,))
+            elif i == 5:
+                return g(b=7, c=13, *(j,))
+            elif i == 6:
+                return g(c=7, b=13, *(j,))
+            elif i == 7:
+                return g(c=7,*(j,))
+            elif i == 8:
+                return g(c=7,*(11,j))
+            else:
+                return 0
 
-def test_conv_from_funcpbcset_to_larger():
-    def f1():
-        return 7
-    def f2():
-        return 11
-    def f3():
-        return 13
+        for i in range(9):
+            for x in range(1):
+                res = interpret(f, [i, x], type_system=self.ts)
+                assert res == f(i, x)
 
-    def a():
-        return f1
-    def b():
-        return f2
-    
+    def test_call_star_and_keywords_starargs(self):
+        def g(a=1, b=2, c=3, *rest):
+            return 1000*len(rest)+100*a+10*b+c
 
-    def g(i):
-        if i == 1:
-            f = a()
-        else:
-            f = b()
-        return f()
+        def f(i, x):
+            if x == 1:
+                j = 13
+            else:
+                j = 31
+            if i == 0:
+                return g()
+            elif i == 1:
+                return g(*(j,))
+            elif i == 2:
+                return g(*(13, j))
+            elif i == 3:
+                return g(*(13, j, 19))
+            elif i == 4:
+                return g(*(13, j, 19, 21))
+            elif i == 5:
+                return g(7)
+            elif i == 6:
+                return g(7, *(j,))
+            elif i == 7:
+                return g(7, *(13, j))
+            elif i == 8:
+                return g(7, *(13, 17, j))
+            elif i == 9:
+                return g(7, *(13, 17, j, 21))
+            elif i == 10:
+                return g(7, 9)
+            elif i == 11:
+                return g(7, 9, *(j,))
+            elif i == 12:
+                return g(7, 9, *(j, 17))
+            elif i == 13:
+                return g(7, 9, *(13, j, 19))
+            elif i == 14:
+                return g(7, 9, 11)
+            elif i == 15:
+                return g(7, 9, 11, *(j,))
+            elif i == 16:
+                return g(7, 9, 11, *(13, j))
+            elif i == 17:
+                return g(7, 9, 11, *(13, 17, j))
+            elif i == 18:
+                return g(7, 9, 11, 2)
+            elif i == 19:
+                return g(7, 9, 11, 2, *(j,))
+            elif i == 20:
+                return g(7, 9, 11, 2, *(13, j))
+            else:
+                return 0
 
-    res = interpret(g, [0])
-    assert res == 11
-    res = interpret(g, [1])
-    assert res == 7
+        for i in range(21):
+            for x in range(1):
+                res = interpret(f, [i, x], type_system=self.ts)
+                assert res == f(i, x)
 
-    def bc(j):
-        if j == 1:
+    def test_conv_from_funcpbcset_to_larger(self):
+        def f1():
+            return 7
+        def f2():
+            return 11
+        def f3():
+            return 13
+
+        def a():
+            return f1
+        def b():
             return f2
-        else:
-            return f3
+        
 
-    def g(i, j):
-        if i == 1:
-            cls = a()
-        else:
-            cls = bc(j)
-        return cls()
+        def g(i):
+            if i == 1:
+                f = a()
+            else:
+                f = b()
+            return f()
 
-    res = interpret(g, [0, 0])
-    assert res == 13
-    res = interpret(g, [0, 1])
-    assert res == 11
-    res = interpret(g, [1, 0])
-    assert res == 7
+        res = interpret(g, [0], type_system=self.ts)
+        assert res == 11
+        res = interpret(g, [1], type_system=self.ts)
+        assert res == 7
 
-def test_call_special_starargs_method():
-    class Star:
-        def __init__(self, d):
-            self.d = d
-        def meth(self, *args):
-            return self.d + len(args)
+        def bc(j):
+            if j == 1:
+                return f2
+            else:
+                return f3
 
-    def f(i, j):
-        s = Star(i)
-        return s.meth(i, j)
+        def g(i, j):
+            if i == 1:
+                cls = a()
+            else:
+                cls = bc(j)
+            return cls()
 
-    res = interpret(f, [3, 0])
-    assert res == 5
+        res = interpret(g, [0, 0], type_system=self.ts)
+        assert res == 13
+        res = interpret(g, [0, 1], type_system=self.ts)
+        assert res == 11
+        res = interpret(g, [1, 0], type_system=self.ts)
+        assert res == 7
 
-def test_call_star_method():
-    class N:
-        def __init__(self, d):
-            self.d = d
-        def meth(self, a, b):
-            return self.d + a + b
+    def test_call_special_starargs_method(self):
+        class Star:
+            def __init__(self, d):
+                self.d = d
+            def meth(self, *args):
+                return self.d + len(args)
 
-    def f(i, j):
-        n = N(i)
-        return n.meth(*(i, j))
+        def f(i, j):
+            s = Star(i)
+            return s.meth(i, j)
 
-    res = interpret(f, [3, 7])
-    assert res == 13
+        res = interpret(f, [3, 0], type_system=self.ts)
+        assert res == 5
 
-def test_call_star_special_starargs_method():
-    class N:
-        def __init__(self, d):
-            self.d = d
-        def meth(self, *args):
-            return self.d + len(args)
+    def test_call_star_method(self):
+        class N:
+            def __init__(self, d):
+                self.d = d
+            def meth(self, a, b):
+                return self.d + a + b
 
-    def f(i, j):
-        n = N(i)
-        return n.meth(*(i, j))
+        def f(i, j):
+            n = N(i)
+            return n.meth(*(i, j))
 
-    res = interpret(f, [3, 0])
-    assert res == 5
+        res = interpret(f, [3, 7], type_system=self.ts)
+        assert res == 13
+
+    def test_call_star_special_starargs_method(self):
+        class N:
+            def __init__(self, d):
+                self.d = d
+            def meth(self, *args):
+                return self.d + len(args)
+
+        def f(i, j):
+            n = N(i)
+            return n.meth(*(i, j))
+
+        res = interpret(f, [3, 0], type_system=self.ts)
+        assert res == 5
 
 def test_various_patterns_but_one_signature_method():
     class A:
