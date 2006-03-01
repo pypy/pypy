@@ -50,14 +50,105 @@ static PyObject *ee_parse(PyExecutionEngine *self, PyObject *args) {
   return NULL;
 }
 
-static PyObject *ee_call_noargs(PyExecutionEngine *self, PyObject *args) {
+static int from_python_to_args(std::vector<GenericValue> &llvmargs,
+				PyObject *value,
+				const Type *type) {
+  // XXX Flesh out
+  GenericValue res;
+  if (type->getTypeID() == Type::IntTyID) {
+    if (!PyInt_Check(value)) {
+      PyErr_SetString(PyExc_TypeError, "expected an integer type");
+      return -1;
+    }
+    res.IntVal = PyInt_AsLong(value);
+    llvmargs.push_back(res);
+    return 0;
+  }
 
-  char *fnname;
+  std::string err = "unsupported type: " + type->getDescription();
+  PyErr_SetString(PyExc_TypeError, err.c_str());
+  return -1;
+}
 
-  if (!PyArg_ParseTuple(args, "s", &fnname)) {
+static PyObject *to_python_value(const GenericValue &value,
+				 const Type *type) {
+
+  // special case for strings - it is your own fault if not NULL terminated
+  if (type->getTypeID() == Type::PointerTyID &&
+      type->getContainedType(0)->getTypeID() == Type::SByteTyID) {
+    return PyString_FromString((const char *) value.PointerVal);
+  }
+
+  PyObject *res;
+
+  switch (type->getTypeID()) {
+
+    case Type::VoidTyID:
+      Py_INCREF(Py_None);
+      res = Py_None;
+      break;
+
+    case Type::BoolTyID:
+      res = PyBool_FromLong((long) value.BoolVal);
+      break;
+
+    case Type::UByteTyID:
+      res = PyInt_FromLong((long) value.UByteVal);
+      break;
+
+    case Type::SByteTyID:
+      res = PyInt_FromLong((long) value.SByteVal);
+      break;
+
+    case Type::UShortTyID:
+      res = PyInt_FromLong((long) value.UShortVal);
+      break;
+
+    case Type::ShortTyID:
+      res = PyInt_FromLong((long) value.ShortVal);
+      break;
+
+    case Type::UIntTyID:
+      res = PyLong_FromUnsignedLong(value.UIntVal);
+      break;
+
+    case Type::IntTyID:
+      res = PyInt_FromLong(value.IntVal);
+      break;
+
+    case Type::ULongTyID:
+      res = PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value.ULongVal);
+      break;
+
+    case Type::LongTyID:
+      res = PyLong_FromLongLong((PY_LONG_LONG) value.ULongVal);
+      break;
+
+      // XXX the rest
+    default:
+      std::string err = "unsupported type: " + type->getDescription();
+      PyErr_SetString(PyExc_TypeError, err.c_str());
+      res = NULL;
+  }
+
+  return res;
+}
+
+static PyObject *ee_call(PyExecutionEngine *self, PyObject *args) {
+
+  if (PyTuple_Size(args) == 0) {
+    PyErr_SetString(PyExc_TypeError, "first arg expected as string");
     return NULL;
   }
-  
+
+  PyObject *pyfnname = PyTuple_GetItem(args, 0); 
+  if (!PyString_Check(pyfnname)) {
+    PyErr_SetString(PyExc_TypeError, "first arg expected as string");
+    return NULL;
+  }
+
+  char *fnname = PyString_AsString(pyfnname);
+    
   try {
     Function *fn = self->exec->getModule().getNamedFunction(std::string(fnname));
     if (fn == NULL) {
@@ -65,21 +156,28 @@ static PyObject *ee_call_noargs(PyExecutionEngine *self, PyObject *args) {
       return NULL;
     }
 
-    if (!fn->arg_empty()) {
-      PyErr_SetString(PyExc_Exception, "Resolved function must take no args");
+    unsigned argcount = fn->getFunctionType()->getNumParams();
+    if ((unsigned) PyTuple_Size(args) != argcount + 1) {
+      PyErr_SetString(PyExc_TypeError, "args not much count");
       return NULL;
-    }    
+    }
 
-    std::vector<GenericValue> noargs(0);
-    GenericValue ret = self->exec->runFunction(fn, noargs);
-  
+    std::vector<GenericValue> llvmargs;
+    for (unsigned ii=0; ii<argcount; ii++) {
+      if (from_python_to_args(llvmargs,
+			      PyTuple_GetItem(args, ii+1),
+			      fn->getFunctionType()->getParamType(ii)) == -1) {
+	return NULL;
+      }
+    }
+
+    GenericValue ret = self->exec->runFunction(fn, llvmargs);
+    return to_python_value(ret, fn->getFunctionType()->getReturnType());
+
   } catch (...) {
     PyErr_SetString(PyExc_Exception, "Unexpected unknown exception occurred");
     return NULL;
   }
-
-  Py_INCREF(Py_None);
-  return Py_None;
 }
 
 static PyObject *ee_functions(PyExecutionEngine *self) {
@@ -128,7 +226,7 @@ static PyObject *ee_functions(PyExecutionEngine *self) {
 static PyMethodDef ee_methodlist[] = {
   {"parse", (PyCFunction) ee_parse, METH_VARARGS, NULL},
   {"functions", (PyCFunction) ee_functions, METH_NOARGS, NULL},
-  {"call_noargs", (PyCFunction) ee_call_noargs, METH_VARARGS, NULL},
+  {"call", (PyCFunction) ee_call, METH_VARARGS, NULL},
 
   {NULL, NULL}
 };
@@ -209,7 +307,6 @@ static PyObject *ee_factory() {
 }
 
 void ee_dealloc(PyExecutionEngine *self) {
-  // next and prev taken care of by append/remove/dealloc in dlist
   self->ob_type->tp_free((PyObject*) self);
 }
 

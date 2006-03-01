@@ -38,9 +38,15 @@ def test_functions():
 def test_call1():
     ee = get_fresh_ee()
     ee.parse(codepath.join("hello.s").read())
-    ee.call_noargs("hello")
-    ee.call_noargs("gethellostr")
+    assert ee.call("hello") == 0
+    assert ee.call("gethellostr") == "hello world\n"
     try:
-        ee.call_noargs("gethellostrx")
+        ee.call("gethellostrx")
     except:
         pass
+    try:
+        ee.call("gethellostr", 1)
+    except:
+        pass
+    ee.parse(codepath.join("addnumbers.s").read())
+    assert ee.call("add", 10, 32) == 42
