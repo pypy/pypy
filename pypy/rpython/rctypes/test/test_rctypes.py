@@ -537,3 +537,13 @@ class Test_array:
         assert c_data[9] == 0
         py.test.raises(IndexError, "c_data[10]")
         py.test.raises(TypeError, "len(c_data)")
+
+    def test_specialize_array_access(self):
+        def test_specialize_array_access():
+            my_array = c_int_10()
+            my_array[0] = 1
+
+            return my_array[0]
+
+        res = interpret(test_specialize_array_access, [])
+        assert res == 1
