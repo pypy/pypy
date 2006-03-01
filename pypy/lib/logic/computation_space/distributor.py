@@ -1,6 +1,7 @@
 import math, random
 from threading import Thread
 from state import Succeeded, Distributable, Failed, Forsaken
+from event import Revise
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
@@ -143,11 +144,11 @@ class SplitDistributor(AbstractDistributor):
         #XXX: are the domains properly set up ?
         #self.cs._process() # propagate first
         #better let clone() do this call
-        self.cs.STABLE.bind(True)
         while self.cs._distributable():
             if self.cs.status == Forsaken:
                 print "-- distributor (%s) ready for GC --" % self.cs.id
                 break
+            self.cs.STABLE.bind(True)
             choice = self.cs.choose(self.nb_subdomains())
             print "-- distribution & propagation (%s) --" % self.cs.id
             self.distribute(choice-1)
@@ -171,7 +172,7 @@ class SplitDistributor(AbstractDistributor):
                       int(math.floor((choice + 1) * nb_elts)))
         self.cs.dom(variable).remove_values(values[:start])
         self.cs.dom(variable).remove_values(values[end:])
-        self.cs.add_distributed(variable)
+        self.cs._notify(Revise(variable))
 
 
 class DichotomyDistributor(SplitDistributor):

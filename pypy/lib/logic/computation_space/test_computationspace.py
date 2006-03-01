@@ -495,11 +495,11 @@ class TestComputationSpace:
 
     def test_ask_alternatives(self):
         spc = newspace(problems.satisfiable_problem)
-        assert spc.ask() == space.Alternatives(2)
+        assert spc.ask() == space.Alternative(2)
 
 ##     def test_clone_and_process(self):
 ##         spc = newspace(problems.satisfiable_problem)
-##         assert spc.ask() == space.Alternatives(2)
+##         assert spc.ask() == space.Alternative(2)
 ##         new_spc = spc.clone()
 ##         #assert spc == new_spc
 ##         assert new_spc.parent == spc
@@ -509,7 +509,7 @@ class TestComputationSpace:
 ##         new_spc.add_constraint([z, y], 'z == y')
 ##         new_spc.add_constraint([y], 'y < 2')
 ##         new_spc._process()
-##         assert spc.ask() == space.Alternatives(2)
+##         assert spc.ask() == space.Alternative(2)
 ##         assert new_spc.ask() == space.Succeeded
 
     def test_clone(self):
@@ -524,23 +524,23 @@ class TestComputationSpace:
         def eager_and(t1,  t2):
             return t1 and t2
 
-        while not (eager_and(s1.ask() == space.Succeeded,
-                             s2.ask() == space.Succeeded)):
-            print "S1 diff : "
-            s1.print_quick_diff()
-            print "S2 diff : "
-            s2.print_quick_diff()
+        passes = 0
+        
+        while not (eager_and(s2.ask() == space.Succeeded,
+                             s1.ask() == space.Succeeded)):
+            print "pass n°", passes
+            print "S1", s1.pretty_doms()
+            print "S2", s2.pretty_doms()
+            passes += 1
             #assert s1 == s2
-            #assert s2 == s1
-            assert len(s1.domain_history) == len(s2.domain_history)
             temp = s2.clone()
-            assert temp.parent == s2
+            temp.ask()
+            assert temp.parent is s2
             assert temp in s2.children
             s2 = temp
             s1.commit(1)
             s2.commit(1)
 
-        print "FOoooo..."
             
     def test_quickdiff(self):
         s = newspace(problems.conference_scheduling)
@@ -556,10 +556,10 @@ class TestComputationSpace:
             space.add_constraint([y], 'y < 2')
 
         spc = newspace(problems.satisfiable_problem)
-        assert spc.ask() == space.Alternatives(2)
+        assert spc.ask() == space.Alternative(2)
         new_spc = spc.clone()
         new_spc.inject(more_constraints)
-        assert spc.ask() == space.Alternatives(2)
+        assert spc.ask() == space.Alternative(2)
         assert new_spc.ask() == space.Succeeded
         
     def test_merge(self):
