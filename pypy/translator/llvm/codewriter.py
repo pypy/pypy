@@ -140,7 +140,7 @@ class CodeWriter(object):
         # what is getptr?
         # ---------------
         # All global variables in LLVM are pointers, and pointers must also be
-        # dereferenced with the getelementptr instruction (hence the uint 0)
+        # dereferenced with the getelementptr instruction (hence the int 0)
         if getptr:
             indices = [(self.word_repr, 0)] + list(indices)
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, " % locals()
