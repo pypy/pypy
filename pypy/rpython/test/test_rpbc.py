@@ -865,28 +865,226 @@ class BaseTestRPBC:
                 return None
         res = interpret(call, [0], type_system=self.ts)
 
-def test_multiple_pbc_with_void_attr():
-    class A:
-        def _freeze_(self):
-            return True
-    a1 = A()
-    a2 = A()
-    unique = A()
-    unique.result = 42
-    a1.value = unique
-    a2.value = unique
-    def g(a):
-        return a.value.result
+    def test_multiple_pbc_with_void_attr(self):
+        class A:
+            def _freeze_(self):
+                return True
+        a1 = A()
+        a2 = A()
+        unique = A()
+        unique.result = 42
+        a1.value = unique
+        a2.value = unique
+        def g(a):
+            return a.value.result
+        def f(i):
+            if i == 1:
+                a = a1
+            else:
+                a = a2
+            return g(a)
+        res = interpret(f, [0], type_system=self.ts)
+        assert res == 42
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 42
+
+    def test_function_or_none(self):
+        def h(y):
+            return y+84
+        def g(y):
+            return y+42
+        def f(x, y):
+            if x == 1:
+                func = g
+            elif x == 2:
+                func = h
+            else:
+                func = None
+            if func:
+                return func(y)
+            return -1
+        res = interpret(f, [1, 100], type_system=self.ts)
+        assert res == 142
+        res = interpret(f, [2, 100], type_system=self.ts)
+        assert res == 184
+        res = interpret(f, [3, 100], type_system=self.ts)
+        assert res == -1
+
+    def test_pbc_getattr_conversion(self):
+        fr1 = Freezing()
+        fr2 = Freezing()
+        fr3 = Freezing()
+        fr1.value = 10
+        fr2.value = 5
+        fr3.value = 2.5
+        def pick12(i):
+            if i > 0:
+                return fr1
+            else:
+                return fr2
+        def pick23(i):
+            if i > 5:
+                return fr2
+            else:
+                return fr3
+        def f(i):
+            x = pick12(i)
+            y = pick23(i)
+            return x.value, y.value
+        for i in [0, 5, 10]:
+            res = interpret(f, [i], type_system=self.ts)
+            assert type(res.item0) is int   # precise
+            assert type(res.item1) is float
+            assert res.item0 == f(i)[0]
+            assert res.item1 == f(i)[1]
+
+    def test_pbc_getattr_conversion_with_classes(self):
+        class base: pass
+        class fr1(base): pass
+        class fr2(base): pass
+        class fr3(base): pass
+        fr1.value = 10
+        fr2.value = 5
+        fr3.value = 2.5
+        def pick12(i):
+            if i > 0:
+                return fr1
+            else:
+                return fr2
+        def pick23(i):
+            if i > 5:
+                return fr2
+            else:
+                return fr3
+        def f(i):
+            x = pick12(i)
+            y = pick23(i)
+            return x.value, y.value
+        for i in [0, 5, 10]:
+            res = interpret(f, [i], type_system=self.ts)
+            assert type(res.item0) is int   # precise
+            assert type(res.item1) is float
+            assert res.item0 == f(i)[0]
+            assert res.item1 == f(i)[1]
+
+def test_multiple_specialized_functions():
+    def myadder(x, y):   # int,int->int or str,str->str
+        return x+y
+    def myfirst(x, y):   # int,int->int or str,str->str
+        return x
+    def mysecond(x, y):  # int,int->int or str,str->str
+        return y
+    myadder._annspecialcase_ = 'specialize:argtype(0)'
+    myfirst._annspecialcase_ = 'specialize:argtype(0)'
+    mysecond._annspecialcase_ = 'specialize:argtype(0)'
+    def f(i):
+        if i == 0:
+            g = myfirst
+        elif i == 1:
+            g = mysecond
+        else:
+            g = myadder
+        s = g("hel", "lo")
+        n = g(40, 2)
+        return len(s) * n
+    for i in range(3):
+        res = interpret(f, [i])
+        assert res == f(i)
+
+def test_specialized_method_of_frozen():
+    class space:
+        def __init__(self, tag):
+            self.tag = tag
+        def wrap(self, x):
+            if isinstance(x, int):
+                return self.tag + '< %d >' % x
+            else:
+                return self.tag + x
+        wrap._annspecialcase_ = 'specialize:argtype(1)'
+    space1 = space("tag1:")
+    space2 = space("tag2:")
     def f(i):
         if i == 1:
-            a = a1
+            sp = space1
         else:
-            a = a2
-        return g(a)
-    res = interpret(f, [0])
-    assert res == 42
+            sp = space2
+        w1 = sp.wrap('hello')
+        w2 = sp.wrap(42)
+        return w1 + w2
     res = interpret(f, [1])
-    assert res == 42
+    assert ''.join(res.chars) == 'tag1:hellotag1:< 42 >'
+    res = interpret(f, [0])
+    assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
+
+def test_call_from_list():
+    def f0(n): return n+200
+    def f1(n): return n+192
+    def f2(n): return n+46
+    def f3(n): return n+2987
+    def f4(n): return n+217
+    lst = [f0, f1, f2, f3, f4]
+    def f(i, n):
+        return lst[i](n)
+    for i in range(5):
+        res = interpret(f, [i, 1000])
+        assert res == f(i, 1000)
+
+def test_precise_method_call_1():
+    class A(object):
+        def meth(self, x=5):
+            return x+1
+    class B(A):
+        def meth(self, x=5):
+            return x+2
+    class C(A):
+        pass
+    def f(i, n):
+        # call both A.meth and B.meth with an explicit argument
+        if i > 0:
+            x = A()
+        else:
+            x = B()
+        result1 = x.meth(n)
+        # now call A.meth only, using the default argument
+        result2 = C().meth()
+        return result1 * result2
+    for i in [0, 1]:
+        res = interpret(f, [i, 1234])
+        assert res == f(i, 1234)
+
+def test_precise_method_call_2():
+    class A(object):
+        def meth(self, x=5):
+            return x+1
+    class B(A):
+        def meth(self, x=5):
+            return x+2
+    class C(A):
+        def meth(self, x=5):
+            return x+3
+    def f(i, n):
+        # call both A.meth and B.meth with an explicit argument
+        if i > 0:
+            x = A()
+        else:
+            x = B()
+        result1 = x.meth(n)
+        # now call A.meth and C.meth, using the default argument
+        if i > 0:
+            x = C()
+        else:
+            x = A()
+        result2 = x.meth()
+        return result1 * result2
+    for i in [0, 1]:
+        res = interpret(f, [i, 1234])
+        assert res == f(i, 1234)
+
+
+# We don't care about the following test_hlinvoke tests working on
+# ootype. Maybe later. This kind of thing is only used in rdict
+# anyway, that will probably have a different kind of implementation
+# in ootype.
 
 def test_hlinvoke_simple():
     def f(a,b):
@@ -974,7 +1172,6 @@ def test_hlinvoke_simple2():
     assert res == 5
     res = interp.eval_graph(ll_h_graph, [None, r_f.convert_desc(f2desc), 3])
     assert res == 1
-
 
 def test_hlinvoke_hltype():
     class A(object):
@@ -1135,194 +1332,6 @@ def test_hlinvoke_pbc_method_hltype():
     c_a = A_repr.convert_const(A(None))
     res = interp.eval_graph(ll_h_graph, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
-
-def test_function_or_none():
-    def h(y):
-        return y+84
-    def g(y):
-        return y+42
-    def f(x, y):
-        d = {1: g, 2:h}
-        func = d.get(x, None)
-        if func:
-            return func(y)
-        return -1
-    res = interpret(f, [1, 100])
-    assert res == 142
-    res = interpret(f, [2, 100])
-    assert res == 184
-    res = interpret(f, [3, 100])
-    assert res == -1
-
-def test_pbc_getattr_conversion():
-    fr1 = Freezing()
-    fr2 = Freezing()
-    fr3 = Freezing()
-    fr1.value = 10
-    fr2.value = 5
-    fr3.value = 2.5
-    def pick12(i):
-        if i > 0:
-            return fr1
-        else:
-            return fr2
-    def pick23(i):
-        if i > 5:
-            return fr2
-        else:
-            return fr3
-    def f(i):
-        x = pick12(i)
-        y = pick23(i)
-        return x.value, y.value
-    for i in [0, 5, 10]:
-        res = interpret(f, [i])
-        assert type(res.item0) is int   # precise
-        assert type(res.item1) is float
-        assert res.item0 == f(i)[0]
-        assert res.item1 == f(i)[1]
-
-def test_pbc_getattr_conversion_with_classes():
-    class base: pass
-    class fr1(base): pass
-    class fr2(base): pass
-    class fr3(base): pass
-    fr1.value = 10
-    fr2.value = 5
-    fr3.value = 2.5
-    def pick12(i):
-        if i > 0:
-            return fr1
-        else:
-            return fr2
-    def pick23(i):
-        if i > 5:
-            return fr2
-        else:
-            return fr3
-    def f(i):
-        x = pick12(i)
-        y = pick23(i)
-        return x.value, y.value
-    for i in [0, 5, 10]:
-        res = interpret(f, [i])
-        assert type(res.item0) is int   # precise
-        assert type(res.item1) is float
-        assert res.item0 == f(i)[0]
-        assert res.item1 == f(i)[1]
-
-def test_multiple_specialized_functions():
-    def myadder(x, y):   # int,int->int or str,str->str
-        return x+y
-    def myfirst(x, y):   # int,int->int or str,str->str
-        return x
-    def mysecond(x, y):  # int,int->int or str,str->str
-        return y
-    myadder._annspecialcase_ = 'specialize:argtype(0)'
-    myfirst._annspecialcase_ = 'specialize:argtype(0)'
-    mysecond._annspecialcase_ = 'specialize:argtype(0)'
-    def f(i):
-        if i == 0:
-            g = myfirst
-        elif i == 1:
-            g = mysecond
-        else:
-            g = myadder
-        s = g("hel", "lo")
-        n = g(40, 2)
-        return len(s) * n
-    for i in range(3):
-        res = interpret(f, [i])
-        assert res == f(i)
-
-def test_specialized_method_of_frozen():
-    class space:
-        def __init__(self, tag):
-            self.tag = tag
-        def wrap(self, x):
-            if isinstance(x, int):
-                return self.tag + '< %d >' % x
-            else:
-                return self.tag + x
-        wrap._annspecialcase_ = 'specialize:argtype(1)'
-    space1 = space("tag1:")
-    space2 = space("tag2:")
-    def f(i):
-        if i == 1:
-            sp = space1
-        else:
-            sp = space2
-        w1 = sp.wrap('hello')
-        w2 = sp.wrap(42)
-        return w1 + w2
-    res = interpret(f, [1])
-    assert ''.join(res.chars) == 'tag1:hellotag1:< 42 >'
-    res = interpret(f, [0])
-    assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
-
-def test_call_from_list():
-    def f0(n): return n+200
-    def f1(n): return n+192
-    def f2(n): return n+46
-    def f3(n): return n+2987
-    def f4(n): return n+217
-    lst = [f0, f1, f2, f3, f4]
-    def f(i, n):
-        return lst[i](n)
-    for i in range(5):
-        res = interpret(f, [i, 1000])
-        assert res == f(i, 1000)
-
-def test_precise_method_call_1():
-    class A(object):
-        def meth(self, x=5):
-            return x+1
-    class B(A):
-        def meth(self, x=5):
-            return x+2
-    class C(A):
-        pass
-    def f(i, n):
-        # call both A.meth and B.meth with an explicit argument
-        if i > 0:
-            x = A()
-        else:
-            x = B()
-        result1 = x.meth(n)
-        # now call A.meth only, using the default argument
-        result2 = C().meth()
-        return result1 * result2
-    for i in [0, 1]:
-        res = interpret(f, [i, 1234])
-        assert res == f(i, 1234)
-
-def test_precise_method_call_2():
-    class A(object):
-        def meth(self, x=5):
-            return x+1
-    class B(A):
-        def meth(self, x=5):
-            return x+2
-    class C(A):
-        def meth(self, x=5):
-            return x+3
-    def f(i, n):
-        # call both A.meth and B.meth with an explicit argument
-        if i > 0:
-            x = A()
-        else:
-            x = B()
-        result1 = x.meth(n)
-        # now call A.meth and C.meth, using the default argument
-        if i > 0:
-            x = C()
-        else:
-            x = A()
-        result2 = x.meth()
-        return result1 * result2
-    for i in [0, 1]:
-        res = interpret(f, [i, 1234])
-        assert res == f(i, 1234)
 
 
 class TestLltype(BaseTestRPBC):
