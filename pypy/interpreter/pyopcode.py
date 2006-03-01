@@ -14,17 +14,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rarithmetic import intmask
-
-# load opcode.py as pythonopcode from our own lib
-def load_opcode():
-    import new, py
-    global pythonopcode
-    pythonopcode = new.module('opcode')
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.4.1/opcode.py')
-    execfile(str(opcode_path), pythonopcode.__dict__)
-
-load_opcode()
-
+from pypy.tool import opcode as pythonopcode
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -648,23 +638,15 @@ class PyInterpFrame(pyframe.PyFrame):
         f.blockstack.push(block)
 
     def WITH_CLEANUP(f):
-        x = f.valuestack.top()
-        u = f.valuestack.top(1)
-        if (f.space.is_w(f.space.type(u), f.space.w_int)
-            or f.space.is_w(u, f.space.w_None)):
-            u = v = w = f.space.w_None
-        else:
-            v = f.valuestack.top(2)
-            w = f.valuestack.top(3)
-            f.valuestack.pop()
-            f.valuestack.pop()
-            f.valuestack.pop()
-            f.valuestack.pop()
+        v = f.valuestack.top(3)
+        if (f.space.is_w(v, f.space.w_None)): # no exception
             f.valuestack.push(f.space.w_None)
-            f.valuestack.push(x)
-        f.valuestack.push(u)
-        f.valuestack.push(v)
-        f.valuestack.push(w)
+            f.valuestack.push(f.space.w_None)
+            f.valuestack.push(f.space.w_None)
+        else:
+            f.valuestack.push(v.flowexc.operr.w_type)
+            f.valuestack.push(v.flowexc.operr.w_value)
+            f.valuestack.push(v.flowexc.operr.application_traceback)
 
     def call_function(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff

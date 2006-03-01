@@ -7,16 +7,7 @@ from pypy.interpreter.astcompiler.consts \
      import CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
-
-# load opcode.py as pythonopcode from our own lib
-def load_opcode():
-    import new, py
-    global pythonopcode
-    pythonopcode = new.module('opcode')
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath().dirpath('lib-python/modified-2.4.1/opcode.py')
-    execfile(str(opcode_path), pythonopcode.__dict__)
-
-load_opcode()
+from pypy.tool import opcode as pythonopcode
 
 class BlockSet:
     """A Set implementation specific to Blocks
