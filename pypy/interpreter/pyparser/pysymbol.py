@@ -49,19 +49,6 @@ class SymbolMapper(object):
 
 _cpython_symbols = SymbolMapper( symbol.sym_name )
 
-
-### prepopulate symbol table from symbols used by CPython
-##for _value, _name in _cpython_symbols.sym_name.items():
-##    globals()[_name] = _value
-
-    
-### (This function does not seen to be called right now)
-##def update_symbols( parser ):
-##    """Update the symbol module according to rules
-##    in PythonParser instance : parser"""
-##    for rule in parser.rules:
-##        _cpython_symbols.add_symbol( rule )
-
 # There is no symbol in this module until the grammar is loaded
 # once loaded the grammar parser will fill the mappings with the
 # grammar symbols

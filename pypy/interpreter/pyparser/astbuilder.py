@@ -1236,9 +1236,9 @@ def build_while_stmt(builder, nb):
         else_ = atoms[6]
     builder.push(ast.While(test, body, else_, atoms[0].lineno))
 
-
 def build_with_stmt(builder, nb):
-    """with_stmt: 'with' test [ 'as' NAME ] ':' suite"""
+    """with_stmt: 'with' test [ NAME expr ] ':' suite"""
+
     atoms = get_atoms(builder, nb)
     # skip 'with'
     test =  atoms[1]
@@ -1247,10 +1247,14 @@ def build_with_stmt(builder, nb):
         var = None
     # if there is an "as" clause
     else:
-        var = atoms[3]
+        token = atoms[2]
+        assert isinstance(token, TokenObject)
+        if token.get_value() != 'as':
+            raise SyntaxError("invalid syntax", token.lineno, token.col)
+        varexpr = atoms[3]
+        var = to_lvalue(varexpr, consts.OP_ASSIGN)
         body = atoms[5]
     builder.push(ast.With(test, body, var, atoms[0].lineno))
-
 
 def build_import_name(builder, nb):
     """import_name: 'import' dotted_as_names
@@ -1500,7 +1504,7 @@ ASTRULES = {
     sym['break_stmt'] : build_break_stmt,
     sym['for_stmt'] : build_for_stmt,
     sym['while_stmt'] : build_while_stmt,
-#    sym['with_stmt'] : build_with_stmt,
+    sym['with_stmt'] : build_with_stmt,
     sym['import_name'] : build_import_name,
     sym['import_from'] : build_import_from,
     sym['yield_stmt'] : build_yield_stmt,

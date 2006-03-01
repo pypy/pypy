@@ -21,6 +21,10 @@ SKIP_IF_NOT_NATIVE = [
     #"snippet_import_statements.py",
     "snippet_decorators.py",
 ]
+SKIP_ALWAYS = [
+    "snippet_with_1.py",
+    "snippet_with_2.py",
+]
 REAL_EXPECTED_OUTPUT = {
     # for snippets that show bugs of Python's compiler package
     "snippet_transformer_bug.py":
@@ -72,6 +76,8 @@ def test_samples():
         grammar.USE_LOOKAHEAD = use_lookahead
         for fname in os.listdir(samples_dir):
             if not fname.endswith('.py'):
+                continue
+            if fname in SKIP_ALWAYS:
                 continue
             if GRAMMAR_MISMATCH and fname in SKIP_IF_NOT_NATIVE:
                 print "Skipping", fname

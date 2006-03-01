@@ -4195,10 +4195,19 @@ class With(Node):
 
     def getChildren(self):
         "NOT_RPYTHON"
-        return self.expr, self.body, self.var
+        children = []
+        children.append(self.expr)
+        children.append(self.body)
+        children.append(self.var)
+        return tuple(children)
 
     def getChildNodes(self):
-        return [self.expr, self.body]
+        nodelist = []
+        nodelist.append(self.expr)
+        nodelist.append(self.body)
+        if self.var is not None:
+            nodelist.append(self.var)
+        return nodelist
 
     def __repr__(self):
         return "With(%s, %s, %s)" % (self.expr.__repr__(), self.body.__repr__(), self.var.__repr__())
@@ -4215,9 +4224,12 @@ class With(Node):
     def fset_body( space, self, w_arg):
         self.body = space.interp_w(Node, w_arg, can_be_None=False)
     def fget_var( space, self):
-        return space.wrap(self.var)
+        if self.var is None:
+            return space.w_None
+        else:
+            return space.wrap(self.var)
     def fset_var( space, self, w_arg):
-        self.var = space.str_w(w_arg)
+        self.var = space.interp_w(Node, w_arg, can_be_None=True)
 
 def descr_With_new(space, w_subtype, w_expr, w_body, w_var, lineno=-1):
     self = space.allocate_instance(With, w_subtype)
@@ -4225,7 +4237,7 @@ def descr_With_new(space, w_subtype, w_expr, w_body, w_var, lineno=-1):
     self.expr = expr
     body = space.interp_w(Node, w_body, can_be_None=False)
     self.body = body
-    var = space.str_w(w_var)
+    var = space.interp_w(Node, w_var, can_be_None=True)
     self.var = var
     self.lineno = lineno
     return space.wrap(self)

@@ -20,7 +20,7 @@ def load_opcode():
     import new, py
     global pythonopcode
     pythonopcode = new.module('opcode')
-    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/2.4.1/opcode.py')
+    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath('lib-python/modified-2.4.1/opcode.py')
     execfile(str(opcode_path), pythonopcode.__dict__)
 
 load_opcode()
@@ -646,6 +646,25 @@ class PyInterpFrame(pyframe.PyFrame):
     def SETUP_FINALLY(f, offsettoend):
         block = pyframe.FinallyBlock(f, f.next_instr + offsettoend)
         f.blockstack.push(block)
+
+    def WITH_CLEANUP(f):
+        x = f.valuestack.top()
+        u = f.valuestack.top(1)
+        if (f.space.is_w(f.space.type(u), f.space.w_int)
+            or f.space.is_w(u, f.space.w_None)):
+            u = v = w = f.space.w_None
+        else:
+            v = f.valuestack.top(2)
+            w = f.valuestack.top(3)
+            f.valuestack.pop()
+            f.valuestack.pop()
+            f.valuestack.pop()
+            f.valuestack.pop()
+            f.valuestack.push(f.space.w_None)
+            f.valuestack.push(x)
+        f.valuestack.push(u)
+        f.valuestack.push(v)
+        f.valuestack.push(w)
 
     def call_function(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff

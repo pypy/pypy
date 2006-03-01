@@ -256,6 +256,30 @@ class AppTestCondExpr:
             exec s
             assert x == expected
 
+class AppTestWith:
+    def test_with(self):
+
+        s = """if 1:
+        # from __future__ import with_statement
+        class Context:
+            def __init__(self):
+                self.calls = list()
+            def __context__(self):
+                self.calls.append('__context__')
+                return self
+            def __enter__(self):
+                self.calls.append('__enter__')
+                pass
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                pass
+        acontext = Context()
+        with acontext:
+            pass
+        """
+        exec s
+
+        assert acontext.calls == '__context__ __enter__ __exit__'.split()
         
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)

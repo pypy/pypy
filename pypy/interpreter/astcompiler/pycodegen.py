@@ -543,6 +543,50 @@ class CodeGenerator(ast.ASTVisitor):
 
         self.nextBlock(end)
 
+    __with_count = 0
+
+    def visitWith(self, node):
+        node.expr.accept(self)
+        self.emitop('LOAD_ATTR', '__context__')
+        self.emitop_int('CALL_FUNCTION', 0)
+        self.emit('DUP_TOP')
+
+        ## exit = ctx.__exit__
+        self.emitop('LOAD_ATTR', '__exit__')
+        exit = "$exit%d" % self.__with_count
+        var = "$var%d" % self.__with_count
+        self.__with_count = self.__with_count + 1
+        self._implicitNameOp('STORE', exit)
+
+        self.emitop('LOAD_ATTR', '__enter__')
+        self.emitop_int('CALL_FUNCTION', 0)
+        finally_block = self.newBlock()
+
+        if node.var is not None:        # VAR is present
+            self._implicitNameOp('STORE', var)
+            self.emitop_block('SETUP_FINALLY', finally_block)
+            self._implicitNameOp('LOAD', var)
+            self._implicitNameOp('DELETE', var)
+            node.var.accept(self)
+        else:
+            self.emit('POP_TOP')
+            self.emitop_block('SETUP_FINALLY', finally_block)
+
+        node.body.accept(self)
+        
+        self.emit('POP_BLOCK')
+        self.emitop_obj('LOAD_CONST', self.space.w_None) # WITH_CLEANUP checks for normal exit
+        self.nextBlock(finally_block)
+
+        # find local variable with is context.__exit__
+        self._implicitNameOp('LOAD', exit)
+        self._implicitNameOp('DELETE', exit)
+
+        self.emit('WITH_CLEANUP')
+        self.emitop_int('CALL_FUNCTION', 3)
+        self.emit('POP_TOP')
+        self.emit('END_FINALLY')
+
     def visitCompare(self, node):
         node.expr.accept( self )
         cleanup = self.newBlock()

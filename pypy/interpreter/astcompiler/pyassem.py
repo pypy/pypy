@@ -1,6 +1,5 @@
 """A flow graph representation for Python bytecode"""
 
-import dis
 import sys
 
 from pypy.interpreter.astcompiler import misc, ast
@@ -9,7 +8,15 @@ from pypy.interpreter.astcompiler.consts \
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 
+# load opcode.py as pythonopcode from our own lib
+def load_opcode():
+    import new, py
+    global pythonopcode
+    pythonopcode = new.module('opcode')
+    opcode_path = py.path.local(__file__).dirpath().dirpath().dirpath().dirpath('lib-python/modified-2.4.1/opcode.py')
+    execfile(str(opcode_path), pythonopcode.__dict__)
 
+load_opcode()
 
 class BlockSet:
     """A Set implementation specific to Blocks
@@ -633,11 +640,11 @@ class PyFlowGraph(FlowGraph):
         self.stage = FLAT
 
     hasjrel = {}
-    for i in dis.hasjrel:
-        hasjrel[dis.opname[i]] = True
+    for i in pythonopcode.hasjrel:
+        hasjrel[pythonopcode.opname[i]] = True
     hasjabs = {}
-    for i in dis.hasjabs:
-        hasjabs[dis.opname[i]] = True
+    for i in pythonopcode.hasjabs:
+        hasjabs[pythonopcode.opname[i]] = True
 
     def convertArgs(self):
         """Convert arguments from symbolic to concrete form"""
@@ -772,7 +779,7 @@ class PyFlowGraph(FlowGraph):
         index = self._lookupName(arg, self.closure)
         return InstrInt(inst.op, index)
     
-    _cmp = list(dis.cmp_op)
+    _cmp = list(pythonopcode.cmp_op)
     def _convert_COMPARE_OP(self, inst):
         assert isinstance(inst, InstrName)
         arg = inst.name                        
@@ -817,8 +824,9 @@ class PyFlowGraph(FlowGraph):
         self.stage = DONE
 
     opnum = {}
-    for num in range(len(dis.opname)):
-        opnum[dis.opname[num]] = num
+    for num in range(len(pythonopcode.opname)):
+        opnum[pythonopcode.opname[num]] = num
+        # This seems to duplicate dis.opmap from opcode.opmap
     del num
 
     def newCodeObject(self):
@@ -1048,6 +1056,7 @@ class StackDepthTracker:
         'SETUP_EXCEPT': 3,
         'SETUP_FINALLY': 3,
         'FOR_ITER': 1,
+        'WITH_CLEANUP': 3,
         }
     # use pattern match
     patterns = [

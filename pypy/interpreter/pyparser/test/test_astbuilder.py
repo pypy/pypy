@@ -745,8 +745,12 @@ def test_exec_inputs():
         for expr in family:
             yield check_expression, expr, 'exec'
 
+NEW_GRAMMAR_SNIPPETS = [    
+    'snippet_with_1.py',
+    'snippet_with_2.py',
+    ]
+
 SNIPPETS = [    
-#    'snippet_with_1.py',
     'snippet_1.py',
     'snippet_several_statements.py',
     'snippet_simple_function.py',
@@ -788,7 +792,7 @@ LIBSTUFF = [
     ]
 
 def test_snippets():
-    for snippet_name in SNIPPETS:
+    for snippet_name in SNIPPETS + NEW_GRAMMAR_SNIPPETS:
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
         # To avoid using the stable compiler we pull an explicit AST out of the snippet
