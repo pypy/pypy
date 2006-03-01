@@ -16,8 +16,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
         Void
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.error import TyperError
-from pypy.rpython.extregistry import register_value, register_metatype, \
-    register_type, is_registered_type, lookup_type
+from pypy.rpython import extregistry
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython import rint
 
@@ -70,10 +69,10 @@ def create_ctypes_annotations():
             # no 'wrap_arg'. This might change in the future
             #the_type.compute_result_annotation = classmethod(lambda cls, s_arg:SomeCTypesObject(cls))
             def do_register(the_type):
-                register_value(the_type, 
+                extregistry.register_value(the_type, 
                 compute_result_annotation=lambda s_arg: SomeCTypesObject(the_type))
                 # XXX we need to register the correct repr for each primitive
-                register_type(the_type,
+                extregistry.register_type(the_type,
                     get_repr=lambda rtyper, s_primitive: rint.signed_repr)
             do_register(the_type)
             the_type.default_memorystate = SomeCTypesObject.NOMEMORY
@@ -133,7 +132,7 @@ def cfuncptrtype_specialize_call(hop):
             _callable=None,
             convert_params = convert_params ) 
 
-register_metatype(CFuncPtrType, 
+extregistry.register_metatype(CFuncPtrType, 
     compute_annotation=cfuncptrtype_compute_annotation,
     specialize_call=cfuncptrtype_specialize_call)
 
@@ -498,8 +497,8 @@ class CtypesMemoryAliasPointerRepresentation( AbstractCtypesPointerRepresentatio
         
 class __extend__( SomeCTypesObject ):
     def rtyper_makerepr( self, rtyper ):
-        if is_registered_type(self.knowntype):
-            entry = lookup_type(self.knowntype)
+        if extregistry.is_registered_type(self.knowntype):
+            entry = extregistry.lookup_type(self.knowntype)
             return entry.get_repr(rtyper, self)
         return self.knowntype.createLowLevelRepresentation( rtyper, self )
         
