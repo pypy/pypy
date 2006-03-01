@@ -419,18 +419,23 @@ declare void %__builtin_va_start(sbyte**, ...)
 declare void %_exit(int)  ;; __builtin__exit
 declare void %_Exit(int)  ;; __builtin__Exit
 
-int %main() {  
+int %add(int %n, int %y) {  
 entry:
+	%n_addr = alloca int		 ; ty=int*
+	%y_addr = alloca int		 ; ty=int*
 	%result = alloca int		 ; ty=int*
-	call void ()* %__main()
-	store int 2, int* %result
+	store int %n, int* %n_addr
+	store int %y, int* %y_addr
+	%tmp.0 = load int* %n_addr		 ; ty=int
+	%tmp.1 = load int* %y_addr		 ; ty=int
+	%tmp.2 = add int %tmp.0, %tmp.1		 ; ty=int
+	store int %tmp.2, int* %result
 	br label %return
 after_ret:
 	br label %return
 return:
-	%tmp = load int* %result		 ; ty=int
-	ret int %tmp
+	%tmp.3 = load int* %result		 ; ty=int
+	ret int %tmp.3
 }
 
-declare void %__main()
 ;; Created by "GCC: (GNU) 3.4-llvm 20051104 (LLVM 1.6)"

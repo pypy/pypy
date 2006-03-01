@@ -1,9 +1,17 @@
+import autopath
+import py
+
 from distutils.core import setup
 from distutils.extension import Extension
+
 import os
 import glob
-sources = ['pyllvm.cpp']
 
+# XXX make libdir configurable
+#libdir = py.path.local("/usr/local/lib/")
+libdir = py.path.local(__file__).dirpath().join("libs")
+
+# get all the extra objects llvm needs
 extra_objects = """
 LLVMX86.o
 LLVMSystem.o
@@ -29,21 +37,37 @@ LLVMBCWriter.o
 LLVMBCReader.o
 """.split()
 
-unused = """
+# globals
+name = 'pyllvm'
+sources = ['pyllvm.cpp']
+libraries = ["LLVMTarget"]
+include_dirs = ['/opt/projects/llvm-1.6/build/include']
+library_dirs = [str(libdir)]
+define_macros = [('_GNU_SOURCE', None), ('__STDC_LIMIT_MACROS', None)]
+extra_objects = [str(libdir.join(obj)) for obj in extra_objects]
+
+opts = dict(name=name,
+            sources=sources,
+            libraries=libraries,
+            include_dirs=include_dirs,
+            library_dirs=library_dirs,
+            define_macros=define_macros,
+            extra_objects=extra_objects)
+
+ext_modules = Extension(**opts)
+
+# setup module
+setup(name=name, ext_modules=[ext_modules])
+
+# bunch of unused object (at the moment or for x86)
+unused_objects = """
 LLVMSkeleton.o
 LLVMProfilePaths.o
-
 LLVMCBackend.o
-
 LLVMDebugger.o
-
-
 profile_rt.o
 trace.o
 gcsemispace.o
-
-
-
 LLVMSparcV8.o
 LLVMSparcV9.o
 LLVMSparcV9InstrSched.o
@@ -56,27 +80,5 @@ LLVMIA64.o
 sample.o
 stkr_compiler.o
 LLVMTarget.o
-
 """
 
-extra_objects = ["/usr/local/lib/" + name for name in extra_objects]
-
-libs = ["LLVMTarget"]
-#for fn in glob.glob("/usr/local/lib/*.a"):
-#    fn = os.path.basename(fn)
-#    if 'LLVM' in fn:
-#        libs.append(os.path.splitext(fn[len("lib"):])[0])
-    
-includes = ['/opt/projects/llvm-1.6/build/include']
-defs = [('_GNU_SOURCE', None),
-        ('__STDC_LIMIT_MACROS', None),
-        ]
-
-setup(name             = 'pyllvm',
-      version          = '0.0',
-      ext_modules = [Extension(name = 'pyllvm',
-                               define_macros=defs,
-                               sources = sources,
-                               include_dirs = includes,
-                               libraries = libs,
-                               extra_objects = extra_objects)])
