@@ -135,7 +135,12 @@ class CodeWriter(object):
                      "%(fromvar)s to %(targettype)s" % locals())
 
     def getelementptr(self, targetvar, type, typevar, indices, getptr=True):
-        # XXX comment getptr
+        # getelementptr gives you back a value for the last thing indexed
+
+        # what is getptr?
+        # ---------------
+        # All global variables in LLVM are pointers, and pointers must also be
+        # dereferenced with the getelementptr instruction (hence the uint 0)
         if getptr:
             indices = [(self.word_repr, 0)] + list(indices)
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, " % locals()
