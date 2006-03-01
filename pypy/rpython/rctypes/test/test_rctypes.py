@@ -274,10 +274,10 @@ class Test_rctypes:
 class Test_structure:
 
     def test_simple_as_extension_module(self):
-        import _rctypes_test as t0
-        import _rctypes_test as t1
+        import pypy.rpython.rctypes.test._rctypes_test as t0
+        import pypy.rpython.rctypes.test._rctypes_test as t1
         assert t1 is t0
-        assert "_rctypes_test" in sys.modules
+        assert "pypy.rpython.rctypes.test._rctypes_test" in sys.modules
 
     def test_simple(self):
         if sys.platform == "win32":
