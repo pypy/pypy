@@ -8,7 +8,7 @@ class Revise(object):
         self.var = var
 
     def __eq__(self, other):
-        if not isinstance(other, Distributed): return False
+        if not isinstance(other, Revise): return False
         return self.var == other.var
 
     
