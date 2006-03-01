@@ -27,7 +27,13 @@ def test_load():
 def test_functions():
     ee = get_fresh_ee()
     ee.parse(codepath.join("hello.s").read())
-    ee.functions()
+    functions = ee.functions()
+    assert len(functions) == 2
+    for ii in functions:
+        assert len(ii) == 3
+        assert ii[0] > 0
+        assert ii[1] in 'gethellostr', 'hello'
+        assert len(ii[2]) == 0
 
 def test_call1():
     ee = get_fresh_ee()

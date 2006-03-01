@@ -82,20 +82,47 @@ static PyObject *ee_call_noargs(PyExecutionEngine *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *ee_functions(PyExecutionEngine *self, PyObject *args) {
-
+static PyObject *ee_functions(PyExecutionEngine *self) {
+  int funccount = 0;
   Module::FunctionListType &fns = self->exec->getModule().getFunctionList();
+  // spin thrru and get function count 
   for (Module::FunctionListType::const_iterator ii = fns.begin(); ii != fns.end(); ++ii) {
-    if (ii->isIntrinsic() || ii->isExternal()) {
-      continue;
+    if (!(ii->isIntrinsic() || ii->isExternal())) {
+      funccount += 1;
     }
-    std::cout << ii->getReturnType()->getDescription() << " " << ii->getName() << std::endl;
-    std::cout << "   -> " << ii->getFunctionType()->getDescription() << std::endl;
-    std::cout << std::endl;
-  }
+  }    
+
+  PyObject *functions = PyTuple_New(funccount);
+
+  int count = 0;
+  for (Module::FunctionListType::const_iterator ii = fns.begin(); 
+       ii != fns.end(); 
+       ++ii, funccount++) {
+    if (!(ii->isIntrinsic() || ii->isExternal())) {
+
+      unsigned argcount = ii->getFunctionType()->getNumParams();
+
+      PyObject *entry = PyTuple_New(3);
+
+      PyObject *returnId = PyInt_FromLong(ii->getFunctionType()->getReturnType()->getTypeID());
+      PyObject *name = PyString_FromString(ii->getName().c_str());
+      PyObject *args = PyTuple_New(argcount);
+
+      for (unsigned jj=0; jj<argcount; jj++) {
+	long argtype = ii->getFunctionType()->getParamType(jj)->getTypeID();
+	PyTuple_SetItem(args, (long) jj, PyInt_FromLong(argtype));
+      }
+      
+      PyTuple_SetItem(entry, 0, returnId);
+      PyTuple_SetItem(entry, 1, name);
+      PyTuple_SetItem(entry, 2, args);
+      
+      PyTuple_SetItem(functions, count, entry);
+      count += 1;
+    }
+  }    
   
-  Py_INCREF(Py_None);
-  return Py_None;
+  return functions;
 }
 
 static PyMethodDef ee_methodlist[] = {
@@ -197,7 +224,7 @@ static PyObject *pyllvm_get_ee(PyObject *self, PyObject *args) {
 }
 
 static PyObject *pyllvm_delete_ee(PyObject *self, PyObject *args) {
-  PyExecutionEngine *ee =  (PyExecutionEngine *) pyllvm_execution_engine;
+  PyExecutionEngine *ee = (PyExecutionEngine *) pyllvm_execution_engine;
   if (ee != NULL) {
 
     // bye
