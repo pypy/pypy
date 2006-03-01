@@ -274,6 +274,9 @@ class Test_rctypes:
 class Test_structure:
 
     def test_simple_as_extension_module(self):
+        # Full path names follow because of strange behavior in the presence
+        # of an __init__.py in this test directory.  When there is an
+        # __init__.py then the full path names appear in sys.modules
         import pypy.rpython.rctypes.test._rctypes_test as t0
         import pypy.rpython.rctypes.test._rctypes_test as t1
         assert t1 is t0
