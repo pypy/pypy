@@ -484,14 +484,17 @@ class TestComputationSpace:
         assert set(['x', 'y', 'z']) == \
                set([var.name for var in spc.root.val])
 
-    def test_ask_success(self):
-        spc = newspace(problems.one_solution_problem)
-        assert spc.ask() == space.Succeeded
-        assert spc.ask() == space.Succeeded
+# we need to carefully craft some noop problems
+# for these tests
+
+##     def test_ask_success(self):
+##         spc = newspace(problems.one_solution_problem)
+##         assert spc.ask() == space.Succeeded
+##         assert spc.ask() == space.Succeeded
         
-    def test_ask_failure(self):
-        spc = newspace(problems.unsatisfiable_problem)
-        assert spc.ask() == space.Failed
+##     def test_ask_failure(self):
+##         spc = newspace(problems.unsatisfiable_problem)
+##         assert spc.ask() == space.Failed
 
     def test_ask_alternatives(self):
         spc = newspace(problems.satisfiable_problem)
@@ -528,7 +531,6 @@ class TestComputationSpace:
                              s1.ask() == space.Succeeded)):
             #print "S1", s1.pretty_doms()
             #print "S2", s2.pretty_doms()
-            passes += 1
             #assert s1 == s2
             temp = s2.clone()
             temp.ask()
@@ -569,22 +571,27 @@ class TestComputationSpace:
         assert new_spc.ask() == space.Succeeded
         x, y, z = new_spc.find_vars('x', 'y', 'z')
         res = new_spc.merge()
-        assert res == (x, y, z) == new_spc.root.val
-        assert res[0].val == 0
-        assert res[1].val == 0
-        assert res[2].val == 0
+        assert res == [0, 0, 0]
         
-    def test_scheduling_problem_dfs_one_solution(self):
+    def test_scheduling_dfs_one_solution(self):
         sol = strategies.dfs_one(problems.conference_scheduling)
 
-        sol2 = [var.val for var in sol]
-        print sol2
-        assert True # ;-) since the output keeps
-        # changing under our feets, better wait ...
+        print sol
+        assert sol == [('room A', 'day 1 PM'),
+                       ('room A', 'day 2 AM'),
+                       ('room C', 'day 2 PM'),
+                       ('room C', 'day 2 AM'),
+                       ('room C', 'day 1 AM'),
+                       ('room C', 'day 1 PM'),
+                       ('room B', 'day 2 AM'),
+                       ('room A', 'day 1 AM'),
+                       ('room B', 'day 2 PM'),
+                       ('room B', 'day 1 AM')]
 
 
-##     def test_scheduling_problem_all_solutions(self):
-##         sols = strategies.solve_all(problems.conference_scheduling)
-##         assert len(sols) == 64
+    def test_scheduling_all_solutions(self):
+        sols = strategies.solve_all(problems.conference_scheduling)
+        assert len(sols) == 64
+        print sols
 
         
