@@ -218,8 +218,10 @@ class InstanceRepr(AbstractInstanceRepr):
                 self.classdef.classdesc.find_source_for("__init__") is not None:
             s_init = self.classdef.classdesc.s_get_value(self.classdef,
                     '__init__')
-            mangled = mangle("__init__")
-            allmethods[mangled] = "__init__", s_init
+            if isinstance(s_init, annmodel.SomePBC):
+                mangled = mangle("__init__")
+                allmethods[mangled] = "__init__", s_init
+            # else: it's the __init__ of a builtin exception
             
         #
         # hash() support

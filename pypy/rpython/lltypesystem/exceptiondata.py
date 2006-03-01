@@ -4,25 +4,12 @@ from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.lltypesystem.lltype import \
      Array, malloc, Ptr, PyObject, pyobjectptr, \
      FuncType, functionptr, Signed
+from pypy.rpython.exceptiondata import AbstractExceptionData
 from pypy.rpython.extfunctable import standardexceptions
 from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
 
-class ExceptionData:
+class ExceptionData(AbstractExceptionData):
     """Public information for the code generators to help with exceptions."""
-    standardexceptions = standardexceptions
-
-    def __init__(self, rtyper):
-        self.make_standard_exceptions(rtyper)
-        # (NB. rclass identifies 'Exception' and 'object')
-        r_type = rclass.getclassrepr(rtyper, None)
-        r_instance = rclass.getinstancerepr(rtyper, None)
-        r_type.setup()
-        r_instance.setup()
-        self.r_exception_type  = r_type
-        self.r_exception_value = r_instance
-        self.lltype_of_exception_type  = r_type.lowleveltype
-        self.lltype_of_exception_value = r_instance.lowleveltype
-
 
     def make_helpers(self, rtyper):
         # create helper functionptrs
@@ -30,14 +17,6 @@ class ExceptionData:
         self.fn_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
         self.fn_pyexcclass2exc   = self.make_pyexcclass2exc(rtyper)
         self.fn_raise_OSError    = self.make_raise_OSError(rtyper)
-
-
-    def make_standard_exceptions(self, rtyper):
-        bk = rtyper.annotator.bookkeeper
-        for cls in self.standardexceptions:
-            classdef = bk.getuniqueclassdef(cls)
-            rclass.getclassrepr(rtyper, classdef).setup()
-
 
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_vtable, match_exception_vtable)
