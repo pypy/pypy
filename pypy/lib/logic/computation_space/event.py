@@ -1,6 +1,9 @@
-class NewSpace: pass
-
 class Clone: pass
+
+class Inject(object):
+
+    def __init__(self, constraint):
+        self.constraint = constraint
 
 class Revise(object):
 

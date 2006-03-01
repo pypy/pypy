@@ -104,7 +104,6 @@ class ComputationSpace(object):
             self.root = self.var('__root__')
             # set up the problem
             self.bind(self.root, problem(self))
-            self._notify(event.NewSpace)
             self._init_choose_commit()
             self.distributor.start()
         else:
@@ -118,7 +117,6 @@ class ComputationSpace(object):
             self.copy_constraints(parent)
             # ...
             self.status = Unknown
-            self._notify(event.Clone)
             self.distributor = parent.distributor.__class__(self)
             self._init_choose_commit()
 
@@ -259,7 +257,6 @@ class ComputationSpace(object):
     def inject(self, restricting_problem):
         """add additional entities into a space"""
         restricting_problem(self)
-        self.changelog = [var for var in self.vars]
         self._process()
 
     def commit(self, choice):
@@ -397,6 +394,7 @@ class ComputationSpace(object):
 
     def _add_const(self, constraint):
         self.constraints.add(constraint)
+        self._notify(event.Inject(constraint))
         for var in constraint.affected_variables():
             self.var_const_map.setdefault(var, set())
             self.var_const_map[var].add(constraint)
@@ -495,14 +493,12 @@ class ComputationSpace(object):
     def _init_constraint_queue(self):
         cqueue = []
         init_const_set = set()
-        if event.Clone in self.event_set:
-            init_const_set = self.constraints
-        elif event.NewSpace in self.event_set:
-            init_const_set = self.constraints
-        else:
-            for ev in self.event_set:
-                if isinstance(event, event.Revise):
-                    init_const_set.add(self.var_const_map[ev.var])
+        for ev in self.event_set:
+            if isinstance(ev, event.Revise):
+                for const in self.var_const_map[ev.var]:
+                    init_const_set.add(const)
+            elif isinstance(ev, event.Inject):
+                init_const_set.add(ev.constraint)
                 
         cqueue = [(const.estimate_cost(), const)
                   for const in init_const_set]
