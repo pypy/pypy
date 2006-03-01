@@ -210,7 +210,7 @@ def test_kill_raise_del_coro():
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 4711
 
-def dont_test_tree_differ():
+def test_tree_compare():
     class Node:
         def __init__(self, value, left=None, right=None):
             self.value = value
@@ -219,29 +219,10 @@ def dont_test_tree_differ():
         def __repr__(self):
             return 'Node(%r, %r, %r)'%(self.value, self.left, self.right)
 
-    tree1 = Node(1, Node(2))
-    tree2 = Node(1, Node(2))
+    tree1 = Node(1, Node(2, Node(3)))
+    tree2 = Node(1, Node(3, Node(2)))
+    tree3 = Node(1, Node(2), Node(3))
     
-    def eq(t1, t2):
-        if t1 is None:
-            return t2 is None
-        if t1.value != t2.value:
-            return False
-        if t1.left is None:
-            if t2.left is None:
-                return eq(t1.right, t2.right)
-            else:
-                return False
-        if t2.right is None:
-            if t1.right is None:
-                return eq(t1.left, t2.left)
-            else:
-                return False
-        else:
-            return eq(t1.left, t2.left) and eq(t1.right, t2.right)
-
-#    assert not eq(tree1, tree2)
-
     class Super:
         pass
     class Producer(Super):
@@ -281,7 +262,7 @@ def dont_test_tree_differ():
             self.result = self.consume(self.tree)
             costate.main.switch()
 
-    def eq2(t1, t2):
+    def pre_order_eq(t1, t2):
         objects = []
         producer = Coroutine()
         consumer = Coroutine()
@@ -295,10 +276,14 @@ def dont_test_tree_differ():
         return cons.result
 
     def ep():
-        return eq2(tree1, tree2)
+        return "%d %d %d %d"%(pre_order_eq(tree1, tree2),
+                              pre_order_eq(tree1, tree1),
+                              pre_order_eq(tree1, tree3),
+                              pre_order_eq(tree2, tree1),
 
+                              )
+    
     output = wrap_stackless_function(ep)
-    print '!!!!!!', output
-    assert False
+    assert output.strip() == '0 1 1 0'
             
             
