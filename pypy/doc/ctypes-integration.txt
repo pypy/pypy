@@ -120,8 +120,7 @@ memorystate field which can be OWNSMEMORY ("c_data" case) or MEMORYALIAS
 Primitive Types
 ~~~~~~~~~~~~~~~
 Ctypes' primitive types are mapped directly to the correspondending PyPy
-LLType: Signed, Float, etc.  Primitive values can always be copied around,
-so there is no needed for the "c_data_ref" case here.  We get::
+LLType: Signed, Float, etc.  For the owned-memory case, we get::
 
     Ptr( GcStruct( "CtypesBox_<TypeName>
             ( "c_data"
@@ -132,15 +131,29 @@ Note that we don't make "c_data" itself a Signed or Float directly because
 in LLType we can't take pointers to Signed or Float, only to Struct or
 Array.
 
+The non-owned-memory case is::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>
+            ( "c_data_ref"
+                    (Ptr(Struct "C_Data_<TypeName>
+                            ( "value", Signed/Float/etc. ) ) ) ) ) )
+
 Pointers
 ~~~~~~~~
-A C pointer behaves like a primitive value, in that it can be copied
-around.  We get::
+
+::
 
     Ptr( GcStruct( "CtypesBox_<TypeName>
             ( "c_data"
                     (Struct "C_Data_<TypeName>
                             ( "value", Ptr(...) ) ) ) ) )
+
+or::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>
+            ( "c_data_ref"
+                    (Ptr(Struct "C_Data_<TypeName>
+                            ( "value", Ptr(...) ) ) ) ) ) )
 
 However, there is a special case here: the pointer might point to data
 owned by another CtypesBox -- i.e. it can point to the "c_data" field of
