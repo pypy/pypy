@@ -33,7 +33,9 @@
 PyObject * gencfunc_descr_get(PyObject *func, PyObject *obj, PyObject *type);
 PyObject* PyList_Pack(int n, ...);
 PyObject* PyDict_Pack(int n, ...);
+#if PY_VERSION_HEX < 0x02040000   /* 2.4 */
 PyObject* PyTuple_Pack(int n, ...);
+#endif
 #if PY_VERSION_HEX >= 0x02030000   /* 2.3 */
 # define PyObject_GetItem1  PyObject_GetItem
 # define PyObject_SetItem1  PyObject_SetItem
