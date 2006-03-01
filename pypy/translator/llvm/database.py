@@ -5,7 +5,7 @@ from pypy.translator.llvm.log import log
 from pypy.translator.llvm.funcnode import FuncNode, FuncTypeNode
 from pypy.translator.llvm.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
-     StructTypeNode, StructVarsizeTypeNode
+     StructTypeNode, StructVarsizeTypeNode, getindexhelper
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
 from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
@@ -366,10 +366,39 @@ class Database(object):
             # XXXXX things are happening in the gc world...
             # assert value == NULL
             repr = 'null' 
+        elif isinstance(value, llmemory.AddressOffset):
+            return self.offset_str(value)
         else:
             repr = str(value)
         return repr
 
+    def offset_str(self, value):
+
+        #XXX Need to understand and doc this better
+        
+        if isinstance(value, llmemory.FieldOffset):
+            pos = getindexhelper(value.fldname, value.TYPE)
+            return "cast(%s* getelementptr(%s* null, int 0, uint %s) to int)" % (
+                self.repr_type(getattr(value.TYPE, value.fldname)),
+                self.repr_type(value.TYPE),
+                pos)
+
+        elif isinstance(value, llmemory.ItemOffset):
+            return "cast(%s* getelementptr(%s* null, int %s) to int)" % (
+                self.repr_type(value.TYPE), self.repr_type(value.TYPE), value.repeat)
+
+        elif isinstance(value, llmemory.ArrayItemsOffset):
+            return "cast(%s* getelementptr(%s* null, int 0, uint 1) to int)" % (
+                self.repr_type(value.TYPE.OF), self.repr_type(value.TYPE))
+
+        elif isinstance(value, llmemory.CompositeOffset):
+            return "cast(%s* getelementptr(%s* null, int 0, uint 1, int %s) to int)" % (
+                self.repr_type(value.second.TYPE),
+                self.repr_type(value.first.TYPE),
+                value.second.repeat)
+        else:
+            raise Exception("unsupported offset")
+        
     def get_machine_word(self):
         return self.primitives[lltype.Signed]
 

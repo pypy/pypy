@@ -1,6 +1,8 @@
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.log import log 
+from pypy.translator.llvm.structnode import getindexhelper
+
 log = log.opwriter
 
 class OpRepr(object):
@@ -313,21 +315,11 @@ class OpWriter(object):
         else:
             raise NotImplementedError
 
-    def _getindexhelper(self, name, struct):
-        assert name in list(struct._names)
-
-        fieldnames = struct._names_without_voids()
-        try:
-            index = fieldnames.index(name)
-        except ValueError:
-            index = -1
-        return index
-
     def getfield(self, opr):
         op = opr.op
         if opr.rettype != "void":
-            index = self._getindexhelper(op.args[1].value,
-                                         op.args[0].concretetype.TO)
+            index = getindexhelper(op.args[1].value,
+                                   op.args[0].concretetype.TO)
             assert index != -1
             tmpvar = self._tmp()
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
@@ -337,8 +329,8 @@ class OpWriter(object):
             self._skipped(opr)
  
     def getsubstruct(self, opr): 
-        index = self._getindexhelper(opr.op.args[1].value,
-                                     opr.op.args[0].concretetype.TO)
+        index = getindexhelper(opr.op.args[1].value,
+                               opr.op.args[0].concretetype.TO)
         assert opr.rettype != "void"
         self.codewriter.getelementptr(opr.retref, opr.argtypes[0], 
                                       opr.argrefs[0], [("uint", index)])        
@@ -347,8 +339,8 @@ class OpWriter(object):
         op = opr.op
         if opr.argtypes[2] != "void":
             tmpvar = self._tmp()
-            index = self._getindexhelper(op.args[1].value,
-                                         op.args[0].concretetype.TO)
+            index = getindexhelper(op.args[1].value,
+                                   op.args[0].concretetype.TO)
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
                                           opr.argrefs[0], [("uint", index)])
             self.codewriter.store(opr.argtypes[2], opr.argrefs[2], tmpvar)
