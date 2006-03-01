@@ -4,7 +4,7 @@ from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      Void, Bool, Float, Signed, Char, UniChar, \
-     typeOf, LowLevelType, Ptr, PyObject
+     typeOf, LowLevelType, Ptr, PyObject, isCompatibleType
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
 
@@ -329,7 +329,7 @@ def inputconst(reqtype, value):
             realtype = typeOf(value)
         except (AssertionError, AttributeError):
             realtype = '???'
-        if realtype != lltype:
+        if not isCompatibleType(realtype, lltype):
             raise TyperError("inputconst(reqtype = %s, value = %s):\n"
                              "expected a %r,\n"
                              "     got a %r" % (reqtype, value,

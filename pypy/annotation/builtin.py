@@ -464,6 +464,11 @@ def classof(i):
     assert isinstance(i, SomeOOInstance) 
     return SomeOOClass(i.ootype)
 
+def subclassof(class1, class2):
+    assert isinstance(class1, SomeOOClass) 
+    assert isinstance(class2, SomeOOClass) 
+    return SomeBool()
+
 def runtimenew(c):
     assert isinstance(c, SomeOOClass)
     if c.ootype is None:
@@ -480,6 +485,7 @@ BUILTIN_ANALYZERS[ootype.new] = new
 BUILTIN_ANALYZERS[ootype.null] = null
 BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof
+BUILTIN_ANALYZERS[ootype.subclassof] = subclassof
 BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
 
 #________________________________

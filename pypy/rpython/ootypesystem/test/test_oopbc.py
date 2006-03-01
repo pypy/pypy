@@ -64,3 +64,20 @@ def test_method_call_kwds():
     assert 3 == interpret(f1, [], type_system="ootype")
     assert 6 == interpret(f2, [], type_system="ootype")
 
+def test_classes_attribute():
+    class A: 
+        a = 3
+    class B(A): 
+        a = 2
+    def f(i):
+        if i == 1:
+            cls = B
+        else:
+            cls = A
+        instance = cls()
+        return cls.a
+    res = interpret(f, [0], type_system='ootype')
+    assert res == 3
+    res = interpret(f, [1], type_system='ootype')
+    assert res == 2
+

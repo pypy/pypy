@@ -224,6 +224,8 @@ class ClassRepr(AbstractClassRepr):
         return llops.genop('cast_pointer', [vcls],
                            resulttype=self.lowleveltype)
 
+    fromclasstype = fromtypeptr
+
     def getclsfield(self, vcls, attr, llops):
         """Read the given attribute of 'vcls'."""
         if attr in self.clsfields:

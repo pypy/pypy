@@ -57,6 +57,21 @@ def test_simple_classof():
 
     assert s == annmodel.SomeOOClass(I)
 
+def test_subclassof():
+    I = Instance("test", ROOT, {'a': Signed})
+    I1 = Instance("test1", I) 
+    
+    def oof():
+        i = new(I)
+        i1 = new(I1)
+        return subclassof(classof(i1), classof(i))
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [])
+    #a.translator.view()
+
+    assert s == annmodel.SomeBool()
+
 def test_simple_runtimenew():
     I = Instance("test", ROOT, {'a': Signed})
     

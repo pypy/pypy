@@ -64,6 +64,8 @@ class LowLevelType(object):
     def __ne__(self, other):
         return not (self == other)
 
+    _is_compatible = __eq__
+
     def __hash__(self):
         # cannot use saferecursive() -- see test_lltype.test_hash().
         # NB. the __cached_hash should neither be used nor updated
@@ -1100,6 +1102,7 @@ def runtime_type_info(p):
     return result
 
 def isCompatibleType(TYPE1, TYPE2):
+    return TYPE1._is_compatible(TYPE2)
     return TYPE1 == TYPE2
 
 # mark type ADT methods

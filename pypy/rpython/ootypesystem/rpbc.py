@@ -18,9 +18,15 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         classdef = hop.s_result.classdef
         if self.lowleveltype is not ootype.Void:
             # instantiating a class from multiple possible classes
-            vclass = hop.inputarg(self, arg=0)
+            v_meta = hop.inputarg(self, arg=0)
+            c_class_ = hop.inputconst(ootype.Void, "class_")
+            v_class = hop.genop('oogetfield', [v_meta, c_class_],
+                    resulttype=ootype.Class)
             resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
-            v_instance = hop.genop('runtimenew', [vclass], resulttype=resulttype)
+            v_instance = hop.genop('runtimenew', [v_class], resulttype=resulttype)
+            c_meta = hop.inputconst(ootype.Void, "meta")
+            hop.genop('oosetfield', [v_instance, c_meta, v_meta],
+                    resulttype=ootype.Void)
         else:
             # instantiating a single class
             v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)

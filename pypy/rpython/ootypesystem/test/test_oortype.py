@@ -72,3 +72,28 @@ def test_truth_value():
     assert res is False
     res = interpret(oof, [False], type_system='ootype')
     assert res is True
+
+def test_simple_classof():
+    I = Instance("test", ROOT, {'a': Signed})
+    
+    def oof():
+        i = new(I)
+        return classof(i)
+
+    g = gengraph(oof, [])
+    rettype = g.getreturnvar().concretetype
+    assert rettype == Class
+
+def test_subclassof():
+    I = Instance("test", ROOT, {'a': Signed})
+    I1 = Instance("test1", I) 
+    
+    def oof():
+        i = new(I)
+        i1 = new(I1)
+        return subclassof(classof(i1), classof(i))
+
+    g = gengraph(oof, [])
+    rettype = g.getreturnvar().concretetype
+    assert rettype == Bool
+

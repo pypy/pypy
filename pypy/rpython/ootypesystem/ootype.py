@@ -1,12 +1,23 @@
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
-from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, Primitive
-from pypy.rpython.lltypesystem.lltype import frozendict
+from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
+        Primitive, isCompatibleType
+from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 
 class OOType(LowLevelType):
-    pass
+
+    def _is_compatible(TYPE1, TYPE2):
+        if TYPE1 == TYPE2:
+            return True
+        if isinstance(TYPE1, Instance) and isinstance(TYPE2, Instance):
+            return isSubclass(TYPE1, TYPE2)
+        else:
+            return False
 
 class Class(OOType):
-    pass
+
+    def _defl(self):
+        return nullruntimeclass
+    
 Class = Class()
 
 class Instance(OOType):
@@ -170,7 +181,7 @@ class _instance(object):
     def __setattr__(self, name, value):
         self.__getattr__(name)
             
-        if self._TYPE._field_type(name) != typeOf(value):
+        if not isCompatibleType(typeOf(value), self._TYPE._field_type(name)):
             raise TypeError("Expected type %r" % self._TYPE._field_type(name))
 
         self.__dict__[name] = value
@@ -333,14 +344,6 @@ def commonBaseclass(INSTANCE1, INSTANCE2):
         c = c._superclass
     return None
 
-def isCompatibleType(TYPE1, TYPE2):
-    if TYPE1 == TYPE2:
-        return True
-    if isinstance(TYPE1, Instance) and isinstance(TYPE2, Instance):
-        return isSubclass(TYPE1, TYPE2)
-    else:
-        return False
-        
 def ooupcast(INSTANCE, instance):
     assert instanceof(instance, INSTANCE)
     return instance

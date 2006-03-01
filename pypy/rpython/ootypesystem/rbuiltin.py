@@ -10,10 +10,22 @@ def rtype_new(hop):
     return hop.genop('new', vlist,
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_null(hop):
+    assert hop.args_s[0].is_constant()
+    TYPE = hop.args_s[0].const
+    nullvalue = ootype.null(TYPE)
+    return hop.inputconst(TYPE, nullvalue)
+
 def rtype_classof(hop):
     assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
     return hop.genop('classof', hop.args_v,
                      resulttype = ootype.Class)
+
+def rtype_subclassof(hop):
+    assert isinstance(hop.args_s[0], annmodel.SomeOOClass)
+    assert isinstance(hop.args_s[1], annmodel.SomeOOClass)
+    return hop.genop('subclassof', hop.args_v,
+                     resulttype = ootype.Bool)
 
 def rtype_runtimenew(hop):
     assert isinstance(hop.args_s[0], annmodel.SomeOOClass)
@@ -40,7 +52,7 @@ def rtype_builtin_isinstance(hop):
 
     v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
     if isinstance(v_cls, Constant):
-        c_cls = hop.inputconst(ootype.Void, v_cls.value._INSTANCE)
+        c_cls = hop.inputconst(ootype.Void, v_cls.value.class_._INSTANCE)
         return hop.genop('instanceof', [v_obj, c_cls], resulttype=ootype.Bool)
     else:
         raise TyperError("XXX missing impl of isinstance(x, variable)")
@@ -48,7 +60,9 @@ def rtype_builtin_isinstance(hop):
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[ootype.new] = rtype_new
+BUILTIN_TYPER[ootype.null] = rtype_null
 BUILTIN_TYPER[ootype.classof] = rtype_classof
+BUILTIN_TYPER[ootype.subclassof] = rtype_subclassof
 BUILTIN_TYPER[ootype.runtimenew] = rtype_runtimenew
 BUILTIN_TYPER[ootype.ooidentityhash] = rtype_ooidentityhash
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance

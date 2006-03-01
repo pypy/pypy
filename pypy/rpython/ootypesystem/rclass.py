@@ -1,31 +1,139 @@
 import types
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
+from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.rmodel import inputconst, TyperError
+from pypy.rpython.rmodel import mangle as pbcmangle
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr, getclassrepr, get_type_repr
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.pairtype import pairtype
 from pypy.tool.sourcetools import func_with_new_name
 
-CLASSTYPE = ootype.Class
+CLASSTYPE = ootype.Instance("Object_meta", ootype.ROOT,
+        fields={"class_": ootype.Class})
+OBJECT = ootype.Instance("Object", ootype.ROOT,
+        fields={'meta': CLASSTYPE})
+
 
 class ClassRepr(AbstractClassRepr):
     def __init__(self, rtyper, classdef):
         AbstractClassRepr.__init__(self, rtyper, classdef)
 
-        self.lowleveltype = ootype.Class
+        if self.classdef is not None:
+            self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
+            base_type = self.rbase.lowleveltype
+            self.lowleveltype = ootype.Instance(
+                    self.classdef.name + "_meta", base_type)
+        else:
+            # we are ROOT
+            self.lowleveltype = CLASSTYPE
 
     def _setup_repr(self):
-        pass # not actually needed?
+        clsfields = {}
+        pbcfields = {}
+        if self.classdef is not None:
+            # class attributes
+            llfields = []
+            """
+            attrs = self.classdef.attrs.items()
+            attrs.sort()
+            for name, attrdef in attrs:
+                if attrdef.readonly:
+                    s_value = attrdef.s_value
+                    s_unboundmethod = self.prepare_method(s_value)
+                    if s_unboundmethod is not None:
+                        allmethods[name] = True
+                        s_value = s_unboundmethod
+                    r = self.rtyper.getrepr(s_value)
+                    mangled_name = 'cls_' + name
+                    clsfields[name] = mangled_name, r
+                    llfields.append((mangled_name, r.lowleveltype))
+            """
+            # attributes showing up in getattrs done on the class as a PBC
+            extra_access_sets = self.rtyper.class_pbc_attributes.get(
+                self.classdef, {})
+            for access_set, counter in extra_access_sets.items():
+                for attr, s_value in access_set.attrs.items():
+                    r = self.rtyper.getrepr(s_value)
+                    mangled_name = pbcmangle('pbc%d' % counter, attr)
+                    pbcfields[access_set, attr] = mangled_name, r
+                    llfields.append((mangled_name, r.lowleveltype))
+            
+            self.rbase.setup()
+            ootype.addFields(self.lowleveltype, dict(llfields))
+        #self.clsfields = clsfields
+        self.pbcfields = pbcfields
+        self.meta_instance = None
+ 
+    def get_meta_instance(self, cast_to_root_meta=True):
+        if self.meta_instance is None:
+            self.meta_instance = ootype.new(self.lowleveltype) 
+            self.setup_meta_instance(self.meta_instance, self)
+        
+        meta_instance = self.meta_instance
+        if cast_to_root_meta:
+            meta_instance = ootype.ooupcast(CLASSTYPE, meta_instance)
+        return meta_instance
 
-    def getruntime(self):
-        return getinstancerepr(self.rtyper, self.classdef).lowleveltype._class
+    def setup_meta_instance(self, meta_instance, rsubcls):
+        if self.classdef is None:
+            rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
+            setattr(meta_instance, 'class_', rinstance.lowleveltype._class)
+        else:
+            # setup class attributes: for each attribute name at the level
+            # of 'self', look up its value in the subclass rsubcls
+            def assign(mangled_name, value):
+                if isinstance(value, flowmodel.Constant) and isinstance(value.value, staticmethod):
+                    value = flowmodel.Constant(value.value.__get__(42))   # staticmethod => bare function
+                llvalue = r.convert_desc_or_const(value)
+                setattr(meta_instance, mangled_name, llvalue)
+
+            #mro = list(rsubcls.classdef.getmro())
+            #for fldname in self.clsfields:
+            #    mangled_name, r = self.clsfields[fldname]
+            #    if r.lowleveltype is Void:
+            #        continue
+            #    value = rsubcls.classdef.classdesc.read_attribute(fldname, None)
+            #    if value is not None:
+            #        assign(mangled_name, value)
+            # extra PBC attributes
+            for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
+                if rsubcls.classdef.classdesc not in access_set.descs:
+                    continue   # only for the classes in the same pbc access set
+                if r.lowleveltype is ootype.Void:
+                    continue
+                attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
+                if attrvalue is not None:
+                    assign(mangled_name, attrvalue)
+
+            # then initialize the 'super' portion of the vtable
+            meta_instance_super = ootype.ooupcast(
+                    self.rbase.lowleveltype, meta_instance)
+            self.rbase.setup_meta_instance(meta_instance_super, rsubcls)
+
+    getruntime = get_meta_instance
+    
+    def fromclasstype(self, vclass, llops):
+        return llops.genop('oodowncast', [vclass],
+                resulttype=self.lowleveltype)
+
+    def getpbcfield(self, vcls, access_set, attr, llops):
+        if (access_set, attr) not in self.pbcfields:
+            raise TyperError("internal error: missing PBC field")
+        mangled_name, r = self.pbcfields[access_set, attr]
+        v_meta = self.fromclasstype(vcls, llops)
+        cname = inputconst(ootype.Void, mangled_name)
+        return llops.genop('oogetfield', [v_meta, cname], resulttype=r)
 
     def rtype_issubtype(self, hop):
         class_repr = get_type_repr(self.rtyper)
-        vlist = hop.inputargs(class_repr, class_repr)
-        return hop.genop('subclassof', vlist, resulttype=ootype.Bool)
+        vmeta1, vmeta2 = hop.inputargs(class_repr, class_repr)
+        return hop.gendirectcall(ll_issubtype, vmeta1, vmeta2)
+def ll_issubtype(meta1, meta2):
+    class1 = meta1.class_
+    class2 = meta2.class_
+    return ootype.subclassof(class1, class2)
 
 # ____________________________________________________________
 
@@ -45,14 +153,14 @@ class InstanceRepr(AbstractInstanceRepr):
 
         self.baserepr = None
         if self.classdef is None:
-            self.lowleveltype = ootype.ROOT
+            self.lowleveltype = OBJECT
         else:
             b = self.classdef.basedef
             if b is not None:
                 self.baserepr = getinstancerepr(rtyper, b)
                 b = self.baserepr.lowleveltype
             else:
-                b = ootype.ROOT
+                b = OBJECT
 
             self.lowleveltype = ootype.Instance(classdef.shortname, b, {}, {})
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
@@ -259,7 +367,8 @@ class InstanceRepr(AbstractInstanceRepr):
         if hop.args_s[0].can_be_none():
             return hop.gendirectcall(ll_inst_type, vinst)
         else:
-            return hop.genop('classof', [vinst], resulttype=ootype.Class)
+            cmeta = inputconst(ootype.Void, "meta")
+            return hop.genop('oogetfield', [vinst, cmeta], resulttype=CLASSTYPE)
 
     def rtype_hash(self, hop):
         if self.classdef is None:
@@ -305,15 +414,23 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
-
-        return llops.genop("new",
+        classrepr = getclassrepr(self.rtyper, self.classdef) 
+        v_instance =  llops.genop("new",
             [inputconst(ootype.Void, self.lowleveltype)], self.lowleveltype)
-
+        cmeta = inputconst(ootype.Void, "meta")
+        cmeta_instance = inputconst(CLASSTYPE, classrepr.get_meta_instance())
+        llops.genop("oosetfield", [v_instance, cmeta, cmeta_instance], 
+                  resulttype=ootype.Void)
+        return v_instance
+        
     def initialize_prebuilt_instance(self, value, result):
         # then add instance attributes from this level
+        classrepr = getclassrepr(self.rtyper, self.classdef)
         for mangled, (oot, default) in self.lowleveltype._allfields().items():
             if oot is ootype.Void:
                 llattrvalue = None
+            elif mangled == 'meta':
+                llattrvalue = classrepr.get_meta_instance()
             elif mangled == '_hash_cache_': # hash() support
                 llattrvalue = hash(value)
             else:
@@ -370,7 +487,7 @@ def ll_inst_hash(ins):
 
 def ll_inst_type(obj):
     if obj:
-        return ootype.classof(obj)
+        return obj.meta
     else:
         # type(None) -> NULL  (for now)
-        return ootype.nullruntimeclass
+        return ootype.null(CLASSTYPE)

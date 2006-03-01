@@ -565,6 +565,8 @@ def lltype_to_annotation(T):
             return SomeOOInstance(T)
         elif isinstance(T, ootype.StaticMethod):
             return SomeOOStaticMeth(T)
+        elif T == ootype.Class:
+            return SomeOOClass(ootype.ROOT)
         else:
             return SomePtr(T)
     else:

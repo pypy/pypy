@@ -634,7 +634,7 @@ class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
             r_clspbc.rtyper.type_system.rclass.CLASSTYPE)
         if not r_clspbc.get_class_repr().classdef.issubclass(r_cls.classdef):
             return NotImplemented
-        return r_cls.fromtypeptr(v, llops)
+        return r_cls.fromclasstype(v, llops)
 
 class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):
     def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
