@@ -125,6 +125,9 @@ class AbstractConstraint(object):
     def copy_to(self, space):
         return self.__class__(space, self._variables)
 
+    def __eq__(self, other): #FIXME and parent
+        if not isinstance(other, self.__class__): return False
+        return self._variables == other._variables
 
 class BasicConstraint(object):
     """A BasicConstraint, which is never queued by the Repository
@@ -169,6 +172,8 @@ class BasicConstraint(object):
                                      repr(self))
         return 1
 
+    def __eq__(self, other):
+        raise NotImplementedError
 
 def make_lambda_head(vars):
     var_ids = ','.join([var.name for var in vars])
@@ -267,6 +272,13 @@ class Expression(AbstractConstraint):
             pass
 
         return maybe_entailed
+
+    def __eq__(self, other):
+        if not super(Expression, self).__eq__(other): return False
+        r1 = self.formula == other.formula
+        r2 = self.type == other.type
+        return r1 and r2
+        
 
     def __repr__(self):
         return '<%s>' % self.formula
