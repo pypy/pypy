@@ -524,13 +524,10 @@ class TestComputationSpace:
         def eager_and(t1,  t2):
             return t1 and t2
 
-        passes = 0
-        
         while not (eager_and(s2.ask() == space.Succeeded,
                              s1.ask() == space.Succeeded)):
-            print "pass n°", passes
-            print "S1", s1.pretty_doms()
-            print "S2", s2.pretty_doms()
+            #print "S1", s1.pretty_doms()
+            #print "S2", s2.pretty_doms()
             passes += 1
             #assert s1 == s2
             temp = s2.clone()
@@ -540,13 +537,6 @@ class TestComputationSpace:
             s2 = temp
             s1.commit(1)
             s2.commit(1)
-
-            
-    def test_quickdiff(self):
-        s = newspace(problems.conference_scheduling)
-        while not s.ask() == space.Succeeded:
-            s.print_quick_diff()
-            s.commit(1)
 
     def test_inject(self):
         def more_constraints(space):
@@ -558,44 +548,32 @@ class TestComputationSpace:
         spc = newspace(problems.satisfiable_problem)
         assert spc.ask() == space.Alternative(2)
         new_spc = spc.clone()
+        new_spc.ask()
         new_spc.inject(more_constraints)
         assert spc.ask() == space.Alternative(2)
         assert new_spc.ask() == space.Succeeded
         
     def test_merge(self):
-        spc = newspace(problems.satisfiable_problem)
-        x, y, z = spc.find_vars('x', 'y', 'z')
-        print spc.doms
-        assert spc.top_level()
-        assert spc.dom(x) == c.FiniteDomain([-4, -2, -1, 0,
-                                             1, 2, 4])
-        assert spc.dom(y) == c.FiniteDomain([0, 2, 3,
-                                             4, 5, 16])
-        assert spc.dom(z) == c.FiniteDomain([-2, -1, 0,
-                                             1, 2])
-
         def more_constraints(space):
-            x, y, z = space.find_vars('x', 'y', 'z')
-            space.add_constraint([x], '3 > x > 1')
-            space.add_constraint([z, y], 'z == -1')
-            space.add_constraint([y], 'y == 3')
+            x, y, z = new_spc.find_vars('x', 'y', 'z')
+            space.add_constraint([x], 'x == 0')
+            space.add_constraint([z, y], 'z == y')
+            space.add_constraint([y], 'y < 2')
 
-        spc.ask()
-        nspc = spc.clone()
-        nspc.inject(more_constraints)
-        x, y, z = nspc.find_vars('x', 'y', 'z')
-        assert not nspc.top_level()
-        for v in nspc.vars: print v, "==", v.val, nspc.dom(v)
-        assert nspc.dom(x) == c.FiniteDomain([2])
-        assert nspc.dom(y) == c.FiniteDomain([3])
-        assert nspc.dom(z) == c.FiniteDomain([-1])
-        assert nspc.ask() == space.Succeeded
-        nspc.merge()
-        assert x.val == 2
-        assert y.val == 3
-        assert z.val == -1
-        assert (x, y, z) == nspc.root.val
-
+        spc = newspace(problems.satisfiable_problem)
+        assert spc.ask() == space.Alternative(2)
+        new_spc = spc.clone()
+        new_spc.ask()
+        new_spc.inject(more_constraints)
+        assert spc.ask() == space.Alternative(2)
+        assert new_spc.ask() == space.Succeeded
+        x, y, z = new_spc.find_vars('x', 'y', 'z')
+        res = new_spc.merge()
+        assert res == (x, y, z) == new_spc.root.val
+        assert res[0].val == 0
+        assert res[1].val == 0
+        assert res[2].val == 0
+        
     def test_scheduling_problem_dfs_one_solution(self):
         sol = strategies.dfs_one(problems.conference_scheduling)
 
