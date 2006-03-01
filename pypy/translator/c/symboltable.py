@@ -142,13 +142,18 @@ class debugptr:
         ARRAY = self._TYPE.TO
         if isinstance(ARRAY, Array):
             length_offset = self._nth_offset(0)
+            if length_offset == -1:
+                raise TypeError, "array has no stored length: %r" % (ARRAY,)
             return self._read(Signed, length_offset)
         raise TypeError, "not an array: %r" % (ARRAY,)
 
     def __getitem__(self, index):
         ARRAY = self._TYPE.TO
         if isinstance(ARRAY, Array):
-            if not (0 <= index < len(self)):
+            length_offset = self._nth_offset(0)
+            if length_offset == -1:
+                pass       # just assume the access is within bounds
+            elif not (0 <= index < len(self)):
                 raise IndexError("array index out of bounds")
             item0_offset = self._nth_offset(1)
             item1_offset = self._nth_offset(2)
