@@ -20,6 +20,7 @@ def dfs_one(problem):
             space.commit(1)
             outcome = do_dfs(space)
             if outcome is None:
+                new_space.ask()
                 new_space.commit(2)
                 return do_dfs(new_space)
             else:
@@ -53,9 +54,11 @@ def solve_all(problem):
         elif status == csp.Alternative(2):
             print ' '*len(sp_stack), "branches ..."
             sp1 = space.clone()
+            sp1.ask()
             sp1.commit(1)
             sp_stack.append(sp1)
             sp2 = space.clone()
+            sp2.ask()
             sp2.commit(2)
             sp_stack.append(sp2)
 

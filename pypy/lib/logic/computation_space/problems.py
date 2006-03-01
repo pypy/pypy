@@ -11,8 +11,8 @@ def satisfiable_problem(computation_space):
     cs = computation_space
     x, y, z = cs.var('x'), cs.var('y'), cs.var('z')
     cs.set_dom(x, c.FiniteDomain([-4, -2, -1, 0, 1, 2, 4]))
-    cs.set_dom(y, c.FiniteDomain([0, 2, 3, 4, 5, 16]))
-    cs.set_dom(z, c.FiniteDomain([-2, -1, 0, 1, 2]))
+    cs.set_dom(y, c.FiniteDomain([0, 1, 2, 4, 8, 16]))
+    cs.set_dom(z, c.FiniteDomain([0, 1, 2]))
     cs.add_constraint([x, y, z], 'y==x**2-z')
     # set up a distribution strategy
     cs.set_distributor(di.DichotomyDistributor(cs))
