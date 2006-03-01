@@ -11,6 +11,7 @@ from pypy.translator.tool.cbuild import compile_c_module
 from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
+from pypy.rpython.test.test_llinterp import interpret
 
 thisdir = py.magic.autopath().dirpath()
 
@@ -430,7 +431,8 @@ class Test_structure:
     def test_specialize_pointer_to_struct(self):
         t = self.test_annotate_pointer_to_struct()
         t.buildrtyper().specialize()
-        #d#t.view()
+        if conftest.option.view:
+            t.view()
 
     def x_test_compile_pointer_to_struct(self):
         fn = compile( py_testfunc_struct_pointer_id, [ oppoint_type ] )
@@ -528,3 +530,10 @@ class Test_array:
         
         py.test.raises(IndexError, "s = a.build_types(py_test_annotate_array_content_index_error_on_negative_index,[])")
 
+    def test_specialize_array(self):
+        res = interpret(py_test_annotate_array, [])
+        c_data = res.c_data
+        assert c_data[0] == 0
+        assert c_data[9] == 0
+        py.test.raises(IndexError, "c_data[10]")
+        py.test.raises(TypeError, "len(c_data)")

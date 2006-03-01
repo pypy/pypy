@@ -11,9 +11,10 @@ class ExtRegistryFunc(object):
         return annmodel.SomeBuiltin(self.compute_result_annotation, methodname=func.__name__)
 
 class ExtRegistryInstance(object):
-    def __init__(self, compute_annotation, specialize_call):
+    def __init__(self, compute_annotation, specialize_call, get_repr):
         self.compute_annotation = compute_annotation
         self.specialize_call = specialize_call
+        self.get_repr = get_repr
     
     def get_annotation(self, type, instance=None):
         return self.compute_annotation(type, instance)
@@ -32,13 +33,14 @@ def create_annotation_callable(annotation):
     return annotation
 
 def create_entry(compute_result_annotation=None, compute_annotation=None,
-    specialize_call=None):
+    specialize_call=None, get_repr=None):
     if compute_result_annotation is not None:
         compute_result_annotation = create_annotation_callable(
             compute_result_annotation)
         return ExtRegistryFunc(compute_result_annotation, specialize_call)
     else:
-        return ExtRegistryInstance(compute_annotation, specialize_call)
+        return ExtRegistryInstance(compute_annotation, specialize_call, 
+            get_repr)
 
 def register_value(value, **kwargs):
     EXT_REGISTRY_BY_VALUE[value] = create_entry(**kwargs)

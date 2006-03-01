@@ -5,11 +5,13 @@ import py
 from pypy.rpython.extregistry import EXT_REGISTRY_BY_VALUE, EXT_REGISTRY_BY_TYPE
 from pypy.rpython.extregistry import register_value, register_type
 from pypy.rpython.extregistry import register_metatype
+from pypy.rpython.extregistry import lookup_type
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.rmodel import Repr
 
 def dummy(): 
     raiseNameError
@@ -122,3 +124,43 @@ def test_register_value_with_specialization():
     res = interpret(func, [])
 
     assert res == 42
+
+def test_register_type_with_get_repr():
+    class DummyClass(object):
+        pass
+    
+    class SomeDummyObject(annmodel.SomeObject):
+        def rtyper_makerepr(self, rtyper):
+            entry = lookup_type(self.knowntype)
+            return entry.get_repr(rtyper, self)
+            
+        def rtyper_makekey( self ):
+            return self.__class__, self.knowntype
+    
+    def get_annotation(type, instance=None):
+        assert type is DummyClass
+        dummy_object = SomeDummyObject()
+        dummy_object.knowntype = DummyClass
+        return dummy_object
+    
+    class DummyRepr(Repr):
+        lowleveltype = lltype.Signed
+        
+        def convert_const(self, value):
+            return 42
+    
+    def get_repr(rtyper, s_instance):
+        return DummyRepr()
+    
+    register_type(DummyClass, compute_annotation=get_annotation,
+        get_repr=get_repr)
+    
+    dummy_class = DummyClass()
+    
+    def func():
+        return dummy_class
+    
+    res = interpret(func, [])
+    
+    assert res == 42
+    

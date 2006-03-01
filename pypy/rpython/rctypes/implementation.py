@@ -17,9 +17,12 @@ from pypy.rpython.lltypesystem.lltype import Signed, SignedLongLong, \
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import register_value, register_metatype, \
-    register_type
+    register_type, is_registered_type, lookup_type
 from pypy.annotation.pairtype import pairtype
+from pypy.rpython import rint
 
+# Importing for side effect of registering types with extregistry
+import pypy.rpython.rctypes.rarray
 
 # ctypes_annotation_list contains various attributes that
 # are used by the pypy annotation.
@@ -69,6 +72,9 @@ def create_ctypes_annotations():
             def do_register(the_type):
                 register_value(the_type, 
                 compute_result_annotation=lambda s_arg: SomeCTypesObject(the_type))
+                # XXX we need to register the correct repr for each primitive
+                register_type(the_type,
+                    get_repr=lambda rtyper, s_primitive: rint.signed_repr)
             do_register(the_type)
             the_type.default_memorystate = SomeCTypesObject.NOMEMORY
 
@@ -380,23 +386,10 @@ def RPOINTER(cls):
 #     answer.compute_result_annotation = classmethod(compute_result_annotation)
 #     return answer
 
-ArrayType = type(ARRAY(c_int, 10))
-
-def arraytype_compute_annotation(metatype, type):
-    def compute_result_annotation(*arg_s):
-        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-    return SomeBuiltin(compute_result_annotation,
-        methodname=type.__name__)
-
-register_type(ArrayType, 
-    compute_annotation=arraytype_compute_annotation,
-    specialize_call=None)
-
 class AbstractCtypesRepresentation( Repr ):
     """
     The abstract base class of all ctypes low level representations.
     """
-
 
 class AbstractCtypesStructureRepresentation( AbstractCtypesRepresentation ):
     """
@@ -505,6 +498,9 @@ class CtypesMemoryAliasPointerRepresentation( AbstractCtypesPointerRepresentatio
         
 class __extend__( SomeCTypesObject ):
     def rtyper_makerepr( self, rtyper ):
+        if is_registered_type(self.knowntype):
+            entry = lookup_type(self.knowntype)
+            return entry.get_repr(rtyper, self)
         return self.knowntype.createLowLevelRepresentation( rtyper, self )
         
     def rtyper_makekey( self ):
