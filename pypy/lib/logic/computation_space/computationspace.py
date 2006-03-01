@@ -289,11 +289,15 @@ class ComputationSpace(object):
     def merge(self):
         """binds root vars to their singleton domains """
         assert self.status == Succeeded
-        for var in self.root.val:
-            var.bind(self.dom(var).get_values()[0])
+        # this can't work if we don't copy vars too
+        #for var in self.root.val:
+        #    var.bind(self.dom(var).get_values()[0])
         # shut down the distributor
         self.CHOOSE.bind(0)
-        return self.root.val
+        res = []
+        for var in self.root.val:
+            res.append(self.dom(var).get_values()[0])
+        return res
 
     def set_distributor(self, dist):
         self.distributor = dist
