@@ -43,6 +43,8 @@ except ImportError:
     py.test.skip("this test needs ctypes installed")
 
 
+py.test.skip("these tests are broken while the ctypes primitive types are ported to use the extregistry")
+
 from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, \
         c_char, c_byte, c_ubyte, c_short, c_ushort, c_uint,\
         c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
@@ -242,7 +244,6 @@ def _py_test_compile_pointer( p, x, y ):
     s.x = x
     s.y = y
     return s
-
 
 class Test_rctypes:
 
@@ -469,84 +470,3 @@ class Test_structure:
         fn = compile( py_test_compile_pointer, [ int, int ] )
         res = fn( -42, 42 )
         assert res == -42
-
-
-class Test_array:
-
-    def test_annotate_array(self):
-        a = RPythonAnnotator()
-        s = a.build_types(py_test_annotate_array, [])
-        assert s.knowntype == c_int_10
-
-        if conftest.option.view:
-            a.translator.view()
-
-    def test_annotate_array_access(self):
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(py_test_annotate_array_content, [])
-        assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
-
-    def test_annotate_pointer_access_as_array(self):
-        """
-        Make sure that pointers work the same way as arrays, for 
-        ctypes compatibility.
-
-        :Note: This works because pointer and array classes both
-        have a _type_ attribute, that contains the type of the 
-        object pointed to or in the case of an array the element type. 
-        """
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(py_test_annotate_pointer_content, [])
-        assert s.knowntype == int
-        #d#t.view()
-
-    def test_annotate_array_slice_access(self):
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(py_test_annotate_array_slice_content, [])
-        #d#t.view()
-        #d#print "v90:", s, type(s)
-        assert s.knowntype == list
-        s.listdef.listitem.s_value.knowntype == int
-
-    def test_annotate_array_access_variable(self):
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(py_test_annotate_array_content_variable_index, [])
-        assert s.knowntype == int
-        #t#t.view()
-
-    def test_annotate_array_access_index_error_on_positive_index(self):
-        t = TranslationContext()
-        a = t.buildannotator()
-        
-        py.test.raises(IndexError, "s = a.build_types(py_test_annotate_array_content_index_error_on_positive_index,[])")
-
-    def test_annotate_array_access_index_error_on_negative_index(self):
-        t = TranslationContext()
-        a = t.buildannotator()
-        
-        py.test.raises(IndexError, "s = a.build_types(py_test_annotate_array_content_index_error_on_negative_index,[])")
-
-    def test_specialize_array(self):
-        res = interpret(py_test_annotate_array, [])
-        c_data = res.c_data
-        assert c_data[0] == 0
-        assert c_data[9] == 0
-        py.test.raises(IndexError, "c_data[10]")
-        py.test.raises(TypeError, "len(c_data)")
-
-    def test_specialize_array_access(self):
-        def test_specialize_array_access():
-            my_array = c_int_10()
-            my_array[0] = 1
-
-            return my_array[0]
-
-        res = interpret(test_specialize_array_access, [])
-        assert res == 1

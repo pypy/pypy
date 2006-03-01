@@ -22,24 +22,25 @@ from pypy.rpython import rint
 
 # Importing for side effect of registering types with extregistry
 import pypy.rpython.rctypes.rarray
+import pypy.rpython.rctypes.rprimitive
 
 # ctypes_annotation_list contains various attributes that
 # are used by the pypy annotation.
 
 ctypes_annotation_list = [
-    (c_char,          Char,             None),
-    (c_byte,          Signed,           None),
-    (c_ubyte,         Unsigned,         None),
-    (c_short,         Signed,           None),
-    (c_ushort,        Unsigned,         None),
-    (c_int,           Signed,           None),
-    (c_uint,          Unsigned,         None),
-    (c_long,          Signed,           None),
-    (c_ulong,         Unsigned,         None),
-    (c_longlong,      SignedLongLong,   None),
-    (c_ulonglong,     UnsignedLongLong, None),
-    (c_float,         Float,            None),
-    (c_double,        Float,            None),
+#    (c_char,          Char,             None),
+#    (c_byte,          Signed,           None),
+#    (c_ubyte,         Unsigned,         None),
+#    (c_short,         Signed,           None),
+#    (c_ushort,        Unsigned,         None),
+#    (c_int,           Signed,           None),
+#    (c_uint,          Unsigned,         None),
+#    (c_long,          Signed,           None),
+#    (c_ulong,         Unsigned,         None),
+#    (c_longlong,      SignedLongLong,   None),
+#    (c_ulonglong,     UnsignedLongLong, None),
+#    (c_float,         Float,            None),
+#    (c_double,        Float,            None),
     (c_char_p,        None, 
             staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
     (POINTER(c_char), None, 

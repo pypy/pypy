@@ -15,10 +15,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, \
-        c_char, c_byte, c_ubyte, c_short, c_ushort, c_uint,\
-        c_long, c_ulong, c_longlong, c_ulonglong, c_float, c_double, \
-        POINTER, Structure, byref, ARRAY
+from ctypes import c_int, ARRAY, POINTER
 
 c_int_10 = ARRAY(c_int,10)
 c_int_p_test = POINTER(c_int)

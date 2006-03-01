@@ -13,6 +13,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
+from pypy.rpython import extregistry
 
 # convenience only!
 def immutablevalue(x):
@@ -644,7 +645,12 @@ class __extend__(SomeCTypesObject):
                                 "%r object has no attribute %r" % (
                                     cto.knowntype, s_attr.const))
             else:
-                atype = cto.knowntype._fields_def_[attr]
+                if extregistry.is_registered_type(cto.knowntype):
+                    entry = extregistry.lookup_type(cto.knowntype)
+                    s_value = entry.fields_s[attr]
+                    return s_value
+                else:
+                    atype = cto.knowntype._fields_def_[attr]
             try:
                 return atype.annotator_type
             except AttributeError:
