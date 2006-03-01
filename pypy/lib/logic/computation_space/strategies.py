@@ -15,7 +15,7 @@ def dfs_one(problem):
             return None
         elif status == csp.Succeeded:
             return space
-        elif status == csp.Alternatives(2):
+        elif status == csp.Alternative(2):
             new_space = space.clone()
             space.commit(1)
             outcome = do_dfs(space)
@@ -50,7 +50,7 @@ def solve_all(problem):
         if status == csp.Succeeded:
             print ' '*len(sp_stack), "solution !"
             solutions.append(space)
-        elif status == csp.Alternatives(2):
+        elif status == csp.Alternative(2):
             print ' '*len(sp_stack), "branches ..."
             sp1 = space.clone()
             sp1.commit(1)
