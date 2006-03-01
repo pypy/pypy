@@ -368,32 +368,14 @@ class InstanceRepr(AbstractInstanceRepr):
     def getflavor(self):
         return self.classdef.classdesc.read_attribute('_alloc_flavor_', Constant('gc')).value
 
-    def convert_const(self, value):
-        if value is None:
-            return nullptr(self.object_type)
-        if isinstance(value, types.MethodType):
-            value = value.im_self   # bound method -> instance
-        cls = value.__class__
-        bk = self.rtyper.annotator.bookkeeper
-        classdef = bk.getdesc(cls).getuniqueclassdef()
-        if classdef != self.classdef:
-            # if the class does not match exactly, check that 'value' is an
-            # instance of a subclass and delegate to that InstanceRepr
-            if classdef.commonbase(self.classdef) != self.classdef:
-                raise TyperError("not an instance of %r: %r" % (
-                    self.classdef.name, value))
-            rinstance = getinstancerepr(self.rtyper, classdef)
-            result = rinstance.convert_const(value)
-            return cast_pointer(self.lowleveltype, result)
-        # common case
-        try:
-            return self.prebuiltinstances[id(value)][1]
-        except KeyError:
-            self.setup()
-            result = malloc(self.object_type, flavor=self.getflavor()) # pick flavor
-            self.prebuiltinstances[id(value)] = value, result
-            self.initialize_prebuilt_instance(value, classdef, result)
-            return result
+    def null_instance(self):
+        return nullptr(self.object_type)
+
+    def upcast(self, result):
+        return cast_pointer(self.lowleveltype, result)
+
+    def create_instance(self):
+        return malloc(self.object_type, flavor=self.getflavor()) # pick flavor
 
     def get_ll_eq_function(self):
         return ll_inst_eq

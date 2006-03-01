@@ -364,27 +364,27 @@ class BaseTestRPBC:
         res = interpret(f1, [2], type_system=self.ts)
         assert res == 6
 
-def test_rpbc_bound_method_static_call():
-    class R:
-        def meth(self):
-            return 0
-    r = R()
-    m = r.meth
-    def fn():
-        return m()
-    res = interpret(fn, [])
-    assert res == 0
+    def test_rpbc_bound_method_static_call(self):
+        class R:
+            def meth(self):
+                return 0
+        r = R()
+        m = r.meth
+        def fn():
+            return m()
+        res = interpret(fn, [], type_system=self.ts)
+        assert res == 0
 
-def test_rpbc_bound_method_static_call_w_kwds():
-    class R:
-        def meth(self, x):
-            return x
-    r = R()
-    m = r.meth
-    def fn():
-        return m(x=3)
-    res = interpret(fn, [])
-    assert res == 3
+    def test_rpbc_bound_method_static_call_w_kwds(self):
+        class R:
+            def meth(self, x):
+                return x
+        r = R()
+        m = r.meth
+        def fn():
+            return m(x=3)
+        res = interpret(fn, [], type_system=self.ts)
+        assert res == 3
 
 
 def test_constant_return_disagreement():

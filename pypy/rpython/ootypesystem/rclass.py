@@ -130,6 +130,7 @@ class ClassRepr(AbstractClassRepr):
         class_repr = get_type_repr(self.rtyper)
         vmeta1, vmeta2 = hop.inputargs(class_repr, class_repr)
         return hop.gendirectcall(ll_issubtype, vmeta1, vmeta2)
+
 def ll_issubtype(meta1, meta2):
     class1 = meta1.class_
     class2 = meta2.class_
@@ -383,34 +384,14 @@ class InstanceRepr(AbstractInstanceRepr):
         vinst, = hop.inputargs(self)
         return hop.genop('ooidentityhash', [vinst], resulttype=ootype.Signed)
 
-    def convert_const(self, value):
-        if value is None:
-            return ootype.null(self.lowleveltype)
-        bk = self.rtyper.annotator.bookkeeper
-        try:
-            classdef = bk.getuniqueclassdef(value.__class__)
-        except KeyError:
-            raise TyperError("no classdef: %r" % (value.__class__,))
-        if classdef != self.classdef:
-            # if the class does not match exactly, check that 'value' is an
-            # instance of a subclass and delegate to that InstanceRepr
-            if classdef is None:
-                raise TyperError("not implemented: object() instance")
-            if classdef.commonbase(self.classdef) != self.classdef:
-                raise TyperError("not an instance of %r: %r" % (
-                    self.classdef.name, value))
-            rinstance = getinstancerepr(self.rtyper, classdef)
-            result = rinstance.convert_const(value)
-            return ootype.ooupcast(self.lowleveltype, result)
-        # common case
-        try:
-            return self.prebuiltinstances[id(value)][1]
-        except KeyError:
-            self.setup()
-            result = ootype.new(self.object_type)
-            self.prebuiltinstances[id(value)] = value, result
-            self.initialize_prebuilt_instance(value, result)
-            return result
+    def null_instance(self):
+        return ootype.null(self.lowleveltype)
+
+    def upcast(self, result):
+        return ootype.ooupcast(self.lowleveltype, result)
+
+    def create_instance(self):
+        return ootype.new(self.object_type)
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
@@ -423,7 +404,7 @@ class InstanceRepr(AbstractInstanceRepr):
                   resulttype=ootype.Void)
         return v_instance
         
-    def initialize_prebuilt_instance(self, value, result):
+    def initialize_prebuilt_instance(self, value, classdef, result):
         # then add instance attributes from this level
         classrepr = getclassrepr(self.rtyper, self.classdef)
         for mangled, (oot, default) in self.lowleveltype._allfields().items():

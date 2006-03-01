@@ -135,6 +135,35 @@ class AbstractInstanceRepr(Repr):
     def new_instance(self, llops):
         pass
 
+    def convert_const(self, value):
+        if value is None:
+            return self.null_instance()
+        if isinstance(value, types.MethodType):
+            value = value.im_self   # bound method -> instance
+        bk = self.rtyper.annotator.bookkeeper
+        try:
+            classdef = bk.getuniqueclassdef(value.__class__)
+        except KeyError:
+            raise TyperError("no classdef: %r" % (value.__class__,))
+        if classdef != self.classdef:
+            # if the class does not match exactly, check that 'value' is an
+            # instance of a subclass and delegate to that InstanceRepr
+            if classdef.commonbase(self.classdef) != self.classdef:
+                raise TyperError("not an instance of %r: %r" % (
+                    self.classdef.name, value))
+            rinstance = getinstancerepr(self.rtyper, classdef)
+            result = rinstance.convert_const(value)
+            return self.upcast(result)
+        # common case
+        try:
+            return self.prebuiltinstances[id(value)][1]
+        except KeyError:
+            self.setup()
+            result = self.create_instance()
+            self.prebuiltinstances[id(value)] = value, result
+            self.initialize_prebuilt_instance(value, classdef, result)
+            return result
+
     def rtype_type(self, hop):
         pass
 
