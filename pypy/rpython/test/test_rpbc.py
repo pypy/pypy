@@ -387,103 +387,115 @@ class BaseTestRPBC:
         assert res == 3
 
 
-def test_constant_return_disagreement():
-    class R:
-        def meth(self):
-            return 0
-    r = R()
-    def fn():
-        return r.meth()
-    res = interpret(fn, [])
-    assert res == 0
+    def test_constant_return_disagreement(self):
+        class R:
+            def meth(self):
+                return 0
+        r = R()
+        def fn():
+            return r.meth()
+        res = interpret(fn, [], type_system=self.ts)
+        assert res == 0
 
-def test_None_is_false():
-    def fn(i):
-        return bool([None, fn][i])
-    res = interpret(fn, [1])
-    assert res is True
-    res = interpret(fn, [0])
-    assert res is False
+    def test_None_is_false(self):
+        def fn(i):
+            if i == 0:
+                v = None
+            else:
+                v = fn
+            return bool(v)
+        res = interpret(fn, [1], type_system=self.ts)
+        assert res is True
+        res = interpret(fn, [0], type_system=self.ts)
+        assert res is False
 
-def test_classpbc_getattr():
-    class A:
-        myvalue = 123
-    class B(A):
-        myvalue = 456
-    def f(i):
-        return [A,B][i].myvalue
-    res = interpret(f, [0])
-    assert res == 123
-    res = interpret(f, [1])
-    assert res == 456
+    def test_classpbc_getattr(self):
+        class A:
+            myvalue = 123
+        class B(A):
+            myvalue = 456
+        def f(i):
+            if i == 0:
+                v = A
+            else:
+                v = B
+            return v.myvalue
+        res = interpret(f, [0], type_system=self.ts)
+        assert res == 123
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 456
 
-def test_function_or_None():
-    def g1():
-        return 42
-    def f(i):
-        g = None
-        if i > 5:
-            g = g1
-        if i > 6:
-            return g()
-        else:
-            return 12
+    def test_function_or_None(self):
+        def g1():
+            return 42
+        def f(i):
+            g = None
+            if i > 5:
+                g = g1
+            if i > 6:
+                return g()
+            else:
+                return 12
 
-    res = interpret(f, [0])
-    assert res == 12
-    res = interpret(f, [6])
-    assert res == 12
-    res = interpret(f, [7])
-    assert res == 42
+        res = interpret(f, [0], type_system=self.ts)
+        assert res == 12
+        res = interpret(f, [6], type_system=self.ts)
+        assert res == 12
+        res = interpret(f, [7], type_system=self.ts)
+        assert res == 42
 
-def test_classdef_getattr():
-    class A:
-        myvalue = 123
-    class B(A):
-        myvalue = 456
-    def f(i):
-        B()    # for A and B to have classdefs
-        return [A,B][i].myvalue
-    res = interpret(f, [0])
-    assert res == 123
-    res = interpret(f, [1])
-    assert res == 456
+    def test_classdef_getattr(self):
+        class A:
+            myvalue = 123
+        class B(A):
+            myvalue = 456
+        def f(i):
+            B()    # for A and B to have classdefs
+            if i == 0:
+                v = A
+            else:
+                v = B
+            return v.myvalue
+        res = interpret(f, [0], type_system=self.ts)
+        assert res == 123
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 456
 
-def test_call_classes():
-    class A: pass
-    class B(A): pass
-    def f(i):
-        if i == 1:
-            cls = B
-        else:
-            cls = A
-        return cls()
-    res = interpret(f, [0])
-    assert res.super.typeptr.name[0] == 'A'
-    res = interpret(f, [1])
-    assert res.super.typeptr.name[0] == 'B'
+    def test_call_classes(self):
+        class A: pass
+        class B(A): pass
+        def f(i):
+            if i == 1:
+                cls = B
+            else:
+                cls = A
+            return cls()
+        res = interpret(f, [0], type_system=self.ts)
+        assert self.class_name(res) == 'A'
+        res = interpret(f, [1], type_system=self.ts)
+        assert self.class_name(res) == 'B'
 
-def test_call_classes_with_init2():
-    class A:
-        def __init__(self, z):
-            self.z = z
-    class B(A):
-        def __init__(self, z, x=42):
-            A.__init__(self, z)
-            self.extra = x
-    def f(i, z):
-        if i == 1:
-            cls = B
-        else:
-            cls = A
-        return cls(z)
-    res = interpret(f, [0, 5])
-    assert res.super.typeptr.name[0] == 'A'
-    assert res.inst_z == 5
-    res = interpret(f, [1, -7645])
-    assert res.super.typeptr.name[0] == 'B'
-    assert res.inst_z == -7645
-    assert res._obj._parentstructure().inst_extra == 42
+    def test_call_classes_with_init2(self):
+        class A:
+            def __init__(self, z):
+                self.z = z
+        class B(A):
+            def __init__(self, z, x=42):
+                A.__init__(self, z)
+                self.extra = x
+        def f(i, z):
+            if i == 1:
+                cls = B
+            else:
+                cls = A
+            return cls(z)
+        res = interpret(f, [0, 5], type_system=self.ts)
+        assert self.class_name(res) == 'A'
+        assert self.read_attr(res, "z") == 5
+        res = interpret(f, [1, -7645], type_system=self.ts)
+        assert self.class_name(res) == 'B'
+        assert self.read_attr(res, "z") == -7645
+        assert self.read_attr(res, "extra") == 42
 
 def test_call_starargs():
     def g(x=-100, *arg):
@@ -1317,7 +1329,26 @@ class TestLltype(BaseTestRPBC):
 
     ts = "lltype"
 
+    def class_name(self, value):
+        return "".join(value.super.typeptr.name)[:-1]
+
+    def read_attr(self, value, attr_name):
+        value = value._obj
+        while value is not None:
+            attr = getattr(value, "inst_" + attr_name, None)
+            if attr is None:
+                value = value._parentstructure()
+            else:
+                return attr
+        raise AttributeError()
+
 class TestOotype(BaseTestRPBC):
 
     ts = "ootype"
+
+    def class_name(self, value):
+        return typeOf(value)._name 
+
+    def read_attr(self, value, attr):
+        return getattr(value, "o" + attr)
 
