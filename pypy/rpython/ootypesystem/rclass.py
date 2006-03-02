@@ -214,14 +214,16 @@ class InstanceRepr(AbstractInstanceRepr):
                     raise TyperError("class attribute overrides method")
                 allclassattributes[mangled] = name, s_value
 
-        if '__init__' not in selfattrs and \
-                self.classdef.classdesc.find_source_for("__init__") is not None:
-            s_init = self.classdef.classdesc.s_get_value(self.classdef,
-                    '__init__')
-            if isinstance(s_init, annmodel.SomePBC):
-                mangled = mangle("__init__")
-                allmethods[mangled] = "__init__", s_init
-            # else: it's the __init__ of a builtin exception
+        special_methods = ["__init__", "__del__"]
+        for meth_name in special_methods:
+            if meth_name not in selfattrs and \
+                    self.classdef.classdesc.find_source_for(meth_name) is not None:
+                s_meth = self.classdef.classdesc.s_get_value(self.classdef,
+                        meth_name)
+                if isinstance(s_meth, annmodel.SomePBC):
+                    mangled = mangle(meth_name)
+                    allmethods[mangled] = meth_name, s_meth
+                # else: it's the __init__ of a builtin exception
             
         #
         # hash() support
@@ -259,7 +261,8 @@ class InstanceRepr(AbstractInstanceRepr):
             # get method implementation
             from pypy.rpython.ootypesystem.rpbc import MethodImplementations
             methimpls = MethodImplementations.get(self.rtyper, s_value)
-            m_impls = methimpls.get_impl(mangled, methdesc)
+            m_impls = methimpls.get_impl(mangled, methdesc,
+                    is_finalizer=name == "__del__")
             
             methods.update(m_impls)
                                         

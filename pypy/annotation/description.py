@@ -398,7 +398,7 @@ class ClassDesc(Desc):
                 from pypy.annotation.model import s_None, SomeInstance
                 s_func = self.s_read_attribute('__del__')
                 args_s = [SomeInstance(classdef)]
-                s = self.bookkeeper.emulate_pbc_call(None, s_func, args_s)
+                s = self.bookkeeper.emulate_pbc_call(classdef, s_func, args_s)
                 assert s_None.contains(s)
             return classdef
 

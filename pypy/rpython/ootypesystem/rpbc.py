@@ -101,14 +101,17 @@ class MethodImplementations(object):
             return methodsimpl
     get = staticmethod(get)
 
-    def get_impl(self, name, methdesc):
+    def get_impl(self, name, methdesc, is_finalizer=False):
         impls = {}
+        flags = {}
+        if is_finalizer:
+            flags['finalizer'] = True
         for rowname, (row, M) in self.row_mapping.iteritems():
             if methdesc is None:
-                m = ootype.meth(M, _name=name, abstract=True)
+                m = ootype.meth(M, _name=name, abstract=True, **flags)
             else:
                 impl_graph = row[methdesc.funcdesc].graph
-                m = ootype.meth(M, _name=name, graph=impl_graph)
+                m = ootype.meth(M, _name=name, graph=impl_graph, **flags)
             derived_name = row_method_name(name, rowname)
             impls[derived_name] = m
         return impls
