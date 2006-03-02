@@ -259,9 +259,9 @@ class InstanceRepr(AbstractInstanceRepr):
             # get method implementation
             from pypy.rpython.ootypesystem.rpbc import MethodImplementations
             methimpls = MethodImplementations.get(self.rtyper, s_value)
-            m = methimpls.get_impl(mangled, methdesc)
-
-            methods[mangled] = m
+            m_impls = methimpls.get_impl(mangled, methdesc)
+            
+            methods.update(m_impls)
                                         
 
         for classdef in self.classdef.getmro():

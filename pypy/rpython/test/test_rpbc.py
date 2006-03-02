@@ -1018,7 +1018,7 @@ class BaseTestRPBC:
         res = interpret(f, [0], type_system=self.ts)
         assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
 
-    def DONT_test_specialized_method(self):
+    def test_specialized_method(self):
         class A:
             def __init__(self, tag):
                 self.tag = tag

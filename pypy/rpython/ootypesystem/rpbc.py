@@ -73,21 +73,21 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
 
     rtype_call_args = rtype_simple_call
 
+def row_method_name(methodname, rowname):
+    return "%s_%s" % (methodname, rowname)
+    
 class MethodImplementations(object):
 
     def __init__(self, rtyper, methdescs):
         samplemdesc = methdescs.iterkeys().next()
         concretetable, uniquerows = get_concrete_calltable(rtyper,
                                              samplemdesc.funcdesc.getcallfamily())
-        self._uniquerows = uniquerows
-        if len(uniquerows) == 1:
-            row = uniquerows[0]
+        self.row_mapping = {} 
+        for row in uniquerows:
             sample_as_static_meth = row.itervalues().next()
             SM = ootype.typeOf(sample_as_static_meth)
             M = ootype.Meth(SM.ARGS[1:], SM.RESULT) # cut self
-            self.lowleveltype = M
-        else:
-            XXX_later
+            self.row_mapping[row.attrname] = row, M
 
     def get(rtyper, s_pbc):
         lst = list(s_pbc.descriptions)
@@ -102,18 +102,25 @@ class MethodImplementations(object):
     get = staticmethod(get)
 
     def get_impl(self, name, methdesc):
-        M = self.lowleveltype
-        if methdesc is None:
-            return ootype.meth(M, _name=name, abstract=True)
-        else:
-            impl_graph = self._uniquerows[0][methdesc.funcdesc].graph
-            return ootype.meth(M, _name=name, graph=impl_graph)
-    
+        impls = {}
+        for rowname, (row, M) in self.row_mapping.iteritems():
+            if methdesc is None:
+                m = ootype.meth(M, _name=name, abstract=True)
+            else:
+                impl_graph = row[methdesc.funcdesc].graph
+                m = ootype.meth(M, _name=name, graph=impl_graph)
+            derived_name = row_method_name(name, rowname)
+            impls[derived_name] = m
+        return impls
+
 
 class MethodsPBCRepr(AbstractMethodsPBCRepr):
 
     def __init__(self, rtyper, s_pbc):
         AbstractMethodsPBCRepr.__init__(self, rtyper, s_pbc)
+        sampledesc = s_pbc.descriptions.iterkeys().next()
+        self.concretetable, _ = get_concrete_calltable(rtyper,
+                                             sampledesc.funcdesc.getcallfamily())
 
     def rtype_simple_call(self, hop):
         return self.call("simple_call", hop)
@@ -138,7 +145,9 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         mangled = mangle(self.methodname)
-        cname = hop.inputconst(ootype.Void, mangled)
+        row = self.concretetable[shape, index]
+        derived_mangled = row_method_name(mangled, row.attrname)
+        cname = hop.inputconst(ootype.Void, derived_mangled)
         v = hop.genop("oosend", [cname]+vlist, resulttype=rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
         
