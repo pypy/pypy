@@ -57,6 +57,27 @@ class BaseTestRclass:
         res = interpret(dummyfn, [], type_system=self.ts)
         assert res == 12
 
+    def test_classattr_both(self):
+        print self.ts
+        class A:
+            a = 1
+        class B(A):
+            a = 2
+        def pick(i):
+            if i == 0:
+                return A
+            else:
+                return B
+            
+        def dummyfn(i):
+            C = pick(i)
+            i = C()
+            return C.a + i.a
+        res = interpret(dummyfn, [0], type_system=self.ts)
+        assert res == 2
+        res = interpret(dummyfn, [1], type_system=self.ts)
+        assert res == 4
+
     def test_classattr_as_defaults(self):
         def dummyfn():
             x = Random()
