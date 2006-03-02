@@ -221,8 +221,6 @@ def entry_point(args):
     return 0
 
 #_________________________________________________________
-
-from pypy.translator.llvm.genllvm import compile_function
     
 if __name__ == "__main__":
     from pypy.translator.llvm.demo.run import run
