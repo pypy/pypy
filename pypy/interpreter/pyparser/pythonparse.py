@@ -10,6 +10,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool.option import Options
 from pythonlexer import Source, match_encoding_declaration
+from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
 import pysymbol
 import ebnfparse
 import sys
@@ -17,6 +18,9 @@ import os
 import grammar
 
 from codeop import PyCF_DONT_IMPLY_DEDENT
+
+class AlternateGrammarException(Exception):
+    pass
 
 class PythonParser(object):
     """Wrapper class for python grammar"""
@@ -26,6 +30,7 @@ class PythonParser(object):
         # Build first sets for each rule (including anonymous ones)
         grammar.build_first_sets(self.items)
         self.symbols = grammar_builder.symbols
+        self.with_grammar = None
 
     def parse_source(self, textsrc, goal, builder, flags=0):
         """Parse a python source according to goal"""
@@ -45,12 +50,22 @@ class PythonParser(object):
             flags &= ~PyCF_DONT_IMPLY_DEDENT
         return self.parse_lines(lines, goal, builder, flags)
 
+
     def parse_lines(self, lines, goal, builder, flags=0):
+        if (self.with_grammar is not None and # don't recurse into ourself
+            flags & CO_FUTURE_WITH_STATEMENT):
+            builder.enable_with()
+            return self.with_grammar.parse_lines(lines, goal, builder, flags)
         goalnumber = self.symbols.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
 
-        result = target.match(src, builder)
+        try:
+            result = target.match(src, builder)
+        except AlternateGrammarException: # handle from __future__ import with_statement
+            if self.with_grammar is not None:
+                builder.enable_with()
+                return self.with_grammar.parse_lines(lines, goal, builder, flags)
         if not result:
             line, lineno = src.debug()
             # XXX needs better error messages
@@ -133,6 +148,7 @@ def python_grammar(fname):
 
 debug_print( "Loading grammar %s" % PYTHON_GRAMMAR )
 PYTHON_PARSER = python_grammar( PYTHON_GRAMMAR )
+PYTHON_PARSER.with_grammar = python_grammar( PYTHON_GRAMMAR + '_with' )
 
 def reload_grammar(version):
     """helper function to test with pypy different grammars"""

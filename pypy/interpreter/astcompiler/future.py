@@ -15,7 +15,7 @@ def is_future(stmt):
 
 class FutureParser(ast.ASTVisitor):
 
-    features = ("nested_scopes", "generators", "division")
+    features = ("nested_scopes", "generators", "division", "with_statement")
 
     def __init__(self):
         self.found = {} # set

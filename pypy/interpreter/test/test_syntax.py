@@ -259,8 +259,8 @@ class AppTestCondExpr:
 class AppTestWith:
     def test_with_1(self):
 
-        s = """if 1:
-        # from __future__ import with_statement
+        s = """from __future__ import with_statement
+if 1:        
         class ContextFactory:
 
             class Context:
@@ -293,8 +293,8 @@ class AppTestWith:
         
     def test_with_2(self):
 
-        s = """if 1:
-        # from __future__ import with_statement
+        s = """from __future__ import with_statement
+if 1:
         class ContextFactory:
 
             class Context:
@@ -329,8 +329,8 @@ class AppTestWith:
         
     def test_with_3(self):
 
-        s = """if 1:
-        # from __future__ import with_statement
+        s = """from __future__ import with_statement
+if 1:
         class ContextFactory:
 
             class Context:
@@ -374,8 +374,8 @@ class AppTestWith:
         
     def test_with_4(self):
 
-        s = """if 1:
-        # from __future__ import with_statement
+        s = """from __future__ import with_statement
+if 1:
         class ContextFactory:
 
             class Context:
@@ -415,8 +415,8 @@ class AppTestWith:
         
     def test_with_5(self):
 
-        s = """if 1:
-        # from __future__ import with_statement
+        s = """from __future__ import with_statement
+if 1:
         class ContextFactory:
 
             class Context:
@@ -456,8 +456,8 @@ class AppTestWith:
         
     def test_with_6(self):
 
-        s = """if 1:
-        # from __future__ import with_statement
+        s = """from __future__ import with_statement
+if 1:
         class ContextFactory:
 
             class Context:
@@ -494,6 +494,25 @@ class AppTestWith:
         assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
+    def test_with_7(self):
+        exec "with = 9"
+
+    def test_with_8(self):
+        try:
+            exec "from __future__ import with_statement\nwith = 9"
+        except SyntaxError:
+            pass
+        else:
+            assert False, 'Assignment to with did not raise SyntaxError'
+
+    def test_with_9(self):
+        s = """from __future__ import with_statement
+if 1:
+        compile('''with x:
+        pass''', '', 'exec')
+        """
+        exec s
+
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
     from py.test import raises

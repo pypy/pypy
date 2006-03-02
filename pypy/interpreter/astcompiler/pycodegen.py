@@ -10,7 +10,8 @@ from pypy.interpreter.astcompiler import pyassem, misc, future, symbols
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT, OP_APPLY, OP_ASSIGN, OP_DELETE, OP_NONE
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
-    CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
+    CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, \
+    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT
 from pypy.interpreter.pyparser.error import SyntaxError
 
 # drop VERSION dependency since it the ast transformer for 2.4 doesn't work with 2.3 anyway
@@ -164,6 +165,8 @@ class CodeGenerator(ast.ASTVisitor):
                 self._div_op = "BINARY_TRUE_DIVIDE"
             elif feature == "generators":
                 self.graph.setFlag(CO_GENERATOR_ALLOWED)
+            elif feature == "with_statement":
+                self.graph.setFlag(CO_FUTURE_WITH_STATEMENT)
 
     def emit(self, inst ):
         return self.graph.emit( inst )

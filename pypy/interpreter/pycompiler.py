@@ -78,7 +78,7 @@ class AbstractCompiler:
 # faked compiler
 
 import warnings
-import __future__
+from pypy.tool import __future__
 compiler_flags = 0
 compiler_features = {}
 for fname in __future__.all_feature_names:
