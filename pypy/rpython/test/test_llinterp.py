@@ -65,6 +65,10 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
 
 _lastinterpreted = []
 _tcache = {}
+def clear_tcache():
+    del _lastinterpreted[:]
+    _tcache.clear()
+
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                     someobjects=False, type_system="lltype"):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
@@ -427,7 +431,7 @@ def test_invalid_stack_access():
 
 def test_cleanup_finally():
     interp, graph = get_interpreter(cleanup_f, [-1])
-    _tcache.clear()    # because we hack the graph in place
+    clear_tcache()    # because we hack the graph in place
     operations = graph.startblock.operations
     assert operations[0].opname == "direct_call"
     assert operations[1].opname == "direct_call"
@@ -452,7 +456,7 @@ def test_cleanup_finally():
 
 def test_cleanup_except():
     interp, graph = get_interpreter(cleanup_f, [-1])
-    _tcache.clear()    # because we hack the graph in place
+    clear_tcache()    # because we hack the graph in place
     operations = graph.startblock.operations
     assert operations[0].opname == "direct_call"
     assert operations[1].opname == "direct_call"
