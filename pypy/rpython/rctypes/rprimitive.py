@@ -3,7 +3,7 @@ from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
 from ctypes import c_double, c_char_p
 from pypy.annotation import model as annmodel
 from pypy.rpython import extregistry
-from pypy.rpython.rmodel import Repr
+from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rmodel import IntegerRepr
@@ -25,44 +25,70 @@ ctypes_annotation_list = [
 ]
 
 class PrimitiveRepr(Repr):
-    def __init__(self, rtyper, type, ll_type):
+    def __init__(self, rtyper, ctype, ll_type):
+        self.ctype = ctype
         self.ll_type = ll_type
         self.lowleveltype = lltype.Ptr(
-            lltype.GcStruct( "CtypesBox_%s" % (type.__name__,),
-                ( "c_data", lltype.Struct('C_Data_%s' % (type.__name__,),
+            lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
+                ( "c_data", lltype.Struct('C_Data_%s' % (ctype.__name__,),
                     ('value', ll_type) )
                 )
             )
         )
 
+        self.const_cache = {} # store generated const values+original value
+
+    def get_c_data(self, llops, v_primitive):
+        inputargs = [v_primitive, inputconst(lltype.Void, "c_data")]
+        return llops.genop('getsubstruct', inputargs,
+                    lltype.Ptr(self.lowleveltype.TO.c_data) )
+
+    def setfield(self, llops, v_primitive, v_value):
+        v_c_data = self.get_c_data(llops, v_primitive)
+        cname = inputconst(lltype.Void, 'value')
+        llops.genop('setfield', [v_c_data, cname, v_value])
+
+    def getfield(self, llops, v_primitive):
+        v_c_data = self.get_c_data(llops, v_primitive)
+
+        cname = inputconst(lltype.Void, 'value')
+        return llops.genop('getfield', [v_c_data, cname],
+                resulttype=self.ll_type)
+
+    def convert_const(self, ctype_value):
+        assert isinstance(ctype_value, self.ctype)
+        key = id(ctype_value)
+        try:
+            return self.const_cache[key][0]
+        except KeyError:
+            p = lltype.malloc(self.lowleveltype.TO)
+            
+            self.const_cache[key] = p, ctype_value
+            p.c_data.value = ctype_value.value
+            return p
+        
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
         assert s_attr.is_constant()
         assert s_attr.const == 'value'
         v_primitive = hop.inputarg(self, 0)
-        cname = hop.inputconst(lltype.Void, 'value')
-        inputargs = [v_primitive, hop.inputconst(lltype.Void, "c_data")]
-        v_c_data = hop.genop('getsubstruct',
-                    inputargs,
-                    lltype.Ptr(self.lowleveltype.TO.c_data) )
+        return self.getfield(hop.llops, v_primitive)
 
-        return hop.genop('getfield', [v_c_data, cname],
-                resulttype=self.ll_type)
-
+    def rtype_setattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'value'
+        v_primitive, v_attr, v_value = hop.inputargs(self, lltype.Void,
+                                                        self.ll_type)
+        self.setfield(hop.llops, v_primitive, v_value)
 
 def primitive_specialize_call(hop):
     r_primitive = hop.r_result
     c1 = hop.inputconst(lltype.Void, r_primitive.lowleveltype.TO) 
     v_result = hop.genop("malloc", [c1], resulttype=r_primitive.lowleveltype)
-    inputargs = [v_result, hop.inputconst(lltype.Void, "c_data")]
-    v_c_data = hop.genop('getsubstruct',
-                inputargs,
-                lltype.Ptr(r_primitive.lowleveltype.TO.c_data) )
-    cname = hop.inputconst(lltype.Void, 'value')
     if len(hop.args_s):
         v_value, = hop.inputargs(r_primitive.ll_type)
-
-        hop.genop('setfield', [v_c_data, cname, v_value])
+        r_primitive.setfield(hop.llops, v_result, v_value)
     return v_result
 
 def do_register(the_type, ll_type):
