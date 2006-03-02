@@ -169,6 +169,8 @@ class FlowGraphPage(GraphPage):
                     #info = self.links.get(var.name, var.name)
                     #info = '(%s) %s' % (var.concretetype, info)
                     info = str(var.concretetype)
+                    if info == 'Void':     # gray out Void variables
+                        info = info, (160,160,160)
                     self.links[var.name] = info
 
         for graph in graphs:
