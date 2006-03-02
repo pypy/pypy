@@ -67,6 +67,24 @@ class TestSimpleVariable:
         t.join()
         assert t.state == 42
             
+    def test_stream(self):
+        def consummer(thread, S):
+            v = S.get()
+            if v:
+                thread.res += v[0]
+                consummer(thread, v[1])
+
+        S = v.SimpleVar()
+        t = FunThread(consummer, S)
+        t.res = 0
+        t.start()
+        for i in range(10):
+            tail = v.SimpleVar()
+            S.bind((i, tail))
+            S = tail
+        S.bind(None)
+        t.join()
+        assert t.res == 45
 
 class TestCsVariable:
 
