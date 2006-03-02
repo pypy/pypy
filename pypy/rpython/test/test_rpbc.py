@@ -1043,7 +1043,61 @@ class BaseTestRPBC:
         res = interpret(f, [0], type_system=self.ts)
         assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
 
+    def test_precise_method_call_1(self):
+        class A(object):
+            def meth(self, x=5):
+                return x+1
+        class B(A):
+            def meth(self, x=5):
+                return x+2
+        class C(A):
+            pass
+        def f(i, n):
+            # call both A.meth and B.meth with an explicit argument
+            if i > 0:
+                x = A()
+            else:
+                x = B()
+            result1 = x.meth(n)
+            # now call A.meth only, using the default argument
+            result2 = C().meth()
+            return result1 * result2
+        for i in [0, 1]:
+            res = interpret(f, [i, 1234], type_system=self.ts)
+            assert res == f(i, 1234)
+
+    def test_precise_method_call_2(self):
+        class A(object):
+            def meth(self, x=5):
+                return x+1
+        class B(A):
+            def meth(self, x=5):
+                return x+2
+        class C(A):
+            def meth(self, x=5):
+                return x+3
+        def f(i, n):
+            # call both A.meth and B.meth with an explicit argument
+            if i > 0:
+                x = A()
+            else:
+                x = B()
+            result1 = x.meth(n)
+            # now call A.meth and C.meth, using the default argument
+            if i > 0:
+                x = C()
+            else:
+                x = A()
+            result2 = x.meth()
+            return result1 * result2
+        for i in [0, 1]:
+            res = interpret(f, [i, 1234], type_system=self.ts)
+            assert res == f(i, 1234)
+
+
 def test_call_from_list():
+    # Don't test with ootype, since it doesn't support lists in a
+    # coherent way yet.
     def f0(n): return n+200
     def f1(n): return n+192
     def f2(n): return n+46
@@ -1055,57 +1109,6 @@ def test_call_from_list():
     for i in range(5):
         res = interpret(f, [i, 1000])
         assert res == f(i, 1000)
-
-def test_precise_method_call_1():
-    class A(object):
-        def meth(self, x=5):
-            return x+1
-    class B(A):
-        def meth(self, x=5):
-            return x+2
-    class C(A):
-        pass
-    def f(i, n):
-        # call both A.meth and B.meth with an explicit argument
-        if i > 0:
-            x = A()
-        else:
-            x = B()
-        result1 = x.meth(n)
-        # now call A.meth only, using the default argument
-        result2 = C().meth()
-        return result1 * result2
-    for i in [0, 1]:
-        res = interpret(f, [i, 1234])
-        assert res == f(i, 1234)
-
-def test_precise_method_call_2():
-    class A(object):
-        def meth(self, x=5):
-            return x+1
-    class B(A):
-        def meth(self, x=5):
-            return x+2
-    class C(A):
-        def meth(self, x=5):
-            return x+3
-    def f(i, n):
-        # call both A.meth and B.meth with an explicit argument
-        if i > 0:
-            x = A()
-        else:
-            x = B()
-        result1 = x.meth(n)
-        # now call A.meth and C.meth, using the default argument
-        if i > 0:
-            x = C()
-        else:
-            x = A()
-        result2 = x.meth()
-        return result1 * result2
-    for i in [0, 1]:
-        res = interpret(f, [i, 1234])
-        assert res == f(i, 1234)
 
 
 # We don't care about the following test_hlinvoke tests working on
