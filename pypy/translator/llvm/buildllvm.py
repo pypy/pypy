@@ -142,21 +142,11 @@ def make_module_from_llvm(genllvm, llvmfile,
                 fdump.close()
             log.build(data)
             raise
-        # XXX do we need to do some check on fout/ferr?
-        # XXX not a nice way to import a module
-        if pyxfile:
-            log.build("inserting path to sys.path", dirpath)
-            sys.path.insert(0, '.')
-            cmd = "import %(modname)s as testmodule" % locals()
-            log.build(cmd)
-            exec cmd
-            sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
 
     if pyxfile:
-        log.build("modname", modname)
-        return testmodule
+        return modname, str(dirpath)
 
     if exe_name:
         exe_path = str(llvmfile.dirpath().join(exe_name))

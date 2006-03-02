@@ -1,5 +1,7 @@
 import time
 
+from pypy.tool import isolate
+
 from pypy.translator.llvm import buildllvm
 from pypy.translator.llvm.database import Database 
 from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
@@ -249,15 +251,20 @@ class GenLLVM(object):
             basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
             pyxfile = self.filename.new(basename = basename)
             write_pyx_wrapper(self, pyxfile)    
-            res = buildllvm.make_module_from_llvm(self, self.filename,
-                                                  pyxfile=pyxfile,
-                                                  optimize=optimize)
-            wrap_fun = getattr(res, 'pypy_' + self.entry_func_name + "_wrapper")
+            info = buildllvm.make_module_from_llvm(self, self.filename,
+                                                   pyxfile=pyxfile,
+                                                   optimize=optimize)
+
+            mod, wrap_fun = self.isolate_module(*info)
             if return_fn:
                 return wrap_fun
+            return mod, wrap_fun
 
-            return res, wrap_fun
-        
+    def isolate_module(self, modname, dirpath):
+        ext_module = isolate.Isolate((dirpath, modname))
+        wrap_fun = getattr(ext_module, 'pypy_' + self.entry_func_name + "_wrapper")
+        return ext_module, wrap_fun
+    
     def _checkpoint(self, msg=None):
         if not self.logging:
             return
@@ -319,7 +326,3 @@ def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
     if view or conftest.option.view:
         t.view()
     return genllvm(t, function, optimize=optimize, **kwds)
-
-def compile_function(function, annotation, **kwds):
-    """ Helper - which get the compiled module from CPython. """
-    return compile_module(function, annotation, return_fn=True, **kwds)
