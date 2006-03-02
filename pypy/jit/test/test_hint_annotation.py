@@ -386,7 +386,7 @@ def test_invalid_hint_1():
     py.test.raises(HintError, hannotate,
                    ll_getitem_switch, [annmodel.SomePtr(lltype.Ptr(S))])
 
-def test_invalid_hint_2():
+def undecided_relevance_test_invalid_hint_2():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     def ll_getitem_switch(s):
         if s.x > 0:   # variable exitswitch

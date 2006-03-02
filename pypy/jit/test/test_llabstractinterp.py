@@ -211,7 +211,7 @@ def test_simple_array():
     graph2, insns = abstrinterp(ll_function, [s, 0, 0], [0, 1, 2])
     assert insns == {}
 
-def test_recursive_call():
+def no_longer_relevant_test_recursive_call():
     py.test.skip("reimplement or remove the test: "
                  "non-inlined calls with constant results")
     def ll_factorial(k):
