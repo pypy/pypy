@@ -203,7 +203,7 @@ class GenRpy:
         self.builtin_ids = dict( [
             (id(value), bltinstub(key))
             for key, value in __builtin__.__dict__.items()
-            if callable(value) and type(value) not in [type(Exception), type] ] )
+            if callable(value) and type(value) not in [types.ClassType, type] ] )
         
         self.space = FlowObjSpace() # for introspection
 
@@ -748,7 +748,7 @@ else:
                 return 'space.w_%s' % cls.__name__
 
         if not isinstance(cls, type):
-            assert type(cls) is type(Exception)
+            assert type(cls) is types.ClassType
             # do *not* change metaclass, but leave the
             # decision to what PyPy thinks is correct.
             # metaclass = 'space.w_classobj'
@@ -824,7 +824,7 @@ else:
         str:    'space.w_str',
         float:  'space.w_float',
         slice:  'space.w_slice',
-        type(Exception()): (eval_helper, 'InstanceType', 'types.InstanceType'),
+        types.InstanceType: (eval_helper, 'InstanceType', 'types.InstanceType'),
         type:   'space.w_type',
         complex: (eval_helper, 'complex', 'types.ComplexType'),
         unicode:'space.w_unicode',
