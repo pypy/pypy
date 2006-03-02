@@ -59,7 +59,8 @@ class PythonParser(object):
         goalnumber = self.symbols.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
-
+        
+        result = None
         try:
             result = target.match(src, builder)
         except AlternateGrammarException: # handle from __future__ import with_statement

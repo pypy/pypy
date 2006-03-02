@@ -10,7 +10,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.syntaxtree import TokenNode, SyntaxNode, AbstractSyntaxVisitor
 from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER
 from pypy.interpreter.pyparser.error import SyntaxError
-from pypy.interpreter.pyparser import grammar, pysymbol, pytoken
+from pypy.interpreter.pyparser import grammar, symbol, pytoken
 from pypy.interpreter.argument import Arguments
 
 
@@ -94,14 +94,14 @@ class STType (Wrappable):
         Returns true if the root node in the syntax tree is an expr node,
         false otherwise.
         """
-        return self.node.name == pysymbol.eval_input
+        return self.node.name == symbol.eval_input
 
     def issuite(self):
         """STType.issuite()
         Returns true if the root node in the syntax tree is a suite node,
         false otherwise.
         """
-        return self.node.name == pysymbol.file_input
+        return self.node.name == symbol.file_input
 
     def descr_compile(self, w_filename = "<syntax_tree>"):
         """STType.compile()
@@ -226,8 +226,8 @@ from pypy.interpreter.pyparser.grammar import Sequence, KleeneStar, Token
 
 def descr_grammarelement_repr( self, space ):
     """TODO: make __repr__ RPython"""
-    import pysymbol
-    return space.wrap( self.display(0, pysymbol.sym_name) )
+    import symbol
+    return space.wrap( self.display(0, symbol.sym_name) )
 
 def descr_grammarelement_get_children( self, space ):
     return space.newlist( [ space.wrap(it) for it in self.args ] )
