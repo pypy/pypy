@@ -1,6 +1,7 @@
 from pypy.rpython.rmodel import CanBeNull, Repr, inputconst
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr, \
-        AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr
+        AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
+        AbstractFunctionsPBCRepr
 from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
 from pypy.rpython.rpbc import get_concrete_calltable
 from pypy.rpython import callparse
@@ -12,6 +13,22 @@ from pypy.annotation import description
 from pypy.annotation.pairtype import pairtype
 import types
 
+
+class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
+    """Representation selected for a PBC of function(s)."""
+
+    def setup_specfunc(self):
+        fields = {}
+        for row in self.uniquerows:
+            fields[row.attrname] = row.fntype
+        return ootype.Instance('specfunc', ootype.ROOT, fields)
+
+    def create_specfunc(self):
+        return ootype.new(self.lowleveltype)
+
+    def get_specfunc_row(self, llop, v, c_rowname, resulttype):
+        return llop.genop('oogetfield', [v, c_rowname], resulttype=resulttype)
+        
 class ClassesPBCRepr(AbstractClassesPBCRepr):
 
     def rtype_simple_call(self, hop):

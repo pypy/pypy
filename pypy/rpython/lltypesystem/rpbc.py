@@ -11,9 +11,10 @@ from pypy.rpython.rmodel import warning, mangle, CanBeNull
 from pypy.rpython import robject
 from pypy.rpython import rtuple
 from pypy.rpython.rpbc import samesig,\
-     commonbase, allattributenames, adjust_shape, FunctionsPBCRepr, \
+     commonbase, allattributenames, adjust_shape, \
      AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr, \
-     AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr
+     AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
+     AbstractFunctionsPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
 
@@ -54,6 +55,21 @@ class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
 
 # ____________________________________________________________
 
+class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
+    """Representation selected for a PBC of function(s)."""
+
+    def setup_specfunc(self):
+        fields = []
+        for row in self.uniquerows:
+            fields.append((row.attrname, row.fntype))
+        return Ptr(Struct('specfunc', *fields))
+        
+    def create_specfunc(self):
+        return malloc(self.lowleveltype.TO, immortal=True)
+
+    def get_specfunc_row(self, llop, v, c_rowname, resulttype):
+        return llop.genop('getfield', [v, c_rowname], resulttype=resulttype)
+        
 class MethodsPBCRepr(AbstractMethodsPBCRepr):
     """Representation selected for a PBC of the form {func: classdef...}.
     It assumes that all the methods come from the same name in a base

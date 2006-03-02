@@ -26,7 +26,7 @@ class __extend__(annmodel.SomePBC):
                 if sample.overridden:
                     getRepr = OverriddenFunctionPBCRepr
                 else:
-                    getRepr = FunctionsPBCRepr
+                    getRepr = rtyper.type_system.rpbc.FunctionsPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.ClassDesc):
@@ -155,7 +155,7 @@ def get_concrete_calltable(rtyper, callfamily):
     return concretetable, uniquerows
 
 
-class FunctionsPBCRepr(CanBeNull, Repr):
+class AbstractFunctionsPBCRepr(CanBeNull, Repr):
     """Representation selected for a PBC of function(s)."""
 
     def __init__(self, rtyper, s_pbc):
@@ -177,10 +177,7 @@ class FunctionsPBCRepr(CanBeNull, Repr):
                 # several functions, each with several specialized variants.
                 # each function becomes a pointer to a Struct containing
                 # pointers to its variants.
-                fields = []
-                for row in uniquerows:
-                    fields.append((row.attrname, row.fntype))
-                self.lowleveltype = Ptr(Struct('specfunc', *fields))
+                self.lowleveltype = self.setup_specfunc()
         self.funccache = {}
 
     def get_s_callable(self):
@@ -230,7 +227,7 @@ class FunctionsPBCRepr(CanBeNull, Repr):
                 result = llfn   # from the loop above
             else:
                 # build a Struct with all the values collected in 'llfns'
-                result = malloc(self.lowleveltype.TO, immortal=True)
+                result = self.create_specfunc()
                 for attrname, llfn in llfns.items():
                     setattr(result, attrname, llfn)
         self.funccache[funcdesc] = result
@@ -267,7 +264,7 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             # 'v' is a Struct pointer, read the corresponding field
             row = self.concretetable[shape, index]
             cname = inputconst(Void, row.attrname)
-            return llop.genop('getfield', [v, cname], resulttype = row.fntype)
+            return self.get_specfunc_row(llop, v, cname, row.fntype)
 
     def get_unique_llfn(self):
         # try to build a unique low-level function.  Avoid to use
@@ -320,7 +317,7 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             v = hop.genop('indirect_call', vlist, resulttype = rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 
-class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
+class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
         def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
             # this check makes sense because both source and dest repr are FunctionsPBCRepr
             if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
