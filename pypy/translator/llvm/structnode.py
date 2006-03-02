@@ -2,6 +2,16 @@ from pypy.translator.llvm.log import log
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.rpython.lltypesystem import lltype
 
+def getindexhelper(name, struct):
+    assert name in list(struct._names)
+
+    fieldnames = struct._names_without_voids()
+    try:
+        index = fieldnames.index(name)
+    except ValueError:
+        index = -1
+    return index
+
 log = log.structnode 
 
 class StructTypeNode(LLVMNode):
