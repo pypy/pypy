@@ -16,9 +16,11 @@ from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
+from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable
 from pypy.annotation.listdef import ListDef
+from pypy.rpython import extregistry
 
 # convenience only!
 def immutablevalue(x):
@@ -761,6 +763,10 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
             # are those having memorystate NOMEMORY
             return s_cto.knowntype._type_.annotator_type
         except AttributeError:
+            if extregistry.is_registered_type(s_cto.knowntype._type_):
+                entry = extregistry.lookup_type(s_cto.knowntype._type_)
+                return lltype_to_annotation(entry.lowleveltype)
+                
             return SomeCTypesObject(
                     s_cto.knowntype._type_,
                     memorystate=s_cto.memorystate)

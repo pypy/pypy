@@ -56,8 +56,7 @@ def arraytype_specialize_call(hop):
 def arraytype_compute_annotation(metatype, type):
     def compute_result_annotation(*arg_s):
         return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-    return SomeBuiltin(compute_result_annotation,
-        methodname=type.__name__)
+    return SomeBuiltin(compute_result_annotation, methodname=type.__name__)
 
 extregistry.register_type(ArrayType, 
     compute_annotation=arraytype_compute_annotation,

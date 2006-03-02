@@ -19,7 +19,7 @@ from ctypes import c_int, ARRAY, POINTER
 c_int_10 = ARRAY(c_int,10)
 c_int_p_test = POINTER(c_int)
 
-py.test.skip("Reworking primitive types")
+#py.test.skip("Reworking primitive types")
 
 class Test_annotation:
     def test_annotate_array(self):
@@ -49,7 +49,7 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def test_annotate_pointer_access_as_array(self):
+    def x_test_annotate_pointer_access_as_array(self):
         """
         Make sure that pointers work the same way as arrays, for 
         ctypes compatibility.
@@ -74,7 +74,7 @@ class Test_annotation:
         assert s.knowntype == int
         #d#t.view()
 
-    def test_annotate_array_slice_access(self):
+    def x_test_annotate_array_slice_access(self):
         def slice_access():
             my_array = c_int_10()
             #f#my_array[0:7] = c_int(1) * 7
@@ -127,7 +127,7 @@ class Test_annotation:
         py.test.raises(IndexError, "s = a.build_types(access_with_invalid_negative_index,[])")
 
 class Test_specialization:
-    def test_specialize_array(self):
+    def x_test_specialize_array(self):
         def create_array():
             return c_int_10()
 
@@ -138,7 +138,7 @@ class Test_specialization:
         py.test.raises(IndexError, "c_data[10]")
         py.test.raises(TypeError, "len(c_data)")
 
-    def test_specialize_array_access(self):
+    def x_test_specialize_array_access(self):
         def access_array():
             my_array = c_int_10()
             my_array[0] = 1
