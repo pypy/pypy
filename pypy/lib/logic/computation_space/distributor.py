@@ -153,12 +153,9 @@ class SplitDistributor(AbstractDistributor):
             print "-- distribution & propagation (%s) --" % self.cs.id
             self.distribute(choice-1)
             self.cs._process()
-            old_choose_var = self.cs.CHOOSE
             self.cs.CHOOSE = self.cs._make_choice_var()
-            self.cs._del_var(old_choose_var)
             self.cs.STABLE.bind(True) # unlocks Ask
         print "-- distributor terminated (%s) --" % self.cs.id
-        self.cs.STABLE.bind(True) # it can't hurt ...
 
 
     def distribute(self, choice):

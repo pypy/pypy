@@ -41,7 +41,34 @@ def newspace():
 
 #-- meat ----------------------------
 
-class TestVariable:
+class TestSimpleVariable:
+
+    def test_basics(self):
+        x = v.SimpleVar()
+        assert x.val == v.NoValue
+        x.bind(42)
+        assert x.val == 42
+        x.bind(42)
+        raises(v.AlreadyBound, x.bind, 43)
+
+    def test_dataflow(self):
+        def fun(thread, var):
+            thread.state = 1
+            v = var.get()
+            thread.state = v
+
+        x = v.SimpleVar()
+        t = FunThread(fun, x)
+        import time
+        t.start()
+        time.sleep(.5)
+        assert t.state == 1
+        x.bind(42)
+        t.join()
+        assert t.state == 42
+            
+
+class TestCsVariable:
 
     def test_no_same_name(self):
         sp = newspace()

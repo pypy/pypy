@@ -9,9 +9,15 @@ class AlreadyInStore(VariableException):
     def __str__(self):
         return "%s already in store" % self.name
 
-class AlreadyBound(VariableException):
+class AlreadyBound(Exception):
+    def __init__(self, var, val):
+        self.var = var
+        self.val = val
+    
     def __str__(self):
-        return "%s is already bound" % self.name
+        return "%s:%s already bound to %s" % (self.var.name,
+                                              self.var.val,
+                                              self.val)
 
 class NotAVariable(VariableException):
     def __str__(self):
@@ -25,16 +31,25 @@ class NoValue: pass
 class NoDom: pass
 
 class SimpleVar(object):
-    def __init__(self, name):
-        self.name = name
+    """Spaceless dataflow variable"""
+    
+    def __init__(self):
+        self.name = str(id(self))
         self._val = NoValue
         # a condition variable for concurrent access
         self._value_condition = threading.Condition()
 
     # value accessors
     def _set_val(self, val):
-        if val != NoValue:
-            raise AlreadyBound(self.name)
+        self._value_condition.acquire()
+        try:
+            if self._val != NoValue:
+                if val != self._val:
+                    raise AlreadyBound(self, val)
+            self._val = val
+            self._value_condition.notifyAll()
+        finally:
+            self._value_condition.release()
         
     def _get_val(self):
         return self._val
@@ -60,14 +75,14 @@ class SimpleVar(object):
         """
         try:
             self._value_condition.acquire()
-            while not self._is_bound():
+            while not self.is_bound():
                 self._value_condition.wait()
             return self.val
         finally:
             self._value_condition.release()
 
 
-class Var(SimpleVar):
+class CsVar(SimpleVar):
     """Dataflow variable linked to a space"""
 
     def __init__(self, name, cs):
@@ -103,13 +118,15 @@ class Var(SimpleVar):
     # value accessors
     def _set_val(self, val):
         self._value_condition.acquire()
-        if self._cs.in_transaction:
-            if not self._changed:
-                self._previous = self._val
-                self._changed = True
-        self._val = val
-        self._value_condition.notifyAll()
-        self._value_condition.release()
+        try:
+            if self._cs.in_transaction:
+                if not self._changed:
+                    self._previous = self._val
+                    self._changed = True
+            self._val = val
+            self._value_condition.notifyAll()
+        finally:
+            self._value_condition.release()
         
     def _get_val(self):
         return self._val
@@ -124,7 +141,7 @@ class Var(SimpleVar):
         return self.__str__()
 
     def __eq__(self, thing):
-        return isinstance(thing, Var) \
+        return isinstance(thing, self.__class__) \
                and self.name == thing.name
 
     def bind(self, val):

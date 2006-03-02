@@ -11,8 +11,9 @@ from threading import Thread, Condition, RLock, local
 from state import Succeeded, Distributable, Failed, \
      Unknown, Forsaken
 
-from variable import EqSet, Var, NoValue, NoDom, \
-     VariableException, NotAVariable, AlreadyInStore
+from variable import EqSet, CsVar, NoValue, NoDom, \
+     VariableException, NotAVariable, AlreadyInStore, \
+     AlreadyBound, SimpleVar
 from constraint import FiniteDomain, ConsistencyFailure, \
      Expression
 from distributor import DefaultDistributor
@@ -144,8 +145,8 @@ class ComputationSpace(object):
         self.distributor = None
         self.parent = None
         self.children = None
-        self.CHOOSE.bind(0)
-        self.STABLE.bind(0)
+        self.CHOOSE.bind(True)
+        self.STABLE.bind(True)
 
     def __eq__(self, spc):
         """space equality defined as :
@@ -196,15 +197,12 @@ class ComputationSpace(object):
     #-- space helpers -----------------------------------------
 
     def _make_choice_var(self):
-        ComputationSpace._nb_choices += 1
-        ch_var = self.var('__choice__'+str(self._nb_choices))
-        return ch_var
+        return SimpleVar()
 
     def _make_stable_var(self):
-        ComputationSpace._nb_choices += 1
-        st_var = self.var('__stable__'+str(self._nb_choices))
-        return st_var
+        return SimpleVar()
 
+    
     def _process(self):
         """wraps the propagator"""
         if len(self.event_set):
@@ -268,10 +266,8 @@ class ComputationSpace(object):
         """
         # did you ask before ... ?
         assert self.STABLE.is_bound()
-        old_stable_var = self.STABLE
         self.STABLE = self._make_stable_var()
-        self._del_var(old_stable_var)
-        self.bind(self.CHOOSE, choice)
+        self.CHOOSE.bind(choice)
 
     def choose(self, nb_choices):
         """
@@ -293,7 +289,7 @@ class ComputationSpace(object):
         #for var in self.root.val:
         #    var.bind(self.dom(var).get_values()[0])
         # shut down the distributor
-        self.CHOOSE.bind(0)
+        self.CHOOSE.bind(True)
         res = []
         for var in self.root.val:
             res.append(self.dom(var).get_values()[0])
@@ -311,7 +307,7 @@ class ComputationSpace(object):
            and puts it into the store"""
         self.var_lock.acquire()
         try:
-            v = Var(name, self)
+            v = CsVar(name, self)
             self.add_unbound(v)
             return v
         finally:
@@ -372,14 +368,14 @@ class ComputationSpace(object):
 
     def set_dom(self, var, dom):
         """bind variable to domain"""
-        assert(isinstance(var, Var) and (var in self.vars))
+        assert(isinstance(var, CsVar) and (var in self.vars))
         if var.is_bound():
             print "warning : setting domain %s to bound var %s" \
                   % (dom, var)
         self.doms[var] = FiniteDomain(dom)
 
     def dom(self, var):
-        assert isinstance(var, Var)
+        assert isinstance(var, CsVar)
         try:
             return self.doms[var]
         except KeyError:
@@ -596,7 +592,7 @@ class ComputationSpace(object):
         # removed (this last condition remains to be checked)
         self.bind_lock.acquire()
         try:
-            assert(isinstance(var, Var) and (var in self.vars))
+            assert(isinstance(var, CsVar) and (var in self.vars))
             if var == val:
                 return
             if _both_are_vars(var, val):
@@ -745,7 +741,7 @@ def _really_unifiable(term1, term2):
         return False
     if _mapping(term1) and _mapping(term2):
         return _mapping_unifiable(term1, term2)
-    if not(isinstance(term1, Var) or isinstance(term2, Var)):
+    if not(isinstance(term1, CsVar) or isinstance(term2, CsVar)):
         return term1 == term2 # same 'atomic' object
     return True
         
@@ -774,7 +770,7 @@ def _mapping_unifiable(m1, m2):
 #-- Some utilities -------------------------------------------
 
 def _both_are_vars(v1, v2):
-    return isinstance(v1, Var) and isinstance(v2, Var)
+    return isinstance(v1, CsVar) and isinstance(v2, CsVar)
     
 def _both_are_bound(v1, v2):
     return v1._is_bound() and v2._is_bound()
