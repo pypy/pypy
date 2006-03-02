@@ -423,6 +423,58 @@ def test_invalid_stack_access():
     fgraph.startblock.operations[0].opname = "flavored_malloc"
     fgraph.startblock.operations[0].args.insert(0, inputconst(Void, "stack"))
     py.test.raises(AttributeError, "interp.eval_graph(graph, [])")
+
+
+def test_cleanup_finally():
+    interp, graph = get_interpreter(cleanup_f, [-1])
+    _tcache.clear()    # because we hack the graph in place
+    operations = graph.startblock.operations
+    assert operations[0].opname == "direct_call"
+    assert operations[1].opname == "direct_call"
+    assert getattr(operations[0], 'cleanup', None) is None
+    assert getattr(operations[1], 'cleanup', None) is None
+    cleanup_finally = (operations.pop(1),)
+    cleanup_except = ()
+    operations[0].cleanup = cleanup_finally, cleanup_except
+
+    # state.current == 1
+    res = interp.eval_graph(graph, [1])
+    assert res == 102
+    # state.current == 2
+    res = interp.eval_graph(graph, [1])
+    assert res == 203
+    # state.current == 3
+    py.test.raises(LLException, "interp.eval_graph(graph, [-1])")
+    # state.current == 4
+    res = interp.eval_graph(graph, [1])
+    assert res == 405
+    # state.current == 5
+
+def test_cleanup_except():
+    interp, graph = get_interpreter(cleanup_f, [-1])
+    _tcache.clear()    # because we hack the graph in place
+    operations = graph.startblock.operations
+    assert operations[0].opname == "direct_call"
+    assert operations[1].opname == "direct_call"
+    assert getattr(operations[0], 'cleanup', None) is None
+    assert getattr(operations[1], 'cleanup', None) is None
+    cleanup_finally = ()
+    cleanup_except = (operations.pop(1),)
+    operations[0].cleanup = cleanup_finally, cleanup_except
+
+    # state.current == 1
+    res = interp.eval_graph(graph, [1])
+    assert res == 101
+    # state.current == 1
+    res = interp.eval_graph(graph, [1])
+    assert res == 101
+    # state.current == 1
+    py.test.raises(LLException, "interp.eval_graph(graph, [-1])")
+    # state.current == 2
+    res = interp.eval_graph(graph, [1])
+    assert res == 202
+    # state.current == 2
+
 #__________________________________________________________________
 # example functions for testing the LLInterpreter
 _snap = globals().copy()
@@ -483,3 +535,19 @@ def call_raise_intercept(i):
     except ValueError:
         raise TypeError
 
+# test for the 'cleanup' attribute of SpaceOperations
+class CleanupState(object):
+    pass
+cleanup_state = CleanupState()
+cleanup_state.current = 1
+def cleanup_g(n):
+    cleanup_state.saved = cleanup_state.current
+    if n < 0:
+        raise ZeroDivisionError
+def cleanup_h():
+    cleanup_state.current += 1
+def cleanup_f(n):
+    cleanup_g(n)
+    cleanup_h()     # the test hacks the graph to put this h() in the
+                    # cleanup clause of the previous direct_call(g)
+    return cleanup_state.saved * 100 + cleanup_state.current

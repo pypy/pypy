@@ -52,10 +52,9 @@ class FunctionCodeGenerator(object):
             for op in block.operations:
                 mix.extend(op.args)
                 mix.append(op.result)
-                if hasattr(op, "cleanup"):
-                    if op.cleanup is None:
-                        continue
-                    for cleanupop in op.cleanup[0] + op.cleanup[1]:
+                if getattr(op, "cleanup", None) is not None:
+                    cleanup_finally, cleanup_except = op.cleanup
+                    for cleanupop in cleanup_finally + cleanup_except:
                         mix.extend(cleanupop.args)
                         mix.append(cleanupop.result)
             for link in block.exits:
@@ -164,7 +163,7 @@ class FunctionCodeGenerator(object):
                 seen[name] = True
                 result = cdecl(self.lltypename(v), LOCALVAR % name) + ';'
                 if self.lltypemap(v) is Void:
-                    result = '/*%s*/' % result
+                    continue  #result = '/*%s*/' % result
                 result_by_name.append((v._name, result))
         result_by_name.sort()
         return [result for name, result in result_by_name]
@@ -184,9 +183,13 @@ class FunctionCodeGenerator(object):
                 err   = 'err%d_%d' % (myblocknum, i)
                 for line in self.gen_op(op, err):
                     yield line
+                # XXX hackish -- insert the finally code unless the operation
+                # already did
                 cleanup = getattr(op, 'cleanup', None)
-                if cleanup is not None:
-                    for subop in op.cleanup[0]:
+                if (cleanup is not None and
+                    op.opname not in ("direct_call", "indirect_call")):
+                    cleanup_finally, cleanup_except = cleanup
+                    for subop in cleanup_finally:
                         for line in self.gen_op(subop, "should_never_be_jumped_to2"):
                             yield line
             fallthrough = False
@@ -308,10 +311,11 @@ class FunctionCodeGenerator(object):
             for i, op in list(enumerate(block.operations))[::-1]:
                 if getattr(op, 'cleanup', None) is None:
                     continue
-                errorcases.setdefault(op.cleanup[1], []).append(i)
+                cleanup_finally, cleanup_except = op.cleanup
+                errorcases.setdefault(cleanup_except, []).append(i)
 
             if fallthrough:
-                firstclean = tuple(block.operations[-1].cleanup[1])
+                cleanup_finally, firstclean = block.operations[-1].cleanup
                 first = errorcases[firstclean]
                 del errorcases[firstclean]
                 first.remove(len(block.operations) - 1)
@@ -423,6 +427,14 @@ class FunctionCodeGenerator(object):
         except AttributeError:
             raise AttributeError("(in)direct_call %r without explicit .cleanup" % op)
         if cleanup is not None:
+            # insert the 'finally' operations before the exception check
+            cleanup_finally, cleanup_except = op.cleanup
+            if cleanup_finally:
+                finally_lines = ['/* finally: */']
+                for cleanupop in cleanup_finally:
+                    finally_lines.extend(
+                        self.gen_op(cleanupop, 'should_never_be_jumped_to'))
+                line = '%s\n%s' % (line, '\n\t'.join(finally_lines))
             line = '%s\n%s' % (line, self.check_directcall_result(op, err))
         return line
 

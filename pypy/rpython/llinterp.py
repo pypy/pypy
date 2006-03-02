@@ -256,8 +256,24 @@ class LLFrame(object):
         # if these special cases pile up, do something better here
         if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast', 'cast_adr_to_ptr']:
             vals.insert(0, operation.result.concretetype)
-        retval = ophandler(*vals)
+        try:
+            retval = ophandler(*vals)
+        except LLException:
+            self.handle_cleanup(operation, exception=True)
+            raise
+        else:
+            self.handle_cleanup(operation)
         self.setvar(operation.result, retval)
+
+    def handle_cleanup(self, operation, exception=False):
+        cleanup = getattr(operation, 'cleanup', None)
+        if cleanup is not None:
+            cleanup_finally, cleanup_except = cleanup
+            for op in cleanup_finally:
+                self.eval_operation(op)
+            if exception:
+                for op in cleanup_except:
+                    self.eval_operation(op)
 
     def make_llexception(self, exc=None):
         if exc is None:

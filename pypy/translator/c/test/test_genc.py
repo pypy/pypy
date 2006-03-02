@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.genc import gen_source
+from pypy.translator.c.gc import NoneGcPolicy
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.tool.udir import udir
@@ -28,18 +29,19 @@ def compile_db(db):
                            include_dirs = [os.path.dirname(autopath.this_dir)])
     return m
 
-def compile(fn, argtypes, view=False):
+def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True):
     t = TranslationContext()
     a = t.buildannotator()
     a.build_types(fn, argtypes)
     t.buildrtyper().specialize()
-    if view or conftest.option.view:
-        t.view()
-    backend_optimizations(t)
-    db = LowLevelDatabase(t)
+    if backendopt:
+        backend_optimizations(t)
+    db = LowLevelDatabase(t, gcpolicy=gcpolicy)
     entrypoint = db.get(pyobjectptr(fn))
     db.complete()
     module = compile_db(db)
+    if view or conftest.option.view:
+        t.view()
     compiled_fn = getattr(module, entrypoint)
     def checking_fn(*args, **kwds):
         res = compiled_fn(*args, **kwds)
@@ -296,3 +298,91 @@ def test_keepalive():
 
     f1 = compile(f, [])
     assert f1() == 1
+
+# ____________________________________________________________
+# test for the 'cleanup' attribute of SpaceOperations
+class CleanupState(object):
+    pass
+cleanup_state = CleanupState()
+cleanup_state.current = 1
+def cleanup_g(n):
+    cleanup_state.saved = cleanup_state.current
+    try:
+        return 10 // n
+    except ZeroDivisionError:
+        raise
+def cleanup_h():
+    cleanup_state.current += 1
+def cleanup_f(n):
+    cleanup_g(n)
+    cleanup_h()     # the test hacks the graph to put this h() in the
+                    # cleanup clause of the previous direct_call(g)
+    return cleanup_state.saved * 100 + cleanup_state.current
+
+def test_cleanup_finally():
+    class DummyGCTransformer(NoneGcPolicy.transformerclass):
+        def transform_graph(self, graph):
+            super(DummyGCTransformer, self).transform_graph(graph)
+            if graph is self.translator.graphs[0]:
+                operations = graph.startblock.operations
+                op_call_g = operations[0]
+                op_call_h = operations.pop(1)
+                assert op_call_g.opname == "direct_call"
+                assert op_call_h.opname == "direct_call"
+                assert op_call_g.cleanup == ((), ())
+                assert op_call_h.cleanup == ((), ())
+                cleanup_finally = (op_call_h,)
+                cleanup_except = ()
+                op_call_g.cleanup = cleanup_finally, cleanup_except
+                op_call_h.cleanup = None
+
+    class DummyGcPolicy(NoneGcPolicy):
+        transformerclass = DummyGCTransformer
+
+    f1 = compile(cleanup_f, [int], backendopt=False, gcpolicy=DummyGcPolicy)
+    # state.current == 1
+    res = f1(1)
+    assert res == 102
+    # state.current == 2
+    res = f1(1)
+    assert res == 203
+    # state.current == 3
+    py.test.raises(ZeroDivisionError, f1, 0)
+    # state.current == 4
+    res = f1(1)
+    assert res == 405
+    # state.current == 5
+
+def test_cleanup_except():
+    class DummyGCTransformer(NoneGcPolicy.transformerclass):
+        def transform_graph(self, graph):
+            super(DummyGCTransformer, self).transform_graph(graph)
+            if graph is self.translator.graphs[0]:
+                operations = graph.startblock.operations
+                op_call_g = operations[0]
+                op_call_h = operations.pop(1)
+                assert op_call_g.opname == "direct_call"
+                assert op_call_h.opname == "direct_call"
+                assert op_call_g.cleanup == ((), ())
+                assert op_call_h.cleanup == ((), ())
+                cleanup_finally = ()
+                cleanup_except = (op_call_h,)
+                op_call_g.cleanup = cleanup_finally, cleanup_except
+                op_call_h.cleanup = None
+
+    class DummyGcPolicy(NoneGcPolicy):
+        transformerclass = DummyGCTransformer
+
+    f1 = compile(cleanup_f, [int], backendopt=False, gcpolicy=DummyGcPolicy)
+    # state.current == 1
+    res = f1(1)
+    assert res == 101
+    # state.current == 1
+    res = f1(1)
+    assert res == 101
+    # state.current == 1
+    py.test.raises(ZeroDivisionError, f1, 0)
+    # state.current == 2
+    res = f1(1)
+    assert res == 202
+    # state.current == 2
