@@ -12,6 +12,8 @@ from pypy.jit import hintmodel, rtimeshift
 class HintTypeSystem(TypeSystem):
     name = "hinttypesystem"
 
+    offers_exceptiondata = False
+    
     def perform_normalizations(self, rtyper):
         pass   # for now
 
@@ -27,7 +29,7 @@ def originalconcretetype(hs):
         return hs.concretetype
 
 class HintRTyper(RPythonTyper):
-    
+
     def __init__(self, hannotator, timeshifter):
     	RPythonTyper.__init__(self, hannotator, 
                               type_system=HintTypeSystem.instance)

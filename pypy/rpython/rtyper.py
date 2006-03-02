@@ -66,7 +66,10 @@ class RPythonTyper:
         for s_primitive, lltype in annmodel.annotation_to_ll_map:
             r = self.getrepr(s_primitive)
             self.primitive_to_repr[r.lowleveltype] = r
-        self.exceptiondata = self.type_system.exceptiondata.ExceptionData(self)
+        if self.type_system.offers_exceptiondata:
+            self.exceptiondata = self.type_system.exceptiondata.ExceptionData(self)
+        else:
+            self.exceptiondata = None
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
