@@ -28,6 +28,7 @@ class Isolate(object):
     _closed = False
 
     def __init__(self, module):
+        self.module = module
         self.slave = slaveproc.SlaveProcess(os.path.join(os.path.dirname(__file__),
                                                          'isolate_slave.py'))
         res = self.slave.cmd(('load', module))
