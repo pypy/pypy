@@ -34,3 +34,46 @@ class Test_annotation:
 
         if conftest.option.view:
             t.view()
+
+    def test_annotate_c_int_2(self):
+        res = c_int(42)
+
+        def func():
+            return res.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
+class Test_specialization:
+    def test_specialize_c_int(self):
+        def create_c_int():
+            return c_int(42)
+        res = interpret(create_c_int, [])
+        c_data = res.c_data
+        assert c_data.value == 42
+
+    def test_specialize_c_int_default_value(self):
+        def create_c_int():
+            return c_int()
+        res = interpret(create_c_int, [])
+        c_data = res.c_data
+        assert c_data.value == 0
+
+    def test_specialize_c_int_access_value(self):
+        def create_c_int():
+            return c_int(42).value
+        res = interpret(create_c_int, [])
+        assert res == 42
+
+class Test_compilation:
+    def test_compile_c_int(self):
+        def create_c_int():
+            return c_int(42).value
+        fn = compile(create_c_int, [])
+        assert fn() == 42

@@ -8,13 +8,6 @@ from pypy.rpython.rmodel import IntegerRepr
 
 ArrayType = type(ARRAY(c_int, 10))
 
-def arraytype_compute_annotation(metatype, type):
-    def compute_result_annotation(*arg_s):
-        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-    return SomeBuiltin(compute_result_annotation,
-        methodname=type.__name__)
-
-
 class ArrayRepr(Repr):
     def __init__(self, rtyper, type):
         
@@ -59,6 +52,12 @@ def arraytype_specialize_call(hop):
         hop.inputconst(lltype.Signed, r_array.length),
         ], resulttype=r_array.lowleveltype,
     )
+
+def arraytype_compute_annotation(metatype, type):
+    def compute_result_annotation(*arg_s):
+        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
+    return SomeBuiltin(compute_result_annotation,
+        methodname=type.__name__)
 
 extregistry.register_type(ArrayType, 
     compute_annotation=arraytype_compute_annotation,

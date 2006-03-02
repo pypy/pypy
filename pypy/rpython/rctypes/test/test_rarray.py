@@ -8,7 +8,6 @@ from pypy.translator.translator import TranslationContext
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.rctypes.test.test_rctypes import compile
 
 try:
     import ctypes
@@ -20,7 +19,9 @@ from ctypes import c_int, ARRAY, POINTER
 c_int_10 = ARRAY(c_int,10)
 c_int_p_test = POINTER(c_int)
 
-class Test_array:
+py.test.skip("Reworking primitive types")
+
+class Test_annotation:
     def test_annotate_array(self):
         def create_array():
             return c_int_10()
@@ -125,9 +126,10 @@ class Test_array:
         
         py.test.raises(IndexError, "s = a.build_types(access_with_invalid_negative_index,[])")
 
+class Test_specialization:
     def test_specialize_array(self):
         def create_array():
-                return c_int_10()
+            return c_int_10()
 
         res = interpret(create_array, [])
         c_data = res.c_data
