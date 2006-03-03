@@ -486,6 +486,8 @@ class TestComputationSpace:
 
 # we need to carefully craft some noop problems
 # for these tests
+# also what is tested below is tested in other places
+# so me might want to just forget about it
 
 ##     def test_ask_success(self):
 ##         spc = newspace(problems.one_solution_problem)

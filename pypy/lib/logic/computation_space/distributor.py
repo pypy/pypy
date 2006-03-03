@@ -2,6 +2,7 @@ import math, random
 from threading import Thread
 from state import Succeeded, Distributable, Failed, Forsaken
 from event import Revise
+from variable import SimpleVar
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
@@ -153,7 +154,7 @@ class SplitDistributor(AbstractDistributor):
             print "-- distribution & propagation (%s) --" % self.cs.id
             self.distribute(choice-1)
             self.cs._process()
-            self.cs.CHOOSE = self.cs._make_choice_var()
+            self.cs.CHOOSE = SimpleVar()
             self.cs.STABLE.bind(True) # unlocks Ask
         print "-- distributor terminated (%s) --" % self.cs.id
 

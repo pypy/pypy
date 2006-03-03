@@ -1,10 +1,27 @@
 # TODO
-# * support several distribution strategies
-# * add a linear constraint solver (vital for fast
+# * [1] adapt other distribution strategies
+# * [5] add a linear constraint solver (vital for fast
 #   constraint propagation over finite integer domains)
 #   and other kinds of specialized propagators
-# * make all propagators live in their own threads and
+# * [9] make all propagators live in their own threads and
 #   be awakened by variable/domains events
+
+
+# Gert Smolka in
+# http://www.cetic.be/moz2004/talks/MOZ2004.pdf :
+# * Abandon Logic Variables
+#  * can be bound everywhere
+#  * malicious consummer can bind tail variable of stream
+#  * break abstractions
+#  * unification not needed
+# * Have Futures instead
+#  * Multilisp [Halstead 85]
+#  * added to Mozart in 1998
+#  * refine logic variable into
+#   * consummer end (future)
+#   * producer end (promise)
+#  * dataflow synchronization + by-need synchronization
+
 
 from threading import Thread, Condition, RLock, local
 
@@ -123,10 +140,10 @@ class ComputationSpace(object):
 
     def _init_choose_commit(self):
         # create a unique choice point
-        # using two vars as channels betwen
+        # using two spaceless vars as channels betwen
         # space and distributor threads
-        self.CHOOSE = self._make_choice_var()
-        self.STABLE = self._make_stable_var()
+        self.CHOOSE = SimpleVar()
+        self.STABLE = SimpleVar()
 
 #-- utilities & instrumentation -----------------------------
 
@@ -196,13 +213,6 @@ class ComputationSpace(object):
 
     #-- space helpers -----------------------------------------
 
-    def _make_choice_var(self):
-        return SimpleVar()
-
-    def _make_stable_var(self):
-        return SimpleVar()
-
-    
     def _process(self):
         """wraps the propagator"""
         if len(self.event_set):
@@ -266,7 +276,7 @@ class ComputationSpace(object):
         """
         # did you ask before ... ?
         assert self.STABLE.is_bound()
-        self.STABLE = self._make_stable_var()
+        self.STABLE = SimpleVar()
         self.CHOOSE.bind(choice)
 
     def choose(self, nb_choices):
