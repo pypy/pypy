@@ -178,16 +178,23 @@ class LowLevelDatabase(object):
                 if i == show_i:
                     dump()
                     show_i += 1000
+            work_to_do = False
             if not is_later_yet:
-                self.gctransformer.finish()
+                newgcdependencies = self.gctransformer.finish()
+                if newgcdependencies:
+                    work_to_do = True
+                    for value in newgcdependencies:
+                        if isinstance(typeOf(value), ContainerType):
+                            self.getcontainernode(value)
+                        else:
+                            self.get(value)
                 is_later_yet = True
             if self.latercontainerlist:
+                work_to_do = True
                 for node in self.latercontainerlist:
                     node.make_funcgen()
                     self.containerlist.append(node)
                 self.latercontainerlist = []
-            else:
-                work_to_do = False
         self.completed = True
         if show_progress:
             dump()

@@ -87,7 +87,7 @@ class DummyGC(GCBase):
 
     def __init__(self, dummy=None, get_roots=None):
         self.get_roots = get_roots
-        self.set_query_functions(None, None, None, None, None, None, None)
+        #self.set_query_functions(None, None, None, None, None, None, None)
    
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
@@ -115,7 +115,7 @@ class MarkSweepGC(GCBase):
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
         self.malloced_objects = AddressLinkedList()
-        self.set_query_functions(None, None, None, None, None, None, None)
+        #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
 
     def malloc(self, typeid, length=0):
@@ -224,7 +224,7 @@ class SemiSpaceGC(GCBase):
         self.top_of_space = self.tospace + space_size
         self.fromspace = raw_malloc(space_size)
         self.free = self.tospace
-        self.set_query_functions(None, None, None, None, None, None, None)
+        #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
 
     def free_memory(self):
@@ -359,7 +359,7 @@ class DeferredRefcountingGC(GCBase):
         self.zero_ref_counts = AddressLinkedList()
         self.length_zero_ref_counts = 0
         self.max_refcount_zero = max_refcount_zero
-        self.set_query_functions(None, None, None, None, None, None, None)
+        #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
         self.collecting = False
 

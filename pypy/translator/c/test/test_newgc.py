@@ -193,7 +193,8 @@ from pypy.translator.c.test.test_boehm import AbstractTestClass
 class TestUsingFramework(AbstractTestClass):
     from pypy.translator.c.gc import FrameworkGcPolicy as gcpolicy
 
-    def test_nongcing_gc(self):
+    def test_framework_simple(self):
+        py.test.skip("in progress, getting there :-)")
         def g(x):
             return x + 1
         class A(object):

@@ -88,10 +88,20 @@ class GCTransformer(object):
             for var in block.inputargs:
                 if var_needsgc(var):
                     newops.extend(self.push_alive(var))
+        # XXX this is getting obscure.  Maybe we should use the basic
+        # graph-transforming capabilities of the RTyper instead, as we
+        # seem to run into all the same problems as the ones we already
+        # had to solve there.
+        num_ops_after_exc_raising = 0
         for op in block.operations:
-            ops, cleanup_before_exception = self.replacement_operations(op, livevars)
+            num_ops_after_exc_raising = 0
+            res = self.replacement_operations(op, livevars)
+            try:
+                ops, cleanup_before_exception = res
+            except ValueError:
+                ops, cleanup_before_exception, num_ops_after_exc_raising = res
             newops.extend(ops)
-            op = ops[-1]
+            op = ops[-1-num_ops_after_exc_raising]
             # XXX for now we assume that everything can raise
             if 1 or op.opname in EXCEPTION_RAISING_OPS:
                 if tuple(livevars) in livevars2cleanup:
@@ -103,9 +113,12 @@ class GCTransformer(object):
                     cleanup_on_exception = tuple(cleanup_on_exception)
                     livevars2cleanup[tuple(livevars)] = cleanup_on_exception
                 op.cleanup = tuple(cleanup_before_exception), cleanup_on_exception
+            op = ops[-1]
             if var_needsgc(op.result):
                 if op.opname not in ('direct_call', 'indirect_call') and not var_ispyobj(op.result):
-                    newops.extend(self.push_alive(op.result))
+                    lst = list(self.push_alive(op.result))
+                    newops.extend(lst)
+                    num_ops_after_exc_raising += len(lst)
                 livevars.append(op.result)
         if len(block.exits) == 0:
             # everything is fine already for returnblocks and exceptblocks
@@ -117,6 +130,15 @@ class GCTransformer(object):
                 # to the block, even if the variable dies in all
                 # linked blocks.
                 deadinallexits = sets.Set([])
+                if num_ops_after_exc_raising > 0:
+                    # No place to put the remaining pending operations!
+                    # Need a new block along the non-exceptional link.
+                    # XXX test this.
+                    tail = newops[-num_ops_after_exc_raising:]
+                    del newops[-num_ops_after_exc_raising:]
+                    link = block.exits[0]
+                    assert link.exitcase is None
+                    insert_empty_block(self.translator, link, tail)
             else:
                 deadinallexits = sets.Set(livevars)
                 for link in block.exits:
@@ -608,9 +630,53 @@ class FrameworkGCTransformer(BoehmGCTransformer):
     def __init__(self, translator):
         super(FrameworkGCTransformer, self).__init__(translator)
         class GCData(object):
+            from pypy.rpython.memory.gc import MarkSweepGC as GCClass
             startheapsize = 640*1024    # XXX adjust
             rootstacksize = 640*1024    # XXX adjust
+
+            # types of the GC information tables
+            OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
+            TYPE_INFO = lltype.Struct("type_info",
+                ("fixedsize",   lltype.Signed),
+                ("ofstoptrs",   lltype.Ptr(OFFSETS_TO_GC_PTR)),
+                ("varitemsize", lltype.Signed),
+                ("ofstovar",    lltype.Signed),
+                ("ofstolength", lltype.Signed),
+                ("varofstoptrs",lltype.Ptr(OFFSETS_TO_GC_PTR)),
+                )
+            TYPE_INFO_TABLE = lltype.Array(TYPE_INFO)
+
+        def q_is_varsize(typeid):
+            return gcdata.type_info_table[typeid].varitemsize != 0
+
+        def q_offsets_to_gc_pointers(typeid):
+            return gcdata.type_info_table[typeid].ofstoptrs
+
+        def q_fixed_size(typeid):
+            return gcdata.type_info_table[typeid].fixedsize
+
+        def q_varsize_item_sizes(typeid):
+            return gcdata.type_info_table[typeid].varitemsize
+
+        def q_varsize_offset_to_variable_part(typeid):
+            return gcdata.type_info_table[typeid].ofstovar
+
+        def q_varsize_offset_to_length(typeid):
+            return gcdata.type_info_table[typeid].ofstolength
+
+        def q_varsize_offsets_to_gcpointers_in_var_part(typeid):
+            return gcdata.type_info_table[typeid].varofstoptrs
+
         gcdata = GCData()
+        # set up dummy a table, to be overwritten with the real one in finish()
+        gcdata.type_info_table = lltype.malloc(GCData.TYPE_INFO_TABLE, 0,
+                                               immortal=True)
+        self.gcdata = gcdata
+        self.type_info_list = []
+        self.id_of_type = {}      # {LLTYPE: type_id}
+        self.offsettable_cache = {}
+        self.malloc_fnptr_cache = {}
+
         sizeofaddr = llmemory.sizeof(llmemory.Address)
         from pypy.rpython.memory.lladdress import NULL
 
@@ -628,11 +694,19 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                 return NULL
 
         def frameworkgc_setup():
+            # run-time initialization code
             stackbase = lladdress.raw_malloc(GCData.rootstacksize)
             gcdata.root_stack_top  = stackbase
             gcdata.root_stack_base = stackbase
-#            from pypy.rpython.memory.gc import MarkSweepGC
-#            gcdata.gc = MarkSweepGC(GCData.startheapsize, StackRootIterator)
+            gcdata.gc = GCData.GCClass(GCData.startheapsize, StackRootIterator)
+            gcdata.gc.set_query_functions(
+                q_is_varsize,
+                q_offsets_to_gc_pointers,
+                q_fixed_size,
+                q_varsize_item_sizes,
+                q_varsize_offset_to_variable_part,
+                q_varsize_offset_to_length,
+                q_varsize_offsets_to_gcpointers_in_var_part)
 
         def push_root(addr):
             top = gcdata.root_stack_top
@@ -653,17 +727,91 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                                              annmodel.s_None)
         pop_root_graph = annhelper.getgraph(pop_root, [],
                                             annmodel.SomeAddress())
+        bk = self.translator.annotator.bookkeeper
+        classdef = bk.getuniqueclassdef(GCData.GCClass)
+        s_gcdata = annmodel.SomeInstance(classdef)
+        malloc_graph = annhelper.getgraph(GCData.GCClass.malloc.im_func,
+                                          [s_gcdata,
+                                           annmodel.SomeInteger(nonneg=True),
+                                           annmodel.SomeInteger(nonneg=True)],
+                                          annmodel.SomeAddress())
         annhelper.finish()   # at this point, annotate all mix-level helpers
         self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph,
                                                         attach_empty_cleanup=True)
         self.push_root_ptr = self.graph2funcptr(push_root_graph)
         self.pop_root_ptr  = self.graph2funcptr(pop_root_graph)
+        self.malloc_ptr    = self.graph2funcptr(malloc_graph)
 
     def graph2funcptr(self, graph, attach_empty_cleanup=False):
         self.seen_graphs[graph] = True
         if attach_empty_cleanup:
             MinimalGCTransformer(self.translator).transform_graph(graph)
         return const_funcptr_fromgraph(graph)
+
+    def get_type_id(self, TYPE):
+        try:
+            return self.id_of_type[TYPE]
+        except KeyError:
+            assert not self.finished
+            assert isinstance(TYPE, (lltype.GcStruct, lltype.GcArray))
+            # Record the new type_id description as a small dict for now.
+            # It will be turned into a Struct("type_info") in finish()
+            type_id = len(self.type_info_list)
+            info = {}
+            self.type_info_list.append(info)
+            self.id_of_type[TYPE] = type_id
+            offsets = offsets_to_gc_pointers(TYPE)
+            info["ofstoptrs"] = self.offsets2table(offsets)
+            if not TYPE._is_varsize():
+                info["fixedsize"] = llmemory.sizeof(TYPE)
+            else:
+                info["fixedsize"] = llmemory.sizeof(TYPE, 0)
+                if isinstance(TYPE, lltype.Struct):
+                    ARRAY = TYPE._flds[TYPE._arrayfld]
+                    ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
+                    info["ofstolength"] = ofs1
+                    info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
+                else:
+                    ARRAY = TYPE
+                    info["ofstolength"] = 0
+                    info["ofstovar"] = llmemory.itemoffsetof(TYPE, 0)
+                assert isinstance(ARRAY, lltype.Array)
+                offsets = offsets_to_gc_pointers(ARRAY.OF)
+                info["varofstoptrs"] = self.offsets2table(offsets)
+                info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
+            return type_id
+
+    def offsets2table(self, offsets):
+        key = tuple(offsets)
+        try:
+            return self.offsettable_cache[key]
+        except KeyError:
+            cachedarray = lltype.malloc(self.gcdata.OFFSETS_TO_GC_PTR,
+                                        len(offsets), immortal=True)
+            for i, value in enumerate(offsets):
+                cachedarray[i] = value
+            self.offsettable_cache[key] = cachedarray
+            return cachedarray
+
+    def finish(self):
+        newgcdependencies = super(FrameworkGCTransformer, self).finish()
+        if self.type_info_list is not None:
+            table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
+                                  len(self.type_info_list), immortal=True)
+            for tableentry, newcontent in zip(table, self.type_info_list):
+                for key, value in newcontent.items():
+                    setattr(tableentry, key, value)
+            self.type_info_list = None
+            self.offsettable_cache = None
+            # replace the type_info_table pointer in gcdata -- at this point,
+            # the database is in principle complete, so it has already seen
+            # the old (empty) array.  We need to force it to consider the new
+            # array now.  It's a bit hackish as the old empty array will also
+            # be generated in the C source, but that's a rather minor problem.
+            self.gcdata.type_info_table = table
+            newgcdependencies = newgcdependencies or []
+            newgcdependencies.append(table)
+        return newgcdependencies
 
     def protect_roots(self, op, livevars):
         livevars = [var for var in livevars if not var_ispyobj(var)]
@@ -673,8 +821,27 @@ class FrameworkGCTransformer(BoehmGCTransformer):
 
     replace_direct_call    = protect_roots
     replace_indirect_call  = protect_roots
-    replace_malloc         = protect_roots
-    replace_malloc_varsize = protect_roots
+
+    def replace_malloc(self, op, livevars):
+        TYPE = op.args[0].value
+        PTRTYPE = op.result.concretetype
+        assert PTRTYPE.TO == TYPE
+        type_id = self.get_type_id(TYPE)
+
+        v = varoftype(llmemory.Address)
+        c_type_id = rmodel.inputconst(lltype.Signed, type_id)
+        if len(op.args) == 1:
+            v_length = rmodel.inputconst(lltype.Signed, 0)
+        else:
+            v_length = op.args[1]
+        newop = SpaceOperation("direct_call",
+                               [self.malloc_ptr, c_type_id, v_length],
+                               v)
+        ops, finally_ops = self.protect_roots(newop, livevars)
+        ops.append(SpaceOperation("cast_adr_to_ptr", [v], op.result))
+        return ops, finally_ops, 1
+
+    replace_malloc_varsize = replace_malloc
 
     def push_alive_nopyobj(self, var):
         return []
@@ -697,6 +864,25 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             yield SpaceOperation("gc_reload_possibly_moved", [v, var],
                                  varoftype(lltype.Void))
 
+# XXX copied and modified from lltypelayout.py
+def offsets_to_gc_pointers(TYPE):
+    offsets = []
+    if isinstance(TYPE, lltype.Struct):
+        for name in TYPE._names:
+            FIELD = getattr(TYPE, name)
+            if isinstance(FIELD, lltype.Array):
+                continue    # skip inlined array
+            baseofs = llmemory.offsetof(TYPE, name)
+            suboffsets = offsets_to_gc_pointers(FIELD)
+            for s in suboffsets:
+                if s == 0:
+                    offsets.append(baseofs)
+                else:
+                    offsets.append(baseofs + s)
+    elif (isinstance(TYPE, lltype.Ptr) and TYPE._needsgc() and
+          TYPE.TO is not lltype.PyObject):
+        offsets.append(0)
+    return offsets
 
 # ___________________________________________________________________
 # calculate some statistics about the number of variables that need
