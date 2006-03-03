@@ -120,6 +120,9 @@ error complaining about a bad request, you should use https: instead of
 http: in the subversion URL. This will make use of SSL encryption, which
 cannot be intercepted by proxies.
 
+Alternatively, if you want to change your proxy configuration, see the
+subversion FAQ: http://subversion.tigris.org/faq.html#proxy
+
 How to Avoid Line-ending Hell
 -----------------------------
 
