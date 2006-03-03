@@ -1,15 +1,18 @@
-Some rough notes about the Oz threading model
-=============================================
+====================================================================
+Some rough notes about the Oz threading model and dataflow variables
+====================================================================
 
 (almost verbatim from CTM)
+
+Threads
+=======
 
 Scheduling
 ----------
 
 Fair scheduling through round-robin.
 
-Needs not be deterministic (would be nice, especially when debugging,
-but probably impossible to achieve).
+Needs not be deterministic.
 
 With priority levels : three queues exist, which manage high, medium,
 low priority threads. The time slice ratio for these is
@@ -77,9 +80,9 @@ Synchronization
 
 The combination of threads and dataflow variables leads to implicit
 synchronization : that means synchronization is not textually visible
-in the source code but follow from the semantics of dataflow variables
-; using such a variable implies synchronization on the variable being
-bound to a value.
+in the source code but follow from the semantics of dataflow
+variables; using such a variable implies synchronization on the
+variable being bound to a value.
 
 Eager execution (the mere fact of executing statements as they present
 themselves to the interpreter, withou delay) plus dataflow vars also
@@ -94,7 +97,7 @@ Doing computations with only partial information is possible ("partial
 values can be seen as complete values that are only partially known").
 
 Dataflow variables
-------------------
+==================
 
 (see http://www.sics.se/~frej/flow_java/ for an implementation of
 dataflow variables in Java).
@@ -120,4 +123,58 @@ assigned only once. This differ form a dataflow variable in that the
 latter can be assigned (perhaps multiple times) to many partial
 values, provided the partial values are compatible (unifiable) with
 each other.
+
+Futures
+=======
+
+Dataflow variables are but one technique to implement dataflow
+execution. Another, quite popular technique is based on a slightly
+different concept, the single-assignment variable. Two of the
+best-known instances of the single-assignment variable are futures and
+I-structures. The purpose of futures and I-structures is to increase
+the potential parallelism of a program by removing inessential
+dependencies between calculations. They allow concurrency between a
+computation that calculates a value and one that uses the value. This
+concurrency can be exploited on a parallel machine. We define futures
+and I-structures and compare them with dataflow variables.
+
+Futures were first introduced in Multilisp, a language intended for
+writting parallel programs. Multilisp introduces the function call
+(future E) where E is any expression. This does two things: it
+immediately returns a placeholder for the result of E and it initiates
+a concurrent evaluation of E. When the value of E is needed, i.e., a
+computation tries to access the placeholder, then the computation
+blocks until the value is available. We model this as follows in the
+declarative concurrent model (where E is a zero-argument function) :
+
+fun {Future E}
+X in
+  thread X={E} end
+  !!X
+end
+
+A future can only be bound by the concurrent computation that is
+created along with it. This is enforced by returning a read-only
+variable. Multilisp also has a delay construct that does not initiate
+any evaluation but uses by-need execution. It causes evaluation of its
+argument only when the result is needed.  An I-structure (for
+"incomplete structure") is an array of single-assignment
+variables. Individual elements can be accessed before the elements are
+computed. I-structures were introduced as a language construct for
+writing parallel programs in dataflow machines, e.g., in the dataflow
+language Id. I-structures are also used in pH ("parallel Haskell"), a
+recent language design that extends Haskell for implicit
+parallelism. An I-structure permits concurrency between a computation
+that calculates the array elements and a computation that uses their
+values. When the value of an element is needed, then the computatio
+blocks until it is available. Like a future and a read-only variable,
+an element of an I-structure can only be bound by the computation that
+calculates it.  There is a fundamental difference between dataflow
+variables on one side and futures and I-structures on the other
+side. The latter can be bound only once, whereas dataflow variables
+can be bound more than once, as long as the bindings are consistent
+with each other. Two partial values are consistent if they are
+unifiable. A dataflow variable can be bound many times to different
+partial values as long as the partial values are unifiable.
+
 
