@@ -508,8 +508,12 @@ def extract_cell_content(c):
     the func_closure of a function object."""
     # yuk! this is all I could come up with that works in Python 2.2 too
     class X(object):
+        def __cmp__(self, other):
+            self.other = other
+            return 0
         def __eq__(self, other):
             self.other = other
+            return True
     x = X()
     x_cell, = (lambda: x).func_closure
     x_cell == c

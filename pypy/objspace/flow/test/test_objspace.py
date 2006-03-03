@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import flatten
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow import FlowObjSpace 
+from pypy.objspace.flow import objspace
 
 import os
 import operator
@@ -641,3 +642,14 @@ DATA = {'x': 5,
 
 def user_defined_function():
     pass
+
+
+def test_extract_cell_content():
+    class Strange(object):
+        def __cmp__(self, other):
+            assert False, "should not be called"
+    strange = Strange()
+    def f():
+        return strange
+    res = objspace.extract_cell_content(f.func_closure[0])
+    assert res is strange
