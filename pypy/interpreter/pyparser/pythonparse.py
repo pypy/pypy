@@ -172,7 +172,10 @@ def parse_eval_input(textsrc, gram, builder):
 
 
 def grammar_rules( space ):
-    return space.wrap( PYTHON_PARSER.rules )
+    w_rules = space.newdict([])
+    for key, value in PYTHON_PARSER.rules.iteritems():
+        space.setitem(w_rules, space.wrap(key), space.wrap(value))
+    return w_rules
 
 
 def make_rule( space, w_rule ):

@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, Bool, nullptr, frozendict, Ptr, Struct, malloc
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, HalfConcreteWrapper, CanBeNull, \
-        mangle, inputdesc
+        mangle, inputdesc, warning
 from pypy.rpython import rclass
 from pypy.rpython import robject
 
