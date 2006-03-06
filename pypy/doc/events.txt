@@ -7,26 +7,6 @@
 
 .. _`over there`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 
-Talks at PyCon 2006 (Dallas, Texas, USA)
-===================================================================
-
-*Feb 24th - Feb 26th 2006.* PyPy developers will speak at `PyCon 2006`_.
-
-.. _`PyCon 2006`: http://us.pycon.org/TX2006/HomePage 
-
-PyCon Sprint 2006 (Dallas, Texas, USA)
-==================================================================
-
-*Feb 27th - March 2nd 2006.* The Post-PyCon PyPy Sprint is scheduled to
-take place right after PyCon 2006. 
-
-We hope to see lots of newcomers at this sprint, so we'll give
-friendly introductions. Note that during the Pycon conference we are
-giving PyPy talks which serve well as preparation.  Read more in the
-`announcement`_.
-
-.. _`announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-announcement.html
-
 Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
 ========================================================================
 

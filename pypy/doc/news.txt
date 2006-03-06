@@ -7,6 +7,23 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+PyCon Sprint 2006 (Dallas, Texas, USA)
+==================================================================
+
+*Feb 27th - March 2nd 2006.* The Post-PyCon PyPy Sprint took place
+right after PyCon 2006.
+
+A report is coming up.
+
+
+Talks at PyCon 2006 (Dallas, Texas, USA)
+===================================================================
+
+*Feb 24th - Feb 26th 2006.* PyPy developers spoke at `PyCon 2006`_.
+
+.. _`PyCon 2006`: http://us.pycon.org/TX2006/HomePage 
+
+
 PyPy at Solutions Linux in Paris January 31st - February 2nd 2006
 ===================================================================
 
