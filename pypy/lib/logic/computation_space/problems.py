@@ -114,4 +114,35 @@ def conference_scheduling(computation_space):
         for conf2 in variables:
             if conf2 > conf1:
                 cs.add_constraint([conf1,conf2], '%s != %s'%(conf1.name,conf2.name))
+
     return tuple(variables)
+
+def sudoku(computation_space):
+    cs = computation_space
+    import constraint as c
+
+    variables = [cs.var('v%i%i'%(x,y)) for x in range(1,10) for y in range(1,10)]
+
+    # Make the variables
+    for v in variables:
+        cs.set_dom(v, c.FiniteDomain(range(1,10)))
+    # Add constraints for rows (sum should be 45)
+    for i in range(1,10):
+        row = [ v for v in variables if v.name[1] == str(i)]
+        cs.add_constraint(row, 'sum([%s]) == 45' % ', '.join([v.name for v in row]))
+    # Add constraints for columns (sum should be 45)
+    for i in range(1,10):
+        row = [ v for v in variables if v.name[2] == str(i)]
+        cs.add_constraint(row, 'sum([%s]) == 45' % ', '.join([v.name for v in row]))   
+    # Add constraints for subsquares (sum should be 45)
+    offsets = [(r,c) for r in [-1,0,1] for c in [-1,0,1]]
+    subsquares = [(r,c) for r in [2,5,8] for c in [2,5,8]]
+    for rc in subsquares:
+        sub = [cs.get_var_by_name('v%d%d'% (rc[0] + off[0],rc[1] + off[1])) for off in offsets]
+        cs.add_constraint(sub, 'sum([%s]) == 45' % ', '.join([v.name for v in sub]))
+        for v in sub:
+            for m in sub[sub.index(v)+1:]:
+                cs.add_constraint([v,m], '%s != %s' % (v.name, m.name))
+    #print cs.constraints
+    return tuple(variables)
+    

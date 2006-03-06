@@ -596,4 +596,38 @@ class TestComputationSpace:
         assert len(sols) == 64
         print sols
 
+    def no_test_sudoku(self):
+        #spc = newspace(problems.sudoku)
+        #print spc.constraints
+        def more_constraints(space):
+            f = 'puzzle1.su'
+            
+            file = open(f)
+            c = []
+            row = 1
+            for line in file.readlines():
+                for col in range(1,10):
+                    if line[col-1] != ' ':
+                        tup = ('v%d%d' % (col, row), int(line[col-1]))
+                        space.add_constraint([space.get_var_by_name(tup[0])],'%s == %d' % tup)
+                row += 1
+                
+        #nspc = spc.clone()
+        #nspc.inject(more_constraints)
+        #print nspc.constraints
+        sol2 = strategies.dfs_one(strategies.sudoku)
+        print "done dfs"
+        #sol2 = [var.val for var in sol]
+        assert sol2 == [('room A', 'day 1 PM'),
+                        ('room B', 'day 2 PM'),
+                        ('room C', 'day 2 AM'),
+                        ('room C', 'day 2 PM'),
+                        ('room C', 'day 1 AM'),
+                        ('room C', 'day 1 PM'),
+                        ('room A', 'day 2 PM'),
+                        ('room B', 'day 1 AM'),
+                        ('room A', 'day 2 AM'),
+                        ('room A', 'day 1 AM')]
+
+
         
