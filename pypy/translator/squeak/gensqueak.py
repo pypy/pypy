@@ -95,6 +95,7 @@ class GenSqueak:
         self.pendingmethods = []
         self.classes = [] 
         self.methods = [] 
+        self.function_container = False
 
         t = self.translator
         graph = t.graphs[0]
@@ -106,7 +107,8 @@ class GenSqueak:
             self.translator.view()
 
         self.nameof(graph) #add to pending
-        file = self.sqdir.join('%s.st' % graph.name).open('w')
+        self.filename = '%s.st' % graph.name
+        file = self.sqdir.join(self.filename).open('w')
         self.gen_source(file)
         file.close()
 
@@ -240,16 +242,29 @@ class GenSqueak:
                         yield "    %s" % line
                     yield "]"
 
+        if not self.function_container:
+            self.gen_function_container(f)
+            self.function_container = True
+
         start = graph.startblock
         args = [expr(arg) for arg in start.inputargs]
+        print >> f, "!PyFunctions class methodsFor: 'functions'" \
+                " stamp: 'pypy 1/1/2000 00:00'!"
         print >> f, '%s' % signature(self.nameof(graph), args)
-    
+ 
         loops = LoopFinder(start).loops
 
         for line in render_block(start):
             print >> f, '       %s' % line
         print >> f
 
+    def gen_function_container(self, f):
+        print >> f, """Object subclass: #PyFunctions
+            instanceVariableNames: ''
+            classVariableNames: ''
+            poolDictionaries: ''
+            category: 'PyPy'!"""
+        
     def nameof(self, obj):
         key = Constant(obj).key
         try:
