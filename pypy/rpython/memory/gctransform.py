@@ -688,9 +688,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             def pop(self):
                 while self.current != gcdata.root_stack_base:
                     self.current -= sizeofaddr
-                    result = self.current.address[0]
-                    if result != NULL:
-                        return result
+                    if self.current.address[0] != NULL:
+                        return self.current
                 return NULL
 
         def frameworkgc_setup():
@@ -719,6 +718,15 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             gcdata.root_stack_top = top
             return result
 
+        bk = self.translator.annotator.bookkeeper
+
+        # the point of this little dance is to not annotate
+        # self.gcdata.type_info_table as a constant.
+        data_classdef = bk.getuniqueclassdef(GCData)
+        data_classdef.generalize_attr(
+            'type_info_table',
+            annmodel.SomePtr(lltype.Ptr(GCData.TYPE_INFO_TABLE)))
+        
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
         frameworkgc_setup_graph = annhelper.getgraph(frameworkgc_setup, [],
                                                      annmodel.s_None)
@@ -727,7 +735,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                                              annmodel.s_None)
         pop_root_graph = annhelper.getgraph(pop_root, [],
                                             annmodel.SomeAddress())
-        bk = self.translator.annotator.bookkeeper
+
         classdef = bk.getuniqueclassdef(GCData.GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
         malloc_graph = annhelper.getgraph(GCData.GCClass.malloc.im_func,
@@ -740,7 +748,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                                                         attach_empty_cleanup=True)
         self.push_root_ptr = self.graph2funcptr(push_root_graph)
         self.pop_root_ptr  = self.graph2funcptr(pop_root_graph)
-        self.malloc_ptr    = self.graph2funcptr(malloc_graph)
+        self.malloc_ptr    = self.graph2funcptr(malloc_graph, True)
 
     def graph2funcptr(self, graph, attach_empty_cleanup=False):
         self.seen_graphs[graph] = True
@@ -796,6 +804,18 @@ class FrameworkGCTransformer(BoehmGCTransformer):
     def finish(self):
         newgcdependencies = super(FrameworkGCTransformer, self).finish()
         if self.type_info_list is not None:
+            # XXX this is a kind of sledgehammer-wallnut approach to make sure
+            # all types get an ID.
+            for graph in self.translator.graphs:
+                for block in graph.iterblocks():
+                    for v in block.getvariables() + block.getconstants():
+                        t = getattr(v, 'concretetype', None)
+                        if t is None:
+                            continue
+                        if isinstance(t, lltype.Ptr) and t.TO != lltype.PyObject and \
+                               t._needsgc():
+                            self.get_type_id(v.concretetype.TO)
+
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)
             for tableentry, newcontent in zip(table, self.type_info_list):
@@ -803,12 +823,24 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                     setattr(tableentry, key, value)
             self.type_info_list = None
             self.offsettable_cache = None
+            
             # replace the type_info_table pointer in gcdata -- at this point,
             # the database is in principle complete, so it has already seen
             # the old (empty) array.  We need to force it to consider the new
             # array now.  It's a bit hackish as the old empty array will also
             # be generated in the C source, but that's a rather minor problem.
-            self.gcdata.type_info_table = table
+            
+            # XXX because we call inputconst already in replace_malloc, we can't
+            # modify the instance, we have to modify the 'rtyped instance'
+            # instead.  horrors.  is there a better way?
+            
+            s_gcdata = self.translator.annotator.bookkeeper.immutablevalue(
+                self.gcdata)
+            r_gcdata = self.translator.rtyper.getrepr(s_gcdata)
+            ll_instance = rmodel.inputconst(r_gcdata, self.gcdata).value
+            ll_instance.inst_type_info_table = table
+            #self.gcdata.type_info_table = table
+            
             newgcdependencies = newgcdependencies or []
             newgcdependencies.append(table)
         return newgcdependencies
@@ -834,10 +866,22 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             v_length = rmodel.inputconst(lltype.Signed, 0)
         else:
             v_length = op.args[1]
+
+        # surely there's a better way of doing this?
+        s_gcdata = self.translator.annotator.bookkeeper.immutablevalue(self.gcdata)
+        r_gcdata = self.translator.rtyper.getrepr(s_gcdata)
+        s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
+        r_gc = self.translator.rtyper.getrepr(s_gc)
+        
+        newop0 = SpaceOperation(
+            "getfield",
+            [rmodel.inputconst(r_gcdata, self.gcdata), Constant("inst_gc")],
+            varoftype(r_gc.lowleveltype))
         newop = SpaceOperation("direct_call",
-                               [self.malloc_ptr, c_type_id, v_length],
+                               [self.malloc_ptr, newop0.result, c_type_id, v_length],
                                v)
         ops, finally_ops = self.protect_roots(newop, livevars)
+        ops.insert(0, newop0)
         ops.append(SpaceOperation("cast_adr_to_ptr", [v], op.result))
         return ops, finally_ops, 1
 

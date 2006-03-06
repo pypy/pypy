@@ -283,3 +283,10 @@ class FrameworkGcPolicy(NoneGcPolicy):
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op, err):
         args = [funcgen.expr(v) for v in op.args]
         return '%s = %s; /* for moving GCs */' % (args[1], args[0])
+
+    def common_gcheader_definition(self, defnode):
+        return [('flags', lltype.Signed), ('typeid', lltype.Signed)]
+
+    def common_gcheader_initdata(self, defnode):
+        # this more or less assumes mark-and-sweep gc
+        return [0, defnode.db.gctransformer.id_of_type[defnode.T]]

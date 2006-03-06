@@ -194,7 +194,6 @@ class TestUsingFramework(AbstractTestClass):
     from pypy.translator.c.gc import FrameworkGcPolicy as gcpolicy
 
     def test_framework_simple(self):
-        py.test.skip("in progress, getting there :-)")
         def g(x):
             return x + 1
         class A(object):
@@ -202,6 +201,10 @@ class TestUsingFramework(AbstractTestClass):
         def f():
             a = A()
             a.b = g(1)
+            # this should trigger a couple of collections
+            # XXX make sure it triggers at least one somehow!
+            for i in range(100000):
+                [A()] * 1000
             return a.b
         fn = self.getcompiled(f)
         res = fn()
