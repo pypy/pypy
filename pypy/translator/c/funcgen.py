@@ -425,7 +425,8 @@ class FunctionCodeGenerator(object):
         try:
             cleanup = op.cleanup
         except AttributeError:
-            raise AttributeError("(in)direct_call %r without explicit .cleanup" % op)
+            raise AttributeError("%r without explicit .cleanup"
+                                 %  (op,))
         if cleanup is not None:
             # insert the 'finally' operations before the exception check
             cleanup_finally, cleanup_except = op.cleanup
