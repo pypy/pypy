@@ -94,7 +94,8 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
                         extra_compile_args = []
                         # ensure correct math on windows
                         if sys.platform == 'win32':
-                            extra_compile_args.append('/Op')
+                            extra_compile_args.append('/Op') # get extra precision
+                            extra_compile_args.append('/PDB:laber') # create debug info
                         if get_default_compiler() == 'unix':
                             old_version = False
                             try:
@@ -273,6 +274,8 @@ class CCompiler:
                 self.libraries.append('pthread')
             self.compile_extra += ['-O2', '-pthread']
             self.link_extra += ['-pthread']
+        if sys.platform == 'win32':
+            self.link_extra += ['/DEBUG'] # generate .pdb file
         if sys.platform == 'darwin':
             if '/sw/include' not in self.include_dirs:
                 self.include_dirs.append('/sw/include')
