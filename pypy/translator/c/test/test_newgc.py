@@ -209,3 +209,22 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 2
+
+    def test_framework_static_routes(self):
+        py.test.skip("not working yet")
+        class A(object):
+            pass
+        static_list = []
+        N = 100000
+        def f():
+            for i in range(100000):
+                a = A()
+                a.x = i
+                static_list.append(a)
+            r = 0
+            for a in static_list:
+                r += a.x
+            return r
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 100000*(100000 - 1)/2
