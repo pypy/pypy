@@ -4,39 +4,38 @@ from pypy.tool.udir import udir
 from pypy.translator.test import snippet
 from pypy.translator.squeak.gensqueak import GenSqueak
 from pypy.translator.translator import TranslationContext
+from pypy import conftest
 
 
-def looping(i = (int), j = (int)):
+def looping(i, j):
     while i > 0:
         i -= 1
         while j > 0:
             j -= 1
 
-def build_sqfunc(func):
+def build_sqfunc(func, args=[]):
     try: func = func.im_func
     except AttributeError: pass
     t = TranslationContext()
-    graph = t.buildflowgraph(func)
-    t._prebuilt_graphs[func] = graph
-    gen = GenSqueak(udir, t)
-    return gen
+    t.buildannotator().build_types(func, args)
+    t.buildrtyper(type_system="ootype").specialize()
+    if conftest.option.view:
+       t.viewcg()
+    return GenSqueak(udir, t)
 
 class TestSqueakTrans:
 
     def test_simple_func(self):
-        build_sqfunc(snippet.simple_func)
+        build_sqfunc(snippet.simple_func, [int])
 
     def test_if_then_else(self):
-        build_sqfunc(snippet.if_then_else)
-
-    def test_two_plus_two(self):
-        build_sqfunc(snippet.two_plus_two)
+        build_sqfunc(snippet.if_then_else, [bool, int, int])
 
     def test_my_gcd(self):
-        build_sqfunc(snippet.my_gcd)
+        build_sqfunc(snippet.my_gcd, [int, int])
 
     def test_looping(self):
-        build_sqfunc(looping)
+        build_sqfunc(looping, [int, int])
 
 
 # For now use pipes to communicate with squeak. This is very flaky
@@ -88,4 +87,12 @@ class TestGenSqueak:
         def theanswer():
             return 42
         assert self.run_on_squeak(theanswer) == "42"
+
+    def test_simplemethod(self):
+        class A:
+            def m(self):
+                return 42
+        def simplemethod():
+            return A().m()
+        assert self.run_on_squeak(simplemethod) == "42"
 

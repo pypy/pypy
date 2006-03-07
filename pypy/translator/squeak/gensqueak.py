@@ -93,6 +93,7 @@ class GenSqueak:
         self.pendinggraphs = []
         self.pendingclasses = []
         self.pendingmethods = []
+        self.pendingsetters = [] # XXX ugly. should generalize methods/setters
         self.classes = [] 
         self.methods = [] 
         self.function_container = False
@@ -114,16 +115,20 @@ class GenSqueak:
 
 
     def gen_source(self, file):
-        while self.pendinggraphs or self.pendingclasses or self.pendingmethods:
+        while self.pendinggraphs or self.pendingclasses or self.pendingmethods \
+            or self.pendingsetters:
             while self.pendinggraphs:
                 graph = self.pendinggraphs.pop()
                 self.gen_sqfunction(graph, file)
             while self.pendingclasses:
-                inst = self.pendingclasses.pop()
+                inst = self.pendingclasses.pop(0)
                 self.gen_sqclass(inst, file)
             while self.pendingmethods:
                 (inst, meth) = self.pendingmethods.pop()
                 self.gen_sqmethod(inst, meth, file)
+            while self.pendingsetters:
+                (inst, field_name) = self.pendingsetters.pop()
+                self.gen_setter(inst, field_name, file)
 
     def gen_sqclass(self, inst, f):
         self.classes.append(inst)
@@ -143,13 +148,31 @@ class GenSqueak:
         self.methods.append((inst, meth))
         print >> f, "!%s methodsFor: 'methods' stamp: 'pypy 1/1/2000 00:00'!" % (
             self.nameof_Instance(inst))
-        print >> f, "%s" % meth
-        print >> f, '   "XXX methods not generated yet"'
-        print >> f, "! !"
-        print >> f
+        # XXX temporary hack, works only for method without arguments.
+        # Need to revisit selector and signature code.
+        print >> f, camel_case(meth)
+        graph = inst._methods[meth].graph
+        self.gen_methodbody(graph, f, do_signature=False)
 
+    def gen_setter(self, INSTANCE, field_name, f):
+        if (INSTANCE, field_name) in self.methods:
+            return
+        self.methods.append((INSTANCE, field_name))
+        print >> f, "!%s methodsFor: 'accessors' stamp: 'pypy 1/1/2000 00:00'!" % (
+            self.nameof_Instance(INSTANCE))
+        print >> f, "%s: value" % field_name
+        print >> f, "  %s := value" % field_name
+        print >> f, "! !"
 
     def gen_sqfunction(self, graph, f):
+        if not self.function_container:
+            self.gen_function_container(f)
+            self.function_container = True
+        print >> f, "!PyFunctions class methodsFor: 'functions'" \
+                " stamp: 'pypy 1/1/2000 00:00'!"
+        self.gen_methodbody(graph, f)
+
+    def gen_methodbody(self, graph, f, do_signature=True):
 
         def expr(v):
             if isinstance(v, Variable):
@@ -174,6 +197,8 @@ class GenSqueak:
                 receiver = args[0]
                 name = op.args[1].value
                 args = args[2:]
+                # XXX should only generate setter if field is set from outside
+                self.pendingsetters.append((op.args[0].concretetype, name))
             else:
                 name = op.opname
                 receiver = args[0]
@@ -242,20 +267,17 @@ class GenSqueak:
                         yield "    %s" % line
                     yield "]"
 
-        if not self.function_container:
-            self.gen_function_container(f)
-            self.function_container = True
-
-        start = graph.startblock
-        args = [expr(arg) for arg in start.inputargs]
-        print >> f, "!PyFunctions class methodsFor: 'functions'" \
-                " stamp: 'pypy 1/1/2000 00:00'!"
-        print >> f, '%s' % signature(self.nameof(graph), args)
+        if do_signature:
+            args = [expr(arg) for arg in graph.startblock.inputargs]
+            print >> f, '%s' % signature(self.nameof(graph), args)
+        # XXX should declare local variables here
  
+        start = graph.startblock
         loops = LoopFinder(start).loops
 
         for line in render_block(start):
             print >> f, '       %s' % line
+        print >> f, '! !'
         print >> f
 
     def gen_function_container(self, f):
@@ -323,11 +345,20 @@ class GenSqueak:
             #empty superclass
             return "Object"
         self.note_Instance(inst)
-        return "Py%s" % inst._name.capitalize()
+        # XXX need to properly handle package names
+        class_name = inst._name.split(".")[-1]
+        return "Py%s" % camel_case(class_name.capitalize())
+
+    def nameof__instance(self, _inst):
+        return self.nameof_Instance(_inst._TYPE)
 
     def note_Instance(self, inst):
         if inst not in self.classes:
             if inst not in self.pendingclasses:
+                if inst._superclass is not None: # not root
+                    # Need to make sure that superclasses appear first in
+                    # the generated source.
+                    self.note_Instance(inst._superclass)
                 self.pendingclasses.append(inst)
 
     def note_meth(self, inst, meth):
