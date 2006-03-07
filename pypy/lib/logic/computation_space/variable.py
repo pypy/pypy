@@ -55,11 +55,6 @@ class SimpleVar(object):
         return self._val
     val = property(_get_val, _set_val)
 
-    def __hash__(self):
-        return self.name.__hash__()
-
-    def __gt__(self, other):
-        return self.name.__gt__(other.name)
 
     # public interface
 
@@ -140,12 +135,8 @@ class CsVar(SimpleVar):
     def __repr__(self):
         return self.__str__()
 
-    def __eq__(self, thing):
-        return isinstance(thing, self.__class__) \
-               and self.name == thing.name
-
     def bind(self, val):
-        """top-level space bind"""
+        """home space bind"""
         self._cs.bind(self, val)
 
     is_bound = _is_bound

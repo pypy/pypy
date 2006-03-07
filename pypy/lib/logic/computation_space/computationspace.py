@@ -300,9 +300,9 @@ class ComputationSpace(object):
         # shut down the distributor
         self.CHOOSE.bind(True)
         self.status = Forsaken
-        res = []
+        res = {}
         for var in self.root.val:
-            res.append(self.dom(var).get_values()[0])
+            res[var.name] = self.dom(var).get_values()[0]
         self.distributor.join()
         return res
 

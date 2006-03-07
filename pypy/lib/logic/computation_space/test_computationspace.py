@@ -573,22 +573,29 @@ class TestComputationSpace:
         assert new_spc.ask() == space.Succeeded
         x, y, z = new_spc.find_vars('x', 'y', 'z')
         res = new_spc.merge()
-        assert res == [0, 0, 0]
+        assert res.values() == [0, 0, 0]
         
     def test_scheduling_dfs_one_solution(self):
         sol = strategies.dfs_one(problems.conference_scheduling)
 
-        print sol
-        assert sol == [('room A', 'day 1 PM'),
-                       ('room A', 'day 2 AM'),
-                       ('room C', 'day 2 PM'),
-                       ('room C', 'day 2 AM'),
-                       ('room C', 'day 1 AM'),
-                       ('room C', 'day 1 PM'),
-                       ('room B', 'day 2 AM'),
-                       ('room A', 'day 1 AM'),
-                       ('room B', 'day 2 PM'),
-                       ('room B', 'day 1 AM')]
+        vars = sol.keys()
+        vars.sort()
+        sols = [ sol[k] for k in vars ]
+        result = [('room A', 'day 1 PM'),
+                  ('room A', 'day 2 AM'),
+                  ('room C', 'day 2 PM'),
+                  ('room C', 'day 2 AM'),
+                  ('room C', 'day 1 AM'),
+                  ('room C', 'day 1 PM'),
+                  ('room B', 'day 2 AM'),
+                  ('room B', 'day 1 AM'),
+                  ('room B', 'day 2 PM'),
+                  ('room A', 'day 1 AM'),
+                  ]
+
+        for v, r1, r2 in zip(vars, sols, result):
+            print v, r1, r2
+        assert sols == result
 
 
     def test_scheduling_all_solutions(self):
