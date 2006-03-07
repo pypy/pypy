@@ -781,7 +781,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                     info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
                 else:
                     ARRAY = TYPE
-                    info["ofstolength"] = 0
+                    info["ofstolength"] = llmemory.ArrayLengthOffset(ARRAY)
                     info["ofstovar"] = llmemory.itemoffsetof(TYPE, 0)
                 assert isinstance(ARRAY, lltype.Array)
                 offsets = offsets_to_gc_pointers(ARRAY.OF)

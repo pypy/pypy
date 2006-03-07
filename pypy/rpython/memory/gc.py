@@ -127,6 +127,8 @@ class MarkSweepGC(GCBase):
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
 ##         print "mallocing %s, size %s at %s" % (typeid, size, result)
+        if self.is_varsize(typeid):        
+            (result + self.varsize_offset_to_length(typeid)).signed[0] = length
         self.init_gc_object(result, typeid)
         self.malloced_objects.append(result)
         self.bytes_malloced += size + size_gc_header

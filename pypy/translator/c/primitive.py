@@ -2,7 +2,7 @@ import sys
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
-     CompositeOffset
+     CompositeOffset, ArrayLengthOffset
 from pypy.rpython.memory.gc import GCHeaderOffset
 from pypy.rpython.memory.lladdress import NULL
 
@@ -23,6 +23,9 @@ def name_signed(value, db):
                 db.gettype(value.TYPE).replace('@', ''), value.repeat)
         elif isinstance(value, ArrayItemsOffset):
             return 'offsetof(%s, items)'%(
+                db.gettype(value.TYPE).replace('@', ''))
+        elif isinstance(value, ArrayLengthOffset):
+            return 'offsetof(%s, length)'%(
                 db.gettype(value.TYPE).replace('@', ''))
         elif isinstance(value, CompositeOffset):
             return '%s + %s' % (name_signed(value.first, db), name_signed(value.second, db))

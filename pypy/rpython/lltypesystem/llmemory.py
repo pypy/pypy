@@ -89,6 +89,20 @@ class ArrayItemsOffset(AddressOffset):
     def set(self, ob, value):
         raise Exception("can't assign to an array's items")
 
+class ArrayLengthOffset(AddressOffset):
+
+    def __init__(self, TYPE):
+        self.TYPE = TYPE
+
+    def __repr__(self):
+        return '< ArrayLengthOffset >'
+
+    def get(self, ob):
+        return len(ob)
+
+    def set(self, ob, value):
+        raise Exception("can't assign to an array's length")
+
 
 def sizeof(TYPE, n=None):
     if n is None:

@@ -237,13 +237,12 @@ class TestUsingFramework(AbstractTestClass):
         assert res == f()
             
 
-    def test_framework_static_roots(self):
-        py.test.skip("not working yet")
+    def test_framework_using_lists(self):
         class A(object):
             pass
-        static_list = []
-        N = 100000
+        N = 1000
         def f():
+            static_list = []
             for i in range(N):
                 a = A()
                 a.x = i
