@@ -59,6 +59,9 @@ class StructDefNode:
         db = self.db
         STRUCT = self.STRUCT
         varlength = self.varlength
+        if needs_gcheader(self.STRUCT):
+            for fname, T in db.gcpolicy.struct_gcheader_definition(self):
+                self.fields.append((fname, db.gettype(T, who_asks=self)))
         for name in STRUCT._names:
             T = self.c_struct_field_type(name)
             if name == STRUCT._arrayfld:
@@ -67,9 +70,6 @@ class StructDefNode:
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
-        if needs_gcheader(self.STRUCT):
-            for fname, T in db.gcpolicy.struct_gcheader_definition(self):
-                self.fields.insert(0, (fname, db.gettype(T, who_asks=self)))
         self.gcinfo  # force it to be computed
 
     def computegcinfo(self):
