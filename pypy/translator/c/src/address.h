@@ -17,7 +17,7 @@
 #define OP_ADR_GE(x,y,r,err)	  r = ((x) >= (y))
 
 #define OP_RAW_MALLOC(size,r,err)                                           \
-    r = (void*) malloc(size);                                              \
+    r = (void*) calloc(1, size);                                            \
     if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");\
 
 #ifdef MS_WINDOWS
