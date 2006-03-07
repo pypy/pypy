@@ -65,13 +65,13 @@ class TestGenSqueak:
         try:
             import posix
         except ImportError:
-            py.skip("Squeak tests only work on Unix right now.")
+            py.test.skip("Squeak tests only work on Unix right now.")
         try:
             py.path.local.sysfind("squeak")
         except py.error.ENOENT:
-            py.skip("Squeak is not on your path.")
+            py.test.skip("Squeak is not on your path.")
         if os.getenv("SQUEAK_IMAGE") is None:
-            py.skip("Squeak tests expect the SQUEAK_IMAGE environment "
+            py.test.skip("Squeak tests expect the SQUEAK_IMAGE environment "
                     "variable to point to an image.")
         gen_squeak = build_sqfunc(function)
         squeak_process = os.popen("squeak -headless -- %s %s %s"
