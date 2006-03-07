@@ -244,7 +244,7 @@ class TestUsingFramework(AbstractTestClass):
         static_list = []
         N = 100000
         def f():
-            for i in range(100000):
+            for i in range(N):
                 a = A()
                 a.x = i
                 static_list.append(a)
@@ -254,4 +254,4 @@ class TestUsingFramework(AbstractTestClass):
             return r
         fn = self.getcompiled(f)
         res = fn()
-        assert res == 100000*(100000 - 1)/2
+        assert res == N*(N - 1)/2
