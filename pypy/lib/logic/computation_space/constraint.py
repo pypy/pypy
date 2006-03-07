@@ -259,6 +259,7 @@ class Expression(AbstractConstraint):
                     result_cache[var][val] = 1
             else:
                 maybe_entailed = 0
+                
         try:
             for var, keep in result_cache.iteritems():
                 domain = self.cs.dom(self._names_to_vars[var])
