@@ -146,11 +146,11 @@ class SplitDistributor(AbstractDistributor):
         #self.cs._process() # propagate first
         #better let clone() do this call
         while self.cs._distributable():
+            self.cs.STABLE.bind(True)
+            choice = self.cs.choose(self.nb_subdomains())
             if self.cs.status == Forsaken:
                 print "-- distributor (%s) ready for GC --" % self.cs.id
                 break
-            self.cs.STABLE.bind(True)
-            choice = self.cs.choose(self.nb_subdomains())
             print "-- distribution & propagation (%s) --" % self.cs.id
             self.distribute(choice-1)
             self.cs._process()
@@ -160,7 +160,6 @@ class SplitDistributor(AbstractDistributor):
 
 
     def distribute(self, choice):
-        """See AbstractDistributor"""
         variable = self.findSmallestDomain()
         #variables = self.cs.get_variables_with_a_domain()
         #domains = arrange_domains(self.cs, variables)

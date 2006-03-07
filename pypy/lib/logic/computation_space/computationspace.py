@@ -159,7 +159,6 @@ class ComputationSpace(object):
         # try to break ref. cycles and help
         # threads terminate
         self.status = Forsaken
-        self.distributor = None
         self.parent = None
         self.children = None
         self.CHOOSE.bind(True)
@@ -300,9 +299,11 @@ class ComputationSpace(object):
         #    var.bind(self.dom(var).get_values()[0])
         # shut down the distributor
         self.CHOOSE.bind(True)
+        self.status = Forsaken
         res = []
         for var in self.root.val:
             res.append(self.dom(var).get_values()[0])
+        self.distributor.join()
         return res
 
     def set_distributor(self, dist):
@@ -386,6 +387,7 @@ class ComputationSpace(object):
 
     def dom(self, var):
         assert isinstance(var, CsVar)
+        return self.doms.get(var, NoDom)
         try:
             return self.doms[var]
         except KeyError:
