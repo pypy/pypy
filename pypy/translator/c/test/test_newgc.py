@@ -210,7 +210,34 @@ class TestUsingFramework(AbstractTestClass):
         res = fn()
         assert res == 2
 
-    def test_framework_static_routes(self):
+    def test_framework_varsized(self):
+        S = lltype.GcStruct("S", ('x', lltype.Signed))
+        T = lltype.GcStruct("T", ('y', lltype.Signed),
+                                 ('s', lltype.Ptr(S)))
+        ARRAY_Ts = lltype.GcArray(lltype.Ptr(T))
+        
+        def f():
+            r = 0
+            for i in range(30):
+                a = lltype.malloc(ARRAY_Ts, i)
+                for j in range(i):
+                    a[j] = lltype.malloc(T)
+                    a[j].y = i
+                    a[j].s = lltype.malloc(S)
+                    a[j].s.x = 2*i
+                    r += a[j].y + a[j].s.x
+                    a[j].s = lltype.malloc(S)
+                    a[j].s.x = 3*i
+                    r -= a[j].s.x
+                for j in range(i):
+                    r += a[j].y
+            return r
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == f()
+            
+
+    def test_framework_static_roots(self):
         py.test.skip("not working yet")
         class A(object):
             pass
