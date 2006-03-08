@@ -289,4 +289,10 @@ class FrameworkGcPolicy(NoneGcPolicy):
 
     def common_gcheader_initdata(self, defnode):
         # this more or less assumes mark-and-sweep gc
-        return [0, defnode.db.gctransformer.id_of_type[defnode.T]]
+        o = defnode.obj
+        while True:
+            n = o._parentstructure()
+            if n is None:
+                break
+            o = n
+        return [0, defnode.db.gctransformer.id_of_type[typeOf(o)]]

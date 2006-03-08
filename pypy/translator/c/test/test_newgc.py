@@ -254,3 +254,18 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == N*(N - 1)/2
+    
+    def test_framework_static_roots(self):
+        class A(object):
+            def __init__(self, y):
+                self.y = y
+        a = A(0)
+        a.x = None
+        def f():
+            a.x = A(42)
+            for i in range(1000000):
+                A(i)
+            return a.x.y
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 42

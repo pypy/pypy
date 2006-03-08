@@ -671,6 +671,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         # set up dummy a table, to be overwritten with the real one in finish()
         gcdata.type_info_table = lltype.malloc(GCData.TYPE_INFO_TABLE, 0,
                                                immortal=True)
+        gcdata.static_roots = lltype.malloc(lltype.Array(llmemory.Address), 0,
+                                            immortal=True)
         self.gcdata = gcdata
         self.type_info_list = []
         self.id_of_type = {}      # {LLTYPE: type_id}
@@ -706,6 +708,10 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                 q_varsize_offset_to_variable_part,
                 q_varsize_offset_to_length,
                 q_varsize_offsets_to_gcpointers_in_var_part)
+            i = 0
+            while i < len(gcdata.static_roots):
+                push_root(gcdata.static_roots[i])
+                i += 1
 
         def push_root(addr):
             top = gcdata.root_stack_top
@@ -726,6 +732,9 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         data_classdef.generalize_attr(
             'type_info_table',
             annmodel.SomePtr(lltype.Ptr(GCData.TYPE_INFO_TABLE)))
+        data_classdef.generalize_attr(
+            'static_roots',
+            annmodel.SomePtr(lltype.Ptr(lltype.Array(llmemory.Address))))
         
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
         frameworkgc_setup_graph = annhelper.getgraph(frameworkgc_setup, [],
@@ -806,15 +815,74 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         if self.type_info_list is not None:
             # XXX this is a kind of sledgehammer-wallnut approach to make sure
             # all types get an ID.
+            # and to find static roots
+            # XXX this replicates FAR too much of pypy.rpython.memory.convertlltype :(
+            static_roots = {}
+
+            seen_types = {}
+
+            def recursive_get_types(t):
+                if t in seen_types:
+                    return
+                seen_types[t] = True
+                if isinstance(t, lltype.Ptr):
+                    recursive_get_types(t.TO)
+                elif isinstance(t, lltype.Struct):
+                    if isinstance(t, lltype.GcStruct):
+                        self.get_type_id(t)
+                    for n in t._flds:
+                        recursive_get_types(t._flds[n])
+                elif isinstance(t, lltype.Array):
+                    if isinstance(t, lltype.GcArray):
+                        self.get_type_id(t)
+                    recursive_get_types(t.OF)
+
+            seen_constants = {}
+            
+            def recursive_get_types_from(v):
+                if id(v) in seen_constants:
+                    return
+                print '!!!!', v
+                seen_constants[id(v)] = True
+                t = lltype.typeOf(v)
+                if isinstance(t, lltype.Ptr):
+                    if v._obj:
+                        recursive_get_types_from(v._obj)
+                elif isinstance(t, lltype.Struct):
+                    if isinstance(t, lltype.GcStruct):
+                        self.get_type_id(t)
+                    parent = v._parentstructure()
+                    if parent:
+                        recursive_get_types_from(parent)
+                    for n in t._flds:
+                        f = getattr(t, n)
+                        if isinstance(f, (lltype.Ptr, lltype.Struct, lltype.Array)):
+                            recursive_get_types_from(getattr(v, n))
+                elif isinstance(t, lltype.Array):
+                    if isinstance(t, lltype.GcArray):
+                        self.get_type_id(t)
+                    if isinstance(t.OF, (lltype.Struct, lltype.Ptr)):
+                        for i in v.items:
+                            recursive_get_types_from(i)
+            
             for graph in self.translator.graphs:
                 for block in graph.iterblocks():
-                    for v in block.getvariables() + block.getconstants():
+                    for v in block.getvariables():
+                        t = getattr(v, 'concretetype', None)
+                        if t is None:
+                            continue
+                        recursive_get_types(v.concretetype)
+                    for v in block.getconstants():
                         t = getattr(v, 'concretetype', None)
                         if t is None:
                             continue
                         if isinstance(t, lltype.Ptr) and t.TO != lltype.PyObject and \
-                               t._needsgc():
-                            self.get_type_id(v.concretetype.TO)
+                               t._needsgc() and find_gc_ptrs_in_type(t.TO):
+                            static_roots[id(v.value)] = v
+                        if isinstance(t, lltype.Ptr) and isinstance(t.TO, (lltype.Array, lltype.Struct)):
+                            recursive_get_types_from(v.value)
+                        elif isinstance(t, (lltype.Array, lltype.Struct)):
+                            recursive_get_types_from(v.value)
 
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)
@@ -840,9 +908,20 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             ll_instance = rmodel.inputconst(r_gcdata, self.gcdata).value
             ll_instance.inst_type_info_table = table
             #self.gcdata.type_info_table = table
+
+            ll_static_roots = lltype.malloc(lltype.Array(llmemory.Address),
+                                            len(static_roots),
+                                            immortal=True)
+            static_roots = static_roots.values()
+            for i in range(len(static_roots)):
+                c = static_roots[i]
+                c_ll_c = rmodel.inputconst(c.concretetype, c.value)
+                ll_static_roots[i] = llmemory.cast_ptr_to_adr(c_ll_c.value)
+            ll_instance.inst_static_roots = ll_static_roots
             
             newgcdependencies = newgcdependencies or []
             newgcdependencies.append(table)
+            newgcdependencies.append(ll_static_roots)
         return newgcdependencies
 
     def protect_roots(self, op, livevars):
