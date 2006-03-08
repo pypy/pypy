@@ -82,6 +82,9 @@ class FunctionCodeGenerator(object):
         self.vars = uniquemix
         self.lltypes = None
 
+    def name(self, cname):  #virtual
+        return cname
+
     def implementation_begin(self):
         db = self.db
         lltypes = {}

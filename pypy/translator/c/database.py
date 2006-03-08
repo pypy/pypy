@@ -192,7 +192,7 @@ class LowLevelDatabase(object):
             if self.latercontainerlist:
                 work_to_do = True
                 for node in self.latercontainerlist:
-                    node.make_funcgen()
+                    node.make_funcgens()
                     self.containerlist.append(node)
                 self.latercontainerlist = []
         self.completed = True

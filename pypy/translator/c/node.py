@@ -421,7 +421,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
 class FuncNode(ContainerNode):
     nodekind = 'func'
     if USESLOTS:
-        __slots__ = """funcgen""".split()
+        __slots__ = """funcgens""".split()
 
     def __init__(self, db, T, obj):
         self.globalcontainer = True
@@ -435,37 +435,38 @@ class FuncNode(ContainerNode):
             self.includes = ()
             self.name = db.namespace.uniquename('g_' + self.basename())
         if not getattr(obj, 'isgchelper', False):
-            self.make_funcgen()
+            self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
         self.ptrname = self.name
 
-    def make_funcgen(self):
-        self.funcgen = select_function_code_generator(self.obj, self.db, self.name)
-        if self.funcgen:
-            argnames = self.funcgen.argnames()
+    def make_funcgens(self):
+        self.funcgens = select_function_code_generators(self.obj, self.db, self.name)
+        if self.funcgens:
+            argnames = self.funcgens[0].argnames()  #Assume identical for all funcgens
             self.implementationtypename = self.db.gettype(self.T, argnames=argnames)
 
     def basename(self):
         return self.obj._name
 
     def enum_dependencies(self):
-        if self.funcgen is None:
+        if not self.funcgens:
             return []
-        return self.funcgen.allconstantvalues()
+        return self.funcgens[0].allconstantvalues() #Assume identical for all funcgens
 
     def forward_declaration(self):
-        if self.funcgen:
-            return ContainerNode.forward_declaration(self)
-        else:
-            return []
+        for funcgen in self.funcgens:
+            yield '%s;' % (
+                cdecl(self.implementationtypename, funcgen.name(self.name)))
 
     def implementation(self):
-        funcgen = self.funcgen
-        if funcgen is None:
-            return
+        for funcgen in self.funcgens:
+            for s in self.funcgen_implementation(funcgen):
+                yield s
+
+    def funcgen_implementation(self, funcgen):
         funcgen.implementation_begin()
-        yield '%s {' % cdecl(self.implementationtypename, self.name)
+        yield '%s {' % cdecl(self.implementationtypename, funcgen.name(self.name))
         #
         # declare the local variables
         #
@@ -508,30 +509,36 @@ class FuncNode(ContainerNode):
 
 assert not USESLOTS or '__dict__' not in dir(FuncNode)
 
-def select_function_code_generator(fnobj, db, functionname):
+def select_function_code_generators(fnobj, db, functionname):
     if fnobj._callable in extfunc.EXTERNALS:
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
         # flag in pypy.rpython.module.*.  The corresponding C wrappers are
         # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.
         db.externalfuncs[fnobj._callable] = fnobj
-        return None
+        return []
     elif getattr(fnobj._callable, 'suggested_primitive', False):
         raise ValueError, "trying to compile suggested primitive %r" % (
             fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
         if hasattr(db, 'stacklessdata') and not db.use_stackless_transformation:
-            from pypy.translator.c.stackless import SlpFunctionCodeGenerator
-            gencls = SlpFunctionCodeGenerator
+            split_slp_function = False
+            if split_slp_function:
+                from pypy.translator.c.stackless import SlpSaveOnlyFunctionCodeGenerator, \
+                                                        SlpResumeFunctionCodeGenerator
+                return [SlpSaveOnlyFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname),
+                        SlpResumeFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
+            else:
+                from pypy.translator.c.stackless import SlpFunctionCodeGenerator
+                return [SlpFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
         else:
-            gencls = FunctionCodeGenerator
-        return gencls(fnobj.graph, db, cpython_exc, functionname)
+            return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
         if getattr(fnobj, 'includes', None):
-            return None   # assume no wrapper needed
+            return []   # assume no wrapper needed
         else:
-            return CExternalFunctionCodeGenerator(fnobj, db)
+            return [CExternalFunctionCodeGenerator(fnobj, db)]
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)
 

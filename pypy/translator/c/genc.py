@@ -728,5 +728,5 @@ $(TARGET): $(OBJECTS)
 \t$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)
 
 clean:
-\trm -f $(OBJECTS)
+\trm -f $(OBJECTS) $(TARGET)
 '''

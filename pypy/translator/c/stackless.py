@@ -211,6 +211,7 @@ class StacklessData:
 
 
 class SlpFunctionCodeGenerator(FunctionCodeGenerator):
+    needs_resume = True
 
     def cfunction_body(self):
         # lists filled by check_directcall_result() from super.cfunction_body()
@@ -219,13 +220,16 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         body = list(super(SlpFunctionCodeGenerator, self).cfunction_body())
         #
         if self.savelines:   # header (if we need to resume)
-            yield 'if (slp_frame_stack_top) goto resume;'
+            if self.needs_resume:
+                yield 'if (slp_frame_stack_top) goto resume;'
         for line in body:    # regular body
             yield line
         if self.savelines:
             yield ''
             for line in self.savelines:  # save-state-away lines
                 yield line
+            if not self.needs_resume:
+                return
             yield ''
             yield 'resume:'    # resume-state blocks
             yield '{'
@@ -247,7 +251,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             argtypes = [T for T in argtypes if T is not lltype.Void]
             rettype = signature_type(self.lltypemap(self.graph.getreturnvar()))
             FUNC = lltype.FuncType(argtypes, rettype)
-            slpdata.registerunwindable(self.functionname, FUNC,
+            slpdata.registerunwindable(self.name(self.functionname), FUNC,
                                        resume_points = len(self.resumeblocks))
 
         del self.savelines
@@ -345,6 +349,17 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                     specialreturnvalue='slp_return_current_frame_to_caller()')
         return line
 
+
+class SlpSaveOnlyFunctionCodeGenerator(SlpFunctionCodeGenerator):
+    needs_resume = False
+
+
+class SlpResumeFunctionCodeGenerator(SlpFunctionCodeGenerator):
+    needs_resume = True
+
+    def name(self, cname):
+        return cname + '_SlpResume'
+        
 
 def signature_type(T):
     """Return T unless it's a pointer type, in which case we return a general

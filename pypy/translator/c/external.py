@@ -16,6 +16,9 @@ class CExternalFunctionCodeGenerator(object):
         self.argtypenames = [db.gettype(T) for T in self.FUNCTYPE.ARGS]
         self.resulttypename = db.gettype(self.FUNCTYPE.RESULT)
 
+    def name(self, cname):  #virtual
+        return cname
+
     def argnames(self):
         return ['%s%d' % (somelettersfrom(self.argtypenames[i]), i)
                 for i in range(len(self.argtypenames))]
