@@ -2,7 +2,7 @@ import os
 import py
 from pypy.tool.udir import udir
 from pypy.translator.test import snippet
-from pypy.translator.squeak.gensqueak import GenSqueak, Selector
+from pypy.translator.squeak.gensqueak import GenSqueak, Selector, camel_case
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 
@@ -80,9 +80,11 @@ class TestGenSqueak:
                     "variable to point to an image.")
         arg_types = [type(arg) for arg in args]
         gen_squeak = build_sqfunc(function, arg_types)
+        squeak_func_name = camel_case("%s.%s"
+                % (function.__module__, function.__name__))
         cmd = 'squeak -headless -- %s %s "%s" %s' \
                 % (self.startup_st, udir.join(gen_squeak.filename),
-                   Selector(function.__name__, len(args)).symbol(),
+                   Selector(squeak_func_name, len(args)).symbol(),
                    " ".join(['"%s"' % a for a in args]))
         squeak_process = os.popen(cmd)
         result = squeak_process.read()
@@ -142,7 +144,7 @@ class TestGenSqueak:
             return x + ASomething().m(0) + Asomething().m(0)
         assert self.run_on_squeak(f) == "6"
 
-    def dont_test_nameclash_functions(self):
+    def test_nameclash_functions(self):
         from pypy.translator.squeak.test.support import f as f2
         def f(i):
             return i + 2

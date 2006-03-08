@@ -11,17 +11,10 @@ try:
 except NameError:
     from sets import Set as set
 
-def camel_case(str):
-    words = str.split('_')
+def camel_case(identifier):
+    identifier = identifier.replace(".", "_")
+    words = identifier.split('_')
     return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
-
-def arg_names(graph):
-    #XXX need to handle more args, see 
-    #    http://docs.python.org/ref/types.html#l2h-139
-    names, vararg, kwarg = graph.signature
-    assert vararg is None
-    assert kwarg is None
-    return names
 
 
 class Selector:
@@ -102,9 +95,8 @@ class GenSqueak:
             Constant(False).key: 'false',
             Constant(True).key:  'true',
         }
-        self.seennames = {}
-        self.seen_class_names = set()
-        self.class_name_mapping = {}
+        self.seennames = set()
+        self.name_mapping = {}
         self.pendinggraphs = []
         self.pendingclasses = []
         self.pendingmethods = []
@@ -182,12 +174,13 @@ class GenSqueak:
             self.gen_function_container(f)
             self.function_container = True
         func_name = self.nameof(graph.func)
+        #import pdb; pdb.set_trace()
         if func_name in self.functions:
             return
         self.functions.append(func_name)
         print >> f, "!PyFunctions class methodsFor: 'functions'" \
                 " stamp: 'pypy 1/1/2000 00:00'!"
-        self.gen_methodbody(graph.name, graph, f)
+        self.gen_methodbody(func_name, graph, f)
 
     def gen_methodbody(self, method_name, graph, f):
         renderer = MethodBodyRenderer(self, method_name, graph)
@@ -238,19 +231,11 @@ class GenSqueak:
         # classes like Root with classes defined in __main__, but
         # in practice it should never happen because __main__ will
         # never contain user classes.
-        class_name = "%s_%s" \
-                % (INSTANCE._package.replace(".", "_"), INSTANCE._name)
-        if self.class_name_mapping.has_key(class_name):
-            squeak_class_name = self.class_name_mapping[class_name]
-        else:
-            class_basename = camel_case(class_name.capitalize())
-            squeak_class_name = class_basename
-            ext = 0
-            while squeak_class_name in self.seen_class_names:
-               squeak_class_name = class_basename + str(ext)
-               ext += 1 
-            self.class_name_mapping[class_name] = squeak_class_name
-            self.seen_class_names.add(squeak_class_name)
+        class_name = INSTANCE._name
+        if INSTANCE._package:
+            class_name = "%s.%s" % (INSTANCE._package, class_name)
+        class_name = class_name[0].upper() + class_name[1:]
+        squeak_class_name = self.unique_name(class_name)
         return "Py%s" % squeak_class_name
 
     def nameof__instance(self, inst):
@@ -260,8 +245,11 @@ class GenSqueak:
         return self.nameof_function(callable.graph.func)
 
     def nameof_function(self, function):
-        # XXX need to handle package names here
-        return function.__name__
+        func_name = function.__name__
+        if function.__module__:
+            func_name = "%s.%s" % (function.__module__, func_name)
+        squeak_func_name = self.unique_name(func_name)
+        return squeak_func_name
         
     def note_Instance(self, inst):
         if inst not in self.classes:
@@ -285,13 +273,22 @@ class GenSqueak:
             self.pendinggraphs.append(graph)
 
     def unique_name(self, basename):
-        n = self.seennames.get(basename, 0)
-        self.seennames[basename] = n+1
-        if n == 0:
-            return basename
+        # This can be used for both classes and functions, even though
+        # they live in different namespaces. As long as class names
+        # starting with an uppercase letter are enforced, interferences
+        # should be seldom.
+        if self.name_mapping.has_key(basename):
+            unique = self.name_mapping[basename]
         else:
-            return self.unique_name('%s_%d' % (basename, n))
-
+            camel_basename = camel_case(basename)
+            unique = camel_basename
+            ext = 0
+            while unique in self.seennames:
+               unique = camel_basename + str(ext)
+               ext += 1 
+            self.name_mapping[basename] = unique
+            self.seennames.add(unique)
+        return unique
 
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
