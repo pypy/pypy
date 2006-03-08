@@ -28,12 +28,6 @@ def test_simple_new():
       return new(C)
    build_sqfunc(f_new)
 
-def test_simple_meth():
-   def f_meth():
-      c = new(C)
-      return c.m(5)
-   build_sqfunc(f_meth)
-
 def test_simple_fields():
    def f_fields():
       c = new(C)
