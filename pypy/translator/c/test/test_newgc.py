@@ -269,3 +269,19 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 42
+
+    def test_framework_nongc_static_root(self):
+        py.test.skip("I don't know how to make this work")
+        S = lltype.GcStruct("S", ('x', lltype.Signed))
+        T = lltype.Struct("T", ('p', lltype.Ptr(S)))
+        t = lltype.malloc(T, immortal=True)
+        def f():
+            t.p = lltype.malloc(S)
+            t.p.x = 43
+            for i in range(1000000):
+                s = lltype.malloc(S)
+                s.x = i
+            return t.p.x
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 43
