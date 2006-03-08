@@ -111,6 +111,7 @@ class GenSqueak:
         self.pendingsetters = [] # XXX ugly. should generalize methods/setters
         self.classes = [] 
         self.methods = [] 
+        self.functions = []
         self.function_container = False
 
         t = self.translator
@@ -180,6 +181,9 @@ class GenSqueak:
         if not self.function_container:
             self.gen_function_container(f)
             self.function_container = True
+        if graph.name in self.functions:
+            return
+        self.functions.append(graph.name)
         print >> f, "!PyFunctions class methodsFor: 'functions'" \
                 " stamp: 'pypy 1/1/2000 00:00'!"
         self.gen_methodbody(graph.name, graph, f)
@@ -269,8 +273,11 @@ class GenSqueak:
             self.seen_class_names.add(squeak_class_name)
         return "Py%s" % squeak_class_name
 
-    def nameof__instance(self, _inst):
-        return self.nameof_Instance(_inst._TYPE)
+    def nameof__instance(self, inst):
+        return self.nameof_Instance(inst._TYPE)
+
+    def nameof__callable(self, callable):
+        return callable._name
 
     def note_Instance(self, inst):
         if inst not in self.classes:
@@ -286,6 +293,12 @@ class GenSqueak:
         if bm not in self.methods:
             if bm not in self.pendingmethods:
                 self.pendingmethods.append(bm)
+
+    def note_function(self, function):
+        # 'function' is actually a _static_meth (always?)
+        graph = function.graph
+        if graph not in self.pendinggraphs:
+            self.pendinggraphs.append(graph)
 
     def unique_name(self, basename):
         n = self.seennames.get(basename, 0)
@@ -348,6 +361,13 @@ class MethodBodyRenderer:
             args = args[2:]
             # XXX should only generate setter if field is set from outside
             self.gen.pendingsetters.append((op.args[0].concretetype, name))
+        elif op.opname == "direct_call":
+            # XXX not sure if static methods of a specific class should
+            # be treated differently.
+            receiver = "PyFunctions"
+            name = args[0]
+            args = args[1:]
+            self.gen.note_function(op.args[0].value)
         else:
             name = op.opname
             receiver = args[0]
