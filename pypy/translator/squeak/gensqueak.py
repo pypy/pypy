@@ -237,13 +237,19 @@ class GenSqueak:
     #    self.pendingfunctions.append(func)
     #    return sel
 
-    def nameof_Instance(self, inst):
-        if inst is None:
-            #empty superclass
+    def nameof_Instance(self, INSTANCE):
+        if INSTANCE is None:
             return "Object"
-        self.note_Instance(inst)
-        # XXX need to properly handle package names
-        class_name = inst._name.split(".")[-1]
+        self.note_Instance(INSTANCE)
+        # For now, always integrate the package name into the
+        # class name. Later maybe only do this when there actually
+        # is a nameclash.
+        # NB: In theory there could be nameclashes between internal
+        # classes like Root with classes defined in __main__, but
+        # in practice it should never happen because __main__ will
+        # never contain user classes.
+        class_name = "%s_%s" \
+                % (INSTANCE._package.replace(".", "_"), INSTANCE._name)
         return "Py%s" % camel_case(class_name.capitalize())
 
     def nameof__instance(self, _inst):

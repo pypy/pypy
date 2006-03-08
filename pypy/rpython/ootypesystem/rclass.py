@@ -163,7 +163,7 @@ class InstanceRepr(AbstractInstanceRepr):
             else:
                 b = OBJECT
 
-            self.lowleveltype = ootype.Instance(classdef.shortname, b, {}, {})
+            self.lowleveltype = ootype.Instance(classdef.name, b, {}, {})
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
 

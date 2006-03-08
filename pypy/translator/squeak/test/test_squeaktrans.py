@@ -115,6 +115,14 @@ class TestGenSqueak:
             return A().m(i, j=3)
         assert self.run_on_squeak(simplemethod, 1) == "6"
 
+    def test_nameclash_classes(self):
+        from pypy.translator.squeak.test.support import A as A2
+        class A:
+            def m(self, i): return 2 + i
+        def f():
+            return A().m(0) + A2().m(0)
+        assert self.run_on_squeak(f) == "3"
+
 
 class TestSelector:
 
