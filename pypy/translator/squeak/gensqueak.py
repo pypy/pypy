@@ -6,6 +6,10 @@ from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.simplify import simplify_graph
 from pypy import conftest
+try:
+    set
+except NameError:
+    from sets import Set as set
 
 def camel_case(str):
     words = str.split('_')
@@ -99,6 +103,8 @@ class GenSqueak:
             Constant(True).key:  'true',
         }
         self.seennames = {}
+        self.seen_class_names = set()
+        self.class_name_mapping = {}
         self.pendinggraphs = []
         self.pendingclasses = []
         self.pendingmethods = []
@@ -250,7 +256,18 @@ class GenSqueak:
         # never contain user classes.
         class_name = "%s_%s" \
                 % (INSTANCE._package.replace(".", "_"), INSTANCE._name)
-        return "Py%s" % camel_case(class_name.capitalize())
+        if self.class_name_mapping.has_key(class_name):
+            squeak_class_name = self.class_name_mapping[class_name]
+        else:
+            class_basename = camel_case(class_name.capitalize())
+            squeak_class_name = class_basename
+            ext = 0
+            while squeak_class_name in self.seen_class_names:
+               squeak_class_name = class_basename + str(ext)
+               ext += 1 
+            self.class_name_mapping[class_name] = squeak_class_name
+            self.seen_class_names.add(squeak_class_name)
+        return "Py%s" % squeak_class_name
 
     def nameof__instance(self, _inst):
         return self.nameof_Instance(_inst._TYPE)

@@ -123,6 +123,16 @@ class TestGenSqueak:
             return A().m(0) + A2().m(0)
         assert self.run_on_squeak(f) == "3"
 
+    def test_nameclash_camel_case(self):
+        class ASomething:
+            def m(self, i): return 1 + i
+        class Asomething:
+            def m(self, i): return 2 + i
+        def f():
+            x = ASomething().m(0) + Asomething().m(0)
+            return x + ASomething().m(0) + Asomething().m(0)
+        assert self.run_on_squeak(f) == "6"
+
 
 class TestSelector:
 
