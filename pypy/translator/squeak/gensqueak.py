@@ -7,21 +7,9 @@ from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.simplify import simplify_graph
 from pypy import conftest
 
-selectormap = {
-    'setitem:with:': 'at:put:',
-    'getitem:':      'at:',
-    'new':           'new',
-    'runtimenew':    'new',
-    'classof':       'class',
-    'sameAs':        'yourself',
-    'intAdd:':       '+',
-}
-
 def camel_case(str):
     words = str.split('_')
-    for i in range(1, len(words)):
-        words[i] = words[i].capitalize()
-    return ''.join(words)
+    return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
 
 def arg_names(graph):
     #XXX need to handle more args, see 
@@ -31,28 +19,49 @@ def arg_names(graph):
     assert kwarg is None
     return names
 
-def selector(name, args):
-    s = name
-    if args:
-        s += '_'
-        for arg in args:
-            s += arg + ':'
-    return camel_case(s)
 
-def signature(sel, args):
-    if (':' in sel):
-        parts = []
-        names = sel.split(':')
-#       assert len(names) == len(args)
-        while args:
-            parts.append(names.pop(0) + ': ' + args.pop(0))
-        return ' '.join(parts)
-    elif not sel[0].isalnum():
-#       assert len(args) == 1
-        return "%s %s" %(sel, args[0])
-    else:
-#       assert len(args) == 0
-        return sel
+class Selector:
+
+    def __init__(self, function_name, arg_count):
+        self.parts = [camel_case(function_name)]
+        self.arg_count = arg_count
+        self.infix = False
+        if not self.parts[0].isalnum():
+            # Binary infix selector, e.g. "+"
+            assert arg_count == 1
+            self.infix = True
+        if arg_count > 1:
+            self.parts += ["with"] * (arg_count - 1)
+
+    def __str__(self):
+        if self.arg_count == 0 or self.infix:
+            return self.parts[0]
+        else:
+            return "%s:%s" % (self.parts[0],
+                    "".join([p + ":" for p in self.parts[1:]]))
+
+    def symbol(self):
+        return str(self)
+
+    def signature(self, arg_names):
+        assert len(arg_names) == self.arg_count
+        if self.arg_count == 0:
+            return self.parts[0]
+        elif self.infix:
+            return "%s %s" % (self.parts[0], arg_names[0])
+        else:
+            return " ".join(["%s: %s" % (p, a)
+                    for (p, a) in zip(self.parts, arg_names)])
+
+selectormap = {
+    #'setitem:with:': 'at:put:',
+    #'getitem:':      'at:',
+    'new':           Selector('new', 0),
+    'runtimenew':    Selector('new', 0),
+    'classof':       Selector('class', 0),
+    'sameAs':        Selector('yourself', 0), 
+    'intAdd:':       Selector('+', 1),
+}
 
 
 class LoopFinder:
@@ -148,11 +157,8 @@ class GenSqueak:
         self.methods.append((inst, meth))
         print >> f, "!%s methodsFor: 'methods' stamp: 'pypy 1/1/2000 00:00'!" % (
             self.nameof_Instance(inst))
-        # XXX temporary hack, works only for method without arguments.
-        # Need to revisit selector and signature code.
-        print >> f, camel_case(meth)
         graph = inst._methods[meth].graph
-        self.gen_methodbody(graph, f, do_signature=False)
+        self.gen_methodbody(camel_case(meth), graph, f)
 
     def gen_setter(self, INSTANCE, field_name, f):
         if (INSTANCE, field_name) in self.methods:
@@ -170,17 +176,12 @@ class GenSqueak:
             self.function_container = True
         print >> f, "!PyFunctions class methodsFor: 'functions'" \
                 " stamp: 'pypy 1/1/2000 00:00'!"
-        self.gen_methodbody(graph, f)
+        self.gen_methodbody(graph.name, graph, f)
 
-    def gen_methodbody(self, graph, f, do_signature=True):
-        if do_signature:
-            # XXX only works for functions without arguments
-            name = self.unique_name(graph.name.split('.')[-1])
-            print >> f, name
- 
-        renderer = MethodBodyRenderer(self, graph)
+    def gen_methodbody(self, method_name, graph, f):
+        renderer = MethodBodyRenderer(self, method_name, graph)
         for line in renderer.render():
-            print >> f, '       %s' % line
+            print >> f, line
         print >> f, '! !'
         print >> f
 
@@ -281,15 +282,21 @@ class GenSqueak:
 
 class MethodBodyRenderer:
 
-    def __init__(self, gen, graph):
+    def __init__(self, gen, method_name, graph):
         self.gen = gen
+        # XXX need to handle names with packages somehow, probably in Selector
+        self.name = method_name.split('.')[-1]
         self.start = graph.startblock
         self.loops = LoopFinder(self.start).loops
 
     def render(self):
+        args = self.start.inputargs
+        sel = Selector(self.name, len(args))
+        yield sel.signature([self.expr(v) for v in args])
+ 
         # XXX should declare local variables here
         for line in self.render_block(self.start):
-            yield line
+            yield "    %s" % line
 
     def expr(self, v):
         if isinstance(v, Variable):
@@ -304,7 +311,9 @@ class MethodBodyRenderer:
         if op.opname == "oosend":
             name = op.args[0].value
             receiver = args[1]
-            args = args[2:]
+            # For now, send nil as the explicit self. XXX will probably have
+            # to do something more intelligent.
+            args = ["nil"] + args[2:]
             self.gen.note_meth(op.args[1].concretetype, name)
         elif op.opname == "oogetfield":
             receiver = args[0]
@@ -320,14 +329,11 @@ class MethodBodyRenderer:
             name = op.opname
             receiver = args[0]
             args = args[1:]
-        argnames = ['with'] * len(args)
-        if argnames:
-            argnames[0] = ''
-        sel = selector(name, argnames)
+        sel = Selector(name, len(args))
         if op.opname != "oosend":
-            sel = selectormap.get(sel, sel)
+            sel = selectormap.get(sel.symbol(), sel)
         return "%s := %s %s." \
-                % (self.expr(op.result), receiver, signature(sel, args))
+                % (self.expr(op.result), receiver, sel.signature(args))
 
     def render_return(self, args):
         if len(args) == 2:
