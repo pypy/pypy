@@ -107,7 +107,7 @@ class GenSqueak:
         if conftest.option.view:
             self.translator.view()
 
-        self.nameof(graph) #add to pending
+        self.pendinggraphs.append(graph)
         self.filename = '%s.st' % graph.name
         file = self.sqdir.join(self.filename).open('w')
         self.gen_source(file)
@@ -173,109 +173,13 @@ class GenSqueak:
         self.gen_methodbody(graph, f)
 
     def gen_methodbody(self, graph, f, do_signature=True):
-
-        def expr(v):
-            if isinstance(v, Variable):
-                return camel_case(v.name)
-            elif isinstance(v, Constant):
-                return self.nameof(v.value)
-            else:
-                raise TypeError, "expr(%r)" % (v,)
-
-        def oper(op):
-            args = [expr(arg) for arg in op.args]
-            if op.opname == "oosend":
-                name = op.args[0].value
-                receiver = args[1]
-                args = args[2:]
-                self.note_meth(op.args[1].concretetype, name)
-            elif op.opname == "oogetfield":
-                receiver = args[0]
-                name = op.args[1].value
-                args = args[2:]
-            elif op.opname == "oosetfield":
-                receiver = args[0]
-                name = op.args[1].value
-                args = args[2:]
-                # XXX should only generate setter if field is set from outside
-                self.pendingsetters.append((op.args[0].concretetype, name))
-            else:
-                name = op.opname
-                receiver = args[0]
-                args = args[1:]
-            argnames = ['with'] * len(args)
-            if argnames:
-                argnames[0] = ''
-            sel = selector(name, argnames)
-            if op.opname != "oosend":
-                sel = selectormap.get(sel, sel)
-            return "%s := %s %s." % (expr(op.result), receiver, signature(sel, args))
-
-        def render_return(args):
-            if len(args) == 2:
-                # exception
-                exc_cls = expr(args[0])
-                exc_val = expr(args[1])
-                yield "(PyOperationError class: %s value: %s) signal." % (exc_cls, exc_val)
-            else:
-                # regular return block
-                retval = expr(args[0])
-                yield "^%s" % retval
-
-        def render_link(link):
-            block = link.target
-            if link.args:
-                for i in range(len(link.args)):
-                    yield '%s := %s.' % (expr(block.inputargs[i]), expr(link.args[i]))
-            for line in render_block(block):
-                yield line
-
-        def render_block(block):
-            if loops.has_key(block):
-                if not loops[block]:
-                    yield '"skip1"'
-                    return
-                yield "["
-            for op in block.operations:
-                yield "%s" % oper(op)
-            if len(block.exits) == 0:
-                for line in render_return(block.inputargs):
-                    yield line
-                return
-            elif block.exitswitch is None:
-                # single-exit block
-                assert len(block.exits) == 1
-                for line in render_link(block.exits[0]):
-                    yield line
-            else:
-                #exitswitch
-                if loops.has_key(block):
-                    if loops[block]:
-                        loops[block] = False
-                        yield "%s] whileTrue: [" % expr(block.exitswitch)
-                        for line in render_link(block.exits[True]):
-                            yield "    %s" % line
-                        yield "]."
-                        for line in render_link(block.exits[False]):
-                            yield "%s" % line
-                else:
-                    yield "%s ifTrue: [" % expr(block.exitswitch)
-                    for line in render_link(block.exits[True]):
-                        yield "    %s" % line
-                    yield "] ifFalse: [" 
-                    for line in render_link(block.exits[False]):
-                        yield "    %s" % line
-                    yield "]"
-
         if do_signature:
-            args = [expr(arg) for arg in graph.startblock.inputargs]
-            print >> f, '%s' % signature(self.nameof(graph), args)
-        # XXX should declare local variables here
+            # XXX only works for functions without arguments
+            name = self.unique_name(graph.name.split('.')[-1])
+            print >> f, name
  
-        start = graph.startblock
-        loops = LoopFinder(start).loops
-
-        for line in render_block(start):
+        renderer = MethodBodyRenderer(self, graph)
+        for line in renderer.render():
             print >> f, '       %s' % line
         print >> f, '! !'
         print >> f
@@ -310,14 +214,6 @@ class GenSqueak:
 
     def nameof_str(self, s):
         return "'s'"
-
-    def nameof_FunctionGraph(self, graph):
-        #XXX this should actually be a StaticMeth
-        name = self.unique_name(graph.name.split('.')[-1])
-        args = arg_names(graph)
-        sel = selector(name, args)
-        self.pendinggraphs.append(graph)
-        return sel
 
     #def nameof_function(self, func):
     #    #XXX this should actually be a StaticMeth
@@ -381,3 +277,113 @@ class GenSqueak:
         # that raises an exception when called.
         name = self.unique_name(camel_case('skipped_' + func.__name__))
         return name
+
+
+class MethodBodyRenderer:
+
+    def __init__(self, gen, graph):
+        self.gen = gen
+        self.start = graph.startblock
+        self.loops = LoopFinder(self.start).loops
+
+    def render(self):
+        # XXX should declare local variables here
+        for line in self.render_block(self.start):
+            yield line
+
+    def expr(self, v):
+        if isinstance(v, Variable):
+            return camel_case(v.name)
+        elif isinstance(v, Constant):
+            return self.gen.nameof(v.value)
+        else:
+            raise TypeError, "expr(%r)" % (v,)
+
+    def oper(self, op):
+        args = [self.expr(arg) for arg in op.args]
+        if op.opname == "oosend":
+            name = op.args[0].value
+            receiver = args[1]
+            args = args[2:]
+            self.gen.note_meth(op.args[1].concretetype, name)
+        elif op.opname == "oogetfield":
+            receiver = args[0]
+            name = op.args[1].value
+            args = args[2:]
+        elif op.opname == "oosetfield":
+            receiver = args[0]
+            name = op.args[1].value
+            args = args[2:]
+            # XXX should only generate setter if field is set from outside
+            self.gen.pendingsetters.append((op.args[0].concretetype, name))
+        else:
+            name = op.opname
+            receiver = args[0]
+            args = args[1:]
+        argnames = ['with'] * len(args)
+        if argnames:
+            argnames[0] = ''
+        sel = selector(name, argnames)
+        if op.opname != "oosend":
+            sel = selectormap.get(sel, sel)
+        return "%s := %s %s." \
+                % (self.expr(op.result), receiver, signature(sel, args))
+
+    def render_return(self, args):
+        if len(args) == 2:
+            # exception
+            exc_cls = self.expr(args[0])
+            exc_val = self.expr(args[1])
+            yield "(PyOperationError class: %s value: %s) signal." % (exc_cls, exc_val)
+        else:
+            # regular return block
+            retval = self.expr(args[0])
+            yield "^%s" % retval
+
+    def render_link(self, link):
+        block = link.target
+        if link.args:
+            for i in range(len(link.args)):
+                yield '%s := %s.' % \
+                        (self.expr(block.inputargs[i]), self.expr(link.args[i]))
+        for line in self.render_block(block):
+            yield line
+
+    def render_block(self, block):
+        if self.loops.has_key(block):
+            if not self.loops[block]:
+                yield '"skip1"'
+                return
+            yield "["
+        for op in block.operations:
+            yield "%s" % self.oper(op)
+        if len(block.exits) == 0:
+            for line in self.render_return(block.inputargs):
+                yield line
+            return
+        elif block.exitswitch is None:
+            # single-exit block
+            assert len(block.exits) == 1
+            for line in self.render_link(block.exits[0]):
+                yield line
+        else:
+            #exitswitch
+            if self.loops.has_key(block):
+                if self.loops[block]:
+                    self.loops[block] = False
+                    yield "%s] whileTrue: [" % self.expr(block.exitswitch)
+                    for line in self.render_link(block.exits[True]):
+                        yield "    %s" % line
+                    yield "]."
+                    for line in self.render_link(block.exits[False]):
+                        yield "%s" % line
+            else:
+                yield "%s ifTrue: [" % self.expr(block.exitswitch)
+                for line in self.render_link(block.exits[True]):
+                    yield "    %s" % line
+                yield "] ifFalse: [" 
+                for line in self.render_link(block.exits[False]):
+                    yield "    %s" % line
+                yield "]"
+
+
