@@ -1,4 +1,4 @@
-import sys
+import datetime, sys
 from pypy.objspace.flow.model import traverse
 from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import Constant, Variable, Block
@@ -127,59 +127,60 @@ class GenSqueak:
             or self.pendingsetters:
             while self.pendinggraphs:
                 graph = self.pendinggraphs.pop()
-                self.gen_sqfunction(graph, file)
+                self.gen_function(graph, file)
             while self.pendingclasses:
-                inst = self.pendingclasses.pop(0)
-                self.gen_sqclass(inst, file)
+                INST = self.pendingclasses.pop(0)
+                self.gen_class(INST, file)
             while self.pendingmethods:
-                (inst, meth) = self.pendingmethods.pop()
-                self.gen_sqmethod(inst, meth, file)
+                (INST, method_name) = self.pendingmethods.pop()
+                self.gen_method(INST, method_name, file)
             while self.pendingsetters:
-                (inst, field_name) = self.pendingsetters.pop()
-                self.gen_setter(inst, field_name, file)
+                (INST, field_name) = self.pendingsetters.pop()
+                self.gen_setter(INST, field_name, file)
 
-    def gen_sqclass(self, inst, f):
-        self.classes.append(inst)
+    def gen_fileout_header(self, class_name, category, f):
+        print >> f, "!%s methodsFor: '%s' stamp: 'pypy %s'!" % (
+                class_name, category,
+                datetime.datetime.now().strftime("%m/%d/%Y %H:%M"))
+
+    def gen_class(self, INSTANCE, f):
+        self.classes.append(INSTANCE)
         print >> f, """%s subclass: #%s
         instanceVariableNames: '%s'
         classVariableNames: ''
         poolDictionaries: ''
         category: 'PyPy-Test'!
         """ % (
-            self.nameof_Instance(inst._superclass), 
-            self.nameof_Instance(inst),
-            ' '.join(inst._fields.iterkeys()))
+            self.nameof_Instance(INSTANCE._superclass), 
+            self.nameof_Instance(INSTANCE),
+            ' '.join(INSTANCE._fields.iterkeys()))
 
-    def gen_sqmethod(self, inst, meth, f):
-        if (inst, meth) in self.methods:
+    def gen_method(self, INSTANCE, method_name, f):
+        if (INSTANCE, method_name) in self.methods:
             return
-        self.methods.append((inst, meth))
-        print >> f, "!%s methodsFor: 'methods' stamp: 'pypy 1/1/2000 00:00'!" % (
-            self.nameof_Instance(inst))
-        graph = inst._methods[meth].graph
-        self.gen_methodbody(camel_case(meth), graph, f)
+        self.methods.append((INSTANCE, method_name))
+        self.gen_fileout_header(self.nameof_Instance(INSTANCE), "methods", f)
+        graph = INSTANCE._methods[method_name].graph
+        self.gen_methodbody(camel_case(method_name), graph, f)
 
     def gen_setter(self, INSTANCE, field_name, f):
         if (INSTANCE, field_name) in self.methods:
             return
         self.methods.append((INSTANCE, field_name))
-        print >> f, "!%s methodsFor: 'accessors' stamp: 'pypy 1/1/2000 00:00'!" % (
-            self.nameof_Instance(INSTANCE))
+        self.gen_fileout_header(self.nameof_Instance(INSTANCE), "accessors", f)
         print >> f, "%s: value" % field_name
         print >> f, "  %s := value" % field_name
         print >> f, "! !"
 
-    def gen_sqfunction(self, graph, f):
+    def gen_function(self, graph, f):
         if not self.function_container:
             self.gen_function_container(f)
             self.function_container = True
         func_name = self.nameof(graph.func)
-        #import pdb; pdb.set_trace()
         if func_name in self.functions:
             return
         self.functions.append(func_name)
-        print >> f, "!PyFunctions class methodsFor: 'functions'" \
-                " stamp: 'pypy 1/1/2000 00:00'!"
+        self.gen_fileout_header("PyFunctions class", "functions", f)
         self.gen_methodbody(func_name, graph, f)
 
     def gen_methodbody(self, method_name, graph, f):
