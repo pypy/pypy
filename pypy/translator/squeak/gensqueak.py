@@ -181,9 +181,10 @@ class GenSqueak:
         if not self.function_container:
             self.gen_function_container(f)
             self.function_container = True
-        if graph.name in self.functions:
+        func_name = self.nameof(graph.func)
+        if func_name in self.functions:
             return
-        self.functions.append(graph.name)
+        self.functions.append(func_name)
         print >> f, "!PyFunctions class methodsFor: 'functions'" \
                 " stamp: 'pypy 1/1/2000 00:00'!"
         self.gen_methodbody(graph.name, graph, f)
@@ -226,27 +227,6 @@ class GenSqueak:
     def nameof_str(self, s):
         return "'s'"
 
-    #def nameof_function(self, func):
-    #    #XXX this should actually be a StaticMeth
-    #    printable_name = '(%s:%d) %s' % (
-    #        func.func_globals.get('__name__', '?'),
-    #        func.func_code.co_firstlineno,
-    #        func.__name__)
-    #    if self.translator.frozen:
-    #        if func not in self.translator.flowgraphs:
-    #            print "NOT GENERATING", printable_name
-    #            return self.skipped_function(func)
-    #    else:
-    #        if (func.func_doc and
-    #            func.func_doc.lstrip().startswith('NOT_RPYTHON')):
-    #            print "skipped", printable_name
-    #            return self.skipped_function(func)
-    #    name = self.unique_name(func.__name__)
-    #    args = arg_names(func)
-    #    sel = selector(name, args)
-    #    self.pendingfunctions.append(func)
-    #    return sel
-
     def nameof_Instance(self, INSTANCE):
         if INSTANCE is None:
             return "Object"
@@ -277,8 +257,12 @@ class GenSqueak:
         return self.nameof_Instance(inst._TYPE)
 
     def nameof__callable(self, callable):
-        return callable._name
+        return self.nameof_function(callable.graph.func)
 
+    def nameof_function(self, function):
+        # XXX need to handle package names here
+        return function.__name__
+        
     def note_Instance(self, inst):
         if inst not in self.classes:
             if inst not in self.pendingclasses:
@@ -320,8 +304,7 @@ class MethodBodyRenderer:
 
     def __init__(self, gen, method_name, graph):
         self.gen = gen
-        # XXX need to handle names with packages somehow, probably in Selector
-        self.name = method_name.split('.')[-1]
+        self.name = method_name
         self.start = graph.startblock
         self.loops = LoopFinder(self.start).loops
 
