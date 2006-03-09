@@ -269,18 +269,23 @@ class CallableNode(CodeNode):
             receiver = args[0]
             name = op.args[1].value
             args = args[2:]
-            # XXX should only generate getter if field is set from outside
-            self.gen.schedule_node(
-                    GetterNode(self.gen, op.args[0].concretetype, name))
+            if hasattr(self, "self") and op.args[0] == self.self:
+                # Could also directly substitute op.result with name
+                # everywhere for optimization.
+                return "%s := %s." % (self.expr(op.result), name) 
+            else:
+                self.gen.schedule_node(
+                        GetterNode(self.gen, op.args[0].concretetype, name))
         elif op.opname == "oosetfield":
             receiver = args[0]
-            if hasattr(self, "self") and op.args[0] == self.self:
-                receiver = "self"
             name = op.args[1].value
             args = args[2:]
-            # XXX should only generate setter if field is set from outside
-            self.gen.schedule_node(
-                    SetterNode(self.gen, op.args[0].concretetype, name))
+            if hasattr(self, "self") and op.args[0] == self.self:
+                # Note that the receiver variable is never used
+                return "%s := %s." % (name, args[0])
+            else:
+                self.gen.schedule_node(
+                        SetterNode(self.gen, op.args[0].concretetype, name))
         elif op.opname == "direct_call":
             # XXX not sure if static methods of a specific class should
             # be treated differently.

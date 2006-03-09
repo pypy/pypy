@@ -162,13 +162,18 @@ class TestGenSqueak:
 
     def test_getfield_setfield(self):
         class A:
-            def m(self, i):
+            def set(self, i):
                 self.i = i
+            def inc(self):
+                self.i = self.i + 1
         def f(i):
             a = A()
-            a.m(i)
-            return a.i
-        assert self.run_on_squeak(f, 2) == "2"
+            a.set(i)
+            i = a.i
+            a.i = 3
+            a.inc()
+            return i + a.i
+        assert self.run_on_squeak(f, 2) == "6"
 
 
 class TestSelector:
