@@ -18,7 +18,8 @@ def force(space, w_self):
         w_bound_to = w_bound_to.w_bound_to
     if w_bound_to is None:
         # XXX here we would have to suspend the current thread
-        # for now just crash
+        raise OperationError(space.w_ValueError,
+                             space.wrap("trying to perform an operation on an unbound variable"))
         assert 0, "green threads not implemented yet"
     else:
         # actually attach the object directly to each variable

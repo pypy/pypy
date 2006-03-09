@@ -43,3 +43,8 @@ class AppTest_Logic(object):
         for i in range(40):
             assert l[i] == 1
 
+    def test_use_unbound_var(self):
+        X = newvar()
+        def f(x):
+            return x + 1
+        raises(ValueError, f, X)
