@@ -6,6 +6,7 @@ from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.gensupp import NameManager
 from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.simplify import simplify_graph
+from pypy.rpython.ootypesystem.ootype import Instance, ROOT
 from pypy import conftest
 try:
     set
@@ -86,118 +87,57 @@ class LoopFinder:
 
 class GenSqueak:
 
+    sqnames = {
+        Constant(None).key:  'nil',
+        Constant(False).key: 'false',
+        Constant(True).key:  'true',
+    }
+    
     def __init__(self, sqdir, translator, modname=None):
         self.sqdir = sqdir
         self.translator = translator
         self.modname = (modname or
                         translator.graphs[0].name)
-        self.sqnames = {
-            Constant(None).key:  'nil',
-            Constant(False).key: 'false',
-            Constant(True).key:  'true',
-        }
+
         self.name_manager = NameManager(number_sep="")
         self.unique_name_mapping = {}
-        self.pendinggraphs = []
-        self.pendingclasses = []
-        self.pendingmethods = []
-        self.pendingsetters = [] # XXX ugly. should generalize methods/setters
-        self.classes = [] 
-        self.methods = [] 
-        self.functions = []
-        self.function_container = False
-
-        t = self.translator
-        graph = t.graphs[0]
-        simplify_graph(graph)
-        remove_direct_loops(t, graph)
-        checkgraph(graph)
+        self.pending_nodes = []
+        self.generated_nodes = set()
 
         if conftest.option.view:
             self.translator.view()
 
-        self.pendinggraphs.append(graph)
+        graph = self.translator.graphs[0]
+        self.pending_nodes.append(FunctionNode(self, graph))
         self.filename = '%s.st' % graph.name
         file = self.sqdir.join(self.filename).open('w')
         self.gen_source(file)
         file.close()
 
-
     def gen_source(self, file):
-        while self.pendinggraphs or self.pendingclasses or self.pendingmethods \
-            or self.pendingsetters:
-            while self.pendinggraphs:
-                graph = self.pendinggraphs.pop()
-                self.gen_function(graph, file)
-            while self.pendingclasses:
-                INST = self.pendingclasses.pop(0)
-                self.gen_class(INST, file)
-            while self.pendingmethods:
-                (INST, method_name) = self.pendingmethods.pop()
-                self.gen_method(INST, method_name, file)
-            while self.pendingsetters:
-                (INST, field_name) = self.pendingsetters.pop()
-                self.gen_setter(INST, field_name, file)
+        while self.pending_nodes:
+            node = self.pending_nodes.pop()
+            self.gen_node(node, file)
 
-    def gen_fileout_header(self, class_name, category, f):
-        print >> f, "!%s methodsFor: '%s' stamp: 'pypy %s'!" % (
-                class_name, category,
-                datetime.datetime.now().strftime("%m/%d/%Y %H:%M"))
-
-    def gen_class(self, INSTANCE, f):
-        self.classes.append(INSTANCE)
-        print >> f, """%s subclass: #%s
-        instanceVariableNames: '%s'
-        classVariableNames: ''
-        poolDictionaries: ''
-        category: 'PyPy-Test'!
-        """ % (
-            self.nameof_Instance(INSTANCE._superclass), 
-            self.nameof_Instance(INSTANCE),
-            ' '.join(INSTANCE._fields.iterkeys()))
-
-    def gen_method(self, INSTANCE, method_name, f):
-        if (INSTANCE, method_name) in self.methods:
-            return
-        self.methods.append((INSTANCE, method_name))
-        self.gen_fileout_header(self.nameof_Instance(INSTANCE), "methods", f)
-        graph = INSTANCE._methods[method_name].graph
-        self.gen_methodbody(camel_case(method_name), graph, f)
-
-    def gen_setter(self, INSTANCE, field_name, f):
-        if (INSTANCE, field_name) in self.methods:
-            return
-        self.methods.append((INSTANCE, field_name))
-        self.gen_fileout_header(self.nameof_Instance(INSTANCE), "accessors", f)
-        print >> f, "%s: value" % field_name
-        print >> f, "  %s := value" % field_name
-        print >> f, "! !"
-
-    def gen_function(self, graph, f):
-        if not self.function_container:
-            self.gen_function_container(f)
-            self.function_container = True
-        func_name = self.nameof(graph.func)
-        if func_name in self.functions:
-            return
-        self.functions.append(func_name)
-        self.gen_fileout_header("PyFunctions class", "functions", f)
-        self.gen_methodbody(func_name, graph, f)
-
-    def gen_methodbody(self, method_name, graph, f):
-        renderer = MethodBodyRenderer(self, method_name, graph)
-        for line in renderer.render():
+    def gen_node(self, node, f):
+        for dep in node.dependencies():
+            if dep not in self.generated_nodes:
+                self.pending_nodes.append(node)
+                self.schedule_node(dep)
+                return
+        self.generated_nodes.add(node)
+        for line in node.render():
             print >> f, line
-        print >> f, '! !'
-        print >> f
+        print >> f, ""
 
-    def gen_function_container(self, f):
-        print >> f, """Object subclass: #PyFunctions
-            instanceVariableNames: ''
-            classVariableNames: ''
-            poolDictionaries: ''
-            category: 'PyPy'!"""
-        
+    def schedule_node(self, node):
+        if node not in self.generated_nodes:
+            if node in self.pending_nodes:
+                # We move the node to the front so we can enforce
+                # the generation of dependencies.
+                self.pending_nodes.remove(node)
+            self.pending_nodes.append(node)
+
     def nameof(self, obj):
         key = Constant(obj).key
         try:
@@ -225,7 +165,7 @@ class GenSqueak:
     def nameof_Instance(self, INSTANCE):
         if INSTANCE is None:
             return "Object"
-        self.note_Instance(INSTANCE)
+        self.schedule_node(ClassNode(self, INSTANCE))
         class_name = INSTANCE._name.split(".")[-1]
         squeak_class_name = self.unique_name(INSTANCE, class_name)
         return "Py%s" % squeak_class_name
@@ -240,27 +180,6 @@ class GenSqueak:
         squeak_func_name = self.unique_name(function, function.__name__)
         return squeak_func_name
         
-    def note_Instance(self, inst):
-        if inst not in self.classes:
-            if inst not in self.pendingclasses:
-                if inst._superclass is not None: # not root
-                    # Need to make sure that superclasses appear first in
-                    # the generated source.
-                    self.note_Instance(inst._superclass)
-                self.pendingclasses.append(inst)
-
-    def note_meth(self, inst, meth):
-        bm = (inst, meth)
-        if bm not in self.methods:
-            if bm not in self.pendingmethods:
-                self.pendingmethods.append(bm)
-
-    def note_function(self, function):
-        # 'function' is actually a _static_meth (always?)
-        graph = function.graph
-        if graph not in self.pendinggraphs:
-            self.pendinggraphs.append(graph)
-
     def unique_name(self, key, basename):
         if self.unique_name_mapping.has_key(key):
             unique = self.unique_name_mapping[key]
@@ -270,29 +189,58 @@ class GenSqueak:
             self.unique_name_mapping[key] = unique
         return unique
 
-    def skipped_function(self, func):
-        # debugging only!  Generates a placeholder for missing functions
-        # that raises an exception when called.
-        name = self.unique_name(camel_case('skipped_' + func.__name__))
-        return name
 
+class CodeNode:
 
-class MethodBodyRenderer:
+    def __hash__(self):
+        return hash(self.hash_key)
+    
+    def __eq__(self, other):
+        return isinstance(other, CodeNode) \
+                and self.hash_key == other.hash_key
+    
+    # XXX need other comparison methods?
 
-    def __init__(self, gen, method_name, graph):
+    def render_fileout_header(self, class_name, category):
+        return "!%s methodsFor: '%s' stamp: 'pypy %s'!" % (
+                class_name, category,
+                datetime.datetime.now().strftime("%m/%d/%Y %H:%M"))
+
+class ClassNode(CodeNode):
+
+    def __init__(self, gen, INSTANCE):
         self.gen = gen
-        self.name = method_name
-        self.start = graph.startblock
-        self.loops = LoopFinder(self.start).loops
+        self.INSTANCE = INSTANCE
+        self.hash_key = INSTANCE
+
+    def dependencies(self):
+        if self.INSTANCE._superclass is not None: # not root
+            return [ClassNode(self.gen, self.INSTANCE._superclass)]
+        else:
+            return []
 
     def render(self):
-        args = self.start.inputargs
+        yield "%s subclass: #%s" % (
+            self.gen.nameof_Instance(self.INSTANCE._superclass), 
+            self.gen.nameof_Instance(self.INSTANCE))
+        yield "    instanceVariableNames: '%s'" % \
+            ' '.join(self.INSTANCE._fields.iterkeys())
+        yield "    classVariableNames: ''"
+        yield "    poolDictionaries: ''"
+        yield "    category: 'PyPy-Test'!"
+
+class CallableNode(CodeNode):
+
+    def render_body(self, startblock):
+        self.loops = LoopFinder(startblock).loops
+        args = startblock.inputargs
         sel = Selector(self.name, len(args))
         yield sel.signature([self.expr(v) for v in args])
  
         # XXX should declare local variables here
-        for line in self.render_block(self.start):
+        for line in self.render_block(startblock):
             yield "    %s" % line
+        yield '! !'
 
     def expr(self, v):
         if isinstance(v, Variable):
@@ -310,7 +258,8 @@ class MethodBodyRenderer:
             # For now, send nil as the explicit self. XXX will probably have
             # to do something more intelligent.
             args = ["nil"] + args[2:]
-            self.gen.note_meth(op.args[1].concretetype, name)
+            self.gen.schedule_node(
+                    MethodNode(self.gen, op.args[1].concretetype, name))
         elif op.opname == "oogetfield":
             receiver = args[0]
             name = op.args[1].value
@@ -320,14 +269,16 @@ class MethodBodyRenderer:
             name = op.args[1].value
             args = args[2:]
             # XXX should only generate setter if field is set from outside
-            self.gen.pendingsetters.append((op.args[0].concretetype, name))
+            self.gen.schedule_node(
+                    SetterNode(self.gen, op.args[0].concretetype, name))
         elif op.opname == "direct_call":
             # XXX not sure if static methods of a specific class should
             # be treated differently.
             receiver = "PyFunctions"
             name = args[0]
             args = args[1:]
-            self.gen.note_function(op.args[0].value)
+            self.gen.schedule_node(
+                FunctionNode(self.gen, op.args[0].value.graph))
         else:
             name = op.opname
             receiver = args[0]
@@ -395,4 +346,57 @@ class MethodBodyRenderer:
                     yield "    %s" % line
                 yield "]"
 
+class MethodNode(CallableNode):
+
+    def __init__(self, gen, INSTANCE, method_name):
+        self.gen = gen
+        self.INSTANCE = INSTANCE
+        self.name = method_name
+        self.hash_key = (INSTANCE, method_name)
+
+    def dependencies(self):
+        return [ClassNode(self.gen, self.INSTANCE)]
+
+    def render(self):
+        yield self.render_fileout_header(
+                self.gen.nameof(self.INSTANCE), "methods")
+        graph = self.INSTANCE._methods[self.name].graph
+        for line in self.render_body(graph.startblock):
+            yield line
+
+class FunctionNode(CallableNode):
+    
+    FUNCTIONS = Instance("Functions", ROOT)
+
+    def __init__(self, gen, graph):
+        self.gen = gen
+        self.graph = graph
+        self.name = gen.nameof(graph.func)
+        self.hash_key = graph
+
+    def dependencies(self):
+        return [ClassNode(self.gen, self.FUNCTIONS)]
+
+    def render(self):
+        yield self.render_fileout_header("PyFunctions class", "functions")
+        for line in self.render_body(self.graph.startblock):
+            yield line
+
+class SetterNode(CodeNode):
+
+    def __init__(self, gen, INSTANCE, field_name):
+        self.gen = gen
+        self.INSTANCE = INSTANCE
+        self.field_name = field_name
+        self.hash_key = (INSTANCE, field_name)
+
+    def dependencies(self):
+        return [ClassNode(self.gen, self.INSTANCE)]
+
+    def render(self):
+        yield self.render_fileout_header(
+                self.gen.nameof_Instance(self.INSTANCE), "accessors")
+        yield "%s: value" % self.field_name
+        yield "    %s := value" % self.field_name
+        yield "! !"
 
