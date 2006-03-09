@@ -28,9 +28,9 @@ def test_call_classes():
             cls = A
         return cls()
     res = interpret(f, [0], type_system='ootype')
-    assert ootype.typeOf(res)._name == 'A'
+    assert ootype.typeOf(res)._name.split(".")[-1] == 'A'
     res = interpret(f, [1], type_system='ootype')
-    assert ootype.typeOf(res)._name == 'B'
+    assert ootype.typeOf(res)._name.split(".")[-1] == 'B'
 
 def test_call_classes_init():
     class A: 

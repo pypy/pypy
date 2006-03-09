@@ -1386,7 +1386,7 @@ class TestOotype(BaseTestRPBC):
     ts = "ootype"
 
     def class_name(self, value):
-        return typeOf(value)._name 
+        return typeOf(value)._name.split(".")[-1] 
 
     def read_attr(self, value, attr):
         return getattr(value, "o" + attr)

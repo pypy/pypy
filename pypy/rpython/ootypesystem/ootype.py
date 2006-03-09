@@ -24,9 +24,7 @@ class Instance(OOType):
     """this is the type of user-defined objects"""
     def __init__(self, name, superclass, fields={}, methods={},
             _is_root=False):
-        package_parts = name.split(".")
-        self._name = package_parts[-1]
-        self._package = ".".join(package_parts[:-1])
+        self._name = name
 
         if _is_root:
             self._superclass = None

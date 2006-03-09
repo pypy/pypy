@@ -232,9 +232,11 @@ class GenSqueak:
         # classes like Root with classes defined in __main__, but
         # in practice it should never happen because __main__ will
         # never contain user classes.
-        class_name = INSTANCE._name
-        if INSTANCE._package:
-            class_name = "%s.%s" % (INSTANCE._package, class_name)
+        # XXX It's impossible with the current ootypesystem to
+        # distinguish two equally named classes in the same
+        # package. For now, just hope that this never actually
+        # occurs within PyPy.
+        class_name = INSTANCE._name 
         class_name = class_name[0].upper() + class_name[1:]
         squeak_class_name = self.unique_name(class_name)
         return "Py%s" % squeak_class_name
