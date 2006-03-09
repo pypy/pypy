@@ -514,18 +514,18 @@ def test_array_with_no_length():
     py.test.raises(TypeError, len, a)
 
 def test_dissect_ll_instance():
-    assert list(dissect_ll_instance(1)) == [1]
+    assert list(dissect_ll_instance(1)) == [(Signed, 1)]
     GcS = GcStruct("S", ('x', Signed))
     s = malloc(GcS)
     s.x = 1
-    assert list(dissect_ll_instance(s)) == [s, s._obj, 1]
+    assert list(dissect_ll_instance(s)) == [(Ptr(GcS), s), (GcS, s._obj), (Signed, 1)]
     
     A = GcArray(('x', Signed))
     a = malloc(A, 10)
     for i in range(10):
         a[i].x = i
-    expected = [a, a._obj]
-    for t in [(a._obj.items[i], i) for i in range(10)]:
+    expected = [(Ptr(A), a), (A, a._obj)]
+    for t in [((A.OF, a._obj.items[i]), (Signed, i)) for i in range(10)]:
         expected.extend(t)
     assert list(dissect_ll_instance(a)) == expected
 
@@ -534,13 +534,15 @@ def test_dissect_ll_instance():
 
     r = malloc(R)
     r.r = r
-    assert list(dissect_ll_instance(r)) == [r, r._obj]
+    r_expected = [(Ptr(R), r), (R, r._obj)]
+    assert list(dissect_ll_instance(r)) == r_expected
 
     B = GcArray(Ptr(R))
     b = malloc(B, 2)
     b[0] = b[1] = r
-    assert list(dissect_ll_instance(b)) == [b, b._obj, r, r._obj]
+    b_expected = [(Ptr(B), b), (B, b._obj)]
+    assert list(dissect_ll_instance(b)) == b_expected + r_expected
 
     memo = {}
-    assert list(dissect_ll_instance(r, memo)) == [r, r._obj]
-    assert list(dissect_ll_instance(b, memo)) == [b, b._obj]
+    assert list(dissect_ll_instance(r, None, memo)) == r_expected
+    assert list(dissect_ll_instance(b, None, memo)) == b_expected

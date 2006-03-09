@@ -837,32 +837,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                         self.get_type_id(t)
                     recursive_get_types(t.OF)
 
-            seen_constants = {}
-            
-            def recursive_get_types_from(v):
-                if id(v) in seen_constants:
-                    return
-                seen_constants[id(v)] = True
-                t = lltype.typeOf(v)
-                if isinstance(t, lltype.Ptr):
-                    if v._obj:
-                        recursive_get_types_from(v._obj)
-                elif isinstance(t, lltype.Struct):
-                    if isinstance(t, lltype.GcStruct):
-                        self.get_type_id(t)
-                    parent = v._parentstructure()
-                    if parent:
-                        recursive_get_types_from(parent)
-                    for n in t._flds:
-                        f = getattr(t, n)
-                        if isinstance(f, (lltype.Ptr, lltype.Struct, lltype.Array)):
-                            recursive_get_types_from(getattr(v, n))
-                elif isinstance(t, lltype.Array):
-                    if isinstance(t, lltype.GcArray):
-                        self.get_type_id(t)
-                    if isinstance(t.OF, (lltype.Struct, lltype.Ptr)):
-                        for i in v.items:
-                            recursive_get_types_from(i)
+            ll_instance_memo = {}
             
             for graph in self.translator.graphs:
                 for block in graph.iterblocks():
@@ -878,10 +853,9 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                         if isinstance(t, lltype.Ptr) and t.TO != lltype.PyObject and \
                                t._needsgc() and find_gc_ptrs_in_type(t.TO):
                             static_roots[id(v.value)] = v
-                        if isinstance(t, lltype.Ptr) and isinstance(t.TO, (lltype.Array, lltype.Struct)):
-                            recursive_get_types_from(v.value)
-                        elif isinstance(t, (lltype.Array, lltype.Struct)):
-                            recursive_get_types_from(v.value)
+                        for T, inst in lltype.dissect_ll_instance(v.value, t, ll_instance_memo):
+                            if isinstance(T, (lltype.GcArray, lltype.GcStruct)):
+                                self.get_type_id(T)
 
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)

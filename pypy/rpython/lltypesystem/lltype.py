@@ -1111,28 +1111,29 @@ def typeMethod(func):
     func._type_method = True
     return func
 
-def dissect_ll_instance(v, memo=None):
+def dissect_ll_instance(v, t=None, memo=None):
     if memo is None:
         memo = {}
     if id(v) in memo:
         return
     memo[id(v)] = True
-    yield v
-    t = typeOf(v)
+    if t is None:
+        t = typeOf(v)
+    yield t, v
     if isinstance(t, Ptr):
         if v._obj:
-            for i in dissect_ll_instance(v._obj, memo):
+            for i in dissect_ll_instance(v._obj, t.TO, memo):
                 yield i
     elif isinstance(t, Struct):
         parent = v._parentstructure()
         if parent:
-            for i in dissect_ll_instance(parent, memo):
+            for i in dissect_ll_instance(parent, typeOf(parent), memo):
                 yield i
         for n in t._flds:
             f = getattr(t, n)
-            for i in dissect_ll_instance(getattr(v, n), memo):
+            for i in dissect_ll_instance(getattr(v, n), t._flds[n], memo):
                 yield i
     elif isinstance(t, Array):
         for item in v.items:
-            for i in dissect_ll_instance(item, memo):
+            for i in dissect_ll_instance(item, t.OF, memo):
                 yield i
