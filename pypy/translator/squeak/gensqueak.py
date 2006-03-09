@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import traverse
 from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import Constant, Variable, Block
 from pypy.objspace.flow.model import last_exception, checkgraph
+from pypy.translator.gensupp import NameManager
 from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.simplify import simplify_graph
 from pypy import conftest
@@ -95,8 +96,8 @@ class GenSqueak:
             Constant(False).key: 'false',
             Constant(True).key:  'true',
         }
-        self.seennames = set()
-        self.name_mapping = {}
+        self.name_manager = NameManager(number_sep="")
+        self.unique_name_mapping = {}
         self.pendinggraphs = []
         self.pendingclasses = []
         self.pendingmethods = []
@@ -261,17 +262,12 @@ class GenSqueak:
             self.pendinggraphs.append(graph)
 
     def unique_name(self, key, basename):
-        if self.name_mapping.has_key(key):
-            unique = self.name_mapping[key]
+        if self.unique_name_mapping.has_key(key):
+            unique = self.unique_name_mapping[key]
         else:
             camel_basename = camel_case(basename)
-            unique = camel_basename
-            ext = 0
-            while unique in self.seennames:
-               unique = camel_basename + str(ext)
-               ext += 1 
-            self.name_mapping[key] = unique
-            self.seennames.add(unique)
+            unique = self.name_manager.uniquename(camel_basename)
+            self.unique_name_mapping[key] = unique
         return unique
 
     def skipped_function(self, func):
