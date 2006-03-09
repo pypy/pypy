@@ -842,7 +842,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             def recursive_get_types_from(v):
                 if id(v) in seen_constants:
                     return
-                print '!!!!', v
                 seen_constants[id(v)] = True
                 t = lltype.typeOf(v)
                 if isinstance(t, lltype.Ptr):
