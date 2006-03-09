@@ -81,6 +81,7 @@ def wait(space, w_self):
                 w_curr.w_bound_to = w_obj
                 w_curr = w_next
             return w_obj
+app_wait = gateway.interp2app(wait)
 
 def newvar(space):
     return W_Var()
@@ -267,4 +268,6 @@ def Space(*args, **kwds):
         space.setitem(space.sys.w_dict, space.wrap("exitfunc"), space.wrap(app_exitfunc))
         space.setitem(space.builtin.w_dict, space.wrap('uthread'),
                      space.wrap(app_uthread))
+        space.setitem(space.builtin.w_dict, space.wrap('wait'),
+                     space.wrap(app_wait))
     return space
