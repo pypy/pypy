@@ -86,10 +86,14 @@ def name_address(value, db):
     if value is NULL:
         return 'NULL'
     assert isinstance(value, fakeaddress)
-    if value.ob is None:
-        return 'NULL'
+    if value.offset is None:
+        if value.ob is None:
+            return 'NULL'
+        else:
+            return db.get(value.ob)
     else:
-        return db.get(value.ob)
+        assert value.offset is not None
+        return '(void*)(((char*)(%s)) + (%s))'%(db.get(value.ob), db.get(value.offset))
 
 PrimitiveName = {
     Signed:   name_signed,
