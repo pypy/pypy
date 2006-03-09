@@ -31,6 +31,7 @@ if USE_GREENLETS:
                                                            baseobjspace.W_Root,
                                                            argument.Arguments])
 
+
 class W_Var(baseobjspace.W_Root, object):
     def __init__(w_self):
         w_self.w_bound_to = None
@@ -45,7 +46,7 @@ def find_last_var_in_chain(w_var):
             break
     return w_curr
 
-def force(space, w_self):
+def wait(space, w_self):
     while 1:
         if not isinstance(w_self, W_Var):
             return w_self
@@ -168,7 +169,7 @@ def isoreqproxy(space, parentfn):
         if space.is_true(is_unbound(space, w_obj2)):
             bind(space, w_obj2, w_obj1)
             return space.w_True
-        return parentfn(force(space, w_obj1), force(space, w_obj2))
+        return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return isoreq
 
 def cmpproxy(space, parentfn):
@@ -179,7 +180,7 @@ def cmpproxy(space, parentfn):
         if space.is_true(is_unbound(space, w_obj2)):
             bind(space, w_obj2, w_obj1)
             return space.wrap(0)
-        return parentfn(force(space, w_obj1), force(space, w_obj2))
+        return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return cmp
 
 def neproxy(space, parentfn):
@@ -191,7 +192,7 @@ def neproxy(space, parentfn):
             w_var2 = find_last_var_in_chain(w_obj2)
             if w_var1 is w_var2:
                 return space.w_False
-        return parentfn(force(space, w_obj1), force(space, w_obj2))
+        return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return ne
 
 def is_wproxy(space, parentfn):
@@ -202,7 +203,7 @@ def is_wproxy(space, parentfn):
         if space.is_true(is_unbound(space, w_obj2)):
             bind(space, w_obj2, w_obj1)
             return True
-        return parentfn(force(space, w_obj1), force(space, w_obj2))
+        return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return is_w
 
 def proxymaker(space, opname, parentfn):
@@ -219,18 +220,18 @@ def proxymaker(space, opname, parentfn):
         proxy = None
     elif nb_args == 1:
         def proxy(w1, *extra):
-            w1 = force(space, w1)
+            w1 = wait(space, w1)
             return parentfn(w1, *extra)
     elif nb_args == 2:
         def proxy(w1, w2, *extra):
-            w1 = force(space, w1)
-            w2 = force(space, w2)
+            w1 = wait(space, w1)
+            w2 = wait(space, w2)
             return parentfn(w1, w2, *extra)
     elif nb_args == 3:
         def proxy(w1, w2, w3, *extra):
-            w1 = force(space, w1)
-            w2 = force(space, w2)
-            w3 = force(space, w3)
+            w1 = wait(space, w1)
+            w2 = wait(space, w2)
+            w3 = wait(space, w3)
             return parentfn(w1, w2, w3, *extra)
     else:
         raise NotImplementedError("operation %r has arity %d" %
