@@ -816,7 +816,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             # XXX this is a kind of sledgehammer-wallnut approach to make sure
             # all types get an ID.
             # and to find static roots
-            # XXX this replicates FAR too much of pypy.rpython.memory.convertlltype :(
+            # XXX this replicates too much of pypy.rpython.memory.convertlltype :(
             static_roots = {}
 
             seen_types = {}
