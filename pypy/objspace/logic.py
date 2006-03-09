@@ -10,24 +10,22 @@ class W_Var(baseobjspace.W_Root, object):
 
 def find_last_var_in_chain(w_var):
     w_curr = w_var
-    while w_curr.w_bound_to is not None:
+    while isinstance(w_curr.w_bound_to, W_Var):
         w_curr = w_curr.w_bound_to
     return w_curr
 
 def force(space, w_self):
     if not isinstance(w_self, W_Var):
         return w_self
-    w_bound_to = w_self.w_bound_to
-    while isinstance(w_bound_to, W_Var):
-        w_bound_to = w_bound_to.w_bound_to
-    if w_bound_to is None:
+    w_last = find_last_var_in_chain(w_self)
+    w_obj = w_last.w_bound_to
+    if w_obj is None:
         # XXX here we would have to suspend the current thread
         raise OperationError(space.w_ValueError,
                              space.wrap("trying to perform an operation on an unbound variable"))
     else:
         # actually attach the object directly to each variable
         # to remove indirections
-        w_obj = w_bound_to
         w_curr = w_self
         while w_curr.w_bound_to is not w_obj:
             w_next = w_curr.w_bound_to
@@ -42,23 +40,28 @@ app_newvar = gateway.interp2app(newvar)
 def is_unbound(space, w_var):
     if not isinstance(w_var, W_Var):
         return space.newbool(False)
-    w_curr = w_var
-    while isinstance(w_curr, W_Var):
-        w_curr = w_curr.w_bound_to
-    return space.newbool(w_curr is None)
+    w_last = find_last_var_in_chain(w_var)
+    return space.newbool(w_last.w_bound_to is None)
 app_is_unbound = gateway.interp2app(is_unbound)
 
 def bind(space, w_var, w_obj):
-    if (not isinstance(w_var, W_Var) and
-        not space.is_true(is_unbound(space, w_var))):
+    if not isinstance(w_var, W_Var):
         raise OperationError(space.w_TypeError,
-                             space.wrap("can only bind unbound logic variable"))
-    w_curr = w_var
-    if isinstance(w_obj, W_Var) and space.is_true(is_unbound(space, w_var)):
-        w_last1 = find_last_var_in_chain(w_var)
+                             space.wrap("can only bind logic variable"))
+    w_last = find_last_var_in_chain(w_var)
+    if w_last.w_bound_to is not None:
+         raise OperationError(space.w_TypeError,
+                              space.wrap("can only bind unbound logic variable"))
+    if isinstance(w_obj, W_Var):
         w_last2 = find_last_var_in_chain(w_obj)
-        if w_last1 is w_last2:
+        if w_last2.w_bound_to is not None:
+            w_obj = w_last2
+        elif w_last is w_last2:
             return space.w_None
+        else:
+            w_last.w_bound_to = w_last2
+            return
+    w_curr = w_var
     while w_curr is not None:
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_obj
