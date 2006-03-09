@@ -145,11 +145,11 @@ class TestGenSqueak:
     def test_nameclash_camel_case(self):
         class ASomething:
             def m(self, i): return 1 + i
-        class Asomething:
+        class A_Something:
             def m(self, i): return 2 + i
         def f():
-            x = ASomething().m(0) + Asomething().m(0)
-            return x + ASomething().m(0) + Asomething().m(0)
+            x = ASomething().m(0) + A_Something().m(0)
+            return x + ASomething().m(0) + A_Something().m(0)
         assert self.run_on_squeak(f) == "6"
 
     def test_nameclash_functions(self):
