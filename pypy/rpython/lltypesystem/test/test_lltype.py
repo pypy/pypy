@@ -513,3 +513,34 @@ def test_array_with_no_length():
     a = malloc(A, 10)
     py.test.raises(TypeError, len, a)
 
+def test_dissect_ll_instance():
+    assert list(dissect_ll_instance(1)) == [1]
+    GcS = GcStruct("S", ('x', Signed))
+    s = malloc(GcS)
+    s.x = 1
+    assert list(dissect_ll_instance(s)) == [s, s._obj, 1]
+    
+    A = GcArray(('x', Signed))
+    a = malloc(A, 10)
+    for i in range(10):
+        a[i].x = i
+    expected = [a, a._obj]
+    for t in [(a._obj.items[i], i) for i in range(10)]:
+        expected.extend(t)
+    assert list(dissect_ll_instance(a)) == expected
+
+    R = GcStruct("R", ('r', Ptr(GcForwardReference())))
+    R.r.TO.become(R)
+
+    r = malloc(R)
+    r.r = r
+    assert list(dissect_ll_instance(r)) == [r, r._obj]
+
+    B = GcArray(Ptr(R))
+    b = malloc(B, 2)
+    b[0] = b[1] = r
+    assert list(dissect_ll_instance(b)) == [b, b._obj, r, r._obj]
+
+    memo = {}
+    assert list(dissect_ll_instance(r, memo)) == [r, r._obj]
+    assert list(dissect_ll_instance(b, memo)) == [b, b._obj]

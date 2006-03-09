@@ -1110,5 +1110,29 @@ def isCompatibleType(TYPE1, TYPE2):
 def typeMethod(func):
     func._type_method = True
     return func
-    
 
+def dissect_ll_instance(v, memo=None):
+    if memo is None:
+        memo = {}
+    if id(v) in memo:
+        return
+    memo[id(v)] = True
+    yield v
+    t = typeOf(v)
+    if isinstance(t, Ptr):
+        if v._obj:
+            for i in dissect_ll_instance(v._obj, memo):
+                yield i
+    elif isinstance(t, Struct):
+        parent = v._parentstructure()
+        if parent:
+            for i in dissect_ll_instance(parent, memo):
+                yield i
+        for n in t._flds:
+            f = getattr(t, n)
+            for i in dissect_ll_instance(getattr(v, n), memo):
+                yield i
+    elif isinstance(t, Array):
+        for item in v.items:
+            for i in dissect_ll_instance(item, memo):
+                yield i
