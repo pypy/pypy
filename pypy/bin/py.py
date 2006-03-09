@@ -58,6 +58,8 @@ def make_objspace(cmdlineopt):
         from pypy.objspace.std import Space
     elif cmdlineopt.objspace == 'thunk':
         from pypy.objspace.thunk import Space
+    elif cmdlineopt.objspace == 'logic':
+        from pypy.objspace.logic import Space
     else:
         raise ValueError("cannot instantiate %r space" %(cmdlineopt.objspace,))
 
