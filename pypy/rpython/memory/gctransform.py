@@ -625,6 +625,25 @@ class BoehmGCTransformer(GCTransformer):
         self.finalizer_funcptrs[TYPE] = fptr
         return fptr
 
+
+def gc_pointers_inside(v, adr):
+    t = lltype.typeOf(v)
+    if isinstance(t, lltype.Struct):
+        for n, t2 in t._flds.iteritems():
+            if isinstance(t2, lltype.Ptr) and t2._needsgc() and t2.TO != lltype.PyObject:
+                yield adr + llmemory.offsetof(t, n)
+            elif isinstance(t2, (lltype.Array, lltype.Struct)):
+                for a in gc_pointers_inside(getattr(v, n), adr + llmemory.offsetof(t, n)):
+                    yield a
+    elif isinstance(t, lltype.Array):
+        if isinstance(t.OF, lltype.Ptr) and t2._needsgc():
+            for i in range(len(v.items)):
+                yield adr + llmemory.itemoffsetof(t, i)
+        elif isinstance(t.OF, lltype.Struct):
+            for i in range(len(v.items)):
+                for a in gc_pointers_inside(v.items[i], adr + llmemory.itemoffsetof(t, i)):
+                    yield a
+
 class FrameworkGCTransformer(BoehmGCTransformer):
 
     def __init__(self, translator):
@@ -673,6 +692,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                                                immortal=True)
         gcdata.static_roots = lltype.malloc(lltype.Array(llmemory.Address), 0,
                                             immortal=True)
+        gcdata.static_root_start = gcdata.static_root_end = llmemory.cast_ptr_to_adr(gcdata.static_roots)
         self.gcdata = gcdata
         self.type_info_list = []
         self.id_of_type = {}      # {LLTYPE: type_id}
@@ -685,13 +705,19 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         class StackRootIterator:
             _alloc_flavor_ = 'raw'
             def __init__(self):
-                self.current = gcdata.root_stack_top
+                self.stack_current = gcdata.root_stack_top
+                self.static_current = gcdata.static_root_start
 
             def pop(self):
-                while self.current != gcdata.root_stack_base:
-                    self.current -= sizeofaddr
-                    if self.current.address[0] != NULL:
-                        return self.current
+                while self.static_current != gcdata.static_root_end:
+                    result = self.static_current
+                    self.static_current += sizeofaddr
+                    if result.address[0].address[0] != NULL:
+                        return result.address[0]
+                while self.stack_current != gcdata.root_stack_base:
+                    self.stack_current -= sizeofaddr
+                    if self.stack_current.address[0] != NULL:
+                        return self.stack_current
                 return NULL
 
         def frameworkgc_setup():
@@ -735,6 +761,12 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         data_classdef.generalize_attr(
             'static_roots',
             annmodel.SomePtr(lltype.Ptr(lltype.Array(llmemory.Address))))
+        data_classdef.generalize_attr(
+            'static_root_start',
+            annmodel.SomeAddress())
+        data_classdef.generalize_attr(
+            'static_root_end',
+            annmodel.SomeAddress())
         
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
         frameworkgc_setup_graph = annhelper.getgraph(frameworkgc_setup, [],
@@ -817,8 +849,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             # all types get an ID.
             # and to find static roots
             # XXX this replicates too much of pypy.rpython.memory.convertlltype :(
-            static_roots = {}
-
             seen_types = {}
 
             def recursive_get_types(t):
@@ -838,6 +868,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                     recursive_get_types(t.OF)
 
             ll_instance_memo = {}
+            static_gc_roots = {}
+            static_roots_inside_nongc = []
             
             for graph in self.translator.graphs:
                 for block in graph.iterblocks():
@@ -851,11 +883,16 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                         if t is None:
                             continue
                         if isinstance(t, lltype.Ptr) and t.TO != lltype.PyObject and \
-                               t._needsgc() and find_gc_ptrs_in_type(t.TO):
-                            static_roots[id(v.value)] = v
+                               find_gc_ptrs_in_type(t.TO):
+                            if t._needsgc():
+                                static_gc_roots[id(v.value)] = v
+                            else:
+                                for a in gc_pointers_inside(v.value._obj, llmemory.cast_ptr_to_adr(v.value)):
+                                    static_roots_inside_nongc.append(a)
                         for T, inst in lltype.dissect_ll_instance(v.value, t, ll_instance_memo):
                             if isinstance(T, (lltype.GcArray, lltype.GcStruct)):
                                 self.get_type_id(T)
+                                
 
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)
@@ -883,18 +920,27 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             #self.gcdata.type_info_table = table
 
             ll_static_roots = lltype.malloc(lltype.Array(llmemory.Address),
-                                            len(static_roots),
+                                            len(static_gc_roots),
                                             immortal=True)
-            static_roots = static_roots.values()
+            static_roots = static_gc_roots.values()
             for i in range(len(static_roots)):
                 c = static_roots[i]
                 c_ll_c = rmodel.inputconst(c.concretetype, c.value)
                 ll_static_roots[i] = llmemory.cast_ptr_to_adr(c_ll_c.value)
             ll_instance.inst_static_roots = ll_static_roots
+
+            ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
+                                                   len(static_roots_inside_nongc),
+                                                   immortal=True)
+            for i in range(len(static_roots_inside_nongc)):
+                ll_static_roots_inside[i] = static_roots_inside_nongc[i]
+            ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
+            ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(static_roots_inside_nongc)
             
             newgcdependencies = newgcdependencies or []
             newgcdependencies.append(table)
             newgcdependencies.append(ll_static_roots)
+            newgcdependencies.append(ll_static_roots_inside)
         return newgcdependencies
 
     def protect_roots(self, op, livevars):

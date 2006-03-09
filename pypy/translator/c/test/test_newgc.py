@@ -271,7 +271,6 @@ class TestUsingFramework(AbstractTestClass):
         assert res == 42
 
     def test_framework_nongc_static_root(self):
-        py.test.skip("I don't know how to make this work")
         S = lltype.GcStruct("S", ('x', lltype.Signed))
         T = lltype.Struct("T", ('p', lltype.Ptr(S)))
         t = lltype.malloc(T, immortal=True)
