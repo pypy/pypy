@@ -31,9 +31,11 @@ def force(space, w_self):
         # actually attach the object directly to each variable
         # to remove indirections
         w_curr = w_self
-        while w_curr.w_bound_to is not w_obj:
+        while 1:
             assert isinstance(w_curr, W_Var)
             w_next = w_curr.w_bound_to
+            if not isinstance(w_next, W_Var):
+                break
             w_curr.w_bound_to = w_obj
             w_curr = w_next
         return w_obj
