@@ -13,77 +13,6 @@ try:
 except NameError:
     from sets import Set as set
 
-def camel_case(identifier):
-    identifier = identifier.replace(".", "_")
-    words = identifier.split('_')
-    return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
-
-
-class Selector:
-
-    def __init__(self, function_name, arg_count):
-        self.parts = [camel_case(function_name)]
-        self.arg_count = arg_count
-        self.infix = False
-        if not self.parts[0].isalnum():
-            # Binary infix selector, e.g. "+"
-            assert arg_count == 1
-            self.infix = True
-        if arg_count > 1:
-            self.parts += ["with"] * (arg_count - 1)
-
-    def __str__(self):
-        if self.arg_count == 0 or self.infix:
-            return self.parts[0]
-        else:
-            return "%s:%s" % (self.parts[0],
-                    "".join([p + ":" for p in self.parts[1:]]))
-
-    def symbol(self):
-        return str(self)
-
-    def signature(self, arg_names):
-        assert len(arg_names) == self.arg_count
-        if self.arg_count == 0:
-            return self.parts[0]
-        elif self.infix:
-            return "%s %s" % (self.parts[0], arg_names[0])
-        else:
-            return " ".join(["%s: %s" % (p, a)
-                    for (p, a) in zip(self.parts, arg_names)])
-
-selectormap = {
-    #'setitem:with:': 'at:put:',
-    #'getitem:':      'at:',
-    'new':           Selector('new', 0),
-    'runtimenew':    Selector('new', 0),
-    'classof':       Selector('class', 0),
-    'sameAs':        Selector('yourself', 0), 
-    'intAdd:':       Selector('+', 1),
-}
-
-
-class LoopFinder:
-    def __init__(self, startblock):
-        self.loops = {}
-        self.parents = {startblock: startblock}
-        self.temps = {}
-        self.seen = []
-        self.visit_Block(startblock)
-    def visit_Block(self, block, switches=[]):
-        #self.temps.has_key()
-        self.seen.append(block)
-        if block.exitswitch:
-            switches.append(block)
-            self.parents[block] = block
-        for link in block.exits:
-            self.visit_Link(link, switches) 
-    def visit_Link(self, link, switches):
-        if link.target in switches:
-            self.loops[link.target] = True
-        if not link.target in self.seen:
-            self.parents[link.target] = self.parents[link.prevblock]
-            self.visit_Block(link.target, switches)
 
 class GenSqueak:
 
@@ -190,6 +119,45 @@ class GenSqueak:
         return unique
 
 
+def camel_case(identifier):
+    identifier = identifier.replace(".", "_")
+    words = identifier.split('_')
+    return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
+
+class Selector:
+
+    def __init__(self, function_name, arg_count):
+        self.parts = [camel_case(function_name)]
+        self.arg_count = arg_count
+        self.infix = False
+        if not self.parts[0].isalnum():
+            # Binary infix selector, e.g. "+"
+            assert arg_count == 1
+            self.infix = True
+        if arg_count > 1:
+            self.parts += ["with"] * (arg_count - 1)
+
+    def __str__(self):
+        if self.arg_count == 0 or self.infix:
+            return self.parts[0]
+        else:
+            return "%s:%s" % (self.parts[0],
+                    "".join([p + ":" for p in self.parts[1:]]))
+
+    def symbol(self):
+        return str(self)
+
+    def signature(self, arg_names):
+        assert len(arg_names) == self.arg_count
+        if self.arg_count == 0:
+            return self.parts[0]
+        elif self.infix:
+            return "%s %s" % (self.parts[0], arg_names[0])
+        else:
+            return " ".join(["%s: %s" % (p, a)
+                    for (p, a) in zip(self.parts, arg_names)])
+
+
 class CodeNode:
 
     def __hash__(self):
@@ -229,7 +197,42 @@ class ClassNode(CodeNode):
         yield "    poolDictionaries: ''"
         yield "    category: 'PyPy-Test'!"
 
+class LoopFinder:
+
+    def __init__(self, startblock):
+        self.loops = {}
+        self.parents = {startblock: startblock}
+        self.temps = {}
+        self.seen = []
+        self.visit_Block(startblock)
+   
+    def visit_Block(self, block, switches=[]):
+        #self.temps.has_key()
+        self.seen.append(block)
+        if block.exitswitch:
+            switches.append(block)
+            self.parents[block] = block
+        for link in block.exits:
+            self.visit_Link(link, switches) 
+
+    def visit_Link(self, link, switches):
+        if link.target in switches:
+            self.loops[link.target] = True
+        if not link.target in self.seen:
+            self.parents[link.target] = self.parents[link.prevblock]
+            self.visit_Block(link.target, switches)
+
 class CallableNode(CodeNode):
+
+    selectormap = {
+        #'setitem:with:': 'at:put:',
+        #'getitem:':      'at:',
+        'new':           Selector('new', 0),
+        'runtimenew':    Selector('new', 0),
+        'classof':       Selector('class', 0),
+        'sameAs':        Selector('yourself', 0), 
+        'intAdd:':       Selector('+', 1),
+    }
 
     def render_body(self, startblock):
         self.loops = LoopFinder(startblock).loops
@@ -285,7 +288,7 @@ class CallableNode(CodeNode):
             args = args[1:]
         sel = Selector(name, len(args))
         if op.opname != "oosend":
-            sel = selectormap.get(sel.symbol(), sel)
+            sel = self.selectormap.get(sel.symbol(), sel)
         return "%s := %s %s." \
                 % (self.expr(op.result), receiver, sel.signature(args))
 
