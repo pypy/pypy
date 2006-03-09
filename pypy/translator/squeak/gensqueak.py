@@ -258,6 +258,8 @@ class CallableNode(CodeNode):
         if op.opname == "oosend":
             name = op.args[0].value
             receiver = args[1]
+            if hasattr(self, "self") and op.args[1] == self.self:
+                receiver = "self"
             # For now, send nil as the explicit self. XXX will probably have
             # to do something more intelligent.
             args = ["nil"] + args[2:]
@@ -267,8 +269,13 @@ class CallableNode(CodeNode):
             receiver = args[0]
             name = op.args[1].value
             args = args[2:]
+            # XXX should only generate getter if field is set from outside
+            self.gen.schedule_node(
+                    GetterNode(self.gen, op.args[0].concretetype, name))
         elif op.opname == "oosetfield":
             receiver = args[0]
+            if hasattr(self, "self") and op.args[0] == self.self:
+                receiver = "self"
             name = op.args[1].value
             args = args[2:]
             # XXX should only generate setter if field is set from outside
@@ -364,6 +371,7 @@ class MethodNode(CallableNode):
         yield self.render_fileout_header(
                 self.gen.nameof(self.INSTANCE), "methods")
         graph = self.INSTANCE._methods[self.name].graph
+        self.self = graph.startblock.inputargs[0]
         for line in self.render_body(graph.startblock):
             yield line
 
@@ -385,21 +393,32 @@ class FunctionNode(CallableNode):
         for line in self.render_body(self.graph.startblock):
             yield line
 
-class SetterNode(CodeNode):
+class AccessorNode(CodeNode):
 
     def __init__(self, gen, INSTANCE, field_name):
         self.gen = gen
         self.INSTANCE = INSTANCE
         self.field_name = field_name
-        self.hash_key = (INSTANCE, field_name)
+        self.hash_key = (INSTANCE, field_name, self.__class__)
 
     def dependencies(self):
         return [ClassNode(self.gen, self.INSTANCE)]
+
+class SetterNode(AccessorNode):
 
     def render(self):
         yield self.render_fileout_header(
                 self.gen.nameof_Instance(self.INSTANCE), "accessors")
         yield "%s: value" % self.field_name
         yield "    %s := value" % self.field_name
+        yield "! !"
+
+class GetterNode(AccessorNode):
+
+    def render(self):
+        yield self.render_fileout_header(
+                self.gen.nameof_Instance(self.INSTANCE), "accessors")
+        yield self.field_name
+        yield "    ^%s" % self.field_name
         yield "! !"
 

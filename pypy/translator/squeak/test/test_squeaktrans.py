@@ -115,15 +115,6 @@ class TestGenSqueak:
             return A().m(i, j=3)
         assert self.run_on_squeak(simplemethod, 1) == "6"
 
-    def test_direct_call(self):
-        def h(i):
-            return g(i) + 1 # another call to g to try to trap GenSqueak
-        def g(i):
-            return i + 1 
-        def f(i):
-            return h(i) + g(i)
-        assert self.run_on_squeak(f, 1) == "5"
-
     def test_nameclash_classes(self):
         from pypy.translator.squeak.test.support import A as A2
         class A:
@@ -159,6 +150,25 @@ class TestGenSqueak:
         def g():
             return f(0) + f2(0)
         assert self.run_on_squeak(g) == "3"
+
+    def test_direct_call(self):
+        def h(i):
+            return g(i) + 1 # another call to g to try to trap GenSqueak
+        def g(i):
+            return i + 1 
+        def f(i):
+            return h(i) + g(i)
+        assert self.run_on_squeak(f, 1) == "5"
+
+    def test_getfield_setfield(self):
+        class A:
+            def m(self, i):
+                self.i = i
+        def f(i):
+            a = A()
+            a.m(i)
+            return a.i
+        assert self.run_on_squeak(f, 2) == "2"
 
 
 class TestSelector:
