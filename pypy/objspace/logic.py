@@ -14,8 +14,9 @@ if USE_GREENLETS:
     main_greenlet = greenlet.getcurrent()
 
     def uthread(space, w_callable, __args__):
+        w_Result = W_Var()
         def run():
-            space.call_args(w_callable, __args__)
+            space.eq(w_Result, space.call_args(w_callable, __args__))
         gr = greenlet(run)
         current = greenlet.getcurrent()
         runnable_uthreads[current] = True
@@ -25,7 +26,7 @@ if USE_GREENLETS:
             if next_greenlet and next_greenlet is not current:
                 runnable_uthreads[current] = True
                 next_greenlet.switch()
-        return space.w_None
+        return w_Result
     app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
                                                            baseobjspace.W_Root,
                                                            argument.Arguments])
