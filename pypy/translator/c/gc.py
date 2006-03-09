@@ -280,6 +280,9 @@ class FrameworkGcPolicy(NoneGcPolicy):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
         yield '%s();' % (self.db.get(fnptr),)
 
+    def pre_gc_code(self):
+        return []
+
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op, err):
         args = [funcgen.expr(v) for v in op.args]
         return '%s = %s; /* for moving GCs */' % (args[1], args[0])

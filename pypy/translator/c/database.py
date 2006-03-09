@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Primitive, Ptr, typeOf, RuntimeTypeInfo, \
      Struct, Array, FuncType, PyObject, Void, \
      ContainerType, OpaqueType
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.memory.lladdress import NULL
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
@@ -107,6 +108,9 @@ class LowLevelDatabase(object):
             node = self.containernodes[container]
         except KeyError:
             T = typeOf(container)
+            if isinstance(T, (lltype.Array, lltype.Struct)):
+                if hasattr(self.gctransformer, 'consider_constant'):
+                    self.gctransformer.consider_constant(T, container)
             nodefactory = ContainerNodeFactory[T.__class__]
             node = nodefactory(self, T, container)
             self.containernodes[container] = node

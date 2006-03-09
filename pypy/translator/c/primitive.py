@@ -90,10 +90,18 @@ def name_address(value, db):
         if value.ob is None:
             return 'NULL'
         else:
-            return db.get(value.ob)
+            if isinstance(typeOf(value.ob), ContainerType):
+                return db.getcontainernode(value.ob).ptrname
+            else:
+                return db.get(value.ob)
     else:
         assert value.offset is not None
-        return '(void*)(((char*)(%s)) + (%s))'%(db.get(value.ob), db.get(value.offset))
+        if isinstance(typeOf(value.ob), ContainerType):
+            base = db.getcontainernode(value.ob).ptrname
+        else:
+            base = db.get(value.ob)
+        
+        return '(void*)(((char*)(%s)) + (%s))'%(base, db.get(value.offset))
 
 PrimitiveName = {
     Signed:   name_signed,

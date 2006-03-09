@@ -696,6 +696,9 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         self.gcdata = gcdata
         self.type_info_list = []
         self.id_of_type = {}      # {LLTYPE: type_id}
+        self.seen_roots = {}
+        self.static_gc_roots = []
+        self.addresses_of_static_ptrs_in_nongc = []
         self.offsettable_cache = {}
         self.malloc_fnptr_cache = {}
 
@@ -830,6 +833,18 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                 info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
             return type_id
 
+    def consider_constant(self, TYPE, value):
+        if id(value) not in self.seen_roots:
+            self.seen_roots[id(value)] = True
+        if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
+            self.get_type_id(TYPE)
+        if TYPE != lltype.PyObject and find_gc_ptrs_in_type(TYPE):
+            if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
+                self.static_gc_roots.append(value)
+            else: 
+                for a in gc_pointers_inside(value, llmemory.fakeaddress(value)):
+                    self.addresses_of_static_ptrs_in_nongc.append(a)
+
     def offsets2table(self, offsets):
         key = tuple(offsets)
         try:
@@ -845,53 +860,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
     def finish(self):
         newgcdependencies = super(FrameworkGCTransformer, self).finish()
         if self.type_info_list is not None:
-            # XXX this is a kind of sledgehammer-wallnut approach to make sure
-            # all types get an ID.
-            # and to find static roots
-            # XXX this replicates too much of pypy.rpython.memory.convertlltype :(
-            seen_types = {}
-
-            def recursive_get_types(t):
-                if t in seen_types:
-                    return
-                seen_types[t] = True
-                if isinstance(t, lltype.Ptr):
-                    recursive_get_types(t.TO)
-                elif isinstance(t, lltype.Struct):
-                    if isinstance(t, lltype.GcStruct):
-                        self.get_type_id(t)
-                    for n in t._flds:
-                        recursive_get_types(t._flds[n])
-                elif isinstance(t, lltype.Array):
-                    if isinstance(t, lltype.GcArray):
-                        self.get_type_id(t)
-                    recursive_get_types(t.OF)
-
-            ll_instance_memo = {}
-            static_gc_roots = {}
-            static_roots_inside_nongc = []
-            
-            for graph in self.translator.graphs:
-                for block in graph.iterblocks():
-                    for v in block.getvariables():
-                        t = getattr(v, 'concretetype', None)
-                        if t is None:
-                            continue
-                        recursive_get_types(v.concretetype)
-                    for v in block.getconstants():
-                        t = getattr(v, 'concretetype', None)
-                        if t is None:
-                            continue
-                        if isinstance(t, lltype.Ptr) and t.TO != lltype.PyObject and \
-                               find_gc_ptrs_in_type(t.TO):
-                            if t._needsgc():
-                                static_gc_roots[id(v.value)] = v
-                            else:
-                                for a in gc_pointers_inside(v.value._obj, llmemory.cast_ptr_to_adr(v.value)):
-                                    static_roots_inside_nongc.append(a)
-                        for T, inst in lltype.dissect_ll_instance(v.value, t, ll_instance_memo):
-                            if isinstance(T, (lltype.GcArray, lltype.GcStruct)):
-                                self.get_type_id(T)
 
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)
@@ -919,22 +887,20 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             #self.gcdata.type_info_table = table
 
             ll_static_roots = lltype.malloc(lltype.Array(llmemory.Address),
-                                            len(static_gc_roots),
+                                            len(self.static_gc_roots),
                                             immortal=True)
-            static_roots = static_gc_roots.values()
-            for i in range(len(static_roots)):
-                c = static_roots[i]
-                c_ll_c = rmodel.inputconst(c.concretetype, c.value)
-                ll_static_roots[i] = llmemory.cast_ptr_to_adr(c_ll_c.value)
+            for i in range(len(self.static_gc_roots)):
+                c = self.static_gc_roots[i]
+                ll_static_roots[i] = llmemory.fakeaddress(c)
             ll_instance.inst_static_roots = ll_static_roots
 
             ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
-                                                   len(static_roots_inside_nongc),
+                                                   len(self.addresses_of_static_ptrs_in_nongc),
                                                    immortal=True)
-            for i in range(len(static_roots_inside_nongc)):
-                ll_static_roots_inside[i] = static_roots_inside_nongc[i]
+            for i in range(len(self.addresses_of_static_ptrs_in_nongc)):
+                ll_static_roots_inside[i] = self.addresses_of_static_ptrs_in_nongc[i]
             ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
-            ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(static_roots_inside_nongc)
+            ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(ll_static_roots_inside)
             
             newgcdependencies = newgcdependencies or []
             newgcdependencies.append(table)
