@@ -20,7 +20,6 @@ def force(space, w_self):
         # XXX here we would have to suspend the current thread
         raise OperationError(space.w_ValueError,
                              space.wrap("trying to perform an operation on an unbound variable"))
-        assert 0, "green threads not implemented yet"
     else:
         # actually attach the object directly to each variable
         # to remove indirections
