@@ -47,7 +47,7 @@ class AppTest_Logic(object):
         X = newvar()
         def f(x):
             return x + 1
-        raises(ValueError, f, X)
+        raises(RuntimeError, f, X)
 
     def test_bind_to_self(self):
         X = newvar()

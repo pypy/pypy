@@ -2,7 +2,33 @@ from pypy.objspace.proxy import patch_space_in_place
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 
-# __________________________________________________________________________
+USE_GREENLETS = False
+try:
+    from py.magic import greenlet
+except ImportError:
+    USE_GREENLETS = False
+
+if USE_GREENLETS:
+    runnable_uthreads = {}
+    uthreads_blocked_on = {}
+    main_greenlet = greenlet.getcurrent()
+
+    def uthread(space, w_callable, __args__):
+        def run():
+            space.call_args(w_callable, __args__)
+        gr = greenlet(run)
+        current = greenlet.getcurrent()
+        runnable_uthreads[current] = True
+        gr.switch()
+        while runnable_uthreads:
+            next_greenlet, _ = runnable_uthreads.popitem()
+            if next_greenlet and next_greenlet is not current:
+                runnable_uthreads[current] = True
+                next_greenlet.switch()
+        return space.w_None
+    app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
+                                                           baseobjspace.W_Root,
+                                                           argument.Arguments])
 
 class W_Var(baseobjspace.W_Root, object):
     def __init__(w_self):
@@ -19,26 +45,40 @@ def find_last_var_in_chain(w_var):
     return w_curr
 
 def force(space, w_self):
-    if not isinstance(w_self, W_Var):
-        return w_self
-    w_last = find_last_var_in_chain(w_self)
-    w_obj = w_last.w_bound_to
-    if w_obj is None:
-        # XXX here we would have to suspend the current thread
-        raise OperationError(space.w_ValueError,
-                             space.wrap("trying to perform an operation on an unbound variable"))
-    else:
-        # actually attach the object directly to each variable
-        # to remove indirections
-        w_curr = w_self
-        while 1:
-            assert isinstance(w_curr, W_Var)
-            w_next = w_curr.w_bound_to
-            if not isinstance(w_next, W_Var):
-                break
-            w_curr.w_bound_to = w_obj
-            w_curr = w_next
-        return w_obj
+    while 1:
+        if not isinstance(w_self, W_Var):
+            return w_self
+        w_last = find_last_var_in_chain(w_self)
+        w_obj = w_last.w_bound_to
+        if w_obj is None:
+            # XXX here we would have to suspend the current thread
+            if not USE_GREENLETS:
+                raise OperationError(space.w_RuntimeError,
+                                     space.wrap("trying to perform an operation on an unbound variable"))
+            else:
+                current = greenlet.getcurrent()
+                uthreads_blocked_on.setdefault(w_last, []).append(current)
+                while runnable_uthreads:
+                    next_greenlet, _ = runnable_uthreads.popitem()
+                    if next_greenlet:
+                        next_greenlet.switch()
+                        # there is a value here now
+                        break
+                else:
+                    raise OperationError(space.w_RuntimeError,
+                                         space.wrap("blocked on variable, but no uthread that can bind it"))
+        else:
+            # actually attach the object directly to each variable
+            # to remove indirections
+            w_curr = w_self
+            while 1:
+                assert isinstance(w_curr, W_Var)
+                w_next = w_curr.w_bound_to
+                if not isinstance(w_next, W_Var):
+                    break
+                w_curr.w_bound_to = w_obj
+                w_curr = w_next
+            return w_obj
 
 def newvar(space):
     return W_Var()
@@ -74,6 +114,10 @@ def bind(space, w_var, w_obj):
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_obj
         w_curr = w_next
+    if USE_GREENLETS:
+        now_unblocked_uthreads = uthreads_blocked_on.pop(w_last, [])
+        for uthread in now_unblocked_uthreads:
+            runnable_uthreads[uthread] = True
     return space.w_None
 app_bind = gateway.interp2app(bind)
 
@@ -203,4 +247,22 @@ def Space(*args, **kwds):
                   space.wrap(app_is_unbound))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
+    if USE_GREENLETS:
+        def exitfunc():
+            current = greenlet.getcurrent()
+            while runnable_uthreads:
+                next_greenlet, _ = runnable_uthreads.popitem()
+                if next_greenlet and next_greenlet is not current:
+                    runnable_uthreads[current] = True
+                    next_greenlet.switch()
+                    del runnable_uthreads[current]
+            if uthreads_blocked_on:
+                print "there are still blocked uthreads!"
+                for var, blocked in uthreads_blocked_on.iteritems():
+                    print var, blocked
+                assert 0
+        app_exitfunc = gateway.interp2app(exitfunc, unwrap_spec=[])
+        space.setitem(space.sys.w_dict, space.wrap("exitfunc"), space.wrap(app_exitfunc))
+        space.setitem(space.builtin.w_dict, space.wrap('uthread'),
+                     space.wrap(app_uthread))
     return space
