@@ -219,6 +219,9 @@ class TranslationDriver(SimpleTaskEngine):
         if opt.gc == 'none':
             from pypy.translator.c import gc
             gcpolicy = gc.NoneGcPolicy
+        if opt.gc == 'framework':
+            from pypy.translator.c import gc
+            gcpolicy = gc.FrameworkGcPolicy
 
         if standalone:
             from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
