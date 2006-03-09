@@ -140,7 +140,7 @@ class UnwrapSpecRecipe:
 
     def check__object(self, el, orig_sig, app_sig):
         if el not in (int, str, float):
-            assert False, "unsupported basic type in uwnrap_spec"
+            assert False, "unsupported basic type in unwrap_spec"
         name = el.__name__
         argname = orig_sig.next_arg()
         assert not argname.startswith('w_'), (
