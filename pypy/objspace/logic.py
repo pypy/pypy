@@ -32,6 +32,7 @@ def force(space, w_self):
         # to remove indirections
         w_curr = w_self
         while w_curr.w_bound_to is not w_obj:
+            assert isinstance(w_curr, W_Var)
             w_next = w_curr.w_bound_to
             w_curr.w_bound_to = w_obj
             w_curr = w_next
@@ -67,6 +68,7 @@ def bind(space, w_var, w_obj):
             return
     w_curr = w_var
     while w_curr is not None:
+        assert isinstance(w_curr, W_Var)
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_obj
         w_curr = w_next
