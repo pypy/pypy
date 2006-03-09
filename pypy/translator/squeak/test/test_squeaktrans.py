@@ -80,11 +80,9 @@ class TestGenSqueak:
                     "variable to point to an image.")
         arg_types = [type(arg) for arg in args]
         gen_squeak = build_sqfunc(function, arg_types)
-        squeak_func_name = camel_case("%s.%s"
-                % (function.__module__, function.__name__))
         cmd = 'squeak -headless -- %s %s "%s" %s' \
                 % (self.startup_st, udir.join(gen_squeak.filename),
-                   Selector(squeak_func_name, len(args)).symbol(),
+                   Selector(function.__name__, len(args)).symbol(),
                    " ".join(['"%s"' % a for a in args]))
         squeak_process = os.popen(cmd)
         result = squeak_process.read()
@@ -128,6 +126,16 @@ class TestGenSqueak:
 
     def test_nameclash_classes(self):
         from pypy.translator.squeak.test.support import A as A2
+        class A:
+            def m(self, i): return 2 + i
+        def f():
+            return A().m(0) + A2().m(0)
+        assert self.run_on_squeak(f) == "3"
+
+    def test_nameclash_classes_mean(self):
+        class A:
+            def m(self, i): return 1 + i
+        A2 = A
         class A:
             def m(self, i): return 2 + i
         def f():

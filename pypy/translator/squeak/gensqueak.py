@@ -225,20 +225,8 @@ class GenSqueak:
         if INSTANCE is None:
             return "Object"
         self.note_Instance(INSTANCE)
-        # For now, always integrate the package name into the
-        # class name. Later maybe only do this when there actually
-        # is a nameclash.
-        # NB: In theory there could be nameclashes between internal
-        # classes like Root with classes defined in __main__, but
-        # in practice it should never happen because __main__ will
-        # never contain user classes.
-        # XXX It's impossible with the current ootypesystem to
-        # distinguish two equally named classes in the same
-        # package. For now, just hope that this never actually
-        # occurs within PyPy.
-        class_name = INSTANCE._name 
-        class_name = class_name[0].upper() + class_name[1:]
-        squeak_class_name = self.unique_name(class_name)
+        class_name = INSTANCE._name.split(".")[-1]
+        squeak_class_name = self.unique_name(INSTANCE, class_name)
         return "Py%s" % squeak_class_name
 
     def nameof__instance(self, inst):
@@ -248,10 +236,7 @@ class GenSqueak:
         return self.nameof_function(callable.graph.func)
 
     def nameof_function(self, function):
-        func_name = function.__name__
-        if function.__module__:
-            func_name = "%s.%s" % (function.__module__, func_name)
-        squeak_func_name = self.unique_name(func_name)
+        squeak_func_name = self.unique_name(function, function.__name__)
         return squeak_func_name
         
     def note_Instance(self, inst):
@@ -275,13 +260,9 @@ class GenSqueak:
         if graph not in self.pendinggraphs:
             self.pendinggraphs.append(graph)
 
-    def unique_name(self, basename):
-        # This can be used for both classes and functions, even though
-        # they live in different namespaces. As long as class names
-        # starting with an uppercase letter are enforced, interferences
-        # should be seldom.
-        if self.name_mapping.has_key(basename):
-            unique = self.name_mapping[basename]
+    def unique_name(self, key, basename):
+        if self.name_mapping.has_key(key):
+            unique = self.name_mapping[key]
         else:
             camel_basename = camel_case(basename)
             unique = camel_basename
@@ -289,7 +270,7 @@ class GenSqueak:
             while unique in self.seennames:
                unique = camel_basename + str(ext)
                ext += 1 
-            self.name_mapping[basename] = unique
+            self.name_mapping[key] = unique
             self.seennames.add(unique)
         return unique
 
