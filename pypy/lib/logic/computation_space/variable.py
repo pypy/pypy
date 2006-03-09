@@ -1,4 +1,5 @@
 import threading
+import time
 
 #----------- Exceptions ---------------------------------
 class VariableException(Exception):
@@ -71,11 +72,30 @@ class SimpleVar(object):
         try:
             self._value_condition.acquire()
             while not self.is_bound():
-                self._value_condition.wait()
+                t1 = time.time()
+                self._value_condition.wait(80)
+                t2 = time.time()
+                if t2-t1>80:
+                    raise RuntimeError("possible deadlock??")
             return self.val
         finally:
             self._value_condition.release()
 
+
+    def reset(self):
+        self._value_condition.acquire()
+        self._val = NoValue
+        self._value_condition.release()
+
+
+class StreamVar(object):
+    def __init__(self):
+        self.var = SimpleVar()
+
+    def bind( self, val ):
+        newvar = SimpleVar()
+        self.var.bind( (val, newvar) )
+        
 
 class CsVar(SimpleVar):
     """Dataflow variable linked to a space"""
