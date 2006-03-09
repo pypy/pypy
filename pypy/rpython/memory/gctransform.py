@@ -892,7 +892,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                         for T, inst in lltype.dissect_ll_instance(v.value, t, ll_instance_memo):
                             if isinstance(T, (lltype.GcArray, lltype.GcStruct)):
                                 self.get_type_id(T)
-                                
 
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)
@@ -973,7 +972,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         
         newop0 = SpaceOperation(
             "getfield",
-            [rmodel.inputconst(r_gcdata, self.gcdata), Constant("inst_gc")],
+            [rmodel.inputconst(r_gcdata, self.gcdata), Constant("inst_gc", lltype.Void)],
             varoftype(r_gc.lowleveltype))
         newop = SpaceOperation("direct_call",
                                [self.malloc_ptr, newop0.result, c_type_id, v_length],
