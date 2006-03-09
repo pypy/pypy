@@ -10,8 +10,12 @@ class W_Var(baseobjspace.W_Root, object):
 
 def find_last_var_in_chain(w_var):
     w_curr = w_var
-    while isinstance(w_curr.w_bound_to, W_Var):
-        w_curr = w_curr.w_bound_to
+    while 1:
+        w_next = w_curr.w_bound_to
+        if isinstance(w_next, W_Var):
+            w_curr = w_next
+        else:
+            break
     return w_curr
 
 def force(space, w_self):
