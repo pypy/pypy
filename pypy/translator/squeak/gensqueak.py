@@ -236,7 +236,7 @@ class CallableNode(CodeNode):
 
     def render_body(self, startblock):
         self.loops = LoopFinder(startblock).loops
-        args = startblock.inputargs
+        args = self.arguments(startblock)
         sel = Selector(self.name, len(args))
         yield sel.signature([self.expr(v) for v in args])
  
@@ -260,9 +260,7 @@ class CallableNode(CodeNode):
             receiver = args[1]
             if hasattr(self, "self") and op.args[1] == self.self:
                 receiver = "self"
-            # For now, send nil as the explicit self. XXX will probably have
-            # to do something more intelligent.
-            args = ["nil"] + args[2:]
+            args = args[2:]
             self.gen.schedule_node(
                     MethodNode(self.gen, op.args[1].concretetype, name))
         elif op.opname == "oogetfield":
@@ -372,6 +370,10 @@ class MethodNode(CallableNode):
     def dependencies(self):
         return [ClassNode(self.gen, self.INSTANCE)]
 
+    def arguments(self, startblock):
+        # Omit the explicit self
+        return startblock.inputargs[1:]
+    
     def render(self):
         yield self.render_fileout_header(
                 self.gen.nameof(self.INSTANCE), "methods")
@@ -393,6 +395,9 @@ class FunctionNode(CallableNode):
     def dependencies(self):
         return [ClassNode(self.gen, self.FUNCTIONS)]
 
+    def arguments(self, startblock):
+        return startblock.inputargs
+    
     def render(self):
         yield self.render_fileout_header("PyFunctions class", "functions")
         for line in self.render_body(self.graph.startblock):
