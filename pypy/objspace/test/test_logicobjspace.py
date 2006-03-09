@@ -48,3 +48,41 @@ class AppTest_Logic(object):
         def f(x):
             return x + 1
         raises(ValueError, f, X)
+
+    def test_bind_to_self(self):
+        X = newvar()
+        bind(X, X)
+        bind(X, 1)
+        assert X == 1
+
+    def test_eq_unifies_simple(self):
+        X = newvar()
+        Y = newvar()
+        assert X == Y
+        assert X == 1
+        assert not is_unbound(Y)
+        assert Y == 1
+
+    def test_ne_of_unified_vars(self):
+        X = newvar()
+        Y = newvar()
+        assert X == Y
+        assert not X != Y
+
+    def test_cmp(self):
+        X = newvar()
+        Y = newvar()
+        assert cmp(X, Y) == 0
+        assert is_unbound(X)
+        assert is_unbound(Y)
+        assert X == 1
+        assert not is_unbound(Y)
+        assert Y == 1
+
+    def test_is(self):
+        X = newvar()
+        x = 1
+        assert X is x
+        assert X == 1
+        assert X is x
+
