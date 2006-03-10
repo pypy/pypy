@@ -295,3 +295,9 @@ class TestUsingFramework(AbstractTestClass):
         assert res == 44
         
         
+    def test_framework_malloc_failure(self):
+        def f():
+            a = [1] * (sys.maxint//2)
+            return len(a) + a[0]
+        fn = self.getcompiled(f)
+        py.test.raises(MemoryError, fn)

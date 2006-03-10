@@ -4,6 +4,7 @@ from pypy.rpython.memory.support import AddressLinkedList
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rpython import rarithmetic
 
 import sys
 
@@ -123,7 +124,11 @@ class MarkSweepGC(GCBase):
             self.collect()
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
-            size += length * self.varsize_item_sizes(typeid)
+            try:
+                varsize = rarithmetic.ovfcheck(length * self.varsize_item_sizes(typeid))
+            except OverflowError:
+                raise MemoryError
+            size += varsize
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
 ##         print "mallocing %s, size %s at %s" % (typeid, size, result)
