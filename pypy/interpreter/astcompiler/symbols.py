@@ -188,7 +188,7 @@ class FunctionScope(Scope):
 
 GenExprScopeCounter = Counter(1)
 
-class GenExprScope(Scope):
+class GenExprScope(FunctionScope):
 
     def __init__(self, module, klass=None):
         i = GenExprScopeCounter.next()
@@ -292,15 +292,13 @@ class SymbolVisitor(ast.ASTVisitor):
     def visitGenExpr(self, node ):
         parent = self.cur_scope()
         scope = GenExprScope(self.module, self.klass);
-        if parent.nested or isinstance(parent, FunctionScope) \
-                or isinstance(parent, GenExprScope):
+        if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
 
         node.scope = scope
         self.push_scope(scope)
         node.code.accept(self)
         self.pop_scope()
-
         self.handle_free_vars(scope, parent)
 
     def visitGenExprInner(self, node ):

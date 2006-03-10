@@ -57,3 +57,6 @@ class AppTestNestedScope:
         keys = outer_locals.keys()
         keys.sort()
         assert keys == ['h', 'x']
+
+    def test_lambda_in_genexpr(self):
+        assert eval('map(apply, (lambda: t for t in range(10)))') == range(10)
