@@ -284,3 +284,14 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 43
+
+    def test_framework_void_array(self):
+        A = lltype.GcArray(lltype.Void)
+        a = lltype.malloc(A, 44)
+        def f():
+            return len(a)
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 44
+        
+        

@@ -666,7 +666,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             TYPE_INFO_TABLE = lltype.Array(TYPE_INFO)
 
         def q_is_varsize(typeid):
-            return gcdata.type_info_table[typeid].varitemsize != 0
+            return gcdata.type_info_table[typeid].ofstolength != -1
 
         def q_offsets_to_gc_pointers(typeid):
             return gcdata.type_info_table[typeid].ofstoptrs
@@ -816,21 +816,29 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             info["ofstoptrs"] = self.offsets2table(offsets)
             if not TYPE._is_varsize():
                 info["fixedsize"] = llmemory.sizeof(TYPE)
+                info["ofstolength"] = -1
             else:
                 info["fixedsize"] = llmemory.sizeof(TYPE, 0)
                 if isinstance(TYPE, lltype.Struct):
                     ARRAY = TYPE._flds[TYPE._arrayfld]
                     ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
                     info["ofstolength"] = ofs1
-                    info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
+                    if ARRAY.OF != lltype.Void:
+                        info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
+                    else:
+                        info["fixedsize"] = ofs1 + llmemory.sizeof(lltype.Signed)
                 else:
                     ARRAY = TYPE
                     info["ofstolength"] = llmemory.ArrayLengthOffset(ARRAY)
-                    info["ofstovar"] = llmemory.itemoffsetof(TYPE, 0)
+                    if ARRAY.OF != lltype.Void:
+                        info["ofstovar"] = llmemory.itemoffsetof(TYPE, 0)
+                    else:
+                        info["fixedsize"] = llmemory.ArrayLengthOffset(ARRAY) + llmemory.sizeof(lltype.Signed)
                 assert isinstance(ARRAY, lltype.Array)
-                offsets = offsets_to_gc_pointers(ARRAY.OF)
-                info["varofstoptrs"] = self.offsets2table(offsets)
-                info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
+                if ARRAY.OF != lltype.Void:
+                    offsets = offsets_to_gc_pointers(ARRAY.OF)
+                    info["varofstoptrs"] = self.offsets2table(offsets)
+                    info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
             return type_id
 
     def consider_constant(self, TYPE, value):
