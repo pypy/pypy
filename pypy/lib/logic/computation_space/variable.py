@@ -73,9 +73,9 @@ class SimpleVar(object):
             self._value_condition.acquire()
             while not self.is_bound():
                 t1 = time.time()
-                self._value_condition.wait(80)
+                self._value_condition.wait(120)
                 t2 = time.time()
-                if t2-t1>80:
+                if t2-t1>120:
                     raise RuntimeError("possible deadlock??")
             return self.val
         finally:

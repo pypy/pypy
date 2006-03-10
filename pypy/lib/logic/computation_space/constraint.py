@@ -201,6 +201,14 @@ class Expression(AbstractConstraint):
                                    + expand_expr_template(formula, variables), {}, {})
             Expression._FILTER_CACHE[formula] = self.filterFunc
 
+    def test_solution(self, sol ):
+        """FOR TESTING: test a solution against this constraint                                                                                
+        accept a mapping of variable names to value"""
+        args = []
+        for var in self._variables:
+            args.append( sol[var.name] )
+        return self.filterFunc( *args )
+
 
     def copy_to(self, space):
         return self.__class__(space, self._variables,

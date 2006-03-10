@@ -3,34 +3,14 @@
 # * [5] add a linear constraint solver (vital for fast
 #   constraint propagation over finite integer domains)
 #   and other kinds of specialized propagators
-# * [9] make all propagators live in their own threads and
-#   be awakened by variable/domains events
-
-
-# Gert Smolka in
-# http://www.cetic.be/moz2004/talks/MOZ2004.pdf :
-# * Abandon Logic Variables
-#  * can be bound everywhere
-#  * malicious consummer can bind tail variable of stream
-#  * break abstractions
-#  * unification not needed
-# * Have Futures instead
-#  * Multilisp [Halstead 85]
-#  * added to Mozart in 1998
-#  * refine logic variable into
-#   * consummer end (future)
-#   * producer end (promise)
-#  * dataflow synchronization + by-need synchronization
-
 
 from threading import Thread, Condition, RLock, local
 
-from state import Succeeded, Distributable, Failed, \
-     Unknown, Forsaken
+from state import Succeeded, Failed, Unknown
 
 from variable import EqSet, CsVar, NoValue, NoDom, \
      VariableException, NotAVariable, AlreadyInStore, \
-     AlreadyBound, SimpleVar
+     AlreadyBound
 from constraint import FiniteDomain, ConsistencyFailure, \
      Expression
 from distributor import DefaultDistributor
@@ -104,9 +84,6 @@ class ComputationSpace(object):
         self.bind_lock = RLock()
         self.var_lock = RLock()
         self.distributor = DefaultDistributor(self)
-        # parent/children
-        self.parent = parent
-        self.children = set()
         # mapping from domains to variables
         self.doms = {}
         # set of all constraints 
@@ -122,10 +99,7 @@ class ComputationSpace(object):
             self.root = self.var('__root__')
             # set up the problem
             self.bind(self.root, problem(self))
-            self._init_choose_commit()
-            self.distributor.start()
         else:
-            self.parent.children.add(self)
             # shared stuff
             self.vars = parent.vars
             self.names = parent.names
@@ -136,14 +110,6 @@ class ComputationSpace(object):
             # ...
             self.status = Unknown
             self.distributor = parent.distributor.__class__(self)
-            self._init_choose_commit()
-
-    def _init_choose_commit(self):
-        # create a unique choice point
-        # using two spaceless vars as channels betwen
-        # space and distributor threads
-        self.CHOOSE = SimpleVar()
-        self.STABLE = SimpleVar()
 
 #-- utilities & instrumentation -----------------------------
 
@@ -154,15 +120,6 @@ class ComputationSpace(object):
                 ret.append('  ('+str(v)+':'+str(d)+')\n')
         ret.append(">")
         return ' '.join(ret)
-
-    def __del__(self):
-        # try to break ref. cycles and help
-        # threads terminate
-        self.status = Forsaken
-        self.parent = None
-        self.children = None
-        self.CHOOSE.bind(True)
-        self.STABLE.bind(True)
 
     def __eq__(self, spc):
         """space equality defined as :
@@ -207,12 +164,20 @@ class ComputationSpace(object):
                 print ' ', str(d.get_values())
         print " -- domains --)"
 
+    def test_solution(self, sol):
+        res = True
+        for _const in self.constraints:
+            if not _const.test_solution(sol):
+                print "Solution", sol, "doesn't satisfy", _const
+                res = False
+        return res
+
            
 #-- Computation Space -----------------------------------------
 
     #-- space helpers -----------------------------------------
 
-    def _process(self):
+    def _propagate(self):
         """wraps the propagator"""
         if len(self.event_set):
             try:
@@ -239,32 +204,18 @@ class ComputationSpace(object):
     #-- space official API ------------------------------------
 
     def ask(self):
-        self.STABLE.get() 
-        status = self.status in (Failed, Succeeded)
-        if status: return self.status
+        self._propagate()
+        if self.status in (Failed, Succeeded):
+            return self.status
         if self._distributable():
             return Alternative(self.distributor.nb_subdomains())
 
-        # should be unreachable
-        print "DOMS", [(var, self.doms[var]) 
-                       for var in self.vars
-                       if self.dom(var) != NoDom]
-        raise NotImplementedError
-
     def clone(self):
-        # did you ask before ... ?
-        assert self.STABLE.is_bound()
         spc = ComputationSpace(NoProblem, parent=self)
         print "-- cloning %s to %s --" % (self.id, spc.id)
         self._notify(event.Clone)
-        spc._process()
-        spc.distributor.start()            
+        spc._propagate()
         return spc
-
-    def inject(self, restricting_problem):
-        """add additional entities into a space"""
-        restricting_problem(self)
-        self._process()
 
     def commit(self, choice):
         """if self is distributable, causes the Choose call in the
@@ -273,10 +224,7 @@ class ComputationSpace(object):
            some_number must satisfy 1=<I=<N where N is the first arg
            of the Choose call.
         """
-        # did you ask before ... ?
-        assert self.STABLE.is_bound()
-        self.STABLE = SimpleVar()
-        self.CHOOSE.bind(choice)
+        self.distributor.distribute(choice-1)
 
     def choose(self, nb_choices):
         """
@@ -288,9 +236,7 @@ class ComputationSpace(object):
         ----
         this is used by the distributor thread
         """
-        choice = self.CHOOSE.get()
-        return choice    
-
+    
     def merge(self):
         """binds root vars to their singleton domains """
         assert self.status == Succeeded
@@ -298,16 +244,19 @@ class ComputationSpace(object):
         #for var in self.root.val:
         #    var.bind(self.dom(var).get_values()[0])
         # shut down the distributor
-        self.CHOOSE.bind(True)
-        self.status = Forsaken
         res = {}
         for var in self.root.val:
             res[var.name] = self.dom(var).get_values()[0]
-        self.distributor.join()
         return res
 
     def set_distributor(self, dist):
         self.distributor = dist
+
+    def inject(self, restricting_problem):
+        """add additional entities into a space"""
+        restricting_problem(self)
+        self._propagate()
+
         
 #-- Constraint Store ---------------------------------------
 
@@ -433,71 +382,6 @@ class ComputationSpace(object):
             self._add_const(const.copy_to(self))
 
     #-- Constraint propagation ---------------
-
-    def satisfiable(self, constraint):
-        """ * satisfiable (k) checks that the constraint k
-              can be satisfied wrt its variable domains
-              and other constraints on these variables
-            * does NOT mutate the store
-        """
-        # Satisfiability of one constraint entails
-        # satisfiability of the transitive closure
-        # of all constraints associated with the vars
-        # of our given constraint.
-        # We make a copy of the domains
-        # then traverse the constraints & attached vars
-        # to collect all (in)directly affected vars
-        # then compute narrow() on all (in)directly
-        # affected constraints.
-        assert constraint in self.constraints
-        varset = set()
-        constset = set()
-        self._compute_dependant_vars(constraint, varset, constset)
-        old_domains = self.collect_domains(varset)
-        
-        for const in constset:
-            try:
-                const.revise3()
-            except ConsistencyFailure:
-                self.restore_domains(old_domains)
-                return False
-        self.restore_domains(old_domains)
-        return True
-
-    def get_satisfying_domains(self, constraint):
-        """computes the smallest satisfying domains"""
-        assert constraint in self.constraints
-        varset = set()
-        constset = set()
-        self._compute_dependant_vars(constraint, varset, constset)
-        old_domains = self.collect_domains(varset)
-        
-        for const in constset:
-            try:
-                const.revise3()
-            except ConsistencyFailure:
-                self.restore_domains(old_domains)
-                return {}
-        narrowed_domains = self.collect_domains(varset)
-        self.restore_domains(old_domains)
-        return narrowed_domains
-
-    def satisfy(self, constraint):
-        """prune the domains down to smallest satisfying domains"""
-        assert constraint in self.constraints
-        varset = set()
-        constset = set()
-        self._compute_dependant_vars(constraint, varset, constset)
-        old_domains = self.collect_domains(varset)
-
-        for const in constset:
-            try:
-                const.revise3()
-            except ConsistencyFailure:
-                self.restore_domains(old_domains)
-                raise
-
-    #-- real propagation begins there -------------------------
 
     def add_distributed(self, var):
         self.changelog.append(var)

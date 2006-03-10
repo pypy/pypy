@@ -1,8 +1,5 @@
 import math, random
-from threading import Thread
-from state import Succeeded, Distributable, Failed, Forsaken
 from event import Revise
-from variable import SimpleVar
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
@@ -12,11 +9,10 @@ def arrange_domains(cs, variables):
         new_doms[var] = cs.dom(var).copy()
     return new_doms
 
-class AbstractDistributor(Thread):
+class AbstractDistributor(object):
     """_distribute is left unimplemented."""
 
     def __init__(self, c_space, nb_subspaces=2):
-        Thread.__init__(self)
         self.nb_subspaces = nb_subspaces
         self.cs = c_space
         self.verbose = 0
@@ -137,32 +133,9 @@ class SplitDistributor(AbstractDistributor):
         else:
             return self.cs.dom(self.__to_split).size() 
 
-    ### new threaded distributor
-
-    def run(self):
-        print "-- distributor started (%s) --" % self.cs.id
-        assert not self.cs.STABLE.is_bound()
-        #XXX: are the domains properly set up ?
-        #self.cs._process() # propagate first
-        #better let clone() do this call
-        while self.cs._distributable():
-            self.cs.STABLE.bind(True)
-            choice = self.cs.choose(self.nb_subdomains())
-            if self.cs.status == Forsaken:
-                print "-- distributor (%s) ready for GC --" % self.cs.id
-                break
-            print "-- distribution & propagation (%s) --" % self.cs.id
-            self.distribute(choice-1)
-            self.cs._process()
-            self.cs.CHOOSE = SimpleVar()
-            self.cs.STABLE.bind(True) # unlocks Ask
-        print "-- distributor terminated (%s) --" % self.cs.id
-
 
     def distribute(self, choice):
         variable = self.findSmallestDomain()
-        #variables = self.cs.get_variables_with_a_domain()
-        #domains = arrange_domains(self.cs, variables)
         nb_subspaces = self.nb_subdomains()
         values = self.cs.dom(variable).get_values()
         nb_elts = max(1, len(values)*1./nb_subspaces)
