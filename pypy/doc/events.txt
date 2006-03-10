@@ -7,18 +7,6 @@
 
 .. _`over there`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 
-Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
-========================================================================
-
-*March 6th - March 10th 2006.* Developers focusing on adding logic programming
-to PyPy will meet with
-the team that developed the Oz programming language and the Mozart
-interpreter.
-
-Read more in `the announcement`_.
-
-.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
-
 Talks at Python UK/ACCU Conference (United Kingdom)
 ===================================================================
 

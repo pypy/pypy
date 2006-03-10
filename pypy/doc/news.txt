@@ -7,6 +7,19 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+
+Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
+========================================================================
+
+*March 6th - March 10th 2006.* PyPy developers focusing on adding
+logic programming to PyPy will met with the team that developed the Oz
+programming language and the Mozart interpreter.
+
+Read the report_ and the original announcement_.
+
+.. _report: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/report.html
+.. _announcement: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
+
 PyCon Sprint 2006 (Dallas, Texas, USA)
 ==================================================================
 
