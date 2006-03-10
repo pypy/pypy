@@ -32,6 +32,7 @@ class GenSqueak:
         self.unique_name_mapping = {}
         self.pending_nodes = []
         self.generated_nodes = set()
+        self.constant_insts = {}
 
         if conftest.option.view:
             self.translator.view()
@@ -40,6 +41,8 @@ class GenSqueak:
         self.pending_nodes.append(FunctionNode(self, graph))
         self.filename = '%s.st' % graph.name
         file = self.sqdir.join(self.filename).open('w')
+        self.gen_source(file)
+        self.pending_nodes.append(SetupNode(self, self.constant_insts)) 
         self.gen_source(file)
         file.close()
 
@@ -99,8 +102,8 @@ class GenSqueak:
         squeak_class_name = self.unique_name(INSTANCE, class_name)
         return "Py%s" % squeak_class_name
 
-    def nameof__instance(self, inst):
-        return self.nameof_Instance(inst._TYPE)
+    def nameof__class(self, class_):
+        return self.nameof_Instance(class_._INSTANCE)
 
     def nameof__callable(self, callable):
         return self.nameof_function(callable.graph.func)
@@ -182,9 +185,12 @@ class CodeNode:
 
 class ClassNode(CodeNode):
 
-    def __init__(self, gen, INSTANCE):
+    def __init__(self, gen, INSTANCE, class_vars=None):
         self.gen = gen
         self.INSTANCE = INSTANCE
+        self.class_vars = [] # XXX should probably go away
+        if class_vars is not None:
+            self.class_vars = class_vars
         self.hash_key = INSTANCE
 
     def dependencies(self):
@@ -200,7 +206,7 @@ class ClassNode(CodeNode):
         fields = [self.unique_field(self.INSTANCE, f) for f in
             self.INSTANCE._fields.iterkeys()]
         yield "    instanceVariableNames: '%s'" % ' '.join(fields)
-        yield "    classVariableNames: ''"
+        yield "    classVariableNames: '%s'" % ' '.join(self.class_vars)
         yield "    poolDictionaries: ''"
         yield "    category: 'PyPy-Test'!"
 
@@ -257,6 +263,11 @@ class CallableNode(CodeNode):
         if isinstance(v, Variable):
             return camel_case(v.name)
         elif isinstance(v, Constant):
+            if isinstance(v.concretetype, Instance):
+                const_id = self.gen.unique_name(
+                        v, "const_%s" % self.gen.nameof(v.value._TYPE))
+                self.gen.constant_insts[v] = const_id
+                return "(PyConstants getConstant: '%s')" % const_id
             return self.gen.nameof(v.value)
         else:
             raise TypeError, "expr(%r)" % (v,)
@@ -316,6 +327,9 @@ class CallableNode(CodeNode):
             self.gen.schedule_node(SetterNode(self.gen, INST, field_name))
             receiver = self.expr(op.args[0])
             return "%s %s: %s." % (receiver, field_name, field_value)
+
+    def op_oodowncast(self, op):
+        return "%s := %s." % (self.expr(op.result), self.expr(op.args[0]))
 
     def op_direct_call(self, op):
         # XXX not sure if static methods of a specific class should
@@ -455,5 +469,67 @@ class GetterNode(AccessorNode):
                 self.gen.nameof_Instance(self.INSTANCE), "accessors")
         yield self.field_name
         yield "    ^%s" % self.field_name
+        yield "! !"
+
+class FieldInitializerNode(CodeNode):
+
+    def __init__(self, gen, INSTANCE):
+        self.gen = gen
+        self.INSTANCE = INSTANCE
+        self.hash_key = ("fieldinit", INSTANCE)
+
+    def dependencies(self):
+        return [ClassNode(self.gen, self.INSTANCE)]
+
+    def render(self):
+        yield self.render_fileout_header(
+                self.gen.nameof_Instance(self.INSTANCE), "initializers")
+        fields = self.INSTANCE._allfields()
+        sel = Selector("field_init", len(fields))
+        arg_names = ["a%s" % i for i in range(len(fields))]
+        yield sel.signature(arg_names)
+        for field_name, arg_name in zip(fields.keys(), arg_names):
+            yield "    %s := %s." % (
+                    self.unique_field(self.INSTANCE, field_name),
+                    arg_name)
+        yield "! !"
+
+class SetupNode(CodeNode):
+
+    CONSTANTS = Instance("Constants", ROOT)
+    
+    def __init__(self, gen, constants):
+        self.gen = gen
+        self.constants = constants
+        self.hash_key = "setup"
+
+    def dependencies(self):
+        # Important: Field initializers for the *runtime* type
+        return [FieldInitializerNode(self.gen, c.value._TYPE)
+            for c in self.constants.iterkeys()] + \
+            [ClassNode(self.gen, self.CONSTANTS, class_vars=["Constants"])]
+
+    def render(self):
+        yield self.render_fileout_header("PyConstants class", "internals")
+        sel = Selector("setupConstants", 0)
+        yield sel.signature([])
+        yield "    Constants := Dictionary new."
+        for const, const_id in self.constants.iteritems():
+            INST = const.value._TYPE
+            class_name = self.gen.nameof(INST)
+            field_names = INST._allfields().keys()
+            field_values = [self.gen.nameof(getattr(const.value, f))
+                    for f in field_names]
+            init_sel = Selector("field_init", len(field_values))
+            yield "    Constants at: '%s' put: (%s new %s)." \
+                    % (const_id, class_name,
+                        init_sel.signature(field_values))
+        yield "! !"
+        yield ""
+
+        yield self.render_fileout_header("PyConstants class", "internals")
+        sel = Selector("getConstant", 1)
+        yield sel.signature(["constId"])
+        yield "    ^ Constants at: constId"
         yield "! !"
 

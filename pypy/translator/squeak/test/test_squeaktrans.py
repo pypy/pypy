@@ -18,6 +18,8 @@ def build_sqfunc(func, args=[]):
     except AttributeError: pass
     t = TranslationContext()
     t.buildannotator().build_types(func, args)
+    if conftest.option.view:
+       t.viewcg()
     t.buildrtyper(type_system="ootype").specialize()
     if conftest.option.view:
        t.viewcg()
@@ -51,6 +53,7 @@ i := 4.
 [(arg := Smalltalk getSystemAttribute: (i := i + 1)) notNil]
     whileTrue: [arguments add: arg asInteger].
 
+PyConstants setupConstants.
 result := (PyFunctions perform: selector withArguments: arguments asArray).
 stdout := StandardFileStream fileNamed: '/dev/stdout'.
 stdout nextPutAll: result asString.
@@ -175,7 +178,7 @@ class TestGenSqueak:
             return i + a.i_var
         assert self.run_on_squeak(f, 2) == "6"
 
-    def dont_test_classvars(self):
+    def test_classvars(self):
         class A: i = 1
         class B(A): i = 2
         def pick(i):
