@@ -132,6 +132,15 @@ class AppTestReversed:
       assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
       raises(TypeError, reversed, reversed("hello"))
 
+class AppTestApply:
+   def test_apply(self):
+      def f(*args, **kw):
+         return args, kw
+      args = (1,3)
+      kw = {'a': 1, 'b': 4}
+      assert apply(f) == ((), {})
+      assert apply(f, args) == (args, {})
+      assert apply(f, args, kw) == (args, kw)
 
 class AppTestAllAny:
     """
