@@ -174,6 +174,12 @@ class CodeNode:
                 class_name, category,
                 datetime.datetime.now().strftime("%m/%d/%Y %H:%M"))
 
+    def unique_field(self, INSTANCE, field_name):
+        # XXX for now we ignore the issue of nameclashes between
+        # field names. It's not so simple because superclasses must
+        # be considered, too.
+        return camel_case(field_name)
+
 class ClassNode(CodeNode):
 
     def __init__(self, gen, INSTANCE):
@@ -191,8 +197,9 @@ class ClassNode(CodeNode):
         yield "%s subclass: #%s" % (
             self.gen.nameof_Instance(self.INSTANCE._superclass), 
             self.gen.nameof_Instance(self.INSTANCE))
-        yield "    instanceVariableNames: '%s'" % \
-            ' '.join(self.INSTANCE._fields.iterkeys())
+        fields = [self.unique_field(self.INSTANCE, f) for f in
+            self.INSTANCE._fields.iterkeys()]
+        yield "    instanceVariableNames: '%s'" % ' '.join(fields)
         yield "    classVariableNames: ''"
         yield "    poolDictionaries: ''"
         yield "    category: 'PyPy-Test'!"
@@ -283,30 +290,30 @@ class CallableNode(CodeNode):
         return self.assignment(op, receiver, message, args)
 
     def op_oogetfield(self, op):
+        INST = op.args[0].concretetype
         receiver = self.expr(op.args[0])
-        field_name = op.args[1].value
+        field_name = self.unique_field(INST, op.args[1].value)
         if hasattr(self, "self") and op.args[0] == self.self:
             # Private field access
             # Could also directly substitute op.result with name
             # everywhere for optimization.
-            return "%s := %s." % (self.expr(op.result), field_name) 
+            return "%s := %s." % (self.expr(op.result), camel_case(field_name))
         else:
             # Public field access
-            self.gen.schedule_node(GetterNode(
-                self.gen, op.args[0].concretetype, field_name))
+            self.gen.schedule_node(GetterNode(self.gen, INST, field_name))
             return self.assignment(op, receiver, field_name, [])
 
     def op_oosetfield(self, op):
         # Note that the result variable is never used
-        field_name = op.args[1].value
+        INST = op.args[0].concretetype
+        field_name = self.unique_field(INST, op.args[1].value)
         field_value = self.expr(op.args[2])
         if hasattr(self, "self") and op.args[0] == self.self:
             # Private field access
             return "%s := %s." % (field_name, field_value)
         else:
             # Public field access
-            self.gen.schedule_node(SetterNode(
-                self.gen, op.args[0].concretetype, field_name))
+            self.gen.schedule_node(SetterNode(self.gen, INST, field_name))
             receiver = self.expr(op.args[0])
             return "%s %s: %s." % (receiver, field_name, field_value)
 

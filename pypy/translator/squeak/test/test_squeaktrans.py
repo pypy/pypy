@@ -163,16 +163,16 @@ class TestGenSqueak:
     def test_getfield_setfield(self):
         class A:
             def set(self, i):
-                self.i = i
+                self.i_var = i
             def inc(self):
-                self.i = self.i + 1
+                self.i_var = self.i_var + 1
         def f(i):
             a = A()
             a.set(i)
-            i = a.i
-            a.i = 3
+            i = a.i_var
+            a.i_var = 3
             a.inc()
-            return i + a.i
+            return i + a.i_var
         assert self.run_on_squeak(f, 2) == "6"
 
     def dont_test_classvars(self):
