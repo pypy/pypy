@@ -3,7 +3,7 @@ testing coroutines at interprepter level
 """
 
 import os
-from pypy.module.stackless.interp_coroutine import costate, Coroutine
+from pypy.module.stackless.interp_coroutine import costate, Coroutine, AbstractThunk
 
 costate.__init__()
 
@@ -53,7 +53,7 @@ def test_coroutine():
         lst.append(7)
         output('h appended 7')
 
-    class T:
+    class T(AbstractThunk):
         def __init__(self, func, arg1, arg2):
             self.func = func
             self.arg1 = arg1
@@ -93,7 +93,7 @@ def test_coroutine():
 
 def test_coroutine2():
 
-    class TBase:
+    class TBase(AbstractThunk):
         def call(self):
             pass
         
@@ -171,7 +171,7 @@ def test_coroutine2():
     assert int(data.strip()) == 12345678
 
 def test_kill_raise_del_coro():
-    class T:
+    class T(AbstractThunk):
         def __init__(self, func, arg):
             self.func = func
             self.arg = arg
@@ -223,9 +223,7 @@ def test_tree_compare():
     tree2 = Node(1, Node(3, Node(2)))
     tree3 = Node(1, Node(2), Node(3))
     
-    class Super:
-        pass
-    class Producer(Super):
+    class Producer(AbstractThunk):
         def __init__(self, tree, objects, consumer):
             self.tree = tree
             self.objects = objects
@@ -241,7 +239,7 @@ def test_tree_compare():
             self.produce(self.tree)
             while 1:
                 self.consumer.switch()
-    class Consumer(Super):
+    class Consumer(AbstractThunk):
         def __init__(self, tree, objects, producer):
             self.tree = tree
             self.objects = objects

@@ -92,6 +92,9 @@ class CoroutineExit(SystemExit):
     def __init__(self):
         pass
 
+class AbstractThunk(object):
+    def call(self):
+        raise NotImplementedError("abstract base class")
 
 class Coroutine(Wrappable):
 
@@ -106,6 +109,7 @@ class Coroutine(Wrappable):
         return self.costate.current
 
     def bind(self, thunk):
+        assert isinstance(thunk, AbstractThunk)
         if self.frame is not None:
             raise CoroutineDamage
         if self.parent is None:

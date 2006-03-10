@@ -24,9 +24,9 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod
 
 from pypy.module.stackless.stackless_flags import StacklessFlags
-from pypy.module.stackless.interp_coroutine import Coroutine, BaseCoState
+from pypy.module.stackless.interp_coroutine import Coroutine, BaseCoState, AbstractThunk
 
-class _AppThunk(object):
+class _AppThunk(AbstractThunk):
 
     def __init__(self, space, costate, w_obj, args):
         self.space = space
