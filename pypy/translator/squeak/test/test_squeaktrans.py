@@ -175,6 +175,21 @@ class TestGenSqueak:
             return i + a.i
         assert self.run_on_squeak(f, 2) == "6"
 
+    def dont_test_classvars(self):
+        class A: i = 1
+        class B(A): i = 2
+        def pick(i):
+            if i == 1:
+               c = A
+            else:
+               c = B
+            return c
+        def f(i):
+            c = pick(i)
+            return c.i
+        assert self.run_on_squeak(f, 1) == "1"
+        assert self.run_on_squeak(f, 2) == "2"
+
 
 class TestSelector:
 

@@ -232,6 +232,7 @@ class CallableNode(CodeNode):
         'classof':       Selector('class', 0),
         'sameAs':        Selector('yourself', 0), 
         'intAdd:':       Selector('+', 1),
+        'intEq:':        Selector('=', 1),
     }
 
     def render_body(self, startblock):
@@ -254,53 +255,70 @@ class CallableNode(CodeNode):
             raise TypeError, "expr(%r)" % (v,)
 
     def oper(self, op):
-        args = [self.expr(arg) for arg in op.args]
-        if op.opname == "oosend":
-            name = op.args[0].value
-            receiver = args[1]
-            if hasattr(self, "self") and op.args[1] == self.self:
-                receiver = "self"
-            args = args[2:]
-            self.gen.schedule_node(
-                    MethodNode(self.gen, op.args[1].concretetype, name))
-        elif op.opname == "oogetfield":
-            receiver = args[0]
-            name = op.args[1].value
-            args = args[2:]
-            if hasattr(self, "self") and op.args[0] == self.self:
-                # Could also directly substitute op.result with name
-                # everywhere for optimization.
-                return "%s := %s." % (self.expr(op.result), name) 
-            else:
-                self.gen.schedule_node(
-                        GetterNode(self.gen, op.args[0].concretetype, name))
-        elif op.opname == "oosetfield":
-            receiver = args[0]
-            name = op.args[1].value
-            args = args[2:]
-            if hasattr(self, "self") and op.args[0] == self.self:
-                # Note that the receiver variable is never used
-                return "%s := %s." % (name, args[0])
-            else:
-                self.gen.schedule_node(
-                        SetterNode(self.gen, op.args[0].concretetype, name))
-        elif op.opname == "direct_call":
-            # XXX not sure if static methods of a specific class should
-            # be treated differently.
-            receiver = "PyFunctions"
-            name = args[0]
-            args = args[1:]
-            self.gen.schedule_node(
-                FunctionNode(self.gen, op.args[0].value.graph))
+        op_method = getattr(self, "op_%s" % op.opname, None)
+        if op_method is not None:
+            return op_method(op)
         else:
             name = op.opname
-            receiver = args[0]
-            args = args[1:]
-        sel = Selector(name, len(args))
+            receiver = self.expr(op.args[0])
+            args = [self.expr(arg) for arg in op.args[1:]]
+            return self.assignment(op, receiver, name, args)
+
+    def assignment(self, op, receiver_name, sel_name, arg_names):
+        sel = Selector(sel_name, len(arg_names))
         if op.opname != "oosend":
             sel = self.selectormap.get(sel.symbol(), sel)
-        return "%s := %s %s." \
-                % (self.expr(op.result), receiver, sel.signature(args))
+        return "%s := %s %s." % (self.expr(op.result),
+                receiver_name, sel.signature(arg_names))
+
+    def op_oosend(self, op):
+        message = op.args[0].value
+        if hasattr(self, "self") and op.args[1] == self.self:
+            receiver = "self"
+        else:
+            receiver = self.expr(op.args[1])
+        args = [self.expr(a) for a in op.args[2:]]
+        self.gen.schedule_node(
+                MethodNode(self.gen, op.args[1].concretetype, message))
+        return self.assignment(op, receiver, message, args)
+
+    def op_oogetfield(self, op):
+        receiver = self.expr(op.args[0])
+        field_name = op.args[1].value
+        if hasattr(self, "self") and op.args[0] == self.self:
+            # Private field access
+            # Could also directly substitute op.result with name
+            # everywhere for optimization.
+            return "%s := %s." % (self.expr(op.result), field_name) 
+        else:
+            # Public field access
+            self.gen.schedule_node(GetterNode(
+                self.gen, op.args[0].concretetype, field_name))
+            return self.assignment(op, receiver, field_name, [])
+
+    def op_oosetfield(self, op):
+        # Note that the result variable is never used
+        field_name = op.args[1].value
+        field_value = self.expr(op.args[2])
+        if hasattr(self, "self") and op.args[0] == self.self:
+            # Private field access
+            return "%s := %s." % (field_name, field_value)
+        else:
+            # Public field access
+            self.gen.schedule_node(SetterNode(
+                self.gen, op.args[0].concretetype, field_name))
+            receiver = self.expr(op.args[0])
+            return "%s %s: %s." % (receiver, field_name, field_value)
+
+    def op_direct_call(self, op):
+        # XXX not sure if static methods of a specific class should
+        # be treated differently.
+        receiver = "PyFunctions"
+        callable_name = self.expr(op.args[0])
+        args = [self.expr(a) for a in op.args[1:]]
+        self.gen.schedule_node(
+            FunctionNode(self.gen, op.args[0].value.graph))
+        return self.assignment(op, receiver, callable_name, args)
 
     def render_return(self, args):
         if len(args) == 2:
