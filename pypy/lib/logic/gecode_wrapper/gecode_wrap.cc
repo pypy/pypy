@@ -45,6 +45,7 @@ void* search_next( void* search )
 	return _eng->next();
 }
 
+
 void space_values( void* spc, int n, int* vars, int* values )
 {
 	MySpace* _spc = static_cast<MySpace*>(spc);
@@ -56,3 +57,60 @@ void space_release( void* spc )
 	MySpace* _spc = static_cast<MySpace*>(spc);
 	delete _spc;
 }
+
+
+
+void* new_propagator( void* spc, PropagatorCallback cb )
+{
+    MySpace* _spc = static_cast<MySpace*>(spc);
+    return (void*)new (_spc) MyPropagator(_spc, cb);
+}
+
+int propagator_create_int_view( void* prp, int var )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    return _prp->add_int_view( var );
+}
+
+int int_view_lq( void* prp, int view, int value )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    IntView& _view = _prp->get_int_view( view );
+    return _view.lq( _prp->home, value );
+} 
+
+int int_view_gq( void* prp, int view, int value )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    IntView& _view = _prp->get_int_view( view );
+    return _view.gq( _prp->home, value );
+} 
+
+int int_view_min( void* prp, int view )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    IntView& _view = _prp->get_int_view( view );
+    return _view.min();
+} 
+
+int int_view_max( void* prp, int view )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    IntView& _view = _prp->get_int_view( view );
+    return _view.max( );
+} 
+
+int int_view_val( void* prp, int view )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    IntView& _view = _prp->get_int_view( view );
+    return _view.val( );
+} 
+
+int int_view_assigned( void* prp, int view )
+{
+    MyPropagator* _prp = static_cast<MyPropagator*>(prp);
+    IntView& _view = _prp->get_int_view( view );
+    return _view.assigned( );
+}
+

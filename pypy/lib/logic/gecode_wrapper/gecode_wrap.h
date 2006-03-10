@@ -25,6 +25,20 @@ extern "C" {
 
 	void space_release( void* spc );
 
+	/* propagators */
+
+	typedef int (*PropagatorCallback)(void*);
+	void* new_propagator( void* spc, PropagatorCallback cb );
+
+	int propagator_create_int_view( void* prp, int var );
+
+	int int_view_lq( void* prp, int view, int value );
+	int int_view_gq( void* prp, int view, int value );
+	int int_view_min( void* prp, int view );
+	int int_view_max( void* prp, int view );
+	int int_view_val( void* prp, int view );
+	int int_view_assigned( void* prp, int view );
+
 #ifdef __cplusplus
 };
 #endif

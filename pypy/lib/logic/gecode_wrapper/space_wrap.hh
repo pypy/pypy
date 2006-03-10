@@ -11,10 +11,12 @@
 #include "kernel.hh"
 #include "int.hh"
 #include "search.hh"
+#include "gecode_wrap.h"
 
 /*
  */
 using namespace Gecode;
+using namespace Gecode::Int;
 using namespace std;
 
 class Unimplemented : public exception {};
@@ -96,6 +98,8 @@ public:
 	cout << endl;
     }
 
+    IntVar& get_int_var( int n ) { return _int_vars[n]; }
+
 protected:
     vector< IntVar >  _int_vars;
 
@@ -114,5 +118,30 @@ public:
 protected:
     DFS<MySpace> dfs;
 };
+
+
+typedef vector<IntView> IntViewVect;
+typedef IntViewVect::const_iterator IntViewVectConstIterator;
+typedef IntViewVect::iterator IntViewVectIterator;
+
+class MyPropagator : public Propagator {
+public:
+    MyPropagator(MySpace* home, PropagatorCallback cb );
+    MyPropagator(Space* home, bool share, MyPropagator& p);
+    virtual ExecStatus 	propagate (Space *);
+    virtual PropCost 	cost (void) const;
+    Actor* copy(Space* home, bool share);
+    ExecStatus post(Space* home);
+
+    int add_int_view( int var );
+    IntView& get_int_view( int view ) { return _int_views[view]; }
+
+    MySpace* home;
+protected:
+    IntViewVect _int_views;
+    PropagatorCallback _cb;
+};
+
+
 
 #endif
