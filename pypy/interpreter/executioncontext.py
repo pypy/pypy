@@ -15,6 +15,13 @@ class ExecutionContext:
         self.ticker = 0
         self.compiler = space.createcompiler()
 
+    # XXX
+    # I think that it is wrong to hide frames here. The stack should
+    # contain all the frames, because we need them for pickling.
+    # better to do the hiding when the stack is accessed. This implies that
+    # we have an explicit frame depth counter.
+    # please comment/correct me! (chris)
+    
     def enter(self, frame):
         if self.framestack.depth() > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
@@ -33,6 +40,9 @@ class ExecutionContext:
                 
         if not frame.hide():
             self.framestack.pop()
+
+    # coroutine support
+    # XXX still trying and thinking hard
 
     def get_builtin(self):
         try:
