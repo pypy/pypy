@@ -17,3 +17,21 @@
 #ifdef NT_THREADS
 #include "thread_nt.h"
 #endif
+
+#ifdef HAVE___THREAD
+
+#define RPyThreadStaticTLS                  __thread void *
+#define RPyThreadStaticTLS_Create(tls)      NULL
+#define RPyThreadStaticTLS_Get(tls)         tls
+#define RPyThreadStaticTLS_Set(tls, value)  tls = value
+
+#endif
+
+#ifndef RPyThreadStaticTLS
+
+#define RPyThreadStaticTLS             RPyThreadTLS
+#define RPyThreadStaticTLS_Create(key) RPyThreadTLS_Create(key)
+#define RPyThreadStaticTLS_Get(key)    RPyThreadTLS_Get(key)
+#define RPyThreadStaticTLS_Set(key, value) RPyThreadTLS_Set(key, value)
+
+#endif

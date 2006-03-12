@@ -7,6 +7,7 @@ from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import build_executable, CCompiler
 from pypy.translator.tool.cbuild import import_module_from_directory
+from pypy.translator.tool.cbuild import check_under_under_thread
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.tool import isolate
@@ -56,6 +57,8 @@ class CBuilder(object):
         db.complete()
         return db
 
+    have___thread = None
+
     def generate_source(self, db=None):
         assert self.c_source_filename is None
         translator = self.translator
@@ -70,6 +73,10 @@ class CBuilder(object):
         self.targetdir = targetdir
         defines = {}
         # defines={'COUNT_OP_MALLOCS': 1}
+        if CBuilder.have___thread is None:
+            CBuilder.have___thread = check_under_under_thread()
+        if CBuilder.have___thread:
+            defines['HAVE___THREAD'] = 1
         if not self.standalone:
             from pypy.translator.c.symboltable import SymbolTable
             self.symboltable = SymbolTable()

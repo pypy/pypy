@@ -37,7 +37,7 @@ int LL_stack_too_big(void)
 	static volatile char *stack_base_pointer = NULL;
 	static long stack_min = 0;
 	static long stack_max = 0;
-	static RPyThreadTLS stack_base_pointer_key;
+	static RPyThreadStaticTLS stack_base_pointer_key;
 	/* Check that the stack is less than MAX_STACK_SIZE bytes bigger
 	   than the value recorded in stack_base_pointer.  The base
 	   pointer is updated to the current value if it is still NULL
@@ -58,7 +58,7 @@ int LL_stack_too_big(void)
 		/* XXX We assume that initialization is performed early,
 		   when there is still only one thread running.  This
 		   allows us to ignore race conditions here */
-		char *errmsg = RPyThreadTLS_Create(&stack_base_pointer_key);
+		char *errmsg = RPyThreadStaticTLS_Create(&stack_base_pointer_key);
 		if (errmsg) {
 			/* XXX should we exit the process? */
 			fprintf(stderr, "Internal PyPy error: %s\n", errmsg);
@@ -70,7 +70,7 @@ int LL_stack_too_big(void)
 			stack_min = -MAX_STACK_SIZE;
 	}
 
-	baseptr = (char *) RPyThreadTLS_Get(stack_base_pointer_key);
+	baseptr = (char *) RPyThreadStaticTLS_Get(stack_base_pointer_key);
 	if (baseptr != NULL) {
 		diff = &local - baseptr;
 		if (stack_min <= diff && diff <= stack_max) {
@@ -92,7 +92,7 @@ int LL_stack_too_big(void)
 
 	/* update the stack base pointer to the current value */
 	baseptr = &local;
-	RPyThreadTLS_Set(stack_base_pointer_key, baseptr);
+	RPyThreadStaticTLS_Set(stack_base_pointer_key, baseptr);
 	stack_base_pointer = baseptr;
 	return 0;
 }

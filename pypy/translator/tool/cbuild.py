@@ -354,3 +354,24 @@ int main() {
         return False
     else:
         return True
+
+def check_under_under_thread():
+    from pypy.tool.udir import udir
+    cfile = py.path.local(autopath.this_dir).join('__thread_test.c')
+    fsource = cfile.open('r')
+    source = fsource.read()
+    fsource.close()
+    cfile = udir.join('__thread_test.c')
+    fsource = cfile.open('w')
+    fsource.write(source)
+    fsource.close()
+    try:
+       exe = build_executable([str(cfile)], 
+                              noerr=True)
+       py.process.cmdexec(exe)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except:
+        return False
+    else:
+        return True
