@@ -507,6 +507,12 @@ def test_cast_primitive():
          res = cast_primitive(TGT, orig_val)
          assert typeOf(res) == TGT
          assert res == expect
+
+def test_cast_identical_array_ptr_types():
+    A = GcArray(Signed)
+    PA = Ptr(A)
+    a = malloc(A, 2)
+    assert cast_pointer(PA, a) == a
         
 def test_array_with_no_length():
     A = GcArray(Signed, hints={'nolength': True})

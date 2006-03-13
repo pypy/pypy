@@ -555,6 +555,8 @@ def castable(PTRTYPE, CURTYPE):
     if CURTYPE._needsgc() != PTRTYPE._needsgc():
         raise TypeError("cast_pointer() cannot change the gc status: %s to %s"
                         % (CURTYPE, PTRTYPE))
+    if CURTYPE == PTRTYPE:
+        return 0
     if (not isinstance(CURTYPE.TO, Struct) or
         not isinstance(PTRTYPE.TO, Struct)):
         raise InvalidCast(CURTYPE, PTRTYPE)
