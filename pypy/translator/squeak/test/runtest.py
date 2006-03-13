@@ -43,6 +43,7 @@ class SqueakFunction:
         t = TranslationContext()
         t.buildannotator().build_types(func, annotation)
         t.buildrtyper(type_system="ootype").specialize()
+        self.graph = t.graphs[0]
         if conftest.option.view:
            t.viewcg()
         return GenSqueak(udir, t)
