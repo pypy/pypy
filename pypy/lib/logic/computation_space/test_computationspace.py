@@ -238,7 +238,7 @@ class TestStoreUnification:
         start_time = time.time()
 
         def wait_on_unbound(thread, var, start_time):
-            thread.val = var.get()
+            thread.val = var.wait()
             thread.waited = time.time() - start_time
 
         x = sp.var('x')

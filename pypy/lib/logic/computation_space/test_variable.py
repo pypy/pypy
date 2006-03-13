@@ -25,7 +25,7 @@ class Consumer(Thread):
         self.var = var
 
     def run(self):
-        val = self.var.get()
+        val = self.var.wait()
 
 class NConsumer(Thread):
 
@@ -33,7 +33,7 @@ class NConsumer(Thread):
         self.vars = vars_
 
     def run(self):
-        val = [var.get() for var in self.vars]
+        val = [var.wait() for var in self.vars]
 
 def newspace():
     return space.ComputationSpace(dummy_problem)
@@ -54,7 +54,7 @@ class TestSimpleVariable:
     def test_dataflow(self):
         def fun(thread, var):
             thread.state = 1
-            v = var.get()
+            v = var.wait()
             thread.state = v
 
         x = v.SimpleVar()
@@ -69,7 +69,7 @@ class TestSimpleVariable:
             
     def test_stream(self):
         def consummer(thread, S):
-            v = S.get()
+            v = S.wait()
             if v:
                 thread.res += v[0]
                 consummer(thread, v[1])
@@ -168,7 +168,7 @@ def dgenerate(thread, n, Xs):
     end"""
     sp = newspace()
     print "GENERATOR waits on Xs"
-    X_Xr = Xs.get()      # destructure Xs
+    X_Xr = Xs.wait()      # destructure Xs
     if X_Xr == None: return
     X = X_Xr[0]          # ... into X
     X.bind(n)            # bind X to n
@@ -192,7 +192,7 @@ def dsum(thread, Xs, a, limit):
         Xr = sp.var('Xr')
         print "CLIENT binds Xs to X|Xr"
         Xs.bind((X, Xr))
-        x = X.get() # wait on the value of X
+        x = X.wait() # wait on the value of X
         print "CLIENT got", x
         dsum(thread, Xr, a+x, limit-1)
     else:
@@ -209,7 +209,7 @@ def reduc(thread, Xs, a, fun):
             else {Sum Xs A}
         end
     end"""
-    X_Xr = Xs.get()
+    X_Xr = Xs.wait()
     if X_Xr == EOL:
         thread.result = a
         return
@@ -301,11 +301,11 @@ class TestStream:
                 end
                 """
                 sp = newspace()
-                Y_Yr = Ys.get()   # destructure Ys
+                Y_Yr = Ys.wait()   # destructure Ys
                 if Y_Yr != None: 
                     Y, Yr = Y_Yr
-                    X, Xr = Xs.get()
-                    Y.bind(X.get())
+                    X, Xr = Xs.wait()
+                    Y.bind(X.wait())
                     End2 = sp.var('End2')
                     X_ = sp.var('X_')
                     End.bind((X_, End2))

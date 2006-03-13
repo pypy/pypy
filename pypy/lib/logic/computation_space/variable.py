@@ -65,7 +65,7 @@ class SimpleVar(object):
     def bind(self, val):
         self.val = val
 
-    def get(self):
+    def wait(self):
         try:
             self._value_condition.acquire()
             while not self.is_bound():
