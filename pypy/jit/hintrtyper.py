@@ -118,6 +118,25 @@ class HintRTyper(RPythonTyper):
             [v_jitstate,    c_fielddesc, v_argbox,    c_fieldname,  c_resulttype],
             ts.s_RedBox)
 
+    def translate_op_getarrayitem(self, hop):
+        ts = self.timeshifter
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        RESTYPE = originalconcretetype(hop.s_result)
+        v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
+                                          self.getredrepr(lltype.Signed))
+        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, '-')
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
+        gv_resulttype = rgenop.constTYPE(RESTYPE)
+        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
+        v_jitstate = hop.llops.getjitstate()
+        s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getarrayitem,
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox, s_CONSTORVAR],
+            [v_jitstate,    c_fielddesc, v_argbox,    v_index,     c_resulttype],
+            ts.s_RedBox)
+
+
 
 class HintLowLevelOpList(LowLevelOpList):
     """Warning: the HintLowLevelOpList's rtyper is the *original*

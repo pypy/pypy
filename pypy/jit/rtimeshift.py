@@ -208,6 +208,21 @@ def ll_generate_getfield(jitstate, fielddesc, argbox,
                           gv_resulttype)
     return VarRedBox(genvar)
 
+
+def ll_generate_getarrayitem(jitstate, fielddesc, argbox,
+                             indexbox, gv_resulttype):
+    if (fielddesc.immutable and
+        isinstance(argbox, ConstRedBox) and isinstance(indexbox, ConstRedBox)):        
+        res = argbox.ll_getvalue(fielddesc.PTRTYPE)[indexbox.ll_getvalue(lltype.Signed)]
+        return ConstRedBox.ll_fromvalue(res)
+    op_args = lltype.malloc(VARLIST.TO, 2)
+    op_args[0] = argbox.getgenvar()
+    op_args[1] = indexbox.getgenvar()
+    genvar = rgenop.genop(jitstate.curblock, 'getarrayitem', op_args,
+                          gv_resulttype)
+    return VarRedBox(genvar)
+
+
 # ____________________________________________________________
 # other jitstate/graph level operations
 

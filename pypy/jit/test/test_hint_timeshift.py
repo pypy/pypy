@@ -268,3 +268,19 @@ def test_simple_struct():
     insns, res = timeshift(ll_function, [s1], [0])
     assert res == 42
     assert insns == {}
+
+def test_simple_array():
+    A = lltype.GcArray(lltype.Signed, 
+                        hints={'immutable': True})
+    def ll_function(a):
+        return a[0] * a[1]
+    a1 = lltype.malloc(A, 2)
+    a1[0] = 6
+    a1[1] = 7
+    insns, res = timeshift(ll_function, [a1], [])
+    assert res == 42
+    assert insns == {'getarrayitem': 2,
+                     'int_mul': 1}
+    insns, res = timeshift(ll_function, [a1], [0])
+    assert res == 42
+    assert insns == {}
