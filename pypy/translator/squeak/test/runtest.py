@@ -72,8 +72,11 @@ class SqueakFunction:
             py.test.skip("Squeak tests expect the SQUEAK_IMAGE environment "
                     "variable to point to an image.")
         startup_st = self._write_startup()
-        cmd = 'squeak -headless -- %s %s "%s" %s' \
-                % (startup_st, udir.join(self._gen.filename),
+        options = "-headless"
+        if conftest.option.showsqueak:
+            options = ""
+        cmd = 'squeak %s -- %s %s "%s" %s' \
+                % (options, startup_st, udir.join(self._gen.filename),
                    Selector(self._func.__name__, len(args)).symbol(),
                    " ".join(['"%s"' % a for a in args]))
         squeak_process = os.popen(cmd)
