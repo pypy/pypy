@@ -327,25 +327,6 @@ class TestStoreUnification:
         assert sp.dom(y) == c.FiniteDomain([2])
         assert sp.dom(z) == c.FiniteDomain([3])
 
-    def test_compute_dependant_vars(self):
-        sp = newspace()
-        x,y,z,w = (sp.var('x'), sp.var('y'),
-                   sp.var('z'), sp.var('w'))
-        sp.set_dom(x, c.FiniteDomain([1, 2, 5]))
-        sp.set_dom(y, c.FiniteDomain([2, 3]))
-        sp.set_dom(z, c.FiniteDomain([3, 4]))
-        sp.set_dom(w, c.FiniteDomain([1, 4, 5]))
-        k1 = c.Expression(sp, [x, y, z], 'x == y + z')
-        k2 = c.Expression(sp, [z, w], 'z < w')
-        sp.add_expression(k1)
-        sp.add_expression(k2)
-        varset = set()
-        constset = set()
-        sp._compute_dependant_vars(k1, varset, constset)
-        assert varset == set([x, y, z, w])
-        assert constset == set([k1, k2])
-
-
 #-- computation spaces -------------------------------
 
 import strategies

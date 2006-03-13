@@ -192,9 +192,6 @@ class ComputationSpace(object):
                     return True
         return False
 
-    def top_level(self):
-        return self.parent is None
-
     def _notify(self, event):
         self.event_set.add(event)
 
@@ -299,23 +296,13 @@ class ComputationSpace(object):
 
     def is_bound(self, var):
         """check wether a var is locally bound"""
-        if self.top_level():
-            return var.is_bound()
-        return len(self.dom(var)) == 1
+        return var.is_bound() or len(self.dom(var)) == 1
 
     def val(self, var):
         """return the local binding without blocking"""
-        if self.top_level(): # the real thing
-            return var.val
         if self.is_bound(var): # the speculative val
             return self.dom(var)[0]
         return NoValue
-
-    def _del_var(self, var):
-        """purely private stuff, use at your own perils"""
-        self.vars.remove(var)
-        if self.doms.has_key(var):
-            del self.doms[var]
 
     #-- Domains -----------------------------
 
@@ -423,19 +410,6 @@ class ComputationSpace(object):
                 if const in affected_constraints:
                     affected_constraints.remove(const)
                     
-    def _compute_dependant_vars(self, constraint, varset,
-                               constset):
-        if constraint in constset: return
-        constset.add(constraint)
-        for var in constraint.affected_variables():
-            varset.add(var)
-            dep_consts = self.var_const_map[var]
-            for const in dep_consts:
-                if const in constset:
-                    continue
-                self._compute_dependant_vars(const, varset,
-                                            constset)
-
     def _compatible_domains(self, var, eqs):
         """check that the domain of var is compatible
            with the domains of the vars in the eqs
@@ -660,44 +634,3 @@ def _both_are_vars(v1, v2):
 def _both_are_bound(v1, v2):
     return v1._is_bound() and v2._is_bound()
 
-def diff_list(l1, l2):
-    diff = {}
-    idx = 0
-    for e1, e2 in zip(l1, l2):
-        if e1 != e2: diff[idx] = (e1, e2)
-        idx += 1
-    return diff
-
-def backup_domains(space):
-    print "-- backup of domains (%s) --" % space.id
-    doms = []
-    for v, d in space.doms.items():
-        if d != NoDom:
-            doms.append((v, len(d)))
-    doms.sort()
-    print "  (", [elt[1] for elt in doms], ")"
-    return doms
-
-def print_quick_diff(space, domain_history):
-    ldh = len(domain_history)
-    if ldh > 0:
-        print "history size (%s) : %s" % (space.id, ldh)
-        last = domain_history[-1]
-    else:
-        curr = [(item[0], len(item[1].get_values()))
-                for item in space.doms.items()
-                if item[1] != NoDom]
-        curr.sort()
-        print "(diff -- v : d 0        (%s)" % space.id
-        for l in curr:
-            print ' '*6, '%s :  %2d' % (l[0], l[1]) 
-        print " --)"
-        return
-    curr = [(item[0], len(item[1].get_values()))
-            for item in space.doms.items()
-            if item[1] != NoDom]
-    curr.sort()
-    print "(diff -- v : d%2d | d%2d (%s)" % (ldh, ldh+1, space.id)
-    for l1, l2 in zip(last, curr):
-        print ' '*6, '%s :  %2d | %2d ' % (l1[0], l1[1], l2[1]) 
-    print " --)"
