@@ -122,11 +122,7 @@ class SplitDistributor(AbstractDistributor):
 
     def nb_subdomains(self):
         """See AbstractDistributor"""
-        try:
-            self.cs.var_lock.acquire()
-            self.__to_split = self.findSmallestDomain()
-        finally:
-            self.cs.var_lock.release()
+        self.__to_split = self.findSmallestDomain()
         if self.nb_subspaces:
             return min(self.nb_subspaces,
                        self.cs.dom(self.__to_split).size()) 

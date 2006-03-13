@@ -72,7 +72,6 @@ class ComputationSpace(object):
 
     # we have to enforce only one distributor
     # thread running in one space at the same time
-    _nb_choices = 0
     _id_count = 0
 
     def __init__(self, problem, parent=None):
@@ -81,8 +80,6 @@ class ComputationSpace(object):
         self.status = Unknown
         # consistency-preserving stuff
         self.in_transaction = False
-        self.bind_lock = RLock()
-        self.var_lock = RLock()
         self.distributor = DefaultDistributor(self)
         # mapping from domains to variables
         self.doms = {}
@@ -265,13 +262,9 @@ class ComputationSpace(object):
     def var(self, name):
         """creates a single assignment variable of name name
            and puts it into the store"""
-        self.var_lock.acquire()
-        try:
-            v = CsVar(name, self)
-            self.add_unbound(v)
-            return v
-        finally:
-            self.var_lock.release()
+        v = CsVar(name, self)
+        self.add_unbound(v)
+        return v
 
     def make_vars(self, *names):
         variables = []
@@ -486,30 +479,26 @@ class ComputationSpace(object):
         # where binding several times to compatible
         # values is allowed provided no information is
         # removed (this last condition remains to be checked)
-        self.bind_lock.acquire()
-        try:
-            assert(isinstance(var, CsVar) and (var in self.vars))
-            if var == val:
-                return
-            if _both_are_vars(var, val):
-                if _both_are_bound(var, val):
-                    if _unifiable(var, val):
-                        return # XXX check corrrectness
-                    raise UnificationFailure(var, val)
-                if var._is_bound(): # 2b. var is bound, not var
-                    self.bind(val, var)
-                elif val._is_bound(): # 2a.var is bound, not val
-                    self._bind(var.val, val.val)
-                else: # 1. both are unbound
-                    self._alias(var, val)
-            else: # 3. val is really a value
-                if var._is_bound():
-                    if _unifiable(var.val, val):
-                        return # XXX check correctness
-                    raise UnificationFailure(var, val)
-                self._bind(var.val, val)
-        finally:
-            self.bind_lock.release()
+        assert(isinstance(var, CsVar) and (var in self.vars))
+        if var == val:
+            return
+        if _both_are_vars(var, val):
+            if _both_are_bound(var, val):
+                if _unifiable(var, val):
+                    return # XXX check corrrectness
+                raise UnificationFailure(var, val)
+            if var._is_bound(): # 2b. var is bound, not var
+                self.bind(val, var)
+            elif val._is_bound(): # 2a.var is bound, not val
+                self._bind(var.val, val.val)
+            else: # 1. both are unbound
+                self._alias(var, val)
+        else: # 3. val is really a value
+            if var._is_bound():
+                if _unifiable(var.val, val):
+                    return # XXX check correctness
+                raise UnificationFailure(var, val)
+            self._bind(var.val, val)
 
     def _bind(self, eqs, val):
         # print "variable - value binding : %s %s" % (eqs, val)
