@@ -133,7 +133,7 @@ class Selector:
         self.parts = [camel_case(function_name)]
         self.arg_count = arg_count
         self.infix = False
-        if not self.parts[0].isalnum():
+        if len(self.parts[0]) <= 2 and not self.parts[0].isalnum():
             # Binary infix selector, e.g. "+"
             assert arg_count == 1
             self.infix = True
@@ -244,13 +244,19 @@ class CallableNode(CodeNode):
         'runtimenew':    Selector('new', 0),
         'classof':       Selector('class', 0),
         'sameAs':        Selector('yourself', 0), 
+        
+        # XXX need to handle overflow for all integer ops
+        'intAbs':        Selector('abs', 0),
+        'intIsTrue':     Selector('isZero not', 0),
+        'intNeg':        Selector('negated', 0),
+        'intInvert':     Selector('bitInvert', 0), # maybe bitInvert32?
+
         'intAdd:':       Selector('+', 1),
         'intSub:':       Selector('-', 1),
         'intEq:':        Selector('=', 1),
         'intMul:':       Selector('*', 1),
         'intDiv:':       Selector('//', 1),
         'intFloordiv:':  Selector('//', 1),
-        'intAbs':        Selector('abs', 0),
     }
 
     def render_body(self, startblock):

@@ -1,7 +1,7 @@
 from pypy.translator.squeak.test.runtest import compile_function
 from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem.lltype import Signed
+from pypy.rpython.lltypesystem.lltype import Signed, Bool
 from pypy.rpython.test.test_llinterp import interpret
 
 def optest(testcase):
@@ -18,20 +18,31 @@ def optest(testcase):
 
     annotation = [type(a) for a in args]
     sqfunc = compile_function(lloptest, annotation)
-    res = interpret(lloptest, args, policy=LowLevelAnnotatorPolicy())
-    assert sqfunc(*args) == str(res)
+    expected_res = interpret(lloptest, args, policy=LowLevelAnnotatorPolicy())
+    res = sqfunc(*args)
+    assert res == str(res).lower() # lowercasing for booleans
 
 def test_intoperations():
     tests = [
         # XXX Must handle overflows for all integer ops
+
+        # unary
+        ("int_abs", Signed, 7),
+        ("int_abs", Signed, -7),
+        ("int_is_true", Bool, 8),
+        ("int_is_true", Bool, 0),
+        ("int_neg", Signed, 2),
+        ("int_neg", Signed, -2),
+        ("int_invert", Signed, 5),
+        ("int_invert", Signed, -5),
+
+        # binary
         ("int_add", Signed, 1, 2),
         ("int_sub", Signed, 1, 3),
         ("int_mul", Signed, 2, 3),
         ("int_div", Signed, 7, 3),
         ("int_floordiv", Signed, 7, 3),
         ("int_floordiv", Signed, -7, 3),
-        ("int_abs", Signed, 7),
-        ("int_abs", Signed, -7),
     ]
     for t in tests:
         yield optest, t
