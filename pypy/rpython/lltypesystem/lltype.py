@@ -574,11 +574,11 @@ def cast_pointer(PTRTYPE, ptr):
         raise TypeError, "can only cast pointers to other pointers"
     return ptr._cast_to(PTRTYPE)
 
-def _expose(val):
+def _expose(val, solid=False):
     """XXX A nice docstring here"""
     T = typeOf(val)
     if isinstance(T, ContainerType):
-        val = _ptr(Ptr(T), val)
+        val = _ptr(Ptr(T), val, solid=solid)
     return val
 
 def parentlink(container):
@@ -677,7 +677,7 @@ class _ptr(object):
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
                 o = getattr(self._obj, field_name)
-                return _expose(o)
+                return _expose(o, self._solid)
         if isinstance(self._T, ContainerType):
             adtmeth = self._T._adtmeths.get(field_name)
             if adtmeth is not None:
@@ -719,7 +719,7 @@ class _ptr(object):
             if not (0 <= i < len(self._obj.items)):
                 raise IndexError("array index out of bounds")
             o = self._obj.items[i]
-            return _expose(o)
+            return _expose(o, self._solid)
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __setitem__(self, i, val):
@@ -782,7 +782,7 @@ class _ptr(object):
             while down_or_up:
                 p = getattr(p, typeOf(p).TO._names[0])
                 down_or_up -= 1
-            return _ptr(PTRTYPE, p._obj)
+            return _ptr(PTRTYPE, p._obj, solid=self._solid)
         u = -down_or_up
         struc = self._obj
         while u:
@@ -796,7 +796,7 @@ class _ptr(object):
             u -= 1
         if PARENTTYPE != PTRTYPE.TO:
             raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
-        return _ptr(PTRTYPE, struc)
+        return _ptr(PTRTYPE, struc, solid=self._solid)
         
     def _cast_to_int(self):
         obj = self._obj
