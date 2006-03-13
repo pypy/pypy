@@ -99,17 +99,6 @@ class PyObjMaker:
         return name
 
     def nameof_module(self, value):
-        assert value is os or not hasattr(value, "__file__") or \
-               not (value.__file__.endswith('.pyc') or
-                    value.__file__.endswith('.py') or
-                    value.__file__.endswith('.pyo')), \
-               "%r is not a builtin module (probably :)"%value
-        name = self.uniquename('mod%s'%value.__name__)
-        self.initcode_python(name, "__import__(%r)" % (value.__name__,))
-        return name
-
-    # try to build valid imports for external stuff        
-    def nameof_module(self, value):
         easy = value is os or not hasattr(value, "__file__") or \
                not (value.__file__.endswith('.pyc') or
                     value.__file__.endswith('.py') or
