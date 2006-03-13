@@ -4,28 +4,6 @@ from pypy.translator.test import snippet
 from pypy.translator.squeak.gensqueak import Selector, camel_case
 from pypy.translator.squeak.test.runtest import compile_function
 
-
-def looping(i, j):
-    while i > 0:
-        i -= 1
-        while j > 0:
-            j -= 1
-
-class TestSqueakTrans:
-
-    def test_simple_func(self):
-        compile_function(snippet.simple_func, [int])
-
-    def test_if_then_else(self):
-        compile_function(snippet.if_then_else, [bool, int, int])
-
-    def test_my_gcd(self):
-        compile_function(snippet.my_gcd, [int, int])
-
-    def test_looping(self):
-        compile_function(looping, [int, int])
-
-
 class TestGenSqueak:
 
     def test_theanswer(self):

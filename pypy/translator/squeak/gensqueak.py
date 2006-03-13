@@ -244,19 +244,34 @@ class CallableNode(CodeNode):
         'runtimenew':    Selector('new', 0),
         'classof':       Selector('class', 0),
         'sameAs':        Selector('yourself', 0), 
-        
-        # XXX need to handle overflow for all integer ops
-        'intAbs':        Selector('abs', 0),
-        'intIsTrue':     Selector('isZero not', 0),
-        'intNeg':        Selector('negated', 0),
-        'intInvert':     Selector('bitInvert', 0), # maybe bitInvert32?
+    }
 
-        'intAdd:':       Selector('+', 1),
-        'intSub:':       Selector('-', 1),
-        'intEq:':        Selector('=', 1),
-        'intMul:':       Selector('*', 1),
-        'intDiv:':       Selector('//', 1),
-        'intFloordiv:':  Selector('//', 1),
+    primitive_ops = {
+        'abs':       'abs',
+        'is_true':   'isZero not',
+        'neg':       'negated',
+        'invert':    'bitInvert', # maybe bitInvert32?
+
+        'add':       '+',
+        'sub':       '-',
+        'eq':        '=',
+        'mul':       '*',
+        'div':       '//',
+        'floordiv':  '//',
+    }
+    
+    primitive_opprefixes = "int", "uint", "llong", "ullong", "float"
+
+    primitive_wrapping_ops = "add", "sub", "mul"
+
+    primitive_masks = {
+        # XXX horrendous, but I can't figure out how to do this cleanly
+        "int": (Selector("maskInt", 1),
+                """maskInt: i 
+                    ((i <= %s) & (i >= %s)) ifTrue: [^i].
+                    ^ i + %s \\\\ %s - %s
+                  """ % (sys.maxint, -sys.maxint-1,
+                      sys.maxint+1, 2*(sys.maxint+1), sys.maxint+1)),
     }
 
     def render_body(self, startblock):
@@ -284,6 +299,10 @@ class CallableNode(CodeNode):
             raise TypeError, "expr(%r)" % (v,)
 
     def oper(self, op):
+        opname_parts = op.opname.split("_")
+        if opname_parts[0] in self.primitive_opprefixes:
+            return self.oper_primitive(
+                    op, opname_parts[0], "_".join(opname_parts[1:]))
         op_method = getattr(self, "op_%s" % op.opname, None)
         if op_method is not None:
             return op_method(op)
@@ -292,6 +311,19 @@ class CallableNode(CodeNode):
             receiver = self.expr(op.args[0])
             args = [self.expr(arg) for arg in op.args[1:]]
             return self.assignment(op, receiver, name, args)
+
+    def oper_primitive(self, op, ptype, opname):
+        receiver = self.expr(op.args[0])
+        args = [self.expr(arg) for arg in op.args[1:]]
+        sel = Selector(self.primitive_ops[opname], len(args))
+        message = "%s %s" % (receiver, sel.signature(args))
+        if opname in self.primitive_wrapping_ops \
+                and self.primitive_masks.has_key(ptype):
+            mask_selector, mask_code = self.primitive_masks[ptype]
+            helper = HelperNode(self.gen, mask_selector, mask_code)
+            message = helper.apply(["(%s)" % message])
+            self.gen.schedule_node(helper)
+        return "%s := %s." % (self.expr(op.result), message)
 
     def assignment(self, op, receiver_name, sel_name, arg_names):
         sel = Selector(sel_name, len(arg_names))
@@ -480,6 +512,29 @@ class GetterNode(AccessorNode):
                 self.gen.nameof_Instance(self.INSTANCE), "accessors")
         yield self.field_name
         yield "    ^%s" % self.field_name
+        yield "! !"
+
+class HelperNode(CodeNode):
+    
+    HELPERS = Instance("Helpers", ROOT)
+
+    def __init__(self, gen, selector, code):
+        self.gen = gen
+        self.selector = selector
+        self.code = code
+        self.hash_key = ("helper", code)
+
+    def apply(self, args):
+        return "PyHelpers %s" % self.selector.signature(args)
+    
+    def dependencies(self):
+        return [ClassNode(self.gen, self.HELPERS)]
+
+    def render(self):
+        # XXX should not use explicit name "PyHelpers" here
+        yield self.render_fileout_header("PyHelpers class", "helpers")
+        for line in self.code.strip().split("\n"):
+            yield line
         yield "! !"
 
 class FieldInitializerNode(CodeNode):
