@@ -31,6 +31,9 @@ class NoValue: pass
 
 class NoDom: pass
 
+def var():
+    return SimpleVar()
+
 class SimpleVar(object):
     """Spaceless dataflow variable"""
     
@@ -39,6 +42,7 @@ class SimpleVar(object):
         self._val = NoValue
         # a condition variable for concurrent access
         self._value_condition = threading.Condition()
+        self._need_condition = threading.Condition()
 
     # value accessors
     def _set_val(self, val):
@@ -56,6 +60,13 @@ class SimpleVar(object):
         return self._val
     val = property(_get_val, _set_val)
 
+    def __str__(self):
+        if self.is_bound():
+            return "%s = %s" % (self.name, self.val)
+        return "%s" % self.name
+
+    def __repr__(self):
+        return self.__str__()
 
     # public interface
 
@@ -67,22 +78,34 @@ class SimpleVar(object):
 
     def wait(self):
         try:
+            self._need_condition.acquire()
+            self._need_condition.notifyAll()
+        finally:
+            self._need_condition.release()
+        try:
             self._value_condition.acquire()
             while not self.is_bound():
                 t1 = time.time()
-                self._value_condition.wait(120)
+                self._value_condition.wait(10)
                 t2 = time.time()
-                if t2-t1>120:
+                if t2-t1>10:
                     raise RuntimeError("possible deadlock??")
             return self.val
         finally:
             self._value_condition.release()
-        
+
+    def wait_needed(self):
+        try:
+            self._need_condition.acquire()
+            self._need_condition.wait()
+        finally:
+            self._need_condition.release()
 
 class CsVar(SimpleVar):
     """Dataflow variable linked to a space"""
 
     def __init__(self, name, cs):
+        SimpleVar.__init__(self)
         if name in cs.names:
             raise AlreadyInStore(name)
         self.name = name
@@ -128,14 +151,6 @@ class CsVar(SimpleVar):
     def _get_val(self):
         return self._val
     val = property(_get_val, _set_val)
-
-    def __str__(self):
-        if self.is_bound():
-            return "%s = %s" % (self.name, self.val)
-        return "%s" % self.name
-
-    def __repr__(self):
-        return self.__str__()
 
     def bind(self, val):
         """home space bind"""

@@ -36,6 +36,12 @@ class TestStoreUnification:
         x = sp.var('x')
         raises(v.AlreadyInStore, sp.var, 'x')
 
+    def test_get_by_name(self):
+        sp = newspace()
+        x = sp.var('x')
+        assert x == sp.get_var_by_name('x')
+        raises(space.NotInStore, sp.get_var_by_name, 'y')
+
     def test_already_bound(self):
         sp = newspace()
         x = sp.var('x')

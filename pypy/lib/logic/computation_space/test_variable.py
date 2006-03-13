@@ -3,9 +3,7 @@ import operator
 
 from py.test import raises
 
-import computationspace as space
-import variable as v
-from problems import dummy_problem
+from variable import var, NoValue, AlreadyBound
 
 #-- utilities ---------------------
 
@@ -35,21 +33,17 @@ class NConsumer(Thread):
     def run(self):
         val = [var.wait() for var in self.vars]
 
-def newspace():
-    return space.ComputationSpace(dummy_problem)
-
-
 #-- meat ----------------------------
 
 class TestSimpleVariable:
 
     def test_basics(self):
-        x = v.SimpleVar()
-        assert x.val == v.NoValue
+        x = var()
+        assert x.val == NoValue
         x.bind(42)
         assert x.val == 42
         x.bind(42)
-        raises(v.AlreadyBound, x.bind, 43)
+        raises(AlreadyBound, x.bind, 43)
 
     def test_dataflow(self):
         def fun(thread, var):
@@ -57,7 +51,7 @@ class TestSimpleVariable:
             v = var.wait()
             thread.state = v
 
-        x = v.SimpleVar()
+        x = var()
         t = FunThread(fun, x)
         import time
         t.start()
@@ -74,66 +68,17 @@ class TestSimpleVariable:
                 thread.res += v[0]
                 consummer(thread, v[1])
 
-        S = v.SimpleVar()
+        S = var()
         t = FunThread(consummer, S)
         t.res = 0
         t.start()
         for i in range(10):
-            tail = v.SimpleVar()
+            tail = var()
             S.bind((i, tail))
             S = tail
         S.bind(None)
         t.join()
         assert t.res == 45
-
-class TestCsVariable:
-
-    def test_no_same_name(self):
-        sp = newspace()
-        x = sp.var('x')
-        raises(space.AlreadyInStore, sp.var, 'x')
-
-    def test_get_by_name(self):
-        sp = newspace()
-        x = sp.var('x')
-        assert x == sp.get_var_by_name('x')
-        raises(space.NotInStore, sp.get_var_by_name, 'y')
-
-    def test_one_thread_reading_one_var(self):
-        sp = newspace()
-        cons = Consumer()
-        x = sp.var('x')
-        cons.give_var(x)
-        cons.start()
-        sp.bind(x, 42)
-        cons.join()
-        assert cons.var.val == 42
-
-    def test_many_threads_reading_one_var(self):
-        sp = newspace()
-        conss = [Consumer() for i in range(10)]
-        x = sp.var('x')
-        for cons in conss:
-            cons.give_var(x)
-            cons.start()
-        sp.bind(x, 42)
-        for cons in conss:
-            cons.join()
-        assert cons.var.val == 42
-
-    def test_many_thread_reading_many_var(self):
-        sp = newspace()
-        conss = [NConsumer() for i in range(10)]
-        vars_ = [sp.var(str(i)) for i in range(10)]
-        for cons in conss:
-            cons.give_vars(vars_)
-            cons.start()
-        for var in vars_:
-            sp.bind(var, var.name)
-        for cons in conss:
-            cons.join()
-        for i in range(10):
-            assert vars_[i].val == str(i)
 
 #-- concurrent streams and lists ----------------
 
@@ -150,12 +95,11 @@ def generate(thread, Xs, n, limit):
        else nil end
     end"""
     if n<limit:
-        sp = newspace()
-        Xr = sp.var('Xr')
+        Xr = var()
         Xs.bind((n, Xr))
         generate(thread, Xr, n+1, limit)
     else:
-        Xs.bind(EOL)    
+        Xs.bind(None)    
 
 def dgenerate(thread, n, Xs):
     """(demand-driven generation of 0|1|2|...)
@@ -166,13 +110,12 @@ def dgenerate(thread, n, Xs):
            {DGenerate N+1 Xr}
         end
     end"""
-    sp = newspace()
-    print "GENERATOR waits on Xs"
+    print "GENERATOR in %s waits on Xs" % thread.getName()
     X_Xr = Xs.wait()      # destructure Xs
     if X_Xr == None: return
     X = X_Xr[0]          # ... into X
+    print "GENERATOR in %s binds X to %s" % (thread.getName(), n)
     X.bind(n)            # bind X to n
-    print "GENERATOR binds X to", n
     Xr = X_Xr[1]         # ... and Xr
     dgenerate(thread, n+1, Xr)
 
@@ -186,10 +129,9 @@ def dsum(thread, Xs, a, limit):
        else A end
     end"""
     if limit > 0:
-        sp = newspace()
         # fill Xs with an empty pair
-        X = sp.var('X')
-        Xr = sp.var('Xr')
+        X = var()
+        Xr = var()
         print "CLIENT binds Xs to X|Xr"
         Xs.bind((X, Xr))
         x = X.wait() # wait on the value of X
@@ -210,11 +152,18 @@ def reduc(thread, Xs, a, fun):
         end
     end"""
     X_Xr = Xs.wait()
-    if X_Xr == EOL:
+    if X_Xr == None:
         thread.result = a
         return
     Xr = X_Xr[1]
     reduc(thread, Xr, fun(a, X_Xr[0]), fun)
+
+def run_test(t1, t2):
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
 
 #-- meat ----------------------------------------
 
@@ -222,9 +171,7 @@ class TestStream:
                 
     def test_multiple_readers_eager_list(self):
         """the generator controls the flow"""
-        sp = newspace()
-            
-        Xs = sp.var('L')
+        Xs = var()
 
         r1 = FunThread(reduc, Xs, 0, operator.add)
         r2 = FunThread(reduc, Xs, 0, operator.add)
@@ -242,39 +189,66 @@ class TestStream:
             assert r.result == 861
 
     def test_lazy_list(self):
-        """the reader controls the flow"""
-        sp = newspace()
-
-        def run_test(t1, t2):
-            """
-            local Xs S in
-              thread {DGenerate 0 Xs} end
-              thread S={DSum Xs 0 15} end
-              {Browse S}
-            end"""
-            t1.start()
-            t2.start()
-            t1.join()
-            t2.join()
-
-        Xs = sp.var('Xs')
+        """the reader controls the flow
+        local Xs S in
+          thread {DGenerate 0 Xs} end
+          thread S={DSum Xs 0 15} end
+          {Browse S}
+        end"""
+        Xs = var()
         generator = FunThread(dgenerate, 0, Xs)
         summer = FunThread(dsum, Xs, 0, 15)
 
         run_test(generator, summer)
         assert summer.result == 105
 
+    def test_wait_needed(self):
+        """lazyness by wait_needed"""
+        Xs = var()
+
+        def lgenerate(thread, n, Xs):
+            """wait-needed version of dgenerate"""
+            print "GENERATOR waits on Xs"
+            Xs.wait_needed()
+            Xr = var()
+            Xs.bind((n, Xr))  
+            print "GENERATOR binds Xs to", n
+            dgenerate(thread, n+1, Xr)
+
+        def sum(thread, Xs, a, limit):
+            """much shorter than dsum"""
+            if limit > 0:
+                x = Xs.wait()
+                print "CLIENT got", x
+                dsum(thread, x[1], a+x[0], limit-1)
+            else:
+                thread.result = a
+        
+        generator = FunThread(lgenerate, 0, Xs)
+        summer = FunThread(sum, Xs, 0, 15)
+
+        run_test(generator, summer)
+        assert summer.result == 105
+        
 
     def test_bounded_buffer_transducer(self):
         """reader controls the flow but a
            buffer between generator/consummer
            avoids inefficient step-wise progression
         """
-        sp = newspace()
+        def print_stream(S):
+            while S.is_bound():
+                v = S.wait()
+                if isinstance(v, tuple):
+                    v0 = v[0]
+                    if v0.is_bound(): print v0, '|',
+                    else: print '?' ; break
+                    S = v[1]
+                else:
+                    print v
+                    break
 
         def bounded_buffer(thread, n, Xs, Ys):
-
-            sp = newspace()
 
             def startup(n, Xs):
                 """
@@ -284,10 +258,10 @@ class TestStream:
                 end
                 """
                 if n==0: return Xs
-                sp = newspace()
-                X_ = sp.var('X_')
-                Xr = sp.var('Xr')
-                Xs.bind((X_, Xr))
+                print "startup n = ", n,
+                print_stream(Xs)
+                Xr = var()
+                Xs.bind((var(), Xr))
                 return startup(n-1, Xr)
 
             def ask_loop(Ys, Xs, End):
@@ -300,29 +274,32 @@ class TestStream:
                     end
                 end
                 """
-                sp = newspace()
+                print "Ask_loop ..."
+                print_stream(Xs)
+                print_stream(Ys)
                 Y_Yr = Ys.wait()   # destructure Ys
                 if Y_Yr != None: 
                     Y, Yr = Y_Yr
+                    print "Ask_loop in thread %s got %s %s " % \
+                          (thread.getName(), Y, Yr)
                     X, Xr = Xs.wait()
                     Y.bind(X.wait())
-                    End2 = sp.var('End2')
-                    X_ = sp.var('X_')
-                    End.bind((X_, End2))
+                    End2 = var()
+                    End.bind((var(), End2))
                     ask_loop(Yr, Xr, End2)
                 else:
                     End.bind(None)
 
-            End = sp.var('End')
+            End = var()
             End.bind(startup(n, Xs))
             print "BUFFER starts"
             ask_loop(Ys, Xs, End)
 
-        Xs = sp.var('Xs')
-        Ys = sp.var('Ys')
+        Xs = var()
+        Ys = var()
 
         generator = FunThread(dgenerate, 0, Xs)
-        bbuffer = FunThread(bounded_buffer, 8, Xs, Ys)
+        bbuffer = FunThread(bounded_buffer, 4, Xs, Ys)
         summer = FunThread(dsum, Ys, 0, 50)
 
         generator.start()
