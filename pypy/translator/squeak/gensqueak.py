@@ -248,7 +248,9 @@ class CallableNode(CodeNode):
         'intSub:':       Selector('-', 1),
         'intEq:':        Selector('=', 1),
         'intMul:':       Selector('*', 1),
+        'intDiv:':       Selector('//', 1),
         'intFloordiv:':  Selector('//', 1),
+        'intAbs':        Selector('abs', 0),
     }
 
     def render_body(self, startblock):
