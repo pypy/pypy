@@ -5,8 +5,8 @@ from pypy.translator.squeak.gensqueak import GenSqueak, Selector
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 
-def compile_function(func, annotation=[]):
-    return SqueakFunction(func, annotation)
+def compile_function(func, annotation=[], graph=None):
+    return SqueakFunction(func, annotation, graph)
 
 
 # For now use pipes to communicate with squeak. This is very flaky
@@ -31,17 +31,24 @@ Smalltalk snapshot: false andQuit: true.
 
 class SqueakFunction:
 
-    def __init__(self, func, annotation):
+    def __init__(self, func, annotation, graph=None):
         self._func = func
-        self._gen = self._build(func, annotation)
+        self._gen = self._build(func, annotation, graph)
 
-    def _build(self, func, annotation):
+    def _build(self, func, annotation, graph=None):
         try: 
             func = func.im_func
         except AttributeError: 
             pass
         t = TranslationContext()
-        t.buildannotator().build_types(func, annotation)
+        if graph is not None:
+            graph.func = func
+            ann = t.buildannotator()
+            inputcells = [ann.typeannotation(a) for a in annotation]
+            ann.build_graph_types(graph, inputcells)
+            t.graphs.insert(0, graph)
+        else:
+            t.buildannotator().build_types(func, annotation)
         t.buildrtyper(type_system="ootype").specialize()
         self.graph = t.graphs[0]
         if conftest.option.view:

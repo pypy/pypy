@@ -1,37 +1,47 @@
 from pypy.translator.squeak.test.runtest import compile_function
+from pypy.translator.translator import TranslationContext
+from pypy.objspace.flow.operation import FunctionByName
+from pypy.objspace.flow.model import *
 
 def optest(testcase):
     opname = testcase[0]
-    opstring = testcase[1]
+    llopname = testcase[1]
     args = testcase[2:]
+
+    # This code adpated from translator/c/test/test_operation.py
+    inputvars = [Variable() for _ in args]
+    block = Block(inputvars)
+    op = SpaceOperation(opname, inputvars, Variable())
+    block.operations.append(op)
+    graph = FunctionGraph('operationdummy', block)
+    block.closeblock(Link([op.result], graph.returnblock))
+
     annotation = [type(a) for a in args]
-    func = opfunction(opstring, args)
-    sqfunc = compile_function(func, annotation)
+    sqfunc = compile_function(operationdummy, annotation, graph)
 
     # Make sure we actually test what we intend to test
     found_llop = False
     for op in sqfunc.graph.startblock.operations:
-        if op.opname == opname:
+        if op.opname == llopname:
             found_llop = True
             break
     assert found_llop
 
-    assert sqfunc(*args) == str(func(*args))
+    expected_result = FunctionByName[opname](*args)
+    assert sqfunc(*args) == str(expected_result)
 
-def opfunction(opstring, annotation):
-    exec """def fn(v1, v2):
-                return v1 %s v2""" % opstring
-    return fn
+def operationdummy(v1, v2):
+    pass
 
 def test_intoperations():
     tests = [
         # XXX Must handle overflows for all integer ops
-        ("int_add", "+", 1, 2),
-        ("int_sub", "-", 1, 3),
-        ("int_mul", "*", 2, 3),
-        # XXX how to produce int_div and int_truediv?
-        ("int_floordiv", "//", 7, 3),
-        ("int_floordiv", "//", -7, 3),
+        ("add", "int_add", 1, 2),
+        ("sub", "int_sub", 1, 3),
+        ("mul", "int_mul", 2, 3),
+        # I think int_div and int_truediv are currently never generated
+        ("floordiv", "int_floordiv", 7, 3),
+        ("floordiv", "int_floordiv", -7, 3),
     ]
     for t in tests:
         yield optest, t
