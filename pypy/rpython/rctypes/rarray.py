@@ -15,11 +15,18 @@ class ArrayRepr(Repr):
         self.length = type._length_
         
         entry = extregistry.lookup_type(item_ctype)
-        self.r_item = entry.get_repr(rtyper, item_ctype)
+        # XXX: goden: So at this point item_ctype is a ctypes object.
+        #             I *think* we need to send a "SomeCTypesObject" box
+        #             to get the PrimitiveRepr instead of the ctypes object
+        #             itself.
+        self.r_item = entry.get_repr(rtyper, SomeCTypesObject(item_ctype,
+            SomeCTypesObject.OWNSMEMORY))
         
+        # Array elements are of the low-level type (Signed, etc) and not 
+        # of the boxed low level type (Ptr(GcStruct(...)))
         self.lowleveltype = lltype.Ptr(
             lltype.GcStruct( "CtypesGcArray_%s" % type.__name__,
-                ( "c_data", lltype.Array(self.r_item.lowleveltype, 
+                ( "c_data", lltype.Array(self.r_item.ll_type, 
                     hints={"nolength": True})
                 )
             )
@@ -28,7 +35,7 @@ class ArrayRepr(Repr):
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_setitem((r_array, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_array, lltype.Signed,
-                r_array.r_item)
+                r_array.r_item.ll_type)
         inputargs = [v_array, hop.inputconst(lltype.Void, "c_data")]
         v_c_data = hop.genop('getsubstruct',
                     inputargs,
@@ -43,7 +50,7 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
                     inputargs,
                     lltype.Ptr(r_array.lowleveltype.TO.c_data) )
         return hop.genop('getarrayitem', [v_c_data, v_index],
-                r_array.r_item.lowleveltype)
+                r_array.r_item.ll_type)
 
 def arraytype_specialize_call(hop):
     r_array = hop.r_result

@@ -563,7 +563,10 @@ class FunctionCodeGenerator(object):
                 elength,
                 itemtype)
         result += self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
-        result += '\n%s->%s = %s;' % (eresult, lenfld, elength)
+
+        # ctypes Arrays have no length field
+        if not VARPART._hints.get('nolength', False):
+            result += '\n%s->%s = %s;' % (eresult, lenfld, elength)
         return result
 
     def OP_FLAVORED_MALLOC(self, op, err):

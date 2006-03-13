@@ -82,6 +82,15 @@ class PrimitiveRepr(Repr):
                                                         self.ll_type)
         self.setfield(hop.llops, v_primitive, v_value)
 
+# need to extend primitive repr to implement convert_from_to() for various
+# conversions, firstly the conversion from c_long() to Signed
+
+class __extend__(pairtype(PrimitiveRepr, IntegerRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        assert r_from.ll_type == r_to.lowleveltype
+
+        return r_from.getfield(llops, v)
+
 def primitive_specialize_call(hop):
     r_primitive = hop.r_result
     c1 = hop.inputconst(lltype.Void, r_primitive.lowleveltype.TO) 

@@ -6,6 +6,7 @@ import py.test
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
+from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 
@@ -127,7 +128,7 @@ class Test_annotation:
         py.test.raises(IndexError, "s = a.build_types(access_with_invalid_negative_index,[])")
 
 class Test_specialization:
-    def x_test_specialize_array(self):
+    def test_specialize_array(self):
         def create_array():
             return c_int_10()
 
@@ -138,12 +139,26 @@ class Test_specialization:
         py.test.raises(IndexError, "c_data[10]")
         py.test.raises(TypeError, "len(c_data)")
 
-    def x_test_specialize_array_access(self):
+    def test_specialize_array_access(self):
         def access_array():
             my_array = c_int_10()
             my_array[0] = 1
+            my_array[1] = c_int(1)
 
             return my_array[0]
 
         res = interpret(access_array, [])
         assert res == 1
+
+class Test_compilation:
+    def test_compile_array_access(self):
+        def access_array():
+            my_array = c_int_10()
+            my_array[0] = 1
+            my_array[1] = c_int(2)
+
+            return my_array[1]
+
+        fn = compile(access_array, [])
+        
+        assert fn() == 2
