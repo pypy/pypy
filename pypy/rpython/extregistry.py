@@ -33,7 +33,7 @@ def create_annotation_callable(annotation):
     return annotation
 
 def create_entry(compute_result_annotation=None, compute_annotation=None,
-    specialize_call=None, get_repr=None):
+                 specialize_call=None, get_repr=None):
     if compute_result_annotation is not None:
         compute_result_annotation = create_annotation_callable(
             compute_result_annotation)
