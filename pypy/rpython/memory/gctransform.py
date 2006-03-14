@@ -35,13 +35,15 @@ def var_ispyobj(var):
 class GCTransformer(object):
     finished = False
 
-    def __init__(self, translator):
+    def __init__(self, translator, inline=False):
         self.translator = translator
         self.seen_graphs = {}
         if translator:
             self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         else:
             self.mixlevelannotator = None
+        self.inline = inline
+        self.graphs_to_inline = {}
 
     def get_lltype_of_exception_value(self):
         if self.translator is not None and self.translator.rtyper is not None:
@@ -78,6 +80,13 @@ class GCTransformer(object):
         v = Variable('vanishing_exc_value')
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
+        if self.inline:
+            from pypy.translator.backendopt import inline
+            for inline_graph in self.graphs_to_inline:
+                try:
+                    inline.inline_function(self.translator, inline_graph, graph)
+                except inline.CannotInline:
+                    pass
 
     def transform_block(self, block):
         newops = []
@@ -545,8 +554,8 @@ def type_contains_pyobjs(TYPE):
 class BoehmGCTransformer(GCTransformer):
     gc_header_offset = gc.GCHeaderOffset(lltype.Void)
 
-    def __init__(self, translator):
-        super(BoehmGCTransformer, self).__init__(translator)
+    def __init__(self, translator, inline=False):
+        super(BoehmGCTransformer, self).__init__(translator, inline=inline)
         self.finalizer_funcptrs = {}
 
     def push_alive_nopyobj(self, var):
@@ -647,7 +656,7 @@ def gc_pointers_inside(v, adr):
 class FrameworkGCTransformer(BoehmGCTransformer):
 
     def __init__(self, translator):
-        super(FrameworkGCTransformer, self).__init__(translator)
+        super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         class GCData(object):
             from pypy.rpython.memory.gc import MarkSweepGC as GCClass
             startheapsize = 640*1024    # XXX adjust
@@ -791,8 +800,11 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph,
                                                         attach_empty_cleanup=True)
         self.push_root_ptr = self.graph2funcptr(push_root_graph)
+        self.graphs_to_inline[push_root_graph] = True
         self.pop_root_ptr  = self.graph2funcptr(pop_root_graph)
+        self.graphs_to_inline[pop_root_graph] = True
         self.malloc_ptr    = self.graph2funcptr(malloc_graph, True)
+        self.graphs_to_inline[malloc_graph] = True
 
     def graph2funcptr(self, graph, attach_empty_cleanup=False):
         self.seen_graphs[graph] = True

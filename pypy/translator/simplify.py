@@ -307,8 +307,10 @@ def join_blocks(graph):
                     return renaming.get(v, v)
                 def rename_op(op):
                     args = [rename(a) for a in op.args]
-                    if getattr(op, "cleanup", None) is not None:
-                        if op.cleanup not in cache_cleanups:
+                    if hasattr(op, "cleanup"):
+                        if op.cleanup is None:
+                            cleanup = None
+                        elif op.cleanup not in cache_cleanups:
                             finallyops, exceptops = op.cleanup
                             cleanup = (tuple([rename_op(fo) for fo in finallyops]),
                                        tuple([rename_op(eo) for eo in exceptops]))

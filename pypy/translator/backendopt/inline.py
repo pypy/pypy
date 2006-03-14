@@ -62,7 +62,9 @@ def inline_function(translator, inline_func, graph):
             raise CannotInline("inlining a recursive function")
         operation = block.operations[index_operation]
         if getattr(operation, "cleanup", None) is not None:
-            raise CannotInline("cannot inline a function with cleanup attached")
+            finallyops, exceptops = operation.cleanup
+            if finallyops or exceptops:
+                raise CannotInline("cannot inline a function with cleanup attached")
         _inline_function(translator, graph, block, index_operation)
         checkgraph(graph)
         count += 1
@@ -132,6 +134,8 @@ class Inliner(object):
         return result
 
     def copy_cleanup(self, cleanup):
+        if cleanup is None:
+            return None
         if cleanup in self._copied_cleanups:
             return self._copied_cleanups[cleanup]
         finallyops, exceptops = cleanup
