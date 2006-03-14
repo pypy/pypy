@@ -127,6 +127,7 @@ class ObjSpace(object):
         self.options.usemodules = usemodules 
         self.options.translating = translating
         self.options.geninterp = geninterp
+        self.interned_strings = {}
         self.setoptions(**kw)
         self.initialize()
 
@@ -375,6 +376,14 @@ class ObjSpace(object):
             return self.w_True
         else:
             return self.w_False
+
+    def new_interned_str(self, s):
+        try:
+            return self.interned_strings[s]
+        except KeyError:
+            pass
+        w_s = self.interned_strings[s] = self.wrap(s)
+        return w_s
 
     # support for the deprecated __getslice__, __setslice__, __delslice__
     def getslice(self, w_obj, w_start, w_stop):

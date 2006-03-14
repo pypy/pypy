@@ -560,9 +560,9 @@ else:
             namestr = "_emptystr_"
         name = self.uniquename('gs_' + namestr[:32])
         if len(value) < 30 and "\n" not in value:
-            txt = '%s = space.wrap(%r)' % (name, value)
+            txt = '%s = space.new_interned_str(%r)' % (name, value)
         else:
-            txt = render_docstr(value, '%s = space.wrap(\n' % name, ')')
+            txt = render_docstr(value, '%s = space.new_interned_str(\n' % name, ')')
             txt = txt,  # not splitted
         self.initcode.append(txt)
         return name
@@ -939,11 +939,11 @@ else:
         # property is lazy loaded app-level as well, trigger it*s creation
         self.initcode.append1('space.builtin.get("property") # pull it in')
         globname = self.nameof(self.moddict)
-        self.initcode.append('space.setitem(%s, space.wrap("__builtins__"), '
+        self.initcode.append('space.setitem(%s, space.new_interned_str("__builtins__"), '
                              'space.builtin.w_dict)' % globname)
         self.initcode.append('%s = space.eval("property(%s)", %s, %s)' %(
             name, origin, globname, globname) )
-        self.initcode.append('space.delitem(%s, space.wrap("__builtins__"))'
+        self.initcode.append('space.delitem(%s, space.new_interned_str("__builtins__"))'
                              % globname)
         return name
 
@@ -1039,7 +1039,7 @@ else:
             # make sure it is not rendered again
             key = Constant(doc).key
             self.rpynames[key] = "w__doc__"
-            self.initcode.append("w__doc__ = space.wrap(__doc__)")
+            self.initcode.append("w__doc__ = space.new_interned_str(__doc__)")
 
         # info.entrypoint must be done *after* __doc__ is handled,
         # because nameof(entrypoint) might touch __doc__ early.

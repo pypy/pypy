@@ -30,8 +30,9 @@ class MixedModule(Module):
         w_builtin = self.get(name) 
         return self.space.call_function(w_builtin, *args_w)
 
-    def getdictvalue(self, space, name): 
-        w_value = space.finditem(self.w_dict, space.wrap(name))
+    def getdictvalue(self, space, name):
+        w_name = space.new_interned_str(name)
+        w_value = space.finditem(self.w_dict, w_name)
         if self.lazy and w_value is None:
             try: 
                 loader = self.loaders[name]
@@ -51,7 +52,7 @@ class MixedModule(Module):
                         bltin.w_module = self.w_name
                         func._builtinversion_ = bltin
                     w_value = space.wrap(bltin)
-                space.setitem(self.w_dict, space.wrap(name), w_value) 
+                space.setitem(self.w_dict, w_name, w_value) 
         return w_value
 
     def getdict(self): 
@@ -59,7 +60,7 @@ class MixedModule(Module):
             space = self.space
             for name in self.loaders: 
                 w_value = self.get(name)  
-                space.setitem(self.w_dict, space.wrap(name), w_value) 
+                space.setitem(self.w_dict, space.new_interned_str(name), w_value) 
             self.lazy = False 
         return self.w_dict 
 

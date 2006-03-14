@@ -159,3 +159,8 @@ def repr(space, w_object):
 def setattr(space, w_object, w_name, w_val):
     space.setattr(w_object, w_name, w_val)
     return space.w_None
+
+def intern(space, w_str):
+    if space.is_w(space.type(w_str), space.w_str):
+        return space.new_interned_str(space.str_w(w_str))
+    raise OperationError(space.w_TypeError, space.wrap("intern() argument 1 must be string."))

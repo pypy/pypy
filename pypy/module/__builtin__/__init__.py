@@ -50,7 +50,6 @@ class Module(MixedModule):
 
         'complex'       : 'app_complex.complex',
 
-        'intern'        : 'app_misc.intern',
         'buffer'        : 'app_buffer.buffer',
         'reload'        : 'app_misc.reload',
 
@@ -105,6 +104,7 @@ class Module(MixedModule):
         'hash'          : 'operation.hash',
         'id'            : 'operation.id',
         '_seqiter'      : 'operation._seqiter',
+        'intern'        : 'operation.intern',
 
         'compile'       : 'compiling.compile',
         'eval'          : 'compiling.eval',
@@ -112,7 +112,6 @@ class Module(MixedModule):
         '__import__'    : 'importing.importhook',
 
         'range'         : 'functional.range_int',
-
         # float->string helper
         '_formatd'      : 'special._formatd'
     }
