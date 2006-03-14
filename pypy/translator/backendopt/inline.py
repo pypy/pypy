@@ -93,6 +93,7 @@ class Inliner(object):
         self.varmap = {}
         self.beforeblock = block
         self._copied_blocks = {}
+        self._copied_cleanups = {}
         self.op = block.operations[index_operation]
         self.graph_to_inline = self.op.args[0].value._obj.graph
         self.exception_guarded = False
@@ -125,7 +126,24 @@ class Inliner(object):
         
     def copy_operation(self, op):
         args = [self.get_new_name(arg) for arg in op.args]
-        return SpaceOperation(op.opname, args, self.get_new_name(op.result))
+        result = SpaceOperation(op.opname, args, self.get_new_name(op.result))
+        if getattr(op, "cleanup", None) is not None:
+            result.cleanup = self.copy_cleanup(op.cleanup)
+        return result
+
+    def copy_cleanup(self, cleanup):
+        if cleanup in self._copied_cleanups:
+            return self._copied_cleanups[cleanup]
+        finallyops, exceptops = cleanup
+        copyfinallyops = []
+        for op in finallyops:
+            copyfinallyops.append(self.copy_operation(op))
+        copyexceptops = []
+        for op in exceptops:
+            copyexceptops.append(self.copy_operation(op))    
+        copycleanup = (tuple(copyfinallyops), tuple(copyexceptops))
+        self._copied_cleanups[cleanup] = copycleanup
+        return copycleanup
 
     def copy_block(self, block):
         if block in self._copied_blocks:

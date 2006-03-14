@@ -300,14 +300,27 @@ def join_blocks(graph):
                 len(entrymap[link.target]) == 1 and
                 link.target.exits):  # stop at the returnblock
                 renaming = {}
+                cache_cleanups = {}
                 for vprev, vtarg in zip(link.args, link.target.inputargs):
                     renaming[vtarg] = vprev
                 def rename(v):
                     return renaming.get(v, v)
-                for op in link.target.operations:
+                def rename_op(op):
                     args = [rename(a) for a in op.args]
-                    op = SpaceOperation(op.opname, args, rename(op.result))
-                    link.prevblock.operations.append(op)
+                    if getattr(op, "cleanup", None) is not None:
+                        if op.cleanup not in cache_cleanups:
+                            finallyops, exceptops = op.cleanup
+                            cleanup = (tuple([rename_op(fo) for fo in finallyops]),
+                                       tuple([rename_op(eo) for eo in exceptops]))
+                            cache_cleanups[op.cleanup] = cleanup
+                        else:
+                            cleanup = cache_cleanups[op.cleanup] 
+                        op = SpaceOperation(op.opname, args, rename(op.result), cleanup=cleanup)
+                    else:
+                        op = SpaceOperation(op.opname, args, rename(op.result))
+                    return op
+                for op in link.target.operations:
+                    link.prevblock.operations.append(rename_op(op))
                 exits = []
                 for exit in link.target.exits:
                     newexit = exit.copy(rename)
