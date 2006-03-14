@@ -72,10 +72,10 @@ by ctypes.
 
 Thus the annotator tracks the memory state of each ctypes object. Pointers
 to structures are annotated differently when they are return by an external
-function. As stated abbove a mixed memory mode function result type is not
-considered rctypes compliant and therefore annotated as `SomeObject` [#].
+function. As stated above a mixed memory mode function result type is not
+considered rctypes compliant and therefore annotated as `SomeObject` [#]_.
 
-..[#] This restriction will be lifted in future ctypes versions. 
+.. [#] This restriction will be lifted in future ctypes versions. 
 
 Memory-Layout
 -------------
