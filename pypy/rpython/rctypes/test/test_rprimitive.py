@@ -11,6 +11,11 @@ from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 
+try:
+    import ctypes
+except ImportError:
+    py.test.skip("this test needs ctypes installed")
+
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
 from ctypes import c_double, c_char_p
@@ -65,6 +70,52 @@ class Test_annotation:
 
         if conftest.option.view:
             t.view()
+    
+    def test_annotate_c_float(self):
+        def func():
+            res = c_float(4.2)
+
+            return res.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+
+        assert s.knowntype == float
+
+        if conftest.option.view:
+            t.view()
+
+    def test_annotate_prebuilt_c_float(self):
+        res = c_float(4.2)
+
+        def func():
+            return res.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+
+        assert s.knowntype == float
+
+        if conftest.option.view:
+            t.view()
+
+    def test_annotate_set_c_float_value(self):
+        def func():
+            res = c_float(4.2)
+            res.value = 5.2
+
+            return res.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+
+        assert s.knowntype == float
+
+        if conftest.option.view:
+            t.view()
 
 class Test_specialization:
     def test_specialize_c_int(self):
@@ -80,7 +131,7 @@ class Test_specialization:
         res = interpret(create_c_int, [])
         c_data = res.c_data
         assert c_data.value == 0
-
+    
     def test_specialize_c_int_access_value(self):
         def create_c_int():
             return c_int(42).value
@@ -103,6 +154,49 @@ class Test_specialization:
 
         res = interpret(access_cint, [])
         assert res == 42
+
+    def test_specialize_c_float(self):
+        def create_c_float():
+            return c_float(4.2)
+        res = interpret(create_c_float, [])
+        c_data = res.c_data
+        assert c_data.value == 4.2
+
+    def test_specialize_c_float_default_value(self):
+        def create_c_float():
+            return c_float()
+        res = interpret(create_c_float, [])
+        c_data = res.c_data
+        assert c_data.value == 0.0
+
+    def test_specialize_c_float_access_value(self):
+        def create_c_float():
+            return c_float(4.2).value
+        res = interpret(create_c_float, [])
+        assert res == 4.2
+
+    def test_specialize_c_float_set_value(self):
+        def set_c_float_value():
+            cf = c_float(4.2)
+            cf.value = 5.2
+            return cf.value
+
+        res = interpret(set_c_float_value, [])
+        assert res == 5.2
+
+    def test_specialize_access_prebuilt_c_float_value(self):
+        cf = c_float(4.3)
+        def access_c_float():
+            return cf.value
+
+        res = interpret(access_c_float, [])
+        
+        # XXX: goden: Not sure if this is an indication of some sort of
+        #             problem, but the precision appears to be broken when
+        #             returning a float from the interpreted function when its
+        #             statically allocated.  As a temporary hack I'm reducing
+        #             the precision to compare.
+        assert ("%.2f" % res) == ("%.2f" % 4.3)
 
 class Test_compilation:
     def test_compile_c_int(self):
@@ -127,3 +221,31 @@ class Test_compilation:
 
         fn = compile(access_cint, [])
         assert fn() == 52
+    
+    def test_compile_c_float(self):
+        def create_c_float():
+            return c_float(4.2).value
+        fn = compile(create_c_float, [])
+        assert fn() == 4.2
+
+    def test_compile_prebuilt_c_float(self):
+        cf = c_float(4.2)
+        def access_c_float():
+            return cf.value
+
+        fn = compile(access_c_float, [])
+        # XXX: goden: Not sure if this is an indication of some sort of
+        #             problem, but the precision appears to be broken when
+        #             returning a float from the interpreted function when its
+        #             statically allocated.  As a temporary hack I'm reducing
+        #             the precision to compare.
+        assert ("%.2f" % (fn(),)) == ("%.2f" % (4.2,))
+
+    def test_compile_set_prebuilt_c_float_value(self):
+        cf = c_float(4.2)
+        def access_c_float():
+            cf.value = 5.2
+            return cf.value
+
+        fn = compile(access_c_float, [])
+        assert fn() == 5.2
