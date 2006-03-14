@@ -9,7 +9,6 @@ from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
-from pypy.rpython.rstr import STR
 import sets, os
 
 EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
@@ -828,7 +827,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                         info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
                     else:
                         info["fixedsize"] = ofs1 + llmemory.sizeof(lltype.Signed)
-                    if TYPE is STR:
+                    if ARRAY._hints.get('isrpystring'):
                         info["fixedsize"] = llmemory.sizeof(TYPE, 1)
                 else:
                     ARRAY = TYPE

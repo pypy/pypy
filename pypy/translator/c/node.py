@@ -10,7 +10,6 @@ from pypy.translator.c.support import USESLOTS # set to False if necessary while
 from pypy.translator.c.support import cdecl, somelettersfrom, c_string_constant
 from pypy.translator.c.primitive import PrimitiveType, isinf
 from pypy.translator.c import extfunc
-from pypy.rpython.rstr import STR
 
 
 def needs_gcheader(T):
@@ -142,7 +141,7 @@ class ArrayDefNode:
         original_varlength = varlength
         self.gcfields = []
         
-        if ARRAY is STR.chars:
+        if ARRAY._hints.get('isrpystring'):
             varlength += 1   # for the NUL char terminator at the end of the string
         self.varlength = varlength
         if original_varlength == 1:

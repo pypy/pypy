@@ -26,7 +26,8 @@ from pypy.rpython.lltypesystem.lltype import \
 #    }
 
 STR = GcStruct('rpy_string', ('hash',  Signed),
-                             ('chars', Array(Char, hints={'immutable': True})))
+                             ('chars', Array(Char, hints={'immutable': True,
+                                                          'isrpystring': True})))
 SIGNED_ARRAY = GcArray(Signed)
 
 
