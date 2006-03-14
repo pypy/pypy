@@ -168,6 +168,8 @@ class W_TypeObject(W_Object):
                     else:
                         # create member
                         slot_name = _mangle(slot_name, name)
+                        # Force interning of slot names.
+                        slot_name = space.str_w(space.new_interned_str(slot_name))
                         w_self.dict_w[slot_name] = space.wrap(Member(nslots, slot_name, w_self))
                         nslots += 1
 
@@ -212,12 +214,16 @@ class W_TypeObject(W_Object):
             if isinstance(w_new, Function):
                 w_self.dict_w['__new__'] = StaticMethod(w_new)
 
-    def getdictvalue(w_self, space, attr):
+    def getdictvalue(w_self, space, w_attr):
+        return w_self.getdictvalue_w(space, space.str_w(w_attr))
+    
+    def getdictvalue_w(w_self, space, attr):
         try:
             return w_self.dict_w[attr]
         except KeyError:
             if w_self.lazyloaders:
                 if attr in w_self.lazyloaders:
+                    w_attr = space.new_interned_str(attr)
                     loader = w_self.lazyloaders[attr]
                     del w_self.lazyloaders[attr]
                     w_value = loader()
@@ -230,7 +236,7 @@ class W_TypeObject(W_Object):
         # note that this doesn't call __get__ on the result at all
         space = w_self.space
         for w_class in w_self.mro_w:
-            w_value = w_class.getdictvalue(space, key)
+            w_value = w_class.getdictvalue_w(space, key)
             if w_value is not None:
                 return w_value
         return None
@@ -240,7 +246,7 @@ class W_TypeObject(W_Object):
         # attribute was found
         space = w_self.space
         for w_class in w_self.mro_w:
-            w_value = w_class.getdictvalue(space, key)
+            w_value = w_class.getdictvalue_w(space, key)
             if w_value is not None:
                 return w_class, w_value
         return None, None
@@ -265,7 +271,7 @@ class W_TypeObject(W_Object):
         "NOT_RPYTHON.  Forces the lazy attributes to be computed."
         if 'lazyloaders' in w_self.__dict__:
             for attr in w_self.lazyloaders.keys():
-                w_self.getdictvalue(w_self.space, attr)
+                w_self.getdictvalue_w(w_self.space, attr)
             del w_self.lazyloaders
         return False
 

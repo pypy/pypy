@@ -472,9 +472,9 @@ class PyInterpFrame(pyframe.PyFrame):
         w_value = f.space.finditem(f.w_globals, w_varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
-            varname = f.getname_u(nameindex)
-            w_value = f.builtin.getdictvalue(f.space, varname)
+            w_value = f.builtin.getdictvalue(f.space, w_varname)
             if w_value is None:
+                varname = f.getname_u(nameindex)
                 message = "global name '%s' is not defined" % varname
                 raise OperationError(f.space.w_NameError,
                                      f.space.wrap(message))
@@ -559,7 +559,7 @@ class PyInterpFrame(pyframe.PyFrame):
         w_modulename = f.getname_w(nameindex)
         modulename = f.space.str_w(w_modulename)
         w_fromlist = f.valuestack.pop()
-        w_import = f.builtin.getdictvalue(f.space, '__import__')
+        w_import = f.builtin.getdictvalue_w(f.space, '__import__')
         if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))

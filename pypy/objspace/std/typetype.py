@@ -103,7 +103,7 @@ def descr__doc(space, w_type):
         return space.wrap("""type(object) -> the object's type
 type(name, bases, dict) -> a new type""")
     w_type = _check(space, w_type)
-    w_result = w_type.getdictvalue(space, '__doc__')
+    w_result = w_type.getdictvalue_w(space, '__doc__')
     if w_result is None:
         return space.w_None
     else:

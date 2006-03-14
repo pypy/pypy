@@ -126,11 +126,11 @@ def run_toplevel(space, f, verbose=False):
                           w_traceback)
 
             # call sys.excepthook if present
-            w_hook = space.sys.getdictvalue(space, 'excepthook')
+            w_hook = space.sys.getdictvalue_w(space, 'excepthook')
             if w_hook is not None:
                 # hack: skip it if it wasn't modified by the user,
                 #       to do instead the faster verbose/nonverbose thing below
-                w_original = space.sys.getdictvalue(space, '__excepthook__')
+                w_original = space.sys.getdictvalue_w(space, '__excepthook__')
                 if w_original is None or not space.is_w(w_hook, w_original):
                     space.call_function(w_hook, w_type, w_value, w_traceback)
                     return False   # done

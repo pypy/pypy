@@ -21,7 +21,7 @@ class MixedModule(Module):
 
     def get(self, name):
         space = self.space
-        w_value = self.getdictvalue(space, name) 
+        w_value = self.getdictvalue_w(space, name) 
         if w_value is None: 
             raise OperationError(space.w_AttributeError, space.wrap(name))
         return w_value 
@@ -30,10 +30,11 @@ class MixedModule(Module):
         w_builtin = self.get(name) 
         return self.space.call_function(w_builtin, *args_w)
 
-    def getdictvalue(self, space, name):
-        w_name = space.new_interned_str(name)
+    def getdictvalue(self, space, w_name):
         w_value = space.finditem(self.w_dict, w_name)
         if self.lazy and w_value is None:
+            name = space.str_w(w_name)
+            w_name = space.new_interned_str(name)
             try: 
                 loader = self.loaders[name]
             except KeyError: 

@@ -130,7 +130,7 @@ def main_(argv=None):
             exit_status = 0
     finally:
         # call the sys.exitfunc()
-        w_exitfunc = space.sys.getdictvalue(space, 'exitfunc')
+        w_exitfunc = space.sys.getdictvalue_w(space, 'exitfunc')
         if w_exitfunc is not None:
             def doit():
                 space.call_function(w_exitfunc)

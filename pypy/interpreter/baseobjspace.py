@@ -16,10 +16,13 @@ class W_Root(object):
     def getdict(self):
         return None
 
-    def getdictvalue(self, space, attr):
+    def getdictvalue_w(self, space, attr):
+        return self.getdictvalue(space, space.wrap(attr))
+
+    def getdictvalue(self, space, w_attr):
         w_dict = self.getdict()
         if w_dict is not None:
-            return space.finditem(w_dict, space.wrap(attr))
+            return space.finditem(w_dict, w_attr)
         return None
 
     def setdict(self, space, w_dict):
@@ -363,6 +366,10 @@ class ObjSpace(object):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
 
+    def set_str_keyed_item(self, w_obj, w_key, w_value):
+        w_strkey = self.wrap(self.str_w(w_key)) # Force the key to a space.w_str
+        return self.setitem(w_obj, w_strkey, w_value)
+    
     def finditem(self, w_obj, w_key):
         try:
             return self.getitem(w_obj, w_key)
@@ -533,7 +540,7 @@ class ObjSpace(object):
         w_type = self.type(w_obj)
         w_mro = self.getattr(w_type, self.wrap("__mro__"))
         for w_supertype in self.unpackiterable(w_mro):
-            w_value = w_supertype.getdictvalue(self, name)
+            w_value = w_supertype.getdictvalue_w(self, name)
             if w_value is not None:
                 return w_value
         return None

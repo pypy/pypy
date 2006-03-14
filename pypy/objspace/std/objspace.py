@@ -436,6 +436,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             return ObjSpace.finditem(self, w_obj, w_key)
 
+    def set_str_keyed_item(self, w_obj, w_key, w_value):
+        # performance shortcut to avoid creating the OperationError(KeyError)
+        if type(w_key) is not W_StringObject:
+            w_key = self.new_interned_str(self.str_w(w_key))
+        if type(w_obj) is W_DictObject:
+            w_obj.content[w_key] = w_value
+        else:
+            self.setitem(w_obj, w_key, w_value)
+
     # support for the deprecated __getslice__, __setslice__, __delslice__
 
     def getslice(self, w_obj, w_start, w_stop):
