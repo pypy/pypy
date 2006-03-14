@@ -3,16 +3,7 @@ from pypy.translator.translator import TranslationContext
 from pypy import conftest
 from py.test import raises
 
-"""
-This is a simple approach to support building extension moduels.
-The key idea is to provide a mechanism to record certain objects
-and types to be recognized as SomeObject, to be created using imports
-without trying to further investigate them.
-
-This is intentionally using global dicts, since what we can
-translate is growing in time, but usually nothing you want
-to configure dynamically.
-"""
+# see annotation/registry for comments
 
 def get_annotation(func):
     argstypelist = []

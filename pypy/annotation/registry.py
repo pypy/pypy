@@ -3,8 +3,14 @@ A registry for objects that we cannot translate.
 
 Reason: building extension modules.
 
-This is a first attempt to have a way to declare what
-we cannot translate, but want to get handled in some way.
+A simple approach to support building extension modules.
+The key idea is to provide a mechanism to record certain objects
+and types to be recognized as SomeObject, to be created using imports
+without trying to further investigate them.
+
+This is intentionally using global dicts, since what we can
+translate is growing in time, but usually nothing you want
+to configure dynamically.
 """
 
 import sys
