@@ -9,8 +9,7 @@ from threading import Thread, Condition, RLock, local
 from state import Succeeded, Failed, Unknown
 
 from variable import EqSet, CsVar, NoValue, NoDom, \
-     VariableException, NotAVariable, AlreadyInStore, \
-     AlreadyBound
+     VariableException, NotAVariable, AlreadyBound
 from constraint import FiniteDomain, ConsistencyFailure, \
      Expression
 from distributor import DefaultDistributor

@@ -3,7 +3,7 @@ import operator
 
 from py.test import raises
 
-from variable import var, NoValue, AlreadyBound
+from variable import var, NoValue, AlreadyBound, stream_repr
 
 #-- utilities ---------------------
 
@@ -45,40 +45,22 @@ class TestSimpleVariable:
         x.bind(42)
         raises(AlreadyBound, x.bind, 43)
 
-    def test_dataflow(self):
-        def fun(thread, var):
-            thread.state = 1
-            v = var.wait()
-            thread.state = v
-
+    def test_repr_stream(self):
+        var._vcount = 0 #ensure consistent numbering
         x = var()
-        t = FunThread(fun, x)
-        import time
-        t.start()
-        time.sleep(.5)
-        assert t.state == 1
-        x.bind(42)
-        t.join()
-        assert t.state == 42
-            
-    def test_stream(self):
-        def consummer(thread, S):
-            v = S.wait()
-            if v:
-                thread.res += v[0]
-                consummer(thread, v[1])
+        it = x
+        for i in range(3):
+            it.bind((var(), var()))
+            it = it.wait()[1]
+        assert stream_repr(x) == '<?1>|<?3>|<?5>|<?6>'
+        it.bind(None)
+        assert stream_repr(x) == '<?1>|<?3>|<?5>|None'
+        it = x
+        for i in range(3):
+            it.wait()[0].bind(i)
+            it = it.wait()[1]
+        assert stream_repr(x) == '0|1|2|None'
 
-        S = var()
-        t = FunThread(consummer, S)
-        t.res = 0
-        t.start()
-        for i in range(10):
-            tail = var()
-            S.bind((i, tail))
-            S = tail
-        S.bind(None)
-        t.join()
-        assert t.res == 45
 
 #-- concurrent streams and lists ----------------
 
@@ -110,11 +92,12 @@ def dgenerate(thread, n, Xs):
            {DGenerate N+1 Xr}
         end
     end"""
-    print "GENERATOR in %s waits on Xs" % thread.getName()
+    print "generator in %s waits on Xs" % thread.getName()
     X_Xr = Xs.wait()      # destructure Xs
     if X_Xr == None: return
+    print "generator X_Xr", X_Xr
     X = X_Xr[0]          # ... into X
-    print "GENERATOR in %s binds X to %s" % (thread.getName(), n)
+    print "generator in %s binds X to %s" % (thread.getName(), n)
     X.bind(n)            # bind X to n
     Xr = X_Xr[1]         # ... and Xr
     dgenerate(thread, n+1, Xr)
@@ -132,10 +115,10 @@ def dsum(thread, Xs, a, limit):
         # fill Xs with an empty pair
         X = var()
         Xr = var()
-        print "CLIENT binds Xs to X|Xr"
         Xs.bind((X, Xr))
+        print "client binds Xs to X|Xr ", stream_repr(Xs)
         x = X.wait() # wait on the value of X
-        print "CLIENT got", x
+        print "client got", x
         dsum(thread, Xr, a+x, limit-1)
     else:
         print "CLIENT binds Xs to None and exits"
@@ -178,12 +161,12 @@ class TestStream:
         r3 = FunThread(reduc, Xs, 0, operator.add)
         generator = FunThread(generate, Xs, 0, 42)
 
-        r1.start()
-        r2.start()
-        r3.start()
-        generator.start()
+        for r in (r1, r2, r3):
+            r.start()
 
+        generator.start()
         generator.join()
+
         for r in (r1, r2, r3):
             r.join()
             assert r.result == 861
@@ -236,18 +219,6 @@ class TestStream:
            buffer between generator/consummer
            avoids inefficient step-wise progression
         """
-        def print_stream(S):
-            while S.is_bound():
-                v = S.wait()
-                if isinstance(v, tuple):
-                    v0 = v[0]
-                    if v0.is_bound(): print v0, '|',
-                    else: print '?' ; break
-                    S = v[1]
-                else:
-                    print v
-                    break
-
         def bounded_buffer(thread, n, Xs, Ys):
 
             def startup(n, Xs):
@@ -257,11 +228,10 @@ class TestStream:
                     else Xr in Xs=_|Xr {Startup N-1 Xr} end
                 end
                 """
-                if n==0: return Xs
-                print "startup n = ", n,
-                print_stream(Xs)
+                if n==0: return Xs # will be End
                 Xr = var()
                 Xs.bind((var(), Xr))
+                print "startup n = ", n, stream_repr(Xs)
                 return startup(n-1, Xr)
 
             def ask_loop(Ys, Xs, End):
@@ -274,14 +244,9 @@ class TestStream:
                     end
                 end
                 """
-                print "Ask_loop ..."
-                print_stream(Xs)
-                print_stream(Ys)
                 Y_Yr = Ys.wait()   # destructure Ys
                 if Y_Yr != None: 
                     Y, Yr = Y_Yr
-                    print "Ask_loop in thread %s got %s %s " % \
-                          (thread.getName(), Y, Yr)
                     X, Xr = Xs.wait()
                     Y.bind(X.wait())
                     End2 = var()
@@ -290,10 +255,11 @@ class TestStream:
                 else:
                     End.bind(None)
 
+            print "buffer initial Ys, Xs ", stream_repr(Ys, Xs)
             End = var()
             End.bind(startup(n, Xs))
-            print "BUFFER starts"
-            ask_loop(Ys, Xs, End)
+            print "buffer starts", stream_repr(Xs, End)
+            ask_loop(Ys, Xs, End.val)
 
         Xs = var()
         Ys = var()

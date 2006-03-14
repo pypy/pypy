@@ -6,19 +6,15 @@ class VariableException(Exception):
     def __init__(self, name):
         self.name = name
 
-class AlreadyInStore(VariableException):
-    def __str__(self):
-        return "%s already in store" % self.name
-
 class AlreadyBound(Exception):
     def __init__(self, var, val):
+        print "can't bind %s to %s" % (var, val)
         self.var = var
         self.val = val
     
     def __str__(self):
-        return "%s:%s already bound to %s" % (self.var.name,
-                                              self.var.val,
-                                              self.val)
+        var, val = self.var, self.val
+        return "can't bind %s to %s" % (var, val)
 
 class NotAVariable(VariableException):
     def __str__(self):
@@ -31,30 +27,30 @@ class NoValue: pass
 
 class NoDom: pass
 
-def var():
-    return SimpleVar()
-
-class SimpleVar(object):
+class Var(object):
     """Spaceless dataflow variable"""
+    _count_lock = threading.Lock()
+    _vcount = 0
     
-    def __init__(self):
-        self.name = str(id(self))
-        self._val = NoValue
-        # a condition variable for concurrent access
+    def __init__(self, value=NoValue):
+        try:
+            Var._count_lock.acquire()
+            self.name = str(Var._vcount)
+        finally:
+            Var._count_lock.release()
+        Var._vcount += 1
+        self._val = value
+        # a condition variable for Wait
         self._value_condition = threading.Condition()
+        # for WaitNeeded
         self._need_condition = threading.Condition()
 
     # value accessors
     def _set_val(self, val):
-        self._value_condition.acquire()
-        try:
-            if self._val != NoValue:
-                if val != self._val:
-                    raise AlreadyBound(self, val)
-            self._val = val
-            self._value_condition.notifyAll()
-        finally:
-            self._value_condition.release()
+        if self._val != NoValue:
+            if val != self._val:
+                raise AlreadyBound(self, val)
+        self._val = val
         
     def _get_val(self):
         return self._val
@@ -62,8 +58,8 @@ class SimpleVar(object):
 
     def __str__(self):
         if self.is_bound():
-            return "%s = %s" % (self.name, self.val)
-        return "%s" % self.name
+            return "<%s>" % str(self._val)
+        return "<?%s>" % self.name
 
     def __repr__(self):
         return self.__str__()
@@ -73,9 +69,17 @@ class SimpleVar(object):
     def is_bound(self):
         return self.val != NoValue
 
+    def is_free(self):
+        return not self.isbound()
+        
     def bind(self, val):
-        self.val = val
-
+        self._value_condition.acquire()
+        try:
+            self.val = val
+            self._value_condition.notifyAll()
+        finally:
+            self._value_condition.release()
+            
     def wait(self):
         try:
             self._need_condition.acquire()
@@ -101,11 +105,39 @@ class SimpleVar(object):
         finally:
             self._need_condition.release()
 
-class CsVar(SimpleVar):
+var = Var
+
+#-- utility ---------
+
+def stream_repr(*args):
+    """represent streams of variables whose
+       last element might be unbound"""
+    repr_ = []
+    for S in args:
+        while S.is_bound():
+            v = S.val
+            if isinstance(v, tuple):
+                v0 = v[0]
+                if v0.is_bound():
+                    repr_ += [str(v0.val), '|']
+                else: repr_ += [str(v0), '|']
+                S = v[1]
+            else:
+                repr_.append(str(v))
+                break
+        else:
+            repr_.append(str(S))
+        repr_.append(' ')
+    repr_.pop()
+    return ''.join(repr_)
+
+#-- to be killed soon ----
+
+class CsVar(Var):
     """Dataflow variable linked to a space"""
 
     def __init__(self, name, cs):
-        SimpleVar.__init__(self)
+        Var.__init__(self)
         if name in cs.names:
             raise AlreadyInStore(name)
         self.name = name
@@ -157,3 +189,4 @@ class CsVar(SimpleVar):
         self._cs.bind(self, val)
 
     is_bound = _is_bound
+

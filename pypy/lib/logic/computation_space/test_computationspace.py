@@ -30,12 +30,6 @@ def newspace(problem=problems.dummy_problem):
 
 class TestStoreUnification:
     
-
-    def test_already_in_store(self):
-        sp = newspace()
-        x = sp.var('x')
-        raises(v.AlreadyInStore, sp.var, 'x')
-
     def test_get_by_name(self):
         sp = newspace()
         x = sp.var('x')
