@@ -60,6 +60,9 @@ def inline_function(translator, inline_func, graph):
         subgraph, block, index_operation = callsites.pop()
         if find_callsites(subgraph, subgraph):
             raise CannotInline("inlining a recursive function")
+        operation = block.operations[index_operation]
+        if getattr(operation, "cleanup", None) is not None:
+            raise CannotInline("cannot inline a function with cleanup attached")
         _inline_function(translator, graph, block, index_operation)
         checkgraph(graph)
         count += 1

@@ -11,6 +11,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.rarithmetic import ovfcheck
 from pypy.translator.test.snippet import is_perfect_number
+from pypy.conftest import option
 
 def no_missing_concretetype(node):
     if isinstance(node, Block):
@@ -380,4 +381,44 @@ def test_indirect_call_with_exception():
         return 1
     assert x4() == 1
     py.test.raises(CannotInline, check_inline, x3, x4, [])
+    
+def test_dont_inline_with_cleanups():
+    from pypy.objspace.flow.model import Variable, SpaceOperation, Constant
+    from pypy.rpython.lltypesystem.lltype import Signed
+    import math
+    def f(x):
+        return math.sqrt(x)
+    def g(x):
+        return f(x)
+    t = translate(g, [int])
+    graph = graphof(t, f)
+    ggraph = graphof(t, g)
+    xvar = ggraph.startblock.inputargs[0]
+    result = Variable()
+    result.concretetype = Signed
+    cleanupop = SpaceOperation("int_add", [Constant(1, Signed), xvar], result)
+    cleanup = ((cleanupop, ), (cleanupop, ))
+    ggraph.startblock.operations[0].cleanup = cleanup
+    py.test.raises(CannotInline, inline_function, t, f, ggraph)
 
+def DONOTtest_inline_copies_cleanups():
+    from pypy.objspace.flow.model import Variable, SpaceOperation, Constant
+    from pypy.rpython.lltypesystem.lltype import Signed
+    import math
+    def f(x):
+        return math.sqrt(x)
+    def g(x):
+        return f(x)
+    t = translate(g, [int])
+    graph = graphof(t, f)
+    ggraph = graphof(t, g)
+    xvar = graph.startblock.inputargs[0]
+    result = Variable()
+    result.concretetype = Signed
+    cleanupop = SpaceOperation("int_add", [Constant(1, Signed), xvar], result)
+    cleanup = ((cleanupop, ), (cleanupop, ))
+    graph.startblock.operations[0].cleanup = cleanup
+    inline_function(t, f, ggraph)
+    assert ggraph.startblock.operations[0].cleanup == cleanup
+    if option.view: 
+        t.view()
