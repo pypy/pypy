@@ -65,5 +65,5 @@ def test_long():
     bigval = 123456789012345l
     assert raises(OverflowError, f, bigval)
     assert g(bigval) == example_obj_long(bigval)
-    
-    
+    assert g(float(bigval)) == example_obj_long(bigval)
+    assert raises(TypeError, g, str(bigval))
