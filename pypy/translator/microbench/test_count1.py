@@ -169,3 +169,35 @@ def test_call_function_without_arguments_in_cellvars():
         c = c + 1
 
 #
+
+def test_count_in_attr():
+    class X(object):
+        pass
+    x = X()
+    c = 0
+    x.x = 0
+    n = N
+    while c < n:
+        x.x = x.x + 1
+        c += 1
+
+x = 0
+def test_count_in_global():
+    global x
+    c = 0
+    x = 0
+    n = N
+    while c < n:
+        x = x + 1
+        c += 1
+    
+
+def test_count_in_global2():
+    global y
+    c = 0
+    y = 0
+    n = N
+    while c < n:
+        y = y + 1
+        c += 1
+    
