@@ -75,8 +75,6 @@ class CBuilder(object):
         # defines={'COUNT_OP_MALLOCS': 1}
         if CBuilder.have___thread is None:
             CBuilder.have___thread = check_under_under_thread()
-        if CBuilder.have___thread:
-            defines['HAVE___THREAD'] = 1
         if not self.standalone:
             from pypy.translator.c.symboltable import SymbolTable
             self.symboltable = SymbolTable()
@@ -85,6 +83,8 @@ class CBuilder(object):
                                       exports = {self.entrypoint.func_name: pf},
                                       symboltable = self.symboltable)
         else:
+            if CBuilder.have___thread:
+                defines['HAVE___THREAD'] = 1
             if self.stackless:
                 defines['USE_STACKLESS'] = '1'
                 defines['USE_OPTIMIZED_STACKLESS_UNWIND'] = '1'
