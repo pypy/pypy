@@ -7,6 +7,7 @@ from pypy.translator.gensupp import NameManager
 from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.simplify import simplify_graph
 from pypy.rpython.ootypesystem.ootype import Instance, ROOT
+from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy import conftest
 try:
     set
@@ -262,7 +263,7 @@ class CallableNode(CodeNode):
     
     primitive_opprefixes = "int", "uint", "llong", "ullong", "float"
 
-    primitive_wrapping_ops = "add", "sub", "mul"
+    primitive_wrapping_ops = "neg", "invert", "add", "sub", "mul"
 
     primitive_masks = {
         # XXX horrendous, but I can't figure out how to do this cleanly
@@ -272,6 +273,9 @@ class CallableNode(CodeNode):
                     ^ i + %s \\\\ %s - %s
                   """ % (sys.maxint, -sys.maxint-1,
                       sys.maxint+1, 2*(sys.maxint+1), sys.maxint+1)),
+        "uint": (Selector("maskUint", 1),
+                """maskUint: i 
+                    ^ i bitAnd: %s""" % r_uint.MASK),
     }
 
     def render_body(self, startblock):
