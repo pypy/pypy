@@ -99,6 +99,7 @@ class VirtualStructDef(AbstractContainerDef):
         return self.fields == other.fields
 
     def union(self, other):
+        # xxx about vparent?
         assert self.T == other.T
         for name in self.names:
             self.fields[name].merge(other.fields[name])
