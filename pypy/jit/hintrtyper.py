@@ -274,14 +274,18 @@ class BlueRepr(Repr):
     pass
 
 
+# merging can probably be implemented as: flatten incoming state as list of redboxes -> merge -> reconstruct
+# this can reuse the current merge logic and the flattening/reconstructing can be done externally driven
+# by the known types and annotations
+
 class BlueStructRepr(BlueRepr):
     def __init__(self, original_concretetype, virtualstructdef, timeshifter):
         self.original_concretetype = original_concretetype
         self.timeshifter = timeshifter
         # xxx
         # this could avoid using a wrapper box completely
-        # which means that if the field are green we could back the original situation
-        # but is unclear whether there are issues with gc tracking for non-gc struct pointer,
+        # which means that if the fields are all green we could get back the original situation
+        # but is unclear whether there are issues with gc tracking for non-gc struct pointers,
         # likely things are preserved but the timeshifted graph may introduce sufficient
         # differences to make that a problem
         self.lowleveltype = timeshifter.r_RedBox.lowleveltype 
