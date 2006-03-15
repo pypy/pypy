@@ -278,7 +278,13 @@ class BlueStructRepr(BlueRepr):
     def __init__(self, original_concretetype, virtualstructdef, timeshifter):
         self.original_concretetype = original_concretetype
         self.timeshifter = timeshifter
-        self.lowleveltype = timeshifter.r_RedBox.lowleveltype
+        # xxx
+        # this could avoid using a wrapper box completely
+        # which means that if the field are green we could back the original situation
+        # but is unclear whether there are issues with gc tracking for non-gc struct pointer,
+        # likely things are preserved but the timeshifted graph may introduce sufficient
+        # differences to make that a problem
+        self.lowleveltype = timeshifter.r_RedBox.lowleveltype 
         if virtualstructdef.vparent is None:
             self.ENVELOPE = lltype.GcForwardReference()                                 
         self.vstructdef = virtualstructdef        
