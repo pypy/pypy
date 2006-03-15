@@ -3,7 +3,8 @@ import operator
 
 from py.test import raises
 
-from variable import var, NoValue, AlreadyBound, stream_repr
+from variable import var, NoValue, AlreadyBound, \
+     UnificationFailure, stream_repr, Eqset, unify
 
 #-- utilities ---------------------
 
@@ -37,13 +38,199 @@ class NConsumer(Thread):
 
 class TestSimpleVariable:
 
-    def test_basics(self):
+    def test_rebinding(self):
         x = var()
         assert x.val == NoValue
         x.bind(42)
         assert x.val == 42
         x.bind(42)
-        raises(AlreadyBound, x.bind, 43)
+        raises(UnificationFailure, x.bind, 43)
+
+    def test_reunifying(self):
+        x = var()
+        unify(x, 42)
+        unify(x, 42)
+        raises(UnificationFailure, x.bind, 43)
+        raises(UnificationFailure, unify, x, 43)
+
+
+    def test_bind_var_val(self):
+        x, y, z = var(), var(), var()
+        x.bind(z)
+        assert x.aliases() == z.aliases() == Eqset([x, z])
+        y.bind(42)
+        z.bind(3.14)
+        assert x.val == 3.14
+        assert y.val == 42
+        assert z.val == 3.14
+
+    def test_bind_var_var(self):
+        x, y, z = var(), var(), var()
+        x.bind(z)
+        assert x.aliases() == Eqset([x, z])
+        assert y.aliases() == Eqset([y])
+        assert z.aliases() == Eqset([x, z])
+        assert x.val == y.val == z.val == NoValue
+        z.bind(42)
+        assert z.val == 42
+        assert x.val == 42
+        y.bind(42)
+        assert y.val == 42
+        y.bind(z)
+
+    def test_unify_same(self):
+        x,y,z,w = var(), var(), var(), var()
+        x.bind([42, z])
+        y.bind([z, 42])
+        w.bind([z, 43])
+        raises(UnificationFailure, unify, x, w)
+        unify(x, y)
+        assert z.val == 42
+
+    def test_double_unification(self):
+        x, y, z = var(), var(), var()
+        x.bind(42)
+        y.bind(z)
+        unify(x, y)
+        assert z.val == 42
+        unify(x, y)
+        assert (z.val == x.val == y.val)
+
+    def test_unify_values(self):
+        x, y = var(), var()
+        x.bind([1, 2, 3])
+        y.bind([1, 2, 3])
+        unify(x, y)
+        assert x.val == [1, 2, 3]
+        assert y.val == [1, 2, 3]
+
+    def test_unify_lists_success(self):
+        x,y,z,w = var(), var(), var(), var()
+        x.bind([42, z])
+        y.bind([w, 44])
+        unify(x, y)
+        assert x.val == [42, z]
+        assert y.val == [w, 44]
+        assert z.val == 44
+        assert w.val == 42
+
+    def test_unify_dicts_success(self):
+        x,y,z,w = var(), var(), var(), var()
+        x.bind({1:42, 2:z})
+        y.bind({1:w,  2:44})
+        unify(x, y)
+        assert x.val == {1:42, 2:z}
+        assert y.val == {1:w,  2:44}
+        assert z.val == 44
+        assert w.val == 42
+
+    def test_unify_failure(self):
+        x, y, z = var(), var(), var()
+        x.bind([42, z])
+        y.bind([z, 44])
+        raises(UnificationFailure, unify, x, y)
+        # check state
+        assert x.val == [42, z]
+        assert y.val == [z, 44]
+        assert z.aliases() == Eqset([z])
+
+    def test_unify_failure2(self):
+        x,y,z,w = var(), var(), var(), var()
+        x.bind([42, z])
+        y.bind([w, 44])
+        z.bind(w)
+        raises(UnificationFailure, unify, x, y)
+        # check state
+        assert x.val == [42, z]
+        assert y.val == [w, 44]
+        # note that z has been bound to 42 !
+        assert z.val == 42
+        assert w.val == 42
+
+    def test_unify_circular(self):
+        x, y, z, w, a, b = (var(), var(), var(),
+                            var(), var(), var())
+        x.bind([y])
+        y.bind([x])
+        raises(UnificationFailure, unify, x, y)
+        z.bind([1, w])
+        w.bind([z, 2])
+        raises(UnificationFailure, unify, z, w)
+        a.bind({1:42, 2:b})
+        b.bind({1:a,  2:42})
+        raises(UnificationFailure, unify, a, b)
+        # check store consistency
+        assert x.val == [y]
+        assert y.val == [x]
+        assert z.val == [1, w]
+        assert w.val == [z, 2]
+        assert a.val == {1:42, 2:b}
+        assert b.val == {1:a,  2:42}
+        
+
+    def notest_threads_binding_vars(self):
+        # WTF ?
+        #E       x = var()
+        #>       UnboundLocalError: local variable 'var' referenced before assignment
+        x = var() #
+        vars_ = []
+
+        def do_stuff(thread, var, val):
+            thread.raised = False
+            try:
+                var.bind(val)
+            except Exception, e:
+                print e
+                thread.raised = True
+                assert isinstance(e, UnificationFailure)
+            
+        for nvar in range(100):
+            v = var()
+            x.bind(v)
+            vars_.append(v)
+            
+        for var in vars_:
+            assert var.val == x.val
+
+        t1, t2 = (FunThread(do_stuff, x, 42),
+                  FunThread(do_stuff, x, 43))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        #check that every var is really bound to 42 or 43
+        for var in vars_:
+            assert var in sp.vars
+            assert var.val == x.val
+        assert (t2.raised and not t1.raised) or \
+               (t1.raised and not t2.raised)
+    
+
+    def test_threads_waiting_for_unbound_var(self):
+        import time
+        
+        def near(v1, v2, err):
+            return abs(v1 - v2) < err
+        
+        start_time = time.time()
+
+        def wait_on_unbound(thread, var, start_time):
+            thread.val = var.wait()
+            thread.waited = time.time() - start_time
+
+        x = var()
+        t1, t2 = (FunThread(wait_on_unbound, x, start_time),
+                  FunThread(wait_on_unbound, x, start_time))
+        t1.start()
+        t2.start()
+        time.sleep(1)
+        x.bind(42)
+        t1.join()
+        t2.join()
+        assert t1.val == 42
+        assert t2.val == 42
+        assert near(t1.waited, 1, .1)
+        assert near(t2.waited, 1, .1)
 
     def test_repr_stream(self):
         var._vcount = 0 #ensure consistent numbering
@@ -92,12 +279,12 @@ def dgenerate(thread, n, Xs):
            {DGenerate N+1 Xr}
         end
     end"""
-    print "generator in %s waits on Xs" % thread.getName()
+    print "generator waits on %s " % Xs
     X_Xr = Xs.wait()      # destructure Xs
     if X_Xr == None: return
-    print "generator X_Xr", X_Xr
+    print "generator got X_Xr = ", X_Xr
     X = X_Xr[0]          # ... into X
-    print "generator in %s binds X to %s" % (thread.getName(), n)
+    print "generator binds %s to %s" % (X, n)
     X.bind(n)            # bind X to n
     Xr = X_Xr[1]         # ... and Xr
     dgenerate(thread, n+1, Xr)
@@ -116,12 +303,11 @@ def dsum(thread, Xs, a, limit):
         X = var()
         Xr = var()
         Xs.bind((X, Xr))
-        print "client binds Xs to X|Xr ", stream_repr(Xs)
+        print "client binds %s, waits on %s" % (Xs, X)
         x = X.wait() # wait on the value of X
-        print "client got", x
         dsum(thread, Xr, a+x, limit-1)
     else:
-        print "CLIENT binds Xs to None and exits"
+        print "client binds Xs to None and exits"
         Xs.bind(None)
         thread.result = a
 
@@ -228,10 +414,10 @@ class TestStream:
                     else Xr in Xs=_|Xr {Startup N-1 Xr} end
                 end
                 """
-                if n==0: return Xs # will be End
+                if n==0: return Xs
                 Xr = var()
                 Xs.bind((var(), Xr))
-                print "startup n = ", n, stream_repr(Xs)
+                print "startup n = ", n, Xs
                 return startup(n-1, Xr)
 
             def ask_loop(Ys, Xs, End):
@@ -250,16 +436,15 @@ class TestStream:
                     X, Xr = Xs.wait()
                     Y.bind(X.wait())
                     End2 = var()
+                    print "Ask_loop Ys Xs End", Ys, Xs, End
                     End.bind((var(), End2))
                     ask_loop(Yr, Xr, End2)
                 else:
                     End.bind(None)
 
-            print "buffer initial Ys, Xs ", stream_repr(Ys, Xs)
-            End = var()
-            End.bind(startup(n, Xs))
-            print "buffer starts", stream_repr(Xs, End)
-            ask_loop(Ys, Xs, End.val)
+            End = startup(n, Xs)
+            print "buffer starts", Ys, Xs, End
+            ask_loop(Ys, Xs, End)
 
         Xs = var()
         Ys = var()
