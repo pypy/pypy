@@ -301,3 +301,18 @@ def test_simple_struct_malloc():
     assert res == 3
     assert insns == {}
 
+def test_inlined_substructure():
+    S = lltype.Struct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+    def ll_function(k):
+        t = lltype.malloc(T)
+        t.s.n = k
+        l = t.s.n
+        return l
+    insns, res = timeshift(ll_function, [7], [])
+    assert res == 7
+    assert insns == {}
+
+    insns, res = timeshift(ll_function, [7], [0])
+    assert res == 7
+    assert insns == {}    

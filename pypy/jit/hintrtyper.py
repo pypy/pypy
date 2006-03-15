@@ -5,7 +5,7 @@ from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.typesystem import TypeSystem
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rgenop
 from pypy.jit import hintmodel, rtimeshift
 from pypy.jit import hintcontainer
@@ -144,6 +144,13 @@ class HintRTyper(RPythonTyper):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_setfield(hop)
         # non virtual case ...
+        raise NotImplementedError
+
+    def translate_op_getsubstruct(self, hop):
+        if isinstance(hop.args_r[0], BlueRepr):
+            return hop.args_r[0].timeshift_getsubstruct(hop)
+        # non virtual case ...
+        raise NotImplementedError
 
     def translate_op_malloc(self, hop):
         r_result = hop.r_result
@@ -212,9 +219,21 @@ class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractContainer)):
         assert isinstance(hs_container.contentdef, hintcontainer.VirtualStructDef)
         vstructdef = hs_container.contentdef
 
-        assert vstructdef.vparent is None
+        # compute reconstruction information up to our top-most parent
+        chain = [vstructdef.T]
+        cur = vstructdef
+        while cur.vparent is not None:
+            for name, fieldvalue in cur.vparent.fields.iteritems():
+                s_field = fieldvalue.s_value
+                if isinstance(s_field, hintmodel.SomeLLAbstractContainer):
+                    if s_field.contentdef is cur:
+                        chain.append((name, cur.vparent.T))
+                        break
+            else:
+                assert False, "can't find ourself in parent"
+            cur = cur.vparent
 
-        key = [hs_container.__class__, vstructdef.T]
+        key = [hs_container.__class__, tuple(chain)]
         for name in vstructdef.names:
             fielditem = vstructdef.fields[name]
             key.append(fielditem)
@@ -260,31 +279,44 @@ class BlueStructRepr(BlueRepr):
         self.original_concretetype = original_concretetype
         self.timeshifter = timeshifter
         self.lowleveltype = timeshifter.r_RedBox.lowleveltype
-        self.CONTENT = lltype.GcForwardReference()
+        if virtualstructdef.vparent is None:
+            self.ENVELOPE = lltype.GcForwardReference()                                 
         self.vstructdef = virtualstructdef        
 
     def fldname(self, name):
-        return "fld_%s" % name
+        return name
 
     def _setup_repr(self):
         field_reprs = {}
-        fields = [("tag" ,rtimeshift.VCONTAINER)]
+        fields = []
         vstructdef = self.vstructdef
         hrtyper = self.timeshifter.hrtyper
+        T = self.original_concretetype.TO
         for name in vstructdef.names:
             fieldvalue = vstructdef.fields[name]
             field_repr = hrtyper.getrepr(fieldvalue.s_value)
             field_reprs[name] = field_repr
-            fields.append((self.fldname(name), field_repr.lowleveltype))
-        self.CONTENT.become(lltype.GcStruct('vstruct', *fields))
+            SUBFIELD = getattr(T, name)
+            if isinstance(SUBFIELD, lltype.Struct):
+                # virtual substructure case
+                field_lltype = field_repr.DATA
+            else:
+                field_lltype = field_repr.lowleveltype
+            fields.append((self.fldname(name), field_lltype))
         self.field_reprs = field_reprs
+        self.DATA = lltype.Struct('vstruct', *fields)
+        if vstructdef.vparent is None:
+            self.ENVELOPE.become(lltype.GcStruct('vstruct_envelope', ('tag', rtimeshift.VCONTAINER),
+                                                                     ('data', self.DATA)))
             
     # helpers
 
     def create(self, hop):
         llops = hop.llops
-        c_CONTENT = inputconst(lltype.Void, self.CONTENT)
-        v_content = hop.genop('malloc', [c_CONTENT], resulttype=lltype.Ptr(self.CONTENT))
+        c_ENVELOPE = inputconst(lltype.Void, self.ENVELOPE)
+        v_envelope = hop.genop('malloc', [c_ENVELOPE], resulttype=lltype.Ptr(self.ENVELOPE))
+        c_data = inputconst(lltype.Void, 'data')
+        v_data = hop.genop('getsubstruct', [v_envelope, c_data], lltype.Ptr(self.DATA))
         for name, field_repr in self.field_reprs.iteritems():
             if isinstance(field_repr, RedRepr):
                 T = field_repr.original_concretetype
@@ -294,13 +326,28 @@ class BlueStructRepr(BlueRepr):
                                                       [s_defl], [c_defl],
                                                       self.timeshifter.s_RedBox)
                 c_name = inputconst(lltype.Void, self.fldname(name))
-                hop.genop('setfield', [v_content, c_name, v_field])            
+                hop.genop('setfield', [v_data, c_name, v_field])            
         VCONTPTR = lltype.Ptr(rtimeshift.VCONTAINER)
-        v_content = hop.genop('cast_pointer', [v_content],
-                              resulttype=VCONTPTR)
+        v_envelope = hop.genop('cast_pointer', [v_envelope],
+                               resulttype=VCONTPTR)
+        v_content = hop.genop('cast_ptr_to_adr', [v_data], resulttype=llmemory.Address)
         return llops.genmixlevelhelpercall(rtimeshift.ContainerRedBox.ll_make_container_box,
-                                           [annmodel.SomePtr(VCONTPTR)], [v_content],
+                                           [annmodel.SomePtr(VCONTPTR), annmodel.SomeAddress()],
+                                           [v_envelope,                 v_content],
                                            self.timeshifter.s_RedBox)
+
+    def getdata(self, hop, v_box):
+        llops = hop.llops
+        rtyper = self.timeshifter.rtyper
+        DATAPTR = lltype.Ptr(self.DATA)
+        v_data_addr = llops.genmixlevelhelpercall(rtimeshift.ll_getcontent,
+                                                  [self.timeshifter.s_RedBox],
+                                                  [v_box],
+                                                  annmodel.SomeAddress())
+        # cannot do this inside ll_getcontent because DATAPTR parts can be setup only later :(
+        v_data = hop.genop('cast_adr_to_ptr', [v_data_addr], resulttype=DATAPTR)
+        return v_data
+
         
     def timeshift_setfield(self, hop):
         llops = hop.llops        
@@ -309,15 +356,9 @@ class BlueStructRepr(BlueRepr):
         field_repr = self.field_reprs[name]
         v_box = hop.inputarg(self, arg=0)
         v_value = hop.inputarg(field_repr, arg=2)
-        VCONTPTR = lltype.Ptr(rtimeshift.VCONTAINER)
-        v_content = llops.genmixlevelhelpercall(rtimeshift.ll_getcontent,
-                                                [self.timeshifter.s_RedBox], [v_box],
-                                                annmodel.SomePtr(VCONTPTR))
-        v_content = hop.genop('cast_pointer', [v_content],
-                              resulttype=lltype.Ptr(self.CONTENT))
+        v_data = self.getdata(hop, v_box)
         c_name = inputconst(lltype.Void, self.fldname(name))
-        hop.genop('setfield', [v_content, c_name, v_value])
-
+        hop.genop('setfield', [v_data, c_name, v_value])
 
     def timeshift_getfield(self, hop):
         llops = hop.llops        
@@ -325,15 +366,28 @@ class BlueStructRepr(BlueRepr):
         name = hop.args_s[1].const
         field_repr = self.field_reprs[name]
         v_box = hop.inputarg(self, arg=0)
-        VCONTPTR = lltype.Ptr(rtimeshift.VCONTAINER)
-        v_content = llops.genmixlevelhelpercall(rtimeshift.ll_getcontent,
-                                                [self.timeshifter.s_RedBox], [v_box],
-                                                annmodel.SomePtr(VCONTPTR))
-        v_content = hop.genop('cast_pointer', [v_content],
-                              resulttype=lltype.Ptr(self.CONTENT))
+        v_data = self.getdata(hop, v_box)
         c_name = inputconst(lltype.Void, self.fldname(name))
-        return hop.genop('getfield', [v_content, c_name],
+        return hop.genop('getfield', [v_data, c_name],
                          resulttype=field_repr.lowleveltype)
+
+    def timeshift_getsubstruct(self, hop):
+        llops = hop.llops        
+        assert hop.args_s[1].is_constant()
+        name = hop.args_s[1].const
+        field_repr = self.field_reprs[name]
+        v_box = hop.inputarg(self, arg=0)
+        v_data = self.getdata(hop, v_box)
+        c_name = inputconst(lltype.Void, self.fldname(name))
+        NEWDATAPTR = lltype.Ptr(field_repr.DATA)
+        v_newdata = hop.genop('getsubstruct', [v_data, c_name],
+                              resulttype=NEWDATAPTR)
+        v_content = hop.genop('cast_ptr_to_adr', [v_newdata], resulttype=llmemory.Address)
+        return llops.genmixlevelhelpercall(rtimeshift.ContainerRedBox.ll_make_subcontainer_box,
+                                           [self.timeshifter.s_RedBox, annmodel.SomeAddress()],
+                                           [v_box,                     v_content],
+                                           self.timeshifter.s_RedBox)
+        
 
 
 class GreenRepr(Repr):
