@@ -284,3 +284,20 @@ def test_simple_array():
     insns, res = timeshift(ll_function, [a1], [0])
     assert res == 42
     assert insns == {}
+
+def test_simple_struct_malloc():
+    S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
+                                      ('world', lltype.Signed))               
+    def ll_function(x):
+        s = lltype.malloc(S)
+        s.hello = x
+        return s.hello + s.world
+
+    insns, res = timeshift(ll_function, [3], [])
+    assert res == 3
+    assert insns == {'int_add': 1}
+
+    insns, res = timeshift(ll_function, [3], [0])
+    assert res == 3
+    assert insns == {}
+

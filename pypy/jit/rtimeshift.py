@@ -41,6 +41,22 @@ class VarRedBox(RedBox):
     def getgenvar(self):
         return self.genvar
 
+VCONTAINER = lltype.GcStruct("vcontainer")
+
+class ContainerRedBox(RedBox):
+    def __init__(self, content):
+        self.content = content
+
+    def getgenvar(self): # not support at the moment
+        raise RuntimeError("cannot force virtual containers")
+
+    def ll_make_container_box(content):
+        return ContainerRedBox(content)
+    ll_make_container_box = staticmethod(ll_make_container_box)
+
+def ll_getcontent(box):
+    assert isinstance(box, ContainerRedBox)
+    return box.content
 
 class ConstRedBox(RedBox):
     "A red box that contains a run-time constant."
