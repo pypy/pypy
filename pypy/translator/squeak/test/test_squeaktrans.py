@@ -1,7 +1,6 @@
 import os
 import py
 from pypy.translator.test import snippet
-from pypy.translator.squeak.gensqueak import Selector, camel_case
 from pypy.translator.squeak.test.runtest import compile_function
 
 class TestGenSqueak:
@@ -117,19 +116,4 @@ class TestGenSqueak:
         fn = compile_function(f, [int])
         assert fn(1) == "1"
         assert fn(2) == "2"
-
-
-class TestSelector:
-
-    def test_selector(self):
-        assert Selector("bla_bla", 0).symbol() == "blaBla"
-        assert Selector("bla", 1).symbol() == "bla:"
-        assert Selector("bla_bla_bla", 3).symbol() == "blaBlaBla:with:with:"
-        assert Selector("+", 1).symbol() == "+"
-
-    def test_signature(self):
-        assert Selector("bla", 0).signature([]) == "bla"
-        assert Selector("bla", 1).signature(["v"]) == "bla: v"
-        assert Selector("bla", 2).signature(["v0", "v1"]) == "bla: v0 with: v1"
-        assert Selector("+", 1).signature(["v"]) == "+ v"
 

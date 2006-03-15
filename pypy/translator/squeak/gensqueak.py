@@ -1,11 +1,8 @@
 import datetime, sys
-from pypy.objspace.flow.model import traverse
-from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import Constant, Variable, Block
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.gensupp import NameManager
-from pypy.translator.unsimplify import remove_direct_loops
-from pypy.translator.simplify import simplify_graph
+from pypy.translator.squeak.message import Message, camel_case
 from pypy.rpython.ootypesystem.ootype import Instance, ROOT
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy import conftest
@@ -123,45 +120,6 @@ class GenSqueak:
         return unique
 
 
-def camel_case(identifier):
-    identifier = identifier.replace(".", "_")
-    words = identifier.split('_')
-    return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
-
-class Selector:
-
-    def __init__(self, function_name, arg_count):
-        self.parts = [camel_case(function_name)]
-        self.arg_count = arg_count
-        self.infix = False
-        if len(self.parts[0]) <= 2 and not self.parts[0].isalnum():
-            # Binary infix selector, e.g. "+"
-            assert arg_count == 1
-            self.infix = True
-        if arg_count > 1:
-            self.parts += ["with"] * (arg_count - 1)
-
-    def __str__(self):
-        if self.arg_count == 0 or self.infix:
-            return self.parts[0]
-        else:
-            return "%s:%s" % (self.parts[0],
-                    "".join([p + ":" for p in self.parts[1:]]))
-
-    def symbol(self):
-        return str(self)
-
-    def signature(self, arg_names):
-        assert len(arg_names) == self.arg_count
-        if self.arg_count == 0:
-            return self.parts[0]
-        elif self.infix:
-            return "%s %s" % (self.parts[0], arg_names[0])
-        else:
-            return " ".join(["%s: %s" % (p, a)
-                    for (p, a) in zip(self.parts, arg_names)])
-
-
 class CodeNode:
 
     def __hash__(self):
@@ -241,10 +199,10 @@ class CallableNode(CodeNode):
     selectormap = {
         #'setitem:with:': 'at:put:',
         #'getitem:':      'at:',
-        'new':           Selector('new', 0),
-        'runtimenew':    Selector('new', 0),
-        'classof':       Selector('class', 0),
-        'sameAs':        Selector('yourself', 0), 
+        'new':           'new',
+        'runtimenew':    'new',
+        'classof':       'class',
+        'sameAs':        'yourself', 
     }
 
     primitive_ops = {
@@ -267,13 +225,13 @@ class CallableNode(CodeNode):
 
     primitive_masks = {
         # XXX horrendous, but I can't figure out how to do this cleanly
-        "int": (Selector("maskInt", 1),
+        "int": (Message("maskInt"),
                 """maskInt: i 
                     ((i <= %s) & (i >= %s)) ifTrue: [^i].
                     ^ i + %s \\\\ %s - %s
                   """ % (sys.maxint, -sys.maxint-1,
                       sys.maxint+1, 2*(sys.maxint+1), sys.maxint+1)),
-        "uint": (Selector("maskUint", 1),
+        "uint": (Message("maskUint"),
                 """maskUint: i 
                     ^ i bitAnd: %s""" % r_uint.MASK),
     }
@@ -281,7 +239,7 @@ class CallableNode(CodeNode):
     def render_body(self, startblock):
         self.loops = LoopFinder(startblock).loops
         args = self.arguments(startblock)
-        sel = Selector(self.name, len(args))
+        sel = Message(self.name)
         yield sel.signature([self.expr(v) for v in args])
  
         # XXX should declare local variables here
@@ -319,7 +277,7 @@ class CallableNode(CodeNode):
     def oper_primitive(self, op, ptype, opname):
         receiver = self.expr(op.args[0])
         args = [self.expr(arg) for arg in op.args[1:]]
-        sel = Selector(self.primitive_ops[opname], len(args))
+        sel = Message(self.primitive_ops[opname])
         message = "%s %s" % (receiver, sel.signature(args))
         if opname in self.primitive_wrapping_ops \
                 and self.primitive_masks.has_key(ptype):
@@ -330,9 +288,10 @@ class CallableNode(CodeNode):
         return "%s := %s." % (self.expr(op.result), message)
 
     def assignment(self, op, receiver_name, sel_name, arg_names):
-        sel = Selector(sel_name, len(arg_names))
+        sel_name = camel_case(sel_name)
         if op.opname != "oosend":
-            sel = self.selectormap.get(sel.symbol(), sel)
+            sel_name = self.selectormap.get(sel_name, sel_name)
+        sel = Message(sel_name)
         return "%s := %s %s." % (self.expr(op.result),
                 receiver_name, sel.signature(arg_names))
 
@@ -555,7 +514,7 @@ class FieldInitializerNode(CodeNode):
         yield self.render_fileout_header(
                 self.gen.nameof_Instance(self.INSTANCE), "initializers")
         fields = self.INSTANCE._allfields()
-        sel = Selector("field_init", len(fields))
+        sel = Message("field_init")
         arg_names = ["a%s" % i for i in range(len(fields))]
         yield sel.signature(arg_names)
         for field_name, arg_name in zip(fields.keys(), arg_names):
@@ -581,7 +540,7 @@ class SetupNode(CodeNode):
 
     def render(self):
         yield self.render_fileout_header("PyConstants class", "internals")
-        sel = Selector("setupConstants", 0)
+        sel = Message("setupConstants")
         yield sel.signature([])
         yield "    Constants := Dictionary new."
         for const, const_id in self.constants.iteritems():
@@ -590,7 +549,7 @@ class SetupNode(CodeNode):
             field_names = INST._allfields().keys()
             field_values = [self.gen.nameof(getattr(const.value, f))
                     for f in field_names]
-            init_sel = Selector("field_init", len(field_values))
+            init_sel = Message("field_init")
             yield "    Constants at: '%s' put: (%s new %s)." \
                     % (const_id, class_name,
                         init_sel.signature(field_values))
@@ -598,7 +557,7 @@ class SetupNode(CodeNode):
         yield ""
 
         yield self.render_fileout_header("PyConstants class", "internals")
-        sel = Selector("getConstant", 1)
+        sel = Message("getConstant")
         yield sel.signature(["constId"])
         yield "    ^ Constants at: constId"
         yield "! !"
