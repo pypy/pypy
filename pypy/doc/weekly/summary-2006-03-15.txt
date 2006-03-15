@@ -1,0 +1,42 @@
+=======================
+  This Week in PyPy X
+=======================
+
+Introduction
+============
+
+PyCon
+=====
+
+The Logic Sprint
+================
+
+Garbage Collection
+==================
+
+This week Michael with the help of Carl, Samuele and Armin managed for
+the first time to compile the pypy interpreter together with our own
+garbage collector written in Python.  XXX performance numbers go here.
+
+This required quite a bit of work and first we refactored the way the
+existing two garbage collectors (reference counting and using the Boehm
+collector) are implemented in the C backend. Before they were
+implemented by inserting C code into appropriate places in the generated
+code using string formatting. This had several disadvantages:
+%-formatting C code is obviously not helpful for other backends, and it
+makes writing code that reasons about the GC operations really very
+hard.  We rewrote this to use a "GCTransformer" to instead insert new
+operations into the graphs that have equivalent functionality. 
+
+We wrote two transfomers that re-implemented the reference counting and
+Boehm policies, and a new "FrameworkGCTransformer" that inserts calls to
+functions defined by one of the garbage collectors written by Carl for
+his Summer of Code project.  The final piece of the puzzle was a
+solution to the perennial "finding roots" problem, where we went for the
+exceedingly ugly and inefficient approach of keeping our own stack of
+root pointers.
+
+And then we banged our heads against the usual obscure bugs and finally
+made it work.  It turns out that writing Python code that manipulates
+memory addresses directly combines most of the disadvantages of C with
+none of the advantages of Python...
