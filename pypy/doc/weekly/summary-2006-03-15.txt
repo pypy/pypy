@@ -5,8 +5,25 @@
 Introduction
 ============
 
+If a week can be a long time in politics, it can be even longer in
+open source documentation... it seems that writing one summary a week
+isn't really sustainable, so we're going to try to scale back to an
+activity report every two weeks or so.  This report covers roughly the
+last month of development.
+
 PyCon
 =====
+
+The end of February was naturally dominated by PyCon in Texas which
+was attended by several core developers.  We gave three well-received
+talks, talked to a great many interested people and held a successful
+sprint, giving several newcomers their first taste of hacking on PyPy.
+
+You can read more about this in the `conference report`_ and `sprint
+report`_.
+
+.. _`conference report`: http://write.me/
+.. _`sprint report`: http://write.me/
 
 The Logic Sprint
 ================
@@ -36,7 +53,8 @@ solution to the perennial "finding roots" problem, where we went for the
 exceedingly ugly and inefficient approach of keeping our own stack of
 root pointers.
 
-And then we banged our heads against the usual obscure bugs and finally
-made it work.  It turns out that writing Python code that manipulates
-memory addresses directly combines most of the disadvantages of C with
-none of the advantages of Python...
+And then we banged our heads against the usual obscure bugs and
+finally made it work.  It turns out that debugging C that's generated
+Python code that manipulates memory addresses directly is hard on the
+brain... we need to get back to being able to run everything on the
+memory simulator.
