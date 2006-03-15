@@ -32,9 +32,7 @@ def dfs_one(problem):
     if solved_space == None: return None
     return solved_space.merge()
 
-
-
-#-- solve_all, switchable direction
+#-- solve_all, switchable direction (takes problem)
 
 class Depth: pass
 class Breadth: pass
@@ -70,7 +68,7 @@ def solve_all(problem, direction=Depth):
 
     return [sp.merge() for sp in solutions]
 
-#-- pythonic lazy solve_all
+#-- pythonic lazy solve_all (takes space)
 
 def lazily_solve_all(space, direction=Depth):
 

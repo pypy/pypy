@@ -231,8 +231,8 @@ class ComputationSpace(object):
     def inject(self, restricting_problem):
         """add additional entities into a space"""
         restricting_problem(self)
+        self._notify(event.Clone)
         self._propagate()
-
         
 #-- Constraint Store ---------------------------------------
 

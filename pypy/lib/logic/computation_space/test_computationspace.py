@@ -179,25 +179,26 @@ class TestComputationSpace:
             assert sp.test_solution(sol)
 
 
-    def no_test_sudoku(self):
-        #spc = newspace(problems.sudoku)
-        #print spc.constraints
+    def test_sudoku(self):
+        spc = newspace(problems.sudoku)
+        print spc.constraints
+
         def more_constraints(space):
-            f = 'puzzle1.su'
+            fname = 'puzzle1.su'
             
-            file = open(f)
+            f = open(fname)
             c = []
             row = 1
-            for line in file.readlines():
+            for line in f.readlines():
                 for col in range(1,10):
                     if line[col-1] != ' ':
                         tup = ('v%d%d' % (col, row), int(line[col-1]))
                         space.add_constraint([space.get_var_by_name(tup[0])],'%s == %d' % tup)
                 row += 1
                 
-        #nspc = spc.clone()
-        #nspc.inject(more_constraints)
-        #print nspc.constraints
-        sol2 = strategies.dfs_one(strategies.sudoku)
-        print "done dfs"
-        #sol2 = [var.val for var in sol]
+        spc.inject(more_constraints)
+        print spc.constraints
+        sol_iter = strategies.lazily_solve_all(spc)
+        sol = sol_iter.next()    
+        print sol
+        assert spc.test_solution(sol)
