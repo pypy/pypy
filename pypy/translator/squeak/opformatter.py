@@ -75,7 +75,7 @@ class OpFormatter:
         sent_message = message.send_to(op.args[0], op.args[1:])
         if opname in self.wrapping_ops \
                 and self.int_masks.has_key(ptype):
-            from pypy.translator.squeak.gensqueak import HelperNode
+            from pypy.translator.squeak.node import HelperNode
             mask_name, mask_code = self.int_masks[ptype]
             helper = HelperNode(self.gen, Message(mask_name), mask_code)
             sent_message = helper.apply([sent_message])
@@ -88,7 +88,7 @@ class OpFormatter:
             receiver = Self()
         else:
             receiver = op.args[1]
-        from pypy.translator.squeak.gensqueak import MethodNode
+        from pypy.translator.squeak.node import MethodNode
         self.gen.schedule_node(
                 MethodNode(self.gen, op.args[1].concretetype, message_name))
         sent_message = Message(message_name).send_to(receiver, op.args[2:])
@@ -104,7 +104,7 @@ class OpFormatter:
             rvalue = Field(field_name)
         else:
             # Public field access
-            from pypy.translator.squeak.gensqueak import GetterNode
+            from pypy.translator.squeak.node import GetterNode
             self.gen.schedule_node(GetterNode(self.gen, INST, field_name))
             rvalue = Message(field_name).send_to(op.args[0], [])
         return self.codef.format(Assignment(op.result, rvalue))
@@ -119,7 +119,7 @@ class OpFormatter:
             return self.codef.format(Assignment(Field(field_name), field_value))
         else:
             # Public field access
-            from pypy.translator.squeak.gensqueak import SetterNode
+            from pypy.translator.squeak.node import SetterNode
             self.gen.schedule_node(SetterNode(self.gen, INST, field_name))
             setter = Message(field_name).send_to(op.args[0], [field_value])
             return self.codef.format(setter)
@@ -128,7 +128,7 @@ class OpFormatter:
         return self.codef.format(Assignment(op.result, op.args[0]))
 
     def op_direct_call(self, op):
-        from pypy.translator.squeak.gensqueak import FunctionNode
+        from pypy.translator.squeak.node import FunctionNode
         function_name = self.node.expr(op.args[0])
         self.gen.schedule_node(
             FunctionNode(self.gen, op.args[0].value.graph))
