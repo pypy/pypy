@@ -87,6 +87,7 @@ class GCTransformer(object):
                     inline.inline_function(self.translator, inline_graph, graph)
                 except inline.CannotInline:
                     pass
+        checkgraph(graph)
 
     def transform_block(self, block):
         newops = []
