@@ -50,6 +50,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         state = self._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
+        space.getexecutioncontext().subcontext_new(self)
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
@@ -75,7 +76,10 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
         state = self.costate
+        ec = space.getexecutioncontext()
+        ec.subcontext_switch(state.current, self)
         self.switch()
+        ec.subcontext_switch(state.last, state.current)
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
 

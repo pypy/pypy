@@ -15,13 +15,6 @@ class ExecutionContext:
         self.ticker = 0
         self.compiler = space.createcompiler()
 
-    # XXX
-    # I think that it is wrong to hide frames here. The stack should
-    # contain all the frames, because we need them for pickling.
-    # better to do the hiding when the stack is accessed. This implies that
-    # we have an explicit frame depth counter.
-    # please comment/correct me! (chris)
-    
     def enter(self, frame):
         if self.framestack.depth() > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
@@ -41,9 +34,21 @@ class ExecutionContext:
         if not frame.hide():
             self.framestack.pop()
 
-    # coroutine support
-    # XXX still trying and thinking hard
+    # coroutine: subcontext support
+    def subcontext_new(coobj):
+        coobj.framestack = Stack()
+        coobj.w_tracefunc = None
+        coobj.w_profilefunc = None
+        coobj.is_tracing = 0
+    new_subcontext = staticmethod(new_subcontext)
 
+    def subcontext_swap(self, coobj):
+        self.framestack,    coobj.framestack    = coobj.framestack,     self.framestack
+        self.w_tracefunc,   coobj.w_tracefunc   = coobj.w_tracefunc,    self.w_tracefunc
+        self.w_profilefunc, coobj.w_profilefunc = coobj.w_profilefunc,  self.w_profilefunc
+        self.is_tracing,    coobj.is_tracing    = coobj.is_tracing,     self.is_tracing
+    # coroutine: I think this is all, folks!
+    
     def get_builtin(self):
         try:
             return self.framestack.top().builtin
