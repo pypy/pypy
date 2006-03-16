@@ -58,6 +58,8 @@ def check_inline(func, in_func, sig, entry=None):
 
 def check_auto_inlining(func, sig, threshold=None):
     t = translate(func, sig)
+    if option.view:
+        t.view()
     # inline!
     sanity_check(t)    # also check before inlining (so we don't blame it)
     if threshold is None:
@@ -65,6 +67,8 @@ def check_auto_inlining(func, sig, threshold=None):
     else:
         auto_inlining(t, threshold=threshold)
     sanity_check(t)
+    if option.view:
+        t.view()
     interp = LLInterpreter(t.rtyper)
     def eval_func(args):
         return interp.eval_graph(graphof(t, func), args)
@@ -84,6 +88,14 @@ def test_inline_simple():
     assert result == f(-1, 5)
     result = eval_func([2, 12])
     assert result == f(2, 12)
+
+def test_nothing_to_inline():
+    def f():
+        return 1
+    def g():
+        return 2
+    eval_func = check_inline(g, f, [])
+    assert eval_func([]) == 1
 
 def test_inline_big():
     def f(x):

@@ -69,8 +69,8 @@ def contains_call(graph, calling_what):
         return False
 
 def inline_function(translator, inline_func, graph):
-    for count, (subgraph, block, index_operation) in enumerate(
-        iter_first_callsites(graph, inline_func)):
+    count = 0
+    for subgraph, block, index_operation in iter_first_callsites(graph, inline_func):
         if contains_call(subgraph, subgraph):
             raise CannotInline("inlining a recursive function")
         operation = block.operations[index_operation]
