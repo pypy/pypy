@@ -296,6 +296,22 @@ def test_unique_virtualptrs():
         return s.n * t.n
     graph2, insns = abstrinterp(ll_function, [1, 0], [])
 
+def test_merge_substructure():
+    py.test.skip('Inprogress')
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        s = lltype.malloc(S)
+        s.n = 4
+        if flag:
+            s = t.s
+        return s.n
+    graph2, insns = abstrinterp(ll_function, [0], [])
+    
+    
 def test_cast_pointer():
     S = lltype.GcStruct('S', ('n1', lltype.Signed), ('n2', lltype.Signed))
     PS = lltype.Ptr(S)
