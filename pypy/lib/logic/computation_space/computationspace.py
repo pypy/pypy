@@ -8,7 +8,6 @@ from variable import Var, NoValue, NoDom
 from constraint import FiniteDomain, ConsistencyFailure, \
      Expression
 from distributor import DefaultDistributor
-import event # NewSpace, Clone, Revise
 
 Failed = 0
 Succeeded = 1
@@ -163,9 +162,6 @@ class ComputationSpace(object):
                     return True
         return False
 
-    def _notify(self, event):
-        self.event_set.add(event)
-
     #-- space official API ------------------------------------
 
     def ask(self):
@@ -178,7 +174,6 @@ class ComputationSpace(object):
     def clone(self):
         spc = ComputationSpace(NoProblem, parent=self)
         print "-- cloning %s to %s --" % (self.id, spc.id)
-        self._notify(event.Clone)
         spc._propagate()
         return spc
 
@@ -220,8 +215,9 @@ class ComputationSpace(object):
     def inject(self, restricting_problem):
         """add additional entities into a space"""
         restricting_problem(self)
-        self._notify(event.Clone)
         self._propagate()
+
+    
         
 #-- Constraint Store ---------------------------------------
 
@@ -308,7 +304,7 @@ class ComputationSpace(object):
 
     def _add_const(self, constraint):
         self.constraints.add(constraint)
-        self._notify(event.Inject(constraint))
+        self.event_set.add(constraint)
         for var in constraint.affected_variables():
             self.var_const_map.setdefault(var, set())
             self.var_const_map[var].add(constraint)
@@ -336,23 +332,11 @@ class ComputationSpace(object):
 
     #-- Constraint propagation ---------------
 
-    def _init_constraint_queue(self):
-        cqueue = []
-        init_const_set = set()
-        for ev in self.event_set:
-            if isinstance(ev, event.Revise):
-                for const in self.var_const_map[ev.var]:
-                    init_const_set.add(const)
-            elif isinstance(ev, event.Inject):
-                init_const_set.add(ev.constraint)
-                
-        cqueue = [(const.estimate_cost(), const)
-                  for const in init_const_set]
-        return cqueue
-
     def satisfy_all(self):
         """really PROPAGATE from AC3"""
-        const_q = self._init_constraint_queue()
+        const_q = [(const.estimate_cost(), const)
+                   for const in self.event_set]
+        self.event_set = set()
         assert const_q != []
         const_q.sort()
         affected_constraints = set()

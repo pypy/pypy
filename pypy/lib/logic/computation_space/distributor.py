@@ -1,5 +1,4 @@
 import math, random
-from event import Revise
 
 def arrange_domains(cs, variables):
     """build a data structure from var to dom
@@ -139,7 +138,8 @@ class SplitDistributor(AbstractDistributor):
                       int(math.floor((choice + 1) * nb_elts)))
         self.cs.dom(variable).remove_values(values[:start])
         self.cs.dom(variable).remove_values(values[end:])
-        self.cs._notify(Revise(variable))
+        for const in self.cs.dependant_constraints(variable):
+            self.cs.event_set.add(const)
 
 
 class DichotomyDistributor(SplitDistributor):
