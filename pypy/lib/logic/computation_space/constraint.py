@@ -51,14 +51,12 @@ class FiniteDomain(AbstractDomain):
         
     def remove_value(self, value):
         """Remove value of domain and check for consistency"""
-##         print "removing", value, "from", self._values.keys()
-        del self._values[value]
+        self._values.remove(value)
         self._value_removed()
 
     def remove_values(self, values):
         """Remove values of domain and check for consistency"""
         if values:
-##             print "removing", values, "from", self._values.keys()
             for val in values :
                 self._values.remove(val)
             self._value_removed()
@@ -159,7 +157,7 @@ class BasicConstraint(object):
     def getVariable(self):
         return self._variable
         
-    def revise3(self, domains):
+    def revise(self, domains):
         domain = domains[self._variable]
         operator = self._operator
         ref = self._reference
@@ -184,6 +182,72 @@ def expand_expr_template(expr, vars):
         expr.replace(var.name, var.name + '.val')
     return expr
 
+
+class AllDistinct(AbstractConstraint):
+    """Contraint: all values must be distinct"""
+
+    def __init__(self, c_space, variables):
+        assert len(variables)>1
+        AbstractConstraint.__init__(self, c_space, variables)
+        # worst case complexity
+        self.__cost = len(variables) * (len(variables) - 1) / 2
+
+    def __repr__(self):
+        return '<AllDistinct %s>' % str(self._variables)
+
+    def copy_to(self, space):
+        return self.__class__(space, self._variables)
+
+    def estimateCost(self, domains):
+        return self.__cost
+
+    def test_solution(self, sol):
+        """test a solution against this constraint
+        accept a mapping of variable names to value"""
+        values = sol.items()
+        value_set = set(values)
+        return len(value_set) == len(sol)
+
+    def revise(self):
+        variables = [(self.cs.dom(variable).size(),
+                      variable, self.cs.dom(variable))
+                     for variable in self._variables]
+
+        variables.sort()
+        # if a domain has a size of 1,
+        # then the value must be removed from the other domains
+        for size, var, dom in variables:
+            if dom.size() == 1:
+                print "AllDistinct removes values"
+                for _siz, _var, _dom in variables:
+                    if _var != var:
+                        try:
+                            _dom.remove_value(dom.get_values()[0])
+                        except KeyError:
+                            # we ignore errors caused by the removal of
+                            # non existing values
+                            pass
+
+        # if there are less values than variables, the constraint fails
+        values = {}
+        for size, var, dom in variables:
+            for val in dom:
+                values[val] = 0
+        if len(values) < len(variables):
+            print "AllDistinct failed"
+            raise ConsistencyFailure()
+
+        # the constraint is entailed if all domains have a size of 1
+        for variable in variables:
+            if variable[2].size() != 1:
+                return 0
+
+        # Question : did we *really* completely check
+        # our own alldistinctness predicate ?
+            
+        return 1 
+
+
 class Expression(AbstractConstraint):
     """A constraint represented as a python expression."""
     _FILTER_CACHE = {}
@@ -202,7 +266,7 @@ class Expression(AbstractConstraint):
             Expression._FILTER_CACHE[formula] = self.filterFunc
 
     def test_solution(self, sol ):
-        """FOR TESTING: test a solution against this constraint                                                                                
+        """test a solution against this constraint 
         accept a mapping of variable names to value"""
         args = []
         for var in self._variables:
@@ -249,7 +313,7 @@ class Expression(AbstractConstraint):
                 # it's over
                 go_on = 0
         
-    def revise3(self):
+    def revise(self):
         # removed domain arg. (auc, ale)
         """generic propagation algorithm for n-ary expressions"""
         maybe_entailed = 1
@@ -305,7 +369,7 @@ class BinaryExpression(Expression):
     def copy_to(self, space):
         raise NotImplementedError
 
-    def revise3(self, domains):
+    def revise(self, domains):
         """specialized narrowing algorithm for binary expressions
         Runs much faster than the generic version"""
         maybe_entailed = 1

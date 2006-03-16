@@ -10,21 +10,8 @@ from constraint import FiniteDomain, ConsistencyFailure, \
 from distributor import DefaultDistributor
 import event # NewSpace, Clone, Revise
 
-class Succeeded: pass
-class Failed(Exception): pass
-
-class Alternative(object):
-
-    def __init__(self, choices):
-        self._choices = choices
-
-    def __eq__(self, other):
-        if other is None: return False
-        if not isinstance(other, Alternative): return False
-        return self._choices == other._choices
-
-    def __str__(self):
-        return "Alternatives(%s)" % self._choices
+Failed = 0
+Succeeded = 1
 
 def NoProblem():
     """the empty problem, used by clone()"""
@@ -100,6 +87,9 @@ class ComputationSpace(object):
         ret.append(">")
         return ' '.join(ret)
 
+    def __repr__(self):
+        return "<space n°%s>" % self.id
+
     def __eq__(self, spc):
         """space equality defined as :
            * identity, or
@@ -151,7 +141,6 @@ class ComputationSpace(object):
                 res = False
         return res
 
-           
 #-- Computation Space -----------------------------------------
 
     #-- space helpers -----------------------------------------
@@ -184,7 +173,7 @@ class ComputationSpace(object):
         if self.status in (Failed, Succeeded):
             return self.status
         if self._distributable():
-            return Alternative(self.distributor.nb_subdomains())
+            return self.distributor.nb_subdomains()
 
     def clone(self):
         spc = ComputationSpace(NoProblem, parent=self)
@@ -263,7 +252,7 @@ class ComputationSpace(object):
         self.names[name] = var
         print "just created new var %s" % var
 
-    def get_var_by_name(self, name):
+    def find_var(self, name):
         """looks up one variable"""
         try:
             return self.names[name]
@@ -279,12 +268,12 @@ class ComputationSpace(object):
             raise NotInStore(str(names))
 
     def is_bound(self, var):
-        """check wether a var is locally bound"""
+        """check wether a var has a singleton domain"""
         return len(self.dom(var)) == 1
 
     def val(self, var):
-        """return the local binding without blocking"""
-        if self.is_bound(var): # the speculative val
+        """return the speculative"""
+        if self.is_bound(var): 
             return self.dom(var)[0]
         return NoValue
 
@@ -347,9 +336,6 @@ class ComputationSpace(object):
 
     #-- Constraint propagation ---------------
 
-    def add_distributed(self, var):
-        self.changelog.append(var)
-
     def _init_constraint_queue(self):
         cqueue = []
         init_const_set = set()
@@ -365,7 +351,7 @@ class ComputationSpace(object):
         return cqueue
 
     def satisfy_all(self):
-        """really PROPAGATE"""
+        """really PROPAGATE from AC3"""
         const_q = self._init_constraint_queue()
         assert const_q != []
         const_q.sort()
@@ -379,7 +365,7 @@ class ComputationSpace(object):
                 const_q.sort()
                 affected_constraints.clear()
             cost, const = const_q.pop(0)
-            entailed = const.revise3()
+            entailed = const.revise()
             for var in const.affected_variables():
                 dom = self.dom(var)
                 if not dom.has_changed():

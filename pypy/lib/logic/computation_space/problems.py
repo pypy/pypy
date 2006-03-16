@@ -87,21 +87,29 @@ def conference_scheduling(computation_space):
         cs.set_dom(v, c.FiniteDomain(dom_values))
 
     for conf in ('c03','c04','c05','c06'):
-        v = cs.get_var_by_name(conf)
+        v = cs.find_var(conf)
         cs.add_constraint([v], "%s[0] == 'room C'" % v.name)
 
     for conf in ('c01','c05','c10'):
-        v = cs.get_var_by_name(conf)
+        v = cs.find_var(conf)
         cs.add_constraint([v], "%s[1].startswith('day 1')" % v.name)
 
     for conf in ('c02','c03','c04','c09'):
-        v = cs.get_var_by_name(conf)
+        v = cs.find_var(conf)
         cs.add_constraint([v], "%s[1].startswith('day 2')" % v.name)
 
     groups = (('c01','c02','c03','c10'),
               ('c02','c06','c08','c09'),
               ('c03','c05','c06','c07'),
               ('c01','c03','c07','c08'))
+
+    from constraint import AllDistinct
+
+    # for now, this has the incredible effect
+    # of making the solvers run forever ...
+##     for group in groups:
+##         cs.add_expression(AllDistinct(cs, tuple([cs.find_var(v)
+##                                       for v in group])))
 
     for g in groups:
         for conf1 in g:
@@ -138,7 +146,7 @@ def sudoku(computation_space):
     offsets = [(r,c) for r in [-1,0,1] for c in [-1,0,1]]
     subsquares = [(r,c) for r in [2,5,8] for c in [2,5,8]]
     for rc in subsquares:
-        sub = [cs.get_var_by_name('v%d%d'% (rc[0] + off[0],rc[1] + off[1])) for off in offsets]
+        sub = [cs.find_var('v%d%d'% (rc[0] + off[0],rc[1] + off[1])) for off in offsets]
         cs.add_constraint(sub, 'sum([%s]) == 45' % ', '.join([v.name for v in sub]))
         for v in sub:
             for m in sub[sub.index(v)+1:]:

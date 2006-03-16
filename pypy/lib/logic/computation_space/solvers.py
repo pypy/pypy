@@ -3,19 +3,23 @@ import computationspace as csp
 class StrategyDistributionMismatch(Exception):
     pass
 
-def dfs_one(problem):
+#--- this set of solvers assumes a dichotomic distributor
+
+Alternatives = 2
+
+def rec_solve_one(problem):
     """depth-first single-solution search
        assumes the space default distributor is
        dichotomic"""
 
     def do_dfs(space):
-        print "do_dfs"
+        print "do_dfs_one"
         status = space.ask()
         if status == csp.Failed:
             return None
         elif status == csp.Succeeded:
             return space
-        elif status == csp.Alternative(2):
+        elif status == Alternatives:
             new_space = space.clone()
             space.commit(1)
             outcome = do_dfs(space)
@@ -34,13 +38,15 @@ def dfs_one(problem):
 
 #-- solve_all, switchable direction (takes problem)
 
+from collections import deque
+
 class Depth: pass
 class Breadth: pass
 
-def solve_all(problem, direction=Depth):
+def iter_solve_all(problem, direction=Depth):
 
     solutions = []
-    sp_stack = []
+    sp_stack = deque([])
     sp_stack.append(csp.ComputationSpace(problem))
 
     if direction == Depth:
@@ -48,16 +54,17 @@ def solve_all(problem, direction=Depth):
             sp_stack.append(space)
     else:
         def collect(space):
-            sp_stack.insert(0, space)
+            sp_stack.appendleft(space)
 
     while len(sp_stack):
+        print "depth is ", len(sp_stack)
         space = sp_stack.pop()
         print ' '*len(sp_stack), "ask ..."
         status = space.ask()
         if status == csp.Succeeded:
             print ' '*len(sp_stack), "solution !"
             solutions.append(space)
-        elif status == csp.Alternative(2):
+        elif status == Alternatives:
             print ' '*len(sp_stack), "branches ..."
             sp1 = space.clone()
             sp1.commit(1)
@@ -70,9 +77,9 @@ def solve_all(problem, direction=Depth):
 
 #-- pythonic lazy solve_all (takes space)
 
-def lazily_solve_all(space, direction=Depth):
+def lazily_iter_solve_all(space, direction=Depth):
 
-    sp_stack = []
+    sp_stack = deque([])
     sp_stack.append(space)
 
     if direction == Depth:
@@ -80,7 +87,7 @@ def lazily_solve_all(space, direction=Depth):
             sp_stack.append(space)
     else:
         def collect(space):
-            sp_stack.insert(0, space)
+            sp_stack.appendleft(space)
 
     while len(sp_stack):
         space = sp_stack.pop()
@@ -89,7 +96,7 @@ def lazily_solve_all(space, direction=Depth):
         if status == csp.Succeeded:
             print ' '*len(sp_stack), "solution !"
             yield space.merge()
-        elif status == csp.Alternative(2):
+        elif status == Alternatives:
             print ' '*len(sp_stack), "branches ..."
             sp1 = space.clone()
             sp1.commit(1)

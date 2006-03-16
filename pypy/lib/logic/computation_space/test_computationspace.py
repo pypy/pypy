@@ -30,11 +30,11 @@ def newspace(problem=problems.dummy_problem):
 
 class TestStoreUnification:
     
-    def test_get_by_name(self):
+    def test_find_var(self):
         sp = newspace()
         x = sp.var('x')
-        assert x == sp.get_var_by_name('x')
-        raises(space.NotInStore, sp.get_var_by_name, 'y')
+        assert x == sp.find_var('x')
+        raises(space.NotInStore, sp.find_var, 'y')
 
     def test_add_expression(self):
         sp = newspace()
@@ -55,7 +55,7 @@ class TestStoreUnification:
         sp.set_dom(y, c.FiniteDomain([2, 3]))
         sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        raises(c.ConsistencyFailure, k.revise3)
+        raises(c.ConsistencyFailure, k.revise)
 
     def test_narrowing_domains_success(self):
         sp = newspace()
@@ -64,7 +64,7 @@ class TestStoreUnification:
         sp.set_dom(y, c.FiniteDomain([2, 3]))
         sp.set_dom(z, c.FiniteDomain([3, 4]))
         k = c.Expression(sp, [x, y, z], 'x == y + z')
-        k.revise3()
+        k.revise()
         assert sp.dom(x) == c.FiniteDomain([5])
         assert sp.dom(y) == c.FiniteDomain([2])
         assert sp.dom(z) == c.FiniteDomain([3])
@@ -75,9 +75,6 @@ import solvers
 
 class TestComputationSpace:
 
-    def setup_method(self, meth):
-        pass
-
     def test_bind_cs_root(self):
         spc = newspace(problems.satisfiable_problem)
         assert '__root__' in spc.names
@@ -86,7 +83,7 @@ class TestComputationSpace:
         
     def test_ask_alternatives(self):
         spc = newspace(problems.satisfiable_problem)
-        assert spc.ask() == space.Alternative(2)
+        assert spc.ask() == 2
 
     def test_clone(self):
         """checks that a chain of initially s1 = s2
@@ -119,11 +116,11 @@ class TestComputationSpace:
             space.add_constraint([y], 'y < 2')
 
         spc = newspace(problems.satisfiable_problem)
-        assert spc.ask() == space.Alternative(2)
+        assert spc.ask() == 2
         new_spc = spc.clone()
         new_spc.ask()
         new_spc.inject(more_constraints)
-        assert spc.ask() == space.Alternative(2)
+        assert spc.ask() == 2
         assert new_spc.ask() == space.Succeeded
         
     def test_merge(self):
@@ -134,39 +131,39 @@ class TestComputationSpace:
             space.add_constraint([y], 'y < 2')
 
         spc = newspace(problems.satisfiable_problem)
-        assert spc.ask() == space.Alternative(2)
+        assert spc.ask() == 2
         new_spc = spc.clone()
         new_spc.ask()
         new_spc.inject(more_constraints)
-        assert spc.ask() == space.Alternative(2)
+        assert spc.ask() == 2
         assert new_spc.ask() == space.Succeeded
         x, y, z = new_spc.find_vars('x', 'y', 'z')
         res = new_spc.merge()
         assert res.values() == [0, 0, 0]
         
     def test_scheduling_dfs_one_solution(self):
-        sol = solvers.dfs_one(problems.conference_scheduling)
+        sol = solvers.rec_solve_one(problems.conference_scheduling)
 
         spc = space.ComputationSpace(problems.conference_scheduling)
         assert spc.test_solution( sol )
         
 
     def test_scheduling_all_solutions_dfs(self):
-        sols = solvers.solve_all(problems.conference_scheduling)
+        sols = solvers.iter_solve_all(problems.conference_scheduling)
         assert len(sols) == 64
         spc = space.ComputationSpace(problems.conference_scheduling)
         for s in sols:
             assert spc.test_solution( s )
             
-
     def test_scheduling_all_solutions_lazily_dfs(self):
         sp = space.ComputationSpace(problems.conference_scheduling)
-        for sol in solvers.lazily_solve_all(sp):
+        for sol in solvers.lazily_iter_solve_all(sp):
             assert sp.test_solution(sol)
 
     def test_scheduling_all_solutions_bfs(self):
-        sols = solvers.solve_all(problems.conference_scheduling,
-                                    direction=solvers.Breadth)
+        sols = solvers.iter_solve_all(problems.conference_scheduling,
+                                      direction=solvers.Breadth)
+                                     
         assert len(sols) == 64
         spc = space.ComputationSpace(problems.conference_scheduling)
         for s in sols:
@@ -175,11 +172,11 @@ class TestComputationSpace:
 
     def test_scheduling_all_solutions_lazily_bfs(self):
         sp = space.ComputationSpace(problems.conference_scheduling)
-        for sol in solvers.lazily_solve_all(sp, direction=solvers.Breadth):
+        for sol in solvers.lazily_iter_solve_all(sp, direction=solvers.Breadth):
             assert sp.test_solution(sol)
 
 
-    def notest_sudoku(self):
+    def no_test_sudoku(self):
         spc = newspace(problems.sudoku)
         print spc.constraints
 
@@ -193,12 +190,12 @@ class TestComputationSpace:
                 for col in range(1,10):
                     if line[col-1] != ' ':
                         tup = ('v%d%d' % (col, row), int(line[col-1]))
-                        space.add_constraint([space.get_var_by_name(tup[0])],'%s == %d' % tup)
+                        space.add_constraint([space.find_var(tup[0])],'%s == %d' % tup)
                 row += 1
                 
         spc.inject(more_constraints)
         print spc.constraints
-        sol_iter = solvers.lazily_solve_all(spc)
+        sol_iter = solvers.lazily_iter_solve_all(spc)
         sol = sol_iter.next()    
         print sol
         assert spc.test_solution(sol)
