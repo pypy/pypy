@@ -1,6 +1,5 @@
-from pypy.objspace.flow.model import Constant
 from pypy.translator.gensupp import NameManager
-from pypy.translator.squeak.message import Message, camel_case
+from pypy.translator.squeak.codeformatter import camel_case
 from pypy.translator.squeak.node import FunctionNode, ClassNode, SetupNode
 try:
     set
@@ -10,12 +9,6 @@ except NameError:
 
 class GenSqueak:
 
-    sqnames = {
-        Constant(None).key:  'nil',
-        Constant(False).key: 'false',
-        Constant(True).key:  'true',
-    }
-    
     def __init__(self, sqdir, translator, modname=None):
         self.sqdir = sqdir
         self.translator = translator
@@ -61,45 +54,8 @@ class GenSqueak:
                 self.pending_nodes.remove(node)
             self.pending_nodes.append(node)
 
-    def nameof(self, obj):
-        key = Constant(obj).key
-        try:
-            return self.sqnames[key]
-        except KeyError:
-            for cls in type(obj).__mro__:
-                meth = getattr(self,
-                               'nameof_' + cls.__name__.replace(' ', ''),
-                               None)
-                if meth:
-                    break
-            else:
-                types = ['nameof_'+t.__name__ for t in type(obj).__mro__]
-                raise Exception, "nameof(%r): no method %s" % (obj, types)
-            name = meth(obj)
-            self.sqnames[key] = name
-            return name
-
-    def nameof_int(self, i):
-        return str(i)
-
-    def nameof_str(self, s):
-        return "'s'"
-
-    def nameof_Instance(self, INSTANCE):
-        if INSTANCE is None:
-            return "Object"
-        self.schedule_node(ClassNode(self, INSTANCE))
-        class_name = INSTANCE._name.split(".")[-1]
-        squeak_class_name = self.unique_name(INSTANCE, class_name)
-        return "Py%s" % squeak_class_name
-
-    def nameof__class(self, class_):
-        return self.nameof_Instance(class_._INSTANCE)
-
-    def nameof__callable(self, callable):
-        return self.nameof_function(callable.graph.func)
-
-    def nameof_function(self, function):
+    def unique_func_name(self, function):
+        # XXX do FunctionNode registering here
         squeak_func_name = self.unique_name(function, function.__name__)
         return squeak_func_name
         

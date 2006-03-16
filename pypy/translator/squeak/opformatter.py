@@ -129,7 +129,7 @@ class OpFormatter:
 
     def op_direct_call(self, op):
         from pypy.translator.squeak.node import FunctionNode
-        function_name = self.node.expr(op.args[0])
+        function_name = self.codef.format(op.args[0])
         self.gen.schedule_node(
             FunctionNode(self.gen, op.args[0].value.graph))
         msg = Message(function_name).send_to(FunctionNode.FUNCTIONS, op.args[1:])

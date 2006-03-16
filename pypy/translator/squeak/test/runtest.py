@@ -2,7 +2,6 @@ import os
 import py
 from pypy.tool.udir import udir
 from pypy.translator.squeak.gensqueak import GenSqueak
-from pypy.translator.squeak.message import Message
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 
@@ -67,6 +66,16 @@ class SqueakFunction:
             f.close()
         return startup_st
 
+    def _symbol(self, arg_count):
+        name = self._func.__name__
+        if arg_count == 0:
+            return name
+        else:
+            parts = [name]
+            if arg_count > 1:
+                parts += ["with"] * (arg_count - 1)
+            return "%s:%s" % (parts[0], "".join([p + ":" for p in parts[1:]]))
+
     def __call__(self, *args):
         # NB: only integers arguments are supported currently
         try:
@@ -86,7 +95,7 @@ class SqueakFunction:
             options = ""
         cmd = 'squeak %s -- %s %s "%s" %s' \
                 % (options, startup_st, udir.join(self._gen.filename),
-                   Message(self._func.__name__).symbol(len(args)),
+                   self._symbol(len(args)),
                    " ".join(['"%s"' % a for a in args]))
         squeak_process = os.popen(cmd)
         result = squeak_process.read()

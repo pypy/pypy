@@ -1,7 +1,8 @@
 import datetime
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.translator.squeak.message import Message, camel_case
 from pypy.translator.squeak.opformatter import OpFormatter
+from pypy.translator.squeak.codeformatter import CodeFormatter, Message, camel_case
+from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
 from pypy.rpython.ootypesystem.ootype import Instance, ROOT
 
 class CodeNode:
@@ -13,8 +14,6 @@ class CodeNode:
         return isinstance(other, CodeNode) \
                 and self.hash_key == other.hash_key
     
-    # XXX need other comparison methods?
-
     def render_fileout_header(self, class_name, category):
         return "!%s methodsFor: '%s' stamp: 'pypy %s'!" % (
                 class_name, category,
@@ -43,9 +42,10 @@ class ClassNode(CodeNode):
             return []
 
     def render(self):
+        codef = CodeFormatter(self.gen)
         yield "%s subclass: #%s" % (
-            self.gen.nameof_Instance(self.INSTANCE._superclass), 
-            self.gen.nameof_Instance(self.INSTANCE))
+            codef.format_Instance(self.INSTANCE._superclass), 
+            codef.format_Instance(self.INSTANCE))
         fields = [self.unique_field(self.INSTANCE, f) for f in
             self.INSTANCE._fields.iterkeys()]
         yield "    instanceVariableNames: '%s'" % ' '.join(fields)
@@ -81,38 +81,26 @@ class LoopFinder:
 class CallableNode(CodeNode):
 
     def render_body(self, startblock):
+        self.codef = CodeFormatter(self.gen)
         self.loops = LoopFinder(startblock).loops
         args = self.arguments(startblock)
-        sel = Message(self.name)
-        yield sel.signature([self.expr(v) for v in args])
+        message = Message(self.name).with_args(args)
+        yield self.codef.format(message)
  
         # XXX should declare local variables here
         for line in self.render_block(startblock):
             yield "    %s" % line
         yield '! !'
 
-    def expr(self, v):
-        if isinstance(v, Variable):
-            return camel_case(v.name)
-        elif isinstance(v, Constant):
-            if isinstance(v.concretetype, Instance):
-                const_id = self.gen.unique_name(
-                        v, "const_%s" % self.gen.nameof(v.value._TYPE))
-                self.gen.constant_insts[v] = const_id
-                return "(PyConstants getConstant: '%s')" % const_id
-            return self.gen.nameof(v.value)
-        else:
-            raise TypeError, "expr(%r)" % (v,)
-
     def render_return(self, args):
         if len(args) == 2:
             # exception
-            exc_cls = self.expr(args[0])
-            exc_val = self.expr(args[1])
+            exc_cls = self.codef.format(args[0])
+            exc_val = self.codef.format(args[1])
             yield "(PyOperationError class: %s value: %s) signal." % (exc_cls, exc_val)
         else:
             # regular return block
-            retval = self.expr(args[0])
+            retval = self.codef.format(args[0])
             yield "^%s" % retval
 
     def render_link(self, link):
@@ -120,7 +108,8 @@ class CallableNode(CodeNode):
         if link.args:
             for i in range(len(link.args)):
                 yield '%s := %s.' % \
-                        (self.expr(block.inputargs[i]), self.expr(link.args[i]))
+                        (self.codef.format(block.inputargs[i]),
+                                self.codef.format(link.args[i]))
         for line in self.render_block(block):
             yield line
 
@@ -147,14 +136,14 @@ class CallableNode(CodeNode):
             if self.loops.has_key(block):
                 if self.loops[block]:
                     self.loops[block] = False
-                    yield "%s] whileTrue: [" % self.expr(block.exitswitch)
+                    yield "%s] whileTrue: [" % self.codef.format(block.exitswitch)
                     for line in self.render_link(block.exits[True]):
                         yield "    %s" % line
                     yield "]."
                     for line in self.render_link(block.exits[False]):
                         yield "%s" % line
             else:
-                yield "%s ifTrue: [" % self.expr(block.exitswitch)
+                yield "%s ifTrue: [" % self.codef.format(block.exitswitch)
                 for line in self.render_link(block.exits[True]):
                     yield "    %s" % line
                 yield "] ifFalse: [" 
@@ -179,8 +168,9 @@ class MethodNode(CallableNode):
         return startblock.inputargs[1:]
     
     def render(self):
+        codef = CodeFormatter(self.gen)
         yield self.render_fileout_header(
-                self.gen.nameof(self.INSTANCE), "methods")
+                codef.format(self.INSTANCE), "methods")
         graph = self.INSTANCE._methods[self.name].graph
         self.self = graph.startblock.inputargs[0]
         for line in self.render_body(graph.startblock):
@@ -193,7 +183,7 @@ class FunctionNode(CallableNode):
     def __init__(self, gen, graph):
         self.gen = gen
         self.graph = graph
-        self.name = gen.nameof(graph.func)
+        self.name = gen.unique_func_name(graph.func) # XXX messy
         self.self = None
         self.hash_key = graph
 
@@ -214,6 +204,7 @@ class AccessorNode(CodeNode):
         self.gen = gen
         self.INSTANCE = INSTANCE
         self.field_name = field_name
+        self.codef = CodeFormatter(gen)
         self.hash_key = (INSTANCE, field_name, self.__class__)
 
     def dependencies(self):
@@ -223,7 +214,7 @@ class SetterNode(AccessorNode):
 
     def render(self):
         yield self.render_fileout_header(
-                self.gen.nameof_Instance(self.INSTANCE), "accessors")
+                self.codef.format(self.INSTANCE), "accessors")
         yield "%s: value" % self.field_name
         yield "    %s := value" % self.field_name
         yield "! !"
@@ -232,7 +223,7 @@ class GetterNode(AccessorNode):
 
     def render(self):
         yield self.render_fileout_header(
-                self.gen.nameof_Instance(self.INSTANCE), "accessors")
+                self.codef.format(self.INSTANCE), "accessors")
         yield self.field_name
         yield "    ^%s" % self.field_name
         yield "! !"
@@ -271,16 +262,17 @@ class FieldInitializerNode(CodeNode):
         return [ClassNode(self.gen, self.INSTANCE)]
 
     def render(self):
+        codef = CodeFormatter(self.gen)
         yield self.render_fileout_header(
-                self.gen.nameof_Instance(self.INSTANCE), "initializers")
+                codef.format(self.INSTANCE), "initializers")
         fields = self.INSTANCE._allfields()
-        sel = Message("field_init")
-        arg_names = ["a%s" % i for i in range(len(fields))]
-        yield sel.signature(arg_names)
-        for field_name, arg_name in zip(fields.keys(), arg_names):
-            yield "    %s := %s." % (
-                    self.unique_field(self.INSTANCE, field_name),
-                    arg_name)
+        args = [CustomVariable("a%s" % i) for i in range(len(fields))]
+        message = Message("field_init").with_args(args)
+        yield codef.format(message)
+        for field_name, arg in zip(fields.keys(), args):
+            unique_field = self.unique_field(self.INSTANCE, field_name)
+            ass = Assignment(Field(unique_field), arg)
+            yield "    %s." % codef.format(ass)
         yield "! !"
 
 class SetupNode(CodeNode):
@@ -299,26 +291,27 @@ class SetupNode(CodeNode):
             [ClassNode(self.gen, self.CONSTANTS, class_vars=["Constants"])]
 
     def render(self):
+        codef = CodeFormatter(self.gen)
+        # XXX use CodeFormatter throughout here
         yield self.render_fileout_header("PyConstants class", "internals")
-        sel = Message("setupConstants")
-        yield sel.signature([])
+        message = Message("setupConstants")
+        yield codef.format(message.with_args([]))
         yield "    Constants := Dictionary new."
         for const, const_id in self.constants.iteritems():
             INST = const.value._TYPE
-            class_name = self.gen.nameof(INST)
             field_names = INST._allfields().keys()
-            field_values = [self.gen.nameof(getattr(const.value, f))
-                    for f in field_names]
-            init_sel = Message("field_init")
-            yield "    Constants at: '%s' put: (%s new %s)." \
-                    % (const_id, class_name,
-                        init_sel.signature(field_values))
+            field_values = [getattr(const.value, f) for f in field_names]
+            new = Message("new").send_to(INST, [])
+            init_message = Message("field_init").send_to(new, field_values)
+            yield "    Constants at: '%s' put: %s." \
+                    % (const_id, codef.format(init_message))
         yield "! !"
         yield ""
 
         yield self.render_fileout_header("PyConstants class", "internals")
-        sel = Message("getConstant")
-        yield sel.signature(["constId"])
+        arg = CustomVariable("constId")
+        get_message = Message("getConstant")
+        yield codef.format(get_message.with_args([arg]))
         yield "    ^ Constants at: constId"
         yield "! !"
 
