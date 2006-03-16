@@ -40,7 +40,7 @@ class ExecutionContext:
         coobj.w_tracefunc = None
         coobj.w_profilefunc = None
         coobj.is_tracing = 0
-    new_subcontext = staticmethod(new_subcontext)
+    subcontext_new = staticmethod(subcontext_new)
 
     def subcontext_swap(self, coobj):
         self.framestack,    coobj.framestack    = coobj.framestack,     self.framestack
