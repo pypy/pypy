@@ -1,6 +1,7 @@
 from pypy.translator.gensupp import NameManager
 from pypy.translator.squeak.codeformatter import camel_case
 from pypy.translator.squeak.node import FunctionNode, ClassNode, SetupNode
+from pypy.translator.squeak.node import MethodNode
 try:
     set
 except NameError:
@@ -54,11 +55,28 @@ class GenSqueak:
                 self.pending_nodes.remove(node)
             self.pending_nodes.append(node)
 
-    def unique_func_name(self, function):
-        # XXX do FunctionNode registering here
+    def unique_func_name(self, funcgraph, schedule=True):
+        function = funcgraph.func
         squeak_func_name = self.unique_name(function, function.__name__)
+        if schedule:
+            self.schedule_node(FunctionNode(self, funcgraph))
         return squeak_func_name
         
+    def unique_method_name(self, INSTANCE, method_name, schedule=True):
+        # XXX it's actually more complicated than that because of
+        # inheritance ...
+        squeak_method_name = self.unique_name(
+                (INSTANCE, method_name), method_name)
+        if schedule:
+            self.schedule_node(MethodNode(self, INSTANCE, method_name))
+        return squeak_method_name
+        
+    def unique_class_name(self, INSTANCE):
+        self.schedule_node(ClassNode(self, INSTANCE))
+        class_name = INSTANCE._name.split(".")[-1]
+        squeak_class_name = self.unique_name(INSTANCE, class_name)
+        return "Py%s" % squeak_class_name
+
     def unique_name(self, key, basename):
         if self.unique_name_mapping.has_key(key):
             unique = self.unique_name_mapping[key]

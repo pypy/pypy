@@ -107,19 +107,14 @@ class CodeFormatter:
         elif isinstance(value, ootype._class):
             return self.format_Instance(value._INSTANCE)
         elif isinstance(value, ootype._static_meth):
-            return self.gen.unique_func_name(value.graph.func)
+            return self.gen.unique_func_name(value.graph)
         else:
             raise TypeError, "can't format constant (%s)" % value
 
     def format_Instance(self, INSTANCE):
         if INSTANCE is None:
             return "Object"
-        from pypy.translator.squeak.node import ClassNode
-        # XXX move scheduling/unique name thingies to gensqueak.py
-        self.gen.schedule_node(ClassNode(self.gen, INSTANCE))
-        class_name = INSTANCE._name.split(".")[-1]
-        squeak_class_name = self.gen.unique_name(INSTANCE, class_name)
-        return "Py%s" % squeak_class_name
+        return self.gen.unique_class_name(INSTANCE)
 
     def format_Self(self, _):
         return "self"

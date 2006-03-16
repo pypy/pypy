@@ -84,7 +84,7 @@ class CallableNode(CodeNode):
         self.codef = CodeFormatter(self.gen)
         self.loops = LoopFinder(startblock).loops
         args = self.arguments(startblock)
-        message = Message(self.name).with_args(args)
+        message = Message(self.unique_name).with_args(args)
         yield self.codef.format(message)
  
         # XXX should declare local variables here
@@ -157,6 +157,8 @@ class MethodNode(CallableNode):
         self.gen = gen
         self.INSTANCE = INSTANCE
         self.name = method_name
+        self.unique_name = gen.unique_method_name(
+                INSTANCE, method_name, schedule=False)
         self.self = None # Will be set upon rendering
         self.hash_key = (INSTANCE, method_name)
 
@@ -183,8 +185,9 @@ class FunctionNode(CallableNode):
     def __init__(self, gen, graph):
         self.gen = gen
         self.graph = graph
-        self.name = gen.unique_func_name(graph.func) # XXX messy
+        self.unique_name = gen.unique_func_name(graph, schedule=False)
         self.self = None
+        self._class_name = gen.unique_class_name(self.FUNCTIONS)
         self.hash_key = graph
 
     def dependencies(self):
@@ -194,7 +197,8 @@ class FunctionNode(CallableNode):
         return startblock.inputargs
     
     def render(self):
-        yield self.render_fileout_header("PyFunctions class", "functions")
+        yield self.render_fileout_header(
+                "%s class" % self._class_name, "functions")
         for line in self.render_body(self.graph.startblock):
             yield line
 
@@ -236,6 +240,7 @@ class HelperNode(CodeNode):
         self.gen = gen
         self.message = message
         self.code = code
+        self._class_name = gen.unique_class_name(self.HELPERS)
         self.hash_key = ("helper", code)
 
     def apply(self, args):
@@ -246,7 +251,8 @@ class HelperNode(CodeNode):
 
     def render(self):
         # XXX should not use explicit name "PyHelpers" here
-        yield self.render_fileout_header("PyHelpers class", "helpers")
+        yield self.render_fileout_header(
+                "%s class" % self._class_name, "helpers")
         for line in self.code.strip().split("\n"):
             yield line
         yield "! !"
@@ -282,6 +288,7 @@ class SetupNode(CodeNode):
     def __init__(self, gen, constants):
         self.gen = gen
         self.constants = constants
+        self._class_name = gen.unique_class_name(self.CONSTANTS)
         self.hash_key = "setup"
 
     def dependencies(self):
@@ -293,7 +300,8 @@ class SetupNode(CodeNode):
     def render(self):
         codef = CodeFormatter(self.gen)
         # XXX use CodeFormatter throughout here
-        yield self.render_fileout_header("PyConstants class", "internals")
+        yield self.render_fileout_header(
+                "%s class" % self._class_name, "internals")
         message = Message("setupConstants")
         yield codef.format(message.with_args([]))
         yield "    Constants := Dictionary new."
@@ -308,7 +316,8 @@ class SetupNode(CodeNode):
         yield "! !"
         yield ""
 
-        yield self.render_fileout_header("PyConstants class", "internals")
+        yield self.render_fileout_header(
+                "%s class" % self._class_name, "internals")
         arg = CustomVariable("constId")
         get_message = Message("getConstant")
         yield codef.format(get_message.with_args([arg]))

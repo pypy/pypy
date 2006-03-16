@@ -84,13 +84,12 @@ class OpFormatter:
 
     def op_oosend(self, op):
         message_name = op.args[0].value
+        message_name = self.gen.unique_method_name(
+                op.args[1].concretetype, message_name)
         if op.args[1] == self.node.self:
             receiver = Self()
         else:
             receiver = op.args[1]
-        from pypy.translator.squeak.node import MethodNode
-        self.gen.schedule_node(
-                MethodNode(self.gen, op.args[1].concretetype, message_name))
         sent_message = Message(message_name).send_to(receiver, op.args[2:])
         return  self.codef.format(sent_message.assign_to(op.result))
 
@@ -128,10 +127,9 @@ class OpFormatter:
         return self.codef.format(Assignment(op.result, op.args[0]))
 
     def op_direct_call(self, op):
+        # XXX how do i get rid of this import?
         from pypy.translator.squeak.node import FunctionNode
-        function_name = self.codef.format(op.args[0])
-        self.gen.schedule_node(
-            FunctionNode(self.gen, op.args[0].value.graph))
+        function_name = self.gen.unique_func_name(op.args[0].value.graph)
         msg = Message(function_name).send_to(FunctionNode.FUNCTIONS, op.args[1:])
         return self.codef.format(msg.assign_to(op.result))
 

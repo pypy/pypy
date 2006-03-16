@@ -39,8 +39,10 @@ class TestGenSqueak:
         from pypy.translator.squeak.test.support import A as A2
         class A:
             def m(self, i): return 2 + i
+        class Functions:
+            def m(self, i): return 1 + i
         def f():
-            return A().m(0) + A2().m(0)
+            return A().m(0) + A2().m(0) + Functions().m(-1)
         fn = compile_function(f)
         assert fn() == "3"
 
@@ -73,6 +75,16 @@ class TestGenSqueak:
         def g():
             return f(0) + f2(0)
         fn = compile_function(g)
+        assert fn() == "3"
+
+    def test_nameclash_methods(self):
+        class A:
+            def some_method(self, i): return i + 1
+            def someMethod(self, i): return i + 2
+        def f():
+            a = A()
+            return a.some_method(0) + a.someMethod(0)
+        fn = compile_function(f)
         assert fn() == "3"
 
     def test_direct_call(self):
