@@ -39,16 +39,15 @@ def collect_called_graphs(graph, translator):
 
 def iter_callsites(graph, calling_what):
     for block in graph.iterblocks():
-        if isinstance(block, Block):
-            for i, op in enumerate(block.operations):
-                if not op.opname == "direct_call":
-                    continue
-                funcobj = op.args[0].value._obj
-                graph = getattr(funcobj, 'graph', None)
-                # accept a function or a graph as 'inline_func'
-                if (graph is calling_what or
-                    getattr(funcobj, '_callable', None) is calling_what):
-                    yield graph, block, i
+        for i, op in enumerate(block.operations):
+            if not op.opname == "direct_call":
+                continue
+            funcobj = op.args[0].value._obj
+            graph = getattr(funcobj, 'graph', None)
+            # accept a function or a graph as 'inline_func'
+            if (graph is calling_what or
+                getattr(funcobj, '_callable', None) is calling_what):
+                yield graph, block, i
 
 def find_callsites(graph, calling_what):
     return list(iter_callsites(graph, calling_what))
@@ -69,19 +68,8 @@ def contains_call(graph, calling_what):
         return False
 
 def inline_function(translator, inline_func, graph):
-    count = 0
-    for subgraph, block, index_operation in iter_first_callsites(graph, inline_func):
-        if contains_call(subgraph, subgraph):
-            raise CannotInline("inlining a recursive function")
-        operation = block.operations[index_operation]
-        if getattr(operation, "cleanup", None) is not None:
-            finallyops, exceptops = operation.cleanup
-            if finallyops or exceptops:
-                raise CannotInline("cannot inline a function with cleanup attached")
-        _inline_function(translator, graph, block, index_operation)
-        checkgraph(graph)
-        count += 1
-    return count
+    inliner = Inliner(translator, graph, inline_func)
+    return inliner.inline_all()
 
 def _find_exception_type(block):
     #XXX slightly brittle: find the exception type for simple cases
@@ -101,11 +89,39 @@ def _find_exception_type(block):
 
 
 class Inliner(object):
-    def __init__(self, translator, graph, block, index_operation):
+    def __init__(self, translator, graph, inline_func):
         self.translator = translator
         self.graph = graph
+        self.inline_func = inline_func
+        callsites = find_callsites(graph, inline_func)
+        self.block_to_index = {}
+        for g, block, i in callsites:
+            self.block_to_index.setdefault(block, {})[i] = g
+
+    def inline_all(self):
+        count = 0
+        non_recursive = {}
+        while self.block_to_index:
+            block, d = self.block_to_index.popitem()
+            index_operation, subgraph = d.popitem()
+            if d:
+                self.block_to_index[block] = d
+            if subgraph not in non_recursive and contains_call(subgraph, subgraph):
+                raise CannotInline("inlining a recursive function")
+            else:
+                non_recursive[subgraph] = True
+            operation = block.operations[index_operation]
+            if getattr(operation, "cleanup", None) is not None:
+                finallyops, exceptops = operation.cleanup
+                if finallyops or exceptops:
+                    raise CannotInline("cannot inline a function with cleanup attached")
+            self.inline_once(block, index_operation)
+            count += 1
+        self.cleanup()
+        return count
+
+    def inline_once(self, block, index_operation):
         self.varmap = {}
-        self.beforeblock = block
         self._copied_blocks = {}
         self._copied_cleanups = {}
         self.op = block.operations[index_operation]
@@ -119,7 +135,25 @@ class Inliner(object):
         self._passon_vars = {}
         self.entrymap = mkentrymap(self.graph_to_inline)
         self.do_inline(block, index_operation)
-        self.cleanup()
+
+    def search_for_calls(self, block):
+        d = {}
+        for i, op in enumerate(block.operations):
+            if not op.opname == "direct_call":
+                continue
+            funcobj = op.args[0].value._obj
+            graph = getattr(funcobj, 'graph', None)
+            # accept a function or a graph as 'inline_func'
+            if (graph is self.inline_func or
+                getattr(funcobj, '_callable', None) is self.inline_func):
+                d[i] = graph
+        if d:
+            self.block_to_index[block] = d
+        else:
+            try:
+                del self.block_to_index[block]
+            except KeyError:
+                pass
 
     def get_new_name(self, var):
         if var is None:
@@ -172,6 +206,7 @@ class Inliner(object):
         newblock.exits = [self.copy_link(link, block) for link in block.exits]
         newblock.exitswitch = self.get_new_name(block.exitswitch)
         newblock.exc_handler = block.exc_handler
+        self.search_for_calls(newblock)
         return newblock
 
     def copy_link(self, link, prevblock):
@@ -322,11 +357,11 @@ class Inliner(object):
         # the inlined function
         # for every inserted block we need a new copy of these variables,
         # this copy is created with the method passon_vars
-        self.original_passon_vars = [arg for arg in self.beforeblock.exits[0].args
+        self.original_passon_vars = [arg for arg in block.exits[0].args
                                          if isinstance(arg, Variable)]
         assert afterblock.operations[0] is self.op
         #vars that need to be passed through the blocks of the inlined function
-        linktoinlined = self.beforeblock.exits[0]
+        linktoinlined = block.exits[0]
         assert linktoinlined.target is afterblock
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
         copiedstartblock.isstartblock = False
@@ -352,6 +387,8 @@ class Inliner(object):
             assert afterblock.exits[0].exitcase is None
             afterblock.exits = [afterblock.exits[0]]
             afterblock.exitswitch = None
+        self.search_for_calls(afterblock)
+        self.search_for_calls(block)
 
     def cleanup(self):
         """ cleaning up -- makes sense to be done after inlining, because the
@@ -363,7 +400,9 @@ class Inliner(object):
         remove_identical_vars(self.graph)
 
 
-_inline_function = Inliner
+def _inline_function(translator, graph, block, index_operation):
+    inline_func = block.operations[index_operation].args[0].value._obj._callable
+    inliner = Inliner(translator, graph, inline_func)
 
 # ____________________________________________________________
 #
