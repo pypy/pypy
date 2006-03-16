@@ -71,7 +71,7 @@ class TestStoreUnification:
 
 #-- computation spaces -------------------------------
 
-import strategies
+import solvers
 
 class TestComputationSpace:
 
@@ -145,14 +145,14 @@ class TestComputationSpace:
         assert res.values() == [0, 0, 0]
         
     def test_scheduling_dfs_one_solution(self):
-        sol = strategies.dfs_one(problems.conference_scheduling)
+        sol = solvers.dfs_one(problems.conference_scheduling)
 
         spc = space.ComputationSpace(problems.conference_scheduling)
         assert spc.test_solution( sol )
         
 
     def test_scheduling_all_solutions_dfs(self):
-        sols = strategies.solve_all(problems.conference_scheduling)
+        sols = solvers.solve_all(problems.conference_scheduling)
         assert len(sols) == 64
         spc = space.ComputationSpace(problems.conference_scheduling)
         for s in sols:
@@ -161,12 +161,12 @@ class TestComputationSpace:
 
     def test_scheduling_all_solutions_lazily_dfs(self):
         sp = space.ComputationSpace(problems.conference_scheduling)
-        for sol in strategies.lazily_solve_all(sp):
+        for sol in solvers.lazily_solve_all(sp):
             assert sp.test_solution(sol)
 
     def test_scheduling_all_solutions_bfs(self):
-        sols = strategies.solve_all(problems.conference_scheduling,
-                                    direction=strategies.Breadth)
+        sols = solvers.solve_all(problems.conference_scheduling,
+                                    direction=solvers.Breadth)
         assert len(sols) == 64
         spc = space.ComputationSpace(problems.conference_scheduling)
         for s in sols:
@@ -175,11 +175,11 @@ class TestComputationSpace:
 
     def test_scheduling_all_solutions_lazily_bfs(self):
         sp = space.ComputationSpace(problems.conference_scheduling)
-        for sol in strategies.lazily_solve_all(sp, direction=strategies.Breadth):
+        for sol in solvers.lazily_solve_all(sp, direction=solvers.Breadth):
             assert sp.test_solution(sol)
 
 
-    def test_sudoku(self):
+    def notest_sudoku(self):
         spc = newspace(problems.sudoku)
         print spc.constraints
 
@@ -198,7 +198,7 @@ class TestComputationSpace:
                 
         spc.inject(more_constraints)
         print spc.constraints
-        sol_iter = strategies.lazily_solve_all(spc)
+        sol_iter = solvers.lazily_solve_all(spc)
         sol = sol_iter.next()    
         print sol
         assert spc.test_solution(sol)
