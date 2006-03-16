@@ -231,8 +231,8 @@ def test_protect_unprotect():
     extregistry.register_value(unprotect,
         compute_result_annotation=annmodel.s_None, specialize_call=rtype_unprotect)
 
-    def p():    protect('this is an object')
-    def u():    unprotect('this is an object')
+    def p():    return protect('this is an object')
+    def u():    return unprotect('this is an object')
 
     rgc = gctransform.RefcountingGCTransformer
     bgc = gctransform.BoehmGCTransformer

@@ -216,12 +216,14 @@ class GCTransformer(object):
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
     def replace_gc_protect(self, op, livevars):
-        """ protect this object from gc (make it immortal) """
-        return [], []
+        """ protect this object from gc (make it immortal). the specific
+        gctransformer needs to overwrite this"""
+        raise NotImplementedError("gc_protect does not make sense for this gc")
 
     def replace_gc_unprotect(self, op, livevars):
-        """ get this object back into gc control """
-        return [], []
+        """ get this object back into gc control. the specific gctransformer
+        needs to overwrite this"""
+        raise NotImplementedError("gc_protect does not make sense for this gc")
 
     def annotate_helper(self, ll_helper, ll_args, ll_result):
         assert not self.finished
@@ -367,11 +369,15 @@ class RefcountingGCTransformer(GCTransformer):
 
     def replace_gc_protect(self, op, livevars):
         """ protect this object from gc (make it immortal) """
-        return self.push_alive(op.args[0]), []
+        newops = self.push_alive(op.args[0])
+        newops[-1].result = op.result
+        return newops, []
 
     def replace_gc_unprotect(self, op, livevars):
         """ get this object back into gc control """
-        return self.pop_alive(op.args[0]), []
+        newops = self.pop_alive(op.args[0])
+        newops[-1].result = op.result
+        return newops, []
 
     def replace_setfield(self, op, livevars):
         if not var_needsgc(op.args[2]):
@@ -582,6 +588,14 @@ class BoehmGCTransformer(GCTransformer):
 
     def pop_alive_nopyobj(self, var):
         return []
+
+    def replace_gc_protect(self, op, livevars):
+        """ for boehm it is enough to do nothing"""
+        return [SpaceOperation("same_as", [Constant(None, lltype.Void)], op.result)], []
+
+    def replace_gc_unprotect(self, op, livevars):
+        """ for boehm it is enough to do nothing"""
+        return [SpaceOperation("same_as", [Constant(None, lltype.Void)], op.result)], []
 
     def get_rtti(self, TYPE):
         if isinstance(TYPE, lltype.GcStruct):
