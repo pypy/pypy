@@ -52,6 +52,8 @@ general_tests = [
     ("div", Signed, 7, 3),
     ("floordiv", Signed, 7, 3),
     ("floordiv", Signed, -7, 3),
+    ("mod", Signed, 9, 4),
+    ("mod", Signed, 9, -4),
 ]
 
 def test_intoperations():
@@ -68,6 +70,7 @@ def test_uintoperations():
     tests = adapt_tests(general_tests, r_uint, Unsigned, "uint") + [
         # binary wraparounds
         ("uint_add", Unsigned, r_uint(2*sys.maxint), r_uint(2)),
+        ("uint_sub", Unsigned, r_uint(1), r_uint(3)),
         ("uint_mul", Unsigned, r_uint(sys.maxint), r_uint(3)),
     ]
     for t in tests:

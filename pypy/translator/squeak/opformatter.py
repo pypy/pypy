@@ -44,6 +44,8 @@ class OpFormatter:
         'mul':       '*',
         'div':       '//',
         'floordiv':  '//',
+        #'truediv':   '/',:   '/',
+        'mod':       r'\\',
     }
     
     number_opprefixes = "int", "uint", "llong", "ullong", "float"
