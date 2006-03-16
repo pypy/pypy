@@ -11,7 +11,6 @@ def optest(testcase):
     RESTYPE = testcase[1] 
     args = testcase[2:]
 
-    llopfunc = getattr(llop, llopname)
     arg_signature = ", ".join(["v%s" % n for n in range(len(args))])
     exec """def lloptest(%s):
         return llop.%s(%s, %s)""" \

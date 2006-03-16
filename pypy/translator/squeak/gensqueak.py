@@ -3,8 +3,8 @@ from pypy.objspace.flow.model import Constant, Variable, Block
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.gensupp import NameManager
 from pypy.translator.squeak.message import Message, camel_case
+from pypy.translator.squeak.opformatter import OpFormatter
 from pypy.rpython.ootypesystem.ootype import Instance, ROOT
-from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy import conftest
 try:
     set
@@ -196,46 +196,6 @@ class LoopFinder:
 
 class CallableNode(CodeNode):
 
-    selectormap = {
-        #'setitem:with:': 'at:put:',
-        #'getitem:':      'at:',
-        'new':           'new',
-        'runtimenew':    'new',
-        'classof':       'class',
-        'sameAs':        'yourself', 
-    }
-
-    primitive_ops = {
-        'abs':       'abs',
-        'is_true':   'isZero not',
-        'neg':       'negated',
-        'invert':    'bitInvert', # maybe bitInvert32?
-
-        'add':       '+',
-        'sub':       '-',
-        'eq':        '=',
-        'mul':       '*',
-        'div':       '//',
-        'floordiv':  '//',
-    }
-    
-    primitive_opprefixes = "int", "uint", "llong", "ullong", "float"
-
-    primitive_wrapping_ops = "neg", "invert", "add", "sub", "mul"
-
-    primitive_masks = {
-        # XXX horrendous, but I can't figure out how to do this cleanly
-        "int": (Message("maskInt"),
-                """maskInt: i 
-                    ((i <= %s) & (i >= %s)) ifTrue: [^i].
-                    ^ i + %s \\\\ %s - %s
-                  """ % (sys.maxint, -sys.maxint-1,
-                      sys.maxint+1, 2*(sys.maxint+1), sys.maxint+1)),
-        "uint": (Message("maskUint"),
-                """maskUint: i 
-                    ^ i bitAnd: %s""" % r_uint.MASK),
-    }
-
     def render_body(self, startblock):
         self.loops = LoopFinder(startblock).loops
         args = self.arguments(startblock)
@@ -259,93 +219,6 @@ class CallableNode(CodeNode):
             return self.gen.nameof(v.value)
         else:
             raise TypeError, "expr(%r)" % (v,)
-
-    def oper(self, op):
-        opname_parts = op.opname.split("_")
-        if opname_parts[0] in self.primitive_opprefixes:
-            return self.oper_primitive(
-                    op, opname_parts[0], "_".join(opname_parts[1:]))
-        op_method = getattr(self, "op_%s" % op.opname, None)
-        if op_method is not None:
-            return op_method(op)
-        else:
-            name = op.opname
-            receiver = self.expr(op.args[0])
-            args = [self.expr(arg) for arg in op.args[1:]]
-            return self.assignment(op, receiver, name, args)
-
-    def oper_primitive(self, op, ptype, opname):
-        receiver = self.expr(op.args[0])
-        args = [self.expr(arg) for arg in op.args[1:]]
-        sel = Message(self.primitive_ops[opname])
-        message = "%s %s" % (receiver, sel.signature(args))
-        if opname in self.primitive_wrapping_ops \
-                and self.primitive_masks.has_key(ptype):
-            mask_selector, mask_code = self.primitive_masks[ptype]
-            helper = HelperNode(self.gen, mask_selector, mask_code)
-            message = helper.apply(["(%s)" % message])
-            self.gen.schedule_node(helper)
-        return "%s := %s." % (self.expr(op.result), message)
-
-    def assignment(self, op, receiver_name, sel_name, arg_names):
-        sel_name = camel_case(sel_name)
-        if op.opname != "oosend":
-            sel_name = self.selectormap.get(sel_name, sel_name)
-        sel = Message(sel_name)
-        return "%s := %s %s." % (self.expr(op.result),
-                receiver_name, sel.signature(arg_names))
-
-    def op_oosend(self, op):
-        message = op.args[0].value
-        if hasattr(self, "self") and op.args[1] == self.self:
-            receiver = "self"
-        else:
-            receiver = self.expr(op.args[1])
-        args = [self.expr(a) for a in op.args[2:]]
-        self.gen.schedule_node(
-                MethodNode(self.gen, op.args[1].concretetype, message))
-        return self.assignment(op, receiver, message, args)
-
-    def op_oogetfield(self, op):
-        INST = op.args[0].concretetype
-        receiver = self.expr(op.args[0])
-        field_name = self.unique_field(INST, op.args[1].value)
-        if hasattr(self, "self") and op.args[0] == self.self:
-            # Private field access
-            # Could also directly substitute op.result with name
-            # everywhere for optimization.
-            return "%s := %s." % (self.expr(op.result), camel_case(field_name))
-        else:
-            # Public field access
-            self.gen.schedule_node(GetterNode(self.gen, INST, field_name))
-            return self.assignment(op, receiver, field_name, [])
-
-    def op_oosetfield(self, op):
-        # Note that the result variable is never used
-        INST = op.args[0].concretetype
-        field_name = self.unique_field(INST, op.args[1].value)
-        field_value = self.expr(op.args[2])
-        if hasattr(self, "self") and op.args[0] == self.self:
-            # Private field access
-            return "%s := %s." % (field_name, field_value)
-        else:
-            # Public field access
-            self.gen.schedule_node(SetterNode(self.gen, INST, field_name))
-            receiver = self.expr(op.args[0])
-            return "%s %s: %s." % (receiver, field_name, field_value)
-
-    def op_oodowncast(self, op):
-        return "%s := %s." % (self.expr(op.result), self.expr(op.args[0]))
-
-    def op_direct_call(self, op):
-        # XXX not sure if static methods of a specific class should
-        # be treated differently.
-        receiver = "PyFunctions"
-        callable_name = self.expr(op.args[0])
-        args = [self.expr(a) for a in op.args[1:]]
-        self.gen.schedule_node(
-            FunctionNode(self.gen, op.args[0].value.graph))
-        return self.assignment(op, receiver, callable_name, args)
 
     def render_return(self, args):
         if len(args) == 2:
@@ -373,8 +246,9 @@ class CallableNode(CodeNode):
                 yield '"skip1"'
                 return
             yield "["
+        formatter = OpFormatter(self.gen, self)
         for op in block.operations:
-            yield "%s" % self.oper(op)
+            yield "%s" % formatter.format(op)
         if len(block.exits) == 0:
             for line in self.render_return(block.inputargs):
                 yield line
@@ -410,6 +284,7 @@ class MethodNode(CallableNode):
         self.gen = gen
         self.INSTANCE = INSTANCE
         self.name = method_name
+        self.self = None # Will be set upon rendering
         self.hash_key = (INSTANCE, method_name)
 
     def dependencies(self):
@@ -435,6 +310,7 @@ class FunctionNode(CallableNode):
         self.gen = gen
         self.graph = graph
         self.name = gen.nameof(graph.func)
+        self.self = None
         self.hash_key = graph
 
     def dependencies(self):
