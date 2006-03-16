@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 
 """Main entry point into the PyPy interpreter.  For a list of options, type
 
