@@ -109,6 +109,8 @@ class GCTransformer(object):
                 ops, cleanup_before_exception = res
             except ValueError:
                 ops, cleanup_before_exception, num_ops_after_exc_raising = res
+            if not ops:
+                continue # may happen when we eat gc_increase_aliveness etc.
             newops.extend(ops)
             op = ops[-1-num_ops_after_exc_raising]
             # XXX for now we assume that everything can raise
@@ -211,6 +213,14 @@ class GCTransformer(object):
     def pop_alive_pyobj(self, var):
         result = varoftype(lltype.Void)
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
+
+    def replace_gc_protect(self, op, livevars):
+        """ protect this object from gc (make it immortal) """
+        return [], []
+
+    def replace_gc_unprotect(self, op, livevars):
+        """ get this object back into gc control """
+        return [], []
 
     def annotate_helper(self, ll_helper, ll_args, ll_result):
         assert not self.finished
@@ -353,6 +363,14 @@ class RefcountingGCTransformer(GCTransformer):
                                      [self.decref_ptr, adr1, cdealloc_fptr],
                                      varoftype(lltype.Void), cleanup=None))
         return result
+
+    def replace_gc_protect(self, op, livevars):
+        """ protect this object from gc (make it immortal) """
+        return self.push_alive(op.args[0]), []
+
+    def replace_gc_unprotect(self, op, livevars):
+        """ get this object back into gc control """
+        return self.pop_alive(op.args[0]), []
 
     def replace_setfield(self, op, livevars):
         if not var_needsgc(op.args[2]):

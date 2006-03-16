@@ -4,6 +4,8 @@ from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
+from pypy.annotation import model as annmodel
+from pypy.rpython import extregistry
 from pypy import conftest
 
 import py
@@ -214,6 +216,33 @@ def test_noconcretetype():
         elif op.opname == 'gc_pop_alive_pyobj':
             pop_count += 1
     assert push_count == 0 and pop_count == 1
+
+def test_protect_unprotect():
+    def protect(obj): RaiseNameError
+    def unprotect(obj): RaiseNameError
+    def rtype_protect(hop):
+        v_any, = hop.inputargs(hop.args_r[0])
+        return hop.genop('gc_protect', [v_any], resulttype=lltype.Void)
+    def rtype_unprotect(hop):
+        v_any, = hop.inputargs(hop.args_r[0])
+        return hop.genop('gc_unprotect', [v_any], resulttype=lltype.Void)
+    extregistry.register_value(protect,
+        compute_result_annotation=annmodel.s_None, specialize_call=rtype_protect)
+    extregistry.register_value(unprotect,
+        compute_result_annotation=annmodel.s_None, specialize_call=rtype_unprotect)
+
+    def p():    protect('this is an object')
+    def u():    unprotect('this is an object')
+
+    rgc = gctransform.RefcountingGCTransformer
+    bgc = gctransform.BoehmGCTransformer
+    expected = [1, 1, 0, 0]
+    gcs = [rgc, rgc, bgc, bgc]
+    fs = [p, u, p, u]
+    for ex, f, gc in zip(expected, fs, gcs):
+        t, transformer = rtype_and_transform(f, [], gc, check=False)
+        ops = getops(graphof(t, f))
+        assert len(ops.get('direct_call', [])) == ex
     
 def test_except_block():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
