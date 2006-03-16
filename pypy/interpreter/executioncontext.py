@@ -46,12 +46,12 @@ class ExecutionContext:
     subcontext_new = staticmethod(subcontext_new)
 
     def subcontext_switch(self, current, next):
-	current.framestack = self.framestack
+        current.framestack = self.framestack
         current.w_tracefunc = self.w_tracefunc
         current.w_profilefunc = self.w_profilefunc
         current.is_tracing = self.is_tracing
 
-	self.framestack = next.framestack
+        self.framestack = next.framestack
         self.w_tracefunc = next.w_tracefunc
         self.w_profilefunc = next.w_profilefunc
         self.is_tracing = next.is_tracing
