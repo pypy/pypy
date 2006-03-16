@@ -95,7 +95,6 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
                         # ensure correct math on windows
                         if sys.platform == 'win32':
                             extra_compile_args.append('/Op') # get extra precision
-                            extra_compile_args.append('/PDB:laber') # create debug info
                         if get_default_compiler() == 'unix':
                             old_version = False
                             try:
