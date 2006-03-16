@@ -110,7 +110,7 @@ class GCTransformer(object):
             except ValueError:
                 ops, cleanup_before_exception, num_ops_after_exc_raising = res
             if not ops:
-                continue # may happen when we eat gc_increase_aliveness etc.
+                continue # may happen when we eat gc_protect/gc_unprotect.
             newops.extend(ops)
             op = ops[-1-num_ops_after_exc_raising]
             # XXX for now we assume that everything can raise
