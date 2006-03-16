@@ -293,46 +293,49 @@ def join_blocks(graph):
     block (but renaming variables with the appropriate arguments.)
     """
     entrymap = mkentrymap(graph)
-    
-    def visit(link):
-        if isinstance(link, Link):
-            if (len(link.prevblock.exits) == 1 and
-                len(entrymap[link.target]) == 1 and
-                link.target.exits):  # stop at the returnblock
-                renaming = {}
-                cache_cleanups = {}
-                for vprev, vtarg in zip(link.args, link.target.inputargs):
-                    renaming[vtarg] = vprev
-                def rename(v):
-                    return renaming.get(v, v)
-                def rename_op(op):
-                    args = [rename(a) for a in op.args]
-                    if hasattr(op, "cleanup"):
-                        if op.cleanup is None:
-                            cleanup = None
-                        elif op.cleanup not in cache_cleanups:
-                            finallyops, exceptops = op.cleanup
-                            cleanup = (tuple([rename_op(fo) for fo in finallyops]),
-                                       tuple([rename_op(eo) for eo in exceptops]))
-                            cache_cleanups[op.cleanup] = cleanup
-                        else:
-                            cleanup = cache_cleanups[op.cleanup] 
-                        op = SpaceOperation(op.opname, args, rename(op.result), cleanup=cleanup)
+    block = graph.startblock
+    seen = {block: True}
+    stack = list(block.exits)
+    while stack:
+        link = stack.pop()
+        if (len(link.prevblock.exits) == 1 and
+            len(entrymap[link.target]) == 1 and
+            link.target.exits):  # stop at the returnblock
+            renaming = {}
+            cache_cleanups = {}
+            for vprev, vtarg in zip(link.args, link.target.inputargs):
+                renaming[vtarg] = vprev
+            def rename(v):
+                return renaming.get(v, v)
+            def rename_op(op):
+                args = [rename(a) for a in op.args]
+                if hasattr(op, "cleanup"):
+                    if op.cleanup is None:
+                        cleanup = None
+                    elif op.cleanup not in cache_cleanups:
+                        finallyops, exceptops = op.cleanup
+                        cleanup = (tuple([rename_op(fo) for fo in finallyops]),
+                                   tuple([rename_op(eo) for eo in exceptops]))
+                        cache_cleanups[op.cleanup] = cleanup
                     else:
-                        op = SpaceOperation(op.opname, args, rename(op.result))
-                    return op
-                for op in link.target.operations:
-                    link.prevblock.operations.append(rename_op(op))
-                exits = []
-                for exit in link.target.exits:
-                    newexit = exit.copy(rename)
-                    exits.append(newexit)
-                link.prevblock.exitswitch = rename(link.target.exitswitch)
-                link.prevblock.recloseblock(*exits)
-                # simplify recursively the new links
-                for exit in exits:
-                    visit(exit)
-    traverse(visit, graph)
+                        cleanup = cache_cleanups[op.cleanup] 
+                    op = SpaceOperation(op.opname, args, rename(op.result), cleanup=cleanup)
+                else:
+                    op = SpaceOperation(op.opname, args, rename(op.result))
+                return op
+            for op in link.target.operations:
+                link.prevblock.operations.append(rename_op(op))
+            exits = []
+            for exit in link.target.exits:
+                newexit = exit.copy(rename)
+                exits.append(newexit)
+            link.prevblock.exitswitch = rename(link.target.exitswitch)
+            link.prevblock.recloseblock(*exits)
+            stack.extend(exits)
+        else:
+            if link.target not in seen:
+                stack.extend(link.target.exits)
+                seen[link.target] = True
 
 def remove_assertion_errors(graph):
     """Remove branches that go directly to raising an AssertionError,

@@ -127,3 +127,13 @@ def test_get_graph():
                 graph = get_graph(op.args[0], t)
                 assert graph is None
 
+def addone(x):
+    return x + 1
+
+def test_huge_func():
+    g = None
+    gstring = "def g(x):\n%s%s" % ("    x = x + 1\n" * 1000, "    return x\n")
+    exec gstring 
+    assert g(1) == 1001
+    # does not crash: previously join_blocks would barf on this
+    graph, t = translate(g, [int])
