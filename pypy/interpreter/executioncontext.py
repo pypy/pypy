@@ -2,13 +2,16 @@ import sys
 from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 
+def new_framestack():
+    return Stack()
+
 class ExecutionContext:
     """An ExecutionContext holds the state of an execution thread
     in the Python interpreter."""
 
     def __init__(self, space):
         self.space = space
-        self.framestack = Stack()
+        self.framestack = new_framestack()
         self.w_tracefunc = None
         self.w_profilefunc = None
         self.is_tracing = 0
@@ -36,17 +39,23 @@ class ExecutionContext:
 
     # coroutine: subcontext support
     def subcontext_new(coobj):
-        coobj.framestack = Stack()
+        coobj.framestack = new_framestack()
         coobj.w_tracefunc = None
         coobj.w_profilefunc = None
         coobj.is_tracing = 0
     subcontext_new = staticmethod(subcontext_new)
 
-    def subcontext_swap(self, coobj):
-        self.framestack,    coobj.framestack    = coobj.framestack,     self.framestack
-        self.w_tracefunc,   coobj.w_tracefunc   = coobj.w_tracefunc,    self.w_tracefunc
-        self.w_profilefunc, coobj.w_profilefunc = coobj.w_profilefunc,  self.w_profilefunc
-        self.is_tracing,    coobj.is_tracing    = coobj.is_tracing,     self.is_tracing
+    def subcontext_switch(self, current, next):
+	current.framestack = self.framestack
+        current.w_tracefunc = self.w_tracefunc
+        current.w_profilefunc = self.w_profilefunc
+        current.is_tracing = self.is_tracing
+
+	self.framestack = next.framestack
+        self.w_tracefunc = next.w_tracefunc
+        self.w_profilefunc = next.w_profilefunc
+        self.is_tracing = next.is_tracing
+
     # coroutine: I think this is all, folks!
     
     def get_builtin(self):

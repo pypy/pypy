@@ -45,12 +45,13 @@ class _AppThunk(AbstractThunk):
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
-    def __init__(self, space):
+    def __init__(self, space, is_main=False):
         self.space = space
         state = self._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
-        space.getexecutioncontext().subcontext_new(self)
+        if not is_main:
+             space.getexecutioncontext().subcontext_new(self)
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
@@ -143,4 +144,4 @@ class AppCoState(BaseCoState):
         self.space = space
         
     def post_install(self):
-        self.current = self.main = self.last = AppCoroutine(self.space)
+        self.current = self.main = self.last = AppCoroutine(self.space, is_main=True)
