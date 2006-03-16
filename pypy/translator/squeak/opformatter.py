@@ -75,6 +75,7 @@ class OpFormatter:
         sent_message = message.send_to(op.args[0], op.args[1:])
         if opname in self.wrapping_ops \
                 and self.int_masks.has_key(ptype):
+            # XXX how do i get rid of this import?
             from pypy.translator.squeak.node import HelperNode
             mask_name, mask_code = self.int_masks[ptype]
             helper = HelperNode(self.gen, Message(mask_name), mask_code)
@@ -95,7 +96,7 @@ class OpFormatter:
 
     def op_oogetfield(self, op):
         INST = op.args[0].concretetype
-        field_name = self.node.unique_field(INST, op.args[1].value)
+        field_name = self.gen.unique_field_name(INST, op.args[1].value)
         if op.args[0] == self.node.self:
             # Private field access
             # Could also directly substitute op.result with name
@@ -103,23 +104,19 @@ class OpFormatter:
             rvalue = Field(field_name)
         else:
             # Public field access
-            from pypy.translator.squeak.node import GetterNode
-            self.gen.schedule_node(GetterNode(self.gen, INST, field_name))
             rvalue = Message(field_name).send_to(op.args[0], [])
         return self.codef.format(Assignment(op.result, rvalue))
 
     def op_oosetfield(self, op):
         # Note that the result variable is never used
         INST = op.args[0].concretetype
-        field_name = self.node.unique_field(INST, op.args[1].value)
+        field_name = self.gen.unique_field_name(INST, op.args[1].value)
         field_value = op.args[2]
         if op.args[0] == self.node.self:
             # Private field access
             return self.codef.format(Assignment(Field(field_name), field_value))
         else:
             # Public field access
-            from pypy.translator.squeak.node import SetterNode
-            self.gen.schedule_node(SetterNode(self.gen, INST, field_name))
             setter = Message(field_name).send_to(op.args[0], [field_value])
             return self.codef.format(setter)
 

@@ -19,12 +19,6 @@ class CodeNode:
                 class_name, category,
                 datetime.datetime.now().strftime("%m/%d/%Y %H:%M"))
 
-    def unique_field(self, INSTANCE, field_name):
-        # XXX for now we ignore the issue of nameclashes between
-        # field names. It's not so simple because superclasses must
-        # be considered, too.
-        return camel_case(field_name)
-
 class ClassNode(CodeNode):
 
     def __init__(self, gen, INSTANCE, class_vars=None):
@@ -36,17 +30,17 @@ class ClassNode(CodeNode):
         self.hash_key = INSTANCE
 
     def dependencies(self):
+        deps = []
         if self.INSTANCE._superclass is not None: # not root
-            return [ClassNode(self.gen, self.INSTANCE._superclass)]
-        else:
-            return []
+            deps.append(ClassNode(self.gen, self.INSTANCE._superclass))
+        return deps
 
     def render(self):
         codef = CodeFormatter(self.gen)
         yield "%s subclass: #%s" % (
             codef.format_Instance(self.INSTANCE._superclass), 
             codef.format_Instance(self.INSTANCE))
-        fields = [self.unique_field(self.INSTANCE, f) for f in
+        fields = [self.gen.unique_field_name(self.INSTANCE, f) for f in
             self.INSTANCE._fields.iterkeys()]
         yield "    instanceVariableNames: '%s'" % ' '.join(fields)
         yield "    classVariableNames: '%s'" % ' '.join(self.class_vars)
@@ -208,6 +202,8 @@ class AccessorNode(CodeNode):
         self.gen = gen
         self.INSTANCE = INSTANCE
         self.field_name = field_name
+        self.unique_name = gen.unique_field_name(
+                INSTANCE, field_name, schedule=False)
         self.codef = CodeFormatter(gen)
         self.hash_key = (INSTANCE, field_name, self.__class__)
 
@@ -219,8 +215,8 @@ class SetterNode(AccessorNode):
     def render(self):
         yield self.render_fileout_header(
                 self.codef.format(self.INSTANCE), "accessors")
-        yield "%s: value" % self.field_name
-        yield "    %s := value" % self.field_name
+        yield "%s: value" % self.unique_name
+        yield "    %s := value" % self.unique_name
         yield "! !"
 
 class GetterNode(AccessorNode):
@@ -228,8 +224,8 @@ class GetterNode(AccessorNode):
     def render(self):
         yield self.render_fileout_header(
                 self.codef.format(self.INSTANCE), "accessors")
-        yield self.field_name
-        yield "    ^%s" % self.field_name
+        yield self.unique_name
+        yield "    ^%s" % self.unique_name
         yield "! !"
 
 class HelperNode(CodeNode):
@@ -276,7 +272,7 @@ class FieldInitializerNode(CodeNode):
         message = Message("field_init").with_args(args)
         yield codef.format(message)
         for field_name, arg in zip(fields.keys(), args):
-            unique_field = self.unique_field(self.INSTANCE, field_name)
+            unique_field = self.gen.unique_field_name(self.INSTANCE, field_name)
             ass = Assignment(Field(unique_field), arg)
             yield "    %s." % codef.format(ass)
         yield "! !"

@@ -1,7 +1,7 @@
 from pypy.translator.gensupp import NameManager
 from pypy.translator.squeak.codeformatter import camel_case
 from pypy.translator.squeak.node import FunctionNode, ClassNode, SetupNode
-from pypy.translator.squeak.node import MethodNode
+from pypy.translator.squeak.node import MethodNode, SetterNode, GetterNode
 try:
     set
 except NameError:
@@ -77,7 +77,22 @@ class GenSqueak:
         squeak_class_name = self.unique_name(INSTANCE, class_name)
         return "Py%s" % squeak_class_name
 
+    def unique_field_name(self, INSTANCE, field_name, schedule=True):
+        # XXX nameclashes with superclasses must be considered, too.
+        while not INSTANCE._fields.has_key(field_name):
+            # This is necessary to prevent a field from having different
+            # unique names in different subclasses.
+            INSTANCE = INSTANCE._superclass
+        if schedule:
+            # Generating getters and setters for all fields by default which
+            # is potentially a waste, but easier for now.
+            self.schedule_node(SetterNode(self, INSTANCE, field_name))
+            self.schedule_node(GetterNode(self, INSTANCE, field_name))
+        return self.unique_name(
+                (INSTANCE, "field", field_name), field_name)
+
     def unique_name(self, key, basename):
+        # XXX should account for squeak keywords here
         if self.unique_name_mapping.has_key(key):
             unique = self.unique_name_mapping[key]
         else:
@@ -85,5 +100,4 @@ class GenSqueak:
             unique = self.name_manager.uniquename(camel_basename)
             self.unique_name_mapping[key] = unique
         return unique
-
 

@@ -87,6 +87,18 @@ class TestGenSqueak:
         fn = compile_function(f)
         assert fn() == "3"
 
+    def test_nameclash_fields(self):
+        class A:
+            def m(self, i):
+                self.var1 = i
+                self.var_1 = i + 1
+        def f():
+            a = A()
+            a.m(1)
+            return a.var1 + a.var_1
+        fn = compile_function(f)
+        assert fn() == "3"
+
     def test_direct_call(self):
         def h(i):
             return g(i) + 1 # another call to g to try to trap GenSqueak
