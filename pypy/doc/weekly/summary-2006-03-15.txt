@@ -28,6 +28,21 @@ report`_.
 The Logic Sprint
 ================
 
+Last week there was a PyPy-sprint at the UCL in Louvain-la-Neuve. It's main
+topic was logic and constraint programming in PyPy. Two of the sprint days were
+devoted to discussions with some researchers at the UCL who are heavily
+involved with the Oz programming language. The discussions were fruitful and
+very stimulating. For more details see the `logic sprint report'_
+
+The Logic Object Space
+-----------------------
+
+One of the more visible results of the sprint is the Logic Object Space, a very
+small (in terms of lines of code) object space that implements dataflow
+variables similar to what Oz has in Python. XXX more
+
+.. _`logic sprint report`: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/report.html
+
 Garbage Collection
 ==================
 
