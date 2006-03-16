@@ -1,8 +1,6 @@
-import sys
-from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-from pypy.rpython.ootypesystem.ootype import Instance
-from pypy.translator.squeak.message import Message, camel_case
+from pypy.translator.squeak.codeformatter import CodeFormatter
+from pypy.translator.squeak.codeformatter import Message, Self, Assignment, Field
 
 def _setup_int_masks():
     """Generates code for helpers to mask the various integer types."""
@@ -57,20 +55,7 @@ class OpFormatter:
     def __init__(self, gen, node):
         self.gen = gen
         self.node = node
-
-    def expr(self, v):
-        # XXX this code duplicated in gensqueak.py
-        if isinstance(v, Variable):
-            return camel_case(v.name)
-        elif isinstance(v, Constant):
-            if isinstance(v.concretetype, Instance):
-                const_id = self.gen.unique_name(
-                        v, "const_%s" % self.gen.nameof(v.value._TYPE))
-                self.gen.constant_insts[v] = const_id
-                return "(PyConstants getConstant: '%s')" % const_id
-            return self.gen.nameof(v.value)
-        else:
-            raise TypeError, "expr(%r)" % (v,)
+        self.codef = CodeFormatter(gen)
 
     def format(self, op):
         opname_parts = op.opname.split("_")
@@ -81,84 +66,72 @@ class OpFormatter:
         if op_method is not None:
             return op_method(op)
         else:
-            name = op.opname
-            name = self.ops.get(name, name)
-            receiver = self.expr(op.args[0])
-            args = [self.expr(arg) for arg in op.args[1:]]
-            return self.assignment(op, receiver, name, args)
+            name = self.ops.get(op.opname, op.opname)
+            sent = Message(name).send_to(op.args[0], op.args[1:])
+            return self.codef.format(sent.assign_to(op.result))
 
     def format_number_op(self, op, ptype, opname):
-        receiver = self.expr(op.args[0])
-        args = [self.expr(arg) for arg in op.args[1:]]
-        sel = Message(self.number_ops[opname])
-        message = "%s %s" % (receiver, sel.signature(args))
+        message = Message(self.number_ops[opname])
+        sent_message = message.send_to(op.args[0], op.args[1:])
         if opname in self.wrapping_ops \
                 and self.int_masks.has_key(ptype):
             from pypy.translator.squeak.gensqueak import HelperNode
             mask_name, mask_code = self.int_masks[ptype]
             helper = HelperNode(self.gen, Message(mask_name), mask_code)
-            message = helper.apply(["(%s)" % message])
+            sent_message = helper.apply([sent_message])
             self.gen.schedule_node(helper)
-        return "%s := %s." % (self.expr(op.result), message)
-
-    def assignment(self, op, receiver_name, sel_name, arg_names):
-        sel = Message(sel_name)
-        return "%s := %s %s." % (self.expr(op.result),
-                receiver_name, sel.signature(arg_names))
+        return self.codef.format(sent_message.assign_to(op.result))
 
     def op_oosend(self, op):
-        message = op.args[0].value
+        message_name = op.args[0].value
         if op.args[1] == self.node.self:
-            receiver = "self"
+            receiver = Self()
         else:
-            receiver = self.expr(op.args[1])
-        args = [self.expr(a) for a in op.args[2:]]
+            receiver = op.args[1]
         from pypy.translator.squeak.gensqueak import MethodNode
         self.gen.schedule_node(
-                MethodNode(self.gen, op.args[1].concretetype, message))
-        return self.assignment(op, receiver, message, args)
+                MethodNode(self.gen, op.args[1].concretetype, message_name))
+        sent_message = Message(message_name).send_to(receiver, op.args[2:])
+        return  self.codef.format(sent_message.assign_to(op.result))
 
     def op_oogetfield(self, op):
         INST = op.args[0].concretetype
-        receiver = self.expr(op.args[0])
         field_name = self.node.unique_field(INST, op.args[1].value)
         if op.args[0] == self.node.self:
             # Private field access
             # Could also directly substitute op.result with name
             # everywhere for optimization.
-            return "%s := %s." % (self.expr(op.result), field_name)
+            rvalue = Field(field_name)
         else:
             # Public field access
             from pypy.translator.squeak.gensqueak import GetterNode
             self.gen.schedule_node(GetterNode(self.gen, INST, field_name))
-            return self.assignment(op, receiver, field_name, [])
+            rvalue = Message(field_name).send_to(op.args[0], [])
+        return self.codef.format(Assignment(op.result, rvalue))
 
     def op_oosetfield(self, op):
         # Note that the result variable is never used
         INST = op.args[0].concretetype
         field_name = self.node.unique_field(INST, op.args[1].value)
-        field_value = self.expr(op.args[2])
+        field_value = op.args[2]
         if op.args[0] == self.node.self:
             # Private field access
-            return "%s := %s." % (field_name, field_value)
+            return self.codef.format(Assignment(Field(field_name), field_value))
         else:
             # Public field access
             from pypy.translator.squeak.gensqueak import SetterNode
             self.gen.schedule_node(SetterNode(self.gen, INST, field_name))
-            receiver = self.expr(op.args[0])
-            return "%s %s: %s." % (receiver, field_name, field_value)
+            setter = Message(field_name).send_to(op.args[0], [field_value])
+            return self.codef.format(setter)
 
     def op_oodowncast(self, op):
-        return "%s := %s." % (self.expr(op.result), self.expr(op.args[0]))
+        return self.codef.format(Assignment(op.result, op.args[0]))
 
     def op_direct_call(self, op):
-        # XXX not sure if static methods of a specific class should
-        # be treated differently.
         from pypy.translator.squeak.gensqueak import FunctionNode
-        receiver = "PyFunctions"
-        callable_name = self.expr(op.args[0])
-        args = [self.expr(a) for a in op.args[1:]]
+        function_name = self.node.expr(op.args[0])
         self.gen.schedule_node(
             FunctionNode(self.gen, op.args[0].value.graph))
-        return self.assignment(op, receiver, callable_name, args)
+        msg = Message(function_name).send_to(FunctionNode.FUNCTIONS, op.args[1:])
+        return self.codef.format(msg.assign_to(op.result))
 

@@ -248,7 +248,7 @@ class CallableNode(CodeNode):
             yield "["
         formatter = OpFormatter(self.gen, self)
         for op in block.operations:
-            yield "%s" % formatter.format(op)
+            yield "%s." % formatter.format(op)
         if len(block.exits) == 0:
             for line in self.render_return(block.inputargs):
                 yield line
@@ -357,14 +357,14 @@ class HelperNode(CodeNode):
     
     HELPERS = Instance("Helpers", ROOT)
 
-    def __init__(self, gen, selector, code):
+    def __init__(self, gen, message, code):
         self.gen = gen
-        self.selector = selector
+        self.message = message
         self.code = code
         self.hash_key = ("helper", code)
 
     def apply(self, args):
-        return "PyHelpers %s" % self.selector.signature(args)
+        return self.message.send_to(self.HELPERS, args)
     
     def dependencies(self):
         return [ClassNode(self.gen, self.HELPERS)]
