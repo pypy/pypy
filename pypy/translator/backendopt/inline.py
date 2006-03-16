@@ -37,9 +37,8 @@ def collect_called_graphs(graph, translator):
                         graphs_or_something[graph] = True
     return graphs_or_something
 
-def find_callsites(graph, calling_what):
-    callsites = []
-    def visit(block):
+def iter_callsites(graph, calling_what):
+    for block in graph.iterblocks():
         if isinstance(block, Block):
             for i, op in enumerate(block.operations):
                 if not op.opname == "direct_call":
@@ -49,16 +48,30 @@ def find_callsites(graph, calling_what):
                 # accept a function or a graph as 'inline_func'
                 if (graph is calling_what or
                     getattr(funcobj, '_callable', None) is calling_what):
-                    callsites.append((graph, block, i))
-    traverse(visit, graph)
-    return callsites
+                    yield graph, block, i
+
+def find_callsites(graph, calling_what):
+    return list(iter_callsites(graph, calling_what))
+
+def iter_first_callsites(graph, calling_what):
+    # restart the iter_callsites iterator every time, since the graph might
+    # have changed
+    while 1:
+        iterator = iter_callsites(graph, calling_what)
+        yield iterator.next()
+
+def contains_call(graph, calling_what):
+    try:
+        iterator = iter_callsites(graph, calling_what)
+        iterator.next()
+        return True
+    except StopIteration:
+        return False
 
 def inline_function(translator, inline_func, graph):
-    count = 0
-    callsites = find_callsites(graph, inline_func)
-    while callsites != []:
-        subgraph, block, index_operation = callsites.pop()
-        if find_callsites(subgraph, subgraph):
+    for count, (subgraph, block, index_operation) in enumerate(
+        iter_first_callsites(graph, inline_func)):
+        if contains_call(subgraph, subgraph):
             raise CannotInline("inlining a recursive function")
         operation = block.operations[index_operation]
         if getattr(operation, "cleanup", None) is not None:
@@ -68,7 +81,6 @@ def inline_function(translator, inline_func, graph):
         _inline_function(translator, graph, block, index_operation)
         checkgraph(graph)
         count += 1
-        callsites = find_callsites(graph, inline_func)
     return count
 
 def _find_exception_type(block):
