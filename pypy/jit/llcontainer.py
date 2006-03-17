@@ -98,6 +98,13 @@ class LLVirtualContainer(LLAbstractContainer):
         if self.__class__ is not live.__class__:
             return False
 
+        if self.a_parent is not None:
+            if (live.a_parent is None or
+                not self.a_parent.match(live.a_parent, memo)):
+                return False
+        elif live.a_parent is not None:
+            return False
+
         if self in memo.self_alias:
             return live is memo.self_alias[self]
         if live in memo.live_alias:

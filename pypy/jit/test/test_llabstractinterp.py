@@ -297,7 +297,6 @@ def test_unique_virtualptrs():
     graph2, insns = abstrinterp(ll_function, [1, 0], [])
 
 def test_merge_substructure():
-    py.test.skip('Inprogress')
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
 
