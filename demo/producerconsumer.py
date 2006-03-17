@@ -47,7 +47,7 @@ def lsum(L, a, limit):
     if limit > 0:
         Head, Tail = newvar(), newvar()
         print "sum waiting on L"
-        Head, Tail = L # or L = (Head, Tail) ... ?
+        L == (Head, Tail) # or Head, Tail == L ?
         return lsum(Tail, a+Head, limit-1)
     else:
         return a
