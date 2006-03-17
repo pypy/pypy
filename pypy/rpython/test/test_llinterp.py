@@ -1,7 +1,7 @@
 
 import py
 from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
-from pypy.rpython.llinterp import LLInterpreter, LLException,log
+from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.rlist import *
@@ -20,19 +20,6 @@ def setup_module(mod):
 def teardown_module(mod):
     py.log._setstate(mod.logstate)
 
-def find_exception(exc, interp):
-    assert isinstance(exc, LLException)
-    import exceptions
-    klass, inst = exc.args[0], exc.args[1]
-    # indirect way to invoke fn_pyexcclass2exc, for memory/test/test_llinterpsim
-    f = typer.getexceptiondata().fn_pyexcclass2exc
-    obj = typer.type_system.deref(f)
-    ll_pyexcclass2exc_graph = obj.graph
-    for cls in exceptions.__dict__.values():
-        if type(cls) is type(Exception):
-            if interp.eval_graph(ll_pyexcclass2exc_graph, [pyobjectptr(cls)]).typeptr == klass:
-                return cls
-    raise ValueError, "couldn't match exception"
 
 
 def timelog(prefix, call, *args, **kwds): 
@@ -109,7 +96,7 @@ def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
     interp, graph  = get_interpreter(func, values, view, viewbefore, policy,
                              someobjects, type_system=type_system)
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
-    assert find_exception(info.value, interp) is exc, "wrong exception type"
+    assert interp.find_exception(info.value) is exc, "wrong exception type"
 
 #__________________________________________________________________
 # tests

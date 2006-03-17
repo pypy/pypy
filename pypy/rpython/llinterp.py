@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
 
@@ -91,6 +91,20 @@ class LLInterpreter(object):
             frame = frame.f_back
         return roots
 
+    def find_exception(self, exc):
+        assert isinstance(exc, LLException)
+        import exceptions
+        klass, inst = exc.args[0], exc.args[1]
+        # indirect way to invoke fn_pyexcclass2exc, for memory/test/test_llinterpsim
+        f = self.typer.getexceptiondata().fn_pyexcclass2exc
+        obj = self.typer.type_system.deref(f)
+        ll_pyexcclass2exc_graph = obj.graph
+        for cls in exceptions.__dict__.values():
+            if type(cls) is type(Exception):
+                if self.eval_graph(ll_pyexcclass2exc_graph, [lltype.pyobjectptr(cls)]).typeptr == klass:
+                    return cls
+        raise ValueError, "couldn't match exception"
+
 
 # implementations of ops from flow.operation
 from pypy.objspace.flow.operation import FunctionByName
@@ -106,6 +120,7 @@ def checkptr(ptr):
 
 def checkadr(addr):
     return lltype.typeOf(addr) == llmemory.Address
+    
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
@@ -258,7 +273,18 @@ class LLFrame(object):
             vals.insert(0, operation.result.concretetype)
         try:
             retval = ophandler(*vals)
-        except LLException:
+        except LLException, e:
+            # safety check check that the operation is allowed to raise that
+            # exception
+            if operation.opname in lloperation.LL_OPERATIONS:
+                canraise = lloperation.LL_OPERATIONS[operation.opname].canraise
+                if Exception not in canraise:
+                    exc = self.llinterpreter.find_exception(e)
+                    for canraiseexc in canraise:
+                        if issubclass(exc, canraiseexc):
+                            break
+                    else:
+                        raise TypeError("the operation %s is not expected to raise %s" % (operation, exc))
             self.handle_cleanup(operation, exception=True)
             raise
         else:

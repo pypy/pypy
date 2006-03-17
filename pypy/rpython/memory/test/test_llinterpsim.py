@@ -11,7 +11,7 @@ from pypy.rpython.rarithmetic import r_uint, ovfcheck
 from pypy.rpython.memory.lltypesimulation import pyobjectptr
 from pypy.rpython.memory import gclltype
 
-from pypy.rpython.test.test_llinterp import timelog, gengraph, find_exception
+from pypy.rpython.test.test_llinterp import timelog, gengraph
 
 def setup_module(mod):
     mod.logstate = py.log._getstate()
@@ -60,7 +60,7 @@ def interpret_raises(exc, func, values, view=False, viewbefore=False, policy=Non
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                              someobjects)
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
-    assert find_exception(info.value, interp) is exc, "wrong exception type"
+    assert interp.find_exception(info.value) is exc, "wrong exception type"
 
 #__________________________________________________________________
 # tests
