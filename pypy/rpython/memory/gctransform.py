@@ -12,6 +12,7 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 import sets, os
 
 EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
+NEVER_RAISING_OPS = ['gc_protect', 'gc_unprotect']
 
 def var_needsgc(var):
     if hasattr(var, 'concretetype'):
@@ -113,9 +114,11 @@ class GCTransformer(object):
             if not ops:
                 continue # may happen when we eat gc_protect/gc_unprotect.
             newops.extend(ops)
+            origname = op.opname
             op = ops[-1-num_ops_after_exc_raising]
             # XXX for now we assume that everything can raise
-            if 1 or op.opname in EXCEPTION_RAISING_OPS:
+            # XXX quick hack to make the protect stuff not add exception handling
+            if origname not in NEVER_RAISING_OPS and (1 or op.opname in EXCEPTION_RAISING_OPS):
                 if tuple(livevars) in livevars2cleanup:
                     cleanup_on_exception = livevars2cleanup[tuple(livevars)]
                 else:
