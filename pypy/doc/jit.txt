@@ -1,0 +1,109 @@
+===================================
+PyPy - Just-In-Time Specialization
+===================================
+
+
+Warning: These are just a few notes quickly thrown together, to be
+clarified and expanded.
+
+
+Draft
+=========================
+
+Introduction
+------------
+
+Our current "state of the art" in the area is represented by the test
+``pypy.jit.test.test_hint_timeshift.test_arith_plus_minus()``.  It is a
+really tiny interpreter which gets turned into a compiler.  Here is its
+complete source::
+
+    def ll_plus_minus(encoded_insn, nb_insn, x, y):
+        acc = x
+        pc = 0
+        while pc < nb_insn:
+            op = (encoded_insn >> (pc*4)) & 0xF
+            op = hint(op, concrete=True)           # <-----
+            if op == 0xA:
+                acc += y
+            elif op == 0x5:
+                acc -= y
+            pc += 1
+        return acc
+
+This interpreter goes via several transformations which you can follow
+in Pygame::
+
+    py.test test_hint_timeshift.py -k test_arith_plus_minus --view
+
+What this does is turning (the graph of) the above interpreter into (the
+graph of) a compiler.  This compiler takes a user program as input --
+i.e. an ``encoded_insn`` and ``nb_insn`` -- and produces as output a new
+graph, which is the compiled version of the user program.  The new
+output graph is called the *residual* graph.  It takes ``x`` and ``y``
+as input.
+
+This generated compiler is not "just-in-time" in any sense.  It is a
+regular compiler, for now.
+
+Hint-annotator
+--------------
+
+Let's follow how the interpreter is turned into a compiler.  First, the
+source of the interpreter is turned into low-level graphs in the usual
+way (it is actually already a low-level function).  This low-level graph
+goes then through a pass called the "hint-annotator", whose goal is to
+give colors -- red, green and blue -- to each variable in the graph.
+The color represents the "time" at which the value of a variable is
+expected to be known, when the interpreter works as a compiler.  In the
+above example, variables like ``pc`` and ``encoded_insn`` need to be
+known to the compiler -- otherwise, it wouldn't even know which program
+it must compile.  These variables need to be *green*.  Variables like
+``x`` and ``acc``, on the other hand, are expected to appear in the
+residual graph; they need to be *red*.
+
+The color of each variable is derived based on the hint (see the
+``<-----`` line in the source): the hint() forces ``op`` to be a green
+variable, along with any *previous* variable that is essential to
+compute the value of ``op``.  The hint-annotator computes dependencies
+and back-propagates "greenness" from hint() calls.
+
+The hint-annotator is implemented on top of the normal annotator; it's
+in hintannotator.py, hintmodel.py, hintbookkeeper.py, hintcontainer.py
+and hintvlist.py.  The latter two files are concerned about the *blue*
+variables, which are variable that contain pointers to structures of a
+mixed kind: structures which are themselves -- as containers -- known to
+the compiler, i.e. green, but whose fields may not all be known to the
+compiler.  There is no blue variable in the code above, but the stack of
+a stack-based interpreter is an example: the "shape" of the stack is
+known to the compiler when compiling any bytecode position, but the
+actual run-time values in the stack are not.  The hint-annotator can now
+handle many cases of blue structures and arrays.  For low-level
+structures and arrays that actually correspond to RPython lists,
+hintvlist.py recognize the RPython-level operations and handles them
+directly -- this avoids problems with low-level details like
+over-allocation, which causes several identical RPython lists to look
+different when represented as low-level structs and arrays.
+
+Hint-RTyper
+-----------
+
+Once the graph has been colored, enters the hint-rtyper.  This tool --
+again loosely based on the normal RTyper -- transforms the colored
+low-level graphs into the graphs of the compiler.  Broadly speaking,
+this is done by transforming operations annotated with red variables
+into operations that will generate the original operation.  Indeed, red
+variables are the variables whose run-time content is unknown to the
+compiler.  So for example, if the arguments of an ``int_add`` have been
+annotated as red, it means that the real value of these variables will
+not be known to the compiler; when the compiler actually runs, all it
+can do is generate a new ``int_add`` operation into the residual graph.
+
+In the example above, only ``acc += y`` and ``acc -= y`` are annotated
+with red arguments.  After hint-rtyping, the ll_plus_minus() graph --
+which is now the graph of a compiler -- is mostly unchanged except for
+these two operations, which are replaced by a few operations which call
+helpers; when the graph of the now-compiler is running, these helpers
+will produce new ``int_add`` and ``int_sub`` operations.
+
+(Extra merging/bookkeeping blocks are actually inserted; XXX explain...)

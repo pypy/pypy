@@ -28,11 +28,11 @@ report`_.
 The Logic Sprint
 ================
 
-Last week there was a PyPy-sprint at the UCL in Louvain-la-Neuve. It's main
+Last week there was a PyPy-sprint at the UCL in Louvain-la-Neuve. Its main
 topic was logic and constraint programming in PyPy. Two of the sprint days were
 devoted to discussions with some researchers at the UCL who are heavily
 involved with the Oz programming language. The discussions were fruitful and
-very stimulating. For more details see the `logic sprint report'_
+very stimulating. For more details see the `logic sprint report`_
 
 The Logic Object Space
 -----------------------
@@ -55,7 +55,7 @@ collector for performance at all, this isn't too bad.
 
 This required quite a bit of work and first we refactored the way the
 existing two garbage collectors (reference counting and using the Boehm
-collector) are implemented in the C backend. Before they were
+collector) are implemented in the C backend. Before, they were
 implemented by inserting C code into appropriate places in the generated
 code using string formatting. This had several disadvantages:
 %-formatting C code is obviously not helpful for other backends, and it
@@ -76,3 +76,31 @@ finally made it work.  It turns out that debugging C that's generated
 Python code that manipulates memory addresses directly is hard on the
 brain... we need to get back to being able to run everything on the
 memory simulator.
+
+JIT Status
+==========
+
+The JIT did not progress much recently.  Nevertheless, it seems useful
+to try to give an overview of the current situation and where we are
+going next.
+
+Our current "state of the art" in the area is represented by
+``pypy.jit.test.test_hint_timeshift.test_arith_plus_minus()``.  It is a
+really tiny interpreter which gets turned into a compiler.
+There is a very draftish description of what is going on in:
+
+    http://codespeak.net/pypy/dist/pypy/doc/jit.html
+
+Current areas of work:
+
+* the hint-rtyping actually produces a lot of bookkeeping code; we will
+  have to reduce this amount in the future.  More worryingly, it doesn't
+  handle calls at all at the moment.  We need to rethink and document
+  how exactly the code the hint-rtyper produces should look like before
+  we can start working in this direction.
+
+* in the last few days, Samuele and Arre worked on virtual structures
+  (blue variables) for the hint-rtyper.  Together with Armin they fixed
+  some remaining bugs in the hint-annotator.  Hint-rtyper support is
+  still very preliminary and already hitting some head-scratching
+  questions.

@@ -10,13 +10,13 @@ Short-term plans:
    bytecode language, as an example and for testing.  The goal is to turn
    that interpreter into a JIT.
 
-2. MOSTLY DONE (jit/llabstractinterp.py): Write code that takes LL
+2. DONE (jit/llabstractinterp.py): Write code that takes LL
    graphs and "specializes" them, by making a variable constant and
    propagating it.
 
 3. DONE (jit/test/test_jit_tl.py): Think more about how to plug 1 into 2 :-)
 
-4. Refactor 2 to use `Functions/operations to generate code`_
+4. DONE Refactor 2 to use `Functions/operations to generate code`_
 
 5. Think about `how to do at run-time what llabstractinterp does statically`_
 
