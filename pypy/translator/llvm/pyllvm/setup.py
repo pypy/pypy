@@ -13,15 +13,15 @@ platform2backend = {'darwin':'PowerPC', 'linux2':'X86'}
 llvm_libs = [platform2backend[sys.platform]] + """
 Core AsmParser CodeGen SelectionDAG ExecutionEngine
 JIT bzip2 Interpreter DataStructure BCWriter BCReader Target Instrumentation
-ipo ipa Transforms System ScalarOpts Analysis TransformUtils Support""".split()
+ipo ipa Transforms System ScalarOpts TransformUtils Analysis Support""".split()
 
 # figure out if they are a dynamic library or not
 extra_llvm_libs, extra_llvm_dynlibs = [], []
 for o in llvm_libs:
-    if libdir.join("LLVM%s.o" % o).check():
-        extra_llvm_libs.append(libdir.join("LLVM%s.o" % o).strpath)
-    else:
+    if libdir.join("libLLVM%s.a" % o).check():
         extra_llvm_dynlibs.append("LLVM%s" % o)
+    else:
+        extra_llvm_libs.append(libdir.join("LLVM%s.o" % o).strpath)
 
 # globals
 name = 'pyllvm'
