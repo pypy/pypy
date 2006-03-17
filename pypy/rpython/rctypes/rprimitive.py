@@ -104,6 +104,7 @@ def do_register(the_type, ll_type):
     def compute_result_annotation_function(s_arg=None):
         return annmodel.SomeCTypesObject(the_type,
                 annmodel.SomeCTypesObject.OWNSMEMORY)
+
     extregistry.register_value(the_type,
         compute_result_annotation=compute_result_annotation_function,
         specialize_call=primitive_specialize_call

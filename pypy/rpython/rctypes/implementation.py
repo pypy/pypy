@@ -83,10 +83,22 @@ create_ctypes_annotations()
 CFuncPtrType = type(ctypes.CFUNCTYPE(None))
 
 def cfuncptrtype_compute_annotation(type, instance):
+    from pypy.annotation.model import ll_to_annotation_map
+
     def compute_result_annotation(*args_s):
         """
         Answer the annotation of the external function's result
         """
+
+        # results of external function calls *must* be in the registry
+        # XXX: goden: check metatype too?
+        assert extregistry.is_registered_type(instance.restype)
+
+        entry = extregistry.lookup_type(instance.restype)
+
+        # XXX: goden: this probably isn't right
+        return ll_to_annotation_map.get(entry.lowleveltype)
+        
         # Take 3, Check whether we can get away with the cheap
         # precomputed solution and if not it, use a special
         # attribute with the memory state
@@ -126,10 +138,15 @@ def cfuncptrtype_specialize_call(hop):
                 answer.append(ctype_type.wrap_arg(ll_type, arg_name))
         return answer
 
+    assert extregistry.is_registered_type(cfuncptr.restype)
+
+    # results of external function calls *must* be in the registry
+    entry = extregistry.lookup_type(cfuncptr.restype)
+
     return hop.llops.gencapicall(
             cfuncptr.__name__,
             hop.args_v,
-            resulttype = cfuncptr.restype.ll_type,
+            resulttype = entry.lowleveltype,
             _callable=None,
             convert_params = convert_params ) 
 

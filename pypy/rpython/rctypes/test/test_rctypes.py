@@ -43,7 +43,7 @@ except ImportError:
     py.test.skip("this test needs ctypes installed")
 
 
-py.test.skip("these tests are broken while the ctypes primitive types are ported to use the extregistry")
+#py.test.skip("these tests are broken while the ctypes primitive types are ported to use the extregistry")
 
 from pypy.rpython.rctypes import cdll, c_char_p, c_int, c_char, \
         c_char, c_byte, c_ubyte, c_short, c_ushort, c_uint,\
@@ -303,7 +303,7 @@ class Test_structure:
         res = py_testfunc_struct(in_point)
         assert res == 30
 
-    def test_annotate_struct(self):
+    def x_test_annotate_struct(self):
         a = RPythonAnnotator()
         s = a.build_types(py_testfunc_struct, [tagpoint])
         assert s.knowntype == int
@@ -311,14 +311,14 @@ class Test_structure:
         if conftest.option.view:
             a.translator.view()
 
-    def test_annotate_struct2(self):
+    def x_test_annotate_struct2(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_struct_id, [tagpoint])
         assert s.knowntype == tagpoint
         assert s.memorystate == SomeCTypesObject.OWNSMEMORY
 
-    def test_annotate_pointer_to_struct(self):
+    def x_test_annotate_pointer_to_struct(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_struct_pointer_id, [oppoint_type])
@@ -326,7 +326,7 @@ class Test_structure:
         assert s.memorystate == SomeCTypesObject.MEMORYALIAS
         return t
 
-    def test_create_point(self):
+    def x_test_create_point(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_create_point,[])
@@ -335,7 +335,7 @@ class Test_structure:
         if conftest.option.view:
             a.translator.view()
 
-    def test_annotate_byval(self):
+    def x_test_annotate_byval(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_byval,[tagpoint])
@@ -345,7 +345,7 @@ class Test_structure:
         assert s.items[1].knowntype == tagpoint
         assert s.items[1].memorystate == SomeCTypesObject.OWNSMEMORY 
 
-    def test_annotate_POINTER(self):
+    def x_test_annotate_POINTER(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_POINTER,[tagpoint])
@@ -356,7 +356,7 @@ class Test_structure:
         assert s.items[1].memorystate == SomeCTypesObject.OWNSMEMORY 
         #d#t.view()
 
-    def test_annotate_POINTER_dereference(self):
+    def x_test_annotate_POINTER_dereference(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_POINTER_dereference, [tagpoint])
@@ -369,7 +369,7 @@ class Test_structure:
         assert s.items[2].memorystate == SomeCTypesObject.OWNSMEMORY 
         #d#t.view()
     
-    def test_annotate_mixed_memorystate(self):
+    def x_test_annotate_mixed_memorystate(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_test_mixed_memory_state, [int])
@@ -409,7 +409,7 @@ class Test_structure:
         s = a.build_types(py_test_simple_ctypes_non_const,[])
         assert s.knowntype == c_float
 
-    def test_specialize_struct(self):
+    def x_test_specialize_struct(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_test_specialize_struct, [])
@@ -421,7 +421,7 @@ class Test_structure:
             if conftest.option.view:
                 t.view()
 
-    def test_specialize_struct_1(self):
+    def x_test_specialize_struct_1(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_test_compile_struct, [int, int]) 
@@ -432,7 +432,7 @@ class Test_structure:
             #d#t.view()
             pass
 
-    def test_specialize_pointer_to_struct(self):
+    def x_test_specialize_pointer_to_struct(self):
         t = self.test_annotate_pointer_to_struct()
         t.buildrtyper().specialize()
         if conftest.option.view:
@@ -441,12 +441,12 @@ class Test_structure:
     def x_test_compile_pointer_to_struct(self):
         fn = compile( py_testfunc_struct_pointer_id, [ oppoint_type ] )
 
-    def test_compile_struct(self):
+    def x_test_compile_struct(self):
         fn = compile( py_test_compile_struct, [ int, int ] )
         res = fn( 42, -42 )
         assert res == 42
 
-    def test_specialize_POINTER_dereference(self):
+    def x_test_specialize_POINTER_dereference(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(py_testfunc_POINTER_dereference, [tagpoint])
@@ -457,7 +457,7 @@ class Test_structure:
             #d#t.view()
             pass
 
-    def test_specialize_pointer(self):
+    def x_test_specialize_pointer(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types( py_test_compile_pointer, [ int, int ] )
@@ -466,7 +466,7 @@ class Test_structure:
         t.buildrtyper().specialize()
         #d#t.view()
 
-    def test_compile_pointer(self):
+    def x_test_compile_pointer(self):
         fn = compile( py_test_compile_pointer, [ int, int ] )
         res = fn( -42, 42 )
         assert res == -42
