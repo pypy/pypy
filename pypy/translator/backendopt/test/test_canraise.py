@@ -32,7 +32,7 @@ def test_can_raise_recursive():
     t, ra = translate(f, [int])
     ggraph = graphof(t, g)
     result = ra.can_raise(ggraph.startblock.operations[1])
-    assert not result # due to stack check every recursive function can raise
+    assert result # due to stack check every recursive function can raise
 
 def test_can_raise_exception():
     def g():
@@ -60,4 +60,13 @@ def test_indirect_call():
     t, ra = translate(h, [int])
     hgraph = graphof(t, h)
     result = ra.can_raise(hgraph.startblock.operations[0])
+    assert result
+
+def test_external():
+    import os.path
+    def f(x):
+        return os.path.isdir(str(x))
+    t, ra = translate(f, [int])
+    fgraph = graphof(t, f)
+    result = ra.can_raise(fgraph.startblock.operations[0])
     assert result
