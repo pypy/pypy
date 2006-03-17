@@ -25,6 +25,7 @@ if USE_COROUTINES:
         def __init__(self):
             self.runnable_uthreads = {}
             self.uthreads_blocked_on = {}
+            self.uthreads_blocked_byneed = {}
 
         def pop_runnable_thread(self):
             # umpf, no popitem in RPython
@@ -60,6 +61,25 @@ if USE_COROUTINES:
             blocked = self.uthreads_blocked_on[w_var]
             del self.uthreads_blocked_on[w_var]
             return blocked
+
+        def add_to_blocked_byneed(self, w_var, uthread):
+            print " adding", uthread, "to byneed on", w_var
+            if w_var in self.uthreads_blocked_byneed:
+                blocked = self.uthreads_blocked_byneed[w_var]
+            else:
+                blocked = []
+                self.uthreads_blocked_byneed[w_var] = blocked
+            blocked.append(uthread)
+
+        def pop_blocked_byneed_on(self, w_var):
+            if w_var not in self.uthreads_blocked_byneed:
+                print " there was nobody to remove for", w_var
+                return []
+            blocked = self.uthreads_blocked_byneed[w_var]
+            del self.uthreads_blocked_byneed[w_var]
+            print " removing", blocked, "from byneed on", w_var
+            return blocked
+
 
     schedule_state = ScheduleState()
 
@@ -134,6 +154,7 @@ if USE_COROUTINES:
 class W_Var(baseobjspace.W_Root, object):
     def __init__(w_self):
         w_self.w_bound_to = None
+        w_self.w_needed = False
 
 def find_last_var_in_chain(w_var):
     w_curr = w_var
@@ -157,13 +178,21 @@ def wait(space, w_self):
                 raise OperationError(space.w_RuntimeError,
                                      space.wrap("trying to perform an operation on an unbound variable"))
             else:
+                # notify wait_needed clients, give them a chance to run
+                w_self.w_needed = True
+                need_waiters = schedule_state.pop_blocked_byneed_on(w_self)
+                for waiter in need_waiters:
+                    schedule_state.add_to_runnable(waiter)
+                # set curr thread to blocked, switch to runnable thread
                 current = get_current_coroutine()
                 schedule_state.add_to_blocked(w_last, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
+                        print " waiter is switching"
                         next_coro.switch()
-                        # there is a value here now
+                        print " waiter is back"
+                        # hope there is a value here now
                         break
                 else:
                     raise OperationError(space.w_RuntimeError,
@@ -181,6 +210,42 @@ def wait(space, w_self):
                 w_curr = w_next
             return w_obj
 app_wait = gateway.interp2app(wait)
+
+def wait_needed(space, w_self):
+    while 1:
+        if not isinstance(w_self, W_Var):
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("wait_needed operates only on logic variables"))
+        w_last = find_last_var_in_chain(w_self)
+        w_obj = w_last.w_bound_to
+        if w_obj is None:
+            if w_self.w_needed:
+                break # we're done
+            # XXX here we would have to FOO the current thread
+            if not have_uthreads():
+                raise OperationError(space.w_RuntimeError,
+                                     space.wrap("oh please oh FIXME !"))
+            else:
+                # add current thread to blocked byneed and switch
+                current = get_current_coroutine()
+                schedule_state.add_to_blocked_byneed(w_self, current)
+                while schedule_state.have_runnable_threads():
+                    next_coro = schedule_state.pop_runnable_thread()
+                    if next_coro.is_alive():
+                        print " byneed is switching"
+                        next_coro.switch()
+                        print " byneed is back"
+                        # there might be some need right now
+                        break
+                else:
+                    raise OperationError(space.w_RuntimeError,
+                                         space.wrap("blocked on need, but no uthread that can wait"))
+            
+        else:
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("wait_needed only supported on unbound variables"))
+app_wait_needed = gateway.interp2app(wait_needed)            
+
 
 def newvar(space):
     return W_Var()
@@ -367,4 +432,6 @@ def Space(*args, **kwds):
                      space.wrap(app_uthread))
         space.setitem(space.builtin.w_dict, space.wrap('wait'),
                      space.wrap(app_wait))
+        space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
+                      space.wrap(app_wait_needed))
     return space
