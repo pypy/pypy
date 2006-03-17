@@ -12,6 +12,12 @@ class AbstractContainerDef(object):
     def __init__(self, bookkeeper, TYPE):
         self.T = TYPE
         self.bookkeeper = bookkeeper
+        # if a virtual container "escapes" control in some way, e.g. by
+        # being unified with a SomeLLAbstractVariable, the ContainerDef
+        # becomes 'degenerated'.  For the hintrtyper, degenerated
+        # SomeLLAbstractContainers should roughly be equivalent to
+        # SomeLLAbstractVariables.
+        self.degenerated = False
         # hack to try to produce a repr that shows identifications
         key = (self.__class__, TYPE)
         weakdict = AbstractContainerDef.__cache.setdefault(key,
@@ -46,6 +52,14 @@ def make_item_annotation(bookkeeper, TYPE, vparent=None):
         hs_c = hintmodel.SomeLLAbstractConstant(TYPE, {})
         hs_c.const = TYPE._defl()
         return hs_c
+
+def degenerate_item(item, ITEM_TYPE):
+    if isinstance(ITEM_TYPE, lltype.ContainerType):
+        hs = item.s_value
+        assert isinstance(hs, hintmodel.SomeLLAbstractContainer)
+        hs.contentdef.mark_degenerated()
+    else:
+        item.generalize(hintmodel.SomeLLAbstractVariable(ITEM_TYPE))
 
 # ____________________________________________________________
 
@@ -99,14 +113,36 @@ class VirtualStructDef(AbstractContainerDef):
         return self.fields == other.fields
 
     def union(self, other):
-        # xxx about vparent?
         assert self.T == other.T
         for name in self.names:
             self.fields[name].merge(other.fields[name])
+        incompatible = False
+        if self.vparent is not None:
+            if other.vparent is not None:
+                if self.vparent.T != other.vparent.T:
+                    incompatible = True
+                else:
+                    self.vparent.union(other.vparent)
+            else:
+                incompatible = True
+        elif other.vparent is not None:
+            incompatible = True
+        if incompatible or self.degenerated or other.degenerated:
+            self.mark_degenerated()
+            other.mark_degenerated()
         return self
 
     def generalize_field(self, name, hs_value):
         self.fields[name].generalize(hs_value)
+
+    def mark_degenerated(self):
+        if self.degenerated:
+            return
+        self.degenerated = True
+        for name in self.names:
+            degenerate_item(self.fields[name], self.fieldtype(name))
+        if self.vparent is not None:
+            self.vparent.mark_degenerated()
 
 # ____________________________________________________________
 
@@ -140,3 +176,7 @@ class VirtualArrayDef(AbstractContainerDef):
 
     def generalize_item(self, hs_value):
         self.arrayitem.generalize(hs_value)
+
+    def mark_degenerated(self):
+        self.degenerated = True
+        degenerate_item(self.arrayitem, self.T.OF)

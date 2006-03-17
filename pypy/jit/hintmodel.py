@@ -151,6 +151,14 @@ class __extend__(SomeLLAbstractValue):
         if hs_flags.const.get('forget', False):
             XXX    # not implemented
 
+    def getfield(hs_v1, hs_fieldname):
+        S = hs_v1.concretetype.TO
+        FIELD_TYPE = getattr(S, hs_fieldname.const)
+        return SomeLLAbstractVariable(FIELD_TYPE)
+
+    def setfield(hs_v1, hs_fieldname, hs_value):
+        pass
+
 class __extend__(SomeLLAbstractConstant):
 
     def hint(hs_c1, hs_flags):
@@ -366,7 +374,18 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
     def union((hs_cont1, hs_cont2)):
-        return SomeLLAbstractContainer(hs_cont1.contentdef.union(hs_cont2.contentdef))
+        contentdef = hs_cont1.contentdef.union(hs_cont2.contentdef)
+        return SomeLLAbstractContainer(contentdef)
+
+class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue)):
+    def union((hs_cont1, hs_val2)):
+        hs_cont1.contentdef.mark_degenerated()
+        assert hs_cont1.concretetype == hs_val2.concretetype
+        return SomeLLAbstractVariable(hs_cont1.concretetype)
+
+class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractContainer)):
+    def union((hs_val1, hs_cont2)):
+        return pair(hs_cont2, hs_val1).union()
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 

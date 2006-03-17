@@ -294,6 +294,38 @@ def test_getvarrayitem():
     hs_n = ha.binding(g1.getargs()[0])
     assert hs_n.origins.keys()[0].fixed
 
+def test_prebuilt_structure():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    s = lltype.malloc(S)
+    def ll1(n):
+        s.n = n
+        return s.n
+    hs = hannotate(ll1, [int])
+    assert isinstance(hs, SomeLLAbstractVariable)
+
+def test_merge_substructure():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        s = lltype.malloc(S)
+        s.n = 4
+        if flag:
+            s = t.s
+        return s, t
+    hs = hannotate(ll_function, [bool])
+    assert isinstance(hs, SomeLLAbstractContainer)
+    assert not hs.contentdef.degenerated
+    assert len(hs.contentdef.fields) == 2
+    hs0 = hs.contentdef.fields['item0'].s_value       # 's'
+    assert isinstance(hs0, SomeLLAbstractContainer)
+    assert hs0.contentdef.degenerated
+    hs1 = hs.contentdef.fields['item1'].s_value       # 't'
+    assert isinstance(hs1, SomeLLAbstractContainer)
+    assert hs1.contentdef.degenerated
+
 def test_simple_fixed_call():
     def ll_help(cond, x, y):
         if cond:
