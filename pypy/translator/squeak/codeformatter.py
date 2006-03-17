@@ -1,11 +1,6 @@
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.ootypesystem import ootype 
 
-def camel_case(identifier):
-    identifier = identifier.replace(".", "_")
-    words = identifier.split('_')
-    return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
-
 class AbstractCode:
 
     pass
@@ -13,7 +8,7 @@ class AbstractCode:
 class Message(AbstractCode):
 
     def __init__(self, name):
-        self.name = camel_case(name) # XXX Should not use camel_case here
+        self.name = name
         self.infix = False
         if len(name) <= 2 and not name.isalnum():
             # Binary infix selector, e.g. "+"
@@ -82,7 +77,7 @@ class CodeFormatter:
     def format_arg(self, arg):
         """Formats Variables and Constants."""
         if isinstance(arg, Variable):
-            return camel_case(arg.name)
+            return self.gen.unique_var_name(arg)
         elif isinstance(arg, Constant):
             if isinstance(arg.concretetype, ootype.Instance):
                 # XXX fix this

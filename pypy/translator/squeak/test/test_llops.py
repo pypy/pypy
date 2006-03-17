@@ -17,10 +17,12 @@ def optest(testcase):
         return llop.%s(%s, %s)""" \
                 % (arg_signature, llopname, RESTYPE._name,
                    arg_signature)
+    llfunctest(lloptest, args)
 
+def llfunctest(llfunc, args):
     annotation = [type(a) for a in args]
-    sqfunc = compile_function(lloptest, annotation)
-    expected_res = interpret(lloptest, args, policy=LowLevelAnnotatorPolicy())
+    sqfunc = compile_function(llfunc, annotation)
+    expected_res = interpret(llfunc, args, policy=LowLevelAnnotatorPolicy())
     res = sqfunc(*args)
     assert res == str(expected_res).lower() # lowercasing for booleans
 
@@ -111,4 +113,13 @@ def test_ullongoperations():
     ]
     for t in tests:
         yield optest, t
+
+def test_booloperations():
+    def bool_not(i):
+        if i == 1:
+            j = True
+        else:
+            j = False
+        return llop.bool_not(Bool, j)
+    llfunctest(bool_not, (1,))
 

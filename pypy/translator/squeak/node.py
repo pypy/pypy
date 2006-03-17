@@ -1,7 +1,7 @@
 import datetime
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.squeak.opformatter import OpFormatter
-from pypy.translator.squeak.codeformatter import CodeFormatter, Message, camel_case
+from pypy.translator.squeak.codeformatter import CodeFormatter, Message
 from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
 from pypy.rpython.ootypesystem.ootype import Instance, ROOT
 
@@ -269,7 +269,7 @@ class FieldInitializerNode(CodeNode):
                 codef.format(self.INSTANCE), "initializers")
         fields = self.INSTANCE._allfields()
         args = [CustomVariable("a%s" % i) for i in range(len(fields))]
-        message = Message("field_init").with_args(args)
+        message = Message("fieldInit").with_args(args)
         yield codef.format(message)
         for field_name, arg in zip(fields.keys(), args):
             unique_field = self.gen.unique_field_name(self.INSTANCE, field_name)
@@ -306,7 +306,7 @@ class SetupNode(CodeNode):
             field_names = INST._allfields().keys()
             field_values = [getattr(const.value, f) for f in field_names]
             new = Message("new").send_to(INST, [])
-            init_message = Message("field_init").send_to(new, field_values)
+            init_message = Message("fieldInit").send_to(new, field_values)
             yield "    Constants at: '%s' put: %s." \
                     % (const_id, codef.format(init_message))
         yield "! !"

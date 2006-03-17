@@ -1,7 +1,7 @@
 import os
 import py
 from pypy.tool.udir import udir
-from pypy.translator.squeak.gensqueak import GenSqueak
+from pypy.translator.squeak.gensqueak import GenSqueak, camel_case
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 
@@ -67,7 +67,7 @@ class SqueakFunction:
         return startup_st
 
     def _symbol(self, arg_count):
-        name = self._func.__name__
+        name = camel_case(self._func.__name__)
         if arg_count == 0:
             return name
         else:

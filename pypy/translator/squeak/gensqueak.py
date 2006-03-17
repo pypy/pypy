@@ -1,5 +1,4 @@
 from pypy.translator.gensupp import NameManager
-from pypy.translator.squeak.codeformatter import camel_case
 from pypy.translator.squeak.node import FunctionNode, ClassNode, SetupNode
 from pypy.translator.squeak.node import MethodNode, SetterNode, GetterNode
 try:
@@ -91,6 +90,9 @@ class GenSqueak:
         return self.unique_name(
                 (INSTANCE, "field", field_name), field_name)
 
+    def unique_var_name(self, variable):
+        return self.unique_name(variable, variable.name)
+
     def unique_name(self, key, basename):
         # XXX should account for squeak keywords here
         if self.unique_name_mapping.has_key(key):
@@ -100,4 +102,10 @@ class GenSqueak:
             unique = self.name_manager.uniquename(camel_basename)
             self.unique_name_mapping[key] = unique
         return unique
+
+
+def camel_case(identifier):
+    identifier = identifier.replace(".", "_")
+    words = identifier.split('_')
+    return ''.join([words[0]] + [w.capitalize() for w in words[1:]])
 

@@ -30,6 +30,7 @@ class OpFormatter:
         'runtimenew':  'new',
         'classof':     'class',
         'same_as':     'yourself', 
+        'bool_not':    'not',
     }
 
     number_ops = {
@@ -80,7 +81,10 @@ class OpFormatter:
         if op_method is not None:
             return op_method(op)
         else:
-            name = self.ops.get(op.opname, op.opname)
+            if not self.ops.has_key(op.opname):
+                raise NotImplementedError(
+                        "operation not supported: %s" % op.opname)
+            name = self.ops[op.opname]
             sent = Message(name).send_to(op.args[0], op.args[1:])
             return self.codef.format(sent.assign_to(op.result))
 
