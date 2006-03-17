@@ -220,19 +220,15 @@ def test_noconcretetype():
 def test_protect_unprotect():
     def protect(obj): RaiseNameError
     def unprotect(obj): RaiseNameError
-    def rtype_protect(hop):
-        v_any, = hop.inputargs(hop.args_r[0])
-        return hop.genop('gc_protect', [v_any], resulttype=lltype.Void)
-    def rtype_unprotect(hop):
-        v_any, = hop.inputargs(hop.args_r[0])
-        return hop.genop('gc_unprotect', [v_any], resulttype=lltype.Void)
+    def rtype_protect(hop): hop.genop('gc_protect', [hop.inputargs(hop.args_r[0])[0]])
+    def rtype_unprotect(hop): hop.genop('gc_unprotect', [hop.inputargs(hop.args_r[0])[0]])
     extregistry.register_value(protect,
-        compute_result_annotation=annmodel.s_None, specialize_call=rtype_protect)
+        compute_result_annotation=lambda *args: None, specialize_call=rtype_protect)
     extregistry.register_value(unprotect,
-        compute_result_annotation=annmodel.s_None, specialize_call=rtype_unprotect)
+        compute_result_annotation=lambda *args: None, specialize_call=rtype_unprotect)
 
-    def p():    return protect('this is an object')
-    def u():    return unprotect('this is an object')
+    def p():    protect('this is an object')
+    def u():    unprotect('this is an object')
 
     rgc = gctransform.RefcountingGCTransformer
     bgc = gctransform.BoehmGCTransformer
