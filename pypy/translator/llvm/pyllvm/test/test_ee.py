@@ -1,9 +1,16 @@
 import py
 from pypy.translator.llvm.buildllvm import llvm_is_on_path
-py.test.skip("'python setup.py build_ext -i' is not quiet working yet")
+
 if not llvm_is_on_path():
     py.test.skip("llvm not found")
-from pypy.translator.llvm.pyllvm import pyllvm 
+
+try:
+    from pypy.translator.llvm.pyllvm import pyllvm 
+except:
+    import sys
+    sys.argv = "setup.py build_ext -i".split()
+    from pypy.translator.llvm.pyllvm import setup
+    from pypy.translator.llvm.pyllvm import pyllvm 
 
 def test_execution_engine():
     ee = pyllvm.get_ee()
