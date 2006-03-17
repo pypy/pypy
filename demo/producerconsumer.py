@@ -21,6 +21,7 @@ def sum(L, a):
         return sum(Tail, head + a)
     return a
 
+print "eager producer consummer"
 print "before"
 X = newvar()
 S = newvar()
@@ -29,3 +30,34 @@ X == uthread(generate, 0, 10)
 print "after"
 
 print S
+
+
+def lgenerate(n, L):
+    """wait-needed version of generate"""
+    print "generator waits on L being needed"
+    wait_needed(L)
+    Tail = newvar()
+    L == (n, Tail)
+    print "generator bound L to", L
+    lgenerate(n+1, Tail)
+
+def lsum(L, a, limit):
+    """this version of sum controls the generator"""
+    print "sum", a
+    if limit > 0:
+        Head, Tail = newvar(), newvar()
+        print "sum waiting on L"
+        Head, Tail = L # or L = (Head, Tail) ... ?
+        return lsum(Tail, a+Head, limit-1)
+    else:
+        return a
+
+print "lazy producer consummer"
+print "before"
+Y = newvar()
+T = newvar()
+uthread(lgenerate, 0, Y)
+T == uthread(lsum, Y, 0, 10)
+print "after"
+
+print T
