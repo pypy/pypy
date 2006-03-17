@@ -70,3 +70,22 @@ def test_external():
     fgraph = graphof(t, f)
     result = ra.can_raise(fgraph.startblock.operations[0])
     assert result
+
+def test_instantiate():
+    from pypy.rpython.objectmodel import instantiate
+    class A:
+        pass 
+    class B(A):
+        pass
+    def g(x):
+        if x:
+            C = A
+        else:
+            C = B
+        a = instantiate(C)
+    def f(x):
+        return g(x)
+    t, ra = translate(f, [int])
+    fgraph = graphof(t, f)
+    result = ra.can_raise(fgraph.startblock.operations[0])
+    assert result

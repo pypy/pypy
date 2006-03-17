@@ -49,6 +49,8 @@ class RaiseAnalyzer(object):
         return False
 
     def indirect_call_can_raise(self, graphs, seen=None):
+        if graphs is None:
+            return True
         for graph in graphs:
             if self.direct_call_can_raise(graph, seen):
                 return True
