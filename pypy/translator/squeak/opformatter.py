@@ -5,8 +5,8 @@ from pypy.translator.squeak.codeformatter import Message, Self, Assignment, Fiel
 def _setup_int_masks():
     """Generates code for helpers to mask the various integer types."""
     masks = {}
-    for name, r_type in ("int", r_int), ("uint", r_uint), \
-            ("llong", r_longlong), ("ullong", r_ulonglong):
+    # NB: behaviour of signed long longs is undefined on overflow
+    for name, r_type in ("int", r_int), ("uint", r_uint), ("ullong", r_ulonglong):
         helper_name = "mask%s" % name.capitalize()
         if name[0] == "u":
             # Unsigned integer type
@@ -36,7 +36,7 @@ class OpFormatter:
         'abs':       'abs',
         'is_true':   'isZero not',
         'neg':       'negated',
-        'invert':    'bitInvert', # maybe bitInvert32?
+        'invert':    'bitInvert',
 
         'add':       '+',
         'sub':       '-',
@@ -44,13 +44,25 @@ class OpFormatter:
         'mul':       '*',
         'div':       '//',
         'floordiv':  '//',
-        #'truediv':   '/',:   '/',
+        #'truediv':   '/', # XXX fix this when we have float support
         'mod':       r'\\',
+        'eq':        '=',
+        'ne':        '~=',
+        'lt':        '<',
+        'le':        '<=',
+        'gt':        '>',
+        'ge':        '>=',
+        'and':       'bitAnd',
+        'or':        'bitOr',
+        'lshift':    '<<',
+        'rshift':    '>>',
+        'xor':       'bitXor',
+        # XXX need to support x_ovf ops
     }
     
     number_opprefixes = "int", "uint", "llong", "ullong", "float"
 
-    wrapping_ops = "neg", "invert", "add", "sub", "mul"
+    wrapping_ops = "neg", "invert", "add", "sub", "mul", "lshift"
 
     int_masks = _setup_int_masks()
 
