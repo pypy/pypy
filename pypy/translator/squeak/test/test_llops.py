@@ -3,7 +3,7 @@ from pypy.translator.squeak.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool
+from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rpython.test.test_llinterp import interpret
 
@@ -122,4 +122,20 @@ def test_booloperations():
             j = False
         return llop.bool_not(Bool, j)
     llfunctest(bool_not, (1,))
+
+def test_charoperations():
+    for llopname in "eq", "ne", "lt", "gt", "le", "ge":
+        exec """def lloptest(i1, i2):
+            char1 = llop.cast_int_to_char(Char, i1)
+            char2 = llop.cast_int_to_char(Char, i2)
+            return llop.char_%s(Bool, char1, char2)""" % llopname
+        yield llfunctest, lloptest, (1, 2)
+
+def test_unicharoperations():
+    for llopname in "eq", "ne":
+        exec """def lloptest(i1, i2):
+            char1 = llop.cast_int_to_unichar(UniChar, i1)
+            char2 = llop.cast_int_to_unichar(UniChar, i2)
+            return llop.unichar_%s(Bool, char1, char2)""" % llopname
+        yield llfunctest, lloptest, (1, 2)
 

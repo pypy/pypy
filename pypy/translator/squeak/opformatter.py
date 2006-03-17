@@ -61,7 +61,8 @@ class OpFormatter:
         # XXX need to support x_ovf ops
     }
     
-    number_opprefixes = "int", "uint", "llong", "ullong", "float"
+    number_opprefixes = "int", "uint", "llong", "ullong",\
+            "float", "char", "unichar"
 
     wrapping_ops = "neg", "invert", "add", "sub", "mul", "lshift"
 
@@ -79,7 +80,7 @@ class OpFormatter:
                     op, opname_parts[0], "_".join(opname_parts[1:]))
         op_method = getattr(self, "op_%s" % op.opname, None)
         if op_method is not None:
-            return op_method(op)
+            return self.codef.format(op_method(op))
         else:
             if not self.ops.has_key(op.opname):
                 raise NotImplementedError(
@@ -110,7 +111,7 @@ class OpFormatter:
         else:
             receiver = op.args[1]
         sent_message = Message(message_name).send_to(receiver, op.args[2:])
-        return  self.codef.format(sent_message.assign_to(op.result))
+        return sent_message.assign_to(op.result)
 
     def op_oogetfield(self, op):
         INST = op.args[0].concretetype
@@ -123,7 +124,7 @@ class OpFormatter:
         else:
             # Public field access
             rvalue = Message(field_name).send_to(op.args[0], [])
-        return self.codef.format(Assignment(op.result, rvalue))
+        return Assignment(op.result, rvalue)
 
     def op_oosetfield(self, op):
         # Note that the result variable is never used
@@ -132,19 +133,24 @@ class OpFormatter:
         field_value = op.args[2]
         if op.args[0] == self.node.self:
             # Private field access
-            return self.codef.format(Assignment(Field(field_name), field_value))
+            return Assignment(Field(field_name), field_value)
         else:
             # Public field access
-            setter = Message(field_name).send_to(op.args[0], [field_value])
-            return self.codef.format(setter)
+            return Message(field_name).send_to(op.args[0], [field_value])
 
     def op_oodowncast(self, op):
-        return self.codef.format(Assignment(op.result, op.args[0]))
+        return Assignment(op.result, op.args[0])
 
     def op_direct_call(self, op):
         # XXX how do i get rid of this import?
         from pypy.translator.squeak.node import FunctionNode
         function_name = self.gen.unique_func_name(op.args[0].value.graph)
         msg = Message(function_name).send_to(FunctionNode.FUNCTIONS, op.args[1:])
-        return self.codef.format(msg.assign_to(op.result))
+        return msg.assign_to(op.result)
+
+    def op_cast_int_to_char(self, op):
+        # XXX incomplete
+        return Assignment(op.result, op.args[0])
+
+    op_cast_int_to_unichar = op_cast_int_to_char
 
