@@ -1,6 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
@@ -11,7 +11,6 @@ from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 import sets, os
 
-EXCEPTION_RAISING_OPS = ['direct_call', 'indirect_call']
 NEVER_RAISING_OPS = ['gc_protect', 'gc_unprotect']
 
 def var_needsgc(var):
@@ -103,8 +102,8 @@ class GCTransformer(object):
         # graph-transforming capabilities of the RTyper instead, as we
         # seem to run into all the same problems as the ones we already
         # had to solve there.
-        num_ops_after_exc_raising = 0
-        for op in block.operations:
+        has_exception_handler = block.exitswitch == c_last_exception
+        for i, op in enumerate(block.operations):
             num_ops_after_exc_raising = 0
             res = self.replacement_operations(op, livevars)
             try:
@@ -116,9 +115,16 @@ class GCTransformer(object):
             newops.extend(ops)
             origname = op.opname
             op = ops[-1-num_ops_after_exc_raising]
-            # XXX for now we assume that everything can raise
-            # XXX quick hack to make the protect stuff not add exception handling
-            if origname not in NEVER_RAISING_OPS and (1 or op.opname in EXCEPTION_RAISING_OPS):
+            # look into the table of all operations to check whether op is
+            # expected to raise. if it is not in the table or the last
+            # operation in a block with exception catching, we assume it can
+            if (op.opname not in LL_OPERATIONS or
+                op.opname not in NEVER_RAISING_OPS or
+                (has_exception_handler and i == len(block.operations) - 1)):
+                can_raise = True
+            else:
+                can_raise = bool(LL_OPERATIONS[op.opname].canraise)
+            if can_raise:
                 if tuple(livevars) in livevars2cleanup:
                     cleanup_on_exception = livevars2cleanup[tuple(livevars)]
                 else:
@@ -128,6 +134,8 @@ class GCTransformer(object):
                     cleanup_on_exception = tuple(cleanup_on_exception)
                     livevars2cleanup[tuple(livevars)] = cleanup_on_exception
                 op.cleanup = tuple(cleanup_before_exception), cleanup_on_exception
+            else:
+                op.cleanup = None
             op = ops[-1]
             if var_needsgc(op.result):
                 if op.opname not in ('direct_call', 'indirect_call') and not var_ispyobj(op.result):
