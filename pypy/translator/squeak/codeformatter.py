@@ -85,6 +85,9 @@ class CodeFormatter:
                         arg, "const_%s" % self.format_Instance(arg.value._TYPE))
                 self.gen.constant_insts[arg] = const_id
                 return "(PyConstants getConstant: '%s')" % const_id
+            elif arg.concretetype == ootype.Char or arg.concretetype == ootype.UniChar:
+                # XXX temporary
+                return str(ord(arg.value))
             else:
                 return self.name_constant(arg.value)
         else:

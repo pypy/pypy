@@ -139,3 +139,25 @@ def test_unicharoperations():
             return llop.unichar_%s(Bool, char1, char2)""" % llopname
         yield llfunctest, lloptest, (1, 2)
 
+def test_cast_bool():
+    tests = ("int", Signed), ("uint", Unsigned) # XXX missing float
+    for target_name, target_type in tests: 
+        exec """def lloptest(i):
+            b = llop.int_is_true(Bool, i)
+            return llop.cast_bool_to_%s(%s, b)""" \
+                    % (target_name, target_type._name)
+        yield llfunctest, lloptest, (3,)
+        yield llfunctest, lloptest, (0,)
+
+def test_cast_char():
+    tests = ("char", str), ("unichar", unicode)
+    for from_name, from_type in tests: 
+        exec """def lloptest(i):
+            if i == 1:
+                c = %s 
+            else:
+                c = %s 
+            return llop.cast_%s_to_int(Signed, c)""" \
+                    % (repr(from_type("a")), repr(from_type("b")), from_name)
+        yield llfunctest, lloptest, (1,)
+

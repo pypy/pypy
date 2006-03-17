@@ -60,7 +60,7 @@ class OpFormatter:
         'xor':       'bitXor',
         # XXX need to support x_ovf ops
     }
-    
+
     number_opprefixes = "int", "uint", "llong", "ullong",\
             "float", "char", "unichar"
 
@@ -138,8 +138,10 @@ class OpFormatter:
             # Public field access
             return Message(field_name).send_to(op.args[0], [field_value])
 
-    def op_oodowncast(self, op):
+    def noop(self, op):
         return Assignment(op.result, op.args[0])
+
+    op_oodowncast = noop
 
     def op_direct_call(self, op):
         # XXX how do i get rid of this import?
@@ -147,6 +149,15 @@ class OpFormatter:
         function_name = self.gen.unique_func_name(op.args[0].value.graph)
         msg = Message(function_name).send_to(FunctionNode.FUNCTIONS, op.args[1:])
         return msg.assign_to(op.result)
+
+    def op_cast_bool_to_int(self, op):
+        msg = Message("ifTrue: [1] ifFalse: [0]")
+        return msg.send_to(op.args[0], []).assign_to(op.result)
+
+    op_cast_bool_to_uint = op_cast_bool_to_int
+
+    op_cast_char_to_int = noop
+    op_cast_unichar_to_int = noop
 
     def op_cast_int_to_char(self, op):
         # XXX incomplete
