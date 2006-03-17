@@ -5,6 +5,7 @@ from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.conftest import option
 
 def check_malloc_removed(graph):
     checkgraph(graph)
@@ -24,7 +25,11 @@ def check(fn, signature, args, expected_result, must_be_removed=True):
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
     graph = graphof(t, fn)
+    if option.view:
+        t.view()
     remove_simple_mallocs(graph)
+    if option.view:
+        t.view()
     if must_be_removed:
         check_malloc_removed(graph)
     interp = LLInterpreter(t.rtyper)
