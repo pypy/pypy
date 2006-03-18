@@ -171,11 +171,11 @@ def main():
     res = [ (stone / rich, exe, size, rich, stone)
             for rich, stone, exe, mtime, size in resdic.values()]
     version, size = run_version_size()
-    res.append( (1.0, 'python %s' % version, size, ref_rich, ref_stone) )
+    res.append( (ref_stone/ref_rich, 'python %s' % version, size, ref_rich, ref_stone) )
     res.sort()
     print HEADLINE
     for speed2, exe, size, rich, stone in res:
-        if speed2 <= 1.0:
+        if speed2 <= ref_stone/ref_rich:
             print FMT % (exe, rich, rich / ref_rich, stone, ref_stone / stone,
                          size / float(1024 * 1024))
         else:
