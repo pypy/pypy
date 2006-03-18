@@ -900,6 +900,9 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                     offsets = offsets_to_gc_pointers(ARRAY.OF)
                     info["varofstoptrs"] = self.offsets2table(offsets)
                     info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
+                else:
+                    info["varofstoptrs"] = self.offsets2table(())
+                    info["varitemsize"] = 0
             return type_id
 
     def consider_constant(self, TYPE, value):

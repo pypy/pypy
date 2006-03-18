@@ -301,3 +301,15 @@ class TestUsingFramework(AbstractTestClass):
             return len(a) + a[0]
         fn = self.getcompiled(f)
         py.test.raises(MemoryError, fn)
+
+    def test_framework_array_of_void(self):
+        def f():
+            a = [None] * 43
+            b = []
+            for i in range(1000000):
+                a.append(None)
+                b.append(len(a))
+            return b[-1]
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 43 + 1000000
