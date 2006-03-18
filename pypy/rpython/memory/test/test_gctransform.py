@@ -217,16 +217,19 @@ def test_noconcretetype():
             pop_count += 1
     assert push_count == 0 and pop_count == 1
 
-def test_protect_unprotect():
-    def protect(obj): RaiseNameError
-    def unprotect(obj): RaiseNameError
-    def rtype_protect(hop): hop.genop('gc_protect', [hop.inputargs(hop.args_r[0])[0]])
-    def rtype_unprotect(hop): hop.genop('gc_unprotect', [hop.inputargs(hop.args_r[0])[0]])
-    extregistry.register_value(protect,
-        compute_result_annotation=lambda *args: None, specialize_call=rtype_protect)
-    extregistry.register_value(unprotect,
-        compute_result_annotation=lambda *args: None, specialize_call=rtype_unprotect)
+# ____________________________________________________________________
+# testing the protection magic
 
+def protect(obj): RaiseNameError
+def unprotect(obj): RaiseNameError
+def rtype_protect(hop): hop.genop('gc_protect', [hop.inputargs(hop.args_r[0])[0]])
+def rtype_unprotect(hop): hop.genop('gc_unprotect', [hop.inputargs(hop.args_r[0])[0]])
+extregistry.register_value(protect,
+    compute_result_annotation=lambda *args: None, specialize_call=rtype_protect)
+extregistry.register_value(unprotect,
+    compute_result_annotation=lambda *args: None, specialize_call=rtype_unprotect)
+
+def test_protect_unprotect():
     def p():    protect('this is an object')
     def u():    unprotect('this is an object')
 
@@ -239,7 +242,21 @@ def test_protect_unprotect():
         t, transformer = rtype_and_transform(f, [], gc, check=False)
         ops = getops(graphof(t, f))
         assert len(ops.get('direct_call', [])) == ex
-    
+
+def test_protect_unprotect_no_exception_block():
+    def p():    protect('this is an object')
+    def u():    unprotect('this is an object')
+
+    gc = gctransform.RefcountingGCTransformer
+    for f in p, u:
+        t, transformer = rtype_and_transform(f, [], gc, check=False)
+        has_cleanup = False
+        ops = getops(graphof(t, f))
+        for op in ops.get('direct_call', []):
+            assert not op.cleanup
+
+# end of protection tests
+
 def test_except_block():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
     def f(a, n):

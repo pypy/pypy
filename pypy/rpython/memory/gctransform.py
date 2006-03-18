@@ -103,9 +103,9 @@ class GCTransformer(object):
         # seem to run into all the same problems as the ones we already
         # had to solve there.
         has_exception_handler = block.exitswitch == c_last_exception
-        for i, op in enumerate(block.operations):
+        for i, origop in enumerate(block.operations):
             num_ops_after_exc_raising = 0
-            res = self.replacement_operations(op, livevars)
+            res = self.replacement_operations(origop, livevars)
             try:
                 ops, cleanup_before_exception = res
             except ValueError:
@@ -113,17 +113,16 @@ class GCTransformer(object):
             if not ops:
                 continue # may happen when we eat gc_protect/gc_unprotect.
             newops.extend(ops)
-            origname = op.opname
             op = ops[-1-num_ops_after_exc_raising]
             # look into the table of all operations to check whether op is
             # expected to raise. if it is not in the table or the last
             # operation in a block with exception catching, we assume it can
             if (op.opname not in LL_OPERATIONS or
-                op.opname not in NEVER_RAISING_OPS or
                 (has_exception_handler and i == len(block.operations) - 1)):
                 can_raise = True
             else:
-                can_raise = bool(LL_OPERATIONS[op.opname].canraise)
+                can_raise = (LL_OPERATIONS[op.opname].canraise and
+                             origop.opname not in NEVER_RAISING_OPS)
             if can_raise:
                 if tuple(livevars) in livevars2cleanup:
                     cleanup_on_exception = livevars2cleanup[tuple(livevars)]
