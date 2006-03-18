@@ -6,7 +6,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.gc import GCError, MarkSweepGC, SemiSpaceGC
 from pypy.rpython.memory.gc import DeferredRefcountingGC, DummyGC
-from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
+from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE, CHUNK_SIZE, FreeList
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory import gclltype
@@ -97,6 +97,7 @@ class TestMarkSweepGC(object):
 
 class TestMarkSweepGCRunningOnLLinterp(TestMarkSweepGC):
     def setup_class(cls):
+        AddressLinkedList.unused_chunks = FreeList(CHUNK_SIZE + 2) # 'leaks' but well
         cls.prep_old = gclltype.prepare_graphs_and_create_gc
         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
     def teardown_class(cls):
@@ -111,6 +112,7 @@ class TestSemiSpaceGC(TestMarkSweepGC):
 
 class TestSemiSpaceGCRunningOnLLinterp(TestMarkSweepGC):
     def setup_class(cls):
+        AddressLinkedList.unused_chunks = FreeList(CHUNK_SIZE + 2) # 'leaks' but well
         cls.prep_old = gclltype.prepare_graphs_and_create_gc
         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
         gclltype.use_gc = SemiSpaceGC
@@ -130,6 +132,7 @@ class TestDeferredRefcountingGC(TestMarkSweepGC):
 
 class TestDeferredRefcountingGCRunningOnLLinterp(TestMarkSweepGC):
     def setup_class(cls):
+        AddressLinkedList.unused_chunks = FreeList(CHUNK_SIZE + 2) # 'leaks' but well
         cls.prep_old = gclltype.prepare_graphs_and_create_gc
         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
         gclltype.use_gc = DeferredRefcountingGC
@@ -148,6 +151,7 @@ class TestDummyGC(TestMarkSweepGC):
 
 class TestDummyGCRunningOnLLinterp(TestMarkSweepGC):
     def setup_class(cls):
+        AddressLinkedList.unused_chunks = FreeList(CHUNK_SIZE + 2) # 'leaks' but well
         cls.prep_old = gclltype.prepare_graphs_and_create_gc
         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
         gclltype.use_gc = DummyGC

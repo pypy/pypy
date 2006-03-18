@@ -387,15 +387,15 @@ class DeferredRefcountingGC(GCBase):
         else:
             self.collecting = True
         roots = self.get_roots()
-        curr = roots.first
-        while 1:
-            root = curr.address[1]
+        roots_copy = AddressLinkedList()
+        curr = roots.pop()
+        while curr != NULL:
 ##             print "root", root, root.address[0]
 ##             assert self.refcount(root.address[0]) >= 0, "refcount negative"
-            self.incref(root.address[0])
-            if curr.address[0] == NULL:
-                break
-            curr = curr.address[0]
+            self.incref(curr.address[0])
+            roots_copy.append(curr)
+            curr = roots.pop()
+        roots = roots_copy
         dealloc_list = AddressLinkedList()
         self.length_zero_ref_counts = 0
         while 1:

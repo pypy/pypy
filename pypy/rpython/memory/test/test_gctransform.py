@@ -1,4 +1,4 @@
-from pypy.rpython.memory import gctransform
+from pypy.rpython.memory import gctransform, support
 from pypy.objspace.flow.model import c_last_exception, Variable
 from pypy.rpython.memory.gctransform import var_needsgc, var_ispyobj
 from pypy.translator.translator import TranslationContext, graphof
@@ -620,6 +620,7 @@ def test_count_vars_big():
 # tests for FrameworkGCTransformer
 
 def test_framework_simple():
+    support.AddressLinkedList.unused_chunks = support.FreeList(support.CHUNK_SIZE + 2) # 'leaks' but well
     def g(x):
         return x + 1
     class A(object):
