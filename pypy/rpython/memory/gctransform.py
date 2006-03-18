@@ -834,20 +834,24 @@ class FrameworkGCTransformer(BoehmGCTransformer):
 
         classdef = bk.getuniqueclassdef(GCData.GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
-        malloc_graph = annhelper.getgraph(GCData.GCClass.malloc.im_func,
-                                          [s_gcdata,
-                                           annmodel.SomeInteger(nonneg=True),
-                                           annmodel.SomeInteger(nonneg=True)],
-                                          annmodel.SomeAddress())
+        malloc_fixedsize_graph = annhelper.getgraph(
+            GCData.GCClass.malloc_fixedsize.im_func,
+            [s_gcdata, annmodel.SomeInteger(nonneg=True),
+             annmodel.SomeInteger(nonneg=True)], annmodel.SomeAddress())
+        malloc_varsize_graph = annhelper.getgraph(
+            GCData.GCClass.malloc_varsize.im_func,
+            [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)],
+            annmodel.SomeAddress())
         annhelper.finish()   # at this point, annotate all mix-level helpers
         self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph,
                                                         attach_empty_cleanup=True)
         self.push_root_ptr = self.graph2funcptr(push_root_graph)
         self.graphs_to_inline[push_root_graph] = True
-        self.pop_root_ptr  = self.graph2funcptr(pop_root_graph)
+        self.pop_root_ptr = self.graph2funcptr(pop_root_graph)
         self.graphs_to_inline[pop_root_graph] = True
-        self.malloc_ptr    = self.graph2funcptr(malloc_graph, True)
-        self.graphs_to_inline[malloc_graph] = True
+        self.malloc_fixedsize_ptr = self.graph2funcptr(malloc_fixedsize_graph, True)
+        self.malloc_varsize_ptr = self.graph2funcptr(malloc_varsize_graph, True)
+        self.graphs_to_inline[malloc_fixedsize_graph] = True
 
     def graph2funcptr(self, graph, attach_empty_cleanup=False):
         self.seen_graphs[graph] = True
@@ -990,10 +994,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
 
         v = varoftype(llmemory.Address)
         c_type_id = rmodel.inputconst(lltype.Signed, type_id)
-        if len(op.args) == 1:
-            v_length = rmodel.inputconst(lltype.Signed, 0)
-        else:
-            v_length = op.args[1]
+        info = self.type_info_list[type_id]
+        c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
 
         # surely there's a better way of doing this?
         s_gcdata = self.translator.annotator.bookkeeper.immutablevalue(self.gcdata)
@@ -1005,9 +1007,16 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             "getfield",
             [rmodel.inputconst(r_gcdata, self.gcdata), Constant("inst_gc", lltype.Void)],
             varoftype(r_gc.lowleveltype))
-        newop = SpaceOperation("direct_call",
-                               [self.malloc_ptr, newop0.result, c_type_id, v_length],
-                               v)
+        if len(op.args) == 1:
+            args = [self.malloc_fixedsize_ptr, newop0.result, c_type_id,
+                    c_size]
+        else:
+            v_length = op.args[1]
+            c_ofstolength = rmodel.inputconst(lltype.Signed, info['ofstolength'])
+            c_varitemsize = rmodel.inputconst(lltype.Signed, info['varitemsize'])
+            args = [self.malloc_varsize_ptr, newop0.result, c_type_id,
+                    v_length, c_size, c_varitemsize, c_ofstolength] 
+        newop = SpaceOperation("direct_call", args, v)
         ops, finally_ops = self.protect_roots(newop, livevars)
         ops.insert(0, newop0)
         ops.append(SpaceOperation("cast_adr_to_ptr", [v], op.result))

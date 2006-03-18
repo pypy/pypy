@@ -109,6 +109,8 @@ class DummyGC(GCBase):
 
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
+    
+    _size_gc_header = gc_header_two_ints
 
     def __init__(self, start_heap_size=4096, get_roots=None):
         self.bytes_malloced = 0
@@ -124,17 +126,35 @@ class MarkSweepGC(GCBase):
             self.collect()
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
-            try:
-                varsize = rarithmetic.ovfcheck(length * self.varsize_item_sizes(typeid))
-            except OverflowError:
-                raise MemoryError
-            size += varsize
-        size_gc_header = self.size_gc_header()
+            itemsize = self.varsize_item_sizes(typeid)
+            offset_to_length = self.varsize_offset_to_length(typeid)
+            return self.malloc_varsize(typeid, length, size, itemsize, offset_to_length)
+        return self.malloc_fixedsize(typeid, size)
+
+    def malloc_fixedsize(self, typeid, size):
+        if self.bytes_malloced > self.heap_size:
+            self.collect()
+        size_gc_header = MarkSweepGC._size_gc_header
         result = raw_malloc(size + size_gc_header)
-##         print "mallocing %s, size %s at %s" % (typeid, size, result)
-        if self.is_varsize(typeid):        
-            (result + self.varsize_offset_to_length(typeid)).signed[0] = length
-        self.init_gc_object(result, typeid)
+        result.signed[0] = 0
+        result.signed[1] = typeid
+        self.malloced_objects.append(result)
+        self.bytes_malloced += size + size_gc_header
+        return result + size_gc_header
+         
+    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length):
+        if self.bytes_malloced > self.heap_size:
+            self.collect()
+        try:
+            varsize = rarithmetic.ovfcheck(length * itemsize)
+        except OverflowError:
+            raise MemoryError
+        size += varsize
+        size_gc_header = MarkSweepGC._size_gc_header
+        result = raw_malloc(size + size_gc_header)
+        (result + offset_to_length + size_gc_header).signed[0] = length
+        result.signed[0] = 0
+        result.signed[1] = typeid
         self.malloced_objects.append(result)
         self.bytes_malloced += size + size_gc_header
         return result + size_gc_header
@@ -151,7 +171,7 @@ class MarkSweepGC(GCBase):
                 break
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
-            gc_info = curr.address[0] - self.size_gc_header()
+            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
             # constants roots are not malloced and thus don't have their mark
             # bit reset
             gc_info.signed[0] = 0
@@ -161,7 +181,7 @@ class MarkSweepGC(GCBase):
 ##             print "object: ", curr
             if curr == NULL:
                 break
-            gc_info = curr - self.size_gc_header()
+            gc_info = curr - MarkSweepGC._size_gc_header
             if gc_info.signed[0] == 1:
                 continue
             typeid = gc_info.signed[1]
@@ -198,14 +218,14 @@ class MarkSweepGC(GCBase):
             typeid = curr.signed[1]
             size = self.fixed_size(typeid)
             if self.is_varsize(typeid):
-                length = (curr + self.size_gc_header() + self.varsize_offset_to_length(typeid)).signed[0]
+                length = (curr + MarkSweepGC._size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
                 size += length * self.varsize_item_sizes(typeid)
             if curr.signed[0] == 1:
                 curr.signed[0] = 0
                 newmo.append(curr)
-                curr_heap_size += size + self.size_gc_header()
+                curr_heap_size += size + MarkSweepGC._size_gc_header
             else:
-                freed_size += size + self.size_gc_header()
+                freed_size += size + MarkSweepGC._size_gc_header
                 raw_free(curr)
 ##         print "free %s bytes. the heap is %s bytes." % (freed_size, curr_heap_size)
         free_non_gc_object(self.malloced_objects)
@@ -214,7 +234,7 @@ class MarkSweepGC(GCBase):
             self.heap_size = curr_heap_size
 
     def size_gc_header(self, typeid=0):
-        return gc_header_two_ints
+        return MarkSweepGC._size_gc_header
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
