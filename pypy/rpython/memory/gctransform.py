@@ -943,15 +943,15 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             return cachedarray
 
     def finish(self):
+        finished = self.finished
         newgcdependencies = super(FrameworkGCTransformer, self).finish()
-        if self.type_info_list is not None:
+        if not finished:
 
             table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
                                   len(self.type_info_list), immortal=True)
             for tableentry, newcontent in zip(table, self.type_info_list):
                 for key, value in newcontent.items():
                     setattr(tableentry, key, value)
-            self.type_info_list = None
             self.offsettable_cache = None
             
             # replace the type_info_table pointer in gcdata -- at this point,
