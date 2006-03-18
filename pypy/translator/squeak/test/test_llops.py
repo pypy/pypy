@@ -20,11 +20,17 @@ def optest(testcase):
     llfunctest(lloptest, args)
 
 def llfunctest(llfunc, args):
+    expected_res = llinterpret(llfunc, args)
+    res = sqinterpret(llfunc, args)
+    assert res == str(expected_res).lower() # lowercasing for booleans
+
+def sqinterpret(llfunc, args):
     annotation = [type(a) for a in args]
     sqfunc = compile_function(llfunc, annotation)
-    expected_res = interpret(llfunc, args, policy=LowLevelAnnotatorPolicy())
-    res = sqfunc(*args)
-    assert res == str(expected_res).lower() # lowercasing for booleans
+    return sqfunc(*args)
+
+def llinterpret(llfunc, args):
+    return interpret(llfunc, args, policy=LowLevelAnnotatorPolicy())
 
 def adapt_tests(tests, type, RESTYPE, prefix):
     adapted = []
@@ -160,4 +166,18 @@ def test_cast_char():
             return llop.cast_%s_to_int(Signed, c)""" \
                     % (repr(from_type("a")), repr(from_type("b")), from_name)
         yield llfunctest, lloptest, (1,)
+
+def test_cast_int():
+    tests = [("char", Char), ("unichar", UniChar),
+             ("longlong", SignedLongLong), ("uint", Unsigned)]
+    for target_name, target_type in tests:
+        exec """def lloptest(i):
+            return llop.cast_int_to_%s(%s, i)""" \
+                    % (target_name, target_type._name)
+        args = (2,)
+        expected_res = llinterpret(lloptest, args)
+        res = int(sqinterpret(lloptest, args))
+        if isinstance(expected_res, (str, unicode)):
+            res = chr(res)
+        assert expected_res == res
 

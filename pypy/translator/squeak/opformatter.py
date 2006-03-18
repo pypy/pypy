@@ -159,9 +159,9 @@ class OpFormatter:
     op_cast_char_to_int = noop
     op_cast_unichar_to_int = noop
 
-    def op_cast_int_to_char(self, op):
-        # XXX incomplete
-        return Assignment(op.result, op.args[0])
-
-    op_cast_int_to_unichar = op_cast_int_to_char
+    op_cast_int_to_char = noop
+    op_cast_int_to_unichar = noop
+    op_cast_int_to_uint = noop
+    op_cast_int_to_longlong = noop
+    # XXX to_float missing
 
