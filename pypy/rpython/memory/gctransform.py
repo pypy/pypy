@@ -105,7 +105,7 @@ class GCTransformer(object):
         has_exception_handler = block.exitswitch == c_last_exception
         for i, origop in enumerate(block.operations):
             num_ops_after_exc_raising = 0
-            res = self.replacement_operations(origop, livevars)
+            res = self.replacement_operations(origop, livevars, block)
             try:
                 ops, cleanup_before_exception = res
             except ValueError:
@@ -189,10 +189,10 @@ class GCTransformer(object):
         if newops:
             block.operations = newops
 
-    def replacement_operations(self, op, livevars):
+    def replacement_operations(self, op, livevars, block):
         m = getattr(self, 'replace_' + op.opname, None)
         if m:
-            return m(op, livevars)
+            return m(op, livevars, block)
         else:
             return [op], []
 
@@ -225,12 +225,12 @@ class GCTransformer(object):
         result = varoftype(lltype.Void)
         return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
 
-    def replace_gc_protect(self, op, livevars):
+    def replace_gc_protect(self, op, livevars, block):
         """ protect this object from gc (make it immortal). the specific
         gctransformer needs to overwrite this"""
         raise NotImplementedError("gc_protect does not make sense for this gc")
 
-    def replace_gc_unprotect(self, op, livevars):
+    def replace_gc_unprotect(self, op, livevars, block):
         """ get this object back into gc control. the specific gctransformer
         needs to overwrite this"""
         raise NotImplementedError("gc_protect does not make sense for this gc")
@@ -377,19 +377,19 @@ class RefcountingGCTransformer(GCTransformer):
                                      varoftype(lltype.Void), cleanup=None))
         return result
 
-    def replace_gc_protect(self, op, livevars):
+    def replace_gc_protect(self, op, livevars, block):
         """ protect this object from gc (make it immortal) """
         newops = self.push_alive(op.args[0])
         newops[-1].result = op.result
         return newops, []
 
-    def replace_gc_unprotect(self, op, livevars):
+    def replace_gc_unprotect(self, op, livevars, block):
         """ get this object back into gc control """
         newops = self.pop_alive(op.args[0])
         newops[-1].result = op.result
         return newops, []
 
-    def replace_setfield(self, op, livevars):
+    def replace_setfield(self, op, livevars, block):
         if not var_needsgc(op.args[2]):
             return [op], []
         oldval = varoftype(op.args[2].concretetype)
@@ -400,7 +400,7 @@ class RefcountingGCTransformer(GCTransformer):
         result.append(op)
         return result, self.pop_alive(oldval)
 
-    def replace_setarrayitem(self, op, livevars):
+    def replace_setarrayitem(self, op, livevars, block):
         if not var_needsgc(op.args[2]):
             return [op], []
         oldval = varoftype(op.args[2].concretetype)
@@ -599,11 +599,11 @@ class BoehmGCTransformer(GCTransformer):
     def pop_alive_nopyobj(self, var):
         return []
 
-    def replace_gc_protect(self, op, livevars):
+    def replace_gc_protect(self, op, livevars, block):
         """ for boehm it is enough to do nothing"""
         return [SpaceOperation("same_as", [Constant(None, lltype.Void)], op.result)], []
 
-    def replace_gc_unprotect(self, op, livevars):
+    def replace_gc_unprotect(self, op, livevars, block):
         """ for boehm it is enough to do nothing"""
         return [SpaceOperation("same_as", [Constant(None, lltype.Void)], op.result)], []
 
@@ -695,6 +695,19 @@ def gc_pointers_inside(v, adr):
             for i in range(len(v.items)):
                 for a in gc_pointers_inside(v.items[i], adr + llmemory.itemoffsetof(t, i)):
                     yield a
+
+def needs_conservative_livevar_calculation(block):
+    from pypy.rpython.lltypesystem import rclass
+    vars = block.getvariables()
+    for var in vars:
+        TYPE = getattr(var, "concretetype", lltype.Ptr(lltype.PyObject))
+        if isinstance(TYPE, lltype.Ptr) and not var_needsgc(var):
+            try:
+                lltype.castable(TYPE, rclass.CLASSTYPE)
+            except lltype.InvalidCast:
+                return True
+    else:
+        return False
 
 class FrameworkGCTransformer(BoehmGCTransformer):
 
@@ -980,8 +993,25 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             newgcdependencies.append(ll_static_roots_inside)
         return newgcdependencies
 
-    def protect_roots(self, op, livevars):
+    def protect_roots(self, op, livevars, block, index=-1):
         livevars = [var for var in livevars if not var_ispyobj(var)]
+        if not needs_conservative_livevar_calculation(block):
+            print "found non-conservative block"
+            if index == -1:
+                index = block.operations.index(op) # XXX hum
+            needed = {}
+            for other_op in block.operations[index:]:
+                for arg in other_op.args:
+                    needed[arg] = True
+                needed[other_op.result] = True
+            for exit in block.exits:
+                for arg in exit.args:
+                    needed[arg] = True
+            newlivevars = []
+            for var in livevars:
+                if var in needed:
+                    newlivevars.append(var)
+            livevars = newlivevars
         newops = list(self.push_roots(livevars))
         newops.append(op)
         return newops, tuple(self.pop_roots(livevars))
@@ -989,7 +1019,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
     replace_direct_call    = protect_roots
     replace_indirect_call  = protect_roots
 
-    def replace_malloc(self, op, livevars):
+    def replace_malloc(self, op, livevars, block):
         TYPE = op.args[0].value
         PTRTYPE = op.result.concretetype
         assert PTRTYPE.TO == TYPE
@@ -1020,7 +1050,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             args = [self.malloc_varsize_ptr, newop0.result, c_type_id,
                     v_length, c_size, c_varitemsize, c_ofstolength] 
         newop = SpaceOperation("direct_call", args, v)
-        ops, finally_ops = self.protect_roots(newop, livevars)
+        ops, finally_ops = self.protect_roots(newop, livevars, block,
+                                              block.operations.index(op))
         ops.insert(0, newop0)
         ops.append(SpaceOperation("cast_adr_to_ptr", [v], op.result))
         return ops, finally_ops, 1
