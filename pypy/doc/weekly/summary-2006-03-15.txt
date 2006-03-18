@@ -49,7 +49,7 @@ Garbage Collection
 This week Michael with the help of Carl, Samuele and Armin managed for
 the first time to compile the pypy interpreter together with our own
 garbage collector written in Python.  Performance is not that great as
-yet, about 100 times slower than CPython or about 16 times slower than
+yet, about 40 times slower than CPython or about 7 times slower than
 with the Boehm collector.  Given that we haven't tuned our garbage
 collector for performance at all, this isn't too bad.
 
