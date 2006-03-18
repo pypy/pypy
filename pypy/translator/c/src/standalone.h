@@ -4,5 +4,9 @@
 #include <assert.h>
 #include <math.h>
 
-#define PyObject_Malloc malloc
-#define PyObject_Free   free
+#ifndef PYPY_NOT_MAIN_FILE
+#ifndef WITH_PYMALLOC
+#define WITH_PYMALLOC
+#endif
+#include "obmalloc.c"
+#endif
