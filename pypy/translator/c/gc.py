@@ -288,14 +288,15 @@ class FrameworkGcPolicy(NoneGcPolicy):
         return '%s = %s; /* for moving GCs */' % (args[1], args[0])
 
     def common_gcheader_definition(self, defnode):
-        return [('flags', lltype.Signed), ('typeid', lltype.Signed)]
+        # XXX assumes mark and sweep
+        return [('typeid', lltype.Signed)]
 
     def common_gcheader_initdata(self, defnode):
-        # this more or less assumes mark-and-sweep gc
+        # XXX this more or less assumes mark-and-sweep gc
         o = defnode.obj
         while True:
             n = o._parentstructure()
             if n is None:
                 break
             o = n
-        return [0, defnode.db.gctransformer.id_of_type[typeOf(o)]]
+        return [defnode.db.gctransformer.id_of_type[typeOf(o)] << 1]
