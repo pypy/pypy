@@ -996,7 +996,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
     def protect_roots(self, op, livevars, block, index=-1):
         livevars = [var for var in livevars if not var_ispyobj(var)]
         if not needs_conservative_livevar_calculation(block):
-            print "found non-conservative block"
             if index == -1:
                 index = block.operations.index(op) # XXX hum
             needed = {}
@@ -1012,6 +1011,8 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                 if var in needed:
                     newlivevars.append(var)
             livevars = newlivevars
+        else:
+            print "block which needs conservative livevar calculation found"
         newops = list(self.push_roots(livevars))
         newops.append(op)
         return newops, tuple(self.pop_roots(livevars))
