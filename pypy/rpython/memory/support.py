@@ -5,7 +5,7 @@ import struct
 
 INT_SIZE = sizeof(lltype.Signed)
 
-CHUNK_SIZE = 30
+CHUNK_SIZE = 1022
 
 class FreeList(object):
     _alloc_flavor_ = "raw"
