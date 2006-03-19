@@ -18,8 +18,8 @@ def buildcache(space):
     def getmodule(name):
         return space.getitem(w_modules, space.wrap(name))
 
-    getmodule('parser').getdict()
-    print "*parser*"
+    getmodule('math').getdict()
+    print "*math*"
 
     for typedef in interptypes:
         w_typ = space.gettypeobject(typedef)
