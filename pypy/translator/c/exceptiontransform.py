@@ -19,7 +19,7 @@ def error_value(T):
     if isinstance(T, lltype.Primitive):
         return Constant(PrimitiveErrorValue[T], T)
     elif isinstance(T, lltype.Ptr):
-        return Constant(None, T)
+        return Constant(lltype.nullptr(T.TO), T)
     assert 0, "not implemented yet"
 
 # dummy functions to make the resulting graphs runnable on the llinterpreter

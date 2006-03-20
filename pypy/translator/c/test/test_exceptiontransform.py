@@ -1,9 +1,10 @@
+import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.simplify import join_blocks
-from pypy.translator.c import exceptiontransform
+from pypy.translator.c import exceptiontransform, genc, gc
 from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.test.test_llinterp import get_interpreter
-
+from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy import conftest
 
 def transform_func(fn, inputtypes):
@@ -30,6 +31,20 @@ def interpret(func, values):
         etrafo.transform_completely()
         _already_transformed[t] = True
     return interp.eval_graph(graph, values)
+
+def compile_func(fn, inputtypes):
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, inputtypes)
+    t.buildrtyper().specialize()
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    etrafo.transform_completely()
+    builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
+    builder.generate_source()
+    skip_missing_compiler(builder.compile)
+    builder.import_module()
+    if conftest.option.view:
+        t.view()
+    return builder.get_entry_point()
  
 def test_simple():
     def one():
@@ -43,6 +58,8 @@ def test_simple():
     assert len(list(g.iterblocks())) == 2 # graph does not change 
     result = interpret(foo, [])
     assert result == 1
+    f = compile_func(foo, [])
+#    assert f() == 1
     
 def test_passthrough():
     def one(x):
@@ -54,6 +71,8 @@ def test_passthrough():
         one(1)
     t, g = transform_func(foo, [])
     assert len(list(g.iterblocks())) == 4
+    f = compile_func(foo, [])
+#    py.test.raises(ValueError, f)
 
 def test_catches():
     def one(x):
@@ -76,12 +95,19 @@ def test_catches():
         return 4 + x
     t, g = transform_func(foo, [int])
     assert len(list(g.iterblocks())) == 9
+    f = compile_func(foo, [int])
     result = interpret(foo, [6])
     assert result == 2
+#    result = f(6)
+#    assert result == 2
     result = interpret(foo, [7])
     assert result == 4
+#    result = f(7)
+#    assert result == 4
     result = interpret(foo, [8])
     assert result == 2
+#    result = f(8)
+#    assert result == 2
 
 
 def test_raises():
@@ -90,5 +116,7 @@ def test_raises():
             raise ValueError()
     t, g = transform_func(foo, [int])
     assert len(list(g.iterblocks())) == 4
-   
+    f = compile_func(foo, [int])
+#    f(0)
+#    py.test.raises(ValueError, f, 0)
 

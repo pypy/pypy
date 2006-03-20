@@ -33,6 +33,17 @@ RPYTHON_EXCEPTION		rpython_exc_value = NULL;
 		rpython_exc_value = NULL;				\
 	} while (0)
 
+#define RPyFetchExceptionValue() rpython_exc_value
+
+#define RPyFetchExceptionType() rpython_exc_type
+
+#define RPyClearException() do {                                        \
+		rpython_exc_type = NULL;				\
+		rpython_exc_value = NULL;				\
+	} while (0)
+
+                
+
 #define RPyMatchException(etype)	RPYTHON_EXCEPTION_MATCH(rpython_exc_type,  \
 					(RPYTHON_EXCEPTION_VTABLE) etype)
 
