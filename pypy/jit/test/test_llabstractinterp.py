@@ -7,6 +7,7 @@ from pypy.rpython import rstr
 from pypy.annotation import model as annmodel
 from pypy.jit.llabstractinterp import LLAbstractInterp, Policy
 from pypy.objspace.flow import model as flowmodel
+from pypy.rpython import objectmodel
 
 def annotation(a, x):
     T = lltype.typeOf(x)
@@ -307,8 +308,27 @@ def test_merge_substructure():
         s.n = 4
         if flag:
             s = t.s
-        return s.n
+        return s.n+2
     graph2, insns = abstrinterp(ll_function, [0], [])
+    assert insns['int_add'] == 2 # no merge
+
+def test_merge_cross_substructure():
+    S = lltype.Struct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('s1', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        t.s1.n = 3
+        if flag:
+            s = t.s
+        else:
+            s = t.s1
+        n = s.n
+        objectmodel.keepalive_until_here(t)
+        return n+2
+    graph2, insns = abstrinterp(ll_function, [0], [])
+    assert insns['int_add'] == 2 # no merge
 
 def test_merge_different_sharing():
     S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
@@ -334,6 +354,7 @@ def test_merge_different_sharing():
         # the two t joining here are not mergeable
         return (t.s1.x+t.s1.x)*(t.s2.y+t.s2.y)
     graph2, insns = abstrinterp(ll_function, [0, 2, 3], [])
+    # no merge
     assert insns['int_add'] == 4
     assert insns['int_mul'] == 2    
             
