@@ -1,14 +1,35 @@
 from pypy.translator.unsimplify import split_block
 from pypy.translator.backendopt import canraise
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
-        c_last_exception, SpaceOperation
+        c_last_exception, SpaceOperation, checkgraph
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython import rclass
+from pypy.rpython.rarithmetic import r_uint
 
+PrimitiveErrorValue = {lltype.Signed: -1,
+                       lltype.Unsigned: r_uint(-1),
+                       lltype.Float: -1.0,
+                       lltype.Char: chr(255),
+                       lltype.Bool: True,
+                       llmemory.Address: NULL,
+                       lltype.Void: None}
+
+def error_value(T):
+    if isinstance(T, lltype.Primitive):
+        return Constant(PrimitiveErrorValue[T], T)
+    elif isinstance(T, Ptr):
+        return Constant(None, T)
+    assert 0, "not implemented yet"
 
 class ExceptionTransformer(object):
     def __init__(self, translator):
         self.translator = translator
         self.raise_analyzer = canraise.RaiseAnalyzer(translator)
+        RPYEXC_OCCURED_TYPE = lltype.FuncType([], lltype.Bool)
+        self.rpyexc_occured_ptr = Constant(lltype.functionptr(
+            RPYEXC_OCCURED_TYPE, "RPyExceptionOccurred", external="C"),
+            lltype.Ptr(RPYEXC_OCCURED_TYPE))
 
     def create_exception_handling(self, graph):
         """After an exception in a direct_call (or indirect_call), that is not caught
@@ -19,35 +40,35 @@ class ExceptionTransformer(object):
         Because of the added exitswitch we need an additional block.
         """
         exc_data = self.translator.rtyper.getexceptiondata()
-        for block in graph.iterblocks():
-            last_operation = len(block.operations)-1
-            if block.exitswitch == c_last_exception:
-                last_operation -= 1
-            for i in range(last_operation, -1, -1):
-                op = block.operations[i]
-                print "considering op", op, i
-                if not self.raise_analyzer.can_raise(op):
-                    continue
+        for block in list(graph.iterblocks()): #collect the blocks before changing them
+            self.transform_block(graph, block)
+        checkgraph(graph)
 
-                afterblock = split_block(self.translator, graph, block, i+1)
+    def transform_block(self, graph, block):
+        last_operation = len(block.operations)-1
+        if block.exitswitch == c_last_exception:
+            last_operation -= 1
+        for i in range(last_operation, -1, -1):
+            op = block.operations[i]
+            print "considering op", op, i
+            if not self.raise_analyzer.can_raise(op):
+                continue
 
-                block.exitswitch = c_last_exception
+            afterblock = split_block(self.translator, graph, block, i+1)
 
-                #non-exception case
-                block.exits[0].exitcase = block.exits[0].llexitcase = None
+            var_exc_occured = Variable()
+            var_exc_occured.concretetype = lltype.Bool
+            
+            block.operations.append(SpaceOperation("direct_call", [self.rpyexc_occured_ptr], var_exc_occured))
+            block.exitswitch = var_exc_occured
 
-                #exception occurred case
-                etype = Variable('extra_etype')
-                etype.concretetype = exc_data.lltype_of_exception_type
-                evalue = Variable('extra_evalue')
-                evalue.concretetype = exc_data.lltype_of_exception_value
-                
-                l = Link([etype, evalue], graph.exceptblock)
-                l.extravars(etype, evalue)
-                l.prevblock  = block
-                l.exitcase   = Exception
-                r_case = rclass.get_type_repr(self.translator.rtyper)
-                l.llexitcase = r_case.convert_const(l.exitcase)
+            #non-exception case
+            block.exits[0].exitcase = block.exits[0].llexitcase = False
 
-                block.exits.append(l)
+            #exception occurred case
+            l = Link([error_value(graph.returnblock.inputargs[0].concretetype)], graph.returnblock)
+            l.prevblock  = block
+            l.exitcase = l.llexitcase = True
+
+            block.exits.append(l)
 

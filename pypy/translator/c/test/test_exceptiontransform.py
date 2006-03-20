@@ -37,5 +37,5 @@ def test_raises():
         one(0)
         one(1)
     t, g = transform_func(foo, [])
-    assert len(list(g.iterblocks())) == 5
+    assert len(list(g.iterblocks())) == 4
 
