@@ -155,7 +155,7 @@ class LLFrame(object):
 
     def setvar(self, var, val):
         if var.concretetype is not lltype.Void:
-            assert self.llinterpreter.typer.type_system.isCompatibleType(lltype.typeOf(val), var.concretetype)
+            assert lltype.isCompatibleType(lltype.typeOf(val), var.concretetype)
         assert isinstance(var, Variable)
         self.bindings[var] = val
 
@@ -169,7 +169,7 @@ class LLFrame(object):
         except AttributeError:
             val = self.bindings[varorconst]
         if varorconst.concretetype is not lltype.Void:
-            assert self.llinterpreter.typer.type_system.isCompatibleType(lltype.typeOf(val), varorconst.concretetype)
+            assert lltype.isCompatibleType(lltype.typeOf(val), varorconst.concretetype)
         return val
 
     # _______________________________________________________

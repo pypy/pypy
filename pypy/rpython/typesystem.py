@@ -92,9 +92,6 @@ class LowLevelTypeSystem(TypeSystem):
     def null_callable(self, T):
         return lltype.nullptr(T.TO)
 
-    def isCompatibleType(self, t1, t2):
-        return lltype.isCompatibleType(t1, t2)
-
     def generic_is(self, robj1, robj2, hop):
         roriginal1 = robj1
         roriginal2 = robj2
@@ -123,9 +120,6 @@ class ObjectOrientedTypeSystem(TypeSystem):
     
     def null_callable(self, T):
         return ootype.null(T)
-
-    def isCompatibleType(self, t1, t2):
-        return ootype.isCompatibleType(t1, t2)
 
     def generic_is(self, robj1, robj2, hop):
         roriginal1 = robj1
