@@ -1,6 +1,7 @@
 
 import py
 from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.translator import TranslationContext
@@ -354,6 +355,15 @@ def test_funny_links():
         interp = LLInterpreter(rtyper)
         assert interp.eval_graph(g, [1]) == 1
         assert interp.eval_graph(g, [0]) == 0
+
+def test_int_truediv():
+    from pypy.rpython.lltypesystem.lltype import Float
+    def f(i, j):
+        return llop.int_truediv(Float, i, j)
+    for args in (4, 2), (3, 4):
+        res = interpret(f, list(args))
+        assert isinstance(res, float)
+        assert res == float(args[0]) / args[1]
 
 #__________________________________________________________________
 #

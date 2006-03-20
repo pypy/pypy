@@ -115,6 +115,8 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
                         'is_true': True}
+ops_returning_a_float = {'truediv': True}
+
 def checkptr(ptr):
     return isinstance(lltype.typeOf(ptr), lltype.Ptr)
 
@@ -692,7 +694,8 @@ class LLFrame(object):
             optup += 'and_', 'or_', 'lshift', 'rshift', 'xor'
         for opname in optup:
             assert opname in opimpls
-            if typ is int and opname not in ops_returning_a_bool:
+            if typ is int and opname not in ops_returning_a_bool \
+                    and opname not in ops_returning_a_float:
                 adjust_result = 'intmask'
             else:
                 adjust_result = ''
