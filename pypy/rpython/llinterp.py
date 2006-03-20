@@ -123,6 +123,8 @@ def checkptr(ptr):
 def checkadr(addr):
     return lltype.typeOf(addr) == llmemory.Address
     
+def checkinst(inst):
+    return isinstance(lltype.typeOf(inst), ootype.Instance)
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
@@ -793,19 +795,19 @@ class LLFrame(object):
         return ootype.runtimenew(class_)
 
     def op_oosetfield(self, inst, name, value):
-        assert isinstance(inst, ootype._instance)
+        assert checkinst(inst)
         assert isinstance(name, str)
         FIELDTYPE = lltype.typeOf(inst)._field_type(name)
         if FIELDTYPE != lltype.Void:
             setattr(inst, name, value)
 
     def op_oogetfield(self, inst, name):
-        assert isinstance(inst, ootype._instance)
+        assert checkinst(inst)
         assert isinstance(name, str)
         return getattr(inst, name)
 
     def op_oosend(self, message, inst, *args):
-        assert isinstance(inst, ootype._instance)
+        assert checkinst(inst)
         assert isinstance(message, str)
         bm = getattr(inst, message)
         m = bm.meth
@@ -821,12 +823,12 @@ class LLFrame(object):
         return ootype.oodowncast(INST, inst)
 
     def op_oononnull(self, inst):
-        assert isinstance(inst, ootype._instance)
+        assert checkinst(inst)
         return bool(inst)
 
     def op_oois(self, obj1, obj2):
-        if isinstance(obj1, ootype._instance):
-            assert isinstance(obj2, ootype._instance)
+        if checkinst(obj1):
+            assert checkinst(obj2)
             return obj1 == obj2   # NB. differently-typed NULLs must be equal
         elif isinstance(obj1, ootype._class):
             assert isinstance(obj2, ootype._class)
