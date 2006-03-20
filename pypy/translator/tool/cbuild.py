@@ -63,6 +63,16 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
     if include_dirs is None:
         include_dirs = []
 
+    library_dirs = []
+    if sys.platform == 'darwin':    # support Fink & Darwinports
+        for s in ('/sw/', '/opt/local/'):
+            if s + 'include' not in include_dirs and \
+               os.path.exists(s + 'include'):
+                include_dirs.append(s + 'include')
+            if s + 'lib' not in library_dirs and \
+               os.path.exists(s + 'lib'):
+                library_dirs.append(s + 'lib')
+
     dirpath = cfiles[0].dirpath()
     lastdir = dirpath.chdir()
     ensure_correct_math()
@@ -113,6 +123,7 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
                             'ext_modules': [
                                 Extension(modname, [str(cfile) for cfile in cfiles],
                                     include_dirs=include_dirs,
+                                    library_dirs=library_dirs,
                                     extra_compile_args=extra_compile_args,
                                     libraries=libraries,)
                                 ],
@@ -276,10 +287,14 @@ class CCompiler:
         if sys.platform == 'win32':
             self.link_extra += ['/DEBUG'] # generate .pdb file
         if sys.platform == 'darwin':
-            if '/sw/include' not in self.include_dirs:
-                self.include_dirs.append('/sw/include')
-            if '/sw/lib' not in self.library_dirs:
-                self.library_dirs.append('/sw/lib')
+            # support Fink & Darwinports
+            for s in ('/sw/', '/opt/local/'):
+                if s + 'include' not in self.include_dirs and \
+                   os.path.exists(s + 'include'):
+                    self.include_dirs.append(s + 'include')
+                if s + 'lib' not in self.library_dirs and \
+                   os.path.exists(s + 'lib'):
+                    self.library_dirs.append(s + 'lib')
             self.compile_extra += ['-O2']
 
         if outputfilename is None:
