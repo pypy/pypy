@@ -4,7 +4,7 @@ import os
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.backendopt.inline import inline_function, CannotInline
-from pypy.translator.backendopt.inline import auto_inlining
+from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.translator import TranslationContext, graphof
@@ -43,13 +43,19 @@ def translate(func, argtypes):
     t.buildrtyper().specialize()
     return t
 
-def check_inline(func, in_func, sig, entry=None):
+def check_inline(func, in_func, sig, entry=None, inline_guarded_calls=False):
     if entry is None:
         entry = in_func
     t = translate(entry, sig)
     # inline!
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    inline_function(t, func, graphof(t, in_func))
+    if option.view:
+        t.view()
+    inliner = Inliner(t, graphof(t, in_func), func, inline_guarded_calls)
+    inliner.inline_all()
+#    inline_function(t, func, graphof(t, in_func))
+    if option.view:
+        t.view()
     sanity_check(t)
     interp = LLInterpreter(t.rtyper)
     def eval_func(args):
@@ -169,6 +175,34 @@ def test_inline_exceptions():
     assert result == 3
     result = eval_func([42])
     assert result == 1
+
+def test_inline_exception_guarded():
+    def h(x):
+        if x == 1:
+            raise ValueError()
+        elif x == 2:
+            raise TypeError()
+        return 1
+    def f(x):
+        try:
+            return h(x)
+        except:
+            raise
+    def g(x):
+        try:
+            f(x)
+        except ValueError:
+            return 2
+        except TypeError:
+            return 3
+        return 1
+    eval_func = check_inline(f, g, [int], inline_guarded_calls=True)
+    result = eval_func([0])
+    assert result == 1
+    result = eval_func([1])
+    assert result == 2
+    result = eval_func([2])
+    assert result == 3
 
 def test_inline_var_exception():
     def f(x):
@@ -434,3 +468,5 @@ def test_inline_copies_cleanups():
     if option.view:
         t.view()
     assert hasattr(ggraph.startblock.operations[0], "cleanup")
+
+

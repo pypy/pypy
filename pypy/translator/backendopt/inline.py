@@ -2,6 +2,7 @@ import sys
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.translator.simplify import remove_identical_vars, get_graph
 from pypy.translator.unsimplify import copyvar, split_block
+from pypy.translator.backendopt import canraise
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
@@ -87,16 +88,35 @@ def _find_exception_type(block):
         return None, None
     return ops[-4].args[2].value, block.exits[0]
 
+def does_raise_directly(graph, raise_analyzer):
+    """ this function checks, whether graph contains operations which can raise
+    and which are not exception guarded """
+    for block in graph.iterblocks():
+        if block.exitswitch == c_last_exception:
+            consider_ops_to = -1
+        else:
+            consider_ops_to = len(block.operations)
+        for op in block.operations[:consider_ops_to]:
+            if raise_analyzer.can_raise(op):
+                return True
+    return False
 
 class Inliner(object):
-    def __init__(self, translator, graph, inline_func):
+    def __init__(self, translator, graph, inline_func, inline_guarded_calls=False):
         self.translator = translator
         self.graph = graph
         self.inline_func = inline_func
         callsites = find_callsites(graph, inline_func)
+        # to simplify exception matching
+        join_blocks(graph)
         self.block_to_index = {}
         for g, block, i in callsites:
             self.block_to_index.setdefault(block, {})[i] = g
+        self.inline_guarded_calls = inline_guarded_calls
+        if inline_guarded_calls:
+            self.raise_analyzer = canraise.RaiseAnalyzer(translator)
+        else:
+            self.raise_analyzer = None
 
     def inline_all(self):
         count = 0
@@ -130,8 +150,11 @@ class Inliner(object):
         if (block.exitswitch == c_last_exception and
             index_operation == len(block.operations) - 1):
             self.exception_guarded = True
-            if len(collect_called_graphs(self.graph_to_inline, self.translator)) != 0:
-                raise CannotInline("can't handle exceptions yet")
+            if self.inline_guarded_calls:
+                if does_raise_directly(self.graph_to_inline, self.raise_analyzer):
+                    raise CannotInline("can't inline because the call is exception guarded")
+            elif len(collect_called_graphs(self.graph_to_inline, self.translator)) != 0:
+                raise CannotInline("can't handle exceptions")
         self._passon_vars = {}
         self.entrymap = mkentrymap(self.graph_to_inline)
         self.do_inline(block, index_operation)
@@ -265,6 +288,7 @@ class Inliner(object):
             self.rewire_exceptblock_with_guard(afterblock, copiedexceptblock)
             # generate blocks that do generic matching for cases when the
             # heuristic did not work
+#            self.translator.view()
             self.generic_exception_matching(afterblock, copiedexceptblock)
 
     def rewire_exceptblock_no_guard(self, afterblock, copiedexceptblock):
