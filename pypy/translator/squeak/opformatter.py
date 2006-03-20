@@ -31,6 +31,13 @@ class OpFormatter:
         'classof':     'class',
         'same_as':     'yourself', 
         'bool_not':    'not',
+
+        'cast_int_to_float': 'asFloat',
+        'float_div':   '/', # overrides the div definition in number_ops
+        'float_fmod':  r'\\', # we can't really distinguish mod and fmod
+        'float_floor': 'floor',
+        # XXX this potentially incorrect (may return LargeIntegers)
+        'cast_float_to_int': 'truncated',
     }
 
     number_ops = {
@@ -45,7 +52,7 @@ class OpFormatter:
         'mul':       '*',
         'div':       '//',
         'floordiv':  '//',
-        #'truediv':   '/', # XXX fix this when we have float support
+        'truediv':   '/ asFloat',
         'mod':       r'\\',
         'eq':        '=',
         'ne':        '~=',
@@ -74,6 +81,10 @@ class OpFormatter:
         self.codef = CodeFormatter(gen)
 
     def format(self, op):
+        if self.ops.has_key(op.opname):
+            name = self.ops[op.opname]
+            sent = Message(name).send_to(op.args[0], op.args[1:])
+            return self.codef.format(sent.assign_to(op.result))
         opname_parts = op.opname.split("_")
         if opname_parts[0] in self.number_opprefixes:
             return self.format_number_op(
@@ -82,25 +93,28 @@ class OpFormatter:
         if op_method is not None:
             return self.codef.format(op_method(op))
         else:
-            if not self.ops.has_key(op.opname):
-                raise NotImplementedError(
+            raise NotImplementedError(
                         "operation not supported: %s" % op.opname)
-            name = self.ops[op.opname]
-            sent = Message(name).send_to(op.args[0], op.args[1:])
-            return self.codef.format(sent.assign_to(op.result))
 
     def format_number_op(self, op, ptype, opname):
-        message = Message(self.number_ops[opname])
-        sent_message = message.send_to(op.args[0], op.args[1:])
+        messages = self.number_ops[opname].split()
+        msg = Message(messages[0])
+        sent_message = msg.send_to(op.args[0], op.args[1:])
+        for add_message in messages[1:]:
+            sent_message = Message(add_message).send_to(sent_message, [])
         if opname in self.wrapping_ops \
                 and self.int_masks.has_key(ptype):
-            # XXX how do i get rid of this import?
-            from pypy.translator.squeak.node import HelperNode
-            mask_name, mask_code = self.int_masks[ptype]
-            helper = HelperNode(self.gen, Message(mask_name), mask_code)
-            sent_message = helper.apply([sent_message])
-            self.gen.schedule_node(helper)
+            sent_message = self.apply_mask_helper(sent_message, ptype)
         return self.codef.format(sent_message.assign_to(op.result))
+
+    def apply_mask_helper(self, receiver, mask_type_name):
+        # XXX how do i get rid of this import?
+        from pypy.translator.squeak.node import HelperNode
+        mask_name, mask_code = self.int_masks[mask_type_name]
+        helper = HelperNode(self.gen, Message(mask_name), mask_code)
+        result = helper.apply([receiver])
+        self.gen.schedule_node(helper)
+        return result
 
     def op_oosend(self, op):
         message_name = op.args[0].value
@@ -150,9 +164,15 @@ class OpFormatter:
         msg = Message(function_name).send_to(FunctionNode.FUNCTIONS, op.args[1:])
         return msg.assign_to(op.result)
 
-    def op_cast_bool_to_int(self, op):
-        msg = Message("ifTrue: [1] ifFalse: [0]")
+    def cast_bool(self, op, true_repr, false_repr):
+        msg = Message("ifTrue: [%s] ifFalse: [%s]" % (true_repr, false_repr))
         return msg.send_to(op.args[0], []).assign_to(op.result)
+
+    def op_cast_bool_to_int(self, op):
+        return self.cast_bool(op, "1", "0")
+
+    def op_cast_bool_to_float(self, op):
+        return self.cast_bool(op, "1.0", "0.0")
 
     op_cast_bool_to_uint = op_cast_bool_to_int
 
@@ -163,14 +183,9 @@ class OpFormatter:
     op_cast_int_to_char = noop
     op_cast_int_to_unichar = noop
     op_cast_int_to_longlong = noop
-    # XXX to_float missing
 
     def masking_cast(self, op, mask):
-        from pypy.translator.squeak.node import HelperNode
-        mask_name, mask_code = self.int_masks[mask]
-        helper = HelperNode(self.gen, Message(mask_name), mask_code)
-        cast = helper.apply([op.args[0]])
-        self.gen.schedule_node(helper)
+        cast = self.apply_mask_helper(op.args[0], mask)
         return Assignment(op.result, cast)
 
     def op_cast_int_to_uint(self, op):
@@ -180,4 +195,8 @@ class OpFormatter:
         return self.masking_cast(op, "int")
 
     op_truncate_longlong_to_int = noop
+
+    def op_cast_float_to_uint(self, op):
+        truncated = Message("truncated").send_to(op.args[0], [])
+        return Assignment(op.result, self.apply_mask_helper(truncated, "uint"))
 

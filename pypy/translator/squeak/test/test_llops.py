@@ -4,7 +4,7 @@ from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Char, UniChar
-from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, Float
 from pypy.rpython.test.test_llinterp import interpret
 
 def optest(testcase):
@@ -61,6 +61,7 @@ general_tests = [
     ("div", Signed, 7, 3),
     ("floordiv", Signed, 7, 3), # XXX what about division by zero?
     ("floordiv", Signed, -7, 3),
+    ("truediv", Float, 7, 4),
     ("mod", Signed, 9, 4),
     ("mod", Signed, 9, -4),
     ("eq", Bool, 1, 1),
@@ -120,6 +121,36 @@ def test_ullongoperations():
     for t in tests:
         yield optest, t
 
+def test_floatoperations_unary():
+    for llopname in "abs", "neg", "floor":
+        exec """def lloptest():
+            return llop.float_%s(Float, -1.5)""" % llopname
+        expected_res = llinterpret(lloptest, ())
+        res = sqinterpret(lloptest, ())
+        assert expected_res == float(res) # because floor might return a squeak int
+
+def test_floatoperations_is_true():
+    def istrue():
+        return llop.float_is_true(Bool, 0.0)
+    llfunctest(istrue, ())
+
+def test_floatoperations_binary():
+    for llopname in "add", "sub", "mul", "div", "mod", "fmod", \
+            "floordiv", "truediv":
+        exec """def lloptest(i):
+            f = llop.cast_int_to_float(Float, i)
+            return llop.float_%s(Float, f, 1.25)""" % llopname
+        expected_res = llinterpret(lloptest, (3,))
+        res = sqinterpret(lloptest, (3,))
+        assert expected_res == float(res) # because of floordiv 
+
+def test_floatoperations_binary_bool():
+    for llopname in "eq", "ne", "gt", "lt", "ge", "le":
+        exec """def lloptest(i):
+            f = llop.cast_int_to_float(Float, i)
+            return llop.float_%s(Bool, f, 1.25)""" % llopname
+        yield llfunctest, lloptest, (3,)
+
 def test_booloperations():
     def bool_not(i):
         if i == 1:
@@ -146,7 +177,7 @@ def test_unicharoperations():
         yield llfunctest, lloptest, (1, 2)
 
 def test_cast_bool():
-    tests = ("int", Signed), ("uint", Unsigned) # XXX missing float
+    tests = ("int", Signed), ("uint", Unsigned), ("float", Float)
     for target_name, target_type in tests: 
         exec """def lloptest(i):
             b = llop.int_is_true(Bool, i)
@@ -168,7 +199,7 @@ def test_cast_char():
         yield llfunctest, lloptest, (1,)
 
 def test_cast_int():
-    tests = [("char", Char), ("unichar", UniChar),
+    tests = [("char", Char), ("unichar", UniChar), ("float", Float),
              ("longlong", SignedLongLong), ("uint", Unsigned)]
     for target_name, target_type in tests:
         exec """def lloptest(i):
@@ -176,9 +207,11 @@ def test_cast_int():
                     % (target_name, target_type._name)
         args = (2,)
         expected_res = llinterpret(lloptest, args)
-        res = int(sqinterpret(lloptest, args))
+        res = sqinterpret(lloptest, args)
         if isinstance(expected_res, (str, unicode)):
-            res = chr(res)
+            res = chr(int(res))
+        else:
+            expected_res = str(expected_res)
         assert expected_res == res
 
 def test_cast_int_to_uint():
@@ -190,4 +223,12 @@ def test_cast_uint_to_int():
     def lloptest(i):
         return llop.cast_uint_to_int(Signed, i)
     llfunctest(lloptest, (r_uint(sys.maxint + 1),))
+
+def test_cast_float():
+    tests = [("int", Signed), ("uint", Unsigned)]
+    for target_name, target_type in tests:
+        exec """def lloptest():
+            return llop.cast_float_to_%s(%s, -1.5)""" \
+                    % (target_name, target_type._name)
+        yield llfunctest, lloptest, ()
 

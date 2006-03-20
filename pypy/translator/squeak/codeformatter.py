@@ -100,7 +100,7 @@ class CodeFormatter:
             return self.format_Instance(value)
         elif value is None:
             return "nil"
-        elif isinstance(value, int):
+        elif isinstance(value, (int, float)):
             return str(value)
         elif isinstance(value, ootype._class):
             return self.format_Instance(value._INSTANCE)
