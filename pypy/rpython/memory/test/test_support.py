@@ -1,7 +1,9 @@
 from pypy.rpython.objectmodel import free_non_gc_object
 from pypy.rpython.memory.support import AddressLinkedList, FreeList, CHUNK_SIZE
+from pypy.rpython.memory import support
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.test.test_llinterpsim import interpret
+
 
 class TestAddressLinkedList(object):
     def test_simple_access(self):
@@ -32,16 +34,16 @@ class TestAddressLinkedList(object):
     def test_big_access(self):
         addr = raw_malloc(1)
         ll = AddressLinkedList()
-        for i in range(1000):
+        for i in range(3000):
             print i
             ll.append(addr + i)
-        for i in range(1000)[::-1]:
+        for i in range(3000)[::-1]:
             a = ll.pop()
             assert a - addr == i
-        for i in range(1000):
+        for i in range(3000):
             print i
             ll.append(addr + i)
-        for i in range(1000)[::-1]:
+        for i in range(3000)[::-1]:
             a = ll.pop()
             assert a - addr == i
         ll.free()
@@ -64,14 +66,14 @@ def test_linked_list_annotate():
         res = res and (ll.pop() == NULL)
         res = res and (ll.pop() == NULL)
         ll.append(addr)
-        for i in range(100):
+        for i in range(3000):
             ll.append(addr + i)
-        for i in range(99, -1, -1):
+        for i in range(2999, -1, -1):
             a = ll.pop()
             res = res and (a - addr == i)
-        for i in range(100):
+        for i in range(3000):
             ll.append(addr + i)
-        for i in range(99, -1, -1):
+        for i in range(2999, -1, -1):
             a = ll.pop()
             res = res and (a - addr == i)
         ll.free()
