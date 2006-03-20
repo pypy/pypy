@@ -7,11 +7,11 @@ class AppTest_Logic(object):
 
     def test_simple(self):
         X = newvar()
-        assert is_unbound(X)
+        assert is_free(X)
         bind(X, 1)
         assert type(X) == int
-        assert not is_unbound(X)
-        assert not is_unbound(1)
+        assert is_bound(X)
+        assert is_bound(1)
         raises(TypeError, bind, 1, 2)
 
     def test_setitem(self):
@@ -22,10 +22,10 @@ class AppTest_Logic(object):
         d[7].append(x)
         y = d[5], d[6], d.values(), d.items()
         for x in [d[5], d[6], d[7][0]]:
-            assert is_unbound(d[5])
+            assert is_free(d[5])
         bind(x, 1)
         for x in [d[5], d[6], d[7][0]]:
-            assert not is_unbound(d[5])
+            assert is_bound(d[5])
 
     def test_unbound_unification_simple(self):
         X = newvar()
@@ -60,7 +60,7 @@ class AppTest_Logic(object):
         Y = newvar()
         assert X == Y
         assert X == 1
-        assert not is_unbound(Y)
+        assert is_bound(Y)
         assert Y == 1
 
     def test_ne_of_unified_vars(self):
@@ -73,10 +73,10 @@ class AppTest_Logic(object):
         X = newvar()
         Y = newvar()
         assert cmp(X, Y) == 0
-        assert is_unbound(X)
-        assert is_unbound(Y)
+        assert is_free(X)
+        assert is_free(Y)
         assert X == 1
-        assert not is_unbound(Y)
+        assert is_bound(Y)
         assert Y == 1
 
     def test_is(self):
