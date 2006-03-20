@@ -28,5 +28,8 @@ class HintAnnotator(RPythonAnnotator):
         vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
         return hintmodel.SomeLLAbstractContainer(vcontainerdef)
 
+    def consider_op_keepalive(self, hs_v):
+        pass
+
 
 _registeroperations(HintAnnotator.__dict__, hintmodel)

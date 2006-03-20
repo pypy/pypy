@@ -7,18 +7,21 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy
+from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 
 P_OOPSPEC = AnnotatorPolicy()
 P_OOPSPEC.oopspec = True
 
-def hannotate(func, argtypes, policy=None, annotator=False):
+def hannotate(func, argtypes, policy=None, annotator=False, inline=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
     a.build_types(func, argtypes)
     rtyper = t.buildrtyper()
     rtyper.specialize()
+    if inline:
+        auto_inlining(t, inline)
     graph1 = graphof(t, func)
     # build hint annotator types
     hannotator = HintAnnotator(policy=policy)
@@ -409,6 +412,7 @@ def test_hannotate_plus_minus():
         return acc
     assert ll_plus_minus("+-+", 0, 2) == 2
     hannotate(ll_plus_minus, [str, int, int])
+    hannotate(ll_plus_minus, [str, int, int], inline=999)
 
 def test_invalid_hint_1():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
