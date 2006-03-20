@@ -46,6 +46,10 @@ Related projects
   distributed multi-user/multi-programmer virtual world. 
 
 * `LLVM`_ the low level virtual machine project. 
+
+* `CLR under the hood`_ (powerpoint, works with open office) gives 
+  a good introduction to the underlying models of Microsoft's Common 
+  Language Runtime, the Intermediate Language, JIT and GC issues. 
   
 * spyweb_ translates Python programs to Scheme. 
 
@@ -56,6 +60,7 @@ Related projects
 
 * `GNU lightning`_ generates assembly language at runtime. 
 
+.. _`CLR under the hood`: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
 .. _Stackless: http://stackless.com 
 .. _Psyco: http://psyco.sourceforge.net
 .. _Jython: http://www.jython.org
