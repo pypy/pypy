@@ -104,6 +104,8 @@ class CodeFormatter:
             return str(value)
         elif isinstance(value, ootype._class):
             return self.format_Instance(value._INSTANCE)
+        elif isinstance(value, ootype._instance):
+            return self.format_Instance(value._TYPE)
         elif isinstance(value, ootype._static_meth):
             return self.gen.unique_func_name(value.graph)
         else:
@@ -112,7 +114,8 @@ class CodeFormatter:
     def format_Instance(self, INSTANCE):
         if INSTANCE is None:
             return "Object"
-        return self.gen.unique_class_name(INSTANCE)
+        else:
+            return self.gen.unique_class_name(INSTANCE)
 
     def format_Self(self, _):
         return "self"

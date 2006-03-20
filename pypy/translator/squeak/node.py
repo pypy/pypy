@@ -1,9 +1,9 @@
 import datetime
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.objspace.flow.model import Constant, Variable, c_last_exception
 from pypy.translator.squeak.opformatter import OpFormatter
 from pypy.translator.squeak.codeformatter import CodeFormatter, Message
 from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
-from pypy.rpython.ootypesystem.ootype import Instance, ROOT
+from pypy.rpython.ootypesystem.ootype import Instance, Class, ROOT
 
 class CodeNode:
 
@@ -21,25 +21,30 @@ class CodeNode:
 
 class ClassNode(CodeNode):
 
-    def __init__(self, gen, INSTANCE, class_vars=None):
+    def __init__(self, gen, INSTANCE, class_vars=None, host_base=None):
         self.gen = gen
         self.INSTANCE = INSTANCE
         self.class_vars = [] # XXX should probably go away
         if class_vars is not None:
             self.class_vars = class_vars
+        self.host_base = host_base
         self.hash_key = INSTANCE
 
     def dependencies(self):
         deps = []
-        if self.INSTANCE._superclass is not None: # not root
+        if self.INSTANCE._superclass is not None \
+                and self.host_base is None: # not root
             deps.append(ClassNode(self.gen, self.INSTANCE._superclass))
         return deps
 
     def render(self):
         codef = CodeFormatter(self.gen)
-        yield "%s subclass: #%s" % (
-            codef.format_Instance(self.INSTANCE._superclass), 
-            codef.format_Instance(self.INSTANCE))
+        if self.host_base is None:
+            superclass = codef.format_Instance(self.INSTANCE._superclass) 
+        else:
+            superclass = self.host_base
+        yield "%s subclass: #%s" % \
+                (superclass, codef.format_Instance(self.INSTANCE))
         fields = [self.gen.unique_field_name(self.INSTANCE, f) for f in
             self.INSTANCE._fields.iterkeys()]
         yield "    instanceVariableNames: '%s'" % ' '.join(fields)
@@ -74,6 +79,12 @@ class LoopFinder:
 
 class CallableNode(CodeNode):
 
+    OPERATION_ERROR = Instance("OperationError", ROOT,
+            fields={"type": Class, "value": ROOT})
+
+    def dependencies(self):
+        return [ClassNode(self.gen, self.OPERATION_ERROR, host_base="Exception")]
+
     def render_body(self, startblock):
         self.codef = CodeFormatter(self.gen)
         self.loops = LoopFinder(startblock).loops
@@ -89,13 +100,18 @@ class CallableNode(CodeNode):
     def render_return(self, args):
         if len(args) == 2:
             # exception
-            exc_cls = self.codef.format(args[0])
-            exc_val = self.codef.format(args[1])
-            yield "(PyOperationError class: %s value: %s) signal." % (exc_cls, exc_val)
+            yield self.render_exception(args[0], args[1])
         else:
             # regular return block
             retval = self.codef.format(args[0])
             yield "^%s" % retval
+
+    def render_exception(self, exception_class, exception_value):
+        exc_cls = self.codef.format(exception_class)
+        exc_val = self.codef.format(exception_value)
+        return "((%s new) type: %s; value: %s) signal." \
+                % (self.codef.format_Instance(self.OPERATION_ERROR),
+                        exc_cls, exc_val)
 
     def render_link(self, link):
         block = link.target
@@ -113,6 +129,8 @@ class CallableNode(CodeNode):
                 yield '"skip1"'
                 return
             yield "["
+        if block.exitswitch is c_last_exception:
+            yield "["
         formatter = OpFormatter(self.gen, self)
         for op in block.operations:
             yield "%s." % formatter.format(op)
@@ -124,6 +142,30 @@ class CallableNode(CodeNode):
             # single-exit block
             assert len(block.exits) == 1
             for line in self.render_link(block.exits[0]):
+                yield line
+        elif block.exitswitch is c_last_exception:
+            # exception branching
+            # wuah. ugly!
+            exc_var = self.gen.unique_name(("var", "exception"), "exception")
+            yield "] on: %s do: [:%s |" \
+                    % (formatter.codef.format(self.OPERATION_ERROR), exc_var)
+            exc_exits = []
+            non_exc_exit = None
+            for exit in block.exits:
+                if exit.exitcase is None:
+                    non_exc_exit = exit
+                else:
+                    exc_exits.append(exit)
+            for exit in exc_exits:
+                yield "(%s type isKindOf: %s) ifTrue: [" \
+                        % (exc_var, formatter.codef.format(exit.llexitcase))
+                for line in self.render_link(exit):
+                    yield line
+                yield "] ifFalse: ["
+            for exit in exc_exits:
+                yield "]"
+            yield "]."
+            for line in self.render_link(non_exc_exit):
                 yield line
         else:
             #exitswitch
@@ -157,7 +199,8 @@ class MethodNode(CallableNode):
         self.hash_key = (INSTANCE, method_name)
 
     def dependencies(self):
-        return [ClassNode(self.gen, self.INSTANCE)]
+        return CallableNode.dependencies(self) \
+                + [ClassNode(self.gen, self.INSTANCE)]
 
     def arguments(self, startblock):
         # Omit the explicit self
@@ -185,7 +228,8 @@ class FunctionNode(CallableNode):
         self.hash_key = graph
 
     def dependencies(self):
-        return [ClassNode(self.gen, self.FUNCTIONS)]
+        return CallableNode.dependencies(self) \
+                + [ClassNode(self.gen, self.FUNCTIONS)]
 
     def arguments(self, startblock):
         return startblock.inputargs
@@ -215,8 +259,9 @@ class SetterNode(AccessorNode):
     def render(self):
         yield self.render_fileout_header(
                 self.codef.format(self.INSTANCE), "accessors")
-        yield "%s: value" % self.unique_name
-        yield "    %s := value" % self.unique_name
+        arg_name = self.gen.unique_name((SetterNode, "arg"), "value")
+        yield "%s: %s" % (self.unique_name, arg_name)
+        yield "    %s := %s" % (self.unique_name, arg_name)
         yield "! !"
 
 class GetterNode(AccessorNode):

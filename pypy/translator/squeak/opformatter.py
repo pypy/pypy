@@ -156,6 +156,7 @@ class OpFormatter:
         return Assignment(op.result, op.args[0])
 
     op_oodowncast = noop
+    op_ooupcast = noop
 
     def op_direct_call(self, op):
         # XXX how do i get rid of this import?
