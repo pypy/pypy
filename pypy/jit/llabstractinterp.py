@@ -862,7 +862,7 @@ class BlockBuilder(object):
         memo = FlattenMemo()
         a_ptr.flatten(memo)
         for a in memo.result:
-            if (a.is_variable and
+            if (isinstance(a.runtimevar, AVariable) and
                 not a.getconcretetype()._is_atomic()):
                 self.genop('keepalive', [a.forcegenvarorconst()],
                              lltype.Void)
