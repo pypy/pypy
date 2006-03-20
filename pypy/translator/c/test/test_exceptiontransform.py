@@ -11,16 +11,10 @@ def transform_func(fn, inputtypes):
     if conftest.option.view:
         t.view()
     g = graphof(t, fn)
-    exceptiontransform.create_exception_handling(t, g)
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    etrafo.create_exception_handling(g)
     if conftest.option.view:
         t.view()
-    for b in g.iterblocks():
-        l = len(b.operations)
-        for i in range(l):
-            op = b.operations[i]
-            if op.opname == 'direct_call':
-                assert i == l-1
-                assert b.exitswitch is c_last_exception
     return t, g
 
 def test_simple():
@@ -32,6 +26,16 @@ def test_simple():
         one()
 
     t, g = transform_func(foo, [])
+    assert len(list(g.iterblocks())) == 2 # graph does not change 
     
-    
-        
+def test_raises():
+    def one(x):
+        if x:
+            raise ValueError()
+
+    def foo():
+        one(0)
+        one(1)
+    t, g = transform_func(foo, [])
+    assert len(list(g.iterblocks())) == 5
+
