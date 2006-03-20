@@ -102,7 +102,8 @@ def does_raise_directly(graph, raise_analyzer):
     return False
 
 class Inliner(object):
-    def __init__(self, translator, graph, inline_func, inline_guarded_calls=False):
+    def __init__(self, translator, graph, inline_func, inline_guarded_calls=False,
+                 inline_guarded_calls_no_matter_what=False):
         self.translator = translator
         self.graph = graph
         self.inline_func = inline_func
@@ -113,6 +114,9 @@ class Inliner(object):
         for g, block, i in callsites:
             self.block_to_index.setdefault(block, {})[i] = g
         self.inline_guarded_calls = inline_guarded_calls
+        # if this argument is set, the inliner will happily produce wrong code!
+        # it is used by the exception transformation
+        self.inline_guarded_calls_no_matter_what = inline_guarded_calls_no_matter_what
         if inline_guarded_calls:
             self.raise_analyzer = canraise.RaiseAnalyzer(translator)
         else:
@@ -151,7 +155,8 @@ class Inliner(object):
             index_operation == len(block.operations) - 1):
             self.exception_guarded = True
             if self.inline_guarded_calls:
-                if does_raise_directly(self.graph_to_inline, self.raise_analyzer):
+                if (not self.inline_guarded_calls_no_matter_what and 
+                    does_raise_directly(self.graph_to_inline, self.raise_analyzer)):
                     raise CannotInline("can't inline because the call is exception guarded")
             elif len(collect_called_graphs(self.graph_to_inline, self.translator)) != 0:
                 raise CannotInline("can't handle exceptions")
