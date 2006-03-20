@@ -309,8 +309,34 @@ def test_merge_substructure():
             s = t.s
         return s.n
     graph2, insns = abstrinterp(ll_function, [0], [])
-    
-    
+
+def test_merge_different_sharing():
+    S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+    T = lltype.GcStruct('T', ('s1', lltype.Ptr(S)), ('s2', lltype.Ptr(S)))
+    def ll_function(flag, x,y):
+        if flag:
+            t = lltype.malloc(T)
+            s = lltype.malloc(S)
+            s.x = x
+            s.y = y
+            t.s1 = s
+            t.s2 = s
+        else:
+            t = lltype.malloc(T)
+            s1 = lltype.malloc(S)
+            s2 = lltype.malloc(S)
+            s1.x = x
+            s2.x = x
+            s1.y = y
+            s2.y = y
+            t.s1 = s1
+            t.s2 = s2
+        # the two t joining here are not mergeable
+        return (t.s1.x+t.s1.x)*(t.s2.y+t.s2.y)
+    graph2, insns = abstrinterp(ll_function, [0, 2, 3], [])
+    assert insns['int_add'] == 4
+    assert insns['int_mul'] == 2    
+            
 def test_cast_pointer():
     S = lltype.GcStruct('S', ('n1', lltype.Signed), ('n2', lltype.Signed))
     PS = lltype.Ptr(S)
