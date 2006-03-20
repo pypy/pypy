@@ -31,33 +31,3 @@ print "after"
 
 print S
 
-
-def lgenerate(n, L):
-    """wait-needed version of generate"""
-    print "generator waits on L being needed"
-    wait_needed(L)
-    Tail = newvar()
-    L == (n, Tail)
-    print "generator bound L to", L
-    lgenerate(n+1, Tail)
-
-def lsum(L, a, limit):
-    """this version of sum controls the generator"""
-    print "sum", a
-    if limit > 0:
-        Head, Tail = newvar(), newvar()
-        print "sum waiting on L"
-        L == (Head, Tail) # or Head, Tail == L ?
-        return lsum(Tail, a+Head, limit-1)
-    else:
-        return a
-
-print "lazy producer consummer"
-print "before"
-Y = newvar()
-T = newvar()
-uthread(lgenerate, 0, Y)
-T == uthread(lsum, Y, 0, 10)
-print "after"
-
-print T
