@@ -39,9 +39,11 @@ The Logic Object Space
 
 One of the more visible results of the sprint is the Logic Object Space, a very
 small (in terms of lines of code) object space that implements dataflow
-variables similar to what Oz has in Python. XXX more
+variables similar to what Oz has in Python. For examples on how it can be used,
+see the files `uthread.py`_.
 
 .. _`logic sprint report`: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/report.html
+.. _`uthread.py`: http://codespeak.net/svn/pypy/dist/demo/uthread.py
 
 Garbage Collection
 ==================
