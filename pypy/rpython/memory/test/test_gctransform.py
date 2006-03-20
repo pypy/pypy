@@ -253,7 +253,7 @@ def test_protect_unprotect_no_exception_block():
         has_cleanup = False
         ops = getops(graphof(t, f))
         for op in ops.get('direct_call', []):
-            assert not op.cleanup
+            assert op.cleanup is None or op.cleanup == ((), ())
 
 # end of protection tests
 
