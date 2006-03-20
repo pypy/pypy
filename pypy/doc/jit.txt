@@ -184,10 +184,10 @@ bytecode but loops in the implementation of a single opcode (we had this
 problem working on the annotator in Vilnius).
 
 The current preliminary work on the hint-rtyper turns the interpreter
-into a compiler that saves its state all the time everywhere.  This
+into a compiler that saves its state at _all_ join-points permanently.  This
 makes sure that loops are not unexpectedly unrolled, and that the code
 that follows an if/else is not duplicated (as it would be in the
-tree-of-EggBlocks approach).  It is also extremely inefficient and
+tree-of-EggBlocks approach).  It is also inefficient and
 perfect to explode the memory usage.
 
 I think we could try to target the following model -- which also has the
