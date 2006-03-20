@@ -28,9 +28,6 @@ class ExceptionTransformer(object):
                 print "considering op", op, i
                 if not self.raise_analyzer.can_raise(op):
                     continue
-                called_can_raise = True #XXX maybe we even want a list of possible exceptions
-                if not called_can_raise:
-                    continue
 
                 afterblock = split_block(self.translator, graph, block, i+1)
 
