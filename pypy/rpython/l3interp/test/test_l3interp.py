@@ -5,6 +5,7 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy
 from pypy.rpython.lltypesystem import lltype 
+from pypy import conftest
 
 def setup_module(mod):
     mod._cleanups = []
@@ -20,6 +21,8 @@ def translate(func, inputargs):
     pol.allow_someobjects = False
     t.buildannotator(policy=pol).build_types(func, inputargs)
     t.buildrtyper().specialize()
+    if conftest.option.view:
+        t.view()
 
     from pypy.translator.tool.cbuild import skip_missing_compiler
     from pypy.translator.c import genc

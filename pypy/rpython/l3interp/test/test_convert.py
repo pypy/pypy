@@ -1,11 +1,14 @@
 import py
 from pypy.rpython.l3interp import convertgraph, l3interp
 from pypy.translator.translator import TranslationContext
+from pypy import conftest
 
 def l3ify(f, inputargs):
     t = TranslationContext()
     t.buildannotator().build_types(f, inputargs)
     t.buildrtyper().specialize()
+    if conftest.option.view:
+        t.view()
     conv = convertgraph.LL2L3Converter()
     g = conv.convert_graph(t.graphs[0])
     # XXX this vile, vile hack prevents the TranslationContext from
