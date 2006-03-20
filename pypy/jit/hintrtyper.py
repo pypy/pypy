@@ -103,6 +103,7 @@ class HintRTyper(RPythonTyper):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_getfield(hop)
         # non virtual case        
+        # XXX green getfields on an immutable structure could be more efficient
         ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
         RESTYPE = originalconcretetype(hop.s_result)
@@ -123,6 +124,7 @@ class HintRTyper(RPythonTyper):
             ts.s_RedBox)
 
     def translate_op_getarrayitem(self, hop):
+        # XXX green getarrayitems on an immutable array could be more efficient
         ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
         RESTYPE = originalconcretetype(hop.s_result)
@@ -147,10 +149,7 @@ class HintRTyper(RPythonTyper):
         raise NotImplementedError
 
     def translate_op_getsubstruct(self, hop):
-        if isinstance(hop.args_r[0], BlueRepr):
-            return hop.args_r[0].timeshift_getsubstruct(hop)
-        # non virtual case ...
-        raise NotImplementedError
+        return hop.args_r[0].timeshift_getsubstruct(hop)
 
     def translate_op_malloc(self, hop):
         r_result = hop.r_result
@@ -211,13 +210,20 @@ class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractConstant)):
 class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractContainer)):
 
     def rtyper_makerepr((ts, hs_container), hrtyper):
-        assert isinstance(hs_container.contentdef, hintcontainer.VirtualStructDef)        
-        return BlueStructRepr(hs_container.concretetype, hs_container.contentdef,
+        vstructdef = hs_container.contentdef
+        assert isinstance(vstructdef, hintcontainer.VirtualStructDef)
+        if vstructdef.degenerated:
+            # fall back to a red repr
+            return hrtyper.getredrepr(hs_container.concretetype)
+        return BlueStructRepr(hs_container.concretetype, vstructdef,
                               hrtyper.timeshifter)
 
     def rtyper_makekey((ts, hs_container), hrtyper):        
-        assert isinstance(hs_container.contentdef, hintcontainer.VirtualStructDef)
         vstructdef = hs_container.contentdef
+        assert isinstance(vstructdef, hintcontainer.VirtualStructDef)
+        if vstructdef.degenerated:
+            # fall back to a red repr
+            return hs_container.__class__, "red", hs_container.concretetype
 
         # compute reconstruction information up to our top-most parent
         chain = [vstructdef.T]
@@ -269,6 +275,10 @@ class RedRepr(Repr):
 
     def residual_values(self, ll_value):
         return [ll_value]
+
+    def create(self, hop):
+        XXX #...
+
 
 class BlueRepr(Repr):
     pass
@@ -429,6 +439,9 @@ class GreenRepr(Repr):
 
     def residual_values(self, ll_value):
         return []
+
+    #def timeshift_getsubstruct(self, hop):
+    #    ...
 
 green_signed_repr = GreenRepr(lltype.Signed)
 green_void_repr   = GreenRepr(lltype.Void)

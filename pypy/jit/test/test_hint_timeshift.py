@@ -8,14 +8,15 @@ from pypy.jit import rtimeshift, hintrtyper
 from pypy.jit.test.test_llabstractinterp import annotation, summary
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import hint
-from pypy.rpython import rgenop
+from pypy.rpython import rgenop, rstr
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
+from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 
 
-def hannotate(func, values, policy=None):
+def hannotate(func, values, policy=None, inline=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -23,6 +24,8 @@ def hannotate(func, values, policy=None):
     a.build_types(func, argtypes)
     rtyper = t.buildrtyper()
     rtyper.specialize()
+    if inline:
+        auto_inlining(t, inline)
     graph1 = graphof(t, func)
     # build hint annotator types
     hannotator = HintAnnotator(policy=policy)
@@ -34,8 +37,8 @@ def hannotate(func, values, policy=None):
         hannotator.translator.view()
     return hs, hannotator, rtyper
 
-def timeshift(ll_function, values, opt_consts=[]):
-    hs, ha, rtyper = hannotate(ll_function, values)
+def timeshift(ll_function, values, opt_consts=[], inline=None):
+    hs, ha, rtyper = hannotate(ll_function, values, inline=inline)
     htshift = HintTimeshift(ha, rtyper)
     htshift.timeshift()
     t = rtyper.annotator.translator
@@ -316,3 +319,40 @@ def test_inlined_substructure():
     insns, res = timeshift(ll_function, [7], [0])
     assert res == 7
     assert insns == {}    
+
+def test_merge_substructure():
+    py.test.skip("in-progress")
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        s = lltype.malloc(S)
+        s.n = 4
+        if flag:
+            s = t.s
+        return s
+    insns, res = timeshift(ll_function, [0], [])
+    assert res.n == 4
+    assert insns == {'malloc': 1, 'setfield': 1, 'getfield': 1}
+
+def test_plus_minus_all_inlined():
+    py.test.skip("in-progress")
+    def ll_plus_minus(s, x, y):
+        acc = x
+        n = len(s)
+        pc = 0
+        while pc < n:
+            op = s[pc]
+            op = hint(op, concrete=True)
+            if op == '+':
+                acc += y
+            elif op == '-':
+                acc -= y
+            pc += 1
+        return acc
+    s = rstr.string_repr.convert_const("+-+")
+    insns, res = timeshift(ll_plus_minus, [s, 0, 2], [0], inline=999)
+    assert res == ll_plus_minus(s, 0, 2)
+    assert insns == {'int_add': 2, 'int_sub': 1}
