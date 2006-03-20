@@ -159,9 +159,25 @@ class OpFormatter:
     op_cast_char_to_int = noop
     op_cast_unichar_to_int = noop
 
+    # NB: behaviour for casts to chars is undefined for too wide ints
     op_cast_int_to_char = noop
     op_cast_int_to_unichar = noop
-    op_cast_int_to_uint = noop
     op_cast_int_to_longlong = noop
     # XXX to_float missing
+
+    def masking_cast(self, op, mask):
+        from pypy.translator.squeak.node import HelperNode
+        mask_name, mask_code = self.int_masks[mask]
+        helper = HelperNode(self.gen, Message(mask_name), mask_code)
+        cast = helper.apply([op.args[0]])
+        self.gen.schedule_node(helper)
+        return Assignment(op.result, cast)
+
+    def op_cast_int_to_uint(self, op):
+        return self.masking_cast(op, "uint")
+
+    def op_cast_uint_to_int(self, op):
+        return self.masking_cast(op, "int")
+
+    op_truncate_longlong_to_int = noop
 

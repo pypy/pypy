@@ -181,3 +181,13 @@ def test_cast_int():
             res = chr(res)
         assert expected_res == res
 
+def test_cast_int_to_uint():
+    def lloptest(i):
+        return llop.cast_int_to_uint(Unsigned, i)
+    llfunctest(lloptest, (-1,))
+
+def test_cast_uint_to_int():
+    def lloptest(i):
+        return llop.cast_uint_to_int(Signed, i)
+    llfunctest(lloptest, (r_uint(sys.maxint + 1),))
+
