@@ -104,7 +104,7 @@ class CodeFormatter:
             return str(value)
         elif isinstance(value, ootype._class):
             return self.format_Instance(value._INSTANCE)
-        elif isinstance(value, ootype._instance):
+        elif isinstance(value, (ootype._instance, ootype._view)):
             return self.format_Instance(value._TYPE)
         elif isinstance(value, ootype._static_meth):
             return self.gen.unique_func_name(value.graph)

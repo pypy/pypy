@@ -3,7 +3,7 @@ from pypy.objspace.flow.model import Constant, Variable, c_last_exception
 from pypy.translator.squeak.opformatter import OpFormatter
 from pypy.translator.squeak.codeformatter import CodeFormatter, Message
 from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
-from pypy.rpython.ootypesystem.ootype import Instance, Class, ROOT
+from pypy.rpython.ootypesystem.ootype import Instance, Class, ROOT, _view
 
 class CodeNode:
 
@@ -341,9 +341,16 @@ class SetupNode(CodeNode):
 
     def dependencies(self):
         # Important: Field initializers for the *runtime* type
-        return [FieldInitializerNode(self.gen, c.value._TYPE)
+        return [FieldInitializerNode(self.gen, self._dynamic_type(c.value))
             for c in self.constants.iterkeys()] + \
             [ClassNode(self.gen, self.CONSTANTS, class_vars=["Constants"])]
+
+    def _dynamic_type(self, instance):
+        # XXX move this to ootype?
+        if isinstance(instance, _view):
+            return instance._inst._TYPE
+        else:
+            return instance._TYPE
 
     def render(self):
         codef = CodeFormatter(self.gen)
@@ -354,9 +361,10 @@ class SetupNode(CodeNode):
         yield codef.format(message.with_args([]))
         yield "    Constants := Dictionary new."
         for const, const_id in self.constants.iteritems():
-            INST = const.value._TYPE
+            INST = self._dynamic_type(const.value)
+            inst = const.value._downcast(INST)
             field_names = INST._allfields().keys()
-            field_values = [getattr(const.value, f) for f in field_names]
+            field_values = [getattr(inst, f) for f in field_names]
             new = Message("new").send_to(INST, [])
             init_message = Message("fieldInit").send_to(new, field_values)
             yield "    Constants at: '%s' put: %s." \
