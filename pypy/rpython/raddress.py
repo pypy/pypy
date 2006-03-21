@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.memory.lladdress import NULL, address
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.rmodel import Repr, IntegerRepr
+from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
 
 class __extend__(annmodel.SomeAddress):
@@ -36,6 +37,16 @@ class AddressRepr(Repr):
         c_null = hop.inputconst(address_repr, NULL)
         return hop.genop('adr_ne', [v_addr, c_null],
                          resulttype=lltype.Bool)
+
+    def get_ll_eq_function(self):
+        def ll_eq(addr1, addr2):
+            return addr1 == addr2
+        return ll_eq
+
+    def get_ll_hash_function(self):
+        def ll_hash(addr1):
+            return 0 # XXX do better
+        return ll_hash
 
 
 address_repr = AddressRepr()
@@ -111,3 +122,9 @@ class __extend__(pairtype(AddressRepr, AddressRepr)):
         v_addr1, v_addr2 = hop.inputargs(Address, Address)
         return hop.genop('adr_ge', [v_addr1, v_addr2], resulttype=lltype.Bool)
 
+# conversions
+
+class __extend__(pairtype(PtrRepr, AddressRepr)):
+
+    def convert_from_to((r_ptr, r_addr), v, llops):
+        return llops.genop('cast_ptr_to_adr', [v], resulttype=Address)
