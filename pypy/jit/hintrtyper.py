@@ -146,10 +146,49 @@ class HintRTyper(RPythonTyper):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_setfield(hop)
         # non virtual case ...
-        raise NotImplementedError
+        ts = self.timeshifter        
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        VALUETYPE = originalconcretetype(hop.args_s[2])
+        v_destbox, c_fieldname, v_valuebox = hop.inputargs(self.getredrepr(PTRTYPE),
+                                                           green_void_repr,
+                                                           self.getredrepr(VALUETYPE)
+                                                           )
+        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
+        gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
+        c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
+        v_jitstate = hop.llops.getjitstate()
+        s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_setfield,
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_destbox,    c_fieldname,  v_valuebox],
+            annmodel.s_None)
 
     def translate_op_getsubstruct(self, hop):
-        return hop.args_r[0].timeshift_getsubstruct(hop)
+        if isinstance(hop.args_r[0], BlueRepr):        
+            return hop.args_r[0].timeshift_getsubstruct(hop)
+        # non virtual case
+        # XXX green getfields on an immutable structure could be more efficient
+        ts = self.timeshifter
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        RESTYPE = originalconcretetype(hop.s_result)
+        v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
+                                              green_void_repr)
+        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
+        gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
+        gv_resulttype = rgenop.constTYPE(RESTYPE)
+        c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
+        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
+        v_jitstate = hop.llops.getjitstate()
+        s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getsubstruct,
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR, s_CONSTORVAR],
+            [v_jitstate,    c_fielddesc, v_argbox,    c_fieldname,  c_resulttype],
+            ts.s_RedBox)
+        
 
     def translate_op_malloc(self, hop):
         r_result = hop.r_result
@@ -277,7 +316,19 @@ class RedRepr(Repr):
         return [ll_value]
 
     def create(self, hop):
-        XXX #...
+        ts = self.timeshifter
+        s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)        
+        RESTYPE = self.original_concretetype
+        gv_type = rgenop.constTYPE(RESTYPE.TO)
+        c_type = hop.inputconst(rgenop.CONSTORVAR, gv_type)        
+        gv_resulttype = rgenop.constTYPE(RESTYPE)
+        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
+        v_jitstate = hop.llops.getjitstate()
+        
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_malloc,
+            [ts.s_JITState, s_CONSTORVAR, s_CONSTORVAR],
+            [v_jitstate,    c_type,       c_resulttype],
+            ts.s_RedBox)
 
 
 class BlueRepr(Repr):

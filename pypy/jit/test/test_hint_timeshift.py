@@ -320,8 +320,7 @@ def test_inlined_substructure():
     assert res == 7
     assert insns == {}    
 
-def test_merge_substructure():
-    py.test.skip("in-progress")
+def test_degenerated_merge_substructure():
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
 
@@ -335,7 +334,7 @@ def test_merge_substructure():
         return s
     insns, res = timeshift(ll_function, [0], [])
     assert res.n == 4
-    assert insns == {'malloc': 1, 'setfield': 1, 'getfield': 1}
+    assert insns == {'getsubstruct': 2, 'int_is_true': 1, 'malloc': 2, 'setfield': 2}
 
 def test_plus_minus_all_inlined():
     py.test.skip("in-progress")

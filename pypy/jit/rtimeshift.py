@@ -234,6 +234,31 @@ def ll_generate_getfield(jitstate, fielddesc, argbox,
                           gv_resulttype)
     return VarRedBox(genvar)
 
+gv_Void = rgenop.constTYPE(lltype.Void)
+
+def ll_generate_setfield(jitstate, fielddesc, destbox,
+                         gv_fieldname, valuebox):
+    op_args = lltype.malloc(VARLIST.TO, 3)
+    op_args[0] = destbox.getgenvar()
+    op_args[1] = gv_fieldname
+    op_args[2] = valuebox.getgenvar()
+    rgenop.genop(jitstate.curblock, 'setfield', op_args,
+                          gv_Void)
+
+
+
+def ll_generate_getsubstruct(jitstate, fielddesc, argbox,
+                         gv_fieldname, gv_resulttype):
+    if isinstance(argbox, ConstRedBox):
+        res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
+        return ConstRedBox.ll_fromvalue(res)
+    op_args = lltype.malloc(VARLIST.TO, 2)
+    op_args[0] = argbox.getgenvar()
+    op_args[1] = gv_fieldname
+    genvar = rgenop.genop(jitstate.curblock, 'getsubstruct', op_args,
+                          gv_resulttype)
+    return VarRedBox(genvar)
+
 
 def ll_generate_getarrayitem(jitstate, fielddesc, argbox,
                              indexbox, gv_resulttype):
@@ -248,6 +273,12 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox,
                           gv_resulttype)
     return VarRedBox(genvar)
 
+def ll_generate_malloc(jitstate, gv_type, gv_resulttype):
+    op_args = lltype.malloc(VARLIST.TO, 1)
+    op_args[0] = gv_type
+    genvar = rgenop.genop(jitstate.curblock, 'malloc', op_args,
+                          gv_resulttype)    
+    return VarRedBox(genvar)
 
 # ____________________________________________________________
 # other jitstate/graph level operations

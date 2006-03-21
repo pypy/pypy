@@ -306,7 +306,7 @@ def test_prebuilt_structure():
     hs = hannotate(ll1, [int])
     assert isinstance(hs, SomeLLAbstractVariable)
 
-def test_merge_substructure():
+def test_degenerated_merge_substructure():
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
 
