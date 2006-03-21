@@ -59,9 +59,9 @@ class HintRTyper(RPythonTyper):
             self.red_reprs[lowleveltype] = r
             return r
 
-    def generic_translate_operation(self, hop):
+    def generic_translate_operation(self, hop, force=False):
         # detect constant-foldable all-green operations
-        if hop.spaceop.opname not in rtimeshift.FOLDABLE_OPS:
+        if not force and hop.spaceop.opname not in rtimeshift.FOLDABLE_OPS:
             return None
         green = True
         for r_arg in hop.args_r:
@@ -99,13 +99,20 @@ class HintRTyper(RPythonTyper):
         # don't try to generate hint operations, just discard them
         return hop.inputarg(hop.r_result, arg=0)
 
+    def translate_op_keepalive(self,hop):
+        pass
+
     def translate_op_getfield(self, hop):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_getfield(hop)
         # non virtual case        
-        # XXX green getfields on an immutable structure could be more efficient
-        ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
+        if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
+            res = self.generic_translate_operation(hop, force=True)
+            if res is not None:
+                return res
+            
+        ts = self.timeshifter
         RESTYPE = originalconcretetype(hop.s_result)
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
@@ -124,9 +131,13 @@ class HintRTyper(RPythonTyper):
             ts.s_RedBox)
 
     def translate_op_getarrayitem(self, hop):
-        # XXX green getarrayitems on an immutable array could be more efficient
-        ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
+        if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
+            res = self.generic_translate_operation(hop, force=True)
+            if res is not None:
+                return res
+
+        ts = self.timeshifter
         RESTYPE = originalconcretetype(hop.s_result)
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
@@ -169,7 +180,6 @@ class HintRTyper(RPythonTyper):
         if isinstance(hop.args_r[0], BlueRepr):        
             return hop.args_r[0].timeshift_getsubstruct(hop)
         # non virtual case
-        # XXX green getfields on an immutable structure could be more efficient
         ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
         RESTYPE = originalconcretetype(hop.s_result)

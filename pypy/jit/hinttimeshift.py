@@ -295,6 +295,7 @@ class HintTimeshift(object):
         getrepr = self.rtyper.getrepr        
         items_s = []
         key_v = []
+        orig_key_v = []
         for r, newvar in zip(args_r, newinputargs):
             if isinstance(r, GreenRepr):
                 r_from = getrepr(r.annotation())
@@ -302,6 +303,7 @@ class HintTimeshift(object):
                 r_to = getrepr(erased_s)
                 items_s.append(erased_s)
                 erased_v = llops.convertvar(newvar, r_from, r_to)
+                orig_key_v.append(newvar)
                 key_v.append(erased_v)
 
         s_key_tuple = annmodel.SomeTuple(items_s)
@@ -331,13 +333,13 @@ class HintTimeshift(object):
 
         
         read_boxes_block_vars = [v_newjitstate2, v_boxes2]
-        for greenvar in key_v:
+        for greenvar in orig_key_v:
             greenvar2 = flowmodel.Variable(greenvar)
             greenvar2.concretetype = greenvar.concretetype
             read_boxes_block_vars.append(greenvar2)
 
         read_boxes_block = flowmodel.Block(read_boxes_block_vars)
-        to_read_boxes_block = flowmodel.Link([v_newjitstate, v_boxes] + key_v, read_boxes_block)
+        to_read_boxes_block = flowmodel.Link([v_newjitstate, v_boxes] + orig_key_v, read_boxes_block)
         to_read_boxes_block.exitcase = to_read_boxes_block.llexitcase = True
         to_dispatch_block = flowmodel.Link([v_oldjitstate], self.dispatchblock)
         to_dispatch_block.exitcase = to_dispatch_block.llexitcase = False

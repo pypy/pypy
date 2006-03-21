@@ -337,7 +337,6 @@ def test_degenerated_merge_substructure():
     assert insns == {'getsubstruct': 2, 'int_is_true': 1, 'malloc': 2, 'setfield': 2}
 
 def test_plus_minus_all_inlined():
-    py.test.skip("in-progress")
     def ll_plus_minus(s, x, y):
         acc = x
         n = len(s)
@@ -353,5 +352,5 @@ def test_plus_minus_all_inlined():
         return acc
     s = rstr.string_repr.convert_const("+-+")
     insns, res = timeshift(ll_plus_minus, [s, 0, 2], [0], inline=999)
-    assert res == ll_plus_minus(s, 0, 2)
+    assert res == ll_plus_minus("+-+", 0, 2)
     assert insns == {'int_add': 2, 'int_sub': 1}
