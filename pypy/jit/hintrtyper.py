@@ -264,21 +264,11 @@ class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractContainer)):
             # fall back to a red repr
             return hs_container.__class__, "red", hs_container.concretetype
 
-        # compute reconstruction information up to our top-most parent
-        chain = [vstructdef.T]
-        cur = vstructdef
-        while cur.vparent is not None:
-            for name, fieldvalue in cur.vparent.fields.iteritems():
-                s_field = fieldvalue.s_value
-                if isinstance(s_field, hintmodel.SomeLLAbstractContainer):
-                    if s_field.contentdef is cur:
-                        chain.append((name, cur.vparent.T))
-                        break
-            else:
-                assert False, "can't find ourself in parent"
-            cur = cur.vparent
+        T = None
+        if vstructdef.vparent is not None:
+            T = vstructdef.vparent.T
 
-        key = [hs_container.__class__, tuple(chain)]
+        key = [hs_container.__class__, vstructdef.T, T, vstructdef.vparentindex]
         for name in vstructdef.names:
             fielditem = vstructdef.fields[name]
             key.append(fielditem)
