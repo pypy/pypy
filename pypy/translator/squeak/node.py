@@ -146,9 +146,10 @@ class CallableNode(CodeNode):
         elif block.exitswitch is c_last_exception:
             # exception branching
             # wuah. ugly!
+            codef = formatter.codef
             exc_var = self.gen.unique_name(("var", "exception"), "exception")
             yield "] on: %s do: [:%s |" \
-                    % (formatter.codef.format(self.OPERATION_ERROR), exc_var)
+                    % (codef.format(self.OPERATION_ERROR), exc_var)
             exc_exits = []
             non_exc_exit = None
             for exit in block.exits:
@@ -158,7 +159,13 @@ class CallableNode(CodeNode):
                     exc_exits.append(exit)
             for exit in exc_exits:
                 yield "(%s type isKindOf: %s) ifTrue: [" \
-                        % (exc_var, formatter.codef.format(exit.llexitcase))
+                        % (exc_var, codef.format(exit.llexitcase))
+                if exit.last_exception is not None:
+                    yield "%s := %s type." \
+                            % (codef.format(exit.last_exception), exc_var)
+                if exit.last_exc_value is not None:
+                    yield "%s := %s value." \
+                            % (codef.format(exit.last_exc_value), exc_var)
                 for line in self.render_link(exit):
                     yield line
                 yield "] ifFalse: ["

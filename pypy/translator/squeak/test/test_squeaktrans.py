@@ -141,6 +141,8 @@ class TestGenSqueak:
         assert fn(1) == "1"
         assert fn(2) == "2"
 
+class TestException:
+
     def test_simpleexception(self):
         def raising(i):
             if i > 0:
@@ -155,4 +157,45 @@ class TestGenSqueak:
         fn = compile_function(f, [int])
         assert fn(-1) == "0"
         assert fn(2) == "1"
+
+    def test_exceptbranch(self):
+        def raising(i):
+            if i == 0:
+                raise ValueError
+            elif i < 0:
+                raise AttributeError
+            else:
+                return i + 1
+        def f(i):
+            try:
+                return raising(i)
+            except ValueError:
+                return i
+            except AttributeError:
+                return -i
+        fn = compile_function(f, [int])
+        assert fn(-1) == "1"
+        assert fn(0) == "0"
+        assert fn(2) == "3"
+
+    def test_exceptreraise(self):
+        def raising(i):
+            if i == 0:
+                raise ValueError
+            elif i < 0:
+                raise AttributeError
+            else:
+                return i + 1
+        def f(i):
+            try:
+                return raising(i)
+            except ValueError:
+                return i
+        def g(i):
+            try:
+                return f(i)
+            except AttributeError:
+                return -i
+        fn = compile_function(g, [int])
+        assert fn(-2) == "2"
 
