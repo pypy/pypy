@@ -33,7 +33,7 @@ class OOInstanceRepr(Repr):
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         s_inst = hop.args_s[0]
-        meth = self.lowleveltype._lookup(attr)
+        _, meth = self.lowleveltype._lookup(attr)
         if meth is not None:
             # just return instance - will be handled by simple_call
             return hop.inputarg(hop.r_result, arg=0)

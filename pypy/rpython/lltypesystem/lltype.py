@@ -66,6 +66,11 @@ class LowLevelType(object):
 
     _is_compatible = __eq__
 
+    def _enforce(self, value):
+        if typeOf(value) != self:
+            raise TypeError
+        return value
+
     def __hash__(self):
         # cannot use saferecursive() -- see test_lltype.test_hash().
         # NB. the __cached_hash should neither be used nor updated
@@ -1105,7 +1110,9 @@ def runtime_type_info(p):
 
 def isCompatibleType(TYPE1, TYPE2):
     return TYPE1._is_compatible(TYPE2)
-    return TYPE1 == TYPE2
+
+def enforce(TYPE, value):
+    return TYPE._enforce(value)
 
 # mark type ADT methods
 

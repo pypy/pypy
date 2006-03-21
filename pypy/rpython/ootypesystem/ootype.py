@@ -1,7 +1,9 @@
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
-        Primitive, isCompatibleType
+        Primitive, isCompatibleType, enforce
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
+
+STATICNESS = True
 
 class OOType(LowLevelType):
 
@@ -12,6 +14,16 @@ class OOType(LowLevelType):
             return isSubclass(TYPE1, TYPE2)
         else:
             return False
+
+    def _enforce(TYPE2, value):
+        TYPE1 = typeOf(value)
+        if TYPE1 == TYPE2:
+            return value
+        if isinstance(TYPE1, Instance) and isinstance(TYPE2, Instance):
+            if isSubclass(TYPE1, TYPE2):
+                return value._enforce(TYPE2)
+        raise TypeError
+
 
 class Class(OOType):
 
@@ -38,7 +50,7 @@ class Instance(OOType):
         self._add_fields(fields)
         self._add_methods(methods)
 
-        self._null = _null_instance(self)
+        self._null = make_null_instance(self)
         self._class = _class(self)
         
     def _defl(self):
@@ -55,7 +67,8 @@ class Instance(OOType):
     def _add_fields(self, fields):
         fields = fields.copy()    # mutated below
         for name, defn in fields.iteritems():
-            if self._lookup(name) is not None:
+            _, meth = self._lookup(name)
+            if meth is not None:
                 raise TypeError("Cannot add field %r: method already exists" % name)
         
             if self._superclass is not None:
@@ -95,7 +108,7 @@ class Instance(OOType):
             self._superclass._init_instance(instance)
         
         for name, (ootype, default) in self._fields.iteritems():
-            instance.__dict__[name] = default
+            instance.__dict__[name] = enforce(ootype, default)
 
     def _has_field(self, name):
         try:
@@ -122,9 +135,9 @@ class Instance(OOType):
         meth = self._methods.get(meth_name)
 
         if meth is None and self._superclass is not None:
-            meth = self._superclass._lookup(meth_name)
+            return self._superclass._lookup(meth_name)
 
-        return meth
+        return self, meth
 
     def _allfields(self):
         if self._superclass is None:
@@ -171,9 +184,9 @@ class _instance(object):
         INSTANCE._init_instance(self)
         
     def __getattr__(self, name):
-        meth = self._TYPE._lookup(name)
+        DEFINST, meth = self._TYPE._lookup(name)
         if meth is not None:
-            return meth._bound(self)
+            return meth._bound(DEFINST, self)
         
         self._TYPE._check_field(name)
 
@@ -181,9 +194,12 @@ class _instance(object):
 
     def __setattr__(self, name, value):
         self.__getattr__(name)
-            
-        if not isCompatibleType(typeOf(value), self._TYPE._field_type(name)):
-            raise TypeError("Expected type %r" % self._TYPE._field_type(name))
+
+        FLDTYPE = self._TYPE._field_type(name)
+        try:
+            val = enforce(FLDTYPE, value)
+        except TypeError:
+            raise TypeError("Expected type %r" % FLDTYPE)
 
         self.__dict__[name] = value
 
@@ -197,6 +213,31 @@ class _instance(object):
 
     def __ne__(self, other):
         return not (self == other)
+
+    def _instanceof(self, INSTANCE):
+        assert isinstance(INSTANCE, Instance)
+        return bool(self) and isSubclass(self._TYPE, INSTANCE)
+
+    def _classof(self):
+        assert bool(self)
+        return runtimeClass(self._TYPE)
+
+    def _upcast(self, INSTANCE):
+        assert instanceof(self, INSTANCE)
+        return self
+
+    _enforce = _upcast
+    
+    def _downcast(self, INSTANCE):
+        assert instanceof(self, INSTANCE)
+        return self
+
+    def _identityhash(self):
+        if self:
+            return id(self)
+        else:
+            return 0   # for all null instances
+
 
 class _null_instance(_instance):
 
@@ -224,6 +265,74 @@ class _null_instance(_instance):
             raise TypeError("comparing an _instance with %r" % (other,))
         return not other
 
+
+class _view(object):
+
+    def __init__(self, INSTANCE, inst):
+        self.__dict__['_TYPE'] = INSTANCE
+        assert isinstance(inst, _instance)
+        assert isSubclass(inst._TYPE, INSTANCE)
+        self.__dict__['_inst'] = inst
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __eq__(self, other):
+        assert isinstance(other, _view)
+        return self._inst == other._inst
+
+    def __nonzero__(self):
+        return bool(self._inst)
+
+    def __setattr__(self, name, value):
+        self._TYPE._check_field(name)
+        setattr(self._inst, name, value)
+
+    def __getattr__(self, name):
+        _, meth = self._TYPE._lookup(name)
+        meth or self._TYPE._check_field(name)
+        res = getattr(self._inst, name)
+        if meth:
+            assert isinstance(res, _bound_meth)
+            return _bound_meth(res.DEFINST, _view(res.DEFINST, res.inst), res.meth)
+        return res
+
+    def _instanceof(self, INSTANCE):
+        return self._inst._instanceof(INSTANCE)
+
+    def _classof(self):
+        return self._inst._classof()
+
+    def _upcast(self, INSTANCE):
+        assert isSubclass(self._TYPE, INSTANCE)
+        return _view(INSTANCE, self._inst)
+
+    _enforce = _upcast
+
+    def _downcast(self, INSTANCE):
+        assert isSubclass(INSTANCE, self._TYPE)
+        return _view(INSTANCE, self._inst)
+
+    def _identityhash(self):
+        return self._inst._identityhash()
+
+if STATICNESS:
+    instance_impl = _view
+else:
+    instance_impl = _instance
+
+def make_instance(INSTANCE):
+    inst = _instance(INSTANCE)
+    if STATICNESS:
+        inst = _view(INSTANCE, inst)
+    return inst
+
+def make_null_instance(INSTANCE):
+    inst = _null_instance(INSTANCE)
+    if STATICNESS:
+        inst = _view(INSTANCE, inst)
+    return inst
+
 class _callable(object):
 
    def __init__(self, TYPE, **attrs):
@@ -236,15 +345,19 @@ class _callable(object):
        if len(args) != len(self._TYPE.ARGS):
            raise TypeError,"calling %r with wrong argument number: %r" % (self._TYPE, args)
 
+       checked_args = []
        for a, ARG in zip(args, self._TYPE.ARGS):
-           if not isCompatibleType(typeOf(a), ARG):
+           try:
+               a = enforce(ARG, a)
+           except TypeError:
                raise TypeError,"calling %r with wrong argument types: %r" % (self._TYPE, args)
+           checked_args.append(a)
        if not check_callable:
-           return None
+           return checked_args
        callb = self._callable
        if callb is None:
            raise RuntimeError,"calling undefined or null function"
-       return callb
+       return callb, checked_args
 
    def __eq__(self, other):
        return (self.__class__ is other.__class__ and
@@ -264,7 +377,8 @@ class _static_meth(_callable):
        _callable.__init__(self, STATICMETHOD, **attrs)
 
    def __call__(self, *args):
-       return self._checkargs(args)(*args)
+       callb, checked_args = self._checkargs(args)
+       return callb(*checked_args)
 
 class _meth(_callable):
    
@@ -272,24 +386,27 @@ class _meth(_callable):
         assert isinstance(METHOD, Meth)
         _callable.__init__(self, METHOD, **attrs)
 
-    def _bound(self, inst):
-        return _bound_meth(inst, self)
+    def _bound(self, DEFINST, inst):
+        assert isinstance(inst, _instance)
+        return _bound_meth(DEFINST, inst, self)
 
 class _bound_meth(object):
-    def __init__(self, inst, meth):
+    def __init__(self, DEFINST, inst, meth):
+        self.DEFINST = DEFINST
         self.inst = inst
         self.meth = meth
 
     def __call__(self, *args):
-        return self.meth._checkargs(args)(self.inst, *args)
+       callb, checked_args = self.meth._checkargs(args)
+       return callb(self.inst, *checked_args)
 
 def new(INSTANCE):
-    return _instance(INSTANCE)
+    return make_instance(INSTANCE)
 
 def runtimenew(class_):
     assert isinstance(class_, _class)
     assert class_ is not nullruntimeclass
-    return _instance(class_._INSTANCE)
+    return make_instance(class_._INSTANCE)
 
 def static_meth(FUNCTION, name,  **attrs):
     return _static_meth(FUNCTION, _name=name, **attrs)
@@ -303,14 +420,12 @@ def null(INSTANCE_OR_FUNCTION):
 def instanceof(inst, INSTANCE):
     # this version of instanceof() accepts a NULL instance and always
     # returns False in this case.
-    assert isinstance(inst, _instance)
-    assert isinstance(INSTANCE, Instance)
-    return bool(inst) and isSubclass(inst._TYPE, INSTANCE)
+    assert isinstance(typeOf(inst), Instance)
+    return inst._instanceof(INSTANCE)
 
 def classof(inst):
-    assert isinstance(inst, _instance)
-    assert bool(inst)
-    return runtimeClass(inst._TYPE)
+    assert isinstance(typeOf(inst), Instance)
+    return inst._classof()
 
 def subclassof(class1, class2):
     assert isinstance(class1, _class)
@@ -346,19 +461,14 @@ def commonBaseclass(INSTANCE1, INSTANCE2):
     return None
 
 def ooupcast(INSTANCE, instance):
-    assert instanceof(instance, INSTANCE)
-    return instance
+    return instance._upcast(INSTANCE)
     
 def oodowncast(INSTANCE, instance):
-    assert instanceof(instance, INSTANCE)
-    return instance
+    return instance._downcast(INSTANCE)
 
 def ooidentityhash(inst):
-    assert isinstance(inst, _instance)
-    if inst:
-        return id(inst)
-    else:
-        return 0   # for all null instances
+    assert isinstance(typeOf(inst), Instance)
+    return inst._identityhash()
 
 
 ROOT = Instance('Root', None, _is_root=True)

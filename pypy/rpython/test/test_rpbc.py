@@ -1381,13 +1381,16 @@ class TestLltype(BaseTestRPBC):
                 return attr
         raise AttributeError()
 
+from pypy.rpython.ootypesystem import ootype
+
 class TestOotype(BaseTestRPBC):
 
     ts = "ootype"
 
     def class_name(self, value):
-        return typeOf(value)._name.split(".")[-1] 
+        return ootype.classof(value)._INSTANCE._name.split(".")[-1] 
 
     def read_attr(self, value, attr):
+        value = ootype.oodowncast(ootype.classof(value)._INSTANCE, value)
         return getattr(value, "o" + attr)
 

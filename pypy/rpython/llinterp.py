@@ -155,7 +155,10 @@ class LLFrame(object):
 
     def setvar(self, var, val):
         if var.concretetype is not lltype.Void:
-            assert lltype.isCompatibleType(lltype.typeOf(val), var.concretetype)
+            try:
+                val = lltype.enforce(var.concretetype, val)
+            except TypeError:
+                assert False, "type error: %r val -> %r var" % (lltype.typeOf(val), var.concretetype)
         assert isinstance(var, Variable)
         self.bindings[var] = val
 
@@ -169,7 +172,10 @@ class LLFrame(object):
         except AttributeError:
             val = self.bindings[varorconst]
         if varorconst.concretetype is not lltype.Void:
-            assert lltype.isCompatibleType(lltype.typeOf(val), varorconst.concretetype)
+            try:
+                val = lltype.enforce(varorconst.concretetype, val)
+            except TypeError:
+                assert False, "type error: %r val from %r var/const" % (lltype.typeOf(val), varorconst.concretetype)
         return val
 
     # _______________________________________________________
@@ -810,8 +816,9 @@ class LLFrame(object):
         assert checkinst(inst)
         assert isinstance(message, str)
         bm = getattr(inst, message)
+        inst = bm.inst
         m = bm.meth
-        m._checkargs(args, check_callable=False)
+        args = m._checkargs(args, check_callable=False)
         if getattr(m, 'abstract', False):
             raise RuntimeError("calling abstract method %r" % (m,))
         return self.op_direct_call(m, inst, *args)
