@@ -4,6 +4,7 @@ from pypy.translator.squeak.opformatter import OpFormatter
 from pypy.translator.squeak.codeformatter import CodeFormatter, Message
 from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
 from pypy.rpython.ootypesystem.ootype import Instance, Class, ROOT, _view
+from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast
 
 class CodeNode:
 
@@ -159,7 +160,7 @@ class CallableNode(CodeNode):
                     exc_exits.append(exit)
             for exit in exc_exits:
                 yield "(%s type isKindOf: %s) ifTrue: [" \
-                        % (exc_var, codef.format(exit.llexitcase))
+                        % (exc_var, codef.format(dynamicType(exit.llexitcase)))
                 if exit.last_exception is not None:
                     yield "%s := %s type." \
                             % (codef.format(exit.last_exception), exc_var)
@@ -341,16 +342,9 @@ class SetupNode(CodeNode):
 
     def dependencies(self):
         # Important: Field initializers for the *runtime* type
-        return [FieldInitializerNode(self.gen, self._dynamic_type(c.value))
+        return [FieldInitializerNode(self.gen, dynamicType(c.value))
             for c in self.constants.iterkeys()] + \
             [ClassNode(self.gen, self.CONSTANTS, class_vars=["Constants"])]
-
-    def _dynamic_type(self, instance):
-        # XXX move this to ootype?
-        if isinstance(instance, _view):
-            return instance._inst._TYPE
-        else:
-            return instance._TYPE
 
     def render(self):
         codef = CodeFormatter(self.gen)
@@ -361,8 +355,8 @@ class SetupNode(CodeNode):
         yield codef.format(message.with_args([]))
         yield "    Constants := Dictionary new."
         for const, const_id in self.constants.iteritems():
-            INST = self._dynamic_type(const.value)
-            inst = const.value._downcast(INST)
+            INST = dynamicType(const.value)
+            inst = oodowncast(INST, const.value)
             field_names = INST._allfields().keys()
             field_values = [getattr(inst, f) for f in field_names]
             new = Message("new").send_to(INST, [])

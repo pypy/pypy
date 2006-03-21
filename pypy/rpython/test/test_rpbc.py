@@ -1388,9 +1388,9 @@ class TestOotype(BaseTestRPBC):
     ts = "ootype"
 
     def class_name(self, value):
-        return ootype.classof(value)._INSTANCE._name.split(".")[-1] 
+        return ootype.dynamicType(value)._name.split(".")[-1] 
 
     def read_attr(self, value, attr):
-        value = ootype.oodowncast(ootype.classof(value)._INSTANCE, value)
+        value = ootype.oodowncast(ootype.dynamicType(value), value)
         return getattr(value, "o" + attr)
 
