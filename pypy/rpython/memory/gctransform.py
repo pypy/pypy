@@ -716,7 +716,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         class GCData(object):
             from pypy.rpython.memory.gc import MarkSweepGC as GCClass
-            startheapsize = 640*1024    # XXX adjust
+            startheapsize = 8*1024*1024 # XXX adjust
             rootstacksize = 640*1024    # XXX adjust
 
             # types of the GC information tables
