@@ -119,6 +119,8 @@ def gen_wrapper(func, translator):
     # "return result"
     block = Block([vself, vargs, vkwds])
     wgraph = FunctionGraph('pyfn_' + func.func_name, block)
+    translator.update_call_graph(wgraph, graph, object())
+    translator.graphs.append(wgraph)
     block.operations[:] = newops
     block.closeblock(Link([vresult], wgraph.returnblock))
     checkgraph(wgraph)
