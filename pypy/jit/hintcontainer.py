@@ -39,7 +39,7 @@ def virtualcontainerdef(bookkeeper, T, vparent=None, vparentindex=0):
     if isinstance(T, lltype.Struct):
         return VirtualStructDef(bookkeeper, T, vparent, vparentindex)
     elif isinstance(T, lltype.Array):
-        return VirtualArrayDef(bookkeeper, T)
+        return VirtualArrayDef(bookkeeper, T, vparent)
     raise TypeError("unsupported container type %r" % (T,))
 
 def make_item_annotation(bookkeeper, TYPE, vparent=None, vparentindex=0):
@@ -154,14 +154,15 @@ class ArrayItem(ListItem):
         for varraydef in self.itemof:
             varraydef.arrayitem = self
 
-
+# this may need to really be used only for fixed size cases
 class VirtualArrayDef(AbstractContainerDef):
 
-    def __init__(self, bookkeeper, TYPE):
+    def __init__(self, bookkeeper, TYPE, vparent=None):
         AbstractContainerDef.__init__(self, bookkeeper, TYPE)
-        hs = make_item_annotation(bookkeeper, TYPE.OF)
+        hs = make_item_annotation(bookkeeper, TYPE.OF, vparent=self) # xxx vparentindex?
         self.arrayitem = ArrayItem(bookkeeper, hs)
         self.arrayitem.itemof[self] = True
+        self.vparent = vparent
 
     def read_item(self):
         self.arrayitem.read_locations[self.bookkeeper.position_key] = True
