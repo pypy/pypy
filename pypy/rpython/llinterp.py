@@ -511,6 +511,10 @@ class LLFrame(object):
         assert checkadr(adr)
         return llmemory.cast_adr_to_ptr(adr, TYPE)
 
+    def op_cast_adr_to_int(self, adr):
+        assert checkadr(adr)
+        return llmemory.cast_adr_to_int(adr)
+
     def op_cast_int_to_float(self, i):
         assert type(i) is int
         return float(i)

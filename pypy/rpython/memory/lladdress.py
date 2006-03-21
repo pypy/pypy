@@ -62,6 +62,9 @@ class address(object):
     def _cast_to_ptr(self, EXPECTED_TYPE):
         from pypy.rpython.memory.lltypesimulation import simulatorptr
         return simulatorptr(EXPECTED_TYPE, self)
+
+    def _cast_to_int(self):
+        return self.intaddress
     
 
 class _accessor(object):

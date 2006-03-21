@@ -2,7 +2,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.memory.lladdress import NULL, address
-from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.lltypesystem.llmemory import Address, cast_adr_to_int
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
@@ -45,7 +45,7 @@ class AddressRepr(Repr):
 
     def get_ll_hash_function(self):
         def ll_hash(addr1):
-            return 0 # XXX do better
+            return cast_adr_to_int(addr1)
         return ll_hash
 
 

@@ -80,3 +80,18 @@ def test_cast_adr_to_ptr():
         return s1 == s2
     res = interpret(f, [])
     assert res
+
+def test_cast_adr_to_int():
+    from pypy.rpython.memory.test.test_llinterpsim import interpret
+    from pypy.rpython.lltypesystem import lltype
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    Sptr = lltype.Ptr(S)
+    def f():
+        s1 = lltype.malloc(S)
+        adr = cast_ptr_to_adr(s1)
+        i = cast_adr_to_int(adr)
+        i2 = lltype.cast_ptr_to_int(s1)
+        return i == i2
+    assert f()
+    res = interpret(f, [])
+    assert res

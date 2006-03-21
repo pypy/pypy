@@ -322,6 +322,9 @@ def llmemory_cast_adr_to_ptr(s, s_type):
     assert s_type.is_constant()
     return SomePtr(s_type.const)
 
+def llmemory_cast_adr_to_int(s):
+    return SomeInteger() # xxx
+
 def rstack_yield_current_frame_to_caller():
     return SomeExternalObject(pypy.rpython.rstack.frame_stack_top)
     
@@ -369,6 +372,7 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_kee
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hint] = robjmodel_hint
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_ptr] = llmemory_cast_adr_to_ptr
+BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_int] = llmemory_cast_adr_to_int
 BUILTIN_ANALYZERS[pypy.rpython.rstack.yield_current_frame_to_caller] = (
     rstack_yield_current_frame_to_caller)
 

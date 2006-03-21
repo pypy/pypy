@@ -267,6 +267,7 @@ LL_OPERATIONS = {
     'adr_ge':               LLOp(canfold=True),
     'cast_ptr_to_adr':      LLOp(canfold=True),
     'cast_adr_to_ptr':      LLOp(canfold=True),
+    'cast_adr_to_int':      LLOp(canfold=True),
 
     # __________ GC operations __________
 

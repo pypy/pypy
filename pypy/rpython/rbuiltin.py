@@ -485,6 +485,14 @@ def rtype_cast_adr_to_ptr(hop):
     return hop.genop('cast_adr_to_ptr', [adr],
                      resulttype = TYPE.value)
 
+def rtype_cast_adr_to_int(hop):
+    assert isinstance(hop.args_r[0], raddress.AddressRepr)
+    adr, = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('cast_adr_to_int', [adr],
+                     resulttype = lltype.Signed)
+
 BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
+BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
 

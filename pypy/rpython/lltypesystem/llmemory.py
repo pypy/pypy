@@ -154,6 +154,9 @@ class fakeaddress(object):
     def _cast_to_ptr(self, EXPECTED_TYPE):
         return lltype.cast_pointer(EXPECTED_TYPE, self.get())
 
+    def _cast_to_int(self):
+        return self.get()._cast_to_int()
+
 # XXX the indexing in code like
 #     addr.signed[0] = v
 #     is just silly.  remove it.
@@ -201,4 +204,7 @@ def cast_ptr_to_adr(obj):
 
 def cast_adr_to_ptr(adr, EXPECTED_TYPE):
     return adr._cast_to_ptr(EXPECTED_TYPE)
+
+def cast_adr_to_int(adr):
+    return adr._cast_to_int()
 
