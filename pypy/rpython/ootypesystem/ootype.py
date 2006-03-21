@@ -427,6 +427,10 @@ def classof(inst):
     assert isinstance(typeOf(inst), Instance)
     return inst._classof()
 
+def dynamicType(inst):
+    assert isinstance(typeOf(inst), Instance)
+    return classof(inst)._INSTANCE
+
 def subclassof(class1, class2):
     assert isinstance(class1, _class)
     assert isinstance(class2, _class)

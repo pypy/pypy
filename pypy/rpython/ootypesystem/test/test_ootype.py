@@ -55,6 +55,17 @@ def test_classof():
     assert classof(i2) is not classof(i)
     assert classof(i2) != classof(i)
     
+def test_dynamictype():
+    A = Instance("A", ROOT)
+    B = Instance("B", A)
+    a = new(A)
+    b = new(B)
+    assert dynamicType(a) is A
+    assert dynamicType(b) is B
+
+    b = ooupcast(A, b)
+    assert dynamicType(b) is B
+
 def test_simple_default_class():
     I = Instance("test", ROOT, {"a": (Signed, 3)})
     i = new(I)
