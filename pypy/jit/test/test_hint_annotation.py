@@ -329,6 +329,33 @@ def test_degenerated_merge_substructure():
     assert isinstance(hs1, SomeLLAbstractContainer)
     assert hs1.contentdef.degenerated
 
+def test_degenerated_merge_cross_substructure():
+    from pypy.rpython import objectmodel
+    S = lltype.Struct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('s1', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        t.s1.n = 3
+        if flag:
+            s = t.s
+        else:
+            s = t.s1
+        objectmodel.keepalive_until_here(t)
+        return s, t
+    hs = hannotate(ll_function, [bool])    
+    assert isinstance(hs, SomeLLAbstractContainer)
+    assert not hs.contentdef.degenerated
+    assert len(hs.contentdef.fields) == 2
+    hs0 = hs.contentdef.fields['item0'].s_value       # 's'
+    assert isinstance(hs0, SomeLLAbstractContainer)
+    assert hs0.contentdef.degenerated
+    hs1 = hs.contentdef.fields['item1'].s_value       # 't'
+    assert isinstance(hs1, SomeLLAbstractContainer)
+    assert hs1.contentdef.degenerated
+
+
 def test_simple_fixed_call():
     def ll_help(cond, x, y):
         if cond:

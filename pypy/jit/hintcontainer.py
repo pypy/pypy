@@ -32,19 +32,19 @@ class AbstractContainerDef(object):
 
 # ____________________________________________________________
 
-def virtualcontainerdef(bookkeeper, T, vparent=None):
+def virtualcontainerdef(bookkeeper, T, vparent=None, vparentindex=0):
     """Build and return a VirtualXxxDef() corresponding to a
     freshly allocated virtual container.
     """
     if isinstance(T, lltype.Struct):
-        return VirtualStructDef(bookkeeper, T, vparent)
+        return VirtualStructDef(bookkeeper, T, vparent, vparentindex)
     elif isinstance(T, lltype.Array):
         return VirtualArrayDef(bookkeeper, T)
     raise TypeError("unsupported container type %r" % (T,))
 
-def make_item_annotation(bookkeeper, TYPE, vparent=None):
+def make_item_annotation(bookkeeper, TYPE, vparent=None, vparentindex=0):
     if isinstance(TYPE, lltype.ContainerType):
-        vdef = virtualcontainerdef(bookkeeper, TYPE, vparent=vparent)
+        vdef = virtualcontainerdef(bookkeeper, TYPE, vparent, vparentindex)
         return hintmodel.SomeLLAbstractContainer(vdef)
     elif isinstance(TYPE, lltype.Ptr):
         return annmodel.s_ImpossibleValue
@@ -76,16 +76,17 @@ class FieldValue(ListItem):
 
 class VirtualStructDef(AbstractContainerDef):
  
-    def __init__(self, bookkeeper, TYPE, vparent=None):
+    def __init__(self, bookkeeper, TYPE, vparent=None, vparentindex=0):
         AbstractContainerDef.__init__(self, bookkeeper, TYPE)
         self.fields = {}
         self.names = TYPE._names
-        for name in self.names:
+        for index, name in enumerate(self.names):
             FIELD_TYPE = self.fieldtype(name)
-            hs = make_item_annotation(bookkeeper, FIELD_TYPE, vparent=self)
+            hs = make_item_annotation(bookkeeper, FIELD_TYPE, vparent=self, vparentindex=index)
             fv = self.fields[name] = FieldValue(bookkeeper, name, hs)
             fv.itemof[self] = True
         self.vparent = vparent
+        self.vparentindex = vparentindex
 
     def cast(self, TO):
         down_or_up = lltype.castable(TO,
@@ -119,7 +120,7 @@ class VirtualStructDef(AbstractContainerDef):
         incompatible = False
         if self.vparent is not None:
             if other.vparent is not None:
-                if self.vparent.T != other.vparent.T:
+                if self.vparent.T != other.vparent.T or self.vparentindex != other.vparentindex:
                     incompatible = True
                 else:
                     self.vparent.union(other.vparent)
