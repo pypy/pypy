@@ -639,17 +639,24 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def WITH_CLEANUP(f):
         # see comment in END_FINALLY for stack state
-        w_unroller = f.valuestack.top(3)
+        w_exitfunc = f.valuestack.pop()
+        w_unroller = f.valuestack.top(2)
         unroller = f.space.interpclass_w(w_unroller)
         if (isinstance(unroller, pyframe.SuspendedUnroller)
             and isinstance(unroller.flowexc, pyframe.SApplicationException)):
-            f.valuestack.push(unroller.flowexc.operr.w_type)
-            f.valuestack.push(unroller.flowexc.operr.w_value)
-            f.valuestack.push(unroller.flowexc.operr.application_traceback)
+            operr = unroller.flowexc.operr
+            w_result = f.space.call_function(w_exitfunc,
+                                             operr.w_type,
+                                             operr.w_value,
+                                             operr.application_traceback)
+            if f.space.is_true(w_result):
+                # __exit__() returned True -> Swallow the exception.
+                f.valuestack.set_top(f.space.w_None, 2)
         else:
-            f.valuestack.push(f.space.w_None)
-            f.valuestack.push(f.space.w_None)
-            f.valuestack.push(f.space.w_None)
+            f.space.call_function(w_exitfunc,
+                                  f.space.w_None,
+                                  f.space.w_None,
+                                  f.space.w_None)
                       
     def call_function(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff

@@ -574,7 +574,7 @@ class CodeGenerator(ast.ASTVisitor):
             self.nextBlock(body)
             self._implicitNameOp('LOAD', var)
             self._implicitNameOp('DELETE', var)
-            node.var.accept(self)
+            node.var.accept(self) 
         else:
             self.emit('POP_TOP')
             self.emitop_block('SETUP_FINALLY', finally_block)
@@ -593,8 +593,6 @@ class CodeGenerator(ast.ASTVisitor):
         self._implicitNameOp('DELETE', exit)
 
         self.emit('WITH_CLEANUP')
-        self.emitop_int('CALL_FUNCTION', 3)
-        self.emit('POP_TOP')
         self.emit('END_FINALLY')
         self.setups.pop()
 

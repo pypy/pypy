@@ -257,7 +257,7 @@ class AppTestCondExpr:
             assert x == expected
 
 class AppTestWith:
-    def test_with_1(self):
+    def test_with_simple(self):
 
         s = """from __future__ import with_statement
 if 1:        
@@ -291,7 +291,7 @@ if 1:
 
         assert acontext.calls == '__context__ __enter__ __exit__'.split()
         
-    def test_with_2(self):
+    def test_with_as_var(self):
 
         s = """from __future__ import with_statement
 if 1:
@@ -327,7 +327,7 @@ if 1:
         assert acontextfact.exit_params == (None, None, None)
         assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
         
-    def test_with_3(self):
+    def test_with_raise_exception(self):
 
         s = """from __future__ import with_statement
 if 1:
@@ -371,8 +371,49 @@ if 1:
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
         assert isinstance(acontextfact.exit_params[2], types.TracebackType)
-        
-    def test_with_4(self):
+
+    def test_with_swallow_exception(self):
+
+        s = """from __future__ import with_statement
+if 1:
+        class ContextFactory:
+
+            class Context:
+                def __init__(self, factory):
+                    self.factory = factory
+
+                def __enter__(self):
+                    self.factory.calls.append('__enter__')
+                    return self.factory.calls
+
+                def __exit__(self, exc_type, exc_value, exc_tb):
+                    self.factory.calls.append('__exit__')
+                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
+                    return True
+                
+            def __init__(self):
+                self.calls = list()
+                self.context = self.Context(self)
+
+            def __context__(self):
+                self.calls.append('__context__')
+                return self.context
+            
+        acontextfact = ContextFactory()
+        error = RuntimeError('With Test')
+        with acontextfact as avar:
+            avar.append('__body__')
+            raise error
+            avar.append('__after_raise__')
+        """
+        exec s
+
+        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
+        assert acontextfact.exit_params[0:2] == (RuntimeError, error)
+        import types
+        assert isinstance(acontextfact.exit_params[2], types.TracebackType)
+
+    def test_with_break(self):
 
         s = """from __future__ import with_statement
 if 1:
@@ -413,7 +454,7 @@ if 1:
         assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
-    def test_with_5(self):
+    def test_with_continue(self):
 
         s = """from __future__ import with_statement
 if 1:
@@ -445,7 +486,7 @@ if 1:
             with acontextfact as avar:
                 avar.append('__body__')
                 continue
-                avar.append('__after_break__')
+                avar.append('__after_continue__')
         else:
             avar.append('__continue__')
         """
@@ -454,8 +495,7 @@ if 1:
         assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __continue__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
-    def test_with_6(self):
-
+    def test_with_return(self):
         s = """from __future__ import with_statement
 if 1:
         class ContextFactory:
@@ -494,10 +534,10 @@ if 1:
         assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
-    def test_with_7(self):
+    def test_with_as_identifier(self):
         exec "with = 9"
 
-    def test_with_8(self):
+    def test_with_as_keyword(self):
         try:
             exec "from __future__ import with_statement\nwith = 9"
         except SyntaxError:
@@ -505,7 +545,7 @@ if 1:
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
 
-    def test_with_9(self):
+    def test_with_propagate_compileflag(self):
         s = """from __future__ import with_statement
 if 1:
         compile('''with x:
