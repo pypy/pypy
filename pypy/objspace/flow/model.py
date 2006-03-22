@@ -77,25 +77,25 @@ class FunctionGraph(object):
     def iterblocks(self):
         block = self.startblock
         yield block
-        seen = {id(block): True}
+        seen = {block: True}
         stack = list(block.exits[::-1])
         while stack:
             block = stack.pop().target
-            if id(block) not in seen:
+            if block not in seen:
                 yield block
-                seen[id(block)] = True
+                seen[block] = True
                 stack += block.exits[::-1]
 
     def iterlinks(self):
         block = self.startblock
-        seen = {id(block): True}
+        seen = {block: True}
         stack = list(block.exits[::-1])
         while stack:
             link = stack.pop()
             yield link
             block = link.target
-            if id(block) not in seen:
-                seen[id(block)] = True
+            if block not in seen:
+                seen[block] = True
                 stack += block.exits[::-1]
 
     def show(self):
