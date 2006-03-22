@@ -13,7 +13,7 @@ def not_const(s_obj): # xxx move it somewhere else
     if s_obj.is_constant():
         new_s_obj = annmodel.SomeObject()
         new_s_obj.__class__ = s_obj.__class__
-        new_s_obj.__dict__ = s_obj.__dict__
+        new_s_obj.__dict__ = s_obj.__dict__.copy()
         del new_s_obj.const
         s_obj = new_s_obj
     return s_obj
