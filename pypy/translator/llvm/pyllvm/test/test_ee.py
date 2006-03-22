@@ -31,24 +31,34 @@ def test_functions():
     ee.parse(codepath.join("hello.s").read())
     functions = ee.functions()
     assert len(functions) == 2
-    for ii in functions:
-        assert len(ii) == 3
-        assert ii[0] > 0
-        assert ii[1] in 'gethellostr', 'hello'
-        assert len(ii[2]) == 0
+    for function in functions:
+        returnId, name, args = function
+        assert len(function) == 3
+        assert returnId > 0
+        assert name in ('gethellostr', 'hello')
+        assert len(args) == 0
 
-def test_call1():
+def test_call_parse_once():
     ee = get_fresh_ee()
     ee.parse(codepath.join("hello.s").read())
     assert ee.call("hello") == 0
     assert ee.call("gethellostr") == "hello world\n"
-    try:
-        ee.call("gethellostrx")
-    except:
-        pass
-    try:
-        ee.call("gethellostr", 1)
-    except:
-        pass
+    py.test.raises(Exception, ee.call, "gethellostrx")
+    py.test.raises(Exception, ee.call, "gethellostr", 1)
+
+def test_call_parse_twice():
+    ee = get_fresh_ee()
+    ee.parse(codepath.join("hello.s").read())
+    assert ee.call("gethellostr") == "hello world\n"
     ee.parse(codepath.join("addnumbers.s").read())
     assert ee.call("add", 10, 32) == 42
+    assert ee.call("gethellostr") == "hello world\n"
+
+def TODOtest_call_between_parsed_code():
+    pass
+
+def TODOtest_share_data_between_parsed_code():
+    pass
+
+def TODOtest_delete_function():
+    pass
