@@ -1,16 +1,10 @@
 import py
 from pypy.translator.llvm.buildllvm import llvm_is_on_path
-
 if not llvm_is_on_path():
     py.test.skip("llvm not found")
 
-try:
-    from pypy.translator.llvm.pyllvm import pyllvm 
-except:
-    import sys
-    sys.argv = "setup.py build_ext -i".split()
-    from pypy.translator.llvm.pyllvm import setup
-    from pypy.translator.llvm.pyllvm import pyllvm 
+from pypy.translator.llvm.pyllvm.build import pyllvm
+
 
 def test_execution_engine():
     ee = pyllvm.get_ee()
