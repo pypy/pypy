@@ -11,6 +11,9 @@ from pypy.rpython.lltypesystem.lltype import \
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
 
+# I'm not absolutely sure, so just in case:
+NEED_OLD_EXTRA_REFS = True  # oupps seems to be
+
 class FunctionCodeGenerator(object):
     """
     Collects information about a function which we have to generate
@@ -455,7 +458,7 @@ class FunctionCodeGenerator(object):
         newvalue = self.expr(op.result, special_case_void=False)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result only for PyObjects
-        if T == PyObjPtr:
+        if NEED_OLD_EXTRA_REFS and T == PyObjPtr:
             result.append('Py_XINCREF(%s);' % newvalue)
         result = '\n'.join(result)
         if T is Void:
@@ -599,7 +602,7 @@ class FunctionCodeGenerator(object):
                                         cdecl(typename, ''),
                                         self.expr(op.args[0])))
 
-        if TYPE == PyObjPtr:
+        if NEED_OLD_EXTRA_REFS and TYPE == PyObjPtr:
             result.append('Py_XINCREF(%s);'%(LOCAL_VAR % op.result.name))
         return '\t'.join(result)
 
@@ -619,7 +622,7 @@ class FunctionCodeGenerator(object):
         if TYPE is not Void:
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
-            if TYPE == PyObjPtr:
+            if NEED_OLD_EXTRA_REFS and TYPE == PyObjPtr:
                 result.append('Py_XINCREF(%s);'%(LOCAL_VAR % op.result.name))
         return '\t'.join(result)
 
