@@ -34,7 +34,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="\python24\libs\python24_d.lib"
-				OutputFile="$(OutDir)/testing_1_d.pyd"
+				OutputFile="./testing_1_d.pyd"
 				LinkIncremental="2"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile="$(OutDir)/extension.pdb"
@@ -81,7 +81,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="\python24\libs\python24.lib"
-				OutputFile="$(OutDir)/testing_1.pyd"
+				OutputFile="./testing_1.pyd"
 				LinkIncremental="1"
 				GenerateDebugInformation="TRUE"
 				SubSystem="1"
@@ -208,10 +208,10 @@
 			</File>
 		</Filter>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-306\testing_1\common_header.h">
+			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-829\testing_1\common_header.h">
 		</File>
 		<File
-			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-306\testing_1\testing_1.c">
+			RelativePath="..\..\..\..\..\..\..\Documents and Settings\ctismer\Local Settings\Temp\usession-829\testing_1\testing_1.c">
 		</File>
 	</Files>
 	<Globals>
