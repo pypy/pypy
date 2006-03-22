@@ -39,15 +39,13 @@ class AddressRepr(Repr):
                          resulttype=lltype.Bool)
 
     def get_ll_eq_function(self):
-        def ll_eq(addr1, addr2):
-            return addr1 == addr2
-        return ll_eq
+        return None
 
     def get_ll_hash_function(self):
-        def ll_hash(addr1):
-            return cast_adr_to_int(addr1)
-        return ll_hash
+        return ll_addrhash
 
+def ll_addrhash(addr1):
+    return cast_adr_to_int(addr1)
 
 address_repr = AddressRepr()
 

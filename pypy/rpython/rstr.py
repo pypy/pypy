@@ -679,7 +679,7 @@ def ll_strcmp(s1, s2):
     return len1 - len2
 
 def ll_streq(s1, s2):
-    if not s1 and not s2:
+    if s1 == s2:       # also if both are NULLs
         return True
     if not s1 or not s2:
         return False
