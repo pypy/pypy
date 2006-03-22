@@ -107,6 +107,7 @@ class LowLevelDatabase(object):
         try:
             node = self.containernodes[container]
         except KeyError:
+            assert not self.completed
             T = typeOf(container)
             if isinstance(T, (lltype.Array, lltype.Struct)):
                 if hasattr(self.gctransformer, 'consider_constant'):
