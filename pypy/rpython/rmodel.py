@@ -126,10 +126,19 @@ class Repr:
                     self, value))
         return value
 
-    def get_ll_eq_function(self): 
+    def get_ll_eq_function(self):
+        """Return an eq(x,y) function to use to compare two low-level
+        values of this Repr.
+        This can return None to mean that simply using '==' is fine.
+        """
         raise TyperError, 'no equality function for %r' % self
 
     def get_ll_hash_function(self):
+        """Return a hash(x) function for low-level values of this Repr.
+        As a hint, the function can have a flag 'cache_in_dict=True' if it
+        makes non-trivial computations and its result should be cached in
+        dictionary entries.
+        """
         raise TyperError, 'no hashing function for %r' % self
 
     def rtype_bltn_list(self, hop):
@@ -174,6 +183,11 @@ class Repr:
         vobj, = hop.inputargs(self)
         # XXX
         return hop.genop('cast_ptr_to_int', [vobj], resulttype=Signed)
+
+    def rtype_hash(self, hop):
+        ll_hash = self.get_ll_hash_function()
+        v, = hop.inputargs(self)
+        return hop.gendirectcall(ll_hash, v)
 
     def rtype_iter(self, hop):
         r_iter = self.make_iterator_repr()

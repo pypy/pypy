@@ -246,6 +246,11 @@ class __extend__(SomeTuple):
     def getanyitem(tup):
         return unionof(*tup.items)
 
+    def hash(tup):
+        for s_item in tup.items:
+            s_item.hash()    # record that we need the hash of each item
+        return SomeInteger()
+
 
 class __extend__(SomeList):
 

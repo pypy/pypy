@@ -137,10 +137,6 @@ class __extend__(FloatRepr):
         from pypy.rpython.module.ll_strtod import ll_strtod_formatd
         return ll_strtod_formatd(percent_f, f)
 
-    def rtype_hash(_, hop):
-        v_flt, = hop.inputargs(float_repr)
-        return hop.gendirectcall(ll_hash_float, v_flt)
-
 percent_f = string_repr.convert_const("%f")
 
 TAKE_NEXT = float(2**31)
@@ -158,6 +154,8 @@ def ll_hash_float(f):
     v = (v - float(hipart)) * TAKE_NEXT
     x = hipart + int(v) + (expo << 15)
     return x
+ll_hash_float.cache_in_dict = True
+
 #
 # _________________________ Conversions _________________________
 

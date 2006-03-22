@@ -167,9 +167,6 @@ class AbstractInstanceRepr(Repr):
     def rtype_type(self, hop):
         pass
 
-    def rtype_hash(self, hop):
-        pass
-
     def rtype_getattr(self, hop):
         pass
 
@@ -181,6 +178,9 @@ class AbstractInstanceRepr(Repr):
 
     def ll_str(self, i):
         pass
+
+    def get_ll_eq_function(self):
+        return None    # defaults to compare by identity ('==' on pointers)
 
 # ____________________________________________________________
 

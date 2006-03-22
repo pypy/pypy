@@ -377,12 +377,9 @@ class InstanceRepr(AbstractInstanceRepr):
     def create_instance(self):
         return malloc(self.object_type, flavor=self.getflavor()) # pick flavor
 
-    def get_ll_eq_function(self):
-        return ll_inst_eq
-
     def get_ll_hash_function(self):
         if self.classdef is None:
-            return None
+            raise TyperError, 'missing hash support flag in classdef'
         if self.rtyper.needs_hash_support(self.classdef):
             try:
                 return self._ll_hash_function
@@ -499,15 +496,6 @@ class InstanceRepr(AbstractInstanceRepr):
             return hop.gendirectcall(ll_inst_type, vinst)
         else:
             return instance_repr.getfield(vinst, '__class__', hop.llops)
-
-    def rtype_hash(self, hop):
-        if self.classdef is None:
-            raise TyperError, "hash() not supported for this class"                        
-        if self.rtyper.needs_hash_support(self.classdef):
-            vinst, = hop.inputargs(self)
-            return hop.gendirectcall(ll_inst_hash, vinst)
-        else:
-            return self.rbase.rtype_hash(hop)
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
@@ -636,9 +624,6 @@ def ll_inst_hash(ins):
     if cached == 0:
        cached = ins.hash_cache = id(ins)
     return cached
-
-def ll_inst_eq(ins1, ins2):
-    return ins1 == ins2
 
 def ll_inst_type(obj):
     if obj:

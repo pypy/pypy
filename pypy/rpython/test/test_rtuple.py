@@ -200,3 +200,11 @@ def test_type_erase():
 
     assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
 
+
+def test_tuple_hash():
+    def f(i, j):
+        return hash((i, j))
+
+    res1 = interpret(f, [12, 27])
+    res2 = interpret(f, [27, 12])
+    assert res1 != res2

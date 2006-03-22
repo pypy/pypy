@@ -9,6 +9,7 @@ from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
+from pypy.rpython.rarithmetic import intmask
 
 # ____________________________________________________________
 #
@@ -56,6 +57,7 @@ def ll_eq(t1, t2):
         return ll_eq
 
 def gen_hash_function(items_r):
+    # based on CPython
     hash_funcs = [r_item.get_ll_hash_function() for r_item in items_r]
     key = tuple(hash_funcs)
     try:
@@ -64,18 +66,22 @@ def gen_hash_function(items_r):
         miniglobals = {}
         source = """
 def ll_hash(t):
-    retval = 0
+    retval = 0x345678
     %s
     return retval
 """
         body = []
+        mult = 1000003
         for i, hash_func in enumerate(hash_funcs):
             miniglobals['hash%d' % i] = hash_func
-            body.append("retval ^= hash%d(t.item%d)" % (i,i))
+            body.append("retval = (retval ^ hash%d(t.item%d)) * %d" %
+                        (i, i, mult))
+            mult = intmask(mult + 82520 + 2*len(items_r))
         body = ('\n'+' '*4).join(body)
         source = source % body
         exec source in miniglobals
         ll_hash = miniglobals['ll_hash']
+        ll_hash.cache_in_dict = True
         _gen_hash_function_cache[key] = ll_hash
         return ll_hash
 

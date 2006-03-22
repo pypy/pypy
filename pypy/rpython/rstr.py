@@ -99,10 +99,6 @@ class __extend__(StringRepr):
         v_chr = hop.gendirectcall(ll_stritem_nonneg, v_str, c_zero)
         return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
 
-    def rtype_hash(_, hop):
-        v_str, = hop.inputargs(string_repr)
-        return hop.gendirectcall(ll_strhash, v_str)
-
     def rtype_method_startswith(_, hop):
         v_str, v_value = hop.inputargs(string_repr, string_repr)
         hop.exception_cannot_occur()

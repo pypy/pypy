@@ -328,6 +328,9 @@ class InstanceRepr(AbstractInstanceRepr):
                         graph=graph)
         ootype.addMethods(self.lowleveltype, {mangled: m})
 
+    def get_ll_hash_function(self):
+        return ll_inst_hash
+
     def rtype_getattr(self, hop):
         v_inst, _ = hop.inputargs(self, ootype.Void)
         s_inst = hop.args_s[0]
@@ -375,15 +378,6 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             cmeta = inputconst(ootype.Void, "meta")
             return hop.genop('oogetfield', [vinst, cmeta], resulttype=CLASSTYPE)
-
-    def rtype_hash(self, hop):
-        if self.classdef is None:
-            raise TyperError, "hash() not supported for this class"
-        if self.rtyper.needs_hash_support(self.classdef):
-            vinst, = hop.inputargs(self)
-            return hop.gendirectcall(ll_inst_hash, vinst)
-        else:
-            return self.baserepr.rtype_hash(hop)
 
     def rtype_id(self, hop):
         vinst, = hop.inputargs(self)
