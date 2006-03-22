@@ -74,10 +74,10 @@ exceedingly ugly and inefficient approach of keeping our own stack of
 root pointers.
 
 And then we banged our heads against the usual obscure bugs and
-finally made it work.  It turns out that debugging C that's generated
-Python code that manipulates memory addresses directly is hard on the
-brain... we need to get back to being able to run everything on the
-memory simulator.
+finally made it work.  It turns out that debugging C that is generated
+from Python code that manipulates memory addresses directly is hard on
+the brain... we need to get back to being able to run everything on
+the memory simulator.
 
 JIT Status
 ==========
