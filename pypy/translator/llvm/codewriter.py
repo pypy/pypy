@@ -4,6 +4,7 @@ log = log.codewriter
 
 DEFAULT_TAIL     = ''       #/tail
 DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
+DEFAULT_LINKAGE  = ''       #/internal (disabled for now because of the JIT)
 
 class CodeWriter(object): 
     def __init__(self, file, db): 
@@ -59,8 +60,8 @@ class CodeWriter(object):
         self.newline()
         self._append("    %s:" % name)
 
-    def globalinstance(self, name, typeandata):
-        self._append("%s = %s global %s" % (name, "internal", typeandata))
+    def globalinstance(self, name, typeandata, linkage=DEFAULT_LINKAGE):
+        self._append("%s = %sglobal %s" % (name, linkage, typeandata))
 
     def typedef(self, name, type_):
         self._append("%s = type %s" % (name, type_))
@@ -99,9 +100,9 @@ class CodeWriter(object):
         self._indent("switch %s %s, label %%%s [%s ]"
                      % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl, cconv=DEFAULT_CCONV): 
+    def openfunc(self, decl, cconv=DEFAULT_CCONV, linkage=DEFAULT_LINKAGE): 
         self.newline()
-        self._append("internal %s %s {" % (cconv, decl,))
+        self._append("%s%s %s {" % (linkage, cconv, decl,))
 
     def closefunc(self): 
         self._append("}") 
