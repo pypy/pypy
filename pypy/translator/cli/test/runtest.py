@@ -8,6 +8,11 @@ from pypy.translator.cli import conftest
 from pypy.translator.cli.gencli import GenCli
 from pypy.translator.cli.function import Node
 from pypy.translator.cli.cts import graph_to_signature
+from pypy.translator.cli.cts import llvar_to_cts
+
+def check(func, annotation, args):
+    mono = compile_function(func, annotation)
+    assert func(*args) == mono(*args)
 
 class TestEntryPoint(Node):
     """
@@ -24,15 +29,19 @@ class TestEntryPoint(Node):
     def render(self, ilasm):
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True)
 
-        # TODO: add support for non-int32 types
+        # TODO: only int32 and bool are tested
         for i, arg in enumerate(self.graph.getargs()):
             ilasm.opcode('ldarg.0')
             ilasm.opcode('ldc.i4.%d' % i)
             ilasm.opcode('ldelem.ref')
-            ilasm.call('int32 class [mscorlib]System.Convert::ToInt32(string)')
+            arg_type, arg_var = llvar_to_cts(arg)
+            ilasm.call('int32 class [mscorlib]System.Convert::To%s(string)' % arg_type.capitalize())
 
         ilasm.call(graph_to_signature(self.graph))
-        ilasm.call('void class [mscorlib]System.Console::WriteLine(int32)')
+
+        # print the result using the appropriate WriteLine overload
+        ret_type, ret_var = llvar_to_cts(self.graph.getreturnvar())
+        ilasm.call('void class [mscorlib]System.Console::WriteLine(%s)' % ret_type)
         ilasm.opcode('ret')
         ilasm.end_function()
 
@@ -89,7 +98,6 @@ class compile_function:
         return tmpfile.replace('.il', '.exe')
 
     def __call__(self, *args):
-        # NB: only integers arguments are supported currently
         if self._exe is None:
             py.test.skip("Compilation disabled")
 
@@ -99,4 +107,11 @@ class compile_function:
         stdout, stderr = mono.communicate()
         retval = mono.wait()
         assert retval == 0, stderr
-        return int(stdout)
+
+        ret_type, ret_var = llvar_to_cts(self.graph.getreturnvar())
+        if ret_type == 'int32':
+            return int(stdout)
+        elif ret_type == 'bool':
+            return stdout.strip().lower() == 'true'
+        else:
+            assert False, 'Return type %s is not supported' % ret_type

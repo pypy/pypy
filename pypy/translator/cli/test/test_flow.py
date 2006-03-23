@@ -1,5 +1,5 @@
 from pypy.translator.test import snippet as s
-from pypy.translator.cli.test.runtest import compile_function
+from pypy.translator.cli.test.runtest import check
 
 def fibo(n):
     """Compute the (n+1)th Fibonacci's number"""
@@ -15,13 +15,13 @@ snippets = [
     [s.if_then_else, [int, int, int], (0, 42, 43), (1, 42, 43)],
     [s.simple_func, [int], (42,)],
     [s.while_func, [int], (0,), (13,)],
-    [fibo, [int], (0,), (1,), (10,)]
+    [fibo, [int], (0,), (1,), (10,)],
+    [s.my_bool, [int], (0,), (42,)],
+    [s.my_gcd, [int, int], (30, 18)],
+    [s.is_perfect_number, [int], (28,), (27,)],
     ]
 
 
-def check(func, annotation, args):
-    mono = compile_function(func, annotation)
-    assert func(*args) == mono(*args)
 
 def test_snippets():
     for item in snippets:

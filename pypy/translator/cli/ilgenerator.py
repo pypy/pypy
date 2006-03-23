@@ -67,13 +67,13 @@ class IlasmGenerator(object):
         self.code.writeline()
 
     def branch(self, lbl):
-        self.code.writeline('br.s ' + lbl)
+        self.code.writeline('br ' + lbl)
 
     def branch_if(self, cond, lbl):
         if cond:
-            opcode = 'brtrue.s '
+            opcode = 'brtrue '
         else:
-            opcode = 'brfalse.s '
+            opcode = 'brfalse '
 
         self.code.writeline(opcode + lbl)
 

@@ -2,22 +2,13 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.cli import conftest
 from pypy.translator.cli import cts
+from pypy.translator.cli.opcodes import opcodes, DoNothing, PushArgs
 
 from pypy.tool.ansi_print import ansi_log
 import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
-
-DoNothing = object()
-opcodes = {
-    'int_add': 'add',
-    'int_sub': 'sub',
-    'int_gt': 'cgt',
-    'int_lt': 'clt',
-    'int_is_true': DoNothing,
-    'same_as': DoNothing, # TODO: does same_as really do nothing else than renaming?
-    }
 
 class Node(object):
     def get_name(self):
@@ -77,6 +68,14 @@ class Function(Node):
                     self._push(block.exitswitch)
                     self.ilasm.branch_if(link.exitcase, target_label)
 
+        # add a block that will never be executed, just to please the
+        # .NET runtime that seems to need a return statement at the
+        # end of the function
+        if returntype != 'void':
+            self.ilasm.opcode('ldc.i4.0')
+
+        self.ilasm.opcode('ret')
+        
         ilasm.end_function()
 
     def _set_locals(self):
@@ -132,12 +131,11 @@ class Function(Node):
         opname = op.opname
 
         cli_opcode = opcodes.get(opname, None)
-        if cli_opcode is DoNothing:
-            # simply rename the variable
+        if cli_opcode is DoNothing: # simply rename the variable
             self._push(op.args[0])
             self._store(op.result)
         elif cli_opcode is not None:
-            self._simple_op(cli_opcode, op)
+            self._render_cli_opcode(cli_opcode, op)
         elif opname == 'direct_call':
             self._call(op)
         else:
@@ -146,6 +144,22 @@ class Function(Node):
                 self.ilasm.opcode(str(op))
             else:
                 assert False, 'Unknown opcode: %s ' % op
+
+    def _render_cli_opcode(self, cli_opcode, op):
+        if type(cli_opcode) is str:
+            instructions = [PushArgs, cli_opcode]
+        else:
+            instructions = cli_opcode
+
+        for instr in instructions:
+            if instr is PushArgs:
+                for arg in op.args:
+                    self._push(arg)
+            else:
+                self.ilasm.opcode(instr)
+
+        self._store(op.result)
+
 
     def _call(self, op):
         func_name = cts.graph_to_signature(op.args[0].value.graph)
@@ -156,23 +170,13 @@ class Function(Node):
 
         self.ilasm.call(func_name)
         self._store(op.result)
-        
-
-    def _simple_op(self, cli_opcode, op):
-        # push arg on stack
-        for arg in op.args:
-            self._push(arg)
-
-        # compute and store value
-        self.ilasm.opcode(cli_opcode)
-        self._store(op.result)
 
     def _push(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.name in self.argset:
-                self.ilasm.opcode('ldarg.s', repr(v.name))
+                self.ilasm.opcode('ldarg', repr(v.name))
             else:
-                self.ilasm.opcode('ldloc.s', repr(v.name))
+                self.ilasm.opcode('ldloc', repr(v.name))
 
         elif isinstance(v, flowmodel.Constant):
             iltype, ilvalue = cts.llconst_to_ilasm(v)
@@ -182,6 +186,6 @@ class Function(Node):
 
     def _store(self, v):
         if isinstance(v, flowmodel.Variable):
-            self.ilasm.opcode('stloc.s', repr(v.name))
+            self.ilasm.opcode('stloc', repr(v.name))
         else:
             assert False

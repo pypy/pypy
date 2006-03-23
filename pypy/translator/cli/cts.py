@@ -18,7 +18,8 @@ _lltype_to_cts = {
     }
 
 _cts_to_ilasm = {
-    'int32': 'i4'
+    'int32': 'i4',
+    'bool': 'i4'
     }
 
 def lltype_to_cts(t):
@@ -48,7 +49,11 @@ def llconst_to_cts(const):
     return lltype_to_cts(const.concretetype), const.value
 
 def llconst_to_ilasm(const):
-    return lltype_to_ilasm(const.concretetype), const.value
+    ilasm_type = lltype_to_ilasm(const.concretetype)
+    if const.concretetype is Bool:
+        return ilasm_type, int(const.value)
+    else:
+        return ilasm_type, const.value
 
 def graph_to_signature(graph):
     ret_type, ret_var = llvar_to_cts(graph.getreturnvar())
