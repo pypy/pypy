@@ -80,6 +80,16 @@ class __extend__(StringRepr):
     def get_ll_hash_function(self):
         return ll_strhash
 
+    def get_ll_fasthash_function(self):
+        return ll_strfasthash
+
+    def can_ll_be_null(self, s_value):
+        if self is string_repr:
+            return s_value.can_be_none()
+        else:
+            return True     # for CharRepr/UniCharRepr subclasses,
+                            # where NULL is always valid: it is chr(0)
+
     def rtype_len(_, hop):
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strlen, v_str)
@@ -404,6 +414,8 @@ class __extend__(CharRepr):
     def get_ll_hash_function(self):
         return ll_char_hash
 
+    get_ll_fasthash_function = get_ll_hash_function
+
     def ll_str(self, ch):
         return ll_chr2str(ch)
 
@@ -475,6 +487,8 @@ class __extend__(UniCharRepr):
 
     def get_ll_hash_function(self):
         return ll_unichar_hash
+
+    get_ll_fasthash_function = get_ll_hash_function
 
 ##    def rtype_len(_, hop):
 ##        return hop.inputconst(Signed, 1)
@@ -640,6 +654,9 @@ def ll_strhash(s):
         x = _hash_string(s.chars)
         s.hash = x
     return x
+
+def ll_strfasthash(s):
+    return s.hash     # assumes that the hash is already computed
 
 def ll_strconcat(s1, s2):
     len1 = len(s1.chars)

@@ -44,6 +44,8 @@ class AddressRepr(Repr):
     def get_ll_hash_function(self):
         return ll_addrhash
 
+    get_ll_fasthash_function = get_ll_hash_function
+
 def ll_addrhash(addr1):
     return cast_adr_to_int(addr1)
 

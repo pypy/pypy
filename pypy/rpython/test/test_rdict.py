@@ -123,7 +123,7 @@ def test_deleted_entry_reusage_with_colliding_hashes():
 
     res = interpret(func2, [ord(x), ord(y)])
     for i in range(len(res.entries)): 
-        assert not (res.entries[i].everused and not res.entries[i].valid)
+        assert not (res.entries[i].everused() and not res.entries[i].valid())
 
     def func3(c0, c1, c2, c3, c4, c5, c6, c7):
         d = {}
@@ -143,7 +143,7 @@ def test_deleted_entry_reusage_with_colliding_hashes():
                                for i in range(rdict.DICT_INITSIZE)])
     count_frees = 0
     for i in range(len(res.entries)):
-        if not res.entries[i].everused:
+        if not res.entries[i].everused():
             count_frees += 1
     assert count_frees >= 3
 
@@ -437,6 +437,7 @@ def not_really_random():
     Could be useful to detect problems associated with specific usage patterns."""
     import random
     x = random.random()
+    print 'random seed: %r' % (x,)
     for i in range(12000):
         r = 3.4 + i/20000.0
         x = r*x - x*x
@@ -444,9 +445,13 @@ def not_really_random():
         yield x
 
 def test_stress():
-    dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr)
+    from pypy.annotation.dictdef import DictKey, DictValue
+    from pypy.annotation import model as annmodel
+    dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
+                              DictKey(None, annmodel.SomeInteger()),
+                              DictValue(None, annmodel.SomeInteger()))
     dictrepr.setup()
-    l_dict = rdict.ll_newdict(dictrepr)
+    l_dict = rdict.ll_newdict(dictrepr.DICT)
     referencetable = [None] * 400
     referencelength = 0
     value = 0
@@ -454,7 +459,7 @@ def test_stress():
     def complete_check():
         for n, refvalue in zip(range(len(referencetable)), referencetable):
             try:
-                gotvalue = rdict.ll_dict_getitem(l_dict, n, dictrepr)
+                gotvalue = rdict.ll_dict_getitem(l_dict, n)
             except KeyError:
                 assert refvalue is None
             else:
@@ -464,18 +469,18 @@ def test_stress():
         n = int(x*100.0)    # 0 <= x < 400
         op = repr(x)[-1]
         if op <= '2' and referencetable[n] is not None:
-            rdict.ll_dict_delitem(l_dict, n, dictrepr)
+            rdict.ll_dict_delitem(l_dict, n)
             referencetable[n] = None
             referencelength -= 1
         elif op <= '6':
-            rdict.ll_dict_setitem(l_dict, n, value, dictrepr)
+            rdict.ll_dict_setitem(l_dict, n, value)
             if referencetable[n] is None:
                 referencelength += 1
             referencetable[n] = value
             value += 1
         else:
             try:
-                gotvalue = rdict.ll_dict_getitem(l_dict, n, dictrepr)
+                gotvalue = rdict.ll_dict_getitem(l_dict, n)
             except KeyError:
                 assert referencetable[n] is None
             else:
@@ -485,6 +490,94 @@ def test_stress():
             print 'current dict length:', referencelength
         assert l_dict.num_items == referencelength
     complete_check()
+
+# ____________________________________________________________
+
+def test_opt_nullkeymarker():
+    def f():
+        d = {"hello": None}
+        d["world"] = None
+        return "hello" in d, d
+    res = interpret(f, [])
+    assert res.item0 == True
+    DICT = lltype.typeOf(res.item1).TO
+    assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None string keys
+    assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strings have a dummy
+
+def test_opt_nullvaluemarker():
+    def f(n):
+        d = {-5: "abcd"}
+        d[123] = "def"
+        return len(d[n]), d
+    res = interpret(f, [-5])
+    assert res.item0 == 4
+    DICT = lltype.typeOf(res.item1).TO
+    assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None str values
+    assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
+
+def test_opt_nonullmarker():
+    class A:
+        pass
+    def f(n):
+        if n > 5:
+            a = A()
+        else:
+            a = None
+        d = {a: -5441}
+        d[A()] = n+9872
+        return d[a], d
+    res = interpret(f, [-5])
+    assert res.item0 == -5441
+    DICT = lltype.typeOf(res.item1).TO
+    assert hasattr(DICT.entries.TO.OF, 'f_everused') # can-be-None A instances
+    assert not hasattr(DICT.entries.TO.OF, 'f_valid')# with a dummy A instance
+
+    res = interpret(f, [6])
+    assert res.item0 == -5441
+
+def test_opt_nonnegint_dummy():
+    def f(n):
+        d = {n: 12}
+        d[-87] = 24
+        del d[n]
+        return len(d.copy()), d[-87], d
+    res = interpret(f, [5])
+    assert res.item0 == 1
+    assert res.item1 == 24
+    DICT = lltype.typeOf(res.item2).TO
+    assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
+    assert not hasattr(DICT.entries.TO.OF, 'f_valid')# nonneg int: dummy -1
+
+def test_opt_no_dummy():
+    def f(n):
+        d = {n: 12}
+        d[-87] = -24
+        del d[n]
+        return len(d.copy()), d[-87], d
+    res = interpret(f, [5])
+    assert res.item0 == 1
+    assert res.item1 == -24
+    DICT = lltype.typeOf(res.item2).TO
+    assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
+    assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
+
+def test_opt_multiple_identical_dicts():
+    def f(n):
+        s = "x" * n
+        d1 = {s: 12}
+        d2 = {s: 24}
+        d3 = {s: 36}
+        d1["a"] = d2[s]   # 24
+        d3[s] += d1["a"]  # 60
+        d2["bc"] = d3[s]  # 60
+        return d2["bc"], d1, d2, d3
+    res = interpret(f, [5])
+    assert res.item0 == 60
+    # all three dicts should use the same low-level type
+    assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
+    assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
+
+# ____________________________________________________________
 
 def test_id_instances_keys():
     class A:
@@ -560,4 +653,14 @@ def test_tuple_dict():
     res = interpret(f, [2])
     assert res == f(2)
         
-        
+def test_dict_of_dict():
+    def f(n):
+        d = {}
+        d[5] = d
+        d[6] = {}
+        return len(d[n])
+
+    res = interpret(f, [5])
+    assert res == 2
+    res = interpret(f, [6])
+    assert res == 0

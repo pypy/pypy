@@ -620,6 +620,8 @@ def ll_runtime_type_info(obj):
     return obj.typeptr.rtti
 
 def ll_inst_hash(ins):
+    if not ins:
+        return 0    # for None
     cached = ins.hash_cache
     if cached == 0:
        cached = ins.hash_cache = id(ins)

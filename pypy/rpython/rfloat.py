@@ -154,8 +154,6 @@ def ll_hash_float(f):
     v = (v - float(hipart)) * TAKE_NEXT
     x = hipart + int(v) + (expo << 15)
     return x
-ll_hash_float.cache_in_dict = True
-
 #
 # _________________________ Conversions _________________________
 

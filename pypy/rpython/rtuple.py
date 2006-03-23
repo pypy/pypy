@@ -81,7 +81,6 @@ def ll_hash(t):
         source = source % body
         exec source in miniglobals
         ll_hash = miniglobals['ll_hash']
-        ll_hash.cache_in_dict = True
         _gen_hash_function_cache[key] = ll_hash
         return ll_hash
 
@@ -126,6 +125,9 @@ class TupleRepr(Repr):
 
     def get_ll_hash_function(self):
         return gen_hash_function(self.items_r)    
+
+    def can_ll_be_null(self, s_value):
+        return False
 
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))

@@ -59,6 +59,7 @@ class RPythonTyper:
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
         self.oo_meth_impls = {}
+        self.cache_dummy_values = {}
         self.typererrors = []
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping

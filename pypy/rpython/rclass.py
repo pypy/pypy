@@ -182,6 +182,9 @@ class AbstractInstanceRepr(Repr):
     def get_ll_eq_function(self):
         return None    # defaults to compare by identity ('==' on pointers)
 
+    def can_ll_be_null(self, s_value):
+        return s_value.can_be_none()
+
 # ____________________________________________________________
 
 def rtype_new_instance(rtyper, classdef, llops):

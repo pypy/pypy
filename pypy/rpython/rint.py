@@ -225,6 +225,17 @@ class __extend__(IntegerRepr):
     def get_ll_hash_function(self):
         return ll_hash_int
 
+    get_ll_fasthash_function = get_ll_hash_function
+
+    def get_ll_dummyval_obj(self, rtyper, s_value):
+        # if >= 0, then all negative values are special
+        if s_value.nonneg and not s_value.unsigned:
+            return signed_repr    # whose ll_dummy_value is -1
+        else:
+            return None
+
+    ll_dummy_value = -1
+
     def rtype_chr(_, hop):
         vlist =  hop.inputargs(Signed)
         if hop.has_implicit_exception(ValueError):
@@ -416,8 +427,10 @@ def ll_int2oct(i, addPrefix):
         j += 1
     return result
 
-def ll_hash_int(n):
+def ll_identity(n):
     return n
+
+ll_hash_int = ll_identity
 
 def ll_check_chr(n):
     if 0 <= n <= 255:

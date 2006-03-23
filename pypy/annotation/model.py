@@ -28,7 +28,7 @@ generic element in some specific subset of the set of all objects.
 #
 
 
-from types import BuiltinFunctionType, MethodType
+from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
@@ -582,6 +582,11 @@ def ll_to_annotation(v):
         ll_ptrtype = lltype.typeOf(v.im_self)
         assert isinstance(ll_ptrtype, lltype.Ptr)
         return SomeLLADTMeth(ll_ptrtype, v.im_func)
+    if isinstance(v, FunctionType):
+        # this case should only be for staticmethod instances used in
+        # adtmeths: the getattr() result is then a plain FunctionType object.
+        from pypy.annotation.bookkeeper import getbookkeeper
+        return getbookkeeper().immutablevalue(v)
     return lltype_to_annotation(lltype.typeOf(v))
     
 # ____________________________________________________________

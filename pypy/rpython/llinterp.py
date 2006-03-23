@@ -449,20 +449,17 @@ class LLFrame(object):
 
     def op_getfield(self, obj, field):
         assert checkptr(obj)
-        result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
-        # the former returns the real field, the latter a pointer to it
-        assert lltype.typeOf(result) == getattr(lltype.typeOf(obj).TO, field)
-        return result
+        assert not isinstance(getattr(lltype.typeOf(obj).TO, field),
+                              lltype.ContainerType)
+        return getattr(obj, field)
 
     def op_getsubstruct(self, obj, field):
         assert checkptr(obj)
-        result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
-        # the former returns the real field, the latter a pointer to it
-        assert (lltype.typeOf(result) ==
-                lltype.Ptr(getattr(lltype.typeOf(obj).TO, field)))
-        return result
+        assert isinstance(getattr(lltype.typeOf(obj).TO, field),
+                          lltype.ContainerType)
+        return getattr(obj, field)
 
     def op_getarraysubstruct(self, array, index):
         assert checkptr(array)

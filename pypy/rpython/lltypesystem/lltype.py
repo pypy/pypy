@@ -686,9 +686,17 @@ class _ptr(object):
                 o = getattr(self._obj, field_name)
                 return _expose(o, self._solid)
         if isinstance(self._T, ContainerType):
-            adtmeth = self._T._adtmeths.get(field_name)
-            if adtmeth is not None:
-                return adtmeth.__get__(self)
+            try:
+                adtmeth = self._T._adtmeths[field_name]
+            except KeyError:
+                pass
+            else:
+                try:
+                    getter = adtmeth.__get__
+                except AttributeError:
+                    return adtmeth
+                else:
+                    return getter(self)
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 
@@ -1119,6 +1127,31 @@ def enforce(TYPE, value):
 def typeMethod(func):
     func._type_method = True
     return func
+
+class staticAdtMethod(object):
+    # Like staticmethod(), but for ADT methods.  The difference is only
+    # that this version compares and hashes correctly, unlike CPython's.
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __get__(self, inst, typ=None):
+        return self.obj
+
+    def __hash__(self):
+        return hash(self.obj)
+
+    def __eq__(self, other):
+        if not isinstance(other, staticAdtMethod):
+            return NotImplemented
+        else:
+            return self.obj == other.obj
+
+    def __ne__(self, other):
+        if not isinstance(other, staticAdtMethod):
+            return NotImplemented
+        else:
+            return self.obj != other.obj
+
 
 def dissect_ll_instance(v, t=None, memo=None):
     if memo is None:
