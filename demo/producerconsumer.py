@@ -11,23 +11,23 @@ def generate(n, limit):
     print "generate", n, limit
     if n < limit:
         return (n, generate(n + 1, limit))
-    return (None, None)
+    return None
 
 def sum(L, a):
     print "sum", a
-    head, Tail = newvar(), newvar()
-    L == (head, Tail)
-    if head != None:
-        return sum(Tail, head + a)
-    return a
+    Head, Tail = newvar(), newvar()
+    unify(L, (Head, Tail))
+    if Tail != None:
+        return sum(Tail, Head + a)
+    return a + Head
 
 print "eager producer consummer"
 print "before"
 X = newvar()
 S = newvar()
-S == uthread(sum, X, 0)
-X == uthread(generate, 0, 10)
+bind(S, uthread(sum, X, 0))
+unify(X, uthread(generate, 0, 10))
 print "after"
 
-print S
-
+assert S == 45
+print S # needs a special treatment

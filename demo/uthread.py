@@ -10,11 +10,11 @@ variable, the current uthread is blocked, until the variable is bound.
 X = newvar()
 Y = newvar()
 
-Y == X
+bind(Y, X) # aliasing
 
 def f():
     print "starting"
-    print is_unbound(X)
+    print is_free(X)
     if Y:
         print "ok"
         return
@@ -22,7 +22,7 @@ def f():
     return
 
 def bind():
-    X == 1
+    unify(X, 1)
 
 uthread(f)
 print "afterwards"
