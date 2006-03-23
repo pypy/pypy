@@ -12,7 +12,7 @@ PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
 
 # I'm not absolutely sure, so just in case:
-NEED_OLD_EXTRA_REFS = True  # oupps seems to be
+NEED_OLD_EXTRA_REFS = False
 
 class FunctionCodeGenerator(object):
     """
