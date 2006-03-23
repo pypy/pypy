@@ -194,6 +194,7 @@ class DictRepr(rmodel.Repr):
                     'keyeq':          ll_keyeq_custom,
                     'r_rdict_eqfn':   self.r_rdict_eqfn,
                     'r_rdict_hashfn': self.r_rdict_hashfn,
+                    'paranoia':       True,
                     }
             else:
                 # figure out which functions must be used to hash and compare
@@ -203,8 +204,9 @@ class DictRepr(rmodel.Repr):
                 if ll_keyeq is not None:
                     ll_keyeq = lltype.staticAdtMethod(ll_keyeq)
                 adtmeths = {
-                    'keyhash': ll_keyhash,
-                    'keyeq':   ll_keyeq,
+                    'keyhash':  ll_keyhash,
+                    'keyeq':    ll_keyeq,
+                    'paranoia': False,
                     }
             self.DICT.become(lltype.GcStruct("dicttable", adtmeths=adtmeths,
                                              *fields))
@@ -507,6 +509,7 @@ def ll_dict_resize(d):
 PERTURB_SHIFT = 5
 
 def ll_dict_lookup(d, key, hash):
+    DICT = lltype.typeOf(d).TO
     entries = d.entries
     mask = len(entries) - 1
     i = r_uint(hash & mask) 
@@ -520,7 +523,7 @@ def ll_dict_lookup(d, key, hash):
             # correct hash, maybe the key is e.g. a different pointer to
             # an equal object
             found = d.keyeq(checkingkey, key)
-            if 1:      # XXX not always needed
+            if DICT.paranoia:
                 if (entries != d.entries or
                     not entry.valid() or entry.key != checkingkey):
                     # the compare did major nasty stuff to the dict: start over
@@ -549,7 +552,7 @@ def ll_dict_lookup(d, key, hash):
                 # correct hash, maybe the key is e.g. a different pointer to
                 # an equal object
                 found = d.keyeq(checkingkey, key)
-                if 1:      # XXX not always needed
+                if DICT.paranoia:
                     if (entries != d.entries or
                         not entry.valid() or entry.key != checkingkey):
                         # the compare did major nasty stuff to the dict:
