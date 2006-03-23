@@ -23,7 +23,10 @@ def check(f, g, *args):
 
 
 def bar(x, y):
-    return x>>3 + y<<2
+    if x>y:
+        return x
+    else:
+        return y
 
 
 

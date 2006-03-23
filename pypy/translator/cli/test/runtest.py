@@ -1,5 +1,6 @@
 import os
 import subprocess
+import platform
 
 import py
 from pypy.tool.udir import udir
@@ -46,8 +47,6 @@ class TestEntryPoint(Node):
         ilasm.end_function()
 
 
-
-
 class compile_function:
     def __init__(self, func, annotation=[], graph=None):
         self._func = func
@@ -83,9 +82,16 @@ class compile_function:
 
     def __check_helper(self, helper):
         try:
-            py.path.local.sysfind(helper) # TODO: support windows
+            py.path.local.sysfind(helper)
         except py.error.ENOENT:
             py.test.skip("%s is not on your path." % helper)
+
+    def __get_runtime(self):
+        if platform.system() == 'Windows':
+            return []
+        else:
+            self.__check_helper('mono')
+            return ['mono']
 
     def _build_exe(self):        
         tmpfile = self._gen.generate_source()
@@ -101,8 +107,8 @@ class compile_function:
         if self._exe is None:
             py.test.skip("Compilation disabled")
 
-        self.__check_helper("mono")
-        arglist = ["mono", self._exe] + map(str, args)
+        runtime = self.__get_runtime()
+        arglist = runtime + [self._exe] + map(str, args)
         mono = subprocess.Popen(arglist, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = mono.communicate()
         retval = mono.wait()

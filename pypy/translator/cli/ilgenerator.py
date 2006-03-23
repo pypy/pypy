@@ -37,6 +37,7 @@ class IlasmGenerator(object):
     def __init__(self, outfile, name):
         self.out = outfile
         self.code = CodeGenerator(self.out)
+        self.code.writeline('.assembly extern mscorlib {}')
         self.code.writeline('.assembly %s {}' % name)
 
     def close(self):
@@ -57,7 +58,7 @@ class IlasmGenerator(object):
 
     def locals(self, vars):
         varlist = ', '.join(['%s %s' % var for var in vars])        
-        self.code.write('.locals (')
+        self.code.write('.locals init (')
         self.code.write(varlist)
         self.code.writeline(')')
 
