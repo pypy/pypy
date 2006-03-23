@@ -27,15 +27,59 @@ typedef struct {
 } PyExecutionEngine;
 
 
+/*
+XXX we should probably support parsing one function at a time too.
+This would enable use to use self->exec->recompileAndRelinkFunction(Function* F)
+to support rebinding to a new (more blocks?) function. (or self modifying code)
+*/
 static PyObject *ee_parse(PyExecutionEngine *self, PyObject *args) {
-  char *llcode;
 
-  if (!PyArg_ParseTuple(args, "s", &llcode)) {
-    return NULL;
+  // check number of parameters
+  if (PyTuple_Size(args) < 1 or PyTuple_Size(args) > 2) {
+      PyErr_SetString(PyExc_TypeError, "expected one or two parameters");
+      return NULL;
   }
 
+  // get first parameter (llcode)
+  PyObject *pyllcode = PyTuple_GetItem(args, 0);
+  if (!PyString_Check(pyllcode)) {
+      PyErr_SetString(PyExc_TypeError, "first arg expected as string with llcode");
+      return NULL;
+  }
+  const char* llcode = PyString_AsString(pyllcode);
+
+  // get optional second parameter (fnname)
+  const char* fnname = NULL;
+  if (PyTuple_Size(args) > 1) {
+    PyObject *pyfnname = PyTuple_GetItem(args, 1);
+    if (!PyString_Check(pyllcode)) {
+      PyErr_SetString(PyExc_TypeError, "second arg expected as string with functionname");
+      return NULL;
+    }
+    fnname = PyString_AsString(pyfnname);
+  }
+
+  // parse and verify llcode
   try {
-    ParseAssemblyString((const char *) llcode, &self->exec->getModule());
+    if (fnname) {
+      // XXX ParseAssemblyString(llcode, &self->exec->getModule()); //redefinition
+      /*Module*   M  =*/ ParseAssemblyString(llcode, NULL);
+      Function *fn = self->exec->getModule().getNamedFunction(std::string(fnname));
+      if (fn == NULL) {
+        PyErr_SetString(PyExc_Exception, "Failed to resolve function to be replaced");
+        return NULL;
+      }
+      self->exec->recompileAndRelinkFunction(fn);
+
+      // TODO replace fn with whatever ParseAssemblyString made of llcode
+
+      PyErr_SetString(PyExc_Exception, "function replacing not supported yet");
+      return NULL;
+
+    } else {
+      ParseAssemblyString(llcode, &self->exec->getModule());
+    }
+
     verifyModule(self->exec->getModule(), ThrowExceptionAction);
     Py_INCREF(Py_None);
     return Py_None;
@@ -137,7 +181,7 @@ static PyObject *to_python_value(const GenericValue &value,
 static PyObject *ee_call(PyExecutionEngine *self, PyObject *args) {
 
   if (PyTuple_Size(args) == 0) {
-    PyErr_SetString(PyExc_TypeError, "first arg expected as string");
+    PyErr_SetString(PyExc_TypeError, "missing functionname");
     return NULL;
   }
 
@@ -146,7 +190,6 @@ static PyObject *ee_call(PyExecutionEngine *self, PyObject *args) {
     PyErr_SetString(PyExc_TypeError, "first arg expected as string");
     return NULL;
   }
-
   char *fnname = PyString_AsString(pyfnname);
     
   try {
