@@ -23,61 +23,6 @@ from pypy.rpython.rarithmetic import intmask
 #        ...
 #    }
 
-_gen_eq_function_cache = {}
-_gen_hash_function_cache = {}
-
-def gen_eq_function(items_r):
-    eq_funcs = [r_item.get_ll_eq_function() or operator.eq for r_item in items_r]
-    key = tuple(eq_funcs)
-    try:
-        return _gen_eq_function_cache[key]
-    except KeyError:
-        miniglobals = {}
-        source = """
-def ll_eq(t1, t2):
-    %s
-    return True
-"""
-        body = []
-        for i, eq_func in enumerate(eq_funcs):
-            miniglobals['eq%d' % i] = eq_func
-            body.append("if not eq%d(t1.item%d, t2.item%d): return False" % (i, i, i))
-        body = ('\n'+' '*4).join(body)
-        source = source % body
-        exec source in miniglobals
-        ll_eq = miniglobals['ll_eq']
-        _gen_eq_function_cache[key] = ll_eq
-        return ll_eq
-
-def gen_hash_function(items_r):
-    # based on CPython
-    hash_funcs = [r_item.get_ll_hash_function() for r_item in items_r]
-    key = tuple(hash_funcs)
-    try:
-        return _gen_hash_function_cache[key]
-    except KeyError:
-        miniglobals = {}
-        source = """
-def ll_hash(t):
-    retval = 0x345678
-    %s
-    return retval
-"""
-        body = []
-        mult = 1000003
-        for i, hash_func in enumerate(hash_funcs):
-            miniglobals['hash%d' % i] = hash_func
-            body.append("retval = (retval ^ hash%d(t.item%d)) * %d" %
-                        (i, i, mult))
-            mult = intmask(mult + 82520 + 2*len(items_r))
-        body = ('\n'+' '*4).join(body)
-        source = source % body
-        exec source in miniglobals
-        ll_hash = miniglobals['ll_hash']
-        _gen_hash_function_cache[key] = ll_hash
-        return ll_hash
-
-
 class TupleRepr(AbstractTupleRepr):
 
     def __init__(self, rtyper, items_r):
@@ -99,15 +44,6 @@ class TupleRepr(AbstractTupleRepr):
 
     def instantiate(self):
         return malloc(self.lowleveltype.TO)
-
-    #def get_eqfunc(self):
-    #    return inputconst(Void, self.item_repr.get_ll_eq_function())
-
-    def get_ll_eq_function(self):
-        return gen_eq_function(self.items_r)
-
-    def get_ll_hash_function(self):
-        return gen_hash_function(self.items_r)    
 
     def rtype_bltn_list(self, hop):
         from pypy.rpython import rlist

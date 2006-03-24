@@ -133,11 +133,70 @@ class AbstractTestRTuple:
             return x[1]
         
         res = self.interpret(f, [0])
-        if self.type_system == "lltype":
-            assert ''.join(res.super.typeptr.name) == "B\00"
-        else:
-            assert ootype.dynamicType(res)._name.split(".")[-1] == "B"
+        assert self.class_name(res) == "B"
         
+    def test_inst_tuple_add_getitem(self):
+        class A:
+            pass
+        class B(A):
+            pass
+
+        def f(i):
+            x = (1, A())
+            y = (2, B())
+            if i:
+                z = x + y
+            else:
+                z = y + x
+            return z[1]
+        
+        res = self.interpret(f, [1])
+        assert self.class_name(res) == "A"
+
+        res = self.interpret(f, [0])
+        assert self.class_name(res) == "B"
+        
+    def test_type_erase(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f():
+            return (A(), B()), (B(), A())
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper.specialize()
+
+        s_AB_tup = s.items[0]
+        s_BA_tup = s.items[1]
+        
+        r_AB_tup = rtyper.getrepr(s_AB_tup)
+        r_BA_tup = rtyper.getrepr(s_AB_tup)
+
+        assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
+
+    def test_tuple_hash(self):
+        def f(i, j):
+            return hash((i, j))
+
+        res1 = self.interpret(f, [12, 27])
+        res2 = self.interpret(f, [27, 12])
+        assert res1 != res2
+
+    def test_tuple_to_list(self):
+        if self.type_system == "ootype":
+            py.test.skip("XXX fix me if ootypes support lists")
+        
+        def f(i, j):
+            return list((i, j))
+
+        res = self.interpret(f, [2, 3])
+        assert res._obj.items == [2, 3]
+
+
 def test_tuple_iterator_length1():
     def f(i):
         total = 0
@@ -166,66 +225,18 @@ def test_inst_tuple_iter():
     res = interpret(f, [0])
     assert ''.join(res.super.typeptr.name) == "B\00"
 
-    
-def test_inst_tuple_add_getitem():
-    class A:
-        pass
-    class B(A):
-        pass
-
-    def f(i):
-        x = (1, A())
-        y = (2, B())
-        if i:
-            z = x + y
-        else:
-            z = y + x
-        return z[1]
-    
-    res = interpret(f, [1])
-    assert ''.join(res.super.typeptr.name) == "A\00"
-
-    res = interpret(f, [0])
-    assert ''.join(res.super.typeptr.name) == "B\00"
-    
-
-def test_type_erase():
-    class A(object):
-        pass
-    class B(object):
-        pass
-
-    def f():
-        return (A(), B()), (B(), A())
-
-    t = TranslationContext()
-    s = t.buildannotator().build_types(f, [])
-    rtyper = t.buildrtyper()
-    rtyper.specialize()
-
-    s_AB_tup = s.items[0]
-    s_BA_tup = s.items[1]
-    
-    r_AB_tup = rtyper.getrepr(s_AB_tup)
-    r_BA_tup = rtyper.getrepr(s_AB_tup)
-
-    assert r_AB_tup.lowleveltype == r_BA_tup.lowleveltype
-
-
-def test_tuple_hash():
-    def f(i, j):
-        return hash((i, j))
-
-    res1 = interpret(f, [12, 27])
-    res2 = interpret(f, [27, 12])
-    assert res1 != res2
-
 
 class TestLLTuple(AbstractTestRTuple):
 
     type_system = "lltype"
 
+    def class_name(self, value):
+        return "".join(value.super.typeptr.name)[:-1]
+
 class TestOOTuple(AbstractTestRTuple):
 
     type_system = "ootype"
+
+    def class_name(self, value):
+        return ootype.dynamicType(value)._name.split(".")[-1] 
 
