@@ -386,3 +386,14 @@ def test_cleanup_except():
     res = f1(1)
     assert res == 202
     # state.current == 2
+
+# this test crashes after 30 runs on my XP machine
+def test_refcount_pyobj():
+    def prob_with_pyobj(a=int, b=int):
+        return 2, 3, long(42)
+
+    f = compile(prob_with_pyobj, [int, int])
+    ret = f(2, 3)
+    for i in xrange(1000):
+        print i
+        f(2, 3)
