@@ -1363,6 +1363,32 @@ def test_hlinvoke_pbc_method_hltype():
     res = interp.eval_graph(ll_h_graph, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
 
+def test_disjoint_pbcs():
+    py.test.skip("in-progress")
+    class Frozen(object):
+        def __init__(self, v):
+            self.v = 2
+        def _freeze_(self):
+            return True
+        
+    f1 = Frozen(2)
+    f2 = Frozen(3)
+
+    def g1(x):
+        return x.v
+    def g2(y):
+        return y.v
+    def h(x):
+        return x != None
+
+    def f():
+        a = g1(f1)
+        b = g2(f2)
+        return h(f1)+h(f2)+a+b
+        
+    res = interpret(f, [])
+
+    assert res == 7
 
 class TestLltype(BaseTestRPBC):
 
