@@ -389,11 +389,13 @@ def test_cleanup_except():
 
 # this test crashes after 30 runs on my XP machine
 def test_refcount_pyobj():
-    def prob_with_pyobj(a=int, b=int):
-        return 2, 3, long(42)
+    def prob_with_pyobj(a, b):
+        return 2, 3, b
 
-    f = compile(prob_with_pyobj, [int, int])
-    ret = f(2, 3)
-    for i in xrange(1000):
-        print i
-        f(2, 3)
+    f = compile(prob_with_pyobj, [int, object])
+    from sys import getrefcount as g
+    obj = None
+    before = g(obj)
+    f(2, obj)
+    after = g(obj)
+    assert before == after
