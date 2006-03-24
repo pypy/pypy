@@ -270,6 +270,7 @@ def create_instantiate_function(annotator, classdef):
     generalizedresult = annmodel.SomeInstance(classdef=None)
     annotator.setbinding(graph.getreturnvar(), generalizedresult)
     classdef.my_instantiate_graph = graph
+    annotator.translator.graphs.append(graph)
 
 # ____________________________________________________________
 
