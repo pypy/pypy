@@ -12,7 +12,7 @@ PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
 
 # I'm not absolutely sure, so just in case:
-NEED_OLD_EXTRA_REFS = False
+NEED_OLD_EXTRA_REFS = True # we need them for now, should go in the tranformation!
 
 class FunctionCodeGenerator(object):
     """
@@ -453,11 +453,12 @@ class FunctionCodeGenerator(object):
         return 'if (RPyExceptionOccurred())\n\tFAIL(%s);' % err
 
     # low-level operations
-    def generic_get(self, op, sourceexpr):
+    def generic_get(self, op, sourceexpr, bare=False):
         T = self.lltypemap(op.result)
         newvalue = self.expr(op.result, special_case_void=False)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result only for PyObjects
+        print "BARE", bare
         if NEED_OLD_EXTRA_REFS and T == PyObjPtr:
             result.append('Py_XINCREF(%s);' % newvalue)
         result = '\n'.join(result)
@@ -474,14 +475,17 @@ class FunctionCodeGenerator(object):
             result = '/* %s */' % result
         return result
 
-    def OP_GETFIELD(self, op, err, ampersand=''):
+    def OP_GETFIELD(self, op, err, ampersand='', bare=False):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         fieldname = structdef.c_struct_field_name(op.args[1].value)
         return self.generic_get(op, '%s%s->%s' % (ampersand,
                                                   self.expr(op.args[0]),
-                                                  fieldname))
+                                                  fieldname), bare=bare)
+
+    def OP_BARE_GETFIELD(self, op, err, ampersand=''):
+        return self.OP_GETFIELD(op, err, ampersand, bare=True)
 
     def OP_SETFIELD(self, op, err):
         assert isinstance(op.args[1], Constant)
@@ -491,6 +495,8 @@ class FunctionCodeGenerator(object):
         return self.generic_set(op, '%s->%s' % (self.expr(op.args[0]),
                                                 fieldname))
 
+    OP_BARE_SETFIELD = OP_SETFIELD
+        
     def OP_GETSUBSTRUCT(self, op, err):
         return self.OP_GETFIELD(op, err, ampersand='&')
 

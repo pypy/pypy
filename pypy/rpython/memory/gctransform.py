@@ -273,7 +273,11 @@ class MinimalGCTransformer(GCTransformer):
     def pop_alive_nopyobj(self, var):
         return []
 
-
+    def replace_getfield(self, op, livevars, block): # XXX hackish solution for now
+        getvalop = SpaceOperation("bare_getfield",
+                                   [op.args[0], op.args[1]], op.result)
+        return [getvalop], []
+ 
     # ----------------------------------------------------------------
 
 def _static_deallocator_body_for_type(v, TYPE, depth=1):
@@ -394,11 +398,15 @@ class RefcountingGCTransformer(GCTransformer):
         if not var_needsgc(op.args[2]):
             return [op], []
         oldval = varoftype(op.args[2].concretetype)
-        getoldvalop = SpaceOperation("getfield",
+        getoldvalop = SpaceOperation("bare_getfield",
                                      [op.args[0], op.args[1]], oldval)
         result = [getoldvalop]
         result.extend(self.push_alive(op.args[2]))
-        result.append(op)
+        setvalop = SpaceOperation("bare_setfield",
+                                  op.args, op.result)
+ 
+
+        result.append(setvalop)
         return result, self.pop_alive(oldval)
 
     def replace_setarrayitem(self, op, livevars, block):
@@ -505,10 +513,10 @@ def ll_deallocator(addr):
         g, fptr = self.annotate_helper(this, [llmemory.Address], lltype.Void)
         # the produced deallocator graph does not need to be transformed
         self.seen_graphs[g] = True
-        if destrptr:
-            # however, the direct_call to the destructor needs to get
-            # .cleanup attached
-            self.deallocator_graphs_needing_transforming.append(g)
+        #if destrptr:
+        # however, the direct_call to the destructor needs to get
+        # .cleanup attached
+        self.deallocator_graphs_needing_transforming.append(g)
 
         self.static_deallocator_funcptrs[TYPE] = fptr
         for p in find_gc_ptrs_in_type(TYPE):
