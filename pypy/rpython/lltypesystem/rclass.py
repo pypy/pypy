@@ -17,6 +17,8 @@ from pypy.rpython.lltypesystem.lltype import \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, attachRuntimeTypeInfo, \
      FuncType, Bool, Signed, functionptr, FuncType
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython import extregistry
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -576,6 +578,44 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=Bool)
 
+#
+# _________________________ Conversions for CPython _________________________
+
+
+def call_destructor(thing):
+    ll_call_destructor(thing)
+
+def ll_call_destructor(thang):
+    return 42 # will be mapped
+
+def rtype_destruct_object(hop):
+    v_any, = hop.inputargs(*hop.args_r)
+    hop.genop('gc_unprotect', [v_any])
+
+extregistry.register_value(ll_call_destructor, 
+    compute_result_annotation=lambda *args:None,
+    specialize_call=rtype_destruct_object)
+
+class __extend__(pairtype(PyObjRepr, InstanceRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v_adr = llops.gencapicall('PyCObject_AsVoidPtr', [v],
+                                  resulttype=r_to)
+        llops.genop('gc_protect', [v_adr])
+        return v_adr
+
+class __extend__(pairtype(InstanceRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        f = call_destructor
+        llops.genop('gc_protect', [v])
+        ARGTYPE = r_from.lowleveltype
+        FUNCTYPE = FuncType([ARGTYPE], Void)
+        fp_dtor = llops.rtyper.annotate_helper_fn(f, [ARGTYPE])
+        c_dtor = inputconst(Ptr(FUNCTYPE), fp_dtor)
+        v_result = llops.gencapicall('PyCObject_FromVoidPtr', [v, c_dtor],
+                                     resulttype=pyobj_repr)
+        return v_result
+
+# ____________________________________________________________
 
 def ll_both_none(ins1, ins2):
     return not ins1 and not ins2
