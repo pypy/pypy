@@ -31,8 +31,9 @@ class CBuilder(object):
         if libraries is None:
             libraries = []
         self.libraries = libraries
+        self.exports = {}
 
-    def build_database(self):
+    def build_database(self, exports=[]):
         translator = self.translator
         db = LowLevelDatabase(translator, standalone=self.standalone, 
                               gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
@@ -53,7 +54,16 @@ class CBuilder(object):
         # some needed things. Find out why.
         pf = self.getentrypointptr()
         pfname = db.get(pf)
-        # XXX
+        self.exports[self.entrypoint.func_name] = pf
+        for obj in exports:
+            po = self.getentrypointptr(obj)
+            poname = objname = db.get(po)
+            if hasattr(obj, '__name__'):
+                objname = obj.__name__
+            if objname in self.exports:
+                raise NameError, 'duplicate name in export: %s is %s and %s' % (
+                    objname, db.get(self.exports[objname]), poname)
+            self.exports[objname] = po
         db.complete()
         return db
 
@@ -80,7 +90,7 @@ class CBuilder(object):
             self.symboltable = SymbolTable()
             cfile, extra = gen_source(db, modulename, targetdir,
                                       defines = defines,
-                                      exports = {self.entrypoint.func_name: pf},
+                                      exports = self.exports,
                                       symboltable = self.symboltable)
         else:
             if CBuilder.have___thread:
@@ -105,8 +115,10 @@ class CExtModuleBuilder(CBuilder):
     standalone = False
     c_ext_module = None 
 
-    def getentrypointptr(self):
-        return lltype.pyobjectptr(self.entrypoint)
+    def getentrypointptr(self, obj=None):
+        if obj is None:
+            obj = self.entrypoint
+        return lltype.pyobjectptr(obj)
 
     def compile(self):
         assert self.c_source_filename 
