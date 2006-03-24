@@ -387,7 +387,7 @@ def test_cleanup_except():
     assert res == 202
     # state.current == 2
 
-# this test crashes after 30 runs on my XP machine
+# this test shows if we have a problem with refcounting PyObject
 def test_refcount_pyobj():
     def prob_with_pyobj(a, b):
         return 2, 3, b
