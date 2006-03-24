@@ -310,7 +310,7 @@ class HintTimeshift(object):
         s_key_tuple = annmodel.SomeTuple(items_s)
         r_key = getrepr(s_key_tuple)
         r_key.setup()
-        v_key = rtuple.newtuple(llops, r_key, key_v)
+        v_key = rtuple.TupleRepr.newtuple(llops, r_key, key_v)
 
         v_oldjitstate = newinputargs[0]
 

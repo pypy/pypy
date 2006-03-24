@@ -1,5 +1,6 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
 from pypy.rpython.test.test_llinterp import interpret 
@@ -41,52 +42,102 @@ class AbstractTestRTuple:
         assert res.item0 == True
         assert res.item1 == False
 
-def test_tuple_concatenation():
-    def f(n):
-        tup = (1,n)
-        tup1 = (3,)
-        res = tup + tup1 + ()
-        return res[0]*100 + res[1]*10 + res[2]
-    res = interpret(f, [2])
-    assert res == 123
+    def test_tuple_concatenation(self):
+        def f(n):
+            tup = (1,n)
+            tup1 = (3,)
+            res = tup + tup1 + ()
+            return res[0]*100 + res[1]*10 + res[2]
+        res = self.interpret(f, [2])
+        assert res == 123
 
-def test_tuple_concatenation_mix():
-    def f(n):
-        tup = (1,n)
-        tup1 = ('3',)
-        res = tup + tup1
-        return res[0]*100 + res[1]*10 + ord(res[2]) - ord('0')
-    res = interpret(f, [2])
-    assert res == 123
+    def test_tuple_concatenation_mix(self):
+        def f(n):
+            tup = (1,n)
+            tup1 = ('3',)
+            res = tup + tup1
+            return res[0]*100 + res[1]*10 + ord(res[2]) - ord('0')
+        res = self.interpret(f, [2])
+        assert res == 123
 
-def test_constant_tuple_contains(): 
-    def f(i): 
-        t1 = (1, 2, 3, 4)
-        return i in t1 
-    res = interpret(f, [3], view=False, viewbefore=False) 
-    assert res is True 
-    res = interpret(f, [0])
-    assert res is False 
+    def test_constant_tuple_contains(self): 
+        def f(i): 
+            t1 = (1, 2, 3, 4)
+            return i in t1 
+        res = self.interpret(f, [3])
+        assert res is True 
+        res = self.interpret(f, [0])
+        assert res is False 
 
-def test_constant_tuple_contains2():
-    def t1():
-        return (1,2,3,4)
-    def f(i): 
-        return i in t1()
-    res = interpret(f, [3], view=False, viewbefore=False) 
-    assert res is True 
-    res = interpret(f, [0])
-    assert res is False 
+    def test_constant_tuple_contains2(self):
+        def t1():
+            return (1,2,3,4)
+        def f(i): 
+            return i in t1()
+        res = self.interpret(f, [3])
+        assert res is True 
+        res = self.interpret(f, [0])
+        assert res is False 
 
+    def test_constant_unichar_tuple_contains(self):
+        def f(i):
+            return unichr(i) in (u'1', u'9')
+        res = self.interpret(f, [49])
+        assert res is True 
+        res = self.interpret(f, [50])
+        assert res is False 
 
-def test_constant_unichar_tuple_contains():
-    def f(i):
-        return unichr(i) in (u'1', u'9')
-    res = interpret(f, [49])
-    assert res is True 
-    res = interpret(f, [50])
-    assert res is False 
+    def test_conv(self):
+        def t0():
+            return (3, 2, None)
+        def t1():
+            return (7, 2, "xy")
+        def f(i):
+            if i == 1:
+                return t1()
+            else:
+                return t0()
 
+        res = self.interpret(f, [1])
+        assert res.item0 == 7
+        # XXX this assertion will fail once ootypesystem properly supports
+        # strings, we're leaving the fix up to that point
+        assert isinstance(typeOf(res.item2), Ptr) and ''.join(res.item2.chars) == "xy"
+        res = self.interpret(f, [0])
+        assert res.item0 == 3
+        # XXX see above
+        assert isinstance(typeOf(res.item2), Ptr) and not res.item2
+
+    def test_constant_tuples_shared(self):
+        def g(n):
+            x = (n, 42)    # constant (5, 42) detected by the annotator
+            y = (5, 42)    # another one, built by the flow space
+            z = x + ()     # yet another
+            return id(x) == id(y) == id(z)
+        def f():
+            return g(5)
+        res = self.interpret(f, [])
+        assert res is True
+
+    def test_inst_tuple_getitem(self):
+        class A:
+            pass
+        class B(A):
+            pass
+
+        def f(i):
+            if i:
+                x = (1, A())
+            else:
+                x = (1, B())
+            return x[1]
+        
+        res = self.interpret(f, [0])
+        if self.type_system == "lltype":
+            assert ''.join(res.super.typeptr.name) == "B\00"
+        else:
+            assert ootype.dynamicType(res)._name.split(".")[-1] == "B"
+        
 def test_tuple_iterator_length1():
     def f(i):
         total = 0
@@ -96,51 +147,6 @@ def test_tuple_iterator_length1():
     res = interpret(f, [93813])
     assert res == 93813
 
-def test_conv():
-    def t0():
-        return (3, 2, None)
-    def t1():
-        return (7, 2, "xy")
-    def f(i):
-        if i == 1:
-            return t1()
-        else:
-            return t0()
-
-    res = interpret(f, [1])
-    assert res.item0 == 7
-    assert isinstance(typeOf(res.item2), Ptr) and ''.join(res.item2.chars) == "xy"
-    res = interpret(f, [0])
-    assert res.item0 == 3
-    assert isinstance(typeOf(res.item2), Ptr) and not res.item2
-
-def test_constant_tuples_shared():
-    def g(n):
-        x = (n, 42)    # constant (5, 42) detected by the annotator
-        y = (5, 42)    # another one, built by the flow space
-        z = x + ()     # yet another
-        return id(x) == id(y) == id(z)
-    def f():
-        return g(5)
-    res = interpret(f, [])
-    assert res is True
-
-def test_inst_tuple_getitem():
-    class A:
-        pass
-    class B(A):
-        pass
-
-    def f(i):
-        if i:
-            x = (1, A())
-        else:
-            x = (1, B())
-        return x[1]
-    
-    res = interpret(f, [0])
-    assert ''.join(res.super.typeptr.name) == "B\00"
-    
 def test_inst_tuple_iter():
     class A:
         pass

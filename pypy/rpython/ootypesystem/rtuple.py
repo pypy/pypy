@@ -13,6 +13,18 @@ class TupleRepr(AbstractTupleRepr):
         AbstractTupleRepr.__init__(self, rtyper, items_r)
         self.lowleveltype = tuple_type(self.fieldnames, self.lltypes)
 
+    def newtuple(cls, llops, r_tuple, items_v):
+        # items_v should have the lowleveltype of the internal reprs
+        if len(r_tuple.items_r) == 0:
+            return inputconst(r_tuple, ()) # always the same empty tuple
+        c1 = inputconst(ootype.Void, r_tuple.lowleveltype)
+        v_result = llops.genop("new", [c1], resulttype=r_tuple.lowleveltype)
+        for i in range(len(r_tuple.items_r)):
+            cname = inputconst(ootype.Void, r_tuple.fieldnames[i])
+            llops.genop("oosetfield", [v_result, cname, items_v[i]])
+        return v_result
+    newtuple = classmethod(newtuple)
+
     def instantiate(self):
         return ootype.new(self.lowleveltype)
 
@@ -21,6 +33,10 @@ class TupleRepr(AbstractTupleRepr):
         llresult = self.lltypes[index]
         cname = inputconst(ootype.Void, name)
         return  llops.genop("oogetfield", [v_tuple, cname], resulttype=llresult)
+
+    def rtype_id(self, hop):
+        vinst, = hop.inputargs(self)
+        return hop.genop('ooidentityhash', [vinst], resulttype=ootype.Signed)
 
 
 _tuple_types = {}
@@ -34,29 +50,8 @@ def tuple_type(fieldnames, fieldtypes):
         INST = ootype.Instance("Tuple%s" % len(fieldnames), ootype.ROOT, fields)
         _tuple_types[key] = INST
         return INST
-# ____________________________________________________________
-#
-#  Irregular operations.
 
-def newtuple(llops, r_tuple, items_v): # items_v should have the lowleveltype of the internal reprs
-    if len(r_tuple.items_r) == 0:
-        return inputconst(r_tuple, ())    # always the same empty tuple
-    c1 = inputconst(ootype.Void, r_tuple.lowleveltype)
-    v_result = llops.genop("new", [c1], resulttype=r_tuple.lowleveltype)
-    for i in range(len(r_tuple.items_r)):
-        cname = inputconst(ootype.Void, r_tuple.fieldnames[i])
-        llops.genop("oosetfield", [v_result, cname, items_v[i]])
-    return v_result
-
-def newtuple_cached(hop, items_v):
-    r_tuple = hop.r_result
-    if hop.s_result.is_constant():
-        return inputconst(r_tuple, hop.s_result.const)
-    else:
-        return newtuple(hop.llops, r_tuple, items_v)
 
 def rtype_newtuple(hop):
-    r_tuple = hop.r_result
-    vlist = hop.inputargs(*r_tuple.items_r)
-    return newtuple_cached(hop, vlist)
+    return TupleRepr._rtype_newtuple(hop)
 

@@ -85,8 +85,17 @@ class TupleRepr(AbstractTupleRepr):
         fields = zip(self.fieldnames, self.lltypes)
         self.lowleveltype = Ptr(GcStruct('tuple%d' % len(self.items_r), *fields))
 
-    def compact_repr(self):
-        return "TupleR %s" % ' '.join([llt._short_name() for llt in self.lltypes])
+    def newtuple(cls, llops, r_tuple, items_v):
+        # items_v should have the lowleveltype of the internal reprs
+        if len(r_tuple.items_r) == 0:
+            return inputconst(r_tuple, ())    # always the same empty tuple
+        c1 = inputconst(Void, r_tuple.lowleveltype.TO)
+        v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
+        for i in range(len(r_tuple.items_r)):
+            cname = inputconst(Void, r_tuple.fieldnames[i])
+            llops.genop('setfield', [v_result, cname, items_v[i]])
+        return v_result
+    newtuple = classmethod(newtuple)
 
     def instantiate(self):
         return malloc(self.lowleveltype.TO)
@@ -130,80 +139,8 @@ class TupleRepr(AbstractTupleRepr):
         return  llops.genop('getfield', [v_tuple, cname], resulttype = llresult)
 
 
-
-class __extend__(pairtype(TupleRepr, Repr)): 
-    def rtype_contains((r_tup, r_item), hop):
-        s_tup = hop.args_s[0]
-        if not s_tup.is_constant():
-            raise TyperError("contains() on non-const tuple") 
-        t = s_tup.const
-        typ = type(t[0]) 
-        for x in t[1:]: 
-            if type(x) is not typ: 
-                raise TyperError("contains() on mixed-type tuple "
-                                 "constant %r" % (t,))
-        d = {}
-        for x in t: 
-            d[x] = None 
-        hop2 = hop.copy()
-        _, _ = hop2.r_s_popfirstarg()
-        v_dict = Constant(d)
-        s_dict = hop.rtyper.annotator.bookkeeper.immutablevalue(d)
-        hop2.v_s_insertfirstarg(v_dict, s_dict)
-        return hop2.dispatch()
- 
-class __extend__(pairtype(TupleRepr, TupleRepr)):
-    
-    def rtype_add((r_tup1, r_tup2), hop):
-        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
-        vlist = []
-        for i in range(len(r_tup1.items_r)):
-            vlist.append(r_tup1.getitem(hop.llops, v_tuple1, i))
-        for i in range(len(r_tup2.items_r)):
-            vlist.append(r_tup2.getitem(hop.llops, v_tuple2, i))
-        return newtuple_cached(hop, vlist)
-    rtype_inplace_add = rtype_add
-
-    def convert_from_to((r_from, r_to), v, llops):
-        if len(r_from.items_r) == len(r_to.items_r):
-            if r_from.lowleveltype == r_to.lowleveltype:
-                return v
-            n = len(r_from.items_r)
-            items_v = []
-            for i in range(n):
-                item_v = r_from.getitem(llops, v, i)
-                item_v = llops.convertvar(item_v,
-                                              r_from.items_r[i],
-                                              r_to.items_r[i])
-                items_v.append(item_v)
-            return newtuple(llops, r_to, items_v)
-        return NotImplemented
-                
-# ____________________________________________________________
-#
-#  Irregular operations.
-
-def newtuple(llops, r_tuple, items_v): # items_v should have the lowleveltype of the internal reprs
-    if len(r_tuple.items_r) == 0:
-        return inputconst(r_tuple, ())    # always the same empty tuple
-    c1 = inputconst(Void, r_tuple.lowleveltype.TO)
-    v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
-    for i in range(len(r_tuple.items_r)):
-        cname = inputconst(Void, r_tuple.fieldnames[i])
-        llops.genop('setfield', [v_result, cname, items_v[i]])
-    return v_result
-
-def newtuple_cached(hop, items_v):
-    r_tuple = hop.r_result
-    if hop.s_result.is_constant():
-        return inputconst(r_tuple, hop.s_result.const)
-    else:
-        return newtuple(hop.llops, r_tuple, items_v)
-
 def rtype_newtuple(hop):
-    r_tuple = hop.r_result
-    vlist = hop.inputargs(*r_tuple.items_r)
-    return newtuple_cached(hop, vlist)
+    return TupleRepr._rtype_newtuple(hop)
 
 #
 # _________________________ Conversions _________________________
@@ -218,7 +155,7 @@ class __extend__(pairtype(PyObjRepr, TupleRepr)):
             v_converted = llops.convertvar(v_item, pyobj_repr,
                                            r_to.items_r[i])
             vlist.append(v_converted)
-        return newtuple(llops, r_to, vlist)
+        return r_to.newtuple(llops, r_to, vlist)
 
 class __extend__(pairtype(TupleRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):

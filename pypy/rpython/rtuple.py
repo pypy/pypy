@@ -34,6 +34,20 @@ class AbstractTupleRepr(Repr):
         self.lltypes = [r.lowleveltype for r in items_r]
         self.tuple_cache = {}
 
+    def newtuple_cached(cls, hop, items_v):
+        r_tuple = hop.r_result
+        if hop.s_result.is_constant():
+            return inputconst(r_tuple, hop.s_result.const)
+        else:
+            return cls.newtuple(hop.llops, r_tuple, items_v)
+    newtuple_cached = classmethod(newtuple_cached)
+
+    def _rtype_newtuple(cls, hop):
+        r_tuple = hop.r_result
+        vlist = hop.inputargs(*r_tuple.items_r)
+        return cls.newtuple_cached(hop, vlist)
+    _rtype_newtuple = classmethod(_rtype_newtuple)
+
     def convert_const(self, value):
         assert isinstance(value, tuple) and len(value) == len(self.items_r)
         key = tuple([Constant(item) for item in value])
@@ -45,6 +59,9 @@ class AbstractTupleRepr(Repr):
             for obj, r, name in zip(value, self.items_r, self.fieldnames):
                 setattr(p, name, r.convert_const(obj))
             return p
+
+    def compact_repr(self):
+        return "TupleR %s" % ' '.join([llt._short_name() for llt in self.lltypes])
 
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
@@ -60,3 +77,51 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
         v = r_tup.getitem(hop.llops, v_tuple, index)
         return hop.llops.convertvar(v, r_tup.items_r[index], r_tup.external_items_r[index])
 
+class __extend__(pairtype(AbstractTupleRepr, Repr)): 
+    def rtype_contains((r_tup, r_item), hop):
+        s_tup = hop.args_s[0]
+        if not s_tup.is_constant():
+            raise TyperError("contains() on non-const tuple") 
+        t = s_tup.const
+        typ = type(t[0]) 
+        for x in t[1:]: 
+            if type(x) is not typ: 
+                raise TyperError("contains() on mixed-type tuple "
+                                 "constant %r" % (t,))
+        d = {}
+        for x in t: 
+            d[x] = None 
+        hop2 = hop.copy()
+        _, _ = hop2.r_s_popfirstarg()
+        v_dict = Constant(d)
+        s_dict = hop.rtyper.annotator.bookkeeper.immutablevalue(d)
+        hop2.v_s_insertfirstarg(v_dict, s_dict)
+        return hop2.dispatch()
+ 
+class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
+    
+    def rtype_add((r_tup1, r_tup2), hop):
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
+        vlist = []
+        for i in range(len(r_tup1.items_r)):
+            vlist.append(r_tup1.getitem(hop.llops, v_tuple1, i))
+        for i in range(len(r_tup2.items_r)):
+            vlist.append(r_tup2.getitem(hop.llops, v_tuple2, i))
+        return r_tup1.newtuple_cached(hop, vlist)
+    rtype_inplace_add = rtype_add
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if len(r_from.items_r) == len(r_to.items_r):
+            if r_from.lowleveltype == r_to.lowleveltype:
+                return v
+            n = len(r_from.items_r)
+            items_v = []
+            for i in range(n):
+                item_v = r_from.getitem(llops, v, i)
+                item_v = llops.convertvar(item_v,
+                                              r_from.items_r[i],
+                                              r_to.items_r[i])
+                items_v.append(item_v)
+            return r_from.newtuple(llops, r_to, items_v)
+        return NotImplemented
+ 
