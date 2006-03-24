@@ -38,8 +38,8 @@ def teardown_module(mod):
 class TestMarkSweepGC(object):
     def setup_class(cls):
         cls.prep_old = gclltype.prepare_graphs_and_create_gc
-        gclltype.use_gc = MarkSweepGC
         cls.old = gclltype.use_gc
+        gclltype.use_gc = MarkSweepGC
 
     def teardown_class(cls):
         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
