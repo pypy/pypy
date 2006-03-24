@@ -1,5 +1,3 @@
-EPS = 1e-9
-
 def raises(excp, func, *args):
     try:
         func(*args)
@@ -11,6 +9,13 @@ def assertEqual(a, b):
 
 def assertNotEqual(a, b):
     assert a != b
+
+def assertIs(a, b):
+    assert a is b
+
+# complex specific tests
+
+EPS = 1e-9
 
 def assertAlmostEqual(a, b):
     if isinstance(a, complex):
@@ -44,8 +49,6 @@ def assertClose(x, y, eps=1e-9):
     assertCloseAbs(x.real, y.real, eps)
     assertCloseAbs(x.imag, y.imag, eps)
 
-def assertIs(a, b):
-    assert a is b
 
 def check_div(x, y):
     """Compute complex z=x*y, and check that z/x==y and z/y==x."""

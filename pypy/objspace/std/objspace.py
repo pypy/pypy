@@ -6,7 +6,8 @@ from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.objspace.std.model import W_Object, UnwrapError, WITHCOMPLEX
+from pypy.objspace.std.model import W_Object, UnwrapError
+from pypy.objspace.std.model import WITHCOMPLEX, WITHSET
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
@@ -15,6 +16,19 @@ from pypy.rpython.rarithmetic import r_longlong
 import sys
 import os
 import __builtin__
+
+#check for sets
+try:
+    s = set()
+    del s
+except NameError:
+    try:
+        from sets import Set as set
+        from sets import ImmutableSet as frozenset
+    except ImportError:
+        class DummySet(object):pass
+        set = DummySet
+        frozenset = DummySet
 
 _registered_implementations = {}
 def registerimplementation(implcls):
@@ -285,15 +299,25 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.call_function(c,
                                           self.wrap(x.real), 
                                           self.wrap(x.imag))
-
         # SD disable for native complex
         #if isinstance(x, complex):
             # XXX is this right?   YYY no, this is wrong right now  (CT)
             # ZZZ hum, seems necessary for complex literals in co_consts (AR)
-            c = self.builtin.get('complex') 
+            # c = self.builtin.get('complex') 
         #    return self.call_function(c,
         #                              self.wrap(x.real), 
         #                              self.wrap(x.imag))
+
+        if isinstance(x, set):
+            if WITHSET:
+                wrappeditems = [self.wrap(item) for item in x]
+                return W_SetObject(self, wrappeditems)
+
+        if isinstance(x, frozenset):
+            if WITHSET:
+                wrappeditems = [self.wrap(item) for item in x]
+                return W_FrozensetObject(self, wrappeditems)
+
         if x is __builtin__.Ellipsis:
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
             return self.w_Ellipsis
@@ -339,6 +363,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
     if WITHCOMPLEX:
         def newcomplex(self, realval, imagval):
             return W_ComplexObject(self, realval, imagval)
+
+    if WITHSET:
+        def newset(self, list_w):
+            return W_SetObject(self, list_w)
+
+        def newfrozenset(self, list_w):
+            return W_FrozensetObject(self, list_w)
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)

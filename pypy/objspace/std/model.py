@@ -9,6 +9,7 @@ import pypy.interpreter.pycode
 import pypy.interpreter.special
 
 WITHCOMPLEX = False
+WITHSET = False
 
 class StdTypeModel:
 
@@ -22,6 +23,9 @@ class StdTypeModel:
             from pypy.objspace.std.floattype  import float_typedef
             if WITHCOMPLEX:
                 from pypy.objspace.std.complextype  import complex_typedef
+            if WITHSET:
+                from pypy.objspace.std.settype import set_typedef
+                from pypy.objspace.std.settype import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listtype   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
@@ -46,6 +50,8 @@ class StdTypeModel:
         from pypy.objspace.std import floatobject
         if WITHCOMPLEX:
             from pypy.objspace.std import complexobject
+        if WITHSET:
+            from pypy.objspace.std import setobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
@@ -68,7 +74,6 @@ class StdTypeModel:
             boolobject.W_BoolObject: [],
             intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
-            #complexobject.W_ComplexObject: [],
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
             dictobject.W_DictObject: [],
@@ -87,6 +92,9 @@ class StdTypeModel:
             }
         if WITHCOMPLEX:
             self.typeorder[complexobject.W_ComplexObject] = []
+        if WITHSET:
+            self.typeorder[setobject.W_SetObject] = []
+            self.typeorder[setobject.W_FrozensetObject] = []
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
 
