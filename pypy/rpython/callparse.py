@@ -1,6 +1,6 @@
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.annotation import model as annmodel
-from pypy.rpython import rtuple
+from pypy.rpython.lltypesystem import rtuple # XXX not independent of type system!
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype
 

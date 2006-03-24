@@ -1,12 +1,12 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
 from pypy.rpython.test.test_llinterp import interpret 
 import py
 
 def test_rtuple():
+    from pypy.rpython.lltypesystem.rtuple import TupleRepr
     rtuple = TupleRepr(None, [signed_repr, bool_repr])
     assert rtuple.lowleveltype == Ptr(GcStruct('tuple2',
                                                ('item0', Signed),
@@ -15,26 +15,31 @@ def test_rtuple():
 
 # ____________________________________________________________
 
-def test_simple():
-    def dummyfn(x):
-        l = (10,x,30)
-        return l[2]
-    res = interpret(dummyfn,[4])
-    assert res == 30
+class AbstractTestRTuple:
 
-def test_len():
-    def dummyfn(x):
-        l = (5,x)
-        return len(l)
-    res = interpret(dummyfn, [4])
-    assert res == 2
+    def interpret(self, f, args):
+        return interpret(f, args, type_system=self.type_system)
 
-def test_return_tuple():
-    def dummyfn(x, y):
-        return (x<y, x>y)
-    res = interpret(dummyfn, [4,5])
-    assert res.item0 == True
-    assert res.item1 == False
+    def test_simple(self):
+        def dummyfn(x):
+            l = (10,x,30)
+            return l[2]
+        res = self.interpret(dummyfn,[4])
+        assert res == 30
+
+    def test_len(self):
+        def dummyfn(x):
+            l = (5,x)
+            return len(l)
+        res = self.interpret(dummyfn, [4])
+        assert res == 2
+
+    def test_return_tuple(self):
+        def dummyfn(x, y):
+            return (x<y, x>y)
+        res = self.interpret(dummyfn, [4,5])
+        assert res.item0 == True
+        assert res.item1 == False
 
 def test_tuple_concatenation():
     def f(n):
@@ -208,3 +213,13 @@ def test_tuple_hash():
     res1 = interpret(f, [12, 27])
     res2 = interpret(f, [27, 12])
     assert res1 != res2
+
+
+class TestLLTuple(AbstractTestRTuple):
+
+    type_system = "lltype"
+
+class TestOOTuple(AbstractTestRTuple):
+
+    type_system = "ootype"
+

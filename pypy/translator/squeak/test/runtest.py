@@ -91,7 +91,7 @@ class SqueakFunction:
                     "variable to point to an image.")
         startup_st = self._write_startup()
         options = "-headless"
-        if conftest.option.showsqueak:
+        if hasattr(conftest, "showsqueak") and conftest.option.showsqueak:
             options = ""
         cmd = 'squeak %s -- %s %s "%s" %s' \
                 % (options, startup_st, udir.join(self._gen.filename),

@@ -4,7 +4,8 @@ from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
 from pypy.jit.rtimeshift import VARLIST, RedBox, VarRedBox, ConstRedBox, JITState
 from pypy.jit.rtimeshift import make_types_const
-from pypy.rpython import rmodel, rtuple, rlist, rdict, rgenop, annlowlevel
+from pypy.rpython import rmodel, rlist, rdict, rgenop, annlowlevel
+from pypy.rpython.lltypesystem import rtuple
 from pypy.jit import rtimeshift
 from pypy.jit.hintrtyper import HintRTyper, originalconcretetype
 from pypy.jit.hintrtyper import GreenRepr, RedRepr, HintLowLevelOpList

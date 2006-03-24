@@ -6,7 +6,7 @@ from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst, UniCharRepr
 from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rtuple import TupleRepr
+from pypy.rpython.lltypesystem.rtuple import TupleRepr # XXX type system!
 from pypy.rpython import rint
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr

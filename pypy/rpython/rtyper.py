@@ -509,7 +509,7 @@ class RPythonTyper:
         return rlist.rtype_alloc_and_set(hop)
 
     def translate_op_newtuple(self, hop):
-        return rtuple.rtype_newtuple(hop)
+        return self.type_system.rtuple.rtype_newtuple(hop)
 
     def translate_op_newslice(self, hop):
         return rslice.rtype_newslice(hop)
@@ -835,7 +835,7 @@ class LowLevelOpList(list):
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice, rrange
-from pypy.rpython import rlist, rstr, rtuple, rdict 
+from pypy.rpython import rlist, rstr, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rexternalobj
 from pypy.rpython import rptr
