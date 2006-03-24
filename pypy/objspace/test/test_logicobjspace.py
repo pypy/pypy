@@ -12,13 +12,18 @@ class AppTest_Logic(object):
         assert is_free(X)
         assert not is_bound(X)
         bind(X, 1)
-        assert type(X) == int
+        assert X == 1
         assert not is_free(X)
         assert is_bound(X)
         assert is_bound(1)
         # FIXME : propagate proper
         #         FailureException
         raises(Exception, bind, X, 2)
+
+    def test_unify_tuple(self):
+        X = newvar()
+        unify(X, (1, (2, None)))
+        assert X == (1, (2, None))
 
     def test_bind_to_self(self):
         X = newvar()
@@ -34,12 +39,12 @@ class AppTest_Logic(object):
         unify(X, 1)
         assert X == 1
 
-    def test_bind_alias(self):
+    def test_unify_alias(self):
         X = newvar()
         Y = newvar()
-        bind(X, Y)
-        assert is_alias(X, Y)
-        assert is_alias(X, Y)
+        unify(X, Y)
+        assert alias_of(X, Y)
+        assert alias_of(Y, X)
         bind(X, 1)
         # what about is_alias, then ?
         assert X == 1
@@ -49,8 +54,8 @@ class AppTest_Logic(object):
         X = newvar()
         Y = newvar()
         unify(X, Y)
-        assert is_alias(X, Y)
-        assert is_alias(X, Y)
+        assert alias_of(X, Y)
+        assert alias_of(X, Y)
         unify(X, 1)
         # what about is_alias, then ?
         assert X == 1
@@ -98,12 +103,34 @@ class AppTest_Logic(object):
         for x in [d[5], d[6], d[7][0]]:
             assert is_bound(d[5])
 
-    def test_unbound_unification_long(self):
-        l = [newvar() for i in range(40)]
-        for i in range(39):
-            bind(l[i], l[i + 1])
-        bind(l[20], 1)
-        for i in range(40):
+    def test_merge_aliases(self):
+        X, Y = newvar(), newvar()
+        Z, W = newvar(), newvar()
+        unify(X, Y)
+        assert alias_of(X, Y)
+        assert alias_of(Y, X)
+        unify(Z, W)
+        assert alias_of(Z, W)
+        assert alias_of(W, Z)
+        unify(X, W)
+        vars_ = [X, Y, Z, W]
+        for V1 in vars_:
+            assert is_free(V1)
+            assert is_aliased(V1)
+            for V2 in vars_:
+                assert alias_of(V1, V2)
+        unify(Y, 42)
+        for V in vars_:
+            assert V == 42
+
+    def test_big_alias(self):
+        l = [newvar() for i in range(20)]
+        for i in range(19):
+            bind(l[i], l[i+1])
+        for i in range(19):
+            assert alias_of(l[i], l[i+1])
+        bind(l[10], 1)
+        for i in range(20):
             assert l[i] == 1
 
     def test_use_unbound_var(self):
@@ -116,7 +143,7 @@ class AppTest_Logic(object):
         X = newvar()
         Y = newvar()
         unify(X, Y)
-        assert is_alias(Y, X)
+        assert alias_of(Y, X)
         unify(X, 1)
         assert X == 1
         assert is_bound(Y)
@@ -130,7 +157,7 @@ class AppTest_Logic(object):
         unify(X, Y)
         assert is_free(X)
         assert is_free(Y)
-        assert is_alias(X, Y)
+        assert alias_of(X, Y)
         assert X == Y
         assert not X != Y
 
@@ -150,6 +177,22 @@ class AppTest_LogicThreads(object):
 
     def setup_class(cls):
         cls.space = gettestobjspace('logic')
+
+    def test_wait_needed(self):
+        X = newvar()
+
+        def binder(V):
+            wait_needed(V)
+            unify(V, 42)
+
+        def reader(V):
+            wait(V)
+            return V
+
+        uthread(reader, X)
+        uthread(binder, X)
+
+        assert X == 42
 
     def test_eager_producer_consummer(self):
 
@@ -176,24 +219,24 @@ class AppTest_LogicThreads(object):
         assert S == 45
 
 
-    def notest_lazy_producer_consummer(self):
+    def test_lazy_producer_consummer(self):
 
         def lgenerate(n, L):
             """wait-needed version of generate"""
-            print "generator waits on L being needed"
+            print "-- generator waits on L being needed"
             wait_needed(L)
             Tail = newvar()
-            L == (n, Tail)
-            print "generator bound L to", L
+            bind(L, (n, Tail))
+            print "generator bound L"
             lgenerate(n+1, Tail)
 
         def lsum(L, a, limit):
-            """this version of sum controls the generator"""
-            print "sum", a
+            """this summer controls the generator"""
             if limit > 0:
                 Head, Tail = newvar(), newvar()
-                print "sum waiting on L"
-                L == (Head, Tail) # or Head, Tail == L ?
+                print "-- sum waiting on L"
+                wait(L)
+                unify(L, (Head, Tail))
                 return lsum(Tail, a+Head, limit-1)
             else:
                 return a
@@ -203,7 +246,9 @@ class AppTest_LogicThreads(object):
         Y = newvar()
         T = newvar()
         uthread(lgenerate, 0, Y)
-        T == uthread(lsum, Y, 0, 10)
+        unify(T, uthread(lsum, Y, 0, 3))
         print "after"
 
+        wait(T)
+        assert T == 45
         print T

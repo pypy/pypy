@@ -159,60 +159,44 @@ if USE_COROUTINES:
 
 class W_Var(baseobjspace.W_Root, object):
     def __init__(w_self):
-        w_self.w_bound_to = None # FIXME : make this a ring
-        w_self.w_needed = False  # is it needed ?
+        w_self.w_bound_to = w_self # FIXME : making this a ring asap
+        w_self.w_needed = False    # is it needed ... ?
 
     def __repr__(w_self):
         if w_self.w_bound_to:
-            last = find_last_var_in_chain(w_self)
-            if last.w_bound_to is not None:
-                return '<%s@%s>' % (last.w_bound_to,
-                                    prettyfy_id(str(id(w_self))))
-        return '<?@%s>' % prettyfy_id(str(id(w_self)))
-
-def find_last_var_in_chain(w_var):
-    w_curr = w_var
-    while 1:
-        w_next = w_curr.w_bound_to
-        if isinstance(w_next, W_Var):
-            w_curr = w_next
-        else:
-            break
-    return w_curr
+            if isinstance(w_self.w_bound_to, W_Var):
+                return '<?@%s>' % prettyfy_id(str(id(w_self)))
+            return '<%s@%s>' % (w_self.w_bound_to,
+                                prettyfy_id(str(id(w_self))))
 
 def newvar(space):
     return W_Var()
 app_newvar = gateway.interp2app(newvar)
 
-
-def wait(space, w_self, w_caller=None):
+def wait(space, w_self):
     while 1:
         if not isinstance(w_self, W_Var):
             return w_self
-        w_last = find_last_var_in_chain(w_self)
-        w_obj = w_last.w_bound_to
-        if w_obj is None:
-            # XXX here we would have to suspend the current thread
+        print " :wait", w_self
+        if space.is_true(is_free(space, w_self)):
             if not have_uthreads():
                 raise OperationError(space.w_RuntimeError,
                                      space.wrap("trying to perform an operation on an unbound variable"))
             else:
                 # notify wait_needed clients, give them a chance to run
                 w_self.w_needed = True
-                need_waiters = schedule_state.pop_blocked_byneed_on(w_self)
-                for waiter in need_waiters:
-                    schedule_state.add_to_runnable(waiter)
+                for w_alias in aliases(space, w_self):
+                    need_waiters = schedule_state.pop_blocked_byneed_on(w_alias)
+                    for waiter in need_waiters:
+                        schedule_state.add_to_runnable(waiter)
                 # set curr thread to blocked, switch to runnable thread
                 current = get_current_coroutine()
-                schedule_state.add_to_blocked(w_last, current)
+                schedule_state.add_to_blocked(w_self, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
-                        #print " waiter is switching"
-                        try:
-                            next_coro.switch()
-                        except:
-                            if w_caller: print "Wait", w_caller
+                        print "  :waiter is switching"
+                        next_coro.switch()
                         #print " waiter is back"
                         # hope there is a value here now
                         break
@@ -220,17 +204,7 @@ def wait(space, w_self, w_caller=None):
                     raise OperationError(space.w_RuntimeError,
                                          space.wrap("blocked on variable, but no uthread that can bind it"))
         else:
-            # actually attach the object directly to each variable
-            # to remove indirections
-            w_curr = w_self
-            while 1:
-                assert isinstance(w_curr, W_Var)
-                w_next = w_curr.w_bound_to
-                if not isinstance(w_next, W_Var):
-                    break
-                w_curr.w_bound_to = w_obj
-                w_curr = w_next
-            return w_obj
+            return w_self.w_bound_to
 app_wait = gateway.interp2app(wait)
 
 def wait_needed(space, w_self):
@@ -238,23 +212,22 @@ def wait_needed(space, w_self):
         if not isinstance(w_self, W_Var):
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("wait_needed operates only on logic variables"))
-        w_last = find_last_var_in_chain(w_self)
-        w_obj = w_last.w_bound_to
-        if w_obj is None:
+        print " :needed", w_self
+        if space.is_true(is_free(space, w_self)):
             if w_self.w_needed:
                 break # we're done
-            # XXX here we would have to FOO the current thread
             if not have_uthreads():
                 raise OperationError(space.w_RuntimeError,
                                      space.wrap("oh please oh FIXME !"))
             else:
                 # add current thread to blocked byneed and switch
                 current = get_current_coroutine()
-                schedule_state.add_to_blocked_byneed(w_self, current)
+                for w_alias in aliases(space, w_self):
+                    schedule_state.add_to_blocked_byneed(w_alias, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
-                        #print " byneed is switching"
+                        print "  :needed is switching"
                         next_coro.switch()
                         #print " byneed is back"
                         # there might be some need right now
@@ -271,53 +244,82 @@ app_wait_needed = gateway.interp2app(wait_needed)
 
 #-- PREDICATES --------------------
 
+def is_aliased(space, w_var): # FIXME: this appears to block
+    if space.is_true(space.is_nb_(w_var.w_bound_to, w_var)):
+        return space.newbool(False)
+    return space.newbool(True)
+app_is_aliased = gateway.interp2app(is_aliased)
+
 def is_free(space, w_var):
-    # XXX make me O(1)
     if not isinstance(w_var, W_Var):
         return space.newbool(False)
-    w_last = find_last_var_in_chain(w_var)
-    return space.newbool(space.is_w(w_last.w_bound_to, None))
+    return space.newbool(isinstance(w_var.w_bound_to, W_Var))
 app_is_free = gateway.interp2app(is_free)
 
 def is_bound(space, w_var):
-    # XXX make me O(1)
-    # FIXME (i'm unreliable, where is_free is not)
-    if space.is_true(is_free(space, w_var)):
-        return space.newbool(False)
-    else:
-        return space.newbool(True)
+    return space.newbool(not space.is_true(is_free(space, w_var)))
 app_is_bound = gateway.interp2app(is_bound)
 
-def is_alias(space, w_var1, w_var2):
+
+def alias_of(space, w_var1, w_var2): # FIXME: appears to block
     assert space.is_true(is_free(space, w_var1))
     assert space.is_true(is_free(space, w_var2))
     # w_var2 could be a right-alias of w_var2
     # or the other way around
-    a = _right_alias(space, w_var1, w_var2)
-    b = _right_alias(space, w_var2, w_var1)
-    return space.newbool(a or b)
-app_is_alias = gateway.interp2app(is_alias)
-
-def _right_alias(space, w_var1, w_var2):
-    """checks wether a var is in the alias chain of another"""
-    w_curr = w_var1.w_bound_to
-    while w_curr != None:
-        if space.is_true(space.is_nb_(w_curr, w_var2)):
-            return True
-        w_curr = w_curr.w_bound_to
-    return False
+    w_curr = w_var1
+    while 1:
+        w_next = w_curr.w_bound_to
+        if space.is_true(space.is_nb_(w_next, w_var2)):
+            return space.newbool(True)
+        if space.is_true(space.is_nb_(w_next, w_var1)):
+            break
+        w_curr = w_next
+    return space.newbool(False)
+app_alias_of = gateway.interp2app(alias_of)
 
 
 #-- HELPERS ----------------------
+
+def disp(space, w_var):
+    print w_var
+app_disp = gateway.interp2app(disp)
+
+def disp_aliases(space, w_var):
+    print "Aliases of ", w_var, "are", 
+    for w_al in aliases(space, w_var):
+        print w_al,
+    print
 
 def deref(space, w_var):
     """gets the value of a bound variable
        user has to ensure boundness of the var"""
     assert isinstance(w_var, W_Var)
-    # FIXME don't need to walk the chain
-    return find_last_var_in_chain(w_var).w_bound_to
+    return w_var.w_bound_to
+
+def aliases(space, w_var):
+    """return the aliases of a var, including itself"""
+    al = []
+    w_curr = w_var
+    while 1:
+        w_next = w_curr.w_bound_to
+        al.append(w_curr)
+        if space.is_true(space.is_nb_(w_next, w_var)):
+            break
+        w_curr = w_next
+    return al
+
+def get_ring_tail(space, w_start):
+    """returns the last var of a ring of aliases"""
+    w_curr = w_start
+    while 1:
+        w_next = w_curr.w_bound_to
+        if space.is_true(space.is_nb_(w_next, w_start)):
+            return w_curr
+        w_curr = w_next
+
 
 def fail(space, w_obj1, w_obj2):
+    """raises a specific exception for bind/unify"""
     print "can't unify", w_obj1, w_obj2
     raise OperationError(space.w_RuntimeError,
                          space.wrap("UnificationFailure"))
@@ -332,24 +334,18 @@ def prettyfy_id(a_str):
     l = len(a_str) - 1
     return a_str[l-3:l]
 
-def aliases(space, w_var):
-    al = []
-    w_curr = w_var
-    while w_curr is not None:
-        al.append(w_curr)
-        w_curr = w_curr.w_bound_to
-    return al
-
 def wait_two(space, w_1, w_2):
     """waits until one out of two logic variables
-       becomes bound, then tells which one"""
-    w_v = newvar(space)
+       becomes bound, then tells which one,
+       with a bias toward the first if both are
+       suddenly bound"""
+    w_V = newvar(space)
     def sleep(space, w_var):
         wait(space, w_var)
-        bind(space, w_var, space.newint(1))
+        bind(space, w_V, space.newint(1))
     uthread(sleep, space, w_1)
     uthread(sleep, space, w_2)
-    wait(space, w_c)
+    wait(space, w_V)
     if space.is_true(is_free(space, w_2)):
         return space.newint(1)
     return space.newint(2)
@@ -361,51 +357,86 @@ def bind(space, w_var, w_obj):
        2. assign unbound var to bound var
        3. assign value to self
     """
-    print "bind", w_var, w_obj
+    print " :bind", w_var, w_obj
     assert isinstance(w_var, W_Var)
     if isinstance(w_obj, W_Var):
         if space.is_true(is_bound(space, w_var)):
             if space.is_true(is_bound(space, w_obj)):
-                unify(space,
-                      deref(space, w_var),
-                      deref(space, w_obj))
-            _assign(space, w_obj, deref(space, w_var))
+                return unify(space, #FIXME, should be unify bizness
+                             deref(space, w_var),
+                             deref(space, w_obj))
+            return _assign(space, w_obj, deref(space, w_var))
         elif space.is_true(is_bound(space, w_obj)):
-            _assign(space, w_var, deref(space, w_obj))
+            return _assign(space, w_var, deref(space, w_obj))
         else: # 1. both are unbound
-            _alias(space, w_var, w_obj)
+            return _alias(space, w_var, w_obj)
     else: # 3. w_obj is a value
         if space.is_true(is_free(space, w_var)):
-            _assign(space, w_var, w_obj)
-        unify(space, deref(space, w_var), w_obj)
+            return _assign(space, w_var, w_obj)
+        return unify(space, deref(space, w_var), w_obj)
 app_bind = gateway.interp2app(bind)
 
 def _assign(space, w_var, w_val):
+    print "  :assign", w_var, w_val, '[',
     w_curr = w_var
-    while w_curr is not None:
+    ass_count = 0
+    while 1:
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_val
-        # awake the blocked threads
+        print w_curr, 
+        ass_count += 1
+        # notify the blocked threads
         to_awake = schedule_state.pop_blocked_on(w_curr)
         for thread in to_awake:
             schedule_state.add_to_runnable(thread)
+        if space.is_true(space.is_nb_(w_next, w_var)):
+            break
         # switch to next
         w_curr = w_next
+    print "] (to", ass_count, "aliases)"
     return space.w_None
     
 def _alias(space, w_v1, w_v2):
     """appends one var to the alias chain of another
        user must ensure freeness of both vars"""
+    print "  :alias", w_v1, w_v2
     if space.is_true(space.is_nb_(w_v1, w_v2)):
         return space.w_None
-    last = find_last_var_in_chain(w_v1)
-    last.w_bound_to = w_v2
+    if space.is_true(is_aliased(space, w_v1)):
+        if space.is_true(is_aliased(space, w_v2)):
+            return _merge_aliases(space, w_v1, w_v2)
+        return _add_to_aliases(space, w_v1, w_v2)
+    if space.is_true(is_aliased(space, w_v2)):
+        return _add_to_aliases(space, w_v2, w_v1)
+    # we have two unaliased vars
+    w_v1.w_bound_to = w_v2
+    w_v2.w_bound_to = w_v1
+    return space.w_None
+
+def _add_to_aliases(space, w_v1, w_v2):
+    print "   :add to aliases", w_v1, w_v2
+    w_tail = w_v1.w_bound_to
+    w_v1.w_bound_to = w_v2
+    w_v2.w_bound_to = w_tail
+    disp_aliases(space, w_v1)
+    disp_aliases(space, w_v2)
+    return space.w_None
+    
+def _merge_aliases(space, w_v1, w_v2):
+    print "   :merge aliases", w_v1, w_v2
+    # first get the tail of both sets
+    w_tail1 = get_ring_tail(space, w_v1)
+    w_tail2 = get_ring_tail(space, w_v2)
+    w_tail1.w_bound_to = w_v2
+    w_tail2.w_bound_to = w_v1
+    disp_aliases(space, w_v1)
+    disp_aliases(space, w_v2)
     return space.w_None
 
 #-- UNIFY -------------------------
 
 def unify(space, w_x, w_y):
-    print "unify", w_x, w_y
+    print " :unify", w_x, w_y
     check_and_memoize_pair(space, w_x, w_y)
     if not isinstance(w_x, W_Var):
         if not isinstance(w_y, W_Var):
@@ -442,7 +473,7 @@ def _unify_unbound(space, w_x, w_y):
     return bind(space, w_x, w_y)
 
 def _unify_values(space, w_v1, w_v2):
-    print " unify values", w_v1, w_v2
+    print " :unify values", w_v1, w_v2
     # unify object of the same type ... FIXME
     if not space.is_w(space.type(w_v1),
                       space.type(w_v2)):
@@ -458,7 +489,7 @@ def _unify_values(space, w_v1, w_v2):
         return space.w_None
 
 def _unify_iterables(space, w_i1, w_i2):
-    print " unify iterables", w_i1, w_i2
+    print " :unify iterables", w_i1, w_i2
     # assert lengths
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
@@ -539,7 +570,7 @@ def eqproxy(space, parentfn):
             return space.newbool(True)
         if space.is_true(is_free(space, w_obj1)):
             if space.is_true(is_free(space, w_obj2)):
-                if space.is_true(is_alias(space, w_obj1, w_obj2)):
+                if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(True) # and just go on ...
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return eq
@@ -557,21 +588,22 @@ def cmpproxy(space, parentfn):
             return space.newbool(0)
         if space.is_true(is_free(space, w_obj1)):
             if space.is_true(is_free(space, w_obj2)):
-                if space.is_true(is_alias(space, w_obj1, w_obj2)):
+                if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(0) # and just go on ...
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return cmp
 
 def neproxy(space, parentfn):
     def ne(w_obj1, w_obj2):
-        if space.is_true(is_free(space, w_obj1)) and \
-           space.is_true(is_free(space, w_obj2)):
-            w_var1 = find_last_var_in_chain(w_obj1)
-            w_var2 = find_last_var_in_chain(w_obj2)
-            if w_var1 is w_var2: # hmmm
-                return space.w_False
+        if space.is_true(space.is_nb_(w_obj1, w_obj2)):
+            return space.newbool(False)
+        if space.is_true(is_free(space, w_obj1)):
+            if space.is_true(is_free(space, w_obj2)):
+                if space.is_true(alias_of(space, w_obj1, w_obj2)):
+                    return space.newbool(False) # and just go on ...
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return ne
+
 
 def proxymaker(space, opname, parentfn):
     if opname == "eq":
@@ -587,7 +619,7 @@ def proxymaker(space, opname, parentfn):
         proxy = None
     elif nb_args == 1:
         def proxy(w1, *extra):
-            w1 = wait(space, w1, parentfn)
+            w1 = wait(space, w1)
             return parentfn(w1, *extra)
     elif nb_args == 2:
         def proxy(w1, w2, *extra):
@@ -610,16 +642,21 @@ def Space(*args, **kwds):
     # for now, always make up a wrapped StdObjSpace
     from pypy.objspace import std
     space = std.Space(*args, **kwds)
-    space.is_nb_ = space.is_ # capture the original is_ op
+    is_nb_ = space.is_ # capture the original is_ op (?)
     patch_space_in_place(space, 'logic', proxymaker)
+    space.is_nb_ = is_nb_
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
                   space.wrap(app_newvar))
     space.setitem(space.builtin.w_dict, space.wrap('is_free'),
                   space.wrap(app_is_free))
     space.setitem(space.builtin.w_dict, space.wrap('is_bound'),
                   space.wrap(app_is_bound))
-    space.setitem(space.builtin.w_dict, space.wrap('is_alias'),
-                  space.wrap(app_is_alias))
+    space.setitem(space.builtin.w_dict, space.wrap('alias_of'),
+                  space.wrap(app_alias_of))
+    space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
+                  space.wrap(app_is_aliased))
+    space.setitem(space.builtin.w_dict, space.wrap('disp'),
+                 space.wrap(app_disp))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
