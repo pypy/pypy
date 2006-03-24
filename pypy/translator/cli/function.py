@@ -72,7 +72,8 @@ class Function(Node):
         # .NET runtime that seems to need a return statement at the
         # end of the function
         if returntype != 'void':
-            self.ilasm.opcode('ldc.i4.0')
+            ilasm_type = cts.ctstype_to_ilasm(returntype)
+            self.ilasm.opcode('ldc.%s 0' % ilasm_type)
 
         self.ilasm.opcode('ret')
         

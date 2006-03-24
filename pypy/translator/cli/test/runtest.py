@@ -11,9 +11,17 @@ from pypy.translator.cli.function import Node
 from pypy.translator.cli.cts import graph_to_signature
 from pypy.translator.cli.cts import llvar_to_cts
 
+FLOAT_PRECISION = 8
+
 def check(func, annotation, args):
     mono = compile_function(func, annotation)
-    assert func(*args) == mono(*args)
+    res1 = func(*args)
+    res2 = mono(*args)
+
+    if type(res1) is float:
+        assert round(res1, FLOAT_PRECISION) == round(res2, FLOAT_PRECISION)
+    else:
+        assert res1 == res2
 
 class TestEntryPoint(Node):
     """
@@ -36,7 +44,8 @@ class TestEntryPoint(Node):
             ilasm.opcode('ldc.i4.%d' % i)
             ilasm.opcode('ldelem.ref')
             arg_type, arg_var = llvar_to_cts(arg)
-            ilasm.call('int32 class [mscorlib]System.Convert::To%s(string)' % arg_type.capitalize())
+            ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
+                       (arg_type, self.__convert_method(arg_type)))
 
         ilasm.call(graph_to_signature(self.graph))
 
@@ -45,6 +54,21 @@ class TestEntryPoint(Node):
         ilasm.call('void class [mscorlib]System.Console::WriteLine(%s)' % ret_type)
         ilasm.opcode('ret')
         ilasm.end_function()
+
+    def __convert_method(self, arg_type):
+        _conv = {
+            'int32': 'ToInt32',
+            'unsigned int32': 'ToUInt32',
+            'int64': 'ToInt64',
+            'unsigned int64': 'ToUInt64',
+            'bool': 'ToBool',
+            'float64': 'ToDouble'
+            }
+
+        try:
+            return _conv[arg_type]
+        except KeyError:
+            assert False, 'Input type %s not supported' % arg_type
 
 
 class compile_function:
@@ -100,7 +124,7 @@ class compile_function:
 
         self.__check_helper("ilasm")
         retval = subprocess.call(["ilasm", tmpfile], stdout=subprocess.PIPE)
-        assert retval == 0, 'ilasm failed to assemble %s' % tmpfile
+        assert retval == 0, 'ilasm failed to assemble %s (%s)' % (self.graph.name, tmpfile)
         return tmpfile.replace('.il', '.exe')
 
     def __call__(self, *args):
@@ -115,8 +139,10 @@ class compile_function:
         assert retval == 0, stderr
 
         ret_type, ret_var = llvar_to_cts(self.graph.getreturnvar())
-        if ret_type == 'int32':
+        if 'int' in ret_type:
             return int(stdout)
+        elif ret_type == 'float64':
+            return float(stdout)
         elif ret_type == 'bool':
             return stdout.strip().lower() == 'true'
         else:
