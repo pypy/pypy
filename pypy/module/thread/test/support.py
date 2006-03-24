@@ -4,14 +4,16 @@ from pypy.conftest import gettestobjspace
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
 
 
-def waitfor(space, w_condition, timeout=10.0):
+def waitfor(space, w_condition, timeout=300.0):
     w_sleep = space.appexec([], "():\n import time; return time.sleep")
+    adaptivedelay = 0.04
     limit = time.time() + timeout
     while time.time() <= limit:
-        space.call_function(w_sleep, space.wrap(0.04))
+        space.call_function(w_sleep, space.wrap(adaptivedelay))
         gc.collect()
         if space.is_true(space.call_function(w_condition)):
             return
+        adaptivedelay *= 1.05
     print '*** timed out ***'
 waitfor.unwrap_spec = [ObjSpace, W_Root, float]
 
