@@ -267,10 +267,10 @@ def exception_clean(graph):
     return c
 
 class MinimalGCTransformer(GCTransformer):
-    def push_alive_nopyobj(self, var):
+    def push_alive(self, var):
         return []
 
-    def pop_alive_nopyobj(self, var):
+    def pop_alive(self, var):
         return []
 
     def replace_getfield(self, op, livevars, block): # XXX hackish solution for now

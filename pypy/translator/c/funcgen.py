@@ -458,8 +458,7 @@ class FunctionCodeGenerator(object):
         newvalue = self.expr(op.result, special_case_void=False)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result only for PyObjects
-        print "BARE", bare
-        if NEED_OLD_EXTRA_REFS and T == PyObjPtr:
+        if not bare and NEED_OLD_EXTRA_REFS and T == PyObjPtr:
             result.append('Py_XINCREF(%s);' % newvalue)
         result = '\n'.join(result)
         if T is Void:
