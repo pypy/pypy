@@ -95,6 +95,7 @@ class RPythonAnnotator:
         return self.build_graph_types(flowgraph, inputcells)
 
     def annotate_helper(self, function, args_s, policy=None, complete_now=True):
+        args_s = args_s[:]
         saved = self.policy, self.added_blocks
         if policy is None:
             from pypy.annotation.policy import AnnotatorPolicy

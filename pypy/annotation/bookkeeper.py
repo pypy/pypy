@@ -673,7 +673,10 @@ class RPythonCallsSpace:
 
     def type(self, item):
         return type(item)
-    
+
+    def is_true(self, s_tup):
+        assert isinstance(s_tup, SomeTuple)
+        return bool(s_tup.items)
 
 class CallPatternTooComplex(Exception):
     pass

@@ -82,6 +82,49 @@ class AbstractArguments:
         self._match_signature(scope_w, argnames, has_vararg, has_kwarg, defaults_w, 0, None)
         return scope_w
 
+    def unmatch_signature(self, signature, data_w):
+        """kind of inverse of match_signature"""
+        args_w, kwds_w = self.unpack()
+        need_cnt = len(args_w)
+        need_kwds = kwds_w.keys()
+        space = self.space
+        argnames, varargname, kwargname = signature
+        cnt = len(argnames)
+        data_args_w = data_w[:cnt]
+        if varargname:
+            data_w_stararg = data_w[cnt]
+            cnt += 1
+        else:
+            data_w_stararg = space.newtuple([])
+
+        unfiltered_kwds_w = {}
+        if kwargname:
+            data_w_starargarg = data_w[cnt]
+            for w_key in space.unpackiterable(data_w_starargarg):
+                key = space.str_w(w_key)
+                w_value = space.getitem(data_w_starargarg, w_key)
+                unfiltered_kwds_w[key] = w_value            
+            cnt += 1
+        assert len(data_w) == cnt
+        
+        ndata_args_w = len(data_args_w)
+        if ndata_args_w >= need_cnt:
+            args_w = data_args_w[:need_cnt]
+            for argname, w_arg in zip(argnames[need_cnt:], data_args_w[need_cnt:]):
+                unfiltered_kwds_w[argname] = w_arg
+            assert not space.is_true(data_w_stararg)
+        else:
+            args_w = data_args_w[:]
+            for w_stararg in space.unpackiterable(data_w_stararg):
+                args_w.append(w_stararg)
+            assert len(args_w) == need_cnt
+            
+        kwds_w = {}
+        for key in need_kwds:
+            kwds_w[key] = unfiltered_kwds_w[key]
+                    
+        return Arguments(self.space, args_w, kwds_w)
+
     def normalize(self):
         """Return an instance of the Arguments class.  (Instances of other
         classes may not be suitable for long-term storage or multiple

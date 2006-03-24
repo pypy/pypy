@@ -222,8 +222,10 @@ class FunctionDesc(Desc):
         if isinstance(result, FunctionGraph):
             graph = result         # common case
             # if that graph has a different signature, we need to re-parse
-            # the arguments
-            inputcells = self.parse_arguments(args, graph)
+            # the arguments.
+            # recreate the args object because inputcells may have been changed
+            new_args = args.unmatch_signature(self.signature, inputcells)
+            inputcells = self.parse_arguments(new_args, graph)
             result = schedule(graph, inputcells)
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
