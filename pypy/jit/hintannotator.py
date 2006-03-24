@@ -1,6 +1,7 @@
 from pypy.annotation.annrpython import RPythonAnnotator, _registeroperations
 from pypy.jit import hintmodel
 from pypy.jit.hintbookkeeper import HintBookkeeper
+from pypy.rpython.lltypesystem import lltype
 
 
 class HintAnnotator(RPythonAnnotator):
@@ -20,13 +21,19 @@ class HintAnnotator(RPythonAnnotator):
 
     def consider_op_malloc(self, hs_TYPE):
         TYPE = hs_TYPE.const
-        vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
-        return hintmodel.SomeLLAbstractContainer(vstructdef)
+        if getattr(self.policy, 'novirtualcontainer', False):
+            return hintmodel.SomeLLAbstractVariable(lltype.Ptr(TYPE))
+        else:
+            vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
+            return hintmodel.SomeLLAbstractContainer(vstructdef)
 
     def consider_op_malloc_varsize(self, hs_TYPE, hs_length):
         TYPE = hs_TYPE.const
-        vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
-        return hintmodel.SomeLLAbstractContainer(vcontainerdef)
+        if getattr(self.policy, 'novirtualcontainer', False):
+            return hintmodel.SomeLLAbstractVariable(lltype.Ptr(TYPE))
+        else:
+            vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
+            return hintmodel.SomeLLAbstractContainer(vcontainerdef)
 
     def consider_op_keepalive(self, hs_v):
         pass

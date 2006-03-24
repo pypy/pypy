@@ -256,6 +256,14 @@ class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractConstant)):
         else:
             return hs_c.__class__, "red", hs_c.concretetype
 
+class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractVariable)):
+
+    def rtyper_makerepr((ts, hs_v), hrtyper):
+        return hrtyper.getredrepr(hs_v.concretetype)
+
+    def rtyper_makekey((ts, hs_v), hrtyper):
+        return hs_v.__class__, "red", hs_v.concretetype
+
 class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractContainer)):
 
     def rtyper_makerepr((ts, hs_container), hrtyper):

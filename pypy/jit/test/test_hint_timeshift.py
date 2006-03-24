@@ -12,9 +12,12 @@ from pypy.rpython import rgenop, rstr
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
+from pypy.annotation.policy import AnnotatorPolicy
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 
+P_NOVIRTUAL = AnnotatorPolicy()
+P_NOVIRTUAL.novirtualcontainer = True
 
 def hannotate(func, values, policy=None, inline=None):
     # build the normal ll graphs for ll_function
@@ -37,8 +40,9 @@ def hannotate(func, values, policy=None, inline=None):
         hannotator.translator.view()
     return hs, hannotator, rtyper
 
-def timeshift(ll_function, values, opt_consts=[], inline=None):
-    hs, ha, rtyper = hannotate(ll_function, values, inline=inline)
+def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
+    hs, ha, rtyper = hannotate(ll_function, values,
+                               inline=inline, policy=policy)
     htshift = HintTimeshift(ha, rtyper)
     htshift.timeshift()
     t = rtyper.annotator.translator
@@ -354,3 +358,17 @@ def test_plus_minus_all_inlined():
     insns, res = timeshift(ll_plus_minus, [s, 0, 2], [0], inline=999)
     assert res == ll_plus_minus("+-+", 0, 2)
     assert insns == {'int_add': 2, 'int_sub': 1}
+
+def test_red_virtual_container():
+    # this checks that red boxes are able to be virtualized dynamically by
+    # the compiler (the P_NOVIRTUAL policy prevents the hint-annotator from
+    # marking variables in blue)
+    py.test.skip("in-progress")
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    def ll_function(n):
+        s = lltype.malloc(S)
+        s.n = n
+        return s.n
+    insns, res = timeshift(ll_function, [42], [], policy=P_NOVIRTUAL)
+    assert res == 42
+    assert insns == {}

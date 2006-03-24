@@ -90,9 +90,9 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         for the pygame viewer
         """
         if self.eager_concrete:
-            return (0,100,0)
+            return (0,100,0)     # green
         elif self.is_fixed():
-            return (50,140,0)
+            return (50,140,0)    # green-dark-cyan
         else:
             return None
     annotationcolor = property(annotationcolor)
@@ -101,7 +101,7 @@ class SomeLLAbstractVariable(SomeLLAbstractValue):
     pass
 
 class SomeLLAbstractContainer(SomeLLAbstractValue):
-    annotationcolor = (0,60,160)
+    annotationcolor = (0,60,160)  # blue
 
     def __init__(self, contentdef):
         self.contentdef = contentdef
