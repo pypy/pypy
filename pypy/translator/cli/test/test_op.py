@@ -50,4 +50,3 @@ def op_int_long_uint_ulong_modulo(x, y):
 def op_any_operations(x, y):
     return (x*y) + (x-y) + (x/y)
 
-print op_int_uint_bitwise(r_uint(42), r_uint(13))

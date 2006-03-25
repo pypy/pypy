@@ -61,7 +61,7 @@ class TestEntryPoint(Node):
             'unsigned int32': 'ToUInt32',
             'int64': 'ToInt64',
             'unsigned int64': 'ToUInt64',
-            'bool': 'ToBool',
+            'bool': 'ToBoolean',
             'float64': 'ToDouble'
             }
 

@@ -155,18 +155,22 @@ opcodes = {
     'ullong_gt':                'cgt.un',
     'ullong_ge':                _not('clt.un'),
 
-    'cast_bool_to_int':         None,
-    'cast_bool_to_uint':        None,
-    'cast_bool_to_float':       None,
+    # when casting from bool we want that every truth value is casted
+    # to 1: we can't simply DoNothing, because the CLI stack could
+    # contains a truth value not equal to 1, so we should use the !=0
+    # trick.
+    'cast_bool_to_int':         [PushArgs, 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_uint':        [PushArgs, 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_float':       [PushArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
     'cast_char_to_int':         None,
     'cast_unichar_to_int':      None,
     'cast_int_to_char':         None,
     'cast_int_to_unichar':      None,
-    'cast_int_to_uint':         None,
-    'cast_int_to_float':        None,
-    'cast_int_to_longlong':     None,
-    'cast_uint_to_int':         None,
-    'cast_float_to_int':        None,
-    'cast_float_to_uint':       None,
-    'truncate_longlong_to_int': None
+    'cast_int_to_uint':         DoNothing,
+    'cast_int_to_float':        'conv.r8',
+    'cast_int_to_longlong':     'conv.i8',
+    'cast_uint_to_int':         DoNothing,
+    'cast_float_to_int':        'conv.i4',
+    'cast_float_to_uint':       'conv.i4',
+    'truncate_longlong_to_int': 'conv.i4',
 }
