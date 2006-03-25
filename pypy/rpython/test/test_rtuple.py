@@ -196,34 +196,33 @@ class AbstractTestRTuple:
         res = self.interpret(f, [2, 3])
         assert res._obj.items == [2, 3]
 
+    def test_tuple_iterator_length1(self):
+        def f(i):
+            total = 0
+            for x in (i,):
+                total += x
+            return total
+        res = self.interpret(f, [93813])
+        assert res == 93813
 
-def test_tuple_iterator_length1():
-    def f(i):
-        total = 0
-        for x in (i,):
-            total += x
-        return total
-    res = interpret(f, [93813])
-    assert res == 93813
+    def test_inst_tuple_iter(self):
+        class A:
+            pass
+        class B(A):
+            pass
 
-def test_inst_tuple_iter():
-    class A:
-        pass
-    class B(A):
-        pass
+        def f(i):
+            if i:
+                x = (A(),)
+            else:
+                x = (B(),)
+            l = None
+            for y in x:
+                l = y
+            return l
 
-    def f(i):
-        if i:
-            x = (A(),)
-        else:
-            x = (B(),)
-        l = []
-        for y in x:
-            l.append(y)
-        return l[0]
-
-    res = interpret(f, [0])
-    assert ''.join(res.super.typeptr.name) == "B\00"
+        res = self.interpret(f, [0])
+        assert self.class_name(res) == "B"
 
 
 class TestLLTuple(AbstractTestRTuple):

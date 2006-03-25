@@ -1,16 +1,9 @@
-import operator
 from pypy.annotation.pairtype import pairtype
-from pypy.annotation import model as annmodel
-from pypy.objspace.flow.model import Constant
-from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
-from pypy.rpython.rmodel import IteratorRepr
-from pypy.rpython.rmodel import externalvsinternal
+from pypy.rpython.rmodel import inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rtuple import AbstractTupleRepr
+from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
-from pypy.rpython.rarithmetic import intmask
 
 # ____________________________________________________________
 #
@@ -63,11 +56,6 @@ class TupleRepr(AbstractTupleRepr):
             hop.gendirectcall(rlist.ll_setitem_nonneg, v_func, vlist, cindex, vitem)
         return vlist
 
-    def make_iterator_repr(self):
-        if len(self.items_r) == 1:
-            return Length1TupleIteratorRepr(self)
-        raise TyperError("can only iterate over tuples of length 1 for now")
-
     def getitem(self, llops, v_tuple, index): # ! returns internal repr lowleveltype
         name = self.fieldnames[index]
         llresult = self.lltypes[index]
@@ -113,24 +101,16 @@ class __extend__(pairtype(TupleRepr, PyObjRepr)):
 #
 #  Iteration.
 
-class Length1TupleIteratorRepr(IteratorRepr):
+class Length1TupleIteratorRepr(AbstractTupleIteratorRepr):
 
     def __init__(self, r_tuple):
         self.r_tuple = r_tuple
         self.lowleveltype = Ptr(GcStruct('tuple1iter',
                                          ('tuple', r_tuple.lowleveltype)))
+        self.ll_tupleiter = ll_tupleiter
+        self.ll_tuplenext = ll_tuplenext
 
-    def newiter(self, hop):
-        v_tuple, = hop.inputargs(self.r_tuple)
-        citerptr = hop.inputconst(Void, self.lowleveltype)
-        return hop.gendirectcall(ll_tupleiter, citerptr, v_tuple)
-
-    def rtype_next(self, hop):
-        v_iter, = hop.inputargs(self)
-        hop.has_implicit_exception(StopIteration) # record that we know about it
-        hop.exception_is_here()
-        v = hop.gendirectcall(ll_tuplenext, v_iter)
-        return hop.llops.convertvar(v, self.r_tuple.items_r[0], self.r_tuple.external_items_r[0])
+TupleRepr.IteratorRepr = Length1TupleIteratorRepr
 
 def ll_tupleiter(ITERPTR, tuple):
     iter = malloc(ITERPTR.TO)

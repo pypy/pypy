@@ -6,9 +6,7 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.rmodel import externalvsinternal
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.lltypesystem.lltype import \
-     Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
+from pypy.rpython.lltypesystem.lltype import Void, Signed 
 from pypy.rpython.rarithmetic import intmask
 
 class __extend__(annmodel.SomeTuple):
@@ -128,6 +126,12 @@ class AbstractTupleRepr(Repr):
     def get_ll_hash_function(self):
         return gen_hash_function(self.items_r)    
 
+    def make_iterator_repr(self):
+        if len(self.items_r) == 1:
+            # subclasses are supposed to set the IteratorRepr attribute
+            return self.IteratorRepr(self)
+        raise TyperError("can only iterate over tuples of length 1 for now")
+
 
 class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
 
@@ -187,3 +191,18 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
             return r_from.newtuple(llops, r_to, items_v)
         return NotImplemented
  
+
+class AbstractTupleIteratorRepr(IteratorRepr):
+
+    def newiter(self, hop):
+        v_tuple, = hop.inputargs(self.r_tuple)
+        citerptr = hop.inputconst(Void, self.lowleveltype)
+        return hop.gendirectcall(self.ll_tupleiter, citerptr, v_tuple)
+
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
+        v = hop.gendirectcall(self.ll_tuplenext, v_iter)
+        return hop.llops.convertvar(v, self.r_tuple.items_r[0], self.r_tuple.external_items_r[0])
+
