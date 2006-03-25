@@ -345,8 +345,9 @@ def test_simple_barrier():
     t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     graph = graphof(t, f)
     ops = getops(graph)
-    assert len(ops['getfield']) == 2
-    assert len(ops['setfield']) == 4
+    assert len(ops['bare_getfield']) == 2
+    assert len(ops['bare_setfield']) == 2
+    assert len(ops['setfield']) == 2
 
 def test_arraybarrier():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
@@ -413,7 +414,7 @@ def test_deallocator_less_simple():
     dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
     assert len(ops['direct_call']) == 2
-    assert len(ops['getfield']) == 2
+    assert len(ops['bare_getfield']) == 2
     assert len(ops['gc_free']) == 1
 
 def test_deallocator_array():
@@ -426,7 +427,7 @@ def test_deallocator_array():
     dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
     assert len(ops['direct_call']) == 4
-    assert len(ops['getfield']) == 4
+    assert len(ops['bare_getfield']) == 4
     assert len(ops['getarraysubstruct']) == 1
     assert len(ops['gc_free']) == 1
 
