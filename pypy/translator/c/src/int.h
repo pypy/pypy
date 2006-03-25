@@ -290,7 +290,7 @@ long op_divmod_adj(long x, long y, long *p_rem)
 #define OP_LLONG_ADD OP_INT_ADD
 #define OP_LLONG_SUB OP_INT_SUB
 #define OP_LLONG_MUL OP_INT_MUL
-#define OP_LLONG_DIV OP_INT_DIV
+#define OP_LLONG_FLOORDIV OP_INT_FLOORDIV
 
 #define OP_LLONG_EQ  OP_INT_EQ
 #define OP_LLONG_NE  OP_INT_NE

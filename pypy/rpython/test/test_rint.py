@@ -139,3 +139,11 @@ def test_isinstance_vs_int_types():
         return space.wrap(x)
     res = interpret(wrap, [r_longlong(0)])
     assert res == 0
+
+def test_truediv():
+    import operator
+    def f(n, m):
+        return operator.truediv(n, m)
+    res = interpret(f, [20, 4])
+    assert type(res) is float
+    assert res == 5.0

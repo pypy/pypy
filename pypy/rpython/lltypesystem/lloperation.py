@@ -63,7 +63,6 @@ def enum_foldable_ops(raising_is_ok=False):
 # XXX Some clean-ups are needed:
 #      * many exception-raising operations are being replaced by calls to helpers
 #      * there are still many _ovf operations that cannot really raise OverflowError
-#      * the div/truediv/floordiv mess needs to be sorted out and reduced
 #      * float_mod vs float_fmod ?
 # Run test_lloperation after changes.  Feel free to clean up LLInterpreter too :-)
 
@@ -96,8 +95,6 @@ LL_OPERATIONS = {
     'int_add':              LLOp(canfold=True),
     'int_sub':              LLOp(canfold=True),
     'int_mul':              LLOp(canfold=True),
-    'int_div':              LLOp(canfold=True),
-    'int_truediv':          LLOp(canfold=True),
     'int_floordiv':         LLOp(canfold=True),
     'int_mod':              LLOp(canfold=True),
     'int_lt':               LLOp(canfold=True),
@@ -114,8 +111,6 @@ LL_OPERATIONS = {
     'int_add_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_sub_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_mul_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_div_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_truediv_ovf':      LLOp(canfold=True, canraise=(OverflowError,)),
     'int_floordiv_ovf':     LLOp(canfold=True, canraise=(OverflowError,)),
     'int_mod_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_lt_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
@@ -140,8 +135,6 @@ LL_OPERATIONS = {
     'uint_add':             LLOp(canfold=True),
     'uint_sub':             LLOp(canfold=True),
     'uint_mul':             LLOp(canfold=True),
-    'uint_div':             LLOp(canfold=True),
-    'uint_truediv':         LLOp(canfold=True),
     'uint_floordiv':        LLOp(canfold=True),
     'uint_mod':             LLOp(canfold=True),
     'uint_lt':              LLOp(canfold=True),
@@ -163,9 +156,7 @@ LL_OPERATIONS = {
     'float_add':            LLOp(canfold=True),
     'float_sub':            LLOp(canfold=True),
     'float_mul':            LLOp(canfold=True),
-    'float_div':            LLOp(canfold=True),
     'float_truediv':        LLOp(canfold=True),
-    'float_floordiv':       LLOp(canfold=True),
     'float_mod':            LLOp(canfold=True),
     'float_lt':             LLOp(canfold=True),
     'float_le':             LLOp(canfold=True),
@@ -184,8 +175,6 @@ LL_OPERATIONS = {
     'llong_add':            LLOp(canfold=True),
     'llong_sub':            LLOp(canfold=True),
     'llong_mul':            LLOp(canfold=True),
-    'llong_div':            LLOp(canfold=True),
-    'llong_truediv':        LLOp(canfold=True),
     'llong_floordiv':       LLOp(canfold=True),
     'llong_mod':            LLOp(canfold=True),
     'llong_lt':             LLOp(canfold=True),
@@ -203,8 +192,6 @@ LL_OPERATIONS = {
     'ullong_add':           LLOp(canfold=True),
     'ullong_sub':           LLOp(canfold=True),
     'ullong_mul':           LLOp(canfold=True),
-    'ullong_div':           LLOp(canfold=True),
-    'ullong_truediv':       LLOp(canfold=True),
     'ullong_floordiv':      LLOp(canfold=True),
     'ullong_mod':           LLOp(canfold=True),
     'ullong_lt':            LLOp(canfold=True),

@@ -31,10 +31,10 @@ very_low_level_ops = [
     'flavored_free', 'flavored_malloc',
 
     #float operations:
-    'float_abs', 'float_add', 'float_div', 'float_eq', 'float_floor',
-    'float_floordiv', 'float_fmod', 'float_ge', 'float_gt', 'float_invert',
+    'float_abs', 'float_add', 'float_truediv', 'float_eq', 'float_floor',
+    'float_fmod', 'float_ge', 'float_gt', 'float_invert',
     'float_is_true', 'float_le', 'float_lt', 'float_mod', 'float_mul',
-    'float_ne', 'float_neg', 'float_sub', 'float_truediv',
+    'float_ne', 'float_neg', 'float_sub',
 
     #array operations:
     'getarrayitem_int', 'getarrayitem_ptr',
@@ -48,15 +48,14 @@ very_low_level_ops = [
 
     #integer operations:
     'int_abs', 'int_abs_ovf', 'int_add', 'int_add_ovf', 'int_and',
-    'int_and_ovf', 'int_div', 'int_div_ovf', 'int_eq', 'int_eq_ovf',
+    'int_and_ovf', 'int_eq', 'int_eq_ovf',
     'int_floordiv', 'int_floordiv_ovf', 'int_floordiv_ovf_zer', 'int_ge',
     'int_ge_ovf', 'int_gt', 'int_gt_ovf', 'int_invert', 'int_invert_ovf',
     'int_is_true', 'int_is_true_ovf', 'int_le', 'int_le_ovf', 'int_lshift',
     'int_lshift_ovf', 'int_lt', 'int_lt_ovf', 'int_mod', 'int_mod_ovf',
     'int_mod_ovf_zer', 'int_mul', 'int_mul_ovf', 'int_ne', 'int_ne_ovf',
     'int_neg', 'int_neg_ovf', 'int_or', 'int_or_ovf', 'int_rshift',
-    'int_rshift_ovf', 'int_sub', 'int_sub_ovf', 'int_truediv',
-    'int_truediv_ovf', 'int_xor', 'int_xor_ovf',
+    'int_rshift_ovf', 'int_sub', 'int_sub_ovf', 'int_xor', 'int_xor_ovf',
 
     #regular object memory operations:
     'keepalive', 'malloc', 'malloc_varsize',
@@ -71,10 +70,10 @@ very_low_level_ops = [
     'same_as',
 
     #operations with unsigned integers: 
-    'uint_abs', 'uint_add', 'uint_and', 'uint_div', 'uint_eq',
+    'uint_abs', 'uint_add', 'uint_and', 'uint_eq',
     'uint_floordiv', 'uint_ge', 'uint_gt', 'uint_invert', 'uint_is_true',
     'uint_le', 'uint_lshift', 'uint_lt', 'uint_mod', 'uint_mul', 'uint_ne',
-    'uint_neg', 'uint_or', 'uint_rshift', 'uint_sub', 'uint_truediv',
+    'uint_neg', 'uint_or', 'uint_rshift', 'uint_sub',
     'uint_xor',
 
     #operations with unicode characters

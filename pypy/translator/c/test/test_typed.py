@@ -205,7 +205,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         fn = self.getcompiled(snippet.add_func)
         raises(OverflowError, fn, sys.maxint)
 
-    def test_int_div_ovf_zer(self):
+    def test_int_floordiv_ovf_zer(self):
         fn = self.getcompiled(snippet.div_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)

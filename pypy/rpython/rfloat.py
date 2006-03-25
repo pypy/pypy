@@ -41,13 +41,16 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
 
     rtype_inplace_mul = rtype_mul
 
-    def rtype_div(_, hop):
-        # turn 'div' on floats into 'truediv'
+    def rtype_truediv(_, hop):
         return _rtype_template(hop, 'truediv')
 
-    rtype_inplace_div     = rtype_div
-    rtype_truediv         = rtype_div
-    rtype_inplace_truediv = rtype_div
+    rtype_inplace_truediv = rtype_truediv
+
+    # turn 'div' on floats into 'truediv'
+    rtype_div         = rtype_truediv
+    rtype_inplace_div = rtype_inplace_truediv
+
+    # 'floordiv' on floats not supported in RPython
 
     def rtype_pow(_, hop):
         s_float3 = hop.args_s[2]

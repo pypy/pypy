@@ -74,14 +74,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     def rtype_mul_ovf(_, hop):
         return _rtype_template(hop, 'mul_ovf')
 
-    def rtype_div(_, hop):
-        # turn 'div' on integers into 'floordiv'
-        return _rtype_template(hop, 'floordiv', [ZeroDivisionError])
-    rtype_inplace_div = rtype_div
-
-    def rtype_div_ovf(_, hop):
-        return _rtype_template(hop, 'div_ovf', [ZeroDivisionError])
-
     def rtype_floordiv(_, hop):
         return _rtype_template(hop, 'floordiv', [ZeroDivisionError])
     rtype_inplace_floordiv = rtype_floordiv
@@ -89,9 +81,12 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     def rtype_floordiv_ovf(_, hop):
         return _rtype_template(hop, 'floordiv_ovf', [ZeroDivisionError])
 
-    def rtype_truediv(_, hop):
-        return _rtype_template(hop, 'truediv', [ZeroDivisionError])
-    rtype_inplace_truediv = rtype_truediv
+    # turn 'div' on integers into 'floordiv'
+    rtype_div         = rtype_floordiv
+    rtype_inplace_div = rtype_inplace_floordiv
+    rtype_div_ovf     = rtype_floordiv_ovf
+
+    # 'def rtype_truediv' is delegated to the superclass FloatRepr
 
     def rtype_mod(_, hop):
         return _rtype_template(hop, 'mod', [ZeroDivisionError])

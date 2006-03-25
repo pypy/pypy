@@ -115,7 +115,6 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
                         'is_true': True}
-ops_returning_a_float = {'truediv': True}
 
 def checkptr(ptr):
     return isinstance(lltype.typeOf(ptr), lltype.Ptr)
@@ -689,7 +688,7 @@ class LLFrame(object):
 
     for typ in (float, int, r_uint, r_longlong, r_ulonglong):
         typname = typ.__name__
-        optup = ('add', 'sub', 'mul', 'div', 'truediv', 'floordiv',
+        optup = ('add', 'sub', 'mul', 'truediv', 'floordiv',
                  'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
         if typ is r_uint:
             opnameprefix = 'uint'
@@ -703,8 +702,11 @@ class LLFrame(object):
             optup += 'and_', 'or_', 'lshift', 'rshift', 'xor'
         for opname in optup:
             assert opname in opimpls
-            if typ is int and opname not in ops_returning_a_bool \
-                    and opname not in ops_returning_a_float:
+            if typ is float and opname == 'floordiv':
+                continue    # 'floordiv' is for integer types
+            if typ is not float and opname == 'truediv':
+                continue    # 'truediv' is for floats only
+            if typ is int and opname not in ops_returning_a_bool:
                 adjust_result = 'intmask'
             else:
                 adjust_result = ''
