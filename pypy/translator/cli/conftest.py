@@ -1,5 +1,4 @@
 import py
-from pypy import conftest
 
 Option = py.test.Config.Option
 
