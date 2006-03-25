@@ -4,6 +4,7 @@ from py.test import raises
 from pypy.rpython import extregistry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.objectmodel import instantiate
 
 P = False  # debug printing
 
@@ -18,7 +19,7 @@ def get_annotation(func):
     missing = [object] * (func.func_code.co_argcount - len(argstypelist))
     return missing + argstypelist
 
-def getcompiled(func, view=conftest.option.view, inline_threshold=1,
+def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
                 use_boehm=False, exports=[]):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
@@ -34,10 +35,15 @@ def getcompiled(func, view=conftest.option.view, inline_threshold=1,
         t.viewcg()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
+    instantiators = {}
     for obj in exports:
         if isinstance(obj, type):
-            cdef = bk.getuniqueclassdef(obj)
-            bk.needs_generic_instantiate[cdef] = True
+            cls = obj
+            def make():
+                return instantiate(cls)
+            make.__name__ = cls.__name__ + '__new__'
+            t.annotator.build_types(make, [])
+            instantiators[cls] = make
     rtyper.specialize()
     if view:
         t.viewcg()
@@ -53,13 +59,17 @@ def getcompiled(func, view=conftest.option.view, inline_threshold=1,
 
     cbuilder = CExtModuleBuilder(t, func, gcpolicy=gcpolicy)
     # explicit build of database
-    db = cbuilder.build_database(exports=exports)
+    db = cbuilder.build_database(exports=exports, instantiators=instantiators)
     cbuilder.generate_source(db)
     cbuilder.compile()
 
     if view:
         t.viewcg()
-    return getattr(cbuilder.import_module(), func.__name__)
+    return cbuilder.import_module()
+
+def getcompiled(func, *args, **kwds):
+    module = get_compiled_module(func, *args, **kwds)
+    return getattr(module, func.__name__)
 
 # _______________________________________________-
 # stubs for special annotation/rtyping
@@ -230,9 +240,10 @@ def test_wrap_call_dtor():
     if P: print ret
     assert ret[0] == 1
 
-# exposing and using classes. almost ready, missing spots in the python delegation
+# exposing and using classes from a generasted extension module
 def test_expose_classes():
-    f = getcompiled(democlass_helper2, use_boehm=not True, exports=[
+    m = get_compiled_module(democlass_helper2, use_boehm=not True, exports=[
         DemoClass, DemoSubclass, DemoNotAnnotated])
-    res = f(2, 3)
-    if P: print 55*'-', res
+    obj = m.DemoClass(2, 3)
+    res = obj.demo()
+    assert res == DemoClass(2, 3).demo()

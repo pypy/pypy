@@ -33,10 +33,11 @@ class CBuilder(object):
         self.libraries = libraries
         self.exports = {}
 
-    def build_database(self, exports=[]):
+    def build_database(self, exports=[], instantiators={}):
         translator = self.translator
         db = LowLevelDatabase(translator, standalone=self.standalone, 
-                              gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
+                              gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled,
+                              instantiators=instantiators)
 
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData
@@ -50,8 +51,7 @@ class CBuilder(object):
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())
 
-        # XXX the following has the side effect to generate
-        # some needed things. Find out why.
+        # build entrypoint and eventually other things to expose
         pf = self.getentrypointptr()
         pfname = db.get(pf)
         self.exports[self.entrypoint.func_name] = pf

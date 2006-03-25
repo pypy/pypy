@@ -5,9 +5,10 @@ from types import FunctionType, CodeType, InstanceType, ClassType
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base
 from pypy.translator.c.support import log
+from pypy.translator.c.wrapper import gen_wrapper
 
 from pypy.rpython.rarithmetic import r_int, r_uint
-from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
+from pypy.rpython.lltypesystem.lltype import pyobjectptr
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr
@@ -24,7 +25,7 @@ class PyObjMaker:
     reconstruct them.
     """
 
-    def __init__(self, namespace, getvalue, translator=None):
+    def __init__(self, namespace, getvalue, translator=None, instantiators={}):
         self.namespace = namespace
         self.getvalue = getvalue
         self.translator = translator
@@ -38,6 +39,7 @@ class PyObjMaker:
         self.debugstack = ()  # linked list of nested nameof()
         self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
         self.import_hints = IMPORT_HINTS
+        self.instantiators = instantiators
 
     def nameof(self, obj, debug=None):
         if debug:
@@ -167,6 +169,9 @@ class PyObjMaker:
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
+
+        # XXX this is broken after the translationcontext change!
+        # the frozen attribute is gone. What to do?
         if self.translator.frozen:
             warning = 'NOT GENERATING'
         else:
@@ -208,7 +213,6 @@ class PyObjMaker:
         if self.shouldskipfunc(func):
             return self.skipped_function(func)
 
-        from pypy.translator.c.wrapper import gen_wrapper
         fwrapper = gen_wrapper(func, self.translator)
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
         self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper)
@@ -336,6 +340,9 @@ class PyObjMaker:
         return name
 
     def nameof_classobj(self, cls):
+        if cls in self.instantiators:
+            return self.wrap_exported_class(cls)
+
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r should never be reached" % (cls,)
 
@@ -345,7 +352,7 @@ class PyObjMaker:
         if issubclass(cls, Exception):
             # if cls.__module__ == 'exceptions':
             # don't rely on this, py.magic redefines AssertionError
-            if getattr(__builtin__,cls.__name__,None) is cls:
+            if getattr(__builtin__, cls.__name__, None) is cls:
                 name = self.uniquename('gexc_' + cls.__name__)
                 self.initcode_python(name, cls.__name__)
                 return name
@@ -521,3 +528,41 @@ class PyObjMaker:
         co = compile(source, '<initcode>', 'exec')
         del source
         return marshal.dumps(co), originalsource
+
+    # ____________________________________________________________-
+    # addition for true extension module building
+
+    def wrap_exported_class(self, cls):
+        metaclass = "type"
+        name = self.uniquename('gwcls_' + cls.__name__)
+        basenames = [self.nameof(base) for base in cls.__bases__]
+        def initclassobj():
+            content = cls.__dict__.items()
+            content.sort()
+            for key, value in content:
+                if key.startswith('__'):
+                    if key in ['__module__', '__doc__', '__dict__',
+                               '__weakref__', '__repr__', '__metaclass__']:
+                        continue
+                if self.shouldskipfunc(value):
+                    log.WARNING("skipped class function: %r" % value)
+                    continue
+                yield '%s.%s = property(lambda self:%s.__get__(self.__self__))' % (
+                    name, key, self.nameof(value))
+
+        baseargs = ", ".join(basenames)
+        if baseargs:
+            baseargs = '(%s)' % baseargs
+            
+        # fishing for the instantiator
+        instantiator = self.nameof(self.instantiators[cls])
+        a = self.initcode.append
+        a('class %s%s:'                     % (name, baseargs) )
+        a('    __metaclass__ = type')
+        a('    __slots__ = ["__self__"] # for PyCObject')
+        a('    def __new__(cls, *args, **kwds):')
+        a('        inst = object.__new__(cls)')
+        a('        inst.__self__ = %s()'    % instantiator)
+        a('        return inst')
+        self.later(initclassobj())
+        return name

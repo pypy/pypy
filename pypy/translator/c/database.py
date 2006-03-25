@@ -18,7 +18,8 @@ from pypy.translator.c.extfunc import do_the_getting
 
 class LowLevelDatabase(object):
 
-    def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
+    def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False,
+                 instantiators={}):
         self.translator = translator
         self.standalone = standalone
         self.structdefnodes = {}
@@ -34,7 +35,7 @@ class LowLevelDatabase(object):
         self.infs = []
         self.namespace = CNameManager()
         if not standalone:
-            self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
+            self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator, instantiators)
         if gcpolicy is None:
             from pypy.translator.c import gc
             gcpolicy = gc.RefcountingGcPolicy
