@@ -260,6 +260,7 @@ def test_arith_plus_minus():
                      'int_sub': 1}
 
 def test_simple_struct():
+    py.test.skip("pending rpython.test_rpbc.test_disjoint_pbcs")
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
                                       ('world', lltype.Signed),
                         hints={'immutable': True})
@@ -325,6 +326,7 @@ def test_inlined_substructure():
     assert insns == {}    
 
 def test_degenerated_merge_substructure():
+    py.test.skip("re in-progress")
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
 
@@ -363,7 +365,6 @@ def test_red_virtual_container():
     # this checks that red boxes are able to be virtualized dynamically by
     # the compiler (the P_NOVIRTUAL policy prevents the hint-annotator from
     # marking variables in blue)
-    py.test.skip("in-progress")
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     def ll_function(n):
         s = lltype.malloc(S)

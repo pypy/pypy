@@ -55,7 +55,11 @@ class HintRTyper(RPythonTyper):
         try:
             return self.red_reprs[lowleveltype]
         except KeyError:
-            r = RedRepr(lowleveltype, self.timeshifter)
+            redreprcls = RedRepr
+            if isinstance(lowleveltype, lltype.Ptr):
+                if isinstance(lowleveltype.TO, lltype.Struct):
+                    redreprcls = RedStructRepr
+            r = redreprcls(lowleveltype, self.timeshifter)
             self.red_reprs[lowleveltype] = r
             return r
 
@@ -323,20 +327,17 @@ class RedRepr(Repr):
     def residual_values(self, ll_value):
         return [ll_value]
 
+
+class RedStructRepr(RedRepr):
+    ll_factory = None
+
     def create(self, hop):
+        if self.ll_factory is None:
+            T = self.original_concretetype.TO
+            self.ll_factory = rtimeshift.make_virtualredbox_factory_for_struct(T)
         ts = self.timeshifter
-        s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)        
-        RESTYPE = self.original_concretetype
-        gv_type = rgenop.constTYPE(RESTYPE.TO)
-        c_type = hop.inputconst(rgenop.CONSTORVAR, gv_type)        
-        gv_resulttype = rgenop.constTYPE(RESTYPE)
-        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
-        v_jitstate = hop.llops.getjitstate()
-        
-        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_malloc,
-            [ts.s_JITState, s_CONSTORVAR, s_CONSTORVAR],
-            [v_jitstate,    c_type,       c_resulttype],
-            ts.s_RedBox)
+        return hop.llops.genmixlevelhelpercall(self.ll_factory,
+            [], [], ts.s_RedBox)
 
 
 class BlueRepr(Repr):
