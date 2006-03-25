@@ -33,7 +33,6 @@ class OpFormatter:
         'bool_not':    'not',
 
         'cast_int_to_float': 'asFloat',
-        'float_div':   '/', # overrides the div definition in number_ops
         'float_fmod':  r'\\', # we can't really distinguish mod and fmod
         'float_floor': 'floor',
         # XXX this potentially incorrect (may return LargeIntegers)
@@ -50,7 +49,6 @@ class OpFormatter:
         'sub':       '-',
         'eq':        '=',
         'mul':       '*',
-        'div':       '//',
         'floordiv':  '//',
         'truediv':   '/ asFloat',
         'mod':       r'\\',

@@ -58,10 +58,8 @@ general_tests = [
     ("add", Signed, 1, 2),
     ("sub", Signed, 1, 3),
     ("mul", Signed, 2, 3),
-    ("div", Signed, 7, 3),
     ("floordiv", Signed, 7, 3), # XXX what about division by zero?
     ("floordiv", Signed, -7, 3),
-    ("truediv", Float, 7, 4),
     ("mod", Signed, 9, 4),
     ("mod", Signed, 9, -4),
     ("eq", Bool, 1, 1),
@@ -135,8 +133,7 @@ def test_floatoperations_is_true():
     llfunctest(istrue, ())
 
 def test_floatoperations_binary():
-    for llopname in "add", "sub", "mul", "div", "mod", "fmod", \
-            "floordiv", "truediv":
+    for llopname in "add", "sub", "mul", "mod", "fmod", "truediv":
         exec """def lloptest(i):
             f = llop.cast_int_to_float(Float, i)
             return llop.float_%s(Float, f, 1.25)""" % llopname
