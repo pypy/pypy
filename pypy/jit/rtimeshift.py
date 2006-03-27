@@ -33,19 +33,19 @@ class RedBox(object):
         return False
 
     # generic implementation of some operations
-    def op_getfield(self, jitstate, fielddesc, gv_fieldname, gv_resulttype):
+    def op_getfield(self, jitstate, fielddesc, gv_resulttype):
         op_args = lltype.malloc(VARLIST.TO, 2)
-        op_args[0] = self.getgenvar()
-        op_args[1] = gv_fieldname
+        op_args[0] = self.getgenvar(jitstate)
+        op_args[1] = fielddesc.gv_fieldname
         genvar = rgenop.genop(jitstate.curblock, 'getfield', op_args,
                               gv_resulttype)
         return VarRedBox(genvar)
 
-    def op_setfield(self, jitstate, fielddesc, gv_fieldname, valuebox):
+    def op_setfield(self, jitstate, fielddesc, valuebox):
         op_args = lltype.malloc(VARLIST.TO, 3)
-        op_args[0] = self.getgenvar()
-        op_args[1] = gv_fieldname
-        op_args[2] = valuebox.getgenvar()
+        op_args[0] = self.getgenvar(jitstate)
+        op_args[1] = fielddesc.gv_fieldname
+        op_args[2] = valuebox.getgenvar(jitstate)
         rgenop.genop(jitstate.curblock, 'setfield', op_args,
                               gv_Void)
 
@@ -56,7 +56,7 @@ class VarRedBox(RedBox):
     def __init__(self, genvar):
         self.genvar = genvar
 
-    def getgenvar(self):
+    def getgenvar(self, jitstate):
         return self.genvar
 
 VCONTAINER = lltype.GcStruct("vcontainer")
@@ -66,7 +66,7 @@ class ContainerRedBox(RedBox):
         self.envelope = envelope
         self.content_addr = content_addr
 
-    def getgenvar(self): # not support at the moment
+    def getgenvar(self, jitstate): # no support at the moment
         raise RuntimeError("cannot force virtual containers")
 
     def ll_make_container_box(envelope, content_addr):
@@ -90,17 +90,37 @@ def ll_getcontent(box):
 class VirtualRedBox(RedBox):
     "A red box that contains (for now) a virtual Struct."
 
-    def __init__(self, content_boxes):
-        self.content_boxes = content_boxes[:]
-    
-    def getgenvar(self): # no support at the moment
-        raise RuntimeError("cannot force virtual containers")
+    def __init__(self, typedesc):
+        # XXX pass a TypeDesc instead of these arguments
+        self.content_boxes = typedesc.content_boxes[:]
+        self.typedesc = typedesc
+        self.genvar = rgenop.nullvar
 
-    def op_getfield(self, jitstate, fielddesc, gv_fieldname, gv_returntype):
-        return self.content_boxes[fielddesc.fieldindex]
+    def getgenvar(self, jitstate):
+        if not self.genvar:
+            typedesc = self.typedesc
+            boxes = self.content_boxes
+            self.content_boxes = None
+            op_args = lltype.malloc(VARLIST.TO, 1)
+            op_args[0] = typedesc.gv_type
+            self.genvar = rgenop.genop(jitstate.curblock, 'malloc', op_args,
+                                       typedesc.gv_ptrtype)
+            for i in range(len(boxes)):
+                RedBox.op_setfield(self, jitstate, typedesc.fielddescs[i],
+                                   boxes[i])
+        return self.genvar
 
-    def op_setfield(self, jitstate, fielddesc, gv_fieldname, valuebox):
-        self.content_boxes[fielddesc.fieldindex] = valuebox
+    def op_getfield(self, jitstate, fielddesc, gv_returntype):
+        if self.content_boxes is None:
+            return RedBox.op_getfield(self, jitstate, fielddesc, gv_returntype)
+        else:
+            return self.content_boxes[fielddesc.fieldindex]
+
+    def op_setfield(self, jitstate, fielddesc, valuebox):
+        if self.content_boxes is None:
+            RedBox.op_setfield(self, jitstate, fielddesc, valuebox)
+        else:
+            self.content_boxes[fielddesc.fieldindex] = valuebox
 
 def make_virtualredbox_factory_for_struct(T):
     defls = []
@@ -109,8 +129,10 @@ def make_virtualredbox_factory_for_struct(T):
         defaultvalue = FIELDTYPE._defl()
         defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
         defls.append(defaultbox)
+    desc = ContainerTypeDesc(T)
+    desc.content_boxes = defls
     def ll_factory():
-        return VirtualRedBox(defls)
+        return VirtualRedBox(desc)
     return ll_factory
 
 class ConstRedBox(RedBox):
@@ -119,7 +141,7 @@ class ConstRedBox(RedBox):
     def __init__(self, genvar):
         self.genvar = genvar
 
-    def getgenvar(self):
+    def getgenvar(self, jitstate):
         return self.genvar
 
     def ll_fromvalue(value):
@@ -130,6 +152,7 @@ class ConstRedBox(RedBox):
         elif T is lltype.Float:
             return DoubleRedBox(gv)
         else:
+            assert isinstance(T, lltype.Primitive)
             assert T is not lltype.Void, "cannot make red boxes of voids"
             # XXX what about long longs?
             return IntRedBox(gv)
@@ -222,7 +245,7 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
         res = opdesc.llop(RESULT, arg)
         return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 1)
-    op_args[0] = argbox.getgenvar()
+    op_args[0] = argbox.getgenvar(jitstate)
     genvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
                           rgenop.constTYPE(RESULT))
     return VarRedBox(genvar)
@@ -240,17 +263,34 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
         res = opdesc.llop(RESULT, arg0, arg1)
         return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 2)
-    op_args[0] = argbox0.getgenvar()
-    op_args[1] = argbox1.getgenvar()
+    op_args[0] = argbox0.getgenvar(jitstate)
+    op_args[1] = argbox1.getgenvar(jitstate)
     genvar = rgenop.genop(jitstate.curblock, opdesc.opname, op_args,
                           rgenop.constTYPE(RESULT))
     return VarRedBox(genvar)
+
+class ContainerTypeDesc(object):
+    def __init__(self, TYPE):
+        self.TYPE = TYPE
+        self.PTRTYPE = lltype.Ptr(TYPE)
+        self.gv_type = rgenop.constTYPE(self.TYPE)
+        self.gv_ptrtype = rgenop.constTYPE(self.PTRTYPE)
+        # XXX only for Struct so far
+        self.fielddescs = [make_fielddesc(self.PTRTYPE, name)
+                           for name in TYPE._names]
+
+    def _freeze_(self):
+        return True
+
+    def compact_repr(self): # goes in ll helper names
+        return "Desc_%s" % (self.TYPE._short_name(),)
 
 class FieldDesc(object): # xxx should we use offsets instead
     def __init__(self, PTRTYPE, fieldname):
         self.PTRTYPE = PTRTYPE
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
         self.fieldname = fieldname
+        self.gv_fieldname = rgenop.constFieldName(fieldname)
         if isinstance(PTRTYPE.TO, lltype.Struct):
             try:
                 self.fieldindex = operator.indexOf(PTRTYPE.TO._names, fieldname)
@@ -273,28 +313,25 @@ def make_fielddesc(PTRTYPE, fieldname):
         fdesc = _fielddesc_cache[PTRTYPE, fieldname] = FieldDesc(PTRTYPE, fieldname)
         return fdesc
 
-def ll_generate_getfield(jitstate, fielddesc, argbox,
-                         gv_fieldname, gv_resulttype):
+def ll_generate_getfield(jitstate, fielddesc, argbox, gv_resulttype):
     if fielddesc.immutable and isinstance(argbox, ConstRedBox):
         res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
         return ConstRedBox.ll_fromvalue(res)
-    return argbox.op_getfield(jitstate, fielddesc, gv_fieldname, gv_resulttype)
+    return argbox.op_getfield(jitstate, fielddesc, gv_resulttype)
 
 gv_Void = rgenop.constTYPE(lltype.Void)
 
-def ll_generate_setfield(jitstate, fielddesc, destbox,
-                         gv_fieldname, valuebox):
-    destbox.op_setfield(jitstate, fielddesc, gv_fieldname, valuebox)
+def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
+    destbox.op_setfield(jitstate, fielddesc, valuebox)
 
 
-def ll_generate_getsubstruct(jitstate, fielddesc, argbox,
-                         gv_fieldname, gv_resulttype):
+def ll_generate_getsubstruct(jitstate, fielddesc, argbox, gv_resulttype):
     if isinstance(argbox, ConstRedBox):
         res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
         return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 2)
-    op_args[0] = argbox.getgenvar()
-    op_args[1] = gv_fieldname
+    op_args[0] = argbox.getgenvar(jitstate)
+    op_args[1] = fielddesc.gv_fieldname
     genvar = rgenop.genop(jitstate.curblock, 'getsubstruct', op_args,
                           gv_resulttype)
     return VarRedBox(genvar)
@@ -307,8 +344,8 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox,
         res = argbox.ll_getvalue(fielddesc.PTRTYPE)[indexbox.ll_getvalue(lltype.Signed)]
         return ConstRedBox.ll_fromvalue(res)
     op_args = lltype.malloc(VARLIST.TO, 2)
-    op_args[0] = argbox.getgenvar()
-    op_args[1] = indexbox.getgenvar()
+    op_args[0] = argbox.getgenvar(jitstate)
+    op_args[1] = indexbox.getgenvar(jitstate)
     genvar = rgenop.genop(jitstate.curblock, 'getarrayitem', op_args,
                           gv_resulttype)
     return VarRedBox(genvar)
@@ -336,7 +373,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
         oldbox = oldboxes[i]
         newbox = redboxes[i]
         if isinstance(oldbox, VarRedBox):  # Always a match
-            incoming.append(newbox.getgenvar())
+            incoming.append(newbox.getgenvar(jitstate))
             continue
         if oldbox.same_constant(newbox):
             continue
@@ -353,7 +390,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
         oldbox = oldboxes[i]
         newbox = redboxes[i]
         if not oldbox.same_constant(newbox):
-            incoming.append(newbox.getgenvar())
+            incoming.append(newbox.getgenvar(jitstate))
             newgenvar = rgenop.geninputarg(newblock, TYPES[i])
             redboxes[i] = VarRedBox(newgenvar)
 
@@ -387,7 +424,7 @@ def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
         jitstate.curoutgoinglink = rgenop.closeblock1(jitstate.curblock)        
         return switchredbox.ll_getvalue(lltype.Bool)
     else:
-        exitgvar = switchredbox.getgenvar()
+        exitgvar = switchredbox.getgenvar(jitstate)
         linkpair = rgenop.closeblock2(jitstate.curblock, exitgvar)    
         false_link, true_link = linkpair.item0, linkpair.item1
         later_jitstate = jitstate.copystate()
@@ -429,15 +466,15 @@ def dispatch_next(jitstate, outredboxes, RETURN_TYPE):
 
     finalvar = rgenop.geninputarg(finalblock, RETURN_TYPE)
     for link, redbox in return_queue:
-        genvar = redbox.getgenvar()
+        genvar = redbox.getgenvar(jitstate)
         rgenop.closelink(link, [genvar], finalblock)
     finallink = rgenop.closeblock1(finalblock)
     jitstate.curoutgoinglink = finallink
     jitstate.curvalue = VarRedBox(finalvar)
     return -1
 
-def ll_gvar_from_redbox(redbox):
-    return redbox.getgenvar()
+def ll_gvar_from_redbox(jitstate, redbox):
+    return redbox.getgenvar(jitstate)
 
 def ll_gvar_from_constant(ll_value):
     return rgenop.genconst(ll_value)
@@ -491,5 +528,5 @@ def ll_end_setup_jitstate(jitstate):
     return jitstate.curblock
 
 def ll_close_jitstate(jitstate):
-    result_genvar = jitstate.curvalue.getgenvar()
+    result_genvar = jitstate.curvalue.getgenvar(jitstate)
     jitstate.close(result_genvar)

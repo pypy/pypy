@@ -101,11 +101,20 @@ class SomeLLAbstractVariable(SomeLLAbstractValue):
     pass
 
 class SomeLLAbstractContainer(SomeLLAbstractValue):
-    annotationcolor = (0,60,160)  # blue
 
     def __init__(self, contentdef):
         self.contentdef = contentdef
         self.concretetype = lltype.Ptr(contentdef.T)
+
+    def annotationcolor(self):
+        """Compute the color of the variables with this annotation
+        for the pygame viewer
+        """
+        if getattr(self.contentdef, 'degenerated', False):
+            return None
+        else:
+            return (0,60,160)  # blue
+    annotationcolor = property(annotationcolor)
 
 
 setunion = annmodel.setunion

@@ -28,7 +28,11 @@ class AbstractContainerDef(object):
         items = AbstractContainerDef.__cache[self.__class__, self.T].items()
         keys = [key for key, containerdef in items if containerdef.same_as(self)]
         tag = min(keys)
-        return "<%s #%d>" % (self.__class__.__name__, tag)
+        if self.degenerated:
+            degen = 'degen '
+        else:
+            degen = ''
+        return "<%s%s #%d>" % (degen, self.__class__.__name__, tag)
 
 # ____________________________________________________________
 

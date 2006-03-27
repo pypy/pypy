@@ -55,6 +55,7 @@ class HintRTyper(RPythonTyper):
         try:
             return self.red_reprs[lowleveltype]
         except KeyError:
+            assert not isinstance(lowleveltype, lltype.ContainerType)
             redreprcls = RedRepr
             if isinstance(lowleveltype, lltype.Ptr):
                 if isinstance(lowleveltype.TO, lltype.Struct):
@@ -123,15 +124,13 @@ class HintRTyper(RPythonTyper):
         fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
-        gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
         gv_resulttype = rgenop.constTYPE(RESTYPE)
-        c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
         c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getfield,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR, s_CONSTORVAR],
-            [v_jitstate,    c_fielddesc, v_argbox,    c_fieldname,  c_resulttype],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR],
+            [v_jitstate,    c_fielddesc, v_argbox,    c_resulttype],
             ts.s_RedBox)
 
     def translate_op_getarrayitem(self, hop):
@@ -171,13 +170,11 @@ class HintRTyper(RPythonTyper):
         fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
-        gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
-        c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_setfield,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR, ts.s_RedBox],
-            [v_jitstate,    c_fielddesc, v_destbox,    c_fieldname,  v_valuebox],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_destbox,   v_valuebox],
             annmodel.s_None)
 
     def translate_op_getsubstruct(self, hop):
@@ -192,15 +189,13 @@ class HintRTyper(RPythonTyper):
         fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
-        gv_fieldname  = rgenop.constFieldName(c_fieldname.value)
         gv_resulttype = rgenop.constTYPE(RESTYPE)
-        c_fieldname  = hop.inputconst(rgenop.CONSTORVAR, gv_fieldname)
         c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getsubstruct,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR, s_CONSTORVAR],
-            [v_jitstate,    c_fielddesc, v_argbox,    c_fieldname,  c_resulttype],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR],
+            [v_jitstate,    c_fielddesc, v_argbox,    c_resulttype],
             ts.s_RedBox)
         
 
@@ -314,10 +309,12 @@ class RedRepr(Repr):
         self.timeshifter = timeshifter
 
     def get_genop_var(self, v, llops):
+        ts = self.timeshifter
+        v_jitstate = hop.llops.getjitstate()
         return llops.genmixlevelhelpercall(rtimeshift.ll_gvar_from_redbox,
-                                           [llops.timeshifter.s_RedBox],
-                                           [v],
-                                           annmodel.SomePtr(rgenop.CONSTORVAR))
+                       [ts.s_JITState, llops.timeshifter.s_RedBox],
+                       [v_jitstate,    v],
+                       annmodel.SomePtr(rgenop.CONSTORVAR))
 
     def convert_const(self, ll_value):
         redbox = rtimeshift.ConstRedBox.ll_fromvalue(ll_value)
