@@ -5,7 +5,7 @@ from pypy.annotation.pairtype import extendabletype
 
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import error
+from pypy.rpython.error import TyperError
 
 class TypeSystem(object):
     __metaclass__ = extendabletype
@@ -132,7 +132,7 @@ class ObjectOrientedTypeSystem(TypeSystem):
             not isinstance(robj2.lowleveltype, ootype.Instance)) and \
             (robj1.lowleveltype is not ootype.Class or
              robj2.lowleveltype is not ootype.Class):
-            raise error.TyperError('is of instances of the non-instances: %r, %r' % (
+            raise TyperError('is of instances of the non-instances: %r, %r' % (
                 roriginal1, roriginal2))
             
         v_list = hop.inputargs(robj1, robj2)
