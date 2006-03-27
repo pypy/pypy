@@ -1,4 +1,4 @@
-import operator
+import operator, weakref
 from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
 from pypy.rpython import rgenop
 
@@ -33,12 +33,12 @@ class RedBox(object):
         return False
 
     # generic implementation of some operations
-    def op_getfield(self, jitstate, fielddesc, gv_resulttype):
+    def op_getfield(self, jitstate, fielddesc):
         op_args = lltype.malloc(VARLIST.TO, 2)
         op_args[0] = self.getgenvar(jitstate)
         op_args[1] = fielddesc.gv_fieldname
         genvar = rgenop.genop(jitstate.curblock, 'getfield', op_args,
-                              gv_resulttype)
+                              fielddesc.gv_resulttype)
         return VarRedBox(genvar)
 
     def op_setfield(self, jitstate, fielddesc, valuebox):
@@ -91,7 +91,14 @@ class VirtualRedBox(RedBox):
     "A red box that contains (for now) a virtual Struct."
 
     def __init__(self, typedesc):
-        self.content_boxes = typedesc.content_boxes[:]
+        # duplicate the list 'content_boxes',
+        # and also replace the nested VirtualRedBox
+        clist = []
+        for box in typedesc.content_boxes:
+            if isinstance(box, VirtualRedBox):
+                box = VirtualRedBox(box.typedesc)
+            clist.append(box)
+        self.content_boxes = clist
         self.typedesc = typedesc
         self.genvar = rgenop.nullvar
 
@@ -109,9 +116,9 @@ class VirtualRedBox(RedBox):
                                    boxes[i])
         return self.genvar
 
-    def op_getfield(self, jitstate, fielddesc, gv_returntype):
+    def op_getfield(self, jitstate, fielddesc):
         if self.content_boxes is None:
-            return RedBox.op_getfield(self, jitstate, fielddesc, gv_returntype)
+            return RedBox.op_getfield(self, jitstate, fielddesc)
         else:
             return self.content_boxes[fielddesc.fieldindex]
 
@@ -256,21 +263,35 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     return VarRedBox(genvar)
 
 class ContainerTypeDesc(object):
+    _type_cache = weakref.WeakKeyDictionary()
+
     def __init__(self, TYPE):
         self.TYPE = TYPE
         self.PTRTYPE = lltype.Ptr(TYPE)
         self.gv_type = rgenop.constTYPE(self.TYPE)
         self.gv_ptrtype = rgenop.constTYPE(self.PTRTYPE)
         # XXX only for Struct so far
-        self.fielddescs = [make_fielddesc(self.PTRTYPE, name)
+        self.fielddescs = [StructFieldDesc.make(self.PTRTYPE, name)
                            for name in TYPE._names]
         defls = []
         for name in TYPE._names:
             FIELDTYPE = TYPE._flds[name]
-            defaultvalue = FIELDTYPE._defl()
-            defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
+            if isinstance(FIELDTYPE, lltype.ContainerType):
+                subtypedesc = ContainerTypeDesc.make(FIELDTYPE)
+                defaultbox = VirtualRedBox(subtypedesc)
+            else:
+                defaultvalue = FIELDTYPE._defl()
+                defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
             defls.append(defaultbox)
         self.content_boxes = defls
+
+    def make(T):
+        try:
+            return ContainerTypeDesc._type_cache[T]
+        except KeyError:
+            desc = ContainerTypeDesc._type_cache[T] = ContainerTypeDesc(T)
+            return desc
+    make = staticmethod(make)
 
     def ll_factory(self):
         return VirtualRedBox(self)
@@ -281,39 +302,57 @@ class ContainerTypeDesc(object):
     def compact_repr(self): # goes in ll helper names
         return "Desc_%s" % (self.TYPE._short_name(),)
 
-class FieldDesc(object): # xxx should we use offsets instead
-    def __init__(self, PTRTYPE, fieldname):
+class FieldDesc(object):
+    _fielddesc_cache = weakref.WeakKeyDictionary()
+
+    def __init__(self, PTRTYPE, RESTYPE):
         self.PTRTYPE = PTRTYPE
+        if isinstance(RESTYPE, lltype.ContainerType):
+            RESTYPE = lltype.Ptr(RESTYPE)
+        self.RESTYPE = RESTYPE
+        self.gv_resulttype = rgenop.constTYPE(RESTYPE)
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
-        self.fieldname = fieldname
-        self.gv_fieldname = rgenop.constFieldName(fieldname)
-        if isinstance(PTRTYPE.TO, lltype.Struct):
-            try:
-                self.fieldindex = operator.indexOf(PTRTYPE.TO._names, fieldname)
-            except ValueError:
-                raise ValueError("field not found: %r in %r" % (fieldname,
-                                                                PTRTYPE.TO))
 
     def _freeze_(self):
         return True
 
+    def make(cls, PTRTYPE, *args):
+        T = PTRTYPE.TO
+        cache = FieldDesc._fielddesc_cache.setdefault(T, {})
+        try:
+            return cache[args]
+        except KeyError:
+            fdesc = cache[args] = cls(PTRTYPE, *args)
+            return fdesc
+    make = classmethod(make)
+
+class StructFieldDesc(FieldDesc):
+    def __init__(self, PTRTYPE, fieldname):
+        assert isinstance(PTRTYPE.TO, lltype.Struct)
+        RES1 = getattr(PTRTYPE.TO, fieldname)
+        FieldDesc.__init__(self, PTRTYPE, RES1)
+        self.fieldname = fieldname
+        self.gv_fieldname = rgenop.constFieldName(fieldname)
+        self.fieldindex = operator.indexOf(PTRTYPE.TO._names, fieldname)
+        if isinstance(RES1, lltype.ContainerType):
+            # inlined substructure
+            self.inlined_typedesc = ContainerTypeDesc.make(RES1)
+        else:
+            self.inlined_typedesc = None
+
     def compact_repr(self): # goes in ll helper names
         return "Fld_%s_in_%s" % (self.fieldname, self.PTRTYPE._short_name())
 
-_fielddesc_cache = {}
+class ArrayFieldDesc(FieldDesc):
+    def __init__(self, PTRTYPE):
+        assert isinstance(PTRTYPE.TO, lltype.Array)
+        FieldDesc.__init__(self, PTRTYPE, PTRTYPE.TO.OF)
 
-def make_fielddesc(PTRTYPE, fieldname):
-    try:
-        return _fielddesc_cache[PTRTYPE, fieldname]
-    except KeyError:
-        fdesc = _fielddesc_cache[PTRTYPE, fieldname] = FieldDesc(PTRTYPE, fieldname)
-        return fdesc
-
-def ll_generate_getfield(jitstate, fielddesc, argbox, gv_resulttype):
+def ll_generate_getfield(jitstate, fielddesc, argbox):
     if fielddesc.immutable and isinstance(argbox, ConstRedBox):
         res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
         return ConstRedBox.ll_fromvalue(res)
-    return argbox.op_getfield(jitstate, fielddesc, gv_resulttype)
+    return argbox.op_getfield(jitstate, fielddesc)
 
 gv_Void = rgenop.constTYPE(lltype.Void)
 
@@ -321,7 +360,7 @@ def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
     destbox.op_setfield(jitstate, fielddesc, valuebox)
 
 
-def ll_generate_getsubstruct(jitstate, fielddesc, argbox, gv_resulttype):
+def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
     if isinstance(argbox, ConstRedBox):
         res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
         return ConstRedBox.ll_fromvalue(res)
@@ -329,12 +368,11 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox, gv_resulttype):
     op_args[0] = argbox.getgenvar(jitstate)
     op_args[1] = fielddesc.gv_fieldname
     genvar = rgenop.genop(jitstate.curblock, 'getsubstruct', op_args,
-                          gv_resulttype)
+                          fielddesc.gv_resulttype)
     return VarRedBox(genvar)
 
 
-def ll_generate_getarrayitem(jitstate, fielddesc, argbox,
-                             indexbox, gv_resulttype):
+def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
     if (fielddesc.immutable and
         isinstance(argbox, ConstRedBox) and isinstance(indexbox, ConstRedBox)):        
         res = argbox.ll_getvalue(fielddesc.PTRTYPE)[indexbox.ll_getvalue(lltype.Signed)]
@@ -343,7 +381,7 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox,
     op_args[0] = argbox.getgenvar(jitstate)
     op_args[1] = indexbox.getgenvar(jitstate)
     genvar = rgenop.genop(jitstate.curblock, 'getarrayitem', op_args,
-                          gv_resulttype)
+                          fielddesc.gv_resulttype)
     return VarRedBox(genvar)
 
 ##def ll_generate_malloc(jitstate, gv_type, gv_resulttype):

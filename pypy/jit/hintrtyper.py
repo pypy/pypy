@@ -119,19 +119,16 @@ class HintRTyper(RPythonTyper):
                 return res
             
         ts = self.timeshifter
-        RESTYPE = originalconcretetype(hop.s_result)
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
-        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
+        fielddesc = rtimeshift.StructFieldDesc.make(PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
-        gv_resulttype = rgenop.constTYPE(RESTYPE)
-        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getfield,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR],
-            [v_jitstate,    c_fielddesc, v_argbox,    c_resulttype],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_argbox   ],
             ts.s_RedBox)
 
     def translate_op_getarrayitem(self, hop):
@@ -142,19 +139,16 @@ class HintRTyper(RPythonTyper):
                 return res
 
         ts = self.timeshifter
-        RESTYPE = originalconcretetype(hop.s_result)
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
-        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, '-')
+        fielddesc = rtimeshift.ArrayFieldDesc.make(PTRTYPE)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
-        gv_resulttype = rgenop.constTYPE(RESTYPE)
-        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getarrayitem,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox, s_CONSTORVAR],
-            [v_jitstate,    c_fielddesc, v_argbox,    v_index,     c_resulttype],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_argbox,    v_index    ],
             ts.s_RedBox)
 
     def translate_op_setfield(self, hop):
@@ -168,7 +162,7 @@ class HintRTyper(RPythonTyper):
                                                            green_void_repr,
                                                            self.getredrepr(VALUETYPE)
                                                            )
-        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
+        fielddesc = rtimeshift.StructFieldDesc.make(PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -184,19 +178,16 @@ class HintRTyper(RPythonTyper):
         # non virtual case
         ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
-        RESTYPE = originalconcretetype(hop.s_result)
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
-        fielddesc = rtimeshift.make_fielddesc(PTRTYPE, c_fieldname.value)
+        fielddesc = rtimeshift.StructFieldDesc.make(PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
-        gv_resulttype = rgenop.constTYPE(RESTYPE)
-        c_resulttype = hop.inputconst(rgenop.CONSTORVAR, gv_resulttype)
         v_jitstate = hop.llops.getjitstate()
         s_CONSTORVAR = annmodel.SomePtr(rgenop.CONSTORVAR)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getsubstruct,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, s_CONSTORVAR],
-            [v_jitstate,    c_fielddesc, v_argbox,    c_resulttype],
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_argbox   ],
             ts.s_RedBox)
         
 
@@ -344,7 +335,7 @@ class RedStructRepr(RedRepr):
     def create(self, hop):
         if self.typedesc is None:
             T = self.original_concretetype.TO
-            self.typedesc = rtimeshift.ContainerTypeDesc(T)
+            self.typedesc = rtimeshift.ContainerTypeDesc.make(T)
         ts = self.timeshifter
         return hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
             [], [], ts.s_RedBox)
