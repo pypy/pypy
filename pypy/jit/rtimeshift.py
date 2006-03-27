@@ -91,7 +91,6 @@ class VirtualRedBox(RedBox):
     "A red box that contains (for now) a virtual Struct."
 
     def __init__(self, typedesc):
-        # XXX pass a TypeDesc instead of these arguments
         self.content_boxes = typedesc.content_boxes[:]
         self.typedesc = typedesc
         self.genvar = rgenop.nullvar
@@ -121,19 +120,6 @@ class VirtualRedBox(RedBox):
             RedBox.op_setfield(self, jitstate, fielddesc, valuebox)
         else:
             self.content_boxes[fielddesc.fieldindex] = valuebox
-
-def make_virtualredbox_factory_for_struct(T):
-    defls = []
-    for name in T._names:
-        FIELDTYPE = T._flds[name]
-        defaultvalue = FIELDTYPE._defl()
-        defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
-        defls.append(defaultbox)
-    desc = ContainerTypeDesc(T)
-    desc.content_boxes = defls
-    def ll_factory():
-        return VirtualRedBox(desc)
-    return ll_factory
 
 class ConstRedBox(RedBox):
     "A red box that contains a run-time constant."
@@ -278,6 +264,16 @@ class ContainerTypeDesc(object):
         # XXX only for Struct so far
         self.fielddescs = [make_fielddesc(self.PTRTYPE, name)
                            for name in TYPE._names]
+        defls = []
+        for name in TYPE._names:
+            FIELDTYPE = TYPE._flds[name]
+            defaultvalue = FIELDTYPE._defl()
+            defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
+            defls.append(defaultbox)
+        self.content_boxes = defls
+
+    def ll_factory(self):
+        return VirtualRedBox(self)
 
     def _freeze_(self):
         return True

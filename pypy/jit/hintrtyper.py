@@ -1,3 +1,4 @@
+import types
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython import annlowlevel
@@ -218,11 +219,23 @@ class HintLowLevelOpList(LowLevelOpList):
     def genmixlevelhelpercall(self, function, args_s, args_v, s_result):
         # XXX first approximation, will likely need some fine controlled
         # specialisation for these helpers too
-        rtyper = self.timeshifter.rtyper
+
+        if isinstance(function, types.MethodType):
+            if function.im_self is not None:
+                # bound method => function and an extra first argument
+                bk = self.rtyper.annotator.bookkeeper
+                s_self = bk.immutablevalue(function.im_self)
+                r_self = self.rtyper.getrepr(s_self)
+                v_self = inputconst(r_self.lowleveltype,
+                                    r_self.convert_const(function.im_self))
+                args_s = [s_self] + args_s
+                args_v = [v_self] + args_v
+            function = function.im_func
 
         graph = self.timeshifter.annhelper.getgraph(function, args_s, s_result)
         self.record_extra_call(graph) # xxx
 
+        rtyper = self.timeshifter.rtyper
         ARGS = [rtyper.getrepr(s_arg).lowleveltype for s_arg in args_s]
         RESULT = rtyper.getrepr(s_result).lowleveltype
 
@@ -326,14 +339,14 @@ class RedRepr(Repr):
 
 
 class RedStructRepr(RedRepr):
-    ll_factory = None
+    typedesc = None
 
     def create(self, hop):
-        if self.ll_factory is None:
+        if self.typedesc is None:
             T = self.original_concretetype.TO
-            self.ll_factory = rtimeshift.make_virtualredbox_factory_for_struct(T)
+            self.typedesc = rtimeshift.ContainerTypeDesc(T)
         ts = self.timeshifter
-        return hop.llops.genmixlevelhelpercall(self.ll_factory,
+        return hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
             [], [], ts.s_RedBox)
 
 
