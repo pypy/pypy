@@ -1,7 +1,7 @@
 from pypy.rpython.rmodel import CanBeNull, Repr, inputconst
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr, \
         AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
-        AbstractFunctionsPBCRepr
+        AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr
 from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
 from pypy.rpython.rpbc import get_concrete_calltable
 from pypy.rpython import callparse
@@ -12,6 +12,13 @@ from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.annotation.pairtype import pairtype
 import types
+
+
+def rtype_is_None(robj1, rnone2, hop, pos=0):
+    v1 = hop.inputarg(robj1, pos)
+    v2 = hop.genop('oononnull', [v1], resulttype=ootype.Bool)
+    v3 = hop.genop('bool_not', [v2], resulttype=ootype.Bool)
+    return v3
 
 
 class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
@@ -160,12 +167,16 @@ class __extend__(pairtype(InstanceRepr, MethodsPBCRepr)):
     def convert_from_to(_, v, llops):
         return v
 
+# ____________________________________________________________
+
+PBCROOT = ootype.Instance('pbcroot', ootype.ROOT)
+
 class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""
     def __init__(self, rtyper, access_set):
         self.rtyper = rtyper
         self.access_set = access_set
-        self.lowleveltype = ootype.Instance('pbc', ootype.ROOT)
+        self.lowleveltype = ootype.Instance('pbc', PBCROOT)
         self.pbc_cache = {}
 
     def _setup_repr(self):
@@ -184,4 +195,24 @@ class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
         return llops.genop('oogetfield', [vpbc, cmangledname],
                            resulttype = r_value)
 
+class MultipleUnrelatedFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
+    """Representation selected for multiple non-callable pre-built constants
+    with no common access set."""
 
+    lowleveltype = PBCROOT
+
+    def convert_pbc(self, pbc):
+        if ootype.typeOf(pbc) != PBCROOT:
+            pbc = ootype.ooupcast(PBCROOT, pbc)
+        return pbc
+
+    def create_instance(self):
+        return ootype.new(PBCROOT)
+
+    def null_instance(self):
+        return ootype.null(PBCROOT)
+
+class __extend__(pairtype(MultipleFrozenPBCRepr,
+                          MultipleUnrelatedFrozenPBCRepr)):
+    def convert_from_to((robj1, robj2), v, llops):
+        return llops.genop('ooupcast', [v], resulttype=PBCROOT)

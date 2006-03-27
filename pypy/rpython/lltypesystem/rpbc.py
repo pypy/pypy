@@ -11,18 +11,24 @@ from pypy.rpython.rpbc import samesig,\
      commonbase, allattributenames, adjust_shape, \
      AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr, \
      AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
-     AbstractFunctionsPBCRepr
-from pypy.rpython.lltypesystem import rclass
+     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
+     SingleFrozenPBCRepr
+from pypy.rpython.lltypesystem import rclass, llmemory
 from pypy.tool.sourcetools import has_varargs
 
 from pypy.rpython import callparse
 
 def rtype_is_None(robj1, rnone2, hop, pos=0):
-    if not isinstance(robj1.lowleveltype, Ptr):
-        raise TyperError('is None of instance of the non-pointer: %r' % (robj1))           
-    v1 = hop.inputarg(robj1, pos)
-    return hop.genop('ptr_iszero', [v1], resulttype=Bool)
-    
+    if isinstance(robj1.lowleveltype, Ptr):
+        v1 = hop.inputarg(robj1, pos)
+        return hop.genop('ptr_iszero', [v1], resulttype=Bool)
+    elif robj1.lowleveltype == llmemory.Address:
+        v1 = hop.inputarg(robj1, pos)
+        cnull = hop.inputconst(llmemory.Address, robj1.null_instance())
+        return hop.genop('adr_eq', [v1, cnull], resulttype=Bool)
+    else:
+        raise TyperError('rtype_is_None of %r' % (robj1))
+
 # ____________________________________________________________
 
 class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
@@ -49,6 +55,42 @@ class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
         cmangledname = inputconst(Void, mangled_name)
         return llops.genop('getfield', [vpbc, cmangledname],
                            resulttype = r_value)
+
+
+class MultipleUnrelatedFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
+    """Representation selected for multiple non-callable pre-built constants
+    with no common access set."""
+
+    lowleveltype = llmemory.Address
+    EMPTY = Struct('pbc')
+
+    def convert_pbc(self, pbcptr):
+        return llmemory.fakeaddress(pbcptr)
+
+    def create_instance(self):
+        return malloc(self.EMPTY, immortal=True)
+
+    def null_instance(self):
+        return llmemory.Address._defl()
+
+class __extend__(pairtype(MultipleUnrelatedFrozenPBCRepr,
+                          MultipleUnrelatedFrozenPBCRepr),
+                 pairtype(MultipleUnrelatedFrozenPBCRepr,
+                          SingleFrozenPBCRepr),
+                 pairtype(SingleFrozenPBCRepr,
+                          MultipleUnrelatedFrozenPBCRepr)):
+    def rtype_is_((robj1, robj2), hop):
+        if isinstance(robj1, MultipleUnrelatedFrozenPBCRepr):
+            r = robj1
+        else:
+            r = robj2
+        vlist = hop.inputargs(r, r)
+        return hop.genop('adr_eq', vlist, resulttype=Bool)
+
+class __extend__(pairtype(MultipleFrozenPBCRepr,
+                          MultipleUnrelatedFrozenPBCRepr)):
+    def convert_from_to((robj1, robj2), v, llops):
+        return llops.genop('cast_ptr_to_adr', [v], resulttype=llmemory.Address)
 
 # ____________________________________________________________
 

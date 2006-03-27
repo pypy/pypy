@@ -349,7 +349,14 @@ def getFrozenPBCRepr(rtyper, s_pbc):
         access = descs[0].queryattrfamily()
         for desc in descs[1:]:
             access1 = desc.queryattrfamily()
-            assert access1 is access       # XXX not implemented
+            if access1 is not access:
+                try:
+                    return rtyper.pbc_reprs['unrelated']
+                except KeyError:
+                    rpbc = rtyper.type_system.rpbc
+                    result = rpbc.MultipleUnrelatedFrozenPBCRepr(rtyper)
+                    rtyper.pbc_reprs['unrelated'] = result
+                    return result
         try:
             return rtyper.pbc_reprs[access]
         except KeyError:
@@ -377,7 +384,39 @@ class SingleFrozenPBCRepr(Repr):
         return object()  # lowleveltype is Void
 
 
-class AbstractMultipleFrozenPBCRepr(CanBeNull, Repr):
+class AbstractMultipleUnrelatedFrozenPBCRepr(CanBeNull, Repr):
+    """For a SomePBC of frozen PBCs that have no common access set.
+    The only possible operation on such a thing is comparison with 'is'."""
+
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+        self.converted_pbc_cache = {}
+
+    def convert_desc(self, frozendesc):
+        try:
+            return self.converted_pbc_cache[frozendesc]
+        except KeyError:
+            r = self.rtyper.getrepr(annmodel.SomePBC([frozendesc]))
+            if r.lowleveltype is Void:
+                # must create a new empty structure, as a placeholder
+                pbc = self.create_instance()
+            else:
+                pbc = r.convert_desc(frozendesc)
+            convpbc = self.convert_pbc(pbc)
+            self.converted_pbc_cache[frozendesc] = convpbc
+            return convpbc
+
+    def convert_const(self, pbc):
+        if pbc is None:
+            return self.null_instance() 
+        if isinstance(pbc, types.MethodType) and pbc.im_self is None:
+            value = pbc.im_func   # unbound method -> bare function
+        frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
+        return self.convert_desc(frozendesc)
+
+
+class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
+    """For a SomePBC of frozen PBCs with a common attribute access set."""
 
     def _setup_repr_fields(self):
         fields = []
@@ -415,14 +454,6 @@ class AbstractMultipleFrozenPBCRepr(CanBeNull, Repr):
                 setattr(result, mangled_name, llvalue)
             return result
 
-    def convert_const(self, pbc):
-        if pbc is None:
-            return self.null_instance() 
-        if isinstance(pbc, types.MethodType) and pbc.im_self is None:
-            value = pbc.im_func   # unbound method -> bare function
-        frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
-        return self.convert_desc(frozendesc)
-    
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         vpbc, vattr = hop.inputargs(self, Void)

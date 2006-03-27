@@ -1094,6 +1094,62 @@ class BaseTestRPBC:
             res = interpret(f, [i, 1234], type_system=self.ts)
             assert res == f(i, 1234)
 
+    def test_disjoint_pbcs(self):
+        class Frozen(object):
+            def __init__(self, v):
+                self.v = v
+            def _freeze_(self):
+                return True
+
+        fr1 = Frozen(2)
+        fr2 = Frozen(3)
+
+        def g1(x):
+            return x.v
+        def g2(y):
+            return y.v
+        def h(x):
+            return x is not None
+        def h2(x):
+            return x is fr1
+
+        def f():
+            a = g1(fr1)
+            b = g2(fr2)
+            h(None)
+            return (h(fr1) + 10*h(fr2) + 100*a + 1000*b +
+                    10000*h2(fr1) + 100000*h2(fr2))
+
+        res = interpret(f, [], type_system=self.ts)
+        assert res == 13211
+
+    def test_disjoint_pbcs_2(self):
+        class Frozen(object):
+            def __init__(self, v):
+                self.v = v
+            def _freeze_(self):
+                return True
+        fr1 = Frozen(1)
+        fr2 = Frozen(2)
+        fr3 = Frozen(3)
+        def getv(x):
+            return x.v
+        def h(x):
+            return (x is not None) + 2*(x is fr2) + 3*(x is fr3)
+        def f(n):
+            if n == 1:
+                fr = fr1
+            else:
+                fr = fr2
+            total = getv(fr)
+            if n == 3:
+                fr = fr3
+            h(None)
+            return total + 10*h(fr)
+
+        res = interpret(f, [3], type_system=self.ts)
+        assert res == 42
+
 
 def test_call_from_list():
     # Don't test with ootype, since it doesn't support lists in a
@@ -1362,33 +1418,6 @@ def test_hlinvoke_pbc_method_hltype():
     c_a = A_repr.convert_const(A(None))
     res = interp.eval_graph(ll_h_graph, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
-
-def test_disjoint_pbcs():
-    py.test.skip("in-progress")
-    class Frozen(object):
-        def __init__(self, v):
-            self.v = 2
-        def _freeze_(self):
-            return True
-        
-    f1 = Frozen(2)
-    f2 = Frozen(3)
-
-    def g1(x):
-        return x.v
-    def g2(y):
-        return y.v
-    def h(x):
-        return x != None
-
-    def f():
-        a = g1(f1)
-        b = g2(f2)
-        return h(f1)+h(f2)+a+b
-        
-    res = interpret(f, [])
-
-    assert res == 7
 
 class TestLltype(BaseTestRPBC):
 

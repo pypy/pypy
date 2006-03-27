@@ -120,7 +120,7 @@ class Repr:
         if self.lowleveltype is not Void:
             try:
                 realtype = typeOf(value)
-            except (AssertionError, AttributeError):
+            except (AssertionError, AttributeError, TypeError):
                 realtype = '???'
             if realtype != self.lowleveltype:
                 raise TyperError("convert_const(self = %r, value = %r)" % (

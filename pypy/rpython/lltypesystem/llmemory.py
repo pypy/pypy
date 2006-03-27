@@ -130,6 +130,15 @@ class fakeaddress(object):
         self.ob = ob
         self.offset = offset
 
+    def __repr__(self):
+        if self.ob is None:
+            s = 'NULL'
+        else:
+            s = str(self.ob)
+        if self.offset is not None:
+            s = '%s + %r' % (s, self.offset)
+        return '<fakeaddr %s>' % (s,)
+
     def __add__(self, other):
         if isinstance(other, AddressOffset):
             if self.offset is None:
