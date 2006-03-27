@@ -260,7 +260,6 @@ def test_arith_plus_minus():
                      'int_sub': 1}
 
 def test_simple_struct():
-    py.test.skip("pending rpython.test_rpbc.test_disjoint_pbcs")
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
                                       ('world', lltype.Signed),
                         hints={'immutable': True})
