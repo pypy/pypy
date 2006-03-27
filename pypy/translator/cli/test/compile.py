@@ -2,7 +2,7 @@
 
 import sys
 import py
-from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
+from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong, ovfcheck
 from pypy.translator.test import snippet as s
 from pypy.translator.cli import conftest
 from pypy.translator.cli.test.runtest import compile_function
@@ -24,11 +24,31 @@ def check(f, g, *args):
         print 'OK'
 
 
+def foo(x):
+    pass
+
+def xxx():
+    pass
 
 def bar(x, y):
-    return x and (not y)
+    try:
+        foo(x)
+        z = ovfcheck(x+y)
+        xxx()
+        return z
+    except OverflowError:
+        while x:
+            x = x-1
+        return x
+    except IndexError:
+        return 52
+            
 
-f = compile_function(bar, [r_uint, r_uint])
+def bar(x, y):
+    foo(x)
+    foo(None)
+
+f = compile_function(bar, [int, int])
 
 try:
     check(f, bar, r_uint(sys.maxint+1), r_uint(42))

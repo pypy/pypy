@@ -1,6 +1,6 @@
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
-from pypy.translator.cli import conftest
+from pypy.translator.cli.options import getoption
 from pypy.translator.cli import cts
 from pypy.translator.cli.opcodes import opcodes, DoNothing, PushArgs
 
@@ -140,7 +140,7 @@ class Function(Node):
         elif opname == 'direct_call':
             self._call(op)
         else:
-            if conftest.option.nostop:
+            if getoption('nostop'):
                 log.WARNING('Unknown opcode: %s ' % op)
                 self.ilasm.opcode(str(op))
             else:

@@ -3,6 +3,8 @@ import sys
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function
+from pypy.translator.cli.options import getoption
+
 
 class Tee(object):
     def __init__(self, *args):
@@ -32,7 +34,7 @@ class GenCli(object):
 
     def generate_source(self):
         out = self.tmpfile.open('w')
-        if conftest.option.stdout:
+        if getoption('stdout'):
             out = Tee(sys.stdout, out)
 
         self.ilasm = IlasmGenerator(out, self.assembly_name)

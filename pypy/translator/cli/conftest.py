@@ -17,3 +17,4 @@ option = py.test.Config.addoptions\
           Option('--nostop', action="store_true", dest="nostop", default=False,
                  help="don't stop on warning. The generated IL code could not compile")
           )
+

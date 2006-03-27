@@ -4,7 +4,7 @@ Translate between PyPy ootypesystem and .NET Common Type System
 
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.translator.cli import conftest
+from pypy.translator.cli.options import getoption
 
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -35,7 +35,7 @@ def lltype_to_cts(t):
     try:
         return _lltype_to_cts[t]
     except KeyError:
-        if conftest.option.nostop:
+        if getoption('nostop'):
             log.WARNING('Unknown type %s' % t)
             return t
         else:
@@ -48,7 +48,7 @@ def ctstype_to_ilasm(t):
     try:
         return _cts_to_ilasm[t]
     except KeyError:
-        if conftest.option.nostop:
+        if getoption('nostop'):
             log.WARNING('Unknown ilasm type %s' % t)
             return t
         else:

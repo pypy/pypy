@@ -5,8 +5,7 @@ import platform
 import py
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
-from pypy.translator.cli import conftest
-from pypy.conftest import option
+from pypy.translator.cli.options import getoption
 from pypy.translator.cli.gencli import GenCli
 from pypy.translator.cli.function import Node
 from pypy.translator.cli.cts import graph_to_signature
@@ -95,10 +94,10 @@ class compile_function:
         t.buildrtyper(type_system="ootype").specialize()
         self.graph = t.graphs[0]
 
-        if option.view:
+        if getoption('view'):
            t.viewcg()
 
-        if option.wd:
+        if getoption('wd'):
             tmpdir = py.path.local('.')
         else:
             tmpdir = udir
@@ -120,7 +119,7 @@ class compile_function:
 
     def _build_exe(self):        
         tmpfile = self._gen.generate_source()
-        if option.source:
+        if getoption('source'):
             return None
 
         self.__check_helper("ilasm")
