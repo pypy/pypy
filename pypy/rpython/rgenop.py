@@ -223,6 +223,8 @@ lltypes = [LINK]*2
 fields = tuple(zip(fieldnames, lltypes))    
 LINKPAIR = lltype.GcStruct('tuple2', *fields)
 
+nullvar = lltype.nullptr(CONSTORVAR.TO)
+
 # helpers
 def setannotation(func, TYPE):
     func.compute_result_annotation = lambda *args_s: TYPE 
