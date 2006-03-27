@@ -7,6 +7,18 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+Next PyPy sprint in Tokyo 23rd - 29th April 2006
+==================================================================
+
+The next sprint will be Akihabara, Tokyo, Japan. Our hosts are
+FSIJ (Free Software Initiative of Japan) and out aim for the sprint
+will be to promote Python and introduce people to PyPy.
+
+Read more in `the sprint announcement`_, see who is  planning to attend
+on the `people page`_.
+
+.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-announcement.html
+.. _`people page`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/tokyo/people.html
 
 Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
 ========================================================================
