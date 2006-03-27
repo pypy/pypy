@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Flo
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
+from pypy.tool.uid import uid
 
 STATICNESS = True
 
@@ -182,7 +183,13 @@ class _instance(object):
     def __init__(self, INSTANCE):
         self.__dict__["_TYPE"] = INSTANCE
         INSTANCE._init_instance(self)
-        
+
+    def __repr__(self):
+        return '<%s>' % (self,)
+
+    def __str__(self):
+        return '%r inst at 0x%x' % (self._TYPE._name, uid(self))
+
     def __getattr__(self, name):
         DEFINST, meth = self._TYPE._lookup(name)
         if meth is not None:
@@ -244,6 +251,9 @@ class _null_instance(_instance):
     def __init__(self, INSTANCE):
         self.__dict__["_TYPE"] = INSTANCE
 
+    def __str__(self):
+        return '%r null inst' % (self._TYPE._name,)
+
     def __getattribute__(self, name):
         if name.startswith("_"):
             return object.__getattribute__(self, name)
@@ -273,6 +283,12 @@ class _view(object):
         assert isinstance(inst, _instance)
         assert isSubclass(inst._TYPE, INSTANCE)
         self.__dict__['_inst'] = inst
+
+    def __repr__(self):
+        if self._TYPE == self._inst._TYPE:
+            return repr(self._inst)
+        else:
+            return '<%r view of %s>' % (self._TYPE._name, self._inst)
 
     def __ne__(self, other):
         return not (self == other)
