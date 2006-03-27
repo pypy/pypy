@@ -233,6 +233,7 @@ class AppTest_LogicThreads(object):
         def lsum(L, a, limit):
             """this summer controls the generator"""
             if limit > 0:
+                print "sum : ", a
                 Head, Tail = newvar(), newvar()
                 print "-- sum waiting on L"
                 wait(L)
@@ -245,8 +246,10 @@ class AppTest_LogicThreads(object):
         print "before"
         Y = newvar()
         T = newvar()
+        disp(Y)
+        disp(T)
         uthread(lgenerate, 0, Y)
-        unify(T, uthread(lsum, Y, 0, 3))
+        unify(T, uthread(lsum, Y, 0, 10))
         print "after"
 
         wait(T)

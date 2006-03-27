@@ -159,8 +159,8 @@ if USE_COROUTINES:
 
 class W_Var(baseobjspace.W_Root, object):
     def __init__(w_self):
-        w_self.w_bound_to = w_self # FIXME : making this a ring asap
-        w_self.w_needed = False    # is it needed ... ?
+        w_self.w_bound_to = w_self 
+        w_self.w_needed = False    
 
     def __repr__(w_self):
         if w_self.w_bound_to:
@@ -187,7 +187,9 @@ def wait(space, w_self):
                 w_self.w_needed = True
                 for w_alias in aliases(space, w_self):
                     need_waiters = schedule_state.pop_blocked_byneed_on(w_alias)
+                    w_alias.w_needed = True
                     for waiter in need_waiters:
+                        print "  :byneed waiter", waiter, "awaken on", w_alias
                         schedule_state.add_to_runnable(waiter)
                 # set curr thread to blocked, switch to runnable thread
                 current = get_current_coroutine()
@@ -362,7 +364,7 @@ def bind(space, w_var, w_obj):
     if isinstance(w_obj, W_Var):
         if space.is_true(is_bound(space, w_var)):
             if space.is_true(is_bound(space, w_obj)):
-                return unify(space, #FIXME, should be unify bizness
+                return unify(space, 
                              deref(space, w_var),
                              deref(space, w_obj))
             return _assign(space, w_obj, deref(space, w_var))
@@ -373,7 +375,9 @@ def bind(space, w_var, w_obj):
     else: # 3. w_obj is a value
         if space.is_true(is_free(space, w_var)):
             return _assign(space, w_var, w_obj)
-        return unify(space, deref(space, w_var), w_obj)
+        # should not be reachable as of 27-03-2006
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("Unreachable code in bind"))
 app_bind = gateway.interp2app(bind)
 
 def _assign(space, w_var, w_val):
@@ -446,6 +450,8 @@ def unify(space, w_x, w_y):
         return unify(space, w_y, w_x)
     elif not isinstance(w_y, W_Var):
         # x var, y value
+        if space.is_true(is_bound(space, w_x)):
+            return unify(space, deref(space, w_x), w_y)            
         return bind(space, w_x, w_y)
     # x, y are vars
     elif space.is_true(is_bound(space, w_x)) and \
@@ -473,7 +479,7 @@ def _unify_unbound(space, w_x, w_y):
     return bind(space, w_x, w_y)
 
 def _unify_values(space, w_v1, w_v2):
-    print " :unify values", w_v1, w_v2
+    #print " :unify values", w_v1, w_v2
     # unify object of the same type ... FIXME
     if not space.is_w(space.type(w_v1),
                       space.type(w_v2)):
@@ -489,7 +495,7 @@ def _unify_values(space, w_v1, w_v2):
         return space.w_None
 
 def _unify_iterables(space, w_i1, w_i2):
-    print " :unify iterables", w_i1, w_i2
+    #print " :unify iterables", w_i1, w_i2
     # assert lengths
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
