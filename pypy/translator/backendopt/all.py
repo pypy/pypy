@@ -22,7 +22,7 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
 
     if PRINT_STATISTICS:
         print "before optimizations:"
-        print_statistics(translator.graphs[0], translator)
+        print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
     if raisingop2direct_call_all:
         raisingop2direct_call(translator)
