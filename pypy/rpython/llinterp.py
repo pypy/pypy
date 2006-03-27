@@ -1,7 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
-from pypy.rpython.memory import lladdress
 from pypy.rpython.ootypesystem import ootype
 
 import sys
@@ -679,8 +678,8 @@ class LLFrame(object):
                        ("gt", ">"), ("ge", ">=")):
         exec py.code.Source("""
             def op_adr_%s(self, addr1, addr2):
-                assert isinstance(addr1, lladdress.address)
-                assert isinstance(addr2, lladdress.address)
+                checkadr(addr1)
+                checkadr(addr2)
                 return addr1 %s addr2""" % (opname, op)).compile()
 
     # __________________________________________________________
