@@ -475,6 +475,11 @@ class __extend__(pairtype(SingleFrozenPBCRepr, AbstractMultipleFrozenPBCRepr)):
             return inputdesc(r_pbc2, frozendesc1)
         return NotImplemented
 
+class __extend__(pairtype(AbstractMultipleUnrelatedFrozenPBCRepr,
+                          SingleFrozenPBCRepr)):
+    def convert_from_to((r_pbc1, r_pbc2), v, llops):
+        return inputconst(Void, r_pbc2.frozendesc)
+
 
 class MethodOfFrozenPBCRepr(Repr):
     """Representation selected for a PBC of method object(s) of frozen PBCs.

@@ -1150,6 +1150,21 @@ class BaseTestRPBC:
         res = interpret(f, [3], type_system=self.ts)
         assert res == 42
 
+    def test_convert_multiple_to_single(self):
+        class A:
+            def meth(self, fr):
+                return 65
+        class B(A):
+            def meth(self, fr):
+                return 66
+        fr1 = Freezing()
+        fr2 = Freezing()
+        def f():
+            return A().meth(fr1) * B().meth(fr2)
+
+        res = interpret(f, [], type_system=self.ts)
+        assert res == 65*66
+
 
 def test_call_from_list():
     # Don't test with ootype, since it doesn't support lists in a
