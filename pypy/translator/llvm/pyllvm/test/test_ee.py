@@ -82,12 +82,11 @@ def test_replace_function():
     """similar to test_call_between_parsed_code with additional complexity
     because we rebind the add1 function to another version after it the
     first version already has been used."""
-    py.test.skip("function replacement support in progress")
     ee = get_fresh_ee()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
     assert ee.call("add1", 41) == 42
-    assert ee.call("calc", 122) == 123
+    assert ee.call("calc", 122) == 123 #XXX need recompileAndRelinkFunction somewhere
     ee.parse(ll_snippet.add1_version2, "add1")
     assert ee.call("add1", 42) == 142
     assert ee.call("calc", 142) == 242
@@ -102,11 +101,30 @@ def test_share_data_between_parsed_code():
     assert ee.call("add1_to_global_int_a") == 92
     assert ee.call("sub10_from_global_int_a") == 82
 
-def TODOtest_native_code(): #examine JIT generate native (assembly) code
-    pass
+def test_native_code(): #examine JIT generate native (assembly) code
+    pyllvm.toggle_print_machineinstrs()
+    ee = get_fresh_ee()
+    ee.parse(ll_snippet.calc)
+    ee.parse(ll_snippet.add1)
+    assert ee.call("calc", 41) == 42
+    pyllvm.toggle_print_machineinstrs()
 
-def TODOtest_delete_function():
-    pass
+def test_delete_function(): #this will only work if nothing uses Fn of course!
+    ee = get_fresh_ee()
+    ee.parse(ll_snippet.calc)
+    ee.parse(ll_snippet.add1)
+    assert len(ee.functions()) == 2
+
+    ee.delete("calc")
+    assert len(ee.functions()) == 1
+    assert ee.call("add1", 41) == 42
+
+    ee.delete("add1")
+    assert len(ee.functions()) == 0
+
+    ee.parse(ll_snippet.calc)
+    ee.parse(ll_snippet.add1)
+    assert ee.call("calc", 100) == 101
 
 def TODOtest_add_to_function():
     pass

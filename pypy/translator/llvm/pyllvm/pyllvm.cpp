@@ -14,6 +14,10 @@
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/DerivedTypes.h"
 
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetOptions.h"
+
+
 // c++ includes
 #include <string>
 #include <iostream>
@@ -61,26 +65,41 @@ static PyObject *ee_parse(PyExecutionEngine *self, PyObject *args) {
 
   // parse and verify llcode
   try {
+    Module *M = &self->exec->getModule();
+
     if (fnname) {
-      // XXX ParseAssemblyString(llcode, &self->exec->getModule()); //redefinition
-      /*Module*   M  =*/ ParseAssemblyString(llcode, NULL);
-      Function *fn = self->exec->getModule().getNamedFunction(std::string(fnname));
-      if (fn == NULL) {
+      Function *F = M->getNamedFunction(fnname);
+      if (F == NULL) {
         PyErr_SetString(PyExc_Exception, "Failed to resolve function to be replaced");
         return NULL;
       }
-      self->exec->recompileAndRelinkFunction(fn);
+      F->setName(""); // now it won't conflicht
+      ParseAssemblyString(llcode, M);
+      Function *Fnew = M->getNamedFunction(fnname);
+      F->replaceAllUsesWith(Fnew); // Everything using the old one uses the new one
+      self->exec->freeMachineCodeForFunction(F); // still no-op on march 27th 2006
+      F->eraseFromParent(); // also, take it out of the JIT (LLVM IR) if it was in it
 
-      // TODO replace fn with whatever ParseAssemblyString made of llcode
-
-      PyErr_SetString(PyExc_Exception, "function replacing not supported yet");
-      return NULL;
-
+      /*
+      XXX this is a really dump implementation!!! Should really be somehthing like...
+      codegend_uses = list of function that have codegen'd calls to F
+      for func in codegend_uses:
+          self->exec->recompileAndRelinkFunction(func);
+      // what about (codegen-ed) pointers to F?
+      */
+      Module::FunctionListType &fns = M->getFunctionList();
+      for (Module::FunctionListType::iterator ii = fns.begin();
+           ii != fns.end();
+           ++ii) {
+        if (!(ii->isIntrinsic() || ii->isExternal())) {
+          self->exec->recompileAndRelinkFunction(ii);
+        }
+      }
     } else {
-      ParseAssemblyString(llcode, &self->exec->getModule());
+      ParseAssemblyString(llcode, M);
     }
 
-    verifyModule(self->exec->getModule(), ThrowExceptionAction);
+    verifyModule(*M, ThrowExceptionAction);  // XXX make this optional for performance?
     Py_INCREF(Py_None);
     return Py_None;
 
@@ -193,9 +212,9 @@ static PyObject *ee_call(PyExecutionEngine *self, PyObject *args) {
   char *fnname = PyString_AsString(pyfnname);
     
   try {
-    Function *fn = self->exec->getModule().getNamedFunction(std::string(fnname));
+    Function *fn = self->exec->getModule().getNamedFunction(fnname);
     if (fn == NULL) {
-      PyErr_SetString(PyExc_Exception, "Failed to resolve function");
+      PyErr_SetString(PyExc_Exception, "Failed to resolve function to call");
       return NULL;
     }
 
@@ -221,6 +240,39 @@ static PyObject *ee_call(PyExecutionEngine *self, PyObject *args) {
     PyErr_SetString(PyExc_Exception, "Unexpected unknown exception occurred");
     return NULL;
   }
+}
+
+static PyObject *ee_delete(PyExecutionEngine *self, PyObject *args) {
+
+  if (PyTuple_Size(args) != 1) {
+    PyErr_SetString(PyExc_TypeError, "missing functionname");
+    return NULL;
+  }
+
+  PyObject *pyfnname = PyTuple_GetItem(args, 0); 
+  if (!PyString_Check(pyfnname)) {
+    PyErr_SetString(PyExc_TypeError, "functionname expected as string");
+    return NULL;
+  }
+  char *fnname = PyString_AsString(pyfnname);
+    
+  try {
+    Function *fn = self->exec->getModule().getNamedFunction(fnname);
+    if (fn == NULL) {
+      PyErr_SetString(PyExc_Exception, "Failed to resolve function to delete");
+      return NULL;
+    }
+
+    // XXX fn should not be refered to from anywhere! Check for this?
+    self->exec->freeMachineCodeForFunction(fn); // still no-op on march 27th 2006
+    fn->eraseFromParent();
+  } catch (...) {
+    PyErr_SetString(PyExc_Exception, "Unexpected unknown exception occurred");
+    return NULL;
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
 static PyObject *ee_functions(PyExecutionEngine *self) {
@@ -267,9 +319,10 @@ static PyObject *ee_functions(PyExecutionEngine *self) {
 }
 
 static PyMethodDef ee_methodlist[] = {
-  {"parse", (PyCFunction) ee_parse, METH_VARARGS, NULL},
-  {"functions", (PyCFunction) ee_functions, METH_NOARGS, NULL},
-  {"call", (PyCFunction) ee_call, METH_VARARGS, NULL},
+  {"parse"    , (PyCFunction) ee_parse    , METH_VARARGS, NULL},
+  {"call"     , (PyCFunction) ee_call     , METH_VARARGS, NULL},
+  {"delete"   , (PyCFunction) ee_delete   , METH_VARARGS, NULL},
+  {"functions", (PyCFunction) ee_functions, METH_NOARGS , NULL},
 
   {NULL, NULL}
 };
@@ -380,9 +433,17 @@ static PyObject *pyllvm_delete_ee(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *pyllvm_toggle_print_machineinstrs(PyObject *self, PyObject *args) {
+  PrintMachineCode = !PrintMachineCode;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 PyMethodDef pyllvm_functions[] = {
-  {"get_ee", pyllvm_get_ee, METH_NOARGS, NULL},
-  {"delete_ee", pyllvm_delete_ee, METH_NOARGS, NULL},
+  {"get_ee"                    , pyllvm_get_ee                    , METH_NOARGS, NULL},
+  {"delete_ee"                 , pyllvm_delete_ee                 , METH_NOARGS, NULL},
+  {"toggle_print_machineinstrs", pyllvm_toggle_print_machineinstrs, METH_NOARGS, NULL},
   {NULL, NULL}
 };
 
@@ -402,6 +463,11 @@ void initpyllvm(void) {
   PyModule_AddObject(module, "ExecutionEngine", 
 		     (PyObject*) &ExecutionEngine_Type);
 
+  if (0) { // pass in `lli` type parameters
+    static char * Args[] = { "", "-print-machineinstrs", 0 };
+    int n_args = 2;
+    cl::ParseCommandLineOptions(n_args, Args);
+  }
 }
 
 }
