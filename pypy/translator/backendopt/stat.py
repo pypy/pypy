@@ -1,7 +1,7 @@
 from pypy.translator.simplify import get_graph
 import md5
 
-def get_statistics(graph, translator, save_per_graph_details=None):
+def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_checks=False):
     seen_graphs = {}
     stack = [graph]
     num_graphs = 0
@@ -21,6 +21,9 @@ def get_statistics(graph, translator, save_per_graph_details=None):
             for op in block.operations:
                 if op.opname == "direct_call":
                     called_graph = get_graph(op.args[0], translator)
+                    if called_graph is not None and ignore_stack_checks:
+                        if called_graph.name.startswith('ll_stack_check'):
+                            continue
                     if called_graph is not None:
                         stack.append(called_graph)
                 elif op.opname == "indirect_call":
@@ -47,8 +50,9 @@ def get_statistics(graph, translator, save_per_graph_details=None):
             f.close()
     return num_graphs, num_blocks, num_ops
 
-def print_statistics(graph, translator, save_per_graph_details=None):
-    num_graphs, num_blocks, num_ops = get_statistics(graph, translator, save_per_graph_details)
+def print_statistics(graph, translator, save_per_graph_details=None, ignore_stack_checks=False):
+    num_graphs, num_blocks, num_ops = get_statistics(graph, translator, save_per_graph_details,
+                                                     ignore_stack_checks=ignore_stack_checks)
     print ("Statistics:\nnumber of graphs %s\n"
            "number of blocks %s\n"
            "number of operations %s\n") % (num_graphs, num_blocks, num_ops)
