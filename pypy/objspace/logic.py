@@ -660,10 +660,55 @@ def proxymaker(space, opname, parentfn):
     return proxy
 
 
+
+
+from pypy.objspace.std.model import StdObjSpaceMultiMethod
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std import stdtypedef 
+from pypy.tool.sourcetools import func_with_new_name
+
+def foo__Int_Int(space, w_a, w_b):
+    print "i'm foo int int"
+
+def foo__Int_Float(space, w_a, w_b):
+    print "i'm foo int float"
+
+def foo__Float_Int(space, w_a, w_b):
+    space.foo(w_b, w_a)
+
+
+foo_mm = StdObjSpaceMultiMethod('foo', 2)
+foo_mm.register(foo__Int_Int, W_IntObject, W_IntObject)
+foo_mm.register(foo__Int_Float, W_IntObject, W_FloatObject)
+foo_mm.register(foo__Float_Int, W_FloatObject, W_IntObject)
+
+def my_foo(space, w_1, w_2):
+    space.foo(w_1, w_2)
+app_foo = gateway.interp2app(my_foo)
+
 def Space(*args, **kwds):
     # for now, always make up a wrapped StdObjSpace
     from pypy.objspace import std
     space = std.Space(*args, **kwds)
+
+    # multimethods hack
+    name = 'foo'
+    exprargs, expr, miniglobals, fallback = (
+        foo_mm.install_not_sliced(space.model.typeorder, baked_perform_call=False))
+    func = stdtypedef.make_perform_trampoline('__foo_mm_'+name,
+                                              exprargs, expr, miniglobals,
+                                              foo_mm)
+    # e.g. add(space, w_x, w_y)
+    def make_boundmethod(func=func):
+        def boundmethod(*args):
+            return func(space, *args)
+        return func_with_new_name(boundmethod, 'boundmethod_'+name)
+    boundmethod = make_boundmethod()
+    setattr(space, name, boundmethod)  # store into 'space' instance
+    # /multimethod hack
+
+
     is_nb_ = space.is_ # capture the original is_ op (?)
     patch_space_in_place(space, 'logic', proxymaker)
     space.is_nb_ = is_nb_
@@ -683,6 +728,8 @@ def Space(*args, **kwds):
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
+    space.setitem(space.builtin.w_dict, space.wrap('foo'),
+                 space.wrap(app_foo))
     if USE_COROUTINES:
         import os
         def exitfunc():
@@ -701,8 +748,7 @@ def Space(*args, **kwds):
                      space.wrap(app_uthread))
         space.setitem(space.builtin.w_dict, space.wrap('wait'),
                      space.wrap(app_wait))
-##         space.setitem(space.builtin.w_dict, space.wrap('wait_two'),
-##                      space.wrap(app_wait_two))
         space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                       space.wrap(app_wait_needed))
     return space
+
