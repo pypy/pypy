@@ -2,8 +2,11 @@
 Translate between PyPy ootypesystem and .NET Common Type System
 """
 
+import exceptions
+
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rpython.ootypesystem.ootype import Instance
 from pypy.translator.cli.option import getoption
 
 from pypy.tool.ansi_print import ansi_log
@@ -31,29 +34,29 @@ _cts_to_ilasm = {
     'float64': 'r8',
     }
 
-def lltype_to_cts(t):
+def _get_from_dict(d, key, error):
     try:
-        return _lltype_to_cts[t]
+        return d[key]
     except KeyError:
         if getoption('nostop'):
-            log.WARNING('Unknown type %s' % t)
-            return t
+            log.WARNING(error)
+            return key
         else:
-            assert False, 'Unknown type %s' % t
+            assert False, error
+
+
+def lltype_to_cts(t):
+    # TODO: handle instances more accurately
+    if isinstance(t, Instance):
+        return 'object'
+
+    return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 
 def lltype_to_ilasm(t):
     return ctstype_to_ilasm(lltype_to_cts(t))
 
 def ctstype_to_ilasm(t):
-    try:
-        return _cts_to_ilasm[t]
-    except KeyError:
-        if getoption('nostop'):
-            log.WARNING('Unknown ilasm type %s' % t)
-            return t
-        else:
-            assert False, 'Unknown ilasm type %s' % t
-
+    return _get_from_dict(_cts_to_ilasm, t, 'Unknown ilasm type %s' % t)
 
 def llvar_to_cts(var):
     return lltype_to_cts(var.concretetype), var.name
@@ -80,3 +83,11 @@ def graph_to_signature(graph):
     arg_list = ', '.join(arg_types)
 
     return '%s %s(%s)' % (ret_type, func_name, arg_list)
+
+_pyexception_to_cts = {
+    exceptions.Exception: '[mscorlib]System.Exception',
+    exceptions.OverflowError: '[mscorlib]System.OverflowException'
+    }
+
+def pyexception_to_cts(exc):
+    return _get_from_dict(_pyexception_to_cts, exc, 'Unknown exception %s' % exc)

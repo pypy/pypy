@@ -23,50 +23,93 @@ class Function(Node):
         self.graph = graph
         self.is_entrypoint = is_entrypoint
         self.blocknum = {}
-
         self._set_args()
         self._set_locals()
 
     def get_name(self):
         return self.graph.name
 
+    def _is_return_block(self, block):
+        return (not block.exits) and len(block.inputargs) == 1
+
+    def _is_raise_block(self, block):
+        return (not block.exits) and len(block.inputargs) == 2        
+
     def render(self, ilasm):
         self.ilasm = ilasm
         graph = self.graph
         returntype, returnvar = cts.llvar_to_cts(graph.getreturnvar())
         
-        ilasm.begin_function(graph.name, self.args, returntype, self.is_entrypoint)
-        ilasm.locals(self.locals)
+        self.ilasm.begin_function(graph.name, self.args, returntype, self.is_entrypoint)
+        self.ilasm.locals(self.locals)
 
         for block in graph.iterblocks():
-            ilasm.label(self._get_block_name(block))
+            self.ilasm.label(self._get_block_name(block))
+
+            handle_exc = (block.exitswitch == flowmodel.c_last_exception)
+            if handle_exc:
+                self.ilasm.begin_try()
 
             for op in block.operations:
                 self._render_op(op)
 
-            # if it is the last block, return the result
-            if not block.exits:
-                assert len(block.inputargs) == 1
+            # check for codeless blocks
+            if self._is_return_block(block):
                 return_var = block.inputargs[0]
                 if return_var.concretetype is not Void:
                     self._push(return_var)
-                ilasm.opcode('ret')
+                self.ilasm.opcode('ret')
+            elif self._is_raise_block(block):
+                exc = block.inputargs[1]
+                self._push(exc)
+                self.ilasm.opcode('throw')
 
-            # follow block links
-            for link in block.exits:
-                target = link.target
-                for to_load, to_store in zip(link.args, target.inputargs):
-                    if to_load.concretetype is not Void:
-                        self._push(to_load)
-                        self._store(to_store)
+            if handle_exc:
+                # search for the "default" block to be executed when no exception is raised
+                for link in block.exits:
+                    if link.exitcase is None:
+                        self._setup_link(link)
+                        target_label = self._get_block_name(link.target)
+                        self.ilasm.leave(target_label)
+                self.ilasm.end_try()
 
-                target_label = self._get_block_name(target)
-                if link.exitcase is None:
-                    self.ilasm.branch(target_label)
-                else:
-                    assert type(link.exitcase is bool)
-                    self._push(block.exitswitch)
-                    self.ilasm.branch_if(link.exitcase, target_label)
+                # catch the exception and dispatch to the appropriate block
+                for link in block.exits:
+                    if link.exitcase is None:
+                        continue # see above
+
+                    assert issubclass(link.exitcase, Exception)
+                    cts_exc = cts.pyexception_to_cts(link.exitcase)
+                    self.ilasm.begin_catch(cts_exc)
+
+                    target = link.target
+                    if self._is_raise_block(target):
+                        # the exception value is on the stack, use it as the 2nd target arg
+                        assert len(link.args) == 2
+                        assert len(target.inputargs) == 2
+                        self._store(link.target.inputargs[1])
+                    else:
+                        # pop the unused exception value
+                        self.ilasm.opcode('pop')
+                        self._setup_link(link)
+                    
+                    target_label = self._get_block_name(target)
+                    self.ilasm.leave(target_label)
+                    self.ilasm.end_catch()
+
+            else:
+                # no exception handling, follow block links
+                for link in block.exits:
+                    self._setup_link(link)
+                    target_label = self._get_block_name(link.target)
+                    if link.exitcase is None:
+                        self.ilasm.branch(target_label)
+                    else:
+                        assert type(link.exitcase is bool)
+                        assert block.exitswitch is not None
+                        self._push(block.exitswitch)
+                        self.ilasm.branch_if(link.exitcase, target_label)
+
 
         # add a block that will never be executed, just to please the
         # .NET runtime that seems to need a return statement at the
@@ -76,8 +119,15 @@ class Function(Node):
             self.ilasm.opcode('ldc.%s 0' % ilasm_type)
 
         self.ilasm.opcode('ret')
-        
-        ilasm.end_function()
+        self.ilasm.end_function()
+
+    def _setup_link(self, link):
+        target = link.target
+        for to_load, to_store in zip(link.args, target.inputargs):
+            if to_load.concretetype is not Void:
+                self._push(to_load)
+                self._store(to_store)
+
 
     def _set_locals(self):
         # this code is partly borrowed from pypy.translator.c.funcgen.FunctionCodeGenerator
@@ -187,6 +237,7 @@ class Function(Node):
 
     def _store(self, v):
         if isinstance(v, flowmodel.Variable):
-            self.ilasm.opcode('stloc', repr(v.name))
+            if v.concretetype is not Void:
+                self.ilasm.opcode('stloc', repr(v.name))
         else:
             assert False

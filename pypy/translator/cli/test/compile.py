@@ -24,37 +24,23 @@ def check(f, g, *args):
         print 'OK'
 
 
-def foo(x):
-    pass
-
-def xxx():
+def foo():
     pass
 
 def bar(x, y):
     try:
-        foo(x)
-        z = ovfcheck(x+y)
-        xxx()
-        return z
+        foo()
+        z = x
     except OverflowError:
-        while x:
-            x = x-1
-        return x
-    except IndexError:
-        return 52
-            
+        z = x+y
 
-def bar(x, y):
-    foo(x)
-    foo(None)
+    return z
+
 
 f = compile_function(bar, [int, int])
 
 try:
-    check(f, bar, r_uint(sys.maxint+1), r_uint(42))
-    check(f, bar, 4, 5)    
+    pass
 except py.test.Item.Skipped:
     print 'Test skipped'
 
-
-#compile_function(s.is_perfect_number, [int])

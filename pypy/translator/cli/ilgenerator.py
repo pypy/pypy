@@ -56,6 +56,20 @@ class IlasmGenerator(object):
     def end_function(self):
         self.code.closeblock()
 
+    def begin_try(self):
+        self.code.writeline('.try')
+        self.code.openblock()
+
+    def end_try(self):
+        self.code.closeblock()
+
+    def begin_catch(self, type_):
+        self.code.writeline('catch ' + type_)
+        self.code.openblock()
+
+    def end_catch(self):
+        self.code.closeblock()
+
     def locals(self, vars):
         varlist = ', '.join(['%s %s' % var for var in vars])        
         self.code.write('.locals init (')
@@ -66,6 +80,9 @@ class IlasmGenerator(object):
         self.code.writeline()
         self.code.write(lbl + ':', indent=0)
         self.code.writeline()
+
+    def leave(self, lbl):
+        self.code.writeline('leave ' + lbl)
 
     def branch(self, lbl):
         self.code.writeline('br ' + lbl)
