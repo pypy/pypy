@@ -6,7 +6,8 @@
 extern "C" {
 #endif
 
-	int testme(int n);
+int     testme1(int n);
+float   testme2(float f);
 
 #ifdef __cplusplus
 };

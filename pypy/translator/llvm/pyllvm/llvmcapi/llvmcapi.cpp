@@ -20,6 +20,10 @@
 #include <iostream>
 
 
-int testme(int n) {
+int testme1(int n) {
     return n * n;
+}
+
+float testme2(float f) {
+    return f * f;
 }
