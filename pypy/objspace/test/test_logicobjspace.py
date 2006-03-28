@@ -20,15 +20,12 @@ class AppTest_Logic(object):
         #         FailureException
         raises(Exception, bind, X, 2)
 
-    def test_unify_tuple(self):
-        X = newvar()
-        unify(X, (1, (2, None)))
-        assert X == (1, (2, None))
-
     def test_bind_to_self(self):
         X = newvar()
         assert is_free(X)
         bind(X, X)
+        assert is_free(X)
+        assert alias_of(X, X)
         bind(X, 1)
         assert X == 1
 
@@ -36,19 +33,17 @@ class AppTest_Logic(object):
         X = newvar()
         assert is_free(X)
         unify(X, X)
+        assert is_free(X)
+        assert alias_of(X, X)
         unify(X, 1)
         assert X == 1
 
-    def test_unify_alias(self):
-        X = newvar()
-        Y = newvar()
-        unify(X, Y)
-        assert alias_of(X, Y)
-        assert alias_of(Y, X)
-        bind(X, 1)
-        # what about is_alias, then ?
-        assert X == 1
-        assert Y == 1
+    def test_unify_circular(self):
+        X, Y = newvar(), newvar()
+        unify(X, [Y])
+        unify(Y, [X])
+        assert X == [Y]
+        assert Y == [X]
 
     def test_unify_alias(self):
         X = newvar()
@@ -142,7 +137,7 @@ class AppTest_Logic(object):
     def test_eq_unifies_simple(self):
         X = newvar()
         Y = newvar()
-        unify(X, Y)
+        bind(X, Y)
         assert alias_of(Y, X)
         unify(X, 1)
         assert X == 1
@@ -154,12 +149,17 @@ class AppTest_Logic(object):
     def test_ne_of_unified_unbound_vars(self):
         X = newvar()
         Y = newvar()
-        unify(X, Y)
+        bind(X, Y)
         assert is_free(X)
         assert is_free(Y)
         assert alias_of(X, Y)
         assert X == Y
         assert not X != Y
+
+    def test_unify_tuple(self):
+        X = newvar()
+        unify(X, (1, (2, None)))
+        assert X == (1, (2, None))
 
     def test_unify_list(self):
         X = newvar()
@@ -171,7 +171,15 @@ class AppTest_Logic(object):
         assert X[1] == x[1]
         unify(X, (1, (2, None)))
         assert X == (1, (2, None))
+        unify(X, (1, (2, None)))
         raises(Exception, unify, X, (1, 2))
+
+    def test_unify_dict(self):
+        Z, W = newvar(), newvar()
+        unify({'a': 42, 'b': Z},
+              {'a':  Z, 'b': W})
+        assert Z == W == 42
+
 
 class AppTest_LogicThreads(object):
 
@@ -197,13 +205,13 @@ class AppTest_LogicThreads(object):
     def test_eager_producer_consummer(self):
 
         def generate(n, limit):
-            print "generate", n, limit
+            #print "generate", n, limit
             if n < limit:
                 return (n, generate(n + 1, limit))
             return None
 
         def sum(L, a):
-            print "sum", a
+            #print "sum", a
             Head, Tail = newvar(), newvar()
             unify(L, (Head, Tail))
             if Tail != None:
@@ -213,7 +221,7 @@ class AppTest_LogicThreads(object):
         X = newvar()
         S = newvar()
         
-        bind(S, uthread(sum, X, 0))
+        unify(S, uthread(sum, X, 0))
         unify(X, uthread(generate, 0, 10))
 
         assert S == 45
@@ -223,35 +231,52 @@ class AppTest_LogicThreads(object):
 
         def lgenerate(n, L):
             """wait-needed version of generate"""
-            print "-- generator waits on L being needed"
             wait_needed(L)
             Tail = newvar()
             bind(L, (n, Tail))
-            print "generator bound L"
             lgenerate(n+1, Tail)
 
         def lsum(L, a, limit):
             """this summer controls the generator"""
             if limit > 0:
-                print "sum : ", a
                 Head, Tail = newvar(), newvar()
-                print "-- sum waiting on L"
                 wait(L)
                 unify(L, (Head, Tail))
                 return lsum(Tail, a+Head, limit-1)
             else:
                 return a
 
-        print "lazy producer consummer"
-        print "before"
         Y = newvar()
         T = newvar()
-        disp(Y)
-        disp(T)
+
         uthread(lgenerate, 0, Y)
         unify(T, uthread(lsum, Y, 0, 10))
-        print "after"
 
         wait(T)
         assert T == 45
-        print T
+        
+    def notest_wait_two(self):
+        def sleep(X, Barrier):
+            print "sleep"
+            wait(X)
+            bind(Barrier, True)
+        
+        def wait_two(X, Y):
+            print "wait two"
+            Z = newvar()
+            uthread(sleep, X, Z)
+            uthread(sleep, Y, Z)
+            print "on barrier"
+            wait(Z)
+            if is_free(Y):
+                return 1
+            return 2
+        
+        X, Y = newvar(), newvar()
+        disp(X)
+        disp(Y)
+        o = uthread(wait_two, X, Y)
+        unify(X, Y)
+        unify(Y, 42)
+        assert X == Y == 42
+        assert o == 2

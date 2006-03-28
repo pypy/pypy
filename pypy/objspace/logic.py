@@ -3,6 +3,7 @@ from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
+from pypy.objspace.std.dictobject import W_DictObject
 
 USE_COROUTINES = True
 HAVE_GREENLETS = True
@@ -153,7 +154,7 @@ if USE_COROUTINES:
     app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
                                                            baseobjspace.W_Root,
                                                            argument.Arguments])
-
+    
 
 #-- VARIABLE ---------------------
 
@@ -247,7 +248,7 @@ app_wait_needed = gateway.interp2app(wait_needed)
 #-- PREDICATES --------------------
 
 def is_aliased(space, w_var): # FIXME: this appears to block
-    if space.is_true(space.is_nb_(w_var.w_bound_to, w_var)):
+    if space.is_true(space.is_nb_(deref(space, w_var), w_var)):
         return space.newbool(False)
     return space.newbool(True)
 app_is_aliased = gateway.interp2app(is_aliased)
@@ -336,28 +337,33 @@ def prettyfy_id(a_str):
     l = len(a_str) - 1
     return a_str[l-3:l]
 
+def _sleep(space, w_var, w_barrier):
+    wait(space, w_var)
+    bind(space, w_barrier, space.newint(1))
+#app_sleep = gateway.interp2app(sleep)
+
 def wait_two(space, w_1, w_2):
     """waits until one out of two logic variables
        becomes bound, then tells which one,
        with a bias toward the first if both are
        suddenly bound"""
-    w_V = newvar(space)
-    def sleep(space, w_var):
-        wait(space, w_var)
-        bind(space, w_V, space.newint(1))
-    uthread(sleep, space, w_1)
-    uthread(sleep, space, w_2)
-    wait(space, w_V)
+    w_barrier = newvar(space)
+    uthread(space, space.wrap(_sleep),
+            argument.Arguments(space, [w_1, w_barrier]))
+    uthread(space, space.wrap(_sleep),
+            argument.Arguments(space, [w_2, w_barrier]))
+    wait(space, w_barrier)
     if space.is_true(is_free(space, w_2)):
         return space.newint(1)
     return space.newint(2)
+app_wait_two = gateway.interp2app(wait_two)
 
 #-- BIND -----------------------------
 
 def bind(space, w_var, w_obj):
     """1. aliasing of unbound variables
-       2. assign unbound var to bound var
-       3. assign value to self
+       2. assign bound var to unbound var
+       3. assign value to unbound var
     """
     print " :bind", w_var, w_obj
     assert isinstance(w_var, W_Var)
@@ -367,8 +373,10 @@ def bind(space, w_var, w_obj):
                 return unify(space, 
                              deref(space, w_var),
                              deref(space, w_obj))
+            # 2. a (obj unbound, var bound)
             return _assign(space, w_obj, deref(space, w_var))
         elif space.is_true(is_bound(space, w_obj)):
+            # 2. b (var unbound, obj bound)
             return _assign(space, w_var, deref(space, w_obj))
         else: # 1. both are unbound
             return _alias(space, w_var, w_obj)
@@ -422,19 +430,14 @@ def _add_to_aliases(space, w_v1, w_v2):
     w_tail = w_v1.w_bound_to
     w_v1.w_bound_to = w_v2
     w_v2.w_bound_to = w_tail
-    disp_aliases(space, w_v1)
-    disp_aliases(space, w_v2)
     return space.w_None
     
 def _merge_aliases(space, w_v1, w_v2):
     print "   :merge aliases", w_v1, w_v2
-    # first get the tail of both sets
     w_tail1 = get_ring_tail(space, w_v1)
     w_tail2 = get_ring_tail(space, w_v2)
     w_tail1.w_bound_to = w_v2
     w_tail2.w_bound_to = w_v1
-    disp_aliases(space, w_v1)
-    disp_aliases(space, w_v2)
     return space.w_None
 
 #-- UNIFY -------------------------
@@ -454,48 +457,41 @@ def unify(space, w_x, w_y):
             return unify(space, deref(space, w_x), w_y)            
         return bind(space, w_x, w_y)
     # x, y are vars
-    elif space.is_true(is_bound(space, w_x)) and \
-         space.is_true(is_bound(space, w_x)):
-        return _unify_values(space,
-                             deref(space, w_x), 
-                             deref(space, w_y))
     elif space.is_true(is_bound(space, w_x)):
+        if space.is_true(is_bound(space, w_y)):
+            return _unify_values(space,
+                                 deref(space, w_x), 
+                                 deref(space, w_y))
         return bind(space, w_y, w_x)
     # aliasing x & y ?
     else:
         return bind(space, w_x, w_y) # aliasing
-        #XXX: really do what's below :
-        #return _unify_unbound(space, w_x, w_y)
     reset_memo()
 app_unify = gateway.interp2app(unify)
 
-
-def _unify_unbound(space, w_x, w_y):
-    """sleeps until one of the two is bound
-       then bind the other to its value"""
-    w_bound = wait_two(space, w_x, w_y)
-    if space.eq_w(w_bound, space.newint(1)):
-        return bind(space, w_y, w_x)
-    return bind(space, w_x, w_y)
-
+    
 def _unify_values(space, w_v1, w_v2):
-    #print " :unify values", w_v1, w_v2
+    print " :unify values", w_v1, w_v2
     # unify object of the same type ... FIXME
     if not space.is_w(space.type(w_v1),
                       space.type(w_v2)):
         fail(space, w_v1, w_v2)
     # ... elements of a list/tuple ...
-    if isinstance(w_v1, W_ListObject) or \
-       isinstance(w_v1, W_TupleObject):
+    if (isinstance(w_v1, W_ListObject) and \
+        isinstance(w_v2, W_ListObject)) or \
+        (isinstance(w_v1, W_TupleObject) and \
+         isinstance(w_v1, W_TupleObject)):
         _unify_iterables(space, w_v1, w_v2)
-    else:
+    elif isinstance(w_v1, W_DictObject) and \
+        isinstance(w_v1, W_DictObject):
+        _unify_mappings(space, w_v1, w_v2)
         # ... token equality
         if not space.eq_w(w_v1, w_v2):
             fail(space, w_v1, w_v2)
         return space.w_None
 
 def _unify_iterables(space, w_i1, w_i2):
-    #print " :unify iterables", w_i1, w_i2
+    print " :unify iterables", w_i1, w_i2
     # assert lengths
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
@@ -508,6 +504,19 @@ def _unify_iterables(space, w_i1, w_i2):
         if space.is_true(space.is_nb_(w_xi, w_yi)):
             continue
         unify(space, w_xi, w_yi)
+
+def _unify_mappings(space, w_m1, w_m2):
+    print "  :unify mappings", w_m1, w_m2
+##     if len(w_m1.wrappeditems) != len(w_m2.wrappeditems):
+##         fail(space, w_i1, w_i2)
+    for w_xk in w_m1.content.keys():
+        w_xi = space.getitem(w_m1, w_xk)
+        w_yi = space.getitem(w_m2, w_xk)
+        if space.is_true(space.is_nb_(w_xi, w_yi)):
+            continue
+        unify(space, w_xi, w_yi)
+        
+        
 
 # multimethod version of unify
 ## def unify__W_Var_W_Var(space, w_v1, w_v2):
@@ -685,6 +694,8 @@ def Space(*args, **kwds):
                      space.wrap(app_uthread))
         space.setitem(space.builtin.w_dict, space.wrap('wait'),
                      space.wrap(app_wait))
+##         space.setitem(space.builtin.w_dict, space.wrap('wait_two'),
+##                      space.wrap(app_wait_two))
         space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                       space.wrap(app_wait_needed))
     return space
