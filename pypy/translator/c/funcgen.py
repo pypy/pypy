@@ -608,7 +608,7 @@ class FunctionCodeGenerator(object):
                                         self.expr(op.args[0])))
 
         if NEED_OLD_EXTRA_REFS and TYPE == PyObjPtr:
-            result.append('Py_XINCREF(%s);'%(LOCAL_VAR % op.result.name))
+            result.append('Py_XINCREF(%s);'%(LOCALVAR % op.result.name))
         return '\t'.join(result)
 
     OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
@@ -628,7 +628,7 @@ class FunctionCodeGenerator(object):
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
             if NEED_OLD_EXTRA_REFS and TYPE == PyObjPtr:
-                result.append('Py_XINCREF(%s);'%(LOCAL_VAR % op.result.name))
+                result.append('Py_XINCREF(%s);'%(LOCALVAR % op.result.name))
         return '\t'.join(result)
 
     def OP_HINT(self, op, err):
