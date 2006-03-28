@@ -30,9 +30,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
     global t # allow us to view later
     t = TranslationContext()
     do_register(t)
-    t.buildannotator().build_types(func, get_annotation(func))
-    if view:
-        t.viewcg()
+    t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
     instantiators = {}
@@ -40,10 +38,16 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
         if isinstance(obj, type):
             cls = obj
             def make():
-                return instantiate(cls)
+                obj = instantiate(cls)
+                return obj
             make.__name__ = cls.__name__ + '__new__'
-            t.annotator.build_types(make, [])
+            t.annotator.build_types(make, [], complete_now=False)
             instantiators[cls] = make
+            clsdef = bk.getuniqueclassdef(cls)
+            rtyper.add_wrapper(clsdef)
+    t.annotator.build_types(func, get_annotation(func))
+    if view:
+        t.viewcg()
     rtyper.specialize()
     if view:
         t.viewcg()
@@ -161,8 +165,11 @@ class DelMonitor(object):
 
 delmonitor = DelMonitor()
 
+class DemoBaseNotExposed(object):
+    pass
+
 # a trivial class to be exposed
-class DemoClass(object):
+class DemoClass(DemoBaseNotExposed):
     def __init__(self, a, b):
         self.a = a
         self.b = b
@@ -181,6 +188,11 @@ class DemoClass(object):
 
 # see if we get things exported with subclassing
 class DemoSubclass(DemoClass):
+    def __init__(self, a, b, c):
+        #super(DemoSubclass, self).__init__(a, b)
+        DemoClass.__init__(self, b, a)
+        self.c = c
+
     def demo(self):
         return float(DemoClass.demo(self))
     
@@ -230,7 +242,7 @@ def democlass_helper(a=int, b=int):
 def democlass_helper2(a=int, b=int):
     self = DemoClass(a, b)
     self.demo()
-    self2 = DemoSubclass(a, b)
+    self2 = DemoSubclass(a, b, 42)
     return self
 
 # creating an object, wrapping, unwrapping, call function, check whether __del__ is called

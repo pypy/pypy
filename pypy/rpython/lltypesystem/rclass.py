@@ -16,7 +16,7 @@ from pypy.rpython.lltypesystem.lltype import \
      cast_pointer, castable, nullptr, \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, attachRuntimeTypeInfo, \
-     FuncType, Bool, Signed, functionptr, FuncType
+     FuncType, Bool, Signed, functionptr, FuncType, PyObject
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython import extregistry
 
@@ -328,6 +328,13 @@ class InstanceRepr(AbstractInstanceRepr):
 
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef, not self.needsgc)
             self.rbase.setup()
+            #
+            # PyObject wrapper support
+            if (self.rtyper.needs_wrapper(self.classdef) and '_wrapper_'
+                not in self.rbase.allinstancefields):
+                fields['_wrapper_'] = 'wrapper', pyobj_repr
+                llfields.append(('wrapper', Ptr(PyObject)))
+
             if self.needsgc:
                 MkStruct = GcStruct
             else:
@@ -588,9 +595,22 @@ def call_destructor(thing):
 def ll_call_destructor(thang):
     return 42 # will be mapped
 
+def ll_clear_wrapper(inst):
+    # Note: we must ensure to enforce creation of this extra field.
+    # this is done when we set up the instantiators in XXX which module???
+    pass # inst.inst___wrapper__ = None
+    #inst.fields.au = 42
+    #setattr(inst, 'inst___wrapper__', None)
+    #inst.inst___wrapper__ = Ptr(33)#inst.inst___wrapper__
+    #p = ll_cast_to_object(inst)
+
+    #inst.inst___wrapper__ = nullptr(PyObject)
+    #inst.inst_a = 42
+    
 def rtype_destruct_object(hop):
-    v_any, = hop.inputargs(*hop.args_r)
-    hop.genop('gc_unprotect', [v_any])
+    v, = hop.inputargs(*hop.args_r)
+    hop.gendirectcall(ll_clear_wrapper, v)
+    hop.genop('gc_unprotect', [v])
 
 extregistry.register_value(ll_call_destructor, 
     compute_result_annotation=lambda *args:None,
