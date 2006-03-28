@@ -56,6 +56,7 @@ class RPythonTyper:
         self.class_reprs = {}
         self.instance_reprs = {}
         self.pbc_reprs = {}
+        self.classdefs_with_wrapper = {}
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
         self.oo_meth_impls = {}
@@ -86,6 +87,9 @@ class RPythonTyper:
             s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
             log.info(s)
         self.crash_on_first_typeerror = True
+
+    def add_wrapper(self, clsdef):
+        self.classdefs_with_wrapper[clsdef] = clsdef
 
     def add_pendingsetup(self, repr): 
         assert isinstance(repr, Repr)
@@ -530,6 +534,9 @@ class RPythonTyper:
 
     def needs_hash_support(self, clsdef):
         return clsdef in self.annotator.bookkeeper.needs_hash_support
+
+    def needs_wrapper(self, clsdef):
+        return clsdef in self.classdefs_with_wrapper
 
     def getcallable(self, graph):
         def getconcretetype(v):
