@@ -29,9 +29,3 @@ on the `people page`_.
 .. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-announcement.html
 .. _`People page`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/tokyo/people.txt
 
-Sprint in Tokyo (Japan)
-===================================================================
-
-*April 23rd - April 29th 2006.*
-
-

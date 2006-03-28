@@ -20,6 +20,16 @@ on the `people page`_.
 .. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-announcement.html
 .. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/people.html
 
+PyPy at XPDay France 2006 in Paris March 23rd - March 24th 2006
+==================================================================
+
+Logilab presented PyPy at the first `french XP Day`_ that it was
+sponsoring and which was held in Paris. There was over a hundred
+attendants. Interesting talks included Python as an agile language and
+Tools for continuous integration.
+ 
+.. _`french XP Day`: http://www.xpday.fr/
+
 Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
 ========================================================================
 
