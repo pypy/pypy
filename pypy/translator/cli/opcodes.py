@@ -4,6 +4,10 @@ PushArgs = object()
 # come useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
 
+class PushArg(object):
+    def __init__(self, arg):
+        self.arg = arg
+
 def _not(op):
     return [PushArgs, op]+Not
 
@@ -55,20 +59,20 @@ opcodes = {
     'int_sub_ovf':              'sub.ovf',
     'int_mul_ovf':              'mul.ovf',
 #    'int_div_ovf':              None,
-    'int_floordiv_ovf':         None,
-    'int_mod_ovf':              None,
-    'int_lt_ovf':               None,
-    'int_le_ovf':               None,
-    'int_eq_ovf':               None,
-    'int_ne_ovf':               None,
-    'int_gt_ovf':               None,
-    'int_ge_ovf':               None,
-    'int_and_ovf':              None,
-    'int_or_ovf':               None,
-    'int_lshift_ovf':           None,
-    'int_rshift_ovf':           None,
-    'int_xor_ovf':              None,
-    'int_floordiv_ovf_zer':     None,
+    'int_floordiv_ovf':         'div', # these can't overflow!
+    'int_mod_ovf':              'rem',
+    'int_lt_ovf':               'clt',
+    'int_le_ovf':               _not('cgt'),
+    'int_eq_ovf':               'ceq',
+    'int_ne_ovf':               _not('ceq'),
+    'int_gt_ovf':               'cgt',
+    'int_ge_ovf':               _not('clt'),
+    'int_and_ovf':              'and',
+    'int_or_ovf':               'or',
+    'int_lshift_ovf_val':       [PushArg(0), 'conv.i8', PushArg(1), 'shl', 'conv.ovf.i4'],
+    'int_rshift_ovf':           'shr', # these can't overflow!
+    'int_xor_ovf':              'xor',
+    'int_floordiv_ovf_zer':     None,  # what's the meaning?
     'int_mod_ovf_zer':          None,
 
     'uint_is_true':             DoNothing,

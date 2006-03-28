@@ -2,7 +2,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import cts
-from pypy.translator.cli.opcodes import opcodes, DoNothing, PushArgs
+from pypy.translator.cli.opcodes import opcodes, DoNothing, PushArgs, PushArg
 
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -206,6 +206,8 @@ class Function(Node):
             if instr is PushArgs:
                 for arg in op.args:
                     self._push(arg)
+            elif isinstance(instr, PushArg):
+                self._push(op.args[instr.arg])
             else:
                 self.ilasm.opcode(instr)
 

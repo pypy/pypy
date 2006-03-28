@@ -4,6 +4,11 @@ from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
 import sys
 
 def test_op():
+    yield check, op_any_ge, [int, int], (42, 42)
+    yield check, op_any_ge, [int, int], (13, 42)    
+    yield check, op_any_le, [int, int], (42, 42)
+    yield check, op_any_le, [int, int], (13, 42)    
+    
     for name, func in globals().iteritems():
         if not name.startswith('op_'):
             continue

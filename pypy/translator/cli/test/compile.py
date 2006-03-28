@@ -24,18 +24,11 @@ def check(f, g, *args):
         print 'OK'
 
 
-def foo():
+def foo(x, y, z):
     pass
 
 def bar(x, y):
-    try:
-        foo()
-        z = x
-    except OverflowError:
-        z = x+y
-
-    return z
-
+    foo(x+y, x-y, x*y)
 
 f = compile_function(bar, [int, int])
 
