@@ -37,8 +37,7 @@ opcodes = {
     'int_add':                  'add',
     'int_sub':                  'sub',
     'int_mul':                  'mul',
-    'int_div':                  'div',
-    'int_truediv':              None, # TODO
+#    'int_div':                  'div',
     'int_floordiv':             'div',
     'int_mod':                  'rem',
     'int_lt':                   'clt',
@@ -104,9 +103,9 @@ opcodes = {
     'float_add':                'add',
     'float_sub':                'sub',
     'float_mul':                'mul',
-    'float_div':                'div',
+#    'float_div':                'div',
     'float_truediv':            'div', 
-    'float_floordiv':           None, # TODO
+#    'float_floordiv':           None, # TODO
     'float_mod':                'rem',
     'float_lt':                 'clt',
     'float_le':                 _not('cgt'),

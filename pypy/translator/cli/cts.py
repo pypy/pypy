@@ -4,7 +4,7 @@ Translate between PyPy ootypesystem and .NET Common Type System
 
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.translator.cli.options import getoption
+from pypy.translator.cli.option import getoption
 
 from pypy.tool.ansi_print import ansi_log
 import py

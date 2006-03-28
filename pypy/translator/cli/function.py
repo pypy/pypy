@@ -1,6 +1,6 @@
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
-from pypy.translator.cli.options import getoption
+from pypy.translator.cli.option import getoption
 from pypy.translator.cli import cts
 from pypy.translator.cli.opcodes import opcodes, DoNothing, PushArgs
 

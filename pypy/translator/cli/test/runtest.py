@@ -5,7 +5,7 @@ import platform
 import py
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
-from pypy.translator.cli.options import getoption
+from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
 from pypy.translator.cli.function import Node
 from pypy.translator.cli.cts import graph_to_signature

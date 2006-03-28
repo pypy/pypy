@@ -3,7 +3,7 @@ import sys
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function
-from pypy.translator.cli.options import getoption
+from pypy.translator.cli.option import getoption
 
 
 class Tee(object):
