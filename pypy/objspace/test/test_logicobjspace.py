@@ -181,6 +181,21 @@ class AppTest_Logic(object):
         assert Z == W == 42
 
 
+    def test_unify_instances(self):
+        class Foo(object):
+            def __init__(self, a):
+                self.a = a
+                self.b = newvar()
+
+        f1 = Foo(newvar())
+        f2 = Foo(42)
+        unify(f1, f2)
+        assert f1.a == f2.a == 42
+        assert alias_of(f1.b, f2.b)
+        unify(f2.b, 'foo')
+        assert f1.b == f2.b == 'foo'
+                
+
 class AppTest_LogicThreads(object):
 
     def setup_class(cls):

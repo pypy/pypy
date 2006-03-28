@@ -471,7 +471,7 @@ app_unify = gateway.interp2app(unify)
 
     
 def _unify_values(space, w_v1, w_v2):
-    print " :unify values", w_v1, w_v2
+    print "  :unify values", w_v1, w_v2
     # unify object of the same type ... FIXME
     if not space.is_w(space.type(w_v1),
                       space.type(w_v2)):
@@ -481,17 +481,24 @@ def _unify_values(space, w_v1, w_v2):
         isinstance(w_v2, W_ListObject)) or \
         (isinstance(w_v1, W_TupleObject) and \
          isinstance(w_v1, W_TupleObject)):
-        _unify_iterables(space, w_v1, w_v2)
+        return _unify_iterables(space, w_v1, w_v2)
     elif isinstance(w_v1, W_DictObject) and \
         isinstance(w_v1, W_DictObject):
-        _unify_mappings(space, w_v1, w_v2)
+        return _unify_mappings(space, w_v1, w_v2)
         # ... token equality
-        if not space.eq_w(w_v1, w_v2):
-            fail(space, w_v1, w_v2)
-        return space.w_None
+    if not space.eq_w(w_v1, w_v2):
+        return _unify_instances(space, w_v1, w_v2)
+        #fail(space, w_v1, w_v2)
+    return space.w_None
+
+def _unify_instances(space, w_i1, w_i2):
+    print "   :unify instances"
+    return _unify_mappings(space,
+                           w_i1.getdict(),
+                           w_i2.getdict())
 
 def _unify_iterables(space, w_i1, w_i2):
-    print " :unify iterables", w_i1, w_i2
+    print "   :unify iterables", w_i1, w_i2
     # assert lengths
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
@@ -506,7 +513,7 @@ def _unify_iterables(space, w_i1, w_i2):
         unify(space, w_xi, w_yi)
 
 def _unify_mappings(space, w_m1, w_m2):
-    print "  :unify mappings", w_m1, w_m2
+    print "   :unify mappings", w_m1, w_m2
 ##     if len(w_m1.wrappeditems) != len(w_m2.wrappeditems):
 ##         fail(space, w_i1, w_i2)
     for w_xk in w_m1.content.keys():
