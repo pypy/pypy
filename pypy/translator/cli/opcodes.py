@@ -1,15 +1,36 @@
-DoNothing = object()
-PushArgs = object()
+class MicroInstruction(object):
+    def render(self, generator, op):
+        pass
 
-# come useful instruction patterns
+
+class Literal(MicroInstruction):
+    def __init__(self, instr):
+        self.instr = instr
+
+    def render(self, generator, op):
+        generator.emit(self.instr)
+
+
+class PushArg(MicroInstruction):
+    def __init__(self, n):
+        self.n = n
+
+    def render(self, generator, op):
+        generator.load(op.args[self.n])
+
+
+class PushAllArgs(MicroInstruction):
+    def render(self, generator, op):
+        for arg in op.args:
+            generator.load(arg)
+
+
+# some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
-
-class PushArg(object):
-    def __init__(self, arg):
-        self.arg = arg
+DoNothing = [PushAllArgs()]
 
 def _not(op):
-    return [PushArgs, op]+Not
+    return [PushAllArgs(), op]+Not
 
 
 opcodes = {
@@ -33,7 +54,7 @@ opcodes = {
 
     'int_is_true':              DoNothing,
     'int_neg':                  'neg',
-    'int_neg_ovf':              ['ldc.i4.0', PushArgs, 'sub.ovf'],
+    'int_neg_ovf':              ['ldc.i4.0', PushAllArgs(), 'sub.ovf'],
     'int_abs':                  None, # TODO
     'int_abs_ovf':              None, # TODO
     'int_invert':               'not',
@@ -69,7 +90,11 @@ opcodes = {
     'int_ge_ovf':               _not('clt'),
     'int_and_ovf':              'and',
     'int_or_ovf':               'or',
+
+    # are they the same?
+    'int_lshift_ovf':           [PushArg(0), 'conv.i8', PushArg(1), 'shl', 'conv.ovf.i4'],
     'int_lshift_ovf_val':       [PushArg(0), 'conv.i8', PushArg(1), 'shl', 'conv.ovf.i4'],
+
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',
     'int_floordiv_ovf_zer':     None,  # what's the meaning?
@@ -99,7 +124,7 @@ opcodes = {
     'uint_rshift':              'shr.un',
     'uint_xor':                 'xor',
 
-    'float_is_true':            [PushArgs, 'ldc.r8 0', 'ceq']+Not,
+    'float_is_true':            [PushAllArgs(), 'ldc.r8 0', 'ceq']+Not,
     'float_neg':                'neg',
     'float_abs':                None, # TODO
 
@@ -119,7 +144,7 @@ opcodes = {
     'float_floor':              None, # TODO
     'float_fmod':               None, # TODO
 
-    'llong_is_true':            [PushArgs, 'ldc.i8 0', 'ceq']+Not,
+    'llong_is_true':            [PushAllArgs(), 'ldc.i8 0', 'ceq']+Not,
     'llong_neg':                'neg',
     'llong_abs':                None, # TODO
     'llong_invert':             'not',
@@ -138,7 +163,7 @@ opcodes = {
     'llong_gt':                 'cgt',
     'llong_ge':                 _not('clt'),
 
-    'ullong_is_true':            [PushArgs, 'ldc.i8 0', 'ceq']+Not,
+    'ullong_is_true':            [PushAllArgs(), 'ldc.i8 0', 'ceq']+Not,
     'ullong_neg':                None,
     'ullong_abs':                None, # TODO
     'ullong_invert':             'not',
@@ -161,9 +186,9 @@ opcodes = {
     # to 1: we can't simply DoNothing, because the CLI stack could
     # contains a truth value not equal to 1, so we should use the !=0
     # trick.
-    'cast_bool_to_int':         [PushArgs, 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_uint':        [PushArgs, 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_float':       [PushArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
+    'cast_bool_to_int':         [PushAllArgs(), 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_uint':        [PushAllArgs(), 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_float':       [PushAllArgs(), 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
     'cast_char_to_int':         None,
     'cast_unichar_to_int':      None,
     'cast_int_to_char':         None,

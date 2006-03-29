@@ -2,7 +2,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import cts
-from pypy.translator.cli.opcodes import opcodes, DoNothing, PushArgs, PushArg
+from pypy.translator.cli.opcodes import opcodes, MicroInstruction, PushAllArgs, Literal
 
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -57,11 +57,11 @@ class Function(Node):
             if self._is_return_block(block):
                 return_var = block.inputargs[0]
                 if return_var.concretetype is not Void:
-                    self._push(return_var)
+                    self.load(return_var)
                 self.ilasm.opcode('ret')
             elif self._is_raise_block(block):
                 exc = block.inputargs[1]
-                self._push(exc)
+                self.load(exc)
                 self.ilasm.opcode('throw')
 
             if handle_exc:
@@ -87,7 +87,7 @@ class Function(Node):
                         # the exception value is on the stack, use it as the 2nd target arg
                         assert len(link.args) == 2
                         assert len(target.inputargs) == 2
-                        self._store(link.target.inputargs[1])
+                        self.store(link.target.inputargs[1])
                     else:
                         # pop the unused exception value
                         self.ilasm.opcode('pop')
@@ -107,7 +107,7 @@ class Function(Node):
                     else:
                         assert type(link.exitcase is bool)
                         assert block.exitswitch is not None
-                        self._push(block.exitswitch)
+                        self.load(block.exitswitch)
                         self.ilasm.branch_if(link.exitcase, target_label)
 
 
@@ -125,8 +125,8 @@ class Function(Node):
         target = link.target
         for to_load, to_store in zip(link.args, target.inputargs):
             if to_load.concretetype is not Void:
-                self._push(to_load)
-                self._store(to_store)
+                self.load(to_load)
+                self.store(to_store)
 
 
     def _set_locals(self):
@@ -182,10 +182,7 @@ class Function(Node):
         opname = op.opname
 
         cli_opcode = opcodes.get(opname, None)
-        if cli_opcode is DoNothing: # simply rename the variable
-            self._push(op.args[0])
-            self._store(op.result)
-        elif cli_opcode is not None:
+        if cli_opcode is not None:
             self._render_cli_opcode(cli_opcode, op)
         elif opname == 'direct_call':
             self._call(op)
@@ -198,20 +195,18 @@ class Function(Node):
 
     def _render_cli_opcode(self, cli_opcode, op):
         if type(cli_opcode) is str:
-            instructions = [PushArgs, cli_opcode]
+            instructions = [PushAllArgs(), cli_opcode]
         else:
             instructions = cli_opcode
 
         for instr in instructions:
-            if instr is PushArgs:
-                for arg in op.args:
-                    self._push(arg)
-            elif isinstance(instr, PushArg):
-                self._push(op.args[instr.arg])
-            else:
-                self.ilasm.opcode(instr)
+            if type(instr) is str:
+                instr = Literal(instr)
 
-        self._store(op.result)
+            assert isinstance(instr, MicroInstruction)
+            instr.render(self, op)
+
+        self.store(op.result)
 
 
     def _call(self, op):
@@ -219,12 +214,15 @@ class Function(Node):
 
         # push parameters
         for func_arg in op.args[1:]:
-            self._push(func_arg)
+            self.load(func_arg)
 
         self.ilasm.call(func_name)
-        self._store(op.result)
+        self.store(op.result)
 
-    def _push(self, v):
+    def emit(self, instr, *args):
+        self.ilasm.opcode(instr, *args)
+
+    def load(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.name in self.argset:
                 self.ilasm.opcode('ldarg', repr(v.name))
@@ -237,7 +235,7 @@ class Function(Node):
         else:
             assert False
 
-    def _store(self, v):
+    def store(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.concretetype is not Void:
                 self.ilasm.opcode('stloc', repr(v.name))

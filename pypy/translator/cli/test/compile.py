@@ -23,12 +23,14 @@ def check(f, g, *args):
     else:
         print 'OK'
 
-
-def foo(x, y, z):
-    pass
+def foo(x):
+    return x+1
 
 def bar(x, y):
-    foo(x+y, x-y, x*y)
+    if x > y:
+        return x+y+foo(2)
+    else:
+        return x-y
 
 f = compile_function(bar, [int, int])
 
