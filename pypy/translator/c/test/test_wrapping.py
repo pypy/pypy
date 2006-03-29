@@ -88,7 +88,8 @@ def fetch_pywrapper(thing):
 def wrap_obj(thing):
     res = fetch_pywrapper(thing)
     if res is None:
-        return create_pywrapper(thing)
+        res = create_pywrapper(thing)
+    return res
 
 def unwrap_obj(pyobj, typ):
     RaiseNameError
