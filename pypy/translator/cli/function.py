@@ -2,7 +2,8 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import cts
-from pypy.translator.cli.opcodes import opcodes, MicroInstruction, PushAllArgs, Literal
+from pypy.translator.cli.opcodes import opcodes
+from pypy.translator.cli.metavm import InstructionList, Generator
 
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -18,7 +19,7 @@ class Node(object):
         pass
     
 
-class Function(Node):
+class Function(Node, Generator):
     def __init__(self, graph, is_entrypoint = False):
         self.graph = graph
         self.is_entrypoint = is_entrypoint
@@ -179,13 +180,10 @@ class Function(Node):
         return 'block%s' % self.blocknum[block]
 
     def _render_op(self, op):
-        opname = op.opname
-
-        cli_opcode = opcodes.get(opname, None)
-        if cli_opcode is not None:
-            self._render_cli_opcode(cli_opcode, op)
-        elif opname == 'direct_call':
-            self._call(op)
+        instr_list = opcodes.get(op.opname, None)
+        if instr_list is not None:
+            assert isinstance(instr_list, InstructionList)
+            instr_list.render(self, op)
         else:
             if getoption('nostop'):
                 log.WARNING('Unknown opcode: %s ' % op)
@@ -193,34 +191,16 @@ class Function(Node):
             else:
                 assert False, 'Unknown opcode: %s ' % op
 
-    def _render_cli_opcode(self, cli_opcode, op):
-        if type(cli_opcode) is str:
-            instructions = [PushAllArgs(), cli_opcode]
-        else:
-            instructions = cli_opcode
+    # following methods belongs to the Generator interface
 
-        for instr in instructions:
-            if type(instr) is str:
-                instr = Literal(instr)
-
-            assert isinstance(instr, MicroInstruction)
-            instr.render(self, op)
-
-        self.store(op.result)
-
-
-    def _call(self, op):
-        func_name = cts.graph_to_signature(op.args[0].value.graph)
-
-        # push parameters
-        for func_arg in op.args[1:]:
-            self.load(func_arg)
-
-        self.ilasm.call(func_name)
-        self.store(op.result)
+    def function_name(self, graph):
+        return cts.graph_to_signature(graph)
 
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
+
+    def call(self, func_name):
+        self.ilasm.call(func_name)
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):

@@ -1,42 +1,17 @@
-class MicroInstruction(object):
-    def render(self, generator, op):
-        pass
-
-
-class Literal(MicroInstruction):
-    def __init__(self, instr):
-        self.instr = instr
-
-    def render(self, generator, op):
-        generator.emit(self.instr)
-
-
-class PushArg(MicroInstruction):
-    def __init__(self, n):
-        self.n = n
-
-    def render(self, generator, op):
-        generator.load(op.args[self.n])
-
-
-class PushAllArgs(MicroInstruction):
-    def render(self, generator, op):
-        for arg in op.args:
-            generator.load(arg)
-
+from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult, Call, InstructionList
 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
-DoNothing = [PushAllArgs()]
+DoNothing = [PushAllArgs]
 
 def _not(op):
-    return [PushAllArgs(), op]+Not
+    return [PushAllArgs, op]+Not
 
 
 opcodes = {
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
-    'direct_call':              None,      # for now it's a special case
-    'indirect_call':            None,      # when it's generated?
+    'direct_call':              [Call],
+    'indirect_call':            None,      # when is it generated?
 
     # __________ numeric operations __________
 
@@ -54,7 +29,7 @@ opcodes = {
 
     'int_is_true':              DoNothing,
     'int_neg':                  'neg',
-    'int_neg_ovf':              ['ldc.i4.0', PushAllArgs(), 'sub.ovf'],
+    'int_neg_ovf':              ['ldc.i4.0', PushAllArgs, 'sub.ovf'],
     'int_abs':                  None, # TODO
     'int_abs_ovf':              None, # TODO
     'int_invert':               'not',
@@ -124,7 +99,7 @@ opcodes = {
     'uint_rshift':              'shr.un',
     'uint_xor':                 'xor',
 
-    'float_is_true':            [PushAllArgs(), 'ldc.r8 0', 'ceq']+Not,
+    'float_is_true':            [PushAllArgs, 'ldc.r8 0', 'ceq']+Not,
     'float_neg':                'neg',
     'float_abs':                None, # TODO
 
@@ -144,7 +119,7 @@ opcodes = {
     'float_floor':              None, # TODO
     'float_fmod':               None, # TODO
 
-    'llong_is_true':            [PushAllArgs(), 'ldc.i8 0', 'ceq']+Not,
+    'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'ceq']+Not,
     'llong_neg':                'neg',
     'llong_abs':                None, # TODO
     'llong_invert':             'not',
@@ -163,7 +138,7 @@ opcodes = {
     'llong_gt':                 'cgt',
     'llong_ge':                 _not('clt'),
 
-    'ullong_is_true':            [PushAllArgs(), 'ldc.i8 0', 'ceq']+Not,
+    'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'ceq']+Not,
     'ullong_neg':                None,
     'ullong_abs':                None, # TODO
     'ullong_invert':             'not',
@@ -186,9 +161,9 @@ opcodes = {
     # to 1: we can't simply DoNothing, because the CLI stack could
     # contains a truth value not equal to 1, so we should use the !=0
     # trick.
-    'cast_bool_to_int':         [PushAllArgs(), 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_uint':        [PushAllArgs(), 'ldc.i4.0', 'ceq']+Not,
-    'cast_bool_to_float':       [PushAllArgs(), 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
+    'cast_bool_to_int':         [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_uint':        [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
+    'cast_bool_to_float':       [PushAllArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
     'cast_char_to_int':         None,
     'cast_unichar_to_int':      None,
     'cast_int_to_char':         None,
@@ -201,3 +176,12 @@ opcodes = {
     'cast_float_to_uint':       'conv.i4',
     'truncate_longlong_to_int': 'conv.i4',
 }
+
+for key, value in opcodes.iteritems():
+    if type(value) is str:
+        value = InstructionList([PushAllArgs, value, StoreResult])
+    elif value is not None:
+        value = InstructionList(value + [StoreResult])
+        
+    opcodes[key] = value
+
