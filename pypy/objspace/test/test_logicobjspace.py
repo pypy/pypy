@@ -194,7 +194,7 @@ class AppTest_Logic(object):
         assert alias_of(f1.b, f2.b)
         unify(f2.b, 'foo')
         assert f1.b == f2.b == 'foo'
-                
+        raises(Exception, unify, f1.b, 24)
 
 class AppTest_LogicThreads(object):
 

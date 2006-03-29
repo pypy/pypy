@@ -11,6 +11,11 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
 #-- THE BUILTINS ----------------------------------------------------------------------
 
+# this collects all multimethods to be made part of the Space
+all_mms = {}
+W_Root = baseobjspace.W_Root
+
+
 USE_COROUTINES = True
 HAVE_GREENLETS = True
 try:
@@ -330,7 +335,8 @@ def get_ring_tail(space, w_start):
 
 def fail(space, w_obj1, w_obj2):
     """raises a specific exception for bind/unify"""
-    print "can't unify", w_obj1, w_obj2
+    #FIXME : really raise some specific exception
+    print "failed to bind/unify"
     raise OperationError(space.w_RuntimeError,
                          space.wrap("UnificationFailure"))
 
@@ -347,8 +353,9 @@ def prettyfy_id(a_str):
 def _sleep(space, w_var, w_barrier):
     wait(space, w_var)
     bind(space, w_barrier, space.newint(1))
-#app_sleep = gateway.interp2app(sleep)
 
+#FIXME : does not work at all,
+# even a pure applevel version ...
 def wait_two(space, w_1, w_2):
     """waits until one out of two logic variables
        becomes bound, then tells which one,
@@ -373,27 +380,35 @@ def bind(space, w_var, w_obj):
        3. assign value to unbound var
     """
     print " :bind", w_var, w_obj
-    assert isinstance(w_var, W_Var)
-    if isinstance(w_obj, W_Var):
-        if space.is_true(is_bound(space, w_var)):
-            if space.is_true(is_bound(space, w_obj)):
-                return unify(space, 
-                             deref(space, w_var),
-                             deref(space, w_obj))
-            # 2. a (obj unbound, var bound)
-            return _assign(space, w_obj, deref(space, w_var))
-        elif space.is_true(is_bound(space, w_obj)):
-            # 2. b (var unbound, obj bound)
-            return _assign(space, w_var, deref(space, w_obj))
-        else: # 1. both are unbound
-            return _alias(space, w_var, w_obj)
-    else: # 3. w_obj is a value
-        if space.is_true(is_free(space, w_var)):
-            return _assign(space, w_var, w_obj)
-        # should not be reachable as of 27-03-2006
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("Unreachable code in bind"))
+    space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
+
+def bind__Var_Var(space, w_var, w_obj):
+    if space.is_true(is_bound(space, w_var)):
+        if space.is_true(is_bound(space, w_obj)):
+            return unify(space,
+                         deref(space, w_var),
+                         deref(space, w_obj))
+        # 2. a (obj unbound, var bound)
+        return _assign(space, w_obj, deref(space, w_var))
+    elif space.is_true(is_bound(space, w_obj)):
+        # 2. b (var unbound, obj bound)
+        return _assign(space, w_var, deref(space, w_obj))
+    else: # 1. both are unbound
+        return _alias(space, w_var, w_obj)
+
+
+def bind__Var_Root(space, w_v1, w_v2):
+    # 3. var and value
+    if space.is_true(is_free(space, w_v1)):
+        return _assign(space, w_v1, w_v2)
+    print "uh !"
+    fail(space, w_v1, w_v2)
+
+bind_mm = StdObjSpaceMultiMethod('bind', 2)
+bind_mm.register(bind__Var_Root, W_Var, W_Root)
+bind_mm.register(bind__Var_Var, W_Var, W_Var)
+all_mms['bind'] = bind_mm
 
 def _assign(space, w_var, w_val):
     print "  :assign", w_var, w_val, '[',
@@ -456,11 +471,11 @@ app_unify = gateway.interp2app(unify)
 
 def unify__Root_Root(space, w_x, w_y):
     if not space.eq_w(w_x, w_y):
-        try:
-            w_d1 = w_x.getdict()
-            w_d2 = w_y.getdict()
+        w_d1 = w_x.getdict()
+        w_d2 = w_y.getdict()
+        if None not in (w_d1, w_d2):
             return space.unify(w_d1, w_d2)
-        except:
+        else:
             fail(space, w_x, w_y)
     return space.w_None
     
@@ -476,7 +491,7 @@ def unify__Var_Var(space, w_x, w_y):
         return bind(space, w_x, w_y) 
     
 def unify__Var_Root(space, w_x, w_y):
-    print " :unify of a var and a value"
+    print " :unify var and value"
     if space.is_true(is_bound(space, w_x)):
         return space.unify(deref(space, w_x), w_y)            
     return bind(space, w_x, w_y)
@@ -513,8 +528,6 @@ def unify__Dict_Dict(space, w_m1, w_m2):
         space.unify(w_xi, w_yi)
 
 
-W_Root = baseobjspace.W_Root
-        
 unify_mm = StdObjSpaceMultiMethod('unify', 2)
 unify_mm.register(unify__Root_Root, W_Root, W_Root)
 unify_mm.register(unify__Var_Var, W_Var, W_Var)
@@ -524,7 +537,6 @@ unify_mm.register(unify__Tuple_Tuple, W_TupleObject, W_TupleObject)
 unify_mm.register(unify__List_List, W_ListObject, W_ListObject)
 unify_mm.register(unify__Dict_Dict, W_DictObject, W_DictObject)
 
-all_mms = {}
 all_mms['unify'] = unify_mm
 
 #-- SPACE HELPERS -------------------------------------
