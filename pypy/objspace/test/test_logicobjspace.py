@@ -195,11 +195,6 @@ class AppTest_Logic(object):
         unify(f2.b, 'foo')
         assert f1.b == f2.b == 'foo'
                 
-    def test_foo(self):
-        foo(1, 2)
-        foo(1, 2.0)
-        foo(2.0, 1)
-
 
 class AppTest_LogicThreads(object):
 

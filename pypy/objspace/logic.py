@@ -2,8 +2,14 @@ from pypy.objspace.proxy import patch_space_in_place
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import we_are_translated
+
+# wrapped types, mm stuff
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
+from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.model import StdObjSpaceMultiMethod
+
+#-- THE BUILTINS ----------------------------------------------------------------------
 
 USE_COROUTINES = True
 HAVE_GREENLETS = True
@@ -160,6 +166,7 @@ if USE_COROUTINES:
 
 class W_Var(baseobjspace.W_Root, object):
     def __init__(w_self):
+        w_self.typedef = 'Variable'
         w_self.w_bound_to = w_self 
         w_self.w_needed = False    
 
@@ -178,7 +185,7 @@ def wait(space, w_self):
     while 1:
         if not isinstance(w_self, W_Var):
             return w_self
-        print " :wait", w_self
+        #print " :wait", w_self
         if space.is_true(is_free(space, w_self)):
             if not have_uthreads():
                 raise OperationError(space.w_RuntimeError,
@@ -443,66 +450,50 @@ def _merge_aliases(space, w_v1, w_v2):
 #-- UNIFY -------------------------
 
 def unify(space, w_x, w_y):
-    print " :unify", w_x, w_y
-    check_and_memoize_pair(space, w_x, w_y)
-    if not isinstance(w_x, W_Var):
-        if not isinstance(w_y, W_Var):
-            # x, y not vars
-            return _unify_values(space, w_x, w_y)
-        # x not var, reverse args. order
-        return unify(space, w_y, w_x)
-    elif not isinstance(w_y, W_Var):
-        # x var, y value
-        if space.is_true(is_bound(space, w_x)):
-            return unify(space, deref(space, w_x), w_y)            
-        return bind(space, w_x, w_y)
-    # x, y are vars
-    elif space.is_true(is_bound(space, w_x)):
-        if space.is_true(is_bound(space, w_y)):
-            return _unify_values(space,
-                                 deref(space, w_x), 
-                                 deref(space, w_y))
-        return bind(space, w_y, w_x)
-    # aliasing x & y ?
-    else:
-        return bind(space, w_x, w_y) # aliasing
-    reset_memo()
+    print ":unify ", w_x, w_y
+    return space.unify(w_x, w_y)
 app_unify = gateway.interp2app(unify)
 
-    
-def _unify_values(space, w_v1, w_v2):
-    print "  :unify values", w_v1, w_v2
-    # unify object of the same type ... FIXME
-    if not space.is_w(space.type(w_v1),
-                      space.type(w_v2)):
-        fail(space, w_v1, w_v2)
-    # ... elements of a list/tuple ...
-    if (isinstance(w_v1, W_ListObject) and \
-        isinstance(w_v2, W_ListObject)) or \
-        (isinstance(w_v1, W_TupleObject) and \
-         isinstance(w_v1, W_TupleObject)):
-        return _unify_iterables(space, w_v1, w_v2)
-    elif isinstance(w_v1, W_DictObject) and \
-        isinstance(w_v1, W_DictObject):
-        return _unify_mappings(space, w_v1, w_v2)
-        # ... token equality
-    if not space.eq_w(w_v1, w_v2):
-        return _unify_instances(space, w_v1, w_v2)
-        #fail(space, w_v1, w_v2)
+def unify__Root_Root(space, w_x, w_y):
+    if not space.eq_w(w_x, w_y):
+        try:
+            w_d1 = w_x.getdict()
+            w_d2 = w_y.getdict()
+            return space.unify(w_d1, w_d2)
+        except:
+            fail(space, w_x, w_y)
     return space.w_None
+    
+def unify__Var_Var(space, w_x, w_y):
+    print " :unify of two vars"
+    if space.is_true(is_bound(space, w_x)):
+        if space.is_true(is_bound(space, w_y)):
+            return space.unify(deref(space, w_x), 
+                               deref(space, w_y))
+        return bind(space, w_y, w_x)
+    # binding or aliasing x & y
+    else:
+        return bind(space, w_x, w_y) 
+    
+def unify__Var_Root(space, w_x, w_y):
+    print " :unify of a var and a value"
+    if space.is_true(is_bound(space, w_x)):
+        return space.unify(deref(space, w_x), w_y)            
+    return bind(space, w_x, w_y)
 
-def _unify_instances(space, w_i1, w_i2):
-    print "   :unify instances"
-    return _unify_mappings(space,
-                           w_i1.getdict(),
-                           w_i2.getdict())
+def unify__Root_Var(space, w_x, w_y):
+    return space.unify(w_y, w_x)
 
+def unify__Tuple_Tuple(space, w_x, w_y):
+    return _unify_iterables(space, w_x, w_y)
+
+def unify__List_List(space, w_x, w_y):
+    return _unify_iterables(space, w_x, w_y)
+    
 def _unify_iterables(space, w_i1, w_i2):
-    print "   :unify iterables", w_i1, w_i2
-    # assert lengths
+    print " :unify iterables", w_i1, w_i2
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
-    # co-iterate and unify elts
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
     while idx < top:
         idx += 1
@@ -512,44 +503,31 @@ def _unify_iterables(space, w_i1, w_i2):
             continue
         unify(space, w_xi, w_yi)
 
-def _unify_mappings(space, w_m1, w_m2):
-    print "   :unify mappings", w_m1, w_m2
-##     if len(w_m1.wrappeditems) != len(w_m2.wrappeditems):
-##         fail(space, w_i1, w_i2)
+def unify__Dict_Dict(space, w_m1, w_m2):
+    print " :unify mappings", w_m1, w_m2
     for w_xk in w_m1.content.keys():
         w_xi = space.getitem(w_m1, w_xk)
         w_yi = space.getitem(w_m2, w_xk)
         if space.is_true(space.is_nb_(w_xi, w_yi)):
             continue
-        unify(space, w_xi, w_yi)
+        space.unify(w_xi, w_yi)
+
+
+W_Root = baseobjspace.W_Root
         
-        
+unify_mm = StdObjSpaceMultiMethod('unify', 2)
+unify_mm.register(unify__Root_Root, W_Root, W_Root)
+unify_mm.register(unify__Var_Var, W_Var, W_Var)
+unify_mm.register(unify__Var_Root, W_Var, W_Root)
+unify_mm.register(unify__Root_Var, W_Root, W_Var)
+unify_mm.register(unify__Tuple_Tuple, W_TupleObject, W_TupleObject)
+unify_mm.register(unify__List_List, W_ListObject, W_ListObject)
+unify_mm.register(unify__Dict_Dict, W_DictObject, W_DictObject)
 
-# multimethod version of unify
-## def unify__W_Var_W_Var(space, w_v1, w_v2):
-##     return bind(space, w_v1, w_v2)
-    
-## def unify__W_Var_W_ObjectObject(space, w_var, w_obj):
-##     return bind(space, w_v1, w_obj)
+all_mms = {}
+all_mms['unify'] = unify_mm
 
-## def unify_W_ObjectObject_W_Var(space, w_obj, w_var):
-##     return unify__W_Var_W_ObjectObject(space, w_var, w_obj)
-
-## def unify__W_ObjectObject_W_ObjectObject(space, w_obj1, w_obj2):
-##     if not space.eq(w_obj1, w_obj2):
-##         fail(space, w_obj1, w_obj2)
-##     return space.w_None
-
-## def unify__W_ListObject_W_ListObject(space, w_list1, w_list2):
-##     if len(w_list1) != len(w_list2): # .wrappeditems ?
-##         fail(space, w_list1, w_list2)
-##     for e1, e2 in zip(w_list1, w_list2): # .wrappeditems ?
-##         space.wrap(unify(space, e1, e2)) # ... ?
-
-# questions : how to make this available to applevel ?
-
-
-# __________________________________________________________________________
+#-- SPACE HELPERS -------------------------------------
 
 nb_forcing_args = {}
 
@@ -558,6 +536,7 @@ def setup():
         'setattr': 2,   # instead of 3
         'setitem': 2,   # instead of 3
         'get': 2,       # instead of 3
+        'unify': 2,
         # ---- irregular operations ----
         'wrap': 0,
         'str_w': 1,
@@ -626,7 +605,6 @@ def neproxy(space, parentfn):
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return ne
 
-
 def proxymaker(space, opname, parentfn):
     if opname == "eq":
         return eqproxy(space, parentfn)
@@ -661,31 +639,11 @@ def proxymaker(space, opname, parentfn):
 
 
 
+#-- THE SPACE ---------------------------------------
 
-from pypy.objspace.std.model import StdObjSpaceMultiMethod
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std import stdtypedef 
 from pypy.tool.sourcetools import func_with_new_name
 
-def foo__Int_Int(space, w_a, w_b):
-    print "i'm foo int int"
-
-def foo__Int_Float(space, w_a, w_b):
-    print "i'm foo int float"
-
-def foo__Float_Int(space, w_a, w_b):
-    space.foo(w_b, w_a)
-
-
-foo_mm = StdObjSpaceMultiMethod('foo', 2)
-foo_mm.register(foo__Int_Int, W_IntObject, W_IntObject)
-foo_mm.register(foo__Int_Float, W_IntObject, W_FloatObject)
-foo_mm.register(foo__Float_Int, W_FloatObject, W_IntObject)
-
-def my_foo(space, w_1, w_2):
-    space.foo(w_1, w_2)
-app_foo = gateway.interp2app(my_foo)
 
 def Space(*args, **kwds):
     # for now, always make up a wrapped StdObjSpace
@@ -693,19 +651,22 @@ def Space(*args, **kwds):
     space = std.Space(*args, **kwds)
 
     # multimethods hack
-    name = 'foo'
-    exprargs, expr, miniglobals, fallback = (
-        foo_mm.install_not_sliced(space.model.typeorder, baked_perform_call=False))
-    func = stdtypedef.make_perform_trampoline('__foo_mm_'+name,
-                                              exprargs, expr, miniglobals,
-                                              foo_mm)
-    # e.g. add(space, w_x, w_y)
-    def make_boundmethod(func=func):
-        def boundmethod(*args):
-            return func(space, *args)
-        return func_with_new_name(boundmethod, 'boundmethod_'+name)
-    boundmethod = make_boundmethod()
-    setattr(space, name, boundmethod)  # store into 'space' instance
+    #space.model.typeorder[W_Var] = [(baseobjspace.W_Root, None)]
+    space.model.typeorder[W_Var] = [(W_Var, None), (baseobjspace.W_Root, None)] 
+    for name in all_mms.keys():
+        exprargs, expr, miniglobals, fallback = (
+            all_mms[name].install_not_sliced(space.model.typeorder, baked_perform_call=False))
+        func = stdtypedef.make_perform_trampoline('__mm_' + name,
+                                                  exprargs, expr, miniglobals,
+                                                  all_mms[name])
+        # e.g. add(space, w_x, w_y)
+        def make_boundmethod(func=func):
+            def boundmethod(*args):
+                return func(space, *args)
+            return func_with_new_name(boundmethod, 'boundmethod_'+name)
+        boundmethod = make_boundmethod()
+        print boundmethod
+        setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethod hack
 
 
@@ -728,8 +689,6 @@ def Space(*args, **kwds):
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
-    space.setitem(space.builtin.w_dict, space.wrap('foo'),
-                 space.wrap(app_foo))
     if USE_COROUTINES:
         import os
         def exitfunc():
@@ -751,4 +710,3 @@ def Space(*args, **kwds):
         space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                       space.wrap(app_wait_needed))
     return space
-
