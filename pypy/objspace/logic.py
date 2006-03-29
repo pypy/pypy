@@ -186,10 +186,11 @@ def newvar(space):
     return W_Var()
 app_newvar = gateway.interp2app(newvar)
 
-def wait(space, w_self):
+def wait__Root(space, w_self):
+    return w_self
+
+def wait__Var(space, w_self):
     while 1:
-        if not isinstance(w_self, W_Var):
-            return w_self
         #print " :wait", w_self
         if space.is_true(is_free(space, w_self)):
             if not have_uthreads():
@@ -220,13 +221,19 @@ def wait(space, w_self):
                                          space.wrap("blocked on variable, but no uthread that can bind it"))
         else:
             return w_self.w_bound_to
+
+def wait(space, w_obj):
+    return space.wait(w_obj)
 app_wait = gateway.interp2app(wait)
 
-def wait_needed(space, w_self):
+wait_mm = StdObjSpaceMultiMethod('wait', 1)
+wait_mm.register(wait__Var, W_Var)
+wait_mm.register(wait__Root, W_Root)
+all_mms['wait'] = wait_mm
+
+
+def wait_needed__Var(space, w_self):
     while 1:
-        if not isinstance(w_self, W_Var):
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("wait_needed operates only on logic variables"))
         print " :needed", w_self
         if space.is_true(is_free(space, w_self)):
             if w_self.w_needed:
@@ -254,22 +261,40 @@ def wait_needed(space, w_self):
         else:
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("wait_needed only supported on unbound variables"))
+
+def wait_needed(space, w_var):
+    return space.wait_needed(w_var)
 app_wait_needed = gateway.interp2app(wait_needed)            
+
+wait_needed_mm = StdObjSpaceMultiMethod('wait_needed', 1)
+wait_needed_mm.register(wait_needed__Var, W_Var)
+all_mms['wait_needed'] = wait_needed_mm
 
 
 #-- PREDICATES --------------------
 
 def is_aliased(space, w_var): # FIXME: this appears to block
+    assert isinstance(w_var, W_Var)
     if space.is_true(space.is_nb_(deref(space, w_var), w_var)):
         return space.newbool(False)
     return space.newbool(True)
 app_is_aliased = gateway.interp2app(is_aliased)
 
-def is_free(space, w_var):
-    if not isinstance(w_var, W_Var):
-        return space.newbool(False)
+def is_free(space, w_obj):
+    return space.is_free(w_obj)
+
+def is_free__Root(space, w_obj):
+    return space.newbool(False)
+
+def is_free__Var(space, w_var):
     return space.newbool(isinstance(w_var.w_bound_to, W_Var))
+
 app_is_free = gateway.interp2app(is_free)
+
+is_free_mm = StdObjSpaceMultiMethod('is_free', 1)
+is_free_mm.register(is_free__Root, W_Root)
+is_free_mm.register(is_free__Var, W_Var)
+all_mms['is_free'] = is_free_mm
 
 def is_bound(space, w_var):
     return space.newbool(not space.is_true(is_free(space, w_var)))
@@ -350,12 +375,13 @@ def prettyfy_id(a_str):
     l = len(a_str) - 1
     return a_str[l-3:l]
 
+
+#FIXME : does not work at all,
+# even a pure applevel version ...
 def _sleep(space, w_var, w_barrier):
     wait(space, w_var)
     bind(space, w_barrier, space.newint(1))
 
-#FIXME : does not work at all,
-# even a pure applevel version ...
 def wait_two(space, w_1, w_2):
     """waits until one out of two logic variables
        becomes bound, then tells which one,
@@ -681,10 +707,9 @@ def Space(*args, **kwds):
         setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethod hack
 
-
     is_nb_ = space.is_ # capture the original is_ op (?)
-    patch_space_in_place(space, 'logic', proxymaker)
     space.is_nb_ = is_nb_
+
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
                   space.wrap(app_newvar))
     space.setitem(space.builtin.w_dict, space.wrap('is_free'),
@@ -714,6 +739,7 @@ def Space(*args, **kwds):
             if schedule_state.have_blocked_threads():
                 os.write(2, "there are still blocked uthreads!")
         app_exitfunc = gateway.interp2app(exitfunc, unwrap_spec=[])
+
         space.setitem(space.sys.w_dict, space.wrap("exitfunc"), space.wrap(app_exitfunc))
         space.setitem(space.builtin.w_dict, space.wrap('uthread'),
                      space.wrap(app_uthread))
@@ -721,4 +747,5 @@ def Space(*args, **kwds):
                      space.wrap(app_wait))
         space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                       space.wrap(app_wait_needed))
+    patch_space_in_place(space, 'logic', proxymaker)
     return space
