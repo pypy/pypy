@@ -192,7 +192,7 @@ def wait__Root(space, w_self):
 def wait__Var(space, w_self):
     while 1:
         #print " :wait", w_self
-        if space.is_true(is_free(space, w_self)):
+        if space.is_true(space.is_free(w_self)):
             if not have_uthreads():
                 raise OperationError(space.w_RuntimeError,
                                      space.wrap("trying to perform an operation on an unbound variable"))
@@ -235,7 +235,7 @@ all_mms['wait'] = wait_mm
 def wait_needed__Var(space, w_self):
     while 1:
         print " :needed", w_self
-        if space.is_true(is_free(space, w_self)):
+        if space.is_true(space.is_free(w_self)):
             if w_self.w_needed:
                 break # we're done
             if not have_uthreads():
@@ -290,20 +290,30 @@ def is_free__Var(space, w_var):
     return space.newbool(isinstance(w_var.w_bound_to, W_Var))
 
 app_is_free = gateway.interp2app(is_free)
-
 is_free_mm = StdObjSpaceMultiMethod('is_free', 1)
 is_free_mm.register(is_free__Root, W_Root)
 is_free_mm.register(is_free__Var, W_Var)
 all_mms['is_free'] = is_free_mm
 
-def is_bound(space, w_var):
-    return space.newbool(not space.is_true(is_free(space, w_var)))
+def is_bound(space, w_obj):
+    return space.is_bound(w_obj)
+
+def is_bound__Root(space, w_obj):
+    return space.newbool(True)
+
+def is_bound__Var(space, w_var):
+    return space.newbool(not isinstance(w_var.w_bound_to, W_Var))
+
 app_is_bound = gateway.interp2app(is_bound)
+is_bound_mm = StdObjSpaceMultiMethod('is_bound', 1)
+is_bound_mm.register(is_bound__Root, W_Root)
+is_bound_mm.register(is_bound__Var, W_Var)
+all_mms['is_bound'] = is_bound_mm
 
 
 def alias_of(space, w_var1, w_var2): # FIXME: appears to block
-    assert space.is_true(is_free(space, w_var1))
-    assert space.is_true(is_free(space, w_var2))
+    assert space.is_true(space.is_free(w_var1))
+    assert space.is_true(space.is_free(w_var2))
     # w_var2 could be a right-alias of w_var2
     # or the other way around
     w_curr = w_var1
@@ -393,7 +403,7 @@ def wait_two(space, w_1, w_2):
     uthread(space, space.wrap(_sleep),
             argument.Arguments(space, [w_2, w_barrier]))
     wait(space, w_barrier)
-    if space.is_true(is_free(space, w_2)):
+    if space.is_true(space.is_free(w_2)):
         return space.newint(1)
     return space.newint(2)
 app_wait_two = gateway.interp2app(wait_two)
@@ -410,14 +420,14 @@ def bind(space, w_var, w_obj):
 app_bind = gateway.interp2app(bind)
 
 def bind__Var_Var(space, w_var, w_obj):
-    if space.is_true(is_bound(space, w_var)):
-        if space.is_true(is_bound(space, w_obj)):
+    if space.is_true(space.is_bound(w_var)):
+        if space.is_true(space.is_bound(w_obj)):
             return unify(space,
                          deref(space, w_var),
                          deref(space, w_obj))
         # 2. a (obj unbound, var bound)
         return _assign(space, w_obj, deref(space, w_var))
-    elif space.is_true(is_bound(space, w_obj)):
+    elif space.is_true(space.is_bound(w_obj)):
         # 2. b (var unbound, obj bound)
         return _assign(space, w_var, deref(space, w_obj))
     else: # 1. both are unbound
@@ -426,7 +436,7 @@ def bind__Var_Var(space, w_var, w_obj):
 
 def bind__Var_Root(space, w_v1, w_v2):
     # 3. var and value
-    if space.is_true(is_free(space, w_v1)):
+    if space.is_true(space.is_free(w_v1)):
         return _assign(space, w_v1, w_v2)
     print "uh !"
     fail(space, w_v1, w_v2)
@@ -507,8 +517,8 @@ def unify__Root_Root(space, w_x, w_y):
     
 def unify__Var_Var(space, w_x, w_y):
     print " :unify of two vars"
-    if space.is_true(is_bound(space, w_x)):
-        if space.is_true(is_bound(space, w_y)):
+    if space.is_true(space.is_bound(w_x)):
+        if space.is_true(space.is_bound(w_y)):
             return space.unify(deref(space, w_x), 
                                deref(space, w_y))
         return bind(space, w_y, w_x)
@@ -518,7 +528,7 @@ def unify__Var_Var(space, w_x, w_y):
     
 def unify__Var_Root(space, w_x, w_y):
     print " :unify var and value"
-    if space.is_true(is_bound(space, w_x)):
+    if space.is_true(space.is_bound(w_x)):
         return space.unify(deref(space, w_x), w_y)            
     return bind(space, w_x, w_y)
 
@@ -574,7 +584,6 @@ def setup():
         'setattr': 2,   # instead of 3
         'setitem': 2,   # instead of 3
         'get': 2,       # instead of 3
-        'unify': 2,
         # ---- irregular operations ----
         'wrap': 0,
         'str_w': 1,
@@ -607,8 +616,8 @@ def eqproxy(space, parentfn):
     def eq(w_obj1, w_obj2):
         if space.is_true(space.is_nb_(w_obj1, w_obj2)):
             return space.newbool(True)
-        if space.is_true(is_free(space, w_obj1)):
-            if space.is_true(is_free(space, w_obj2)):
+        if space.is_true(space.is_free(w_obj1)):
+            if space.is_true(space.is_free(w_obj2)):
                 if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(True) # and just go on ...
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
@@ -625,8 +634,8 @@ def cmpproxy(space, parentfn):
     def cmp(w_obj1, w_obj2):
         if space.is_true(space.is_nb_(w_obj1, w_obj2)):
             return space.newbool(0)
-        if space.is_true(is_free(space, w_obj1)):
-            if space.is_true(is_free(space, w_obj2)):
+        if space.is_true(space.is_free(w_obj1)):
+            if space.is_true(space.is_free(w_obj2)):
                 if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(0) # and just go on ...
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
@@ -636,8 +645,8 @@ def neproxy(space, parentfn):
     def ne(w_obj1, w_obj2):
         if space.is_true(space.is_nb_(w_obj1, w_obj2)):
             return space.newbool(False)
-        if space.is_true(is_free(space, w_obj1)):
-            if space.is_true(is_free(space, w_obj2)):
+        if space.is_true(space.is_free(w_obj1)):
+            if space.is_true(space.is_free(w_obj2)):
                 if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(False) # and just go on ...
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
@@ -707,7 +716,12 @@ def Space(*args, **kwds):
         setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethod hack
 
-    is_nb_ = space.is_ # capture the original is_ op (?)
+    # provide a UnificationError exception
+    space.ExceptionTable.append('UnificationError')
+    space.ExceptionTable.sort() # hmmm
+
+    # capture the original is_ op (?)
+    is_nb_ = space.is_ 
     space.is_nb_ = is_nb_
 
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
