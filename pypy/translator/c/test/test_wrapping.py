@@ -82,34 +82,63 @@ def getcompiled(func, *args, **kwds):
 def create_pywrapper(thing):
     RaiseNameError
 
+def fetch_pywrapper(thing):
+    RaiseNameError
+
+def wrap_obj(thing):
+    res = fetch_pywrapper(thing)
+    if res is None:
+        return create_pywrapper(thing)
+
 def unwrap_obj(pyobj, typ):
     RaiseNameError
 
-def call_destructor(thing):
-    ll_call_destructor(thing)
+def call_destructor(thing, savedrepr):
+    ll_call_destructor(thing, savedrepr)
 
-def ll_call_destructor(thang):
+def ll_call_destructor(thang, savedtrpr):
     return 42 # really not relevant
 
 """
 creating a wrapper object with its destructor.
 Note that we need annotate_helper_fn, because
 the destructor is never explicitly called.
+Note also the "hand specialization" which passes the repr through!
+This was only possible with Samuele's hints.
 """
 
-def rtype_wrap_object(hop):
+def rtype_wrap_object_create(hop):
     v_any, = hop.inputargs(*hop.args_r)
     f = call_destructor
     hop.genop('gc_protect', [v_any])
-    ARGTYPE = hop.args_r[0].lowleveltype
-    FUNCTYPE = lltype.FuncType([ARGTYPE], lltype.Void)
-    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARGTYPE])
+    repr = hop.args_r[0]
+    ARGTYPE = repr.lowleveltype
+    reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
+    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARGTYPE, reprPBC])
+    FUNCTYPE = lltype.FuncType([ARGTYPE, lltype.Void], lltype.Void)
     c_dtor = hop.inputconst(lltype.Ptr(FUNCTYPE), fp_dtor)
-    return hop.llops.gencapicall('PyCObject_FromVoidPtr', [v_any, c_dtor],
-                     resulttype=hop.r_result)
+    res = hop.llops.gencapicall('PyCObject_FromVoidPtr', [v_any, c_dtor],
+                                resulttype=hop.r_result)
+    if '_wrapper_' in repr.allinstancefields:
+        repr.setfield(v_any, '_wrapper_', res, hop.llops)
+        hop.genop('gc_unprotect', [res]) # yes a weak ref
+    return res
+
+def rtype_wrap_object_fetch(hop):
+    v_any, = hop.inputargs(*hop.args_r)
+    repr = hop.args_r[0]
+    if '_wrapper_' in repr.allinstancefields:
+        return repr.getfield(v_any, '_wrapper_', hop.llops)
+    else:
+        null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
+        return null
 
 def rtype_destruct_object(hop):
-    v_any, = hop.inputargs(hop.args_r[0])
+    v_any, c_spec = hop.inputargs(*hop.args_r)
+    repr = c_spec.value
+    if '_wrapper_' in repr.allinstancefields:
+        null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
+        repr.setfield(v_any, '_wrapper_', null, hop.llops)
     hop.genop('gc_unprotect', [v_any])
 
 def rtype_unwrap_object(hop):
@@ -139,7 +168,11 @@ def do_register(t):
 
     extregistry.register_value(create_pywrapper, 
         compute_result_annotation=annmodel.SomeObject(), 
-        specialize_call=rtype_wrap_object)
+        specialize_call=rtype_wrap_object_create)
+        
+    extregistry.register_value(fetch_pywrapper, 
+        compute_result_annotation=annmodel.SomeObject(), 
+        specialize_call=rtype_wrap_object_fetch)
         
     extregistry.register_value(ll_call_destructor, 
         compute_result_annotation=lambda *args:None,
@@ -212,14 +245,8 @@ class DemoNotAnnotated(object):
 # we have more helper functions here than needed.
 # this was to make the debugging easier.
 
-def call_create_pywrapper(inst):
-    return create_pywrapper(inst)
-    # this could work, but we need to loose ref.
-    # also: how to generically know if we have the attribute?
-    if inst._wrapper:
-        return inst._wrapper
-    inst._wrapper = create_pywrapper(inst)
-    return inst._wrapper
+def call_wrap_obj(inst):
+    return wrap_obj(inst)
 
 def call_unwrap_obj(pyobj, klass):
     return unwrap_obj(pyobj, klass)
@@ -229,7 +256,7 @@ def democlass_helper_sub(a, b):
     if a == -42:
         return democlass_helper_sub(a-1, b)
     inst = DemoClass(a, b)
-    pyobj = call_create_pywrapper(inst)
+    pyobj = call_wrap_obj(inst)
     obj = call_unwrap_obj(pyobj, DemoClass)
     ret = obj.demo()
     return ret
@@ -247,13 +274,13 @@ def democlass_helper2(a=int, b=int):
 
 # creating an object, wrapping, unwrapping, call function, check whether __del__ is called
 def test_wrap_call_dtor():
-    f = getcompiled(democlass_helper, use_boehm=not True)
+    f = getcompiled(democlass_helper, use_boehm=not True, exports=[DemoClass])
     ret = f(2, 3)
     if P: print ret
     assert ret[0] == 1
 
 # exposing and using classes from a generasted extension module
-def test_expose_classes():
+def xtest_expose_classes():
     m = get_compiled_module(democlass_helper2, use_boehm=not True, exports=[
         DemoClass, DemoSubclass, DemoNotAnnotated])
     obj = m.DemoClass(2, 3)
