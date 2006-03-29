@@ -5,13 +5,13 @@ from cc import *
 
 
 def testme1(n):
-    # llvmcapi.h 9
+    # lib/llvmcapi.h 9
     return testme1._api_(n)
 testme1 = cdecl(c_int, 'llvmcapi', [c_int]) (testme1)
 
 
 def testme2(f):
-    # llvmcapi.h 10
+    # lib/llvmcapi.h 10
     return testme2._api_(f)
 testme2 = cdecl(c_float, 'llvmcapi', [c_float]) (testme2)
 

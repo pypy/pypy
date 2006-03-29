@@ -7,7 +7,7 @@ ldflags  = popen('llvm-config --ldflags').readline().split()
 libs     = popen('llvm-config --libs all').readline().split()
 
 opts = dict(name='llvmcapi',
-            sources=['llvmcapi.cpp'],
+            sources=['lib/llvmcapi.cpp'],
             libraries=[],
             include_dirs =[f[2:] for f in cxxflags if f.startswith('-I')],
             library_dirs =[f[2:] for f in ldflags  if f.startswith('-L')],
