@@ -335,7 +335,7 @@ class RedStructRepr(RedRepr):
     def create(self, hop):
         if self.typedesc is None:
             T = self.original_concretetype.TO
-            self.typedesc = rtimeshift.ContainerTypeDesc.make(T)
+            self.typedesc = rtimeshift.StructTypeDesc.make(T)
         ts = self.timeshifter
         return hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
             [], [], ts.s_RedBox)

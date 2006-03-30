@@ -262,7 +262,7 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
                           rgenop.constTYPE(RESULT))
     return VarRedBox(genvar)
 
-class ContainerTypeDesc(object):
+class StructTypeDesc(object):
     _type_cache = weakref.WeakKeyDictionary()
 
     def __init__(self, TYPE):
@@ -270,26 +270,23 @@ class ContainerTypeDesc(object):
         self.PTRTYPE = lltype.Ptr(TYPE)
         self.gv_type = rgenop.constTYPE(self.TYPE)
         self.gv_ptrtype = rgenop.constTYPE(self.PTRTYPE)
-        # XXX only for Struct so far
         self.fielddescs = [StructFieldDesc.make(self.PTRTYPE, name)
                            for name in TYPE._names]
         defls = []
-        for name in TYPE._names:
-            FIELDTYPE = TYPE._flds[name]
-            if isinstance(FIELDTYPE, lltype.ContainerType):
-                subtypedesc = ContainerTypeDesc.make(FIELDTYPE)
-                defaultbox = VirtualRedBox(subtypedesc)
+        for desc in self.fielddescs:
+            if desc.inlined_typedesc is not None:
+                defaultbox = VirtualRedBox(desc.inlined_typedesc)
             else:
-                defaultvalue = FIELDTYPE._defl()
+                defaultvalue = desc.RESTYPE._defl()
                 defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
             defls.append(defaultbox)
         self.content_boxes = defls
 
     def make(T):
         try:
-            return ContainerTypeDesc._type_cache[T]
+            return StructTypeDesc._type_cache[T]
         except KeyError:
-            desc = ContainerTypeDesc._type_cache[T] = ContainerTypeDesc(T)
+            desc = StructTypeDesc._type_cache[T] = StructTypeDesc(T)
             return desc
     make = staticmethod(make)
 
@@ -334,9 +331,12 @@ class StructFieldDesc(FieldDesc):
         self.fieldname = fieldname
         self.gv_fieldname = rgenop.constFieldName(fieldname)
         self.fieldindex = operator.indexOf(PTRTYPE.TO._names, fieldname)
-        if isinstance(RES1, lltype.ContainerType):
+        if isinstance(RES1, lltype.Struct):
             # inlined substructure
-            self.inlined_typedesc = ContainerTypeDesc.make(RES1)
+            self.inlined_typedesc = StructTypeDesc.make(RES1)
+##        elif isinstance(RES1, lltype.Array):
+##            # inlined array XXX in-progress
+##            self.inlined_typedesc = ArrayTypeDesc.make(RES1)
         else:
             self.inlined_typedesc = None
 
