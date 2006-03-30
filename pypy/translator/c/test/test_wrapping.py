@@ -19,7 +19,7 @@ def get_annotation(func):
     missing = [object] * (func.func_code.co_argcount - len(argstypelist))
     return missing + argstypelist
 
-def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
+def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
                 use_boehm=False, exports=[]):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
@@ -79,20 +79,12 @@ def getcompiled(func, *args, **kwds):
 # stubs for special annotation/rtyping
 
 
-def create_pywrapper(thing):
-    RaiseNameError
-
-def fetch_pywrapper(thing):
-    RaiseNameError
-
 def wrap_obj(thing):
-    res = fetch_pywrapper(thing)
-    if res is None:
-        res = create_pywrapper(thing)
-    return res
+    RaiseNameError
 
 def unwrap_obj(pyobj, typ):
     RaiseNameError
+unwrap_obj._annspecialcase_ = 'specialize:arg(1)'
 
 def call_destructor(thing, savedrepr):
     ll_call_destructor(thing, savedrepr)
@@ -107,32 +99,6 @@ the destructor is never explicitly called.
 Note also the "hand specialization" which passes the repr through!
 This was only possible with Samuele's hints.
 """
-
-def rtype_wrap_object_create(hop):
-    v_any, = hop.inputargs(*hop.args_r)
-    f = call_destructor
-    hop.genop('gc_protect', [v_any])
-    repr = hop.args_r[0]
-    ARGTYPE = repr.lowleveltype
-    reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
-    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARGTYPE, reprPBC])
-    FUNCTYPE = lltype.FuncType([ARGTYPE, lltype.Void], lltype.Void)
-    c_dtor = hop.inputconst(lltype.Ptr(FUNCTYPE), fp_dtor)
-    res = hop.llops.gencapicall('PyCObject_FromVoidPtr', [v_any, c_dtor],
-                                resulttype=hop.r_result)
-    if '_wrapper_' in repr.allinstancefields:
-        repr.setfield(v_any, '_wrapper_', res, hop.llops)
-        hop.genop('gc_unprotect', [res]) # yes a weak ref
-    return res
-
-def rtype_wrap_object_fetch(hop):
-    v_any, = hop.inputargs(*hop.args_r)
-    repr = hop.args_r[0]
-    if '_wrapper_' in repr.allinstancefields:
-        return repr.getfield(v_any, '_wrapper_', hop.llops)
-    else:
-        null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
-        return null
 
 def rtype_destruct_object(hop):
     v_any, c_spec = hop.inputargs(*hop.args_r)
@@ -149,6 +115,60 @@ def rtype_unwrap_object(hop):
     hop.genop('gc_protect', [v_adr])
     return v_adr
 
+def rtype_wrap_object(hop):
+    v_any, = hop.inputargs(*hop.args_r)
+    repr = hop.args_r[0]
+    c_repr = hop.inputconst(lltype.Void, repr)
+    if '_wrapper_' in repr.allinstancefields:
+        return hop.gendirectcall(ll_wrap_object, v_any, c_repr)
+    else:
+        return hop.gendirectcall(create_pywrapper, v_any, c_repr)
+
+def ll_wrap_object(obj, repr):
+    ret = fetch_pywrapper(obj, repr)
+    if not ret:
+        ret = create_pywrapper(obj, repr)
+    return ret
+
+def create_pywrapper(thing, sr):
+    return ll_create_pywrapper(thing, sr)
+
+def ll_create_pywrapper(thing, sr):
+    return 42
+
+def fetch_pywrapper(thing, sr):
+    return ll_fetch_pywrapper(thing, sr)
+
+def ll_fetch_pywrapper(thing):
+    return 42
+
+def rtype_wrap_object_create(hop):
+    v_any, c_spec = hop.inputargs(*hop.args_r)
+    repr = c_spec.value
+    f = call_destructor
+    hop.genop('gc_protect', [v_any])
+    ARGTYPE = repr.lowleveltype
+    reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
+    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARGTYPE, reprPBC])
+    FUNCTYPE = lltype.FuncType([ARGTYPE, lltype.Void], lltype.Void)
+    c_dtor = hop.inputconst(lltype.Ptr(FUNCTYPE), fp_dtor)
+    res = hop.llops.gencapicall('PyCObject_FromVoidPtr', [v_any, c_dtor],
+                                resulttype=hop.r_result)
+    if '_wrapper_' in repr.allinstancefields:
+        repr.setfield(v_any, '_wrapper_', res, hop.llops)
+        hop.genop('gc_unprotect', [res]) # yes a weak ref
+    return res
+
+def rtype_wrap_object_fetch(hop):
+    v_any, c_spec = hop.inputargs(*hop.args_r)
+    repr = c_spec.value
+    if '_wrapper_' in repr.allinstancefields:
+        return repr.getfield(v_any, '_wrapper_', hop.llops)
+    else:
+        null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
+        return null
+
+
 """
 The following registers the new mappings. The registration
 had to be done from a function, because we need to pass the
@@ -160,24 +180,43 @@ has been added to rclass.py to support automatic wrapping.
 """
 
 def do_register(t):
+    seen = {}
     def compute_annotation_unwrap(s_wrapper, s_class_or_inst):
         if hasattr(s_class_or_inst, 'classdef'):
             classdef = s_class_or_inst.classdef
+        elif hasattr(s_class_or_inst, 'descriptions'):
+            descs = s_class_or_inst.descriptions
+            print 1000*"X"
+            print descs
+            print seen
+            for desc in descs.keys():
+                classdef = desc.getuniqueclassdef()
+                if classdef not in seen:
+                    seen[classdef] = True
+                    break
+            else:
+                if len(descs) > 1:
+                    raise ValueError, ("had a problem finding the right class", descs)
         else:
             classdef = t.annotator.bookkeeper.getuniqueclassdef(s_class_or_inst.const)
+            seen[classdef] = True
         return annmodel.SomeInstance(classdef)
 
-    extregistry.register_value(create_pywrapper, 
-        compute_result_annotation=annmodel.SomeObject(), 
+    extregistry.register_value(ll_create_pywrapper, 
+        compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
         specialize_call=rtype_wrap_object_create)
         
-    extregistry.register_value(fetch_pywrapper, 
-        compute_result_annotation=annmodel.SomeObject(), 
+    extregistry.register_value(ll_fetch_pywrapper, 
+        compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
         specialize_call=rtype_wrap_object_fetch)
         
     extregistry.register_value(ll_call_destructor, 
-        compute_result_annotation=lambda *args:None,
+        compute_result_annotation=lambda *args: None,
         specialize_call=rtype_destruct_object)
+
+    extregistry.register_value(wrap_obj, 
+        compute_result_annotation=annmodel.SomeObject(),
+        specialize_call=rtype_wrap_object)
 
     extregistry.register_value(unwrap_obj, 
         compute_result_annotation=compute_annotation_unwrap,
@@ -248,9 +287,11 @@ class DemoNotAnnotated(object):
 
 def call_wrap_obj(inst):
     return wrap_obj(inst)
+call_wrap_obj._annspecialcase_ = 'specialize:argtype(0)'
 
 def call_unwrap_obj(pyobj, klass):
     return unwrap_obj(pyobj, klass)
+call_unwrap_obj._annspecialcase_ = 'specialize:arg(1)'
 
 def democlass_helper_sub(a, b):
     # prevend inlining
@@ -259,6 +300,10 @@ def democlass_helper_sub(a, b):
     inst = DemoClass(a, b)
     pyobj = call_wrap_obj(inst)
     obj = call_unwrap_obj(pyobj, DemoClass)
+    ret = obj.demo()
+    inst = DemoSubclass(a, b, 42)
+    pyobj = call_wrap_obj(inst)
+    obj = call_unwrap_obj(pyobj, DemoSubclass)
     ret = obj.demo()
     return ret
 
@@ -275,7 +320,7 @@ def democlass_helper2(a=int, b=int):
 
 # creating an object, wrapping, unwrapping, call function, check whether __del__ is called
 def test_wrap_call_dtor():
-    f = getcompiled(democlass_helper, use_boehm=not True, exports=[DemoClass])
+    f = getcompiled(democlass_helper, use_boehm=not True, exports=[DemoSubclass])
     ret = f(2, 3)
     if P: print ret
     assert ret[0] == 1
