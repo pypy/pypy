@@ -180,26 +180,12 @@ has been added to rclass.py to support automatic wrapping.
 """
 
 def do_register(t):
-    seen = {}
-    def compute_annotation_unwrap(s_wrapper, s_class_or_inst):
-        if hasattr(s_class_or_inst, 'classdef'):
-            classdef = s_class_or_inst.classdef
-        elif hasattr(s_class_or_inst, 'descriptions'):
-            descs = s_class_or_inst.descriptions
-            print 1000*"X"
-            print descs
-            print seen
-            for desc in descs.keys():
-                classdef = desc.getuniqueclassdef()
-                if classdef not in seen:
-                    seen[classdef] = True
-                    break
-            else:
-                if len(descs) > 1:
-                    raise ValueError, ("had a problem finding the right class", descs)
-        else:
-            classdef = t.annotator.bookkeeper.getuniqueclassdef(s_class_or_inst.const)
-            seen[classdef] = True
+    def compute_annotation_unwrap(s_wrapper, s_class):
+        assert hasattr(s_class, 'descriptions'), 'need a class in unwrap 2nd arg'
+        descs = s_class.descriptions
+        assert len(descs) == 1, 'missing specialisation, classdesc not unique!'
+        for desc in descs.keys():
+            classdef = desc.getuniqueclassdef()
         return annmodel.SomeInstance(classdef)
 
     extregistry.register_value(ll_create_pywrapper, 
@@ -310,7 +296,7 @@ def democlass_helper_sub(a, b):
 def democlass_helper(a=int, b=int):
     delmonitor.reset()
     ret = democlass_helper_sub(a, b)
-    return delmonitor.report(), ret, 42 # long(42) # this creates ATM a bad crash
+    return delmonitor.report(), ret, long(42)
 
 def democlass_helper2(a=int, b=int):
     self = DemoClass(a, b)
@@ -326,7 +312,7 @@ def test_wrap_call_dtor():
     assert ret[0] == 1
 
 # exposing and using classes from a generasted extension module
-def xtest_expose_classes():
+def test_expose_classes():
     m = get_compiled_module(democlass_helper2, use_boehm=not True, exports=[
         DemoClass, DemoSubclass, DemoNotAnnotated])
     obj = m.DemoClass(2, 3)
