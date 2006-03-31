@@ -372,3 +372,30 @@ def test_red_virtual_container():
     insns, res = timeshift(ll_function, [42], [], policy=P_NOVIRTUAL)
     assert res == 42
     assert insns == {}
+
+def test_red_propagate():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    def ll_function(n, k):
+        s = lltype.malloc(S)
+        s.n = n
+        if k < 0:
+            return -123
+        return s.n * k
+    insns, res = timeshift(ll_function, [3, 8], [], policy=P_NOVIRTUAL)
+    assert res == 24
+    assert insns == {'int_lt': 1, 'int_mul': 1}
+
+def test_red_subcontainer():
+    py.test.skip("in-progress")
+    S = lltype.Struct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+    def ll_function(k):
+        t = lltype.malloc(T)
+        s = t.s
+        s.n = k
+        if k > 0:
+            k -= 1
+        return s.n * k
+    insns, res = timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
+    assert res == 42
+    #assert insns == ...   in-progress

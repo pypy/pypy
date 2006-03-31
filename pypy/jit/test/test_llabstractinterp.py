@@ -66,7 +66,8 @@ def summary(graph):
         graph = graphs.pop()
         for block in graph.iterblocks():
             for op in block.operations:
-                insns[op.opname] = insns.get(op.opname, 0) + 1
+                if op.opname != 'same_as':
+                    insns[op.opname] = insns.get(op.opname, 0) + 1
                 for arg in op.args:
                     if isinstance(arg, flowmodel.Constant):
                         if (isinstance(arg.concretetype, lltype.Ptr) and

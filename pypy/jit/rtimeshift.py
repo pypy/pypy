@@ -32,6 +32,9 @@ class RedBox(object):
     def same_constant(self, other):
         return False
 
+    def getallvariables(self, result_gv):
+        pass
+
     # generic implementation of some operations
     def op_getfield(self, jitstate, fielddesc):
         op_args = lltype.malloc(VARLIST.TO, 2)
@@ -58,6 +61,14 @@ class VarRedBox(RedBox):
 
     def getgenvar(self, jitstate):
         return self.genvar
+
+    def getallvariables(self, result_gv):
+        result_gv.append(self.genvar)
+
+    def copybox(self, newblock, gv_type):
+        newgenvar = rgenop.geninputarg(newblock, gv_type)
+        return VarRedBox(newgenvar)
+
 
 VCONTAINER = lltype.GcStruct("vcontainer")
 
@@ -116,6 +127,25 @@ class VirtualRedBox(RedBox):
                                    boxes[i])
         return self.genvar
 
+    def getallvariables(self, result_gv):
+        if self.genvar:
+            result_gv.append(self.genvar)
+        else:
+            for smallbox in self.content_boxes:
+                smallbox.getallvariables(result_gv)
+
+    def copybox(self, newblock, gv_type):
+        if self.genvar:
+            newgenvar = rgenop.geninputarg(newblock, gv_type)
+            return VarRedBox(newgenvar)
+        bigbox = VirtualRedBox(self.typedesc)
+        for i in range(len(bigbox.content_boxes)):
+            # XXX need a memo for sharing
+            gv_fldtype = self.typedesc.fielddescs[i].gv_resulttype
+            bigbox.content_boxes[i] = self.content_boxes[i].copybox(newblock,
+                                                                    gv_fldtype)
+        return bigbox
+
     def op_getfield(self, jitstate, fielddesc):
         if self.content_boxes is None:
             return RedBox.op_getfield(self, jitstate, fielddesc)
@@ -136,6 +166,9 @@ class ConstRedBox(RedBox):
 
     def getgenvar(self, jitstate):
         return self.genvar
+
+    def copybox(self, newblock, gv_type):
+        return self
 
     def ll_fromvalue(value):
         T = lltype.typeOf(value)
@@ -435,15 +468,13 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
     return jitstate
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
-def enter_block(jitstate, redboxes, TYPES):
+def enter_block(jitstate, redboxes, types_gv):
     newblock = rgenop.newblock()
     incoming = []
     for i in range(len(redboxes)):
         redbox = redboxes[i]
-        if isinstance(redbox, VarRedBox):
-            incoming.append(redbox.genvar)
-            newgenvar = rgenop.geninputarg(newblock, TYPES[i])
-            redboxes[i] = VarRedBox(newgenvar)
+        redbox.getallvariables(incoming)
+        redboxes[i] = redbox.copybox(newblock, types_gv[i])
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
     jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)

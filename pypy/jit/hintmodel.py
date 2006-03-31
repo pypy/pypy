@@ -168,6 +168,11 @@ class __extend__(SomeLLAbstractValue):
     def setfield(hs_v1, hs_fieldname, hs_value):
         pass
 
+    def getsubstruct(hs_v1, hs_fieldname):
+        S = hs_v1.concretetype.TO
+        FIELD_TYPE = getattr(S, hs_fieldname.const)
+        return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE))
+
 class __extend__(SomeLLAbstractConstant):
 
     def hint(hs_c1, hs_flags):
