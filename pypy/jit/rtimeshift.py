@@ -32,8 +32,14 @@ class RedBox(object):
     def same_constant(self, other):
         return False
 
-    def getallvariables(self, result_gv):
+    def getallvariables(self, jitstate, result_gv):
         pass
+
+    def copybox(self, newblock, gv_type, memo):
+        try:
+            return memo[self]
+        except KeyError:
+            return self._copybox(newblock, gv_type, memo)
 
     # generic implementation of some operations
     def op_getfield(self, jitstate, fielddesc):
@@ -62,12 +68,13 @@ class VarRedBox(RedBox):
     def getgenvar(self, jitstate):
         return self.genvar
 
-    def getallvariables(self, result_gv):
+    def getallvariables(self, jitstate, result_gv):
         result_gv.append(self.genvar)
 
-    def copybox(self, newblock, gv_type):
+    def _copybox(self, newblock, gv_type, memo):
         newgenvar = rgenop.geninputarg(newblock, gv_type)
-        return VarRedBox(newgenvar)
+        memo[self] = newbox = VarRedBox(newgenvar)
+        return newbox
 
 
 VCONTAINER = lltype.GcStruct("vcontainer")
@@ -102,14 +109,7 @@ class VirtualRedBox(RedBox):
     "A red box that contains (for now) a virtual Struct."
 
     def __init__(self, typedesc):
-        # duplicate the list 'content_boxes',
-        # and also replace the nested VirtualRedBox
-        clist = []
-        for box in typedesc.content_boxes:
-            if isinstance(box, VirtualRedBox):
-                box = VirtualRedBox(box.typedesc)
-            clist.append(box)
-        self.content_boxes = clist
+        self.content_boxes = typedesc.build_content_boxes(self)
         self.typedesc = typedesc
         self.genvar = rgenop.nullvar
 
@@ -127,23 +127,29 @@ class VirtualRedBox(RedBox):
                                    boxes[i])
         return self.genvar
 
-    def getallvariables(self, result_gv):
+    def is_forced(self):
+        return bool(self.genvar)
+
+    def getallvariables(self, jitstate, result_gv):
         if self.genvar:
             result_gv.append(self.genvar)
         else:
             for smallbox in self.content_boxes:
-                smallbox.getallvariables(result_gv)
+                smallbox.getallvariables(jitstate, result_gv)
 
-    def copybox(self, newblock, gv_type):
+    def _copybox(self, newblock, gv_type, memo):
         if self.genvar:
             newgenvar = rgenop.geninputarg(newblock, gv_type)
-            return VarRedBox(newgenvar)
+            memo[self] = newbox = VarRedBox(newgenvar)
+            return newbox
         bigbox = VirtualRedBox(self.typedesc)
+        memo[self] = bigbox
         for i in range(len(bigbox.content_boxes)):
             # XXX need a memo for sharing
             gv_fldtype = self.typedesc.fielddescs[i].gv_resulttype
             bigbox.content_boxes[i] = self.content_boxes[i].copybox(newblock,
-                                                                    gv_fldtype)
+                                                                    gv_fldtype,
+                                                                    memo)
         return bigbox
 
     def op_getfield(self, jitstate, fielddesc):
@@ -158,6 +164,53 @@ class VirtualRedBox(RedBox):
         else:
             self.content_boxes[fielddesc.fieldindex] = valuebox
 
+class SubVirtualRedBox(RedBox):
+
+    def __init__(self, parentbox, fielddesc):
+        self.parentbox = parentbox
+        self.fielddesc = fielddesc
+        typedesc = fielddesc.inlined_typedesc
+        self.content_boxes = typedesc.build_content_boxes(self)
+
+    def getgenvar(self, jitstate):
+        gv = self.parentbox.getgenvar(jitstate)
+        op_args = lltype.malloc(VARLIST.TO, 2)
+        op_args[0] = gv
+        op_args[1] = self.fielddesc.gv_fieldname
+        genvar = rgenop.genop(jitstate.curblock, 'getsubstruct', op_args,
+                              self.fielddesc.gv_resulttype)
+        return genvar
+
+    def is_forced(self):
+        return self.parentbox.is_forced()
+
+    def getallvariables(self, jitstate, result_gv):
+        if self.is_forced():
+            result_gv.append(self.getgenvar(jitstate))
+        else:
+            for smallbox in self.content_boxes:
+                smallbox.getallvariables(jitstate, result_gv)
+
+    def _copybox(self, newblock, gv_type, memo):
+        if self.is_forced():
+            newgenvar = rgenop.geninputarg(newblock, gv_type)
+            memo[self] = newbox = VarRedBox(newgenvar)
+            return newbox
+        bigbox = SubVirtualRedBox(None, self.fielddesc)
+        memo[self] = bigbox
+        gv_parenttype = self.fielddesc.parenttypedesc.gv_ptrtype
+        parentcopybox = self.parentbox.copybox(newblock, gv_parenttype, memo)
+        bigbox.parentbox = parentcopybox
+        typedesc = self.fielddesc.inlined_typedesc
+        for i in range(len(bigbox.content_boxes)):
+            # XXX need a memo for sharing
+            gv_fldtype = typedesc.fielddescs[i].gv_resulttype
+            bigbox.content_boxes[i] = self.content_boxes[i].copybox(newblock,
+                                                                    gv_fldtype,
+                                                                    memo)
+        return bigbox
+
+
 class ConstRedBox(RedBox):
     "A red box that contains a run-time constant."
 
@@ -167,7 +220,7 @@ class ConstRedBox(RedBox):
     def getgenvar(self, jitstate):
         return self.genvar
 
-    def copybox(self, newblock, gv_type):
+    def copybox(self, newblock, gv_type, memo):
         return self
 
     def ll_fromvalue(value):
@@ -303,23 +356,39 @@ class StructTypeDesc(object):
         self.PTRTYPE = lltype.Ptr(TYPE)
         self.gv_type = rgenop.constTYPE(self.TYPE)
         self.gv_ptrtype = rgenop.constTYPE(self.PTRTYPE)
+
+    def setup(self):
         self.fielddescs = [StructFieldDesc.make(self.PTRTYPE, name)
-                           for name in TYPE._names]
+                           for name in self.TYPE._names]
         defls = []
         for desc in self.fielddescs:
             if desc.inlined_typedesc is not None:
-                defaultbox = VirtualRedBox(desc.inlined_typedesc)
+                defaultbox = None
             else:
                 defaultvalue = desc.RESTYPE._defl()
                 defaultbox = ConstRedBox.ll_fromvalue(defaultvalue)
             defls.append(defaultbox)
-        self.content_boxes = defls
+        self.default_boxes = defls
+
+    def build_content_boxes(self, parentbox):
+        # make a'content_boxes' list based on the typedesc's default_boxes,
+        # building nested SubVirtualRedBoxes for inlined substructs
+        clist = []
+        for i in range(len(self.fielddescs)):
+            fielddesc = self.fielddescs[i]
+            if fielddesc.inlined_typedesc:
+                box = SubVirtualRedBox(parentbox, fielddesc)
+            else:
+                box = self.default_boxes[i]
+            clist.append(box)
+        return clist
 
     def make(T):
         try:
             return StructTypeDesc._type_cache[T]
         except KeyError:
             desc = StructTypeDesc._type_cache[T] = StructTypeDesc(T)
+            desc.setup()
             return desc
     make = staticmethod(make)
 
@@ -353,6 +422,7 @@ class FieldDesc(object):
             return cache[args]
         except KeyError:
             fdesc = cache[args] = cls(PTRTYPE, *args)
+            fdesc.setup()
             return fdesc
     make = classmethod(make)
 
@@ -373,6 +443,9 @@ class StructFieldDesc(FieldDesc):
         else:
             self.inlined_typedesc = None
 
+    def setup(self):
+        self.parenttypedesc = StructTypeDesc.make(self.PTRTYPE.TO)
+
     def compact_repr(self): # goes in ll helper names
         return "Fld_%s_in_%s" % (self.fieldname, self.PTRTYPE._short_name())
 
@@ -380,6 +453,8 @@ class ArrayFieldDesc(FieldDesc):
     def __init__(self, PTRTYPE):
         assert isinstance(PTRTYPE.TO, lltype.Array)
         FieldDesc.__init__(self, PTRTYPE, PTRTYPE.TO.OF)
+    def setup(self):
+        pass
 
 def ll_generate_getfield(jitstate, fielddesc, argbox):
     if fielddesc.immutable and isinstance(argbox, ConstRedBox):
@@ -471,10 +546,11 @@ retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
 def enter_block(jitstate, redboxes, types_gv):
     newblock = rgenop.newblock()
     incoming = []
+    memo = {}
     for i in range(len(redboxes)):
         redbox = redboxes[i]
-        redbox.getallvariables(incoming)
-        redboxes[i] = redbox.copybox(newblock, types_gv[i])
+        redbox.getallvariables(jitstate, incoming)
+        redboxes[i] = redbox.copybox(newblock, types_gv[i], memo)
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
     jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)

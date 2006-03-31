@@ -393,9 +393,9 @@ def test_red_subcontainer():
         t = lltype.malloc(T)
         s = t.s
         s.n = k
-        if k > 0:
-            k -= 1
-        return s.n * k
+        if k < 0:
+            return -123
+        return s.n * (k-1)
     insns, res = timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
     assert res == 42
     #assert insns == ...   in-progress

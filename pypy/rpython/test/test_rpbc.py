@@ -1165,6 +1165,22 @@ class BaseTestRPBC:
         res = interpret(f, [], type_system=self.ts)
         assert res == 65*66
 
+    def test_convert_multiple_to_single_method_of_frozen_pbc(self):
+        py.test.skip("in-progress")
+        class A:
+            def meth(self, frmeth):
+                return frmeth(100)
+        class B(A):
+            def meth(self, frmeth):
+                return frmeth(1000)
+        fr1 = Freezing(); fr1.x = 65
+        fr2 = Freezing(); fr2.x = 66
+        def f():
+            return A().meth(fr1.mymethod) * B().meth(fr2.mymethod)
+
+        res = interpret(f, [], type_system=self.ts)
+        assert res == 165 * 1066
+
 
 def test_call_from_list():
     # Don't test with ootype, since it doesn't support lists in a
