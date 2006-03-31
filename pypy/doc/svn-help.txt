@@ -136,6 +136,7 @@ stored exactly as is. This has to be set on every client. Here is how:
 
 In your home directory edit .subversion/config and comment in ::
 
+   [miscellany]
    enable-auto-props = yes
 
    [auto-props]
