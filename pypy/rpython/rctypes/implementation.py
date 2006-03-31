@@ -23,6 +23,7 @@ from pypy.rpython import rint
 # Importing for side effect of registering types with extregistry
 import pypy.rpython.rctypes.rarray
 import pypy.rpython.rctypes.rprimitive
+import pypy.rpython.rctypes.rpointer
 
 # ctypes_annotation_list contains various attributes that
 # are used by the pypy annotation.
@@ -41,10 +42,10 @@ ctypes_annotation_list = [
 #    (c_ulonglong,     UnsignedLongLong, None),
 #    (c_float,         Float,            None),
 #    (c_double,        Float,            None),
-    (c_char_p,        None, 
-            staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
-    (POINTER(c_char), None, 
-            staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
+#    (c_char_p,        None, 
+#            staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
+#    (POINTER(c_char), None, 
+#            staticmethod(lambda ll_type, arg_name:"RPyString_AsString(%s)" % arg_name)),
 ]
 
 def create_ctypes_annotations():

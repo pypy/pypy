@@ -266,7 +266,7 @@ class Test_rctypes:
         t.buildrtyper().specialize()
         #d#t.view()
 
-    def test_compile_simple(self):
+    def x_test_compile_simple(self):
         fn = compile(o_atoi, [str])
         res = fn("42")
         assert res == 42
