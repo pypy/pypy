@@ -330,8 +330,7 @@ class InstanceRepr(AbstractInstanceRepr):
             self.rbase.setup()
             #
             # PyObject wrapper support
-            if (self.rtyper.needs_wrapper(self.classdef) and '_wrapper_'
-                not in self.rbase.allinstancefields):
+            if self.has_wrapper and '_wrapper_' not in self.rbase.allinstancefields:
                 fields['_wrapper_'] = 'wrapper', pyobj_repr
                 llfields.append(('wrapper', Ptr(PyObject)))
 
@@ -385,6 +384,10 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def create_instance(self):
         return malloc(self.object_type, flavor=self.getflavor()) # pick flavor
+
+    def has_wrapper(self):
+        return self.rtyper.needs_wrapper(self.classdef)
+    has_wrapper = property(has_wrapper)
 
     def get_ll_hash_function(self):
         if self.classdef is None:
@@ -606,10 +609,14 @@ def ll_clear_wrapper(inst):
 
     #inst.inst___wrapper__ = nullptr(PyObject)
     #inst.inst_a = 42
+    inst._wrapper_ = nullptr(PyObject)
     
 def rtype_destruct_object(hop):
     v, = hop.inputargs(*hop.args_r)
-    hop.gendirectcall(ll_clear_wrapper, v)
+    #repr = hop.args_r[0]
+    null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
+    #repr.setfield('wrapper', null)
+    #hop.gendirectcall(ll_clear_wrapper, v)
     hop.genop('gc_unprotect', [v])
 
 extregistry.register_value(ll_call_destructor, 
