@@ -106,10 +106,8 @@ def rtype_destruct_object(hop):
     repr = c_spec.value
     if repr.has_wrapper:
         null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
-        v_wrapper = repr.getfield(v_any, '_wrapper_', hop.llops)
-        hop.genop('gc_protect', [v_wrapper]) # un-weaken the ref
-        hop.genop('gc_protect', [v_wrapper]) # don't trigger again!
-        repr.setfield(v_any, '_wrapper_', null, hop.llops)
+        # XXX this is a hack! We need an operation to remove a broken PyObject
+        repr.setfield(v_any, '_wrapper_', null, hop.llops, opname='bare_setfield')
     hop.genop('gc_unprotect', [v_any])
 
 def rtype_unwrap_object(hop):
@@ -141,7 +139,7 @@ def ll_wrap_object(obj, repr):
     return ret
 
 def create_pywrapper(thing, repr):
-    return ll_create_pywrapper(thing, sr)
+    return ll_create_pywrapper(thing, repr)
 
 def ll_create_pywrapper(thing, repr):
     return 42
