@@ -5,6 +5,7 @@ from pypy.rpython import extregistry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import instantiate
+from pypy.rpython import robject, rclass
 
 P = False  # debug printing
 
@@ -103,15 +104,24 @@ This was only possible with Samuele's hints.
 def rtype_destruct_object(hop):
     v_any, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
-    if '_wrapper_' in repr.allinstancefields:
+    if repr.has_wrapper:
         null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
+        v_wrapper = repr.getfield(v_any, '_wrapper_', hop.llops)
+        hop.genop('gc_protect', [v_wrapper]) # un-weaken the ref
+        hop.genop('gc_protect', [v_wrapper]) # don't trigger again!
         repr.setfield(v_any, '_wrapper_', null, hop.llops)
     hop.genop('gc_unprotect', [v_any])
 
 def rtype_unwrap_object(hop):
+    pyptr = hop.args_r[0]
+    klass = hop.args_s[1].const
+    classdef = hop.rtyper.annotator.bookkeeper.getuniqueclassdef(klass)
+    repr = rclass.getinstancerepr(hop.rtyper, classdef, True)
     v_pyobj, v_type = hop.inputargs(*hop.args_r)
-    v_adr = hop.llops.gencapicall('PyCObject_AsVoidPtr', [v_pyobj],
-                                  resulttype=hop.r_result)
+    if repr.has_wrapper:
+        c_self = hop.inputconst(robject.pyobj_repr, '__self__')
+        v_pyobj = hop.genop('getattr', [v_pyobj, c_self], resulttype=pyptr)
+    v_adr = hop.llops.gencapicall('PyCObject_AsVoidPtr', [v_pyobj], resulttype=hop.r_result)
     hop.genop('gc_protect', [v_adr])
     return v_adr
 
@@ -119,7 +129,7 @@ def rtype_wrap_object(hop):
     v_any, = hop.inputargs(*hop.args_r)
     repr = hop.args_r[0]
     c_repr = hop.inputconst(lltype.Void, repr)
-    if '_wrapper_' in repr.allinstancefields:
+    if repr.has_wrapper:
         return hop.gendirectcall(ll_wrap_object, v_any, c_repr)
     else:
         return hop.gendirectcall(create_pywrapper, v_any, c_repr)
@@ -130,31 +140,38 @@ def ll_wrap_object(obj, repr):
         ret = create_pywrapper(obj, repr)
     return ret
 
-def create_pywrapper(thing, sr):
+def create_pywrapper(thing, repr):
     return ll_create_pywrapper(thing, sr)
 
-def ll_create_pywrapper(thing, sr):
+def ll_create_pywrapper(thing, repr):
     return 42
 
-def fetch_pywrapper(thing, sr):
-    return ll_fetch_pywrapper(thing, sr)
+def fetch_pywrapper(thing, repr):
+    return ll_fetch_pywrapper(thing, repr)
 
-def ll_fetch_pywrapper(thing):
+def ll_fetch_pywrapper(thing, repr):
     return 42
 
 def rtype_wrap_object_create(hop):
+    gencapi = hop.llops.gencapicall
+    pyptr = hop.r_result
     v_any, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
     f = call_destructor
     hop.genop('gc_protect', [v_any])
-    ARGTYPE = repr.lowleveltype
+    ARG = repr.lowleveltype
     reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
-    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARGTYPE, reprPBC])
-    FUNCTYPE = lltype.FuncType([ARGTYPE, lltype.Void], lltype.Void)
-    c_dtor = hop.inputconst(lltype.Ptr(FUNCTYPE), fp_dtor)
-    res = hop.llops.gencapicall('PyCObject_FromVoidPtr', [v_any, c_dtor],
-                                resulttype=hop.r_result)
-    if '_wrapper_' in repr.allinstancefields:
+    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARG, reprPBC])
+    FUNC = lltype.FuncType([ARG, lltype.Void], lltype.Void)
+    c_dtor = hop.inputconst(lltype.Ptr(FUNC), fp_dtor)
+    res = gencapi('PyCObject_FromVoidPtr', [v_any, c_dtor], resulttype=pyptr)
+    if repr.has_wrapper:
+        cobj = res
+        c_cls = hop.inputconst(robject.pyobj_repr, repr.classdef.classdesc.pyobj)
+        c_0 = hop.inputconst(lltype.Signed, 0)
+        res = gencapi('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyptr)
+        c_self = hop.inputconst(robject.pyobj_repr, '__self__')
+        hop.genop('setattr', [res, c_self, cobj], resulttype=pyptr)
         repr.setfield(v_any, '_wrapper_', res, hop.llops)
         hop.genop('gc_unprotect', [res]) # yes a weak ref
     return res
@@ -162,7 +179,7 @@ def rtype_wrap_object_create(hop):
 def rtype_wrap_object_fetch(hop):
     v_any, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
-    if '_wrapper_' in repr.allinstancefields:
+    if repr.has_wrapper:
         return repr.getfield(v_any, '_wrapper_', hop.llops)
     else:
         null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))

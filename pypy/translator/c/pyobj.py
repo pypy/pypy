@@ -547,8 +547,9 @@ class PyObjMaker:
                 if self.shouldskipfunc(value):
                     log.WARNING("skipped class function: %r" % value)
                     continue
-                yield '%s.%s = property(lambda self:%s.__get__(self.__self__))' % (
-                    name, key, self.nameof(value))
+#                yield '%s.%s = property(lambda self:%s.__get__(self.__self__))' % (
+#                    name, key, self.nameof(value))
+                yield '%s.%s = %s' % (name, key, self.nameof(value))
 
         baseargs = ", ".join(basenames)
         if baseargs:
@@ -561,8 +562,9 @@ class PyObjMaker:
         a('    __metaclass__ = type')
         a('    __slots__ = ["__self__"] # for PyCObject')
         a('    def __new__(cls, *args, **kwds):')
-        a('        inst = object.__new__(cls)')
-        a('        inst.__self__ = %s()'    % instantiator)
-        a('        return inst')
+        a('        return %s()'             % instantiator )
+        # XXX
+        # I would like to use instantiator directly, but don't know
+        # how to create a function that ignores all args
         self.later(initclassobj())
         return name

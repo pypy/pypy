@@ -19,6 +19,7 @@ from pypy.rpython.lltypesystem.lltype import \
      FuncType, Bool, Signed, functionptr, FuncType, PyObject
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython import extregistry
+from pypy.annotation import model as annmodel
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -456,14 +457,15 @@ class InstanceRepr(AbstractInstanceRepr):
                 raise MissingRTypeAttribute(attr)
             return self.rbase.getfield(vinst, attr, llops, force_cast=True)
 
-    def setfield(self, vinst, attr, vvalue, llops, force_cast=False):
+    def setfield(self, vinst, attr, vvalue, llops, force_cast=False, opname='setfield'):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            llops.genop('setfield', [vinst, cname, vvalue])
+            llops.genop(opname, [vinst, cname, vvalue])
+            # XXX this is a temporary hack to clear a dead PyObject
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
@@ -592,55 +594,100 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 # _________________________ Conversions for CPython _________________________
 
 
-def call_destructor(thing):
-    ll_call_destructor(thing)
+def call_destructor(thing, repr):
+    ll_call_destructor(thing, repr)
 
-def ll_call_destructor(thang):
+def ll_call_destructor(thang, repr):
     return 42 # will be mapped
 
-def ll_clear_wrapper(inst):
-    # Note: we must ensure to enforce creation of this extra field.
-    # this is done when we set up the instantiators in XXX which module???
-    pass # inst.inst___wrapper__ = None
-    #inst.fields.au = 42
-    #setattr(inst, 'inst___wrapper__', None)
-    #inst.inst___wrapper__ = Ptr(33)#inst.inst___wrapper__
-    #p = ll_cast_to_object(inst)
-
-    #inst.inst___wrapper__ = nullptr(PyObject)
-    #inst.inst_a = 42
-    inst._wrapper_ = nullptr(PyObject)
-    
 def rtype_destruct_object(hop):
-    v, = hop.inputargs(*hop.args_r)
-    #repr = hop.args_r[0]
-    null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
-    #repr.setfield('wrapper', null)
-    #hop.gendirectcall(ll_clear_wrapper, v)
-    hop.genop('gc_unprotect', [v])
+    v_any, c_spec = hop.inputargs(*hop.args_r)
+    repr = c_spec.value
+    if repr.has_wrapper:
+        null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
+        # XXX this is a hack! We need an operation to remove a broken PyObject
+        repr.setfield(v_any, '_wrapper_', null, hop.llops, opname='bare_setfield')
+    hop.genop('gc_unprotect', [v_any])
 
 extregistry.register_value(ll_call_destructor, 
-    compute_result_annotation=lambda *args:None,
+    compute_result_annotation=lambda *args: None,
     specialize_call=rtype_destruct_object)
+
+def create_pywrapper(thing, repr):
+    return ll_create_pywrapper(thing, repr)
+
+def ll_create_pywrapper(thing, repr):
+    return 42
+
+def rtype_wrap_object_create(hop):
+    gencapi = hop.llops.gencapicall
+    pyptr = hop.r_result
+    v_any, c_spec = hop.inputargs(*hop.args_r)
+    repr = c_spec.value
+    f = call_destructor
+    hop.genop('gc_protect', [v_any])
+    ARG = repr.lowleveltype
+    reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
+    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARG, reprPBC])
+    FUNC = FuncType([ARG, Void], Void)
+    c_dtor = hop.inputconst(Ptr(FUNC), fp_dtor)
+    res = gencapi('PyCObject_FromVoidPtr', [v_any, c_dtor], resulttype=hop.r_result)
+    if repr.has_wrapper:
+        cobj = res
+        c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
+        c_0 = hop.inputconst(Signed, 0)
+        res = gencapi('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyptr)
+        c_self = hop.inputconst(pyobj_repr, '__self__')
+        v_result = hop.genop('setattr', [res, c_self, cobj], resulttype=pyptr)
+        repr.setfield(v_any, '_wrapper_', res, hop.llops)
+        hop.genop('gc_unprotect', [res]) # yes a weak ref
+    return res
+
+extregistry.register_value(ll_create_pywrapper, 
+    compute_result_annotation=annmodel.SomePtr(Ptr(PyObject)), 
+    specialize_call=rtype_wrap_object_create)
+
+def fetch_pywrapper(thing, repr):
+    return ll_fetch_pywrapper(thing, repr)
+
+def ll_fetch_pywrapper(thing, repr):
+    return 42
+
+def rtype_wrap_object_fetch(hop):
+    v_any, c_spec = hop.inputargs(*hop.args_r)
+    repr = c_spec.value
+    if repr.has_wrapper:
+        return repr.getfield(v_any, '_wrapper_', hop.llops)
+    else:
+        null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
+        return null
+
+extregistry.register_value(ll_fetch_pywrapper, 
+    compute_result_annotation=annmodel.SomePtr(Ptr(PyObject)), 
+    specialize_call=rtype_wrap_object_fetch)
+    
+def ll_wrap_object(obj, repr):
+    ret = fetch_pywrapper(obj, repr)
+    if not ret:
+        ret = create_pywrapper(obj, repr)
+    return ret
 
 class __extend__(pairtype(PyObjRepr, InstanceRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        v_adr = llops.gencapicall('PyCObject_AsVoidPtr', [v],
-                                  resulttype=r_to)
+        if r_to.has_wrapper:
+            c_self = inputconst(pyobj_repr, '__self__')
+            v = llops.genop('getattr', [v, c_self], resulttype=r_from)
+        v_adr = llops.gencapicall('PyCObject_AsVoidPtr', [v], resulttype=r_to)
         llops.genop('gc_protect', [v_adr])
         return v_adr
 
 class __extend__(pairtype(InstanceRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        f = call_destructor
-        llops.genop('gc_protect', [v])
-        ARGTYPE = r_from.lowleveltype
-        FUNCTYPE = FuncType([ARGTYPE], Void)
-        fp_dtor = llops.rtyper.annotate_helper_fn(f, [ARGTYPE])
-        c_dtor = inputconst(Ptr(FUNCTYPE), fp_dtor)
-        v_result = llops.gencapicall('PyCObject_FromVoidPtr', [v, c_dtor],
-                                     resulttype=pyobj_repr)
-        return v_result
+        c_repr = inputconst(Void, r_from)
+        if r_from.has_wrapper:
+            return llops.gendirectcall(ll_wrap_object, v, c_repr)
+        else:
+            return llops.gendirectcall(create_pywrapper, v, c_repr)
 
 # ____________________________________________________________
 
