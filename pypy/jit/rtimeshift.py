@@ -122,9 +122,7 @@ class VirtualRedBox(RedBox):
             op_args[0] = typedesc.gv_type
             self.genvar = rgenop.genop(jitstate.curblock, 'malloc', op_args,
                                        typedesc.gv_ptrtype)
-            for i in range(len(boxes)):
-                RedBox.op_setfield(self, jitstate, typedesc.fielddescs[i],
-                                   boxes[i])
+            typedesc.materialize_content(jitstate, self.genvar, boxes)
         return self.genvar
 
     def is_forced(self):
@@ -145,7 +143,6 @@ class VirtualRedBox(RedBox):
         bigbox = VirtualRedBox(self.typedesc)
         memo[self] = bigbox
         for i in range(len(bigbox.content_boxes)):
-            # XXX need a memo for sharing
             gv_fldtype = self.typedesc.fielddescs[i].gv_resulttype
             bigbox.content_boxes[i] = self.content_boxes[i].copybox(newblock,
                                                                     gv_fldtype,
@@ -203,7 +200,6 @@ class SubVirtualRedBox(RedBox):
         bigbox.parentbox = parentcopybox
         typedesc = self.fielddesc.inlined_typedesc
         for i in range(len(bigbox.content_boxes)):
-            # XXX need a memo for sharing
             gv_fldtype = typedesc.fielddescs[i].gv_resulttype
             bigbox.content_boxes[i] = self.content_boxes[i].copybox(newblock,
                                                                     gv_fldtype,
@@ -382,6 +378,30 @@ class StructTypeDesc(object):
                 box = self.default_boxes[i]
             clist.append(box)
         return clist
+
+    def materialize_content(self, jitstate, gv, boxes):
+        for i in range(len(boxes)):
+            smallbox = boxes[i]
+            fielddesc = self.fielddescs[i]
+            if fielddesc.inlined_typedesc:
+                op_args = lltype.malloc(VARLIST.TO, 2)
+                op_args[0] = gv
+                op_args[1] = fielddesc.gv_fieldname
+                gv_sub = rgenop.genop(jitstate.curblock, 'getsubstruct',
+                                      op_args, fielddesc.gv_resulttype)
+                assert isinstance(smallbox, SubVirtualRedBox)
+                subboxes = smallbox.content_boxes
+                smallbox.content_boxes = None
+                fielddesc.inlined_typedesc.materialize_content(jitstate,
+                                                               gv_sub,
+                                                               subboxes)
+            else:
+                op_args = lltype.malloc(VARLIST.TO, 3)
+                op_args[0] = gv
+                op_args[1] = fielddesc.gv_fieldname
+                op_args[2] = smallbox.getgenvar(jitstate)
+                rgenop.genop(jitstate.curblock, 'setfield', op_args,
+                             gv_Void)
 
     def make(T):
         try:

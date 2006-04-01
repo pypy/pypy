@@ -7,7 +7,7 @@ from pypy.jit.hinttimeshift import HintTimeshift
 from pypy.jit import rtimeshift, hintrtyper
 from pypy.jit.test.test_llabstractinterp import annotation, summary
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.objectmodel import hint
+from pypy.rpython.objectmodel import hint, keepalive_until_here
 from pypy.rpython import rgenop, rstr
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
@@ -386,7 +386,6 @@ def test_red_propagate():
     assert insns == {'int_lt': 1, 'int_mul': 1}
 
 def test_red_subcontainer():
-    py.test.skip("in-progress")
     S = lltype.Struct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
     def ll_function(k):
@@ -395,7 +394,9 @@ def test_red_subcontainer():
         s.n = k
         if k < 0:
             return -123
-        return s.n * (k-1)
+        result = s.n * (k-1)
+        keepalive_until_here(t)
+        return result
     insns, res = timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
     assert res == 42
     #assert insns == ...   in-progress
