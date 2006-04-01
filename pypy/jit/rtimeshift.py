@@ -32,7 +32,7 @@ class RedBox(object):
     def same_constant(self, other):
         return False
 
-    def getallvariables(self, jitstate, result_gv):
+    def getallvariables(self, jitstate, result_gv, memo):
         pass
 
     def copybox(self, newblock, gv_type, memo):
@@ -58,6 +58,14 @@ class RedBox(object):
         rgenop.genop(jitstate.curblock, 'setfield', op_args,
                               gv_Void)
 
+    def op_getsubstruct(self, jitstate, fielddesc):
+        op_args = lltype.malloc(VARLIST.TO, 2)
+        op_args[0] = self.getgenvar(jitstate)
+        op_args[1] = fielddesc.gv_fieldname
+        genvar = rgenop.genop(jitstate.curblock, 'getsubstruct', op_args,
+                              fielddesc.gv_resulttype)
+        return VarRedBox(genvar)
+
 
 class VarRedBox(RedBox):
     "A red box that contains a run-time variable."
@@ -68,8 +76,10 @@ class VarRedBox(RedBox):
     def getgenvar(self, jitstate):
         return self.genvar
 
-    def getallvariables(self, jitstate, result_gv):
-        result_gv.append(self.genvar)
+    def getallvariables(self, jitstate, result_gv, memo):
+        if self not in memo:
+            result_gv.append(self.genvar)
+            memo[self] = None
 
     def _copybox(self, newblock, gv_type, memo):
         newgenvar = rgenop.geninputarg(newblock, gv_type)
@@ -105,7 +115,32 @@ def ll_getcontent(box):
     return box.content_addr
 
 
-class VirtualRedBox(RedBox):
+class BigRedBox(RedBox):
+    "A (big) red box that contains (small) red boxes inside."
+
+    #def __init__(self, content_boxes):
+    #    self.content_boxes = content_boxes
+
+    def op_getfield(self, jitstate, fielddesc):
+        if self.content_boxes is None:
+            return RedBox.op_getfield(self, jitstate, fielddesc)
+        else:
+            return self.content_boxes[fielddesc.fieldindex]
+
+    def op_setfield(self, jitstate, fielddesc, valuebox):
+        if self.content_boxes is None:
+            RedBox.op_setfield(self, jitstate, fielddesc, valuebox)
+        else:
+            self.content_boxes[fielddesc.fieldindex] = valuebox
+
+    def op_getsubstruct(self, jitstate, fielddesc):
+        if self.content_boxes is None:
+            return RedBox.op_getsubstruct(self, jitstate, fielddesc)
+        else:
+            return self.content_boxes[fielddesc.fieldindex]
+
+
+class VirtualRedBox(BigRedBox):
     "A red box that contains (for now) a virtual Struct."
 
     def __init__(self, typedesc):
@@ -128,12 +163,14 @@ class VirtualRedBox(RedBox):
     def is_forced(self):
         return bool(self.genvar)
 
-    def getallvariables(self, jitstate, result_gv):
+    def getallvariables(self, jitstate, result_gv, memo):
         if self.genvar:
-            result_gv.append(self.genvar)
+            if self not in memo:
+                result_gv.append(self.genvar)
+                memo[self] = None
         else:
             for smallbox in self.content_boxes:
-                smallbox.getallvariables(jitstate, result_gv)
+                smallbox.getallvariables(jitstate, result_gv, memo)
 
     def _copybox(self, newblock, gv_type, memo):
         if self.genvar:
@@ -149,19 +186,7 @@ class VirtualRedBox(RedBox):
                                                                     memo)
         return bigbox
 
-    def op_getfield(self, jitstate, fielddesc):
-        if self.content_boxes is None:
-            return RedBox.op_getfield(self, jitstate, fielddesc)
-        else:
-            return self.content_boxes[fielddesc.fieldindex]
-
-    def op_setfield(self, jitstate, fielddesc, valuebox):
-        if self.content_boxes is None:
-            RedBox.op_setfield(self, jitstate, fielddesc, valuebox)
-        else:
-            self.content_boxes[fielddesc.fieldindex] = valuebox
-
-class SubVirtualRedBox(RedBox):
+class SubVirtualRedBox(BigRedBox):
 
     def __init__(self, parentbox, fielddesc):
         self.parentbox = parentbox
@@ -181,12 +206,14 @@ class SubVirtualRedBox(RedBox):
     def is_forced(self):
         return self.parentbox.is_forced()
 
-    def getallvariables(self, jitstate, result_gv):
+    def getallvariables(self, jitstate, result_gv, memo):
         if self.is_forced():
-            result_gv.append(self.getgenvar(jitstate))
+            if self not in memo:
+                result_gv.append(self.getgenvar(jitstate))
+                memo[self] = None
         else:
             for smallbox in self.content_boxes:
-                smallbox.getallvariables(jitstate, result_gv)
+                smallbox.getallvariables(jitstate, result_gv, memo)
 
     def _copybox(self, newblock, gv_type, memo):
         if self.is_forced():
@@ -492,12 +519,7 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
     if isinstance(argbox, ConstRedBox):
         res = getattr(argbox.ll_getvalue(fielddesc.PTRTYPE), fielddesc.fieldname)
         return ConstRedBox.ll_fromvalue(res)
-    op_args = lltype.malloc(VARLIST.TO, 2)
-    op_args[0] = argbox.getgenvar(jitstate)
-    op_args[1] = fielddesc.gv_fieldname
-    genvar = rgenop.genop(jitstate.curblock, 'getsubstruct', op_args,
-                          fielddesc.gv_resulttype)
-    return VarRedBox(genvar)
+    return argbox.op_getsubstruct(jitstate, fielddesc)
 
 
 def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
@@ -566,11 +588,12 @@ retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
 def enter_block(jitstate, redboxes, types_gv):
     newblock = rgenop.newblock()
     incoming = []
-    memo = {}
+    memo1 = {}
+    memo2 = {}
     for i in range(len(redboxes)):
         redbox = redboxes[i]
-        redbox.getallvariables(jitstate, incoming)
-        redboxes[i] = redbox.copybox(newblock, types_gv[i], memo)
+        redbox.getallvariables(jitstate, incoming, memo1)
+        redboxes[i] = redbox.copybox(newblock, types_gv[i], memo2)
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
     jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)

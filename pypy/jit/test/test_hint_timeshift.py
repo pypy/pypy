@@ -399,4 +399,4 @@ def test_red_subcontainer():
         return result
     insns, res = timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
     assert res == 42
-    #assert insns == ...   in-progress
+    assert insns == {'int_lt': 1, 'int_mul': 1, 'int_sub': 1}
