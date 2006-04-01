@@ -1,6 +1,6 @@
 import types
 import sys
-from pypy.annotation.pairtype import pairtype
+from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
@@ -551,6 +551,11 @@ class MethodOfFrozenPBCRepr(Repr):
         hop2.v_s_insertfirstarg(c, s_function)   # insert 'function'
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
+
+class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        return pair(r_from.r_im_self, r_to.r_im_self).convert_from_to(v, llops)
 
 # __ None ____________________________________________________
 class NoneFrozenPBCRepr(SingleFrozenPBCRepr):

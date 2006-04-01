@@ -1166,7 +1166,6 @@ class BaseTestRPBC:
         assert res == 65*66
 
     def test_convert_multiple_to_single_method_of_frozen_pbc(self):
-        py.test.skip("in-progress")
         class A:
             def meth(self, frmeth):
                 return frmeth(100)
