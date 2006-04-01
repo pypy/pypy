@@ -84,7 +84,11 @@ def revealconst(T, gv_value):
         return llmemory.cast_ptr_to_adr(c.value)
     else:
         return lltype.cast_primitive(T, c.value)
-                                    
+
+def isconst(gv_value):
+    c = from_opaque_object(gv_value)
+    return isinstance(c, flowmodel.Constant)
+
 # XXX
 # temporary interface; it's unclera if genop itself should change to ease dinstinguishing
 # Void special args from the rest. Or there should be variation for the ops involving them
@@ -254,6 +258,7 @@ setannotation(geninputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
 setannotation(genconst, s_ConstOrVar)
 revealconst.compute_result_annotation = lambda s_T, s_gv: annmodel.lltype_to_annotation(s_T.const)
+setannotation(isconst, annmodel.SomeBool())
 setannotation(closeblock1, s_Link)
 setannotation(closeblock2, s_LinkPair)
 setannotation(closelink, None)
@@ -265,6 +270,7 @@ setspecialize(geninputarg)
 setspecialize(genop)
 setspecialize(genconst)
 setspecialize(revealconst)
+setspecialize(isconst)
 setspecialize(closeblock1)
 setspecialize(closeblock2)
 setspecialize(closelink)
