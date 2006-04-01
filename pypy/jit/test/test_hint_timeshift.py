@@ -61,7 +61,8 @@ def timeshift_cached(ll_function, values, inline, policy):
             checkgraph(graph)
             t.graphs.append(graph)
         if conftest.option.view:
-            t.view()
+            from pypy.translator.tool.graphpage import FlowGraphPage
+            FlowGraphPage(t, ha.translator.graphs).display()
         result = hs, ha, rtyper, htshift
         _cache[key] = result, getargtypes(rtyper.annotator, values)
         _cache_order.append(key)
