@@ -1,6 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.jit.hintbookkeeper import getbookkeeper
+from pypy.jit.hintannotator.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize setarrayitem
@@ -426,7 +426,7 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
     # end of rather XXX'edly hackish parsing
 
     if operation_name == 'newlist':
-        from pypy.jit.hintvlist import oop_newlist
+        from pypy.jit.hintannotator.vlist import oop_newlist
         handler = oop_newlist
     else:
         # dispatch on the 'self' argument if it is virtual

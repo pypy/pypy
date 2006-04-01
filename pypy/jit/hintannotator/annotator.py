@@ -1,6 +1,6 @@
 from pypy.annotation.annrpython import RPythonAnnotator, _registeroperations
-from pypy.jit import hintmodel
-from pypy.jit.hintbookkeeper import HintBookkeeper
+from pypy.jit.hintannotator import model as hintmodel
+from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.rpython.lltypesystem import lltype
 
 

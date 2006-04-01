@@ -1,8 +1,9 @@
 from pypy.annotation.listdef import ListItem
-from pypy.jit.hintmodel import SomeLLAbstractConstant
-from pypy.jit.hintmodel import SomeLLAbstractContainer, reorigin
-from pypy.jit.hintbookkeeper import getbookkeeper
-from pypy.jit.hintcontainer import AbstractContainerDef, make_item_annotation
+from pypy.jit.hintannotator.model import SomeLLAbstractConstant
+from pypy.jit.hintannotator.model import SomeLLAbstractContainer, reorigin
+from pypy.jit.hintannotator.bookkeeper import getbookkeeper
+from pypy.jit.hintannotator.container import AbstractContainerDef
+from pypy.jit.hintannotator.container import make_item_annotation
 from pypy.rpython.lltypesystem import lltype
 
 class VirtualListDef(AbstractContainerDef):

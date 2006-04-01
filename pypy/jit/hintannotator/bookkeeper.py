@@ -13,7 +13,7 @@ class GraphDesc(object):
         self._cache = {}
 
     def specialize(self, input_args_hs, key=None, alt_name=None):
-        from pypy.jit import hintmodel
+        from pypy.jit.hintannotator import model as hintmodel
         # get the specialized graph -- for now, no specialization
         graph = self.cachedgraph(key, alt_name)
 
@@ -75,7 +75,7 @@ class HintBookkeeper(object):
         try:
             origin = self.originflags[self.position_key]
         except KeyError:
-            from pypy.jit import hintmodel
+            from pypy.jit.hintannotator import model as hintmodel
             origin = hintmodel.OriginFlags()
             self.originflags[self.position_key] = origin
         return origin
@@ -84,7 +84,7 @@ class HintBookkeeper(object):
         pass
 
     def immutableconstant(self, const):
-        from pypy.jit import hintmodel
+        from pypy.jit.hintannotator import model as hintmodel
         res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})
         res.const = const.value
         return res
@@ -108,7 +108,7 @@ class HintBookkeeper(object):
             assert res.T == TYPE
         except KeyError:
             if constructor is None:
-                from pypy.jit.hintcontainer import virtualcontainerdef
+                from pypy.jit.hintannotator.container import virtualcontainerdef
                 constructor = virtualcontainerdef
             res = constructor(self, TYPE)
             self.virtual_containers[self.position_key] = res

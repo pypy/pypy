@@ -1,11 +1,12 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.jit.hintannotator import HintAnnotator
-from pypy.jit.hintbookkeeper import HintBookkeeper
-from pypy.jit.hintmodel import *
-from pypy.jit.hinttimeshift import HintTimeshift
-from pypy.jit import rtimeshift, hintrtyper
-from pypy.jit.test.test_llabstractinterp import annotation, summary
+from pypy.jit.hintannotator.annotator import HintAnnotator
+from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
+from pypy.jit.hintannotator.model import *
+from pypy.jit.timeshifter.timeshift import HintTimeshift
+from pypy.jit.timeshifter import rtimeshift, rtyper as hintrtyper
+from pypy.jit.llabstractinterp.test.test_llabstractinterp import annotation
+from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import hint, keepalive_until_here
 from pypy.rpython import rgenop, rstr

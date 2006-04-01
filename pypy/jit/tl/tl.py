@@ -1,8 +1,8 @@
 '''Toy Language'''
 
 import py
-from tlopcode import *
-import tlopcode
+from pypy.jit.tl.opcode import *
+from pypy.jit.tl import opcode as tlopcode
 from pypy.rpython.objectmodel import hint
 
 def char2int(c):

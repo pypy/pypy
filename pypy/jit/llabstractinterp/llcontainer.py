@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.llvalue import LLAbstractValue, AConstant, const
+from pypy.jit.llabstractinterp.llvalue import LLAbstractValue, AConstant, const
 from pypy.rpython import rgenop
 
 class LLAbstractContainer(object):

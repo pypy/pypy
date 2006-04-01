@@ -2,11 +2,11 @@
 
 import py
 from pypy.translator.translator import TranslationContext
-from pypy.jit import tl
-from pypy.jit.llabstractinterp import LLAbstractInterp
+from pypy.jit.tl import tl
+from pypy.jit.llabstractinterp.llabstractinterp import LLAbstractInterp
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.jit.test.test_llabstractinterp import summary
+from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 #from pypy.translator.backendopt import inline
 
 #py.test.skip("in-progress")

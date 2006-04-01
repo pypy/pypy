@@ -1,8 +1,8 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.jit.hintannotator import HintAnnotator
-from pypy.jit.hintbookkeeper import HintBookkeeper
-from pypy.jit.hintmodel import *
+from pypy.jit.hintannotator.annotator import HintAnnotator
+from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
+from pypy.jit.hintannotator.model import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.annotation import model as annmodel
@@ -420,7 +420,7 @@ def test_propagate_fixing_across_func_arguments():
     assert ha.binding(y_v).is_fixed()
     
 def test_hannotate_tl():
-    from pypy.jit import tl
+    from pypy.jit.tl import tl
     hannotate(tl.interp, [str, int], policy=P_OOPSPEC)
 
 def test_hannotate_plus_minus():

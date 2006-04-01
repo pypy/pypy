@@ -1,7 +1,7 @@
 import weakref, itertools
 from pypy.annotation.listdef import ListItem
 from pypy.annotation import model as annmodel
-from pypy.jit import hintmodel
+from pypy.jit.hintannotator import model as hintmodel
 from pypy.rpython.lltypesystem import lltype
 
 

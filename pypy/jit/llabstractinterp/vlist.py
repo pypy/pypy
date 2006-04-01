@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rtyper import LowLevelOpList
-from pypy.jit.llvalue import LLAbstractValue, AConstant, ll_dummy_value
-from pypy.jit.llcontainer import LLAbstractContainer
+from pypy.jit.llabstractinterp.llvalue import LLAbstractValue, AConstant
+from pypy.jit.llabstractinterp.llvalue import ll_dummy_value
+from pypy.jit.llabstractinterp.llcontainer import LLAbstractContainer
 
 
 class LLVirtualList(LLAbstractContainer):

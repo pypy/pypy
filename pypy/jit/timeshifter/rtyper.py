@@ -8,8 +8,9 @@ from pypy.rpython.rstr import string_repr
 from pypy.rpython.typesystem import TypeSystem
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rgenop
-from pypy.jit import hintmodel, rtimeshift
-from pypy.jit import hintcontainer
+from pypy.jit.hintannotator import model as hintmodel
+from pypy.jit.hintannotator import container as hintcontainer
+from pypy.jit.timeshifter import rtimeshift
 
 class HintTypeSystem(TypeSystem):
     name = "hinttypesystem"

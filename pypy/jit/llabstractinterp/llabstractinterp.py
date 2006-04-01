@@ -2,11 +2,14 @@ import operator
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.llvalue import LLAbstractValue, AConstant, AVariable, const
-from pypy.jit.llvalue import ll_no_return_value
-from pypy.jit.llvalue import FlattenMemo, MatchMemo, FreezeMemo, UnfreezeMemo
-from pypy.jit.llcontainer import LLAbstractContainer, virtualcontainervalue
-from pypy.jit.llcontainer import hasllcontent
+from pypy.jit.llabstractinterp.llvalue import LLAbstractValue, AConstant
+from pypy.jit.llabstractinterp.llvalue import AVariable, const
+from pypy.jit.llabstractinterp.llvalue import ll_no_return_value
+from pypy.jit.llabstractinterp.llvalue import FlattenMemo, MatchMemo
+from pypy.jit.llabstractinterp.llvalue import FreezeMemo, UnfreezeMemo
+from pypy.jit.llabstractinterp.llcontainer import LLAbstractContainer
+from pypy.jit.llabstractinterp.llcontainer import virtualcontainervalue
+from pypy.jit.llabstractinterp.llcontainer import hasllcontent
 from pypy.rpython import rgenop
 
 # ____________________________________________________________
@@ -885,7 +888,7 @@ class BlockBuilder(object):
         # end of rather XXX'edly hackish parsing
 
         if operation_name == 'newlist':
-            from pypy.jit.vlist import oop_newlist
+            from pypy.jit.llabstractinterp.vlist import oop_newlist
             handler = oop_newlist
         else:
             # dispatch on the 'self' argument if it is virtual
