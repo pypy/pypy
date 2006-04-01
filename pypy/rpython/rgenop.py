@@ -25,6 +25,8 @@ def newblock():
 
 def geninputarg(blockcontainer, gv_CONCRETE_TYPE):
     block = from_opaque_object(blockcontainer.obj)
+    assert not block.operations, "block already contains operations"
+    assert block.exits == [], "block already closed"
     CONCRETE_TYPE = from_opaque_object(gv_CONCRETE_TYPE).value
     v = flowmodel.Variable()
     v.concretetype = CONCRETE_TYPE
@@ -49,6 +51,7 @@ def genop(blockcontainer, opname, vars, gv_RESULT_TYPE):
     if not isinstance(opname, str):
         opname = from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj)
+    assert block.exits == [], "block already closed"
     RESULT_TYPE = from_opaque_object(gv_RESULT_TYPE).value
     opvars = _inputvars(vars)    
     v = flowmodel.Variable()

@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
@@ -90,6 +91,9 @@ class HintTimeshift(object):
 
         reenter_vars = [v_jitstate]
         for var in link.args[1:]:
+            if isinstance(var, flowmodel.Constant):
+                reenter_vars.append(var)
+                continue
             i = inputargs.index(var)
             r = args_r[i]
             v_box = self.read_out_box(llops, v_boxes, i)
@@ -126,6 +130,7 @@ class HintTimeshift(object):
     def timeshift_graph(self, graph):
         self.graph = graph
         self.dispatch_to = []
+        self.statecaches = []
         entering_links = flowmodel.mkentrymap(graph)
 
         originalblocks = list(graph.iterblocks())
@@ -159,6 +164,20 @@ class HintTimeshift(object):
 
         # fix its concretetypes
         self.insert_dispatch_logic(returnblock)
+
+        # hack to allow the state caches to be cleared
+        miniglobals = {}
+        source = ["def clearcaches():"]
+        if self.statecaches:
+            for i, cache in enumerate(self.statecaches):
+                source.append("    c%d.clear()" % i)
+                miniglobals["c%d" % i] = cache
+        else:
+            source.append("    pass")
+        exec py.code.Source('\n'.join(source)).compile() in miniglobals
+        clearcaches = miniglobals['clearcaches']
+        self.ll_clearcaches = self.annhelper.getgraph(clearcaches, [],
+                                                      annmodel.s_None)
 
     def insert_jitstate_arg(self, block):
         # pass 'jitstate' as an extra argument around the whole graph
@@ -315,6 +334,8 @@ class HintTimeshift(object):
         v_oldjitstate = newinputargs[0]
 
         cache = {}
+        self.statecaches.append(cache)
+
         def merge_point(jitstate, key, boxes):
             return rtimeshift.retrieve_jitstate_for_merge(cache, jitstate,
                                                           key, boxes, TYPES_gv)

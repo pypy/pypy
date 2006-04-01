@@ -19,11 +19,14 @@ from pypy import conftest
 P_NOVIRTUAL = AnnotatorPolicy()
 P_NOVIRTUAL.novirtualcontainer = True
 
+def getargtypes(annotator, values):
+    return [annotation(annotator, x) for x in values]
+
 def hannotate(func, values, policy=None, inline=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
-    argtypes = [annotation(a, x) for x in values]
+    argtypes = getargtypes(a, values)
     a.build_types(func, argtypes)
     rtyper = t.buildrtyper()
     rtyper.specialize()
@@ -40,20 +43,40 @@ def hannotate(func, values, policy=None, inline=None):
         hannotator.translator.view()
     return hs, hannotator, rtyper
 
+_cache = {}
+_cache_order = []
+def timeshift_cached(ll_function, values, inline, policy):
+    key = ll_function, inline, policy
+    try:
+        result, argtypes = _cache[key]
+    except KeyError:
+        if len(_cache_order) >= 3:
+            del _cache[_cache_order.pop(0)]
+        hs, ha, rtyper = hannotate(ll_function, values,
+                                   inline=inline, policy=policy)
+        htshift = HintTimeshift(ha, rtyper)
+        htshift.timeshift()
+        t = rtyper.annotator.translator
+        for graph in ha.translator.graphs:
+            checkgraph(graph)
+            t.graphs.append(graph)
+        if conftest.option.view:
+            t.view()
+        result = hs, ha, rtyper, htshift
+        _cache[key] = result, getargtypes(rtyper.annotator, values)
+        _cache_order.append(key)
+    else:
+        hs, ha, rtyper, htshift = result
+        assert argtypes == getargtypes(rtyper.annotator, values)
+    return result
+
 def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
-    hs, ha, rtyper = hannotate(ll_function, values,
-                               inline=inline, policy=policy)
-    htshift = HintTimeshift(ha, rtyper)
-    htshift.timeshift()
-    t = rtyper.annotator.translator
-    for graph in ha.translator.graphs:
-        checkgraph(graph)
-        t.graphs.append(graph)
-    if conftest.option.view:
-        t.view()
+    hs, ha, rtyper, htshift = timeshift_cached(ll_function, values,
+                                               inline, policy)
     # run the time-shifted graph-producing graphs
     graph1 = ha.translator.graphs[0]
     llinterp = LLInterpreter(rtyper)
+    llinterp.eval_graph(htshift.ll_clearcaches, [])
     jitstate = llinterp.eval_graph(htshift.ll_build_jitstate_graph, [])
     graph1args = [jitstate]
     residual_graph_args = []
@@ -238,7 +261,30 @@ def test_green_across_split():
     insns, res = timeshift(ll_function, [70, 4], [0])
     assert res == 66
     assert insns['int_add'] == 1
-    assert insns['int_add'] == 1
+    assert insns['int_sub'] == 1
+
+def test_merge_const_before_return():
+    def ll_function(x):
+        if x > 0:
+            y = 17
+        else:
+            y = 22
+        x -= 1
+        y += 1
+        return y+x
+    insns, res = timeshift(ll_function, [-70], [])
+    assert res == 23-71
+    assert insns == {'int_gt': 1, 'int_add': 2, 'int_sub': 2}
+
+def test_merge_const_at_return():
+    def ll_function(x):
+        if x > 0:
+            return 17
+        else:
+            return 22
+    insns, res = timeshift(ll_function, [-70], [])
+    assert res == 22
+    assert insns == {'int_gt': 1}
 
 def test_arith_plus_minus():
     def ll_plus_minus(encoded_insn, nb_insn, x, y):
@@ -324,8 +370,7 @@ def test_inlined_substructure():
     assert res == 7
     assert insns == {}    
 
-def test_degenerated_merge_substructure():
-    py.test.skip("re in-progress")
+def test_degenerated_before_return():
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
 
@@ -336,10 +381,34 @@ def test_degenerated_merge_substructure():
         s.n = 4
         if flag:
             s = t.s
+        s.n += 1
+        return s.n * t.s.n
+    insns, res = timeshift(ll_function, [0], [])
+    assert res == 5 * 3
+    insns, res = timeshift(ll_function, [1], [])
+    assert res == 4 * 4
+
+def test_degenerated_at_return():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.n = 3.25
+        t.s.n = 3
+        s = lltype.malloc(S)
+        s.n = 4
+        if flag:
+            s = t.s
         return s
     insns, res = timeshift(ll_function, [0], [])
     assert res.n == 4
-    assert insns == {'getsubstruct': 2, 'int_is_true': 1, 'malloc': 2, 'setfield': 2}
+    assert lltype.parentlink(res._obj) == (None, None)
+    insns, res = timeshift(ll_function, [1], [])
+    assert res.n == 3
+    parent, parentindex = lltype.parentlink(res._obj)
+    assert parentindex == 's'
+    assert parent.n == 3.25
 
 def test_plus_minus_all_inlined():
     def ll_plus_minus(s, x, y):

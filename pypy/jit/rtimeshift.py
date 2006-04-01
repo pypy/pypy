@@ -41,6 +41,23 @@ class RedBox(object):
         except KeyError:
             return self._copybox(newblock, gv_type, memo)
 
+    def match(self, jitstate, newbox, incoming, memo):
+        if self in memo:
+            return memo[self] is newbox
+        if newbox in memo:
+            return memo[newbox] is self
+        memo[self] = newbox
+        memo[newbox] = self
+        return self._match(jitstate, newbox, incoming, memo)
+
+    def union_for_new_block(self, jitstate, newbox, newblock,
+                            gv_type, incoming, memo):
+        try:
+            return memo[newbox]
+        except KeyError:
+            return self._union_for_new_block(jitstate, newbox, newblock,
+                                             gv_type, incoming, memo)
+
     # generic implementation of some operations
     def op_getfield(self, jitstate, fielddesc):
         op_args = lltype.malloc(VARLIST.TO, 2)
@@ -85,6 +102,20 @@ class VarRedBox(RedBox):
         newgenvar = rgenop.geninputarg(newblock, gv_type)
         memo[self] = newbox = VarRedBox(newgenvar)
         return newbox
+
+        incoming.append(newbox.getgenvar(jitstate))
+        return True
+
+    def _match(self, jitstate, newbox, incoming, memo):
+        incoming.append(newbox.getgenvar(jitstate))
+        return True
+
+    def _union_for_new_block(self, jitstate, newbox, newblock,
+                             gv_type, incoming, memo):
+        incoming.append(newbox.getgenvar(jitstate))
+        newgenvar = rgenop.geninputarg(newblock, gv_type)
+        memo[newbox] = newnewbox = VarRedBox(newgenvar)
+        return newnewbox
 
 
 VCONTAINER = lltype.GcStruct("vcontainer")
@@ -186,6 +217,47 @@ class VirtualRedBox(BigRedBox):
                                                                     memo)
         return bigbox
 
+    def _match(self, jitstate, newbox, incoming, memo):
+        if self.genvar:
+            incoming.append(newbox.getgenvar(jitstate))
+            return True
+        if not isinstance(newbox, VirtualRedBox):
+            return False
+        for i in range(len(self.content_boxes)):
+            mysmallbox  = self.content_boxes[i]
+            newsmallbox = newbox.content_boxes[i]
+            if not mysmallbox.match(jitstate, newsmallbox, incoming, memo):
+                return False
+        else:
+            return True
+
+    def inlined_structs_are_compatible(self, newbox):
+        return (isinstance(newbox, VirtualRedBox) and
+                self.typedesc.compare_content_boxes(self.content_boxes,
+                                                    newbox.content_boxes))
+
+    def _union_for_new_block(self, jitstate, newbox, newblock,
+                             gv_type, incoming, memo):
+        if self.genvar or not self.inlined_structs_are_compatible(newbox):
+            incoming.append(newbox.getgenvar(jitstate))
+            newgenvar = rgenop.geninputarg(newblock, gv_type)
+            memo[newbox] = newnewbox = VarRedBox(newgenvar)
+            return newnewbox
+        bigbox = VirtualRedBox(self.typedesc)
+        memo[newbox] = bigbox
+        for i in range(len(bigbox.content_boxes)):
+            gv_fldtype = self.typedesc.fielddescs[i].gv_resulttype
+            box = self.content_boxes[i]
+            bigbox.content_boxes[i] = box.union_for_new_block(
+                jitstate,
+                newbox.content_boxes[i],
+                newblock,
+                gv_fldtype,
+                incoming,
+                memo)
+        return bigbox
+
+
 class SubVirtualRedBox(BigRedBox):
 
     def __init__(self, parentbox, fielddesc):
@@ -233,6 +305,62 @@ class SubVirtualRedBox(BigRedBox):
                                                                     memo)
         return bigbox
 
+    def _match(self, jitstate, newbox, incoming, memo):
+        if self.is_forced():
+            incoming.append(newbox.getgenvar(jitstate))
+            return True
+        if not (isinstance(newbox, SubVirtualRedBox) and
+                self.fielddesc is newbox.fielddesc and
+                self.parentbox.match(jitstate, newbox.parentbox,
+                                     incoming, memo)):
+            return False
+        for i in range(len(self.content_boxes)):
+            mysmallbox  = self.content_boxes[i]
+            newsmallbox = newbox.content_boxes[i]
+            if not mysmallbox.match(jitstate, newsmallbox, incoming, memo):
+                return False
+        else:
+            return True
+
+    def inlined_structs_are_compatible(self, newbox):
+        if (isinstance(newbox, SubVirtualRedBox) and
+            self.fielddesc is newbox.fielddesc):
+            return self.parentbox.inlined_structs_are_compatible(
+                newbox.parentbox)
+        else:
+            return False
+
+    def _union_for_new_block(self, jitstate, newbox, newblock,
+                             gv_type, incoming, memo):
+        if self.is_forced() or not self.inlined_structs_are_compatible(newbox):
+            incoming.append(newbox.getgenvar(jitstate))
+            newgenvar = rgenop.geninputarg(newblock, gv_type)
+            memo[newbox] = newnewbox = VarRedBox(newgenvar)
+            return newnewbox
+        assert isinstance(newbox, SubVirtualRedBox)
+        bigbox = SubVirtualRedBox(None, self.fielddesc)
+        memo[newbox] = bigbox
+        gv_parenttype = self.fielddesc.parenttypedesc.gv_ptrtype
+        parentcopybox = self.parentbox.union_for_new_block(jitstate,
+                                                           newbox.parentbox,
+                                                           newblock,
+                                                           gv_parenttype,
+                                                           incoming,
+                                                           memo)
+        bigbox.parentbox = parentcopybox
+        typedesc = self.fielddesc.inlined_typedesc
+        for i in range(len(bigbox.content_boxes)):
+            gv_fldtype = typedesc.fielddescs[i].gv_resulttype
+            box = self.content_boxes[i]
+            bigbox.content_boxes[i] = box.union_for_new_block(
+                jitstate,
+                newbox.content_boxes[i],
+                newblock,
+                gv_fldtype,
+                incoming,
+                memo)
+        return bigbox
+
 
 class ConstRedBox(RedBox):
     "A red box that contains a run-time constant."
@@ -245,6 +373,20 @@ class ConstRedBox(RedBox):
 
     def copybox(self, newblock, gv_type, memo):
         return self
+
+    def match(self, jitstate, newbox, incoming, memo):
+        return self.same_constant(newbox)
+
+    def _union_for_new_block(self, jitstate, newbox, newblock,
+                             gv_type, incoming, memo):
+        if self.same_constant(newbox):
+            newnewbox = newbox
+        else:
+            incoming.append(newbox.getgenvar(jitstate))
+            newgenvar = rgenop.geninputarg(newblock, gv_type)
+            newnewbox = VarRedBox(newgenvar)
+        memo[newbox] = newnewbox
+        return newnewbox
 
     def ll_fromvalue(value):
         T = lltype.typeOf(value)
@@ -406,6 +548,20 @@ class StructTypeDesc(object):
             clist.append(box)
         return clist
 
+    def compare_content_boxes(self, content_boxes_1, content_boxes_2):
+        for i in range(len(self.fielddescs)):
+            fielddesc = self.fielddescs[i]
+            if fielddesc.inlined_typedesc:
+                box1 = content_boxes_1[i]
+                box2 = content_boxes_2[i]
+                assert isinstance(box1, BigRedBox)
+                assert isinstance(box2, BigRedBox)
+                if not fielddesc.inlined_typedesc.compare_content_boxes(
+                    box1.content_boxes, box2.content_boxes):
+                    return False
+        else:
+            return True
+
     def materialize_content(self, jitstate, gv, boxes):
         for i in range(len(boxes)):
             smallbox = boxes[i]
@@ -545,48 +701,56 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
 # other jitstate/graph level operations
 
 
-def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, TYPES):
+def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes, types_gv):
     if key not in states_dic:
-        jitstate = enter_block(jitstate, redboxes, TYPES)
-        states_dic[key] = redboxes[:], jitstate.curblock
+        jitstate = enter_block(jitstate, redboxes, types_gv)
+        states_dic[key] = redboxes, jitstate.curblock
         return jitstate
 
     oldboxes, oldblock = states_dic[key]
+    memo = {}
     incoming = []
     for i in range(len(redboxes)):
         oldbox = oldboxes[i]
         newbox = redboxes[i]
-        if isinstance(oldbox, VarRedBox):  # Always a match
-            incoming.append(newbox.getgenvar(jitstate))
-            continue
-        if oldbox.same_constant(newbox):
-            continue
-        # Mismatch. Generalize to a var
-        break
+        if not oldbox.match(jitstate, newbox, incoming, memo):
+            break   # mismatch
+##        if isinstance(oldbox, VarRedBox):  # Always a match
+##            incoming.append(newbox.getgenvar(jitstate))
+##            continue
+##        if oldbox.same_constant(newbox):
+##            continue
+##        # Mismatch. Generalize to a var
+##        break
     else:
         rgenop.closelink(jitstate.curoutgoinglink, incoming, oldblock)
         return None
     
     # Make a more general block
+    jitstate = enter_block(jitstate, redboxes, types_gv)
     newblock = rgenop.newblock()
     incoming = []
+    memo = {}
     for i in range(len(redboxes)):
         oldbox = oldboxes[i]
         newbox = redboxes[i]
-        if not oldbox.same_constant(newbox):
-            incoming.append(newbox.getgenvar(jitstate))
-            newgenvar = rgenop.geninputarg(newblock, TYPES[i])
-            redboxes[i] = VarRedBox(newgenvar)
-
-    rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
+        redboxes[i] = oldbox.union_for_new_block(jitstate, newbox, newblock,
+                                                 types_gv[i], incoming, memo)
+##        if not oldbox.same_constant(newbox):
+##            incoming.append(newbox.getgenvar(jitstate))
+##            newgenvar = rgenop.geninputarg(newblock, TYPES[i])
+##            redboxes[i] = VarRedBox(newgenvar)
+    link = rgenop.closeblock1(jitstate.curblock)
+    rgenop.closelink(link, incoming, newblock)
     jitstate.curblock = newblock
-    jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
-    states_dic[key] = redboxes[:], newblock
+    #jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
+    states_dic[key] = redboxes, newblock
     return jitstate
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes, types_gv):
     newblock = rgenop.newblock()
+    jitstate.curblock = newblock
     incoming = []
     memo1 = {}
     memo2 = {}
@@ -595,7 +759,6 @@ def enter_block(jitstate, redboxes, types_gv):
         redbox.getallvariables(jitstate, incoming, memo1)
         redboxes[i] = redbox.copybox(newblock, types_gv[i], memo2)
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
-    jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
     return jitstate
 
@@ -622,7 +785,7 @@ def schedule_return(jitstate, redbox):
 
 novars = lltype.malloc(VARLIST.TO, 0)
 
-def dispatch_next(jitstate, outredboxes, RETURN_TYPE):
+def dispatch_next(jitstate, outredboxes, gv_return_type):
     split_queue = jitstate.split_queue
     if split_queue:
         exitindex, later_jitstate, redboxes = split_queue.pop()
@@ -635,26 +798,35 @@ def dispatch_next(jitstate, outredboxes, RETURN_TYPE):
     return_queue = jitstate.return_queue
     first_redbox = return_queue[0][1]
     finalblock = rgenop.newblock()
-    jitstate.curblock = finalblock
-    if isinstance(first_redbox, ConstRedBox):
-        for link, redbox in return_queue:
-            if not redbox.same_constant(first_redbox):
-                break
-        else:
-            for link, _ in return_queue:
-                rgenop.closelink(link, novars, finalblock)
-            finallink = rgenop.closeblock1(finalblock)
-            jitstate.curoutgoinglink = finallink
-            jitstate.curvalue = first_redbox
-            return -1
+##    jitstate.curblock = finalblock
+##    if isinstance(first_redbox, ConstRedBox):
+##        for link, redbox in return_queue:
+##            if not redbox.match(first_redbox):
+##                break
+##        else:
+##            for link, _ in return_queue:
+##                rgenop.closelink(link, novars, finalblock)
+##            finallink = rgenop.closeblock1(finalblock)
+##            jitstate.curoutgoinglink = finallink
+##            jitstate.curvalue = first_redbox
+##            return -1
 
-    finalvar = rgenop.geninputarg(finalblock, RETURN_TYPE)
+    finalvar = rgenop.geninputarg(finalblock, gv_return_type)
     for link, redbox in return_queue:
-        genvar = redbox.getgenvar(jitstate)
-        rgenop.closelink(link, [genvar], finalblock)
+        newblock = rgenop.newblock()
+        jitstate.curblock = newblock
+        incoming = []
+        memo1 = {}
+        memo2 = {}
+        redbox.getallvariables(jitstate, incoming, memo1)
+        newbox = redbox.copybox(newblock, gv_return_type, memo2)
+        gv_retval = newbox.getgenvar(jitstate)
+        rgenop.closelink(link, incoming, newblock)
+        newlink = rgenop.closeblock1(newblock)
+        rgenop.closelink(newlink, [gv_retval], finalblock)
     finallink = rgenop.closeblock1(finalblock)
     jitstate.curoutgoinglink = finallink
-    jitstate.curvalue = VarRedBox(finalvar)
+    jitstate.curvalue = finalvar
     return -1
 
 def ll_gvar_from_redbox(jitstate, redbox):
@@ -672,7 +844,7 @@ class JITState(object):
         self.return_queue = []
         self.split_queue = []
         self.curblock = rgenop.newblock()
-        self.curvalue = None
+        self.curvalue = rgenop.nullvar
 
     def end_setup(self):
         self.curoutgoinglink = rgenop.closeblock1(self.curblock)
@@ -712,5 +884,5 @@ def ll_end_setup_jitstate(jitstate):
     return jitstate.curblock
 
 def ll_close_jitstate(jitstate):
-    result_genvar = jitstate.curvalue.getgenvar(jitstate)
+    result_genvar = jitstate.curvalue
     jitstate.close(result_genvar)
