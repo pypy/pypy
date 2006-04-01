@@ -389,6 +389,26 @@ def test_degenerated_before_return():
     insns, res = timeshift(ll_function, [1], [])
     assert res == 4 * 4
 
+def test_degenerated_before_return_2():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        s = lltype.malloc(S)
+        s.n = 4
+        if flag:
+            pass
+        else:
+            s = t.s
+        s.n += 1
+        return s.n * t.s.n
+    insns, res = timeshift(ll_function, [1], [])
+    assert res == 5 * 3
+    insns, res = timeshift(ll_function, [0], [])
+    assert res == 4 * 4
+
 def test_degenerated_at_return():
     S = lltype.GcStruct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))

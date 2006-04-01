@@ -232,7 +232,7 @@ class VirtualRedBox(BigRedBox):
             return True
 
     def inlined_structs_are_compatible(self, newbox):
-        return (isinstance(newbox, VirtualRedBox) and
+        return (isinstance(newbox, VirtualRedBox) and not newbox.genvar and
                 self.typedesc.compare_content_boxes(self.content_boxes,
                                                     newbox.content_boxes))
 
@@ -323,7 +323,7 @@ class SubVirtualRedBox(BigRedBox):
             return True
 
     def inlined_structs_are_compatible(self, newbox):
-        if (isinstance(newbox, SubVirtualRedBox) and
+        if (isinstance(newbox, SubVirtualRedBox) and not newbox.is_forced() and
             self.fielddesc is newbox.fielddesc):
             return self.parentbox.inlined_structs_are_compatible(
                 newbox.parentbox)
