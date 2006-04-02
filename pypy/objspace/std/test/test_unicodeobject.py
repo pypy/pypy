@@ -33,6 +33,7 @@ class AppTestUnicodeString:
             assert u'' in 'abc'
             assert u'bc' in 'abc'
             assert 'bc' in 'abc'
+        pass   # workaround for inspect.py bug in some Python 2.4s
 
     def test_contains(self):
         assert u'a' in 'abc'
