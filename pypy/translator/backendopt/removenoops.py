@@ -2,38 +2,38 @@ from pypy.objspace.flow.model import Block, Variable, Constant
 from pypy.objspace.flow.model import traverse
 from pypy.rpython.lltypesystem.lltype import Void
 
-def remove_same_as(graph):
-    """Remove all 'same_as' operations.
+def remove_unaryops(graph, opnames):
+    """Removes unary low-level ops with a name appearing in the opnames list.
     """
-    same_as_positions = []
+    positions = []
     def visit(node): 
         if isinstance(node, Block): 
             for i, op in enumerate(node.operations):
-                if op.opname == 'same_as': 
-                    same_as_positions.append((node, i))
+                if op.opname in opnames:
+                    positions.append((node, i))
     traverse(visit, graph)
-    while same_as_positions:
-        block, index = same_as_positions.pop()
-        same_as_result = block.operations[index].result
-        same_as_arg = block.operations[index].args[0]
-        # replace the new variable (same_as_result) with the old variable
+    while positions:
+        block, index = positions.pop()
+        op_result = block.operations[index].result
+        op_arg = block.operations[index].args[0]
+        # replace the new variable (op_result) with the old variable
         # (from all subsequent positions)
         for op in block.operations[index:]:
             if op is not None:
                 for i in range(len(op.args)):
-                    if op.args[i] == same_as_result:
-                        op.args[i] = same_as_arg
+                    if op.args[i] == op_result:
+                        op.args[i] = op_arg
         for link in block.exits:
             for i in range(len(link.args)):
-                if link.args[i] == same_as_result:
-                    link.args[i] = same_as_arg
-        if block.exitswitch == same_as_result:
-            if isinstance(same_as_arg, Variable):
-                block.exitswitch = same_as_arg
+                if link.args[i] == op_result:
+                    link.args[i] = op_arg
+        if block.exitswitch == op_result:
+            if isinstance(op_arg, Variable):
+                block.exitswitch = op_arg
             else:
-                assert isinstance(same_as_arg, Constant)
+                assert isinstance(op_arg, Constant)
                 newexits = [link for link in block.exits
-                                 if link.exitcase == same_as_arg.value]
+                                 if link.exitcase == op_arg.value]
                 assert len(newexits) == 1
                 newexits[0].exitcase = None
                 if hasattr(newexits[0], 'llexitcase'):
@@ -42,11 +42,14 @@ def remove_same_as(graph):
                 block.recloseblock(*newexits)
         block.operations[index] = None
        
-    # remove all same_as operations
+    # remove all operations
     def visit(node): 
         if isinstance(node, Block) and node.operations:
             node.operations[:] = filter(None, node.operations)
     traverse(visit, graph)
+
+def remove_same_as(graph):
+    remove_unaryops(graph, ["same_as"])
 
 
 def remove_void(translator):

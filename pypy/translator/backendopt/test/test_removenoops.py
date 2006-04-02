@@ -1,9 +1,11 @@
-from pypy.translator.backendopt.removenoops import remove_void, remove_same_as
+from pypy.translator.backendopt.removenoops import remove_void, remove_same_as, \
+        remove_unaryops
 from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.test.snippet import simple_method
 from pypy.objspace.flow.model import checkgraph, flatten, Block
-from pypy.rpython.lltypesystem.lltype import Void
+from pypy.rpython.lltypesystem.lltype import Void, Signed
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 
 import py
@@ -67,3 +69,23 @@ def test_remove_same_as():
     interp = LLInterpreter(t.rtyper)
     result = interp.eval_graph(f_graph, [])
     assert result == 42
+
+def test_remove_unaryops():
+    # We really want to use remove_unaryops for things like ooupcast and
+    # oodowncast in dynamically typed languages, but it's easier to test
+    # it with operations on ints here.
+    def f(x):
+        i = llop.int_invert(Signed, x)
+        i = llop.int_add(Signed, x, 1)
+        return llop.int_neg(Signed, i)
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    f_graph = graphof(t, f)
+    remove_unaryops(f_graph, ["int_neg", "int_invert"])
+    t.checkgraphs()
+
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(f_graph, [-2])
+    assert result == -1
+
