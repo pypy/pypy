@@ -6,6 +6,7 @@ Usage: call track(obj).
 import autopath
 import gc
 from pypy.translator.tool.graphpage import GraphPage, DotGen
+from pypy.tool.uid import uid
 
 
 MARKER = object()
@@ -22,7 +23,7 @@ class RefTrackerPage(GraphPage):
         edges = {}
 
         def addedge(o1, o2):
-            key = (id(o1), id(o2))
+            key = (uid(o1), uid(o2))
             slst = []
             if type(o1) in (list, tuple):
                 for i in range(len(o1)):
@@ -36,7 +37,7 @@ class RefTrackerPage(GraphPage):
 
         for i in range(1, len(objectlist)):
             s = repr(objectlist[i])
-            word = '0x%x' % id(objectlist[i])
+            word = '0x%x' % uid(objectlist[i])
             if len(s) > 50:
                 self.links[word] = s
                 s = s[:20] + ' ... ' + s[-20:]
@@ -45,12 +46,12 @@ class RefTrackerPage(GraphPage):
                                     s)
             nodename = 'node%d' % len(nodes)
             dotgen.emit_node(nodename, label=s, shape="box")
-            nodes[id(objectlist[i])] = nodename
+            nodes[uid(objectlist[i])] = nodename
             for o2 in gc.get_referents(objectlist[i]):
                 if o2 is None:
                     continue
                 addedge(objectlist[i], o2)
-                id2typename[id(o2)] = type(o2).__name__
+                id2typename[uid(o2)] = type(o2).__name__
                 del o2
             for o2 in gc.get_referrers(objectlist[i]):
                 if o2 is None:
@@ -58,7 +59,7 @@ class RefTrackerPage(GraphPage):
                 if type(o2) is list and o2 and o2[0] is MARKER:
                     continue
                 addedge(o2, objectlist[i])
-                id2typename[id(o2)] = type(o2).__name__
+                id2typename[uid(o2)] = type(o2).__name__
                 del o2
 
         for ids, label in edges.items():
@@ -81,10 +82,10 @@ class RefTrackerPage(GraphPage):
         objectlist = self.objectlist
         for i in range(1, len(objectlist)):
             for o2 in gc.get_referents(objectlist[i]):
-                if id(o2) == id1:
+                if uid(o2) == id1:
                     found = o2
             for o2 in gc.get_referrers(objectlist[i]):
-                if id(o2) == id1:
+                if uid(o2) == id1:
                     found = o2
         if found is not None:
             objectlist = objectlist + [found]
