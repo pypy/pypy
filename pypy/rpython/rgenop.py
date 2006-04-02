@@ -15,6 +15,10 @@ from pypy.rpython.module.support import from_rstr
 # for debugging, sanity checks in non-RPython code
 reveal = from_opaque_object
 
+def isptrtype(gv_type):
+    c = from_opaque_object(gv_type)
+    return isinstance(c.value, lltype.Ptr)
+
 def initblock(opaqueptr):
     init_opaque_object(opaqueptr, flowmodel.Block([]))
 
@@ -281,6 +285,8 @@ setannotation(closeblock2, s_LinkPair)
 setannotation(closelink, None)
 setannotation(closereturnlink, None)
 
+setannotation(isptrtype, annmodel.SomeBool())
+
 # specialize
 setspecialize(initblock)
 setspecialize(geninputarg)
@@ -292,6 +298,8 @@ setspecialize(closeblock1)
 setspecialize(closeblock2)
 setspecialize(closelink)
 setspecialize(closereturnlink)
+
+setspecialize(isptrtype)
 
 # XXX(for now) void constant constructors
 setannotation(constFieldName, s_ConstOrVar)
