@@ -230,7 +230,24 @@ lltypes = [LINK]*2
 fields = tuple(zip(fieldnames, lltypes))    
 LINKPAIR = lltype.GcStruct('tuple2', *fields)
 
+# support constants and types
+
 nullvar = lltype.nullptr(CONSTORVAR.TO)
+gv_Void = constTYPE(lltype.Void)
+
+# VARLIST
+def ll_fixed_items(l):
+    return l
+
+def ll_fixed_length(l):
+    return len(l)
+
+VARLIST = lltype.Ptr(lltype.GcArray(CONSTORVAR,
+                                    adtmeths = {
+                                        "ll_items": ll_fixed_items,
+                                        "ll_length": ll_fixed_length
+                                    }))
+
 
 # helpers
 def setannotation(func, TYPE):
