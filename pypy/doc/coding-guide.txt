@@ -323,7 +323,7 @@ This layout makes the number of types to take care about quite limited.
 Integer Types
 -------------------------
 
-While implementing the integer type, we stumbled over the problem, that
+While implementing the integer type, we stumbled over the problem that
 integers are quite in flux in CPython right now. Starting on Python 2.2,
 integers mutate into longs on overflow.  However, shifting to the left
 truncates up to 2.3 but extends to longs as well in 2.4.  By contrast, we need
