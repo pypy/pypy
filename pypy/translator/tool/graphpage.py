@@ -153,8 +153,8 @@ class FlowGraphPage(GraphPage):
                     self.annotator.binding_cause_history.get(var, []))
                 self.binding_history[var.name] = zip(history, cause_history)
                     
-        from pypy.jit import hintannotator
-        if isinstance(self.annotator, hintannotator.HintAnnotator):
+        from pypy.jit.hintannotator.annotator import HintAnnotator
+        if isinstance(self.annotator, HintAnnotator):
             return
 
         def visit(node):
