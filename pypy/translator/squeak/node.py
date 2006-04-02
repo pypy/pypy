@@ -1,5 +1,6 @@
 import datetime
 from pypy.objspace.flow.model import Constant, Variable, c_last_exception
+from pypy.translator.backendopt.removenoops import remove_unaryops
 from pypy.translator.squeak.opformatter import OpFormatter
 from pypy.translator.squeak.codeformatter import CodeFormatter, Message
 from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
@@ -195,6 +196,9 @@ class CallableNode(CodeNode):
                     yield "    %s" % line
                 yield "]"
 
+    def apply_backendopt(self, graph):
+        remove_unaryops(graph, OpFormatter.noops)
+
 class MethodNode(CallableNode):
 
     def __init__(self, gen, INSTANCE, method_name):
@@ -219,6 +223,7 @@ class MethodNode(CallableNode):
         yield self.render_fileout_header(
                 codef.format(self.INSTANCE), "methods")
         graph = self.INSTANCE._methods[self.name].graph
+        self.apply_backendopt(graph)
         self.self = graph.startblock.inputargs[0]
         for line in self.render_body(graph.startblock):
             yield line
@@ -245,6 +250,7 @@ class FunctionNode(CallableNode):
     def render(self):
         yield self.render_fileout_header(
                 "%s class" % self._class_name, "functions")
+        self.apply_backendopt(self.graph)
         for line in self.render_body(self.graph.startblock):
             yield line
 

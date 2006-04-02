@@ -71,6 +71,11 @@ class OpFormatter:
 
     wrapping_ops = "neg", "invert", "add", "sub", "mul", "lshift"
 
+    noops = "ooupcast", "oodowncast", "cast_char_to_int", \
+            "cast_unichar_to_int", "cast_int_to_unichar", \
+            "cast_int_to_char", "cast_int_to_longlong", \
+            "truncate_longlong_to_int"
+
     int_masks = _setup_int_masks()
 
     def __init__(self, gen, node):
@@ -150,12 +155,6 @@ class OpFormatter:
             # Public field access
             return Message(field_name).send_to(op.args[0], [field_value])
 
-    def noop(self, op):
-        return Assignment(op.result, op.args[0])
-
-    op_oodowncast = noop
-    op_ooupcast = noop
-
     def op_direct_call(self, op):
         # XXX how do i get rid of this import?
         from pypy.translator.squeak.node import FunctionNode
@@ -170,18 +169,10 @@ class OpFormatter:
     def op_cast_bool_to_int(self, op):
         return self.cast_bool(op, "1", "0")
 
-    def op_cast_bool_to_float(self, op):
-        return self.cast_bool(op, "1.0", "0.0")
-
     op_cast_bool_to_uint = op_cast_bool_to_int
 
-    op_cast_char_to_int = noop
-    op_cast_unichar_to_int = noop
-
-    # NB: behaviour for casts to chars is undefined for too wide ints
-    op_cast_int_to_char = noop
-    op_cast_int_to_unichar = noop
-    op_cast_int_to_longlong = noop
+    def op_cast_bool_to_float(self, op):
+        return self.cast_bool(op, "1.0", "0.0")
 
     def masking_cast(self, op, mask):
         cast = self.apply_mask_helper(op.args[0], mask)
@@ -192,8 +183,6 @@ class OpFormatter:
 
     def op_cast_uint_to_int(self, op):
         return self.masking_cast(op, "int")
-
-    op_truncate_longlong_to_int = noop
 
     def op_cast_float_to_uint(self, op):
         truncated = Message("truncated").send_to(op.args[0], [])
