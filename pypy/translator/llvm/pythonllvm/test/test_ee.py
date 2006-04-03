@@ -27,7 +27,8 @@ def test_load():
 def test_functions():
     ee = pyllvm.ExecutionEngine()
     ee.parse(codepath.join("hello.s").read())
-    assert ee.n_functions() == 2
+    mod = ee.getModule()
+    assert mod.n_functions() == 2
     #TODO
     #for function in functions:
     #    returnId, name, args = function
@@ -35,27 +36,26 @@ def test_functions():
     #    assert returnId > 0
     #    assert name in ('gethellostr', 'hello')
     #    assert len(args) == 0
-    py.test.raises(Exception, ee.n_functions, 1)
-    py.test.raises(Exception, ee.n_functions, "string")
+    py.test.raises(Exception, mod.n_functions, 1)
+    py.test.raises(Exception, mod.n_functions, "string")
 
 def test_call_parse_once():
     ee = pyllvm.ExecutionEngine()
     ee.parse(codepath.join("hello.s").read())
-    assert ee.call("hello") == 0
-    assert ee.call("gethellostr") == "hello world\n"
-    py.test.raises(Exception, ee.call)
-    py.test.raises(Exception, ee.call, 1)
-    py.test.raises(Exception, ee.call, "gethellostrx")
-    py.test.raises(Exception, ee.call, "gethellostrx", 1)
-    py.test.raises(Exception, ee.call, "gethellostr", 1)
+    f = ee.getModule().getNamedFunction
+    hello = f("hello")
+    gethellostr = f("gethellostr")
+    assert hello() == 0
+    assert gethellostr() == "hello world\n"
 
 def test_call_parse_twice():
     ee = pyllvm.ExecutionEngine()
     ee.parse(codepath.join("hello.s").read())
-    assert ee.call("gethellostr") == "hello world\n"
+    f = ee.getModule().getNamedFunction
+    assert f("gethellostr")() == "hello world\n"
     ee.parse(codepath.join("addnumbers.s").read())
-    assert ee.call("add", 10, 32) == 42
-    assert ee.call("gethellostr") == "hello world\n"
+    assert f("add")(10, 32) == 42
+    assert f("gethellostr")() == "hello world\n"
     py.test.raises(Exception, ee.parse)
     py.test.raises(Exception, ee.parse, 1)
     py.test.raises(Exception, ee.parse, "abc")
@@ -68,8 +68,9 @@ def test_call_between_parsed_code():
     ee = pyllvm.ExecutionEngine()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
-    assert ee.call("add1", 41) == 42
-    assert ee.call("calc", 122) == 123
+    f = ee.getModule().getNamedFunction
+    assert f("add1")(41) == 42
+    assert f("calc")(122) == 123
 
 def test_replace_function():
     """similar to test_call_between_parsed_code with additional complexity
@@ -78,46 +79,51 @@ def test_replace_function():
     ee = pyllvm.ExecutionEngine()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
-    assert ee.call("add1", 41) == 42
-    assert ee.call("calc", 122) == 123 #XXX need recompileAndRelinkFunction somewhere
+    f = ee.getModule().getNamedFunction
+    assert f("add1")(41) == 42
+    assert f("calc")(122) == 123 #XXX need recompileAndRelinkFunction somewhere
     ee.parse(ll_snippet.add1_version2, "add1")
-    assert ee.call("add1", 42) == 142
-    assert ee.call("calc", 142) == 242
+    assert f("add1")(42) == 142
+    assert f("calc")(142) == 242
 
 def test_share_data_between_parsed_code():
     ee = pyllvm.ExecutionEngine()
     ee.parse(ll_snippet.global_int_a_is_100)
     ee.parse(ll_snippet.add1_to_global_int_a)
     ee.parse(ll_snippet.sub10_from_global_int_a)
-    assert ee.call("add1_to_global_int_a") == 101
-    assert ee.call("sub10_from_global_int_a") == 91
-    assert ee.call("add1_to_global_int_a") == 92
-    assert ee.call("sub10_from_global_int_a") == 82
+    f = ee.getModule().getNamedFunction
+    assert f("add1_to_global_int_a")() == 101
+    assert f("sub10_from_global_int_a")() == 91
+    assert f("add1_to_global_int_a")() == 92
+    assert f("sub10_from_global_int_a")() == 82
 
 def test_native_code(): #examine JIT generate native (assembly) code
     pyllvm.toggle_print_machineinstrs()
     ee = pyllvm.ExecutionEngine()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
-    assert ee.call("calc", 41) == 42
+    f = ee.getModule().getNamedFunction
+    assert f("calc")(41) == 42
     pyllvm.toggle_print_machineinstrs()
 
 def test_delete_function(): #this will only work if nothing uses Fn of course!
     ee = pyllvm.ExecutionEngine()
+    mod = ee.getModule()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
-    assert ee.n_functions() == 2
+    assert mod.n_functions() == 2
 
     ee.delete("calc")
-    assert ee.n_functions() == 1
-    assert ee.call("add1", 41) == 42
+    assert mod.n_functions() == 1
+    f = ee.getModule().getNamedFunction
+    assert f("add1")(41) == 42
 
     ee.delete("add1")
-    assert ee.n_functions() == 0
+    assert mod.n_functions() == 0
 
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
-    assert ee.call("calc", 100) == 101
+    assert f("calc")(100) == 101
 
 def TODOtest_add_to_function():
     pass

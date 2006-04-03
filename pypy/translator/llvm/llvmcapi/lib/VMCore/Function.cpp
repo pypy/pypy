@@ -2,6 +2,12 @@
 
 using namespace llvm;
 
-//void*  Function__init__(void* M) {
-//    return new Function((Module*)M);
-//}
+void        Function_eraseFromParent(void* F) {
+    Function*   f = (Function*)F;
+    f->eraseFromParent();
+}
+
+const void* Function_getFunctionType(void* F) {
+    Function*   f = (Function*)F;
+    return f->getFunctionType();
+}

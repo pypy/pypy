@@ -20,27 +20,15 @@ void*   ExecutionEngine_getModule(void* EE) {
     return &((ExecutionEngine*)EE)->getModule();
 }
 
-int     ExecutionEngine_n_functions(void* EE) { //move to Module?
-    Module* mod = &((ExecutionEngine*)EE)->getModule();
-    int funccount = 0;
-    Module::FunctionListType &fns = mod->getFunctionList();
-    for (Module::FunctionListType::const_iterator ii = fns.begin(); ii != fns.end(); ++ii) {
-        if (!(ii->isIntrinsic() || ii->isExternal())) {
-            funccount += 1;
-        }
-    }
-    return funccount;
+void    ExecutionEngine_freeMachineCodeForFunction(void* EE, void* F) {
+    ExecutionEngine*    ee = (ExecutionEngine*)EE;
+    Function*           f  = (Function*)F;
+    ee->freeMachineCodeForFunction(f);
 }
 
-int     Module_function_exists(void* EE, const char* funcname) { //move to Module?
-    Module* mod = &((ExecutionEngine*)EE)->getModule();
-    Module::FunctionListType &fns = mod->getFunctionList();
-    for (Module::FunctionListType::const_iterator ii = fns.begin(); ii != fns.end(); ++ii) {
-        if (!(ii->isIntrinsic() || ii->isExternal())) {
-            if (ii->getName() == funcname) {
-                return 1;
-            }
-        }
-    }
-    return 0;
+int     ExecutionEngine_runFunction(void* EE, void* F, int args_vector) {
+    ExecutionEngine*    ee = (ExecutionEngine*)EE;
+    Function*           f  = (Function*)F;
+    std::vector<GenericValue>   args;
+    return ee->runFunction(f, args).IntVal;
 }

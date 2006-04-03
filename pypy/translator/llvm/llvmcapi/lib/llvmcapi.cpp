@@ -22,7 +22,9 @@ using namespace llvm;
 #include "VMCore/Module.cpp"
 #include "VMCore/ModuleProvider.cpp"
 #include "VMCore/Function.cpp"
+#include "VMCore/DerivedTypes.cpp"
 #include "ExecutionEngine/ExecutionEngine.cpp"
+#include "ExecutionEngine/GenericValue.cpp"
 
 
 void toggle_print_machineinstrs() {

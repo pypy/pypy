@@ -17,10 +17,52 @@ def ExecutionEngine_getModule(EE):
 ExecutionEngine_getModule = cdecl(c_void_p, 'llvmcapi', [c_void_p]) (ExecutionEngine_getModule)
 
 
-def ExecutionEngine_n_functions(EE):
+def ExecutionEngine_freeMachineCodeForFunction(EE, F):
     # ../llvmcapi/include/ExecutionEngine/ExecutionEngine.h 14
-    return ExecutionEngine_n_functions._api_(EE)
-ExecutionEngine_n_functions = cdecl(c_int, 'llvmcapi', [c_void_p]) (ExecutionEngine_n_functions)
+    return ExecutionEngine_freeMachineCodeForFunction._api_(EE, F)
+ExecutionEngine_freeMachineCodeForFunction = cdecl(None, 'llvmcapi', [c_void_p, c_void_p]) (ExecutionEngine_freeMachineCodeForFunction)
+
+
+def ExecutionEngine_runFunction(EE, F, args_vector):
+    # ../llvmcapi/include/ExecutionEngine/ExecutionEngine.h 17
+    return ExecutionEngine_runFunction._api_(EE, F, args_vector)
+ExecutionEngine_runFunction = cdecl(c_int, 'llvmcapi', [c_void_p, c_void_p, c_int]) (ExecutionEngine_runFunction)
+
+
+def GenericValue__init__():
+    # ../llvmcapi/include/ExecutionEngine/GenericValue.h 8
+    return GenericValue__init__._api_()
+GenericValue__init__ = cdecl(c_void_p, 'llvmcapi', []) (GenericValue__init__)
+
+
+def FunctionType_getNumParams(FT):
+    # ../llvmcapi/include/VMCore/DerivedTypes.h 8
+    return FunctionType_getNumParams._api_(FT)
+FunctionType_getNumParams = cdecl(c_int, 'llvmcapi', [c_void_p]) (FunctionType_getNumParams)
+
+
+def FunctionType_getParamType(FT, i):
+    # ../llvmcapi/include/VMCore/DerivedTypes.h 9
+    return FunctionType_getParamType._api_(FT, i)
+FunctionType_getParamType = cdecl(c_void_p, 'llvmcapi', [c_void_p, c_int]) (FunctionType_getParamType)
+
+
+def FunctionType_getReturnType(FT):
+    # ../llvmcapi/include/VMCore/DerivedTypes.h 10
+    return FunctionType_getReturnType._api_(FT)
+FunctionType_getReturnType = cdecl(c_void_p, 'llvmcapi', [c_void_p]) (FunctionType_getReturnType)
+
+
+def Function_eraseFromParent(F):
+    # ../llvmcapi/include/VMCore/Function.h 8
+    return Function_eraseFromParent._api_(F)
+Function_eraseFromParent = cdecl(None, 'llvmcapi', [c_void_p]) (Function_eraseFromParent)
+
+
+def Function_getFunctionType(F):
+    # ../llvmcapi/include/VMCore/Function.h 9
+    return Function_getFunctionType._api_(F)
+Function_getFunctionType = cdecl(c_void_p, 'llvmcapi', [c_void_p]) (Function_getFunctionType)
 
 
 def Module__init__(ModuleID):
@@ -54,27 +96,45 @@ Module_setTargetTriple = cdecl(None, 'llvmcapi', [c_void_p, STRING]) (Module_set
 
 
 def Module_getModuleInlineAsm(M):
-    # ../llvmcapi/include/VMCore/Module.h 17
+    # ../llvmcapi/include/VMCore/Module.h 13
     return Module_getModuleInlineAsm._api_(M)
 Module_getModuleInlineAsm = cdecl(STRING, 'llvmcapi', [c_void_p]) (Module_getModuleInlineAsm)
 
 
 def Module_setModuleInlineAsm(M, Asm):
-    # ../llvmcapi/include/VMCore/Module.h 18
+    # ../llvmcapi/include/VMCore/Module.h 14
     return Module_setModuleInlineAsm._api_(M, Asm)
 Module_setModuleInlineAsm = cdecl(None, 'llvmcapi', [c_void_p, STRING]) (Module_setModuleInlineAsm)
 
 
+def Module_getNamedFunction(M, fnname):
+    # ../llvmcapi/include/VMCore/Module.h 15
+    return Module_getNamedFunction._api_(M, fnname)
+Module_getNamedFunction = cdecl(c_void_p, 'llvmcapi', [c_void_p, STRING]) (Module_getNamedFunction)
+
+
 def Module_ParseAssemblyString(M, AsmString):
-    # ../llvmcapi/include/VMCore/Module.h 19
+    # ../llvmcapi/include/VMCore/Module.h 18
     return Module_ParseAssemblyString._api_(M, AsmString)
 Module_ParseAssemblyString = cdecl(None, 'llvmcapi', [c_void_p, STRING]) (Module_ParseAssemblyString)
 
 
 def Module_verifyModule(M):
-    # ../llvmcapi/include/VMCore/Module.h 20
+    # ../llvmcapi/include/VMCore/Module.h 19
     return Module_verifyModule._api_(M)
 Module_verifyModule = cdecl(c_int, 'llvmcapi', [c_void_p]) (Module_verifyModule)
+
+
+def Module_n_functions(M):
+    # ../llvmcapi/include/VMCore/Module.h 22
+    return Module_n_functions._api_(M)
+Module_n_functions = cdecl(c_int, 'llvmcapi', [c_void_p]) (Module_n_functions)
+
+
+def Module_function_exists(M, fnname):
+    # ../llvmcapi/include/VMCore/Module.h 23
+    return Module_function_exists._api_(M, fnname)
+Module_function_exists = cdecl(c_int, 'llvmcapi', [c_void_p, STRING]) (Module_function_exists)
 
 
 def ExistingModuleProvider__init__(M):
@@ -84,7 +144,7 @@ ExistingModuleProvider__init__ = cdecl(c_void_p, 'llvmcapi', [c_void_p]) (Existi
 
 
 def toggle_print_machineinstrs():
-    # ../llvmcapi/include/llvmcapi.h 13
+    # ../llvmcapi/include/llvmcapi.h 15
     return toggle_print_machineinstrs._api_()
 toggle_print_machineinstrs = cdecl(None, 'llvmcapi', []) (toggle_print_machineinstrs)
 

@@ -8,7 +8,9 @@ extern "C" {
 #include "VMCore/Module.h"
 #include "VMCore/ModuleProvider.h"
 #include "VMCore/Function.h"
+#include "VMCore/DerivedTypes.h"
 #include "ExecutionEngine/ExecutionEngine.h"
+#include "ExecutionEngine/GenericValue.h"
 
 void    toggle_print_machineinstrs();
 

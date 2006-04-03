@@ -10,12 +10,11 @@ class Method(object):
 
     def __call__(self, *args):
         a = [self.instance]
-        #for arg in args:
-        #    if isinstance(arg, Wrapper): #pass on value to actual C (not Python) object
-        #        a.append(arg.instance)
-        #    else:
-        #        a.append(arg)
-        a += args
+        for arg in args:
+            if isinstance(arg, Wrapper): #pass on value to actual C (not Python) object
+                a.append(arg.instance)
+            else:
+                a.append(arg)
         return apply(self.method, a)
 
 class Wrapper(object):

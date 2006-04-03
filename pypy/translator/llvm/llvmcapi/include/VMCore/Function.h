@@ -5,7 +5,8 @@
 extern "C" {
 #endif
 
-//
+void        Function_eraseFromParent(void* F);
+const void* Function_getFunctionType(void* F);
 
 #ifdef __cplusplus
 };

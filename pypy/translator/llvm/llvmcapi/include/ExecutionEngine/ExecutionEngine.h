@@ -11,8 +11,10 @@ void*   ExecutionEngine__init__MP(void* MP);
 */
 void*   ExecutionEngine__create__(void* MP, int ForceInterpreter);
 void*   ExecutionEngine_getModule(void* EE);
-int     ExecutionEngine_n_functions(void* EE);
-int     ExecutionEngine_function_exists(void* EE, const char* funcname);
+void    ExecutionEngine_freeMachineCodeForFunction(void* EE, void* F);
+
+// return union and takes std::vector<GenericValue> actually
+int     ExecutionEngine_runFunction(void* EE, void* F, int args_vector);
 
 #ifdef __cplusplus
 };
