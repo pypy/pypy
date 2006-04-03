@@ -1180,6 +1180,22 @@ class BaseTestRPBC:
         res = interpret(f, [], type_system=self.ts)
         assert res == 165 * 1066
 
+    def test_convert_none_to_frozen_pbc(self):
+        fr1 = Freezing(); fr1.x = 65
+        fr2 = Freezing(); fr2.y = 65
+        def g(fr):
+            return fr.x
+        def identity(z):
+            return z
+        def f(n):  # NB. this crashes with n == 0
+            if n == 0:
+                fr = identity(None)
+            else:
+                fr = fr1
+            return g(fr)
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == 65
+
 
 def test_call_from_list():
     # Don't test with ootype, since it doesn't support lists in a

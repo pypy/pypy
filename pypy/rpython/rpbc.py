@@ -558,12 +558,13 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
         return pair(r_from.r_im_self, r_to.r_im_self).convert_from_to(v, llops)
 
 # __ None ____________________________________________________
-class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
-    
+class NoneFrozenPBCRepr(Repr):
+    lowleveltype = Void
+
     def rtype_is_true(self, hop):
         return Constant(False, Bool)
 
-none_frozen_pbc_repr = NoneFrozenPBCRepr(None)
+none_frozen_pbc_repr = NoneFrozenPBCRepr()
 
 
 class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
@@ -582,11 +583,6 @@ class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
     def rtype_is_((rnone1, robj2), hop):
         return hop.rtyper.type_system.rpbc.rtype_is_None(
                                                 robj2, rnone1, hop, pos=1)
-        
-class __extend__(pairtype(NoneFrozenPBCRepr, robject.PyObjRepr)):
-
-    def convert_from_to(_, v, llops):
-        return inputconst(robject.pyobj_repr, None)
 
 # ____________________________________________________________
 
