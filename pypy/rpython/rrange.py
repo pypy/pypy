@@ -50,7 +50,6 @@ class RangeRepr(Repr):
 class __extend__(pairtype(RangeRepr, IntegerRepr)):
 
     def rtype_getitem((r_rng, r_int), hop):
-        from pypy.rpython.rlist import dum_nocheck, dum_checkidx
         if hop.has_implicit_exception(IndexError):
             spec = dum_checkidx
         else:

@@ -504,13 +504,13 @@ class RPythonTyper:
     # __________ irregular operations __________
 
     def translate_op_newlist(self, hop):
-        return rlist.rtype_newlist(hop)
+        return self.type_system.rlist.rtype_newlist(hop)
 
     def translate_op_newdict(self, hop):
         return rdict.rtype_newdict(hop)
 
     def translate_op_alloc_and_set(self, hop):
-        return rlist.rtype_alloc_and_set(hop)
+        return self.type_system.rlist.rtype_alloc_and_set(hop)
 
     def translate_op_newtuple(self, hop):
         return self.type_system.rtuple.rtype_newtuple(hop)
@@ -842,7 +842,7 @@ class LowLevelOpList(list):
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice, rrange
-from pypy.rpython import rlist, rstr, rdict 
+from pypy.rpython import rstr, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rexternalobj
 from pypy.rpython import rptr

@@ -1,7 +1,7 @@
 import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rlist import *
+from pypy.rpython.lltypesystem.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises

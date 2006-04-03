@@ -39,7 +39,7 @@ class TupleRepr(AbstractTupleRepr):
         return malloc(self.lowleveltype.TO)
 
     def rtype_bltn_list(self, hop):
-        from pypy.rpython import rlist
+        from pypy.rpython.lltypesystem import rlist
         nitems = len(self.items_r)
         vtup = hop.inputarg(self, 0)
         LIST = hop.r_result.lowleveltype.TO

@@ -173,8 +173,7 @@ class __extend__(StringRepr):
         if hop.s_result.is_constant():
             return inputconst(string_repr, hop.s_result.const)
         r_lst = hop.args_r[1]
-        from pypy.rpython.rlist import BaseListRepr
-        if not isinstance(r_lst, BaseListRepr):
+        if not isinstance(r_lst, hop.rtyper.type_system.rlist.BaseListRepr):
             raise TyperError("string.join of non-list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
         LIST = r_lst.lowleveltype.TO
