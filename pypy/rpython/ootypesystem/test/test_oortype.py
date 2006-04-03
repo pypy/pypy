@@ -106,7 +106,7 @@ def test_list_len():
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
-    assert rettype == Signed
+    assert rettype == Unsigned
 
 def test_list_append():
     LT = List(Signed)
@@ -115,6 +115,20 @@ def test_list_append():
         l = new(LT)
         l.append(1)
         return l.length()
+
+    g = gengraph(oof, [])
+    rettype = g.getreturnvar().concretetype
+    assert rettype == Unsigned
+
+def test_list_getitem_setitem():
+    # XXX need to test exceptions
+    LT = List(Signed)
+
+    def oof():
+        l = new(LT)
+        l.append(1)
+        l.setitem(0, 2)
+        return l.getitem(0)
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype

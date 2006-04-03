@@ -181,6 +181,8 @@ class List(OOType):
             # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
             "length": Meth([], Unsigned),
             "append": Meth([ITEMTYPE], Void),
+            "getitem": Meth([Signed], ITEMTYPE),
+            "setitem": Meth([Signed, ITEMTYPE], Void),
         })
 
     def __str__(self):
@@ -472,6 +474,17 @@ class _list(object):
         # NOT_RPYTHON
         assert typeOf(item) == self._TYPE._ITEMTYPE
         self._list.append(item)
+
+    def getitem(self, index):
+        # NOT_RPYTHON
+        assert typeOf(index) == Signed
+        return self._list[index]
+
+    def setitem(self, index, item):
+        # NOT_RPYTHON
+        assert typeOf(item) == self._TYPE._ITEMTYPE
+        assert typeOf(index) == Signed
+        self._list[index] = item
 
 def new(TYPE):
     if isinstance(TYPE, Instance):

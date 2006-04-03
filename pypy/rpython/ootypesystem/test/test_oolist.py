@@ -17,6 +17,13 @@ def test_append():
     l.append(1)
     assert l.length() == 1
 
+def test_setitem_getitem():
+    LT = List(Signed)
+    l = new(LT)
+    l.append(2)
+    assert l.getitem(0) == 2
+    l.setitem(0, 3)
+    assert l.getitem(0) == 3
 
 class TestInterpreted:
 
@@ -27,3 +34,13 @@ class TestInterpreted:
             return len(l)
         res = interpret(f, [2], type_system="ootype")
         assert res == 1 
+
+    def test_setitem_getitem(self):
+        def f(x):
+            l = []
+            l.append(3)
+            l[0] = x
+            return l[0]
+        res = interpret(f, [2], type_system="ootype")
+        assert res == 2 
+

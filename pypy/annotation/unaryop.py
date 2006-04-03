@@ -561,7 +561,7 @@ class __extend__(SomeExternalObject):
 # annotation of low-level types
 from pypy.annotation.model import SomePtr, SomeLLADTMeth 
 from pypy.annotation.model import SomeOOInstance, SomeOOBoundMeth, SomeOOStaticMeth
-from pypy.annotation.model import ll_to_annotation, annotation_to_lltype
+from pypy.annotation.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
 
 class __extend__(SomePtr):
 
@@ -619,8 +619,8 @@ class __extend__(SomeOOBoundMeth):
     def simple_call(m, *args_s):
         llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
         inst = m.ootype._example()
-        v = getattr(inst, m.name)(*llargs)
-        return ll_to_annotation(v)
+        RESULT = ootype.typeOf(m.ootype._lookup(m.name)[1]).RESULT
+        return lltype_to_annotation(RESULT)
 
 class __extend__(SomeOOStaticMeth):
     def simple_call(m, *args_s):
