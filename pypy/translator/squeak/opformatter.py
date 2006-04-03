@@ -29,7 +29,6 @@ class OpFormatter:
         'new':         'new',
         'runtimenew':  'new',
         'classof':     'class',
-        'same_as':     'yourself', 
         'bool_not':    'not',
 
         'cast_int_to_float': 'asFloat',
@@ -71,7 +70,7 @@ class OpFormatter:
 
     wrapping_ops = "neg", "invert", "add", "sub", "mul", "lshift"
 
-    noops = "ooupcast", "oodowncast", "cast_char_to_int", \
+    noops = "same_as", "ooupcast", "oodowncast", "cast_char_to_int", \
             "cast_unichar_to_int", "cast_int_to_unichar", \
             "cast_int_to_char", "cast_int_to_longlong", \
             "truncate_longlong_to_int"
@@ -188,3 +187,8 @@ class OpFormatter:
         truncated = Message("truncated").send_to(op.args[0], [])
         return Assignment(op.result, self.apply_mask_helper(truncated, "uint"))
 
+    def noop(self, op):
+        return Assignment(op.result, op.args[0])
+
+for opname in OpFormatter.noops:
+    setattr(OpFormatter, "op_%s" % opname, OpFormatter.noop)

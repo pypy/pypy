@@ -197,7 +197,7 @@ class CallableNode(CodeNode):
                 yield "]"
 
     def apply_backendopt(self, graph):
-        remove_unaryops(graph, OpFormatter.noops)
+        remove_unaryops(graph, ["same_as"])
 
 class MethodNode(CallableNode):
 
