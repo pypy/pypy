@@ -8,7 +8,8 @@ class ExtRegistryFunc(object):
     def get_annotation(self, type, func=None):
         assert func is not None
         from pypy.annotation import model as annmodel
-        return annmodel.SomeBuiltin(self.compute_result_annotation, methodname=func.__name__)
+        return annmodel.SomeBuiltin(self.compute_result_annotation,
+                                    methodname=func.__name__)
 
 class ExtRegistryInstance(object):
     def __init__(self, compute_annotation, specialize_call, get_repr):

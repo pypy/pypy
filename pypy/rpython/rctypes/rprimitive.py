@@ -28,11 +28,12 @@ class PrimitiveRepr(Repr):
     def __init__(self, rtyper, ctype, ll_type):
         self.ctype = ctype
         self.ll_type = ll_type
+        self.c_data_type = lltype.Struct('C_Data_%s' % (ctype.__name__,),
+                                            ('value', ll_type) )
+
         self.lowleveltype = lltype.Ptr(
             lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                ( "c_data", lltype.Struct('C_Data_%s' % (ctype.__name__,),
-                    ('value', ll_type) )
-                )
+                ( "c_data", self.c_data_type )
             )
         )
 
