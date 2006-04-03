@@ -406,7 +406,7 @@ class LLFrame(object):
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs 
         else:
-            print "this should ideally not happen", f, graphs, args
+            log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
     def op_malloc(self, obj):
