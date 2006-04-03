@@ -1,4 +1,4 @@
-
+from pypy import conftest
 from pypy.rpython.ootypesystem.ootype import *
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
@@ -8,10 +8,10 @@ from pypy.rpython.test.test_llinterp import interpret
 def gengraph(f, args=[], viewBefore=False, viewAfter=False):
     t = TranslationContext()
     t.buildannotator().build_types(f, args)
-    if viewBefore:
+    if viewBefore or conftest.option.view:
         t.view()
     t.buildrtyper(type_system="ootype").specialize()
-    if viewAfter:
+    if viewAfter or conftest.option.view:
         t.view()
     return graphof(t, f)
 
@@ -96,4 +96,15 @@ def test_subclassof():
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
     assert rettype == Bool
+
+def test_list_len():
+    LT = List(Signed)
+
+    def oof():
+        l = new(LT)
+        return l.length()
+
+    g = gengraph(oof, [])
+    rettype = g.getreturnvar().concretetype
+    assert rettype == Signed
 

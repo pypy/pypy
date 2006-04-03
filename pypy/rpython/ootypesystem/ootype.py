@@ -168,6 +168,27 @@ class Meth(StaticMethod):
 
     def __init__(self, args, result):
         StaticMethod.__init__(self, args, result)
+
+
+class List(OOType):
+
+    def __init__(self, ITEMTYPE):
+        self._ITEMTYPE = ITEMTYPE
+
+    def __str__(self):
+        return '%s(%s)' % (self.__class__.__name__, self._ITEMTYPE)
+
+    def _lookup(self, meth_name):
+        METH = LIST_METHODS.get(meth_name)
+        meth = None
+        if METH is not None:
+            meth = _meth(METH, _name=meth_name,
+                    _callable=getattr(_list, meth_name))
+        return self, meth
+
+    def _example(self):
+        return new(self)
+
 # ____________________________________________________________
 
 class _class(object):
@@ -403,7 +424,7 @@ class _meth(_callable):
         _callable.__init__(self, METHOD, **attrs)
 
     def _bound(self, DEFINST, inst):
-        assert isinstance(inst, _instance)
+        assert isinstance(inst, _instance) or isinstance(inst, _list)
         return _bound_meth(DEFINST, inst, self)
 
 class _bound_meth(object):
@@ -416,8 +437,42 @@ class _bound_meth(object):
        callb, checked_args = self.meth._checkargs(args)
        return callb(self.inst, *checked_args)
 
-def new(INSTANCE):
-    return make_instance(INSTANCE)
+
+# This defines the abstract list interface that backends will have to map to
+# their native list implementations.
+LIST_METHODS = frozendict({
+    # "method name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
+    "length": Meth([], Unsigned),
+})
+
+class _list(object):
+
+    def __init__(self, LIST):
+        self._TYPE = LIST 
+        self._list = []
+
+    def __getattribute__(self, name):
+        TYPE = object.__getattribute__(self, "_TYPE")
+        _, meth = TYPE._lookup(name)
+        if meth is not None:
+            return meth._bound(TYPE, self)
+
+        return object.__getattribute__(self, name)
+
+    # The following are implementations of the abstract list interface for
+    # use by the llinterpreter and ootype tests. There are NOT_RPYTHON
+    # because the annotator is not supposed to follow them.
+
+    def length(self):
+        # NOT_RPYTHON
+        return len(self._list)
+
+
+def new(TYPE):
+    if isinstance(TYPE, Instance):
+        return make_instance(TYPE)
+    elif isinstance(TYPE, List):
+        return _list(TYPE)
 
 def runtimenew(class_):
     assert isinstance(class_, _class)
