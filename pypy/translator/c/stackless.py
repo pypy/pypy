@@ -69,25 +69,20 @@ class StacklessData:
         for caller, callee in translator.callgraph.values():
             # ignore calls issued suggested_primitives -- they are not
             # compiled in, and they typically contain pseudo-recursions
-            try:
-                suggprim = caller.func.suggested_primitive
-            except AttributeError:
-                suggprim = False
-            if not suggprim:
+            if not getattr(caller.func, 'suggested_primitive', False): 
                 callers[caller].append(callee)
         # check all callees if they can reach unwind
-        seen = self.can_reach_unwind
+        can_reach_unwind = self.can_reach_unwind
         
         pending = {}
-        ext = self.database.externalfuncs
         def check_unwind(graph):
             if graph in pending:
-                seen[graph] = True
+                can_reach_unwind[graph] = True
                 return True
             pending[graph] = graph
             for callee in callers[graph]:
-                if callee in seen:
-                    ret = seen[callee]
+                if callee in can_reach_unwind:
+                    ret = can_reach_unwind[callee]
                 else:
                     ret = check_unwind(callee)
                 if ret:
@@ -95,9 +90,11 @@ class StacklessData:
             else:
                 ret = graph.func in self.stackless_roots
             del pending[graph]
-            seen[graph] = ret
+            can_reach_unwind[graph] = ret
             return ret
-        [check_unwind(caller) for caller in callers if caller not in seen]
+        for caller in callers: 
+            if caller not in can_reach_unwind:
+                check_unwind(caller) 
 
     def registerunwindable(self, functionname, FUNC, resume_points):
         if resume_points >= 1:
