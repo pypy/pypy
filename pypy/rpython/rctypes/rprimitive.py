@@ -7,6 +7,7 @@ from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rmodel import IntegerRepr
+from pypy.rpython.rctypes.rmodel import CTypesRepr
 
 ctypes_annotation_list = [
     (c_char,          lltype.Char),
@@ -24,37 +25,7 @@ ctypes_annotation_list = [
     (c_double,        lltype.Float),
 ]
 
-class PrimitiveRepr(Repr):
-    def __init__(self, rtyper, ctype, ll_type):
-        self.ctype = ctype
-        self.ll_type = ll_type
-        self.c_data_type = lltype.Struct('C_Data_%s' % (ctype.__name__,),
-                                            ('value', ll_type) )
-
-        self.lowleveltype = lltype.Ptr(
-            lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                ( "c_data", self.c_data_type )
-            )
-        )
-
-        self.const_cache = {} # store generated const values+original value
-
-    def get_c_data(self, llops, v_primitive):
-        inputargs = [v_primitive, inputconst(lltype.Void, "c_data")]
-        return llops.genop('getsubstruct', inputargs,
-                    lltype.Ptr(self.lowleveltype.TO.c_data) )
-
-    def setfield(self, llops, v_primitive, v_value):
-        v_c_data = self.get_c_data(llops, v_primitive)
-        cname = inputconst(lltype.Void, 'value')
-        llops.genop('setfield', [v_c_data, cname, v_value])
-
-    def getfield(self, llops, v_primitive):
-        v_c_data = self.get_c_data(llops, v_primitive)
-
-        cname = inputconst(lltype.Void, 'value')
-        return llops.genop('getfield', [v_c_data, cname],
-                resulttype=self.ll_type)
+class PrimitiveRepr(CTypesRepr):
 
     def convert_const(self, ctype_value):
         assert isinstance(ctype_value, self.ctype)
@@ -73,7 +44,7 @@ class PrimitiveRepr(Repr):
         assert s_attr.is_constant()
         assert s_attr.const == 'value'
         v_primitive = hop.inputarg(self, 0)
-        return self.getfield(hop.llops, v_primitive)
+        return self.getvalue(hop.llops, v_primitive)
 
     def rtype_setattr(self, hop):
         s_attr = hop.args_s[1]
@@ -81,7 +52,7 @@ class PrimitiveRepr(Repr):
         assert s_attr.const == 'value'
         v_primitive, v_attr, v_value = hop.inputargs(self, lltype.Void,
                                                         self.ll_type)
-        self.setfield(hop.llops, v_primitive, v_value)
+        self.setvalue(hop.llops, v_primitive, v_value)
 
 # need to extend primitive repr to implement convert_from_to() for various
 # conversions, firstly the conversion from c_long() to Signed
@@ -90,7 +61,7 @@ class __extend__(pairtype(PrimitiveRepr, IntegerRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         assert r_from.ll_type == r_to.lowleveltype
 
-        return r_from.getfield(llops, v)
+        return r_from.getvalue(llops, v)
 
 def primitive_specialize_call(hop):
     r_primitive = hop.r_result
@@ -98,7 +69,7 @@ def primitive_specialize_call(hop):
     v_result = hop.genop("malloc", [c1], resulttype=r_primitive.lowleveltype)
     if len(hop.args_s):
         v_value, = hop.inputargs(r_primitive.ll_type)
-        r_primitive.setfield(hop.llops, v_result, v_value)
+        r_primitive.setvalue(hop.llops, v_result, v_value)
     return v_result
 
 def do_register(the_type, ll_type):
@@ -116,13 +87,16 @@ def do_register(the_type, ll_type):
                 annmodel.SomeCTypesObject.OWNSMEMORY)
 
     def primitive_get_repr(rtyper, s_primitive):
-        return PrimitiveRepr(rtyper, s_primitive.knowntype, ll_type)
+        return PrimitiveRepr(rtyper, s_primitive, ll_type)
 
     entry = extregistry.register_type(the_type,
             compute_annotation=compute_prebuilt_instance_annotation,
             get_repr=primitive_get_repr,
             )
-    entry.fields_s = {'value': annmodel.lltype_to_annotation(ll_type)}
+    def primitive_get_field_annotation(s_primitive, fieldname):
+        assert fieldname == 'value'
+        return annmodel.lltype_to_annotation(ll_type)
+    entry.get_field_annotation = primitive_get_field_annotation
     entry.lowleveltype = ll_type
 
 for the_type, ll_type in ctypes_annotation_list:

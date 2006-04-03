@@ -18,9 +18,9 @@ class Test_annotation:
         assert res.value == ptrres.contents.value
 
     def test_annotate_c_int_ptr(self):
+        ptrtype = POINTER(c_int)
         def func():
             res = c_int(42)
-            ptrtype  = POINTER(c_int)
             ptrres  = ptrtype(res)
             return ptrres.contents.value
         
@@ -34,9 +34,9 @@ class Test_annotation:
         assert s.knowntype == int
 
     def test_annotate_c_float_ptr(self):
+        ptrtype = POINTER(c_float)
         def func():
             res = c_float(4.2)
-            ptrtype  = POINTER(c_float)
             ptrres  = ptrtype(res)
             return ptrres.contents.value
         
@@ -50,14 +50,13 @@ class Test_annotation:
         assert s.knowntype == float
 
 class Test_specialization:
-    def x_test_specialize_c_int_ptr(self):
+    def test_specialize_c_int_ptr(self):
+        py.test.skip("in-progress")
+        ptrtype = POINTER(c_int)
         def func():
             res = c_int(42)
-            ptrtype  = POINTER(c_int)
-            ptrres  = ptrtype(res)
-
+            ptrres = ptrtype(res)
             return ptrres.contents.value
 
         res = interpret(func, [])
-
         assert res == 42

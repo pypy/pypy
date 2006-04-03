@@ -652,7 +652,7 @@ class __extend__(SomeCTypesObject):
             else:
                 if extregistry.is_registered_type(cto.knowntype):
                     entry = extregistry.lookup_type(cto.knowntype)
-                    s_value = entry.fields_s[attr]
+                    s_value = entry.get_field_annotation(cto, attr)
                     return s_value
                 else:
                     atype = cto.knowntype._fields_def_[attr]
