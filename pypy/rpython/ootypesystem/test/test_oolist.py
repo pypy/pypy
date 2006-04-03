@@ -10,3 +10,8 @@ def test_len():
     l = new(LT)
     assert l.length() == 0
 
+def test_append():
+    LT = List(Signed)
+    l = new(LT)
+    l.append(1)
+    assert l.length() == 1

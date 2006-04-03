@@ -108,3 +108,15 @@ def test_list_len():
     rettype = g.getreturnvar().concretetype
     assert rettype == Signed
 
+def test_list_append():
+    LT = List(Signed)
+
+    def oof():
+        l = new(LT)
+        l.append(1)
+        return l.length()
+
+    g = gengraph(oof, [])
+    rettype = g.getreturnvar().concretetype
+    assert rettype == Signed
+

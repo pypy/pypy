@@ -175,11 +175,19 @@ class List(OOType):
     def __init__(self, ITEMTYPE):
         self._ITEMTYPE = ITEMTYPE
 
+        # This defines the abstract list interface that backends will have
+        # to map to their native list implementations.
+        self._METHODS = frozendict({
+            # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
+            "length": Meth([], Unsigned),
+            "append": Meth([ITEMTYPE], Void),
+        })
+
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self._ITEMTYPE)
 
     def _lookup(self, meth_name):
-        METH = LIST_METHODS.get(meth_name)
+        METH = self._METHODS.get(meth_name)
         meth = None
         if METH is not None:
             meth = _meth(METH, _name=meth_name,
@@ -438,13 +446,6 @@ class _bound_meth(object):
        return callb(self.inst, *checked_args)
 
 
-# This defines the abstract list interface that backends will have to map to
-# their native list implementations.
-LIST_METHODS = frozendict({
-    # "method name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
-    "length": Meth([], Unsigned),
-})
-
 class _list(object):
 
     def __init__(self, LIST):
@@ -467,6 +468,10 @@ class _list(object):
         # NOT_RPYTHON
         return len(self._list)
 
+    def append(self, item):
+        # NOT_RPYTHON
+        assert typeOf(item) == self._TYPE._ITEMTYPE
+        self._list.append(item)
 
 def new(TYPE):
     if isinstance(TYPE, Instance):
