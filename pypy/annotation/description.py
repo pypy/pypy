@@ -628,9 +628,17 @@ class FrozenDesc(Desc):
         super(FrozenDesc, self).__init__(bookkeeper, pyobj)
         if read_attribute is None:
             read_attribute = lambda attr: getattr(pyobj, attr)
-        self.read_attribute = read_attribute
+        self._read_attribute = read_attribute
+        self.attrcache = {}
         self.knowntype = new_or_old_class(pyobj)
         assert bool(pyobj), "__nonzero__ unsupported on frozen PBC %r" %(pyobj,)
+
+    def read_attribute(self, attr):
+        try:
+            return self.attrcache[attr]
+        except KeyError:
+            result = self.attrcache[attr] = self._read_attribute(attr)
+            return result
 
     def s_read_attribute(self, attr):
         try:
@@ -648,13 +656,7 @@ class FrozenDesc(Desc):
             pass
         else:
             raise AssertionError("name clash: %r" % (name,))
-        def extended_read_attribute(attr):
-            if attr == name:
-                return value
-            else:
-                return previous_read_attribute(attr)
-        previous_read_attribute = self.read_attribute
-        self.read_attribute = extended_read_attribute
+        self.attrcache[name] = value
 
 
 class MethodOfFrozenDesc(Desc):

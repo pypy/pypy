@@ -967,6 +967,20 @@ class BaseTestRPBC:
             assert res.item0 == f(i)[0]
             assert res.item1 == f(i)[1]
 
+    def test_pbc_imprecise_attrfamily(self):
+        fr1 = Freezing(); fr1.x = 5; fr1.y = [8]
+        fr2 = Freezing(); fr2.x = 6; fr2.y = ["string"]
+        def head(fr):
+            return fr.y[0]
+        def f(n):
+            if n == 1:
+                fr = fr1
+            else:
+                fr = fr2
+            return head(fr1) + fr.x
+        res = interpret(f, [2], type_system=self.ts)
+        assert res == 8 + 6
+
     def test_multiple_specialized_functions(self):
         def myadder(x, y):   # int,int->int or str,str->str
             return x+y
