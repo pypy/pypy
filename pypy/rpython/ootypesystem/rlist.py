@@ -46,16 +46,11 @@ FixedSizeListRepr = BaseListRepr
 class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
     def rtype_getitem((r_list, r_int), hop):
-        # XXX must handle exceptions
-        #if hop.has_implicit_exception(IndexError):
         # XXX must handle negative indices
         return r_list.send_message(hop, "getitem", can_raise=True)
 
     def rtype_setitem((r_list, r_int), hop):
-        # XXX must handle exceptions
-        #if hop.has_implicit_exception(IndexError):
         # XXX must handle negative indices
-        #if hop.has_implicit_exception(IndexError):
         return r_list.send_message(hop, "setitem", can_raise=True)
 
 def newlist(llops, r_list, items_v):

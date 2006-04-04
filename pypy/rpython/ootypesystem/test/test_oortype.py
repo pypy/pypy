@@ -121,7 +121,6 @@ def test_list_append():
     assert rettype == Unsigned
 
 def test_list_getitem_setitem():
-    # XXX need to test exceptions
     LT = List(Signed)
 
     def oof():
@@ -134,3 +133,16 @@ def test_list_getitem_setitem():
     rettype = g.getreturnvar().concretetype
     assert rettype == Signed
 
+def test_list_getitem_exceptions():
+    LT = List(Signed)
+
+    def oof():
+        l = new(LT)
+        try:
+            l.getitem(0)
+        except IndexError:
+            return -1
+        return 0
+
+    res = interpret(oof, [], type_system='ootype')
+    assert res is -1

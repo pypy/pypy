@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.ootypesystem.ootype import *
 
@@ -24,6 +25,12 @@ def test_setitem_getitem():
     assert l.getitem(0) == 2
     l.setitem(0, 3)
     assert l.getitem(0) == 3
+
+def test_setitem_indexerror():
+    LT = List(Signed)
+    l = new(LT)
+    py.test.raises(IndexError, l.getitem, 0)
+    py.test.raises(IndexError, l.setitem, 0, 1)
 
 class TestInterpreted:
 

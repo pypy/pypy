@@ -68,6 +68,7 @@ class OOBoundMethRepr(Repr):
     def rtype_simple_call(self, hop):
         vlist = hop.inputargs(self, *hop.args_r[1:])
         cname = hop.inputconst(Void, self.name)
+        hop.exception_is_here()
         return hop.genop("oosend", [cname]+vlist,
                          resulttype = hop.r_result.lowleveltype)
         
