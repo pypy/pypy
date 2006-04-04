@@ -390,13 +390,13 @@ class Bookkeeper:
                 if result is None:
                     result = SomeObject()
             else:
-                try:
+                # note that the print support functions are __builtin__
+                if hasattr(x, '__module__') and x.__module__ != '__builtin__' \
+                   or tp in (types.FunctionType, types.MethodType):
                     result = SomePBC([self.getdesc(x)])
-                except AssertionError, e:
-                    if not self.annotator.policy.allow_someobjects:
-                        raise
+                else:
+                    # a builtin that we don't handle specially
                     result = SomeObject()
-
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
             # user-defined classes can define a method _freeze_(), which
