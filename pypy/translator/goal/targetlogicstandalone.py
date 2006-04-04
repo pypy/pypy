@@ -44,6 +44,8 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
+opt_defaults = {'stackless' :  True}
+
 def target(driver, args):
     options = driver.options
 
