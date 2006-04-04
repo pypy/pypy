@@ -7,7 +7,7 @@ from pypy.translator.translator import TranslationContext
 from pypy import conftest
 from pypy.rpython.test.test_llinterp import interpret
 
-from ctypes import c_int, c_float, POINTER
+from ctypes import c_int, c_float, POINTER, pointer
 
 import pypy.rpython.rctypes.implementation
 
@@ -48,6 +48,21 @@ class Test_annotation:
             t.view()
 
         assert s.knowntype == float
+
+    def test_annotate_pointer_fn(self):
+        def func():
+            p = pointer(c_int(123))
+            return p.contents.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+
+        if conftest.option.view:
+            t.view()
+
+        assert s.knowntype == int
+
 
 class Test_specialization:
     def test_specialize_c_int_ptr(self):
@@ -94,19 +109,28 @@ class Test_specialization:
         ptrptrtype = POINTER(ptrtype)
         def func(n):
             if n == 1:
-                x = c_int(6)
-                p1 = ptrtype(x)
+                p1 = ptrtype(c_int(6))
                 p2 = ptrptrtype(p1)
             else:
                 if n == 2:
-                    y = c_int(7)
-                    p1 = ptrtype(y)
+                    p1 = ptrtype(c_int(7))
                 else:
-                    z = c_int(8)
-                    p1 = ptrtype(z)
+                    p1 = ptrtype(c_int(8))
                 p2 = ptrptrtype(p1)
-            p2.contents.contents.value *= 6
+            del p1
+            p3 = ptrptrtype(p2.contents)
+            p3.contents.contents.value *= 6
             return p2.contents.contents.value
 
+        assert func(2) == 42
         res = interpret(func, [2])
         assert res == 42
+
+    def test_specialize_pointer_fn(self):
+        def func():
+            p = pointer(c_int(123))
+            return p.contents.value
+
+        assert func() == 123
+        res = interpret(func, [])
+        assert res == 123

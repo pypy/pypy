@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
-from ctypes import POINTER, c_int
+from ctypes import POINTER, pointer, c_int
 
 class PointerRepr(CTypesValueRepr):
     def __init__(self, rtyper, s_pointer, s_contents):
@@ -150,3 +150,16 @@ entry = extregistry.register_metatype(PointerType,
         compute_annotation=pointerinstance_compute_annotation,
         get_repr=pointerinstance_get_repr)
 entry.get_field_annotation = pointerinstance_field_annotation
+
+def pointerfn_compute_annotation(s_arg):
+    assert isinstance(s_arg, annmodel.SomeCTypesObject)
+    ctype = s_arg.knowntype
+    result_ctype = POINTER(ctype)
+    return annmodel.SomeCTypesObject(result_ctype,
+                                     annmodel.SomeCTypesObject.OWNSMEMORY)
+
+extregistry.register_value(pointer,
+        compute_result_annotation=pointerfn_compute_annotation,
+        # same rtyping for calling pointer() or calling a specific instance
+        # of PointerType:
+        specialize_call=pointertype_specialize_call)
