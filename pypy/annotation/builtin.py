@@ -96,9 +96,6 @@ def restricted_ulonglong(s_obj):    # for r_uint
 def builtin_float(s_obj):
     return constpropagate(float, [s_obj], SomeFloat())
 
-def builtin_long(s_obj):
-    return SomeObject()   # XXX go away
-
 def builtin_chr(s_int):
     return constpropagate(chr, [s_int], SomeChar())
 
@@ -190,6 +187,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
     return r
 
+# note that this one either needs to be constant, or we will create SomeObject
 def builtin_hasattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
         getbookkeeper().warning('hasattr(%r, %r) is not RPythonic enough' %
