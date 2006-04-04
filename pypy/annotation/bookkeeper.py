@@ -354,8 +354,6 @@ class Bookkeeper:
                 for ek, ev in x.iteritems():
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
-        elif ishashable(x) and x in DEFINED_SOMEOBJECTS: # sys by default
-            return SomeObject()
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
@@ -365,8 +363,6 @@ class Bookkeeper:
             result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
         elif hasattr(tp, "compute_annotation"):
             result = tp.compute_annotation()
-        elif tp in DEFINED_SOMEOBJECTS:
-            return SomeObject()
         elif tp in EXTERNAL_TYPE_ANALYZERS:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
@@ -701,8 +697,7 @@ def getbookkeeper():
 
 def delayed_imports():
     # import ordering hack
-    global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS, DEFINED_SOMEOBJECTS
+    global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS
     from pypy.annotation.builtin import BUILTIN_ANALYZERS
     from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
-    from pypy.annotation.registry import DEFINED_SOMEOBJECTS
 
