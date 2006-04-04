@@ -16,8 +16,6 @@ from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
 # Should this be registered with the annotator?
 from pypy.interpreter.baseobjspace import ObjSpace
 
-from pypy.annotation.registry import IMPORT_HINTS
-
 class PyObjMaker:
     """Handles 'PyObject*'; factored out from LowLevelDatabase.
     This class contains all the nameof_xxx() methods that allow a wild variety
@@ -38,7 +36,8 @@ class PyObjMaker:
                                #   objects
         self.debugstack = ()  # linked list of nested nameof()
         self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
-        self.import_hints = IMPORT_HINTS
+        self.import_hints = {} # I don't seem to need it any longer.
+        # leaving the import support intact, doesn't hurt.
         self.instantiators = instantiators
 
     def nameof(self, obj, debug=None):
@@ -169,10 +168,7 @@ class PyObjMaker:
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
-
-        # XXX this is broken after the translationcontext change!
-        # the frozen attribute is gone. What to do?
-        if self.translator.frozen:
+        if self.translator.annotator.frozen:
             warning = 'NOT GENERATING'
         else:
             warning = 'skipped'

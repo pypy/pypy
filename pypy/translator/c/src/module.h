@@ -57,6 +57,10 @@ typedef struct {
 	PyMethodDef ml;
 } globalfunctiondef_t;
 
+/* helper-hook for post-setup */
+static globalfunctiondef_t *globalfunctiondefsptr;
+static PyObject *postsetup_get_type_dict(PyObject *tp);
+static PyObject *postsetup_build_method(int funcidx);
 
 /* implementations */
 
@@ -138,6 +142,23 @@ static int setup_initcode(char* frozendata[], int len)
 		return -1;
 	Py_DECREF(res);
 	return 0;
+}
+
+static PyObject *postsetup_get_type_dict(PyObject *tp)
+{
+    PyTypeObject *type = (PyTypeObject *)tp;
+    PyObject *ret;
+
+    ret = type->tp_dict;
+    Py_INCREF(ret);
+    return ret;
+}
+
+static PyObject *postsetup_build_method(int funcidx, PyObject *type)
+{   
+    globalfunctiondef_t *gfuncdef = &globalfunctiondefsptr[funcidx];
+
+    return PyDescr_NewMethod((PyTypeObject *)type, &gfuncdef->ml);
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */

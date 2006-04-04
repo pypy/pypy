@@ -56,10 +56,14 @@ class CBuilder(object):
         pfname = db.get(pf)
         self.exports[self.entrypoint.func_name] = pf
         for obj in exports:
+            objname = None
+            if type(obj) is tuple:
+                objname, obj = obj
             po = self.getentrypointptr(obj)
-            poname = objname = db.get(po)
+            poname = db.get(po)
             if hasattr(obj, '__name__'):
                 objname = obj.__name__
+            objname = objname or poname
             if objname in self.exports:
                 raise NameError, 'duplicate name in export: %s is %s and %s' % (
                     objname, db.get(self.exports[objname]), poname)
@@ -667,6 +671,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
             wrapper_name))
     print >> f, '\t{ NULL }\t/* Sentinel */'
     print >> f, '};'
+    print >> f, 'static globalfunctiondef_t *globalfunctiondefsptr = &globalfunctiondefs[0];'
     print >> f
     print >> f, '/***********************************************************/'
     print >> f, '/***  Frozen Python bytecode: the initialization code    ***/'
