@@ -7,6 +7,7 @@ from pypy.rpython.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
 from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
 #-- THE BUILTINS ----------------------------------------------------------------------
@@ -203,7 +204,7 @@ def wait__Var(space, w_self):
                     need_waiters = schedule_state.pop_blocked_byneed_on(w_alias)
                     w_alias.w_needed = True
                     for waiter in need_waiters:
-                        print "  :byneed waiter", waiter, "awaken on", w_alias
+                        #print "  :byneed waiter", waiter, "awaken on", w_alias
                         schedule_state.add_to_runnable(waiter)
                 # set curr thread to blocked, switch to runnable thread
                 current = get_current_coroutine()
@@ -211,7 +212,7 @@ def wait__Var(space, w_self):
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
-                        print "  :waiter is switching"
+                        #print "  :waiter is switching"
                         next_coro.switch()
                         #print " waiter is back"
                         # hope there is a value here now
@@ -234,7 +235,7 @@ all_mms['wait'] = wait_mm
 
 def wait_needed__Var(space, w_self):
     while 1:
-        print " :needed", w_self
+        #print " :needed", w_self
         if space.is_true(space.is_free(w_self)):
             if w_self.w_needed:
                 break # we're done
@@ -249,7 +250,7 @@ def wait_needed__Var(space, w_self):
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
-                        print "  :needed is switching"
+                        #print "  :needed is switching"
                         next_coro.switch()
                         #print " byneed is back"
                         # there might be some need right now
@@ -282,6 +283,7 @@ app_is_aliased = gateway.interp2app(is_aliased)
 
 def is_free(space, w_obj):
     return space.is_free(w_obj)
+app_is_free = gateway.interp2app(is_free)
 
 def is_free__Root(space, w_obj):
     return space.newbool(False)
@@ -289,7 +291,6 @@ def is_free__Root(space, w_obj):
 def is_free__Var(space, w_var):
     return space.newbool(isinstance(w_var.w_bound_to, W_Var))
 
-app_is_free = gateway.interp2app(is_free)
 is_free_mm = StdObjSpaceMultiMethod('is_free', 1)
 is_free_mm.register(is_free__Root, W_Root)
 is_free_mm.register(is_free__Var, W_Var)
@@ -297,6 +298,7 @@ all_mms['is_free'] = is_free_mm
 
 def is_bound(space, w_obj):
     return space.is_bound(w_obj)
+app_is_bound = gateway.interp2app(is_bound)
 
 def is_bound__Root(space, w_obj):
     return space.newbool(True)
@@ -304,7 +306,6 @@ def is_bound__Root(space, w_obj):
 def is_bound__Var(space, w_var):
     return space.newbool(not isinstance(w_var.w_bound_to, W_Var))
 
-app_is_bound = gateway.interp2app(is_bound)
 is_bound_mm = StdObjSpaceMultiMethod('is_bound', 1)
 is_bound_mm.register(is_bound__Root, W_Root)
 is_bound_mm.register(is_bound__Var, W_Var)
@@ -314,8 +315,6 @@ all_mms['is_bound'] = is_bound_mm
 def alias_of(space, w_var1, w_var2): # FIXME: appears to block
     assert space.is_true(space.is_free(w_var1))
     assert space.is_true(space.is_free(w_var2))
-    # w_var2 could be a right-alias of w_var2
-    # or the other way around
     w_curr = w_var1
     while 1:
         w_next = w_curr.w_bound_to
@@ -330,15 +329,15 @@ app_alias_of = gateway.interp2app(alias_of)
 
 #-- HELPERS ----------------------
 
-def disp(space, w_var):
-    print w_var
-app_disp = gateway.interp2app(disp)
+## def disp(space, w_var):
+##     print w_var
+## app_disp = gateway.interp2app(disp)
 
-def disp_aliases(space, w_var):
-    print "Aliases of ", w_var, "are", 
-    for w_al in aliases(space, w_var):
-        print w_al,
-    print
+## def disp_aliases(space, w_var):
+##     print "Aliases of ", w_var, "are", 
+##     for w_al in aliases(space, w_var):
+##         print w_al,
+##     print
 
 def deref(space, w_var):
     """gets the value of a bound variable
@@ -371,9 +370,9 @@ def get_ring_tail(space, w_start):
 def fail(space, w_obj1, w_obj2):
     """raises a specific exception for bind/unify"""
     #FIXME : really raise some specific exception
-    print "failed to bind/unify"
+    #print "failed to bind/unify"
     raise OperationError(space.w_RuntimeError,
-                         space.wrap("UnificationFailure"))
+                         space.wrap("Unification failure"))
 
 def check_and_memoize_pair(space, w_x, w_y):
     pass
@@ -415,14 +414,14 @@ def bind(space, w_var, w_obj):
        2. assign bound var to unbound var
        3. assign value to unbound var
     """
-    print " :bind", w_var, w_obj
+    #print " :bind", w_var, w_obj
     space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
 
 def bind__Var_Var(space, w_var, w_obj):
     if space.is_true(space.is_bound(w_var)):
         if space.is_true(space.is_bound(w_obj)):
-            return unify(space,
+            return unify(space, #FIXME: we could just raise
                          deref(space, w_var),
                          deref(space, w_obj))
         # 2. a (obj unbound, var bound)
@@ -438,7 +437,7 @@ def bind__Var_Root(space, w_v1, w_v2):
     # 3. var and value
     if space.is_true(space.is_free(w_v1)):
         return _assign(space, w_v1, w_v2)
-    print "uh !"
+    #print "uh !"
     fail(space, w_v1, w_v2)
 
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
@@ -447,13 +446,13 @@ bind_mm.register(bind__Var_Var, W_Var, W_Var)
 all_mms['bind'] = bind_mm
 
 def _assign(space, w_var, w_val):
-    print "  :assign", w_var, w_val, '[',
+    #print "  :assign", w_var, w_val, '[',
     w_curr = w_var
     ass_count = 0
     while 1:
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_val
-        print w_curr, 
+        #print w_curr, 
         ass_count += 1
         # notify the blocked threads
         to_awake = schedule_state.pop_blocked_on(w_curr)
@@ -463,13 +462,13 @@ def _assign(space, w_var, w_val):
             break
         # switch to next
         w_curr = w_next
-    print "] (to", ass_count, "aliases)"
+    #print "] (to", ass_count, "aliases)"
     return space.w_None
     
 def _alias(space, w_v1, w_v2):
     """appends one var to the alias chain of another
        user must ensure freeness of both vars"""
-    print "  :alias", w_v1, w_v2
+    #print "  :alias", w_v1, w_v2
     if space.is_true(space.is_nb_(w_v1, w_v2)):
         return space.w_None
     if space.is_true(is_aliased(space, w_v1)):
@@ -484,14 +483,14 @@ def _alias(space, w_v1, w_v2):
     return space.w_None
 
 def _add_to_aliases(space, w_v1, w_v2):
-    print "   :add to aliases", w_v1, w_v2
+    #print "   :add to aliases", w_v1, w_v2
     w_tail = w_v1.w_bound_to
     w_v1.w_bound_to = w_v2
     w_v2.w_bound_to = w_tail
     return space.w_None
     
 def _merge_aliases(space, w_v1, w_v2):
-    print "   :merge aliases", w_v1, w_v2
+    #print "   :merge aliases", w_v1, w_v2
     w_tail1 = get_ring_tail(space, w_v1)
     w_tail2 = get_ring_tail(space, w_v2)
     w_tail1.w_bound_to = w_v2
@@ -501,22 +500,27 @@ def _merge_aliases(space, w_v1, w_v2):
 #-- UNIFY -------------------------
 
 def unify(space, w_x, w_y):
-    print ":unify ", w_x, w_y
+    #print ":unify ", w_x, w_y
     return space.unify(w_x, w_y)
 app_unify = gateway.interp2app(unify)
 
-def unify__Root_Root(space, w_x, w_y):
+def unify__Int_Int(space, w_x, w_y):
     if not space.eq_w(w_x, w_y):
-        w_d1 = w_x.getdict()
-        w_d2 = w_y.getdict()
-        if None not in (w_d1, w_d2):
-            return space.unify(w_d1, w_d2)
-        else:
             fail(space, w_x, w_y)
     return space.w_None
+
+## def unify__Root_Root(space, w_x, w_y):
+##     if not space.eq_w(w_x, w_y):
+##         w_d1 = w_x.getdict()
+##         w_d2 = w_y.getdict()
+##         if None not in (w_d1, w_d2):
+##             return space.unify(w_d1, w_d2)
+##         else:
+##             fail(space, w_x, w_y)
+##     return space.w_None
     
 def unify__Var_Var(space, w_x, w_y):
-    print " :unify of two vars"
+    #print " :unify of two vars"
     if space.is_true(space.is_bound(w_x)):
         if space.is_true(space.is_bound(w_y)):
             return space.unify(deref(space, w_x), 
@@ -527,7 +531,7 @@ def unify__Var_Var(space, w_x, w_y):
         return bind(space, w_x, w_y) 
     
 def unify__Var_Root(space, w_x, w_y):
-    print " :unify var and value"
+    #print " :unify var and value"
     if space.is_true(space.is_bound(w_x)):
         return space.unify(deref(space, w_x), w_y)            
     return bind(space, w_x, w_y)
@@ -542,7 +546,7 @@ def unify__List_List(space, w_x, w_y):
     return _unify_iterables(space, w_x, w_y)
     
 def _unify_iterables(space, w_i1, w_i2):
-    print " :unify iterables", w_i1, w_i2
+    #print " :unify iterables", w_i1, w_i2
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
@@ -555,7 +559,7 @@ def _unify_iterables(space, w_i1, w_i2):
         unify(space, w_xi, w_yi)
 
 def unify__Dict_Dict(space, w_m1, w_m2):
-    print " :unify mappings", w_m1, w_m2
+    #print " :unify mappings", w_m1, w_m2
     for w_xk in w_m1.content.keys():
         w_xi = space.getitem(w_m1, w_xk)
         w_yi = space.getitem(w_m2, w_xk)
@@ -565,13 +569,16 @@ def unify__Dict_Dict(space, w_m1, w_m2):
 
 
 unify_mm = StdObjSpaceMultiMethod('unify', 2)
-unify_mm.register(unify__Root_Root, W_Root, W_Root)
-unify_mm.register(unify__Var_Var, W_Var, W_Var)
-unify_mm.register(unify__Var_Root, W_Var, W_Root)
-unify_mm.register(unify__Root_Var, W_Root, W_Var)
-unify_mm.register(unify__Tuple_Tuple, W_TupleObject, W_TupleObject)
-unify_mm.register(unify__List_List, W_ListObject, W_ListObject)
-unify_mm.register(unify__Dict_Dict, W_DictObject, W_DictObject)
+#unify_mm.register(unify__Root_Root, W_Root, W_Root)
+
+unify_mm.register(unify__Int_Int, W_IntObject, W_IntObject)
+
+## unify_mm.register(unify__Var_Var, W_Var, W_Var)
+## unify_mm.register(unify__Var_Root, W_Var, W_Root)
+## unify_mm.register(unify__Root_Var, W_Root, W_Var)
+## unify_mm.register(unify__Tuple_Tuple, W_TupleObject, W_TupleObject)
+## unify_mm.register(unify__List_List, W_ListObject, W_ListObject)
+## unify_mm.register(unify__Dict_Dict, W_DictObject, W_DictObject)
 
 all_mms['unify'] = unify_mm
 
@@ -688,6 +695,9 @@ def proxymaker(space, opname, parentfn):
 
 #-- THE SPACE ---------------------------------------
 
+#class UnificationError(w_RuntimeError):
+#    pass
+
 from pypy.objspace.std import stdtypedef 
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -712,7 +722,6 @@ def Space(*args, **kwds):
                 return func(space, *args)
             return func_with_new_name(boundmethod, 'boundmethod_'+name)
         boundmethod = make_boundmethod()
-        print boundmethod
         setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethod hack
 
@@ -734,8 +743,8 @@ def Space(*args, **kwds):
                   space.wrap(app_alias_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
                   space.wrap(app_is_aliased))
-    space.setitem(space.builtin.w_dict, space.wrap('disp'),
-                 space.wrap(app_disp))
+##     space.setitem(space.builtin.w_dict, space.wrap('disp'),
+##                  space.wrap(app_disp))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
