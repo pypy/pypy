@@ -23,7 +23,14 @@ class LLException(Exception):
             extra = extra.replace('\n', '\n | ') + '\n `------'
         else:
             extra = ''
-        return '<LLException %r%s>' % (''.join(etype.name).rstrip('\x00'), extra)
+        return '<LLException %r%s>' % (type_name(etype), extra)
+
+def type_name(etype):
+    if isinstance(lltype.typeOf(etype), lltype.Ptr):
+        return ''.join(etype.name).rstrip('\x00')
+    else:
+        # ootype!
+        return etype.class_._INSTANCE._name.split(".")[-1] 
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -94,14 +101,19 @@ class LLInterpreter(object):
         assert isinstance(exc, LLException)
         import exceptions
         klass, inst = exc.args[0], exc.args[1]
-        # indirect way to invoke fn_pyexcclass2exc, for memory/test/test_llinterpsim
-        f = self.typer.getexceptiondata().fn_pyexcclass2exc
-        obj = self.typer.type_system.deref(f)
-        ll_pyexcclass2exc_graph = obj.graph
-        for cls in exceptions.__dict__.values():
-            if type(cls) is type(Exception):
-                if self.eval_graph(ll_pyexcclass2exc_graph, [lltype.pyobjectptr(cls)]).typeptr == klass:
-                    return cls
+        exdata = self.typer.getexceptiondata()
+        frame = LLFrame(None, [], self)
+        old_active_frame = self.active_frame
+        try:
+            for cls in exceptions.__dict__.values():
+                if type(cls) is type(Exception):
+                    evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
+                            lltype.pyobjectptr(cls))
+                    etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
+                    if etype == klass:
+                        return cls
+        finally:
+            self.active_frame = old_active_frame
         raise ValueError, "couldn't match exception"
 
 
@@ -126,7 +138,7 @@ def checkinst(inst):
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
-        assert isinstance(graph, FunctionGraph)
+        assert not graph or isinstance(graph, FunctionGraph)
         self.graph = graph
         self.args = args
         self.llinterpreter = llinterpreter

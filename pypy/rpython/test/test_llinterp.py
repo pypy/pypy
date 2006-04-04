@@ -128,6 +128,8 @@ def test_raise():
     assert res == 41
     interpret_raises(IndexError, raise_exception, [42])
     interpret_raises(ValueError, raise_exception, [43])
+    interpret_raises(IndexError, raise_exception, [42], type_system="ootype")
+    interpret_raises(ValueError, raise_exception, [43], type_system="ootype")
 
 def test_call_raise():
     res = interpret(call_raise, [41])
