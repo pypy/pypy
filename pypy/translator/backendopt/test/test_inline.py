@@ -469,4 +469,24 @@ def test_inline_copies_cleanups():
         t.view()
     assert hasattr(ggraph.startblock.operations[0], "cleanup")
 
-
+def test_keepalive_hard_case():
+    py.test.skip("fix this :(")
+    from pypy.rpython.lltypesystem import lltype
+    Y = lltype.Struct('y', ('n', lltype.Signed))
+    X = lltype.GcStruct('x', ('y', Y))
+    def g(x):
+        if x:
+            return 3
+        else:
+            return 4
+    def f():
+        x = lltype.malloc(X)
+        x.y.n = 2
+        y = x.y
+        z1 = g(y.n)
+        z = y.n
+        return z+z1
+    eval_func = check_inline(g, f, [])
+    res = eval_func([])
+    assert res == 5
+        
