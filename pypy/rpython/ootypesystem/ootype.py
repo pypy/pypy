@@ -174,6 +174,7 @@ class List(OOType):
 
     def __init__(self, ITEMTYPE):
         self._ITEMTYPE = ITEMTYPE
+        self._null = _null_list(self)
 
         # This defines the abstract list interface that backends will have
         # to map to their native list implementations.
@@ -198,6 +199,9 @@ class List(OOType):
 
     def _example(self):
         return new(self)
+
+    def _defl(self):
+        return self._null
 
 # ____________________________________________________________
 
@@ -277,34 +281,36 @@ class _instance(object):
             return 0   # for all null instances
 
 
-class _null_instance(_instance):
+def _null_mixin(klass):
+    class mixin(object):
+
+        def __str__(self):
+            return '%r null inst' % (self._TYPE._name,)
+
+        def __getattribute__(self, name):
+            if name.startswith("_"):
+                return object.__getattribute__(self, name)
+        
+            raise RuntimeError("Access to field in null object")
+
+        def __setattr__(self, name, value):
+            klass.__setattr__(self, name, value)
+
+            raise RuntimeError("Assignment to field in null object")
+
+        def __nonzero__(self):
+            return False
+
+        def __eq__(self, other):
+            if not isinstance(other, klass):
+                raise TypeError("comparing an %s with %r" % (klass.__name__, other))
+            return not other
+    return mixin
+
+class _null_instance(_null_mixin(_instance), _instance):
 
     def __init__(self, INSTANCE):
         self.__dict__["_TYPE"] = INSTANCE
-
-    def __str__(self):
-        return '%r null inst' % (self._TYPE._name,)
-
-    def __getattribute__(self, name):
-        if name.startswith("_"):
-            return object.__getattribute__(self, name)
-    
-        self._TYPE._check_field(name)
-        
-        raise RuntimeError("Access to field in null object")
-
-    def __setattr__(self, name, value):
-        _instance.__setattr__(self, name, value)
-
-        raise RuntimeError("Assignment to field in null object")
-
-    def __nonzero__(self):
-        return False
-
-    def __eq__(self, other):
-        if not isinstance(other, _instance):
-            raise TypeError("comparing an _instance with %r" % (other,))
-        return not other
 
 
 class _view(object):
@@ -485,6 +491,11 @@ class _list(object):
         assert typeOf(item) == self._TYPE._ITEMTYPE
         assert typeOf(index) == Signed
         self._list[index] = item
+
+class _null_list(_null_mixin(_list), _list):
+
+    def __init__(self, LIST):
+        self.__dict__["_TYPE"] = LIST 
 
 def new(TYPE):
     if isinstance(TYPE, Instance):

@@ -32,6 +32,11 @@ def test_setitem_indexerror():
     py.test.raises(IndexError, l.getitem, 0)
     py.test.raises(IndexError, l.setitem, 0, 1)
 
+def test_null():
+    LT = List(Signed)
+    n = null(LT)
+    py.test.raises(RuntimeError, "n.append(0)")
+
 class TestInterpreted:
 
     def test_append_length(self):
