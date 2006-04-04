@@ -51,3 +51,14 @@ class TestInterpreted:
         res = interpret(f, [2], type_system="ootype")
         assert res == 2 
 
+    def test_getitem_exception(self):
+        def f(x):
+            l = []
+            l.append(x)
+            try:
+                return l[1]
+            except IndexError:
+                return -1
+        res = interpret(f, [2], type_system="ootype")
+        assert res == -1 
+
