@@ -1,4 +1,4 @@
-from pypy.rpython.rmodel import Repr
+from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
@@ -15,6 +15,15 @@ class PointerRepr(CTypesValueRepr):
         ll_contents = lltype.Ptr(self.r_contents.c_data_type)
 
         super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
+
+    def get_content_keepalives(self):
+        "Return an extra keepalive field used for the pointer's contents."
+        return [('keepalive_contents', self.r_contents.owner_lowleveltype)]
+
+    def setkeepalive(self, llops, v_box, v_owner):
+        inputargs = [v_box, inputconst(lltype.Void, 'keepalive_contents'),
+                     v_owner]
+        llops.genop('setfield', inputargs)
 
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
@@ -113,7 +122,9 @@ def pointertype_specialize_call(hop):
     if len(hop.args_s):
         v_contentsbox, = hop.inputargs(r_ptr.r_contents)
         v_c_data = r_ptr.r_contents.get_c_data(hop.llops, v_contentsbox)
+        v_owner = r_ptr.r_contents.get_c_data_owner(hop.llops, v_contentsbox)
         r_ptr.setvalue(hop.llops, v_result, v_c_data)
+        r_ptr.setkeepalive(hop.llops, v_result, v_owner)
     return v_result
 
 def pointerinstance_compute_annotation(type, instance):

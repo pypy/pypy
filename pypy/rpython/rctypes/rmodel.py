@@ -25,6 +25,9 @@ class CTypesRepr(Repr):
     #                   variables.  It's a Ptr to a GcStruct.  This is a box
     #                   traked by our GC around the raw 'c_data_type'-shaped
     #                   data.
+    #
+    #  * 'owner_lowleveltype' is the lowleveltype of the repr for the same
+    #                         ctype but for ownsmemory=True.
 
     def __init__(self, rtyper, s_ctypesobject, ll_type):
         # s_ctypesobject: the annotation to represent
@@ -44,21 +47,29 @@ class CTypesRepr(Repr):
             raise TyperError("unsupported ctypes memorystate %r" % memorystate)
 
         self.c_data_type = self.get_c_data_type(ll_type)
+        content_keepalives = self.get_content_keepalives()
 
-        if self.ownsmemory:
-            self.lowleveltype = lltype.Ptr(
+        self.owner_lowleveltype = lltype.Ptr(
                 lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                    ( "c_data", self.c_data_type )
+                    ( "c_data", self.c_data_type ),
+                    *content_keepalives
                 )
             )
+        if self.ownsmemory:
+            self.lowleveltype = self.owner_lowleveltype
         else:
             self.lowleveltype = lltype.Ptr(
                 lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                    ( "c_data_ref", lltype.Ptr(self.c_data_type) )
+                    ( "c_data_ref", lltype.Ptr(self.c_data_type) ),
+                    ( "c_data_owner_keepalive", self.owner_lowleveltype ),
+                    *content_keepalives
                 )
             )
-        # XXX keepalives...
         self.const_cache = {} # store generated const values+original value
+
+    def get_content_keepalives(self):
+        "Return extra keepalive fields used for the content of this object."
+        return []
 
     def get_c_data(self, llops, v_box):
         if self.ownsmemory:
@@ -70,11 +81,20 @@ class CTypesRepr(Repr):
             return llops.genop('getfield', inputargs,
                         lltype.Ptr(self.c_data_type) )
 
+    def get_c_data_owner(self, llops, v_box):
+        if self.ownsmemory:
+            return v_box
+        else:
+            inputargs = [v_box, inputconst(lltype.Void,
+                                           "c_data_owner_keepalive")]
+            return llops.genop('getfield', inputargs,
+                               self.owner_lowleveltype)
+
     def allocate_instance(self, llops):
         c1 = inputconst(lltype.Void, self.lowleveltype.TO) 
         return llops.genop("malloc", [c1], resulttype=self.lowleveltype)
 
-    def allocate_instance_ref(self, llops, v_c_data):
+    def allocate_instance_ref(self, llops, v_c_data, v_c_data_owner=None):
         """Only if self.ownsmemory is false.  This allocates a new instance
         and initialize its c_data_ref field."""
         if self.ownsmemory:
@@ -83,6 +103,12 @@ class CTypesRepr(Repr):
         v_box = self.allocate_instance(llops)
         inputargs = [v_box, inputconst(lltype.Void, "c_data_ref"), v_c_data]
         llops.genop('setfield', inputargs)
+        if v_c_data_owner is not None:
+            assert v_c_data_owner.concretetype == self.owner_lowleveltype
+            inputargs = [v_box,
+                         inputconst(lltype.Void, "c_data_owner_keepalive"),
+                         v_c_data_owner]
+            llops.genop('setfield', inputargs)
         return v_box
 
 
@@ -94,7 +120,7 @@ class __extend__(pairtype(CTypesRepr, CTypesRepr)):
         if (r_from.ctype == r_to.ctype and
             r_from.ownsmemory and not r_to.ownsmemory):
             v_c_data = r_from.get_c_data(llops, v)
-            return r_to.allocate_instance_ref(llops, v_c_data)
+            return r_to.allocate_instance_ref(llops, v_c_data, v)
         else:
             return NotImplemented
 

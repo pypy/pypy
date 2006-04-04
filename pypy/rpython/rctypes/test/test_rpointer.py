@@ -71,3 +71,20 @@ class Test_specialization:
 
         res = interpret(func, [])
         assert res == 42
+
+    def test_keepalive(self):
+        ptrtype = POINTER(c_int)
+        def func(n):
+            if n == 1:
+                x = c_int(6)
+                p1 = ptrtype(x)
+            else:
+                y = c_int(7)
+                p1 = ptrtype(y)
+            # x or y risk being deallocated by the time we get there,
+            # unless p1 correctly keeps them alive.  The llinterpreter
+            # detects this error exactly.
+            return p1.contents.value
+
+        res = interpret(func, [3])
+        assert res == 7
