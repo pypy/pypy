@@ -15,10 +15,9 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int, ARRAY, POINTER
+from ctypes import c_int, ARRAY, POINTER, pointer
 
 c_int_10 = ARRAY(c_int,10)
-c_int_p_test = POINTER(c_int)
 
 #py.test.skip("Reworking primitive types")
 
@@ -50,22 +49,15 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def x_test_annotate_pointer_access_as_array(self):
+    def test_annotate_pointer_access_as_array(self):
         """
-        Make sure that pointers work the same way as arrays, for 
-        ctypes compatibility.
-
-        :Note: This works because pointer and array classes both
-        have a _type_ attribute, that contains the type of the 
-        object pointed to or in the case of an array the element type. 
+        Make sure that pointers work the same way as arrays.
         """
         def access_array():
             # Never run this function!
-            # See test_annotate_pointer_access_as_array_or_whatever
-            # for the weird reasons why this gets annotated
-            my_pointer = c_int_p_test(10)
+            my_pointer = pointer(c_int(10))
             my_pointer[0] = c_int(1)
-            my_pointer[1] = 2
+            my_pointer[1] = 2    # <== because of this
 
             return my_pointer[0]
 
@@ -73,7 +65,9 @@ class Test_annotation:
         a = t.buildannotator()
         s = a.build_types(access_array, [])
         assert s.knowntype == int
-        #d#t.view()
+
+        if conftest.option.view:
+            t.view()
 
     def x_test_annotate_array_slice_access(self):
         def slice_access():

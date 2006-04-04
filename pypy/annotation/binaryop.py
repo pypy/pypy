@@ -745,6 +745,9 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
 
     def getitem((s_cto, s_index)):
         if s_index.is_constant():
+            # check that the constant index is valid, just because we
+            # are nice (users should really catch such errors by
+            # testing their programs!)
             idx = s_index.const
             knowntype = s_cto.knowntype
             try:
@@ -758,18 +761,20 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
                     raise IndexError( "invalid index" )
                 elif idx < 0:
                     raise IndexError( "invalid index" )
-        try:
-            # This is the case for unboxed values, which
-            # are those having memorystate NOMEMORY
-            return s_cto.knowntype._type_.annotator_type
-        except AttributeError:
-            if extregistry.is_registered_type(s_cto.knowntype._type_):
-                entry = extregistry.lookup_type(s_cto.knowntype._type_)
-                return lltype_to_annotation(entry.lowleveltype)
-                
+
+        # Note: The following works for index either pointers and arrays,
+        # because both have a _type_ attribute that contains the type of the
+        # object pointed to or in the case of an array the element type.
+        assert hasattr(s_cto.knowntype, '_type_')
+        assert extregistry.is_registered_type(s_cto.knowntype._type_)
+        entry = extregistry.lookup_type(s_cto.knowntype._type_)
+        if hasattr(entry, 'lowleveltype'):
+            # special case for reading primitives out of arrays
+            return lltype_to_annotation(entry.lowleveltype)
+        else:
             return SomeCTypesObject(
-                    s_cto.knowntype._type_,
-                    memorystate=s_cto.memorystate)
+                s_cto.knowntype._type_,
+                memorystate=s_cto.memorystate)
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
     def setitem((s_cto, s_slice), s_iterable):
