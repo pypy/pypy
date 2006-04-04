@@ -88,3 +88,25 @@ class Test_specialization:
 
         res = interpret(func, [3])
         assert res == 7
+
+    def test_keepalive_2(self):
+        ptrtype = POINTER(c_int)
+        ptrptrtype = POINTER(ptrtype)
+        def func(n):
+            if n == 1:
+                x = c_int(6)
+                p1 = ptrtype(x)
+                p2 = ptrptrtype(p1)
+            else:
+                if n == 2:
+                    y = c_int(7)
+                    p1 = ptrtype(y)
+                else:
+                    z = c_int(8)
+                    p1 = ptrtype(z)
+                p2 = ptrptrtype(p1)
+            p2.contents.contents.value *= 6
+            return p2.contents.contents.value
+
+        res = interpret(func, [2])
+        assert res == 42
