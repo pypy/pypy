@@ -69,7 +69,7 @@ class StacklessData:
         for caller, callee in translator.callgraph.values():
             # ignore calls issued suggested_primitives -- they are not
             # compiled in, and they typically contain pseudo-recursions
-            func = getattr(caller, 'func')
+            func = getattr(caller, 'func', None)
             # there are graphs without funcs
             if not getattr(func, 'suggested_primitive', False): 
                 callers[caller].append(callee)
@@ -90,7 +90,7 @@ class StacklessData:
                 if ret:
                     break
             else:
-                func = getattr(graph, 'func')
+                func = getattr(graph, 'func', None)
                 ret = func in self.stackless_roots
             del pending[graph]
             can_reach_unwind[graph] = ret
