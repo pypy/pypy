@@ -1,17 +1,21 @@
-from pypy.rpython.rmodel import Repr, inputconst
+from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
+from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
 from ctypes import POINTER, pointer, c_int
 
 class PointerRepr(CTypesValueRepr):
-    def __init__(self, rtyper, s_pointer, s_contents):
-        self.s_pointer = s_pointer
-        self.s_contents = s_contents
-        self.ref_ctype = s_contents.knowntype
-        self.r_contents = rtyper.getrepr(s_contents)
+    def __init__(self, rtyper, s_pointer):
+        ptr_ctype = s_pointer.knowntype
+        ref_ctype = ptr_ctype._type_
+
+        # Find the repr and low-level type of the contents from its ctype
+        self.r_contents = rtyper.getrepr(annmodel.SomeCTypesObject(ref_ctype,
+                                     annmodel.SomeCTypesObject.MEMORYALIAS))
+
         ll_contents = lltype.Ptr(self.r_contents.c_data_type)
 
         super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
@@ -30,8 +34,30 @@ class PointerRepr(CTypesValueRepr):
         assert s_attr.is_constant()
         assert s_attr.const == 'contents'
         v_ptr = hop.inputarg(self, 0)
-        v_value = self.getvalue(hop.llops, v_ptr)
-        return self.r_contents.allocate_instance_ref(hop.llops, v_value)
+        v_c_ptr = self.getvalue(hop.llops, v_ptr)
+        return self.r_contents.allocate_instance_ref(hop.llops, v_c_ptr)
+
+
+class __extend__(pairtype(PointerRepr, IntegerRepr)):
+
+    def rtype_getitem((r_ptr, _), hop):
+        self = r_ptr
+        v_ptr, v_index = hop.inputargs(self, lltype.Signed)
+        if hop.args_s[1].is_constant() and hop.args_s[1].const == 0:
+            v_c_ptr = self.getvalue(hop. llops, v_ptr)
+            return self.r_contents.return_c_data(hop.llops, v_c_ptr)
+        else:
+            raise NotImplementedError("XXX: pointer[non-zero-index]")
+
+    def rtype_setitem((r_ptr, _), hop):
+        self = r_ptr
+        v_ptr, v_index, v_newvalue = hop.inputargs(self, lltype.Signed, XXX)
+                                                   
+        if hop.args_s[1].is_constant() and hop.args_s[1].const == 0:
+            v_c_ptr = self.getvalue(hop. llops, v_ptr)
+            XXX
+        else:
+            raise NotImplementedError("XXX: pointer[non-zero-index] = value")
 
 #def registerPointerType(ptrtype):
 #    """Adds a new pointer type to the extregistry.
@@ -138,8 +164,7 @@ def pointerinstance_field_annotation(s_pointer, fieldname):
                                      annmodel.SomeCTypesObject.MEMORYALIAS)
 
 def pointerinstance_get_repr(rtyper, s_pointer):
-    s_contents = pointerinstance_field_annotation(s_pointer, "contents")
-    return PointerRepr(rtyper, s_pointer, s_contents)
+    return PointerRepr(rtyper, s_pointer)
 
 PointerType = type(POINTER(c_int))
 extregistry.register_type(PointerType,

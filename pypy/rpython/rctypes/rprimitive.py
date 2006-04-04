@@ -27,6 +27,12 @@ ctypes_annotation_list = [
 
 class PrimitiveRepr(CTypesValueRepr):
 
+    def return_c_data(self, llops, v_c_data):
+        """Read out the atomic data from a raw C pointer.
+        Used when the data is returned from an operation or C function call.
+        """
+        return self.getvalue_from_c_data(llops, v_c_data)
+
     def convert_const(self, ctype_value):
         assert isinstance(ctype_value, self.ctype)
         key = id(ctype_value)

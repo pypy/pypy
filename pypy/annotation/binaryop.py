@@ -774,7 +774,7 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         else:
             return SomeCTypesObject(
                 s_cto.knowntype._type_,
-                memorystate=s_cto.memorystate)
+                memorystate=SomeCTypesObject.MEMORYALIAS)
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
     def setitem((s_cto, s_slice), s_iterable):

@@ -111,6 +111,14 @@ class CTypesRepr(Repr):
             llops.genop('setfield', inputargs)
         return v_box
 
+    def return_c_data(self, llops, v_c_data):
+        """Turn a raw C pointer to the data into a memory-alias box.
+        Used when the data is returned from an operation or C function call.
+        Special-cased in PrimitiveRepr.
+        """
+        # XXX add v_c_data_owner
+        return self.allocate_instance_ref(llops, v_c_data)
+
 
 class __extend__(pairtype(CTypesRepr, CTypesRepr)):
 
@@ -142,15 +150,21 @@ class CTypesValueRepr(CTypesRepr):
         return lltype.Struct('C_Data_%s' % (self.ctype.__name__,),
                              ('value', ll_type) )
 
-    def setvalue(self, llops, v_box, v_value):
-        """Writes to the 'value' field of the raw data."""
-        v_c_data = self.get_c_data(llops, v_box)
+    def getvalue_from_c_data(self, llops, v_c_data):
+        cname = inputconst(lltype.Void, 'value')
+        return llops.genop('getfield', [v_c_data, cname],
+                resulttype=self.ll_type)
+
+    def setvalue_inside_c_data(self, llops, v_c_data, v_value):
         cname = inputconst(lltype.Void, 'value')
         llops.genop('setfield', [v_c_data, cname, v_value])
 
     def getvalue(self, llops, v_box):
         """Reads from the 'value' field of the raw data."""
         v_c_data = self.get_c_data(llops, v_box)
-        cname = inputconst(lltype.Void, 'value')
-        return llops.genop('getfield', [v_c_data, cname],
-                resulttype=self.ll_type)
+        return self.getvalue_from_c_data(llops, v_c_data)
+
+    def setvalue(self, llops, v_box, v_value):
+        """Writes to the 'value' field of the raw data."""
+        v_c_data = self.get_c_data(llops, v_box)
+        self.setvalue_inside_c_data(llops, v_c_data, v_value)

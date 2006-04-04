@@ -63,6 +63,26 @@ class Test_annotation:
 
         assert s.knowntype == int
 
+    def test_annotate_pointer_access_as_array(self):
+        """
+        Make sure that pointers work the same way as arrays.
+        """
+        def access_array():
+            # Never run this function!
+            my_pointer = pointer(c_int(10))
+            my_pointer[0] = c_int(1)
+            my_pointer[1] = 2    # <== because of this
+
+            return my_pointer[0]
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(access_array, [])
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
 
 class Test_specialization:
     def test_specialize_c_int_ptr(self):
@@ -134,3 +154,21 @@ class Test_specialization:
         assert func() == 123
         res = interpret(func, [])
         assert res == 123
+
+    def test_specialize_pointer_access_as_array(self):
+        """
+        Make sure that pointers work the same way as arrays.
+        """
+        py.test.skip("in-progress")
+        def access_array():
+            my_pointer = pointer(c_int(11))
+            x = my_pointer[0]
+            my_pointer[0] = c_int(7)
+            y = my_pointer[0]
+            my_pointer[0] = 5
+            z = my_pointer.contents.value
+            return x * y * z
+
+        assert access_array() == 5 * 7 * 11
+        res = interpret(access_array, [])
+        assert res == 5 * 7 * 11

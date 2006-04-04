@@ -49,26 +49,6 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def test_annotate_pointer_access_as_array(self):
-        """
-        Make sure that pointers work the same way as arrays.
-        """
-        def access_array():
-            # Never run this function!
-            my_pointer = pointer(c_int(10))
-            my_pointer[0] = c_int(1)
-            my_pointer[1] = 2    # <== because of this
-
-            return my_pointer[0]
-
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(access_array, [])
-        assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
-
     def x_test_annotate_array_slice_access(self):
         def slice_access():
             my_array = c_int_10()

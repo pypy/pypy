@@ -16,10 +16,9 @@ class ArrayRepr(CTypesRefRepr):
         item_ctype = array_ctype._type_
         self.length = array_ctype._length_
         
-        # Find the low-level repr of items using the extregistry
-        item_entry = extregistry.lookup_type(item_ctype)
-        self.r_item = item_entry.get_repr(rtyper, SomeCTypesObject(item_ctype,
-                                            SomeCTypesObject.OWNSMEMORY))
+        # Find the repr and low-level type of items from their ctype
+        self.r_item = rtyper.getrepr(SomeCTypesObject(item_ctype,
+                                            SomeCTypesObject.MEMORYALIAS))
 
         # Here, self.c_data_type == self.ll_type
         c_data_type = lltype.Array(self.r_item.ll_type,
