@@ -54,13 +54,12 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
         return r_list.send_message(hop, "setitem", can_raise=True)
 
 def newlist(llops, r_list, items_v):
-    c1 = inputconst(ootype.Void, r_list.lowleveltype)
-    v_result = llops.genop("new", [c1], resulttype=r_list.lowleveltype)
-    #LIST = r_list.LIST
-    #cno = inputconst(Signed, len(items_v))
-    #v_result = llops.gendirectcall(LIST.ll_newlist, cno)
-    #v_func = inputconst(Void, dum_nocheck)
-    #for i, v_item in enumerate(items_v):
-    #    ci = inputconst(Signed, i)
-    #    llops.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
+    c_1ist = inputconst(ootype.Void, r_list.lowleveltype)
+    v_result = llops.genop("new", [c_1ist], resulttype=r_list.lowleveltype)
+    c_append = inputconst(ootype.Void, "append")
+    # This is very inefficient for a large amount of initial items ...
+    for v_item in items_v:
+        llops.genop("oosend", [c_append, v_result, v_item],
+                resulttype=ootype.Void)
     return v_result
+

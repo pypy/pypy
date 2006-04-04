@@ -67,3 +67,11 @@ class TestInterpreted:
         res = interpret(f, [2], type_system="ootype")
         assert res == -1 
 
+    def test_initialize(self):
+        def f(x):
+            l = [1, 2]
+            l.append(x)
+            return l[2]
+        res = interpret(f, [3], type_system="ootype")
+        assert res == 3 
+
