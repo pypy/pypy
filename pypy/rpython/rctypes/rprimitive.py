@@ -7,7 +7,7 @@ from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rmodel import IntegerRepr
-from pypy.rpython.rctypes.rmodel import CTypesRepr
+from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
 ctypes_annotation_list = [
     (c_char,          lltype.Char),
@@ -25,7 +25,7 @@ ctypes_annotation_list = [
     (c_double,        lltype.Float),
 ]
 
-class PrimitiveRepr(CTypesRepr):
+class PrimitiveRepr(CTypesValueRepr):
 
     def convert_const(self, ctype_value):
         assert isinstance(ctype_value, self.ctype)

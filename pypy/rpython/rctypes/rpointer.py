@@ -2,11 +2,11 @@ from pypy.rpython.rmodel import Repr
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
-from pypy.rpython.rctypes.rmodel import CTypesRepr
+from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
 from ctypes import POINTER, c_int
 
-class PointerRepr(CTypesRepr):
+class PointerRepr(CTypesValueRepr):
     def __init__(self, rtyper, s_pointer, s_contents):
         self.s_pointer = s_pointer
         self.s_contents = s_contents
