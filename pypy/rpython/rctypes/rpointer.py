@@ -2,16 +2,14 @@ from pypy.rpython.rmodel import Repr
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
+from pypy.rpython.rctypes.rmodel import CTypesRepr
 
 from ctypes import POINTER, c_int
 
-class PointerRepr(Repr):
-    """XXX: todo
-    """
+class PointerRepr(CTypesRepr):
     def __init__(self, rtyper, s_pointer, s_contents):
         self.s_pointer = s_pointer
         self.s_contents = s_contents
-        self.ctype = s_pointer.knowntype
         self.ref_ctype = s_contents.knowntype
 
         if not extregistry.is_registered_type(self.ref_ctype):
@@ -23,16 +21,7 @@ class PointerRepr(Repr):
 
         ll_contents = lltype.Ptr(contents_repr.c_data_type)
 
-        self.lowleveltype = lltype.Ptr(
-            lltype.GcStruct("CtypesBox_%s" % (self.ctype.__name__,),
-                ("c_data",
-                    lltype.Struct("C_Data_%s" % (self.ctype.__name__),
-                        ('value', ll_contents)
-                    )
-                ),
-                ("keepalive", contents_repr.lowleveltype)
-            )
-        )
+        super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
 
 #def registerPointerType(ptrtype):
 #    """Adds a new pointer type to the extregistry.
