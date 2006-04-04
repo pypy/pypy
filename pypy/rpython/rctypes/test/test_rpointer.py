@@ -51,12 +51,23 @@ class Test_annotation:
 
 class Test_specialization:
     def test_specialize_c_int_ptr(self):
-        py.test.skip("in-progress")
         ptrtype = POINTER(c_int)
         def func():
             res = c_int(42)
             ptrres = ptrtype(res)
             return ptrres.contents.value
+
+        res = interpret(func, [])
+        assert res == 42
+
+    def test_specialize_mutate_via_pointer(self):
+        ptrtype = POINTER(c_int)
+        def func():
+            res = c_int(6)
+            p1 = ptrtype(res)
+            p2 = ptrtype(p1.contents)
+            p2.contents.value *= 7
+            return res.value
 
         res = interpret(func, [])
         assert res == 42

@@ -2,7 +2,7 @@ from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.model import SomeCTypesObject
-
+from pypy.annotation.pairtype import pairtype
 
 
 class CTypesRepr(Repr):
@@ -69,6 +69,34 @@ class CTypesRepr(Repr):
             inputargs = [v_box, inputconst(lltype.Void, "c_data_ref")]
             return llops.genop('getfield', inputargs,
                         lltype.Ptr(self.c_data_type) )
+
+    def allocate_instance(self, llops):
+        c1 = inputconst(lltype.Void, self.lowleveltype.TO) 
+        return llops.genop("malloc", [c1], resulttype=self.lowleveltype)
+
+    def allocate_instance_ref(self, llops, v_c_data):
+        """Only if self.ownsmemory is false.  This allocates a new instance
+        and initialize its c_data_ref field."""
+        if self.ownsmemory:
+            raise TyperError("allocate_instance_ref: %r owns its memory" % (
+                self,))
+        v_box = self.allocate_instance(llops)
+        inputargs = [v_box, inputconst(lltype.Void, "c_data_ref"), v_c_data]
+        llops.genop('setfield', inputargs)
+        return v_box
+
+
+class __extend__(pairtype(CTypesRepr, CTypesRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        """Transparent conversion from the memory-owned to the memory-aliased
+        version of the same ctypes repr."""
+        if (r_from.ctype == r_to.ctype and
+            r_from.ownsmemory and not r_to.ownsmemory):
+            v_c_data = r_from.get_c_data(llops, v)
+            return r_to.allocate_instance_ref(llops, v_c_data)
+        else:
+            return NotImplemented
 
 
 class CTypesRefRepr(CTypesRepr):

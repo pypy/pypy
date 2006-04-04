@@ -65,8 +65,7 @@ class __extend__(pairtype(PrimitiveRepr, IntegerRepr)):
 
 def primitive_specialize_call(hop):
     r_primitive = hop.r_result
-    c1 = hop.inputconst(lltype.Void, r_primitive.lowleveltype.TO) 
-    v_result = hop.genop("malloc", [c1], resulttype=r_primitive.lowleveltype)
+    v_result = r_primitive.allocate_instance(hop.llops)
     if len(hop.args_s):
         v_value, = hop.inputargs(r_primitive.ll_type)
         r_primitive.setvalue(hop.llops, v_result, v_value)

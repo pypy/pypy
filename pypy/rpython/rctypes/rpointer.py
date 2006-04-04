@@ -11,17 +11,18 @@ class PointerRepr(CTypesValueRepr):
         self.s_pointer = s_pointer
         self.s_contents = s_contents
         self.ref_ctype = s_contents.knowntype
-
-        if not extregistry.is_registered_type(self.ref_ctype):
-            raise TypeError("Unregistered referenced "
-                            "type: %s" % (self.ref_ctype.__name__,))
-
-        ref_entry = extregistry.lookup_type(self.ref_ctype)
-        contents_repr = ref_entry.get_repr(rtyper, self.s_contents)
-
-        ll_contents = lltype.Ptr(contents_repr.c_data_type)
+        self.r_contents = rtyper.getrepr(s_contents)
+        ll_contents = lltype.Ptr(self.r_contents.c_data_type)
 
         super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
+
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'contents'
+        v_ptr = hop.inputarg(self, 0)
+        v_value = self.getvalue(hop.llops, v_ptr)
+        return self.r_contents.allocate_instance_ref(hop.llops, v_value)
 
 #def registerPointerType(ptrtype):
 #    """Adds a new pointer type to the extregistry.
@@ -107,7 +108,13 @@ def pointertype_compute_annotation(metatype, type):
                                 methodname=type.__name__)
 
 def pointertype_specialize_call(hop):
-    xxx #...
+    r_ptr = hop.r_result
+    v_result = r_ptr.allocate_instance(hop.llops)
+    if len(hop.args_s):
+        v_contentsbox, = hop.inputargs(r_ptr.r_contents)
+        v_c_data = r_ptr.r_contents.get_c_data(hop.llops, v_contentsbox)
+        r_ptr.setvalue(hop.llops, v_result, v_c_data)
+    return v_result
 
 def pointerinstance_compute_annotation(type, instance):
     return annmodel.SomeCTypesObject(type,
