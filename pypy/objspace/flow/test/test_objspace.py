@@ -636,6 +636,26 @@ class TestFlowObjSpace:
         assert not call_args
         
 
+class TestFlowObjSpaceDelay:
+    def setup_class(cls): 
+        cls.space = FlowObjSpace()
+        cls.space.do_imports_immediately = False
+
+    def codetest(self, func):
+        import inspect
+        try:
+            func = func.im_func
+        except AttributeError:
+            pass
+        #name = func.func_name
+        graph = self.space.build_flow(func)
+        graph.source = inspect.getsource(func)
+        return graph
+
+    def test_import_something(self):
+        def f():
+            from some.unknown.module import stuff
+        self.codetest(f)
 
 DATA = {'x': 5,
         'y': 6}

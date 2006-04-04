@@ -49,7 +49,7 @@ class FlowObjSpace(ObjSpace):
         self.w_tuple    = Constant(tuple)
         self.concrete_mode = 0
         for exc in [KeyError, ValueError, IndexError, StopIteration,
-                    AssertionError, TypeError]:
+                    AssertionError, TypeError, AttributeError, ImportError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         # the following exceptions are the ones that should not show up
