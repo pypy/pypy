@@ -160,40 +160,42 @@ class TestFixedSizeListImpl(BaseTestListImpl):
 
 # ____________________________________________________________
 
-def test_simple():
-    def dummyfn():
-        l = [10, 20, 30]
-        return l[2]
-    res = interpret(dummyfn, [])
-    assert res == 30
+class BaseTestListRtyping:
 
-def test_append():
-    def dummyfn():
-        l = []
-        l.append(50)
-        l.append(60)
-        l.append(70)
-        l.append(80)
-        l.append(90)
-        return len(l), l[0], l[-1]
-    res = interpret(dummyfn, [])
-    assert res.item0 == 5 
-    assert res.item1 == 50
-    assert res.item2 == 90
+    def test_simple(self):
+        def dummyfn():
+            l = [10, 20, 30]
+            return l[2]
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert res == 30
 
-def test_len():
-    def dummyfn():
-        l = [5, 10]
-        return len(l)
-    res = interpret(dummyfn, [])
-    assert res == 2
+    def test_append(self):
+        def dummyfn():
+            l = []
+            l.append(50)
+            l.append(60)
+            l.append(70)
+            l.append(80)
+            l.append(90)
+            return len(l), l[0], l[-1]
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert res.item0 == 5 
+        assert res.item1 == 50
+        assert res.item2 == 90
 
-    def dummyfn():
-        l = [5]
-        l.append(6)
-        return len(l)
-    res = interpret(dummyfn, [])
-    assert res == 2
+    def test_len(self):
+        def dummyfn():
+            l = [5, 10]
+            return len(l)
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert res == 2
+
+        def dummyfn():
+            l = [5]
+            l.append(6)
+            return len(l)
+        res = interpret(dummyfn, [])
+        assert res == 2
 
 def test_iterate():
     def dummyfn():
@@ -1045,3 +1047,13 @@ def test_type_erase_var_size():
     assert isinstance(r_B_list, ListRepr)    
 
     assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+
+class TestLltypeRtyping(BaseTestListRtyping):
+
+    ts = "lltype"
+
+class TestOotypeRtyping(BaseTestListRtyping):
+
+    ts = "ootype"
+
