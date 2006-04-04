@@ -236,6 +236,20 @@ def test_isinstance_list():
     res = interpret(f, [1])
     assert res is False    
 
+def test_hasattr():
+    class A(object):
+        def __init__(self):
+            self.x = 42
+    def f(i):
+        a = A()
+        if i==0: return int(hasattr(A, '__init__'))
+        if i==1: return int(hasattr(A, 'y'))
+        if i==2: return int(hasattr(42, 'x'))
+    for x, y in zip(range(3), (1, 0, 0)):
+        res = interpret(f, [x])
+        assert res._obj.value == y
+    # hmm, would like to test against PyObj, is this the wrong place/way?
+
 def test_we_are_translated():
     def f():
         return we_are_translated()
