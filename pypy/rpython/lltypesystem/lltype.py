@@ -297,8 +297,8 @@ class Array(ContainerType):
         else:
             self.OF = Struct("<arrayitem>", *fields)
             self._anonym_struct = True
-        if isinstance(self.OF, GcStruct):
-            raise TypeError("cannot have a GC structure as array item type")
+        if isinstance(self.OF, GC_CONTAINER):
+            raise TypeError("cannot have a GC container as array item type")
         self.OF._inline_is_varsize(False)
 
         self._install_extras(**kwds)
@@ -341,6 +341,37 @@ class Array(ContainerType):
 class GcArray(Array):
     def _inline_is_varsize(self, last):
         raise TypeError("cannot inline a GC array inside a structure")
+
+
+class FixedSizeArray(Struct):
+    # behaves more or less like a Struct with fields item0, item1, ...
+    # but also supports __getitem__(), __setitem__(), __len__().
+
+    def __init__(self, OF, length, **kwds):
+        fields = [('item%d' % i, OF) for i in range(length)]
+        super(FixedSizeArray, self).__init__('array%d' % length, *fields,
+                                             **kwds)
+        self.OF = OF
+        self.length = length
+        if isinstance(self.OF, GC_CONTAINER):
+            raise TypeError("cannot have a GC container as array item type")
+        self.OF._inline_is_varsize(False)
+
+    def _str_fields(self):
+        return str(self.OF)
+    _str_fields = saferecursive(_str_fields, '...')
+
+    def __str__(self):
+        return "%s of %d %s " % (self.__class__.__name__,
+                                 self.length,
+                                 self._str_fields(),)
+
+    def _short_name(self):
+        return "%s %d %s" % (self.__class__.__name__,
+                             self.length,
+                             self.OF._short_name(),)
+    _short_name = saferecursive(_short_name, '...')
+
 
 class FuncType(ContainerType):
     __name__ = 'func'
@@ -735,6 +766,11 @@ class _ptr(object):
                 raise IndexError("array index out of bounds")
             o = self._obj.items[i]
             return _expose(o, self._solid)
+        if isinstance(self._T, FixedSizeArray):
+            if not (0 <= i < self._T.length):
+                raise IndexError("fixed-size array index out of bounds")
+            o = getattr(self._obj, 'item%d' % i)
+            return _expose(o, self._solid)
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __setitem__(self, i, val):
@@ -751,6 +787,19 @@ class _ptr(object):
                 raise IndexError("array index out of bounds")
             self._obj.items[i] = val
             return
+        if isinstance(self._T, FixedSizeArray):
+            T1 = self._T.OF
+            if isinstance(T1, ContainerType):
+                raise TypeError("cannot directly assign to container array items")
+            T2 = typeOf(val)
+            if T2 != T1:
+                    raise TypeError("%r items:\n"
+                                    "expect %r\n"
+                                    "   got %r" % (self._T, T1, T2))                
+            if not (0 <= i < self._T.length):
+                raise IndexError("fixed-size array index out of bounds")
+            setattr(self._obj, 'item%d' % i, val)
+            return
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __len__(self):
@@ -760,7 +809,8 @@ class _ptr(object):
                                     (self._T,))
 
             return len(self._obj.items)
-
+        if isinstance(self._T, FixedSizeArray):
+            return self._T.length
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __repr__(self):

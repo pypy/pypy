@@ -552,3 +552,28 @@ def test_dissect_ll_instance():
     memo = {}
     assert list(dissect_ll_instance(r, None, memo)) == r_expected
     assert list(dissect_ll_instance(b, None, memo)) == b_expected
+
+def test_fixedsizearray():
+    A = FixedSizeArray(Signed, 5)
+    assert A.OF == Signed
+    assert A.length == 5
+    assert A.item0 == A.item1 == A.item2 == A.item3 == A.item4 == Signed
+    assert A._names == ('item0', 'item1', 'item2', 'item3', 'item4')
+    a = malloc(A, immortal=True)
+    a[0] = 5
+    a[4] = 83
+    assert a[0] == 5
+    assert a[4] == 83
+    assert a.item4 == 83
+    py.test.raises(IndexError, "a[5] = 183")
+    py.test.raises(IndexError, "a[-1]")
+    assert len(a) == 5
+
+    S = GcStruct('S', ('n1', Signed),
+                      ('a', A),
+                      ('n2', Signed))
+    s = malloc(S)
+    s.a[3] = 17
+    assert s.a[3] == 17
+    assert len(s.a) == 5
+    py.test.raises(TypeError, "s.a = a")
