@@ -63,13 +63,19 @@ def rtype_builtin_hasattr(hop):
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
     if hop.args_r[0] == pyobj_repr:
-        v_obj, v_typ = hop.inputargs(pyobj_repr, pyobj_repr)
+        v_obj, v_name = hop.inputargs(pyobj_repr, pyobj_repr)
         c = hop.inputconst(pyobj_repr, hasattr)
-        v = hop.genop('simple_call', [c, v_obj, v_typ], resulttype = pyobj_repr)
+        v = hop.genop('simple_call', [c, v_obj, v_name], resulttype = pyobj_repr)
         return hop.llops.convertvar(v, pyobj_repr, bool_repr)
     raise TyperError("hasattr is only suported on a constant or on PyObject")
+
+def rtype_builtin___import__(hop):
+    args_v = hop.inputargs(*[pyobj_repr for ign in hop.args_r])
+    c = hop.inputconst(pyobj_repr, __import__)
+    return hop.genop('simple_call', [c] + args_v, resulttype = pyobj_repr)
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
+BUILTIN_TYPER[__import__] = rtype_builtin___import__
