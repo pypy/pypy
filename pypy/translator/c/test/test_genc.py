@@ -399,3 +399,11 @@ def test_refcount_pyobj():
     f(2, obj)
     after = g(obj)
     assert before == after
+
+def test_long_pyobj():
+    def f(x):
+        return long(x)
+    f = compile(f, [int])
+    res = f(2)
+    assert isinstance(res, long)
+    assert res == 2L

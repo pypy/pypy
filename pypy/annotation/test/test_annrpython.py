@@ -1945,6 +1945,22 @@ class TestAnnotateTestCase:
         graph = tgraphof(t, A.__del__.im_func)
         assert graph.startblock in a.annotated
 
+    def test_annotate_type(self):
+        class A:
+            pass
+        x = [A(), A()]
+        def witness(t):
+            return type(t)
+        def get(i):
+            return x[i]
+        def f(i):
+            witness(None)
+            return witness(get(i))
+            
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.__class__ == annmodel.SomeObject
+        assert s.knowntype == type
 
 def g(n):
     return [0,1,2,n]
