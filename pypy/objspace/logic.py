@@ -11,6 +11,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
+
 #-- THE BUILTINS ----------------------------------------------------------------------
 
 # this collects all multimethods to be made part of the Space
@@ -183,6 +184,7 @@ if USE_COROUTINES:
 
 class W_Var(W_Root, object):
     def __init__(w_self):
+        #w_self.typedef = 'Variable'
         w_self.w_bound_to = w_self 
         w_self.w_needed = False    
 
