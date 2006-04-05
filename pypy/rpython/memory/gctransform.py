@@ -190,6 +190,30 @@ class GCTransformer(object):
         needs to overwrite this"""
         raise NotImplementedError("gc_protect does not make sense for this gc")
 
+    def replace_setfield(self, op, livevars, block):
+        if not var_ispyobj(op.args[2]):
+            return [op]
+        oldval = varoftype(op.args[2].concretetype)
+        getoldvalop = SpaceOperation("getfield",
+                                     [op.args[0], op.args[1]], oldval)
+        result = [getoldvalop]
+        result.extend(self.push_alive(op.args[2]))
+        result.append(op)
+        result.extend(self.pop_alive(oldval))
+        return result
+
+    def replace_setarrayitem(self, op, livevars, block):
+        if not var_ispyobj(op.args[2]):
+            return [op]
+        oldval = varoftype(op.args[2].concretetype)
+        getoldvalop = SpaceOperation("getarrayitem",
+                                     [op.args[0], op.args[1]], oldval)
+        result = [getoldvalop]
+        result.extend(self.push_alive(op.args[2]))
+        result.append(op)
+        result.extend(self.pop_alive(oldval))
+        return result
+
     def annotate_helper(self, ll_helper, ll_args, ll_result):
         assert not self.finished
         args_s = map(annmodel.lltype_to_annotation, ll_args)
