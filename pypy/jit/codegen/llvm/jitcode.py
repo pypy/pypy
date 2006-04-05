@@ -10,7 +10,7 @@ from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.funcnode import FuncNode
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
-from pypy.translator.llvm.pyllvm.build import pyllvm
+from pypy.translator.llvm.pyllvm import pyllvm
 from cStringIO import StringIO
 
 from pypy.tool.ansi_print import ansi_log
@@ -28,10 +28,10 @@ class GraphContainer(object):   # XXX what should this really be?
         self.graph = graph
 
 # LLVM execution engine (llvm module) that is going to contain the code
-ee = pyllvm.get_ee()
+ee = pyllvm.ExecutionEngine()
 
 
-# Create a LLVM 'execution engine' which wrap the LLVM JIT
+# Create a LLVM 'execution engine' which wraps the LLVM JIT
 class JITcode(object):
 
     def __init__(self, typer):
@@ -73,4 +73,5 @@ class JITcode(object):
         log('eval_graph: %s(%s)' % (graph.name, args))
         if graph not in self.graph_ref:
             self.graph_ref[graph] = self.codegen(graph)
-        return ee.call(self.graph_ref[graph], *args)
+        llvmfunc = ee.getModule().getNamedFunction(self.graph_ref[graph])
+        return llvmfunc(*args)
