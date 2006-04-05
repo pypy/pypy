@@ -10,12 +10,19 @@ class Class(Node):
     def get_name(self):
         return self.name
 
+    def get_base_class(self):
+        base_class = self.classdef._superclass
+        if base_class is None or base_class._name == 'Object':
+            return '[mscorlib]System.Object'
+        else:
+            return base_class._name
+
     def render(self, ilasm):
         self.ilasm = ilasm
         if self.namespace:
             ilasm.begin_namespace(self.namespace)
 
-        ilasm.begin_class(self.name) # TODO: handle base class
+        ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
             # TODO: handle default values
             ilasm.field(f_name, cts.lltype_to_cts(f_type))
@@ -23,7 +30,7 @@ class Class(Node):
         self._ctor()
 
         for m_name, m_meth in self.classdef._methods.iteritems():
-            # TODO: handle static methods
+            # TODO: handle static, class and unbound methods
             # TODO: should __init__ be rendered as a constructor?
             f = Function(m_meth.graph, m_name, is_method = True)
             f.render(ilasm)
@@ -36,7 +43,7 @@ class Class(Node):
     def _ctor(self):
         self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
         self.ilasm.opcode('ldarg.0')
-        self.ilasm.call('instance void object::.ctor()') # TODO: base class
+        self.ilasm.call('instance void %s::.ctor()' % self.get_base_class())
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
 

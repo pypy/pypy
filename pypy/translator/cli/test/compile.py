@@ -22,16 +22,16 @@ def check(f, g, *args):
     else:
         print 'OK'
 
-class A:
+class Base:
     def __init__(self, x):
         self.x = x
 
-    def foo(self, a, b):
-        return self.x
+class Derived(Base):
+    pass
 
 def bar(x, y):
-    a = A(x)
-    return a.foo(x, y)
+    a = Derived(42)
+
 
 f = compile_function(bar, [int, int])
 

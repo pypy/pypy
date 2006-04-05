@@ -47,6 +47,7 @@ class GenCli(object):
 
         self.ilasm = IlasmGenerator(out, self.assembly_name)
         self.gen_all_functions()
+        self.find_superclasses()
         self.gen_classes()
         out.close()
         return self.tmpfile.strpath
@@ -66,6 +67,18 @@ class GenCli(object):
                 f = Function(graph)
                 f.render(self.ilasm)
                 self.classdefs.update(f.classdefs)
+
+    def find_superclasses(self):
+        classdefs = set()
+        pendings = self.classdefs
+
+        while pendings:
+            classdef = pendings.pop()
+            if classdef not in classdefs and classdef is not None:
+                classdefs.add(classdef)
+                pendings.add(classdef._superclass)
+
+        self.classdefs = classdefs
 
     def gen_classes(self):
         for classdef in self.classdefs:

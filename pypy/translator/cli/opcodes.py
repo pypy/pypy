@@ -15,6 +15,8 @@ opcodes = {
     'oosetfield':               [SetField],
     'oogetfield':               [GetField],
     'oosend':                   [CallMethod],
+    'ooupcast':                 DoNothing,
+    'oodowncast':               DoNothing, # TODO: is it really safe?
 
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
