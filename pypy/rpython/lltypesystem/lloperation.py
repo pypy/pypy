@@ -20,6 +20,7 @@ class LLOp(object):
 
         # Exceptions that can be raised
         self.canraise = canraise
+        assert isinstance(canraise, tuple)
 
         # The operation manipulates PyObjects
         self.pyobj = pyobj
@@ -62,7 +63,6 @@ def enum_foldable_ops(raising_is_ok=False):
 # This list corresponds to the operations implemented by the LLInterpreter.
 # XXX Some clean-ups are needed:
 #      * many exception-raising operations are being replaced by calls to helpers
-#      * there are still many _ovf operations that cannot really raise OverflowError
 #      * float_mod vs float_fmod ?
 # Run test_lloperation after changes.  Feel free to clean up LLInterpreter too :-)
 
@@ -96,7 +96,9 @@ LL_OPERATIONS = {
     'int_sub':              LLOp(canfold=True),
     'int_mul':              LLOp(canfold=True),
     'int_floordiv':         LLOp(canfold=True),
+    'int_floordiv_zer':     LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'int_mod':              LLOp(canfold=True),
+    'int_mod_zer':          LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'int_lt':               LLOp(canfold=True),
     'int_le':               LLOp(canfold=True),
     'int_eq':               LLOp(canfold=True),
@@ -106,31 +108,20 @@ LL_OPERATIONS = {
     'int_and':              LLOp(canfold=True),
     'int_or':               LLOp(canfold=True),
     'int_lshift':           LLOp(canfold=True),
+    'int_lshift_val':       LLOp(canfold=True, canraise=(ValueError,)),
     'int_rshift':           LLOp(canfold=True),
+    'int_rshift_val':       LLOp(canfold=True, canraise=(ValueError,)),
     'int_xor':              LLOp(canfold=True),
-    'int_floordiv_zer':     LLOp(canfold=True, canraise=(ZeroDivisionError,)),
+
     'int_add_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_sub_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_mul_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_floordiv_ovf':     LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_mod_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_lt_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_le_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_eq_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_ne_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_gt_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_ge_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_and_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_or_ovf':           LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_lshift_ovf':       LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_lshift_val':       LLOp(canfold=True, canraise=(ValueError,)),
-    'int_lshift_ovf_val':   LLOp(canfold=True, canraise=(OverflowError, ValueError,)),
-    'int_rshift_ovf':       LLOp(canfold=True, canraise=(OverflowError,)),
-    'int_rshift_val':       LLOp(canfold=True, canraise=(ValueError,)),
-    'int_rshift_ovf_val':   LLOp(canfold=True, canraise=(OverflowError, ValueError,)), 
-    'int_xor_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_floordiv_ovf_zer': LLOp(canfold=True, canraise=(OverflowError, ZeroDivisionError)),
+    'int_mod_ovf':          LLOp(canfold=True, canraise=(OverflowError,)),
     'int_mod_ovf_zer':      LLOp(canfold=True, canraise=(OverflowError, ZeroDivisionError)),
+    'int_lshift_ovf':       LLOp(canfold=True, canraise=(OverflowError,)),
+    'int_lshift_ovf_val':   LLOp(canfold=True, canraise=(OverflowError, ValueError,)),
 
     'uint_is_true':         LLOp(canfold=True),
     'uint_neg':             LLOp(canfold=True),
@@ -143,6 +134,7 @@ LL_OPERATIONS = {
     'uint_floordiv':        LLOp(canfold=True),
     'uint_floordiv_zer':    LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'uint_mod':             LLOp(canfold=True),
+    'uint_mod_zer':         LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'uint_lt':              LLOp(canfold=True),
     'uint_le':              LLOp(canfold=True),
     'uint_eq':              LLOp(canfold=True),
@@ -152,7 +144,9 @@ LL_OPERATIONS = {
     'uint_and':             LLOp(canfold=True),
     'uint_or':              LLOp(canfold=True),
     'uint_lshift':          LLOp(canfold=True),
+    'uint_lshift_val':      LLOp(canfold=True, canraise=(ValueError,)),
     'uint_rshift':          LLOp(canfold=True),
+    'uint_rshift_val':      LLOp(canfold=True, canraise=(ValueError,)),
     'uint_xor':             LLOp(canfold=True),
 
     'float_is_true':        LLOp(canfold=True),
@@ -183,7 +177,9 @@ LL_OPERATIONS = {
     'llong_sub':            LLOp(canfold=True),
     'llong_mul':            LLOp(canfold=True),
     'llong_floordiv':       LLOp(canfold=True),
+    'llong_floordiv_zer':   LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'llong_mod':            LLOp(canfold=True),
+    'llong_mod_zer':        LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'llong_lt':             LLOp(canfold=True),
     'llong_le':             LLOp(canfold=True),
     'llong_eq':             LLOp(canfold=True),
@@ -193,7 +189,9 @@ LL_OPERATIONS = {
     'llong_and':            LLOp(canfold=True),
     'llong_or':             LLOp(canfold=True),
     'llong_lshift':         LLOp(canfold=True),
+    'llong_lshift_val':     LLOp(canfold=True, canraise=(ValueError,)),
     'llong_rshift':         LLOp(canfold=True),
+    'llong_rshift_val':     LLOp(canfold=True, canraise=(ValueError,)),
     'llong_xor':            LLOp(canfold=True),
 
     'ullong_is_true':       LLOp(canfold=True),
@@ -205,18 +203,22 @@ LL_OPERATIONS = {
     'ullong_sub':           LLOp(canfold=True),
     'ullong_mul':           LLOp(canfold=True),
     'ullong_floordiv':      LLOp(canfold=True),
+    'ullong_floordiv_zer':  LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'ullong_mod':           LLOp(canfold=True),
+    'ullong_mod_zer':       LLOp(canfold=True, canraise=(ZeroDivisionError,)),
     'ullong_lt':            LLOp(canfold=True),
     'ullong_le':            LLOp(canfold=True),
     'ullong_eq':            LLOp(canfold=True),
     'ullong_ne':            LLOp(canfold=True),
     'ullong_gt':            LLOp(canfold=True),
     'ullong_ge':            LLOp(canfold=True),
-    'ulong_and':            LLOp(canfold=True),
-    'ulong_or':             LLOp(canfold=True),
-    'ulong_lshift':         LLOp(canfold=True),
-    'ulong_rshift':         LLOp(canfold=True),
-    'ulong_xor':            LLOp(canfold=True),
+    'ullong_and':           LLOp(canfold=True),
+    'ullong_or':            LLOp(canfold=True),
+    'ullong_lshift':        LLOp(canfold=True),
+    'ullong_lshift_val':    LLOp(canfold=True, canraise=(ValueError,)),
+    'ullong_rshift':        LLOp(canfold=True),
+    'ullong_rshift_val':    LLOp(canfold=True, canraise=(ValueError,)),
+    'ullong_xor':           LLOp(canfold=True),
 
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),

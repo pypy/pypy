@@ -74,8 +74,8 @@ def int1(n):
     i += abs(i)
     i &= 255
 
-    i **= n
-    i += n**3
+    #i **= n
+    #i += n**3
 
     i += -n
     i += +n

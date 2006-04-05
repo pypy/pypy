@@ -370,6 +370,15 @@ class LLFrame(object):
     def op_hint(self, x, hints):
         return x
 
+    def op_decode_arg(self, fname, i, name, vargs, vkwds):
+        raise NotImplementedError("decode_arg")
+
+    def op_decode_arg_def(fname, i, name, vargs, vkwds, default):
+        raise NotImplementedError("decode_arg_def")
+
+    def op_check_no_more_arg(fname, n, vargs):
+        raise NotImplementedError("check_no_more_arg")
+
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
         FIELDTYPE = getattr(lltype.typeOf(obj).TO, fieldname)
@@ -583,20 +592,6 @@ class LLFrame(object):
         assert -sys.maxint-1 <= b <= sys.maxint
         return int(b)
 
-    def op_int_floordiv_ovf_zer(self, a, b):
-        assert type(a) is int
-        assert type(b) is int
-        if b == 0:
-            self.make_llexception(ZeroDivisionError())
-        return self.op_int_floordiv_ovf(a, b)
-            
-    def op_int_mod_ovf_zer(self, a, b):
-        assert type(a) is int
-        assert type(b) is int
-        if b == 0:
-            self.make_llexception(ZeroDivisionError())
-        return self.op_int_mod_ovf(a, b)
-            
     def op_float_floor(self, b):
         assert type(b) is float
         return math.floor(b)
@@ -605,6 +600,11 @@ class LLFrame(object):
         assert type(b) is float
         assert type(c) is float
         return math.fmod(b,c)
+
+    def op_float_pow(self, b,c):
+        assert type(b) is float
+        assert type(c) is float
+        return math.pow(b,c)
 
     def op_gc__collect(self):
         import gc
@@ -621,6 +621,24 @@ class LLFrame(object):
 
     def op_gc_call_rtti_destructor(self, rtti, addr):
         raise NotImplementedError("gc_call_rtti_destructor")
+
+    def op_gc_push_alive_pyobj(self, pyobj):
+        raise NotImplementedError("gc_push_alive_pyobj")
+
+    def op_gc_pop_alive_pyobj(self, pyobj):
+        raise NotImplementedError("gc_pop_alive_pyobj")
+
+    def op_gc_protect(self, obj):
+        raise NotImplementedError("gc_protect")
+
+    def op_gc_unprotect(self, obj):
+        raise NotImplementedError("gc_unprotect")
+
+    def op_gc_reload_possibly_moved(self, newaddr, ptr):
+        raise NotImplementedError("gc_reload_possibly_moved")
+
+    def op_yield_current_frame_to_caller(self):
+        raise NotImplementedError("yield_current_frame_to_caller")
 
     # operations on pyobjects!
     for opname in opimpls.keys():
@@ -697,86 +715,112 @@ class LLFrame(object):
     # __________________________________________________________
     # primitive operations
 
-    for typ in (float, int, r_uint, r_longlong, r_ulonglong):
-        typname = typ.__name__
-        optup = ('add', 'sub', 'mul', 'truediv', 'floordiv',
-                 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
-        if typ is r_uint:
-            opnameprefix = 'uint'
-        elif typ is r_longlong:
-            opnameprefix = 'llong'
-        elif typ is r_ulonglong:
-            opnameprefix = 'ullong'
-        else:
-            opnameprefix = typname
-        if typ in (int, r_uint):
-            optup += 'and_', 'or_', 'lshift', 'rshift', 'xor'
-        for opname in optup:
-            assert opname in opimpls
-            if typ is float and opname == 'floordiv':
-                continue    # 'floordiv' is for integer types
-            if typ is not float and opname == 'truediv':
-                continue    # 'truediv' is for floats only
-            if typ is int and opname not in ops_returning_a_bool:
-                adjust_result = 'intmask'
+    def setup_primitive_operations():
+        for typ in (float, int, r_uint, r_longlong, r_ulonglong):
+            typname = typ.__name__
+            optup = ('add', 'sub', 'mul', 'truediv', 'floordiv',
+                     'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
+            overflowing_operations = ('add', 'sub', 'mul', 'floordiv',
+                                      'mod', 'lshift')
+            if typ is r_uint:
+                opnameprefix = 'uint'
+            elif typ is r_longlong:
+                opnameprefix = 'llong'
+            elif typ is r_ulonglong:
+                opnameprefix = 'ullong'
             else:
-                adjust_result = ''
-            pureopname = opname.rstrip('_')
-            exec py.code.Source("""
-                def op_%(opnameprefix)s_%(pureopname)s(self, x, y):
-                    assert isinstance(x, %(typname)s)
-                    assert isinstance(y, %(typname)s)
-                    func = opimpls[%(opname)r]
-                    return %(adjust_result)s(func(x, y))
-            """ % locals()).compile()
-            if typ is int:
-                opname += '_ovf'
-                exec py.code.Source("""
-                    def op_%(opnameprefix)s_%(pureopname)s_ovf(self, x, y):
+                opnameprefix = typname
+            if typ is not float:
+                optup += 'and_', 'or_', 'lshift', 'rshift', 'xor'
+            for opname in optup:
+                assert opname in opimpls
+                if typ is float and opname == 'floordiv':
+                    continue    # 'floordiv' is for integer types
+                if typ is not float and opname == 'truediv':
+                    continue    # 'truediv' is for floats only
+                if typ is int and opname not in ops_returning_a_bool:
+                    adjust_result = 'intmask'
+                else:
+                    adjust_result = ''
+                pureopname = opname.rstrip('_')
+                yield """
+                    def op_%(opnameprefix)s_%(pureopname)s(self, x, y):
                         assert isinstance(x, %(typname)s)
                         assert isinstance(y, %(typname)s)
                         func = opimpls[%(opname)r]
-                        try:
-                            return %(adjust_result)s(func(x, y))
-                        except OverflowError:
-                            self.make_llexception()
-                """ % locals()).compile()
-        for opname in 'is_true', 'neg', 'abs', 'invert':
-            assert opname in opimpls
-            if typ is float and opname == 'invert':
-                continue
-            if typ is int and opname not in ops_returning_a_bool:
-                adjust_result = 'intmask'
-            else:
-                adjust_result = ''
-            exec py.code.Source("""
-                def op_%(opnameprefix)s_%(opname)s(self, x):
-                    assert isinstance(x, %(typname)s)
-                    func = opimpls[%(opname)r]
-                    return %(adjust_result)s(func(x))
-            """ % locals()).compile()
-            if typ is int and opname in ('neg', 'abs'):
-                opname += '_ovf'
-                exec py.code.Source("""
+                        return %(adjust_result)s(func(x, y))
+                """ % locals()
+
+                suffixes = []
+                if typ is not float:
+                    if opname in ('lshift', 'rshift'):
+                        suffixes.append(('_val', 'ValueError'))
+                    if opname in ('floordiv', 'mod'):
+                        suffixes.append(('_zer', 'ZeroDivisionError'))
+                    if typ is int and opname in overflowing_operations:
+                        for suffix1, exccls1 in suffixes[:]:
+                            suffixes.append(('_ovf'+suffix1,
+                                             '(OverflowError, %s)' % exccls1))
+                        suffixes.append(('_ovf', 'OverflowError'))
+
+                for suffix, exceptionclasses in suffixes:
+                    if '_ovf' in suffix:
+                        opname_ex = opname + '_ovf'
+                    else:
+                        opname_ex = opname
+                    yield """
+                        def op_%(opnameprefix)s_%(pureopname)s%(suffix)s(self, x, y):
+                            assert isinstance(x, %(typname)s)
+                            assert isinstance(y, %(typname)s)
+                            func = opimpls[%(opname_ex)r]
+                            try:
+                                return %(adjust_result)s(func(x, y))
+                            except %(exceptionclasses)s:
+                                self.make_llexception()
+                    """ % locals()
+            for opname in 'is_true', 'neg', 'abs', 'invert':
+                assert opname in opimpls
+                if typ is float and opname == 'invert':
+                    continue
+                if typ is int and opname not in ops_returning_a_bool:
+                    adjust_result = 'intmask'
+                else:
+                    adjust_result = ''
+                yield """
                     def op_%(opnameprefix)s_%(opname)s(self, x):
                         assert isinstance(x, %(typname)s)
                         func = opimpls[%(opname)r]
-                        try:
-                            return %(adjust_result)s(func(x))
-                        except OverflowError:
-                            self.make_llexception()
-                """ % locals()).compile()
-            
-    for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
-        assert opname in opimpls
-        exec py.code.Source("""
-            def op_char_%(opname)s(self, x, y):
-                assert isinstance(x, str) and len(x) == 1
-                assert isinstance(y, str) and len(y) == 1
-                func = opimpls[%(opname)r]
-                return func(x, y)
-        """ % locals()).compile()
-    
+                        return %(adjust_result)s(func(x))
+                """ % locals()
+                if typ is int and opname in ('neg', 'abs'):
+                    opname += '_ovf'
+                    yield """
+                        def op_%(opnameprefix)s_%(opname)s(self, x):
+                            assert isinstance(x, %(typname)s)
+                            func = opimpls[%(opname)r]
+                            try:
+                                return %(adjust_result)s(func(x))
+                            except OverflowError:
+                                self.make_llexception()
+                    """ % locals()
+
+        for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
+            assert opname in opimpls
+            yield """
+                def op_char_%(opname)s(self, x, y):
+                    assert isinstance(x, str) and len(x) == 1
+                    assert isinstance(y, str) and len(y) == 1
+                    func = opimpls[%(opname)r]
+                    return func(x, y)
+            """ % locals()
+
+    for _src in setup_primitive_operations():
+        exec py.code.Source(_src).compile()
+        del _src
+    del setup_primitive_operations
+
+    # ____________________________________________________________
+
     original_int_add = op_int_add
 
     def op_int_add(self, x, y):
@@ -796,14 +840,12 @@ class LLFrame(object):
     def op_unichar_eq(self, x, y):
         assert isinstance(x, unicode) and len(x) == 1
         assert isinstance(y, unicode) and len(y) == 1
-        func = opimpls['eq']
-        return func(x, y)
+        return x == y
 
     def op_unichar_ne(self, x, y):
         assert isinstance(x, unicode) and len(x) == 1
         assert isinstance(y, unicode) and len(y) == 1
-        func = opimpls['ne']
-        return func(x, y)
+        return x != y
 
     #Operation of ootype
 
