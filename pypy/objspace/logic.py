@@ -553,10 +553,10 @@ def unify__Root_Root(space, w_x, w_y):
     if not space.eq_w(w_x, w_y):
         w_d1 = w_x.getdict()
         w_d2 = w_y.getdict()
-        if None not in (w_d1, w_d2):
-            return space.unify(w_d1, w_d2)
-        else:
+        if (w_d1 == None) or (w_d2 == None):
             fail(space, w_x, w_y)
+        else:
+            return space.unify(w_d1, w_d2)
     return space.w_None
     
 def unify__Var_Var(space, w_x, w_y):
@@ -621,6 +621,7 @@ def unify__Dict_Dict(space, w_m1, w_m2):
         if space.is_true(space.is_nb_(w_xi, w_yi)):
             continue
         space.unify(w_xi, w_yi)
+    return space.w_None
 
 
 unify_mm = StdObjSpaceMultiMethod('unify', 2)
