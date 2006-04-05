@@ -205,6 +205,19 @@ def test_getfield_pyobj():
         s.x = thing
         return s.x
     t, transformer = rtype_and_transform(f, [object], gctransform.GCTransformer)
+    fgraph = graphof(t, f)
+    pyobj_getfields = 0
+    pyobj_setfields = 0
+    for b in fgraph.iterblocks():
+        for op in b.operations:
+            if op.opname == 'getfield' and var_ispyobj(op.result):
+                pyobj_getfields += 1
+            elif op.opname == 'setfield' and var_ispyobj(op.args[2]):
+                pyobj_setfields += 1
+    assert pyobj_getfields > 0
+    assert pyobj_setfields > 0
+                
+            
     
 
 def test_pass_gc_pointer():
