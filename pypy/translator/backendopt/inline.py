@@ -2,7 +2,6 @@ import sys
 from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.simplify import get_graph
 from pypy.translator.unsimplify import copyvar, split_block
-from pypy.translator.backendopt import canraise
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
@@ -103,7 +102,7 @@ def does_raise_directly(graph, raise_analyzer):
 
 class BaseInliner(object):
     def __init__(self, translator, graph, inline_guarded_calls=False,
-                 inline_guarded_calls_no_matter_what=False):
+                 inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
         self.translator = translator
         self.graph = graph
         self.inline_guarded_calls = inline_guarded_calls
@@ -111,7 +110,8 @@ class BaseInliner(object):
         # it is used by the exception transformation
         self.inline_guarded_calls_no_matter_what = inline_guarded_calls_no_matter_what
         if inline_guarded_calls:
-            self.raise_analyzer = canraise.RaiseAnalyzer(translator)
+            assert raise_analyzer is not None
+            self.raise_analyzer = raise_analyzer
         else:
             self.raise_analyzer = None
 
@@ -398,9 +398,11 @@ class BaseInliner(object):
 
 class Inliner(BaseInliner):
     def __init__(self, translator, graph, inline_func, inline_guarded_calls=False,
-                 inline_guarded_calls_no_matter_what=False):
+                 inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
         BaseInliner.__init__(self, translator, graph, 
-                             inline_guarded_calls, inline_guarded_calls_no_matter_what)
+                             inline_guarded_calls,
+                             inline_guarded_calls_no_matter_what,
+                             raise_analyzer)
         self.inline_func = inline_func
         # to simplify exception matching
         join_blocks(graph)
@@ -412,9 +414,11 @@ class Inliner(BaseInliner):
 
 class OneShotInliner(BaseInliner):
     def __init__(self, translator, graph, inline_guarded_calls=False,
-                 inline_guarded_calls_no_matter_what=False):
+                 inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
          BaseInliner.__init__(self, translator, graph, 
-                              inline_guarded_calls, inline_guarded_calls_no_matter_what)
+                              inline_guarded_calls,
+                              inline_guarded_calls_no_matter_what,
+                              raise_analyzer)
 
     def search_for_calls(self, block):
         pass
