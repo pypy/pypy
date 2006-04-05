@@ -579,16 +579,7 @@ def unify__Var_Root(space, w_x, w_y):
 def unify__Root_Var(space, w_x, w_y):
     return space.unify(w_y, w_x)
 
-def unify__Tuple_Tuple(space, w_x, w_y):
-    return _unify_iterables(space, w_x, w_y)
-
-def unify__List_List(space, w_x, w_y):
-    return _unify_iterables(space, w_x, w_y)
-    
-def _unify_iterables(space, w_i1, w_i2):
-    assert isinstance(w_i1, W_TupleObject) or isinstance(w_i1, W_ListObject)
-    assert isinstance(w_i2, W_TupleObject) or isinstance(w_i2, W_ListObject)
-    #print " :unify iterables", w_i1, w_i2
+def unify__Tuple_Tuple(space, w_i1, w_i2):
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
@@ -599,6 +590,26 @@ def _unify_iterables(space, w_i1, w_i2):
         if space.is_true(space.is_nb_(w_xi, w_yi)):
             continue
         unify(space, w_xi, w_yi)
+    return space.w_None
+
+
+def unify__List_List(space, w_i1, w_i2):
+    if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
+        fail(space, w_i1, w_i2)
+    idx, top = (-1, space.int_w(space.len(w_i1))-1)
+    while idx < top:
+        idx += 1
+        w_xi = space.getitem(w_i1, space.newint(idx))
+        w_yi = space.getitem(w_i2, space.newint(idx))
+        if space.is_true(space.is_nb_(w_xi, w_yi)):
+            continue
+        unify(space, w_xi, w_yi)
+    return space.w_None
+    
+## def _unify_iterables(space, w_i1, w_i2):
+##     assert isinstance(w_i1, W_TupleObject) or isinstance(w_i1, W_ListObject)
+##     assert isinstance(w_i2, W_TupleObject) or isinstance(w_i2, W_ListObject)
+##     #print " :unify iterables", w_i1, w_i2
 
 def unify__Dict_Dict(space, w_m1, w_m2):
     assert isinstance(w_m1, W_DictObject)
