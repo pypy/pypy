@@ -189,6 +189,17 @@ class List(OOType):
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self._ITEMTYPE)
 
+    def __eq__(self, other):
+        if not isinstance(other, List):
+            return False
+        return self._ITEMTYPE == other._ITEMTYPE
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash(self._ITEMTYPE)
+
     def _lookup(self, meth_name):
         METH = self._METHODS.get(meth_name)
         meth = None

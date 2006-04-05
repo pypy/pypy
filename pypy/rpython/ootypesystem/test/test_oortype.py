@@ -155,7 +155,8 @@ def test_list_lltype_identity():
     rtyper = t.buildrtyper()
     repr1 = ListRepr(rtyper, signed_repr)
     repr2 = ListRepr(rtyper, signed_repr)
-    assert repr1.lowleveltype is repr2.lowleveltype
+    assert repr1.lowleveltype == repr2.lowleveltype
+    assert hash(repr1.lowleveltype) == hash(repr2.lowleveltype)
 
 def test_list_annotation():
     LIST = List(Signed)

@@ -37,6 +37,14 @@ def test_null():
     n = null(LT)
     py.test.raises(RuntimeError, "n.append(0)")
 
+def test_eq_hash():
+    LT1 = List(Signed)
+    LT2 = List(Signed)
+    LT3 = List(Unsigned)
+    assert LT1 == LT2
+    assert LT1 != LT3
+    assert hash(LT1) == hash(LT2)
+
 class TestInterpreted:
 
     def test_append_length(self):

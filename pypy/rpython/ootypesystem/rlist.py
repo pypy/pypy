@@ -16,7 +16,7 @@ class BaseListRepr(AbstractListRepr):
             assert callable(item_repr)
             self._item_repr_computer = item_repr
         else:
-            self.lowleveltype = list_type(item_repr)
+            self.lowleveltype = ootype.List(item_repr.lowleveltype)
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(rtyper, item_repr)
         self.listitem = listitem
@@ -27,7 +27,7 @@ class BaseListRepr(AbstractListRepr):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(self.rtyper, self._item_repr_computer())
-            self.lowleveltype = list_type(self.item_repr)
+            self.lowleveltype = ootype.List(self.item_repr.lowleveltype)
 
     def send_message(self, hop, message, can_raise=False):
         v_args = hop.inputargs(self, *hop.args_r[1:])
@@ -48,17 +48,6 @@ class BaseListRepr(AbstractListRepr):
 
 ListRepr = BaseListRepr
 FixedSizeListRepr = BaseListRepr
-
-_list_types = {}
-
-def list_type(item_repr):
-    key = item_repr.lowleveltype
-    if _list_types.has_key(key):
-        return _list_types[key]
-    else:
-        LIST = ootype.List(key)
-        _list_types[key] = LIST
-        return LIST
 
 class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
