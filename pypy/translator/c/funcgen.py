@@ -4,9 +4,11 @@ from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import c_last_exception
-from pypy.rpython.lltypesystem.lltype import \
-     Ptr, PyObject, Void, Bool, Signed, Unsigned, SignedLongLong, UnsignedLongLong,Char, UniChar, pyobjectptr, Struct, Array
-
+from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
+from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong
+from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
+from pypy.rpython.lltypesystem.lltype import pyobjectptr
+from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
@@ -396,21 +398,44 @@ class FunctionCodeGenerator(object):
         return self.OP_GETFIELD(op, ampersand='&')
 
     def OP_GETARRAYSIZE(self, op):
-        return '%s = %s->length;' % (self.expr(op.result),
-                                     self.expr(op.args[0]))
+        ARRAY = self.lltypemap(op.args[0]).TO
+        if isinstance(ARRAY, FixedSizeArray):
+            return '%s = %d;' % (self.expr(op.result),
+                                 ARRAY.length)
+        else:
+            return '%s = %s->length;' % (self.expr(op.result),
+                                         self.expr(op.args[0]))
 
     def OP_GETARRAYITEM(self, op):
-        return self.generic_get(op, '%s->items[%s]' % (self.expr(op.args[0]),
-                                                       self.expr(op.args[1])))
+        ARRAY = self.lltypemap(op.args[0]).TO
+        items = self.expr(op.args[0])
+        if isinstance(ARRAY, FixedSizeArray):
+            items = '(*%s)' % (items,)
+        else:
+            items += '->items'
+        return self.generic_get(op, '%s[%s]' % (items,
+                                                self.expr(op.args[1])))
 
     def OP_SETARRAYITEM(self, op):
-        return self.generic_set(op, '%s->items[%s]' % (self.expr(op.args[0]),
-                                                       self.expr(op.args[1])))
+        ARRAY = self.lltypemap(op.args[0]).TO
+        items = self.expr(op.args[0])
+        if isinstance(ARRAY, FixedSizeArray):
+            items = '(*%s)' % (items,)
+        else:
+            items += '->items'
+        return self.generic_set(op, '%s[%s]' % (items,
+                                                self.expr(op.args[1])))
 
     def OP_GETARRAYSUBSTRUCT(self, op):
-        return '%s = %s->items + %s;' % (self.expr(op.result),
-                                         self.expr(op.args[0]),
-                                         self.expr(op.args[1]))
+        ARRAY = self.lltypemap(op.args[0]).TO
+        items = self.expr(op.args[0])
+        if isinstance(ARRAY, FixedSizeArray):
+            items = '*%s' % (items,)
+        else:
+            items += '->items'
+        return '%s = %s + %s;' % (self.expr(op.result),
+                                  items,
+                                  self.expr(op.args[1]))
 
     def OP_PTR_NONZERO(self, op):
         return '%s = (%s != NULL);' % (self.expr(op.result),

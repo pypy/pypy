@@ -448,7 +448,8 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f, '/***  Structure definitions                              ***/'
     print >> f
     for node in structdeflist:
-        print >> f, 'struct %s;' % node.name
+        if node.name:
+            print >> f, 'struct %s;' % node.name
     print >> f
     for node in structdeflist:
         for line in node.definition():

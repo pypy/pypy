@@ -1,13 +1,14 @@
 from pypy.rpython.lltypesystem.lltype import \
      Primitive, Ptr, typeOf, RuntimeTypeInfo, \
      Struct, Array, FuncType, PyObject, Void, \
-     ContainerType, OpaqueType
+     ContainerType, OpaqueType, FixedSizeArray
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.memory.lladdress import NULL
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
+from pypy.translator.c.node import FixedSizeArrayDefNode
 from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
@@ -72,7 +73,10 @@ class LowLevelDatabase(object):
             node = self.structdefnodes[key]
         except KeyError:
             if isinstance(T, Struct):
-                node = StructDefNode(self, T, varlength)
+                if isinstance(T, FixedSizeArray):
+                    node = FixedSizeArrayDefNode(self, T)
+                else:
+                    node = StructDefNode(self, T, varlength)
             elif isinstance(T, Array):
                 node = ArrayDefNode(self, T, varlength)
             elif isinstance(T, OpaqueType) and hasattr(T, '_exttypeinfo'):
@@ -93,7 +97,7 @@ class LowLevelDatabase(object):
             node = self.gettypedefnode(T, varlength=varlength)
             if who_asks is not None:
                 who_asks.dependencies[node] = True
-            return 'struct %s @' % node.name
+            return node.gettype()
         elif T == PyObject:
             return 'PyObject @'
         elif isinstance(T, FuncType):

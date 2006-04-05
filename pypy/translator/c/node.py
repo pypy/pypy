@@ -1,6 +1,6 @@
 from __future__ import generators
 from pypy.rpython.lltypesystem.lltype import \
-     Struct, Array, FuncType, PyObjectType, typeOf, \
+     Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
      GcStruct, GcArray, GC_CONTAINER, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
      RuntimeTypeInfo, getRuntimeTypeInfo, Char
@@ -50,8 +50,6 @@ class StructDefNode:
         self.dependencies = {}
         self.prefix = somelettersfrom(STRUCT._name) + '_'
 
-        gcpolicy = db.gcpolicy
-
     def setup(self):
         # this computes self.fields
         self.fields = []
@@ -85,6 +83,9 @@ class StructDefNode:
             self.db.gcpolicy.struct_setup(self, rtti)
         return self.gcinfo
     gcinfo = defaultproperty(computegcinfo)
+
+    def gettype(self):
+        return 'struct %s @' % self.name
 
     def c_struct_field_name(self, name):
         return self.prefix + name
@@ -173,6 +174,9 @@ class ArrayDefNode:
         return self.gcinfo
     gcinfo = defaultproperty(computegcinfo)
 
+    def gettype(self):
+        return 'struct %s @' % self.name
+
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)
 
@@ -226,6 +230,61 @@ class ArrayDefNode:
         else:
             yield '-1'
             yield '-1'
+
+
+class FixedSizeArrayDefNode:
+    gcinfo = None
+    name = None
+
+    def __init__(self, db, FIXEDARRAY):
+        self.db = db
+        self.FIXEDARRAY = FIXEDARRAY
+        self.LLTYPE = FIXEDARRAY
+        self.dependencies = {}
+        self.itemtypename = db.gettype(FIXEDARRAY.OF, who_asks=self)
+
+    def setup(self):
+        """Loops are forbidden by ForwardReference.become() because
+        there is no way to declare them in C."""
+
+    def gettype(self):
+        FIXEDARRAY = self.FIXEDARRAY
+        return self.itemtypename.replace('@', '(@)[%d]' % FIXEDARRAY.length)
+
+    def access_expr(self, baseexpr, index):
+        return '%s[%d]' % (baseexpr, index)
+
+    def definition(self):
+        return []    # no declaration is needed
+
+    def visitor_lines(self, prefix, on_item):
+        FIXEDARRAY = self.FIXEDARRAY
+        # we need a unique name for this C variable, or at least one that does
+        # not collide with the expression in 'prefix'
+        i = 0
+        varname = 'p0'
+        while prefix.find(varname) >= 0:
+            i += 1
+            varname = 'p%d' % i
+        body = list(on_item('(*%s)' % varname, FIXEDARRAY.OF))
+        if body:
+            yield '{'
+            yield '\t%s = %s;' % (cdecl(self.itemtypename, '*' + varname),
+                                  prefix)
+            yield '\t%s = %s + %d;' % (cdecl(self.itemtypename,
+                                             '*%s_end' % varname),
+                                       varname,
+                                       FIXEDARRAY.length)
+            yield '\twhile (%s != %s_end) {' % (varname, varname)
+            for line in body:
+                yield '\t\t' + line
+            yield '\t\t%s++;' % varname
+            yield '\t}'
+            yield '}'
+
+    def debug_offsets(self):
+        # XXX not implemented
+        return []
 
 
 class ExtTypeOpaqueDefNode:
@@ -386,6 +445,34 @@ class ArrayNode(ContainerNode):
             yield '} }'
 
 assert not USESLOTS or '__dict__' not in dir(ArrayNode)
+
+class FixedSizeArrayNode(ContainerNode):
+    nodekind = 'array'
+    if USESLOTS:
+        __slots__ = ()
+
+    def basename(self):
+        return self.T._name
+
+    def enum_dependencies(self):
+        for name in self.T._names:   # _names == ['item0', 'item1', ...]
+            yield getattr(self.obj, name)
+
+    def getlength(self):
+        return 1    # not variable-sized!
+
+    def initializationexpr(self, decoration=''):
+        is_empty = True
+        yield '{'
+        # _names == ['item0', 'item1', ...]
+        for j, name in enumerate(self.T._names):
+            value = getattr(self.obj, name)
+            lines = generic_initializationexpr(self.db, value,
+                                               '%s[%d]' % (self.name, j),
+                                               '%s%d' % (decoration, j))
+            for line in lines:
+                yield '\t' + line
+        yield '}'
 
 def generic_initializationexpr(db, value, access_expr, decoration):
     if isinstance(typeOf(value), ContainerType):
@@ -603,6 +690,7 @@ ContainerNodeFactory = {
     GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
+    FixedSizeArray: FixedSizeArrayNode,
     FuncType:     FuncNode,
     OpaqueType:   opaquenode_factory,
     PyObjectType: PyObjectNode,
