@@ -194,26 +194,26 @@ class BaseTestListRtyping:
             l = [5]
             l.append(6)
             return len(l)
-        res = interpret(dummyfn, [])
+        res = interpret(dummyfn, [], type_system=self.ts)
         assert res == 2
 
-def test_iterate():
-    def dummyfn():
-        total = 0
-        for x in [1, 3, 5, 7, 9]:
-            total += x
-        return total
-    res = interpret(dummyfn, [])
-    assert res == 25
-    def dummyfn():
-        total = 0
-        l = [1, 3, 5, 7]
-        l.append(9)
-        for x in l:
-            total += x
-        return total
-    res = interpret(dummyfn, [])
-    assert res == 25
+    def test_iterate(self):
+        def dummyfn():
+            total = 0
+            for x in [1, 3, 5, 7, 9]:
+                total += x
+            return total
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert res == 25
+        def dummyfn():
+            total = 0
+            l = [1, 3, 5, 7]
+            l.append(9)
+            for x in l:
+                total += x
+            return total
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert res == 25
 
 def test_recursive():
     def dummyfn(N):

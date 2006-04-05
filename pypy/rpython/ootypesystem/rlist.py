@@ -1,6 +1,8 @@
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rlist import AbstractListRepr, rtype_newlist
-from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst, externalvsinternal
+from pypy.rpython.rlist import AbstractListRepr, AbstractListIteratorRepr, \
+        rtype_newlist
+from pypy.rpython.rmodel import Repr, IntegerRepr
+from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.ootypesystem import ootype
 
 class BaseListRepr(AbstractListRepr):
@@ -13,7 +15,7 @@ class BaseListRepr(AbstractListRepr):
             assert callable(item_repr)
             self._item_repr_computer = item_repr
         else:
-            self.lowleveltype = ootype.List(item_repr.lowleveltype)
+            self.lowleveltype = list_type(item_repr)
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(rtyper, item_repr)
         self.listitem = listitem
@@ -24,7 +26,7 @@ class BaseListRepr(AbstractListRepr):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(self.rtyper, self._item_repr_computer())
-            self.lowleveltype = ootype.List(self.item_repr.lowleveltype)
+            self.lowleveltype = list_type(self.item_repr)
 
     def send_message(self, hop, message, can_raise=False):
         v_args = hop.inputargs(self, *hop.args_r[1:])
@@ -40,8 +42,22 @@ class BaseListRepr(AbstractListRepr):
     def rtype_method_append(self, hop):
         return self.send_message(hop, "append")
 
+    def make_iterator_repr(self):
+        return ListIteratorRepr(self)
+
 ListRepr = BaseListRepr
 FixedSizeListRepr = BaseListRepr
+
+_list_types = {}
+
+def list_type(item_repr):
+    key = item_repr.lowleveltype
+    if _list_types.has_key(key):
+        return _list_types[key]
+    else:
+        LIST = ootype.List(key)
+        _list_types[key] = LIST
+        return LIST
 
 class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
@@ -62,4 +78,42 @@ def newlist(llops, r_list, items_v):
         llops.genop("oosend", [c_append, v_result, v_item],
                 resulttype=ootype.Void)
     return v_result
+
+# ____________________________________________________________
+#
+#  Iteration.
+
+_list_iter_types = {}
+
+def list_iter_type(r_list):
+    key = r_list.lowleveltype
+    if _list_iter_types.has_key(key):
+        return _list_iter_types[key]
+    else:
+        INST = ootype.Instance("ListIter", ootype.ROOT,
+                {"list": r_list.lowleveltype, "index": ootype.Signed})
+        _list_iter_types[key] = INST
+        return INST
+
+class ListIteratorRepr(AbstractListIteratorRepr):
+
+    def __init__(self, r_list):
+        self.r_list = r_list
+        self.lowleveltype = list_iter_type(r_list)
+        self.ll_listiter = ll_listiter
+        self.ll_listnext = ll_listnext
+
+def ll_listiter(ITER, lst):
+    iter = ootype.new(ITER)
+    iter.list = lst
+    iter.index = 0
+    return iter
+
+def ll_listnext(iter):
+    l = iter.list
+    index = iter.index
+    if index >= l.length():
+        raise StopIteration
+    iter.index = index + 1
+    return l.getitem(index)
 

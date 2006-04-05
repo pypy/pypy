@@ -3,8 +3,9 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
-from pypy.rpython.rmodel import IteratorRepr, externalvsinternal
-from pypy.rpython.rlist import AbstractListRepr, rtype_newlist
+from pypy.rpython.rmodel import externalvsinternal
+from pypy.rpython.rlist import AbstractListRepr, AbstractListIteratorRepr, \
+        rtype_newlist
 from pypy.rpython.rlist import dum_nocheck, dum_checkidx
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
@@ -52,9 +53,6 @@ class BaseListRepr(AbstractListRepr):
 
     def _setup_repr_final(self):
         self.list_builder.setup(self)
-
-    def recast(self, llops, v):
-        return llops.convertvar(v, self.item_repr, self.external_item_repr)
 
     def convert_const(self, listobj):
         # get object from bound list method
@@ -974,25 +972,15 @@ def rtype_alloc_and_set(hop):
 #
 #  Iteration.
 
-class ListIteratorRepr(IteratorRepr):
+class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
         self.lowleveltype = Ptr(GcStruct('listiter',
                                          ('list', r_list.lowleveltype),
                                          ('index', Signed)))
-
-    def newiter(self, hop):
-        v_lst, = hop.inputargs(self.r_list)
-        citerptr = hop.inputconst(Void, self.lowleveltype)
-        return hop.gendirectcall(ll_listiter, citerptr, v_lst)
-
-    def rtype_next(self, hop):
-        v_iter, = hop.inputargs(self)
-        hop.has_implicit_exception(StopIteration) # record that we know about it
-        hop.exception_is_here()
-        v_res = hop.gendirectcall(ll_listnext, v_iter)
-        return self.r_list.recast(hop.llops, v_res)
+        self.ll_listiter = ll_listiter
+        self.ll_listnext = ll_listnext
 
 def ll_listiter(ITERPTR, lst):
     iter = malloc(ITERPTR.TO)

@@ -1,5 +1,7 @@
 from pypy import conftest
 from pypy.rpython.ootypesystem.ootype import *
+from pypy.rpython.ootypesystem.rlist import ListRepr
+from pypy.rpython.rint import signed_repr
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext, graphof
@@ -106,7 +108,7 @@ def test_list_len():
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
-    assert rettype == Unsigned
+    assert rettype == Signed
 
 def test_list_append():
     LT = List(Signed)
@@ -118,7 +120,7 @@ def test_list_append():
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
-    assert rettype == Unsigned
+    assert rettype == Signed
 
 def test_list_getitem_setitem():
     LT = List(Signed)
@@ -146,3 +148,22 @@ def test_list_getitem_exceptions():
 
     res = interpret(oof, [], type_system='ootype')
     assert res is -1
+
+def test_list_lltype_identity():
+    t = TranslationContext()
+    t.buildannotator()
+    rtyper = t.buildrtyper()
+    repr1 = ListRepr(rtyper, signed_repr)
+    repr2 = ListRepr(rtyper, signed_repr)
+    assert repr1.lowleveltype is repr2.lowleveltype
+
+def test_list_annotation():
+    LIST = List(Signed)
+
+    def oof(lst):
+        return lst.length()
+
+    lst = new(LIST)
+    lst.append(1)
+    res = interpret(oof, [lst], type_system='ootype')
+    assert res == 1

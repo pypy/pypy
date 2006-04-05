@@ -180,7 +180,7 @@ class List(OOType):
         # to map to their native list implementations.
         self._METHODS = frozendict({
             # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
-            "length": Meth([], Unsigned),
+            "length": Meth([], Signed),
             "append": Meth([ITEMTYPE], Void),
             "getitem": Meth([Signed], ITEMTYPE),
             "setitem": Meth([Signed, ITEMTYPE], Void),

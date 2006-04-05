@@ -1,5 +1,6 @@
 from pypy.annotation import model as annmodel
-from pypy.rpython.rmodel import Repr, inputconst
+from pypy.rpython.rmodel import Repr, IteratorRepr, inputconst
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import robject
 
 
@@ -29,7 +30,8 @@ class __extend__(annmodel.SomeList):
 
 class AbstractListRepr(Repr):
 
-    pass
+    def recast(self, llops, v):
+        return llops.convertvar(v, self.item_repr, self.external_item_repr)
 
 def rtype_newlist(hop):
     nb_args = hop.nb_args
@@ -50,4 +52,22 @@ def rtype_newlist(hop):
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass
+
+# ____________________________________________________________
+#
+#  Iteration.
+
+class AbstractListIteratorRepr(IteratorRepr):
+
+    def newiter(self, hop):
+        v_lst, = hop.inputargs(self.r_list)
+        citerptr = hop.inputconst(lltype.Void, self.lowleveltype)
+        return hop.gendirectcall(self.ll_listiter, citerptr, v_lst)
+
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
+        v_res = hop.gendirectcall(self.ll_listnext, v_iter)
+        return self.r_list.recast(hop.llops, v_res)
 
