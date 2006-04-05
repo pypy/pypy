@@ -3,12 +3,10 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
-from pypy.jit.timeshifter.rtimeshift import VARLIST, RedBox, VarRedBox
-from pypy.jit.timeshifter.rtimeshift import ConstRedBox, JITState
-from pypy.jit.timeshifter.rtimeshift import make_types_const
+from pypy.jit.timeshifter import rvalue
+from pypy.jit.timeshifter.rtimeshift import JITState
 from pypy.rpython import rmodel, rdict, rgenop, annlowlevel
-from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.lltypesystem import rtuple
+from pypy.rpython.lltypesystem import rtuple, rlist
 from pypy.jit.timeshifter import rtimeshift
 from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList
@@ -27,10 +25,11 @@ class HintTimeshift(object):
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
 
         self.s_JITState, self.r_JITState = self.s_r_instanceof(JITState)
-        self.s_RedBox, self.r_RedBox = self.s_r_instanceof(RedBox)
+        self.s_RedBox, self.r_RedBox = self.s_r_instanceof(rvalue.RedBox)
 
         getrepr = self.rtyper.getrepr
 
+        bk = rtyper.annotator.bookkeeper
         box_list_def = listdef.ListDef(None, self.s_RedBox)
         box_list_def.mutate()
         self.s_box_list = annmodel.SomeList(box_list_def)
@@ -49,20 +48,20 @@ class HintTimeshift(object):
             [], self.s_JITState)
         self.ll_int_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_int_box,
-            [rgenop.s_ConstOrVar],
+            [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
             self.s_RedBox)
         self.ll_addr_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_addr_box,
-            [rgenop.s_ConstOrVar],
+            [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
             self.s_RedBox)
         self.ll_double_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_int_box,
-            [rgenop.s_ConstOrVar],
+            [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
             self.s_RedBox)
-        self.ll_var_box_graph = self.annhelper.getgraph(
-            rtimeshift.ll_var_box,
+        self.ll_geninputarg_graph = self.annhelper.getgraph(
+            rtimeshift.ll_geninputarg,
             [self.s_JITState, annmodel.SomePtr(rgenop.CONSTORVAR)],
-            self.s_RedBox)
+            rgenop.s_ConstOrVar)
         self.ll_end_setup_jitstate_graph = self.annhelper.getgraph(
             rtimeshift.ll_end_setup_jitstate,
             [self.s_JITState],
@@ -105,7 +104,7 @@ class HintTimeshift(object):
                 c_TYPE = rmodel.inputconst(lltype.Void,
                                            r.lowleveltype)
                 s_TYPE = self.rtyper.annotator.bookkeeper.immutablevalue(r.lowleveltype)
-                v_value = llops.genmixlevelhelpercall(rtimeshift.ll_getvalue,
+                v_value = llops.genmixlevelhelpercall(rvalue.ll_getvalue,
                     [self.s_RedBox, s_TYPE],
                     [v_box, c_TYPE],
                     r.annotation())
@@ -218,7 +217,7 @@ class HintTimeshift(object):
 
     def make_const_box(self, llops, r_green, v_value):
         v_box = llops.genmixlevelhelpercall(
-            rtimeshift.ConstRedBox.ll_fromvalue,
+            rvalue.ll_fromvalue,
             [r_green.annotation()], [v_value], self.s_RedBox)
         return v_box
         
@@ -267,7 +266,6 @@ class HintTimeshift(object):
         getrepr = self.rtyper.getrepr
 
         v_boxes = self.build_box_list(llops, boxes_v)
-        TYPES_gv = make_types_const(TYPES)
 
         if nentrylinks > 1:
             enter_block_logic = self.bookkeeping_enter_for_join
@@ -279,8 +277,7 @@ class HintTimeshift(object):
         enter_block_logic(args_r, newinputargs,
                           before_block,
                           llops,
-                          v_boxes,
-                          TYPES_gv)
+                          v_boxes)
 
     def build_box_list(self, llops, boxes_v):
         type_erased_v = [llops.convertvar(v_box, self.r_RedBox,
@@ -289,13 +286,11 @@ class HintTimeshift(object):
         v_boxes = rlist.newlist(llops, self.r_box_list, type_erased_v)
         return v_boxes
 
-    def bookkeeping_enter_simple(self, args_r, newinputargs, before_block, llops, v_boxes,
-                                TYPES_gv):
-        c_TYPES = rmodel.inputconst(VARLIST, TYPES_gv)
+    def bookkeeping_enter_simple(self, args_r, newinputargs, before_block,
+                                 llops, v_boxes):
         v_newjitstate = llops.genmixlevelhelpercall(rtimeshift.enter_block,
-                             [self.s_JITState, self.s_box_list,
-                              annmodel.SomePtr(VARLIST)],
-                             [newinputargs[0], v_boxes, c_TYPES],
+                             [self.s_JITState, self.s_box_list],
+                             [newinputargs[0], v_boxes],
                              self.s_JITState)
 
         bridge = before_block.exits[0]
@@ -312,8 +307,8 @@ class HintTimeshift(object):
     # ll_retrieve_jitstate_for_merge is supposed to use the "constant" dict as cache
     # mapping green values combinations to frozen states for red boxes values
     # and generated blocks
-    def bookkeeping_enter_for_join(self, args_r, newinputargs, before_block, llops, v_boxes,
-                                   TYPES_gv):
+    def bookkeeping_enter_for_join(self, args_r, newinputargs, before_block,
+                                   llops, v_boxes):
         getrepr = self.rtyper.getrepr        
         items_s = []
         key_v = []
@@ -340,7 +335,7 @@ class HintTimeshift(object):
 
         def merge_point(jitstate, key, boxes):
             return rtimeshift.retrieve_jitstate_for_merge(cache, jitstate,
-                                                          key, boxes, TYPES_gv)
+                                                          key, boxes)
 
         v_newjitstate = llops.genmixlevelhelpercall(merge_point,
               [self.s_JITState, s_key_tuple, self.s_box_list],

@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rgenop
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator import container as hintcontainer
-from pypy.jit.timeshifter import rtimeshift
+from pypy.jit.timeshifter import rtimeshift, rvalue, rcontainer
 
 class HintTypeSystem(TypeSystem):
     name = "hinttypesystem"
@@ -122,7 +122,7 @@ class HintRTyper(RPythonTyper):
         ts = self.timeshifter
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
-        fielddesc = rtimeshift.StructFieldDesc.make(PTRTYPE, c_fieldname.value)
+        fielddesc = rcontainer.StructTypeDesc(PTRTYPE.TO).getfielddesc(c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -142,7 +142,7 @@ class HintRTyper(RPythonTyper):
         ts = self.timeshifter
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
-        fielddesc = rtimeshift.ArrayFieldDesc.make(PTRTYPE)
+        fielddesc = rcontainer.ArrayFieldDesc(PTRTYPE)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -163,7 +163,7 @@ class HintRTyper(RPythonTyper):
                                                            green_void_repr,
                                                            self.getredrepr(VALUETYPE)
                                                            )
-        fielddesc = rtimeshift.StructFieldDesc.make(PTRTYPE, c_fieldname.value)
+        fielddesc = rcontainer.StructTypeDesc(PTRTYPE.TO).getfielddesc(c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -181,7 +181,7 @@ class HintRTyper(RPythonTyper):
         PTRTYPE = originalconcretetype(hop.args_s[0])
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
-        fielddesc = rtimeshift.StructFieldDesc.make(PTRTYPE, c_fieldname.value)
+        fielddesc = rcontainer.NamedFieldDesc(PTRTYPE, c_fieldname.value) # XXX
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -322,7 +322,7 @@ class RedRepr(Repr):
                        annmodel.SomePtr(rgenop.CONSTORVAR))
 
     def convert_const(self, ll_value):
-        redbox = rtimeshift.ConstRedBox.ll_fromvalue(ll_value)
+        redbox = rvalue.ll_fromvalue(ll_value)
         timeshifter = self.timeshifter
         return timeshifter.annhelper.delayedconst(timeshifter.r_RedBox, redbox)
 
@@ -336,7 +336,7 @@ class RedStructRepr(RedRepr):
     def create(self, hop):
         if self.typedesc is None:
             T = self.original_concretetype.TO
-            self.typedesc = rtimeshift.StructTypeDesc.make(T)
+            self.typedesc = rcontainer.StructTypeDesc(T)
         ts = self.timeshifter
         return hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
             [], [], ts.s_RedBox)
@@ -519,7 +519,7 @@ class __extend__(pairtype(GreenRepr, RedRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         assert r_from.lowleveltype == r_to.original_concretetype
-        return llops.genmixlevelhelpercall(rtimeshift.ConstRedBox.ll_fromvalue,
+        return llops.genmixlevelhelpercall(rvalue.ll_fromvalue,
                                            [r_from.annotation()], [v],
                                            llops.timeshifter.s_RedBox)
 

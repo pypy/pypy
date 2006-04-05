@@ -93,16 +93,18 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
             # red
             assert residual_v == [llvalue], "XXX for now"
             TYPE = htshift.originalconcretetype(v)
-            box = llinterp.eval_graph(htshift.ll_var_box_graph, [jitstate,
-                                                                 rgenop.constTYPE(TYPE)])
+            gv_type = rgenop.constTYPE(TYPE)
+            gvar = llinterp.eval_graph(htshift.ll_geninputarg_graph, [jitstate,
+                                                                      gv_type])
             if i in opt_consts: # XXX what should happen here interface wise is unclear
-                if isinstance(lltype.typeOf(llvalue), lltype.Ptr):
-                    ll_box_graph = htshift.ll_addr_box_graph
-                elif isinstance(llvalue, float):
-                    ll_box_graph = htshift.ll_double_box_graph
-                else:
-                    ll_box_graph = htshift.ll_int_box_graph
-                box = llinterp.eval_graph(ll_box_graph, [rgenop.genconst(llvalue)])
+                gvar = rgenop.genconst(llvalue)
+            if isinstance(lltype.typeOf(llvalue), lltype.Ptr):
+                ll_box_graph = htshift.ll_addr_box_graph
+            elif isinstance(llvalue, float):
+                ll_box_graph = htshift.ll_double_box_graph
+            else:
+                ll_box_graph = htshift.ll_int_box_graph
+            box = llinterp.eval_graph(ll_box_graph, [gv_type, gvar])
             graph1args.append(box)
             residual_graph_args.append(llvalue)
     startblock = llinterp.eval_graph(htshift.ll_end_setup_jitstate_graph, [jitstate])
@@ -341,6 +343,7 @@ def test_simple_array():
     assert insns == {}
 
 def test_simple_struct_malloc():
+    py.test.skip("blue containers: to be reimplemented")
     S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
                                       ('world', lltype.Signed))               
     def ll_function(x):
@@ -357,6 +360,7 @@ def test_simple_struct_malloc():
     assert insns == {}
 
 def test_inlined_substructure():
+    py.test.skip("blue containers: to be reimplemented")
     S = lltype.Struct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
     def ll_function(k):
@@ -431,6 +435,26 @@ def test_degenerated_at_return():
     parent, parentindex = lltype.parentlink(res._obj)
     assert parentindex == 's'
     assert parent.n == 3.25
+
+def test_degenerated_via_substructure():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+
+    def ll_function(flag):
+        t = lltype.malloc(T)
+        t.s.n = 3
+        s = lltype.malloc(S)
+        s.n = 7
+        if flag:
+            pass
+        else:
+            s = t.s
+        t.s.n += 1
+        return s.n * t.s.n
+    insns, res = timeshift(ll_function, [1], [])
+    assert res == 7 * 4
+    insns, res = timeshift(ll_function, [0], [])
+    assert res == 4 * 4
 
 def test_plus_minus_all_inlined():
     def ll_plus_minus(s, x, y):
