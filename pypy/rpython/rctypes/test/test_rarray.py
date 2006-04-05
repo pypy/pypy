@@ -126,7 +126,6 @@ class Test_specialization:
 
 class Test_compilation:
     def test_compile_array_access(self):
-        py.test.skip("in-progress")
         def access_array():
             my_array = c_int_10()
             my_array[0] = 1
