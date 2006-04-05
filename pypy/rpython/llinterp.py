@@ -391,6 +391,8 @@ class LLFrame(object):
                 write_barrier = gc.get_funcptr_write_barrier()
                 result = self.op_direct_call(write_barrier, *args)
 
+    op_bare_setfield = op_setfield
+
     def op_getarrayitem(self, array, index):
         return array[index]
 

@@ -255,6 +255,7 @@ LL_OPERATIONS = {
     'getsubstruct':         LLOp(canfold=True),
     'getarraysubstruct':    LLOp(canfold=True),
     'setfield':             LLOp(),
+    'bare_setfield':        LLOp(),
     'setarrayitem':         LLOp(),
     'cast_pointer':         LLOp(canfold=True),
     'ptr_eq':               LLOp(canfold=True),

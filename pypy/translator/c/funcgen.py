@@ -394,6 +394,8 @@ class FunctionCodeGenerator(object):
         return self.generic_set(op, '%s->%s' % (self.expr(op.args[0]),
                                                 fieldname))
 
+    OP_BARE_SETFIELD = OP_SETFIELD
+
     def OP_GETSUBSTRUCT(self, op):
         return self.OP_GETFIELD(op, ampersand='&')
 
