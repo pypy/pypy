@@ -30,6 +30,7 @@ def error_value(T):
     assert 0, "not implemented yet"
 
 def insert_keepalives_along(translator, link, vars):
+    vars = [v for v in vars if v not in link.args]
     link.args.extend(vars)
     newvars = [copyvar(translator, v) for v in vars]
     block = link.target
