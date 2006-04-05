@@ -61,6 +61,9 @@ class NaiveDistributor(AbstractDistributor):
     The first new domain has a size of one,
     and the second has all the other values"""
 
+    def __init__(self, c_space):
+        AbstractDistributor.__init__(self, c_space, 2)
+        
     def _do_distribute(self, domain, choice):
         values = domain.get_values()
         if choice == 0:
