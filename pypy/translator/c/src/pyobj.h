@@ -25,12 +25,12 @@
 #define OP_IS_TRUE(x,r) op_bool(r,PyObject_IsTrue(x))
 #define OP_NONZERO(x,r) op_bool(r,PyObject_IsTrue(x))
 
-#define OP_LEN(x,r) { \
+#define OP_LEN(x,r) do { \
 		int _retval = PyObject_Size(x);  \
-		if (_retval < 0) { CFAIL() };    \
+		if (_retval < 0) { CFAIL(); }    \
                 else                             \
                     r = PyInt_FromLong(_retval); \
-	}
+	} while (0)
 #define OP_NEG(x,r)           if (!(r=PyNumber_Negative(x)))     CFAIL()
 #define OP_POS(x,r)           if (!(r=PyNumber_Positive(x)))     CFAIL()
 #define OP_INVERT(x,r)        if (!(r=PyNumber_Invert(x)))       CFAIL()
