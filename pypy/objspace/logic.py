@@ -188,7 +188,6 @@ if USE_COROUTINES:
 
 class W_Var(W_Root, object):
     def __init__(w_self):
-        #w_self.typedef = 'Variable'
         w_self.w_bound_to = w_self 
         w_self.w_needed = False    
 
@@ -203,20 +202,20 @@ def newvar(space):
     return W_Var()
 app_newvar = gateway.interp2app(newvar)
 
-def wait__Root(space, w_self):
-    return w_self
+def wait__Root(space, w_obj):
+    return w_obj
 
-def wait__Var(space, w_self):
+def wait__Var(space, w_var):
     while 1:
-        #print " :wait", w_self
-        if space.is_true(space.is_free(w_self)):
+        #print " :wait", w_var
+        if space.is_true(space.is_free(w_var)):
             if not have_uthreads():
                 raise OperationError(space.w_RuntimeError,
                                      space.wrap("trying to perform an operation on an unbound variable"))
             else:
                 # notify wait_needed clients, give them a chance to run
-                w_self.w_needed = True
-                for w_alias in aliases(space, w_self):
+                w_var.w_needed = True
+                for w_alias in aliases(space, w_var):
                     need_waiters = schedule_state.pop_blocked_byneed_on(w_alias)
                     w_alias.w_needed = True
                     for waiter in need_waiters:
@@ -224,7 +223,7 @@ def wait__Var(space, w_self):
                         schedule_state.add_to_runnable(waiter)
                 # set curr thread to blocked, switch to runnable thread
                 current = get_current_coroutine()
-                schedule_state.add_to_blocked(w_self, current)
+                schedule_state.add_to_blocked(w_var, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
@@ -237,7 +236,7 @@ def wait__Var(space, w_self):
                     raise OperationError(space.w_RuntimeError,
                                          space.wrap("blocked on variable, but no uthread that can bind it"))
         else:
-            return w_self.w_bound_to
+            return w_var.w_bound_to
 
 def wait(space, w_obj):
     assert isinstance(w_obj, W_Root)
@@ -250,11 +249,11 @@ wait_mm.register(wait__Root, W_Root)
 all_mms['wait'] = wait_mm
 
 
-def wait_needed__Var(space, w_self):
+def wait_needed__Var(space, w_var):
     while 1:
-        #print " :needed", w_self
-        if space.is_true(space.is_free(w_self)):
-            if w_self.w_needed:
+        #print " :needed", w_var
+        if space.is_true(space.is_free(w_var)):
+            if w_var.w_needed:
                 break # we're done
             if not have_uthreads():
                 raise OperationError(space.w_RuntimeError,
@@ -262,7 +261,7 @@ def wait_needed__Var(space, w_self):
             else:
                 # add current thread to blocked byneed and switch
                 current = get_current_coroutine()
-                for w_alias in aliases(space, w_self):
+                for w_alias in aliases(space, w_var):
                     schedule_state.add_to_blocked_byneed(w_alias, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
@@ -451,27 +450,30 @@ def bind(space, w_var, w_obj):
     space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
 
-def bind__Var_Var(space, w_var, w_obj):
-    if space.is_true(space.is_bound(w_var)):
-        if space.is_true(space.is_bound(w_obj)):
+def bind__Var_Var(space, w_v1, w_v2):
+    if space.is_true(space.is_bound(w_v1)):
+        if space.is_true(space.is_bound(w_v2)):
             return unify(space, #FIXME: we could just raise
-                         deref(space, w_var),
-                         deref(space, w_obj))
+                         deref(space, w_v1),
+                         deref(space, w_v2))
         # 2. a (obj unbound, var bound)
-        return _assign(space, w_obj, deref(space, w_var))
-    elif space.is_true(space.is_bound(w_obj)):
+        return _assign(space, w_v2, deref(space, w_v1))
+    elif space.is_true(space.is_bound(w_v2)):
         # 2. b (var unbound, obj bound)
-        return _assign(space, w_var, deref(space, w_obj))
+        return _assign(space, w_v1, deref(space, w_v2))
     else: # 1. both are unbound
-        return _alias(space, w_var, w_obj)
+        return _alias(space, w_v1, w_v2)
 
 
-def bind__Var_Root(space, w_v1, w_v2):
+def bind__Var_Root(space, w_var, w_obj):
     # 3. var and value
-    if space.is_true(space.is_free(w_v1)):
-        return _assign(space, w_v1, w_v2)
-    #print "uh !"
-    fail(space, w_v1, w_v2)
+    if space.is_true(space.is_free(w_var)):
+        return _assign(space, w_var, w_obj)
+    # for dataflow behaviour we should allow
+    # rebinding of unifiable values
+    raise OperationError(space.w_RuntimeError,
+                         space.wrap("Cannot bind twice"))
+    
 
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
 bind_mm.register(bind__Var_Root, W_Var, W_Root)
@@ -520,6 +522,8 @@ def _alias(space, w_v1, w_v2):
     return space.w_None
 
 def _add_to_aliases(space, w_v1, w_v2):
+    assert isinstance(w_v1, W_Var)
+    assert isinstance(w_v2, W_Var)
     #print "   :add to aliases", w_v1, w_v2
     w_tail = w_v1.w_bound_to
     w_v1.w_bound_to = w_v2
@@ -527,6 +531,8 @@ def _add_to_aliases(space, w_v1, w_v2):
     return space.w_None
     
 def _merge_aliases(space, w_v1, w_v2):
+    assert isinstance(w_v1, W_Var)
+    assert isinstance(w_v2, W_Var)
     #print "   :merge aliases", w_v1, w_v2
     w_tail1 = get_ring_tail(space, w_v1)
     w_tail2 = get_ring_tail(space, w_v2)
