@@ -60,7 +60,7 @@ typedef struct {
 /* helper-hook for post-setup */
 static globalfunctiondef_t *globalfunctiondefsptr;
 static PyObject *postsetup_get_type_dict(PyObject *tp);
-static PyObject *postsetup_build_method(int funcidx);
+static PyObject *postsetup_build_method(int funcidx, PyObject *type);
 
 /* implementations */
 
