@@ -130,6 +130,15 @@ def test_delete_function(): #this will only work if nothing uses Fn of course!
     ee.parse(ll_snippet.add1)
     assert f("calc")(100) == 101
 
+def TODOtest_multiple_executionengines():
+    pass
+
+def TODOtest_returntypes():
+    pass
+
+def TODOtest_paramtypes():
+    pass
+
 def TODOtest_add_to_function():
     pass
 

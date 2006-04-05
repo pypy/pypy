@@ -26,9 +26,31 @@ class Wrapper(object):
 def to_llvm_value(pythonvalue, type_):
     value = GenericValue_()
     value.LongVal = 0
-
-    # XXX store in correct value.<type> here
-    value.IntVal = pythonvalue
+    id_ = type_.getTypeID()
+    if id_ == PointerTyID and type_.getContainedType(0).getTypeID() == SByteTyID:
+        value.PointerVal = pointer(pythonvalue)
+    elif id_ == VoidTyID:
+        pass
+    elif id_ == BoolTyID:
+        value.BoolVal = pythonvalue
+    elif id_ == UByteTyID:
+        value.UByteVal = pythonvalue
+    elif id_ == SByteTyID:
+        value.SByteVal = pythonvalue
+    elif id_ == UShortTyID:
+        value.UShortVal = pythonvalue
+    elif id_ == ShortTyID:
+        value.ShortVal = pythonvalue
+    elif id_ == UIntTyID:
+        value.UIntVal = pythonvalue
+    elif id_ == IntTyID:
+        value.IntVal = pythonvalue
+    elif id_ == ULongTyID:
+        value.ULongVal = pythonvalue
+    elif id_ == LongTyID:
+        value.ULongVal = pythonvalue
+    else:
+        raise Exception("don't know how to convert pythontype '%s' to llvm" % type_.getDescription())
     return value
 
 
