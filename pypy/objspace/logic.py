@@ -753,6 +753,15 @@ def proxymaker(space, opname, parentfn):
     return proxy
 
 
+#------ constraints -----------------
+
+from pypy.objspace.constraint import domain
+
+W_FiniteDomain = domain.W_FiniteDomain
+
+def make_fd(space, w_values):
+    return domain.W_FiniteDomain(space, w_values)
+app_make_fd = gateway.interp2app(make_fd)
 
 #-- THE SPACE ---------------------------------------
 
@@ -804,8 +813,8 @@ def Space(*args, **kwds):
                   space.wrap(app_alias_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
                   space.wrap(app_is_aliased))
-##     space.setitem(space.builtin.w_dict, space.wrap('disp'),
-##                  space.wrap(app_disp))
+    space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
+                 space.wrap(app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
@@ -833,3 +842,10 @@ def Space(*args, **kwds):
                       space.wrap(app_wait_needed))
     patch_space_in_place(space, 'logic', proxymaker)
     return space
+
+
+
+
+
+
+
