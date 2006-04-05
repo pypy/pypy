@@ -6,7 +6,6 @@ from pypy.interpreter.gateway import interp2app
 
 from pypy.objspace.std.objspace import W_Object
 
-# ?
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 
@@ -21,19 +20,23 @@ class W_AbstractDomain(Wrappable):
 
     def __init__(self, space):
         self._space = space
-        self.__changed = 0
+        self.__changed = self._space.newbool(False)
 
     def w_reset_flags(self):
-        self.__changed = 0
+        self.__changed = self._space.newbool(False)
     
     def w_has_changed(self):
         return self.__changed
 
+    def w_size(self):
+        pass
+    
     def _value_removed(self):
         """The implementation of remove_value should call this method"""
-        self.__changed = 1
-        if self.size() == 0:
-            raise ConsistencyFailure()
+        self.__changed = self._space.newbool(True)
+        if self._space.eq_w(self.w_size(), self._space.newint(0)):
+            raise  OperationError(self._space.w_RuntimeError,
+                             self._space.wrap('ConsistencyFailure'))
 
 W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain",
     reset_flags = interp2app(W_AbstractDomain.w_reset_flags),
@@ -61,8 +64,9 @@ class W_FiniteDomain(W_AbstractDomain):
 
     def w_remove_values(self, w_values):
         """Remove values of domain and check for consistency"""
-        if w_values:
-            for val in w_values :
+        if self._space.is_true(self._space.gt(self._space.len(w_values),
+                                              self._space.newint(0))) :
+            for val in w_values.wrappeditems :
                 self._values.remove(val)
             self._value_removed()
     __delitem__ = w_remove_value
@@ -82,25 +86,28 @@ class W_FiniteDomain(W_AbstractDomain):
     
     def w_copy(self):
         """clone the domain"""
-        return W_FiniteDomain(self, self._space)
+        return W_FiniteDomain(self._space, self.w_get_values())
     
     def __repr__(self):
         return '<FD %s>' % str(self.get_values())
 
-    def __eq__(self, other):
-        if other is NoDom: return False
-        return self._values == other._values
+    def __eq__(self, w_other):
+        if w_other is NoDom: return False
+        return self._values == w_other._values
 
-    def __ne__(self, other):
-        return not self == other
+    def __ne__(self, w_other):
+        return not self == w_other
 
-    def intersection(self, other):
-        if other is None: return self.get_values()
-        return self._values & other._values
+    # FIXME: this does not work, but we don't need it yet
+    def w_intersection(self, w_other):
+        assert isinstance(w_other, W_FiniteDomain)
+        return self._space.newlist([x for x in (set(self.w_get_values()) & set(w_other.w_get_values()))])
 
 W_FiniteDomain.typedef = typedef.TypeDef("W_FiniteDomain",
+    W_AbstractDomain.typedef,
     remove_value = interp2app(W_FiniteDomain.w_remove_value),
     remove_values = interp2app(W_FiniteDomain.w_remove_values),
     get_values = interp2app(W_FiniteDomain.w_get_values),
     copy = interp2app(W_FiniteDomain.w_copy),
+#    intersection = interp2app(W_FiniteDomain.w_intersection),
     size = interp2app(W_FiniteDomain.w_size))
