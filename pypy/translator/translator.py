@@ -46,6 +46,8 @@ class TranslationContext(object):
                 log.start(nice_repr_for_func(func))
             space = FlowObjSpace()
             space.__dict__.update(self.flags)   # xxx push flags there
+            if self.annotator:
+                self.annotator.policy._adjust_space_config(space)
             graph = space.build_flow(func)
             if self.flags.get('simplifying'):
                 simplify_graph(graph)

@@ -43,6 +43,8 @@ class KeyComp(object):
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False
+    # if this exists and is boolean, then it always wins:
+    override_do_imports_immediately = True
 
     def default_specialize(pol, funcdesc, args_s):
         if hasattr(funcdesc, 'pyobj') and hasattr(funcdesc.pyobj, 'llresult'):

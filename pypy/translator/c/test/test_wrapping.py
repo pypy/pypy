@@ -7,6 +7,8 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import instantiate
 from pypy.rpython import robject, rclass
 
+import sys
+
 P = False  # debug printing
 
 def get_annotation(func):
@@ -21,7 +23,7 @@ def get_annotation(func):
     return missing + argstypelist
 
 def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
-                use_boehm=False, exports=[]):
+                use_boehm=False, exports=None):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
 
@@ -29,12 +31,17 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
     from pypy.translator.c.genc import CExtModuleBuilder
 
     global t # allow us to view later
-    t = TranslationContext()
+    t = TranslationContext(do_imports_immediately=False)
     do_register(t)
     t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
     instantiators = {}
+    t.annotator.build_types(func, get_annotation(func))
+    if not exports:
+        exports = []
+    all = [obj.__name__ for obj in exports]
+    exports = exports + [('__all__', all)]
     for obj in exports:
         if isinstance(obj, type):
             cls = obj
@@ -42,11 +49,12 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
                 obj = instantiate(cls)
                 return obj
             make.__name__ = cls.__name__ + '__new__'
-            t.annotator.build_types(make, [], complete_now=False)
+            t.annotator.build_types(make, [])
             instantiators[cls] = make
             clsdef = bk.getuniqueclassdef(cls)
             rtyper.add_wrapper(clsdef)
-    t.annotator.build_types(func, get_annotation(func))
+        elif callable(obj):
+            t.annotator.build_types(obj, get_annotation(obj))
     if view:
         t.viewcg()
     rtyper.specialize()
@@ -267,8 +275,9 @@ class DemoSubclass(DemoClass):
         DemoClass.__init__(self, b, a)
         self.c = c
 
-    def demo(self):
-        return float(DemoClass.demo(self))
+#    def demo(self, *other):
+        #if other: print other
+ #       return float(DemoClass.demo(self))
     
     def otherdemo(self):
         return 'this is the DemoSubclass', self.a, self.b
@@ -319,6 +328,61 @@ def democlass_helper2(a=int, b=int):
     self2 = DemoSubclass(a, b, 42)
     return self
 
+# _______________________________________________
+# creating our own setup function for the module
+
+def do_the_import():
+    from twisted.internet import reactor    
+    return reactor
+
+def rtype_wraptest(hop):
+    #v_obj, = hop.inputargs((robject.pyobj_repr, ))
+    from pypy.objspace.flow.model import Constant
+    v_obj = Constant(hop.args_s[0].const)
+    v = hop.genop('simple_call', [v_obj], resulttype = robject.pyobj_repr)
+    return v
+
+def wraptest(obj):
+    return obj
+wraptest.compute_result_annotation = lambda *args: annmodel.SomeObject()
+wraptest.specialize = rtype_wraptest
+
+# not sure what to do with the above.
+# use genpickle facility to produce a plain function?
+# create a space and run geninterp on it?
+# tweak flow space to delay the imports for this func?
+
+def setup_new_module(mod, modname):
+    # note the name clash with py.test
+    import sys
+    from __builtin__ import type
+    print type(modname)
+    m = type(sys)(modname)
+    print 'hallo', 42
+    dummy = long(42)
+    allobjs = mod.__dict__.values()
+    funcs = eval('[]')
+    print 'alive'
+    from twisted.internet import reactor    
+    print dir(reactor)
+    for obj in allobjs:
+        print obj, dir(obj)
+        if hasattr(42, 'func_name'):
+            funcs.append( (obj.func_name, obj) )
+    print 'funcs=', funcs
+    funcs.sort()
+    for name, func in funcs:
+        print name, func
+    for name in mod.__all__:
+        obj = getattr(mod, name)
+        #if isinstance(obj, type):
+        # careful, this gives a class!
+        if hasattr(mod, '__bases__'):
+            print name
+        setattr(m, name, obj)
+    return m
+
+
 # creating an object, wrapping, unwrapping, call function, check whether __del__ is called
 def test_wrap_call_dtor():
     f = getcompiled(democlass_helper, use_boehm=not True, exports=[DemoSubclass])
@@ -329,7 +393,11 @@ def test_wrap_call_dtor():
 # exposing and using classes from a generasted extension module
 def test_expose_classes():
     m = get_compiled_module(democlass_helper2, use_boehm=not True, exports=[
-        DemoClass, DemoSubclass, DemoNotAnnotated])
+        DemoClass, DemoSubclass, DemoNotAnnotated, setup_new_module])
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
+
+if __name__=='__main__':
+    test_expose_classes()
+    
