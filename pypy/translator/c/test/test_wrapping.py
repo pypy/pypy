@@ -352,19 +352,17 @@ wraptest.specialize = rtype_wraptest
 # create a space and run geninterp on it?
 # tweak flow space to delay the imports for this func?
 
+### XXX write up the rules how to use this ###
+
 def setup_new_module(mod, modname):
-    # note the name clash with py.test
-    import sys
-    from __builtin__ import type
-    print type(modname)
-    m = type(sys)(modname)
-    print 'hallo', 42
-    dummy = long(42)
+    # note the name clash with py.test on setup_module
+    from types import module
+    m = module(modname)
     allobjs = mod.__dict__.values()
-    funcs = eval('[]')
-    print 'alive'
+    funcs = eval('[]') # or import list from __builtin__
     from twisted.internet import reactor    
     print dir(reactor)
+    #whow this works
     for obj in allobjs:
         print obj, dir(obj)
         if hasattr(42, 'func_name'):
