@@ -4,8 +4,8 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import externalvsinternal
-from pypy.rpython.rlist import AbstractListRepr, AbstractListIteratorRepr, \
-        rtype_newlist
+from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
+        AbstractListIteratorRepr, rtype_newlist
 from pypy.rpython.rlist import dum_nocheck, dum_checkidx
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
@@ -35,7 +35,7 @@ from pypy.rpython import robject
 #    item_t list_items[]
 #
 
-class BaseListRepr(AbstractListRepr):
+class BaseListRepr(AbstractBaseListRepr):
 
     def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
@@ -49,6 +49,8 @@ class BaseListRepr(AbstractListRepr):
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
+        self.ll_concat = ll_concat
+        self.ll_extend = ll_extend
         self.list_builder = ListBuilder()
 
     def _setup_repr_final(self):
@@ -184,7 +186,7 @@ class ListBuilder(object):
         return 1 # bad but not used alone
 
 
-class ListRepr(BaseListRepr):
+class ListRepr(AbstractListRepr, BaseListRepr):
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
@@ -403,11 +405,6 @@ class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 
         return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
 
-    def rtype_add((r_lst1, r_lst2), hop):
-        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
-        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
-        return hop.gendirectcall(ll_concat, cRESLIST, v_lst1, v_lst2)
-
     def rtype_eq((r_lst1, r_lst2), hop):
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
@@ -421,14 +418,6 @@ class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 
 def ll_both_none(lst1, lst2):
     return not lst1 and not lst2
-
-class __extend__(pairtype(ListRepr, BaseListRepr)):
-
-    def rtype_inplace_add((r_lst1, r_lst2), hop):
-        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
-        hop.gendirectcall(ll_extend, v_lst1, v_lst2)
-        return v_lst1
-
 
 # ____________________________________________________________
 #

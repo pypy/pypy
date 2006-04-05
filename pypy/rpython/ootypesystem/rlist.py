@@ -1,27 +1,28 @@
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rlist import AbstractListRepr, AbstractListIteratorRepr, \
-        rtype_newlist
+from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
+        AbstractListIteratorRepr, rtype_newlist
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.riterable import iterator_type
 
-class BaseListRepr(AbstractListRepr):
+class BaseListRepr(AbstractBaseListRepr):
 
     def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
-        # XXX do we need something like this for ootypes?
-        #self.LIST = GcForwardReference()
         if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
             assert callable(item_repr)
             self._item_repr_computer = item_repr
-            self.lowleveltype = ootype.ForwardReference()
+            self.LIST = ootype.ForwardReference()
         else:
-            self.lowleveltype = ootype.List(item_repr.lowleveltype)
+            self.LIST = ootype.List(item_repr.lowleveltype)
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(rtyper, item_repr)
+        self.lowleveltype = self.LIST
         self.listitem = listitem
         self.list_cache = {}
+        self.ll_concat = ll_concat
+        self.ll_extend = ll_extend
         # setup() needs to be called to finish this initialization
 
     def _setup_repr(self):
@@ -48,8 +49,11 @@ class BaseListRepr(AbstractListRepr):
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
 
-ListRepr = BaseListRepr
-FixedSizeListRepr = BaseListRepr
+class ListRepr(AbstractListRepr, BaseListRepr):
+
+    pass
+
+FixedSizeListRepr = ListRepr
 
 class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
@@ -71,13 +75,35 @@ def newlist(llops, r_list, items_v):
                 resulttype=ootype.Void)
     return v_result
 
-# These helpers are trivial but help encapsulation
+# These helpers are sometimes trivial but help encapsulation
 
 def ll_newlist(LIST):
     return ootype.new(LIST)
 
 def ll_append(lst, item):
     lst.append(item)
+
+def ll_extend(l1, l2):
+    # This is a bit inefficient, could also add extend to the list interface
+    len2 = l2.length()
+    i = 0
+    while i < len2:
+        l1.append(l2.getitem(i))
+        i += 1
+
+def ll_concat(RESLIST, l1, l2):
+    len1 = l1.length()
+    len2 = l2.length()
+    l = ootype.new(RESLIST)
+    i = 0
+    while i < len1:
+        l.append(l1.getitem(i))
+        i += 1
+    i = 0
+    while i < len2:
+        l.append(l2.getitem(i))
+        i += 1
+    return l
 
 # ____________________________________________________________
 #

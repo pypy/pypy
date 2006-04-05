@@ -1,3 +1,4 @@
+from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, IteratorRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
@@ -28,10 +29,14 @@ class __extend__(annmodel.SomeList):
         return self.__class__, self.listdef.listitem
 
 
-class AbstractListRepr(Repr):
+class AbstractBaseListRepr(Repr):
 
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
+
+class AbstractListRepr(AbstractBaseListRepr):
+    
+    pass
 
 def rtype_newlist(hop):
     nb_args = hop.nb_args
@@ -52,6 +57,21 @@ def rtype_newlist(hop):
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass
+
+
+class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
+
+    def rtype_add((r_lst1, r_lst2), hop):
+        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+        cRESLIST = hop.inputconst(lltype.Void, hop.r_result.LIST)
+        return hop.gendirectcall(hop.r_result.ll_concat, cRESLIST, v_lst1, v_lst2)
+
+class __extend__(pairtype(AbstractListRepr, AbstractBaseListRepr)):
+
+    def rtype_inplace_add((r_lst1, r_lst2), hop):
+        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+        hop.gendirectcall(r_lst1.ll_extend, v_lst1, v_lst2)
+        return v_lst1
 
 # ____________________________________________________________
 #

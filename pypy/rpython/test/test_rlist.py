@@ -234,25 +234,22 @@ class BaseTestListRtyping:
         res = interpret(dummyfn, [5])
         assert res == 5
 
-def tolst(l):
-    return map(None, l.ll_items())[:l.ll_length()]
+    def test_add(self):
+        def dummyfn():
+            l = [5]
+            l += [6,7]
+            return l + [8]
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert self.ll_to_list(res) == [5, 6, 7, 8]
 
-def test_add():
-    def dummyfn():
-        l = [5]
-        l += [6,7]
-        return l + [8]
-    res = interpret(dummyfn, [])
-    assert tolst(res) == [5, 6, 7, 8]
-
-    def dummyfn():
-        l = [5]
-        l += [6,7]
-        l2 =  l + [8]
-        l2.append(9)
-        return l2
-    res = interpret(dummyfn, [])
-    assert tolst(res) == [5, 6, 7, 8, 9]
+        def dummyfn():
+            l = [5]
+            l += [6,7]
+            l2 =  l + [8]
+            l2.append(9)
+            return l2
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert self.ll_to_list(res) == [5, 6, 7, 8, 9]
 
 def test_slice():
     def dummyfn():
@@ -302,6 +299,9 @@ def test_set_del_item():
         return len(l)
     res = interpret(dummyfn, [])
     assert res == 0
+
+def tolst(l):
+    return map(None, l.ll_items())[:l.ll_length()]
 
 def test_setslice():
     def dummyfn():
@@ -1053,7 +1053,12 @@ class TestLltypeRtyping(BaseTestListRtyping):
 
     ts = "lltype"
 
+    def ll_to_list(self, l):
+        return map(None, l.ll_items())[:l.ll_length()]
+
 class TestOotypeRtyping(BaseTestListRtyping):
 
     ts = "ootype"
 
+    def ll_to_list(self, l):
+        return l._list[:]
