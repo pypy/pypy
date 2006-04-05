@@ -14,6 +14,7 @@ from pypy.translator.c.pyobj import PyObjMaker
 from pypy.translator.c.support import log
 from pypy.translator.c.extfunc import do_the_getting
 from pypy.translator.c.exceptiontransform import ExceptionTransformer
+from pypy import conftest
 
 # ____________________________________________________________
 
@@ -39,7 +40,20 @@ class LowLevelDatabase(object):
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator, instantiators)
         if gcpolicy is None:
             from pypy.translator.c import gc
-            gcpolicy = gc.RefcountingGcPolicy
+            polname = conftest.option.gcpolicy
+            if polname is not None:
+                if polname == 'boehm':
+                    gcpolicy = gc.BoehmGcPolicy
+                elif polname == 'ref':
+                    gcpolicy = gc.RefcountingGcPolicy
+                elif polname == 'none':
+                    gcpolicy = gc.NoneGcPolicy
+                elif polname == 'framework':
+                    gcpolicy = gc.FrameworkGcPolicy
+                else:
+                    assert False, "unknown gc policy %r"%polname
+            else:
+                gcpolicy = gc.RefcountingGcPolicy
         if translator is None or translator.rtyper is None:
             self.exctransformer = None
         else:

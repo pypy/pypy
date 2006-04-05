@@ -37,20 +37,6 @@ def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True):
     t.buildrtyper().specialize()
     if backendopt:
         backend_optimizations(t)
-    if gcpolicy is None:
-        polname = conftest.option.gcpolicy
-        if polname is not None:
-            from pypy.translator.c import gc
-            if polname == 'boehm':
-                gcpolicy = gc.BoehmGcPolicy
-            elif polname == 'ref':
-                gcpolicy = gc.RefcountingGcPolicy
-            elif polname == 'none':
-                gcpolicy = gc.NoneGcPolicy
-            elif polname == 'framework':
-                gcpolicy = gc.FrameworkGcPolicy
-            else:
-                assert False, "unknown gc policy %r"%polname
     db = LowLevelDatabase(t, gcpolicy=gcpolicy)
     entrypoint = db.get(pyobjectptr(fn))
     db.complete()
@@ -315,7 +301,7 @@ def test_keepalive():
     assert f1() == 1
 
 # this test shows if we have a problem with refcounting PyObject
-if conftest.option.gc == 'boehm':
+if conftest.option.gcpolicy == 'boehm':
     def test_refcount_pyobj():
         from pypy.rpython.lltypesystem.lloperation import llop
         def prob_with_pyobj(b):
