@@ -15,6 +15,7 @@ class BaseListRepr(AbstractListRepr):
         if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
             assert callable(item_repr)
             self._item_repr_computer = item_repr
+            self.lowleveltype = ootype.ForwardReference()
         else:
             self.lowleveltype = ootype.List(item_repr.lowleveltype)
             self.external_item_repr, self.item_repr = \
@@ -27,7 +28,8 @@ class BaseListRepr(AbstractListRepr):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(self.rtyper, self._item_repr_computer())
-            self.lowleveltype = ootype.List(self.item_repr.lowleveltype)
+        if isinstance(self.lowleveltype, ootype.ForwardReference):
+            self.lowleveltype.become(ootype.List(self.item_repr.lowleveltype))
 
     def send_message(self, hop, message, can_raise=False):
         v_args = hop.inputargs(self, *hop.args_r[1:])

@@ -45,6 +45,20 @@ def test_eq_hash():
     assert LT1 != LT3
     assert hash(LT1) == hash(LT2)
 
+def test_recursive():
+    FORWARD = ForwardReference()
+    LT = List(FORWARD)
+    FORWARD.become(LT)
+    assert LT == LT
+    assert hash(LT) == hash(LT)
+    str(LT) # make sure this doesn't recurse infinitely
+
+    FORWARD2 = ForwardReference()
+    LT2 = List(FORWARD2)
+    FORWARD2.become(LT2)
+    assert LT == LT2
+    assert hash(LT) == hash(LT2)
+
 class TestInterpreted:
 
     def test_append_length(self):

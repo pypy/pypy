@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
-        Primitive, isCompatibleType, enforce
+        Primitive, isCompatibleType, enforce, saferecursive
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from pypy.tool.uid import uid
 
@@ -186,19 +186,15 @@ class List(OOType):
             "setitem": Meth([Signed, ITEMTYPE], Void),
         })
 
+    # NB: We are expecting Lists of the same ITEMTYPE to compare/hash
+    # equal. We don't redefine __eq__/__hash__ since the implementations
+    # from LowLevelType work fine, especially in the face of recursive
+    # data structures. But it is important to make sure that attributes
+    # of supposedly equal Lists compare/hash equal.
+
     def __str__(self):
-        return '%s(%s)' % (self.__class__.__name__, self._ITEMTYPE)
-
-    def __eq__(self, other):
-        if not isinstance(other, List):
-            return False
-        return self._ITEMTYPE == other._ITEMTYPE
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __hash__(self):
-        return hash(self._ITEMTYPE)
+        return '%s(%s)' % (self.__class__.__name__,
+                saferecursive(str, "...")(self._ITEMTYPE))
 
     def _lookup(self, meth_name):
         METH = self._METHODS.get(meth_name)
@@ -213,6 +209,18 @@ class List(OOType):
 
     def _defl(self):
         return self._null
+
+
+class ForwardReference(OOType):
+    def become(self, real_instance):
+        if not isinstance(real_instance, (Instance, List)):
+            raise TypeError("ForwardReference can only be to an instance, "
+                            "not %r" % (real_instance,))
+        self.__class__ = real_instance.__class__
+        self.__dict__ = real_instance.__dict__
+
+    def __hash__(self):
+        raise TypeError("%r object is not hashable" % self.__class__.__name__)
 
 # ____________________________________________________________
 
@@ -316,6 +324,9 @@ def _null_mixin(klass):
             if not isinstance(other, klass):
                 raise TypeError("comparing an %s with %r" % (klass.__name__, other))
             return not other
+
+        def __hash__(self):
+            return hash(self._TYPE)
     return mixin
 
 class _null_instance(_null_mixin(_instance), _instance):

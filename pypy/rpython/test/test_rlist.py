@@ -215,24 +215,24 @@ class BaseTestListRtyping:
         res = interpret(dummyfn, [], type_system=self.ts)
         assert res == 25
 
-def test_recursive():
-    def dummyfn(N):
-        l = []
-        while N > 0:
-            l = [l]
-            N -= 1
-        return len(l)
-    res = interpret(dummyfn, [5])
-    assert res == 1
+    def test_recursive(self):
+        def dummyfn(N):
+            l = []
+            while N > 0:
+                l = [l]
+                N -= 1
+            return len(l)
+        res = interpret(dummyfn, [5], type_system=self.ts)
+        assert res == 1
 
-    def dummyfn(N):
-        l = []
-        while N > 0:
-            l.append(l)
-            N -= 1
-        return len(l)
-    res = interpret(dummyfn, [5])
-    assert res == 5
+        def dummyfn(N):
+            l = []
+            while N > 0:
+                l.append(l)
+                N -= 1
+            return len(l)
+        res = interpret(dummyfn, [5])
+        assert res == 5
 
 def tolst(l):
     return map(None, l.ll_items())[:l.ll_length()]
