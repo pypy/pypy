@@ -78,9 +78,10 @@ if USE_COROUTINES:
         def pop_blocked_on(self, w_var):
             assert isinstance(w_var, W_Var)
             if w_var not in self.uthreads_blocked_on:
-                return []
-            blocked = self.uthreads_blocked_on[w_var]
-            del self.uthreads_blocked_on[w_var]
+                blocked = []
+            else:
+                blocked = self.uthreads_blocked_on[w_var]
+                del self.uthreads_blocked_on[w_var]
             return blocked
 
         def add_to_blocked_byneed(self, w_var, uthread):
@@ -98,9 +99,10 @@ if USE_COROUTINES:
             assert isinstance(w_var, W_Var)
             if w_var not in self.uthreads_blocked_byneed:
                 #print " there was nobody to remove for", w_var
-                return []
-            blocked = self.uthreads_blocked_byneed[w_var]
-            del self.uthreads_blocked_byneed[w_var]
+                blocked = []
+            else:
+                blocked = self.uthreads_blocked_byneed[w_var]
+                del self.uthreads_blocked_byneed[w_var]
             #print " removing", blocked, "from byneed on", w_var
             return blocked
 
