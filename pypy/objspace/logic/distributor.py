@@ -19,7 +19,7 @@ class AbstractDistributor(object):
     def set_space(self, space):
         self.cs = space
             
-    def findSmallestDomain(self):
+    def find_smallest_domain(self):
         """returns the variable having the smallest domain.
         (or one of such varibles if there is a tie)
         """
@@ -34,25 +34,26 @@ class AbstractDistributor(object):
         return best
 
     def nb_subdomains(self):
-        """return number of sub domains to explore"""
+        """return number of possible splits"""
         return self.nb_subspaces
 
+
+
     def distribute(self, choice):
-        raise NotImplementedError("Use a concrete implementation of "
-                                  "the Distributor interface")
+        variable = self._find_distribution_variable()
+        self._do_distribute(self.cs.dom(variable), choice)
+        for const in self.cs.dependant_constraints(variable):
+            self.cs.event_set.add(const)
+
+    def _find_distribution_variable(self):
+        return self.find_smallest_domain()
+    
+    def _do_distribute(self, domain, choice):
+        """remove values from domain depending on choice"""
+        raise NotImplementedError
+
+    
        
-##     def distribute(self, verbose=0):
-##         """do the minimal job and let concrete class distribute variables
-##         """
-##         self.verbose = verbose
-##         variables = self.cs.get_variables_with_a_domain()
-##         replicas = []
-##         for i in range(self.nb_subdomains()):
-##             replicas.append(arrange_domains(self.cs, variables))
-##         modified_domains = self._distribute(*replicas)
-##         for domain in modified_domains:
-##             domain.reset_flags()
-##         return replicas
 
         
 class NaiveDistributor(AbstractDistributor):
@@ -60,17 +61,12 @@ class NaiveDistributor(AbstractDistributor):
     The first new domain has a size of one,
     and the second has all the other values"""
 
-    def distribute(self, dom1, dom2):
-        """See AbstractDistributor"""
-        raise NotImplementedError
-        variable = self.findSmallestDomain(dom1)
-        values = dom1[variable].get_values()
-        if self.verbose:
-            print 'Distributing domain for variable', variable, \
-                  'at value', values[0]
-        dom1[variable].remove_values(values[1:])
-        dom2[variable].remove_value(values[0])
-        return (dom1[variable], dom2[variable])
+    def _do_distribute(self, domain, choice):
+        values = domain.get_values()
+        if choice == 0:
+            domain.remove_values(values[1:])
+        else:
+            domain.remove_value(values[0])
     
 
 class SplitDistributor(AbstractDistributor):
@@ -84,8 +80,7 @@ class SplitDistributor(AbstractDistributor):
         self.__to_split = None
 
     def nb_subdomains(self):
-        """See AbstractDistributor"""
-        self.__to_split = self.findSmallestDomain()
+        self.__to_split = self.find_smallest_domain()
         if self.nb_subspaces:
             return min(self.nb_subspaces,
                        self.cs.dom(self.__to_split).size()) 
@@ -93,18 +88,14 @@ class SplitDistributor(AbstractDistributor):
             return self.cs.dom(self.__to_split).size() 
 
 
-    def distribute(self, choice):
-        variable = self.findSmallestDomain()
+    def _do_distribute(self, domain, choice):
         nb_subspaces = self.nb_subdomains()
-        values = self.cs.dom(variable).get_values()
+        values = domain.get_values()
         nb_elts = max(1, len(values)*1./nb_subspaces)
         start, end = (int(math.floor(choice * nb_elts)),
                       int(math.floor((choice + 1) * nb_elts)))
-        self.cs.dom(variable).remove_values(values[:start])
-        self.cs.dom(variable).remove_values(values[end:])
-
-        for const in self.cs.dependant_constraints(variable):
-            self.cs.event_set.add(const)
+        domain.remove_values(values[:start])
+        domain.remove_values(values[end:])
 
 
 class DichotomyDistributor(SplitDistributor):
@@ -113,11 +104,4 @@ class DichotomyDistributor(SplitDistributor):
     def __init__(self, c_space):
         SplitDistributor.__init__(self, c_space, 2)
 
-
-class EnumeratorDistributor(SplitDistributor):
-    """distributes domains by splitting the smallest domain
-    in domains of size 1."""
-    def __init__(self, c_space):
-        SplitDistributor.__init__(self, c_space, 0)
-
-DefaultDistributor = DichotomyDistributor
+DefaultDistributor = NaiveDistributor
