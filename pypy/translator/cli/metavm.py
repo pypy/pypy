@@ -1,5 +1,5 @@
 class Generator(object):
-    def function_name(self, graph):
+    def function_signature(self, graph):
         pass
 
     def emit(self, instr, *args):
@@ -50,14 +50,50 @@ class _StoreResult(MicroInstruction):
 
 class _Call(MicroInstruction):
     def render(self, generator, op):
-        func_name = generator.function_name(op.args[0].value.graph)
+        func_sig = generator.function_signature(op.args[0].value.graph)
 
         # push parameters
         for func_arg in op.args[1:]:
             generator.load(func_arg)
 
-        generator.call(func_name)
+        generator.call(func_sig)
+
+class _New(MicroInstruction):
+    def render(self, generator, op):
+        generator.new(op.args[0].value)
+
+class _SetField(MicroInstruction):
+    def render(self, generator, op):
+        this, field, value = op.args
+        if field.value == 'meta':
+            return # TODO
+        
+        generator.load(this)
+        generator.load(value)
+        generator.set_field(this.concretetype, field.value)
+
+class _GetField(MicroInstruction):
+    def render(self, generator, op):
+        this, field = op.args
+        generator.load(this)
+        generator.get_field(this.concretetype, field.value)
+
+class _CallMethod(MicroInstruction):
+    def render(self, generator, op):
+        method = op.args[0]
+        this = op.args[1]
+
+        # push parameters
+        for func_arg in op.args[1:]:
+            generator.load(func_arg)
+
+        generator.call_method(this.concretetype, method.value)
+
 
 PushAllArgs = _PushAllArgs()
 StoreResult = _StoreResult()
 Call = _Call()
+New = _New()
+SetField = _SetField()
+GetField = _GetField()
+CallMethod = _CallMethod()

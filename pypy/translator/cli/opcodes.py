@@ -1,4 +1,5 @@
-from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult, Call, InstructionList
+from pypy.translator.cli.metavm import PushArg, PushAllArgs,\
+     StoreResult, Call, InstructionList, New, SetField, GetField, CallMethod
 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
@@ -9,6 +10,13 @@ def _not(op):
 
 
 opcodes = {
+    # __________ object oriented operations __________
+    'new':                      [New],
+    'oosetfield':               [SetField],
+    'oogetfield':               [GetField],
+    'oosend':                   [CallMethod],
+
+    
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],
     'indirect_call':            None,      # when is it generated?

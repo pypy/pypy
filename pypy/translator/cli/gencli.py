@@ -1,8 +1,15 @@
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 import sys
+from types import MethodType
 
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function
+from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.option import getoption
 
 
@@ -23,7 +30,8 @@ class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint = None):
         self.tmpdir = tmpdir
         self.translator = translator
-        self.entrypoint = entrypoint        
+        self.entrypoint = entrypoint
+        self.classdefs = set()
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
@@ -39,6 +47,7 @@ class GenCli(object):
 
         self.ilasm = IlasmGenerator(out, self.assembly_name)
         self.gen_all_functions()
+        self.gen_classes()
         out.close()
         return self.tmpfile.strpath
 
@@ -50,9 +59,15 @@ class GenCli(object):
         for graph in self.translator.graphs:
 
             # TODO: remove this test
-            if graph.name == 'll_issubclass__Instance_Object_meta__Instance_Object_meta_':
+            if graph.name.startswith('ll_'):
                 continue
             
             if '.' not in graph.name: # it's not a method
                 f = Function(graph)
                 f.render(self.ilasm)
+                self.classdefs.update(f.classdefs)
+
+    def gen_classes(self):
+        for classdef in self.classdefs:
+            c = Class(classdef)
+            c.render(self.ilasm)

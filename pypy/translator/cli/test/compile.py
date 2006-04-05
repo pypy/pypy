@@ -23,14 +23,16 @@ def check(f, g, *args):
     else:
         print 'OK'
 
-def foo(x):
-    return x+1
+class A:
+    def __init__(self, x):
+        self.x = x
+
+    def foo(self, a, b):
+        return self.x
 
 def bar(x, y):
-    if x > y:
-        return x+y+foo(2)
-    else:
-        return x-y
+    a = A(x)
+    return a.foo(x, y)
 
 f = compile_function(bar, [int, int])
 

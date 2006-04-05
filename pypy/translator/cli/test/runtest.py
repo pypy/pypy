@@ -7,7 +7,7 @@ from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
-from pypy.translator.cli.function import Node
+from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import graph_to_signature
 from pypy.translator.cli.cts import llvar_to_cts
 
@@ -36,7 +36,7 @@ class TestEntryPoint(Node):
         return 'main'
 
     def render(self, ilasm):
-        ilasm.begin_function('main', [('string[]', 'argv')], 'void', True)
+        ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
 
         # TODO: only int32 and bool are tested
         for i, arg in enumerate(self.graph.getargs()):

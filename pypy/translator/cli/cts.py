@@ -46,9 +46,12 @@ def _get_from_dict(d, key, error):
 
 
 def lltype_to_cts(t):
-    # TODO: handle instances more accurately
     if isinstance(t, Instance):
-        return 'object'
+        name = t._name.replace('__main__.', '') # TODO: modules
+        if name in ('Object_meta', 'Object'):
+            return 'object'
+        
+        return 'class %s' % name
 
     return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 
@@ -76,10 +79,15 @@ def llconst_to_ilasm(const):
     else:
         return ilasm_type, str(const.value)
 
-def graph_to_signature(graph):
+def graph_to_signature(graph, is_method = False, func_name = None):
     ret_type, ret_var = llvar_to_cts(graph.getreturnvar())
-    func_name = graph.name
-    arg_types = [lltype_to_cts(arg.concretetype) for arg in graph.getargs()]
+    func_name = func_name or graph.name
+
+    args = graph.getargs()
+    if is_method:
+        args = args[1:]
+
+    arg_types = [lltype_to_cts(arg.concretetype) for arg in args]
     arg_list = ', '.join(arg_types)
 
     return '%s %s(%s)' % (ret_type, func_name, arg_list)

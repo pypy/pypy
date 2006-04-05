@@ -7,9 +7,8 @@ class CodeGenerator(object):
         self._startblock = startblock
         self._endblock = endblock
 
-    def write(self, s, indent = None):
-        if indent is None:
-            indent = self._indent
+    def write(self, s, indent = 0):
+        indent = self._indent + (indent * self._indentstep)
         
         if self._bol:
             self._out.write(' ' * indent)
@@ -43,14 +42,29 @@ class IlasmGenerator(object):
     def close(self):
         self.out.close()
 
-    def begin_function(self, name, args, returntype, is_entry_point = False):
+    def begin_class(self, name, base = None):
+        if base is None:
+            base = '[mscorlib]System.Object'
+        
+        self.code.writeline('.class public %s extends %s' % (name, base))
+        self.code.openblock()
+
+    def end_class(self):
+        self.code.closeblock()
+
+    def field(self, name, type_):
+        self.code.writeline('.field public %s %s' %(type_, name))
+
+    def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args):
         # TODO: .maxstack
 
-        arglist = ', '.join(['%s %s' % arg for arg in args])
-
-        self.code.writeline('.method static public %s %s(%s) il managed' % (returntype, name, arglist))
+        attributes = ' '.join(args)
+        arglist = ', '.join(['%s %s' % arg for arg in arglist])
+        self.code.writeline('.method public %s %s %s(%s) il managed' %\
+                            (attributes, returntype, name, arglist))
+        
         self.code.openblock()
-        if is_entry_point:
+        if is_entrypoint:
             self.code.writeline('.entrypoint')
 
     def end_function(self):
@@ -78,7 +92,7 @@ class IlasmGenerator(object):
 
     def label(self, lbl):
         self.code.writeline()
-        self.code.write(lbl + ':', indent=0)
+        self.code.write(lbl + ':', indent=-1)
         self.code.writeline()
 
     def leave(self, lbl):
@@ -97,6 +111,12 @@ class IlasmGenerator(object):
 
     def call(self, func):
         self.code.writeline('call ' + func)
+
+    def call_method(self, meth):
+        self.code.writeline('callvirt instance ' + meth)
+
+    def new(self, class_):
+        self.code.writeline('newobj ' + class_)
 
     def opcode(self, opcode, *args):
         self.code.write(opcode + ' ')

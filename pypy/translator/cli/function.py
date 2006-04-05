@@ -1,34 +1,35 @@
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
+from pypy.rpython.ootypesystem.ootype import Instance
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import cts
 from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.metavm import InstructionList, Generator
+from pypy.translator.cli.node import Node
 
 from pypy.tool.ansi_print import ansi_log
 import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
-
-class Node(object):
-    def get_name(self):
-        pass
-
-    def render(self, ilasm):
-        pass
-    
-
 class Function(Node, Generator):
-    def __init__(self, graph, is_entrypoint = False):
+    def __init__(self, graph, name = None, is_method = False, is_entrypoint = False):
         self.graph = graph
+        self.name = name or graph.name
+        self.is_method = is_method
         self.is_entrypoint = is_entrypoint
         self.blocknum = {}
+        self.classdefs = set()
         self._set_args()
         self._set_locals()
 
     def get_name(self):
-        return self.graph.name
+        return self.name
 
     def _is_return_block(self, block):
         return (not block.exits) and len(block.inputargs) == 1
@@ -40,11 +41,23 @@ class Function(Node, Generator):
         self.ilasm = ilasm
         graph = self.graph
         returntype, returnvar = cts.llvar_to_cts(graph.getreturnvar())
-        
-        self.ilasm.begin_function(graph.name, self.args, returntype, self.is_entrypoint)
+
+        if self.is_method:
+            args = self.args[1:] # self is implicit
+            meth_type = 'virtual'
+        else:
+            args = self.args
+            meth_type = 'static'
+
+        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)
         self.ilasm.locals(self.locals)
 
+        return_blocks = []
         for block in graph.iterblocks():
+            if self._is_return_block(block):
+                return_blocks.append(block)
+                continue
+
             self.ilasm.label(self._get_block_name(block))
 
             handle_exc = (block.exitswitch == flowmodel.c_last_exception)
@@ -52,15 +65,10 @@ class Function(Node, Generator):
                 self.ilasm.begin_try()
 
             for op in block.operations:
+                self._search_for_classes(op)
                 self._render_op(op)
 
-            # check for codeless blocks
-            if self._is_return_block(block):
-                return_var = block.inputargs[0]
-                if return_var.concretetype is not Void:
-                    self.load(return_var)
-                self.ilasm.opcode('ret')
-            elif self._is_raise_block(block):
+            if self._is_raise_block(block):
                 exc = block.inputargs[1]
                 self.load(exc)
                 self.ilasm.opcode('throw')
@@ -111,15 +119,16 @@ class Function(Node, Generator):
                         self.load(block.exitswitch)
                         self.ilasm.branch_if(link.exitcase, target_label)
 
+        # render return blocks at the end just to please the .NET
+        # runtime that seems to need a return statement at the end of
+        # the function
+        for block in return_blocks:
+            self.ilasm.label(self._get_block_name(block))
+            return_var = block.inputargs[0]
+            if return_var.concretetype is not Void:
+                self.load(return_var)
+            self.ilasm.opcode('ret')
 
-        # add a block that will never be executed, just to please the
-        # .NET runtime that seems to need a return statement at the
-        # end of the function
-        if returntype != 'void':
-            ilasm_type = cts.ctstype_to_ilasm(returntype)
-            self.ilasm.opcode('ldc.%s 0' % ilasm_type)
-
-        self.ilasm.opcode('ret')
         self.ilasm.end_function()
 
     def _setup_link(self, link):
@@ -179,6 +188,18 @@ class Function(Node, Generator):
     def _get_block_name(self, block):
         return 'block%s' % self.blocknum[block]
 
+    def _search_for_classes(self, op):
+        for arg in op.args:
+            lltype = None
+            if isinstance(arg, flowmodel.Variable):
+                lltype = arg.concretetype
+            elif isinstance(arg, flowmodel.Constant):
+                lltype = arg.value
+
+            if isinstance(lltype, Instance):
+                self.classdefs.add(lltype)
+
+
     def _render_op(self, op):
         instr_list = opcodes.get(op.opname, None)
         if instr_list is not None:
@@ -191,10 +212,24 @@ class Function(Node, Generator):
             else:
                 assert False, 'Unknown opcode: %s ' % op
 
+    def field_name(self, obj, field):
+        class_name = self.class_name(obj)
+        field_type = cts.lltype_to_cts(obj._field_type(field))
+        return '%s %s::%s' % (field_type, class_name, field)
+
+    def ctor_name(self, ooinstance):
+        return 'instance void class %s::.ctor()' % self.class_name(ooinstance)
+
     # following methods belongs to the Generator interface
 
-    def function_name(self, graph):
-        return cts.graph_to_signature(graph)
+    def function_signature(self, graph):
+        return cts.graph_to_signature(graph, False)
+
+    def method_signature(self, graph, name):
+        return cts.graph_to_signature(graph, True, name)
+
+    def class_name(self, ooinstance):
+        return ooinstance._name.replace('__main__.', '') # TODO: modules
 
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
@@ -202,10 +237,28 @@ class Function(Node, Generator):
     def call(self, func_name):
         self.ilasm.call(func_name)
 
+    def new(self, obj):
+        self.ilasm.new(self.ctor_name(obj))
+
+    def set_field(self, obj, name):
+        self.ilasm.opcode('stfld ' + self.field_name(obj, name))
+
+    def get_field(self, obj, name):
+        self.ilasm.opcode('ldfld ' + self.field_name(obj, name))
+
+    def call_method(self, obj, name):
+        owner, meth = obj._lookup(name)
+        full_name = '%s::%s' % (self.class_name(obj), name)
+        self.ilasm.call_method(self.method_signature(meth.graph, full_name))
+
     def load(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.name in self.argset:
-                self.ilasm.opcode('ldarg', repr(v.name))
+                selftype, selfname = self.args[0]
+                if self.is_method and v.name == selfname:
+                    self.ilasm.opcode('ldarg.0') # special case for 'self'
+                else:
+                    self.ilasm.opcode('ldarg', repr(v.name))
             else:
                 self.ilasm.opcode('ldloc', repr(v.name))
 
