@@ -187,14 +187,14 @@ class AbstractTestRTuple:
         assert res1 != res2
 
     def test_tuple_to_list(self):
-        if self.type_system == "ootype":
-            py.test.skip("XXX fix me if ootypes support lists")
-        
         def f(i, j):
             return list((i, j))
 
         res = self.interpret(f, [2, 3])
-        assert res._obj.items == [2, 3]
+        if self.type_system == "lltype":
+            assert res._obj.items == [2, 3]
+        else:
+            assert res._list == [2, 3]
 
     def test_tuple_iterator_length1(self):
         def f(i):

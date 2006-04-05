@@ -35,6 +35,20 @@ class TupleRepr(AbstractTupleRepr):
         vinst, = hop.inputargs(self)
         return hop.genop('ooidentityhash', [vinst], resulttype=ootype.Signed)
 
+    def rtype_bltn_list(self, hop):
+        from pypy.rpython.ootypesystem import rlist
+        v_tup = hop.inputarg(self, 0)
+        LIST = hop.r_result.lowleveltype
+        c_list = inputconst(ootype.Void, LIST)
+        v_list = hop.gendirectcall(rlist.ll_newlist, c_list)
+        for index in range(len(self.items_r)):
+            name = self.fieldnames[index]
+            r_item = self.items_r[index]
+            c_name = hop.inputconst(ootype.Void, name)
+            v_item = hop.genop("oogetfield", [v_tup, c_name], resulttype=r_item)
+            v_item = hop.llops.convertvar(v_item, r_item, hop.r_result.item_repr)
+            hop.gendirectcall(rlist.ll_append, v_list, v_item)
+        return v_list
 
 _tuple_types = {}
 

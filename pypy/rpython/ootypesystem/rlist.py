@@ -80,6 +80,14 @@ def newlist(llops, r_list, items_v):
                 resulttype=ootype.Void)
     return v_result
 
+# These helpers are trivial but help encapsulation
+
+def ll_newlist(LIST):
+    return ootype.new(LIST)
+
+def ll_append(lst, item):
+    lst.append(item)
+
 # ____________________________________________________________
 #
 #  Iteration.
