@@ -25,7 +25,7 @@ class ExecutionEngine(Wrapper):
             MP = ExistingModuleProvider();
         self.instance = ExecutionEngine__create__(MP.instance, ForceInterpreter)
         global ee_hack
-        ee_hack = self.instance
+        ee_hack = self.instance #XXX how to get to the executionengine from a function?
 
     # XXX cast to actual Python Module (can't we automate this?)
     def getModule(self):
@@ -34,7 +34,7 @@ class ExecutionEngine(Wrapper):
         return m
 
     # helpers
-    def parse(self, llcode):
+    def parse(self, llcode, fnname=None):
         mod = self.getModule()
         mod.ParseAssemblyString(llcode)
         mod.verifyModule()
@@ -46,32 +46,29 @@ class ExecutionEngine(Wrapper):
         f.eraseFromParent()
 
 
-def to_llvm_value(pythonvalue, type_):
-    # XXX use the GenericValue union instead
-    return pythonvalue
-
-
-def to_python_value(llvmvalue, type_):
-    # XXX use the GenericValue union instead
-    return llvmvalue
-
-
 class Function(Wrapper):
     def __init__(self):
         self.instance = Function__init__()  #XXX this get annoying quickly
 
     def __call__(self, *args):
-        print 'calling %s(%s)' % ('Function', ','.join([str(arg) for arg in args]))
-        ft = Function_getFunctionType(self.instance)
-        argcount = FunctionType_getNumParams(ft)
-        print 'argcount = ',argcount
+        #print 'calling %s(%s)' % ('Function', ','.join([str(arg) for arg in args]))
+        ft = self.getFunctionType()
+        argcount = ft.getNumParams()
+        #print 'argcount = ',argcounT
         if argcount != len(args):
             raise Exception("incorrect number of parameters")
-        llvmvalues = GenericValue__init__()
+        ParamType = c_longlong * argcount
+        llvmvalues = ParamType()
         for i, arg in enumerate(args):
-            llvmvalues.append( to_llvm_value(arg, FunctionType_getParamType(ft, i)))
-        llvmreturnvalue = ExecutionEngine_runFunction(ee_hack, self.instance, llvmvalues)
-        return to_python_value(llvmreturnvalue, FunctionType_getReturnType(ft))
+            llvmvalues[i] = to_llvm_value(arg, ft.getParamType(i)).LongVal
+        pLlvmValues = cast(llvmvalues, c_void_p) #would like to cast to c_longlong_p
+        llvmreturnvalue = ExecutionEngine_runFunction(ee_hack, self.instance, pLlvmValues)
+        return to_python_value(llvmreturnvalue, ft.getReturnType())
+
+    def getFunctionType(self):
+        ft = object.__new__(FunctionType)
+        ft.instance = Function_getFunctionType(self.instance)
+        return ft
 
 
 class GenericValue(Wrapper):
@@ -79,11 +76,26 @@ class GenericValue(Wrapper):
         self.instance = GenericValue__init__()
 
 
-#class Instruction(Wrapper):
-#    def __init__(self):
-#        self.instance = Instruction__init__()
-#
-#
-#class BasicBlock(Wrapper):
-#    def __init__(self):
-#        self.instance = BasicBlock__init__()
+class Type(Wrapper):
+    def __init(self):
+        self.instance = Type__init__()
+
+    def getContainedType(self, n):
+        t = object.__new__(Type)
+        t.instance = Type_getContainedType(self.instance, n)
+        return t
+
+
+class FunctionType(Wrapper):
+    def __init(self):
+        self.instance = FunctionType__init__()
+
+    def getReturnType(self):
+        t = object.__new__(Type)
+        t.instance = FunctionType_getReturnType(self.instance)
+        return t
+
+    def getParamType(self, i):
+        t = object.__new__(Type)
+        t.instance = FunctionType_getParamType(self.instance, i)
+        return t

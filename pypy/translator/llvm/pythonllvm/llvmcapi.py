@@ -4,6 +4,28 @@ from cc import *
 STRING = c_char_p
 
 
+UShortTyID = 4
+FirstDerivedTyID = 13
+FunctionTyID = 13
+ShortTyID = 5
+LabelTyID = 12
+UIntTyID = 6
+ArrayTyID = 15
+IntTyID = 7
+PointerTyID = 16
+ULongTyID = 8
+LongTyID = 9
+BoolTyID = 1
+StructTyID = 14
+PackedTyID = 18
+FloatTyID = 10
+NumTypeIDs = 19
+UByteTyID = 2
+VoidTyID = 0
+SByteTyID = 3
+OpaqueTyID = 17
+LastPrimitiveTyID = 12
+DoubleTyID = 11
 
 def ExecutionEngine__create__(MP, ForceInterpreter):
     # ../llvmcapi/include/ExecutionEngine/ExecutionEngine.h 12
@@ -23,14 +45,44 @@ def ExecutionEngine_freeMachineCodeForFunction(EE, F):
 ExecutionEngine_freeMachineCodeForFunction = cdecl(None, 'llvmcapi', [c_void_p, c_void_p]) (ExecutionEngine_freeMachineCodeForFunction)
 
 
-def ExecutionEngine_runFunction(EE, F, args_vector):
+def ExecutionEngine_runFunction(EE, F, A):
     # ../llvmcapi/include/ExecutionEngine/ExecutionEngine.h 17
-    return ExecutionEngine_runFunction._api_(EE, F, args_vector)
-ExecutionEngine_runFunction = cdecl(c_int, 'llvmcapi', [c_void_p, c_void_p, c_int]) (ExecutionEngine_runFunction)
+    return ExecutionEngine_runFunction._api_(EE, F, A)
+ExecutionEngine_runFunction = cdecl(c_longlong, 'llvmcapi', [c_void_p, c_void_p, c_void_p]) (ExecutionEngine_runFunction)
 
+# ../llvmcapi/include/ExecutionEngine/GenericValue.h 20
+class GenericValue_(Union):
+    pass
+# ../llvmcapi/include/ExecutionEngine/GenericValue.h 32
+class N13GenericValue_3DOLLAR_0E(Structure):
+    pass
+N13GenericValue_3DOLLAR_0E._fields_ = [
+    # ../llvmcapi/include/ExecutionEngine/GenericValue.h 32
+    ('first', c_uint),
+    ('second', c_uint),
+]
+assert sizeof(N13GenericValue_3DOLLAR_0E) == 8, sizeof(N13GenericValue_3DOLLAR_0E)
+GenericValue_._fields_ = [
+    # ../llvmcapi/include/ExecutionEngine/GenericValue.h 20
+    ('BoolVal', c_byte),
+    ('UByteVal', c_ubyte),
+    ('SByteVal', c_byte),
+    ('UShortVal', c_ushort),
+    ('ShortVal', c_short),
+    ('UIntVal', c_uint),
+    ('IntVal', c_int),
+    ('ULongVal', c_ulonglong),
+    ('LongVal', c_longlong),
+    ('DoubleVal', c_double),
+    ('FloatVal', c_float),
+    ('UIntPairVal', N13GenericValue_3DOLLAR_0E),
+    ('PointerVal', c_void_p),
+    ('Untyped', c_ubyte * 8),
+]
+assert sizeof(GenericValue_) == 8, sizeof(GenericValue_)
 
 def GenericValue__init__():
-    # ../llvmcapi/include/ExecutionEngine/GenericValue.h 8
+    # ../llvmcapi/include/ExecutionEngine/GenericValue.h 37
     return GenericValue__init__._api_()
 GenericValue__init__ = cdecl(c_void_p, 'llvmcapi', []) (GenericValue__init__)
 
@@ -143,8 +195,29 @@ def ExistingModuleProvider__init__(M):
 ExistingModuleProvider__init__ = cdecl(c_void_p, 'llvmcapi', [c_void_p]) (ExistingModuleProvider__init__)
 
 
+# values for enumeration 'TypeID'
+TypeID = c_int # enum
+
+def Type_getTypeID(T):
+    # ../llvmcapi/include/VMCore/Type.h 32
+    return Type_getTypeID._api_(T)
+Type_getTypeID = cdecl(TypeID, 'llvmcapi', [c_void_p]) (Type_getTypeID)
+
+
+def Type_getContainedType(T, n):
+    # ../llvmcapi/include/VMCore/Type.h 33
+    return Type_getContainedType._api_(T, n)
+Type_getContainedType = cdecl(c_void_p, 'llvmcapi', [c_void_p, c_int]) (Type_getContainedType)
+
+
+def Type_getDescription(T):
+    # ../llvmcapi/include/VMCore/Type.h 34
+    return Type_getDescription._api_(T)
+Type_getDescription = cdecl(STRING, 'llvmcapi', [c_void_p]) (Type_getDescription)
+
+
 def toggle_print_machineinstrs():
-    # ../llvmcapi/include/llvmcapi.h 15
+    # ../llvmcapi/include/llvmcapi.h 16
     return toggle_print_machineinstrs._api_()
 toggle_print_machineinstrs = cdecl(None, 'llvmcapi', []) (toggle_print_machineinstrs)
 

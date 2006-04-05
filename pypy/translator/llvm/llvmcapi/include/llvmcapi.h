@@ -9,6 +9,7 @@ extern "C" {
 #include "VMCore/ModuleProvider.h"
 #include "VMCore/Function.h"
 #include "VMCore/DerivedTypes.h"
+#include "VMCore/Type.h"
 #include "ExecutionEngine/ExecutionEngine.h"
 #include "ExecutionEngine/GenericValue.h"
 

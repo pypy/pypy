@@ -14,7 +14,7 @@ void*   ExecutionEngine_getModule(void* EE);
 void    ExecutionEngine_freeMachineCodeForFunction(void* EE, void* F);
 
 // return union and takes std::vector<GenericValue> actually
-int     ExecutionEngine_runFunction(void* EE, void* F, int args_vector);
+long long   ExecutionEngine_runFunction(void* EE, void* F, void* A);
 
 #ifdef __cplusplus
 };

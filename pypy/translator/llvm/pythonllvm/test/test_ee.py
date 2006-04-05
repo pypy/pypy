@@ -6,7 +6,6 @@ if not llvm_is_on_path():
 from pypy.translator.llvm.pythonllvm import pyllvm
 from pypy.translator.llvm.pythonllvm.test import ll_snippet
 
-py.test.skip("WIP")
 
 def test_execution_engine():
     ee = pyllvm.ExecutionEngine()
@@ -49,13 +48,16 @@ def test_call_parse_once():
     assert gethellostr() == "hello world\n"
 
 def test_call_parse_twice():
+    py.test.skip("WIP")
     ee = pyllvm.ExecutionEngine()
     ee.parse(codepath.join("hello.s").read())
     f = ee.getModule().getNamedFunction
-    assert f("gethellostr")() == "hello world\n"
+    f1 = f("gethellostr")
+    assert f1() == "hello world\n"
     ee.parse(codepath.join("addnumbers.s").read())
-    assert f("add")(10, 32) == 42
-    assert f("gethellostr")() == "hello world\n"
+    f2 = f("add")
+    assert f2(10, 32) == 42
+    assert f1() == "hello world\n"
     py.test.raises(Exception, ee.parse)
     py.test.raises(Exception, ee.parse, 1)
     py.test.raises(Exception, ee.parse, "abc")
@@ -73,6 +75,7 @@ def test_call_between_parsed_code():
     assert f("calc")(122) == 123
 
 def test_replace_function():
+    py.test.skip("WIP")
     """similar to test_call_between_parsed_code with additional complexity
     because we rebind the add1 function to another version after it the
     first version already has been used."""
@@ -98,6 +101,7 @@ def test_share_data_between_parsed_code():
     assert f("sub10_from_global_int_a")() == 82
 
 def test_native_code(): #examine JIT generate native (assembly) code
+    py.test.skip("WIP")
     pyllvm.toggle_print_machineinstrs()
     ee = pyllvm.ExecutionEngine()
     ee.parse(ll_snippet.calc)
@@ -107,6 +111,7 @@ def test_native_code(): #examine JIT generate native (assembly) code
     pyllvm.toggle_print_machineinstrs()
 
 def test_delete_function(): #this will only work if nothing uses Fn of course!
+    py.test.skip("WIP")
     ee = pyllvm.ExecutionEngine()
     mod = ee.getModule()
     ee.parse(ll_snippet.calc)

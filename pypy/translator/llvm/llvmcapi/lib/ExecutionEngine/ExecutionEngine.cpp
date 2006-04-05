@@ -26,9 +26,18 @@ void    ExecutionEngine_freeMachineCodeForFunction(void* EE, void* F) {
     ee->freeMachineCodeForFunction(f);
 }
 
-int     ExecutionEngine_runFunction(void* EE, void* F, int args_vector) {
-    ExecutionEngine*    ee = (ExecutionEngine*)EE;
-    Function*           f  = (Function*)F;
+long long   ExecutionEngine_runFunction(void* EE, void* F, void* A) {
+    ExecutionEngine*    ee    = (ExecutionEngine*)EE;
+    Function*           f     = (Function*)F;
+    long long*          pArgs = (long long*)A;
+
+    int n_params = f->getFunctionType()->getNumParams();
     std::vector<GenericValue>   args;
-    return ee->runFunction(f, args).IntVal;
+    GenericValue    gv;
+    for (int i=0;i < n_params;i++) {
+        gv.LongVal = pArgs[i];
+        args.push_back(gv);
+    }
+
+    return ee->runFunction(f, args).LongVal;
 }

@@ -23,6 +23,7 @@ using namespace llvm;
 #include "VMCore/ModuleProvider.cpp"
 #include "VMCore/Function.cpp"
 #include "VMCore/DerivedTypes.cpp"
+#include "VMCore/Type.cpp"
 #include "ExecutionEngine/ExecutionEngine.cpp"
 #include "ExecutionEngine/GenericValue.cpp"
 
