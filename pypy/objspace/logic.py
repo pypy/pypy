@@ -67,7 +67,8 @@ if USE_COROUTINES:
 
         def add_to_blocked(self, w_var, uthread):
             assert isinstance(w_var, W_Var)
-            assert isinstance(uthread, GreenletCoroutine)
+            if we_are_translated():
+                assert isinstance(uthread, Coroutine)
             if w_var in self.uthreads_blocked_on:
                 blocked = self.uthreads_blocked_on[w_var]
             else:
@@ -86,7 +87,8 @@ if USE_COROUTINES:
 
         def add_to_blocked_byneed(self, w_var, uthread):
             assert isinstance(w_var, W_Var)
-            assert isinstance(uthread, GreenletCoroutine)
+            if we_are_translated():
+                assert isinstance(uthread, Coroutine)
             #print " adding", uthread, "to byneed on", w_var
             if w_var in self.uthreads_blocked_byneed:
                 blocked = self.uthreads_blocked_byneed[w_var]
