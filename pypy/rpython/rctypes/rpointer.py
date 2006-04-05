@@ -22,7 +22,8 @@ class PointerRepr(CTypesValueRepr):
 
     def get_content_keepalives(self):
         "Return an extra keepalive field used for the pointer's contents."
-        return [('keepalive_contents', self.r_contents.owner_lowleveltype)]
+        return [('keepalive_contents',
+                 self.r_contents.r_memoryowner.lowleveltype)]
 
     def setkeepalive(self, llops, v_box, v_owner):
         inputargs = [v_box, inputconst(lltype.Void, 'keepalive_contents'),

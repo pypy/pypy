@@ -6,7 +6,7 @@ from pypy.rpython import extregistry
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rmodel import IntegerRepr
+from pypy.rpython.rmodel import IntegerRepr, FloatRepr, CharRepr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
@@ -49,7 +49,7 @@ class PrimitiveRepr(CTypesValueRepr):
         try:
             return self.const_cache[key][0]
         except KeyError:
-            p = lltype.malloc(self.owner_lowleveltype.TO)
+            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
             p.c_data.value = value
             if self.ownsmemory:
                 result = p
@@ -76,6 +76,14 @@ class PrimitiveRepr(CTypesValueRepr):
         v_primitive, v_attr, v_value = hop.inputargs(self, lltype.Void,
                                                         self.ll_type)
         self.setvalue(hop.llops, v_primitive, v_value)
+
+
+class __extend__(pairtype(IntegerRepr, PrimitiveRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        r_temp = r_to.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        r_temp.setvalue(llops, v_owned_box, v)
+        return llops.convertvar(v_owned_box, r_temp, r_to)
 
 
 def primitive_specialize_call(hop):

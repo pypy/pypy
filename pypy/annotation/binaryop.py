@@ -765,16 +765,10 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         # Note: The following works for index either pointers and arrays,
         # because both have a _type_ attribute that contains the type of the
         # object pointed to or in the case of an array the element type.
-        assert hasattr(s_cto.knowntype, '_type_')
-        assert extregistry.is_registered_type(s_cto.knowntype._type_)
-        entry = extregistry.lookup_type(s_cto.knowntype._type_)
-        if hasattr(entry, 'lowleveltype'):
-            # special case for reading primitives out of arrays
-            return lltype_to_annotation(entry.lowleveltype)
-        else:
-            return SomeCTypesObject(
-                s_cto.knowntype._type_,
-                memorystate=SomeCTypesObject.MEMORYALIAS)
+        result_ctype = s_cto.knowntype._type_
+        s_result = SomeCTypesObject(result_ctype,
+                                    memorystate=SomeCTypesObject.MEMORYALIAS)
+        return s_result.return_annotation()
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
     def setitem((s_cto, s_slice), s_iterable):

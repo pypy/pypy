@@ -443,6 +443,21 @@ class SomeCTypesObject(SomeObject):
     def can_be_none(self):
         return False
 
+    def return_annotation(self):
+        """Returns either 'self' or the annotation of the unwrapped version
+        of this ctype, following the logic used when ctypes operations
+        return a value.
+        """
+        from pypy.rpython import extregistry
+        assert extregistry.is_registered_type(self.knowntype)
+        entry = extregistry.lookup_type(self.knowntype)
+        if hasattr(entry, 'lowleveltype'):
+            # special case for returning primitives
+            return lltype_to_annotation(entry.lowleveltype)
+        else:
+            return self
+
+
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""

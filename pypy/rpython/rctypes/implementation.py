@@ -24,6 +24,7 @@ from pypy.rpython import rint
 import pypy.rpython.rctypes.rarray
 import pypy.rpython.rctypes.rprimitive
 import pypy.rpython.rctypes.rpointer
+import pypy.rpython.rctypes.rfunc
 
 # ctypes_annotation_list contains various attributes that
 # are used by the pypy annotation.
@@ -81,79 +82,6 @@ def create_ctypes_annotations():
 
 create_ctypes_annotations()
 
-CFuncPtrType = type(ctypes.CFUNCTYPE(None))
-
-def cfuncptrtype_compute_annotation(type, instance):
-    from pypy.annotation.model import ll_to_annotation_map
-
-    def compute_result_annotation(*args_s):
-        """
-        Answer the annotation of the external function's result
-        """
-
-        # results of external function calls *must* be in the registry
-        # XXX: goden: check metatype too?
-        assert extregistry.is_registered_type(instance.restype)
-
-        entry = extregistry.lookup_type(instance.restype)
-
-        # XXX: goden: this probably isn't right
-        return ll_to_annotation_map.get(entry.lowleveltype)
-        
-        # Take 3, Check whether we can get away with the cheap
-        # precomputed solution and if not it, use a special
-        # attribute with the memory state
-        try:
-            return instance.restype.annotator_type
-        except AttributeError:
-            return SomeCTypesObject( 
-                    instance.restype, 
-                    instance.restype.external_function_result_memorystate )
-        # Take 2, looks like we need another level of indirection
-        # That's to complicated
-        #o#return self.restype.compute_external_function_result_annotator_type()
-        # TODO: Check whether the function returns a pointer
-        # an correct the memory state appropriately
-        try:
-            return instance.restype.annotator_type
-        except AttributeError:
-            return SomeCTypesObject(instance.restype)
-        
-    return SomeBuiltin(compute_result_annotation, 
-        methodname=instance.__name__)
-
-def cfuncptrtype_specialize_call(hop):
-    # this is necessary to get the original function pointer when specializing
-    # the metatype
-    cfuncptr = hop.spaceop.args[0].value
-
-    def convert_params(backend, param_info_list):
-        assert "c" == backend.lower()
-        assert cfuncptr.argtypes is not None
-        answer = []
-        for ctype_type, (ll_type, arg_name) in zip(cfuncptr.argtypes,
-                                                    param_info_list):
-            if ll_type == ctype_type.ll_type:
-                answer.append(arg_name)
-            else:
-                answer.append(ctype_type.wrap_arg(ll_type, arg_name))
-        return answer
-
-    assert extregistry.is_registered_type(cfuncptr.restype)
-
-    # results of external function calls *must* be in the registry
-    entry = extregistry.lookup_type(cfuncptr.restype)
-
-    return hop.llops.gencapicall(
-            cfuncptr.__name__,
-            hop.args_v,
-            resulttype = entry.lowleveltype,
-            _callable=None,
-            convert_params = convert_params ) 
-
-extregistry.register_metatype(CFuncPtrType, 
-    compute_annotation=cfuncptrtype_compute_annotation,
-    specialize_call=cfuncptrtype_specialize_call)
 
 class FunctionPointerTranslation(object):
 

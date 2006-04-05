@@ -34,16 +34,17 @@ class Test_annotation:
             a.translator.view()
 
     def test_annotate_array_access(self):
-        def access_array():
+        def access_array(n):
             my_array = c_int_10()
             my_array[0] = c_int(1)
             my_array[1] = 2
+            my_array[2] = n
 
             return my_array[0]
 
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(access_array, [])
+        s = a.build_types(access_array, [int])
         assert s.knowntype == int
 
         if conftest.option.view:
@@ -114,14 +115,15 @@ class Test_specialization:
         assert len(c_data) == 10
 
     def test_specialize_array_access(self):
-        def access_array():
+        def access_array(n):
             my_array = c_int_10()
             my_array[0] = 1
             my_array[1] = c_int(1)
+            my_array[2] = n
 
             return my_array[0]
 
-        res = interpret(access_array, [])
+        res = interpret(access_array, [44])
         assert res == 1
 
 class Test_compilation:
