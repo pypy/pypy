@@ -427,47 +427,6 @@ def test_indirect_call_with_exception():
         return 1
     assert x4() == 1
     py.test.raises(CannotInline, check_inline, x3, x4, [])
-    
-def test_dont_inline_with_cleanups():
-    from pypy.objspace.flow.model import Variable, SpaceOperation, Constant
-    from pypy.rpython.lltypesystem.lltype import Signed
-    import math
-    def f(x):
-        return math.sqrt(x)
-    def g(x):
-        return f(x)
-    t = translate(g, [int])
-    graph = graphof(t, f)
-    ggraph = graphof(t, g)
-    xvar = ggraph.startblock.inputargs[0]
-    result = Variable()
-    result.concretetype = Signed
-    cleanupop = SpaceOperation("int_add", [Constant(1, Signed), xvar], result)
-    cleanup = ((cleanupop, ), (cleanupop, ))
-    ggraph.startblock.operations[0].cleanup = cleanup
-    py.test.raises(CannotInline, inline_function, t, f, ggraph)
-
-def test_inline_copies_cleanups():
-    from pypy.objspace.flow.model import Variable, SpaceOperation, Constant
-    from pypy.rpython.lltypesystem.lltype import Signed
-    import math
-    def f(x):
-        return math.sqrt(x)
-    def g(x):
-        return f(x)
-    t = translate(g, [int])
-    graph = graphof(t, f)
-    ggraph = graphof(t, g)
-    xvar = graph.startblock.inputargs[0]
-    result = Variable()
-    result.concretetype = Signed
-    cleanupop = SpaceOperation("int_add", [Constant(1, Signed), xvar], result)
-    cleanup = ((cleanupop, ), (cleanupop, ))
-    graph.startblock.operations[0].cleanup = cleanup
-    inline_function(t, f, ggraph)
-    if option.view:
-        t.view()
-    assert hasattr(ggraph.startblock.operations[0], "cleanup")
 
 def test_keepalive_hard_case():
     py.test.skip("fix this :(")
@@ -489,4 +448,3 @@ def test_keepalive_hard_case():
     eval_func = check_inline(g, f, [])
     res = eval_func([])
     assert res == 5
-        

@@ -227,6 +227,7 @@ def predeclare_extfuncs(db, rtyper, optimize=True):
 def predeclare_exception_data(db, rtyper, optimize=True):
     # Exception-related types and constants
     exceptiondata = rtyper.getexceptiondata()
+    exctransformer = db.exctransformer
 
     yield ('RPYTHON_EXCEPTION_VTABLE', exceptiondata.lltype_of_exception_type)
     yield ('RPYTHON_EXCEPTION',        exceptiondata.lltype_of_exception_value)
@@ -236,6 +237,12 @@ def predeclare_exception_data(db, rtyper, optimize=True):
     yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.fn_raise_OSError)
     if not db.standalone:
         yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
+
+    yield ('RPyExceptionOccurred',     exctransformer.rpyexc_occured_ptr.value)
+    yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
+    yield ('RPyFetchExceptionValue',   exctransformer.rpyexc_fetch_value_ptr.value)
+    yield ('RPyClearException',        exctransformer.rpyexc_clear_ptr.value)
+    yield ('RPyRaiseException',        exctransformer.rpyexc_raise_ptr.value)
 
     for pyexccls in exceptiondata.standardexceptions:
         exc_llvalue = exceptiondata.fn_pyexcclass2exc(

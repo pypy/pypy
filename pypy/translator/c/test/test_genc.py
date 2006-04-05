@@ -299,111 +299,34 @@ def test_keepalive():
     f1 = compile(f, [])
     assert f1() == 1
 
-# ____________________________________________________________
-# test for the 'cleanup' attribute of SpaceOperations
-class CleanupState(object):
-    pass
-cleanup_state = CleanupState()
-cleanup_state.current = 1
-def cleanup_g(n):
-    cleanup_state.saved = cleanup_state.current
-    try:
-        return 10 // n
-    except ZeroDivisionError:
-        raise
-def cleanup_h():
-    cleanup_state.current += 1
-def cleanup_f(n):
-    cleanup_g(n)
-    cleanup_h()     # the test hacks the graph to put this h() in the
-                    # cleanup clause of the previous direct_call(g)
-    return cleanup_state.saved * 100 + cleanup_state.current
-
-def test_cleanup_finally():
-    class DummyGCTransformer(NoneGcPolicy.transformerclass):
-        def transform_graph(self, graph):
-            super(DummyGCTransformer, self).transform_graph(graph)
-            if graph is self.translator.graphs[0]:
-                operations = graph.startblock.operations
-                op_call_g = operations[0]
-                op_call_h = operations.pop(1)
-                assert op_call_g.opname == "direct_call"
-                assert op_call_h.opname == "direct_call"
-                assert op_call_g.cleanup == ((), ())
-                assert op_call_h.cleanup == ((), ())
-                cleanup_finally = (op_call_h,)
-                cleanup_except = ()
-                op_call_g.cleanup = cleanup_finally, cleanup_except
-                op_call_h.cleanup = None
-
-    class DummyGcPolicy(NoneGcPolicy):
-        transformerclass = DummyGCTransformer
-
-    f1 = compile(cleanup_f, [int], backendopt=False, gcpolicy=DummyGcPolicy)
-    # state.current == 1
-    res = f1(1)
-    assert res == 102
-    # state.current == 2
-    res = f1(1)
-    assert res == 203
-    # state.current == 3
-    py.test.raises(ZeroDivisionError, f1, 0)
-    # state.current == 4
-    res = f1(1)
-    assert res == 405
-    # state.current == 5
-
-def test_cleanup_except():
-    class DummyGCTransformer(NoneGcPolicy.transformerclass):
-        def transform_graph(self, graph):
-            super(DummyGCTransformer, self).transform_graph(graph)
-            if graph is self.translator.graphs[0]:
-                operations = graph.startblock.operations
-                op_call_g = operations[0]
-                op_call_h = operations.pop(1)
-                assert op_call_g.opname == "direct_call"
-                assert op_call_h.opname == "direct_call"
-                assert op_call_g.cleanup == ((), ())
-                assert op_call_h.cleanup == ((), ())
-                cleanup_finally = ()
-                cleanup_except = (op_call_h,)
-                op_call_g.cleanup = cleanup_finally, cleanup_except
-                op_call_h.cleanup = None
-
-    class DummyGcPolicy(NoneGcPolicy):
-        transformerclass = DummyGCTransformer
-
-    f1 = compile(cleanup_f, [int], backendopt=False, gcpolicy=DummyGcPolicy)
-    # state.current == 1
-    res = f1(1)
-    assert res == 101
-    # state.current == 1
-    res = f1(1)
-    assert res == 101
-    # state.current == 1
-    py.test.raises(ZeroDivisionError, f1, 0)
-    # state.current == 2
-    res = f1(1)
-    assert res == 202
-    # state.current == 2
-
 # this test shows if we have a problem with refcounting PyObject
 def test_refcount_pyobj():
-    def prob_with_pyobj(a, b):
-        return 2, 3, b
+    def prob_with_pyobj(b):
+        return 3, b
 
-    f = compile(prob_with_pyobj, [int, object])
+    f = compile(prob_with_pyobj, [object])
     from sys import getrefcount as g
     obj = None
     before = g(obj)
-    f(2, obj)
+    f(obj)
     after = g(obj)
     assert before == after
 
-def test_long_pyobj():
-    def f(x):
-        return long(x)
-    f = compile(f, [int])
-    res = f(2)
-    assert isinstance(res, long)
-    assert res == 2L
+def test_refcount_pyobj_setfield():
+    import weakref, gc
+    class S(object):
+        def __init__(self):
+            self.p = None
+    def foo(wref, objfact):
+        s = S()
+        b = objfact()
+        s.p = b
+        wr = wref(b)
+        s.p = None
+        return wr
+    f = compile(foo, [object, object], backendopt=False)
+    class C(object):
+        pass
+    wref = f(weakref.ref, C)
+    gc.collect()
+    assert not wref()

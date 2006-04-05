@@ -69,7 +69,7 @@ def gen_wrapper(func, translator):
             vlist.append(Constant(default_value))
 
         v = newops.genop(opname, vlist, resulttype=Ptr(PyObject))
-        v.set_name('a', i)
+        #v.set_name('a', i)
         varguments.append(v)
 
     if vararg:
@@ -79,7 +79,7 @@ def gen_wrapper(func, translator):
                  Constant(None),
                  ]
         vararg = newops.genop('getslice', vlist, resulttype=Ptr(PyObject))
-        vararg.set_name('vararg', 0)
+        #vararg.set_name('vararg', 0)
         varguments.append(vararg)
     else:
         # "check_no_more_arg(fname, n, vargs)"

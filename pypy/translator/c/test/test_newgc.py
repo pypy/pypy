@@ -313,3 +313,4 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 43 + 1000000
+        

@@ -1,16 +1,23 @@
+from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.unsimplify import copyvar, split_block
 from pypy.translator.backendopt import canraise, inline
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.lladdress import NULL
+from pypy.rpython.memory.gctransform import varoftype, var_needsgc
 from pypy.rpython import rclass
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.annotation import model as annmodel
+from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 
 PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.Unsigned: r_uint(-1),
+                       lltype.SignedLongLong: r_longlong(-1),
+                       lltype.UnsignedLongLong: r_ulonglong(-1),
                        lltype.Float: -1.0,
                        lltype.Char: chr(255),
+                       lltype.UniChar: unichr(0xFFFF), # XXX is this always right?
                        lltype.Bool: True,
                        llmemory.Address: NULL,
                        lltype.Void: None}
@@ -22,61 +29,103 @@ def error_value(T):
         return Constant(lltype.nullptr(T.TO), T)
     assert 0, "not implemented yet"
 
-# dummy functions to make the resulting graphs runnable on the llinterpreter
+def insert_keepalives_along(translator, link, vars):
+    link.args.extend(vars)
+    newvars = [copyvar(translator, v) for v in vars]
+    block = link.target
+    block.inputargs.extend(newvars)
+    block.operations[0:0] = [SpaceOperation('keepalive', [v],
+                                            varoftype(lltype.Void))
+                             for v in newvars]
 
-class ExcData(object):
-    exc_type = None
-    exc_value = None
-
-def rpyexc_occured():
-    return ExcData.exc_type is not None
-
-def rpyexc_fetch_type():
-    return ExcData.exc_type
-
-def rpyexc_fetch_value():
-    return ExcData.exc_value
-
-def rpyexc_clear():
-    ExcData.exc_type = None
-    ExcData.exc_value = None
-
-def rpyexc_raise(etype, evalue):
-    ExcData.exc_type = etype
-    ExcData.exc_value = evalue
+def vars_to_keepalive(block):
+    # XXX make cleverer
+    return [v for v in block.getvariables() if var_needsgc(v)]
 
 class ExceptionTransformer(object):
     def __init__(self, translator):
         self.translator = translator
         self.raise_analyzer = canraise.RaiseAnalyzer(translator)
-        self.exc_data = translator.rtyper.getexceptiondata()
+        edata = translator.rtyper.getexceptiondata()
+        self.lltype_of_exception_value = edata.lltype_of_exception_value
+        self.lltype_of_exception_type = edata.lltype_of_exception_type
+        mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+        l2a = annmodel.lltype_to_annotation
+
+        class ExcData(object):
+            pass
+            #exc_type = lltype.nullptr(self.exc_data.lltype_of_exception_type.TO)
+            #exc_value = lltype.nullptr(self.exc_data.lltype_of_exception_value.TO)
+
+        exc_data = ExcData()
+        null_type = lltype.nullptr(self.lltype_of_exception_type.TO)
+        null_value = lltype.nullptr(self.lltype_of_exception_value.TO)
+        
+        def rpyexc_occured():
+            return exc_data.exc_type is not null_type
+
+        def rpyexc_fetch_type():
+            return exc_data.exc_type
+
+        def rpyexc_fetch_value():
+            return exc_data.exc_value
+
+        def rpyexc_clear():
+            exc_data.exc_type = null_type
+            exc_data.exc_value = null_value
+
+        def rpyexc_raise(etype, evalue):
+            # assert(!RPyExceptionOccurred());
+            exc_data.exc_type = etype
+            exc_data.exc_value = evalue
+        
         RPYEXC_OCCURED_TYPE = lltype.FuncType([], lltype.Bool)
+        rpyexc_occured_graph = mixlevelannotator.getgraph(
+            rpyexc_occured, [], l2a(lltype.Bool))
         self.rpyexc_occured_ptr = Constant(lltype.functionptr(
-            RPYEXC_OCCURED_TYPE, "RPyExceptionOccurred", external="C",
-            neverrraises=True, _callable=rpyexc_occured),
+            RPYEXC_OCCURED_TYPE, "RPyExceptionOccurred",
+            graph=rpyexc_occured_graph),
             lltype.Ptr(RPYEXC_OCCURED_TYPE))
-        RPYEXC_FETCH_TYPE_TYPE = lltype.FuncType([], self.exc_data.lltype_of_exception_type)
+        
+        RPYEXC_FETCH_TYPE_TYPE = lltype.FuncType([], self.lltype_of_exception_type)
+        rpyexc_fetch_type_graph = mixlevelannotator.getgraph(
+            rpyexc_fetch_type, [],
+            l2a(self.lltype_of_exception_type))
         self.rpyexc_fetch_type_ptr = Constant(lltype.functionptr(
-            RPYEXC_FETCH_TYPE_TYPE, "RPyFetchExceptionType", external="C",
-            neverraises=True, _callable=rpyexc_fetch_type),
+            RPYEXC_FETCH_TYPE_TYPE, "RPyFetchExceptionType",
+            graph=rpyexc_fetch_type_graph),
             lltype.Ptr(RPYEXC_FETCH_TYPE_TYPE))
-        RPYEXC_FETCH_VALUE_TYPE = lltype.FuncType([], self.exc_data.lltype_of_exception_value)
+        
+        RPYEXC_FETCH_VALUE_TYPE = lltype.FuncType([], self.lltype_of_exception_value)
+        rpyexc_fetch_value_graph = mixlevelannotator.getgraph(
+            rpyexc_fetch_value, [],
+            l2a(self.lltype_of_exception_value))
         self.rpyexc_fetch_value_ptr = Constant(lltype.functionptr(
-            RPYEXC_FETCH_VALUE_TYPE, "RPyFetchExceptionValue", external="C",
-            neverraises=True, _callable=rpyexc_fetch_value),
+            RPYEXC_FETCH_VALUE_TYPE, "RPyFetchExceptionValue",
+            graph=rpyexc_fetch_value_graph),
             lltype.Ptr(RPYEXC_FETCH_VALUE_TYPE))
+
         RPYEXC_CLEAR = lltype.FuncType([], lltype.Void)
+        rpyexc_clear_graph = mixlevelannotator.getgraph(
+            rpyexc_clear, [], l2a(lltype.Void))
         self.rpyexc_clear_ptr = Constant(lltype.functionptr(
-            RPYEXC_CLEAR, "RPyClearException", external="C",
-            neverraises=True, _callable=rpyexc_clear),
+            RPYEXC_CLEAR, "RPyClearException",
+            graph=rpyexc_clear_graph),
             lltype.Ptr(RPYEXC_CLEAR))
-        RPYEXC_RAISE = lltype.FuncType([self.exc_data.lltype_of_exception_type,
-                                        self.exc_data.lltype_of_exception_value],
+
+        RPYEXC_RAISE = lltype.FuncType([self.lltype_of_exception_type,
+                                        self.lltype_of_exception_value],
                                         lltype.Void)
+        rpyexc_raise_graph = mixlevelannotator.getgraph(
+            rpyexc_raise, [l2a(self.lltype_of_exception_type),
+                           l2a(self.lltype_of_exception_value)],
+            l2a(lltype.Void))
         self.rpyexc_raise_ptr = Constant(lltype.functionptr(
-            RPYEXC_RAISE, "RPyRaiseException", external="C",
-            neverraises=True, _callable=rpyexc_raise),
+            RPYEXC_RAISE, "RPyRaiseException",
+            graph=rpyexc_raise_graph),
             lltype.Ptr(RPYEXC_RAISE))
+
+        mixlevelannotator.finish()
     
     def transform_completely(self):
         for graph in self.translator.graphs:
@@ -90,13 +139,14 @@ class ExceptionTransformer(object):
         from the current graph with a special value (False/-1/-1.0/null).
         Because of the added exitswitch we need an additional block.
         """
+        join_blocks(graph)
         for block in list(graph.iterblocks()): #collect the blocks before changing them
             self.transform_block(graph, block)
-        checkgraph(graph)
+        self.transform_except_block(graph, graph.exceptblock)
+        cleanup_graph(graph)
 
     def transform_block(self, graph, block):
         if block is graph.exceptblock:
-            self.transform_except_block(graph, block)
             return
         elif block is graph.returnblock:
             return
@@ -106,25 +156,32 @@ class ExceptionTransformer(object):
             last_operation -= 1
         else:
             need_exc_matching = False
+        lastblock = block
         for i in range(last_operation, -1, -1):
             op = block.operations[i]
-            print "considering op", op, i
             if not self.raise_analyzer.can_raise(op):
                 continue
 
             afterblock = split_block(self.translator, graph, block, i+1)
+            if lastblock is block:
+                lastblock = afterblock
 
-            var_exc_occured, block = self.gen_exc_checking_var(op, i, block, graph)
+            insert_keepalives_along(self.translator, block.exits[0],
+                                    vars_to_keepalive(block))
+
+            self.gen_exc_check(block, graph.returnblock)                
 
             #non-exception case
             block.exits[0].exitcase = block.exits[0].llexitcase = False
         if need_exc_matching:
-            if not self.raise_analyzer.can_raise(op):
-                print "XXX: operation %s cannot raise, but has exception guarding in graph %s" (op, graph)
-                block.exitswitch = None
-                block.exits = [block.exits[0]]
+            assert lastblock.exitswitch == c_last_exception
+            if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
+                print "XXX: operation %s cannot raise, but has exception guarding in graph %s" % (lastblock.operations[-1], graph)
+                lastblock.exitswitch = None
+                lastblock.exits = [lastblock.exits[0]]
+                lastblock.exits[0].exitcase = None
             else:
-                self.insert_matching(afterblock, graph)
+                self.insert_matching(lastblock, graph)
 
     def transform_except_block(self, graph, block):
         # attach an except block -- let's hope that nobody uses it
@@ -144,9 +201,9 @@ class ExceptionTransformer(object):
         #non-exception case
         block.exits[0].exitcase = block.exits[0].llexitcase = None
         # use the dangerous second True flag :-)
-        inliner = inline.Inliner(self.translator, graph, proxygraph, True, True)
-        inliner.inline_all()
-        block.exits[0].exitcase = block.exits[0].llexitcase = False
+        inliner = inline.OneShotInliner(self.translator, graph, True, True)
+        inliner.inline_once(block, len(block.operations)-1)
+        #block.exits[0].exitcase = block.exits[0].llexitcase = False
 
     def create_proxy_graph(self, op):
         """ creates a graph which calls the original function, checks for
@@ -172,47 +229,42 @@ class ExceptionTransformer(object):
         newop = SpaceOperation(op.opname, opargs, result)
         startblock = Block(inputargs)
         startblock.operations.append(newop) 
-        newgraph = FunctionGraph("dummy", startblock)
+        newgraph = FunctionGraph("dummy_exc1", startblock)
         startblock.closeblock(Link([result], newgraph.returnblock))
         startblock.exits = list(startblock.exits)
         newgraph.returnblock.inputargs[0].concretetype = op.result.concretetype
-        var_exc_occured, block = self.gen_exc_checking_var(newop, 0, startblock, newgraph)
+        self.gen_exc_check(startblock, newgraph.returnblock)
         startblock.exits[0].exitcase = startblock.exits[0].llexitcase = False
         excblock = Block([])
-        var_value = Variable()
-        var_value.concretetype = self.exc_data.lltype_of_exception_value
-        var_type = Variable()
-        var_type.concretetype = self.exc_data.lltype_of_exception_type
-        var_void = Variable()
-        var_void.concretetype = lltype.Void
+        var_value = varoftype(self.lltype_of_exception_value)
+        var_type = varoftype(self.lltype_of_exception_type)
+        var_void = varoftype(lltype.Void)
         excblock.operations.append(SpaceOperation(
             "direct_call", [self.rpyexc_fetch_value_ptr], var_value))
         excblock.operations.append(SpaceOperation(
             "direct_call", [self.rpyexc_fetch_type_ptr], var_type))
         excblock.operations.append(SpaceOperation(
             "direct_call", [self.rpyexc_clear_ptr], var_void))
-        newgraph.exceptblock.inputargs[0].concretetype = self.exc_data.lltype_of_exception_type
-        newgraph.exceptblock.inputargs[1].concretetype = self.exc_data.lltype_of_exception_value
+        newgraph.exceptblock.inputargs[0].concretetype = self.lltype_of_exception_type
+        newgraph.exceptblock.inputargs[1].concretetype = self.lltype_of_exception_value
         excblock.closeblock(Link([var_type, var_value], newgraph.exceptblock))
-        block.exits[True].target = excblock
-        block.exits[True].args = []
+        startblock.exits[True].target = excblock
+        startblock.exits[True].args = []
         FUNCTYPE = lltype.FuncType(ARGTYPES, op.result.concretetype)
-        fptr = Constant(lltype.functionptr(FUNCTYPE, "dummy", graph=newgraph),
+        fptr = Constant(lltype.functionptr(FUNCTYPE, "dummy_exc2", graph=newgraph),
                         lltype.Ptr(FUNCTYPE))
-        self.translator.graphs.append(newgraph)
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result) 
 
-    def gen_exc_checking_var(self, op, i, block, graph):
+    def gen_exc_check(self, block, returnblock):
         var_exc_occured = Variable()
         var_exc_occured.concretetype = lltype.Bool
         
         block.operations.append(SpaceOperation("direct_call", [self.rpyexc_occured_ptr], var_exc_occured))
         block.exitswitch = var_exc_occured
         #exception occurred case
-        l = Link([error_value(graph.returnblock.inputargs[0].concretetype)], graph.returnblock)
+        l = Link([error_value(returnblock.inputargs[0].concretetype)], returnblock)
         l.prevblock  = block
         l.exitcase = l.llexitcase = True
 
         block.exits.append(l)
-        return var_exc_occured, block 
 

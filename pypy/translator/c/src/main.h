@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     if (RPyExceptionOccurred()) {
         /* fish for the exception type, at least */
         fprintf(stderr, "Fatal PyPy error: %s\n",
-                rpython_exc_type->ov_name->items);
+                RPyFetchExceptionType()->ov_name->items);
         exitcode = 1;
     }
     return exitcode;

@@ -116,8 +116,6 @@ void LL__socket_connect(int fd, RPySOCKET_SOCKNAME* sockname, int family)
  
     if (setipaddr(RPyString_AsString(sockname->t_item0), (struct sockaddr *) &addr,
 		      sizeof(addr), family) < 0) {
-        // XXX we actually want to raise socket.error
-        RPYTHON_RAISE_OSERROR(errno);
         return NULL;
     }
     

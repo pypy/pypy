@@ -1,6 +1,6 @@
 import sys
-from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-from pypy.translator.simplify import remove_identical_vars, get_graph
+from pypy.translator.simplify import join_blocks, cleanup_graph
+from pypy.translator.simplify import get_graph
 from pypy.translator.unsimplify import copyvar, split_block
 from pypy.translator.backendopt import canraise
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
@@ -101,18 +101,11 @@ def does_raise_directly(graph, raise_analyzer):
                 return True
     return False
 
-class Inliner(object):
-    def __init__(self, translator, graph, inline_func, inline_guarded_calls=False,
+class BaseInliner(object):
+    def __init__(self, translator, graph, inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False):
         self.translator = translator
         self.graph = graph
-        self.inline_func = inline_func
-        callsites = find_callsites(graph, inline_func)
-        # to simplify exception matching
-        join_blocks(graph)
-        self.block_to_index = {}
-        for g, block, i in callsites:
-            self.block_to_index.setdefault(block, {})[i] = g
         self.inline_guarded_calls = inline_guarded_calls
         # if this argument is set, the inliner will happily produce wrong code!
         # it is used by the exception transformation
@@ -135,10 +128,6 @@ class Inliner(object):
             else:
                 non_recursive[subgraph] = True
             operation = block.operations[index_operation]
-            if getattr(operation, "cleanup", None) is not None:
-                finallyops, exceptops = operation.cleanup
-                if finallyops or exceptops:
-                    raise CannotInline("cannot inline a function with cleanup attached")
             self.inline_once(block, index_operation)
             count += 1
         self.cleanup()
@@ -147,7 +136,6 @@ class Inliner(object):
     def inline_once(self, block, index_operation):
         self.varmap = {}
         self._copied_blocks = {}
-        self._copied_cleanups = {}
         self.op = block.operations[index_operation]
         self.graph_to_inline = self.op.args[0].value._obj.graph
         self.exception_guarded = False
@@ -203,25 +191,7 @@ class Inliner(object):
     def copy_operation(self, op):
         args = [self.get_new_name(arg) for arg in op.args]
         result = SpaceOperation(op.opname, args, self.get_new_name(op.result))
-        if getattr(op, "cleanup", None) is not None:
-            result.cleanup = self.copy_cleanup(op.cleanup)
         return result
-
-    def copy_cleanup(self, cleanup):
-        if cleanup is None:
-            return None
-        if cleanup in self._copied_cleanups:
-            return self._copied_cleanups[cleanup]
-        finallyops, exceptops = cleanup
-        copyfinallyops = []
-        for op in finallyops:
-            copyfinallyops.append(self.copy_operation(op))
-        copyexceptops = []
-        for op in exceptops:
-            copyexceptops.append(self.copy_operation(op))    
-        copycleanup = (tuple(copyfinallyops), tuple(copyexceptops))
-        self._copied_cleanups[cleanup] = copycleanup
-        return copycleanup
 
     def copy_block(self, block):
         if block in self._copied_blocks:
@@ -423,10 +393,31 @@ class Inliner(object):
         """ cleaning up -- makes sense to be done after inlining, because the
         inliner inserted quite some empty blocks and blocks that can be
         joined. """
-        checkgraph(self.graph)
-        eliminate_empty_blocks(self.graph)
-        join_blocks(self.graph)
-        remove_identical_vars(self.graph)
+        cleanup_graph(self.graph)
+
+
+class Inliner(BaseInliner):
+    def __init__(self, translator, graph, inline_func, inline_guarded_calls=False,
+                 inline_guarded_calls_no_matter_what=False):
+        BaseInliner.__init__(self, translator, graph, 
+                             inline_guarded_calls, inline_guarded_calls_no_matter_what)
+        self.inline_func = inline_func
+        # to simplify exception matching
+        join_blocks(graph)
+        # find callsites *after* joining blocks...
+        callsites = find_callsites(graph, inline_func)
+        self.block_to_index = {}
+        for g, block, i in callsites:
+            self.block_to_index.setdefault(block, {})[i] = g
+
+class OneShotInliner(BaseInliner):
+    def __init__(self, translator, graph, inline_guarded_calls=False,
+                 inline_guarded_calls_no_matter_what=False):
+         BaseInliner.__init__(self, translator, graph, 
+                              inline_guarded_calls, inline_guarded_calls_no_matter_what)
+
+    def search_for_calls(self, block):
+        pass
 
 
 def _inline_function(translator, graph, block, index_operation):

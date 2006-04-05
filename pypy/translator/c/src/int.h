@@ -4,71 +4,71 @@
 
 /*** unary operations ***/
 
-#define OP_INT_IS_TRUE(x,r,err)   OP_INT_NE(x,0,r,err)
+#define OP_INT_IS_TRUE(x,r)   OP_INT_NE(x,0,r)
 
-#define OP_INT_INVERT(x,r,err)    r = ~((x))
+#define OP_INT_INVERT(x,r)    r = ~((x))
 
-#define OP_INT_POS(x,r,err)    r = x
+#define OP_INT_POS(x,r)    r = x
 
-#define OP_INT_NEG(x,r,err)    r = -(x)
+#define OP_INT_NEG(x,r)    r = -(x)
 
-#define OP_INT_NEG_OVF(x,r,err) \
-	OP_INT_NEG(x,r,err); \
+#define OP_INT_NEG_OVF(x,r) \
+	OP_INT_NEG(x,r); \
 	if ((x) >= 0 || (x) != -(x)); \
-	else FAIL_OVF(err, "integer negate")
+	else FAIL_OVF("integer negate")
 
-#define OP_INT_ABS(x,r,err)    r = (x) >= 0 ? x : -(x)
-#define OP_UINT_ABS(x,r,err)   r = (x)
+#define OP_INT_ABS(x,r)    r = (x) >= 0 ? x : -(x)
+#define OP_UINT_ABS(x,r)   r = (x)
 
-#define OP_INT_ABS_OVF(x,r,err) \
-	OP_INT_ABS(x,r,err); \
+#define OP_INT_ABS_OVF(x,r) \
+	OP_INT_ABS(x,r); \
 	if ((x) >= 0 || (x) != -(x)); \
-	else FAIL_OVF(err, "integer absolute")
+	else FAIL_OVF("integer absolute")
 
 /***  binary operations ***/
 
-#define OP_INT_EQ(x,y,r,err)	  r = ((x) == (y))
-#define OP_INT_NE(x,y,r,err)	  r = ((x) != (y))
-#define OP_INT_LE(x,y,r,err)	  r = ((x) <= (y))
-#define OP_INT_GT(x,y,r,err)	  r = ((x) >  (y))
-#define OP_INT_LT(x,y,r,err)	  r = ((x) <  (y))
-#define OP_INT_GE(x,y,r,err)	  r = ((x) >= (y))
+#define OP_INT_EQ(x,y,r)	  r = ((x) == (y))
+#define OP_INT_NE(x,y,r)	  r = ((x) != (y))
+#define OP_INT_LE(x,y,r)	  r = ((x) <= (y))
+#define OP_INT_GT(x,y,r)	  r = ((x) >  (y))
+#define OP_INT_LT(x,y,r)	  r = ((x) <  (y))
+#define OP_INT_GE(x,y,r)	  r = ((x) >= (y))
 
-#define OP_INT_CMP(x,y,r,err) \
+#define OP_INT_CMP(x,y,r) \
 	r = (((x) > (y)) - ((x) < (y)))
 
 /* addition, subtraction */
 
-#define OP_INT_ADD(x,y,r,err)     r = (x) + (y)
+#define OP_INT_ADD(x,y,r)     r = (x) + (y)
 
-#define OP_INT_ADD_OVF(x,y,r,err) \
-	OP_INT_ADD(x,y,r,err); \
+#define OP_INT_ADD_OVF(x,y,r) \
+	OP_INT_ADD(x,y,r); \
 	if ((r^(x)) >= 0 || (r^(y)) >= 0); \
-	else FAIL_OVF(err, "integer addition")
+	else FAIL_OVF("integer addition")
 
-#define OP_INT_SUB(x,y,r,err)     r = (x) - (y)
+#define OP_INT_SUB(x,y,r)     r = (x) - (y)
 
-#define OP_INT_SUB_OVF(x,y,r,err) \
-	OP_INT_SUB(x,y,r,err); \
+#define OP_INT_SUB_OVF(x,y,r) \
+	OP_INT_SUB(x,y,r); \
 	if ((r^(x)) >= 0 || (r^~(y)) >= 0); \
-	else FAIL_OVF(err, "integer subtraction")
+	else FAIL_OVF("integer subtraction")
 
-#define OP_INT_MUL(x,y,r,err)     r = (x) * (y)
+#define OP_INT_MUL(x,y,r)     r = (x) * (y)
 
 #ifndef HAVE_LONG_LONG
 
-#define OP_INT_MUL_OVF(x,y,r,err) \
+#define OP_INT_MUL_OVF(x,y,r) \
 	if (op_int_mul_ovf(x,y,&r)); \
-	else FAIL_OVF(err, "integer multiplication")
+	else FAIL_OVF("integer multiplication")
 
 #else
 
-#define OP_INT_MUL_OVF(x,y,r,err) \
+#define OP_INT_MUL_OVF(x,y,r) \
 	{ \
 		PY_LONG_LONG lr = (PY_LONG_LONG)(x) * (PY_LONG_LONG)(y); \
 		r = (long)lr; \
 		if ((PY_LONG_LONG)r == lr); \
-		else FAIL_OVF(err, "integer multiplication"); \
+		else FAIL_OVF("integer multiplication"); \
 	}
 #endif
 
@@ -76,99 +76,99 @@
 
 /* NB. shifting has same limitations as C: the shift count must be
        >= 0 and < LONG_BITS. */
-#define OP_INT_RSHIFT(x,y,r,err)    r = Py_ARITHMETIC_RIGHT_SHIFT(long, x, y)
-#define OP_UINT_RSHIFT(x,y,r,err)   r = (x) >> (y)
+#define OP_INT_RSHIFT(x,y,r)    r = Py_ARITHMETIC_RIGHT_SHIFT(long, x, y)
+#define OP_UINT_RSHIFT(x,y,r)   r = (x) >> (y)
 
-#define OP_INT_LSHIFT(x,y,r,err)    r = (x) << (y)
-#define OP_UINT_LSHIFT(x,y,r,err)   r = (x) << (y)
+#define OP_INT_LSHIFT(x,y,r)    r = (x) << (y)
+#define OP_UINT_LSHIFT(x,y,r)   r = (x) << (y)
 
-#define OP_INT_LSHIFT_OVF(x,y,r,err) \
-	OP_INT_LSHIFT(x,y,r,err); \
+#define OP_INT_LSHIFT_OVF(x,y,r) \
+	OP_INT_LSHIFT(x,y,r); \
 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
-		FAIL_OVF(err, "x<<y loosing bits or changing sign")
+		FAIL_OVF("x<<y loosing bits or changing sign")
 
 /* the safe value-checking version of the above macros */
 
-#define OP_INT_RSHIFT_VAL(x,y,r,err) \
-	if ((y) >= 0) { OP_INT_RSHIFT(x,y,r,err); } \
-	else FAIL_VAL(err, "negative shift count")
+#define OP_INT_RSHIFT_VAL(x,y,r) \
+	if ((y) >= 0) { OP_INT_RSHIFT(x,y,r); } \
+	else FAIL_VAL("negative shift count")
 
-#define OP_INT_LSHIFT_VAL(x,y,r,err) \
-	if ((y) >= 0) { OP_INT_LSHIFT(x,y,r,err); } \
-	else FAIL_VAL(err, "negative shift count")
+#define OP_INT_LSHIFT_VAL(x,y,r) \
+	if ((y) >= 0) { OP_INT_LSHIFT(x,y,r); } \
+	else FAIL_VAL("negative shift count")
 
-#define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \
-	if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r,err); } \
-	else FAIL_VAL(err, "negative shift count")
+#define OP_INT_LSHIFT_OVF_VAL(x,y,r) \
+	if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r); } \
+	else FAIL_VAL("negative shift count")
 
 
 /* floor division */
 
-#define OP_INT_FLOORDIV(x,y,r,err)    r = op_divmod_adj(x, y, NULL)
-#define OP_UINT_FLOORDIV(x,y,r,err)   r = (x) / (y)
+#define OP_INT_FLOORDIV(x,y,r)    r = op_divmod_adj(x, y, NULL)
+#define OP_UINT_FLOORDIV(x,y,r)   r = (x) / (y)
 
-#define OP_INT_FLOORDIV_OVF(x,y,r,err) \
+#define OP_INT_FLOORDIV_OVF(x,y,r) \
 	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
-		FAIL_OVF(err, "integer division"); \
-	OP_INT_FLOORDIV(x,y,r,err)
+            { FAIL_OVF("integer division"); } \
+        else OP_INT_FLOORDIV(x,y,r)
 
-#define OP_INT_FLOORDIV_ZER(x,y,r,err) \
-	if ((y)) { OP_INT_FLOORDIV(x,y,r,err); } \
-	else FAIL_ZER(err, "integer division")
-#define OP_UINT_FLOORDIV_ZER(x,y,r,err) \
-	if ((y)) { OP_UINT_FLOORDIV(x,y,r,err); } \
-	else FAIL_ZER(err, "unsigned integer division")
+#define OP_INT_FLOORDIV_ZER(x,y,r) \
+	if ((y)) { OP_INT_FLOORDIV(x,y,r); } \
+	else FAIL_ZER("integer division")
+#define OP_UINT_FLOORDIV_ZER(x,y,r) \
+	if ((y)) { OP_UINT_FLOORDIV(x,y,r); } \
+	else FAIL_ZER("unsigned integer division")
 
-#define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
-	if ((y)) { OP_INT_FLOORDIV_OVF(x,y,r,err); } \
-	else FAIL_ZER(err, "integer division")
+#define OP_INT_FLOORDIV_OVF_ZER(x,y,r) \
+	if ((y)) { OP_INT_FLOORDIV_OVF(x,y,r); } \
+	else FAIL_ZER("integer division")
 
 /* modulus */
 
-#define OP_INT_MOD(x,y,r,err)     op_divmod_adj(x, y, &r)
-#define OP_UINT_MOD(x,y,r,err)    r = (x) % (y)
+#define OP_INT_MOD(x,y,r)     op_divmod_adj(x, y, &r)
+#define OP_UINT_MOD(x,y,r)    r = (x) % (y)
 
-#define OP_INT_MOD_OVF(x,y,r,err) \
+#define OP_INT_MOD_OVF(x,y,r) \
 	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
-		FAIL_OVF(err, "integer modulo"); \
-	OP_INT_MOD(x,y,r,err)
+            { FAIL_OVF("integer modulo"); }\
+        else OP_INT_MOD(x,y,r)
 
-#define OP_INT_MOD_ZER(x,y,r,err) \
-	if ((y)) { OP_INT_MOD(x,y,r,err); } \
-	else FAIL_ZER(err, "integer modulo")
-#define OP_UINT_MOD_ZER(x,y,r,err) \
-	if ((y)) { OP_UINT_MOD(x,y,r,err); } \
-	else FAIL_ZER(err, "unsigned integer modulo")
+#define OP_INT_MOD_ZER(x,y,r) \
+	if ((y)) { OP_INT_MOD(x,y,r); } \
+	else FAIL_ZER("integer modulo")
+#define OP_UINT_MOD_ZER(x,y,r) \
+	if ((y)) { OP_UINT_MOD(x,y,r); } \
+	else FAIL_ZER("unsigned integer modulo")
 
-#define OP_INT_MOD_OVF_ZER(x,y,r,err) \
-	if ((y)) { OP_INT_MOD_OVF(x,y,r,err); } \
-	else FAIL_ZER(err, "integer modulo")
+#define OP_INT_MOD_OVF_ZER(x,y,r) \
+	if ((y)) { OP_INT_MOD_OVF(x,y,r); } \
+	else FAIL_ZER("integer modulo")
 
 /* bit operations */
 
-#define OP_INT_AND(x,y,r,err)     r = (x) & (y)
-#define OP_INT_OR( x,y,r,err)     r = (x) | (y)
-#define OP_INT_XOR(x,y,r,err)     r = (x) ^ (y)
+#define OP_INT_AND(x,y,r)     r = (x) & (y)
+#define OP_INT_OR( x,y,r)     r = (x) | (y)
+#define OP_INT_XOR(x,y,r)     r = (x) ^ (y)
 
 /*** conversions ***/
 
-#define OP_CAST_BOOL_TO_INT(x,r,err)    r = (long)(x)
-#define OP_CAST_BOOL_TO_UINT(x,r,err)   r = (unsigned long)(x)
-#define OP_CAST_UINT_TO_INT(x,r,err)    r = (long)(x)
-#define OP_CAST_INT_TO_UINT(x,r,err)    r = (unsigned long)(x)
-#define OP_CAST_INT_TO_LONGLONG(x,r,err) r = (long long)(x)
-#define OP_CAST_CHAR_TO_INT(x,r,err)    r = (long)((unsigned char)(x))
-#define OP_CAST_INT_TO_CHAR(x,r,err)    r = (char)(x)
-#define OP_CAST_PTR_TO_INT(x,r,err)     r = (long)(x)    /* XXX */
+#define OP_CAST_BOOL_TO_INT(x,r)    r = (long)(x)
+#define OP_CAST_BOOL_TO_UINT(x,r)   r = (unsigned long)(x)
+#define OP_CAST_UINT_TO_INT(x,r)    r = (long)(x)
+#define OP_CAST_INT_TO_UINT(x,r)    r = (unsigned long)(x)
+#define OP_CAST_INT_TO_LONGLONG(x,r) r = (long long)(x)
+#define OP_CAST_CHAR_TO_INT(x,r)    r = (long)((unsigned char)(x))
+#define OP_CAST_INT_TO_CHAR(x,r)    r = (char)(x)
+#define OP_CAST_PTR_TO_INT(x,r)     r = (long)(x)    /* XXX */
 
-#define OP_TRUNCATE_LONGLONG_TO_INT(x,r,err) r = (long)(x)
+#define OP_TRUNCATE_LONGLONG_TO_INT(x,r) r = (long)(x)
 
-#define OP_CAST_UNICHAR_TO_INT(x,r,err)    r = (long)((unsigned long)(x)) /*?*/
-#define OP_CAST_INT_TO_UNICHAR(x,r,err)    r = (unsigned int)(x)
+#define OP_CAST_UNICHAR_TO_INT(x,r)    r = (long)((unsigned long)(x)) /*?*/
+#define OP_CAST_INT_TO_UNICHAR(x,r)    r = (unsigned int)(x)
 
 /* bool operations */
 
-#define OP_BOOL_NOT(x, r, err) r = !(x)
+#define OP_BOOL_NOT(x, r) r = !(x)
 
 /* _________________ certain implementations __________________ */
 

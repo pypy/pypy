@@ -17,6 +17,7 @@
 
 #undef USE_OPTIMIZED_STACKLESS_UNWIND
 /* XXX we seem to be missing something */
+/* XXX also now very broken because exceptions have changed */
 
 #ifdef USE_OPTIMIZED_STACKLESS_UNWIND
 
@@ -38,12 +39,11 @@
                     FAIL(exception_label);  \
             }
 #else
-#define StacklessUnwindAndRPyExceptionHandling(unwind_label, resume_label, exception_label) \
+#define StacklessUnwindAndRPyExceptionHandling(unwind_label, resume_label) \
             resume_label:                   \
             if (RPyExceptionOccurred()) {   \
                 if (slp_frame_stack_bottom) \
                     goto unwind_label;      \
-                FAIL(exception_label);      \
             }
 #endif
 
@@ -53,12 +53,11 @@
 
 #define RPyExceptionClear()
 
-#define StacklessUnwindAndRPyExceptionHandling(unwind_label, resume_label, exception_label) do { \
+#define StacklessUnwindAndRPyExceptionHandling(unwind_label, resume_label) do { \
             if (slp_frame_stack_bottom)     \
                 goto unwind_label;          \
             resume_label:                   \
-            if (RPyExceptionOccurred())     \
-                FAIL(exception_label);      \
+            ;                               \
             } while (0)
 #endif
 

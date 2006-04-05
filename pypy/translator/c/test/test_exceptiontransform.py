@@ -6,6 +6,14 @@ from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy import conftest
+import sys
+
+def check_debug_build():
+    # the 'not conftest.option.view' is because debug builds rarely
+    # have pygame, so if you want to see the graphs pass --view and
+    # don't be surprised when the test then passes when it shouldn't.
+    if not hasattr(sys, 'gettotalrefcount') and not conftest.option.view:
+        py.test.skip("test needs a debug build of Python")
 
 def transform_func(fn, inputtypes):
     t = TranslationContext()
@@ -36,8 +44,8 @@ def compile_func(fn, inputtypes):
     t = TranslationContext()
     t.buildannotator().build_types(fn, inputtypes)
     t.buildrtyper().specialize()
-    etrafo = exceptiontransform.ExceptionTransformer(t)
-    etrafo.transform_completely()
+##     etrafo = exceptiontransform.ExceptionTransformer(t)
+##     etrafo.transform_completely()
     builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
     builder.generate_source()
     skip_missing_compiler(builder.compile)
@@ -59,7 +67,7 @@ def test_simple():
     result = interpret(foo, [])
     assert result == 1
     f = compile_func(foo, [])
-#    assert f() == 1
+    assert f() == 1
     
 def test_passthrough():
     def one(x):
@@ -70,9 +78,8 @@ def test_passthrough():
         one(0)
         one(1)
     t, g = transform_func(foo, [])
-    assert len(list(g.iterblocks())) == 4
     f = compile_func(foo, [])
-#    py.test.raises(ValueError, f)
+    py.test.raises(ValueError, f)
 
 def test_catches():
     def one(x):
@@ -98,18 +105,48 @@ def test_catches():
     f = compile_func(foo, [int])
     result = interpret(foo, [6])
     assert result == 2
-#    result = f(6)
-#    assert result == 2
+    result = f(6)
+    assert result == 2
     result = interpret(foo, [7])
     assert result == 4
-#    result = f(7)
-#    assert result == 4
+    result = f(7)
+    assert result == 4
     result = interpret(foo, [8])
     assert result == 2
-#    result = f(8)
-#    assert result == 2
+    result = f(8)
+    assert result == 2
 
+def test_bare_except():
+    def one(x):
+        if x == 1:
+            raise ValueError()
+        elif x == 2:
+            raise TypeError()
+        return x - 5
 
+    def foo(x):
+        x = one(x)
+        try:
+            x = one(x)
+        except:
+            return 1 + x
+        return 4 + x
+    t, g = transform_func(foo, [int])
+    assert len(list(g.iterblocks())) == 5
+    f = compile_func(foo, [int])
+    result = interpret(foo, [6])
+    assert result == 2
+    result = f(6)
+    assert result == 2
+    result = interpret(foo, [7])
+    assert result == 3
+    result = f(7)
+    assert result == 3
+    result = interpret(foo, [8])
+    assert result == 2
+    result = f(8)
+    assert result == 2
+    
 def test_raises():
     def foo(x):
         if x:
@@ -117,6 +154,25 @@ def test_raises():
     t, g = transform_func(foo, [int])
     assert len(list(g.iterblocks())) == 4
     f = compile_func(foo, [int])
-#    f(0)
-#    py.test.raises(ValueError, f, 0)
+    f(0)
+    py.test.raises(ValueError, f, 1)
 
+def test_needs_keepalive():
+    check_debug_build()
+    from pypy.rpython.lltypesystem import lltype
+    X = lltype.GcStruct("X",
+                        ('y', lltype.Struct("Y", ('z', lltype.Signed))))
+    def can_raise(n):
+        if n:
+            raise Exception
+        else:
+            return 1
+    def foo(n):
+        x = lltype.malloc(X)
+        y = x.y
+        y.z = 42
+        r = can_raise(n)
+        return r + y.z
+    f = compile_func(foo, [int])
+    res = f(0)
+    assert res == 43

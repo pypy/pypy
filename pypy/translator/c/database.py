@@ -13,6 +13,7 @@ from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
 from pypy.translator.c.support import log
 from pypy.translator.c.extfunc import do_the_getting
+from pypy.translator.c.exceptiontransform import ExceptionTransformer
 
 # ____________________________________________________________
 
@@ -39,6 +40,10 @@ class LowLevelDatabase(object):
         if gcpolicy is None:
             from pypy.translator.c import gc
             gcpolicy = gc.RefcountingGcPolicy
+        if translator is None or translator.rtyper is None:
+            self.exctransformer = None
+        else:
+            self.exctransformer = ExceptionTransformer(translator)
         self.gcpolicy = gcpolicy(self, thread_enabled)
         self.gctransformer = gcpolicy.transformerclass(translator)
         self.completed = False

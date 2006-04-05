@@ -257,7 +257,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         del self.savelines
         del self.resumeblocks
 
-    def check_directcall_result(self, op, err, specialreturnvalue=None):
+    def check_directcall_result(self, op, specialreturnvalue=None):
         slp = self.db.stacklessdata
         # don't generate code for calls that cannot unwind
         if not specialreturnvalue:
@@ -272,7 +272,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             if not need_stackless:
                 slp.count_calls[False] += 1
                 return (super(SlpFunctionCodeGenerator, self)
-                        .check_directcall_result(op, err))
+                        .check_directcall_result(op))
         slp.count_calls[True] += 1
         block = self.currentblock
         curpos = block.operations.index(op)
@@ -335,17 +335,17 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
 
         # add the checks for the unwinding case just after the directcall
         # in the source
-        return 'StacklessUnwindAndRPyExceptionHandling(%s,%s,%s);' % (
-            savelabel, resumelabel, err)
+        return 'StacklessUnwindAndRPyExceptionHandling(%s,%s);' % (
+            savelabel, resumelabel)
 
-    def OP_YIELD_CURRENT_FRAME_TO_CALLER(self, op, err):
+    def OP_YIELD_CURRENT_FRAME_TO_CALLER(self, op):
         # special handling of this operation: call stack_unwind() to force the
         # current frame to be saved into the heap, but don't propagate the
         # unwind -- instead, capture it and return it normally
         line = '/* yield_current_frame_to_caller */\n'
         line += '%s = NULL;\n' % self.expr(op.result)
         line += 'LL_stackless_stack_unwind();\n'
-        line += self.check_directcall_result(op, err,
+        line += self.check_directcall_result(op,
                     specialreturnvalue='slp_return_current_frame_to_caller()')
         return line
 

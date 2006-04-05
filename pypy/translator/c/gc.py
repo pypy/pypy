@@ -45,13 +45,13 @@ class BasicGcPolicy:
     def gc_startup_code(self):
         return []
 
-    def OP_GC_PUSH_ALIVE_PYOBJ(self, funcgen, op, err):
+    def OP_GC_PUSH_ALIVE_PYOBJ(self, funcgen, op):
         expr = funcgen.expr(op.args[0])
         if expr == 'NULL':
             return ''
         return 'Py_XINCREF(%s);' % expr
 
-    def OP_GC_POP_ALIVE_PYOBJ(self, funcgen, op, err):
+    def OP_GC_POP_ALIVE_PYOBJ(self, funcgen, op):
         expr = funcgen.expr(op.args[0])
         return 'Py_XDECREF(%s);' % expr
 
@@ -101,34 +101,30 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     # zero malloc impl
 
-    def zero_malloc(self, TYPE, esize, eresult, err):
+    def zero_malloc(self, TYPE, esize, eresult):
         assert TYPE._gcstatus()   # we don't really support this
-        return 'OP_ZERO_MALLOC(%s, %s, %s);' % (esize,
-                                                eresult,
-                                                err)
+        return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
+                                            eresult)
 
-    def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op, err):
+    def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         line = '%s(%s);' % (args[0], ', '.join(args[1:]))
         return line	
     
-    def OP_GC_FREE(self, funcgen, op, err):
+    def OP_GC_FREE(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         return 'OP_FREE(%s);' % (args[0], )    
 
-    def OP_GC_FETCH_EXCEPTION(self, funcgen, op, err):
+    def OP_GC_FETCH_EXCEPTION(self, funcgen, op):
         result = funcgen.expr(op.result)
-        return ('%s = rpython_exc_value;\n'
-                'rpython_exc_type = NULL;\n'
-                'rpython_exc_value = NULL;') % (result, )
+        return ('%s = RPyFetchExceptionValue();\n'
+                'RPyClearException();') % (result, )
 
-    def OP_GC_RESTORE_EXCEPTION(self, funcgen, op, err):
+    def OP_GC_RESTORE_EXCEPTION(self, funcgen, op):
         argh = funcgen.expr(op.args[0])
-        # XXX uses officially bad fishing
-        # see src/exception.h
-        return 'if (%s != NULL) RPyRaiseException(%s->o_typeptr, %s);' % (argh, argh, argh)
+        return 'if (%s != NULL) RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(%s), %s);' % (argh, argh, argh)
 
-    def OP_GC__COLLECT(self, funcgen, op, err):
+    def OP_GC__COLLECT(self, funcgen, op):
         return ''
 
 
@@ -182,16 +178,15 @@ class BoehmGcPolicy(BasicGcPolicy):
     def rtti_node_factory(self):
         return BoehmGcRuntimeTypeInfo_OpaqueNode
 
-    def zero_malloc(self, TYPE, esize, eresult, err):
+    def zero_malloc(self, TYPE, esize, eresult):
         gcinfo = self.db.gettypedefnode(TYPE).gcinfo
         assert TYPE._gcstatus()   # _is_atomic() depends on this!
         is_atomic = TYPE._is_atomic()
         is_varsize = TYPE._is_varsize()
-        result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d, %s);' % (esize,
-                                                                eresult,
-                                                                is_atomic,
-                                                                is_varsize,
-                                                                err)
+        result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d);' % (esize,
+                                                            eresult,
+                                                            is_atomic,
+                                                            is_varsize)
         if gcinfo and gcinfo.finalizer:
             result += ('\nGC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);'
                        % (eresult, gcinfo.finalizer))
@@ -221,19 +216,16 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield 'GC_init();'
 
 
-    def OP_GC_FETCH_EXCEPTION(self, funcgen, op, err):
+    def OP_GC_FETCH_EXCEPTION(self, funcgen, op):
         result = funcgen.expr(op.result)
-        return ('%s = rpython_exc_value;\n'
-                'rpython_exc_type = NULL;\n'
-                'rpython_exc_value = NULL;') % (result, )
+        return ('%s = RPyFetchExceptionValue();\n'
+                'RPyClearException();') % (result, )
 
-    def OP_GC_RESTORE_EXCEPTION(self, funcgen, op, err):
+    def OP_GC_RESTORE_EXCEPTION(self, funcgen, op):
         argh = funcgen.expr(op.args[0])
-        # XXX uses officially bad fishing
-        # see src/exception.h
-        return 'if (%s != NULL) RPyRaiseException(%s->o_typeptr, %s);' % (argh, argh, argh)
+        return 'if (%s != NULL) RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(%s), %s);' % (argh, argh, argh)
 
-    def OP_GC__COLLECT(self, funcgen, op, err):
+    def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect(); GC_invoke_finalizers();'
 
 
@@ -283,7 +275,7 @@ class FrameworkGcPolicy(NoneGcPolicy):
     def pre_gc_code(self):
         return []
 
-    def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op, err):
+    def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         return '%s = %s; /* for moving GCs */' % (args[1], args[0])
 

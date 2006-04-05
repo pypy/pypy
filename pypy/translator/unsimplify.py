@@ -36,7 +36,9 @@ def insert_empty_block(translator, link, newops=[]):
     return newblock
 
 def split_block(translator, graph, block, index):
-    """split a block in two, inserting a proper link between the new blocks"""
+    """split a block in two, inserting a proper link between the new
+    blocks.  if you call this after rtyping, you WILL need to worry
+    about keepalives."""
     assert 0 <= index <= len(block.operations)
     if block.exitswitch == c_last_exception:
         assert index < len(block.operations)
@@ -82,7 +84,7 @@ def split_block(translator, graph, block, index):
     block.exits = [link]
     block.exitswitch = None
     block.exc_handler = False
-    checkgraph(graph)
+    #checkgraph(graph)
     return newblock
 
 def remove_direct_loops(translator, graph):

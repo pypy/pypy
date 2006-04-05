@@ -9,15 +9,14 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
-#define FAIL_EXCEPTION(err, exc, msg) \
+#define FAIL_EXCEPTION(exc, msg) \
 	{ \
 		RPyRaiseSimpleException(exc, msg); \
-		FAIL(err); \
 	}
-#define FAIL_OVF(err, msg) FAIL_EXCEPTION(err, PyExc_OverflowError, msg)
-#define FAIL_VAL(err, msg) FAIL_EXCEPTION(err, PyExc_ValueError, msg)
-#define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, PyExc_ZeroDivisionError, msg)
-#define CFAIL(err)         { RPyConvertExceptionFromCPython(); FAIL(err); }
+#define FAIL_OVF(msg) FAIL_EXCEPTION(PyExc_OverflowError, msg)
+#define FAIL_VAL(msg) FAIL_EXCEPTION(PyExc_ValueError, msg)
+#define FAIL_ZER(msg) FAIL_EXCEPTION(PyExc_ZeroDivisionError, msg)
+#define CFAIL()       RPyConvertExceptionFromCPython()
 
 #define PyString_FromLLCharArrayAndSize(itemsarray, size) \
 		PyString_FromStringAndSize(itemsarray->items, size)
