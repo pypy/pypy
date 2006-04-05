@@ -87,7 +87,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
-        self.lowleveltype = iterator_type(r_list)
+        self.lowleveltype = iterator_type(r_list, r_list.item_repr)
         self.ll_listiter = ll_listiter
         self.ll_listnext = ll_listnext
 
