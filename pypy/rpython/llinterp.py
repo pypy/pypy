@@ -640,6 +640,9 @@ class LLFrame(object):
     def op_yield_current_frame_to_caller(self):
         raise NotImplementedError("yield_current_frame_to_caller")
 
+    def op_call_boehm_gc_alloc(self):
+        raise NotImplementedError("call_boehm_gc_alloc")
+
     # operations on pyobjects!
     for opname in opimpls.keys():
         exec py.code.Source("""

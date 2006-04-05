@@ -255,6 +255,10 @@ LL_OPERATIONS = {
     'ptr_iszero':           LLOp(canfold=True),
     'cast_ptr_to_int':      LLOp(sideeffects=False),
 
+    # _________ XXX l3interp hacks ___________
+
+    'call_boehm_gc_alloc':  LLOp(canraise=(MemoryError,)),
+
     # __________ address operations __________
 
     'raw_malloc':           LLOp(canraise=(MemoryError,)),
