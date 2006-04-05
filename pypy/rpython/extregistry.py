@@ -26,16 +26,18 @@ EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
 def create_annotation_callable(annotation):
     from pypy.annotation import model as annmodel
-    if isinstance(annotation, annmodel.SomeObject):
+    if isinstance(annotation, annmodel.SomeObject) or annotation is None:
         s_result = annotation
         def annotation(*args):
             return s_result
         
     return annotation
 
-def create_entry(compute_result_annotation=None, compute_annotation=None,
+undefined = object()
+
+def create_entry(compute_result_annotation=undefined, compute_annotation=None,
                  specialize_call=None, get_repr=None):
-    if compute_result_annotation is not None:
+    if compute_result_annotation is not undefined:
         compute_result_annotation = create_annotation_callable(
             compute_result_annotation)
         return ExtRegistryFunc(compute_result_annotation, specialize_call)
@@ -44,14 +46,17 @@ def create_entry(compute_result_annotation=None, compute_annotation=None,
             get_repr)
 
 def register_value(value, **kwargs):
+    assert value not in EXT_REGISTRY_BY_VALUE
     EXT_REGISTRY_BY_VALUE[value] = create_entry(**kwargs)
     return EXT_REGISTRY_BY_VALUE[value]
     
 def register_type(t, **kwargs):
+    assert t not in EXT_REGISTRY_BY_TYPE
     EXT_REGISTRY_BY_TYPE[t] = create_entry(**kwargs)
     return EXT_REGISTRY_BY_TYPE[t]
     
 def register_metatype(t, **kwargs):
+    assert t not in EXT_REGISTRY_BY_METATYPE
     EXT_REGISTRY_BY_METATYPE[t] = create_entry(**kwargs)
     return EXT_REGISTRY_BY_METATYPE[t]
 

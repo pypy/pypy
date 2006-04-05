@@ -66,9 +66,10 @@ class BuiltinFunctionRepr(Repr):
                 bltintyper = rtyper.type_system.rbuiltin.\
                                     BUILTIN_TYPER[self.builtinfunc]
             except (KeyError, TypeError):
-                if hasattr(self.builtinfunc,"specialize"):
-                    bltintyper = self.builtinfunc.specialize
-                elif extregistry.is_registered(self.builtinfunc):
+##                if hasattr(self.builtinfunc,"specialize"):
+##                    bltintyper = self.builtinfunc.specialize
+##                else
+                if extregistry.is_registered(self.builtinfunc):
                     entry = extregistry.lookup(self.builtinfunc)
                     bltintyper = entry.specialize_call
                 else:

@@ -2,6 +2,9 @@
 The table of all LL operations.
 """
 
+from pypy.rpython import extregistry
+
+
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(), pyobj=False):
@@ -24,6 +27,11 @@ class LLOp(object):
 
         # The operation manipulates PyObjects
         self.pyobj = pyobj
+
+        # XXX refactor extregistry to allow a single registration
+        extregistry.register_value(self,
+                compute_result_annotation = self.compute_result_annotation,
+                specialize_call           = self.specialize)
 
     # __________ make the LLOp instances callable from LL helpers __________
 

@@ -227,18 +227,25 @@ fields = tuple(zip(fieldnames, lltypes))
 LINKPAIR = lltype.GcStruct('tuple2', *fields)
 
 # helpers
-def setannotation(func, TYPE):
-    func.compute_result_annotation = lambda *args_s: TYPE 
+def setannotation(func, annotation, specialize_as_constant=False):
+    if specialize_as_constant:
+        def specialize(hop):
+            llvalue = func(hop.args_s[0].const)
+            return hop.inputconst(lltype.typeOf(llvalue), llvalue)
+    else:
+        # specialize as direct_call
+        def specialize(hop):
+            FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r],
+                                       hop.r_result.lowleveltype)
+            args_v = hop.inputargs(*hop.args_r)
+            funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
+                                         _callable=func)
+            cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
+            return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
-def setspecialize(func):
-    # for now
-    def specialize_as_direct_call(hop):
-        FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r], hop.r_result.lowleveltype)
-        args_v = hop.inputargs(*hop.args_r)
-        funcptr = lltype.functionptr(FUNCTYPE, func.__name__, _callable=func)
-        cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
-        return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
-    func.specialize = specialize_as_direct_call
+    extregistry.register_value(func,
+           compute_result_annotation = annotation,
+           specialize_call = specialize)
 
 # annotations
 from pypy.annotation import model as annmodel
@@ -251,35 +258,17 @@ setannotation(initblock, None)
 setannotation(geninputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
 setannotation(genconst, s_ConstOrVar)
-revealconst.compute_result_annotation = lambda s_T, s_gv: annmodel.lltype_to_annotation(s_T.const)
+setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
+                                                  s_T.const))
+setannotation(isconst, annmodel.SomeBool())
 setannotation(closeblock1, s_Link)
 setannotation(closeblock2, s_LinkPair)
 setannotation(closelink, None)
 setannotation(closereturnlink, None)
 
-# specialize
-setspecialize(initblock)
-setspecialize(geninputarg)
-setspecialize(genop)
-setspecialize(genconst)
-setspecialize(revealconst)
-setspecialize(closeblock1)
-setspecialize(closeblock2)
-setspecialize(closelink)
-setspecialize(closereturnlink)
+setannotation(isptrtype, annmodel.SomeBool())
 
 # XXX(for now) void constant constructors
-setannotation(constFieldName, s_ConstOrVar)
-setannotation(constTYPE, s_ConstOrVar)
-setannotation(placeholder, s_ConstOrVar)
-
-def set_specialize_void_constant_constructor(func):
-    # for now
-    def specialize_as_constant(hop):
-        llvalue = func(hop.args_s[0].const)
-        return hop.inputconst(lltype.typeOf(llvalue), llvalue)
-    func.specialize = specialize_as_constant
-
-set_specialize_void_constant_constructor(placeholder)
-set_specialize_void_constant_constructor(constFieldName)
-set_specialize_void_constant_constructor(constTYPE)
+setannotation(constFieldName, s_ConstOrVar, specialize_as_constant=True)
+setannotation(constTYPE,      s_ConstOrVar, specialize_as_constant=True)
+setannotation(placeholder,    s_ConstOrVar, specialize_as_constant=True)

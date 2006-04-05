@@ -10,6 +10,7 @@ from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython.module.support import from_rstr
+from pypy.rpython import extregistry
 
 
 # for debugging, sanity checks in non-RPython code
@@ -254,18 +255,25 @@ VARLIST = lltype.Ptr(lltype.GcArray(CONSTORVAR,
 
 
 # helpers
-def setannotation(func, TYPE):
-    func.compute_result_annotation = lambda *args_s: TYPE 
+def setannotation(func, annotation, specialize_as_constant=False):
+    if specialize_as_constant:
+        def specialize(hop):
+            llvalue = func(hop.args_s[0].const)
+            return hop.inputconst(lltype.typeOf(llvalue), llvalue)
+    else:
+        # specialize as direct_call
+        def specialize(hop):
+            FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r],
+                                       hop.r_result.lowleveltype)
+            args_v = hop.inputargs(*hop.args_r)
+            funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
+                                         _callable=func)
+            cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
+            return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
-def setspecialize(func):
-    # for now
-    def specialize_as_direct_call(hop):
-        FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r], hop.r_result.lowleveltype)
-        args_v = hop.inputargs(*hop.args_r)
-        funcptr = lltype.functionptr(FUNCTYPE, func.__name__, _callable=func)
-        cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
-        return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
-    func.specialize = specialize_as_direct_call
+    extregistry.register_value(func,
+           compute_result_annotation = annotation,
+           specialize_call = specialize)
 
 # annotations
 from pypy.annotation import model as annmodel
@@ -278,7 +286,8 @@ setannotation(initblock, None)
 setannotation(geninputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
 setannotation(genconst, s_ConstOrVar)
-revealconst.compute_result_annotation = lambda s_T, s_gv: annmodel.lltype_to_annotation(s_T.const)
+setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
+                                                  s_T.const))
 setannotation(isconst, annmodel.SomeBool())
 setannotation(closeblock1, s_Link)
 setannotation(closeblock2, s_LinkPair)
@@ -287,32 +296,7 @@ setannotation(closereturnlink, None)
 
 setannotation(isptrtype, annmodel.SomeBool())
 
-# specialize
-setspecialize(initblock)
-setspecialize(geninputarg)
-setspecialize(genop)
-setspecialize(genconst)
-setspecialize(revealconst)
-setspecialize(isconst)
-setspecialize(closeblock1)
-setspecialize(closeblock2)
-setspecialize(closelink)
-setspecialize(closereturnlink)
-
-setspecialize(isptrtype)
-
 # XXX(for now) void constant constructors
-setannotation(constFieldName, s_ConstOrVar)
-setannotation(constTYPE, s_ConstOrVar)
-setannotation(placeholder, s_ConstOrVar)
-
-def set_specialize_void_constant_constructor(func):
-    # for now
-    def specialize_as_constant(hop):
-        llvalue = func(hop.args_s[0].const)
-        return hop.inputconst(lltype.typeOf(llvalue), llvalue)
-    func.specialize = specialize_as_constant
-
-set_specialize_void_constant_constructor(placeholder)
-set_specialize_void_constant_constructor(constFieldName)
-set_specialize_void_constant_constructor(constTYPE)
+setannotation(constFieldName, s_ConstOrVar, specialize_as_constant=True)
+setannotation(constTYPE,      s_ConstOrVar, specialize_as_constant=True)
+setannotation(placeholder,    s_ConstOrVar, specialize_as_constant=True)

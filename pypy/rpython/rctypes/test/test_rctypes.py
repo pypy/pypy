@@ -264,7 +264,9 @@ class Test_rctypes:
         # result should be an integer
         assert s.knowntype == int
         t.buildrtyper().specialize()
-        #d#t.view()
+
+        if conftest.option.view:
+            a.translator.view()
 
     def x_test_compile_simple(self):
         fn = compile(o_atoi, [str])

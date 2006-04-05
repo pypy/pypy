@@ -10,21 +10,21 @@ from pypy.rpython.rmodel import IntegerRepr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
-ctypes_annotation_list = [
-    (c_char,          lltype.Char),
-    (c_byte,          lltype.Signed),
-    (c_ubyte,         lltype.Unsigned),
-    (c_short,         lltype.Signed),
-    (c_ushort,        lltype.Unsigned),
-    (c_int,           lltype.Signed),
-    (c_uint,          lltype.Unsigned),
-    (c_long,          lltype.Signed),
-    (c_ulong,         lltype.Unsigned),
-    (c_longlong,      lltype.SignedLongLong),
-    (c_ulonglong,     lltype.UnsignedLongLong),
-    (c_float,         lltype.Float),
-    (c_double,        lltype.Float),
-]
+ctypes_annotation_list = {
+    c_char:          lltype.Char,
+    c_byte:          lltype.Signed,
+    c_ubyte:         lltype.Unsigned,
+    c_short:         lltype.Signed,
+    c_ushort:        lltype.Unsigned,
+    c_int:           lltype.Signed,
+    c_uint:          lltype.Unsigned,
+    c_long:          lltype.Signed,
+    c_ulong:         lltype.Unsigned,
+    c_longlong:      lltype.SignedLongLong,
+    c_ulonglong:     lltype.UnsignedLongLong,
+    c_float:         lltype.Float,
+    c_double:        lltype.Float,
+}.items()   # nb. platform-dependent duplicate ctypes are removed
 
 class PrimitiveRepr(CTypesValueRepr):
 

@@ -32,7 +32,6 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
 
     global t # allow us to view later
     t = TranslationContext(do_imports_immediately=False)
-    do_register(t)
     t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
@@ -192,44 +191,33 @@ def rtype_wrap_object_fetch(hop):
         return null
 
 
-"""
-The following registers the new mappings. The registration
-had to be done from a function, because we need to pass the
-translator in.
+def compute_annotation_unwrap(s_wrapper, s_class):
+    assert hasattr(s_class, 'descriptions'), 'need a class in unwrap 2nd arg'
+    descs = s_class.descriptions
+    assert len(descs) == 1, 'missing specialisation, classdesc not unique!'
+    for desc in descs.keys():
+        classdef = desc.getuniqueclassdef()
+    return annmodel.SomeInstance(classdef)
 
-Note that these registrations are for explicit wrapping/unwrapping
-which was the first thing I tried. Meanwhile similar functionality
-has been added to rclass.py to support automatic wrapping.
-"""
+extregistry.register_value(ll_create_pywrapper, 
+    compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
+    specialize_call=rtype_wrap_object_create)
 
-def do_register(t):
-    def compute_annotation_unwrap(s_wrapper, s_class):
-        assert hasattr(s_class, 'descriptions'), 'need a class in unwrap 2nd arg'
-        descs = s_class.descriptions
-        assert len(descs) == 1, 'missing specialisation, classdesc not unique!'
-        for desc in descs.keys():
-            classdef = desc.getuniqueclassdef()
-        return annmodel.SomeInstance(classdef)
+extregistry.register_value(ll_fetch_pywrapper, 
+    compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
+    specialize_call=rtype_wrap_object_fetch)
 
-    extregistry.register_value(ll_create_pywrapper, 
-        compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
-        specialize_call=rtype_wrap_object_create)
-        
-    extregistry.register_value(ll_fetch_pywrapper, 
-        compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
-        specialize_call=rtype_wrap_object_fetch)
-        
-    extregistry.register_value(ll_call_destructor, 
-        compute_result_annotation=lambda *args: None,
-        specialize_call=rtype_destruct_object)
+extregistry.register_value(ll_call_destructor, 
+    compute_result_annotation=lambda *args: None,
+    specialize_call=rtype_destruct_object)
 
-    extregistry.register_value(wrap_obj, 
-        compute_result_annotation=annmodel.SomeObject(),
-        specialize_call=rtype_wrap_object)
+extregistry.register_value(wrap_obj, 
+    compute_result_annotation=annmodel.SomeObject(),
+    specialize_call=rtype_wrap_object)
 
-    extregistry.register_value(unwrap_obj, 
-        compute_result_annotation=compute_annotation_unwrap,
-        specialize_call=rtype_unwrap_object)
+extregistry.register_value(unwrap_obj, 
+    compute_result_annotation=compute_annotation_unwrap,
+    specialize_call=rtype_unwrap_object)
 
 # _______________________________________________-
 # the actual tests
@@ -344,8 +332,9 @@ def rtype_wraptest(hop):
 
 def wraptest(obj):
     return obj
-wraptest.compute_result_annotation = lambda *args: annmodel.SomeObject()
-wraptest.specialize = rtype_wraptest
+extregistry.register_value(wraptest,
+        compute_result_annotation = annmodel.SomeObject(),
+        specialize_call = rtype_wraptest)
 
 # not sure what to do with the above.
 # use genpickle facility to produce a plain function?
