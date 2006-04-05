@@ -216,9 +216,6 @@ def test_getfield_pyobj():
                 pyobj_setfields += 1
     assert pyobj_getfields > 0
     assert pyobj_setfields > 0
-                
-            
-    
 
 def test_pass_gc_pointer():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
