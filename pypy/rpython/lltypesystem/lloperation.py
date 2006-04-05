@@ -284,6 +284,7 @@ LL_OPERATIONS = {
     'gc_pop_alive_pyobj':   LLOp(),
     'gc_protect':           LLOp(),
     'gc_unprotect':         LLOp(),    
+    'gc_reload_possibly_moved': LLOp(),
 
     # __________ stackless operation(s) __________
 
