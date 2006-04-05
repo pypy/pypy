@@ -7,6 +7,7 @@ from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rmodel import IntegerRepr
+from pypy.rpython.error import TyperError
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
 ctypes_annotation_list = [
@@ -34,16 +35,32 @@ class PrimitiveRepr(CTypesValueRepr):
         return self.getvalue_from_c_data(llops, v_c_data)
 
     def convert_const(self, ctype_value):
-        assert isinstance(ctype_value, self.ctype)
-        key = id(ctype_value)
+        if isinstance(ctype_value, self.ctype):
+            key = "by_id", id(ctype_value)
+            value = ctype_value.value
+            keepalive = ctype_value
+        else:
+            if self.ownsmemory:
+                raise TyperError("convert_const(%r) but repr owns memory" % (
+                    ctype_value,))
+            key = "by_value", ctype_value
+            value = ctype_value
+            keepalive = None
         try:
             return self.const_cache[key][0]
         except KeyError:
-            p = lltype.malloc(self.lowleveltype.TO)
-            
-            self.const_cache[key] = p, ctype_value
-            p.c_data.value = ctype_value.value
-            return p
+            p = lltype.malloc(self.owner_lowleveltype.TO)
+            p.c_data.value = value
+            if self.ownsmemory:
+                result = p
+            else:
+                # we must return a non-memory-owning box that keeps the
+                # memory-owning box alive
+                result = lltype.malloc(self.lowleveltype.TO)
+                result.c_data_ref = p.c_data
+                result.c_data_owner_keepalive = p
+            self.const_cache[key] = result, keepalive
+            return result
         
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
@@ -60,14 +77,6 @@ class PrimitiveRepr(CTypesValueRepr):
                                                         self.ll_type)
         self.setvalue(hop.llops, v_primitive, v_value)
 
-# need to extend primitive repr to implement convert_from_to() for various
-# conversions, firstly the conversion from c_long() to Signed
-
-class __extend__(pairtype(PrimitiveRepr, IntegerRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        assert r_from.ll_type == r_to.lowleveltype
-
-        return r_from.getvalue(llops, v)
 
 def primitive_specialize_call(hop):
     r_primitive = hop.r_result

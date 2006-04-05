@@ -108,10 +108,10 @@ class Test_specialization:
 
         res = interpret(create_array, [])
         c_data = res.c_data
-        assert c_data[0] == 0
-        assert c_data[9] == 0
+        assert c_data[0].value == 0
+        assert c_data[9].value == 0
         py.test.raises(IndexError, "c_data[10]")
-        py.test.raises(TypeError, "len(c_data)")
+        assert len(c_data) == 10
 
     def test_specialize_array_access(self):
         def access_array():
@@ -126,6 +126,7 @@ class Test_specialization:
 
 class Test_compilation:
     def test_compile_array_access(self):
+        py.test.skip("in-progress")
         def access_array():
             my_array = c_int_10()
             my_array[0] = 1
