@@ -41,6 +41,10 @@ option = py.test.Config.addoptions("pypy options",
                help="""select compiling approach. see pypy/doc/README.compiling"""),
         Option('--view', action="store_true", dest="view", default=False,
                help="view translation tests' flow graphs with Pygame"),
+        Option('--gc', action="store", default=None, 
+               type="choice", dest="gcpolicy",
+               choices=['ref', 'boehm', 'none', 'framework'],
+               help="GcPolicy class to use for genc tests"),
     )
 
 _SPACECACHE={}

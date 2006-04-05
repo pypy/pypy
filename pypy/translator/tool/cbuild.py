@@ -153,10 +153,10 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
     finally:
         lastdir.chdir()
 
-def make_module_from_c(cfile, include_dirs=None):
+def make_module_from_c(cfile, include_dirs=None, libraries=[]):
     cfile = py.path.local(cfile)
     modname = cfile.purebasename
-    compile_c_module([cfile], modname, include_dirs)
+    compile_c_module([cfile], modname, include_dirs, libraries)
     return import_module_from_directory(cfile.dirpath(), modname)
 
 def import_module_from_directory(dir, modname):

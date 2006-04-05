@@ -26,7 +26,8 @@ def compile_db(db):
     targetdir = udir.join(modulename).ensure(dir=1)
     gen_source(db, modulename, str(targetdir), defines={'COUNT_OP_MALLOCS': 1})
     m = make_module_from_c(targetdir.join(modulename+'.c'),
-                           include_dirs = [os.path.dirname(autopath.this_dir)])
+                           include_dirs = [os.path.dirname(autopath.this_dir)],
+                           libraries = db.gcpolicy.gc_libraries())
     return m
 
 def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True):
@@ -36,6 +37,20 @@ def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True):
     t.buildrtyper().specialize()
     if backendopt:
         backend_optimizations(t)
+    if gcpolicy is None:
+        polname = conftest.option.gcpolicy
+        if polname is not None:
+            from pypy.translator.c import gc
+            if polname == 'boehm':
+                gcpolicy = gc.BoehmGcPolicy
+            elif polname == 'ref':
+                gcpolicy = gc.RefcountingGcPolicy
+            elif polname == 'none':
+                gcpolicy = gc.NoneGcPolicy
+            elif polname == 'framework':
+                gcpolicy = gc.FrameworkGcPolicy
+            else:
+                assert False, "unknown gc policy %r"%polname
     db = LowLevelDatabase(t, gcpolicy=gcpolicy)
     entrypoint = db.get(pyobjectptr(fn))
     db.complete()
