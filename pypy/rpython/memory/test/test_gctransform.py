@@ -21,28 +21,32 @@ def checkblock(block):
     else:
         refs_in = len([v for v in block.inputargs if isinstance(v, Variable) and var_needsgc(v)])
     push_alives = len([op for op in block.operations
-                       if op.opname.startswith('gc_push_alive')]) + \
-                  len([op for op in block.operations
-                       if var_ispyobj(op.result) and 'direct_call' not in op.opname])
+                       if op.opname == 'gc_push_alive'])
+    pyobj_push_alives = len([op for op in block.operations
+                             if op.opname == 'gc_push_alive_pyobj'])
+
+    # implicit_pyobj_pushalives included calls to things that return pyobject*
+    implicit_pyobj_pushalives = len([op for op in block.operations
+                                     if var_ispyobj(op.result)
+                                     and op.opname not in ('getfield', 'getarrayitem', 'same_as')])
+    nonpyobj_gc_returning_calls = len([op for op in block.operations
+                                       if op.opname in ('direct_call', 'indirect_call')
+                                       and var_needsgc(op.result)
+                                       and not var_ispyobj(op.result)])
     
     pop_alives = len([op for op in block.operations
-                      if op.opname.startswith('gc_pop_alive')])
-    calls = len([op for op in block.operations
-                 if 'direct_call' in op.opname and var_needsgc(op.result)])
+                      if op.opname == 'gc_pop_alive'])
+    pyobj_pop_alives = len([op for op in block.operations
+                            if op.opname == 'gc_pop_alive_pyobj'])
     if pop_alives == len(block.operations):
         # it's a block we inserted
         return
     for link in block.exits:
-        fudge = 0
-        if (block.exitswitch is c_last_exception and link.exitcase is not None):
-            fudge -= 1
-            if var_needsgc(block.operations[-1].result):
-                fudge += 1
+        assert block.exitswitch is not c_last_exception
         refs_out = len([v for v in link.args if var_needsgc(v)])
-        assert refs_in + push_alives + calls - fudge == pop_alives + refs_out
-        
-        if block.exitswitch is c_last_exception and link.exitcase is not None:
-            assert link.last_exc_value in link.args
+        pyobj_pushes = pyobj_push_alives + implicit_pyobj_pushalives
+        nonpyobj_pushes = push_alives + nonpyobj_gc_returning_calls
+        assert refs_in + pyobj_pushes + nonpyobj_pushes == pop_alives + pyobj_pop_alives + refs_out
 
 def getops(graph):
     ops = {}
@@ -150,22 +154,6 @@ def DONOTtest_multiple_exits():
         passedname = link.target.exits[0].args[0].name
         assert dyingname != passedname
     
-def DONOTtest_cleanup_vars_on_call():
-    S = lltype.GcStruct("S", ('x', lltype.Signed))
-    def f():
-        return lltype.malloc(S)
-    def g():
-        s1 = f()
-        s2 = f()
-        s3 = f()
-        return s1
-    t, transformer = rtype_and_transform(g, [], gctransform.GCTransformer)
-    ggraph = graphof(t, g)
-    direct_calls = [op for op in ggraph.startblock.operations if op.opname == "direct_call"]
-    assert len(direct_calls) == 3
-    assert direct_calls[1].cleanup[1][0].args[0] == direct_calls[0].result
-    assert [op.args[0] for op in direct_calls[2].cleanup[1]] == \
-           [direct_calls[0].result, direct_calls[1].result]
 
 def test_multiply_passed_var():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
@@ -195,6 +183,29 @@ def test_pyobj():
                  if op.opname.startswith("gc_")]
     for op in gcops:
         assert op.opname.endswith("_pyobj")
+
+def test_call_return_pyobj():
+    def g(factory):
+        return factory()
+    def f(factory):
+        g(factory)
+    t, transformer = rtype_and_transform(f, [object], gctransform.GCTransformer)
+    fgraph = graphof(t, f)
+    ops = getops(fgraph)
+    calls = ops['direct_call']
+    for call in calls:
+        if call.result.concretetype is not lltype.Bool: #RPyExceptionOccurred()
+            assert var_ispyobj(call.result)
+
+def test_getfield_pyobj():
+    class S:
+        pass
+    def f(thing):
+        s = S()
+        s.x = thing
+        return s.x
+    t, transformer = rtype_and_transform(f, [object], gctransform.GCTransformer)
+    
 
 def test_pass_gc_pointer():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
