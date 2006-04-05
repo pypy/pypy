@@ -234,6 +234,22 @@ def test_dict_get_empty():
     res = interpret(func, ())
     assert res == 422
 
+def test_dict_setdefault():
+    def f():
+        d = {}
+        d.setdefault('a', 2)
+        return d['a']
+    res = interpret(f, ())
+    assert res == 2
+
+    def f():
+        d = {}
+        d.setdefault('a', 2)
+        x = d.setdefault('a', -3)
+        return x
+    res = interpret(f, ())
+    assert res == 2
+
 def test_dict_copy():
     def func():
         # XXX this does not work if we use chars, only!

@@ -274,6 +274,13 @@ class DictRepr(rmodel.Repr):
         v_res = hop.gendirectcall(ll_get, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
 
+    def rtype_method_setdefault(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                 self.value_repr)
+        hop.exception_cannot_occur()
+        v_res = hop.gendirectcall(ll_setdefault, v_dict, v_key, v_default)
+        return self.recast_value(hop.llops, v_res)
+    
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -704,6 +711,14 @@ def ll_get(dict, key, default):
     if entry.valid():
         return entry.value
     else: 
+        return default
+
+def ll_setdefault(dict, key, default):
+    entry = ll_dict_lookup(dict, key, dict.keyhash(key))
+    if entry.valid():
+        return entry.value
+    else:
+        ll_dict_setitem(dict, key, default)
         return default
 
 def ll_copy(dict):

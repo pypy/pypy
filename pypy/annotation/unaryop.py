@@ -327,6 +327,8 @@ class __extend__(SomeDict):
         dct.dictdef.generalize_value(dfl)
         return dct.dictdef.read_value()
 
+    method_setdefault = method_get
+
     def method_copy(dct):
         return SomeDict(dct.dictdef)
 
