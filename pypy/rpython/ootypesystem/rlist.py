@@ -4,6 +4,7 @@ from pypy.rpython.rlist import AbstractListRepr, AbstractListIteratorRepr, \
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.riterable import iterator_type
 
 class BaseListRepr(AbstractListRepr):
 
@@ -83,34 +84,22 @@ def newlist(llops, r_list, items_v):
 #
 #  Iteration.
 
-_list_iter_types = {}
-
-def list_iter_type(r_list):
-    key = r_list.lowleveltype
-    if _list_iter_types.has_key(key):
-        return _list_iter_types[key]
-    else:
-        INST = ootype.Instance("ListIter", ootype.ROOT,
-                {"list": r_list.lowleveltype, "index": ootype.Signed})
-        _list_iter_types[key] = INST
-        return INST
-
 class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
-        self.lowleveltype = list_iter_type(r_list)
+        self.lowleveltype = iterator_type(r_list)
         self.ll_listiter = ll_listiter
         self.ll_listnext = ll_listnext
 
 def ll_listiter(ITER, lst):
     iter = ootype.new(ITER)
-    iter.list = lst
+    iter.iterable = lst
     iter.index = 0
     return iter
 
 def ll_listnext(iter):
-    l = iter.list
+    l = iter.iterable
     index = iter.index
     if index >= l.length():
         raise StopIteration

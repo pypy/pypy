@@ -1,5 +1,6 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
+from pypy.rpython.ootypesystem.riterable import iterator_type
 from pypy.rpython.ootypesystem import ootype
 
 
@@ -55,23 +56,11 @@ def rtype_newtuple(hop):
 #
 #  Iteration.
 
-_tuple_iter_types = {}
-
-def tuple_iter_type(r_tuple):
-    key = r_tuple.lowleveltype
-    if _tuple_iter_types.has_key(key):
-        return _tuple_iter_types[key]
-    else:
-        INST = ootype.Instance("TupleIter", ootype.ROOT,
-                {"tuple": r_tuple.lowleveltype})
-        _tuple_iter_types[key] = INST
-        return INST
-
 class Length1TupleIteratorRepr(AbstractTupleIteratorRepr):
 
     def __init__(self, r_tuple):
         self.r_tuple = r_tuple
-        self.lowleveltype = tuple_iter_type(r_tuple)
+        self.lowleveltype = iterator_type(r_tuple)
         self.ll_tupleiter = ll_tupleiter
         self.ll_tuplenext = ll_tuplenext
 
@@ -79,14 +68,14 @@ TupleRepr.IteratorRepr = Length1TupleIteratorRepr
 
 def ll_tupleiter(ITERINST, tuple):
     iter = ootype.new(ITERINST)
-    iter.tuple = tuple
+    iter.iterable = tuple
     return iter
 
 def ll_tuplenext(iter):
     # for iterating over length 1 tuples only!
-    t = iter.tuple
+    t = iter.iterable
     if t:
-        iter.tuple = ootype.null(ootype.typeOf(t))
+        iter.iterable = ootype.null(ootype.typeOf(t))
         return t.item0
     else:
         raise StopIteration
