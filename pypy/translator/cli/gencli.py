@@ -61,7 +61,7 @@ class GenCli(object):
             # TODO: remove this test
             if graph.name.startswith('ll_'):
                 continue
-            
+
             if '.' not in graph.name: # it's not a method
                 f = Function(graph)
                 f.render(self.ilasm)

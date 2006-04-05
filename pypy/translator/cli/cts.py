@@ -92,6 +92,13 @@ def graph_to_signature(graph, is_method = False, func_name = None):
 
     return '%s %s(%s)' % (ret_type, func_name, arg_list)
 
+def split_class_name(class_name):
+    parts = class_name.rsplit('.', 1)
+    if len(parts) == 2:
+        return parts
+    else:
+        return None, parts[0]
+
 _pyexception_to_cts = {
     exceptions.Exception: '[mscorlib]System.Exception',
     exceptions.OverflowError: '[mscorlib]System.OverflowException'

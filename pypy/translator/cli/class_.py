@@ -5,14 +5,17 @@ from pypy.translator.cli import cts
 class Class(Node):
     def __init__(self, classdef):
         self.classdef = classdef
+        self.namespace, self.name = cts.split_class_name(classdef._name)
 
     def get_name(self):
-        return self.classdef._name
+        return self.name
 
     def render(self, ilasm):
         self.ilasm = ilasm
-        name = self.get_name().replace('__main__.', '') # TODO: handle modules
-        ilasm.begin_class(name) # TODO: handle base class
+        if self.namespace:
+            ilasm.begin_namespace(self.namespace)
+
+        ilasm.begin_class(self.name) # TODO: handle base class
         for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
             # TODO: handle default values
             ilasm.field(f_name, cts.lltype_to_cts(f_type))
@@ -26,6 +29,9 @@ class Class(Node):
             f.render(ilasm)
 
         ilasm.end_class()
+
+        if self.namespace:
+            ilasm.end_namespace()
 
     def _ctor(self):
         self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')

@@ -1,5 +1,4 @@
 #!/bin/env python
-
 import sys
 import py
 from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong, ovfcheck

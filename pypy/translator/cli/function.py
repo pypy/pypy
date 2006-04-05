@@ -229,7 +229,7 @@ class Function(Node, Generator):
         return cts.graph_to_signature(graph, True, name)
 
     def class_name(self, ooinstance):
-        return ooinstance._name.replace('__main__.', '') # TODO: modules
+        return ooinstance._name
 
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
@@ -249,6 +249,8 @@ class Function(Node, Generator):
     def call_method(self, obj, name):
         owner, meth = obj._lookup(name)
         full_name = '%s::%s' % (self.class_name(obj), name)
+        # TODO: there are cases when we don't need callvirt but a
+        # plain call is sufficient
         self.ilasm.call_method(self.method_signature(meth.graph, full_name))
 
     def load(self, v):

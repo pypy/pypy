@@ -42,6 +42,13 @@ class IlasmGenerator(object):
     def close(self):
         self.out.close()
 
+    def begin_namespace(self, name):
+        self.code.writeline('.namespace ' + name)
+        self.code.openblock()
+
+    def end_namespace(self):
+        self.code.closeblock()
+
     def begin_class(self, name, base = None):
         if base is None:
             base = '[mscorlib]System.Object'
