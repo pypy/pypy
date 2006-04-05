@@ -77,15 +77,15 @@ class SplitDistributor(AbstractDistributor):
     
     def __init__(self, c_space, nb_subspaces=3):
         AbstractDistributor.__init__(self, c_space, nb_subspaces)
-        self.__to_split = None
+
 
     def nb_subdomains(self):
-        self.__to_split = self.find_smallest_domain()
+        to_split = self.find_smallest_domain()
         if self.nb_subspaces:
             return min(self.nb_subspaces,
-                       self.cs.dom(self.__to_split).size()) 
+                       self.cs.dom(to_split).size()) 
         else:
-            return self.cs.dom(self.__to_split).size() 
+            return self.cs.dom(to_split).size() 
 
 
     def _do_distribute(self, domain, choice):
