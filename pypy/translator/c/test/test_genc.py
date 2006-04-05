@@ -315,17 +315,42 @@ def test_keepalive():
     assert f1() == 1
 
 # this test shows if we have a problem with refcounting PyObject
-def test_refcount_pyobj():
-    def prob_with_pyobj(b):
-        return 3, b
+if conftest.option.gc == 'boehm':
+    def test_refcount_pyobj():
+        from pypy.rpython.lltypesystem.lloperation import llop
+        def prob_with_pyobj(b):
+            return 3, b
+        def collect():
+            llop.gc__collect(Void)
+        f = compile(prob_with_pyobj, [object])
+        c = compile(collect, [])
+        from sys import getrefcount as g
+        obj = None
+        before = g(obj)
+        f(obj)
+        f(obj)
+        f(obj)
+        f(obj)
+        f(obj)
+        c()
+        c()
+        c()
+        c()
+        c()
+        after = g(obj)
+        assert abs(before - after) < 5
+else:
+    def test_refcount_pyobj():
+        def prob_with_pyobj(b):
+            return 3, b
 
-    f = compile(prob_with_pyobj, [object])
-    from sys import getrefcount as g
-    obj = None
-    before = g(obj)
-    f(obj)
-    after = g(obj)
-    assert before == after
+        f = compile(prob_with_pyobj, [object])
+        from sys import getrefcount as g
+        obj = None
+        before = g(obj)
+        f(obj)
+        after = g(obj)
+        assert before == after
 
 def test_refcount_pyobj_setfield():
     import weakref, gc
@@ -345,3 +370,20 @@ def test_refcount_pyobj_setfield():
     wref = f(weakref.ref, C)
     gc.collect()
     assert not wref()
+
+def test_refcount_pyobj_setfield_increfs():
+    class S(object):
+        def __init__(self):
+            self.p = None
+    def goo(objfact):
+        s = S()
+        b = objfact()
+        s.p = b
+        return s
+    def foo(objfact):
+        s = goo(objfact)
+        return s.p
+    f = compile(foo, [object], backendopt=False)
+    class C(object):
+        pass
+    print f(C)
