@@ -25,6 +25,7 @@ def cfuncptrtype_specialize_call(hop):
     # the metatype
     assert hop.spaceop.opname == "simple_call"
     cfuncptr = hop.spaceop.args[0].value
+    fnname = cfuncptr.__name__
 
     args_r = []
     for ctype in cfuncptr.argtypes:
@@ -36,9 +37,14 @@ def cfuncptrtype_specialize_call(hop):
     vlist = hop.inputargs(*args_r)
     unwrapped_args_v = [r_arg.getvalue(hop.llops, v)
                         for r_arg, v in zip(args_r, vlist)]
+    s_res = annmodel.SomeCTypesObject(cfuncptr.restype,
+                                      annmodel.SomeCTypesObject.OWNSMEMORY)
+    r_res = hop.rtyper.getrepr(s_res)
 
-    ll_func = cfuncptr.llinterp_friendly_version
-    v_result = hop.llops.gendirectcall(ll_func, *unwrapped_args_v)
+    ll_func = getattr(cfuncptr, 'llinterp_friendly_version', None)
+    v_result = hop.llops.gencapicall(fnname, unwrapped_args_v,
+                                     resulttype = r_res.ll_type,
+                                     _callable = ll_func)
     return v_result
 
 extregistry.register_metatype(CFuncPtrType, 

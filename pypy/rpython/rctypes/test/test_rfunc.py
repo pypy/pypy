@@ -1,6 +1,7 @@
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rctypes.test.test_rctypes import mylib
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
 
 from ctypes import c_long
@@ -33,4 +34,10 @@ class Test_annotation:
 class Test_specialization:
     def test_specialize_labs(self):
         res = interpret(test_labs, [-11])
+        assert res == 11
+
+class Test_compile:
+    def test_compile_labs(self):
+        fn = compile(test_labs, [int])
+        res = fn(-11)
         assert res == 11
