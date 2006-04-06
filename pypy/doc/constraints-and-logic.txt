@@ -320,7 +320,7 @@ actual decision to choose between several branches to the solver.
 Let us look at a small relational program written respectively in
 Prolog, Oz and extended Python.
 
-Prolog :
+Prolog ::
 
  Soft(beige).
  Soft(coral).
@@ -333,7 +333,7 @@ Prolog :
  Suit(Shirt, Pants, Socks) :- Contrast(Shirt, Pants), 
    Contrast(Pants, Socks), Shirt != Socks.
 
-Oz :
+Oz ::
 
  fun {Soft} choice beige [] coral end end
  fun {Hard} choice mauve [] ochre end end
@@ -351,7 +351,7 @@ Oz :
      suit(Shirt Pants Socks)
  end
 
-Python :
+Python ::
 
  def soft():
      choice: 'beige' or: 'coral'
