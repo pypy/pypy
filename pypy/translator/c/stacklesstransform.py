@@ -27,7 +27,7 @@ def storage_type(T):
 
 state_header = lltype.Struct('state_header',
                              ('f_back', lltype.Ptr(lltype.ForwardReference())),
-                             ('signed', lltype.Signed))
+                             ('state', lltype.Signed))
 state_header.f_back.TO.become(state_header)
 
 class StacklessTransfomer(object):
