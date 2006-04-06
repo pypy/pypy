@@ -54,11 +54,11 @@ class AppTest_FD(object):
         assert fd.size() == 1
         assert fd.has_changed()
 
-    def notest_intersection(self):
+    def test_intersection(self):
         """not used for now"""
         fd1 = FiniteDomain([1, 2, 3])
-        fd2 = FiniteDomain([2,3,4])
-        assert fd1.intersection(fd2)  == set([2,3])
-        assert fd2.intersection(fd1)  == set([3,2])
+        fd2 = FiniteDomain([2, 3, 4])
+        assert intersection(fd1, fd2)  == FiniteDomain([2, 3])
+        assert intersection(fd2, fd1)  == FiniteDomain([3, 2])
 
 

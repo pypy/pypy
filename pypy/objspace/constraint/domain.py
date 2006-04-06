@@ -93,23 +93,34 @@ class W_FiniteDomain(W_AbstractDomain):
         return W_FiniteDomain(self._space, self.w_get_values())
     
     def __repr__(self):
-        return '<FD %s>' % str(self.get_values())
+        return '<FD %s>' % str(self.w_get_values())
 
     def __eq__(self, w_other):
-        if w_other is NoDom: return False
-        return self._values == w_other._values
+        if not isinstance(w_other, W_FiniteDomain):
+            return self._space.w_False
+        return self._space.newbool(self._space.eq_w(self._values, w_other._values))
 
     def __ne__(self, w_other):
         return not self == w_other
 
 # function bolted into the space to serve as constructor
 def make_fd(space, w_values):
-    return W_FiniteDomain(space, w_values)
+    return space.wrap(W_FiniteDomain(space, w_values))
 app_make_fd = gateway.interp2app(make_fd)
 
 
+def intersection(space, w_fd1, w_fd2):
+    assert isinstance(w_fd1, W_FiniteDomain)
+    assert isinstance(w_fd2, W_FiniteDomain)
+    return space.intersection(w_fd1, w_fd2)
+app_intersection = gateway.interp2app(intersection)
+
+
 def intersection__FiniteDomain_FiniteDomain(space, w_fd1, w_fd2):
-    return make_fd(w_fd1.w_get_values() + w_fd2.w_get_values())
+    w_v1 = w_fd1._values
+    w_res = [w_v for w_v in w_fd2.w_get_values().wrappeditems
+             if w_v in w_v1]
+    return make_fd(space, space.newlist(w_res))
 
 intersection_mm = StdObjSpaceMultiMethod('intersection', 2)
 intersection_mm.register(intersection__FiniteDomain_FiniteDomain,
@@ -122,5 +133,6 @@ W_FiniteDomain.typedef = typedef.TypeDef("W_FiniteDomain",
     remove_values = interp2app(W_FiniteDomain.w_remove_values),
     get_values = interp2app(W_FiniteDomain.w_get_values),
     copy = interp2app(W_FiniteDomain.w_copy),
-    size = interp2app(W_FiniteDomain.w_size))
+    size = interp2app(W_FiniteDomain.w_size),
+    __eq__ = interp2app(W_FiniteDomain.__eq__))
 
