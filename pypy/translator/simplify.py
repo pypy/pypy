@@ -369,18 +369,12 @@ def remove_assertion_errors(graph):
 
 # _____________________________________________________________________
 # decide whether a function has side effects
-lloperations_with_side_effects = {"setfield": True,
-                                  "setarrayitem": True,
-                                  }
 
 class HasSideEffects(Exception):
     pass
 
-# XXX: this could even be improved:
-# if setfield and setarrayitem only occur on things that are malloced
-# in this function then the function still does not have side effects
-
 def has_no_side_effects(translator, graph, seen=None):
+    from pypy.rpython.lltypesystem import lloperation
     #is the graph specialized? if no we can't say anything
     #don't cache the result though
     if translator.rtyper is None:
@@ -397,8 +391,6 @@ def has_no_side_effects(translator, graph, seen=None):
             if not isinstance(block, Block):
                 return
             for op in block.operations:
-                if op.opname in lloperations_with_side_effects:
-                    raise HasSideEffects
                 if op.opname == "direct_call":
                     g = get_graph(op.args[0], translator)
                     if g is None:
@@ -406,6 +398,10 @@ def has_no_side_effects(translator, graph, seen=None):
                     if not has_no_side_effects(translator, g, seen + [graph]):
                         raise HasSideEffects
                 elif op.opname == "indirect_call":
+                    # XXX can be improved: look at all graphs,
+                    # if they are there
+                    raise HasSideEffects
+                elif lloperation.LL_OPERATIONS[op.opname].sideeffects:
                     raise HasSideEffects
         traverse(visit, graph)
     except HasSideEffects:
