@@ -9,7 +9,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
-from pypy.translator.backendopt.support import log
+from pypy.translator.backendopt.support import log, needs_conservative_livevar_calculation, var_needsgc
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -351,6 +351,24 @@ class BaseInliner(object):
       
     def do_inline(self, block, index_operation):
         afterblock = split_block(self.translator, self.graph, block, index_operation)
+        conservative_keepalives = needs_conservative_livevar_calculation(block)
+        if conservative_keepalives:
+            keep_alive_vars = [var for var in block.getvariables()
+                                   if var_needsgc(var)]
+            # XXX you could maybe remove more, if the variables are kept
+            # alive by something else. but this is sometimes hard to know
+            for i, var in enumerate(keep_alive_vars):
+                try:
+                    index = block.exits[0].args.index(var)
+                    newvar = afterblock.inputargs[index]
+                except ValueError:
+                    block.exits[0].args.append(var)
+                    newvar = copyvar(self.translator, var)
+                    afterblock.inputargs.append(newvar)
+                keep_alive_vars[i] = newvar
+        else:
+            keep_alive_vars = [var for var in afterblock.operations[0].args
+                                   if var_needsgc(var)]
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
         # the inlined function
@@ -377,7 +395,7 @@ class BaseInliner(object):
         linktoinlined.target = copiedstartblock
         linktoinlined.args = passon_args
         afterblock.inputargs = [self.op.result] + afterblock.inputargs
-        afterblock.operations = self.generate_keepalive(afterblock.inputargs) + afterblock.operations[1:]
+        afterblock.operations = afterblock.operations[1:]
         if self.graph_to_inline.returnblock in self.entrymap:
             self.rewire_returnblock(afterblock) 
         if self.graph_to_inline.exceptblock in self.entrymap:
@@ -386,6 +404,7 @@ class BaseInliner(object):
             assert afterblock.exits[0].exitcase is None
             afterblock.exits = [afterblock.exits[0]]
             afterblock.exitswitch = None
+        afterblock.operations.extend(self.generate_keepalive(keep_alive_vars))
         self.search_for_calls(afterblock)
         self.search_for_calls(block)
 

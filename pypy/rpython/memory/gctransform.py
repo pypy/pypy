@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.translator import graphof
+from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
@@ -13,13 +14,6 @@ import sets, os
 
 NEVER_RAISING_OPS = ['gc_protect', 'gc_unprotect']
 
-def var_needsgc(var):
-    if hasattr(var, 'concretetype'):
-        vartype = var.concretetype
-        return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
-    else:
-        # assume PyObjPtr
-        return True
 
 def var_ispyobj(var):
     if hasattr(var, 'concretetype'):
@@ -652,18 +646,6 @@ def gc_pointers_inside(v, adr):
                 for a in gc_pointers_inside(v.items[i], adr + llmemory.itemoffsetof(t, i)):
                     yield a
 
-def needs_conservative_livevar_calculation(block):
-    from pypy.rpython.lltypesystem import rclass
-    vars = block.getvariables()
-    for var in vars:
-        TYPE = getattr(var, "concretetype", lltype.Ptr(lltype.PyObject))
-        if isinstance(TYPE, lltype.Ptr) and not var_needsgc(var):
-            try:
-                lltype.castable(TYPE, rclass.CLASSTYPE)
-            except lltype.InvalidCast:
-                return True
-    else:
-        return False
 
 class FrameworkGCTransformer(BoehmGCTransformer):
 

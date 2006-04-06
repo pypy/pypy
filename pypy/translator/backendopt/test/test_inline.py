@@ -435,7 +435,6 @@ def test_indirect_call_with_exception():
     py.test.raises(CannotInline, check_inline, x3, x4, [])
 
 def test_keepalive_hard_case():
-    py.test.skip("fix this :(")
     from pypy.rpython.lltypesystem import lltype
     Y = lltype.Struct('y', ('n', lltype.Signed))
     X = lltype.GcStruct('x', ('y', Y))
