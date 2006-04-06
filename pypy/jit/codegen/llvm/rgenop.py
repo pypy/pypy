@@ -10,11 +10,16 @@ from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython.module.support import from_rstr
+from pypy.rpython import extregistry
 from pypy.jit.codegen.llvm.jitcode import JITcode
 
 
 # for debugging, sanity checks in non-RPython code
 reveal = from_opaque_object
+
+def isptrtype(gv_type):
+    c = from_opaque_object(gv_type)
+    return isinstance(c.value, lltype.Ptr)
 
 def initblock(opaqueptr):
     init_opaque_object(opaqueptr, flowmodel.Block([]))
@@ -26,6 +31,8 @@ def newblock():
 
 def geninputarg(blockcontainer, gv_CONCRETE_TYPE):
     block = from_opaque_object(blockcontainer.obj)
+    assert not block.operations, "block already contains operations"
+    assert block.exits == [], "block already closed"
     CONCRETE_TYPE = from_opaque_object(gv_CONCRETE_TYPE).value
     v = flowmodel.Variable()
     v.concretetype = CONCRETE_TYPE
@@ -50,6 +57,7 @@ def genop(blockcontainer, opname, vars, gv_RESULT_TYPE):
     if not isinstance(opname, str):
         opname = from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj)
+    assert block.exits == [], "block already closed"
     RESULT_TYPE = from_opaque_object(gv_RESULT_TYPE).value
     opvars = _inputvars(vars)    
     v = flowmodel.Variable()
@@ -82,7 +90,11 @@ def revealconst(T, gv_value):
         return llmemory.cast_ptr_to_adr(c.value)
     else:
         return lltype.cast_primitive(T, c.value)
-                                    
+
+def isconst(gv_value):
+    c = from_opaque_object(gv_value)
+    return isinstance(c, flowmodel.Constant)
+
 # XXX
 # temporary interface; it's unclera if genop itself should change to ease dinstinguishing
 # Void special args from the rest. Or there should be variation for the ops involving them
@@ -196,8 +208,6 @@ def testgengraph(gengraph, args, viewbefore=False):
     from pypy.rpython.llinterp import LLInterpreter
     if viewbefore:
         gengraph.show()
-    #llinterp = LLInterpreter(PseudoRTyper())
-    #return llinterp.eval_graph(gengraph, args)
     jitcode = JITcode(PseudoRTyper())
     return jitcode.eval_graph(gengraph, args)
     
@@ -225,6 +235,25 @@ fieldnames = ['item%d' % i for i in range(2)]
 lltypes = [LINK]*2
 fields = tuple(zip(fieldnames, lltypes))    
 LINKPAIR = lltype.GcStruct('tuple2', *fields)
+
+# support constants and types
+
+nullvar = lltype.nullptr(CONSTORVAR.TO)
+gv_Void = constTYPE(lltype.Void)
+
+# VARLIST
+def ll_fixed_items(l):
+    return l
+
+def ll_fixed_length(l):
+    return len(l)
+
+VARLIST = lltype.Ptr(lltype.GcArray(CONSTORVAR,
+                                    adtmeths = {
+                                        "ll_items": ll_fixed_items,
+                                        "ll_length": ll_fixed_length
+                                    }))
+
 
 # helpers
 def setannotation(func, annotation, specialize_as_constant=False):
