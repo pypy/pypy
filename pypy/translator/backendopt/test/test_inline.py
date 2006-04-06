@@ -453,3 +453,20 @@ def test_keepalive_hard_case():
     eval_func = check_inline(g, f, [])
     res = eval_func([])
     assert res == 5
+
+def test_correct_keepalive_placement():
+    def h(x):
+        if not x:
+            raise ValueError
+        return 1
+    def f(x):
+        s = "a %s" % (x, )
+        try:
+            h(len(s))
+        except ValueError:
+            pass
+        return -42
+    eval_func, t = check_auto_inlining(f, [int])
+    res = eval_func([42])
+    assert res == -42
+

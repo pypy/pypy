@@ -2,8 +2,8 @@ import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import inputconst 
 from pypy.tool.ansi_print import ansi_log
-from pypy.translator.unsimplify import split_block, copyvar
-from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
+from pypy.translator.unsimplify import split_block, copyvar, insert_empty_block
+from pypy.objspace.flow.model import Constant, Variable, SpaceOperation, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 
 log = py.log.Producer("backendopt")
@@ -83,7 +83,15 @@ def split_block_with_keepalive(translator, graph, block, index_operation,
                                if var_needsgc(var)]
     else:
         keep_alive_vars = []
-    afterblock.operations.extend(generate_keepalive(keep_alive_vars))
+    if afterblock.exitswitch == c_last_exception:
+        for link in afterblock.exits:
+            betweenblock = insert_empty_block(translator, link)
+            fresh_vars = [copyvar(translator, var) for var in keep_alive_vars]
+            betweenblock.inputargs.extend(fresh_vars)
+            link.args.extend(keep_alive_vars)
+            betweenblock.operations = generate_keepalive(fresh_vars)
+    else:
+        afterblock.operations.extend(generate_keepalive(keep_alive_vars))
     return afterblock
 
 def md5digest(translator):
