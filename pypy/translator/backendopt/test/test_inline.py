@@ -3,6 +3,7 @@ import py
 import os
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.objspace.flow.model import last_exception, checkgraph
+from pypy.translator.backendopt import canraise
 from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
@@ -51,7 +52,12 @@ def check_inline(func, in_func, sig, entry=None, inline_guarded_calls=False):
     sanity_check(t)    # also check before inlining (so we don't blame it)
     if option.view:
         t.view()
-    inliner = Inliner(t, graphof(t, in_func), func, inline_guarded_calls)
+    if inline_guarded_calls:
+        raise_analyzer = canraise.RaiseAnalyzer(t)
+    else:
+        raise_analyzer = None
+    inliner = Inliner(t, graphof(t, in_func), func, inline_guarded_calls,
+                      raise_analyzer=raise_analyzer)
     inliner.inline_all()
 #    inline_function(t, func, graphof(t, in_func))
     if option.view:
