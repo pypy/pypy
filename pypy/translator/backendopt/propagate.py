@@ -1,7 +1,7 @@
 from pypy.objspace.flow.model import Block, Variable, Constant, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.objspace.flow.model import SpaceOperation
-from pypy.rpython.lltypesystem.lltype import Bool
+from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython.llinterp import LLInterpreter, LLFrame
 from pypy.translator import simplify
 from pypy.translator.simplify import get_graph
@@ -23,22 +23,20 @@ def rewire_links(graph):
     inlining of functions that return a bool."""
     entrymap = mkentrymap(graph)
     candidates = {}
-    def visit(block):
-        if not isinstance(block, Block):
-            return
+    for block in graph.iterblocks():
         if (isinstance(block.exitswitch, Variable) and
-            block.exitswitch.concretetype is Bool):
+            block.exitswitch.concretetype is lltype.Bool):
             for val, link in enumerate(block.exits):
                 val = bool(val)
-                if block.exitswitch not in link.args:
+                try:
+                    index = link.args.index(block.exitswitch)
+                except ValueError:
                     continue
                 if len(link.target.operations) > 0:
                     continue
-                index = link.args.index(block.exitswitch)
                 var = link.target.inputargs[index]
                 if link.target.exitswitch is var:
                     candidates[block] = val
-    traverse(visit, graph)
     for block, val in candidates.iteritems():
         link = block.exits[val]
         args = []
@@ -52,29 +50,25 @@ def rewire_links(graph):
         link.args = args
     if candidates:
         print "rewiring links in graph", graph.name
-        checkgraph(graph)
+        simplify.join_blocks(graph)
         return True
     return False
 
 def coalesce_links(graph):
-    candidates = {}
-    def visit(block):
-        if not isinstance(block, Block):
-            return
+    done = False
+    for block in graph.iterblocks():
         if len(block.exits) != 2:
-            return
+            continue
         if block.exitswitch == c_last_exception:
-            return
-        if (block.exits[0].args == block.exits[1].args and
+            continue
+        if not (block.exits[0].args == block.exits[1].args and
             block.exits[0].target is block.exits[1].target):
-            candidates[block] = True
-    traverse(visit, graph)
-    for block in candidates:
+            continue
+        done = True
         block.exitswitch = None
         block.exits = block.exits[:1]
         block.exits[0].exitcase = None
-    if candidates:
-        print "coalescing links in graph", graph.name
+    if done:
         return True
     else:
         return False
@@ -84,7 +78,7 @@ def propagate_consts(graph):
     if all blocks leading to it have the same constant in that position"""
     entrymap = mkentrymap(graph)
     candidates = []
-    changed = [False]
+    changed = False
     for block, ingoing in entrymap.iteritems():
         if block in [graph.returnblock, graph.exceptblock]:
             continue
@@ -108,25 +102,12 @@ def propagate_consts(graph):
             del block.inputargs[i]
             op = SpaceOperation("same_as", [const], var)
             block.operations.insert(0, op)
-            changed[0] = True
-    if changed[0]:
+            changed = True
+    if changed:
         remove_same_as(graph)
         checkgraph(graph)
         return True
     return False
-
-_op = """getarrayitem setarrayitem malloc malloc_varsize flavored_malloc
-         flavored_free getfield setfield getsubstruct getarraysubstruct
-         getarraysize raw_malloc raw_free raw_memcopy raw_load
-         raw_store direct_call indirect_call cast_pointer
-         cast_ptr_to_int""".split()
-from pypy.objspace.flow.operation import FunctionByName
-_op += FunctionByName.keys() #operations with PyObjects are dangerous
-cannot_constant_fold = {}
-for opname in _op:
-    cannot_constant_fold[opname] = True
-del _op
-del FunctionByName
 
 class TooManyOperations(Exception):
     pass
@@ -149,14 +130,12 @@ def constant_folding(graph, translator):
     """do constant folding if the arguments of an operations are constants"""
     lli = LLInterpreter(translator.rtyper)
     llframe = LLFrame(graph, None, lli)
-    changed = [False]
-    def visit(block):
-        if not isinstance(block, Block):
-            return
+    changed = False
+    for block in graph.iterblocks():
         for i, op in enumerate(block.operations):
             if sum([isinstance(arg, Variable) for arg in op.args]):
                 continue
-            if op.opname not in cannot_constant_fold:
+            if lloperation.LL_OPERATIONS[op.opname].canfold:
                 print "folding operation", op, "in graph", graph.name
                 try:
                     llframe.eval_operation(op)
@@ -168,8 +147,9 @@ def constant_folding(graph, translator):
                     res.concretetype = op.result.concretetype
                     block.operations[i].opname = "same_as"
                     block.operations[i].args = [res]
-                    changed[0] = True
-            elif op.opname == "direct_call":
+                    changed = True
+            # disabling the code for now, since it is not correct
+            elif 0: #op.opname == "direct_call":
                 called_graph = get_graph(op.args[0], translator)
                 if (called_graph is not None and
                     simplify.has_no_side_effects(translator, called_graph) and
@@ -189,10 +169,9 @@ def constant_folding(graph, translator):
                         res.concretetype = op.result.concretetype
                         block.operations[i].opname = "same_as"
                         block.operations[i].args = [res]
-                        changed[0] = True
+                        changed = True
         block.operations = [op for op in block.operations if op is not None]
-    traverse(visit, graph)
-    if changed[0]:
+    if changed:
         remove_same_as(graph)
         propagate_consts(graph)
         checkgraph(graph)
@@ -208,7 +187,7 @@ def partial_folding_once(graph, translator):
             return
         usedvars = {}
         for op in block.operations:
-            if op.opname in cannot_constant_fold:
+            if not lloperation.LL_OPERATIONS[op.opname].canfold:
                 return
             for arg in op.args:
                 if (isinstance(arg, Variable) and arg in block.inputargs):
@@ -270,14 +249,67 @@ def partial_folding(graph, translator):
     else:
         return False
 
+def remove_duplicate_casts(graph, translator):
+    simplify.join_blocks(graph)
+    num_removed = 0
+    # remove chains of casts
+    for block in graph.iterblocks():
+        comes_from = {}
+        for op in block.operations:
+            if op.opname == "cast_pointer":
+                if op.args[0] in comes_from:
+                    from_var = comes_from[op.args[0]]
+                    comes_from[op.result] = from_var
+                    if from_var.concretetype == op.result.concretetype:
+                        op.opname = "same_as"
+                        op.args = [from_var]
+                        num_removed += 1
+                    else:
+                        op.args = [from_var]
+                else:
+                    comes_from[op.result] = op.args[0]
+    if num_removed:
+        remove_same_as(graph)
+    # remove duplicate casts
+    for block in graph.iterblocks():
+        available = {}
+        for op in block.operations:
+            if op.opname == "cast_pointer":
+                key = (op.args[0], op.result.concretetype)
+                if key in available:
+                    op.opname = "same_as"
+                    op.args = [available[key]]
+                    num_removed += 1
+                else:
+                    available[key] = op.result
+    if num_removed:
+        remove_same_as(graph)
+        # remove casts with unused results
+        for block in graph.iterblocks():
+            used = {}
+            for link in block.exits:
+                for arg in link.args:
+                    used[arg] = True
+            for i, op in list(enumerate(block.operations))[::-1]:
+                if op.opname == "cast_pointer" and op.result not in used:
+                    del block.operations[i]
+                    num_removed += 1
+                else:
+                    for arg in op.args:
+                        used[arg] = True
+        print "removed %s cast_pointers in %s" % (num_removed, graph.name)
+    return num_removed
+
 def propagate_all(translator):
     for graph in translator.graphs:
         def prop():
-            changed = rewire_links(graph)
-            changed = changed or propagate_consts(graph)
-            changed = changed or coalesce_links(graph)
-            changed = changed or do_atmost(100, constant_folding, graph,
-                                           translator)
-            changed = changed or partial_folding(graph, translator)
+            changed = False
+            changed = rewire_links(graph) or changed
+            changed = propagate_consts(graph) or changed
+            changed = coalesce_links(graph) or changed
+            changed = do_atmost(100, constant_folding, graph,
+                                           translator) or changed
+            changed = partial_folding(graph, translator) or changed
+            changed = remove_duplicate_casts(graph, translator) or changed
             return changed
         do_atmost(10, prop)
