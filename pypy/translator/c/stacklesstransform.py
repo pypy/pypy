@@ -25,6 +25,10 @@ def storage_type(T):
     else:
         raise Exception("don't know about %r" % (T,))
 
+state_header = lltype.Struct('state_header',
+                             ('f_back', lltype.Ptr(lltype.ForwardReference())),
+                             ('signed', lltype.Signed))
+state_header.f_back.TO.become(state_header)
 
 class StacklessTransfomer(object):
     def __init__(self, translator):
@@ -47,7 +51,9 @@ class StacklessTransfomer(object):
             for i, k in enumerate(key):
                 for j in range(k):
                     fields.append(('state_%s_%d'%(STORAGE_FIELDS[i], j), STORAGE_TYPES[i]))
-            T = lltype.Struct("state_%d_%d_%d_%d"%tuple(key), *fields)
+            T = lltype.Struct("state_%d_%d_%d_%d"%tuple(key),
+                              ('header', state_header),
+                              *fields)
             self.frametypes[key] = T
             return T
             

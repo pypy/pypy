@@ -14,7 +14,8 @@ def test_frame_types():
     ft4vars = st.frame_type_for_vars
     
     s1 = ft4vars([signed])
-    assert len(s1._flds) == 1
+    assert 'header' in s1._flds
+    assert len(s1._flds) == 2
 
     s2_1 = ft4vars([signed, ptr])
     s2_2 = ft4vars([ptr, signed])
