@@ -553,7 +553,7 @@ def unify__Root_Root(space, w_x, w_y):
     if not space.eq_w(w_x, w_y):
         w_d1 = w_x.getdict()
         w_d2 = w_y.getdict()
-        if (w_d1 == None) or (w_d2 == None):
+        if None in [w_d1, w_d2]:
             fail(space, w_x, w_y)
         else:
             return space.unify(w_d1, w_d2)
@@ -755,13 +755,13 @@ def proxymaker(space, opname, parentfn):
 
 #------ constraints -----------------
 
-from pypy.objspace.constraint import domain
+## from pypy.objspace.constraint import domain
 
-W_FiniteDomain = domain.W_FiniteDomain
+## W_FiniteDomain = domain.W_FiniteDomain
 
-def make_fd(space, w_values):
-    return domain.W_FiniteDomain(space, w_values)
-app_make_fd = gateway.interp2app(make_fd)
+## def make_fd(space, w_values):
+##     return domain.W_FiniteDomain(space, w_values)
+## app_make_fd = gateway.interp2app(make_fd)
 
 #-- THE SPACE ---------------------------------------
 
@@ -813,8 +813,8 @@ def Space(*args, **kwds):
                   space.wrap(app_alias_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
                   space.wrap(app_is_aliased))
-    space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
-                 space.wrap(app_make_fd))
+##     space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
+##                  space.wrap(app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),

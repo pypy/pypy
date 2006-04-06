@@ -271,22 +271,24 @@ class AppTest_LogicThreads(object):
         assert T == 45
         
     def notest_wait_two(self):
+        """this seems to trigger an
+           infinite loop in the
+           greenlet machinery
+        """
         def sleep(X, Barrier):
-            print "sleep"
             wait(X)
             bind(Barrier, True)
         
         def wait_two(X, Y):
-            print "wait two"
             Z = newvar()
             uthread(sleep, X, Z)
             uthread(sleep, Y, Z)
-            print "on barrier"
             wait(Z)
             if is_free(Y):
                 return 1
             return 2
-        
+
+        print
         X, Y = newvar(), newvar()
         disp(X)
         disp(Y)
