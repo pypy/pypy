@@ -63,6 +63,9 @@ class FlowObjSpace(ObjSpace):
         #self.make_sys()
         # objects which should keep their SomeObjectness
         self.not_really_const = NOT_REALLY_CONST
+        # variables which might in turn turn into constants.
+        # purpose: allow for importing into globals.
+        self.maybe_const = {} # variable -> constant
 
     def enter_cache_building_mode(self):
         # when populating the caches, the flow space switches to
@@ -595,11 +598,15 @@ for line in ObjSpace.MethodTable:
 
 def override():
     def getattr(self, w_obj, w_name):
+        # handling special things like sys
+        # (maybe this will vanish with a unique import logic)
         if w_obj in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
                 return self.do_operation_with_implicit_exceptions('getattr', w_obj, w_name)
+        # tracking variables which might be constants
         return self.regular_getattr(w_obj, w_name)
+
     FlowObjSpace.regular_getattr = FlowObjSpace.getattr
     FlowObjSpace.getattr = getattr
 
