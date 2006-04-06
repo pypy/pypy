@@ -1,13 +1,15 @@
 from pypy.interpreter.error import OperationError
 
-from pypy.interpreter import baseobjspace, typedef
+from pypy.interpreter import baseobjspace, typedef, gateway
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 
-from pypy.objspace.std.objspace import W_Object
-
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
+from pypy.objspace.std.model import StdObjSpaceMultiMethod
+
+
+all_mms = {}
 
 class ConsistencyFailure(Exception):
     """The repository is not in a consistent state"""
@@ -52,14 +54,16 @@ class W_FiniteDomain(W_AbstractDomain):
         This class uses a dictionnary to make sure that there are
         no duplicate values"""
         W_AbstractDomain.__init__(self, space)
+        self._values = {}
         self.set_values(w_values)
 
     def set_values(self, w_values):
-        self._values = set(w_values.wrappeditems)
+        for w_v in w_values.wrappeditems:
+            self._values[w_v] = True
         
     def w_remove_value(self, w_value):
         """Remove value of domain and check for consistency"""
-        self._values.remove(w_value)
+        self._values.pop(w_value)
         self._value_removed()
 
     def w_remove_values(self, w_values):
@@ -67,7 +71,7 @@ class W_FiniteDomain(W_AbstractDomain):
         if self._space.is_true(self._space.gt(self._space.len(w_values),
                                               self._space.newint(0))) :
             for val in w_values.wrappeditems :
-                self._values.remove(val)
+                self._values.pop(val)
             self._value_removed()
     __delitem__ = w_remove_value
     
@@ -98,10 +102,19 @@ class W_FiniteDomain(W_AbstractDomain):
     def __ne__(self, w_other):
         return not self == w_other
 
-    # FIXME: this does not work, but we don't need it yet
-    def w_intersection(self, w_other):
-        assert isinstance(w_other, W_FiniteDomain)
-        return self._space.newlist([x for x in (set(self.w_get_values()) & set(w_other.w_get_values()))])
+# function bolted into the space to serve as constructor
+def make_fd(space, w_values):
+    return W_FiniteDomain(space, w_values)
+app_make_fd = gateway.interp2app(make_fd)
+
+
+def intersection__FiniteDomain_FiniteDomain(space, w_fd1, w_fd2):
+    return make_fd(w_fd1.w_get_values() + w_fd2.w_get_values())
+
+intersection_mm = StdObjSpaceMultiMethod('intersection', 2)
+intersection_mm.register(intersection__FiniteDomain_FiniteDomain,
+                         W_FiniteDomain, W_FiniteDomain)
+all_mms['intersection'] = intersection_mm
 
 W_FiniteDomain.typedef = typedef.TypeDef("W_FiniteDomain",
     W_AbstractDomain.typedef,
@@ -109,5 +122,5 @@ W_FiniteDomain.typedef = typedef.TypeDef("W_FiniteDomain",
     remove_values = interp2app(W_FiniteDomain.w_remove_values),
     get_values = interp2app(W_FiniteDomain.w_get_values),
     copy = interp2app(W_FiniteDomain.w_copy),
-#    intersection = interp2app(W_FiniteDomain.w_intersection),
     size = interp2app(W_FiniteDomain.w_size))
+
