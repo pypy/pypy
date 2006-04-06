@@ -19,7 +19,7 @@ class RaiseAnalyzer(object):
     def can_raise(self, op, seen=None):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
-            print "graph", graph
+            ##print "graph", graph
             if graph is None:
                 return True
             return self.direct_call_can_raise(graph, seen)
