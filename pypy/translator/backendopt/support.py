@@ -80,7 +80,7 @@ def split_block_with_keepalive(translator, graph, block, index_operation,
             keep_alive_vars[i] = newvar
     elif keep_alive_op_args:
         keep_alive_vars = [var for var in afterblock.operations[0].args
-                               if var_needsgc(var)]
+                               if isinstance(var, Variable) and var_needsgc(var)]
     else:
         keep_alive_vars = []
     if afterblock.exitswitch == c_last_exception:
