@@ -9,7 +9,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
-from pypy.translator.backendopt.support import log, needs_conservative_livevar_calculation, var_needsgc
+from pypy.translator.backendopt.support import log, split_block_with_keepalive, generate_keepalive 
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -217,17 +217,6 @@ class BaseInliner(object):
             newlink.llexitcase = link.llexitcase
         return newlink
         
-    def generate_keepalive(self, vars):
-        keepalive_ops = []
-        for v in vars:
-            if isinstance(v, Constant):
-                continue
-            if v.concretetype._is_atomic():
-                continue
-            v_keepalive = Variable()
-            v_keepalive.concretetype = Void
-            keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
-        return keepalive_ops
 
     def find_args_in_exceptional_case(self, link, block, etype, evalue, afterblock, passon_vars):
         linkargs = []
@@ -297,7 +286,7 @@ class BaseInliner(object):
             for exceptionlink in afterblock.exits[1:]:
                 if exc_match(eclass, exceptionlink.llexitcase):
                     passon_vars = self.passon_vars(link.prevblock)
-                    copiedblock.operations += self.generate_keepalive(passon_vars)
+                    copiedblock.operations += generate_keepalive(passon_vars)
                     copiedlink.target = exceptionlink.target
                     linkargs = self.find_args_in_exceptional_case(
                         exceptionlink, link.prevblock, etype, evalue, afterblock, passon_vars)
@@ -346,29 +335,12 @@ class BaseInliner(object):
         del blocks[-1].exits[0].llexitcase
         linkargs = copiedexceptblock.inputargs
         copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
-        copiedexceptblock.operations += self.generate_keepalive(linkargs)
+        copiedexceptblock.operations += generate_keepalive(linkargs)
 
       
     def do_inline(self, block, index_operation):
-        afterblock = split_block(self.translator, self.graph, block, index_operation)
-        conservative_keepalives = needs_conservative_livevar_calculation(block)
-        if conservative_keepalives:
-            keep_alive_vars = [var for var in block.getvariables()
-                                   if var_needsgc(var)]
-            # XXX you could maybe remove more, if the variables are kept
-            # alive by something else. but this is sometimes hard to know
-            for i, var in enumerate(keep_alive_vars):
-                try:
-                    index = block.exits[0].args.index(var)
-                    newvar = afterblock.inputargs[index]
-                except ValueError:
-                    block.exits[0].args.append(var)
-                    newvar = copyvar(self.translator, var)
-                    afterblock.inputargs.append(newvar)
-                keep_alive_vars[i] = newvar
-        else:
-            keep_alive_vars = [var for var in afterblock.operations[0].args
-                                   if var_needsgc(var)]
+        afterblock = split_block_with_keepalive(
+            self.translator, self.graph, block, index_operation)
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
         # the inlined function
@@ -404,7 +376,6 @@ class BaseInliner(object):
             assert afterblock.exits[0].exitcase is None
             afterblock.exits = [afterblock.exits[0]]
             afterblock.exitswitch = None
-        afterblock.operations.extend(self.generate_keepalive(keep_alive_vars))
         self.search_for_calls(afterblock)
         self.search_for_calls(block)
 

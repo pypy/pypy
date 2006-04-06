@@ -1,11 +1,11 @@
 from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.unsimplify import copyvar, split_block
-from pypy.translator.backendopt import canraise, inline
+from pypy.translator.backendopt import canraise, inline, support
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.lladdress import NULL
-from pypy.rpython.memory.gctransform import varoftype, var_needsgc
+from pypy.rpython.memory.gctransform import varoftype
 from pypy.rpython import rclass
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.annotation import model as annmodel
@@ -28,20 +28,6 @@ def error_value(T):
     elif isinstance(T, lltype.Ptr):
         return Constant(lltype.nullptr(T.TO), T)
     assert 0, "not implemented yet"
-
-def insert_keepalives_along(translator, link, vars):
-    vars = [v for v in vars if v not in link.args]
-    link.args.extend(vars)
-    newvars = [copyvar(translator, v) for v in vars]
-    block = link.target
-    block.inputargs.extend(newvars)
-    block.operations[0:0] = [SpaceOperation('keepalive', [v],
-                                            varoftype(lltype.Void))
-                             for v in newvars]
-
-def vars_to_keepalive(block):
-    # XXX make cleverer
-    return [v for v in block.getvariables() if var_needsgc(v)]
 
 class ExceptionTransformer(object):
     def __init__(self, translator):
@@ -163,12 +149,10 @@ class ExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            afterblock = split_block(self.translator, graph, block, i+1)
+            afterblock = support.split_block_with_keepalive(
+                self.translator, graph, block, i+1, False)
             if lastblock is block:
                 lastblock = afterblock
-
-            insert_keepalives_along(self.translator, block.exits[0],
-                                    vars_to_keepalive(block))
 
             self.gen_exc_check(block, graph.returnblock)                
 
