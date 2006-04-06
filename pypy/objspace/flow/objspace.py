@@ -603,6 +603,16 @@ def override():
     FlowObjSpace.regular_getattr = FlowObjSpace.getattr
     FlowObjSpace.getattr = getattr
 
+    # protect us from globals access
+    def setitem(self, w_obj, w_key, w_val):
+        ec = self.getexecutioncontext()
+        if not (ec and w_obj is ec.w_globals):
+            return self.regular_setitem(w_obj, w_key, w_val)
+        raise SyntaxError, "attempt to write global attribute %r in %r" % (w_key, ec.graph.func)
+
+    FlowObjSpace.regular_setitem = FlowObjSpace.setitem
+    FlowObjSpace.setitem = setitem
+
 override()
 
 # ______________________________________________________________________

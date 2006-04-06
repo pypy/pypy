@@ -343,8 +343,15 @@ extregistry.register_value(wraptest,
 
 ### XXX write up the rules how to use this ###
 
+def t2():
+    global sys
+    import sys
+
 def setup_new_module(mod, modname):
     # note the name clash with py.test on setup_module
+    #t1()
+    #t2()
+    return
     from types import module
     m = module(modname)
     allobjs = mod.__dict__.values()
