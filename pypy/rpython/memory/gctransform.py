@@ -959,8 +959,6 @@ class FrameworkGCTransformer(BoehmGCTransformer):
                 if var in needed:
                     newlivevars.append(var)
             livevars = newlivevars
-        else:
-            print "block which needs conservative livevar calculation found"
         newops = list(self.push_roots(livevars))
         index = len(newops)
         newops.append(op)
