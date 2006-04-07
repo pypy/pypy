@@ -44,8 +44,9 @@ class AbstractConstraint(object):
     def __eq__(self, other): #FIXME and parent
         if not isinstance(other, self.__class__): return False
         return self._variables == other._variables
+    
 
-class BasicConstraint(object):
+class W_BasicConstraint(object):
     """A BasicConstraint, which is never queued by the Repository
     A BasicConstraint affects only one variable, and will be entailed
     on the first call to narrow()"""
@@ -356,32 +357,32 @@ def make_expression(variables, formula, constraint_type=None):
             return Expression(vars, formula)
 
 
-class Equals(BasicConstraint):
+class W_Equals(W_BasicConstraint):
     """A basic constraint variable == constant value"""
     def __init__(self, variable, reference):
-        BasicConstraint.__init__(self, variable, reference, operator.eq)
+        W_BasicConstraint.__init__(self, variable, reference, operator.eq)
 
-class NotEquals(BasicConstraint):
+class W_NotEquals(W_BasicConstraint):
     """A basic constraint variable != constant value"""
     def __init__(self, variable, reference):
-        BasicConstraint.__init__(self, variable, reference, operator.ne)
+        W_BasicConstraint.__init__(self, variable, reference, operator.ne)
 
-class LesserThan(BasicConstraint):
+class W_LesserThan(W_BasicConstraint):
     """A basic constraint variable < constant value"""
     def __init__(self, variable, reference):
-        BasicConstraint.__init__(self, variable, reference, operator.lt)
+        W_BasicConstraint.__init__(self, variable, reference, operator.lt)
 
-class LesserOrEqual(BasicConstraint):
+class W_LesserOrEqual(W_BasicConstraint):
     """A basic constraint variable <= constant value"""
     def __init__(self, variable, reference):
-        BasicConstraint.__init__(self, variable, reference, operator.le)
+        W_BasicConstraint.__init__(self, variable, reference, operator.le)
 
-class GreaterThan(BasicConstraint):
+class W_GreaterThan(W_BasicConstraint):
     """A basic constraint variable > constant value"""
     def __init__(self, variable, reference):
-        BasicConstraint.__init__(self, variable, reference, operator.gt)
+        W_BasicConstraint.__init__(self, variable, reference, operator.gt)
 
-class GreaterOrEqual(BasicConstraint):
+class W_GreaterOrEqual(W_BasicConstraint):
     """A basic constraint variable >= constant value"""
     def __init__(self, variable, reference):
-        BasicConstraint.__init__(self, variable, reference, operator.ge)
+        W_BasicConstraint.__init__(self, variable, reference, operator.ge)
