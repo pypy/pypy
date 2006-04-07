@@ -6,7 +6,7 @@ import exceptions
 
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.rpython.ootypesystem.ootype import Instance
+from pypy.rpython.ootypesystem.ootype import Instance, Class
 from pypy.translator.cli.option import getoption
 
 from pypy.tool.ansi_print import ansi_log
@@ -23,16 +23,14 @@ _lltype_to_cts = {
     UnsignedLongLong: 'unsigned int64',
     Bool: 'bool',
     Float: 'float64',
+    Class: '[mscorlib]System.Type', # TODO: check this
     }
 
-_cts_to_ilasm = {
-    'int32': 'i4',
-    'unsigned int32': 'i4',
-    'int64': 'i8',
-    'unsigned int64': 'i8',
-    'bool': 'i4',
-    'float64': 'r8',
+_pyexception_to_cts = {
+    exceptions.Exception: '[mscorlib]System.Exception',
+    exceptions.OverflowError: '[mscorlib]System.OverflowException'
     }
+
 
 def _get_from_dict(d, key, error):
     try:
@@ -44,65 +42,43 @@ def _get_from_dict(d, key, error):
         else:
             assert False, error
 
+class CTS(object):
+    def __init__(self, db):
+        self.db = db
 
-def lltype_to_cts(t):
-    if isinstance(t, Instance):
-        name = t._name
-        if 'Object_meta' in name or 'Object' in name: # TODO
-            return 'object'
+    def lltype_to_cts(self, t):
+        if isinstance(t, Instance):
+            name = t._name
+            self.db.classes.add(t)
+            return 'class %s' % name
 
-        return 'class %s' % name
+        return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 
-    return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
+    def llvar_to_cts(self, var):
+        return self.lltype_to_cts(var.concretetype), var.name
 
-def lltype_to_ilasm(t):
-    return ctstype_to_ilasm(lltype_to_cts(t))
+    def llconst_to_cts(self, const):
+        return self.lltype_to_cts(const.concretetype), const.value
 
-def ctstype_to_ilasm(t):
-    return _get_from_dict(_cts_to_ilasm, t, 'Unknown ilasm type %s' % t)
+    def graph_to_signature(self, graph, is_method = False, func_name = None):
+        ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
+        func_name = func_name or graph.name
 
-def llvar_to_cts(var):
-    return lltype_to_cts(var.concretetype), var.name
+        args = graph.getargs()
+        if is_method:
+            args = args[1:]
 
-def llconst_to_cts(const):
-    return lltype_to_cts(const.concretetype), const.value
+        arg_types = [self.lltype_to_cts(arg.concretetype) for arg in args]
+        arg_list = ', '.join(arg_types)
 
-def llconst_to_ilasm(const):
-    """
-    Return the const as a string suitable for ilasm.
-    """
-    ilasm_type = lltype_to_ilasm(const.concretetype)
-    if const.concretetype is Bool:
-        return ilasm_type, str(int(const.value))
-    elif const.concretetype is Float:
-        return ilasm_type, repr(const.value)
-    else:
-        return ilasm_type, str(const.value)
+        return '%s %s(%s)' % (ret_type, func_name, arg_list)
 
-def graph_to_signature(graph, is_method = False, func_name = None):
-    ret_type, ret_var = llvar_to_cts(graph.getreturnvar())
-    func_name = func_name or graph.name
+    def split_class_name(self, class_name):
+        parts = class_name.rsplit('.', 1)
+        if len(parts) == 2:
+            return parts
+        else:
+            return None, parts[0]
 
-    args = graph.getargs()
-    if is_method:
-        args = args[1:]
-
-    arg_types = [lltype_to_cts(arg.concretetype) for arg in args]
-    arg_list = ', '.join(arg_types)
-
-    return '%s %s(%s)' % (ret_type, func_name, arg_list)
-
-def split_class_name(class_name):
-    parts = class_name.rsplit('.', 1)
-    if len(parts) == 2:
-        return parts
-    else:
-        return None, parts[0]
-
-_pyexception_to_cts = {
-    exceptions.Exception: '[mscorlib]System.Exception',
-    exceptions.OverflowError: '[mscorlib]System.OverflowException'
-    }
-
-def pyexception_to_cts(exc):
-    return _get_from_dict(_pyexception_to_cts, exc, 'Unknown exception %s' % exc)
+    def pyexception_to_cts(self, exc):
+        return _get_from_dict(_pyexception_to_cts, exc, 'Unknown exception %s' % exc)

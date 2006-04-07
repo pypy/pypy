@@ -8,10 +8,12 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
 from pypy.translator.cli.node import Node
-from pypy.translator.cli.cts import graph_to_signature
-from pypy.translator.cli.cts import llvar_to_cts
+from pypy.translator.cli.cts import CTS
+from pypy.translator.cli.database import LowLevelDatabase
 
 FLOAT_PRECISION = 8
+
+cts = CTS(LowLevelDatabase()) # this is a hack!
 
 def check(func, annotation, args):
     mono = compile_function(func, annotation)
@@ -43,14 +45,14 @@ class TestEntryPoint(Node):
             ilasm.opcode('ldarg.0')
             ilasm.opcode('ldc.i4.%d' % i)
             ilasm.opcode('ldelem.ref')
-            arg_type, arg_var = llvar_to_cts(arg)
+            arg_type, arg_var = cts.llvar_to_cts(arg)
             ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
                        (arg_type, self.__convert_method(arg_type)))
 
-        ilasm.call(graph_to_signature(self.graph))
+        ilasm.call(cts.graph_to_signature(self.graph))
 
         # print the result using the appropriate WriteLine overload
-        ret_type, ret_var = llvar_to_cts(self.graph.getreturnvar())
+        ret_type, ret_var = cts.llvar_to_cts(self.graph.getreturnvar())
         ilasm.call('void class [mscorlib]System.Console::WriteLine(%s)' % ret_type)
         ilasm.opcode('ret')
         ilasm.end_function()
@@ -139,7 +141,7 @@ class compile_function:
         retval = mono.wait()
         assert retval == 0, stderr
 
-        ret_type, ret_var = llvar_to_cts(self.graph.getreturnvar())
+        ret_type, ret_var = cts.llvar_to_cts(self.graph.getreturnvar())
         if 'int' in ret_type:
             return int(stdout)
         elif ret_type == 'float64':

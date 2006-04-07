@@ -1,12 +1,13 @@
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.function import Function
-from pypy.translator.cli import cts
+from pypy.translator.cli.cts import CTS
 
 class Class(Node):
     def __init__(self, db, classdef):
         self.db = db
+        self.cts = CTS(db)
         self.classdef = classdef
-        self.namespace, self.name = cts.split_class_name(classdef._name)
+        self.namespace, self.name = self.cts.split_class_name(classdef._name)
         #0/0
 
     def get_name(self):
@@ -26,7 +27,7 @@ class Class(Node):
 
         ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
-            ilasm.field(f_name, cts.lltype_to_cts(f_type))
+            ilasm.field(f_name, self.cts.lltype_to_cts(f_type))
 
         # TODO: should the .ctor set the default values?
         self._ctor()

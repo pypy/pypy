@@ -4,10 +4,11 @@ except NameError:
     from sets import Set as set
 
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.lltypesystem.lltype import Void
-from pypy.rpython.ootypesystem.ootype import Instance
+from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
+from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.option import getoption
-from pypy.translator.cli import cts
+from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.metavm import InstructionList, Generator
 from pypy.translator.cli.node import Node
@@ -20,6 +21,7 @@ py.log.setconsumer("cli", ansi_log)
 class Function(Node, Generator):
     def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False):
         self.db = db
+        self.cts = CTS(db)
         self.graph = graph
         self.name = name or graph.name
         self.is_method = is_method
@@ -40,7 +42,7 @@ class Function(Node, Generator):
     def render(self, ilasm):
         self.ilasm = ilasm
         graph = self.graph
-        returntype, returnvar = cts.llvar_to_cts(graph.getreturnvar())
+        returntype, returnvar = self.cts.llvar_to_cts(graph.getreturnvar())
 
         if self.is_method:
             args = self.args[1:] # self is implicit
@@ -88,7 +90,7 @@ class Function(Node, Generator):
                         continue # see above
 
                     assert issubclass(link.exitcase, Exception)
-                    cts_exc = cts.pyexception_to_cts(link.exitcase)
+                    cts_exc = self.cts.pyexception_to_cts(link.exitcase)
                     self.ilasm.begin_catch(cts_exc)
 
                     target = link.target
@@ -180,13 +182,13 @@ class Function(Node, Generator):
         for v in mix:
             is_var = isinstance(v, flowmodel.Variable)
             if id(v) not in seen and is_var and v.name not in args and v.concretetype is not Void:
-                locals.append(cts.llvar_to_cts(v))
+                locals.append(self.cts.llvar_to_cts(v))
                 seen[id(v)] = True
 
         self.locals = locals
 
     def _set_args(self):
-        self.args = map(cts.llvar_to_cts, self.graph.getargs())
+        self.args = map(self.cts.llvar_to_cts, self.graph.getargs())
         self.argset = set([argname for argtype, argname in self.args])
 
     def _get_block_name(self, block):
@@ -198,10 +200,15 @@ class Function(Node, Generator):
             if isinstance(arg, flowmodel.Variable):
                 lltype = arg.concretetype
             elif isinstance(arg, flowmodel.Constant):
+                
                 lltype = arg.value
 
-            if isinstance(lltype, Instance):
+            if isinstance(lltype, ootype._view) and isinstance(lltype._inst, ootype._instance):
+                lltype = lltype._inst._TYPE
+
+            if isinstance(lltype, ootype.Instance):
                 self.db.classes.add(lltype)
+
 
 
     def _render_op(self, op):
@@ -218,7 +225,7 @@ class Function(Node, Generator):
 
     def field_name(self, obj, field):
         class_name = self.class_name(obj)
-        field_type = cts.lltype_to_cts(obj._field_type(field))
+        field_type = self.cts.lltype_to_cts(obj._field_type(field))
         return '%s %s::%s' % (field_type, class_name, field)
 
     def ctor_name(self, ooinstance):
@@ -227,11 +234,11 @@ class Function(Node, Generator):
     # following methods belongs to the Generator interface
 
     def function_signature(self, graph):
-        return cts.graph_to_signature(graph, False)
+        return self.cts.graph_to_signature(graph, False)
 
     def method_signature(self, graph, class_name, name):
         full_name = '%s::%s' % (class_name, name)
-        return cts.graph_to_signature(graph, True, full_name)
+        return self.cts.graph_to_signature(graph, True, full_name)
 
     def class_name(self, ooinstance):
         return ooinstance._name
@@ -271,11 +278,28 @@ class Function(Node, Generator):
                 self.ilasm.opcode('ldloc', repr(v.name))
 
         elif isinstance(v, flowmodel.Constant):
-            if v.concretetype != Void:
-                iltype, ilvalue = cts.llconst_to_ilasm(v)
-                self.ilasm.opcode('ldc.' + iltype, ilvalue)
+            self._load_const(v)
         else:
             assert False
+
+    def _load_const(self, const):
+        type_ = const.concretetype
+        if type_ is Void:
+            pass
+        elif type_ is Bool:
+            self.ilasm.opcode('ldc.i4', str(int(const.value)))
+        elif type_ is Float:
+            self.ilasm.opcode('ldc.r8', repr(const.value))
+        elif type_ in (Signed, Unsigned):
+            self.ilasm.opcode('ldc.i4', str(const.value))
+        elif type_ in (SignedLongLong, UnsignedLongLong):
+            self.ilasm.opcode('ldc.i8', str(const.value))
+        else:
+            name = self.db.record_const(const)
+            cts_type = self.cts.lltype_to_cts(type_)
+            self.ilasm.opcode('ldsfld %s Pypy.Constants::%s' % (cts_type, name))
+            #assert False, 'Unknown constant %s' % const
+
 
     def store(self, v):
         if isinstance(v, flowmodel.Variable):

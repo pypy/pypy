@@ -41,9 +41,9 @@ def foo(cls, arg):
     return obj.compute()
 
 def bar(x, y):
-    obj = Derived(x)
+    obj = Base(x)
     return obj.compute()
-    #return foo(Base, x) + foo(Derived, y)
+#    return foo(Base, x) + foo(Derived, y)
 
 
 
