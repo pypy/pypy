@@ -41,8 +41,11 @@ class GCTransformer(object):
         self.graphs_to_inline = {}
 
     def get_lltype_of_exception_value(self):
-        exceptiondata = self.translator.rtyper.getexceptiondata()
-        return exceptiondata.lltype_of_exception_value
+        if self.translator is not None:
+            exceptiondata = self.translator.rtyper.getexceptiondata()
+            return exceptiondata.lltype_of_exception_value
+        else:
+            return lltype.Ptr(lltype.PyObject)
 
     def need_minimal_transform(self, graph):
         self.seen_graphs[graph] = True
@@ -235,7 +238,8 @@ class GCTransformer(object):
 
     def finish(self):
         self.finished = True
-        self.mixlevelannotator.finish()
+        if self.translator is not None:
+            self.mixlevelannotator.finish()
 
 class MinimalGCTransformer(GCTransformer):
     def push_alive(self, var):
@@ -311,13 +315,14 @@ class RefcountingGCTransformer(GCTransformer):
                     dealloc(adr)
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
-        self.increfptr = self.inittime_helper(
-            ll_incref, [llmemory.Address], lltype.Void)
-        self.decref_ptr = self.inittime_helper(
-            ll_decref, [llmemory.Address, lltype.Ptr(ADDRESS_VOID_FUNC)],
-            lltype.Void)
-        self.no_pointer_dealloc_ptr = self.inittime_helper(
-            ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
+        if self.translator:
+            self.increfptr = self.inittime_helper(
+                ll_incref, [llmemory.Address], lltype.Void)
+            self.decref_ptr = self.inittime_helper(
+                ll_decref, [llmemory.Address, lltype.Ptr(ADDRESS_VOID_FUNC)],
+                lltype.Void)
+            self.no_pointer_dealloc_ptr = self.inittime_helper(
+                ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
         # cache graphs:
         self.decref_funcptrs = {}
         self.static_deallocator_funcptrs = {}
