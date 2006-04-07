@@ -38,11 +38,13 @@ class TestTypedTestCase:
         return builder.get_entry_point()
 
     def getcompiled(self, func, view=False):
+        from pypy.translator.transform import insert_ll_stackcheck
         t = self.annotatefunc(func)
         self.process(t)
         if view or conftest.option.view:
             t.view()
         t.checkgraphs()
+        insert_ll_stackcheck(t)
         return self.compilefunc(t, func)
 
     def test_set_attr(self):
@@ -705,3 +707,18 @@ class TestTypedTestCase:
             return a1.check_list_is_true()
         fn = self.getcompiled(f)
         assert fn() == 1
+
+    def test_infinite_recursion(self):
+        def f(x):
+            if x:
+                return f(x)
+            return 1
+        def g(x=int):
+            try:
+                f(x)
+            except RuntimeError:
+                return 42
+            return 1
+        fn = self.getcompiled(g)
+        assert fn(0) == 1
+        assert fn(1) == 42

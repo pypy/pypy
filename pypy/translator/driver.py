@@ -205,6 +205,15 @@ class TranslationDriver(SimpleTaskEngine):
     task_backendopt = taskdef(task_backendopt, 
                                         ['rtype'], "Back-end optimisations") 
 
+    def task_stackcheckinsertion(self):
+        from pypy.translator.transform import insert_ll_stackcheck
+        insert_ll_stackcheck(self.translator)
+        
+    task_stackcheckinsertion = taskdef(
+        task_stackcheckinsertion, 
+        ['?backendopt', 'rtype', 'annotate'], 
+        "inserting stack checks")
+
     def task_database_c(self):
         translator = self.translator
         opt = self.options
@@ -237,7 +246,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.database = database
     #
     task_database_c = taskdef(task_database_c, 
-                            ['?backendopt', '?rtype', '?annotate'], 
+                            ['stackcheckinsertion', '?backendopt', '?rtype', '?annotate'], 
                             "Creating database for generating c source")
     
     def task_source_c(self):  # xxx messy
@@ -301,7 +310,7 @@ class TranslationDriver(SimpleTaskEngine):
         log.llinterpret.event("result -> %s" % v)
     #
     task_llinterpret = taskdef(task_llinterpret, 
-                               ['?backendopt', 'rtype'], 
+                               ['stackcheckinsertion', '?backendopt', 'rtype'], 
                                "LLInterpreting")
 
     def task_source_llvm(self):
@@ -320,7 +329,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info("written: %s" % (llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 
-                               ['backendopt', 'rtype'], 
+                               ['stackcheckinsertion', 'backendopt', 'rtype'], 
                                "Generating llvm source")
 
     def task_compile_llvm(self):

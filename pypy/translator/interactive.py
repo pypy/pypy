@@ -50,6 +50,7 @@ class Translation(object):
         'rtype': ['insist'],
         'ootype': [],
         'backendopt': ['merge_if_blocks'],
+        'stackcheckinsertion': [],
         'database_c': ['gc', 'stackless'],
         'source_llvm': ['gc', 'stackless'],
         'source_c': [],

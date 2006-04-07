@@ -13,6 +13,7 @@ from pypy.objspace.flow.model import Variable, Constant, Link
 from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.rstack import stack_check
+from pypy.rpython.lltypesystem import lltype
 
 def checkgraphs(self, blocks):
     seen = {}
@@ -177,6 +178,41 @@ def insert_stackcheck(ann):
         ann.setbinding(v, annmodel.SomeImpossibleValue())
         unwind_op = SpaceOperation('simple_call', [Constant(stack_check)], v)
         caller_block.operations.insert(0, unwind_op)
+
+def insert_ll_stackcheck(translator):
+    from pypy.translator.backendopt.support import calculate_call_graph
+    from pypy.rpython.module.ll_stack import ll_stack_check
+    from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
+    rtyper = translator.rtyper
+    graph = rtyper.annotate_helper(ll_stack_check, [])
+    rtyper.specialize_more_blocks()
+    stack_check_ptr = rtyper.getcallable(graph)
+    stack_check_ptr_const = Constant(stack_check_ptr, lltype.typeOf(stack_check_ptr))
+    call_graph = calculate_call_graph(translator)
+    edges = []
+    graphs_to_patch = {}
+    insert_in = {}
+    for caller, all_callees in call_graph.iteritems():
+        for callee, block in all_callees.iteritems():
+            if getattr(getattr(callee, 'func', None),
+                       'insert_stack_check_here', False):
+                insert_in[callee.startblock] = True
+                continue
+            edge = Edge(caller, callee)
+            edge.block = block
+            edges.append(edge)
+
+    edgedict = make_edge_dict(edges)
+    for edge in break_cycles(edgedict, edgedict):
+        block = edge.block
+        insert_in[block] = True
+        
+    for block in insert_in:
+        v = Variable()
+        v.concretetype = lltype.Void
+        unwind_op = SpaceOperation('direct_call', [stack_check_ptr_const], v)
+        block.operations.insert(0, unwind_op)
+           
 
 default_extra_passes = [
     transform_allocate,

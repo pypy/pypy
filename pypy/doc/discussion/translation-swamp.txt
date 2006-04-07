@@ -7,7 +7,7 @@ List of things that need to be improved for translation to be saner
  
  * nondeterminism of insert stackcheck:
 
-    * move it after inlining
+    * (TESTING) move it after inlining
     * avoid inserting it multiple times in the same block
 
  * experiment with different heuristics:
@@ -24,4 +24,4 @@ List of things that need to be improved for translation to be saner
  * move the inlining of gc helpers just before emitting the code.
    throw the graph away
 
- * for gcc: use just one implement file
+ * for gcc: use just one implement file (TESTING)
