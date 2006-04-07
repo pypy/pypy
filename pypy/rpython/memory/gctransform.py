@@ -85,15 +85,18 @@ class GCTransformer(object):
         v = Variable('vanishing_exc_value')
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
+
+    def inline_helpers(self, graph):
         if self.inline:
             from pypy.translator.backendopt import inline
             for inline_graph in self.graphs_to_inline:
                 try:
+                    # XXX quite inefficient: we go over the function lots of times
                     inline.inline_function(self.translator, inline_graph, graph,
                                            self.lltype_to_classdef)
                 except inline.CannotInline:
                     pass
-        checkgraph(graph)
+            checkgraph(graph)
 
     def transform_block(self, block):
         newops = []

@@ -3,7 +3,7 @@ from pypy.translator.c.support import USESLOTS # set to False if necessary while
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
-from pypy.objspace.flow.model import c_last_exception
+from pypy.objspace.flow.model import c_last_exception, copygraph
 from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
 from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong
 from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
@@ -12,6 +12,8 @@ from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
+
+KEEP_INLINED_GRAPHS = False
 
 class FunctionCodeGenerator(object):
     """
@@ -27,7 +29,8 @@ class FunctionCodeGenerator(object):
                        lltypes
                        functionname
                        currentblock
-                       blocknum""".split()
+                       blocknum
+                       oldgraph""".split()
 
     def __init__(self, graph, db, cpython_exc=False, functionname=None):
         self.graph = graph
@@ -41,8 +44,15 @@ class FunctionCodeGenerator(object):
         # apply the gc transformation
         self.db.gctransformer.transform_graph(self.graph)
         #self.graph.show()
-        
-        self.blocknum = {}
+        self.collect_var_and_types()
+
+        for v in self.vars:
+            T = getattr(v, 'concretetype', PyObjPtr)
+            db.gettype(T)  # force the type to be considered by the database
+       
+        self.lltypes = None
+
+    def collect_var_and_types(self):
         #
         # collect all variables and constants used in the body,
         # and get their types now
@@ -51,8 +61,7 @@ class FunctionCodeGenerator(object):
         #       Constants may hash and compare equal but have different lltypes
         mix = [self.graph.getreturnvar()]
         self.more_ll_values = []
-        for block in graph.iterblocks():
-            self.blocknum[block] = len(self.blocknum)
+        for block in self.graph.iterblocks():
             mix.extend(block.inputargs)
             for op in block.operations:
                 mix.extend(op.args)
@@ -64,8 +73,8 @@ class FunctionCodeGenerator(object):
                     self.more_ll_values.append(link.llexitcase)
                 elif link.exitcase is not None:
                     mix.append(Constant(link.exitcase))
-        if cpython_exc:
-            v, exc_cleanup_ops = graph.exc_cleanup
+        if self.cpython_exc:
+            v, exc_cleanup_ops = self.graph.exc_cleanup
             mix.append(v)
             for cleanupop in exc_cleanup_ops:
                 mix.extend(cleanupop.args)
@@ -77,15 +86,23 @@ class FunctionCodeGenerator(object):
             if id(v) not in seen:
                 uniquemix.append(v)
                 seen[id(v)] = True
-            T = getattr(v, 'concretetype', PyObjPtr)
-            db.gettype(T)  # force the type to be considered by the database
         self.vars = uniquemix
-        self.lltypes = None
 
     def name(self, cname):  #virtual
         return cname
 
     def implementation_begin(self):
+        if self.db.gctransformer.inline:
+            newgraph = copygraph(self.graph, shallow=True)
+            self.oldgraph = self.graph
+            self.graph = newgraph
+            self.db.gctransformer.inline_helpers(newgraph)
+            self.collect_var_and_types()
+        else:
+            self.oldgraph = self.graph
+        self.blocknum = {}
+        for block in self.graph.iterblocks():
+            self.blocknum[block] = len(self.blocknum)
         db = self.db
         lltypes = {}
         for v in self.vars:
@@ -96,6 +113,8 @@ class FunctionCodeGenerator(object):
 
     def implementation_end(self):
         self.lltypes = None
+        self.graph = self.oldgraph
+        del self.oldgraph
 
     def argnames(self):
         return [LOCALVAR % v.name for v in self.graph.getargs()]

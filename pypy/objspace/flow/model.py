@@ -474,12 +474,14 @@ def mkentrymap(funcgraph):
         lst.append(link)
     return result
 
-def copygraph(graph):
+def copygraph(graph, shallow=False):
     "Make a copy of a flow graph."
     blockmap = {}
     varmap = {}
 
     def copyvar(v):
+        if shallow:
+            return v
         if isinstance(v, Variable):
             try:
                 return varmap[v]
@@ -497,6 +499,8 @@ def copygraph(graph):
             newblock.operations = ()
         else:
             def copyoplist(oplist):
+                if shallow:
+                    return oplist[:]
                 result = []
                 for op in oplist:
                     copyop = SpaceOperation(op.opname,
