@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import baseobjspace, typedef, gateway
 from pypy.interpreter.gateway import interp2app
@@ -14,13 +15,15 @@ class W_ComputationSpace(Wrappable):
     def w_var(self, w_name, w_domain):
         name = self._space.str_w(w_name)
         assert isinstance(w_domain, W_AbstractDomain)
-        assert name not in self.domains
-        self.domains[name] = w_domain
+        if w_name in self.domains.content:
+            raise OperationError(self._space.w_RuntimeError,
+                                 self._space.wrap("Name already used"))
+        self.domains.content[w_name] = w_domain
 
 
 W_ComputationSpace.typedef = typedef.TypeDef("W_ComputationSpace",
-    var = interp2app(W_ComputationSpace.w_var),
-                                             )
+    var = interp2app(W_ComputationSpace.w_var))
+
 
 def newspace(space):
     return W_ComputationSpace(space)

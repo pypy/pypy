@@ -13,6 +13,8 @@ class AppTest_ComputationSpace(object):
     def test_var(self):
         cspace = newspace()
         cspace.var("foo", FiniteDomain([1,2,3]))
+        #FIXME: raise the good exc. type
+        raises(Exception, cspace.var, "foo", FiniteDomain([1,2,3]))
 
     
 

@@ -760,6 +760,13 @@ all_mms.update(domain.all_mms)
 
 W_FiniteDomain = domain.W_FiniteDomain
 
+#------ computation space -------
+
+from pypy.objspace.constraint import computationspace
+all_mms.update(computationspace.all_mms)
+
+W_ComputationSpace = computationspace.W_ComputationSpace
+
 #-- THE SPACE ---------------------------------------
 
 #class UnificationError(w_RuntimeError):
@@ -814,7 +821,10 @@ def Space(*args, **kwds):
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
-    #-- domain -----
+    #-- comp space ---
+    space.setitem(space.builtin.w_dict, space.wrap('newspace'),
+                 space.wrap(computationspace.app_newspace))
+    #-- domain -------
     space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
                  space.wrap(domain.app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
