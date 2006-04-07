@@ -825,6 +825,8 @@ def Space(*args, **kwds):
                  space.wrap(computationspace.app_newspace))
     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
                  space.wrap(constraint.app_make_alldistinct))
+    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
+                 space.wrap(constraint.app_make_expression))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),

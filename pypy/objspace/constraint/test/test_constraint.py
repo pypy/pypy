@@ -59,3 +59,23 @@ class AppTest_AllDistinct(object):
         assert cstr.revise(csp) == 1
         assert csp.dom(v10).get_values() == [2]
 
+
+class AppTest_Expression(object):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace('logic')
+
+    def test_instantiate(self):
+        csp = newspace()
+        v1 = csp.var('v1', FiniteDomain([1, 2]))
+        cstr = make_expression([v1], '2*v1==2')
+        assert str(cstr).startswith('<W_Expression object at')        
+
+
+    def notest_revise(self):
+        csp = newspace()
+        v1 = csp.var('v1', FiniteDomain([1, 2]))
+        cstr = make_expression([v1], '2*v1==2')
+        assert cstr.revise(csp) == 1
+        assert csp.dom(v1).get_values() == [1]
+

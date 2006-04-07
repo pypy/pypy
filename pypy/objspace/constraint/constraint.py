@@ -32,7 +32,7 @@ class W_AbstractConstraint(W_Constraint):
         """variables is a list of variables which appear in the formula"""
         W_Constraint.__init__(self, object_space)
         assert isinstance(w_variables, W_ListObject)
-        assert self._space.is_true(self._space.gt(self._space.len(w_variables), self._space.newint(1)))
+        assert self._space.is_true(self._space.ge(self._space.len(w_variables), self._space.newint(1)))
         self._names_to_vars = {}
         for var in w_variables.wrappeditems:
             self._names_to_vars[var.name] = var
@@ -66,13 +66,14 @@ W_AbstractConstraint.typedef = typedef.TypeDef("W_AbstractConstraint",
 
 
 
-def make_lambda_head(vars):
-    var_ids = ','.join([var.name for var in vars])
+def make_lambda_head(space, w_vars):
+    var_ids = ','.join([space.str_w(var.name) for var in w_vars.wrappeditems])
     return 'lambda ' + var_ids + ':'
 
-def expand_expr_template(expr, vars):
-    for var in vars:
-        expr.replace(var.name, var.name + '.val')
+def expand_expr_template(space, w_expr, w_vars):
+    return space.str_w(w_expr)
+    for w_var in w_vars.wrappeditems:
+        expr.replace(w_var.name, w_var.name + '.val')
     return expr
 
 
@@ -157,18 +158,13 @@ class W_Expression(W_AbstractConstraint):
     """A constraint represented as a python expression."""
     _FILTER_CACHE = {}
 
-    def __init__(self, c_space, variables, formula, typ='fd.Expression'):
+    def __init__(self, o_space, w_variables, w_formula):
         """variables is a list of variables which appear in the formula
         formula is a python expression that will be evaluated as a boolean"""
-        self.formula = formula
-        self.type = typ
-        AbstractConstraint.__init__(self, c_space, variables)
-        try:
-            self.filterFunc = Expression._FILTER_CACHE[formula]
-        except KeyError:
-            self.filterFunc = eval(make_lambda_head(variables) \
-                                   + expand_expr_template(formula, variables), {}, {})
-            Expression._FILTER_CACHE[formula] = self.filterFunc
+        self.formula = w_formula
+        W_AbstractConstraint.__init__(self, o_space, w_variables)
+        self.filter_func = eval(make_lambda_head(self._space, w_variables) \
+                                + self._space.str_w(w_formula), {}, {})
 
     def test_solution(self, sol ):
         """test a solution against this constraint 
@@ -178,27 +174,24 @@ class W_Expression(W_AbstractConstraint):
             args.append( sol[var.name] )
         return self.filterFunc( *args )
 
-
-    def copy_to(self, space):
-        return self.__class__(space, self._variables,
-                              self.formula, self.type)
-
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
         result_cache = {}
-        for var_name in self._variables:
-            result_cache[var_name.name] = {}
+        for var_name in self._variables.wrappeditems:
+            result_cache[self._space.str_w(var_name.name)] = {}
         return result_cache
 
 
     def _assign_values(self, w_cs):
         variables = []
         kwargs = {}
-        for variable in self._variables:
+        for variable in self._variables.wrappeditems:
             domain = w_cs.w_dom(variable)
             values = domain.w_get_values()
-            variables.append((domain.w_size(), [variable, values, 0, len(values)]))
-            kwargs[variable.name] = values[0]
+            variables.append((self._space.int_w(domain.w_size()),
+                              [variable, values, 0,
+                               self._space.len(values)]))
+            kwargs[self._space.str_w(variable.name)] = values.wrappeditems[0]
         # sort variables to instanciate those with fewer possible values first
         variables.sort()
 
@@ -218,11 +211,11 @@ class W_Expression(W_AbstractConstraint):
                 # it's over
                 go_on = 0
         
-    def revise(self, w_cs):
+    def w_revise(self, w_cs):
         """generic propagation algorithm for n-ary expressions"""
         assert isinstance(w_cs, W_ComputationSpace)
         maybe_entailed = 1
-        ffunc = self.filterFunc
+        ffunc = self.filter_func
         result_cache = self._init_result_cache()
         for kwargs in self._assign_values(w_cs):
             if maybe_entailed:
@@ -250,19 +243,14 @@ class W_Expression(W_AbstractConstraint):
             pass
 
         return maybe_entailed
-
-    def __eq__(self, other):
-        if not super(Expression, self).__eq__(other): return False
-        r1 = self.formula == other.formula
-        r2 = self.type == other.type
-        return r1 and r2
         
 
     def __repr__(self):
         return '<%s>' % self.formula
 
 W_Expression.typedef = typedef.TypeDef("W_Expression",
-                                        W_AbstractConstraint.typedef)
+    W_AbstractConstraint.typedef,
+    revise = interp2app(W_Expression.w_revise))
 
 
 # completely unported
@@ -279,7 +267,7 @@ class BinaryExpression(W_Expression):
     def copy_to(self, space):
         raise NotImplementedError
 
-    def revise(self, domains):
+    def w_revise(self, domains):
         """specialized narrowing algorithm for binary expressions
         Runs much faster than the generic version"""
         maybe_entailed = 1
@@ -289,7 +277,7 @@ class BinaryExpression(W_Expression):
         var2 = self._variables[1]
         dom2 = domains[var2]
         values2 = dom2.get_values()
-        ffunc = self.filterFunc
+        ffunc = self.filter_func
         if dom2.size() < dom1.size():
             var1, var2 = var2, var1
             dom1, dom2 = dom2, dom1
@@ -325,34 +313,17 @@ class BinaryExpression(W_Expression):
         return maybe_entailed
 
 
-def make_expression(variables, formula, constraint_type=None):
+def make_expression(o_space, w_variables, w_formula):
     """create a new constraint of type Expression or BinaryExpression
     The chosen class depends on the number of variables in the constraint"""
     # encode unicode
-    vars = []
-    for var in variables:
-        if type(var) == type(u''):
-            vars.append(var.encode())
-        else:
-            vars.append(var)
-    if len(vars) == 2:
-        if constraint_type is not None:
-            return BinaryExpression(vars, formula, constraint_type)
-        else:
-            return BinaryExpression(vars, formula)
-
+    if o_space.eq_w(o_space.len(w_variables), o_space.newint(2)):
+        return W_BinaryExpression(o_space, w_variables, w_formula)
     else:
-        if constraint_type is not None:
-            return Expression(vars, formula, constraint_type)
-        else:
-            return Expression(vars, formula)
+        return W_Expression(o_space, w_variables, w_formula)
 
 
-
-
-
-
-
+app_make_expression = gateway.interp2app(make_expression)
 
 # have a look at this later ... (really needed ?)
 class W_BasicConstraint(W_Constraint):
