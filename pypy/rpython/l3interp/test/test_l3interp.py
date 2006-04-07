@@ -24,11 +24,10 @@ def translate(func, inputargs):
     if conftest.option.view:
         t.view()
 
-    from pypy.translator.tool.cbuild import skip_missing_compiler
     from pypy.translator.c import genc
     builder = genc.CExtModuleBuilder(t, func, gcpolicy=BoehmGcPolicy)
     builder.generate_source()
-    skip_missing_compiler(builder.compile)
+    builder.compile()
     builder.isolated_import()
     _cleanups.append(builder.cleanup)
     return builder.get_entry_point()

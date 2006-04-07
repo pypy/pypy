@@ -5,7 +5,6 @@ from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.cbuild import build_cfunc
 from pypy.translator.tool.cbuild import make_module_from_pyxstring
-from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow import FlowObjSpace
 
@@ -32,7 +31,7 @@ class TestNoTypePyrexGenTestCase:
             'simplify' : 1,
             'dot' : dot,
             }
-        return skip_missing_compiler(build_cfunc, func, **options) 
+        return build_cfunc(func, **options)
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -136,8 +135,7 @@ class TestTypedTestCase:
             blobs.insert(0, code)
         pyxcode = '\n\n#_________________\n\n'.join(blobs)
 
-        mod = skip_missing_compiler(
-            make_module_from_pyxstring, name, udir, pyxcode)
+        mod = make_module_from_pyxstring(name, udir, pyxcode)
         return getattr(mod, name)
 
     def test_set_attr(self):

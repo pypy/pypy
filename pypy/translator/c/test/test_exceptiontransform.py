@@ -4,7 +4,6 @@ from pypy.translator.simplify import join_blocks
 from pypy.translator.c import exceptiontransform, genc, gc
 from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.test.test_llinterp import get_interpreter
-from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy import conftest
 import sys
 
@@ -48,7 +47,7 @@ def compile_func(fn, inputtypes):
 ##     etrafo.transform_completely()
     builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
     builder.generate_source()
-    skip_missing_compiler(builder.compile)
+    builder.compile()
     builder.import_module()
     if conftest.option.view:
         t.view()

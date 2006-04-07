@@ -180,6 +180,15 @@ class IntTestFunction(PyPyTestFunction):
         except OperationError, e:
             check_keyboard_interrupt(e)
             raise
+        except Exception, e:
+            cls = e.__class__
+            while cls is not Exception:
+                if cls.__name__ == 'DistutilsPlatformError':
+                    from distutils.errors import DistutilsPlatformError
+                    if isinstance(e, DistutilsPlatformError):
+                        py.test.skip('%s: %s' % (e.__class__.__name__, e))
+                cls = cls.__bases__[0]
+            raise
         if 'pygame' in sys.modules:
             global _pygame_imported
             if not _pygame_imported:

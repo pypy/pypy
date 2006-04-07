@@ -3,7 +3,6 @@ import sys
 import py
 from py.test import raises
 
-from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype
@@ -18,7 +17,7 @@ def compile_func(fn, inputtypes):
     t.buildrtyper().specialize()
     builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
     builder.generate_source()
-    skip_missing_compiler(builder.compile)
+    builder.compile()
     builder.import_module()
     if conftest.option.view:
         t.view()

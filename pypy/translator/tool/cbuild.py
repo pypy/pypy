@@ -188,13 +188,6 @@ def make_c_from_pyxfile(pyxfile):
     cfile = pyxfile.new(ext='.c')
     return cfile
 
-def skip_missing_compiler(fn, *args, **kwds):
-    from distutils.errors import DistutilsPlatformError
-    try:
-        return fn(*args, **kwds)
-    except DistutilsPlatformError, e:
-        py.test.skip('DistutilsPlatformError: %s' % (e,))
-
 def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     """ return a pyrex-generated cfunction from the given func. 
 

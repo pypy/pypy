@@ -1,6 +1,6 @@
 import py
 from pypy.translator.translator import TranslationContext
-from pypy.translator.tool.cbuild import skip_missing_compiler, check_boehm_presence
+from pypy.translator.tool.cbuild import check_boehm_presence
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
 
@@ -39,7 +39,7 @@ class AbstractTestClass:
             mod = cbuilder.isolated_import()
             self._cleanups.append(cbuilder.cleanup) # schedule cleanup after test
             return cbuilder.get_entry_point()
-        return skip_missing_compiler(compile)
+        return compile()
 
 
 class TestUsingBoehm(AbstractTestClass):

@@ -13,11 +13,10 @@ def translate(func, inputargs):
     t.buildannotator(policy=pol).build_types(func, inputargs)
     t.buildrtyper().specialize()
 
-    from pypy.translator.tool.cbuild import skip_missing_compiler
     from pypy.translator.c import genc
     builder = genc.CExtModuleBuilder(t, func)
     builder.generate_source()
-    skip_missing_compiler(builder.compile)
+    builder.compile()
     builder.import_module()
     return builder.get_entry_point()  
 

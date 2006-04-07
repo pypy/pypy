@@ -6,7 +6,6 @@ from py.test import raises
 
 from pypy import conftest
 from pypy.translator.test import snippet 
-from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 
@@ -34,7 +33,7 @@ class TestTypedTestCase:
         from pypy.translator.c import genc
         builder = genc.CExtModuleBuilder(t, func)
         builder.generate_source()
-        skip_missing_compiler(builder.compile)
+        builder.compile()
         builder.import_module()
         return builder.get_entry_point()
 
