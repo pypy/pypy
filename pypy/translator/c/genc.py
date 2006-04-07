@@ -296,7 +296,8 @@ class SourceGenerator:
     def getothernodes(self):
         return self.othernodes[:]
 
-    def splitnodesimpl(self, basecname, nodes, nextra, nbetween):
+    def splitnodesimpl(self, basecname, nodes, nextra, nbetween,
+                       split_criteria=SPLIT_CRITERIA):
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
         used = nextra
@@ -306,7 +307,7 @@ class SourceGenerator:
             if not impl:
                 continue
             cost = len(impl) + nbetween
-            if used + cost > SPLIT_CRITERIA and part:
+            if used + cost > split_criteria and part:
                 # split if criteria met, unless we would produce nothing.
                 yield self.uniquecname(basecname), part
                 part = []
@@ -318,6 +319,10 @@ class SourceGenerator:
             yield self.uniquecname(basecname), part
 
     def gen_readable_parts_of_source(self, f):
+        if py.std.sys.platform != "win32":
+            split_criteria_big = py.std.sys.maxint
+        else:
+            split_criteria_big = SPLIT_CRITERIA
         if self.one_source_file:
             return gen_readable_parts_of_main_c_file(f, self.database,
                                                      self.preimpl)
@@ -409,7 +414,8 @@ class SourceGenerator:
         nextralines = 8 + len(self.preimpl) + 4 + 1
         for name, nodesimpl in self.splitnodesimpl('implement.c',
                                                    self.funcnodes,
-                                                   nextralines, 1):
+                                                   nextralines, 1,
+                                                   split_criteria_big):
             print >> f, '/* %s */' % name
             fc = self.makefile(name)
             print >> fc, '/***********************************************************/'
