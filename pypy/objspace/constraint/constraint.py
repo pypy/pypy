@@ -1,4 +1,14 @@
-from variable import NoDom
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter import baseobjspace, typedef, gateway
+from pypy.interpreter.gateway import interp2app
+
+from pypy.objspace.std.listobject import W_ListObject
+
+
+from pypy.objspace.constraint.computationspace import W_ComputationSpace
+
+#from variable import NoDom
 import operator
 
 #-- Exceptions ---------------------------------------
@@ -14,29 +24,60 @@ class DomainlessVariables(Exception):
 
 #-- Constraints ------------------------------------------
 
-class AbstractConstraint(object):
-    
-    def __init__(self, c_space, variables):
-        """variables is a list of variables which appear in the formula"""
-        self.cs = c_space
-        self._names_to_vars = {}
-        for var in variables:
-            if self.cs.dom(var) == NoDom:
-                raise DomainlessVariables
-            self._names_to_vars[var.name] = var
-        self._variables = variables
+class W_Constraint(Wrappable):
+    def __init__(self, object_space, computation_space):
+        self._space = object_space
+        assert isinstance(computation_space, W_ComputationSpace)
+        self.cs = computation_space
 
-    def affected_variables(self):
+    def w_affected_variables(self):
+        pass
+
+    def w_is_variable_relevant(self, w_var):
+        pass
+
+    def w_estimate_cost(self):
+        pass
+
+    def w_copy_to(self, w_computation_space):
+        pass
+
+    def w_revise(self):
+        pass
+    
+W_Constraint.typedef = typedef.TypeDef(
+    "W_Constraint",
+    affected_variables = interp2app(W_Constraint.w_affected_variables),
+    is_variable_relevant = interp2app(W_Constraint.w_is_variable_relevant),
+    estimate_cost = interp2app(W_Constraint.w_estimate_cost),
+    copy_to = interp2app(W_Constraint.w_copy_to),
+    revise = interp2app(W_Constraint.w_revise)
+    )
+
+
+class W_AbstractConstraint(W_Constraint):
+    
+    def __init__(self, object_space, c_space, w_variables):
+        """variables is a list of variables which appear in the formula"""
+        W_Constraint.__init__(self, object_space, c_space)
+        assert isinstance(w_variables, W_ListObject)
+        assert self._space.is_true(self._space.gt(self._space.len(w_variables), self._space.newint(1)))
+        self._names_to_vars = {}
+        for var in w_variables.wrappeditems:
+            self._names_to_vars[var.name] = var
+        self._variables = w_variables
+
+    def w_affected_variables(self):
         """ Return a list of all variables affected by this constraint """
         return self._variables
 
-    def isVariableRelevant(self, variable):
+    def w_is_variable_relevant(self, w_variable):
         return variable in self._variables
 
-    def estimate_cost(self):
+    def w_estimate_cost(self):
         """Return an estimate of the cost of the narrowing of the constraint"""
         return reduce(operator.mul,
-                      [self.cs.dom(var).size() for var in self._variables])
+                      [self.cs.w_dom(var).size() for var in self._variables])
 
     def copy_to(self, space):
         return self.__class__(space, self._variables)
@@ -45,15 +86,22 @@ class AbstractConstraint(object):
         if not isinstance(other, self.__class__): return False
         return self._variables == other._variables
     
-
-class W_BasicConstraint(object):
+W_AbstractConstraint.typedef = typedef.TypeDef("W_AbstractConstraint",
+    affected_variables = interp2app(W_AbstractConstraint.w_affected_variables),
+    is_variable_relevant = interp2app(W_AbstractConstraint.w_is_variable_relevant),
+    estimate_cost = interp2app(W_AbstractConstraint.w_estimate_cost),
+    copy_to = interp2app(W_AbstractConstraint.w_copy_to),
+    revise = interp2app(W_AbstractConstraint.w_revise)
+) 
+class W_BasicConstraint(W_Constraint):
     """A BasicConstraint, which is never queued by the Repository
     A BasicConstraint affects only one variable, and will be entailed
     on the first call to narrow()"""
     
-    def __init__(self, variable, reference, operator):
+    def __init__(self, object_space, variable, reference, operator):
         """variables is a list of variables on which
         the constraint is applied"""
+        W_Constraint.__init__(self, object_space)
         self._variable = variable
         self._reference = reference
         self._operator = operator
@@ -61,22 +109,22 @@ class W_BasicConstraint(object):
     def __repr__(self):
         return '<%s %s %s>'% (self.__class__, self._variable, self._reference)
 
-    def copy_to(self, space):
+    def w_copy_to(self, w_computation_space):
         raise NotImplementedError
 
-    def isVariableRelevant(self, variable):
+    def w_is_variable_relevant(self, w_variable):
         return variable == self._variable
 
-    def estimateCost(self, domains):
+    def w_estimate_cost(self):
         return 0 # get in the first place in the queue
     
-    def affectedVariables(self):
+    def w_affected_variables(self):
         return [self._variable]
     
     def getVariable(self):
         return self._variable
         
-    def revise(self, domains):
+    def w_revise(self, w_domains):
         domain = domains[self._variable]
         operator = self._operator
         ref = self._reference
@@ -92,6 +140,15 @@ class W_BasicConstraint(object):
     def __eq__(self, other):
         raise NotImplementedError
 
+W_BasicConstraint.typedef = typedef.TypeDef(
+    "W_BasicConstraint",
+    affected_variables = interp2app(W_BasicConstraint.w_affected_variables),
+    is_variable_relevant = interp2app(W_BasicConstraint.w_is_variable_relevant),
+    estimate_cost = interp2app(W_BasicConstraint.w_estimate_cost),
+    copy_to = interp2app(W_BasicConstraint.w_copy_to),
+    revise = interp2app(W_BasicConstraint.w_revise)
+    )
+
 def make_lambda_head(vars):
     var_ids = ','.join([var.name for var in vars])
     return 'lambda ' + var_ids + ':'
@@ -102,22 +159,22 @@ def expand_expr_template(expr, vars):
     return expr
 
 
-class AllDistinct(AbstractConstraint):
+class W_AllDistinct(W_AbstractConstraint):
     """Contraint: all values must be distinct"""
 
-    def __init__(self, c_space, variables):
-        assert len(variables)>1
-        AbstractConstraint.__init__(self, c_space, variables)
+    def __init__(self, object_space, w_c_space, w_variables):
+        W_AbstractConstraint.__init__(self, object_space, w_c_space, w_variables)
+        assert len(w_variables.wrappeditems)>1
         # worst case complexity
-        self.__cost = len(variables) * (len(variables) - 1) / 2
+        self.__cost = len(w_variables.wrappeditems) * (len(w_variables.wrappeditems) - 1) / 2
 
     def __repr__(self):
         return '<AllDistinct %s>' % str(self._variables)
 
-    def copy_to(self, space):
+    def w_copy_to(self, w_computation_space):
         return self.__class__(space, self._variables)
 
-    def estimateCost(self, domains):
+    def w_estimate_cost(self):
         return self.__cost
 
     def test_solution(self, sol):
@@ -127,9 +184,9 @@ class AllDistinct(AbstractConstraint):
         value_set = set(values)
         return len(value_set) == len(sol)
 
-    def revise(self):
-        variables = [(self.cs.dom(variable).size(),
-                      variable, self.cs.dom(variable))
+    def w_revise(self):
+        variables = [(self.cs.w_dom(variable).size(),
+                      variable, self.cs.w_dom(variable))
                      for variable in self._variables]
 
         variables.sort()
@@ -166,8 +223,18 @@ class AllDistinct(AbstractConstraint):
             
         return 1 
 
+W_AllDistinct.typedef = typedef.TypeDef(
+    "W_AllDistinct", W_AbstractConstraint.typedef,
+    estimate_cost = interp2app(W_AllDistinct.w_estimate_cost),
+    revise = interp2app(W_Constraint.w_revise)
+    )
 
-class Expression(AbstractConstraint):
+# function bolted into the space to serve as constructor
+def make_alldistinct(objectspace, w_computationspace, w_variables):
+    return objectspace.wrap(W_AllDistinct(objectspace, w_computationspace, w_variables))
+app_make_alldistinct = gateway.interp2app(make_alldistinct)
+
+class W_Expression(W_AbstractConstraint):
     """A constraint represented as a python expression."""
     _FILTER_CACHE = {}
 
@@ -209,9 +276,9 @@ class Expression(AbstractConstraint):
         variables = []
         kwargs = {}
         for variable in self._variables:
-            domain = self.cs.dom(variable)
-            values = domain.get_values()
-            variables.append((domain.size(), [variable, values, 0, len(values)]))
+            domain = self.cs.w_dom(variable)
+            values = domain.w_get_values()
+            variables.append((domain.w_size(), [variable, values, 0, len(values)]))
             kwargs[variable.name] = values[0]
         # sort variables to instanciate those with fewer possible values first
         variables.sort()
@@ -253,7 +320,7 @@ class Expression(AbstractConstraint):
                 
         try:
             for var, keep in result_cache.iteritems():
-                domain = self.cs.dom(self._names_to_vars[var])
+                domain = self.cs.w_dom(self._names_to_vars[var])
                 domain.remove_values([val for val in domain if val not in keep])
                 
         except ConsistencyFailure:
@@ -275,7 +342,11 @@ class Expression(AbstractConstraint):
     def __repr__(self):
         return '<%s>' % self.formula
 
-class BinaryExpression(Expression):
+W_Expression.typedef = typedef.TypeDef("W_Expression",
+                                        W_AbstractConstraint.typedef)
+
+
+class BinaryExpression(W_Expression):
     """A binary constraint represented as a python expression
 
     This implementation uses a narrowing algorithm optimized for
