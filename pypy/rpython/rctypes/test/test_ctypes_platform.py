@@ -3,10 +3,6 @@ from pypy.rpython.rctypes import ctypes_platform
 import ctypes
 
 
-if sys.platform != 'linux2':
-    py.test.skip("the test must be adapted to your platform")
-
-
 def test_dirent():
     dirent = ctypes_platform.getstruct("struct dirent",
                                        """
@@ -99,3 +95,10 @@ def test_constant_integer():
     value = ctypes_platform.getconstantinteger('BLAH',
                                                '#define BLAH (3333333333ULL)')
     assert value == 3333333333
+
+def test_defined():
+    res = ctypes_platform.getdefined('ALFKJLKJFLKJFKLEJDLKEWMECEE', '')
+    assert not res
+    res = ctypes_platform.getdefined('ALFKJLKJFLKJFKLEJDLKEWMECEE',
+                                     '#define ALFKJLKJFLKJFKLEJDLKEWMECEE')
+    assert res

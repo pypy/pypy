@@ -222,6 +222,11 @@ def getconstantinteger(name, c_header_source):
     return info['value']
 
 
+def getdefined(name, c_header_source):
+    return getconstantinteger('\n#ifdef %s\n1\n#else\n0\n#endif\n' % (name),
+                              c_header_source)
+
+
 if __name__ == '__main__':
     doc = """Example:
     
