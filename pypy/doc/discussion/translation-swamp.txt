@@ -1,0 +1,27 @@
+===================================================================
+List of things that need to be improved for translation to be saner
+===================================================================
+
+
+ * understand nondeterminism after rtyping
+ 
+ * nondeterminism of insert stackcheck:
+
+    * move it after inlining
+    * avoid inserting it multiple times in the same block
+
+ * experiment with different heuristics:
+ 
+    * weight backedges more
+    * consider size of outer function
+    * consider number of arguments
+
+ * find a more deterministic inlining order (number of calls?)
+
+ * experiment with using a base inlining threshold and then drive inlining by
+   malloc removal possibilities (using escape analysis)
+
+ * move the inlining of gc helpers just before emitting the code.
+   throw the graph away
+
+ * for gcc: use just one implement file
