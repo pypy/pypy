@@ -13,6 +13,7 @@ from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.memory.lladdress import NULL
+from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
 
 log = log.database 
 
@@ -366,8 +367,13 @@ class Database(object):
             # XXXXX things are happening in the gc world...
             # assert value == NULL
             repr = 'null' 
-        elif isinstance(value, llmemory.AddressOffset):
-            return self.offset_str(value)
+        elif isinstance(value, Symbolic):
+            if isinstance(value, llmemory.AddressOffset):
+                return self.offset_str(value)
+            elif isinstance(value, ComputedIntSymbolic):
+                repr = '%d' % (value.compute_fn(),)
+            else:
+                raise NotImplementedError("symbolic: %r" % (value,))
         else:
             repr = str(value)
         return repr

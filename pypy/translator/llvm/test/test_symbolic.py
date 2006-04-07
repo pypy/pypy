@@ -3,6 +3,7 @@ from pypy.translator.interactive import Translation
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rpython.memory import lladdress
+from pypy.rpython.objectmodel import ComputedIntSymbolic
 
 from pypy.translator.llvm.test.runtest import compile_function
 
@@ -87,4 +88,13 @@ def test_sizeof_constsize_struct():
     res = fn()
     assert res == 51
 
+def test_computed_int_symbolic():
+    def compute_fn():
+        return 7
+    k = ComputedIntSymbolic(compute_fn)
+    def f():
+        return k*6
 
+    fn = compile_function(f, [])
+    res = fn()
+    assert res == 42
