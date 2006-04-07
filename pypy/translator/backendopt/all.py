@@ -1,5 +1,5 @@
 from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
-from pypy.translator.backendopt.removenoops import remove_same_as
+from pypy.translator.backendopt.removenoops import remove_same_as, remove_superfluous_keep_alive
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.ssa import SSI_to_SSA
@@ -44,6 +44,8 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
     # inline functions in each other
     if inline_threshold:
         auto_inlining(translator, inline_threshold)
+        for graph in translator.graphs:
+            remove_superfluous_keep_alive(graph)
 
     if PRINT_STATISTICS:
         print "after inlining:"

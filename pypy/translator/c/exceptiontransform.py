@@ -1,6 +1,6 @@
 from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.unsimplify import copyvar, split_block
-from pypy.translator.backendopt import canraise, inline, support
+from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -131,6 +131,7 @@ class ExceptionTransformer(object):
             self.transform_block(graph, block)
         self.transform_except_block(graph, graph.exceptblock)
         cleanup_graph(graph)
+        removenoops.remove_superfluous_keep_alive(graph)
 
     def transform_block(self, graph, block):
         if block is graph.exceptblock:
