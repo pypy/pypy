@@ -7,7 +7,7 @@ from pypy.interpreter.astcompiler.consts \
      import CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.tool import opcode as pythonopcode
+from pypy.tool import stdlib_opcode as pythonopcode
 
 class BlockSet:
     """A Set implementation specific to Blocks

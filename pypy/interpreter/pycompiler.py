@@ -78,11 +78,11 @@ class AbstractCompiler:
 # faked compiler
 
 import warnings
-from pypy.tool import __future__
+from pypy.tool import stdlib___future__
 compiler_flags = 0
 compiler_features = {}
-for fname in __future__.all_feature_names:
-    flag = getattr(__future__, fname).compiler_flag
+for fname in stdlib___future__.all_feature_names:
+    flag = getattr(stdlib___future__, fname).compiler_flag
     compiler_flags |= flag
     compiler_features[fname] = flag
 allowed_flags = compiler_flags | PyCF_DONT_IMPLY_DEDENT
@@ -113,7 +113,7 @@ class CPythonCompiler(PyCodeCompiler):
     """Faked implementation of a compiler, using the underlying compile()."""
 
     def compile(self, source, filename, mode, flags):
-        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
+        flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
             old = self.setup_warn_explicit(warnings)
@@ -208,7 +208,7 @@ class PythonAstCompiler(PyCodeCompiler):
         from pyparser.pythonutil import AstBuilder, PYTHON_PARSER, TARGET_DICT
         from pypy.interpreter.pycode import PyCode
 
-        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
+        flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
             builder = AstBuilder(space=space)

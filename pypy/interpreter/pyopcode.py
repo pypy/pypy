@@ -14,7 +14,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rarithmetic import intmask
-from pypy.tool import opcode as pythonopcode
+from pypy.tool import stdlib_opcode as pythonopcode
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
