@@ -183,43 +183,4 @@ def test_call_list_default_argument():
     if conftest.option.view:
         t.view()
 
-def test_remove_duplicate_casts():
-    class A(object):
-        def __init__(self, x, y):
-            self.x = x
-            self.y = y
-        def getsum(self):
-            return self.x + self.y
-    class B(A):
-        def __init__(self, x, y, z):
-            A.__init__(self, x, y)
-            self.z = z
-        def getsum(self):
-            return self.x + self.y + self.z
-    def f(x, switch):
-        a = A(x, x + 1)
-        b = B(x, x + 1, x + 2)
-        if switch:
-            c = A(x, x + 1)
-        else:
-            c = B(x, x + 1, x + 2)
-        return a.x + a.y + b.x + b.y + b.z + c.getsum()
-    assert f(10, True) == 75
-    graph, t = get_graph(f, [int, bool], 1)
-    num_cast_pointer = len(getops(graph)['cast_pointer'])
-    changed = remove_duplicate_casts(graph, t)
-    assert changed
-    ops = getops(graph)
-    assert len(ops['cast_pointer']) < num_cast_pointer
-    print len(ops['cast_pointer']), num_cast_pointer
-    graph_getsum = graphof(t, B.getsum.im_func)
-    num_cast_pointer = len(getops(graph_getsum)['cast_pointer'])
-    changed = remove_duplicate_casts(graph_getsum, t)
-    assert changed
-    if conftest.option.view:
-        t.view()
-    check_graph(graph, [10, True], 75, t)
-    ops = getops(graph_getsum)
-    assert len(ops['cast_pointer']) < num_cast_pointer
-    print len(ops['cast_pointer']), num_cast_pointer
-    
+
