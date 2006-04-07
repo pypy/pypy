@@ -7,6 +7,13 @@ from pypy.objspace.constraint.domain import W_AbstractDomain
 
 all_mms = {}
 
+class W_Variable(Wrappable):
+    def __init__(self, obj_space, name):
+        self._space = obj_space
+        self.name = self._space.str_w(name)
+
+W_Variable.typedef = typedef.TypeDef("W_Variable")
+
 class W_ComputationSpace(Wrappable):
     def __init__(self, obj_space):
         self._space = obj_space
@@ -19,6 +26,7 @@ class W_ComputationSpace(Wrappable):
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Name already used"))
         self.domains.content[w_name] = w_domain
+        return W_Variable(self._space, w_name)
 
 
 W_ComputationSpace.typedef = typedef.TypeDef("W_ComputationSpace",
