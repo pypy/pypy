@@ -96,19 +96,6 @@ def test_disable_logic():
 
     assert 'backendopt' not in t.driver.done
 
-    t = Translation(f, [int, int])
-    t.disable(['annotate'])
-    t.source_c()
-
-    assert 'annotate' not in t.driver.done and 'rtype' not in t.driver.done
-
-    t = Translation(f, [int, int])
-    t.disable(['rtype'])
-    t.source_c()
-
-    assert 'annotate' in t.driver.done
-    assert 'rtype' not in t.driver.done and 'backendopt' not in t.driver.done
-
 def test_simple_compile_c():
     def f(x,y):
         return x+y
