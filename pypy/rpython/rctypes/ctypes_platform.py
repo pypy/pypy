@@ -197,6 +197,31 @@ def getsimpletype(name, c_header_source, ctype_hint):
     return ctype_hint
 
 
+def getconstantinteger(name, c_header_source):
+    filepath = uniquefilepath()
+    f = filepath.open('w')
+    print >> f, C_HEADER
+    print >> f
+    print >> f, c_header_source
+    print >> f
+    print >> f, 'int main(void) {'
+    print >> f, '    if ((%s) < 0) {' % (name,)
+    print >> f, '        long long x = (long long)(%s);' % (name,)
+    print >> f, '        printf("value: %lld\\n", x);'
+    print >> f, '    } else {'
+    print >> f, '        unsigned long long x = (unsigned long long)(%s);' % (
+                            name,)
+    print >> f, '        printf("value: %llu\\n", x);'
+    print >> f, '    }'
+    print >> f, '    return 0;'
+    print >> f, '}'
+    f.close()
+
+    info = run_example_code(filepath)
+
+    return info['value']
+
+
 if __name__ == '__main__':
     doc = """Example:
     

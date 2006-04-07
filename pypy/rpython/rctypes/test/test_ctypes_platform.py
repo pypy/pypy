@@ -88,3 +88,14 @@ def test_simple_type():
                                           'typedef unsigned short test_t;',
                                           ctypes.c_int)
     assert ctype == ctypes.c_ushort
+
+def test_constant_integer():
+    value = ctypes_platform.getconstantinteger('BLAH',
+                                               '#define BLAH (6*7)')
+    assert value == 42
+    value = ctypes_platform.getconstantinteger('BLAH',
+                                               '#define BLAH (-2147483648LL)')
+    assert value == -2147483648
+    value = ctypes_platform.getconstantinteger('BLAH',
+                                               '#define BLAH (3333333333ULL)')
+    assert value == 3333333333
