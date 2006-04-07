@@ -6,13 +6,15 @@ def queens_problem(n):
     s = newspace()
     queens = []
     for i in range(n):
-        queens.append(s.var(FiniteDomain([(i,j)
+        queens.append(s.var('q%02d'%i,
+                            FiniteDomain([(i,j)
                                           for i in range(n)
                                           for j in range(n)])))
     for i in range(n):
         for j in range(i,n):
-            s.add(expr queens[i], queens[j]: queens[i][0] != queen[j][0])  #-> s.add(make_expression([queen[i], queen[j]],
-                                                                 ## '%s[0] != %s[0]'%[q.name for q in [queen[i], queen[j]])
+            s.add(expr queens[i], queens[j]: queens[i][0] != queen[j][0])
+            ## -> s.add(make_expression([queen[i], queen[j]],
+            ##          '%s[0] != %s[0]'%[q.name for q in [queen[i], queen[j]])
             s.add(expr queens[i], queens[j]: queens[i][1] != queen[j][1])
     s.add(AllDistinct(queens))
     return s
