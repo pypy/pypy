@@ -1,6 +1,6 @@
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter, malloc_to_stack
-from pypy.translator.backendopt.escape import find_backedges, find_loop_blocks
+from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.objectmodel import instantiate
 

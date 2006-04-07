@@ -22,6 +22,7 @@ def test_can_raise_simple():
     assert not result
 
 def test_can_raise_recursive():
+    from pypy.translator.transform import insert_ll_stackcheck
     def g(x):
         return f(x)
 
@@ -30,8 +31,9 @@ def test_can_raise_recursive():
             return g(x - 1)
         return 1
     t, ra = translate(f, [int])
+    insert_ll_stackcheck(t)
     ggraph = graphof(t, g)
-    result = ra.can_raise(ggraph.startblock.operations[1])
+    result = ra.can_raise(ggraph.startblock.operations[-1])
     assert result # due to stack check every recursive function can raise
 
 def test_can_raise_exception():
