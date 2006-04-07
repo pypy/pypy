@@ -1,8 +1,3 @@
-try:
-    set
-except NameError:
-    from sets import Set as set
-
 import sys
 from types import MethodType
 
@@ -11,6 +6,7 @@ from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.option import getoption
+from pypy.translator.cli.database import LowLevelDatabase
 
 
 class Tee(object):
@@ -31,7 +27,7 @@ class GenCli(object):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
-        self.classdefs = set()
+        self.db = LowLevelDatabase()
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
@@ -46,41 +42,41 @@ class GenCli(object):
             out = Tee(sys.stdout, out)
 
         self.ilasm = IlasmGenerator(out, self.assembly_name)
-        self.gen_all_functions()
+        self.gen_entrypoint()
         self.find_superclasses()
         self.gen_classes()
+        self.gen_functions()        
         out.close()
         return self.tmpfile.strpath
 
-    def gen_all_functions(self):
+    def gen_entrypoint(self):
         if self.entrypoint:
-            self.entrypoint.render(self.ilasm)
+            self.db.pending_graphs += self.entrypoint.render(self.ilasm)
+        else:
+            self.db.pending_graphs.append(self.translator.graphs[0])
 
-        # generate code for all 'global' functions, i.e., those who are not methods.            
-        for graph in self.translator.graphs:
+        self.gen_functions()
 
-            # TODO: remove this test
-            if graph.name.startswith('ll_'):
-                continue
-
-            if '.' not in graph.name: # it's not a method
-                f = Function(graph)
+    def gen_functions(self):
+        while self.db.pending_graphs:
+            graph = self.db.pending_graphs.pop()
+            if self.db.function_name(graph) is None:
+                f = Function(self.db, graph)
                 f.render(self.ilasm)
-                self.classdefs.update(f.classdefs)
 
     def find_superclasses(self):
-        classdefs = set()
-        pendings = self.classdefs
+        classes = set()
+        pendings = self.db.classes
 
         while pendings:
             classdef = pendings.pop()
-            if classdef not in classdefs and classdef is not None:
-                classdefs.add(classdef)
+            if classdef not in classes and classdef is not None:
+                classes.add(classdef)
                 pendings.add(classdef._superclass)
 
-        self.classdefs = classdefs
+        self.db.classes = classes
 
     def gen_classes(self):
-        for classdef in self.classdefs:
-            c = Class(classdef)
+        for classdef in self.db.classes:
+            c = Class(self.db, classdef)
             c.render(self.ilasm)

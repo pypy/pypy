@@ -3,7 +3,8 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli import cts
 
 class Class(Node):
-    def __init__(self, classdef):
+    def __init__(self, db, classdef):
+        self.db = db
         self.classdef = classdef
         self.namespace, self.name = cts.split_class_name(classdef._name)
 
@@ -30,9 +31,8 @@ class Class(Node):
         self._ctor()
 
         for m_name, m_meth in self.classdef._methods.iteritems():
-            # TODO: handle static, class and unbound methods
-            # TODO: should __init__ be rendered as a constructor?
-            f = Function(m_meth.graph, m_name, is_method = True)
+            # TODO: handle class and unbound methods
+            f = Function(self.db, m_meth.graph, m_name, is_method = True)
             f.render(ilasm)
 
         ilasm.end_class()

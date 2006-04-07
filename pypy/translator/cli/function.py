@@ -18,13 +18,13 @@ log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log) 
 
 class Function(Node, Generator):
-    def __init__(self, graph, name = None, is_method = False, is_entrypoint = False):
+    def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False):
+        self.db = db
         self.graph = graph
         self.name = name or graph.name
         self.is_method = is_method
         self.is_entrypoint = is_entrypoint
         self.blocknum = {}
-        self.classdefs = set()
         self._set_args()
         self._set_locals()
 
@@ -130,6 +130,10 @@ class Function(Node, Generator):
             self.ilasm.opcode('ret')
 
         self.ilasm.end_function()
+        if self.is_method:
+            pass # TODO
+        else:
+            self.db.record_function(self.graph, self.name)
 
     def _setup_link(self, link):
         target = link.target
@@ -197,7 +201,7 @@ class Function(Node, Generator):
                 lltype = arg.value
 
             if isinstance(lltype, Instance):
-                self.classdefs.add(lltype)
+                self.db.classes.add(lltype)
 
 
     def _render_op(self, op):
@@ -225,8 +229,9 @@ class Function(Node, Generator):
     def function_signature(self, graph):
         return cts.graph_to_signature(graph, False)
 
-    def method_signature(self, graph, name):
-        return cts.graph_to_signature(graph, True, name)
+    def method_signature(self, graph, class_name, name):
+        full_name = '%s::%s' % (class_name, name)
+        return cts.graph_to_signature(graph, True, full_name)
 
     def class_name(self, ooinstance):
         return ooinstance._name
@@ -234,7 +239,8 @@ class Function(Node, Generator):
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
 
-    def call(self, func_name):
+    def call(self, graph, func_name):
+        self.db.pending_graphs.append(graph)
         self.ilasm.call(func_name)
 
     def new(self, obj):
@@ -248,10 +254,10 @@ class Function(Node, Generator):
 
     def call_method(self, obj, name):
         owner, meth = obj._lookup(name)
-        full_name = '%s::%s' % (self.class_name(obj), name)
+        signature = self.method_signature(meth.graph, self.class_name(obj), name)
         # TODO: there are cases when we don't need callvirt but a
         # plain call is sufficient
-        self.ilasm.call_method(self.method_signature(meth.graph, full_name))
+        self.ilasm.call_method(signature)
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):
@@ -265,8 +271,9 @@ class Function(Node, Generator):
                 self.ilasm.opcode('ldloc', repr(v.name))
 
         elif isinstance(v, flowmodel.Constant):
-            iltype, ilvalue = cts.llconst_to_ilasm(v)
-            self.ilasm.opcode('ldc.' + iltype, ilvalue)
+            if v.concretetype != Void:
+                iltype, ilvalue = cts.llconst_to_ilasm(v)
+                self.ilasm.opcode('ldc.' + iltype, ilvalue)
         else:
             assert False
 

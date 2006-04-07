@@ -50,13 +50,32 @@ class _StoreResult(MicroInstruction):
 
 class _Call(MicroInstruction):
     def render(self, generator, op):
-        func_sig = generator.function_signature(op.args[0].value.graph)
+        graph = op.args[0].value.graph
+        cls = getattr(graph.func, 'class_', None)
 
-        # push parameters
-        for func_arg in op.args[1:]:
+        self._render_function(generator, graph, op.args)
+##        if cls is None:
+##            self._render_function(generator, graph, op.args)
+##        else:
+##            self._render_unbound_meth(generator, cls, graph, op.args)
+
+    def _render_unbound_meth(self, generator, cls, graph, args):
+        0/0
+        this = args[1]
+        # TODO: make sure that 'this' is compatible with 'cls'
+        for func_arg in args[1:]:
             generator.load(func_arg)
 
-        generator.call(func_sig)
+        # TODO: it doesn't work if cls is in another namespace
+        cls_name, meth_name = graph.name.rsplit('.', 1)
+        meth_sig = generator.method_signature(graph, cls_name, meth_name)
+        generator.call(graph, meth_sig) # TODO
+
+    def _render_function(self, generator, graph, args):
+        func_sig = generator.function_signature(graph)
+        for func_arg in args[1:]: # push parameters
+            generator.load(func_arg)
+        generator.call(graph, func_sig)
 
 class _New(MicroInstruction):
     def render(self, generator, op):

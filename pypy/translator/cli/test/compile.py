@@ -27,10 +27,15 @@ class Base:
         self.x = x
 
 class Derived(Base):
-    pass
+    def __init__(self, x):
+        Base.__init__(self, x)
+
+def foo(x):
+    return x+1
 
 def bar(x, y):
-    a = Derived(42)
+    a = Derived(x)
+    return a.x
 
 
 f = compile_function(bar, [int, int])

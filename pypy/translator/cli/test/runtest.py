@@ -54,6 +54,7 @@ class TestEntryPoint(Node):
         ilasm.call('void class [mscorlib]System.Console::WriteLine(%s)' % ret_type)
         ilasm.opcode('ret')
         ilasm.end_function()
+        return [self.graph]
 
     def __convert_method(self, arg_type):
         _conv = {

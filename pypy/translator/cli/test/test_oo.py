@@ -19,10 +19,13 @@ class MyClass:
     def compute_and_multiply(self, factor):
         return self.compute() * factor
 
+    def static_meth(x, y):
+        return x*y
+    static_meth = staticmethod(static_meth)
+
 class MyDerivedClass(MyClass):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        MyClass.__init__(self, x, y)
 
     def compute(self):
         return self.x - self.y
@@ -46,3 +49,10 @@ def oo_liskov(x, y):
     base = MyClass(x, y)
     derived = MyDerivedClass(x, y)
     return helper(base) + helper(derived)
+
+def oo_static_method(x, y):
+    base = MyClass(x, y)
+    derived = MyDerivedClass(x, y)
+    return base.static_meth(x,y) + derived.static_meth(x, y)\
+           + MyClass.static_meth(x, y) + MyDerivedClass.static_meth(x, y)
+

@@ -47,10 +47,10 @@ def _get_from_dict(d, key, error):
 
 def lltype_to_cts(t):
     if isinstance(t, Instance):
-        name = t._name.replace('__main__.', '') # TODO: modules
-        if name in ('Object_meta', 'Object'):
+        name = t._name
+        if 'Object_meta' in name or 'Object' in name: # TODO
             return 'object'
-        
+
         return 'class %s' % name
 
     return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
