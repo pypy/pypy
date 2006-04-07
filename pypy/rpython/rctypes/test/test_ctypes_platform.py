@@ -83,3 +83,8 @@ def test_fit_type():
     assert fields["f"] == ctypes.c_float
     assert fields["d"] == ctypes.c_double
 
+def test_simple_type():
+    ctype = ctypes_platform.getsimpletype('test_t',
+                                          'typedef unsigned short test_t;',
+                                          ctypes.c_int)
+    assert ctype == ctypes.c_ushort

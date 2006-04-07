@@ -66,11 +66,28 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
                                                           fieldname))
 
 
+C_HEADER = """
+#include <stdio.h>
+#include <stddef.h>   /* for offsetof() */
+
+void dump(char* key, int value) {
+    printf("%s: %d\\n", key, value);
+}
+"""
+
+def run_example_code(filepath):
+    executable = build_executable([filepath])
+    output = py.process.cmdexec(executable)
+    info = {}
+    for line in output.splitlines():
+        key, value = line.strip().split(': ')
+        info[key] = int(value)
+    return info
+
 def getstruct(name, c_header_source, interesting_fields):
     filepath = uniquefilepath()
     f = filepath.open('w')
-    print >> f, '#include <stdio.h>'
-    print >> f, '#include <stddef.h>   /* for offsetof() */'
+    print >> f, C_HEADER
     print >> f
     print >> f, c_header_source
     print >> f
@@ -79,10 +96,6 @@ def getstruct(name, c_header_source, interesting_fields):
     print >> f, '    char c;'
     print >> f, '    ctypesplatcheck_t s;'
     print >> f, '} ctypesplatcheck2_t;'
-    print >> f
-    print >> f, 'void dump(char* key, int value) {'
-    print >> f, '    printf("%s: %d\\n", key, value);'
-    print >> f, '}'
     print >> f
     print >> f, 'int main(void) {'
     print >> f, '    ctypesplatcheck_t s;'
@@ -103,12 +116,7 @@ def getstruct(name, c_header_source, interesting_fields):
     print >> f, '}'
     f.close()
 
-    executable = build_executable([filepath])
-    output = py.process.cmdexec(executable)
-    info = {}
-    for line in output.splitlines():
-        key, value = line.strip().split(': ')
-        info[key] = int(value)
+    info = run_example_code(filepath)
 
     alignment = 1
     layout = [None] * info['size']
@@ -159,6 +167,34 @@ def getstruct(name, c_header_source, interesting_fields):
         name = name[7:]
     S.__name__ = name
     return S
+
+
+def getsimpletype(name, c_header_source, ctype_hint):
+    filepath = uniquefilepath()
+    f = filepath.open('w')
+    print >> f, C_HEADER
+    print >> f
+    print >> f, c_header_source
+    print >> f
+    print >> f, 'typedef %s ctypesplatcheck_t;' % (name,)
+    print >> f
+    print >> f, 'int main(void) {'
+    print >> f, '    ctypesplatcheck_t x;'
+    print >> f, '    dump("size",  sizeof(ctypesplatcheck_t));'
+    if ctype_hint in integer_class:
+        print >> f, '    x = 0; x = ~x;'
+        print >> f, '    dump("unsigned", x > 0);'
+    print >> f, '    return 0;'
+    print >> f, '}'
+    f.close()
+
+    info = run_example_code(filepath)
+
+    size = info['size']
+    sign = info.get('unsigned', False)
+    if (size, sign) != size_and_sign(ctype_hint):
+        ctype_hint = fixup_ctype(ctype_hint, name, (size, sign))
+    return ctype_hint
 
 
 if __name__ == '__main__':
