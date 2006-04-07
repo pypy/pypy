@@ -25,4 +25,9 @@ class AppTest_ComputationSpace(object):
         assert cspace.dom(v) is domain
         
 
-
+    def test_tell(self):
+        csp = newspace()
+        v1 = csp.var('v1', FiniteDomain([1, 2]))
+        v2 = csp.var('v2', FiniteDomain([1, 2]))
+        cstr = AllDistinct([v1, v2])
+        csp.tell(cstr)
