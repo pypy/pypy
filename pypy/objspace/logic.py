@@ -202,6 +202,7 @@ def newvar(space):
     return W_Var()
 app_newvar = gateway.interp2app(newvar)
 
+
 def wait__Root(space, w_obj):
     return w_obj
 
@@ -754,18 +755,19 @@ def proxymaker(space, opname, parentfn):
 
 
 #------ domains -----------------
-
 from pypy.objspace.constraint import domain 
 all_mms.update(domain.all_mms)
 
 W_FiniteDomain = domain.W_FiniteDomain
 
-#------ computation space -------
-
+#-------- computationspace --------------
 from pypy.objspace.constraint import computationspace
 all_mms.update(computationspace.all_mms)
 
 W_ComputationSpace = computationspace.W_ComputationSpace
+
+# ---- constraints
+from pypy.objspace.constraint import constraint
 
 #-- THE SPACE ---------------------------------------
 
@@ -817,6 +819,10 @@ def Space(*args, **kwds):
                   space.wrap(app_alias_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
                   space.wrap(app_is_aliased))
+    space.setitem(space.builtin.w_dict, space.wrap('newspace'),
+                 space.wrap(computationspace.app_newspace))
+    space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
+                 space.wrap(constraint.app_make_alldistinct))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
