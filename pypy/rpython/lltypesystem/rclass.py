@@ -266,14 +266,15 @@ class ClassRepr(AbstractClassRepr):
         v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
         if isinstance(v_cls2, Constant):
             cls2 = v_cls2.value
-            if cls2.subclassrange_max == cls2.subclassrange_min + 1:
-                # a class with no subclass
-                return hop.genop('ptr_eq', [v_cls1, v_cls2], resulttype=Bool)
-            else:
-                minid = hop.inputconst(Signed, cls2.subclassrange_min)
-                maxid = hop.inputconst(Signed, cls2.subclassrange_max)
-                return hop.gendirectcall(ll_issubclass_const, v_cls1, minid,
-                                         maxid)
+            # XXX re-implement the following optimization
+##            if cls2.subclassrange_max == cls2.subclassrange_min + 1:
+##                # a class with no subclass
+##                return hop.genop('ptr_eq', [v_cls1, v_cls2], resulttype=Bool)
+##            else:
+            minid = hop.inputconst(Signed, cls2.subclassrange_min)
+            maxid = hop.inputconst(Signed, cls2.subclassrange_max)
+            return hop.gendirectcall(ll_issubclass_const, v_cls1, minid,
+                                     maxid)
         else:
             v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
             return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)

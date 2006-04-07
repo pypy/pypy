@@ -2,6 +2,7 @@ from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_e
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.objectmodel import ComputedIntSymbolic
 
 import sys
 import math
@@ -181,6 +182,8 @@ class LLFrame(object):
             val = varorconst.value
         except AttributeError:
             val = self.bindings[varorconst]
+        if isinstance(val, ComputedIntSymbolic):
+            val = val.compute_fn()
         if varorconst.concretetype is not lltype.Void:
             try:
                 val = lltype.enforce(varorconst.concretetype, val)

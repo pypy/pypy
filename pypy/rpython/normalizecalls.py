@@ -9,7 +9,7 @@ from pypy.tool.sourcetools import has_varargs, valid_identifier
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import needsgc
-from pypy.rpython.objectmodel import instantiate
+from pypy.rpython.objectmodel import instantiate, ComputedIntSymbolic
 
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():
@@ -274,8 +274,26 @@ def create_instantiate_function(annotator, classdef):
 
 # ____________________________________________________________
 
-def assign_inheritance_ids(annotator):
+class MinIdSymbolic(ComputedIntSymbolic):
+    def __init__(self, classdef):
+        self.classdef = classdef
+    def compute_fn(self):
+        if self.classdef.minid is self:
+            compute_inheritance_ids(self.classdef.bookkeeper)
+        return self.classdef.minid
+
+class MaxIdSymbolic(ComputedIntSymbolic):
+    def __init__(self, classdef):
+        self.classdef = classdef
+    def compute_fn(self):
+        if self.classdef.maxid is self:
+            compute_inheritance_ids(self.classdef.bookkeeper)
+        return self.classdef.maxid
+
+def compute_inheritance_ids(bookkeeper):
     def assign_id(classdef, nextid):
+        assert isinstance(classdef.minid, MinIdSymbolic)
+        assert isinstance(classdef.maxid, MaxIdSymbolic)
         classdef.minid = nextid
         nextid += 1
         for subclass in classdef.subdefs:
@@ -283,11 +301,16 @@ def assign_inheritance_ids(annotator):
         classdef.maxid = nextid
         return classdef.maxid
     id_ = 0
-    for classdef in annotator.bookkeeper.classdefs:
+    for classdef in bookkeeper.classdefs:
         if classdef.basedef is None:
-            prevmaxid = getattr(classdef, 'maxid', sys.maxint)
             id_ = assign_id(classdef, id_)
-            assert id_ <= prevmaxid, "non-orthogonal class hierarchy growth"
+
+def assign_inheritance_ids(annotator):
+    for classdef in annotator.bookkeeper.classdefs:
+        if not hasattr(classdef, 'minid'):
+            classdef.minid = MinIdSymbolic(classdef)
+        if not hasattr(classdef, 'maxid'):
+            classdef.maxid = MaxIdSymbolic(classdef)
 
 # ____________________________________________________________
 

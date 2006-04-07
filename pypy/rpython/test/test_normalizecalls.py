@@ -144,25 +144,27 @@ class TestNormalize(object):
         res = llinterp.eval_graph(graphof(translator, dummyfn), [2])
         assert res == -2
 
+
+class PBase:
+    def fn(self):
+        raise NotImplementedError
+class PSub1(PBase):
+    def fn(self):
+        return 1
+class PSub2(PBase):
+    def fn(self):
+        return 2
+def prefn(n):
+    if n == 1:
+        x = PSub1()
+    else:
+        x = PSub2()
+    return x.fn() * 100 + isinstance(x, PSub2)
+
+
 class TestNormalizeAfterTheFact(TestNormalize):
 
     def rtype(self, fn, argtypes, resulttype):
-        class Base:
-            def fn(self):
-                raise NotImplementedError
-        class Sub1(Base):
-            def fn(self):
-                return 1
-        class Sub2(Base):
-            def fn(self):
-                return 2
-        def prefn(n):
-            if n == 1:
-                x = Sub1()
-            else:
-                x = Sub2()
-            return x.fn()
-        
         t = TranslationContext()
         a = t.buildannotator()
         a.build_types(prefn, [int])
@@ -182,9 +184,9 @@ class TestNormalizeAfterTheFact(TestNormalize):
         # sanity check prefn
         llinterp = LLInterpreter(typer)
         res = llinterp.eval_graph(graphof(t, prefn), [1])
-        assert res == 1
+        assert res == 100
         res = llinterp.eval_graph(graphof(t, prefn), [2])
-        assert res == 2
+        assert res == 201
 
         t.checkgraphs()
         return t
@@ -210,4 +212,25 @@ class TestNormalizeAfterTheFact(TestNormalize):
         annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
         graph = annhelper.getgraph(f, [], annmodel.SomeInteger())
         annhelper.finish()
+        
+    def test_add_more_subclasses(self):
+        class Sub3(PBase):
+            def newmethod(self):
+                return 3
+        def dummyfn(n):
+            x = Sub3()
+            return x.newmethod()
+
+        translator = self.rtype(dummyfn, [int], int)
+        base_graph    = graphof(translator, PBase.fn.im_func)
+        sub1_graph    = graphof(translator, PSub1.fn.im_func)
+        sub2_graph    = graphof(translator, PSub2.fn.im_func)
+        sub3_graph    = graphof(translator, Sub3.fn.im_func)
+        dummyfn_graph = graphof(translator, dummyfn)
+        assert base_graph.getreturnvar().concretetype == lltype.Signed
+        assert sub1_graph.getreturnvar().concretetype == lltype.Signed
+        assert sub2_graph.getreturnvar().concretetype == lltype.Signed
+        assert sub3_graph.getreturnvar().concretetype == lltype.Signed
+        assert dummyfn_graph.getreturnvar().concretetype == lltype.Signed
+
         
