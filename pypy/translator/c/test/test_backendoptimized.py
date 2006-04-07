@@ -66,18 +66,21 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
                 s.b_dels += 1
         class C(A):
             pass
-        def f():
+        def f(x=int):
             A()
             B()
             C()
             A()
             B()
             C()
-            return s.a_dels * 10 + s.b_dels
-        res = f()
-        assert res == 42
+            if x:
+                return s.a_dels * 10 + s.b_dels
+            else:
+                return -1
         fn = self.getcompiled(f)
-        res = fn()
+        res = f(1)
+        assert res == 42
+        res = fn(1)
         assert res == 42
 
 
