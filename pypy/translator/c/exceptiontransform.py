@@ -161,7 +161,9 @@ class ExceptionTransformer(object):
         if need_exc_matching:
             assert lastblock.exitswitch == c_last_exception
             if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
-                print "XXX: operation %s cannot raise, but has exception guarding in graph %s" % (lastblock.operations[-1], graph)
+                print ("XXX: operation %s cannot raise, but has exception"
+                       " guarding in graph %s" % (lastblock.operations[-1],
+                                                  graph))
                 lastblock.exitswitch = None
                 lastblock.exits = [lastblock.exits[0]]
                 lastblock.exits[0].exitcase = None
