@@ -38,6 +38,8 @@ class GCTransformer(object):
         else:
             self.mixlevelannotator = None
         self.inline = inline
+        if inline:
+            self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
         self.graphs_to_inline = {}
 
     def get_lltype_of_exception_value(self):
@@ -87,7 +89,8 @@ class GCTransformer(object):
             from pypy.translator.backendopt import inline
             for inline_graph in self.graphs_to_inline:
                 try:
-                    inline.inline_function(self.translator, inline_graph, graph)
+                    inline.inline_function(self.translator, inline_graph, graph,
+                                           self.lltype_to_classdef)
                 except inline.CannotInline:
                     pass
         checkgraph(graph)

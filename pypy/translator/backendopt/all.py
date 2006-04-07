@@ -1,5 +1,5 @@
 from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
-from pypy.translator.backendopt.removenoops import remove_same_as, remove_superfluous_keep_alive
+from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.ssa import SSI_to_SSA
@@ -29,9 +29,10 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
 
     # remove obvious no-ops
     for graph in translator.graphs:
-        remove_same_as(graph)
+        removenoops.remove_same_as(graph)
         simplify.eliminate_empty_blocks(graph)
         simplify.transform_dead_op_vars(graph, translator)
+        removenoops.remove_duplicate_casts(graph, translator)
 
     if PRINT_STATISTICS:
         print "after no-op removal:"
@@ -45,7 +46,8 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
     if inline_threshold:
         auto_inlining(translator, inline_threshold)
         for graph in translator.graphs:
-            remove_superfluous_keep_alive(graph)
+            removenoops.remove_superfluous_keep_alive(graph)
+            removenoops.remove_duplicate_casts(graph, translator)
 
     if PRINT_STATISTICS:
         print "after inlining:"
@@ -58,7 +60,7 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
             count = remove_simple_mallocs(graph)
             if count:
                 # remove typical leftovers from malloc removal
-                remove_same_as(graph)
+                removenoops.remove_same_as(graph)
                 simplify.eliminate_empty_blocks(graph)
                 simplify.transform_dead_op_vars(graph, translator)
                 tot += count

@@ -4,7 +4,7 @@ import os
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.backendopt import canraise
-from pypy.translator.backendopt.inline import inline_function, CannotInline
+from pypy.translator.backendopt.inline import simple_inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
@@ -56,10 +56,11 @@ def check_inline(func, in_func, sig, entry=None, inline_guarded_calls=False):
         raise_analyzer = canraise.RaiseAnalyzer(t)
     else:
         raise_analyzer = None
-    inliner = Inliner(t, graphof(t, in_func), func, inline_guarded_calls,
+    inliner = Inliner(t, graphof(t, in_func), func,
+                      t.rtyper.lltype_to_classdef_mapping(),
+                      inline_guarded_calls,
                       raise_analyzer=raise_analyzer)
     inliner.inline_all()
-#    inline_function(t, func, graphof(t, in_func))
     if option.view:
         t.view()
     sanity_check(t)
@@ -282,7 +283,7 @@ def test_for_loop():
             break
     else:
         assert 0, "cannot find ll_rangenext_*() function"
-    inline_function(t, graph, graphof(t, f))
+    simple_inline_function(t, graph, graphof(t, f))
     sanity_check(t)
     interp = LLInterpreter(t.rtyper)
     result = interp.eval_graph(graphof(t, f), [10])

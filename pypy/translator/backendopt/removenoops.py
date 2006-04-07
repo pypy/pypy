@@ -1,6 +1,7 @@
 from pypy.objspace.flow.model import Block, Variable, Constant
 from pypy.objspace.flow.model import traverse
 from pypy.rpython.lltypesystem.lltype import Void
+from pypy.translator.backendopt.support import log
 from pypy.translator import simplify
 from pypy import conftest
 
@@ -114,7 +115,8 @@ def remove_duplicate_casts(graph, translator):
                 else:
                     for arg in op.args:
                         used[arg] = True
-        print "removed %s cast_pointers in %s" % (num_removed, graph.name)
+        log.removecasts(
+            "removed %s cast_pointers in %s" % (num_removed, graph.name))
     return num_removed
 
 def remove_superfluous_keep_alive(graph):

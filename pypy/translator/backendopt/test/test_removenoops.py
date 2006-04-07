@@ -1,6 +1,6 @@
 from pypy.translator.backendopt.removenoops import remove_void, remove_same_as, \
         remove_unaryops, remove_duplicate_casts, remove_superfluous_keep_alive
-from pypy.translator.backendopt.inline import inline_function
+from pypy.translator.backendopt.inline import simple_inline_function
 from pypy.translator.backendopt.test.test_propagate import getops, get_graph, check_graph
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.test.snippet import simple_method
@@ -60,7 +60,7 @@ def test_remove_same_as():
     t.buildrtyper().specialize()
     # now we make the 'if True' appear
     f_graph = graphof(t, f)
-    inline_function(t, nothing, f_graph)
+    simple_inline_function(t, nothing, f_graph)
     # here, the graph looks like  v21=same_as(True);  exitswitch: v21
     remove_same_as(f_graph)
     t.checkgraphs()
@@ -127,7 +127,7 @@ def test_remove_duplicate_casts():
             c = B(x, x + 1, x + 2)
         return a.x + a.y + b.x + b.y + b.z + c.getsum()
     assert f(10, True) == 75
-    graph, t = get_graph(f, [int, bool], 1)
+    graph, t = get_graph(f, [int, bool], 1, False)
     num_cast_pointer = len(getops(graph)['cast_pointer'])
     changed = remove_duplicate_casts(graph, t)
     assert changed

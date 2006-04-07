@@ -6,12 +6,13 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.memory.test.test_gctransform import getops
 from pypy import conftest
 
-def get_graph(fn, signature, inline_threshold=True):
+def get_graph(fn, signature, inline_threshold=True, all_opts=True):
     t = TranslationContext()
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
-    backend_optimizations(t, inline_threshold=inline_threshold,
-                          ssa_form=False, propagate=False) 
+    if all_opts:
+        backend_optimizations(t, inline_threshold=inline_threshold,
+                              ssa_form=False, propagate=False) 
     graph = graphof(t, fn)
     if conftest.option.view:
         t.view()
