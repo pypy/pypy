@@ -421,6 +421,8 @@ class LLFrame(object):
         frame = self.__class__(graph, args, self.llinterpreter, self)
         return frame.eval()
 
+    op_safe_call = op_direct_call
+
     def op_indirect_call(self, f, *args):
         graphs = args[-1]
         args = args[:-1]

@@ -208,6 +208,9 @@ class GCTransformer(object):
         result.extend(self.pop_alive(oldval))
         return result
 
+    def replace_safe_call(self, op, livevars, block):
+        return [SpaceOperation("direct_call", op.args, op.result)]
+
     def annotate_helper(self, ll_helper, ll_args, ll_result):
         assert not self.finished
         args_s = map(annmodel.lltype_to_annotation, ll_args)

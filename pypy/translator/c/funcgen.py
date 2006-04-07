@@ -354,6 +354,7 @@ class FunctionCodeGenerator(object):
     # the following works since the extra arguments that indirect_call has
     # is of type Void, which is removed by OP_DIRECT_CALL
     OP_INDIRECT_CALL = OP_DIRECT_CALL
+    OP_SAFE_CALL = OP_DIRECT_CALL  #XXX: add a trivial gc transformer
 
     def check_directcall_result(self, op):
         return None

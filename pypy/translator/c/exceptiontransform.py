@@ -249,7 +249,7 @@ class ExceptionTransformer(object):
         var_exc_occured = Variable()
         var_exc_occured.concretetype = lltype.Bool
         
-        block.operations.append(SpaceOperation("direct_call", [self.rpyexc_occured_ptr], var_exc_occured))
+        block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
         block.exitswitch = var_exc_occured
         #exception occurred case
         l = Link([error_value(returnblock.inputargs[0].concretetype)], returnblock)
