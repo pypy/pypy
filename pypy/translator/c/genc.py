@@ -300,23 +300,23 @@ class SourceGenerator:
                        split_criteria=SPLIT_CRITERIA):
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
-        used = nextra
-        part = []
-        for node in nodes:
-            impl = '\n'.join(list(node.implementation())).split('\n')
-            if not impl:
-                continue
-            cost = len(impl) + nbetween
-            if used + cost > split_criteria and part:
-                # split if criteria met, unless we would produce nothing.
-                yield self.uniquecname(basecname), part
-                part = []
-                used = nextra
-            part.append( (node, impl) )
-            used += cost
-        # generate left pieces
-        if part:
-            yield self.uniquecname(basecname), part
+        iternodes = iter(nodes)
+        done = [False]
+        def subiter():
+            used = nextra
+            for node in iternodes:
+                impl = '\n'.join(list(node.implementation())).split('\n')
+                if not impl:
+                    continue
+                cost = len(impl) + nbetween
+                yield node, impl
+                if used + cost > split_criteria:
+                    # split if criteria met, unless we would produce nothing.
+                    raise StopIteration
+                used += cost
+            done[0] = True
+        while not done[0]:
+            yield self.uniquecname(basecname), subiter()
 
     def gen_readable_parts_of_source(self, f):
         if py.std.sys.platform != "win32":
@@ -389,7 +389,7 @@ class SourceGenerator:
         fc.close()
 
         nextralines = 11 + 1
-        for name, nodesimpl in self.splitnodesimpl('nonfuncnodes.c',
+        for name, nodeiter in self.splitnodesimpl('nonfuncnodes.c',
                                                    self.othernodes,
                                                    nextralines, 1):
             print >> f, '/* %s */' % name
@@ -405,14 +405,14 @@ class SourceGenerator:
             print >> fc, '#include "src/g_include.h"'
             print >> fc
             print >> fc, MARKER
-            for node, impl in nodesimpl:
+            for node, impl in nodeiter:
                 print >> fc, '\n'.join(impl)
                 print >> fc, MARKER
             print >> fc, '/***********************************************************/'
             fc.close()
 
         nextralines = 8 + len(self.preimpl) + 4 + 1
-        for name, nodesimpl in self.splitnodesimpl('implement.c',
+        for name, nodeiter in self.splitnodesimpl('implement.c',
                                                    self.funcnodes,
                                                    nextralines, 1,
                                                    split_criteria_big):
@@ -432,7 +432,7 @@ class SourceGenerator:
             print >> fc, '#include "src/g_include.h"'
             print >> fc
             print >> fc, MARKER
-            for node, impl in nodesimpl:
+            for node, impl in nodeiter:
                 print >> fc, '\n'.join(impl)
                 print >> fc, MARKER
             print >> fc, '/***********************************************************/'
