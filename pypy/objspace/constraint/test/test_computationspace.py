@@ -18,4 +18,11 @@ class AppTest_ComputationSpace(object):
         raises(Exception, cspace.var, "foo", FiniteDomain([1,2,3]))
     
 
+    def test_dom(self):
+        cspace = newspace()
+        domain = FiniteDomain([1,2,3])
+        v = cspace.var("foo", domain)
+        assert cspace.dom(v) is domain
+        
+
 
