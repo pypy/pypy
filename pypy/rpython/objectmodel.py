@@ -11,6 +11,19 @@ class Symbolic(object):
     def lltype(self):
         return None
 
+class ComputedIntSymbolic(Symbolic):
+
+    def __init__(self, compute_fn):
+        self.compute_fn = compute_fn
+
+    def annotation(self):
+        from pypy.annotation import model
+        return model.SomeInteger()
+
+    def lltype(self):
+        from pypy.rpython.lltypesystem import lltype
+        return lltype.Signed
+
 import new
 import weakref
 

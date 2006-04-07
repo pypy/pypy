@@ -1,4 +1,5 @@
 import sys
+from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
@@ -35,6 +36,8 @@ def name_signed(value, db):
             return '0'
         elif type(value) == REFCOUNT_IMMORTAL:
             return 'REFCOUNT_IMMORTAL'
+        elif isinstance(value, ComputedIntSymbolic):
+            value = value.compute_fn()
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value == -sys.maxint-1:   # blame C

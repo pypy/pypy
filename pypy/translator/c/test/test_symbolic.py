@@ -2,6 +2,7 @@ from pypy.translator.interactive import Translation
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rpython.memory import lladdress
+from pypy.rpython.objectmodel import ComputedIntSymbolic
 
 def getcompiled(f, args):
     t = Translation(f)
@@ -72,4 +73,20 @@ def test_sizeof_constsize_struct():
     res = fn()
     assert res == 51
 
+def test_computed_int_symbolic():
+    too_early = True
+    def compute_fn():
+        assert not too_early
+        return 7
+    k = ComputedIntSymbolic(compute_fn)
+    def f():
+        return k*6
 
+    t = Translation(f)
+    t.rtype()
+    if conftest.option.view:
+        t.view()
+    too_early = False
+    fn = t.compile_c()
+    res = fn()
+    assert res == 42
