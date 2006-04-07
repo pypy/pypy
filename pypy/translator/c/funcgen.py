@@ -113,6 +113,7 @@ class FunctionCodeGenerator(object):
 
     def implementation_end(self):
         self.lltypes = None
+        self.blocknum = None
         self.graph = self.oldgraph
         del self.oldgraph
 

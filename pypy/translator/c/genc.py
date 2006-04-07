@@ -320,7 +320,7 @@ class SourceGenerator:
 
     def gen_readable_parts_of_source(self, f):
         if py.std.sys.platform != "win32":
-            split_criteria_big = py.std.sys.maxint
+            split_criteria_big = SPLIT_CRITERIA * 4
         else:
             split_criteria_big = SPLIT_CRITERIA
         if self.one_source_file:
