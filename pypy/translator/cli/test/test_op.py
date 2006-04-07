@@ -55,3 +55,5 @@ def op_int_long_uint_ulong_modulo(x, y):
 def op_any_operations(x, y):
     return (x*y) + (x-y) + (x/y)
 
+def op_any_abs(x, y):
+    return abs(x)

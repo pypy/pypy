@@ -7,13 +7,14 @@ class Class(Node):
         self.db = db
         self.classdef = classdef
         self.namespace, self.name = cts.split_class_name(classdef._name)
+        #0/0
 
     def get_name(self):
         return self.name
 
     def get_base_class(self):
         base_class = self.classdef._superclass
-        if base_class is None or base_class._name == 'Object':
+        if base_class is None:
             return '[mscorlib]System.Object'
         else:
             return base_class._name
@@ -25,13 +26,13 @@ class Class(Node):
 
         ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
-            # TODO: handle default values
             ilasm.field(f_name, cts.lltype_to_cts(f_type))
 
+        # TODO: should the .ctor set the default values?
         self._ctor()
 
         for m_name, m_meth in self.classdef._methods.iteritems():
-            # TODO: handle class and unbound methods
+            # TODO: handle class methods and attributes
             f = Function(self.db, m_meth.graph, m_name, is_method = True)
             f.render(ilasm)
 

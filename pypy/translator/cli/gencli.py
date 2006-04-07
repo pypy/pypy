@@ -42,6 +42,10 @@ class GenCli(object):
             out = Tee(sys.stdout, out)
 
         self.ilasm = IlasmGenerator(out, self.assembly_name)
+        
+        # TODO: instance methods that are also called as unbound
+        # methods are rendered twice, once within the class and once
+        # as an external function. Fix this.        
         self.gen_entrypoint()
         self.find_superclasses()
         self.gen_classes()

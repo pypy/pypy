@@ -26,16 +26,25 @@ class Base:
     def __init__(self, x):
         self.x = x
 
+    def compute(self):
+        return self.x
+
 class Derived(Base):
     def __init__(self, x):
         Base.__init__(self, x)
 
-def foo(x):
-    return x+1
+    def compute(self):
+        return self.x+1
+
+def foo(cls, arg):
+    obj = cls(arg)
+    return obj.compute()
 
 def bar(x, y):
-    a = Derived(x)
-    return a.x
+    obj = Derived(x)
+    return obj.compute()
+    #return foo(Base, x) + foo(Derived, y)
+
 
 
 f = compile_function(bar, [int, int])

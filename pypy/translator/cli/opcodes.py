@@ -8,6 +8,9 @@ DoNothing = [PushAllArgs]
 def _not(op):
     return [PushAllArgs, op]+Not
 
+def _abs(type_):
+    return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_)]
+
 
 opcodes = {
     # __________ object oriented operations __________
@@ -40,14 +43,13 @@ opcodes = {
     'int_is_true':              DoNothing,
     'int_neg':                  'neg',
     'int_neg_ovf':              ['ldc.i4.0', PushAllArgs, 'sub.ovf'],
-    'int_abs':                  None, # TODO
-    'int_abs_ovf':              None, # TODO
+    'int_abs':                  _abs('int32'),
+    'int_abs_ovf':              _abs('int32'),
     'int_invert':               'not',
 
     'int_add':                  'add',
     'int_sub':                  'sub',
     'int_mul':                  'mul',
-#    'int_div':                  'div',
     'int_floordiv':             'div',
     'int_mod':                  'rem',
     'int_lt':                   'clt',
@@ -64,7 +66,6 @@ opcodes = {
     'int_add_ovf':              'add.ovf',
     'int_sub_ovf':              'sub.ovf',
     'int_mul_ovf':              'mul.ovf',
-#    'int_div_ovf':              None,
     'int_floordiv_ovf':         'div', # these can't overflow!
     'int_mod_ovf':              'rem',
     'int_lt_ovf':               'clt',
@@ -87,7 +88,7 @@ opcodes = {
 
     'uint_is_true':             DoNothing,
     'uint_neg':                 None,      # What's the meaning?
-    'uint_abs':                 None, # TODO
+    'uint_abs':                 _abs('unsigned int32'), # TODO: ?
     'uint_invert':              'not',
 
     'uint_add':                 'add',
@@ -111,14 +112,12 @@ opcodes = {
 
     'float_is_true':            [PushAllArgs, 'ldc.r8 0', 'ceq']+Not,
     'float_neg':                'neg',
-    'float_abs':                None, # TODO
+    'float_abs':                _abs('float64'),
 
     'float_add':                'add',
     'float_sub':                'sub',
     'float_mul':                'mul',
-#    'float_div':                'div',
     'float_truediv':            'div', 
-#    'float_floordiv':           None, # TODO
     'float_mod':                'rem',
     'float_lt':                 'clt',
     'float_le':                 _not('cgt'),
@@ -131,7 +130,7 @@ opcodes = {
 
     'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'ceq']+Not,
     'llong_neg':                'neg',
-    'llong_abs':                None, # TODO
+    'llong_abs':                _abs('int64'),
     'llong_invert':             'not',
 
     'llong_add':                'add',
@@ -150,7 +149,7 @@ opcodes = {
 
     'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'ceq']+Not,
     'ullong_neg':                None,
-    'ullong_abs':                None, # TODO
+    'ullong_abs':                _abs('unsigned int64'),
     'ullong_invert':             'not',
 
     'ullong_add':               'add',
