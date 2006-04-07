@@ -1,13 +1,19 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.objspace.std.strutil import interp_string_to_float, ParseStringError
+from pypy.objspace.std.objspace import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef, newmethod
+from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 
 # ERRORCODES
 
 ERR_WRONG_SECOND = "complex() can't take second arg if first is a string"
 ERR_MALFORMED = "complex() arg is a malformed string"
+
+complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1)
+
+register_all(vars(),globals())
 
 def _split_complex(s):
     slen = len(s)
@@ -122,10 +128,10 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         raise OperationError(space.w_TypeError, space.wrap(ERR_WRONG_SECOND))
     # if arguments can be cast to a float, do it
     try:
-        w_real = cast_float(space,w_real)
+        w_real = space.call_function(space.w_float,w_real) 
     except:pass
     try:
-        w_imag = cast_float(space,w_imag)
+        w_imag = space.call_function(space.w_float,w_imag) 
     except:pass
 
     # test for '__complex__' attribute and get result of
@@ -175,18 +181,9 @@ def extract_complex(num):
         return cnum
     else:
         return None
-
-def cast_float(num):
-    return float(num)
 """, filename=__file__)
 
 extract_complex = app.interphook('extract_complex')
-cast_float = app.interphook('cast_float')
-
-def descr_conjugate(space, w_self):
-    assert space.is_true(space.isinstance(w_self, space.w_complex))
-    from pypy.objspace.std.complexobject import W_ComplexObject
-    return W_ComplexObject(space,w_self.realval, -w_self.imagval)
 
 def complexwprop(name):
     def fget(space, w_obj):
@@ -205,5 +202,6 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __new__ = newmethod(descr__new__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
-    conjugate = newmethod(descr_conjugate)
     )
+
+complex_typedef.registermethods(globals())

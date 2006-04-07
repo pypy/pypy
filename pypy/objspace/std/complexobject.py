@@ -254,6 +254,11 @@ def nonzero__Complex(space, w_complex):
 def coerce__Complex_Complex(space, w_complex1, w_complex2):
     return space.newtuple([w_complex1, w_complex2])
 
+def complex_conjugate__Complex(space, w_self):
+    #w_real = space.call_function(space.w_float,space.wrap(w_self.realval))
+    #w_imag = space.call_function(space.w_float,space.wrap(-w_self.imagval))
+    return space.newcomplex(w_self.realval,-w_self.imagval)
+
 app = gateway.applevel(""" 
     import math
     def possint(f):
@@ -281,4 +286,5 @@ app = gateway.applevel("""
 repr__Complex = app.interphook('repr__Complex') 
 str__Complex = app.interphook('str__Complex') 
 
-register_all(vars())
+from pypy.objspace.std import complextype
+register_all(vars(), complextype)

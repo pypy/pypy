@@ -1,8 +1,5 @@
 import autopath
 import py
-from pypy.objspace.std.model import WITHCOMPLEX
-if not WITHCOMPLEX:
-    py.test.skip("only works if WITHCOMPLEX is enabled")
 from pypy.objspace.std import complexobject as cobj
 from pypy.objspace.std import complextype as cobjtype
 from pypy.objspace.std.objspace import FailedToImplement

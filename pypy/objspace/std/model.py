@@ -8,7 +8,6 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 import pypy.interpreter.pycode
 import pypy.interpreter.special
 
-WITHCOMPLEX = False
 WITHSET = False
 
 class StdTypeModel:
@@ -21,8 +20,7 @@ class StdTypeModel:
             from pypy.objspace.std.booltype   import bool_typedef
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
-            if WITHCOMPLEX:
-                from pypy.objspace.std.complextype  import complex_typedef
+            from pypy.objspace.std.complextype  import complex_typedef
             if WITHSET:
                 from pypy.objspace.std.settype import set_typedef
                 from pypy.objspace.std.settype import frozenset_typedef
@@ -48,8 +46,7 @@ class StdTypeModel:
         from pypy.objspace.std import boolobject
         from pypy.objspace.std import intobject
         from pypy.objspace.std import floatobject
-        if WITHCOMPLEX:
-            from pypy.objspace.std import complexobject
+        from pypy.objspace.std import complexobject
         if WITHSET:
             from pypy.objspace.std import setobject
         from pypy.objspace.std import tupleobject
@@ -90,11 +87,11 @@ class StdTypeModel:
             pypy.interpreter.pycode.PyCode: [],
             pypy.interpreter.special.Ellipsis: [],
             }
-        if WITHCOMPLEX:
-            self.typeorder[complexobject.W_ComplexObject] = []
+        self.typeorder[complexobject.W_ComplexObject] = []
         if WITHSET:
             self.typeorder[setobject.W_SetObject] = []
             self.typeorder[setobject.W_FrozensetObject] = []
+            self.typeorder[setobject.W_SetIterObject] = []
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
 
@@ -111,36 +108,25 @@ class StdTypeModel:
             (intobject.W_IntObject,     boolobject.delegate_Bool2Int),
             (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
-            #(complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
+            (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
         self.typeorder[intobject.W_IntObject] += [
             (longobject.W_LongObject,   longobject.delegate_Int2Long),
             (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            #(complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
+            (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         self.typeorder[longobject.W_LongObject] += [
             (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
-            #(complexobject.W_ComplexObject, complexobject.delegate_Long2Complex),
+            (complexobject.W_ComplexObject, 
+                    complexobject.delegate_Long2Complex),
             ]
         self.typeorder[floatobject.W_FloatObject] += [
-            #(complexobject.W_ComplexObject, complexobject.delegate_Float2Complex),
+            (complexobject.W_ComplexObject, 
+                    complexobject.delegate_Float2Complex),
             ]
         self.typeorder[stringobject.W_StringObject] += [
          (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
             ]
-        if WITHCOMPLEX:
-            self.typeorder[boolobject.W_BoolObject] += [
-                (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
-                ]
-            self.typeorder[intobject.W_IntObject] += [
-                (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
-                ]
-            self.typeorder[longobject.W_LongObject] += [
-                (complexobject.W_ComplexObject, complexobject.delegate_Long2Complex),
-                ]
-            self.typeorder[floatobject.W_FloatObject] += [
-                (complexobject.W_ComplexObject, complexobject.delegate_Float2Complex),
-                ]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []
