@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython import rarithmetic
 
 STORAGE_TYPES = [llmemory.Address,
                  lltype.Signed,
@@ -25,15 +26,27 @@ def storage_type(T):
     else:
         raise Exception("don't know about %r" % (T,))
 
-state_header = lltype.Struct('state_header',
+STATE_HEADER = lltype.Struct('state_header',
                              ('f_back', lltype.Ptr(lltype.ForwardReference())),
                              ('state', lltype.Signed))
-state_header.f_back.TO.become(state_header)
+STATE_HEADER.f_back.TO.become(STATE_HEADER)
 
 class StacklessTransfomer(object):
     def __init__(self, translator):
         self.translator = translator
+
+        null_frame_p = lltype.nullptr(STATE_HEADER)
         
+        class StacklessData:
+            def __init__(self):
+                top = null_frame_p
+                bottom = null_frame_p
+                restart_substate = 0
+                retval_long = 0
+                retval_longlong = rarithmetic.r_longlong(0)
+                retval_double = 0.0
+                retval_void_p = llmemory.fakeaddress(None)
+
         self.frametypes = {}
 
     def frame_type_for_vars(self, vars):
@@ -52,9 +65,12 @@ class StacklessTransfomer(object):
                 for j in range(k):
                     fields.append(('state_%s_%d'%(STORAGE_FIELDS[i], j), STORAGE_TYPES[i]))
             T = lltype.Struct("state_%d_%d_%d_%d"%tuple(key),
-                              ('header', state_header),
+                              ('header', STATE_HEADER),
                               *fields)
             self.frametypes[key] = T
             return T
-            
+
+    def transform_graph(self, graph):
+        for block in graph.iterblocks():
+            pass
 
