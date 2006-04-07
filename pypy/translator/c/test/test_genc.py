@@ -51,23 +51,6 @@ def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True):
         return res
     return checking_fn
 
-
-def test_untyped_func():
-    def f(x):
-        return x+1
-    graph = TranslationContext().buildflowgraph(f)
-
-    F = FuncType([Ptr(PyObject)], Ptr(PyObject))
-    S = GcStruct('testing', ('fptr', Ptr(F)))
-    f = functionptr(F, "f", graph=graph)
-    s = malloc(S)
-    s.fptr = f
-    db = LowLevelDatabase()
-    db.get(s)
-    db.complete()
-    compile_db(db)
-
-
 def test_func_as_pyobject():
     def f(x):
         return x*2

@@ -32,6 +32,7 @@ class GCTransformer(object):
     def __init__(self, translator, inline=False):
         self.translator = translator
         self.seen_graphs = {}
+        self.minimal_transform = {}
         if translator:
             self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         else:
@@ -40,17 +41,22 @@ class GCTransformer(object):
         self.graphs_to_inline = {}
 
     def get_lltype_of_exception_value(self):
-        if self.translator is not None and self.translator.rtyper is not None:
-            exceptiondata = self.translator.rtyper.getexceptiondata()
-            return exceptiondata.lltype_of_exception_value
-        else:
-            return lltype.Ptr(lltype.PyObject)
+        exceptiondata = self.translator.rtyper.getexceptiondata()
+        return exceptiondata.lltype_of_exception_value
+
+    def need_minimal_transform(self, graph):
+        self.seen_graphs[graph] = True
+        self.minimal_transform[graph] = True
 
     def transform(self, graphs):
         for graph in graphs:
             self.transform_graph(graph)
 
     def transform_graph(self, graph):
+        if graph in self.minimal_transform:
+            MinimalGCTransformer(self.translator).transform_graph(graph)
+            del self.minimal_transform[graph]
+            return
         if graph in self.seen_graphs:
             return
         self.seen_graphs[graph] = True
@@ -224,20 +230,18 @@ class GCTransformer(object):
 
     def inittime_helper(self, ll_helper, ll_args, ll_result):
         graph, ptr = self.annotate_helper(ll_helper, ll_args, ll_result)
-        self.seen_graphs[graph] = True
+        self.need_minimal_transform(graph)
         return Constant(ptr, lltype.Ptr(lltype.FuncType(ll_args, ll_result)))
 
     def finish(self):
         self.finished = True
-        if self.translator and self.translator.rtyper:
-            self.mixlevelannotator.finish()
-    
+        self.mixlevelannotator.finish()
 
 class MinimalGCTransformer(GCTransformer):
-    def push_alive_nopyobj(self, var):
+    def push_alive(self, var):
         return []
 
-    def pop_alive_nopyobj(self, var):
+    def pop_alive(self, var):
         return []
 
 
@@ -307,14 +311,13 @@ class RefcountingGCTransformer(GCTransformer):
                     dealloc(adr)
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
-        if self.translator is not None and self.translator.rtyper is not None:
-            self.increfptr = self.inittime_helper(
-                ll_incref, [llmemory.Address], lltype.Void)
-            self.decref_ptr = self.inittime_helper(
-                ll_decref, [llmemory.Address, lltype.Ptr(ADDRESS_VOID_FUNC)],
-                lltype.Void)
-            self.no_pointer_dealloc_ptr = self.inittime_helper(
-                ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
+        self.increfptr = self.inittime_helper(
+            ll_incref, [llmemory.Address], lltype.Void)
+        self.decref_ptr = self.inittime_helper(
+            ll_decref, [llmemory.Address, lltype.Ptr(ADDRESS_VOID_FUNC)],
+            lltype.Void)
+        self.no_pointer_dealloc_ptr = self.inittime_helper(
+            ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
         # cache graphs:
         self.decref_funcptrs = {}
         self.static_deallocator_funcptrs = {}
@@ -465,8 +468,7 @@ def ll_deallocator(addr):
         this = d['ll_deallocator']
         g, fptr = self.annotate_helper(this, [llmemory.Address], lltype.Void)
         # the produced deallocator graph does not need to be transformed
-        self.seen_graphs[g] = True
-
+        self.need_minimal_transform(g)
         self.static_deallocator_funcptrs[TYPE] = fptr
         for p in find_gc_ptrs_in_type(TYPE):
             self.static_deallocation_funcptr_for_type(p.TO)
@@ -498,7 +500,7 @@ def ll_deallocator(addr):
             gcheader.signed[0] = 0
             llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
         g, fptr = self.annotate_helper(ll_dealloc, [llmemory.Address], lltype.Void)
-        self.seen_graphs[g] = True
+        self.need_minimal_transform(g)
         
         self.dynamic_deallocator_funcptrs[TYPE] = fptr
         self.queryptr2dynamic_deallocator_funcptr[queryptr._obj] = fptr
@@ -573,7 +575,7 @@ class BoehmGCTransformer(GCTransformer):
         return None
 
     def finish(self):
-        self.mixlevelannotator.finish()
+        super(BoehmGCTransformer, self).finish()
 
     def finalizer_funcptr_for_type(self, TYPE):
         if TYPE in self.finalizer_funcptrs:
@@ -626,7 +628,7 @@ class BoehmGCTransformer(GCTransformer):
             g = fptr = None
 
         if g:
-            self.seen_graphs[g] = True
+            self.need_minimal_transform(g)
         self.finalizer_funcptrs[TYPE] = fptr
         return fptr
 
@@ -807,7 +809,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
         self.graphs_to_inline[malloc_fixedsize_graph] = True
 
     def graph2funcptr(self, graph):
-        self.seen_graphs[graph] = True
+        self.need_minimal_transform(graph)
         return const_funcptr_fromgraph(graph)
 
     def get_type_id(self, TYPE):
