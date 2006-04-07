@@ -17,7 +17,7 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 # this collects all multimethods to be made part of the Space
 all_mms = {}
 W_Root = baseobjspace.W_Root
-
+Wrappable = baseobjspace.Wrappable
 
 USE_COROUTINES = True
 HAVE_GREENLETS = True
@@ -758,6 +758,7 @@ def proxymaker(space, opname, parentfn):
 from pypy.objspace.constraint import domain 
 all_mms.update(domain.all_mms)
 
+W_FiniteDomain = domain.W_FiniteDomain
 
 #-- THE SPACE ---------------------------------------
 
@@ -774,8 +775,8 @@ def Space(*args, **kwds):
     space = std.Space(*args, **kwds)
 
     # multimethods hack
-    #space.model.typeorder[W_Var] = [(baseobjspace.W_Root, None)]
-    space.model.typeorder[W_Var] = [(W_Var, None), (baseobjspace.W_Root, None)] 
+    space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
+    space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
     for name in all_mms.keys():
         exprargs, expr, miniglobals, fallback = (
             all_mms[name].install_not_sliced(space.model.typeorder, baked_perform_call=False))
@@ -809,12 +810,15 @@ def Space(*args, **kwds):
                   space.wrap(app_alias_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
                   space.wrap(app_is_aliased))
-    space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
-                 space.wrap(domain.app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
+    #-- domain -----
+    space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
+                 space.wrap(domain.app_make_fd))
+    space.setitem(space.builtin.w_dict, space.wrap('intersection'),
+                 space.wrap(domain.app_intersection))
     if USE_COROUTINES:
         import os
         def exitfunc():
