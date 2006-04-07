@@ -9,7 +9,6 @@ class AppTest_FD(object):
         fd = FiniteDomain([1, 2, 3])
         assert fd.size() == 3
         assert set(fd.get_values()) == set([1, 2, 3])
-        #fd2 = fd.copy()
 
     def test_copy(self):
         fd = FiniteDomain([1, 2, 3])
@@ -27,7 +26,6 @@ class AppTest_FD(object):
         fd = FiniteDomain([3])
         # FIXME: check this is a ConsistencyFailure
         raises(Exception, fd.remove_value, 3) 
-        
         
     def test_remove_values(self):
         fd = FiniteDomain([1, 2, 3])

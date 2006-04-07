@@ -116,7 +116,7 @@ class W_BasicConstraint(W_Constraint):
         return variable == self._variable
 
     def w_estimate_cost(self):
-        return 0 # get in the first place in the queue
+        return self._space.newint(0) # get in the first place in the queue
     
     def w_affected_variables(self):
         return [self._variable]
@@ -168,14 +168,14 @@ class W_AllDistinct(W_AbstractConstraint):
         # worst case complexity
         self.__cost = len(w_variables.wrappeditems) * (len(w_variables.wrappeditems) - 1) / 2
 
-    def __repr__(self):
-        return '<AllDistinct %s>' % str(self._variables)
+    def w__repr__(self):
+        return self._space.newstring('<AllDistinct %s>' % str(self._variables))
 
     def w_copy_to(self, w_computation_space):
         return self.__class__(space, self._variables)
 
     def w_estimate_cost(self):
-        return self.__cost
+        return self._space.newint(self.__cost)
 
     def test_solution(self, sol):
         """test a solution against this constraint
@@ -185,20 +185,20 @@ class W_AllDistinct(W_AbstractConstraint):
         return len(value_set) == len(sol)
 
     def w_revise(self):
-        variables = [(self.cs.w_dom(variable).size(),
+        variables = [(self._space.int_w(self.cs.w_dom(variable).w_size()),
                       variable, self.cs.w_dom(variable))
-                     for variable in self._variables]
-
+                     for variable in self._variables.wrappeditems]
+        
         variables.sort()
         # if a domain has a size of 1,
         # then the value must be removed from the other domains
         for size, var, dom in variables:
-            if dom.size() == 1:
+            if self._space.eq_w(dom.w_size(), self._space.newint(1)):
                 print "AllDistinct removes values"
                 for _siz, _var, _dom in variables:
-                    if _var != var:
+                    if not self._space.eq_w(_var, var):
                         try:
-                            _dom.remove_value(dom.get_values()[0])
+                            _dom.w_remove_value(dom.w_get_values().wrappeditems[0])
                         except KeyError:
                             # we ignore errors caused by the removal of
                             # non existing values
@@ -207,26 +207,29 @@ class W_AllDistinct(W_AbstractConstraint):
         # if there are less values than variables, the constraint fails
         values = {}
         for size, var, dom in variables:
-            for val in dom:
+            for val in dom.w_get_values().wrappeditems:
                 values[val] = 0
         if len(values) < len(variables):
             print "AllDistinct failed"
-            raise ConsistencyFailure()
+            raise OperationError(self._space.w_RuntimeError,
+                                 self._space.wrap("Consistency Failure"))
+#            raise ConsistencyFailure()
 
         # the constraint is entailed if all domains have a size of 1
         for variable in variables:
-            if variable[2].size() != 1:
-                return 0
+            if self._space.is_true(self._space.ne(variable[2].w_size(), self._space.newint(1))):
+                return self._space.newint(0)
 
         # Question : did we *really* completely check
         # our own alldistinctness predicate ?
             
-        return 1 
+        return self._space.newint(1)
 
 W_AllDistinct.typedef = typedef.TypeDef(
     "W_AllDistinct", W_AbstractConstraint.typedef,
     estimate_cost = interp2app(W_AllDistinct.w_estimate_cost),
-    revise = interp2app(W_Constraint.w_revise)
+    revise = interp2app(W_AllDistinct.w_revise),
+    __repr__ = interp2app(W_AllDistinct.w__repr__)
     )
 
 # function bolted into the space to serve as constructor

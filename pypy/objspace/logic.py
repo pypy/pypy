@@ -786,6 +786,8 @@ def Space(*args, **kwds):
     # multimethods hack
     space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
+
+
     for name in all_mms.keys():
         exprargs, expr, miniglobals, fallback = (
             all_mms[name].install_not_sliced(space.model.typeorder, baked_perform_call=False))
