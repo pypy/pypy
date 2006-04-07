@@ -381,7 +381,7 @@ that the solver uses the Computation Space machinery for constraint
 solving. Basically, a computation space is like an independant world
 in which a specific, unique combination of choices will be tried and
 eventually a -locally- unique solution be produced. The solver uses as
-many computation spaces as neccessary to eventually enumerate all
+many computation spaces as necessary to eventually enumerate all
 possible solutions.
 
 
