@@ -424,15 +424,17 @@ class OneShotInliner(BaseInliner):
 OP_WEIGHTS = {'same_as': 0,
               'cast_pointer': 0,
               'keepalive': 0,
-              'direct_call': 2,    # guess
-              'indirect_call': 2,  # guess
-#              'malloc': 2,
+              'malloc': 2,
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
     total = 0
     for op in block.operations:
+        if op.opname == "direct_call":
+            total += 1.5 + len(op.args) / 2
+        elif op.opname == "indirect_call":
+            total += 2 + len(op.args) / 2
         total += weights.get(op.opname, 1)
     if block.exitswitch is not None:
         total += 1
@@ -543,7 +545,8 @@ def auto_inlining(translator, threshold=1):
             break   # finished
 
         heappop(fiboheap)
-        log.inlining('%7.2f %50s' % (weight, graph.name))
+        if callers[graph]:
+            log.inlining('%7.2f %50s' % (weight, graph.name))
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue

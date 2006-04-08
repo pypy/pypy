@@ -410,7 +410,7 @@ def test_measure_median_execution_cost():
     t = TranslationContext()
     graph = t.buildflowgraph(f)
     res = measure_median_execution_cost(graph)
-    assert res == 19
+    assert round(res, 5) == round(32.333333333, 5)
 
 def test_indirect_call_with_exception():
     class MyExc(Exception):
