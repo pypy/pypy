@@ -6,11 +6,11 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void, Ptr
+from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log, split_block_with_keepalive
-from pypy.translator.backendopt.support import generate_keepalive, find_backedges, find_loop_blocks
+from pypy.translator.backendopt.support import generate_keepalive 
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -68,28 +68,25 @@ def contains_call(graph, calling_what):
     except StopIteration:
         return False
 
-def inline_function(translator, inline_func, graph, lltype_to_classdef):
-    inliner = Inliner(translator, graph, inline_func, lltype_to_classdef)
+def inline_function(translator, inline_func, graph):
+    inliner = Inliner(translator, graph, inline_func)
     return inliner.inline_all()
-
-def simple_inline_function(translator, inline_func, graph):
-    inliner = Inliner(translator, graph, inline_func,
-                      translator.rtyper.lltype_to_classdef_mapping())
-    return inliner.inline_all()
-
 
 def _find_exception_type(block):
     #XXX slightly brittle: find the exception type for simple cases
     #(e.g. if you do only raise XXXError) by doing pattern matching
-    currvar = block.exits[0].args[1]
-    for op in block.operations[::-1]:
-        if op.opname in ("same_as", "cast_pointer") and op.result is currvar:
-            currvar = op.args[0]
-        elif op.opname == "malloc" and op.result is currvar:
-            break
-    else:
+    ops = [op for op in block.operations if op.opname != 'keepalive'] 
+    if (len(ops) < 6 or
+        ops[-6].opname != "malloc" or ops[-5].opname != "cast_pointer" or
+        ops[-4].opname != "setfield" or ops[-3].opname != "cast_pointer" or
+        ops[-2].opname != "getfield" or ops[-1].opname != "cast_pointer" or
+        len(block.exits) != 1 or block.exits[0].args[0] != ops[-2].result or
+        block.exitswitch is not None or
+        block.exits[0].args[1] != ops[-1].result or
+        not isinstance(ops[-4].args[1], Constant) or
+        ops[-4].args[1].value != "typeptr"):
         return None, None
-    return Ptr(op.args[0].value), block.exits[0]
+    return ops[-4].args[2].value, block.exits[0]
 
 def does_raise_directly(graph, raise_analyzer):
     """ this function checks, whether graph contains operations which can raise
@@ -105,8 +102,7 @@ def does_raise_directly(graph, raise_analyzer):
     return False
 
 class BaseInliner(object):
-    def __init__(self, translator, graph, lltype_to_classdef, 
-                 inline_guarded_calls=False,
+    def __init__(self, translator, graph, inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
         self.translator = translator
         self.graph = graph
@@ -119,7 +115,6 @@ class BaseInliner(object):
             self.raise_analyzer = raise_analyzer
         else:
             self.raise_analyzer = None
-        self.lltype_to_classdef = lltype_to_classdef
 
     def inline_all(self):
         count = 0
@@ -280,27 +275,22 @@ class BaseInliner(object):
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
-        from pypy.rpython.lltypesystem import rclass
         exc_match = self.translator.rtyper.getexceptiondata().fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
             copiedblock = self.copy_block(link.prevblock)
-            VALUE, copiedlink = _find_exception_type(copiedblock)
+            eclass, copiedlink = _find_exception_type(copiedblock)
             #print copiedblock.operations
-            if VALUE is None or VALUE not in self.lltype_to_classdef:
+            if eclass is None:
                 continue
-            classdef = self.lltype_to_classdef[VALUE]
-            rtyper = self.translator.rtyper
-            classrepr = rclass.getclassrepr(rtyper, classdef)
-            vtable = classrepr.getruntime()
-            var_etype = copiedlink.args[0]
-            var_evalue = copiedlink.args[1]
+            etype = copiedlink.args[0]
+            evalue = copiedlink.args[1]
             for exceptionlink in afterblock.exits[1:]:
-                if exc_match(vtable, exceptionlink.llexitcase):
+                if exc_match(eclass, exceptionlink.llexitcase):
                     passon_vars = self.passon_vars(link.prevblock)
                     copiedblock.operations += generate_keepalive(passon_vars)
                     copiedlink.target = exceptionlink.target
                     linkargs = self.find_args_in_exceptional_case(
-                        exceptionlink, link.prevblock, var_etype, var_evalue, afterblock, passon_vars)
+                        exceptionlink, link.prevblock, etype, evalue, afterblock, passon_vars)
                     copiedlink.args = linkargs
                     break
 
@@ -398,9 +388,9 @@ class BaseInliner(object):
 
 
 class Inliner(BaseInliner):
-    def __init__(self, translator, graph, inline_func, lltype_to_classdef, inline_guarded_calls=False,
+    def __init__(self, translator, graph, inline_func, inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
-        BaseInliner.__init__(self, translator, graph, lltype_to_classdef,
+        BaseInliner.__init__(self, translator, graph, 
                              inline_guarded_calls,
                              inline_guarded_calls_no_matter_what,
                              raise_analyzer)
@@ -414,9 +404,20 @@ class Inliner(BaseInliner):
             self.block_to_index.setdefault(block, {})[i] = g
 
 class OneShotInliner(BaseInliner):
+    def __init__(self, translator, graph, inline_guarded_calls=False,
+                 inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
+         BaseInliner.__init__(self, translator, graph, 
+                              inline_guarded_calls,
+                              inline_guarded_calls_no_matter_what,
+                              raise_analyzer)
+
     def search_for_calls(self, block):
         pass
 
+
+def _inline_function(translator, graph, block, index_operation):
+    inline_func = block.operations[index_operation].args[0].value._obj._callable
+    inliner = Inliner(translator, graph, inline_func)
 
 # ____________________________________________________________
 #
@@ -425,17 +426,14 @@ class OneShotInliner(BaseInliner):
 OP_WEIGHTS = {'same_as': 0,
               'cast_pointer': 0,
               'keepalive': 0,
-              'malloc': 2,
+              'direct_call': 2,    # guess
+              'indirect_call': 2,  # guess
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
     total = 0
     for op in block.operations:
-        if op.opname == "direct_call":
-            total += 1.5 + len(op.args) / 2
-        elif op.opname == "indirect_call":
-            total += 2 + len(op.args) / 2
         total += weights.get(op.opname, 1)
     if block.exitswitch is not None:
         total += 1
@@ -448,34 +446,15 @@ def measure_median_execution_cost(graph):
     for block in graph.iterblocks():
         blockmap[block] = len(blocks)
         blocks.append(block)
-    backedges = dict.fromkeys(find_backedges(graph), True)
-    loops = find_loop_blocks(graph)
     M = sparsemat.SparseMatrix(len(blocks))
     vector = []
     for i, block in enumerate(blocks):
         vector.append(block_weight(block))
         M[i, i] = 1
         if block.exits:
-            if block not in loops:
-                current_loop_start = None
-            else:
-                current_loop_start = loops[block]
-            loop_exits = []
+            f = 1.0 / len(block.exits)
             for link in block.exits:
-                if (link.target in loops and
-                    loops[link.target] is current_loop_start):
-                    loop_exits.append(link)
-            if len(loop_exits) and len(loop_exits) < len(block.exits):
-                f = 0.3 / (len(block.exits) - len(loop_exits))
-                b = 0.7 / len(loop_exits)
-            else:
-                b = f = 1.0 / len(block.exits)
-            for link in block.exits:
-                if (link.target in loops and
-                    loops[link.target] is current_loop_start):
-                    M[i, blockmap[link.target]] -= b
-                else:
-                    M[i, blockmap[link.target]] -= f
+                M[i, blockmap[link.target]] -= f
     try:
         Solution = M.solve(vector)
     except ValueError:
@@ -528,33 +507,30 @@ def auto_inlining(translator, threshold=1):
     for graph1, graph2 in static_callers(translator, ignore_primitives=True):
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
-    heap = [(0.0, -len(callers[graph]), graph) for graph in callers]
+    fiboheap = [(0.0, graph) for graph in callers]
     valid_weight = {}
     couldnt_inline = {}
-    lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
 
-    while heap:
-        weight, _, graph = heap[0]
+    while fiboheap:
+        weight, graph = fiboheap[0]
         if not valid_weight.get(graph):
             weight = inlining_heuristic(graph, callers.get(graph), callees.get(graph))
             #print '  + cost %7.2f %50s' % (weight, graph.name)
-            heapreplace(heap, (weight, -len(callers[graph]), graph))
+            heapreplace(fiboheap, (weight, graph))
             valid_weight[graph] = True
             continue
 
         if weight >= threshold:
             break   # finished
 
-        heappop(heap)
-        if callers[graph]:
-            log.inlining('%7.2f %50s' % (weight, graph.name))
+        heappop(fiboheap)
+        log.inlining('%7.2f %50s' % (weight, graph.name))
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
             sys.stdout.flush()
             try:
-                res = bool(inline_function(translator, graph, parentgraph,
-                                           lltype_to_classdef))
+                res = bool(inline_function(translator, graph, parentgraph))
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline
@@ -569,5 +545,5 @@ def auto_inlining(translator, threshold=1):
                     # been modified.  Maybe now we can inline it into further
                     # parents?
                     del couldnt_inline[parentgraph]
-                    heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
+                    heappush(fiboheap, (0.0, parentgraph))
                 valid_weight[parentgraph] = False

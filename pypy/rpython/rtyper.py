@@ -102,12 +102,6 @@ class RPythonTyper:
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
 
-    def lltype_to_classdef_mapping(self):
-        result = {}
-        for (classdef, _), repr in self.instance_reprs.iteritems():
-            result[repr.lowleveltype] = classdef
-        return result
-
     def makekey(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makekey(self)
 
