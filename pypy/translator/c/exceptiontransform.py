@@ -152,8 +152,9 @@ class ExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            afterblock = support.split_block_with_keepalive(
+            splitlink = support.split_block_with_keepalive(
                 self.translator, graph, block, i+1, False)
+            afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
 
