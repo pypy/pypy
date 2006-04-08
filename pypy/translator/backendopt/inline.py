@@ -558,7 +558,6 @@ def auto_inlining(translator, threshold=1):
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline
-                print "fail"
             if res is True:
                 # the parentgraph should now contain all calls that were
                 # done by 'graph'
