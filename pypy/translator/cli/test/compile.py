@@ -1,4 +1,5 @@
 #!/bin/env python
+import autopath
 import sys
 import py
 from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong, ovfcheck
@@ -27,14 +28,11 @@ class Base:
         self.x = x
 
     def compute(self):
-        return self.x
+        return self.x + 1
 
 class Derived(Base):
     def __init__(self, x):
         Base.__init__(self, x)
-
-    def compute(self):
-        return self.x+1
 
 def foo(cls, arg):
     obj = cls(arg)
@@ -45,12 +43,10 @@ def bar(x, y):
     return obj.compute()
 #    return foo(Base, x) + foo(Derived, y)
 
-
-
 f = compile_function(bar, [int, int])
 
-try:
-    pass
-except py.test.Item.Skipped:
-    print 'Test skipped'
+##try:
+##    pass
+##except py.test.Item.Skipped:
+##    print 'Test skipped'
 

@@ -49,7 +49,8 @@ class GenCli(object):
         self.gen_entrypoint()
         self.find_superclasses()
         self.gen_classes()
-        self.gen_functions()        
+        self.gen_functions()
+        self.db.gen_constants(self.ilasm)
         out.close()
         return self.tmpfile.strpath
 

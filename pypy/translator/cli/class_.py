@@ -8,19 +8,25 @@ class Class(Node):
         self.cts = CTS(db)
         self.classdef = classdef
         self.namespace, self.name = self.cts.split_class_name(classdef._name)
-        #0/0
+
+    def is_root(classdef):
+        return classdef._superclass is None
+    is_root = staticmethod(is_root)
 
     def get_name(self):
         return self.name
 
     def get_base_class(self):
         base_class = self.classdef._superclass
-        if base_class is None:
+        if self.is_root(base_class):
             return '[mscorlib]System.Object'
         else:
             return base_class._name
 
     def render(self, ilasm):
+        if self.is_root(self.classdef):
+            return
+        
         self.ilasm = ilasm
         if self.namespace:
             ilasm.begin_namespace(self.namespace)

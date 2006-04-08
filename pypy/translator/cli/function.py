@@ -209,8 +209,6 @@ class Function(Node, Generator):
             if isinstance(lltype, ootype.Instance):
                 self.db.classes.add(lltype)
 
-
-
     def _render_op(self, op):
         instr_list = opcodes.get(op.opname, None)
         if instr_list is not None:
@@ -224,8 +222,11 @@ class Function(Node, Generator):
                 assert False, 'Unknown opcode: %s ' % op
 
     def field_name(self, obj, field):
-        class_name = self.class_name(obj)
-        field_type = self.cts.lltype_to_cts(obj._field_type(field))
+        class_, type_ = obj._lookup_field(field)
+        assert type_ is not None, 'Cannot find the field %s in the object %s' % (field, obj)
+        
+        class_name = self.class_name(class_)
+        field_type = self.cts.lltype_to_cts(type_)
         return '%s %s::%s' % (field_type, class_name, field)
 
     def ctor_name(self, ooinstance):
@@ -282,7 +283,7 @@ class Function(Node, Generator):
         else:
             assert False
 
-    def _load_const(self, const):
+    def _load_const(self, const):        
         type_ = const.concretetype
         if type_ is Void:
             pass
@@ -295,9 +296,9 @@ class Function(Node, Generator):
         elif type_ in (SignedLongLong, UnsignedLongLong):
             self.ilasm.opcode('ldc.i8', str(const.value))
         else:
-            name = self.db.record_const(const)
+            name = self.db.record_const(const.value)
             cts_type = self.cts.lltype_to_cts(type_)
-            self.ilasm.opcode('ldsfld %s Pypy.Constants::%s' % (cts_type, name))
+            self.ilasm.opcode('ldsfld %s %s' % (cts_type, name))
             #assert False, 'Unknown constant %s' % const
 
 

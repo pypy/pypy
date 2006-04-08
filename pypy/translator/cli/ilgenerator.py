@@ -59,8 +59,13 @@ class IlasmGenerator(object):
     def end_class(self):
         self.code.closeblock()
 
-    def field(self, name, type_):
-        self.code.writeline('.field public %s %s' %(type_, name))
+    def field(self, name, type_, static = False):
+        if static:
+            s = 'static'
+        else:
+            s = ''
+
+        self.code.writeline('.field public %s %s %s' % (s, type_, name))
 
     def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args):
         # TODO: .maxstack

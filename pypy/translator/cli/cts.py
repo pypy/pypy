@@ -23,7 +23,7 @@ _lltype_to_cts = {
     UnsignedLongLong: 'unsigned int64',
     Bool: 'bool',
     Float: 'float64',
-    Class: '[mscorlib]System.Type', # TODO: check this
+    Class: 'class [mscorlib]System.Type', # TODO: check this
     }
 
 _pyexception_to_cts = {
