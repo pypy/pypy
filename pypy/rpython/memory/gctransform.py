@@ -666,7 +666,9 @@ def gc_pointers_inside(v, adr):
 class FrameworkGCTransformer(BoehmGCTransformer):
 
     def __init__(self, translator):
+        from pypy.rpython.memory.support import get_address_linked_list
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
+        AddressLinkedList = get_address_linked_list()
         class GCData(object):
             from pypy.rpython.memory.gc import MarkSweepGC as GCClass
             startheapsize = 8*1024*1024 # XXX adjust
@@ -747,7 +749,7 @@ class FrameworkGCTransformer(BoehmGCTransformer):
             stackbase = lladdress.raw_malloc(GCData.rootstacksize)
             gcdata.root_stack_top  = stackbase
             gcdata.root_stack_base = stackbase
-            gcdata.gc = GCData.GCClass(GCData.startheapsize, StackRootIterator)
+            gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
             gcdata.gc.set_query_functions(
                 q_is_varsize,
                 q_offsets_to_gc_pointers,

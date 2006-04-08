@@ -1,7 +1,7 @@
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
+from pypy.rpython.memory.support import get_address_linked_list, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory import lltypelayout
 from pypy.rpython.memory import lltypesimulation
@@ -175,10 +175,11 @@ def getfunctionptr(annotator, graphfunc):
 class GcWrapper(object):
     def __init__(self, llinterp, flowgraphs, gc_class):
         self.query_types = QueryTypes()
+        self.AddressLinkedList = get_address_linked_list(3)
         # XXX there might me GCs that have headers that depend on the type
         # therefore we have to change the query functions to annotatable ones
         # later
-        self.gc = gc_class()
+        self.gc = gc_class(self.AddressLinkedList)
         self.gc.set_query_functions(*self.query_types.get_setup_query_functions())
         fgcc = FlowGraphConstantConverter(flowgraphs, self.gc, self.query_types)
         fgcc.convert()
@@ -251,7 +252,7 @@ class GcWrapper(object):
 
     def get_roots(self):
         self.get_roots_from_llinterp()
-        ll = AddressLinkedList()
+        ll = self.AddressLinkedList()
         for i, root in enumerate(self.roots):
             self.pseudo_root_pointers.address[i] = root._address
             ll.append(self.pseudo_root_pointers + INT_SIZE * i)
@@ -268,15 +269,17 @@ class AnnotatingGcWrapper(GcWrapper):
     def annotate_rtype_gc(self):
         # annotate and specialize functions
         gc_class = self.gc.__class__
+        AddressLinkedList = self.AddressLinkedList
         def instantiate_linked_list():
             return AddressLinkedList()
         f1, f2, f3, f4, f5, f6, f7 = self.query_types.create_query_functions()
         def instantiate_gc():
-            gc = gc_class()
+            gc = gc_class(AddressLinkedList)
             gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7)
             return gc
-        func = gc.get_dummy_annotate(self.gc.__class__)
-        self.gc.get_roots = gc.dummy_get_roots1
+        func, dummy_get_roots1, dummy_get_roots2 = gc.get_dummy_annotate(
+            self.gc.__class__, self.AddressLinkedList)
+        self.gc.get_roots = dummy_get_roots1
         a = RPythonAnnotator()
         a.build_types(instantiate_gc, [])
         a.build_types(func, [])
@@ -295,7 +298,7 @@ class AnnotatingGcWrapper(GcWrapper):
         self.gcptr = self.llinterp.eval_graph(
             a.bookkeeper.getdesc(instantiate_gc).cachedgraph(None))
         GETROOTS_FUNCTYPE = lltype.typeOf(
-            getfunctionptr(a, gc.dummy_get_roots1)).TO
+            getfunctionptr(a, dummy_get_roots1)).TO
         setattr(self.gcptr, "inst_get_roots",
                 lltypesimulation.functionptr(GETROOTS_FUNCTYPE, "get_roots",
                                              _callable=self.get_roots))

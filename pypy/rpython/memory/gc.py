@@ -1,6 +1,6 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import NULL, address
-from pypy.rpython.memory.support import AddressLinkedList
+from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import free_non_gc_object
@@ -29,9 +29,9 @@ gc_header_one_int = GCHeaderOffset(
 class GCError(Exception):
     pass
 
-def get_dummy_annotate(gc_class):
+def get_dummy_annotate(gc_class, AddressLinkedList):
     def dummy_annotate():
-        gc = gc_class()
+        gc = gc_class(AddressLinkedList)
         gc.get_roots = dummy_get_roots1 #prevent the get_roots attribute to 
         gc.get_roots = dummy_get_roots2 #be constants
         a = gc.malloc(1, 2)
@@ -39,28 +39,29 @@ def get_dummy_annotate(gc_class):
         gc.write_barrier(raw_malloc(1), raw_malloc(2), raw_malloc(1))
         gc.collect()
         return a - b
-    return dummy_annotate
+
+    def dummy_get_roots1():
+        ll = AddressLinkedList()
+        ll.append(NULL)
+        ll.append(raw_malloc(10))
+        ll.pop() #make the annotator see pop
+        return ll
+
+    def dummy_get_roots2():
+        ll = AddressLinkedList()
+        ll.append(raw_malloc(10))
+        ll.append(NULL)
+        ll.pop() #make the annotator see pop
+        return ll
+    return dummy_annotate, dummy_get_roots1, dummy_get_roots2
+
 
 gc_interface = {
     "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed),
     "collect": lltype.FuncType((), lltype.Void),
     "write_barrier": lltype.FuncType((llmemory.Address, ) * 3, lltype.Void),
     }
-
-def dummy_get_roots1():
-    ll = AddressLinkedList()
-    ll.append(NULL)
-    ll.append(raw_malloc(10))
-    ll.pop() #make the annotator see pop
-    return ll
-
-def dummy_get_roots2():
-    ll = AddressLinkedList()
-    ll.append(raw_malloc(10))
-    ll.append(NULL)
-    ll.pop() #make the annotator see pop
-    return ll
-
+    
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -89,7 +90,7 @@ class GCBase(object):
 class DummyGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, dummy=None, get_roots=None):
+    def __init__(self, AddressLinkedList, dummy=None, get_roots=None):
         self.get_roots = get_roots
         #self.set_query_functions(None, None, None, None, None, None, None)
    
@@ -115,12 +116,13 @@ class MarkSweepGC(GCBase):
     
     _size_gc_header = gc_header_one_int
 
-    def __init__(self, start_heap_size=4096, get_roots=None):
+    def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
         self.bytes_malloced = 0
         self.heap_size = start_heap_size
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
         self.malloced_objects = AddressLinkedList()
+        self.AddressLinkedList = AddressLinkedList
         #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
 
@@ -164,7 +166,7 @@ class MarkSweepGC(GCBase):
 ##         print "collecting"
         self.bytes_malloced = 0
         roots = self.get_roots()
-        objects = AddressLinkedList()
+        objects = self.AddressLinkedList()
         while 1:
             curr = roots.pop()
 ##             print "root: ", curr
@@ -209,7 +211,7 @@ class MarkSweepGC(GCBase):
                     i += 1
             gc_info.signed[0] = gc_info.signed[0] | 1
         free_non_gc_object(objects)
-        newmo = AddressLinkedList()
+        newmo = self.AddressLinkedList()
         curr_heap_size = 0
         freed_size = 0
         while 1:  #sweep
@@ -244,7 +246,8 @@ class MarkSweepGC(GCBase):
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, space_size=1024*int_size, get_roots=None):
+    def __init__(self, AddressLinkedList, space_size=1024*int_size,
+                 get_roots=None):
         self.bytes_malloced = 0
         self.space_size = space_size
         self.tospace = raw_malloc(space_size)
@@ -382,8 +385,9 @@ class SemiSpaceGC(GCBase):
 class DeferredRefcountingGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, max_refcount_zero=50, get_roots=None):
+    def __init__(self, AddressLinkedList, max_refcount_zero=50, get_roots=None):
         self.zero_ref_counts = AddressLinkedList()
+        self.AddressLinkedList = AddressLinkedList
         self.length_zero_ref_counts = 0
         self.max_refcount_zero = max_refcount_zero
         #self.set_query_functions(None, None, None, None, None, None, None)
@@ -407,7 +411,7 @@ class DeferredRefcountingGC(GCBase):
         else:
             self.collecting = True
         roots = self.get_roots()
-        roots_copy = AddressLinkedList()
+        roots_copy = self.AddressLinkedList()
         curr = roots.pop()
         while curr != NULL:
 ##             print "root", root, root.address[0]
@@ -416,7 +420,7 @@ class DeferredRefcountingGC(GCBase):
             roots_copy.append(curr)
             curr = roots.pop()
         roots = roots_copy
-        dealloc_list = AddressLinkedList()
+        dealloc_list = self.AddressLinkedList()
         self.length_zero_ref_counts = 0
         while 1:
             candidate = self.zero_ref_counts.pop()

@@ -25,41 +25,42 @@ class FreeList(object):
         chunk.address[0] = self.free_list
         self.free_list = chunk
 
-class AddressLinkedList(object):
-    _alloc_flavor_ = "raw"
-    
-    unused_chunks = FreeList(CHUNK_SIZE + 2)
-    
-    def __init__(self):
-        self.chunk = NULL
-
-    def append(self, addr):
-        if addr == NULL:
-            return
-        if self.chunk == NULL or self.chunk.signed[1] == CHUNK_SIZE:
-            new = AddressLinkedList.unused_chunks.get()
-            new.address[0] = self.chunk
-            new.signed[1] = 0
-            self.chunk = new
-        used_chunks = self.chunk.signed[1]
-        self.chunk.signed[1] += 1
-        self.chunk.address[used_chunks + 2] = addr
+def get_address_linked_list(chunk_size=CHUNK_SIZE):
+    unused_chunks = FreeList(chunk_size + 2)
+    class AddressLinkedList(object):
+        _alloc_flavor_ = "raw"
         
-    def pop(self):
-        used_chunks = self.chunk.signed[1]
-        if used_chunks == 0:
-            old = self.chunk
-            previous = old.address[0]
-            if previous == NULL:
-                return NULL
-            self.chunk = previous
-            AddressLinkedList.unused_chunks.put(old)
-            used_chunks = self.chunk.signed[1]
-        result = self.chunk.address[used_chunks + 1]
-        self.chunk.address[used_chunks + 1] = NULL
-        self.chunk.signed[1] = used_chunks - 1
-        return result
+        def __init__(self):
+            self.chunk = NULL
 
-    def free(self):
-        while self.pop() != NULL:
-            pass
+        def append(self, addr):
+            if addr == NULL:
+                return
+            if self.chunk == NULL or self.chunk.signed[1] == chunk_size:
+                new = unused_chunks.get()
+                new.address[0] = self.chunk
+                new.signed[1] = 0
+                self.chunk = new
+            used_chunks = self.chunk.signed[1]
+            self.chunk.signed[1] += 1
+            self.chunk.address[used_chunks + 2] = addr
+            
+        def pop(self):
+            used_chunks = self.chunk.signed[1]
+            if used_chunks == 0:
+                old = self.chunk
+                previous = old.address[0]
+                if previous == NULL:
+                    return NULL
+                self.chunk = previous
+                unused_chunks.put(old)
+                used_chunks = self.chunk.signed[1]
+            result = self.chunk.address[used_chunks + 1]
+            self.chunk.address[used_chunks + 1] = NULL
+            self.chunk.signed[1] = used_chunks - 1
+            return result
+
+        def free(self):
+            while self.pop() != NULL:
+                pass
+    return AddressLinkedList
