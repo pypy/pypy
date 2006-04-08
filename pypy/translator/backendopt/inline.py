@@ -1,7 +1,7 @@
 import sys
 from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.simplify import get_graph
-from pypy.translator.unsimplify import copyvar, split_block
+from pypy.translator.unsimplify import copyvar
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
@@ -9,7 +9,8 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void, Ptr
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
-from pypy.translator.backendopt.support import log, split_block_with_keepalive, generate_keepalive, find_backedges, find_loop_blocks
+from pypy.translator.backendopt.support import log, split_block_with_keepalive
+from pypy.translator.backendopt.support import generate_keepalive, find_backedges, find_loop_blocks
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -349,8 +350,9 @@ class BaseInliner(object):
 
       
     def do_inline(self, block, index_operation):
-        afterblock = split_block_with_keepalive(
+        splitlink = split_block_with_keepalive(
             self.translator, self.graph, block, index_operation)
+        afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
         # the inlined function
@@ -360,8 +362,7 @@ class BaseInliner(object):
                                          if isinstance(arg, Variable)]
         assert afterblock.operations[0] is self.op
         #vars that need to be passed through the blocks of the inlined function
-        linktoinlined = block.exits[0]
-        assert linktoinlined.target is afterblock
+        linktoinlined = splitlink 
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
         copiedstartblock.isstartblock = False
         #find args passed to startblock of inlined function

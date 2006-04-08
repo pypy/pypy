@@ -64,7 +64,8 @@ def generate_keepalive(vars):
 
 def split_block_with_keepalive(translator, graph, block, index_operation,
                                keep_alive_op_args=True):
-    afterblock = split_block(translator, graph, block, index_operation)
+    splitlink = split_block(translator, graph, block, index_operation)
+    afterblock = splitlink.target
     conservative_keepalives = needs_conservative_livevar_calculation(block)
     if conservative_keepalives:
         keep_alive_vars = [var for var in block.getvariables()
@@ -73,10 +74,10 @@ def split_block_with_keepalive(translator, graph, block, index_operation,
         # alive by something else. but this is sometimes hard to know
         for i, var in enumerate(keep_alive_vars):
             try:
-                index = block.exits[0].args.index(var)
+                index = splitlink.args.index(var)
                 newvar = afterblock.inputargs[index]
             except ValueError:
-                block.exits[0].args.append(var)
+                splitlink.args.append(var)
                 newvar = copyvar(translator, var)
                 afterblock.inputargs.append(newvar)
             keep_alive_vars[i] = newvar
@@ -94,7 +95,7 @@ def split_block_with_keepalive(translator, graph, block, index_operation,
             betweenblock.operations = generate_keepalive(fresh_vars)
     else:
         afterblock.operations.extend(generate_keepalive(keep_alive_vars))
-    return afterblock
+    return splitlink
 
 def calculate_call_graph(translator):
     calls = {}
