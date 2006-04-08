@@ -85,4 +85,6 @@ def add_frame_state(u, frame_state):
     else:
         u.frame_bottom.f_back = frame_state
         u.frame_bottom = frame_state
-        
+
+def resume_state():
+    return global_state.restart_substate

@@ -115,6 +115,14 @@ class StacklessTransfomer(object):
             graph=add_frame_state_graph),
             lltype.Ptr(ADD_FRAME_STATE_TYPE))
 
+        RESUME_STATE_TYPE = lltype.FuncType([], lltype.Signed)
+        resume_state_graph = mixlevelannotator.getgraph(
+            code.resume_state, [], annmodel.SomeInteger())
+        self.resume_state_ptr = model.Constant(lltype.functionptr(
+            RESUME_STATE_TYPE, "resume_state",
+            graph=resume_state_graph),
+            lltype.Ptr(RESUME_STATE_TYPE))
+
         mixlevelannotator.finish()
 
     def frame_type_for_vars(self, vars):
@@ -153,8 +161,28 @@ class StacklessTransfomer(object):
         self.curr_graph = None
 
     def insert_resume_handling(self, graph):
-        #graph.startblock.isstartblock = False 
-        pass
+        old_start_block = graph.startblock
+        newinputargs = [copyvar(self.translator, v) for v in old_start_block.inputargs]
+        new_start_block = model.Block(newinputargs)
+        var_resume_state = varoftype(lltype.Signed)
+        new_start_block.operations.append(
+            model.SpaceOperation("direct_call", [self.resume_state_ptr], var_resume_state))
+        not_resuming_link = model.Link(newinputargs, old_start_block, 0)
+        resuming_links = []
+        for i, resume_point in enumerate(self.resume_points):
+            newblock = model.Block([])
+            args = []
+            for arg in resume_point.targetblock.inputargs:
+                args.append(model.Constant(arg.concretetype._example(), arg.concretetype))
+            newblock.closeblock(model.Link(args, resume_point.targetblock))
+            
+            resuming_links.append(model.Link([], newblock, i+1))
+        new_start_block.exitswitch = var_resume_state
+        new_start_block.closeblock(not_resuming_link, *resuming_links)
+
+        old_start_block.isstartblock = False
+        new_start_block.isstartblock = True
+        graph.startblock = new_start_block
 
     def transform_block(self, block):
         i = 0
