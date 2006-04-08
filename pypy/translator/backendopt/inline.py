@@ -547,7 +547,6 @@ def auto_inlining(translator, threshold=1):
         heappop(heap)
         if callers[graph]:
             log.inlining('%7.2f %50s' % (weight, graph.name))
-            print callers[graph]
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
