@@ -266,12 +266,13 @@ class FunctionCodeGenerator(object):
                             yield '\t' + op
                         yield 'break;'
                         
-                    # ? Emit default case
-                    if defaultlink is None:
-                        raise TypeError('switches must have a default case.')
+                    # Emit default case
                     yield 'default:'
-                    for op in self.gen_link(defaultlink):
-                        yield '\t' + op
+                    if defaultlink is None:
+                        yield '\tassert(!"bad switch!!");'
+                    else:
+                        for op in self.gen_link(defaultlink):
+                            yield '\t' + op
 
                     yield '}'
                 else:
