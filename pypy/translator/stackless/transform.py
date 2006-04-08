@@ -71,6 +71,11 @@ null_state = lltype.nullptr(STATE_HEADER)
         
 ##     return retval + x + 1
 
+class ResumePoint:
+    def __init__(self, var_result, varstoload, targetblock):
+        self.var_result = var_result
+        self.varstoload = varstoload 
+        self.targetblock = targetblock 
 
 class StacklessTransfomer(object):
     def __init__(self, translator):
@@ -141,10 +146,15 @@ class StacklessTransfomer(object):
         
         for block in list(graph.iterblocks()):
             self.transform_block(block)
+
         if self.resume_points:
-            XXX
+            self.insert_resume_handling(graph)
 
         self.curr_graph = None
+
+    def insert_resume_handling(self, graph):
+        #graph.startblock.isstartblock = False 
+        pass
 
     def transform_block(self, block):
         i = 0
@@ -160,9 +170,12 @@ class StacklessTransfomer(object):
                                                           self.curr_graph, block, i+1)
                 var_unwind_exception = varoftype(evalue)
                
-                args = [v for v in link.args if v is not op.result]
+                args = [v for v in link.args 
+                            if v is not op.result and v.concretetype is not lltype.Void]
                 save_block = self.generate_save_block(
                                 args, var_unwind_exception)
+
+                self.resume_points.append(ResumePoint(op.result, args, link.target))
 
                 newlink = model.Link(args + [var_unwind_exception], 
                                      save_block, code.UnwindException)
@@ -179,7 +192,6 @@ class StacklessTransfomer(object):
                 i += 1
 
     def generate_save_block(self, varstosave, var_unwind_exception):
-        varstosave = [v for v in varstosave if v.concretetype is not lltype.Void]
         rtyper = self.translator.rtyper
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
