@@ -132,6 +132,17 @@ class Instance(OOType):
 
     _check_field = _field_type
 
+    def _lookup_field(self, name):
+        field = self._fields.get(name)
+
+        if field is None and self._superclass is not None:
+            return self._superclass._lookup_field(name)
+
+        try:
+            return self, field[0]
+        except TypeError:
+            return self, None
+
     def _lookup(self, meth_name):
         meth = self._methods.get(meth_name)
 
@@ -454,6 +465,9 @@ class _static_meth(_callable):
    def __call__(self, *args):
        callb, checked_args = self._checkargs(args)
        return callb(*checked_args)
+
+   def __repr__(self):
+       return 'sm %s' % self._name
 
 class _meth(_callable):
    
