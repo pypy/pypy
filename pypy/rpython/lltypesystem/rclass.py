@@ -267,7 +267,7 @@ class ClassRepr(AbstractClassRepr):
         if isinstance(v_cls2, Constant):
             cls2 = v_cls2.value
             # XXX re-implement the following optimization
-##            if cls2.subclassrange_max == cls2.subclassrange_min + 1:
+##            if cls2.subclassrange_max == cls2.subclassrange_min:
 ##                # a class with no subclass
 ##                return hop.genop('ptr_eq', [v_cls1, v_cls2], resulttype=Bool)
 ##            else:
@@ -708,10 +708,10 @@ def ll_type(obj):
     return cast_pointer(OBJECTPTR, obj).typeptr
 
 def ll_issubclass(subcls, cls):
-    return cls.subclassrange_min <= subcls.subclassrange_min < cls.subclassrange_max
+    return cls.subclassrange_min <= subcls.subclassrange_min <= cls.subclassrange_max
 
 def ll_issubclass_const(subcls, minid, maxid):
-    return minid <= subcls.subclassrange_min < maxid
+    return minid <= subcls.subclassrange_min <= maxid
 
 
 def ll_isinstance(obj, cls): # obj should be cast to OBJECT or NONGCOBJECT

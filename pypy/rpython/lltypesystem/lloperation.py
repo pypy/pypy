@@ -78,6 +78,7 @@ LL_OPERATIONS = {
 
     'direct_call':          LLOp(canraise=(Exception,)),
     'indirect_call':        LLOp(canraise=(Exception,)),
+    'safe_call':            LLOp(),
 
     # __________ numeric operations __________
 

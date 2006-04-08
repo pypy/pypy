@@ -275,42 +275,117 @@ def create_instantiate_function(annotator, classdef):
 # ____________________________________________________________
 
 class MinIdSymbolic(ComputedIntSymbolic):
-    def __init__(self, classdef):
+    def __init__(self, classdef, rootid):
         self.classdef = classdef
+        if classdef is None:
+            self.parent = None
+        elif classdef.basedef is None:
+            self.parent = rootid
+        else:
+            self.parent = classdef.basedef.minid
+        if self.parent:    
+            self.parent.children.append(self)
+        self.children = []
+        if rootid is None:
+            self.rootid = self
+        else:
+            self.rootid = rootid
+
     def compute_fn(self):
         if self.classdef.minid is self:
             compute_inheritance_ids(self.classdef.bookkeeper)
         return self.classdef.minid
 
+    def __eq__(self, other):
+        if isinstance(other, MinIdSymbolic):
+            return self is other
+        elif isinstance(other, MaxIdSymbolic):
+            return False
+        raise NotImplementedError
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __le__(self, other):
+        if isinstance(other, MinIdSymbolic):
+            common_classdef = self.classdef.commonbase(other.classdef)
+            if common_classdef is None:
+                baseid = self.rootid
+            else:
+                baseid = common_classdef.minid
+            if baseid is self:
+                return True
+            if baseid is other:
+                return False
+            current_self = self
+            while current_self.parent is not baseid:
+                current_self = current_self.parent
+            current_other = other
+            while current_other.parent is not baseid:
+                current_other = current_other.parent
+            selfindex = baseid.children.index(current_self)
+            otherindex = baseid.children.index(current_other)
+            return selfindex <= otherindex
+        elif isinstance(other, MaxIdSymbolic):
+            rightmost = other.minid
+            while rightmost.children:
+                rightmost = rightmost.children[-1]
+            return self <= rightmost
+        raise NotImplementedError
+            
+    def compute_inheritance_ids(self, id_=0):
+        if self.classdef is not None:
+            self.classdef.minid = id_
+        maxid = id_
+        for child in self.children:
+            maxid = child.compute_inheritance_ids(maxid + 1)
+        if self.classdef is not None:
+            self.classdef.maxid = maxid
+        return maxid
+
 class MaxIdSymbolic(ComputedIntSymbolic):
-    def __init__(self, classdef):
-        self.classdef = classdef
+    def __init__(self, minid):
+        self.minid = minid
+
     def compute_fn(self):
-        if self.classdef.maxid is self:
-            compute_inheritance_ids(self.classdef.bookkeeper)
-        return self.classdef.maxid
+        if self.minid.classdef.minid is self.minid:
+            compute_inheritance_ids(self.minid.classdef.bookkeeper)
+        return self.minid.classdef.maxid
 
 def compute_inheritance_ids(bookkeeper):
-    def assign_id(classdef, nextid):
-        assert isinstance(classdef.minid, MinIdSymbolic)
-        assert isinstance(classdef.maxid, MaxIdSymbolic)
-        classdef.minid = nextid
-        nextid += 1
-        for subclass in classdef.subdefs:
-            nextid = assign_id(subclass, nextid)
-        classdef.maxid = nextid
-        return classdef.maxid
-    id_ = 0
-    for classdef in bookkeeper.classdefs:
-        if classdef.basedef is None:
-            id_ = assign_id(classdef, id_)
+    bookkeeper.annotator.rootid.compute_inheritance_ids()
+#    def assign_id(classdef, nextid):
+#        assert isinstance(classdef.minid, MinIdSymbolic)
+#        assert isinstance(classdef.maxid, MaxIdSymbolic)
+#        classdef.minid = nextid
+#        nextid += 1
+#        for subclass in classdef.subdefs:
+#            nextid = assign_id(subclass, nextid)
+#        classdef.maxid = nextid
+#        return classdef.maxid
+#    id_ = 0
+#    for classdef in bookkeeper.classdefs:
+#        if classdef.basedef is None:
+#            id_ = assign_id(classdef, id_)
+    
 
 def assign_inheritance_ids(annotator):
-    for classdef in annotator.bookkeeper.classdefs:
+    if hasattr(annotator, 'rootid'):
+        rootid = annotator.rootid
+    else:
+        rootid = MinIdSymbolic(None, None)
+        annotator.rootid = rootid
+    def assign_id(classdef):
         if not hasattr(classdef, 'minid'):
-            classdef.minid = MinIdSymbolic(classdef)
+            classdef.minid = MinIdSymbolic(classdef, rootid)
         if not hasattr(classdef, 'maxid'):
-            classdef.maxid = MaxIdSymbolic(classdef)
+            classdef.maxid = MaxIdSymbolic(classdef.minid)
+        for subclass in classdef.subdefs:
+            assign_id(subclass)
+    for classdef in annotator.bookkeeper.classdefs:
+        
+        if classdef.basedef is None:
+            assign_id(classdef)
 
 # ____________________________________________________________
 

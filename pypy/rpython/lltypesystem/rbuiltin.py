@@ -32,7 +32,7 @@ def rtype_builtin_isinstance(hop):
     if isinstance(v_cls, Constant):
         cls = v_cls.value
         # XXX re-implement the following optimization
-        #if cls.subclassrange_max == cls.subclassrange_min + 1:
+        #if cls.subclassrange_max == cls.subclassrange_min:
         #    # a class with no subclass
         #    return hop.gendirectcall(rclass.ll_isinstance_exact, v_obj, v_cls)
         #else:

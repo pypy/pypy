@@ -4,6 +4,7 @@ from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+from pypy.rpython.objectmodel import ComputedIntSymbolic
 
 class address(object):
     #XXX should be _address!
@@ -50,10 +51,12 @@ class address(object):
         return simulator.getstruct(fmt, self.intaddress)
 
     def _store(self, fmt, *values):
-        # XXX annoyance: suddenly an OffsetOf changes into a Signed?!
+        # XXX annoyance: suddenly a Symbolic changes into a Signed?!
         from pypy.rpython.memory.lltypelayout import convert_offset_to_int
         if len(values) == 1 and isinstance(values[0], llmemory.AddressOffset):
             values = [convert_offset_to_int(values[0])]
+        elif len(values) == 1 and isinstance(values[0], ComputedIntSymbolic):
+            values = [values[0].compute_fn()]
         simulator.setstruct(fmt, self.intaddress, *values)
 
     def __nonzero__(self):
