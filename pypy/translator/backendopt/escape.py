@@ -362,11 +362,11 @@ def multicontains(l1, l2):
     return True
 
 def malloc_to_stack(t):
-    aib = AbstractDataFlowInterpreter(t)
+    adi = AbstractDataFlowInterpreter(t)
     for graph in t.graphs:
-        if graph.startblock not in aib.flown_blocks:
-            aib.schedule_function(graph)
-            aib.complete()
+        if graph.startblock not in adi.flown_blocks:
+            adi.schedule_function(graph)
+            adi.complete()
     for graph in t.graphs:
         loop_blocks = support.find_loop_blocks(graph)
         for block in graph.iterblocks():
@@ -380,7 +380,7 @@ def malloc_to_stack(t):
                             continue
                     except (ValueError, AttributeError), e:
                         pass
-                    varstate = aib.getstate(op.result)
+                    varstate = adi.getstate(op.result)
                     assert len(varstate.creation_points) == 1
                     crep = varstate.creation_points.keys()[0]
                     if not crep.escapes:
@@ -390,3 +390,4 @@ def malloc_to_stack(t):
                             op.args.insert(0, inputconst(lltype.Void, 'stack'))
                         else:
                             print "%s in %s is a non-escaping malloc in a loop" % (op, graph.name)
+
