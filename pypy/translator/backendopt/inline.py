@@ -9,7 +9,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void, Ptr
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
-from pypy.translator.backendopt.support import log, split_block_with_keepalive, generate_keepalive 
+from pypy.translator.backendopt.support import log, split_block_with_keepalive, generate_keepalive, find_backedges, find_loop_blocks
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -426,6 +426,7 @@ OP_WEIGHTS = {'same_as': 0,
               'keepalive': 0,
               'direct_call': 2,    # guess
               'indirect_call': 2,  # guess
+#              'malloc': 2,
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               }
 
@@ -444,18 +445,38 @@ def measure_median_execution_cost(graph):
     for block in graph.iterblocks():
         blockmap[block] = len(blocks)
         blocks.append(block)
+    backedges = dict.fromkeys(find_backedges(graph), True)
+    loops = find_loop_blocks(graph)
     M = sparsemat.SparseMatrix(len(blocks))
     vector = []
     for i, block in enumerate(blocks):
         vector.append(block_weight(block))
         M[i, i] = 1
         if block.exits:
-            f = 1.0 / len(block.exits)
+            if block not in loops:
+                current_loop_start = None
+            else:
+                current_loop_start = loops[block]
+            loop_exits = []
             for link in block.exits:
-                M[i, blockmap[link.target]] -= f
+                if (link.target in loops and
+                    loops[link.target] is current_loop_start):
+                    loop_exits.append(link)
+            if len(loop_exits) and len(loop_exits) < len(block.exits):
+                f = 0.3 / (len(block.exits) - len(loop_exits))
+                b = 0.7 / len(loop_exits)
+            else:
+                b = f = 1.0 / len(block.exits)
+            for link in block.exits:
+                if (link.target in loops and
+                    loops[link.target] is current_loop_start):
+                    M[i, blockmap[link.target]] -= b
+                else:
+                    M[i, blockmap[link.target]] -= f
     try:
         Solution = M.solve(vector)
     except ValueError:
+        raise
         return sys.maxint
     else:
         res = Solution[blockmap[graph.startblock]]
