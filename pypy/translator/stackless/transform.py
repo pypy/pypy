@@ -166,6 +166,26 @@ class StacklessTransfomer(object):
 
         self.curr_graph = None
 
+    def ops_read_global_state_field(self, targetvar, fieldname):
+        ops = []
+        llfieldname = "inst_%s" % fieldname
+        llfieldtype = self.ll_global_state.value._T._flds[llfieldname]
+        if llfieldtype == targetvar.concretetype: 
+            tmpvar = targetvar
+        else:
+            assert isinstance(llfieldtype, lltype.Ptr)
+            tmpvar = varoftype(llfieldtype)
+   
+        ops.append(model.SpaceOperation(
+            "getfield",
+            [self.ll_global_state, model.Constant(llfieldname, lltype.Void)],
+            tmpvar))
+        if tmpvar is not targetvar: 
+            ops.append(model.SpaceOperation(
+                "cast_pointer", [tmpvar],
+                targetvar))
+        return ops
+
     def insert_resume_handling(self, graph):
         old_start_block = graph.startblock
         newinputargs = [copyvar(self.translator, v) for v in old_start_block.inputargs]
@@ -180,32 +200,19 @@ class StacklessTransfomer(object):
             newblock = model.Block([])
             newargs = []
             ops = []
-            uncasted_frame_top = varoftype(lltype.Ptr(STATE_HEADER))
-            ops.append(model.SpaceOperation(
-                "getfield",
-                [self.ll_global_state, model.Constant("inst_top", lltype.Void)],
-                uncasted_frame_top))
             frame_state_type = resume_point.frame_state_type
             frame_top = varoftype(lltype.Ptr(frame_state_type))
-            ops.append(model.SpaceOperation(
-                "cast_pointer",
-                [uncasted_frame_top],
-                frame_top))
+            ops.extend(self.ops_read_global_state_field(frame_top, "top"))
             i = 0
             for arg in resume_point.link_to_resumption.args:
                 newarg = copyvar(self.translator, arg)
                 if arg is resume_point.var_result:
-                    ops.append(model.SpaceOperation(
-                        "getfield",
-                        [self.ll_global_state, model.Constant("inst_retval_long", lltype.Void)],
-                        newarg))
+                    ops.extend(self.ops_read_global_state_field(newarg, "retval_long"))
                 else:
                     # frame_state_type._names[0] is 'header'
                     fname = model.Constant(frame_state_type._names[i+1], lltype.Void)
                     ops.append(model.SpaceOperation(
-                        'getfield',
-                        [frame_top, fname],
-                        newarg))
+                        'getfield', [frame_top, fname], newarg))
                     i += 1
                 newargs.append(newarg)
             newblock.operations.extend(ops)
