@@ -25,6 +25,9 @@ class TestStackless(object):
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
 
+        from pypy.translator.transform import insert_ll_stackcheck
+        insert_ll_stackcheck(t)
+
         cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=self.gcpolicy)
         cbuilder.stackless = True
         #cbuilder.use_stackless_transformation = True
