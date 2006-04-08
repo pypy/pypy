@@ -87,4 +87,6 @@ def add_frame_state(u, frame_state):
         u.frame_bottom = frame_state
 
 def resume_state():
+    # XXX BAAAAAH!
+    global_state.retval_long = 0
     return global_state.restart_substate

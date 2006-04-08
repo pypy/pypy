@@ -72,10 +72,10 @@ null_state = lltype.nullptr(STATE_HEADER)
 ##     return retval + x + 1
 
 class ResumePoint:
-    def __init__(self, var_result, varstoload, targetblock):
+    def __init__(self, var_result, link_to_resumption, frame_state_type):
         self.var_result = var_result
-        self.varstoload = varstoload 
-        self.targetblock = targetblock 
+        self.link_to_resumption = link_to_resumption
+        self.frame_state_type = frame_state_type
 
 class StacklessTransfomer(object):
     def __init__(self, translator):
@@ -125,6 +125,12 @@ class StacklessTransfomer(object):
 
         mixlevelannotator.finish()
 
+        s_global_state = bk.immutablevalue(code.global_state)
+        r_global_state = translator.rtyper.getrepr(s_global_state)
+        self.ll_global_state = model.Constant(r_global_state.convert_const(code.global_state),
+                                              r_global_state.lowleveltype)
+        
+
     def frame_type_for_vars(self, vars):
         types = [storage_type(v.concretetype) for v in vars]
         counts = dict.fromkeys(range(len(STORAGE_TYPES)), 0)
@@ -168,15 +174,45 @@ class StacklessTransfomer(object):
         new_start_block.operations.append(
             model.SpaceOperation("direct_call", [self.resume_state_ptr], var_resume_state))
         not_resuming_link = model.Link(newinputargs, old_start_block, 0)
+        not_resuming_link.llexitcase = 0
         resuming_links = []
-        for i, resume_point in enumerate(self.resume_points):
+        for resume_point_index, resume_point in enumerate(self.resume_points):
             newblock = model.Block([])
-            args = []
-            for arg in resume_point.targetblock.inputargs:
-                args.append(model.Constant(arg.concretetype._example(), arg.concretetype))
-            newblock.closeblock(model.Link(args, resume_point.targetblock))
+            newargs = []
+            ops = []
+            uncasted_frame_top = varoftype(lltype.Ptr(STATE_HEADER))
+            ops.append(model.SpaceOperation(
+                "getfield",
+                [self.ll_global_state, model.Constant("inst_top", lltype.Void)],
+                uncasted_frame_top))
+            frame_state_type = resume_point.frame_state_type
+            frame_top = varoftype(lltype.Ptr(frame_state_type))
+            ops.append(model.SpaceOperation(
+                "cast_pointer",
+                [uncasted_frame_top],
+                frame_top))
+            i = 0
+            for arg in resume_point.link_to_resumption.args:
+                newarg = copyvar(self.translator, arg)
+                if arg is resume_point.var_result:
+                    ops.append(model.SpaceOperation(
+                        "getfield",
+                        [self.ll_global_state, model.Constant("inst_retval_long", lltype.Void)],
+                        newarg))
+                else:
+                    # frame_state_type._names[0] is 'header'
+                    fname = model.Constant(frame_state_type._names[i+1], lltype.Void)
+                    ops.append(model.SpaceOperation(
+                        'getfield',
+                        [frame_top, fname],
+                        newarg))
+                    i += 1
+                newargs.append(newarg)
+            newblock.operations.extend(ops)
+            newblock.closeblock(model.Link(newargs, resume_point.link_to_resumption.target))
             
-            resuming_links.append(model.Link([], newblock, i+1))
+            resuming_links.append(model.Link([], newblock, resume_point_index+1))
+            resuming_links[-1].llexitcase = resume_point_index+1
         new_start_block.exitswitch = var_resume_state
         new_start_block.closeblock(not_resuming_link, *resuming_links)
 
@@ -200,10 +236,10 @@ class StacklessTransfomer(object):
                
                 args = [v for v in link.args 
                             if v is not op.result and v.concretetype is not lltype.Void]
-                save_block = self.generate_save_block(
+                save_block, frame_state_type = self.generate_save_block(
                                 args, var_unwind_exception)
 
-                self.resume_points.append(ResumePoint(op.result, args, link.target))
+                self.resume_points.append(ResumePoint(op.result, link, frame_state_type))
 
                 newlink = model.Link(args + [var_unwind_exception], 
                                      save_block, code.UnwindException)
@@ -212,7 +248,6 @@ class StacklessTransfomer(object):
                 newlink.last_exc_value = var_unwind_exception 
                 block.recloseblock(link, newlink) # exits.append(newlink)
                 self.translator.rtyper._convert_link(block, newlink)
-    # ARGH ... 
 
                 block = link.target
                 i = 0
@@ -266,7 +301,7 @@ class StacklessTransfomer(object):
         save_state_block.closeblock(model.Link([c_unwindexception, var_exc], 
                                                self.curr_graph.exceptblock))
         self.translator.rtyper._convert_link(save_state_block, save_state_block.exits[0])
-        return save_state_block
+        return save_state_block, frame_type
         
 
     def generate_saveops(self, frame_state_var, varstosave):
