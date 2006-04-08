@@ -33,21 +33,21 @@ def call_function(fn, signature):
         fn2()
     elif signature == 'long':
         fn3 = llmemory.cast_adr_to_ptr(fn, long_void_func)
-        global_state.long_retval = fn3()
+        global_state.retval_long = fn3()
     elif signature == 'longlong':
         fn3 = llmemory.cast_adr_to_ptr(fn, longlong_void_func)
-        global_state.longlong_retval = fn3()
+        global_state.retval_longlong = fn3()
     elif signature == 'float':
         fn3 = llmemory.cast_adr_to_ptr(fn, float_void_func)
-        global_state.float_retval = fn3()
+        global_state.retval_double = fn3()
     elif signature == 'pointer':
         fn5 = llmemory.cast_adr_to_ptr(fn, pointer_void_func)
-        global_state.pointer_retval = fn5()
+        global_state.retval_void_p = fn5()
 
 null_address = llmemory.fakeaddress(None)
 
 def decode_state(state):
-    return null_address, 'void', 0
+    return null_address, 'long', 0
 
 class UnwindException(Exception):
     def __init__(self):
@@ -87,6 +87,4 @@ def add_frame_state(u, frame_state):
         u.frame_bottom = frame_state
 
 def resume_state():
-    # XXX BAAAAAH!
-    global_state.retval_long = 0
     return global_state.restart_substate
