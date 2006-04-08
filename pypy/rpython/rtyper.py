@@ -339,34 +339,36 @@ class RPythonTyper:
             # consider it as a link source instead
             self.insert_link_conversions(extrablock)
 
+    def _convert_link(self, block, link):  
+        if link.exitcase is not None:
+            if isinstance(block.exitswitch, Variable):
+                r_case = self.bindingrepr(block.exitswitch)
+            else:
+                assert block.exitswitch == c_last_exception
+                r_case = rclass.get_type_repr(self)
+            link.llexitcase = r_case.convert_const(link.exitcase)
+        else:
+            link.llexitcase = None
+
+        a = link.last_exception
+        if isinstance(a, Variable):
+            a.concretetype = self.exceptiondata.lltype_of_exception_type
+        elif isinstance(a, Constant):
+            link.last_exception = inputconst(
+                self.exceptiondata.r_exception_type, a.value)
+
+        a = link.last_exc_value
+        if isinstance(a, Variable):
+            a.concretetype = self.exceptiondata.lltype_of_exception_value
+        elif isinstance(a, Constant):
+            link.last_exc_value = inputconst(
+                self.exceptiondata.r_exception_value, a.value)
+
     def insert_link_conversions(self, block, skip=0):
         # insert the needed conversions on the links
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits[skip:]:
-            if link.exitcase is not None:
-                if isinstance(block.exitswitch, Variable):
-                    r_case = self.bindingrepr(block.exitswitch)
-                else:
-                    assert block.exitswitch == c_last_exception
-                    r_case = rclass.get_type_repr(self)
-                link.llexitcase = r_case.convert_const(link.exitcase)
-            else:
-                link.llexitcase = None
-
-            a = link.last_exception
-            if isinstance(a, Variable):
-                a.concretetype = self.exceptiondata.lltype_of_exception_type
-            elif isinstance(a, Constant):
-                link.last_exception = inputconst(
-                    self.exceptiondata.r_exception_type, a.value)
-
-            a = link.last_exc_value
-            if isinstance(a, Variable):
-                a.concretetype = self.exceptiondata.lltype_of_exception_value
-            elif isinstance(a, Constant):
-                link.last_exc_value = inputconst(
-                    self.exceptiondata.r_exception_value, a.value)
-
+            self._convert_link(block, link)
             inputargs_reprs = self.setup_block_entry(link.target)
             newops = self.make_new_lloplist(block)
             newlinkargs = {}
