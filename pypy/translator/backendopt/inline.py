@@ -527,26 +527,27 @@ def auto_inlining(translator, threshold=1):
     for graph1, graph2 in static_callers(translator, ignore_primitives=True):
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
-    fiboheap = [(0.0, graph) for graph in callers]
+    heap = [(0.0, -len(callers[graph]), graph) for graph in callers]
     valid_weight = {}
     couldnt_inline = {}
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
 
-    while fiboheap:
-        weight, graph = fiboheap[0]
+    while heap:
+        weight, _, graph = heap[0]
         if not valid_weight.get(graph):
             weight = inlining_heuristic(graph, callers.get(graph), callees.get(graph))
             #print '  + cost %7.2f %50s' % (weight, graph.name)
-            heapreplace(fiboheap, (weight, graph))
+            heapreplace(heap, (weight, -len(callers[graph]), graph))
             valid_weight[graph] = True
             continue
 
         if weight >= threshold:
             break   # finished
 
-        heappop(fiboheap)
+        heappop(heap)
         if callers[graph]:
             log.inlining('%7.2f %50s' % (weight, graph.name))
+            print callers[graph]
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
@@ -557,6 +558,7 @@ def auto_inlining(translator, threshold=1):
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline
+                print "fail"
             if res is True:
                 # the parentgraph should now contain all calls that were
                 # done by 'graph'
@@ -568,5 +570,5 @@ def auto_inlining(translator, threshold=1):
                     # been modified.  Maybe now we can inline it into further
                     # parents?
                     del couldnt_inline[parentgraph]
-                    heappush(fiboheap, (0.0, parentgraph))
+                    heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
                 valid_weight[parentgraph] = False
