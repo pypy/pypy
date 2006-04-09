@@ -293,12 +293,12 @@ class StacklessTransfomer(object):
                          model.Constant(len(self.resume_points)+1, lltype.Signed)],
                         varoftype(lltype.Void)))
         # XXX add returntypes 
-        FUNCTYPE = lltype.FuncType([], lltype.Signed)
-        funcptr = lltype.functionptr(FUNCTYPE, "", graph=self.curr_graph)
-        #saveops.append(model.SpaceOperation(
-        #    "setfield", [var_header, model.Constant("function", lltype.Void), 
-        #                 model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
-        #                varoftype(lltype.Void)))
+
+        funcptr = rtyper.type_system.getcallable(self.curr_graph)
+        saveops.append(model.SpaceOperation(
+            "setfield", [var_header, model.Constant("function", lltype.Void), 
+                         model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
+                        varoftype(lltype.Void)))
 
         type_repr = rclass.get_type_repr(rtyper)
         c_unwindexception = model.Constant(type_repr.convert_const(code.UnwindException), type_repr.lowleveltype)
