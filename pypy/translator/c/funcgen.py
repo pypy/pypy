@@ -376,6 +376,16 @@ class FunctionCodeGenerator(object):
     # is of type Void, which is removed by OP_DIRECT_CALL
     OP_INDIRECT_CALL = OP_DIRECT_CALL
 
+    def OP_UNSAFE_CALL(self, op):
+        line = '((%s (*)())(%s))();'%(self.lltypename(op.result).replace('@', ''), self.expr(op.args[0]))
+        if self.lltypemap(op.result) is not Void:
+            r = self.expr(op.result)
+            line = '%s = %s' % (r, line)
+        check = self.check_directcall_result(op)
+        if check:
+            return line + '\n' + check
+        return line
+            
     def check_directcall_result(self, op):
         return None
 

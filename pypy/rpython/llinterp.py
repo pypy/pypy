@@ -437,6 +437,18 @@ class LLFrame(object):
             log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
+    def op_unsafe_call(self, f):
+        assert isinstance(f, llmemory.fakeaddress)
+        assert f.offset is None
+        obj = self.llinterpreter.typer.type_system.deref(f.ob)
+        assert hasattr(obj, 'graph') # don't want to think about that
+        graph = obj.graph
+        args = []
+        for arg in obj.graph.startblock.inputargs:
+            args.append(arg.concretetype._defl())
+        frame = self.__class__(graph, args, self.llinterpreter, self)
+        return frame.eval()
+
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:
             args = self.llinterpreter.gc.get_arg_malloc(obj)
