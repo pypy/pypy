@@ -62,9 +62,9 @@ def generate_keepalive(vars):
         keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
     return keepalive_ops
 
-def split_block_with_keepalive(translator, graph, block, index_operation,
+def split_block_with_keepalive(translator, block, index_operation,
                                keep_alive_op_args=True):
-    splitlink = split_block(translator, graph, block, index_operation)
+    splitlink = split_block(translator, block, index_operation)
     afterblock = splitlink.target
     conservative_keepalives = needs_conservative_livevar_calculation(block)
     if conservative_keepalives:

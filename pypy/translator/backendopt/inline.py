@@ -351,7 +351,7 @@ class BaseInliner(object):
       
     def do_inline(self, block, index_operation):
         splitlink = split_block_with_keepalive(
-            self.translator, self.graph, block, index_operation)
+            self.translator, block, index_operation)
         afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after

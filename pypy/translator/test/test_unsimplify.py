@@ -1,6 +1,7 @@
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import split_block
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.objspace.flow.model import checkgraph
 
 def translate(func, argtypes):
     t = TranslationContext()
@@ -15,7 +16,8 @@ def test_split_blocks_simple():
             w = x * y
             return z + w
         graph, t = translate(f, [int, int])
-        split_block(t, graph, graph.startblock, i)
+        split_block(t, graph.startblock, i)
+        checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [1, 2])
         assert result == 5
@@ -28,7 +30,8 @@ def test_split_blocks_conditional():
             else:
                 return y + 2
         graph, t = translate(f, [int, int])
-        split_block(t, graph, graph.startblock, i)
+        split_block(t, graph.startblock, i)
+        checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [-12, 2])
         assert result == 4
@@ -53,7 +56,8 @@ def test_split_block_exceptions():
                 return 1
             return x
         graph, t = translate(catches, [int])
-        split_block(t, graph, graph.startblock, i)
+        split_block(t, graph.startblock, i)
+        checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [0])
         assert result == 0

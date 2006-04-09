@@ -226,8 +226,7 @@ class StacklessTransfomer(object):
         while i < len(block.operations):
             op = block.operations[i]
             if op.opname in ('direct_call', 'indirect_call'):
-                link = support.split_block_with_keepalive(self.translator, 
-                                                          self.curr_graph, block, i+1)
+                link = support.split_block_with_keepalive(self.translator, block, i+1)
                 var_unwind_exception = varoftype(evalue)
                
                 args = [v for v in link.args 

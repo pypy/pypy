@@ -35,7 +35,7 @@ def insert_empty_block(translator, link, newops=[]):
     link.target = newblock
     return newblock
 
-def split_block(translator, graph, block, index):
+def split_block(translator, block, index):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 
     passed on.  NOTE: if you call this after rtyping, you WILL need to worry
@@ -85,7 +85,6 @@ def split_block(translator, graph, block, index):
     block.exits = [link]
     block.exitswitch = None
     block.exc_handler = False
-    #checkgraph(graph)
     return link
 
 def remove_direct_loops(translator, graph):

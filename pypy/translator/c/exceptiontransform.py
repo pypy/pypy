@@ -153,7 +153,7 @@ class ExceptionTransformer(object):
                 continue
 
             splitlink = support.split_block_with_keepalive(
-                self.translator, graph, block, i+1, False)
+                self.translator, block, i+1, False)
             afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
