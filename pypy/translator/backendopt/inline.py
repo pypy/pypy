@@ -527,6 +527,7 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
     for graph1, graph2 in callgraph:
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
+    # the -len(callers) change is OK
     heap = [(0.0, -len(callers[graph]), graph) for graph in callers]
     valid_weight = {}
     couldnt_inline = {}
