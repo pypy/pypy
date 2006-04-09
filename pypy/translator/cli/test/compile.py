@@ -39,8 +39,7 @@ def foo(cls, x):
 
 def bar(x, y):
     b = Derived(x)
-    return b.compute()
-#    return foo(Base, x) + foo(Derived, y)
+    return foo(Base, x) + foo(Derived, y)
 
 f = compile_function(bar, [int, int])
 

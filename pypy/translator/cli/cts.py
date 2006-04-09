@@ -6,7 +6,7 @@ import exceptions
 
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.rpython.ootypesystem.ootype import Instance, Class
+from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod
 from pypy.translator.cli.option import getoption
 
 from pypy.tool.ansi_print import ansi_log
@@ -23,7 +23,7 @@ _lltype_to_cts = {
     UnsignedLongLong: 'unsigned int64',
     Bool: 'bool',
     Float: 'float64',
-    Class: 'class [mscorlib]System.Type', # TODO: check this
+    Class: 'class [mscorlib]System.Type',
     }
 
 _pyexception_to_cts = {
@@ -51,6 +51,8 @@ class CTS(object):
             name = t._name
             self.db.pending_class(t)
             return 'class %s' % name
+        elif isinstance(t, StaticMethod):
+            return 'void' # TODO: is it correct to ignore StaticMethod?
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 

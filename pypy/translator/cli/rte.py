@@ -6,6 +6,7 @@ The source of the RTE is in the src/ directory.
 import os
 import os.path
 import subprocess
+import py
 
 SRC = 'pypy.cs'
 DLL = 'pypy.dll'
@@ -33,10 +34,18 @@ def get_pypy_dll():
     return dll
     
 def compile(source):
-    compiler = subprocess.Popen(['mcs', '/t:library', source],
+    mcs = _get_compiler()
+    compiler = subprocess.Popen([mcs, '/t:library', source],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = compiler.communicate()
     retval = compiler.wait()
 
     assert retval == 0, 'Failed to compile %s: the compiler said:\n %s' % (DLL, stderr)
+
+def _get_compiler():
+    try:
+        py.path.local.sysfind('mcs') # TODO: support windows
+        return 'mcs'
+    except py.error.ENOENT:
+        py.test.skip("%s is not on your path." % helper)
 

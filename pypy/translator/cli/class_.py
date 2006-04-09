@@ -44,7 +44,9 @@ class Class(Node):
 
         ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
-            ilasm.field(f_name, self.cts.lltype_to_cts(f_type))
+            cts_type = self.cts.lltype_to_cts(f_type)
+            if cts_type != 'void':
+                ilasm.field(f_name, cts_type)
 
         # TODO: should the .ctor set the default values?
         self._ctor()

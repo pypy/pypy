@@ -36,11 +36,19 @@ class MyDerivedClass(MyClass):
     INCREMENT = 2
 
     def __init__(self, x, y):
-        MyClass.__init__(self, x, y)
+        MyClass.__init__(self, x+12, y+34)
 
     def compute(self):
         return self.x - self.y
 
+# helper functions
+def call_method(obj):
+    return obj.compute()
+
+def init_and_compute(cls, x, y):
+    return cls(x, y).compute()
+
+# test functions
 def oo_compute(x, y):
     obj = MyClass(x, y)
     return obj.compute()
@@ -53,13 +61,10 @@ def oo_inheritance(x, y):
     obj = MyDerivedClass(x, y)
     return obj.compute_and_multiply(2)
 
-def helper(obj):
-    return obj.compute()
-
 def oo_liskov(x, y):
     base = MyClass(x, y)
     derived = MyDerivedClass(x, y)
-    return helper(base) + helper(derived)
+    return call_method(base) + call_method(derived)
 
 def oo_static_method(x, y):
     base = MyClass(x, y)
@@ -71,6 +76,9 @@ def oo_class_attribute(x, y):
     base = MyClass(x, y)
     derived = MyDerivedClass(x, y)
     return base.class_attribute() + derived.class_attribute()
+
+def oo_runtimenew(x, y):
+    return init_and_compute(MyClass, x, y) + init_and_compute(MyDerivedClass, x, y)
 
 ##def oo_class_meth(x, y):
 ##    return MyClass.class_meth(x, y) + MyDerivedClass.class_meth(x, y)

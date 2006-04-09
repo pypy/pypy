@@ -1,6 +1,7 @@
 import os
 import subprocess
 import platform
+import shutil
 
 import py
 from pypy.tool.udir import udir
@@ -11,6 +12,7 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
+from pypy.translator.cli.rte import get_pypy_dll
 
 FLOAT_PRECISION = 8
 
@@ -103,11 +105,11 @@ class compile_function:
            t.viewcg()
 
         if getoption('wd'):
-            tmpdir = py.path.local('.')
+            self.tmpdir = py.path.local('.')
         else:
-            tmpdir = udir
+            self.tmpdir = udir
 
-        return GenCli(tmpdir, t, TestEntryPoint(self.graph))
+        return GenCli(self.tmpdir, t, TestEntryPoint(self.graph))
 
     def __check_helper(self, helper):
         try:
@@ -126,6 +128,9 @@ class compile_function:
         tmpfile = self._gen.generate_source()
         if getoption('source'):
             return None
+
+        pypy_dll = get_pypy_dll() # get or recompile pypy.dll
+        shutil.copy(pypy_dll, self.tmpdir.strpath)
 
         self.__check_helper("ilasm")
         ilasm = subprocess.Popen(["ilasm", tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

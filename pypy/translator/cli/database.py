@@ -45,8 +45,12 @@ class LowLevelDatabase(object):
 
     def record_const(self, value):
         const = AbstractConst.make(self, value)
-        name = const.get_name(len(self.consts))
-        self.consts[const] = name
+        try:
+            name = self.consts[const]
+        except KeyError:
+            name = const.get_name(len(self.consts))
+            self.consts[const] = name
+
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
 
     def gen_constants(self, ilasm):
@@ -96,21 +100,33 @@ class InstanceConst(AbstractConst):
         self.cts = CTS(db)
         self.obj = obj
 
+    def __hash__(self):
+        return hash(self.obj)
+
+    def __eq__(self, other):
+        return self.obj == other.obj
+
     def get_name(self, n):
         name = self.obj._TYPE._name.replace('.', '_')
         return '%s_%d' % (name, n)
 
     def get_type(self):
         return self.cts.lltype_to_cts(self.obj._TYPE)
-        #return 'class %s' % self.obj._TYPE._name
 
     def init(self, ilasm):
         classdef = self.obj._TYPE        
         ilasm.new('instance void class %s::.ctor()' % classdef._name)
         while classdef is not None:
-            for name, (type_, value) in classdef._fields.iteritems():
+            for name, (type_, default) in classdef._fields.iteritems():
                 if isinstance(type_, ootype.StaticMethod):
                     continue
                 elif type_ is ootype.Class:
-                    continue
+                    value = getattr(self.obj, name)
+                    self.cts.lltype_to_cts(value._INSTANCE) # force scheduling class generation
+                    classname = value._INSTANCE._name
+                    ilasm.opcode('dup')
+                    ilasm.opcode('ldtoken', classname)
+                    ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
+                    ilasm.opcode('stfld class [mscorlib]System.Type %s::%s' % (classdef._name, name))
             classdef = classdef._superclass
+

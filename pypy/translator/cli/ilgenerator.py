@@ -37,6 +37,7 @@ class IlasmGenerator(object):
         self.out = outfile
         self.code = CodeGenerator(self.out)
         self.code.writeline('.assembly extern mscorlib {}')
+        self.code.writeline('.assembly extern pypy {}')
         self.code.writeline('.assembly %s {}' % name)
 
     def close(self):
