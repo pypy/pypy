@@ -98,6 +98,11 @@ class FunctionGraph(object):
                 seen[block] = True
                 stack += block.exits[::-1]
 
+    def iterblockops(self):
+        for block in self.iterblocks():
+            for op in block.operations:
+                yield block, op
+
     def show(self):
         from pypy.translator.tool.graphpage import SingleGraphPage
         SingleGraphPage(self).display()

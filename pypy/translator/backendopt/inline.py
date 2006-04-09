@@ -520,12 +520,14 @@ def static_callers(translator, ignore_primitives=False):
     return result
 
 
-def auto_inlining(translator, threshold=1):
+def auto_inlining(translator, threshold=1, callgraph=None):
     from heapq import heappush, heappop, heapreplace
     threshold *= BASE_INLINE_THRESHOLD
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
-    for graph1, graph2 in static_callers(translator, ignore_primitives=True):
+    if callgraph is None:
+        callgraph = static_callers(translator, ignore_primitives=True)
+    for graph1, graph2 in callgraph:
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
     heap = [(0.0, -len(callers[graph]), graph) for graph in callers]
