@@ -519,50 +519,6 @@ def test_array_with_no_length():
     a = malloc(A, 10)
     py.test.raises(TypeError, len, a)
 
-def test_cast_length_to_no_length():
-    A = Array(Char, hints={'nolength': True})
-    S = GcStruct("str", ("hash", Signed),
-                        ("chars", Array(Char)))
-    s = malloc(S, 5)
-    s.chars[0] = 'h'
-    s.chars[1] = 'e'
-    s.chars[2] = 'l'
-    s.chars[3] = 'l'
-    s.chars[4] = 'o'
-    a = cast_array_pointer(Ptr(A), s.chars)
-    assert a[0] == 'h'
-    assert a[1] == 'e'
-    assert a[2] == 'l'
-    assert a[3] == 'l'
-    assert a[4] == 'o'
-    py.test.raises(TypeError, len, a)
-    a[1] = 'E'
-    assert s.chars[1] == 'E'
-    s.chars[2] = 'L'
-    assert a[2] == 'L'
-
-def test_cast_fixed_to_no_length():
-    A = Array(Char, hints={'nolength': True})
-    S = GcStruct("str", ("hash", Signed),
-                        ("chars", FixedSizeArray(Char, 5)))
-    s = malloc(S)
-    s.chars[0] = 'h'
-    s.chars[1] = 'e'
-    s.chars[2] = 'l'
-    s.chars[3] = 'l'
-    s.chars[4] = 'o'
-    a = cast_array_pointer(Ptr(A), s.chars)
-    assert a[0] == 'h'
-    assert a[1] == 'e'
-    assert a[2] == 'l'
-    assert a[3] == 'l'
-    assert a[4] == 'o'
-    py.test.raises(TypeError, len, a)
-    a[1] = 'E'
-    assert s.chars[1] == 'E'
-    s.chars[2] = 'L'
-    assert a[2] == 'L'
-
 def test_dissect_ll_instance():
     assert list(dissect_ll_instance(1)) == [(Signed, 1)]
     GcS = GcStruct("S", ('x', Signed))

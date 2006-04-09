@@ -612,24 +612,6 @@ def cast_pointer(PTRTYPE, ptr):
         raise TypeError, "can only cast pointers to other pointers"
     return ptr._cast_to(PTRTYPE)
 
-def cast_array_pointer(PTRTYPE, ptr):
-    CURTYPE = typeOf(ptr)
-    if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
-        raise TypeError, "can only cast pointers to other pointers"
-    if (not isinstance(PTRTYPE.TO, Array) or
-        not PTRTYPE.TO._hints.get('nolength', False)):
-        raise TypeError, "can only convert to nolength Arrays"
-    if isinstance(CURTYPE.TO, Array):
-        if CURTYPE.TO._hints.get('nolength', False):
-            raise TypeError, "cannot convert from a nolength Array"
-    elif isinstance(CURTYPE.TO, FixedSizeArray):
-        pass
-    else:
-        raise TypeError, "can only convert from an array"
-    if CURTYPE.TO.OF != PTRTYPE.TO.OF:
-        raise TypeError, "pointers to arrays of different item types"
-    return ptr._cast_array_to(PTRTYPE)
-
 def _expose(val, solid=False):
     """XXX A nice docstring here"""
     T = typeOf(val)
@@ -710,8 +692,7 @@ class _ptr(object):
     def _setobj(self, pointing_to, solid=False):        
         if pointing_to is None:
             obj0 = None
-        elif (solid or isinstance(self._T, (GC_CONTAINER, FuncType))
-                    or isinstance(pointing_to, _nolengtharray)):
+        elif solid or isinstance(self._T, (GC_CONTAINER, FuncType)):
             obj0 = pointing_to
         else:
             self._set_weak(True)
@@ -860,9 +841,6 @@ class _ptr(object):
         if PARENTTYPE != PTRTYPE.TO:
             raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
         return _ptr(PTRTYPE, struc, solid=self._solid)
-
-    def _cast_array_to(self, PTRTYPE):
-        return _ptr(PTRTYPE, _nolengtharray(PTRTYPE.TO, self._obj))
 
     def _cast_to_int(self):
         obj = self._obj
@@ -1031,32 +1009,6 @@ class _array(_parentable):
 
     def setitem(self, index, value):
         self.items[index] = value
-
-class _nolengtharray(object):
-    _kind = "array"
-
-    __slots__ = ('_TYPE', 'wr_parentarray')
-
-    def __init__(self, TYPE, parentarray):
-        self._TYPE = TYPE
-        self.wr_parentarray = pickleable_weakref(parentarray)
-
-    def getparentarray(self):
-        parentarray = self.wr_parentarray()
-        if parentarray is None:
-            raise RuntimeError("accessing already garbage collected %r"
-                               % (self._T,))
-        return parentarray
-
-    def getlength(self):
-        # for debugging only
-        return self.getparentarray().getlength()
-
-    def getitem(self, index):
-        return self.getparentarray().getitem(index)
-
-    def setitem(self, index, value):
-        return self.getparentarray().setitem(index, value)
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
