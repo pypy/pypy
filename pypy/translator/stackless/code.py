@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython import rarithmetic
 
 STATE_HEADER = lltype.GcStruct('state_header',
@@ -25,31 +25,23 @@ class StacklessData:
 
 global_state = StacklessData()
 
-void_void_func = lltype.Ptr(lltype.FuncType([], lltype.Void))
-long_void_func = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
-longlong_void_func = lltype.Ptr(lltype.FuncType([], lltype.SignedLongLong))
-float_void_func = lltype.Ptr(lltype.FuncType([], lltype.Float))
-pointer_void_func = lltype.Ptr(lltype.FuncType([], llmemory.Address) )
-
 def call_function(fn, signature):
     if signature == 'void':
-        fn2 = llmemory.cast_adr_to_ptr(fn, void_void_func)
-        fn2()
+        lloperation.llop.unsafe_call(lltype.Void, fn)
     elif signature == 'long':
-        fn3 = llmemory.cast_adr_to_ptr(fn, long_void_func)
-        global_state.retval_long = fn3(0)
+        global_state.retval_long = lloperation.llop.unsafe_call(
+            lltype.Signed, fn)
     elif signature == 'longlong':
-        fn3 = llmemory.cast_adr_to_ptr(fn, longlong_void_func)
-        global_state.retval_longlong = fn3()
+        global_state.retval_longlong = lloperation.llop.unsafe_call(
+            lltype.SignedLongLong, fn)
     elif signature == 'float':
-        fn3 = llmemory.cast_adr_to_ptr(fn, float_void_func)
-        global_state.retval_double = fn3()
+        global_state.retval_double = lloperation.llop.unsafe_call(
+            lltype.Float, fn)
     elif signature == 'pointer':
-        fn5 = llmemory.cast_adr_to_ptr(fn, pointer_void_func)
-        global_state.retval_void_p = fn5()
+        global_state.retval_void_p = lloperation.llop.unsafe_call(
+            llmemory.Address, fn)
 
 null_address = llmemory.fakeaddress(None)
-
 
 class UnwindException(Exception):
     def __init__(self):

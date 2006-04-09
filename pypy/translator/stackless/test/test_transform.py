@@ -87,8 +87,7 @@ def run_stackless_function(fn, *stacklessfuncs):
 ##     from pypy.rpython.llinterp import LLInterpreter
 ##     interp = LLInterpreter(t.rtyper)
 ##     res = interp.eval_graph(graphof(t, entry_point), [ll_list])
-##     print res
-##     return
+##     return str(res)
 
     cbuilder = CStandaloneBuilder(t, entry_point)#, gcpolicy=gc.BoehmGcPolicy)
     cbuilder.generate_source()
