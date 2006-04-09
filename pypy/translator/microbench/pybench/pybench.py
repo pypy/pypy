@@ -260,6 +260,73 @@ class Benchmark:
                   (compare_to.name,compare_to.rounds,compare_to.warp)
         print
 
+    def html_stat(self, compare_to=None, hidenoise=0):
+
+        from py.xml import html
+
+        if not compare_to:
+            table = html.table(html.thead(
+                      html.tr([ html.th(x,  align='left', mochi_format = y)
+                          for (x,y) in [('Tests','str'), ('per run','float'),
+                             ('per oper.', 'float'), ('overhead', 'float')])),
+                             id = "sortable_table")
+                               
+            tests = self.tests.items()
+            tests.sort()
+            for name,t in tests:
+                avg,op_avg,ov_avg = t.stat()
+                table.append(html.tr( html.td(name),
+                                      html.td((avg*1000.0),
+                                      html.td(op_avg*1000000.0),
+									  html.td(ov_avg*1000.0)
+									 )
+                table.append(html.tr('Average round time %s' % (self.roundtime * 1000.0))
+            return table
+        else:
+            table = html.table(html.thead(
+                      html.tr([ html.th(x,  align='left', mochi_format = y)
+                          for (x,y) in [('Tests','str'), ('per run','float'),
+                             ('per oper.', 'float'), ('diff', 'float')])),
+                             id = "sortable_table")
+            tests = self.tests.items()
+            tests.sort()
+            compatible = 1
+            for name,t in tests:
+                avg,op_avg,ov_avg = t.stat()
+                try:
+                    other = compare_to.tests[name]
+                except KeyError:
+                    other = None
+                if other and other.version == t.version and \
+                   other.operations == t.operations:
+                    avg1,op_avg1,ov_avg1 = other.stat()
+                    qop_avg = (op_avg/op_avg1-1.0)*100.0
+                    if hidenoise and abs(qop_avg) < 10:
+                        qop_avg = ''
+                    else:
+                        qop_avg = '%+7.2f%%' % qop_avg
+                else:
+                    qavg,qop_avg = 'n/a', 'n/a'
+                    compatible = 0
+                table.append(html.tr( html.td(name),
+                                      html.td((avg*1000.0),
+                                      html.td(op_avg*1000000.0),
+									  html.td(qop_avg)
+									 )
+            if compatible and compare_to.roundtime > 0 and \
+               compare_to.version == self.version:
+                table.append(html.tr(
+				     html.td('Average round time'),
+					 html.td(self.roundtime * 1000.0),
+					 html.td(''),
+					 html.td('%+7.2f%%'% (((self.roundtime*self.warp)/
+                        (compare_to.roundtime*compare_to.warp)-1.0)*100.0)))
+            else:
+                table.append(html.tr(
+				     html.td('Average round time'),
+					 html.td(self.roundtime * 1000.0)))
+            return table
+
 def print_machine():
 
     import platform
