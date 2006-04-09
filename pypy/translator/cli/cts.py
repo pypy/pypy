@@ -49,7 +49,7 @@ class CTS(object):
     def lltype_to_cts(self, t):
         if isinstance(t, Instance):
             name = t._name
-            self.db.classes.add(t)
+            self.db.pending_class(t)
             return 'class %s' % name
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)

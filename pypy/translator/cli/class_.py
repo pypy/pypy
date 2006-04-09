@@ -1,5 +1,4 @@
 from pypy.translator.cli.node import Node
-from pypy.translator.cli.function import Function
 from pypy.translator.cli.cts import CTS
 
 class Class(Node):
@@ -8,6 +7,15 @@ class Class(Node):
         self.cts = CTS(db)
         self.classdef = classdef
         self.namespace, self.name = self.cts.split_class_name(classdef._name)
+
+        if not self.is_root(classdef):
+            self.db.pending_class(classdef._superclass)
+
+    def __hash__(self):
+        return hash(self.classdef)
+
+    def __eq__(self, other):
+        return self.classdef == other.classdef
 
     def is_root(classdef):
         return classdef._superclass is None
@@ -26,7 +34,10 @@ class Class(Node):
     def render(self, ilasm):
         if self.is_root(self.classdef):
             return
-        
+
+        if self.db.class_name(self.classdef) is not None:
+            return # already rendered
+
         self.ilasm = ilasm
         if self.namespace:
             ilasm.begin_namespace(self.namespace)
@@ -38,9 +49,10 @@ class Class(Node):
         # TODO: should the .ctor set the default values?
         self._ctor()
 
+        # lazy import to avoid circular dependencies
+        import pypy.translator.cli.function as function
         for m_name, m_meth in self.classdef._methods.iteritems():
-            # TODO: handle class methods and attributes
-            f = Function(self.db, m_meth.graph, m_name, is_method = True)
+            f = function.Function(self.db, m_meth.graph, m_name, is_method = True)
             f.render(ilasm)
 
         ilasm.end_class()
@@ -48,10 +60,12 @@ class Class(Node):
         if self.namespace:
             ilasm.end_namespace()
 
+        self.db.record_class(self.classdef, self.name)
+
+
     def _ctor(self):
         self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
         self.ilasm.opcode('ldarg.0')
         self.ilasm.call('instance void %s::.ctor()' % self.get_base_class())
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
-

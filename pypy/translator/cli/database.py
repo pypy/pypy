@@ -1,3 +1,6 @@
+from pypy.translator.cli.cts import CTS
+from pypy.translator.cli.function import Function
+from pypy.translator.cli.class_ import Class
 from pypy.rpython.ootypesystem import ootype
 
 try:
@@ -10,20 +13,38 @@ CONST_CLASS = 'Constants'
 
 class LowLevelDatabase(object):
     def __init__(self):
-        self.classes = set()
-        self.pending_graphs = []
+        self._pending_nodes = set()
+        self._rendered_nodes = set()
+        self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> const_name
 
+    def pending_function(self, graph):
+        self.pending_node(Function(self, graph))
+
+    def pending_class(self, classdef):
+        self.pending_node(Class(self, classdef))
+
+    def pending_node(self, node):
+        if node in self._pending_nodes or node in self._rendered_nodes:
+            return
+        self._pending_nodes.add(node)
+
     def record_function(self, graph, name):
         self.functions[graph] = name
+
+    def record_class(self, classdef, name):
+        self.classes[classdef] = name
 
     def function_name(self, graph):
         return self.functions.get(graph, None)
 
+    def class_name(self, classdef):
+        return self.classes.get(classdef, None)
+
     def record_const(self, value):
-        const = AbstractConst.make(value)
+        const = AbstractConst.make(self, value)
         name = const.get_name(len(self.consts))
         self.consts[const] = name
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
@@ -52,11 +73,11 @@ class LowLevelDatabase(object):
 
 
 class AbstractConst(object):
-    def make(const):
+    def make(db, const):
         if isinstance(const, ootype._view):
             const = const._inst
         if isinstance(const, ootype._instance):
-            return InstanceConst(const)
+            return InstanceConst(db, const)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
@@ -71,7 +92,8 @@ class AbstractConst(object):
         pass
 
 class InstanceConst(AbstractConst):
-    def __init__(self, obj):
+    def __init__(self, db, obj):
+        self.cts = CTS(db)
         self.obj = obj
 
     def get_name(self, n):
@@ -79,9 +101,16 @@ class InstanceConst(AbstractConst):
         return '%s_%d' % (name, n)
 
     def get_type(self):
-        return 'class %s' % self.obj._TYPE._name
+        return self.cts.lltype_to_cts(self.obj._TYPE)
+        #return 'class %s' % self.obj._TYPE._name
 
     def init(self, ilasm):
         classdef = self.obj._TYPE        
         ilasm.new('instance void class %s::.ctor()' % classdef._name)
-        # TODO: initialize fields
+        while classdef is not None:
+            for name, (type_, value) in classdef._fields.iteritems():
+                if isinstance(type_, ootype.StaticMethod):
+                    continue
+                elif type_ is ootype.Class:
+                    continue
+            classdef = classdef._superclass

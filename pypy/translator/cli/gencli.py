@@ -47,41 +47,22 @@ class GenCli(object):
         # methods are rendered twice, once within the class and once
         # as an external function. Fix this.        
         self.gen_entrypoint()
-        self.find_superclasses()
-        self.gen_classes()
-        self.gen_functions()
+        self.gen_pendings()
         self.db.gen_constants(self.ilasm)
+        self.gen_pendings()
         out.close()
         return self.tmpfile.strpath
 
     def gen_entrypoint(self):
         if self.entrypoint:
-            self.db.pending_graphs += self.entrypoint.render(self.ilasm)
+            self.entrypoint.db = self.db
+            self.db.pending_node(self.entrypoint)
         else:
-            self.db.pending_graphs.append(self.translator.graphs[0])
+            self.db.pending_function(self.translator.graphs[0])
 
-        self.gen_functions()
+    def gen_pendings(self):
+        while self.db._pending_nodes:
+            node = self.db._pending_nodes.pop()
+            node.render(self.ilasm)
 
-    def gen_functions(self):
-        while self.db.pending_graphs:
-            graph = self.db.pending_graphs.pop()
-            if self.db.function_name(graph) is None:
-                f = Function(self.db, graph)
-                f.render(self.ilasm)
 
-    def find_superclasses(self):
-        classes = set()
-        pendings = self.db.classes
-
-        while pendings:
-            classdef = pendings.pop()
-            if classdef not in classes and classdef is not None:
-                classes.add(classdef)
-                pendings.add(classdef._superclass)
-
-        self.db.classes = classes
-
-    def gen_classes(self):
-        for classdef in self.db.classes:
-            c = Class(self.db, classdef)
-            c.render(self.ilasm)

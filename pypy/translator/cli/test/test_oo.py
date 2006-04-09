@@ -9,6 +9,8 @@ def test_oo():
 
 
 class MyClass:
+    INCREMENT = 1
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -23,7 +25,16 @@ class MyClass:
         return x*y
     static_meth = staticmethod(static_meth)
 
+##    def class_meth(cls, x, y):
+##        return x*y + cls.INCREMENT
+##    class_meth = classmethod(class_meth)
+
+    def class_attribute(self):
+        return self.x + self.INCREMENT
+
 class MyDerivedClass(MyClass):
+    INCREMENT = 2
+
     def __init__(self, x, y):
         MyClass.__init__(self, x, y)
 
@@ -56,3 +67,15 @@ def oo_static_method(x, y):
     return base.static_meth(x,y) + derived.static_meth(x, y)\
            + MyClass.static_meth(x, y) + MyDerivedClass.static_meth(x, y)
 
+def oo_class_attribute(x, y):
+    base = MyClass(x, y)
+    derived = MyDerivedClass(x, y)
+    return base.class_attribute() + derived.class_attribute()
+
+##def oo_class_meth(x, y):
+##    return MyClass.class_meth(x, y) + MyDerivedClass.class_meth(x, y)
+
+if __name__ == '__main__':
+    from pypy.translator.cli import conftest
+    conftest.option.wd = True    
+    check(oo_liskov, [int, int], (42, 13))

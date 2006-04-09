@@ -84,8 +84,8 @@ class _New(MicroInstruction):
 class _SetField(MicroInstruction):
     def render(self, generator, op):
         this, field, value = op.args
-        if field.value == 'meta':
-            return # TODO
+##        if field.value == 'meta':
+##            return # TODO
         
         generator.load(this)
         generator.load(value)

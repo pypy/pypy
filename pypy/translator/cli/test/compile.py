@@ -28,25 +28,24 @@ class Base:
         self.x = x
 
     def compute(self):
-        return self.x + 1
+        return self.x
 
 class Derived(Base):
     def __init__(self, x):
-        Base.__init__(self, x)
+        Base.__init__(self, x+42)
 
-def foo(cls, arg):
-    obj = cls(arg)
-    return obj.compute()
+def foo(cls, x):
+    return cls(x).compute()
 
 def bar(x, y):
-    obj = Base(x)
-    return obj.compute()
+    b = Derived(x)
+    return b.compute()
 #    return foo(Base, x) + foo(Derived, y)
 
 f = compile_function(bar, [int, int])
 
-##try:
-##    pass
-##except py.test.Item.Skipped:
-##    print 'Test skipped'
+try:
+    check(bar, f, 42, 13)
+except py.test.Item.Skipped:
+    print 'Test skipped'
 

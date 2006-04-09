@@ -7,6 +7,7 @@ from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
+from pypy.translator.cli.function import Function
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
@@ -33,6 +34,7 @@ class TestEntryPoint(Node):
     
     def __init__(self, graph_to_call):
         self.graph = graph_to_call
+        self.db = None
 
     def get_name(self):
         return 'main'
@@ -56,7 +58,7 @@ class TestEntryPoint(Node):
         ilasm.call('void class [mscorlib]System.Console::WriteLine(%s)' % ret_type)
         ilasm.opcode('ret')
         ilasm.end_function()
-        return [self.graph]
+        self.db.pending_function(self.graph)
 
     def __convert_method(self, arg_type):
         _conv = {
@@ -126,8 +128,10 @@ class compile_function:
             return None
 
         self.__check_helper("ilasm")
-        retval = subprocess.call(["ilasm", tmpfile], stdout=subprocess.PIPE)
-        assert retval == 0, 'ilasm failed to assemble %s (%s)' % (self.graph.name, tmpfile)
+        ilasm = subprocess.Popen(["ilasm", tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = ilasm.communicate()
+        retval = ilasm.wait()
+        assert retval == 0, 'ilasm failed to assemble %s (%s):\n%s' % (self.graph.name, tmpfile, stdout)
         return tmpfile.replace('.il', '.exe')
 
     def __call__(self, *args):

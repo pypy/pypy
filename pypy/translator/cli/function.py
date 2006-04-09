@@ -12,6 +12,7 @@ from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.metavm import InstructionList, Generator
 from pypy.translator.cli.node import Node
+from pypy.translator.cli.class_ import Class
 
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -33,6 +34,12 @@ class Function(Node, Generator):
     def get_name(self):
         return self.name
 
+    def __hash__(self):
+        return hash(self.graph)
+
+    def __eq__(self, other):
+        return self.graph == other.graph
+
     def _is_return_block(self, block):
         return (not block.exits) and len(block.inputargs) == 1
 
@@ -40,6 +47,9 @@ class Function(Node, Generator):
         return (not block.exits) and len(block.inputargs) == 2        
 
     def render(self, ilasm):
+        if self.db.function_name(self.graph) is not None and not self.is_method:
+            return # already rendered
+
         self.ilasm = ilasm
         graph = self.graph
         returntype, returnvar = self.cts.llvar_to_cts(graph.getreturnvar())
@@ -67,7 +77,7 @@ class Function(Node, Generator):
                 self.ilasm.begin_try()
 
             for op in block.operations:
-                self._search_for_classes(op)
+                #self._search_for_classes(op)
                 self._render_op(op)
 
             if self._is_raise_block(block):
@@ -200,14 +210,13 @@ class Function(Node, Generator):
             if isinstance(arg, flowmodel.Variable):
                 lltype = arg.concretetype
             elif isinstance(arg, flowmodel.Constant):
-                
                 lltype = arg.value
 
             if isinstance(lltype, ootype._view) and isinstance(lltype._inst, ootype._instance):
                 lltype = lltype._inst._TYPE
 
             if isinstance(lltype, ootype.Instance):
-                self.db.classes.add(lltype)
+                self.db.pending_class(lltype)
 
     def _render_op(self, op):
         instr_list = opcodes.get(op.opname, None)
@@ -248,7 +257,7 @@ class Function(Node, Generator):
         self.ilasm.opcode(instr, *args)
 
     def call(self, graph, func_name):
-        self.db.pending_graphs.append(graph)
+        self.db.pending_function(graph)
         self.ilasm.call(func_name)
 
     def new(self, obj):
