@@ -69,16 +69,16 @@ def check_inline(func, in_func, sig, entry=None, inline_guarded_calls=False):
         return interp.eval_graph(graphof(t, entry), args)
     return eval_func
 
-def check_auto_inlining(func, sig, threshold=None):
+def check_auto_inlining(func, sig, multiplier=None):
     t = translate(func, sig)
     if option.view:
         t.view()
     # inline!
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    if threshold is None:
+    if multiplier is None:
         auto_inlining(t)
     else:
-        auto_inlining(t, threshold=threshold)
+        auto_inlining(t, multiplier=multiplier)
     sanity_check(t)
     if option.view:
         t.view()
@@ -229,7 +229,7 @@ def test_inline_var_exception():
             return 3
         return 1
 
-    eval_func, _ = check_auto_inlining(g, [int], threshold=10)
+    eval_func, _ = check_auto_inlining(g, [int], multiplier=10)
     result = eval_func([0])
     assert result == 2
     result = eval_func([1])
@@ -329,7 +329,7 @@ def test_auto_inlining_small_call_big():
             return g(n)
         except OverflowError:
             return -1
-    eval_func, t = check_auto_inlining(f, [int], threshold=10)
+    eval_func, t = check_auto_inlining(f, [int], multiplier=10)
     f_graph = graphof(t, f)
     assert len(collect_called_graphs(f_graph, t)) == 0
 

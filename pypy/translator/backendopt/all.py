@@ -8,6 +8,7 @@ from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
 from pypy.translator import simplify
 from pypy.translator.backendopt.escape import malloc_to_stack
+from pypy.translator.backendopt.mallocprediction import clever_inlining_and_malloc_removal
 from pypy.translator.backendopt.support import log
 
 PRINT_STATISTICS = False
@@ -18,7 +19,8 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
                                       ssa_form=True,
                                       merge_if_blocks_to_switch=True,
                                       propagate=False,
-                                      heap2stack=False):
+                                      heap2stack=False,
+                                      clever_malloc_removal=False):
 
     if PRINT_STATISTICS:
         print "before optimizations:"
@@ -42,33 +44,40 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
     if propagate:
         propagate_all(translator)
 
-    # inline functions in each other
-    if inline_threshold:
-        auto_inlining(translator, inline_threshold)
-        for graph in translator.graphs:
-            removenoops.remove_superfluous_keep_alive(graph)
-            removenoops.remove_duplicate_casts(graph, translator)
+    if not clever_malloc_removal:
+        # inline functions in each other
+        if inline_threshold:
+            auto_inlining(translator, inline_threshold)
+            for graph in translator.graphs:
+                removenoops.remove_superfluous_keep_alive(graph)
+                removenoops.remove_duplicate_casts(graph, translator)
 
-    if PRINT_STATISTICS:
-        print "after inlining:"
-        print_statistics(translator.graphs[0], translator)
+        if PRINT_STATISTICS:
+            print "after inlining:"
+            print_statistics(translator.graphs[0], translator)
 
-    # vaporize mallocs
-    if mallocs:
-        tot = 0
-        for graph in translator.graphs:
-            count = remove_simple_mallocs(graph)
-            if count:
-                # remove typical leftovers from malloc removal
-                removenoops.remove_same_as(graph)
-                simplify.eliminate_empty_blocks(graph)
-                simplify.transform_dead_op_vars(graph, translator)
-                tot += count
-        log.malloc("removed %d simple mallocs in total" % tot)
+        # vaporize mallocs
+        if mallocs:
+            tot = 0
+            for graph in translator.graphs:
+                count = remove_simple_mallocs(graph)
+                if count:
+                    # remove typical leftovers from malloc removal
+                    removenoops.remove_same_as(graph)
+                    simplify.eliminate_empty_blocks(graph)
+                    simplify.transform_dead_op_vars(graph, translator)
+                    tot += count
+            log.malloc("removed %d simple mallocs in total" % tot)
 
-    if PRINT_STATISTICS:
-        print "after malloc removal:"
-        print_statistics(translator.graphs[0], translator)
+        if PRINT_STATISTICS:
+            print "after malloc removal:"
+            print_statistics(translator.graphs[0], translator)
+    else:
+        clever_inlining_and_malloc_removal(translator)
+
+        if PRINT_STATISTICS:
+            print "after clever inlining and malloc removal"
+            print_statistics(translator.graphs[0], translator)
 
     if propagate:
         propagate_all(translator)

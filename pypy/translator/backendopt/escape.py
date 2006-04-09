@@ -131,7 +131,7 @@ class AbstractDataFlowInterpreter(object):
         return resultstate, args
 
     def flow_block(self, block, graph):
-        print "flowing in block %s of function %s" % (block, graph.name)
+        #print "flowing in block %s of function %s" % (block, graph.name)
         self.flown_blocks[block] = True
         if block is graph.returnblock:
             if isonheap(block.inputargs[0]):

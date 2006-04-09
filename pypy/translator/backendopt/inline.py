@@ -494,7 +494,7 @@ def static_instruction_count(graph):
 def inlining_heuristic(graph):
     # XXX ponderation factors?
     return (0.9999 * measure_median_execution_cost(graph) +
-            static_instruction_count(graph)) * factor
+            static_instruction_count(graph))
 
 
 def static_callers(translator, ignore_primitives=False):
@@ -516,9 +516,10 @@ def static_callers(translator, ignore_primitives=False):
     return result
 
 
-def auto_inlining(translator, threshold=1, callgraph=None):
+def auto_inlining(translator, multiplier=1, callgraph=None,
+                  threshold=BASE_INLINE_THRESHOLD):
     from heapq import heappush, heappop, heapreplace
-    threshold *= BASE_INLINE_THRESHOLD
+    threshold = threshold * multiplier
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
     if callgraph is None:
@@ -530,6 +531,7 @@ def auto_inlining(translator, threshold=1, callgraph=None):
     valid_weight = {}
     couldnt_inline = {}
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+    count = 0
 
     while heap:
         weight, _, graph = heap[0]
@@ -557,6 +559,7 @@ def auto_inlining(translator, threshold=1, callgraph=None):
                 couldnt_inline[graph] = True
                 res = CannotInline
             if res is True:
+                count += 1
                 # the parentgraph should now contain all calls that were
                 # done by 'graph'
                 for graph2 in callees.get(graph, {}):
@@ -569,3 +572,4 @@ def auto_inlining(translator, threshold=1, callgraph=None):
                     del couldnt_inline[parentgraph]
                     heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
                 valid_weight[parentgraph] = False
+    return count

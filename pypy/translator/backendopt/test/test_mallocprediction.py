@@ -9,7 +9,7 @@ from pypy.conftest import option
 
 from pypy.translator.backendopt.mallocprediction import *
 
-def compile(fn, signature):
+def rtype(fn, signature):
     t = TranslationContext()
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
@@ -48,7 +48,7 @@ def test_fn():
         b = B()
         x = h(i)
         return g(a, b, x)
-    t, graph = compile(fn, [int])
+    t, graph = rtype(fn, [int])
     callgraph, caller_candidates = check_inlining(t, graph, [0], 42)
     assert caller_candidates == {graph: True}
     assert len(callgraph) == 1
@@ -73,7 +73,7 @@ def test_multiple_calls():
         b = B()
         x = h(i)
         return g1(a, b, x)
-    t, graph = compile(fn, [int])
+    t, graph = rtype(fn, [int])
     callgraph, caller_candidates = check_inlining(t, graph, [0], 3 * 42)
     print callgraph
     assert caller_candidates == {graph: True}
@@ -83,4 +83,17 @@ def test_multiple_calls():
     assert callgraph[graph] == {g1graph: True}
     callgraph, caller_candidates = check_inlining(t, graph, [0], 3 * 42)
     assert callgraph[graph] == {g2graph: True}
+    
+def test_pystone():
+    from pypy.translator.goal.targetrpystonex import make_target_definition
+    entrypoint, _, _ = make_target_definition(10)
+    # does not crash
+    t, graph = rtype(entrypoint, [int])
+    total = clever_inlining_and_malloc_removal(t)
+    assert total == 12
 
+def test_richards():
+    from pypy.translator.goal.richards import entry_point
+    t, graph = rtype(entry_point, [int])
+    total = clever_inlining_and_malloc_removal(t)
+    assert total == 11
