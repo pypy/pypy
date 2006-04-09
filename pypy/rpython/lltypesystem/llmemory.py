@@ -187,6 +187,21 @@ class fakeaddress(object):
             return fakeaddress(self.ob, offset)
         return NotImplemented
 
+    def __eq__(self, other):
+        if not isinstance(other, fakeaddress):
+            return False
+        if self.ob is None:
+            return other.ob is None
+        if other.ob is None:
+            return False
+        ref1 = self.ref()
+        ref2 = other.ref()
+        return (ref1.__class__ is ref2.__class__ and
+                ref1.__dict__ == ref2.__dict__)
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def ref(self):
         ref = _obref(self.ob)
         if self.offset is not None:

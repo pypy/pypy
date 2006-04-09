@@ -130,3 +130,33 @@ def test_fakeaccessor():
     assert a[3] == '+'
     adr1000 = (adr + ArrayItemsOffset(A) + ItemOffset(lltype.Char, 1000))
     assert adr1000.char[-997] == '+'
+
+def test_fakeadr_eq():
+    S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
+    s = lltype.malloc(S)
+
+    assert cast_ptr_to_adr(s) == cast_ptr_to_adr(s)
+
+    adr1 = cast_ptr_to_adr(s) + FieldOffset(S, "x")
+    adr2 = cast_ptr_to_adr(s) + FieldOffset(S, "y")
+    adr3 = cast_ptr_to_adr(s) + FieldOffset(S, "y")
+    assert adr1 != adr2
+    assert adr2 == adr3
+
+    A = lltype.GcArray(lltype.Char)
+    a = lltype.malloc(A, 5)
+    adr1 = cast_ptr_to_adr(a) + ArrayLengthOffset(A)
+    adr2 = cast_ptr_to_adr(a) + ArrayLengthOffset(A)
+    assert adr1 == adr2
+
+    adr1 = cast_ptr_to_adr(a) + ArrayItemsOffset(A)
+    adr2 = cast_ptr_to_adr(a) + ArrayItemsOffset(A)
+    assert adr1 == adr2
+    adr2 += ItemOffset(lltype.Char, 0)
+    assert adr1 == adr2
+
+    adr1 += ItemOffset(lltype.Char, 2)
+    adr2 += ItemOffset(lltype.Char, 3)
+    assert adr1 != adr2
+    adr2 += ItemOffset(lltype.Char, -1)
+    assert adr1 == adr2
