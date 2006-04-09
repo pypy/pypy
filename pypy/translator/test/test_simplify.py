@@ -37,7 +37,24 @@ def test_remove_recursive_call():
         a = rec(x)
         return x + 12
     graph, _ = translate(f, [int])
-    assert len(graph.startblock.operations)
+    assert len(graph.startblock.operations) == 1
+
+def test_remove_call_with_indirect_call():
+    def f1(x):
+        return x + 1
+    def f2(x):
+        return x + 2
+    def g(x):
+        if x == 32:
+            f = f1
+        else:
+            f = f2
+        return f(x)
+    def h(x):
+        a = g(x)
+        return x + 42
+    graph, t = translate(h, [int])
+    assert len(graph.startblock.operations) == 1
 
 def test_dont_remove_if_exception_guarded():
     def f(x):

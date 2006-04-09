@@ -383,9 +383,11 @@ def has_no_side_effects(translator, graph, seen=None):
         if graph.startblock not in translator.rtyper.already_seen:
             return False
     if seen is None:
-        seen = []
+        seen = {}
     elif graph in seen:
         return True
+    newseen = seen.copy()
+    newseen[graph] = True
     try:
         def visit(block):
             if not isinstance(block, Block):
@@ -395,12 +397,15 @@ def has_no_side_effects(translator, graph, seen=None):
                     g = get_graph(op.args[0], translator)
                     if g is None:
                         raise HasSideEffects
-                    if not has_no_side_effects(translator, g, seen + [graph]):
+                    if not has_no_side_effects(translator, g, newseen):
                         raise HasSideEffects
                 elif op.opname == "indirect_call":
-                    # XXX can be improved: look at all graphs,
-                    # if they are there
-                    raise HasSideEffects
+                    graphs = op.args[-1].value
+                    if graphs is None:
+                        raise HasSideEffects
+                    for g in graphs:
+                        if not has_no_side_effects(translator, g, newseen):
+                            raise HasSideEffects
                 elif lloperation.LL_OPERATIONS[op.opname].sideeffects:
                     raise HasSideEffects
         traverse(visit, graph)
