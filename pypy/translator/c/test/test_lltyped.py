@@ -113,3 +113,15 @@ class TestLowLevelType:
         assert res == 50
         res = fn(2)
         assert res == 60
+
+    def test_fnptr_with_fixedsizearray(self):
+        A = ForwardReference()
+        F = FuncType([Ptr(A)], Signed)
+        A.become(FixedSizeArray(Struct('s1', ('f', Ptr(F)), ('n', Signed)), 5))
+        a = malloc(A, immortal=True)
+        a[3].n = 42
+        def llf(n=int):
+            return bool(a[n].f)
+        fn = self.getcompiled(llf)
+        res = fn(4)
+        assert res == 0
