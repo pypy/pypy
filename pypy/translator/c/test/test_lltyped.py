@@ -81,12 +81,12 @@ class TestLowLevelType:
         fn()
 
     def test_call_with_fixedsizearray(self):
-        A = FixedSizeArray(Signed, 5)
+        A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
         S = GcStruct('s', ('a', Ptr(A)))
         a = malloc(A, immortal=True)
-        a[1] = 123
+        a[1].x = 123
         def g(x):
-            return x[1]
+            return x[1].x
         def llf():
             s = malloc(S)
             s.a = a
@@ -96,18 +96,18 @@ class TestLowLevelType:
         assert res == 123
 
     def test_more_prebuilt_arrays(self):
-        A = FixedSizeArray(Signed, 5)
+        A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
         S = GcStruct('s', ('a1', Ptr(A)), ('a2', A))
         s = malloc(S)
         s.a1 = malloc(A, immortal=True)
-        s.a1[2] = 50
-        s.a2[2] = 60
+        s.a1[2].x = 50
+        s.a2[2].x = 60
         def llf(n=int):
             if n == 1:
                 a = s.a1
             else:
                 a = s.a2
-            return a[2]
+            return a[2].x
         fn = self.getcompiled(llf)
         res = fn(1)
         assert res == 50

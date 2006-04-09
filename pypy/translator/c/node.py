@@ -252,6 +252,9 @@ class FixedSizeArrayDefNode:
         return self.itemtypename.replace('@', '(@)[%d]' % FIXEDARRAY.length)
 
     def access_expr(self, baseexpr, index):
+        if not isinstance(index, int):
+            assert index.startswith('item')
+            index = int(index[4:])
         return '%s[%d]' % (baseexpr, index)
 
     def definition(self):
