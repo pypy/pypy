@@ -93,14 +93,6 @@ class StacklessTransfomer(object):
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
 
-        slp_main_loop_graph = mixlevelannotator.getgraph(
-            code.slp_main_loop, [], l2a(lltype.Void))
-        SLP_MAIN_LOOP_TYPE = lltype.FuncType([], lltype.Void)
-        self.slp_main_loop_type_ptr = model.Constant(lltype.functionptr(
-            SLP_MAIN_LOOP_TYPE, "slp_main_loop",
-            graph=slp_main_loop_graph),
-            lltype.Ptr(SLP_MAIN_LOOP_TYPE))
-
         annotations = [annmodel.SomeInstance(bk.getuniqueclassdef(code.UnwindException)),
                        annmodel.SomePtr(lltype.Ptr(STATE_HEADER))]
 

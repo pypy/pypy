@@ -60,8 +60,8 @@ class UnwindException(Exception):
 def slp_main_loop():
     currentframe = global_state.top
     
-    while currentframe is not None:
-        nextframe = currentframe.f_back
+    while currentframe:
+        global_state.top = nextframe = currentframe.f_back
         framestate = currentframe.state
         fn, signature, global_state.restart_substate = decode_state(framestate)
         try:

@@ -30,6 +30,8 @@ from pypy import conftest
 
 ##     assert s2_1 is s2_2
 
+from pypy.translator.stackless import code
+
 def test_simple_transform():
     from pypy.translator.stackless.code import UnwindException
     def check(x):
@@ -45,13 +47,30 @@ def test_simple_transform():
     
 def run_stackless_function(fn, *stacklessfuncs):
     def entry_point(argv):
-        os.write(1, str(fn(len(argv)))+'\n')
+        try:
+            r = fn(len(argv))
+        except code.UnwindException, u:
+            code.global_state.top = u.frame_top
+            code.slp_main_loop()
+            r = code.global_state.retval_long
+        os.write(1, str(r)+'\n')
         return 0
 
     s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))
     s_list_of_strings.listdef.resize()
     t = TranslationContext()
-    t.buildannotator().build_types(entry_point, [s_list_of_strings])
+    annotator = t.buildannotator()
+    bk = annotator.bookkeeper
+    # we want to make sure that the annotator knows what
+    # code.UnwindException looks like very early on, because otherwise
+    # it can get mutated during the annotation of the low level
+    # helpers which can cause slp_main_loop to get re-annotated after
+    # it is rtyped.  which is bad.
+    unwind_def = bk.getuniqueclassdef(code.UnwindException)
+    unwind_def.generalize_attr('frame_top', annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
+    unwind_def.generalize_attr('frame_bottom', annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
+    
+    annotator.build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
 
     st = StacklessTransfomer(t)
