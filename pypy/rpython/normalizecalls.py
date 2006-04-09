@@ -274,118 +274,53 @@ def create_instantiate_function(annotator, classdef):
 
 # ____________________________________________________________
 
-class MinIdSymbolic(ComputedIntSymbolic):
-    def __init__(self, classdef, rootid):
-        self.classdef = classdef
-        if classdef is None:
-            self.parent = None
-        elif classdef.basedef is None:
-            self.parent = rootid
+class Max(object):
+    def __cmp__(self, other):
+        if self is other:
+            return 0
         else:
-            self.parent = classdef.basedef.minid
-        if self.parent:    
-            self.parent.children.append(self)
-        self.children = []
-        if rootid is None:
-            self.rootid = self
+            return 1
+
+MAX = Max()    # a maximum object
+
+
+class TotalOrderSymbolic(ComputedIntSymbolic):
+
+    def __init__(self, orderwitness, peers):
+        self.orderwitness = orderwitness
+        self.peers = peers
+        self.value = None
+        peers.append(self)
+
+    def __cmp__(self, other):
+        if not isinstance(other, TotalOrderSymbolic):
+            return NotImplemented
         else:
-            self.rootid = rootid
+            return cmp(self.orderwitness, other.orderwitness)
 
     def compute_fn(self):
-        if self.classdef.minid is self:
-            compute_inheritance_ids(self.classdef.bookkeeper)
-        return self.classdef.minid
-
-    def __eq__(self, other):
-        if isinstance(other, MinIdSymbolic):
-            return self is other
-        elif isinstance(other, MaxIdSymbolic):
-            return False
-        raise NotImplementedError
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __le__(self, other):
-        if isinstance(other, MinIdSymbolic):
-            common_classdef = self.classdef.commonbase(other.classdef)
-            if common_classdef is None:
-                baseid = self.rootid
-            else:
-                baseid = common_classdef.minid
-            if baseid is self:
-                return True
-            if baseid is other:
-                return False
-            current_self = self
-            while current_self.parent is not baseid:
-                current_self = current_self.parent
-            current_other = other
-            while current_other.parent is not baseid:
-                current_other = current_other.parent
-            selfindex = baseid.children.index(current_self)
-            otherindex = baseid.children.index(current_other)
-            return selfindex <= otherindex
-        elif isinstance(other, MaxIdSymbolic):
-            rightmost = other.minid
-            while rightmost.children:
-                rightmost = rightmost.children[-1]
-            return self <= rightmost
-        raise NotImplementedError
-            
-    def compute_inheritance_ids(self, id_=0):
-        if self.classdef is not None:
-            self.classdef.minid = id_
-        maxid = id_
-        for child in self.children:
-            maxid = child.compute_inheritance_ids(maxid + 1)
-        if self.classdef is not None:
-            self.classdef.maxid = maxid
-        return maxid
-
-class MaxIdSymbolic(ComputedIntSymbolic):
-    def __init__(self, minid):
-        self.minid = minid
-
-    def compute_fn(self):
-        if self.minid.classdef.minid is self.minid:
-            compute_inheritance_ids(self.minid.classdef.bookkeeper)
-        return self.minid.classdef.maxid
-
-def compute_inheritance_ids(bookkeeper):
-    bookkeeper.annotator.rootid.compute_inheritance_ids()
-#    def assign_id(classdef, nextid):
-#        assert isinstance(classdef.minid, MinIdSymbolic)
-#        assert isinstance(classdef.maxid, MaxIdSymbolic)
-#        classdef.minid = nextid
-#        nextid += 1
-#        for subclass in classdef.subdefs:
-#            nextid = assign_id(subclass, nextid)
-#        classdef.maxid = nextid
-#        return classdef.maxid
-#    id_ = 0
-#    for classdef in bookkeeper.classdefs:
-#        if classdef.basedef is None:
-#            id_ = assign_id(classdef, id_)
-    
+        if self.value is None:
+            self.peers.sort()
+            for i, peer in enumerate(self.peers):
+                assert peer.value is None
+                peer.value = i
+            assert self.value is not None
+        return self.value
 
 def assign_inheritance_ids(annotator):
-    if hasattr(annotator, 'rootid'):
-        rootid = annotator.rootid
-    else:
-        rootid = MinIdSymbolic(None, None)
-        annotator.rootid = rootid
-    def assign_id(classdef):
-        if not hasattr(classdef, 'minid'):
-            classdef.minid = MinIdSymbolic(classdef, rootid)
-        if not hasattr(classdef, 'maxid'):
-            classdef.maxid = MaxIdSymbolic(classdef.minid)
-        for subclass in classdef.subdefs:
-            assign_id(subclass)
+    # we sort the classes by lexicographic order of reversed(mro),
+    # which gives a nice depth-first order.
+    bk = annotator.bookkeeper
+    try:
+        lst = bk._inheritance_id_symbolics
+    except AttributeError:
+        lst = bk._inheritance_id_symbolics = []
     for classdef in annotator.bookkeeper.classdefs:
-        
-        if classdef.basedef is None:
-            assign_id(classdef)
+        if not hasattr(classdef, 'minid'):
+            witness = list(classdef.getmro())
+            witness.reverse()
+            classdef.minid = TotalOrderSymbolic(witness, lst)
+            classdef.maxid = TotalOrderSymbolic(witness + [MAX], lst)
 
 # ____________________________________________________________
 
