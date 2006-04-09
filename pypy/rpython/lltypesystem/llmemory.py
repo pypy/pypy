@@ -36,13 +36,14 @@ class ItemOffset(AddressOffset):
             return NotImplemented
         return ItemOffset(self.TYPE, self.repeat * other)
 
-    def get(self, ob):
-        return ob[self.repeat]
+    def ref(self, firstitemref):
+        assert isinstance(firstitemref, _arrayitemref)
+        array = firstitemref.array
+        assert lltype.typeOf(array).TO.OF == self.TYPE
+        index = firstitemref.index + self.repeat
+        return _arrayitemref(array, index)
 
-    def set(self, ob, value):
-        ob[self.repeat] = value
 
-    
 class FieldOffset(AddressOffset):
 
     def __init__(self, TYPE, fldname):
@@ -52,11 +53,10 @@ class FieldOffset(AddressOffset):
     def __repr__(self):
         return "<FieldOffset %r %r>" % (self.TYPE, self.fldname)
 
-    def get(self, ob):
-        return getattr(ob, self.fldname)
-
-    def set(self, ob, value):
-        setattr(ob, self.fldname, value)
+    def ref(self, containerref):
+        struct = containerref.get()
+        assert lltype.typeOf(struct).TO == self.TYPE
+        return _structfieldref(struct, self.fldname)
 
 
 class CompositeOffset(AddressOffset):
@@ -68,11 +68,8 @@ class CompositeOffset(AddressOffset):
     def __repr__(self):
         return '< %r + %r >'%(self.first, self.second)
 
-    def get(self, ob):
-        return self.second.get(self.first.get(ob))
-
-    def set(self, ob, value):
-        return self.second.set(self.first.get(ob), value)
+    def ref(self, containerref):
+        return self.second.ref(self.first.ref(containerref))
 
 
 class ArrayItemsOffset(AddressOffset):
@@ -83,11 +80,10 @@ class ArrayItemsOffset(AddressOffset):
     def __repr__(self):
         return '< ArrayItemsOffset >'
 
-    def get(self, ob):
-        return ob
-
-    def set(self, ob, value):
-        raise Exception("can't assign to an array's items")
+    def ref(self, arrayref):
+        array = arrayref.get()
+        assert lltype.typeOf(array).TO == self.TYPE
+        return _arrayitemref(array, index=0)
 
 class ArrayLengthOffset(AddressOffset):
 
@@ -97,12 +93,55 @@ class ArrayLengthOffset(AddressOffset):
     def __repr__(self):
         return '< ArrayLengthOffset >'
 
-    def get(self, ob):
-        return len(ob)
+    def ref(self, arrayref):
+        array = arrayref.get()
+        assert lltype.typeOf(array).TO == self.TYPE
+        return _arraylenref(array)
 
-    def set(self, ob, value):
+
+class _arrayitemref(object):
+    def __init__(self, array, index):
+        self.array = array
+        self.index = index
+    def get(self):
+        return self.array[self.index]
+    def set(self, value):
+        self.array[self.index] = value
+    def type(self):
+        return lltype.typeOf(self.array).TO.OF
+
+class _arraylenref(object):
+    def __init__(self, array):
+        self.array = array
+    def get(self):
+        return len(self.array)
+    def set(self, value):
         raise Exception("can't assign to an array's length")
+    def type(self):
+        return lltype.Signed
 
+class _structfieldref(object):
+    def __init__(self, struct, fieldname):
+        self.struct = struct
+        self.fieldname = fieldname
+    def get(self):
+        return getattr(self.struct, self.fieldname)
+    def set(self, value):
+        setattr(self.struct, self.fieldname, value)
+    def type(self):
+        return getattr(lltype.typeOf(self.struct), self.fieldname)
+
+class _obref(object):
+    def __init__(self, ob):
+        self.ob = ob
+    def get(self):
+        return self.ob
+    def set(self, value):
+        raise Exception("can't assign to whole object")
+    def type(self):
+        return lltype.typeOf(self.ob)
+
+# ____________________________________________________________
 
 def sizeof(TYPE, n=None):
     if n is None:
@@ -148,17 +187,17 @@ class fakeaddress(object):
             return fakeaddress(self.ob, offset)
         return NotImplemented
 
+    def ref(self):
+        ref = _obref(self.ob)
+        if self.offset is not None:
+            ref = self.offset.ref(ref)
+        return ref
+
     def get(self):
-        if self.offset is None:
-            return self.ob
-        else:
-            return self.offset.get(self.ob)
+        return self.ref().get()
 
     def set(self, value):
-        if self.offset is None:
-            raise Exception("can't assign to whole object")
-        else:
-            self.offset.set(self.ob, value)
+        self.ref().set(value)
 
     def _cast_to_ptr(self, EXPECTED_TYPE):
         return lltype.cast_pointer(EXPECTED_TYPE, self.get())
@@ -166,43 +205,53 @@ class fakeaddress(object):
     def _cast_to_int(self):
         return self.get()._cast_to_int()
 
-# XXX the indexing in code like
-#     addr.signed[0] = v
-#     is just silly.  remove it.
+# ____________________________________________________________
+
+NULL = fakeaddress(None) # XXX this should be the same as memory.lladdress.NULL
+Address = lltype.Primitive("Address", NULL)
+
 
 class _fakeaccessor(object):
     def __init__(self, addr):
         self.addr = addr
     def __getitem__(self, index):
-        assert index == 0
-        return self.convert(self.addr.get())
+        addr = self.addr
+        if index != 0:
+            addr += ItemOffset(addr.ref().type(), index)
+        return self.convert(addr.get())
 
     def __setitem__(self, index, value):
-        assert index == 0
-        self.addr.set(value)
-
-        
-class _signed_fakeaccessor(_fakeaccessor):
-    TYPE = lltype.Signed
+        addr = self.addr
+        if index != 0:
+            addr += ItemOffset(addr.ref().type(), index)
+        addr.set(value)
 
     def convert(self, value):
         assert lltype.typeOf(value) == self.TYPE
         return value
 
+
+class _signed_fakeaccessor(_fakeaccessor):
+    TYPE = lltype.Signed
+
+class _char_fakeaccessor(_fakeaccessor):
+    TYPE = lltype.Char
+
 class _address_fakeaccessor(_fakeaccessor):
-    TYPE = None
+    TYPE = Address
 
     def convert(self, value):
-        # XXX is this the right check for "Ptr-ness" ?
-        assert isinstance(value, lltype._ptr)
-        return fakeaddress(value)
+        if isinstance(value, lltype._ptr):
+            return fakeaddress(value)
+        elif isinstance(value, Address):
+            return value
+        else:
+            raise TypeError(value)
 
 
 fakeaddress.signed = property(_signed_fakeaccessor)
+fakeaddress.char = property(_char_fakeaccessor)
 fakeaddress.address = property(_address_fakeaccessor)
-
-Address = lltype.Primitive("Address", fakeaddress(None))
-
 fakeaddress._TYPE = Address
 
 # the obtained address will not keep the object alive. e.g. if the object is

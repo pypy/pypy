@@ -3,35 +3,39 @@ from pypy.rpython.lltypesystem import lltype
 import py
 
 def test_simple():
-    class C:
-        def __init__(self, x):
-            self.x = x
-    c = C(1)
-    a = fakeaddress(c)
-    assert a.get() is c
-    b = a + FieldOffset('dummy', 'x')
-    assert b.get() == 1
-    b.set(2)
-    assert c.x == 2
+    S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
+    s = lltype.malloc(S)
+    s.x = 123
+    s.y = 456
+    a = fakeaddress(s)
+    assert a.get() == s
+    b = a + FieldOffset(S, 'x')
+    assert b.get() == 123
+    b.set(234)
+    assert s.x == 234
 
 def test_composite():
-    class C:
-        def __init__(self, x):
-            self.x = x
-    c = C(C(3))
-    a = fakeaddress(c)
-    assert a.get() is c
-    b = a + FieldOffset('dummy', 'x') + FieldOffset('dummy', 'x')
-    assert b.get() == 3
-    b.set(2)
-    assert c.x.x == 2
+    S1 = lltype.GcStruct("S1", ("x", lltype.Signed), ("y", lltype.Signed))
+    S2 = lltype.GcStruct("S2", ("s", S1))
+    s2 = lltype.malloc(S2)
+    s2.s.x = 123
+    s2.s.y = 456
+    a = fakeaddress(s2)
+    assert a.get() == s2
+    b = a + FieldOffset(S2, 's') + FieldOffset(S1, 'x')
+    assert b.get() == 123
+    b.set(234)
+    assert s2.s.x == 234
     
 def test_array():
-    x = [2, 3, 5, 7, 11]
+    A = lltype.GcArray(lltype.Signed)
+    x = lltype.malloc(A, 5)
+    x[3] = 123
     a = fakeaddress(x)
-    # is there a way to ensure that we add the ArrayItemsOffset ?
-    b = a + ArrayItemsOffset('dummy') + ItemOffset('dummy')*3
-    assert b.get() == x[3]
+    b = a + ArrayItemsOffset(A)
+    b += ItemOffset(lltype.Signed)*2
+    b += ItemOffset(lltype.Signed)
+    assert b.get() == 123
     b.set(14)
     assert x[3] == 14
     
@@ -70,7 +74,6 @@ def test_cast_ptr_to_adr():
 
 def test_cast_adr_to_ptr():
     from pypy.rpython.memory.test.test_llinterpsim import interpret
-    from pypy.rpython.lltypesystem import lltype
     S = lltype.GcStruct("S", ("x", lltype.Signed))
     Sptr = lltype.Ptr(S)
     def f():
@@ -83,7 +86,6 @@ def test_cast_adr_to_ptr():
 
 def test_cast_adr_to_int():
     from pypy.rpython.memory.test.test_llinterpsim import interpret
-    from pypy.rpython.lltypesystem import lltype
     S = lltype.GcStruct("S", ("x", lltype.Signed))
     Sptr = lltype.Ptr(S)
     def f():
@@ -95,3 +97,36 @@ def test_cast_adr_to_int():
     assert f()
     res = interpret(f, [])
     assert res
+
+def test_fakeaccessor():
+    S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
+    s = lltype.malloc(S)
+    s.x = 123
+    s.y = 456
+    adr = cast_ptr_to_adr(s)
+    adr += FieldOffset(S, "y")
+    assert adr.signed[0] == 456
+    adr.signed[0] = 789
+    assert s.y == 789
+
+    A = lltype.GcArray(lltype.Signed)
+    a = lltype.malloc(A, 5)
+    a[3] = 123
+    adr = cast_ptr_to_adr(a)
+    assert (adr + ArrayLengthOffset(A)).signed[0] == 5
+    assert (adr + ArrayItemsOffset(A)).signed[3] == 123
+    (adr + ArrayItemsOffset(A)).signed[3] = 456
+    assert a[3] == 456
+    adr1000 = (adr + ArrayItemsOffset(A) + ItemOffset(lltype.Signed, 1000))
+    assert adr1000.signed[-997] == 456
+
+    A = lltype.GcArray(lltype.Char)
+    a = lltype.malloc(A, 5)
+    a[3] = '*'
+    adr = cast_ptr_to_adr(a)
+    assert (adr + ArrayLengthOffset(A)).signed[0] == 5
+    assert (adr + ArrayItemsOffset(A)).char[3] == '*'
+    (adr + ArrayItemsOffset(A)).char[3] = '+'
+    assert a[3] == '+'
+    adr1000 = (adr + ArrayItemsOffset(A) + ItemOffset(lltype.Char, 1000))
+    assert adr1000.char[-997] == '+'
