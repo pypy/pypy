@@ -98,7 +98,6 @@ def name_address(value, db):
             else:
                 return db.get(value.ob)
     else:
-        assert value.offset is not None
         if isinstance(typeOf(value.ob), ContainerType):
             base = db.getcontainernode(value.ob).ptrname
         else:
