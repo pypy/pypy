@@ -7,6 +7,8 @@ from pypy.translator import simplify
 from pypy.translator.simplify import get_graph
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.backendopt.inline import OP_WEIGHTS
+from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
+from pypy.translator.backendopt.support import log, var_needsgc
 
 def do_atmost(n, f, *args):
     i = 0
@@ -49,7 +51,7 @@ def rewire_links(graph):
         link.target = link.target.exits[val].target
         link.args = args
     if candidates:
-        print "rewiring links in graph", graph.name
+        #print "rewiring links in graph", graph.name
         simplify.join_blocks(graph)
         return True
     return False
@@ -75,30 +77,35 @@ def coalesce_links(graph):
 
 def propagate_consts(graph):
     """replace a variable of the inputargs of a block by a constant
-    if all blocks leading to it have the same constant in that position"""
+    if all blocks leading to it have the same constant in that position
+    or if all non-constants that lead to it are in the same variable family
+    as the constant that we go to."""
     entrymap = mkentrymap(graph)
     candidates = []
     changed = False
+    variable_families = DataFlowFamilyBuilder(graph).get_variable_families()
     for block, ingoing in entrymap.iteritems():
         if block in [graph.returnblock, graph.exceptblock]:
             continue
         for i in range(len(ingoing[0].args) - 1, -1, -1):
             vals = {}
+            var = block.inputargs[i]
+            var_rep = variable_families.find_rep(var)
             withvar = True
             for link in ingoing:
                 if isinstance(link.args[i], Variable):
-                    break
+                    if variable_families.find_rep(link.args[i]) != var_rep:
+                        break
                 else:
                     vals[link.args[i]] = True
             else:
-               withvar = False
+                withvar = False
             if len(vals) != 1 or withvar:
                 continue
-            print "propagating constants in graph", graph.name
+            #print "propagating constants in graph", graph.name
             const = vals.keys()[0]
             for link in ingoing:
                 del link.args[i]
-            var = block.inputargs[i]
             del block.inputargs[i]
             op = SpaceOperation("same_as", [const], var)
             block.operations.insert(0, op)
@@ -136,14 +143,17 @@ def constant_folding(graph, translator):
             if sum([isinstance(arg, Variable) for arg in op.args]):
                 continue
             if lloperation.LL_OPERATIONS[op.opname].canfold:
-                print "folding operation", op, "in graph", graph.name
+                if op.opname in ("getsubstruct", "getarraysubstruct"):
+                    if not var_needsgc(op.result):
+                        continue
                 try:
                     llframe.eval_operation(op)
                 except:
-                    print "did not work"
+                    pass
                 else:
                     res = Constant(llframe.getval(op.result))
-                    print "result", res.value
+                    log.constantfolding("in graph %s, %s = %s" %
+                                        (graph.name, op, res))
                     res.concretetype = op.result.concretetype
                     block.operations[i].opname = "same_as"
                     block.operations[i].args = [res]
@@ -249,6 +259,87 @@ def partial_folding(graph, translator):
     else:
         return False
 
+def iter_op_pairs(graph, opname1, opname2, equality):
+    for block in graph.iterblocks():
+        num_operations = len(block.operations)
+        for current1 in range(num_operations):
+            if block.operations[current1].opname != opname1:
+                continue
+            op1 = block.operations[current1]
+            for current2 in range(current1 + 1, num_operations):
+                if block.operations[current2].opname != opname2:
+                    continue
+                op2 = block.operations[current2]
+                if equality(op1, op2):
+                    yield block, current1, current2
+    return
+
+def can_be_same(val1, val2):
+    if isinstance(val1, Constant) and isinstance(val2, Constant):
+        return val1.value == val2.value
+    return val1.concretetype == val2.concretetype
+
+def remove_getfield(graph, translator):
+    """ this removes a getfield after a setfield, if they work on the same
+    object and field and if there is no setfield in between which can access
+    the same field"""
+    def equality(op1, op2):
+        if isinstance(op1.args[0], Constant):
+            if isinstance(op2.args[0], Constant):
+                return (op1.args[0].value == op2.args[0].value and
+                        op1.args[1].value == op2.args[1].value)
+            return False
+        return (op1.args[0] == op2.args[0] and
+                op1.args[1].value == op2.args[1].value)
+    def remove_if_possible(block, index1, index2):
+        op1 = block.operations[index1]
+        op2 = block.operations[index2]
+        #print "found"
+        #print op1
+        #print op2
+        fieldname = op1.args[1].value
+        var_or_const = op1.args[0]
+        if op1.opname == "setfield":
+            value = op1.args[2]
+        else:
+            value = op1.result
+        for i in range(index1 + 1, index2):
+            op = block.operations[i]
+            if op.opname == "setfield":
+                if op.args[1].value != fieldname:
+                    continue
+                if can_be_same(op.args[0], op1.args[0]):
+                    break
+            if op.opname == "direct_call":
+                break # giving up for now
+            if op.opname == "indirect_call":
+                break # giving up for now
+        else:
+            op2.opname = "same_as"
+            op2.args = [value]
+            return 1
+        return 0
+    count = 0
+    for block, index1, index2 in iter_op_pairs(
+        graph, "setfield", "getfield", equality):
+        count += remove_if_possible(block, index1, index2)
+    for block, index1, index2 in iter_op_pairs(
+        graph, "getfield", "getfield", equality):
+        count += remove_if_possible(block, index1, index2)
+    if count:
+        remove_same_as(graph)
+    return count
+
+def remove_all_getfields(graph, t):
+    count = 0
+    while 1:
+        newcount = remove_getfield(graph, t)
+        count += newcount
+        if not newcount:
+            break
+    if count:
+        log.removegetfield("removed %s getfields in %s" % (count, graph.name))
+    return count
 
 def propagate_all(translator):
     for graph in translator.graphs:
@@ -260,5 +351,6 @@ def propagate_all(translator):
             changed = do_atmost(100, constant_folding, graph,
                                            translator) or changed
             changed = partial_folding(graph, translator) or changed
+            changed = remove_all_getfields(graph, translator) or changed
             return changed
         do_atmost(10, prop)

@@ -81,6 +81,24 @@ def test_dont_fold_return():
     assert len(graph.startblock.exits[0].args) == 1
     check_graph(graph, [1], None, t)
 
+def test_propagate_despite_vars():
+    py.test.skip("immediate test")
+    patterns = [1, 1, 2, 3, 5, 7, 12]
+    class A(object): pass
+    a = A()
+    a.x = 10
+    a.y = 20
+    def f(x):
+        result = 0
+        for i in range(a.x):
+            for j in range(a.y):
+                result += i * j
+        return result
+    graph, t = get_graph(f, [int])
+    propagate_consts(graph)
+    if conftest.option.view:
+        t.view()
+
 def test_constant_fold():
     def f(x):
         return 1
@@ -112,6 +130,20 @@ def test_constant_fold_call():
         t.view()
     assert len(graph.startblock.operations) == 1
     check_graph(graph, [10], g(10), t)
+
+def test_dont_fold_getfield():
+    # must not constant fold this, because the container might be collected
+    string = "blablabla"
+    def f(x):
+        return string[abs(x)]
+    graph, t = get_graph(f, [int])
+    res = constant_folding(graph, t)
+    assert not res
+    if conftest.option.view:
+        t.view()
+    print graph.startblock.operations[1]
+    check_graph(graph, [0], "b", t)
+
 
 def test_fold_const_blocks():
     def s(x):
@@ -184,4 +216,52 @@ def test_call_list_default_argument():
     if conftest.option.view:
         t.view()
 
+def test_remove_getfield_after_setfield():
+    class A(object):
+        def __init__(self, x=42):
+            self.x = x
+    class B(object):
+        pass
+    global_b = B()
+    global_b.a = None
+    def f(x):
+        a = A(x)
+        global_b.a = a
+        global_b.a.x += 1
+        return global_b.a.x
+    graph, t = get_graph(f, [int], all_opts=False)
+    assert len(graph.startblock.operations) == 11
+    count = remove_all_getfields(graph, t)
+    if conftest.option.view:
+        t.view()
+    assert len(graph.startblock.operations) == 8
+    check_graph(graph, [42], 43, t)
 
+def test_remove_getfield_after_getfield():
+    class A(object):
+        def __init__(self, x=42):
+            self.x = x
+    class B(object):
+        def __init__(self, a):
+            self.a = a
+    class C:
+        pass
+    global_c = C()
+    global_c.b1 = None
+    global_c.b2 = None
+    def f(x):
+        a = A(x)
+        b = B(a)
+        global_c.b1 = b
+        a1 = global_c.b1.a
+        global_c.b2 = B(a1)
+        return global_c.b1.a.x
+    graph, t = get_graph(f, [int])
+    assert len(graph.startblock.operations) == 23
+    count = remove_all_getfields(graph, t)
+    assert count
+    if conftest.option.view:
+        t.view()
+    assert len(graph.startblock.operations) == 20
+    check_graph(graph, [42], 42, t)
+    
