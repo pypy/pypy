@@ -54,6 +54,8 @@ def find_calls_where_creps_go(interesting_creps, graph, adi,
         if op.opname == "indirect_call":
             for var in op.args[:-1]:
                 varstate = adi.getstate(var)
+                if varstate is None:
+                    continue
                 for crep in varstate.creation_points:
                     if crep in interesting_creps:
                         del interesting_creps[crep]

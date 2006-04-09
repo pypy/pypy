@@ -84,6 +84,38 @@ def test_multiple_calls():
     callgraph, caller_candidates = check_inlining(t, graph, [0], 3 * 42)
     assert callgraph[graph] == {g2graph: True}
     
+def test_indirect_call():
+    class A(object):
+        pass
+    def f1(a, i):
+        return a.x
+    def f2(a, i):
+        return a.x + 1
+    def g1(a, i):
+        return a
+    def g2(a, i):
+        return None
+    def f(i):
+        a1 = A()
+        a2 = A()
+        a1.x = 1
+        a2.x = 2
+        if i:
+            f = f1
+            g = g1
+        else:
+            f = f2
+            g = g2
+        x = f(a1, 0)
+        a0 = g(a2, 1)
+        if a0 is not None:
+            return 43
+        else:
+            return 42
+    t, graph = rtype(f, [int])
+    callgraph, caller_candidate = check_inlining(t, graph, [0], 42)
+    assert caller_candidate == {}
+
 def test_pystone():
     from pypy.translator.goal.targetrpystonex import make_target_definition
     entrypoint, _, _ = make_target_definition(10)
