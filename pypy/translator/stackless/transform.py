@@ -281,7 +281,7 @@ class StacklessTransfomer(object):
         var_header = varoftype(lltype.Ptr(STATE_HEADER))
     
         # XXX should this be getsubstruct?
-        saveops.append(model.SpaceOperation("cast_pointer", [frame_state_var], var_header))
+        saveops.append(model.SpaceOperation("getsubstruct", [frame_state_var, model.Constant("header", lltype.Void)], var_header))
 
         saveops.append(model.SpaceOperation(
             "direct_call",
@@ -301,8 +301,12 @@ class StacklessTransfomer(object):
                         varoftype(lltype.Void)))
 
         type_repr = rclass.get_type_repr(rtyper)
-        c_unwindexception = model.Constant(type_repr.convert_const(code.UnwindException), type_repr.lowleveltype)
-        save_state_block.closeblock(model.Link([c_unwindexception, var_exc], 
+        c_unwindexception = model.Constant(type_repr.convert_const(code.UnwindException), etype)
+        if not hasattr(self.curr_graph.exceptblock.inputargs[0], 'concretetype'):
+            self.curr_graph.exceptblock.inputargs[0].concretetype = etype
+        if not hasattr(self.curr_graph.exceptblock.inputargs[1], 'concretetype'):
+            self.curr_graph.exceptblock.inputargs[1].concretetype = evalue
+        save_state_block.closeblock(model.Link([c_unwindexception, var_unwind_exception], 
                                                self.curr_graph.exceptblock))
         self.translator.rtyper._convert_link(save_state_block, save_state_block.exits[0])
         return save_state_block, frame_type

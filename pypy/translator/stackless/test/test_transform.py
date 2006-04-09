@@ -2,6 +2,7 @@ import py
 import os
 from pypy.translator.stackless.transform import StacklessTransfomer
 from pypy.translator.c.genc import CStandaloneBuilder
+from pypy.translator.c import gc
 from pypy.rpython.memory.gctransform import varoftype
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.translator import TranslationContext, graphof
@@ -43,7 +44,7 @@ def test_simple_transform():
     def example(x):
         return g(x) + 1
     res = run_stackless_function(example, example, g)
-    assert res == "6"
+    assert res.strip() == "3"
     
 def run_stackless_function(fn, *stacklessfuncs):
     def entry_point(argv):
@@ -81,7 +82,14 @@ def run_stackless_function(fn, *stacklessfuncs):
     if conftest.option.view:
         t.view()
 
-    cbuilder = CStandaloneBuilder(t, entry_point)
+##     r_list_of_strings = t.rtyper.getrepr(s_list_of_strings)
+##     ll_list = r_list_of_strings.convert_const([''])
+##     from pypy.rpython.llinterp import LLInterpreter
+##     interp = LLInterpreter(t.rtyper)
+##     interp.eval_graph(graphof(t, entry_point), [ll_list])
+##     return
+
+    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gc.BoehmGcPolicy)
     cbuilder.generate_source()
     cbuilder.compile()
     return cbuilder.cmdexec('')
