@@ -33,6 +33,19 @@ from pypy import conftest
 
 from pypy.translator.stackless import code
 
+def test_simple_transform_llinterp():
+    from pypy.translator.stackless.code import UnwindException
+    def check(x):
+        if x:
+            raise UnwindException
+    def g(x):
+        check(x)
+        return x + 1
+    def example(x):
+        return g(x) + 1
+    res = llinterp_stackless_function(example, example, g)
+    assert res == 3
+
 def test_simple_transform():
     from pypy.translator.stackless.code import UnwindException
     def check(x):
@@ -45,18 +58,8 @@ def test_simple_transform():
         return g(x) + 1
     res = run_stackless_function(example, example, g)
     assert res.strip() == "3"
-    
-def run_stackless_function(fn, *stacklessfuncs):
-    def entry_point(argv):
-        try:
-            r = fn(len(argv))
-        except code.UnwindException, u:
-            code.global_state.top = u.frame_top
-            code.slp_main_loop()
-            r = code.global_state.retval_long
-        os.write(1, str(r)+'\n')
-        return 0
 
+def rtype_stackless_function(fn, *stacklessfuncs):
     s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))
     s_list_of_strings.listdef.resize()
     t = TranslationContext()
@@ -71,7 +74,7 @@ def run_stackless_function(fn, *stacklessfuncs):
     unwind_def.generalize_attr('frame_top', annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
     unwind_def.generalize_attr('frame_bottom', annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
     
-    annotator.build_types(entry_point, [s_list_of_strings])
+    annotator.build_types(fn, [s_list_of_strings])
     t.buildrtyper().specialize()
 
     st = StacklessTransfomer(t)
@@ -81,15 +84,42 @@ def run_stackless_function(fn, *stacklessfuncs):
         checkgraph(graph) 
     if conftest.option.view:
         t.view()
+    return t
+    
+def run_stackless_function(fn, *stacklessfuncs):
+    def entry_point(argv):
+        try:
+            r = fn(len(argv))
+        except code.UnwindException, u:
+            code.global_state.top = u.frame_top
+            code.slp_main_loop()
+            r = code.global_state.retval_long
+        os.write(1, str(r)+'\n')
+        return 0
 
-##     r_list_of_strings = t.rtyper.getrepr(s_list_of_strings)
-##     ll_list = r_list_of_strings.convert_const([''])
-##     from pypy.rpython.llinterp import LLInterpreter
-##     interp = LLInterpreter(t.rtyper)
-##     res = interp.eval_graph(graphof(t, entry_point), [ll_list])
-##     return str(res)
+    t = rtype_stackless_function(entry_point, *stacklessfuncs)
 
     cbuilder = CStandaloneBuilder(t, entry_point)#, gcpolicy=gc.BoehmGcPolicy)
     cbuilder.generate_source()
     cbuilder.compile()
-    return cbuilder.cmdexec('')
+    return cbuilder.cmdexec('').strip()
+
+def llinterp_stackless_function(fn, *stacklessfuncs):
+    def entry_point(argv):
+        try:
+            r = fn(len(argv))
+        except code.UnwindException, u:
+            code.global_state.top = u.frame_top
+            code.slp_main_loop()
+            r = code.global_state.retval_long
+        return r
+
+    t = rtype_stackless_function(entry_point, *stacklessfuncs)
+
+    r_list_of_strings = t.rtyper.getrepr(
+        t.annotator.binding(graphof(t, entry_point).startblock.inputargs[0]))
+    ll_list = r_list_of_strings.convert_const([''])
+    from pypy.rpython.llinterp import LLInterpreter
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graphof(t, entry_point), [ll_list])
+    return res
