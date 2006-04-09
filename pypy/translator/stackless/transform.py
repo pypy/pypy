@@ -259,11 +259,13 @@ class StacklessTransfomer(object):
         var_unwind_exception = copyvar(self.translator, var_unwind_exception) 
 
         fields = []
+        n = []
         for i, v in enumerate(varstosave):
             assert v.concretetype is not lltype.Void
             fields.append(('field_%d'%(i,), v.concretetype))
+            n.append(repr(v.concretetype))
         
-        frame_type = lltype.GcStruct("S",
+        frame_type = lltype.GcStruct("S" + '-'.join(n),
                             ('header', STATE_HEADER),
                             *fields)
         

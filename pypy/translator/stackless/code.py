@@ -1,11 +1,10 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rarithmetic
 
-STATE_HEADER = lltype.Struct('state_header',
-                             ('f_back', lltype.Ptr(lltype.ForwardReference())),
+STATE_HEADER = lltype.GcStruct('state_header',
+                             ('f_back', lltype.Ptr(lltype.GcForwardReference())),
                              ('restartstate', lltype.Signed),
-                             ('function', llmemory.Address), 
-)
+                             ('function', llmemory.Address),)
 STATE_HEADER.f_back.TO.become(STATE_HEADER)
 
 null_state = lltype.nullptr(STATE_HEADER)
@@ -27,7 +26,7 @@ class StacklessData:
 global_state = StacklessData()
 
 void_void_func = lltype.Ptr(lltype.FuncType([], lltype.Void))
-long_void_func = lltype.Ptr(lltype.FuncType([], lltype.Signed))
+long_void_func = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
 longlong_void_func = lltype.Ptr(lltype.FuncType([], lltype.SignedLongLong))
 float_void_func = lltype.Ptr(lltype.FuncType([], lltype.Float))
 pointer_void_func = lltype.Ptr(lltype.FuncType([], llmemory.Address) )
@@ -38,7 +37,7 @@ def call_function(fn, signature):
         fn2()
     elif signature == 'long':
         fn3 = llmemory.cast_adr_to_ptr(fn, long_void_func)
-        global_state.retval_long = fn3()
+        global_state.retval_long = fn3(0)
     elif signature == 'longlong':
         fn3 = llmemory.cast_adr_to_ptr(fn, longlong_void_func)
         global_state.retval_longlong = fn3()
@@ -64,7 +63,8 @@ def slp_main_loop():
     currentframe = global_state.top
     
     while currentframe:
-        global_state.top = nextframe = currentframe.f_back
+        global_state.top = currentframe
+        nextframe = currentframe.f_back
         fn, signature, global_state.restart_substate = decode_state(currentframe)
         try:
             call_function(fn, signature)
@@ -75,7 +75,7 @@ def slp_main_loop():
         else:
             global_state.exception = None
 
-        currentframe = nextframe 
+        currentframe = nextframe
 
     if global_state.exception is not None:
         raise global_state.exception

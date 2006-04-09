@@ -86,10 +86,11 @@ def run_stackless_function(fn, *stacklessfuncs):
 ##     ll_list = r_list_of_strings.convert_const([''])
 ##     from pypy.rpython.llinterp import LLInterpreter
 ##     interp = LLInterpreter(t.rtyper)
-##     interp.eval_graph(graphof(t, entry_point), [ll_list])
+##     res = interp.eval_graph(graphof(t, entry_point), [ll_list])
+##     print res
 ##     return
 
-    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gc.BoehmGcPolicy)
+    cbuilder = CStandaloneBuilder(t, entry_point)#, gcpolicy=gc.BoehmGcPolicy)
     cbuilder.generate_source()
     cbuilder.compile()
     return cbuilder.cmdexec('')
