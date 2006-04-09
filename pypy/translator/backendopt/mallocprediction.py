@@ -153,7 +153,7 @@ def clever_inlining_and_malloc_removal(translator):
         if not newcount:
             break
         count += newcount
-    log.inlineandremove("removed %s mallocs in total" % count)
+    log.inlineandremove.event("removed %s mallocs in total" % count)
     for graph in translator.graphs:
         removenoops.remove_superfluous_keep_alive(graph)
         removenoops.remove_duplicate_casts(graph, translator)
