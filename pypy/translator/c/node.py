@@ -251,6 +251,9 @@ class FixedSizeArrayDefNode:
         FIXEDARRAY = self.FIXEDARRAY
         return self.itemtypename.replace('@', '(@)[%d]' % FIXEDARRAY.length)
 
+    def getptrtype(self):
+        return self.itemtypename.replace('@', '*@')
+
     def access_expr(self, baseexpr, index):
         if not isinstance(index, int):
             assert index.startswith('item')
@@ -453,6 +456,10 @@ class FixedSizeArrayNode(ContainerNode):
     nodekind = 'array'
     if USESLOTS:
         __slots__ = ()
+
+    def __init__(self, db, T, obj):
+        ContainerNode.__init__(self, db, T, obj)
+        self.ptrname = self.name
 
     def basename(self):
         return self.T._name

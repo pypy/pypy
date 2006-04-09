@@ -121,7 +121,10 @@ class TestLowLevelType:
         a = malloc(A, immortal=True)
         a[3].n = 42
         def llf(n=int):
-            return bool(a[n].f)
+            if a[n].f:
+                return a[n].f(a)
+            else:
+                return -1
         fn = self.getcompiled(llf)
         res = fn(4)
-        assert res == 0
+        assert res == -1

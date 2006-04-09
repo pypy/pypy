@@ -91,8 +91,13 @@ class LowLevelDatabase(object):
         if isinstance(T, Primitive):
             return PrimitiveType[T]
         elif isinstance(T, Ptr):
-            typename = self.gettype(T.TO)   # who_asks not propagated
-            return typename.replace('@', '*@')
+            if isinstance(T.TO, FixedSizeArray):
+                # /me blames C
+                node = self.gettypedefnode(T.TO)
+                return node.getptrtype()
+            else:
+                typename = self.gettype(T.TO)   # who_asks not propagated
+                return typename.replace('@', '*@')
         elif isinstance(T, (Struct, Array)):
             node = self.gettypedefnode(T, varlength=varlength)
             if who_asks is not None:

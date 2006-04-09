@@ -428,7 +428,11 @@ class FunctionCodeGenerator(object):
     OP_BARE_SETFIELD = OP_SETFIELD
 
     def OP_GETSUBSTRUCT(self, op):
-        return self.OP_GETFIELD(op, ampersand='&')
+        RESULT = self.lltypemap(op.result).TO
+        if isinstance(RESULT, FixedSizeArray):
+            return self.OP_GETFIELD(op, ampersand='')
+        else:
+            return self.OP_GETFIELD(op, ampersand='&')
 
     def OP_GETARRAYSIZE(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -442,9 +446,7 @@ class FunctionCodeGenerator(object):
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
         items = self.expr(op.args[0])
-        if isinstance(ARRAY, FixedSizeArray):
-            items = '(*%s)' % (items,)
-        else:
+        if not isinstance(ARRAY, FixedSizeArray):
             items += '->items'
         return self.generic_get(op, '%s[%s]' % (items,
                                                 self.expr(op.args[1])))
@@ -452,9 +454,7 @@ class FunctionCodeGenerator(object):
     def OP_SETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
         items = self.expr(op.args[0])
-        if isinstance(ARRAY, FixedSizeArray):
-            items = '(*%s)' % (items,)
-        else:
+        if not isinstance(ARRAY, FixedSizeArray):
             items += '->items'
         return self.generic_set(op, '%s[%s]' % (items,
                                                 self.expr(op.args[1])))
@@ -462,9 +462,7 @@ class FunctionCodeGenerator(object):
     def OP_GETARRAYSUBSTRUCT(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
         items = self.expr(op.args[0])
-        if isinstance(ARRAY, FixedSizeArray):
-            items = '*%s' % (items,)
-        else:
+        if not isinstance(ARRAY, FixedSizeArray):
             items += '->items'
         return '%s = %s + %s;' % (self.expr(op.result),
                                   items,
