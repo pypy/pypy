@@ -188,6 +188,10 @@ class StacklessTransfomer(object):
             frame_state_type = resume_point.frame_state_type
             frame_top = varoftype(lltype.Ptr(frame_state_type))
             ops.extend(self.ops_read_global_state_field(frame_top, "top"))
+            ops.append(model.SpaceOperation(
+                "setfield", [self.ll_global_state, model.Constant("inst_top", lltype.Void),
+                             model.Constant(null_state, lltype.typeOf(null_state))],
+                            varoftype(lltype.Void)))
             i = 0
             for arg in resume_point.link_to_resumption.args:
                 newarg = copyvar(self.translator, arg)

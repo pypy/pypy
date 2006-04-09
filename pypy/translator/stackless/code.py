@@ -89,4 +89,15 @@ def add_frame_state(u, frame_state):
         u.frame_bottom = frame_state
 
 def resume_state():
-    return global_state.restart_substate
+    x = global_state.restart_substate
+    global_state.restart_substate = 0
+    return x 
+
+# XXX would like to be able to say
+#def resume_header():
+#    x = global_state.restart_substate
+#    if x:
+#        top = global_state.top
+#        global_state.top = None
+# XXX and then insert the rtyped graph of this into functions
+        
