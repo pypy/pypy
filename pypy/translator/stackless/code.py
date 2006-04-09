@@ -3,10 +3,15 @@ from pypy.rpython import rarithmetic
 
 STATE_HEADER = lltype.Struct('state_header',
                              ('f_back', lltype.Ptr(lltype.ForwardReference())),
-                             ('state', lltype.Signed))
+                             ('restartstate', lltype.Signed),
+                             ('function', llmemory.Address), 
+)
 STATE_HEADER.f_back.TO.become(STATE_HEADER)
 
 null_state = lltype.nullptr(STATE_HEADER)
+
+def decode_state(currentframe): 
+    return currentframe.function, "long", currentframe.restartstate
 
 class StacklessData:
     def __init__(self):
@@ -46,8 +51,6 @@ def call_function(fn, signature):
 
 null_address = llmemory.fakeaddress(None)
 
-def decode_state(state):
-    return null_address, 'long', 0
 
 class UnwindException(Exception):
     def __init__(self):
@@ -62,8 +65,7 @@ def slp_main_loop():
     
     while currentframe:
         global_state.top = nextframe = currentframe.f_back
-        framestate = currentframe.state
-        fn, signature, global_state.restart_substate = decode_state(framestate)
+        fn, signature, global_state.restart_substate = decode_state(currentframe)
         try:
             call_function(fn, signature)
         except UnwindException, u:   #XXX annotation support needed 

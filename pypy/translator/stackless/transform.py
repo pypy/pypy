@@ -9,6 +9,8 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code 
 from pypy.rpython.rclass import getinstancerepr
 
+from pypy.translator.stackless.code import STATE_HEADER, null_state
+
 STORAGE_TYPES = [llmemory.Address,
                  lltype.Signed,
                  lltype.Float,
@@ -34,15 +36,6 @@ def storage_type(T):
     else:
         raise Exception("don't know about %r" % (T,))
 
-
-
-STATE_HEADER = lltype.Struct('state_header',
-                             ('f_back', lltype.Ptr(lltype.ForwardReference())),
-                             ('state', lltype.Signed))
-STATE_HEADER.f_back.TO.become(STATE_HEADER)
-
-null_state = lltype.nullptr(STATE_HEADER)
-    
 ## def func(x):
 ##     return g() + x + 1
 
@@ -294,6 +287,18 @@ class StacklessTransfomer(object):
             "direct_call",
             [self.add_frame_state_ptr, var_exc, var_header],
             varoftype(lltype.Void)))
+
+        saveops.append(model.SpaceOperation(
+            "setfield", [var_header, model.Constant("restartstate", lltype.Void), 
+                         model.Constant(len(self.resume_points)+1, lltype.Signed)],
+                        varoftype(lltype.Void)))
+        # XXX add returntypes 
+        FUNCTYPE = lltype.FuncType([], lltype.Signed)
+        funcptr = lltype.functionptr(FUNCTYPE, "", graph=self.curr_graph)
+        #saveops.append(model.SpaceOperation(
+        #    "setfield", [var_header, model.Constant("function", lltype.Void), 
+        #                 model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
+        #                varoftype(lltype.Void)))
 
         type_repr = rclass.get_type_repr(rtyper)
         c_unwindexception = model.Constant(type_repr.convert_const(code.UnwindException), type_repr.lowleveltype)
