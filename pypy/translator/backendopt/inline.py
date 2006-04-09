@@ -534,7 +534,7 @@ def auto_inlining(translator, threshold=1, callgraph=None):
     while heap:
         weight, _, graph = heap[0]
         if not valid_weight.get(graph):
-            weight = inlining_heuristic(graph, callers.get(graph), callees.get(graph))
+            weight = inlining_heuristic(graph)
             #print '  + cost %7.2f %50s' % (weight, graph.name)
             heapreplace(heap, (weight, -len(callers[graph]), graph))
             valid_weight[graph] = True
