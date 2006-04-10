@@ -6,19 +6,21 @@ from pypy.tool.cache import Cache
 
 def sc_import(space, fn, args):
     w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
-    try:
-        name, glob, loc, frm = (space.unwrap(w_name), space.unwrap(w_glob),
-                                space.unwrap(w_loc), space.unwrap(w_frm))
-    except UnwrapException:
+    if not isinstance(w_loc, Constant):
         # import * in a function gives us the locals as Variable
-        # we forbid it as a SyntaxError
+        # we always forbid it as a SyntaxError
         raise SyntaxError, "RPython: import * is not allowed in functions"
     if space.do_imports_immediately:
+        name, glob, loc, frm = (space.unwrap(w_name), space.unwrap(w_glob),
+                                space.unwrap(w_loc), space.unwrap(w_frm))
         return space.wrap(__import__(name, glob, loc, frm))
     # redirect it, but avoid exposing the globals
     w_glob = Constant({})
-    return space.do_operation('simple_call', Constant(__import__),
-                              w_name, w_glob, w_loc, w_frm)
+    w_ret = space.do_operation('simple_call', Constant(__import__),
+                               w_name, w_glob, w_loc, w_frm)
+    # let the space decide later if this should be a constant import
+    space.track_possible_constant(w_ret, __import__, w_name, w_glob, w_loc, w_frm)
+    return w_ret
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()
