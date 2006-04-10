@@ -1,6 +1,6 @@
 from pypy.conftest import gettestobjspace
 
-class AppTest_FD(object):
+class AppTest_FiniteDomain(object):
 
     def setup_class(cls):
         cls.space = gettestobjspace('logic')
@@ -58,3 +58,4 @@ class AppTest_FD(object):
         fd2 = FiniteDomain([2, 3, 4])
         assert intersection(fd1, fd2) == FiniteDomain([2, 3])
         assert intersection(fd2, fd1) == FiniteDomain([3, 2])
+

@@ -30,7 +30,13 @@ class W_AbstractDomain(Wrappable):
     def w_has_changed(self):
         return self._space.newbool(self.__changed)
 
+    def has_changed(self):
+        return self.__changed
+
     def w_size(self):
+        return self._space.newint(self.size())
+
+    def size(self):
         pass
     
     def _value_removed(self):
@@ -77,12 +83,10 @@ class W_FiniteDomain(W_AbstractDomain):
             for w_val in w_values.wrappeditems :
                 del self._values[w_val]
             self._value_removed()
-    __delitem__ = w_remove_value
     
-    def w_size(self):
+    def size(self):
         """computes the size of a finite domain"""
-        return self._space.newint(len(self._values))
-    __len__ = w_size
+        return len(self._values)
     
     def w_get_values(self):
         """return all the values in the domain
@@ -108,8 +112,10 @@ class W_FiniteDomain(W_AbstractDomain):
     def __ne__(self, w_other):
         return not self == w_other
 
+
 # function bolted into the space to serve as constructor
 def make_fd(space, w_values):
+    assert isinstance(w_values, W_ListObject)
     return space.wrap(W_FiniteDomain(space, w_values))
 app_make_fd = gateway.interp2app(make_fd)
 

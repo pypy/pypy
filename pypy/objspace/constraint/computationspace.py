@@ -52,31 +52,83 @@ W_Constraint.typedef = typedef.TypeDef(
 class W_ComputationSpace(Wrappable):
     def __init__(self, obj_space):
         self._space = obj_space
-        self.domains = self._space.newdict({})
+        # there, var -> dom
+        self.var_doms = self._space.newdict({})
+        # constraint set
         self.constraints = self._space.newdict({})
+        # var -> constraints
+        self.var_const_map = {}
+        # freshly added constraints (tell -> propagate)
+        self.to_check = {}
 
     def w_var(self, w_name, w_domain):
         assert isinstance(w_name, W_StringObject)
         assert isinstance(w_domain, W_AbstractDomain)
-        if w_name in self.domains.content:
+        if w_name in self.var_doms.content:
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Name already used"))
-        self.domains.content[w_name] = w_domain
-        return W_Variable(self._space, w_name)
+        var = W_Variable(self._space, w_name)
+        self.var_doms.content[var] = w_domain
+        return var
 
     def w_dom(self, w_variable):
         assert isinstance(w_variable, W_Variable)
-        return self.domains.content[w_variable.w_name]
+        return self.var_doms.content[w_variable]
 
     def w_tell(self, w_constraint):
         assert isinstance(w_constraint, W_Constraint)
         self.constraints.content[w_constraint] = self._space.w_True
+        for var in w_constraint.affected_variables():
+            self.var_const_map.setdefault(var, [])
+            self.var_const_map[var].append(w_constraint)
+        self.to_check[w_constraint] = True
+
+    def dependant_constraints(self, var):
+        return self.var_const_map[var]
+
+    def w_propagate(self):
+        return self.propagate()
+
+    def propagate(self):
+        const_q = [(const.estimate_cost_w(self), const)
+                   for const in self.to_check]
+        self.to_check = {}
+        assert const_q != []
+        const_q.sort()
+        const_q.reverse() # for pop() friendlyness
+        affected_constraints = {}
+        while True:
+            if not const_q:
+                const_q = [(const.estimate_cost_w(self), const)
+                           for const in affected_constraints]
+                if not const_q:
+                    break
+                const_q.sort()
+                affected_constraints.clear()
+            cost, const = const_q.pop()
+            entailed = const.revise(self)
+            for var in const.affected_variables():
+                dom = self.w_dom(var)
+                if not dom.has_changed():
+                    continue
+                for dependant_const in self.dependant_constraints(var):
+                    if dependant_const is not const:
+                        affected_constraints[dependant_const] = True
+                dom.w_reset_flags()
+            if entailed:
+                # we should also remove the constraint from
+                # the set of satifiable constraints of the space
+                if const in affected_constraints:
+                    affected_constraints.remove(const)
+
+
 
 W_ComputationSpace.typedef = typedef.TypeDef(
     "W_ComputationSpace",
     var = interp2app(W_ComputationSpace.w_var),
     dom = interp2app(W_ComputationSpace.w_dom),
-    tell = interp2app(W_ComputationSpace.w_tell))
+    tell = interp2app(W_ComputationSpace.w_tell),
+    propagate = interp2app(W_ComputationSpace.w_propagate))
 
 
 def newspace(space):

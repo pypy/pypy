@@ -78,3 +78,4 @@ class AppTest_Expression(object):
         assert cstr.revise(csp) == 0
         assert csp.dom(v1).get_values() == [1]
 
+    

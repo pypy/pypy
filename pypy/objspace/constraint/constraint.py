@@ -41,11 +41,22 @@ class W_AbstractConstraint(W_Constraint):
         """ Return a list of all variables affected by this constraint """
         return self._space.newlist(self._variables)
 
+    def affected_variables(self):
+        return self._variables
+
     def w_knows_var(self, w_variable):
         return self._space.newbool(variable in self._variables)
 
     def w_estimate_cost(self, w_cs):
         """Return an estimate of the cost of the narrowing of the constraint"""
+        assert isinstance(w_cs, W_ComputationSpace)
+        return self._space.newint(self.estimate_cost_w(w_cs))
+
+    def w_revise(self, w_cs):
+        assert isinstance(w_cs, W_ComputationSpace)
+        return self._space.newbool(self.revise(w_cs))
+
+    def estimate_cost_w(self, w_cs):
         assert isinstance(w_cs, W_ComputationSpace)
         return reduce(operator.mul,
                       [w_cs.w_dom(var).size()
@@ -70,9 +81,9 @@ class W_AllDistinct(W_AbstractConstraint):
         # worst case complexity
         self.__cost = len(w_variables.wrappeditems) * (len(w_variables.wrappeditems) - 1) / 2
 
-    def w_estimate_cost(self, w_cs):
+    def estimate_cost_w(self, w_cs):
         assert isinstance(w_cs, W_ComputationSpace)
-        return self._space.newint(self.__cost)
+        return self.__cost
 
     def test_solution(self, sol):
         """test a solution against this constraint
@@ -81,7 +92,7 @@ class W_AllDistinct(W_AbstractConstraint):
         value_set = set(values)
         return len(value_set) == len(sol)
 
-    def w_revise(self, w_cs):
+    def revise(self, w_cs):
         assert isinstance(w_cs, W_ComputationSpace)
         variables = [(self._space.int_w(w_cs.w_dom(variable).w_size()),
                       variable, w_cs.w_dom(variable))
@@ -111,17 +122,16 @@ class W_AllDistinct(W_AbstractConstraint):
             print "AllDistinct failed"
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Consistency Failure"))
-#            raise ConsistencyFailure()
 
         # the constraint is entailed if all domains have a size of 1
         for variable in variables:
             if self._space.is_true(self._space.ne(variable[2].w_size(), self._space.newint(1))):
-                return self._space.newint(0)
+                return False
 
         # Question : did we *really* completely check
         # our own alldistinctness predicate ?
             
-        return self._space.newint(1)
+        return True
 
 W_AllDistinct.typedef = typedef.TypeDef(
     "W_AllDistinct", W_AbstractConstraint.typedef,
@@ -197,10 +207,10 @@ class W_Expression(W_AbstractConstraint):
                 # it's over
                 go_on = 0
         
-    def w_revise(self, w_cs):
+    def revise(self, w_cs):
         """generic propagation algorithm for n-ary expressions"""
         assert isinstance(w_cs, W_ComputationSpace)
-        maybe_entailed = self._space.newint(1)
+        maybe_entailed = True
         ffunc = self.filter_func
         result_cache = self._init_result_cache()
         for kwargs in self._assign_values(w_cs):
@@ -215,7 +225,7 @@ class W_Expression(W_AbstractConstraint):
                 for var, val in kwargs.content.items():
                     result_cache.content[var].content[val] = self._space.w_True
             else:
-                maybe_entailed = self._space.newint(0)
+                maybe_entailed = False
                 
         try:
             for varname, keep in result_cache.content.items():
@@ -233,7 +243,6 @@ class W_Expression(W_AbstractConstraint):
             pass
         
         return maybe_entailed
-        
 
     def __repr__(self):
         return '<%s>' % self.formula
@@ -304,6 +313,7 @@ def make_expression(o_space, w_variables, w_formula):
     """create a new constraint of type Expression or BinaryExpression
     The chosen class depends on the number of variables in the constraint"""
     # encode unicode
+    return W_Expression(o_space, w_variables, w_formula)
     if o_space.eq_w(o_space.len(w_variables), o_space.newint(2)):
         return W_BinaryExpression(o_space, w_variables, w_formula)
     else:
