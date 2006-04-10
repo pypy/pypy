@@ -226,11 +226,15 @@ class StacklessTransfomer(object):
         while i < len(block.operations):
             op = block.operations[i]
             if op.opname in ('direct_call', 'indirect_call'):
-                link = support.split_block_with_keepalive(self.translator, block, i+1)
+                if i == len(block.operations) - 1 and block.exitswitch == model.c_last_exception:
+                    link = block.exits[0]
+                else:
+                    link = support.split_block_with_keepalive(self.translator, block, i+1)
+                    block.exitswitch = model.c_last_exception
                 var_unwind_exception = varoftype(evalue)
                
                 args = [v for v in link.args 
-                            if v is not op.result and v.concretetype is not lltype.Void]
+                        if v is not op.result and v.concretetype is not lltype.Void]
                 save_block, frame_state_type = self.generate_save_block(
                                 args, var_unwind_exception)
 
@@ -238,10 +242,11 @@ class StacklessTransfomer(object):
 
                 newlink = model.Link(args + [var_unwind_exception], 
                                      save_block, code.UnwindException)
-                block.exitswitch = model.c_last_exception
                 newlink.last_exception = model.Constant(code.UnwindException, etype) 
-                newlink.last_exc_value = var_unwind_exception 
-                block.recloseblock(link, newlink) # exits.append(newlink)
+                newlink.last_exc_value = var_unwind_exception
+                newexits = list(block.exits)
+                newexits.insert(1, newlink)
+                block.recloseblock(*newexits)
                 self.translator.rtyper._convert_link(block, newlink)
 
                 block = link.target

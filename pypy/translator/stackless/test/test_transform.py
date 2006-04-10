@@ -34,10 +34,9 @@ from pypy import conftest
 from pypy.translator.stackless import code
 
 def test_simple_transform_llinterp():
-    from pypy.translator.stackless.code import UnwindException
     def check(x):
         if x:
-            raise UnwindException
+            raise code.UnwindException
     def g(x):
         check(x)
         return x + 1
@@ -47,10 +46,9 @@ def test_simple_transform_llinterp():
     assert res == 3
 
 def test_simple_transform():
-    from pypy.translator.stackless.code import UnwindException
     def check(x):
         if x:
-            raise UnwindException # XXX or so
+            raise code.UnwindException # XXX or so
     def g(x):
         check(x)
         return x + 1
@@ -58,6 +56,26 @@ def test_simple_transform():
         return g(x) + 1
     res = run_stackless_function(example, example, g)
     assert res.strip() == "3"
+
+def test_protected_call():
+    def check(x):
+        if x:
+            raise code.UnwindException
+    def g(x):
+        check(x)
+        return x + 1
+    def example(x):
+        try:
+            y = g(x)
+        except Exception:
+            y = -1
+        return y + 1
+    res = llinterp_stackless_function(example, example, g)
+    assert res == 3
+    res = run_stackless_function(example, example, g)
+    assert res == "3"
+    
+    
 
 def rtype_stackless_function(fn, *stacklessfuncs):
     s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))
