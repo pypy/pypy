@@ -82,22 +82,33 @@ def test_dont_fold_return():
     check_graph(graph, [1], None, t)
 
 def test_propagate_despite_vars():
-    py.test.skip("immediate test")
     patterns = [1, 1, 2, 3, 5, 7, 12]
     class A(object): pass
-    a = A()
-    a.x = 10
-    a.y = 20
+    global_a = A()
+    global_a.x = 10
+    global_a.y = 20
     def f(x):
+        a = A()
+        a.x = 10
+        a.y = 20
         result = 0
+        i = 0
         for i in range(a.x):
-            for j in range(a.y):
+            j = 0
+            for i in range(global_a.y):
                 result += i * j
+                j += 1
         return result
     graph, t = get_graph(f, [int])
-    propagate_consts(graph)
     if conftest.option.view:
         t.view()
+    while propagate_consts(graph):
+        pass
+    assert len(graph.startblock.exits[0].args) == 2
+    innerloopblock = graph.startblock.exits[0].target.exits[0].target.exits[0].target
+    assert len(innerloopblock.inputargs) == 4
+    assert len(innerloopblock.exits[0].args) == 4
+    check_graph(graph, [0], f(0), t)
 
 def test_constant_fold():
     def f(x):
@@ -112,8 +123,6 @@ def test_constant_fold():
     check_graph(graph, [1], g(1), t)
 
 def test_constant_fold_call():
-    # fix the logic and try again :-)
-    py.test.skip("constant folding calls is disabled, for sanity reasons")
     def s(x):
         res = 0
         i = 1
@@ -130,6 +139,21 @@ def test_constant_fold_call():
         t.view()
     assert len(graph.startblock.operations) == 1
     check_graph(graph, [10], g(10), t)
+
+def test_dont_constant_fold_call():
+    class A(object):
+        pass
+    global_a = A()
+    global_a.x = 1
+    def g():
+        return global_a.x
+    def f(x):
+        global_a.x = x
+        return g()
+    graph, t = get_graph(f, [int], inline_threshold=0)
+    while constant_folding(graph, t):
+        pass
+    check_graph(graph, [10], 10, t)
 
 def test_dont_fold_getfield():
     # must not constant fold this, because the container might be collected

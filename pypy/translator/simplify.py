@@ -9,6 +9,7 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import c_last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
+from pypy.rpython.lltypesystem import lloperation
 
 def get_graph(arg, translator):
     from pypy.translator.translator import graphof
@@ -373,8 +374,11 @@ def remove_assertion_errors(graph):
 class HasSideEffects(Exception):
     pass
 
-def has_no_side_effects(translator, graph, seen=None):
-    from pypy.rpython.lltypesystem import lloperation
+def op_has_side_effects(op):
+    return lloperation.LL_OPERATIONS[op.opname].sideeffects
+
+def has_no_side_effects(translator, graph, seen=None,
+                        is_operation_false=op_has_side_effects):
     #is the graph specialized? if no we can't say anything
     #don't cache the result though
     if translator.rtyper is None:
@@ -406,7 +410,7 @@ def has_no_side_effects(translator, graph, seen=None):
                     for g in graphs:
                         if not has_no_side_effects(translator, g, newseen):
                             raise HasSideEffects
-                elif lloperation.LL_OPERATIONS[op.opname].sideeffects:
+                elif is_operation_false(op):
                     raise HasSideEffects
         traverse(visit, graph)
     except HasSideEffects:

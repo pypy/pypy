@@ -133,6 +133,9 @@ class CountingLLFrame(LLFrame):
             raise TooManyOperations
         return super(CountingLLFrame, self).eval_operation(operation)
 
+def op_can_be_folded(op):
+    return not lloperation.LL_OPERATIONS[op.opname].canfold
+
 def constant_folding(graph, translator):
     """do constant folding if the arguments of an operations are constants"""
     lli = LLInterpreter(translator.rtyper)
@@ -158,23 +161,24 @@ def constant_folding(graph, translator):
                     block.operations[i].opname = "same_as"
                     block.operations[i].args = [res]
                     changed = True
-            # disabling the code for now, since it is not correct
-            elif 0: #op.opname == "direct_call":
+            elif op.opname == "direct_call":
                 called_graph = get_graph(op.args[0], translator)
                 if (called_graph is not None and
-                    simplify.has_no_side_effects(translator, called_graph) and
+                    simplify.has_no_side_effects(
+                        translator, called_graph,
+                        is_operation_false=op_can_be_folded) and
                     (block.exitswitch != c_last_exception or 
                      i != len(block.operations) - 1)):
                     args = [arg.value for arg in op.args[1:]]
                     countingframe = CountingLLFrame(called_graph, args, lli)
-                    print "folding call", op, "in graph", graph.name
+                    #print "folding call", op, "in graph", graph.name
                     try:
                         res = countingframe.eval()
                     except:
-                        print "did not work"
+                        #print "did not work"
                         pass
                     else:
-                        print "result", res
+                        #print "result", res
                         res = Constant(res)
                         res.concretetype = op.result.concretetype
                         block.operations[i].opname = "same_as"
@@ -341,16 +345,19 @@ def remove_all_getfields(graph, t):
         log.removegetfield("removed %s getfields in %s" % (count, graph.name))
     return count
 
+def propagate_all_per_graph(graph, translator):
+    def prop():
+        changed = False
+        changed = rewire_links(graph) or changed
+        changed = propagate_consts(graph) or changed
+        changed = coalesce_links(graph) or changed
+        changed = do_atmost(100, constant_folding, graph,
+                                       translator) or changed
+        changed = partial_folding(graph, translator) or changed
+        changed = remove_all_getfields(graph, translator) or changed
+        return changed
+    do_atmost(10, prop)    
+
 def propagate_all(translator):
     for graph in translator.graphs:
-        def prop():
-            changed = False
-            changed = rewire_links(graph) or changed
-            changed = propagate_consts(graph) or changed
-            changed = coalesce_links(graph) or changed
-            changed = do_atmost(100, constant_folding, graph,
-                                           translator) or changed
-            changed = partial_folding(graph, translator) or changed
-            changed = remove_all_getfields(graph, translator) or changed
-            return changed
-        do_atmost(10, prop)
+        propagate_all_per_graph(graph, translator)
