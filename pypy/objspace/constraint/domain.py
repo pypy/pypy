@@ -22,20 +22,20 @@ class W_AbstractDomain(Wrappable):
 
     def __init__(self, space):
         self._space = space
-        self.__changed = self._space.newbool(False)
+        self.__changed = False
 
     def w_reset_flags(self):
-        self.__changed = self._space.newbool(False)
+        self.__changed = False
     
     def w_has_changed(self):
-        return self.__changed
+        return self._space.newbool(self.__changed)
 
     def w_size(self):
         pass
     
     def _value_removed(self):
         """The implementation of remove_value should call this method"""
-        self.__changed = self._space.newbool(True)
+        self.__changed = True
         if self._space.eq_w(self.w_size(), self._space.newint(0)):
             raise  OperationError(self._space.w_RuntimeError,
                              self._space.wrap('ConsistencyFailure'))
@@ -54,16 +54,20 @@ class W_FiniteDomain(W_AbstractDomain):
         This class uses a dictionnary to make sure that there are
         no duplicate values"""
         W_AbstractDomain.__init__(self, space)
-        self._values = space.newdict([])
+        self._values = {}
         self.set_values(w_values)
 
     def set_values(self, w_values):
+        """Objects in the value set can't be unwrapped unless we
+        specialize on specific types - this might need speccialization
+        of revise & friends
+        """
         for w_v in w_values.wrappeditems:
-            self._values.content[w_v] = self._space.w_True
+            self._values[w_v] = self._space.w_True
         
     def w_remove_value(self, w_value):
         """Remove value of domain and check for consistency"""
-        del self._values.content[w_value]
+        del self._values[w_value]
         self._value_removed()
 
     def w_remove_values(self, w_values):
@@ -71,19 +75,19 @@ class W_FiniteDomain(W_AbstractDomain):
         if self._space.is_true(self._space.gt(self._space.len(w_values),
                                               self._space.newint(0))) :
             for w_val in w_values.wrappeditems :
-                del self._values.content [w_val]
+                del self._values[w_val]
             self._value_removed()
     __delitem__ = w_remove_value
     
     def w_size(self):
         """computes the size of a finite domain"""
-        return self._space.newint(len(self._values.content))
+        return self._space.newint(len(self._values))
     __len__ = w_size
     
     def w_get_values(self):
         """return all the values in the domain
            in an indexable sequence"""
-        return self._space.newlist([x for x in self._values.content])
+        return self._space.newlist([x for x in self._values])
 
     def __iter__(self):
         return iter(self._values)
@@ -98,7 +102,7 @@ class W_FiniteDomain(W_AbstractDomain):
     def __eq__(self, w_other):
         if not isinstance(w_other, W_FiniteDomain):
             return self._space.newbool(False)
-        return self._space.eq(self._values, w_other._values)
+        return self._space.newbool(self._values ==  w_other._values)
             
 
     def __ne__(self, w_other):
@@ -118,8 +122,8 @@ app_intersection = gateway.interp2app(intersection)
 
 
 def intersection__FiniteDomain_FiniteDomain(space, w_fd1, w_fd2):
-    w_v1 = w_fd1._values.content
-    w_res = [w_v for w_v in w_fd2.w_get_values().wrappeditems
+    w_v1 = w_fd1._values
+    w_res = [w_v for w_v in w_fd2._values
              if w_v in w_v1]
     return make_fd(space, space.newlist(w_res))
 

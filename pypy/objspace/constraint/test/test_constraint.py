@@ -71,8 +71,7 @@ class AppTest_Expression(object):
         cstr = make_expression([v1], '2*v1==2')
         assert str(cstr).startswith('<W_Expression object at')        
 
-
-    def notest_revise(self):
+    def test_revise(self):
         csp = newspace()
         v1 = csp.var('v1', FiniteDomain([1, 2]))
         cstr = make_expression([v1], '2*v1==2')

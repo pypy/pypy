@@ -15,10 +15,12 @@ all_mms = {}
 class W_Variable(Wrappable):
     def __init__(self, obj_space, w_name):
         self._space = obj_space
-        self.name = w_name
+        self.w_name = w_name
+
+    def name_w(self):
+        return self._space.str_w(self.w_name)
 
 W_Variable.typedef = typedef.TypeDef("W_Variable")
-
 
 #-- Constraints -------------------------
 
@@ -35,9 +37,6 @@ class W_Constraint(Wrappable):
     def w_estimate_cost(self, w_cs):
         pass
 
-    def w_copy_to(self, w_computation_space):
-        pass
-
     def w_revise(self, w_cs):
         pass
     
@@ -46,9 +45,7 @@ W_Constraint.typedef = typedef.TypeDef(
     affected_variables = interp2app(W_Constraint.w_affected_variables),
     is_variable_relevant = interp2app(W_Constraint.w_is_variable_relevant),
     estimate_cost = interp2app(W_Constraint.w_estimate_cost),
-    copy_to = interp2app(W_Constraint.w_copy_to),
-    revise = interp2app(W_Constraint.w_revise)
-    )
+    revise = interp2app(W_Constraint.w_revise))
 
 #-- Computation space -------------------
 
@@ -69,7 +66,7 @@ class W_ComputationSpace(Wrappable):
 
     def w_dom(self, w_variable):
         assert isinstance(w_variable, W_Variable)
-        return self.domains.content[w_variable.name]
+        return self.domains.content[w_variable.w_name]
 
     def w_tell(self, w_constraint):
         assert isinstance(w_constraint, W_Constraint)

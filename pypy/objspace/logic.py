@@ -801,7 +801,7 @@ def Space(*args, **kwds):
             return func_with_new_name(boundmethod, 'boundmethod_'+name)
         boundmethod = make_boundmethod()
         setattr(space, name, boundmethod)  # store into 'space' instance
-    # /multimethod hack
+    # /multimethods hack
 
     # provide a UnificationError exception
     space.ExceptionTable.append('UnificationError')
@@ -821,12 +821,6 @@ def Space(*args, **kwds):
                   space.wrap(app_alias_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_aliased'),
                   space.wrap(app_is_aliased))
-    space.setitem(space.builtin.w_dict, space.wrap('newspace'),
-                 space.wrap(computationspace.app_newspace))
-    space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
-                 space.wrap(constraint.app_make_alldistinct))
-    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
-                 space.wrap(constraint.app_make_expression))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
@@ -839,6 +833,14 @@ def Space(*args, **kwds):
                  space.wrap(domain.app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
                  space.wrap(domain.app_intersection))
+    #-- contraint ----
+    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
+                 space.wrap(constraint.app_make_expression))
+    space.setitem(space.builtin.w_dict, space.wrap('make_filter'),
+                 space.wrap(constraint.app_make_filter))
+    space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
+                 space.wrap(constraint.app_make_alldistinct))
+    
     if USE_COROUTINES:
         import os
         def exitfunc():
