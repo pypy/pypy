@@ -627,6 +627,3 @@ def ooidentityhash(inst):
 
 
 ROOT = Instance('Root', None, _is_root=True)
-
-print List(Signed)._METHODS
-
