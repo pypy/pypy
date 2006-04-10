@@ -449,6 +449,7 @@ del _op
 CanRemoveBuiltins = {
     isinstance: True,
     hasattr: True,
+    __import__: True, # imports for side-effects must store the result
     }
 
 def transform_dead_op_vars_in_blocks(blocks, translator=None):
