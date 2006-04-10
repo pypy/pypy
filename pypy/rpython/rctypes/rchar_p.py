@@ -1,8 +1,9 @@
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.rstr import StringRepr, string_repr
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 from pypy.annotation import model as annmodel
+from pypy.annotation.pairtype import pairtype
 
 from ctypes import c_char_p
 
@@ -41,6 +42,16 @@ class CCharPRepr(CTypesValueRepr):
         self.setstring(hop.llops, v_char_p, v_value)
 
 
+class __extend__(pairtype(StringRepr, CCharPRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        # r_from could be char_repr: first convert it to string_repr
+        v = llops.convertvar(v, r_from, string_repr)
+        r_temp = r_to.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        r_temp.setstring(llops, v_owned_box, v)
+        return llops.convertvar(v_owned_box, r_temp, r_to)
+
+
 CCHARP = llmemory.Address    # char *
 FIRSTITEMOFS = llmemory.ArrayItemsOffset(string_repr.lowleveltype.TO.chars)
 
@@ -62,7 +73,7 @@ def ll_str2charp(s):
 def ll_getstring(box):
     p = box.c_data.value
     if p:
-        if (box.keepalive_str and ll_str2charp(box.keepalive_str) == p):
+        if box.keepalive_str and ll_str2charp(box.keepalive_str) == p:
             maxlen = len(box.keepalive_str.chars)
             length = ll_strnlen(p, maxlen)
             if length == maxlen:

@@ -763,6 +763,11 @@ class _ptr(object):
     def __getitem__(self, i): # ! can only return basic or ptr !
         if isinstance(self._T, (Array, FixedSizeArray)):
             if not (0 <= i < self._obj.getlength()):
+                if (self._T._hints.get('isrpystring', False) and
+                    i == self._obj.getlength()):
+                    # special hack for the null terminator
+                    assert self._T.OF == Char
+                    return '\x00'
                 raise IndexError("array index out of bounds")
             o = self._obj.getitem(i)
             return _expose(o, self._solid)
@@ -791,6 +796,12 @@ class _ptr(object):
                                     (self._T,))
             return self._obj.getlength()
         raise TypeError("%r instance is not an array" % (self._T,))
+
+    def __iter__(self):
+        # this is a work-around for the 'isrpystring' hack in __getitem__,
+        # which otherwise causes list(p) to include the extra \x00 character.
+        for i in range(len(self)):
+            yield self[i]
 
     def __repr__(self):
         return '<%s>' % (self,)

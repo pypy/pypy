@@ -16,7 +16,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_char_p
+from ctypes import c_char_p, pointer
 
 class Test_annotation:
     def test_annotate_c_char_p(self):
@@ -59,6 +59,28 @@ class Test_specialization:
 
         res = interpret(func, [])
         assert ''.join(res.chars) == "hello"
+
+    def test_zero_terminates(self):
+        def func():
+            p = c_char_p('world')
+            p.value = "hello\x00world"
+            return p.value
+
+        res = interpret(func, [])
+        assert ''.join(res.chars) == "hello"
+
+    def test_pointer_access(self):
+        def func():
+            q = c_char_p('ka')
+            p = c_char_p('world')
+            pp = pointer(p)
+            pp[0] = q.value
+            return p.value
+
+        assert func() == 'ka'
+        res = interpret(func, [])
+        assert ''.join(res.chars) == 'ka'
+
 
 class Test_compilation:
     def test_compile_c_char_p(self):
