@@ -25,7 +25,7 @@ class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 
 class W_FrozensetObject(W_BaseSetObject):
-    from pypy.objspace.std.settype import frozenset_typedef as typedef
+    from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
 
     def __init__(w_self, space, wrappeditems):
         W_BaseSetObject.__init__(w_self, space, wrappeditems)
@@ -189,7 +189,7 @@ def set_add__Set_ANY(space, w_left, w_other):
 def set_copy__Set(space, w_left):
     return space.newset(w_left)
 
-def frozenset_copy_Frozenset(space, w_left):
+def frozenset_copy__Frozenset(space, w_left):
     return space.newfrozenset(w_left)
 
 def set_clear__Set(space, w_left):
@@ -464,5 +464,18 @@ lt__Frozenset_Frozenset = lt__Set_Set
 repr__Set = app.interphook('repr__Set')
 repr__Frozenset = app.interphook('repr__Frozenset')
 
+from pypy.objspace.std import frozensettype
 from pypy.objspace.std import settype
-register_all(vars(), settype)
+
+# make sure that the 'register_all' function gets only the appropriate
+# methods
+
+sdg = [(n, m) for n, m in vars().items() if n.find('__Frozenset') == -1]
+fdg = [(n, m) for n, m in vars().items() if n.find('__Set') == -1]
+
+register_all(dict(sdg), settype)
+register_all(dict(fdg), frozensettype)
+
+# this doesn't work:
+#register_all(vars(), frozensettype)
+#register_all(vars(), settype)

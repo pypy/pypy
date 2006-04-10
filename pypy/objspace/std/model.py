@@ -23,7 +23,7 @@ class StdTypeModel:
             from pypy.objspace.std.complextype  import complex_typedef
             if WITHSET:
                 from pypy.objspace.std.settype import set_typedef
-                from pypy.objspace.std.settype import frozenset_typedef
+                from pypy.objspace.std.frozensettype import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listtype   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
