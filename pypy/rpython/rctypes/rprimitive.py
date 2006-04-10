@@ -34,34 +34,6 @@ class PrimitiveRepr(CTypesValueRepr):
         """
         return self.getvalue_from_c_data(llops, v_c_data)
 
-    def convert_const(self, ctype_value):
-        if isinstance(ctype_value, self.ctype):
-            key = "by_id", id(ctype_value)
-            value = ctype_value.value
-            keepalive = ctype_value
-        else:
-            if self.ownsmemory:
-                raise TyperError("convert_const(%r) but repr owns memory" % (
-                    ctype_value,))
-            key = "by_value", ctype_value
-            value = ctype_value
-            keepalive = None
-        try:
-            return self.const_cache[key][0]
-        except KeyError:
-            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
-            p.c_data.value = value
-            if self.ownsmemory:
-                result = p
-            else:
-                # we must return a non-memory-owning box that keeps the
-                # memory-owning box alive
-                result = lltype.malloc(self.lowleveltype.TO)
-                result.c_data_ref = p.c_data
-                result.c_data_owner_keepalive = p
-            self.const_cache[key] = result, keepalive
-            return result
-        
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
         assert s_attr.is_constant()

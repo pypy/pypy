@@ -83,6 +83,21 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
+    def test_annotate_prebuilt(self):
+        c = c_int(10)
+        p = pointer(c)
+        def access_prebuilt():
+            p.contents.value += 1
+            return p[0]
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(access_prebuilt, [])
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
 
 class Test_specialization:
     def test_specialize_c_int_ptr(self):
@@ -172,3 +187,13 @@ class Test_specialization:
         assert access_array() == 5 * 7 * 11
         res = interpret(access_array, [])
         assert res == 5 * 7 * 11
+
+    def test_specialize_prebuilt(self):
+        c = c_int(10)
+        p = pointer(c)
+        def access_prebuilt():
+            p.contents.value += 1
+            return p[0]
+
+        res = interpret(access_prebuilt, [])
+        assert res == 11

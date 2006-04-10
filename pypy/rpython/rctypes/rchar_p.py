@@ -14,12 +14,16 @@ class CCharPRepr(CTypesValueRepr):
         return [('keepalive_str', string_repr.lowleveltype)]
 
     def getstring(self, llops, v_box):
-        v_c_data = self.get_c_data(llops, v_box)
-        return llops.gendirectcall(ll_getstring, v_box, v_c_data)
+        return llops.gendirectcall(ll_getstring, v_box)
 
     def setstring(self, llops, v_box, v_str):
-        v_c_data = self.get_c_data(llops, v_box)
-        llops.gendirectcall(ll_setstring, v_box, v_c_data, v_str)
+        llops.gendirectcall(ll_setstring, v_box, v_str)
+
+    def initialize_const(self, p, string):
+        if isinstance(string, c_char_p):
+            string = string.value
+        llstring = string_repr.convert_const(string)
+        ll_setstring(p, llstring)
 
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
@@ -55,8 +59,8 @@ def ll_strnlen(p, maxlen):
 def ll_str2charp(s):
     return llmemory.cast_ptr_to_adr(s.chars) + FIRSTITEMOFS
 
-def ll_getstring(box, c_data):
-    p = c_data.value
+def ll_getstring(box):
+    p = box.c_data.value
     if p:
         if (box.keepalive_str and ll_str2charp(box.keepalive_str) == p):
             maxlen = len(box.keepalive_str.chars)
@@ -73,11 +77,11 @@ def ll_getstring(box, c_data):
     else:
         return lltype.nullptr(string_repr.lowleveltype.TO)
 
-def ll_setstring(box, c_data, string):
+def ll_setstring(box, string):
     if string:
-        c_data.value = ll_str2charp(string)
+        box.c_data.value = ll_str2charp(string)
     else:
-        c_data.value = llmemory.NULL
+        box.c_data.value = llmemory.NULL
     box.keepalive_str = string
 
 
@@ -98,13 +102,16 @@ extregistry.register_value(c_char_p,
     specialize_call=c_char_p_specialize_call
     )
 
+def c_char_compute_annotation(the_type, instance):
+    return annmodel.SomeCTypesObject(c_char_p,
+                                     annmodel.SomeCTypesObject.OWNSMEMORY)
+
 def c_char_p_get_repr(rtyper, s_char_p):
     return CCharPRepr(rtyper, s_char_p, CCHARP)
 
 entry = extregistry.register_type(c_char_p,
-        compute_annotation = annmodel.SomeCTypesObject(c_char_p,
-                                       annmodel.SomeCTypesObject.OWNSMEMORY),
-        get_repr = c_char_p_get_repr,
+        compute_annotation = c_char_compute_annotation,
+        get_repr           = c_char_p_get_repr,
         )
 def c_char_p_get_field_annotation(s_char_p, fieldname):
     assert fieldname == 'value'

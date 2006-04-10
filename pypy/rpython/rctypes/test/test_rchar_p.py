@@ -27,9 +27,19 @@ class Test_annotation:
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(func, [])
-
         assert s.knowntype == str
+        if conftest.option.view:
+            t.view()
 
+    def test_annotate_prebuilt(self):
+        p = c_char_p("hello")
+        def func():
+            return p.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+        assert s.knowntype == str
         if conftest.option.view:
             t.view()
 
@@ -42,5 +52,29 @@ class Test_specialization:
         res = interpret(func, [])
         assert ''.join(res.chars) == "hello"
 
+    def test_specialize_prebuilt(self):
+        p = c_char_p("hello")
+        def func():
+            return p.value
+
+        res = interpret(func, [])
+        assert ''.join(res.chars) == "hello"
+
 class Test_compilation:
-    pass
+    def test_compile_c_char_p(self):
+        def func():
+            p = c_char_p("hello")
+            return p.value
+
+        fn = compile(func, [])
+        res = fn()
+        assert res == "hello"
+
+    def test_compile_prebuilt(self):
+        p = c_char_p("hello")
+        def func():
+            return p.value
+
+        fn = compile(func, [])
+        res = fn()
+        assert res == "hello"

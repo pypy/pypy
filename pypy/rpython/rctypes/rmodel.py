@@ -63,7 +63,7 @@ class CTypesRepr(Repr):
             self.r_memoryowner = rtyper.getrepr(s_memoryowner)
             self.lowleveltype = lltype.Ptr(
                 lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                 ( "c_data_ref", lltype.Ptr(self.c_data_type) ),
+                 ( "c_data", lltype.Ptr(self.c_data_type) ),
                  ( "c_data_owner_keepalive", self.r_memoryowner.lowleveltype ),
                  *content_keepalives
                 )
@@ -80,7 +80,7 @@ class CTypesRepr(Repr):
             return llops.genop('getsubstruct', inputargs,
                         lltype.Ptr(self.c_data_type) )
         else:
-            inputargs = [v_box, inputconst(lltype.Void, "c_data_ref")]
+            inputargs = [v_box, inputconst(lltype.Void, "c_data")]
             return llops.genop('getfield', inputargs,
                         lltype.Ptr(self.c_data_type) )
 
@@ -99,12 +99,12 @@ class CTypesRepr(Repr):
 
     def allocate_instance_ref(self, llops, v_c_data, v_c_data_owner=None):
         """Only if self.ownsmemory is false.  This allocates a new instance
-        and initialize its c_data_ref field."""
+        and initialize its c_data pointer."""
         if self.ownsmemory:
             raise TyperError("allocate_instance_ref: %r owns its memory" % (
                 self,))
         v_box = self.allocate_instance(llops)
-        inputargs = [v_box, inputconst(lltype.Void, "c_data_ref"), v_c_data]
+        inputargs = [v_box, inputconst(lltype.Void, "c_data"), v_c_data]
         llops.genop('setfield', inputargs)
         if v_c_data_owner is not None:
             assert (v_c_data_owner.concretetype ==
@@ -172,3 +172,34 @@ class CTypesValueRepr(CTypesRepr):
         """Writes to the 'value' field of the raw data."""
         v_c_data = self.get_c_data(llops, v_box)
         self.setvalue_inside_c_data(llops, v_c_data, v_value)
+
+    def convert_const(self, value):
+        if isinstance(value, self.ctype):
+            key = "by_id", id(value)
+            keepalive = value
+        else:
+            if self.ownsmemory:
+                raise TyperError("convert_const(%r) but repr owns memory" % (
+                    value,))
+            key = "by_value", value
+            keepalive = None
+        try:
+            return self.const_cache[key][0]
+        except KeyError:
+            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
+            self.initialize_const(p, value)
+            if self.ownsmemory:
+                result = p
+            else:
+                # we must return a non-memory-owning box that keeps the
+                # memory-owning box alive
+                result = lltype.malloc(self.lowleveltype.TO)
+                result.c_data = p.c_data    # initialize c_data pointer
+                result.c_data_owner_keepalive = p
+            self.const_cache[key] = result, keepalive
+            return result
+
+    def initialize_const(self, p, value):
+        if isinstance(value, self.ctype):
+            value = value.value
+        p.c_data.value = value
