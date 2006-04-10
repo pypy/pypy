@@ -4,7 +4,7 @@ _name_mappings = {
     'or': 'or_',
     }
     
-def register_all(module_dict, alt_ns=None):
+def register_all(module_dict, *alt_ns):
     """register implementations for multimethods. 
 
     By default a (name, object) pair of the given module dictionary
@@ -14,9 +14,7 @@ def register_all(module_dict, alt_ns=None):
     """
     from pypy.objspace.std.objspace import StdObjSpace
     from pypy.objspace.std.model import W_ANY, W_Object
-    namespaces = [StdObjSpace.MM, StdObjSpace]
-    if alt_ns:
-        namespaces.insert(0, alt_ns)
+    namespaces = list(alt_ns) + [StdObjSpace.MM, StdObjSpace]
 
     for name, obj in module_dict.items():
         if name.startswith('app_'): 

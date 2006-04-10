@@ -467,15 +467,4 @@ repr__Frozenset = app.interphook('repr__Frozenset')
 from pypy.objspace.std import frozensettype
 from pypy.objspace.std import settype
 
-# make sure that the 'register_all' function gets only the appropriate
-# methods
-
-sdg = [(n, m) for n, m in vars().items() if n.find('__Frozenset') == -1]
-fdg = [(n, m) for n, m in vars().items() if n.find('__Set') == -1]
-
-register_all(dict(sdg), settype)
-register_all(dict(fdg), frozensettype)
-
-# this doesn't work:
-#register_all(vars(), frozensettype)
-#register_all(vars(), settype)
+register_all(vars(), settype, frozensettype)
