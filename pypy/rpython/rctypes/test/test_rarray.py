@@ -19,8 +19,6 @@ from ctypes import c_int, ARRAY, POINTER, pointer
 
 c_int_10 = ARRAY(c_int,10)
 
-#py.test.skip("Reworking primitive types")
-
 class Test_annotation:
     def test_annotate_array(self):
         def create_array():
@@ -50,21 +48,21 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def x_test_annotate_array_slice_access(self):
-        def slice_access():
-            my_array = c_int_10()
-            #f#my_array[0:7] = c_int(1) * 7
-            my_array[0:5] = range(5)
+##    def test_annotate_array_slice_access(self):
+##        def slice_access():
+##            my_array = c_int_10()
+##            #f#my_array[0:7] = c_int(1) * 7
+##            my_array[0:5] = range(5)
 
-            return my_array[0:5]
+##            return my_array[0:5]
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(slice_access, [])
-        #d#t.view()
-        #d#print "v90:", s, type(s)
-        assert s.knowntype == list
-        s.listdef.listitem.s_value.knowntype == int
+##        t = TranslationContext()
+##        a = t.buildannotator()
+##        s = a.build_types(slice_access, [])
+##        #d#t.view()
+##        #d#print "v90:", s, type(s)
+##        assert s.knowntype == list
+##        s.listdef.listitem.s_value.knowntype == int
 
     def test_annotate_array_access_variable(self):
         def access_with_variable():
@@ -82,25 +80,25 @@ class Test_annotation:
         assert s.knowntype == int
         #t#t.view()
 
-    def test_annotate_array_access_index_error_on_positive_index(self):
-        def access_with_invalid_positive_index():
-            my_array = c_int_10()
-            return my_array[10]
+##    def test_annotate_array_access_index_error_on_positive_index(self):
+##        def access_with_invalid_positive_index():
+##            my_array = c_int_10()
+##            return my_array[10]
 
-        t = TranslationContext()
-        a = t.buildannotator()
+##        t = TranslationContext()
+##        a = t.buildannotator()
         
-        py.test.raises(IndexError, "s = a.build_types(access_with_invalid_positive_index,[])")
+##        py.test.raises(IndexError, "s = a.build_types(access_with_invalid_positive_index,[])")
 
-    def test_annotate_array_access_index_error_on_negative_index(self):
-        def access_with_invalid_negative_index():
-            my_array = c_int_10()
-            return my_array[-11]
+##    def test_annotate_array_access_index_error_on_negative_index(self):
+##        def access_with_invalid_negative_index():
+##            my_array = c_int_10()
+##            return my_array[-11]
 
-        t = TranslationContext()
-        a = t.buildannotator()
+##        t = TranslationContext()
+##        a = t.buildannotator()
         
-        py.test.raises(IndexError, "s = a.build_types(access_with_invalid_negative_index,[])")
+##        py.test.raises(IndexError, "s = a.build_types(access_with_invalid_negative_index,[])")
 
 class Test_specialization:
     def test_specialize_array(self):
