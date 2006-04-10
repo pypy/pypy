@@ -25,6 +25,7 @@ import pypy.rpython.rctypes.rarray
 import pypy.rpython.rctypes.rprimitive
 import pypy.rpython.rctypes.rpointer
 import pypy.rpython.rctypes.rfunc
+import pypy.rpython.rctypes.rchar_p
 
 # ctypes_annotation_list contains various attributes that
 # are used by the pypy annotation.
