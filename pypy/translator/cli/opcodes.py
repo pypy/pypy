@@ -11,7 +11,7 @@ def _not(op):
 def _abs(type_):
     return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_)]
 
-_runtimenew = 'object [pypy]pypy.runtime.Utils::RuntimeNew([mscorlib]System.Type)'
+_runtimenew = 'object [pypylib]pypy.runtime.Utils::RuntimeNew([mscorlib]System.Type)'
 
 opcodes = {
     # __________ object oriented operations __________

@@ -125,8 +125,11 @@ class IlasmGenerator(object):
     def call(self, func):
         self.code.writeline('call ' + func)
 
-    def call_method(self, meth):
-        self.code.writeline('callvirt instance ' + meth)
+    def call_method(self, meth, virtual):
+        if virtual:
+            self.code.writeline('callvirt instance ' + meth)
+        else:
+            self.code.writeline('call instance ' + meth)
 
     def new(self, class_):
         self.code.writeline('newobj ' + class_)

@@ -238,17 +238,10 @@ class Function(Node, Generator):
         field_type = self.cts.lltype_to_cts(type_)
         return '%s %s::%s' % (field_type, class_name, field)
 
-    def ctor_name(self, ooinstance):
-        return 'instance void class %s::.ctor()' % self.class_name(ooinstance)
-
     # following methods belongs to the Generator interface
 
     def function_signature(self, graph):
         return self.cts.graph_to_signature(graph, False)
-
-    def method_signature(self, graph, class_name, name):
-        full_name = '%s::%s' % (class_name, name)
-        return self.cts.graph_to_signature(graph, True, full_name)
 
     def class_name(self, ooinstance):
         return ooinstance._name
@@ -261,7 +254,7 @@ class Function(Node, Generator):
         self.ilasm.call(func_name)
 
     def new(self, obj):
-        self.ilasm.new(self.ctor_name(obj))
+        self.ilasm.new(self.cts.ctor_name(obj))
 
     def set_field(self, obj, name):
         self.ilasm.opcode('stfld ' + self.field_name(obj, name))
@@ -270,11 +263,9 @@ class Function(Node, Generator):
         self.ilasm.opcode('ldfld ' + self.field_name(obj, name))
 
     def call_method(self, obj, name):
-        owner, meth = obj._lookup(name)
-        signature = self.method_signature(meth.graph, self.class_name(obj), name)
-        # TODO: there are cases when we don't need callvirt but a
-        # plain call is sufficient
-        self.ilasm.call_method(signature)
+        # TODO: use callvirt only when strictly necessary
+        signature, virtual = self.cts.method_signature(obj, name)
+        self.ilasm.call_method(signature, virtual)
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):

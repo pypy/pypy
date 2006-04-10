@@ -54,22 +54,6 @@ class _Call(MicroInstruction):
         cls = getattr(graph.func, 'class_', None)
 
         self._render_function(generator, graph, op.args)
-##        if cls is None:
-##            self._render_function(generator, graph, op.args)
-##        else:
-##            self._render_unbound_meth(generator, cls, graph, op.args)
-
-    def _render_unbound_meth(self, generator, cls, graph, args):
-        0/0
-        this = args[1]
-        # TODO: make sure that 'this' is compatible with 'cls'
-        for func_arg in args[1:]:
-            generator.load(func_arg)
-
-        # TODO: it doesn't work if cls is in another namespace
-        cls_name, meth_name = graph.name.rsplit('.', 1)
-        meth_sig = generator.method_signature(graph, cls_name, meth_name)
-        generator.call(graph, meth_sig) # TODO
 
     def _render_function(self, generator, graph, args):
         func_sig = generator.function_signature(graph)

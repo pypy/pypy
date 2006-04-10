@@ -1,6 +1,5 @@
 import os
 import subprocess
-import platform
 import shutil
 
 import py
@@ -12,6 +11,7 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
+from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
 
 FLOAT_PRECISION = 8
@@ -111,19 +111,6 @@ class compile_function:
 
         return GenCli(self.tmpdir, t, TestEntryPoint(self.graph))
 
-    def __check_helper(self, helper):
-        try:
-            py.path.local.sysfind(helper)
-        except py.error.ENOENT:
-            py.test.skip("%s is not on your path." % helper)
-
-    def __get_runtime(self):
-        if platform.system() == 'Windows':
-            return []
-        else:
-            self.__check_helper('mono')
-            return ['mono']
-
     def _build_exe(self):        
         tmpfile = self._gen.generate_source()
         if getoption('source'):
@@ -132,10 +119,10 @@ class compile_function:
         pypy_dll = get_pypy_dll() # get or recompile pypy.dll
         shutil.copy(pypy_dll, self.tmpdir.strpath)
 
-        self.__check_helper("ilasm")
-        ilasm = subprocess.Popen(["ilasm", tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = ilasm.communicate()
-        retval = ilasm.wait()
+        ilasm = SDK.ilasm()
+        proc = subprocess.Popen([ilasm, tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        retval = proc.wait()
         assert retval == 0, 'ilasm failed to assemble %s (%s):\n%s' % (self.graph.name, tmpfile, stdout)
         return tmpfile.replace('.il', '.exe')
 
@@ -143,8 +130,7 @@ class compile_function:
         if self._exe is None:
             py.test.skip("Compilation disabled")
 
-        runtime = self.__get_runtime()
-        arglist = runtime + [self._exe] + map(str, args)
+        arglist = SDK.runtime() + [self._exe] + map(str, args)
         mono = subprocess.Popen(arglist, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = mono.communicate()
         retval = mono.wait()

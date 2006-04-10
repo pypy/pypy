@@ -23,23 +23,13 @@ def check(f, g, *args):
     else:
         print 'OK'
 
-class Base:
-    def __init__(self, x):
-        self.x = x
-
-    def compute(self):
-        return self.x
-
-class Derived(Base):
-    def __init__(self, x):
-        Base.__init__(self, x+42)
-
-def foo(cls, x):
-    return cls(x).compute()
+def foo(mylist, i):
+    return mylist[i]
 
 def bar(x, y):
-    b = Derived(x)
-    return foo(Base, x) + foo(Derived, y)
+    mylist = [1,2,3,x,y]
+    mylist[0] = 432
+    return foo(mylist, (x+y)%5)
 
 f = compile_function(bar, [int, int])
 
