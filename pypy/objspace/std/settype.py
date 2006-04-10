@@ -37,9 +37,6 @@ def descr__set__new__(space, w_settype, w_iterable=NoneNotWrapped):
     from pypy.objspace.std.setobject import W_SetObject
     if w_iterable is None:
         w_iterable = space.newtuple([])
-    elif (space.is_w(w_settype, space.w_set) and
-            space.is_w(space.type(w_iterable), space.w_set)):
-        return w_iterable
     w_obj = space.allocate_instance(W_SetObject, w_settype)
     W_SetObject.__init__(w_obj, space, w_iterable)
 
@@ -49,9 +46,6 @@ def descr__frozenset__new__(space, w_frozensettype, w_iterable=NoneNotWrapped):
     from pypy.objspace.std.setobject import W_FrozensetObject
     if w_iterable is None:
         w_iterable = space.newtuple([])
-    elif (space.is_w(w_frozensettype, space.w_frozenset) and
-            space.is_w(space.type(w_iterable), space.w_frozenset)):
-        return w_iterable
     w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
     W_FrozensetObject.__init__(w_obj, space, w_iterable)
 
