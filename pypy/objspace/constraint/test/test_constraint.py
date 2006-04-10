@@ -75,6 +75,6 @@ class AppTest_Expression(object):
         csp = newspace()
         v1 = csp.var('v1', FiniteDomain([1, 2]))
         cstr = make_expression([v1], '2*v1==2')
-        assert cstr.revise(csp) == 1
+        assert cstr.revise(csp) == 0
         assert csp.dom(v1).get_values() == [1]
 

@@ -807,10 +807,6 @@ def Space(*args, **kwds):
     space.ExceptionTable.append('UnificationError')
     space.ExceptionTable.sort() # hmmm
 
-    # capture the original is_ op (?)
-    is_nb_ = space.is_ 
-    space.is_nb_ = is_nb_
-
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
                   space.wrap(app_newvar))
     space.setitem(space.builtin.w_dict, space.wrap('is_free'),
@@ -862,6 +858,10 @@ def Space(*args, **kwds):
                      space.wrap(app_wait))
         space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                       space.wrap(app_wait_needed))
+
+    # capture a bunch of non-blocking ops
+    space.is_nb_ = space.is_
+        
     patch_space_in_place(space, 'logic', proxymaker)
     return space
 

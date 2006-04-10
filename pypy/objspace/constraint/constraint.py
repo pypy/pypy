@@ -8,8 +8,6 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.constraint.computationspace import W_ComputationSpace
 from pypy.objspace.constraint.computationspace import W_Constraint
 
-
-#from variable import NoDom
 import operator
 
 #-- Exceptions ---------------------------------------
@@ -165,21 +163,21 @@ class W_Expression(W_AbstractConstraint):
 
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
-        result_cache = {}
+        result_cache = self._space.newdict({})
         for var in self._variables:
-            result_cache[var.name_w()] = {}
+            result_cache.content[var.w_name] = self._space.newdict({})
         return result_cache
 
     def _assign_values(self, w_cs):
         variables = []
-        kwargs = {}
+        kwargs = self._space.newdict({})
         for variable in self._variables:
             domain = w_cs.w_dom(variable)
             values = domain.w_get_values()
             variables.append((self._space.int_w(domain.w_size()),
-                              [variable, values, 0,
+                              [variable, values, self._space.newint(0),
                                self._space.len(values)]))
-            kwargs[variable.name_w()] = values.wrappeditems[0]
+            kwargs.content[variable.w_name] = values.wrappeditems[0]
         # sort variables to instanciate those with fewer possible values first
         variables.sort()
 
@@ -188,13 +186,13 @@ class W_Expression(W_AbstractConstraint):
             yield kwargs
             # try to instanciate the next variable
             for size, curr in variables:
-                if (curr[2] + 1) < curr[-1]:
-                    curr[2] += 1
-                    kwargs[curr[0].name] = curr[1][curr[2]]
+                if self._space.int_w(curr[2]) + 1 < self._space.int_w(curr[-1]):
+                    curr[2] = self._space.add(curr[2], self._space.newint(1))
+                    kwargs.content[curr[0].w_name] = curr[1].wrappeditems[self._space.int_w(curr[2])]
                     break
                 else:
-                    curr[2] = 0
-                    kwargs[curr[0].name] = curr[1][0]
+                    curr[2] = self._space.newint(0)
+                    kwargs.content[curr[0].w_name] = curr[1].wrappeditems[0]
             else:
                 # it's over
                 go_on = 0
@@ -202,28 +200,30 @@ class W_Expression(W_AbstractConstraint):
     def w_revise(self, w_cs):
         """generic propagation algorithm for n-ary expressions"""
         assert isinstance(w_cs, W_ComputationSpace)
-        maybe_entailed = 1
+        maybe_entailed = self._space.newint(1)
         ffunc = self.filter_func
         result_cache = self._init_result_cache()
         for kwargs in self._assign_values(w_cs):
             if maybe_entailed:
-                for var, val in kwargs.iteritems():
-                    if val not in result_cache[var]:
+                for varname, val in kwargs.content.iteritems():
+                    if val not in result_cache.content[varname].content:
                         break
                 else:
                     continue
-            print kwargs.items()
-            print ffunc, kwargs.items()
-            if ffunc(**kwargs):
-                for var, val in kwargs.items():
-                    result_cache[var][val] = 1
+            if self._space.is_true(self._space.call(self._space.wrap(ffunc),
+                                                    self._space.newlist([]), kwargs)):
+                for var, val in kwargs.content.items():
+                    result_cache.content[var].content[val] = self._space.w_True
             else:
-                maybe_entailed = 0
+                maybe_entailed = self._space.newint(0)
                 
         try:
-            for var, keep in result_cache.iteritems():
-                domain = w_cs.w_dom(self._names_to_vars[var])
-                domain.remove_values([val for val in domain if val not in keep])
+            for varname, keep in result_cache.content.items():
+                print keep
+                domain = w_cs.w_dom(self._names_to_vars[self._space.str_w(varname)])
+                domain.w_remove_values(self._space.newlist([val
+                                                            for val in domain._values
+                                                            if val not in keep.content]))
                 
         except ConsistencyFailure:
             raise ConsistencyFailure('Inconsistency while applying %s' % \
@@ -231,7 +231,7 @@ class W_Expression(W_AbstractConstraint):
         except KeyError:
             # There are no more value in result_cache
             pass
-
+        
         return maybe_entailed
         
 
