@@ -36,38 +36,41 @@ def storage_type(T):
     else:
         raise Exception("don't know about %r" % (T,))
 
-## def func(x):
-##     return g() + x + 1
-
-## STATE_func_0 = lltype.Struct('STATE_func_0',
-##                              ('header', STATE_HEADER),
-##                              ('saved_long_0', Signed))
-
-## def func(x):
-##     if global_state.top:
-##         if global_state.restart_substate == 0:
-##             frame = cast_pointer(lltype.Ptr(STATE_func_0), global_state.top)
-##             x = frame.saved_long_0
-##             retval = global_state.long_retval
-##         else:
-##             abort()
-##     else:
-##         try:
-##             retval = g(x)
-##         except UnwindException, u:
-##             state = lltype.raw_malloc(STATE_func_0)
-##             state.saved_long_0 = x
-##             state.header.f_back = u.frame
-##             state.header.state = XXX
-##             u.frame = state.header
-##             raise
-        
-##     return retval + x + 1
+# a simple example of what the stackless transform does
+#
+# def func(x):
+#     return g() + x + 1
+#
+# STATE_func_0 = lltype.Struct('STATE_func_0',
+#                              ('header', code.STATE_HEADER),
+#                              ('saved_long_0', Signed))
+#
+# def func(x):
+#     if global_state.restart_substate == 0:
+#         try:
+#             retval = g(x)
+#         except code.UnwindException, u:
+#             state = lltype.malloc(STATE_func_0)
+#             state.header.restartstate = 1
+#             state.header.function = llmemory.cast_ptr_to_adr(func)
+#             state.header.retval_type = code.RETVAL_LONG
+#             state.saved_long_0 = x
+#             code.add_frame_state(u, state.header)
+#             raise
+#     elif global_state.restart_substate == 1:
+#         state = lltype.cast_pointer(lltype.Ptr(STATE_func_0),
+#                                     global_state.top)
+#         x = state.saved_long_0
+#         retval = global_state.long_retval
+#     else:
+#         abort()
+#     return retval + x + 1
 
 class ResumePoint:
-    def __init__(self, var_result, link_to_resumption, frame_state_type):
+    def __init__(self, var_result, args, links_to_resumption, frame_state_type):
         self.var_result = var_result
-        self.link_to_resumption = link_to_resumption
+        self.args = args
+        self.links_to_resumption = links_to_resumption
         self.frame_state_type = frame_state_type
 
 class StacklessTransfomer(object):
@@ -86,8 +89,9 @@ class StacklessTransfomer(object):
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
 
-        annotations = [annmodel.SomeInstance(bk.getuniqueclassdef(code.UnwindException)),
-                       annmodel.SomePtr(lltype.Ptr(STATE_HEADER))]
+        annotations = [
+            annmodel.SomeInstance(bk.getuniqueclassdef(code.UnwindException)),
+            annmodel.SomePtr(lltype.Ptr(STATE_HEADER))]
 
         add_frame_state_graph = mixlevelannotator.getgraph(
             code.add_frame_state,
@@ -108,6 +112,14 @@ class StacklessTransfomer(object):
             graph=resume_state_graph),
             lltype.Ptr(RESUME_STATE_TYPE))
 
+        FETCH_RETVAL_VOID_TYPE = lltype.FuncType([], lltype.Void)
+        fetch_retval_void_graph = mixlevelannotator.getgraph(
+            code.fetch_retval_void, [], annmodel.s_None)
+        self.fetch_retval_void_ptr = model.Constant(lltype.functionptr(
+            FETCH_RETVAL_VOID_TYPE, "fetch_retval_void",
+            graph=fetch_retval_void_graph),
+            lltype.Ptr(FETCH_RETVAL_VOID_TYPE))
+
         FETCH_RETVAL_LONG_TYPE = lltype.FuncType([], lltype.Signed)
         fetch_retval_long_graph = mixlevelannotator.getgraph(
             code.fetch_retval_long, [], annmodel.SomeInteger())
@@ -116,13 +128,38 @@ class StacklessTransfomer(object):
             graph=fetch_retval_long_graph),
             lltype.Ptr(FETCH_RETVAL_LONG_TYPE))
 
+        FETCH_RETVAL_LONGLONG_TYPE = lltype.FuncType([], lltype.Signed)
+        fetch_retval_longlong_graph = mixlevelannotator.getgraph( # WAA!
+            code.fetch_retval_longlong, [], annmodel.SomeInteger(size=2))
+        self.fetch_retval_longlong_ptr = model.Constant(lltype.functionptr(
+            FETCH_RETVAL_LONGLONG_TYPE, "fetch_retval_longlong",
+            graph=fetch_retval_longlong_graph),
+            lltype.Ptr(FETCH_RETVAL_LONGLONG_TYPE))
+
+        FETCH_RETVAL_FLOAT_TYPE = lltype.FuncType([], lltype.Float)
+        fetch_retval_float_graph = mixlevelannotator.getgraph(
+            code.fetch_retval_float, [], annmodel.SomeFloat())
+        self.fetch_retval_float_ptr = model.Constant(lltype.functionptr(
+            FETCH_RETVAL_FLOAT_TYPE, "fetch_retval_float",
+            graph=fetch_retval_float_graph),
+            lltype.Ptr(FETCH_RETVAL_FLOAT_TYPE))
+
+        FETCH_RETVAL_VOID_P_TYPE = lltype.FuncType([], llmemory.Address)
+        fetch_retval_void_p_graph = mixlevelannotator.getgraph(
+            code.fetch_retval_void_p, [], annmodel.SomeAddress())
+        self.fetch_retval_void_p_ptr = model.Constant(lltype.functionptr(
+            FETCH_RETVAL_VOID_P_TYPE, "fetch_retval_void_p",
+            graph=fetch_retval_void_p_graph),
+            lltype.Ptr(FETCH_RETVAL_VOID_P_TYPE))
+
         mixlevelannotator.finish()
 
         s_global_state = bk.immutablevalue(code.global_state)
         r_global_state = translator.rtyper.getrepr(s_global_state)
-        self.ll_global_state = model.Constant(r_global_state.convert_const(code.global_state),
-                                              r_global_state.lowleveltype)
-        
+        self.ll_global_state = model.Constant(
+            r_global_state.convert_const(code.global_state),
+            r_global_state.lowleveltype)
+
 
     def frame_type_for_vars(self, vars):
         types = [storage_type(v.concretetype) for v in vars]
@@ -138,7 +175,8 @@ class StacklessTransfomer(object):
             fields = []
             for i, k in enumerate(key):
                 for j in range(k):
-                    fields.append(('state_%s_%d'%(STORAGE_FIELDS[i], j), STORAGE_TYPES[i]))
+                    fields.append(
+                        ('state_%s_%d'%(STORAGE_FIELDS[i], j), STORAGE_TYPES[i]))
             T = lltype.Struct("state_%d_%d_%d_%d"%tuple(key),
                               ('header', STATE_HEADER),
                               *fields)
@@ -171,7 +209,8 @@ class StacklessTransfomer(object):
    
         ops.append(model.SpaceOperation(
             "getfield",
-            [self.ll_global_state, model.Constant(llfieldname, lltype.Void)],
+            [self.ll_global_state,
+             model.Constant(llfieldname, lltype.Void)],
             tmpvar))
         if tmpvar is not targetvar: 
             ops.append(model.SpaceOperation(
@@ -181,11 +220,14 @@ class StacklessTransfomer(object):
 
     def insert_resume_handling(self, graph):
         old_start_block = graph.startblock
-        newinputargs = [copyvar(self.translator, v) for v in old_start_block.inputargs]
+        newinputargs = [copyvar(self.translator, v)
+                        for v in old_start_block.inputargs]
         new_start_block = model.Block(newinputargs)
         var_resume_state = varoftype(lltype.Signed)
         new_start_block.operations.append(
-            model.SpaceOperation("direct_call", [self.resume_state_ptr], var_resume_state))
+            model.SpaceOperation("direct_call",
+                                 [self.resume_state_ptr],
+                                 var_resume_state))
         not_resuming_link = model.Link(newinputargs, old_start_block, 0)
         not_resuming_link.llexitcase = 0
         resuming_links = []
@@ -197,25 +239,62 @@ class StacklessTransfomer(object):
             frame_top = varoftype(lltype.Ptr(frame_state_type))
             ops.extend(self.ops_read_global_state_field(frame_top, "top"))
             ops.append(model.SpaceOperation(
-                "setfield", [self.ll_global_state, model.Constant("inst_top", lltype.Void),
-                             model.Constant(null_state, lltype.typeOf(null_state))],
-                            varoftype(lltype.Void)))
-            i = 0
-            for arg in resume_point.link_to_resumption.args:
-                newarg = copyvar(self.translator, arg)
-                if arg is resume_point.var_result:
-                    ops.append(model.SpaceOperation("direct_call", [self.fetch_retval_long_ptr], newarg))
-                else:
-                    # frame_state_type._names[0] is 'header'
-                    fname = model.Constant(frame_state_type._names[i+1], lltype.Void)
-                    ops.append(model.SpaceOperation(
-                        'getfield', [frame_top, fname], newarg))
-                    i += 1
-                newargs.append(newarg)
+                "setfield",
+                [self.ll_global_state,
+                 model.Constant("inst_top", lltype.Void),
+                 model.Constant(null_state, lltype.typeOf(null_state))],
+                varoftype(lltype.Void)))
+            varmap = {}
+            for i, arg in enumerate(resume_point.args):
+                newarg = varmap[arg] = copyvar(self.translator, arg)
+                assert arg is not resume_point.var_result
+                fname = model.Constant(frame_state_type._names[i+1], lltype.Void)
+                ops.append(model.SpaceOperation(
+                    'getfield', [frame_top, fname], newarg))
+
+            r = storage_type(resume_point.var_result.concretetype)
+            if r is not None:
+                rettype = STORAGE_TYPES[r]
+            else:
+                rettype = lltype.Void
+            if rettype == lltype.Signed:
+                getretval = self.fetch_retval_long_ptr
+            if rettype == lltype.SignedLongLong:
+                getretval = self.fetch_retval_longlong_ptr
+            elif rettype == lltype.Void:
+                getretval = self.fetch_retval_void_ptr
+            elif rettype == lltype.Float:
+                getretval = self.fetch_retval_float_ptr
+            elif rettype == llmemory.Address:
+                getretval = self.fetch_retval_void_p_ptr
+            varmap[resume_point.var_result] = retval = (
+                copyvar(self.translator, resume_point.var_result))
+            ops.append(model.SpaceOperation("direct_call", [getretval], retval))
+
             newblock.operations.extend(ops)
-            newblock.closeblock(model.Link(newargs, resume_point.link_to_resumption.target))
+
+            def rename(arg):
+                if isinstance(arg, model.Variable):
+                    if arg in varmap:
+                        return varmap[arg]
+                    else:
+                        assert arg in [l.last_exception, l.last_exc_value]
+                        r = copyvar(self.translator, arg)
+                        varmap[arg] = r
+                        return r
+                else:
+                    return arg
+
+            newblock.closeblock(*[l.copy(rename)
+                                  for l in resume_point.links_to_resumption])
+            # this check is a bit implicit!
+            if len(resume_point.links_to_resumption) > 1:
+                newblock.exitswitch = model.c_last_exception
+            else:
+                newblock.exitswitch = None
             
-            resuming_links.append(model.Link([], newblock, resume_point_index+1))
+            resuming_links.append(
+                model.Link([], newblock, resume_point_index+1))
             resuming_links[-1].llexitcase = resume_point_index+1
         new_start_block.exitswitch = var_resume_state
         new_start_block.closeblock(not_resuming_link, *resuming_links)
@@ -234,11 +313,14 @@ class StacklessTransfomer(object):
         while i < len(block.operations):
             op = block.operations[i]
             if op.opname in ('direct_call', 'indirect_call'):
-                if i == len(block.operations) - 1 and block.exitswitch == model.c_last_exception:
+                if i == len(block.operations) - 1 \
+                       and block.exitswitch == model.c_last_exception:
                     link = block.exits[0]
                 else:
-                    link = support.split_block_with_keepalive(self.translator, block, i+1)
+                    link = support.split_block_with_keepalive(
+                        self.translator, block, i+1)
                     block.exitswitch = model.c_last_exception
+                    link.llexitcase = None
                 var_unwind_exception = varoftype(evalue)
                
                 # for the case where we are resuming to an except:
@@ -254,16 +336,25 @@ class StacklessTransfomer(object):
                 # function be called right at the end of the resuming
                 # block, and that it is called even if the return
                 # value is not again used.
-                args = [v for v in link.args 
-                        if v is not op.result and v.concretetype is not lltype.Void]
+                args = []
+                for l in block.exits:
+                    for arg in link.args:
+                        if isinstance(arg, model.Variable) \
+                           and arg.concretetype is not lltype.Void \
+                           and arg is not op.result \
+                           and arg not in args:
+                            args.append(arg)
+                
                 save_block, frame_state_type = self.generate_save_block(
                                 args, var_unwind_exception)
 
-                self.resume_points.append(ResumePoint(op.result, link, frame_state_type))
+                self.resume_points.append(
+                    ResumePoint(op.result, args, block.exits, frame_state_type))
 
                 newlink = model.Link(args + [var_unwind_exception], 
                                      save_block, code.UnwindException)
-                newlink.last_exception = model.Constant(code.UnwindException, etype) 
+                newlink.last_exception = model.Constant(code.UnwindException,
+                                                        etype)
                 newlink.last_exc_value = var_unwind_exception
                 newexits = list(block.exits)
                 newexits.insert(1, newlink)
@@ -299,20 +390,23 @@ class StacklessTransfomer(object):
         saveops = save_state_block.operations
         frame_state_var = varoftype(lltype.Ptr(frame_type))
 
-        saveops.append(model.SpaceOperation('malloc',
-                                        [model.Constant(frame_type, lltype.Void)],
-                                        frame_state_var))
+        saveops.append(model.SpaceOperation(
+            'malloc',
+            [model.Constant(frame_type, lltype.Void)],
+            frame_state_var))
         
         saveops.extend(self.generate_saveops(frame_state_var, inputargs))
 
         var_exc = varoftype(self.unwind_exception_type)
-        saveops.append(model.SpaceOperation("cast_pointer", [var_unwind_exception], 
-                                            var_exc))
+        saveops.append(model.SpaceOperation(
+            "cast_pointer",
+            [var_unwind_exception], 
+            var_exc))
         
         var_header = varoftype(lltype.Ptr(STATE_HEADER))
     
-        # XXX should this be getsubstruct?
-        saveops.append(model.SpaceOperation("getsubstruct", [frame_state_var, model.Constant("header", lltype.Void)], var_header))
+        saveops.append(model.SpaceOperation(
+            "cast_pointer", [frame_state_var], var_header))
 
         saveops.append(model.SpaceOperation(
             "direct_call",
@@ -320,39 +414,51 @@ class StacklessTransfomer(object):
             varoftype(lltype.Void)))
 
         saveops.append(model.SpaceOperation(
-            "setfield", [var_header, model.Constant("restartstate", lltype.Void), 
-                         model.Constant(len(self.resume_points)+1, lltype.Signed)],
-                        varoftype(lltype.Void)))
-        # XXX add returntypes 
+            "setfield",
+            [var_header, model.Constant("restartstate", lltype.Void), 
+             model.Constant(len(self.resume_points)+1, lltype.Signed)],
+            varoftype(lltype.Void)))
 
         funcptr = rtyper.type_system.getcallable(self.curr_graph)
         saveops.append(model.SpaceOperation(
-            "setfield", [var_header, model.Constant("function", lltype.Void), 
-                         model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
-                        varoftype(lltype.Void)))
+            "setfield",
+            [var_header, model.Constant("function", lltype.Void), 
+             model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
+            varoftype(lltype.Void)))
+        rettype = lltype.typeOf(funcptr).TO.RESULT
+        retval_type = {None: code.RETVAL_VOID,
+                       0: code.RETVAL_VOID_P,
+                       1: code.RETVAL_LONG,
+                       2: code.RETVAL_FLOAT,
+                       3: code.RETVAL_LONGLONG}[storage_type(rettype)]
+        
+        saveops.append(model.SpaceOperation(
+            "setfield", [var_header, model.Constant("retval_type", lltype.Void), 
+                         model.Constant(retval_type, lltype.Signed)],
+            varoftype(lltype.Void)))
 
         type_repr = rclass.get_type_repr(rtyper)
-        c_unwindexception = model.Constant(type_repr.convert_const(code.UnwindException), etype)
+        c_unwindexception = model.Constant(
+            type_repr.convert_const(code.UnwindException), etype)
         if not hasattr(self.curr_graph.exceptblock.inputargs[0], 'concretetype'):
             self.curr_graph.exceptblock.inputargs[0].concretetype = etype
         if not hasattr(self.curr_graph.exceptblock.inputargs[1], 'concretetype'):
             self.curr_graph.exceptblock.inputargs[1].concretetype = evalue
-        save_state_block.closeblock(model.Link([c_unwindexception, var_unwind_exception], 
-                                               self.curr_graph.exceptblock))
-        self.translator.rtyper._convert_link(save_state_block, save_state_block.exits[0])
+        save_state_block.closeblock(model.Link(
+            [c_unwindexception, var_unwind_exception], 
+            self.curr_graph.exceptblock))
+        self.translator.rtyper._convert_link(
+            save_state_block, save_state_block.exits[0])
         return save_state_block, frame_type
         
-
     def generate_saveops(self, frame_state_var, varstosave):
         frame_type = frame_state_var.concretetype.TO
         ops = []
         for i, var in enumerate(varstosave):
             t = storage_type(var.concretetype)
             fname = model.Constant(frame_type._names[i+1], lltype.Void)
-            ops.append(model.SpaceOperation('setfield',
-                                            [frame_state_var, fname, var],
-                                            varoftype(lltype.Void)))
-
+            ops.append(model.SpaceOperation(
+                'setfield',
+                [frame_state_var, fname, var],
+                varoftype(lltype.Void)))
         return ops
-        
-        

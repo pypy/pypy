@@ -46,6 +46,18 @@ def test_simple_transform_llinterp():
     res = llinterp_stackless_function(example, example, g)
     assert res == 3
 
+def test_simple_transform_llinterp_float():
+    def check(x):
+        if x:
+            raise code.UnwindException
+    def g(x):
+        check(x)
+        return x + 0.125
+    def example(x):
+        return int((g(x) + 1)*1000.0)
+    res = llinterp_stackless_function(example, example, g)
+    assert res == 2125
+
 def test_simple_transform():
     def check(x):
         if x:
@@ -97,7 +109,6 @@ def test_resume_with_exception():
     assert llinterp.type_name(info.value.args[0]) == 'KeyError'
 
 def test_resume_with_exception_handling():
-    py.test.skip("in progress")
     def check(x):
         if x:
             raise code.UnwindException
@@ -117,9 +128,6 @@ def test_resume_with_exception_handling():
         return y + 1
     res = llinterp_stackless_function(example, example, g, h)
     assert res == 0
-    
-    
-    
 
 def rtype_stackless_function(fn, *stacklessfuncs):
     s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))
@@ -133,10 +141,14 @@ def rtype_stackless_function(fn, *stacklessfuncs):
     # helpers which can cause slp_main_loop to get re-annotated after
     # it is rtyped.  which is bad.
     unwind_def = bk.getuniqueclassdef(code.UnwindException)
-    unwind_def.generalize_attr('frame_top', annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
-    unwind_def.generalize_attr('frame_bottom', annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
+    unwind_def.generalize_attr('frame_top',
+                               annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
+    unwind_def.generalize_attr('frame_bottom',
+                               annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
     
-    annotator.build_types(fn, [s_list_of_strings])
+    s_returnvar = annotator.build_types(fn, [s_list_of_strings])
+    if not isinstance(s_returnvar, annmodel.SomeInteger):
+        raise Exception, "this probably isn't going to work"
     t.buildrtyper().specialize()
 
     st = StacklessTransfomer(t)
@@ -161,7 +173,7 @@ def run_stackless_function(fn, *stacklessfuncs):
 
     t = rtype_stackless_function(entry_point, *stacklessfuncs)
 
-    cbuilder = CStandaloneBuilder(t, entry_point)#, gcpolicy=gc.BoehmGcPolicy)
+    cbuilder = CStandaloneBuilder(t, entry_point)
     cbuilder.generate_source()
     cbuilder.compile()
     return cbuilder.cmdexec('').strip()
@@ -173,7 +185,7 @@ def llinterp_stackless_function(fn, *stacklessfuncs):
         except code.UnwindException, u:
             code.global_state.top = u.frame_top
             code.slp_main_loop()
-            r = code.global_state.retval_long
+            return code.global_state.retval_long
         return r
 
     t = rtype_stackless_function(entry_point, *stacklessfuncs)
