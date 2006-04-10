@@ -42,16 +42,15 @@ def test_primitive_pointer():
     pp[0].contents = z                       #  pp ---> p ---> z = 84
     assert p.contents.value == z.value == 84
 
-    py.test.skip("the rest fails sometimes -- did I get my keepalive"
-                 "expectations wrong?")
-
-    q = pointer(y)
-    pp[0] = q                                #  pp ---> p ---> y = 14
-    assert y.value == 14                     #        (^^^ not q! )
-    assert p.contents.value == 14
-    assert pp.contents.contents.value == 14
-    q.contents = x
-    assert pp.contents.contents.value == 14
+##    *** the rest is commented out because it should work but occasionally
+##    *** trigger a ctypes bug (SourceForge bug #1467852). ***
+##    q = pointer(y)
+##    pp[0] = q                                #  pp ---> p ---> y = 14
+##    assert y.value == 14                     #        (^^^ not q! )
+##    assert p.contents.value == 14
+##    assert pp.contents.contents.value == 14
+##    q.contents = x
+##    assert pp.contents.contents.value == 14
 
 
 def test_char_p():

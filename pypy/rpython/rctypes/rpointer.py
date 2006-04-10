@@ -1,4 +1,5 @@
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
+from pypy.rpython.error import TyperError
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
@@ -82,7 +83,8 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
         if hop.args_s[1].is_constant() and hop.args_s[1].const == 0:
             pass
         else:
-            raise NotImplementedError("XXX: pointer[non-zero-index] = value")
+            # not supported by ctypes either
+            raise TyperError("assignment to pointer[x] with x != 0")
         # copy the whole structure's content over
         reccopy(hop.llops, v_new_c_data, v_target)
 
