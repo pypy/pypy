@@ -93,8 +93,13 @@ class TypeCache(SpaceCache):
 def hack_out_multimethods(ns):
     "NOT_RPYTHON: initialization-time only."
     result = []
+    seen = {}
     for value in ns.itervalues():
         if isinstance(value, StdObjSpaceMultiMethod):
+            if value.name in seen:
+                raise Exception("duplicate multimethod name %r" %
+                                (value.name,))
+            seen[value.name] = True
             result.append(value)
     return result
 
