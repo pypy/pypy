@@ -93,3 +93,8 @@ def resume_state():
 #        global_state.top = None
 # XXX and then insert the rtyped graph of this into functions
         
+def fetch_retval_long():
+    if global_state.exception:
+        raise global_state.exception
+    else:
+        return global_state.retval_long

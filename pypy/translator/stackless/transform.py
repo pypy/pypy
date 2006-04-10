@@ -108,6 +108,14 @@ class StacklessTransfomer(object):
             graph=resume_state_graph),
             lltype.Ptr(RESUME_STATE_TYPE))
 
+        FETCH_RETVAL_LONG_TYPE = lltype.FuncType([], lltype.Signed)
+        fetch_retval_long_graph = mixlevelannotator.getgraph(
+            code.fetch_retval_long, [], annmodel.SomeInteger())
+        self.fetch_retval_long_ptr = model.Constant(lltype.functionptr(
+            FETCH_RETVAL_LONG_TYPE, "fetch_retval_long",
+            graph=fetch_retval_long_graph),
+            lltype.Ptr(FETCH_RETVAL_LONG_TYPE))
+
         mixlevelannotator.finish()
 
         s_global_state = bk.immutablevalue(code.global_state)
@@ -196,7 +204,7 @@ class StacklessTransfomer(object):
             for arg in resume_point.link_to_resumption.args:
                 newarg = copyvar(self.translator, arg)
                 if arg is resume_point.var_result:
-                    ops.extend(self.ops_read_global_state_field(newarg, "retval_long"))
+                    ops.append(model.SpaceOperation("direct_call", [self.fetch_retval_long_ptr], newarg))
                 else:
                     # frame_state_type._names[0] is 'header'
                     fname = model.Constant(frame_state_type._names[i+1], lltype.Void)

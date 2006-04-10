@@ -5,6 +5,7 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
 from pypy.rpython.memory.gctransform import varoftype
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython import llinterp
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph
 from pypy.annotation import model as annmodel
@@ -74,6 +75,49 @@ def test_protected_call():
     assert res == 3
     res = run_stackless_function(example, example, g)
     assert res == "3"
+
+def test_resume_with_exception():
+    def check(x):
+        if x:
+            raise code.UnwindException
+    def g(x):
+        check(x)
+        if x:
+            raise KeyError
+        else:
+            return x + 1
+    def h(x):
+        return g(x)
+    def example(x):
+        y = h(x)
+        return y + 1
+    info = py.test.raises(
+        llinterp.LLException,
+        "llinterp_stackless_function(example, example, g, h)")
+    assert llinterp.type_name(info.value.args[0]) == 'KeyError'
+
+def test_resume_with_exception_handling():
+    py.test.skip("in progress")
+    def check(x):
+        if x:
+            raise code.UnwindException
+    def g(x):
+        check(x)
+        if x:
+            raise KeyError
+        else:
+            return x + 1
+    def h(x):
+        return g(x)
+    def example(x):
+        try:
+            y = h(x)
+        except KeyError:
+            y = -1
+        return y + 1
+    res = llinterp_stackless_function(example, example, g, h)
+    assert res == 0
+    
     
     
 
@@ -137,7 +181,6 @@ def llinterp_stackless_function(fn, *stacklessfuncs):
     r_list_of_strings = t.rtyper.getrepr(
         t.annotator.binding(graphof(t, entry_point).startblock.inputargs[0]))
     ll_list = r_list_of_strings.convert_const([''])
-    from pypy.rpython.llinterp import LLInterpreter
-    interp = LLInterpreter(t.rtyper)
+    interp = llinterp.LLInterpreter(t.rtyper)
     res = interp.eval_graph(graphof(t, entry_point), [ll_list])
     return res
