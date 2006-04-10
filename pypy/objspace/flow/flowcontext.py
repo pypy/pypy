@@ -133,7 +133,7 @@ class BlockRecorder(Recorder):
                     vars2.append(Variable())
             egg = EggBlock(vars2, block, case)
             ec.pendingblocks.append(egg)
-            link = Link(vars, egg, case)
+            link = ec.make_link(vars, egg, case)
             if attach:
                 link.extravars(**attach)
                 egg.extravars(**attach) # xxx
@@ -211,6 +211,7 @@ class FlowExecutionContext(ExecutionContext):
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = [initialblock]
         self.graph = FunctionGraph(name or code.co_name, initialblock)
+        self.make_link = Link # overridable for transition tracking
 
     def create_frame(self):
         # create an empty frame suitable for the code object
@@ -224,6 +225,13 @@ class FlowExecutionContext(ExecutionContext):
 
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
+
+    def start_monitoring(self, monitorfunc):
+        def make_link(*args):
+            link = Link(*args);
+            monitorfunc(link)
+            return link
+        self.make_link = make_link
 
     def guessexception(self, *classes):
         def replace_exc_values(case):
@@ -274,12 +282,12 @@ class FlowExecutionContext(ExecutionContext):
                 msg = "implicit %s shouldn't occur" % exc_cls.__name__
                 w_type = Constant(AssertionError)
                 w_value = Constant(AssertionError(msg))
-                link = Link([w_type, w_value], self.graph.exceptblock)
+                link = self.make_link([w_type, w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except OperationError, e:
                 #print "OE", e.w_type, e.w_value
-                link = Link([e.w_type, e.w_value], self.graph.exceptblock)
+                link = self.make_link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except StopFlowing:
@@ -290,7 +298,7 @@ class FlowExecutionContext(ExecutionContext):
 
             else:
                 assert w_result is not None
-                link = Link([w_result], self.graph.returnblock)
+                link = self.make_link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
 
             del self.recorder
@@ -346,7 +354,8 @@ class FlowExecutionContext(ExecutionContext):
             newblock = SpamBlock(newstate)
         # unconditionally link the current block to the newblock
         outputargs = currentstate.getoutputargs(newstate)
-        currentblock.closeblock(Link(outputargs, newblock))
+        link = self.make_link(outputargs, newblock)
+        currentblock.closeblock(link)
         # phew
         if not finished:
             if block is not None:
@@ -356,7 +365,7 @@ class FlowExecutionContext(ExecutionContext):
                 block.operations = ()
                 block.exitswitch = None
                 outputargs = block.framestate.getoutputargs(newstate)
-                block.recloseblock(Link(outputargs, newblock))
+                block.recloseblock(self.make_link(outputargs, newblock))
                 candidates.remove(block)
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
