@@ -10,6 +10,7 @@ from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.rarithmetic import r_longlong, r_ulonglong
 
 try:
     import ctypes
@@ -18,7 +19,7 @@ except ImportError:
 
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
-from ctypes import c_double, c_char_p
+from ctypes import c_double, c_char_p, pointer
 
 class Test_annotation:
     def test_simple(self):
@@ -197,6 +198,58 @@ class Test_specialization:
         #             statically allocated.  As a temporary hack I'm reducing
         #             the precision to compare.
         assert ("%.2f" % res) == ("%.2f" % 4.3)
+
+    def test_value_for_various_types(self):
+        def func():
+            x = c_ushort(5)
+            x.value += 1
+            assert x.value == 6
+            x = c_char('A')
+            x.value = chr(ord(x.value) + 1)
+            assert x.value == 'B'
+            x = c_longlong(5)
+            x.value += 1
+            assert x.value == r_longlong(6)
+            x = c_ulonglong(5)
+            x.value += 1
+            assert x.value == r_ulonglong(6)
+            x = c_float(2.5)
+            x.value += 0.25
+            assert x.value == 2.75
+            x.value -= 1
+            assert x.value == 1.75
+            x = c_double(2.5)
+            x.value += 0.25
+            assert x.value == 2.75
+            x.value -= 1
+            assert x.value == 1.75
+        interpret(func, [])
+
+    def test_convert_from_llvalue(self):
+        def func():
+            x = c_ushort(5)
+            pointer(x)[0] += 1
+            assert x.value == 6
+            x = c_char('A')
+            pointer(x)[0] = chr(ord(pointer(x)[0]) + 1)
+            assert x.value == 'B'
+            x = c_longlong(5)
+            pointer(x)[0] += 1
+            assert x.value == r_longlong(6)
+            x = c_ulonglong(5)
+            pointer(x)[0] += 1
+            assert x.value == r_ulonglong(6)
+            x = c_float(2.5)
+            pointer(x)[0] += 0.25
+            assert x.value == 2.75
+            pointer(x)[0] -= 1
+            assert x.value == 1.75
+            x = c_double(2.5)
+            pointer(x)[0] += 0.25
+            assert x.value == 2.75
+            pointer(x)[0] -= 1
+            assert x.value == 1.75
+        interpret(func, [])
 
 class Test_compilation:
     def test_compile_c_int(self):
