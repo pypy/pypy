@@ -3,7 +3,7 @@ from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rctypes.rmodel import CTypesValueRepr
+from pypy.rpython.rctypes.rmodel import CTypesValueRepr, reccopy
 
 from ctypes import POINTER, pointer, c_int
 
@@ -37,6 +37,12 @@ class PointerRepr(CTypesValueRepr):
         # an immortal global constant just like 'p', but better safe than sorry
         p.keepalive_contents = llcontents.c_data_owner_keepalive
 
+    def setcontents(self, llops, v_ptr, v_contentsbox):
+        v_c_data = self.r_contents.get_c_data(llops, v_contentsbox)
+        v_owner = self.r_contents.get_c_data_owner(llops, v_contentsbox)
+        self.setvalue(llops, v_ptr, v_c_data)
+        self.setkeepalive(llops, v_ptr, v_owner)
+
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
         assert s_attr.is_constant()
@@ -44,6 +50,14 @@ class PointerRepr(CTypesValueRepr):
         v_ptr = hop.inputarg(self, 0)
         v_c_ptr = self.getvalue(hop.llops, v_ptr)
         return self.r_contents.allocate_instance_ref(hop.llops, v_c_ptr)
+
+    def rtype_setattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'contents'
+        v_ptr, v_attr, v_newcontents = hop.inputargs(self, lltype.Void,
+                                                     self.r_contents)
+        self.setcontents(hop.llops, v_ptr, v_newcontents)
 
 
 class __extend__(pairtype(PointerRepr, IntegerRepr)):
@@ -58,14 +72,19 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
             raise NotImplementedError("XXX: pointer[non-zero-index]")
 
     def rtype_setitem((r_ptr, _), hop):
+        # p[0] = x  is not the same as  p.contents.value = x
+        # it makes a copy of the data in 'x' just like rarray.rtype_setitem()
         self = r_ptr
-        v_ptr, v_index, v_newvalue = hop.inputargs(self, lltype.Signed, XXX)
-                                                   
+        v_ptr, v_index, v_contentsbox = hop.inputargs(self, lltype.Signed,
+                                                      self.r_contents)
+        v_new_c_data = self.r_contents.get_c_data(hop.llops, v_contentsbox)
+        v_target = self.getvalue(hop.llops, v_ptr)
         if hop.args_s[1].is_constant() and hop.args_s[1].const == 0:
-            v_c_ptr = self.getvalue(hop. llops, v_ptr)
-            XXX
+            pass
         else:
             raise NotImplementedError("XXX: pointer[non-zero-index] = value")
+        # copy the whole structure's content over
+        reccopy(hop.llops, v_new_c_data, v_target)
 
 #def registerPointerType(ptrtype):
 #    """Adds a new pointer type to the extregistry.
@@ -155,10 +174,7 @@ def pointertype_specialize_call(hop):
     v_result = r_ptr.allocate_instance(hop.llops)
     if len(hop.args_s):
         v_contentsbox, = hop.inputargs(r_ptr.r_contents)
-        v_c_data = r_ptr.r_contents.get_c_data(hop.llops, v_contentsbox)
-        v_owner = r_ptr.r_contents.get_c_data_owner(hop.llops, v_contentsbox)
-        r_ptr.setvalue(hop.llops, v_result, v_c_data)
-        r_ptr.setkeepalive(hop.llops, v_result, v_owner)
+        r_ptr.setcontents(hop.llops, v_result, v_contentsbox)
     return v_result
 
 def pointerinstance_compute_annotation(type, instance):

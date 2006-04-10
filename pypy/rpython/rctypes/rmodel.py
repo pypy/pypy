@@ -203,3 +203,22 @@ class CTypesValueRepr(CTypesRepr):
         if isinstance(value, self.ctype):
             value = value.value
         p.c_data.value = value
+
+# ____________________________________________________________
+
+def reccopy(llops, v_source, v_dest):
+    # helper to copy recursively a structure or array onto another.
+    T = v_source.concretetype.TO
+    assert T == v_dest.concretetype.TO
+    assert isinstance(T, lltype.Struct)
+    for name in T._names:
+        FIELDTYPE = getattr(T, name)
+        cname = inputconst(lltype.Void, name)
+        if isinstance(FIELDTYPE, lltype.ContainerType):
+            RESTYPE = lltype.Ptr(FIELDTYPE)
+            v_subsrc = llops.genop('getsubstruct', [v_source, cname], RESTYPE)
+            v_subdst = llops.genop('getsubstruct', [v_dest,   cname], RESTYPE)
+            reccopy(llops, v_subsrc, v_subdst)
+        else:
+            v_value = llops.genop('getfield', [v_source, cname], FIELDTYPE)
+            llops.genop('setfield', [v_dest, cname, v_value])

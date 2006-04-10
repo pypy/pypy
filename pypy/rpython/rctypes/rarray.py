@@ -1,11 +1,10 @@
 from ctypes import ARRAY, c_int
 from pypy.annotation.model import SomeCTypesObject, SomeBuiltin
 from pypy.rpython import extregistry
-from pypy.rpython.rmodel import Repr, inputconst
+from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rmodel import IntegerRepr
-from pypy.rpython.rctypes.rmodel import CTypesRefRepr
+from pypy.rpython.rctypes.rmodel import CTypesRefRepr, reccopy
 
 ArrayType = type(ARRAY(c_int, 10))
 
@@ -44,25 +43,6 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
         v_array, v_index = hop.inputargs(r_array, lltype.Signed)
         v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
         return r_array.r_item.return_c_data(hop.llops, v_c_data)
-
-
-def reccopy(llops, v_source, v_dest):
-    # helper (XXX move somewhere else) to copy recursively a structure
-    # or array onto another.
-    T = v_source.concretetype.TO
-    assert T == v_dest.concretetype.TO
-    assert isinstance(T, lltype.Struct)
-    for name in T._names:
-        FIELDTYPE = getattr(T, name)
-        cname = inputconst(lltype.Void, name)
-        if isinstance(FIELDTYPE, lltype.ContainerType):
-            RESTYPE = lltype.Ptr(FIELDTYPE)
-            v_subsrc = llops.genop('getsubstruct', [v_source, cname], RESTYPE)
-            v_subdst = llops.genop('getsubstruct', [v_dest,   cname], RESTYPE)
-            reccopy(llops, v_subsrc, v_subdst)
-        else:
-            v_value = llops.genop('getfield', [v_source, cname], FIELDTYPE)
-            llops.genop('setfield', [v_dest, cname, v_value])
 
 
 def arraytype_specialize_call(hop):

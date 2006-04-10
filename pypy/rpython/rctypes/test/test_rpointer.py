@@ -98,6 +98,23 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
+    def test_annotate_ass_contents(self):
+        def fn():
+            x = c_int(5)
+            y = c_int(6)
+            p = pointer(x)
+            p.contents = y
+            y.value = 12
+            return p.contents.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(fn, [])
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
 
 class Test_specialization:
     def test_specialize_c_int_ptr(self):
@@ -174,13 +191,15 @@ class Test_specialization:
         """
         Make sure that pointers work the same way as arrays.
         """
-        py.test.skip("in-progress")
         def access_array():
-            my_pointer = pointer(c_int(11))
+            my_int = c_int(11)
+            my_pointer = pointer(my_int)
             x = my_pointer[0]
             my_pointer[0] = c_int(7)
+            assert my_int.value == 7
             y = my_pointer[0]
             my_pointer[0] = 5
+            assert my_int.value == 5
             z = my_pointer.contents.value
             return x * y * z
 
@@ -197,3 +216,15 @@ class Test_specialization:
 
         res = interpret(access_prebuilt, [])
         assert res == 11
+
+    def test_specialize_ass_contents(self):
+        def fn():
+            x = c_int(5)
+            y = c_int(6)
+            p = pointer(x)
+            p.contents = y
+            y.value = 12
+            return p.contents.value
+
+        res = interpret(fn, [])
+        assert res == 12
