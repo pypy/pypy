@@ -241,6 +241,19 @@ class StacklessTransfomer(object):
                     block.exitswitch = model.c_last_exception
                 var_unwind_exception = varoftype(evalue)
                
+                # for the case where we are resuming to an except:
+                # block we need to store here a list of links that
+                # might be resumed to, and in insert_resume_handling
+                # we need to basically copy each link onto the
+                # resuming block.
+                #
+                # it probably also makes sense to compute the list of
+                # args to save once, here, and save that too.
+                #
+                # finally, it is important that the fetch_retval
+                # function be called right at the end of the resuming
+                # block, and that it is called even if the return
+                # value is not again used.
                 args = [v for v in link.args 
                         if v is not op.result and v.concretetype is not lltype.Void]
                 save_block, frame_state_type = self.generate_save_block(
