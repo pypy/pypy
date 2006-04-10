@@ -182,20 +182,35 @@ class Meth(StaticMethod):
 
 
 class List(OOType):
+    ITEMTYPE_T = object() # placeholder, see below
 
     def __init__(self, ITEMTYPE):
         self._ITEMTYPE = ITEMTYPE
         self._null = _null_list(self)
 
-        # This defines the abstract list interface that backends will have
-        # to map to their native list implementations.
-        self._METHODS = frozendict({
+        # This defines the abstract list interface that backends will
+        # have to map to their native list implementations.
+        # 'ITEMTYPE_T' is used as a placeholder for indicating
+        # arguments that should have ITEMTYPE type.
+
+        generic_types = {self.ITEMTYPE_T: ITEMTYPE}
+        self._GENERIC_METHODS = frozendict({
             # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
             "length": Meth([], Signed),
-            "append": Meth([ITEMTYPE], Void),
-            "getitem": Meth([Signed], ITEMTYPE),
-            "setitem": Meth([Signed, ITEMTYPE], Void),
+            "append": Meth([self.ITEMTYPE_T], Void),
+            "getitem": Meth([Signed], self.ITEMTYPE_T),
+            "setitem": Meth([Signed, self.ITEMTYPE_T], Void),
         })
+
+        self._setup_methods(generic_types)
+
+    def _setup_methods(self, generic_types):
+        methods = {}
+        for name, meth in self._GENERIC_METHODS.iteritems():
+            args = [generic_types.get(arg, arg) for arg in meth.ARGS]
+            result = generic_types.get(meth.RESULT, meth.RESULT)            
+            methods[name] = Meth(args, result)
+        self._METHODS = frozendict(methods)
 
     # NB: We are expecting Lists of the same ITEMTYPE to compare/hash
     # equal. We don't redefine __eq__/__hash__ since the implementations
@@ -612,3 +627,6 @@ def ooidentityhash(inst):
 
 
 ROOT = Instance('Root', None, _is_root=True)
+
+print List(Signed)._METHODS
+
