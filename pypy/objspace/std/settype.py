@@ -22,6 +22,7 @@ set_symmetric_difference        = SMM('symmetric_difference', 2)
 set_symmetric_difference_update = SMM('symmetric_difference_update', 2)
 set_union                       = SMM('union', 2)
 set_update                      = SMM('update', 2)
+set_reduce                      = SMM('__reduce__',1)
 
 register_all(vars(), globals())
 

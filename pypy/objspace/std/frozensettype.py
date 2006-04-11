@@ -13,6 +13,7 @@ frozenset_issubset              = SMM('issubset', 2)
 frozenset_issuperset            = SMM('issuperset', 2)
 frozenset_symmetric_difference  = SMM('symmetric_difference', 2)
 frozenset_union                 = SMM('union', 2)
+frozenset_reduce                = SMM('__reduce__',1)
 
 register_all(vars(), globals())
 

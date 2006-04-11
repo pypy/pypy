@@ -12,6 +12,7 @@ class W_BaseSetObject(W_Object):
         W_Object.__init__(w_self, space)
         w_self.setdata = setdata = r_dict(space.eq_w, space.hash_w)
         _initialize_set(space, w_self, wrappeditems)
+        w_self.in_init = True
 
     def __repr__(w_self):
         """representation for debugging purposes"""
@@ -346,7 +347,7 @@ def hash__Frozenset(space, w_set):
     hash *= (len(w_set.setdata) + 1)
     for w_item in w_set.setdata.iterkeys():
         h = space.int_w(space.hash(w_item))
-        hash ^= (h ^ (h << 16) ^ 89869747)  * 3644798167
+        hash ^= ((h ^ (h << 16) ^ 89869747)  * 3644798167)
     hash = hash * 69069 + 907133923
     if hash == -1:
         hash = 590923713
@@ -449,8 +450,11 @@ cmp__Frozenset_Set = cmp__Set_Set
 def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse('set',
                             (['some_iterable'], None, None),
-                            [W_SetObject(space,None)])
-    _initialize_set(space, w_set, w_iterable)
+                            #[W_SetObject(space,None)])
+                            [space.newtuple([])])
+    if not w_set.in_init:
+        _initialize_set(space, w_set, w_iterable)
+    w_set.in_init = False
 
 app = gateway.applevel("""
     def ne__Set_ANY(s, o):
@@ -464,6 +468,9 @@ app = gateway.applevel("""
 
     def repr__Set(s):
         return '%s(%s)' % (s.__class__.__name__, [x for x in s])
+
+    def reduce__Set(s):
+        return (s.__class__,(tuple(s),),None)
 
 """, filename=__file__)
 
@@ -482,6 +489,9 @@ lt__Frozenset_Frozenset = lt__Set_Set
 
 repr__Set = app.interphook('repr__Set')
 repr__Frozenset = app.interphook('repr__Set')
+
+set_reduce__Set = app.interphook('reduce__Set')
+frozenset_reduce__Frozenset = app.interphook('reduce__Set')
 
 from pypy.objspace.std import frozensettype
 from pypy.objspace.std import settype
