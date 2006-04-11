@@ -229,7 +229,6 @@ class W_Expression(W_AbstractConstraint):
                 
         try:
             for varname, keep in result_cache.content.items():
-                print keep
                 domain = w_cs.w_dom(self._names_to_vars[self._space.str_w(varname)])
                 domain.w_remove_values(self._space.newlist([val
                                                             for val in domain._values

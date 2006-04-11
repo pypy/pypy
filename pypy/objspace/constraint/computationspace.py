@@ -74,11 +74,26 @@ class W_ComputationSpace(Wrappable):
         self.var_const = {}
         # freshly added constraints (tell -> propagate)
         self.to_check = {}
+        self.status = None
 
     #-- public interface ---------------
     
     def w_ask(self):
-        self.propagate()
+        if self.status is not None: return self.status
+        try:
+            if len(self.to_check) > 0:
+                self.propagate()
+        except: # FIXME: ConcistencyFailure
+            self.status = self._space.newint(0)
+            return self.status
+        try:
+            self.distributor.find_distribution_variable(self)
+        except: # FIXME: indexError ?
+            self.status = self._space.newint(1)
+            return self.status
+        self.status = self._space.newint(self.distributor.fanout)
+        print "duh ?"
+        return self.status
 
     def w_clone(self):
         new = newspace(self._space)

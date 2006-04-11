@@ -76,4 +76,32 @@ class AppTest_ComputationSpace(object):
         csp.commit(2)
         assert csp.dom(z).size() == 2
 
-    
+    def test_ask_success(self):
+        csp = newspace()
+        x = csp.var('x', FiniteDomain([1]))
+        y = csp.var('y', FiniteDomain([1, 2]))
+        z = csp.var('z', FiniteDomain([1, 2, 3]))
+        csp.tell(make_expression([x, y], 'x<y'))
+        csp.tell(make_expression([y, z], 'y<z'))
+        csp.tell(make_expression([x, z], 'x<z'))
+        assert csp.ask() == 1
+        
+    def test_ask_failure(self):
+        csp = newspace()
+        x = csp.var('x', FiniteDomain([1]))
+        y = csp.var('y', FiniteDomain([1, 2]))
+        z = csp.var('z', FiniteDomain([1, 2]))
+        csp.tell(make_expression([x, y], 'x<y'))
+        csp.tell(make_expression([y, z], 'y<z'))
+        csp.tell(make_expression([x, z], 'x<z'))
+        assert csp.ask() == 0
+
+    def test_ask_distributable(self):
+        csp = newspace()
+        x = csp.var('x', FiniteDomain([1, 2]))
+        y = csp.var('y', FiniteDomain([2, 3]))
+        z = csp.var('z', FiniteDomain([3, 4]))
+        csp.tell(make_expression([x, y], 'x<y'))
+        csp.tell(make_expression([y, z], 'y<z'))
+        csp.tell(make_expression([x, z], 'x<z'))
+        assert csp.ask() > 1
