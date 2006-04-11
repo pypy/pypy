@@ -5,6 +5,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import baseobjspace, typedef, gateway
 from pypy.interpreter.gateway import interp2app
 
+from pypy.objspace.std.intobject import W_IntObject
+
 from pypy.objspace.constraint.computationspace import W_Distributor
 
 def arrange_domains(cs, variables):
@@ -26,32 +28,33 @@ class W_AbstractDistributor(W_Distributor):
         """return number of possible splits"""
         return self.fanout
 
-    def find_smallest_domain(self):
+    def _find_smallest_domain(self, w_cs):
         """returns the variable having the smallest domain.
         (or one of such varibles if there is a tie)
         """
-        vars_ = [var for var in self.cs.get_variables_with_a_domain()
-                 if self.cs.dom(var).size() > 1]
+        vars_ = [var for var, dom in w_cs.var_dom.content.items()
+                 if dom.size() > 1]
         
         best = vars_[0]
         for var in vars_:
-            if self.cs.dom(var).size() < self.cs.dom(best).size():
+            if w_cs.var_dom.content[var].size() < w_cs.var_dom.content[best].size():
                 best = var
         
         return best
 
     def w_distribute(self, w_cs, w_choice):
-        assert isintance(w_choice, W_IntegerObject)
+        assert isinstance(w_choice, W_IntObject)
         self.distribute(w_cs, self._space.int_w(w_choice))
 
     def distribute(self, w_cs, choice_w):
-        variable = self._find_distribution_variable()
-        self._do_distribute(self.cs.dom(variable), choice)
-        for const in self.cs.dependant_constraints(variable):
-            self.cs.event_set.add(const)
+        variable = self.find_distribution_variable(w_cs)
+        self._do_distribute(w_cs.var_dom.content[variable],
+                            choice_w)
+        for const in w_cs.dependant_constraints(variable):
+            w_cs.to_check[const] = True
 
-    def _find_distribution_variable(self):
-        return self.find_smallest_domain()
+    def find_distribution_variable(self, w_cs):
+        return self._find_smallest_domain(w_cs)
     
     def _do_distribute(self, domain, choice):
         """remove values from domain depending on choice"""
@@ -75,9 +78,9 @@ class W_NaiveDistributor(W_AbstractDistributor):
     def _do_distribute(self, domain, choice):
         values = domain.get_values()
         if choice == 0:
-            domain.remove_values(values[1:])
+            domain.w_remove_values(values[1:])
         else:
-            domain.remove_value(values[0])
+            domain.w_remove_value(values[0])
 
 W_NaiveDistributor.typedef = typedef.TypeDef(
     "W_NaiveDistributor",
@@ -133,5 +136,3 @@ def make_dichotomy_distributor(object_space):
     return make_split_distributor(object_space, 2)
 app_make_dichotomy_distributor = interp2app(make_dichotomy_distributor)
 
-
-#DefaultDistributor = W_NaiveDistributor

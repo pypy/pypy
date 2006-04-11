@@ -91,7 +91,10 @@ class W_FiniteDomain(W_AbstractDomain):
     def w_get_values(self):
         """return all the values in the domain
            in an indexable sequence"""
-        return self._space.newlist([x for x in self._values])
+        return self._space.newlist(self.get_values())
+
+    def get_values(self):
+        return [x for x in self._values]
 
     def __iter__(self):
         return iter(self._values)

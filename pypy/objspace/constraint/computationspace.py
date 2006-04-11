@@ -52,9 +52,9 @@ W_Constraint.typedef = typedef.TypeDef(
 
 class W_Distributor(Wrappable):
 
-    def __init__(self, object_space, fanout):
+    def __init__(self, object_space, fanout_w):
         self._space = object_space
-        self.fanout = fanout
+        self.fanout = fanout_w
 
 W_Distributor.typedef = typedef.TypeDef("W_Distributor")
 
@@ -64,39 +64,45 @@ W_Distributor.typedef = typedef.TypeDef("W_Distributor")
 class W_ComputationSpace(Wrappable):
     def __init__(self, obj_space):
         self._space = obj_space
-        # there, var -> dom
-        self.var_doms = self._space.newdict({})
+        # var -> dom
+        self.var_dom = self._space.newdict({})
         # constraint set
         self.constraints = self._space.newdict({})
         # var -> constraints
-        self.var_const_map = {}
+        self.var_const = {}
         # freshly added constraints (tell -> propagate)
         self.to_check = {}
 
     def w_var(self, w_name, w_domain):
         assert isinstance(w_name, W_StringObject)
         assert isinstance(w_domain, W_AbstractDomain)
-        if w_name in self.var_doms.content:
+        if w_name in self.var_dom.content:
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Name already used"))
         var = W_Variable(self._space, w_name)
-        self.var_doms.content[var] = w_domain
+        self.var_dom.content[var] = w_domain
         return var
 
     def w_dom(self, w_variable):
         assert isinstance(w_variable, W_Variable)
-        return self.var_doms.content[w_variable]
+        return self.var_dom.content[w_variable]
 
     def w_tell(self, w_constraint):
         assert isinstance(w_constraint, W_Constraint)
         self.constraints.content[w_constraint] = self._space.w_True
         for var in w_constraint.affected_variables():
-            self.var_const_map.setdefault(var, [])
-            self.var_const_map[var].append(w_constraint)
+            self.var_const.setdefault(var, [])
+            self.var_const[var].append(w_constraint)
         self.to_check[w_constraint] = True
 
+    def w_dependant_constraints(self, w_var):
+        return self._space.newlist(self.dependant_constraints(w_var))
+
     def dependant_constraints(self, var):
-        return self.var_const_map[var]
+        try:
+            return self.var_const[var]
+        except KeyError:
+            return []
 
     def w_propagate(self):
         return self.propagate()
@@ -140,7 +146,8 @@ W_ComputationSpace.typedef = typedef.TypeDef(
     var = interp2app(W_ComputationSpace.w_var),
     dom = interp2app(W_ComputationSpace.w_dom),
     tell = interp2app(W_ComputationSpace.w_tell),
-    propagate = interp2app(W_ComputationSpace.w_propagate))
+    propagate = interp2app(W_ComputationSpace.w_propagate),
+    dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints))
 
 
 def newspace(space):

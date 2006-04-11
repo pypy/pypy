@@ -29,6 +29,8 @@ class AppTest_ComputationSpace(object):
         v2 = csp.var('v2', FiniteDomain([1, 2]))
         cstr = AllDistinct([v1, v2])
         csp.tell(cstr)
+        for v in (v1, v2):
+            assert cstr in csp.dependant_constraints(v)
 
     def test_propagate(self):
         csp = newspace()
