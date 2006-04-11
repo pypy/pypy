@@ -32,7 +32,7 @@ class AppTest_ComputationSpace(object):
         for v in (v1, v2):
             assert cstr in csp.dependant_constraints(v)
 
-    def test_ask(self):
+    def test_propagate(self):
         csp = newspace()
         x = csp.var('x', FiniteDomain([1]))
         y = csp.var('y', FiniteDomain([1, 2]))
@@ -40,7 +40,7 @@ class AppTest_ComputationSpace(object):
         csp.tell(make_expression([x, y], 'x<y'))
         csp.tell(make_expression([y, z], 'y<z'))
         csp.tell(make_expression([x, z], 'x<z'))
-        csp.ask()
+        csp.ask() #just call propagate for now
         assert csp.dom(x) == FiniteDomain([1])
         assert csp.dom(y) == FiniteDomain([2])
         assert csp.dom(z) == FiniteDomain([3])
@@ -62,3 +62,18 @@ class AppTest_ComputationSpace(object):
         assert csp.dom(y) == FiniteDomain([1, 2])
         assert csp.dom(z) == FiniteDomain([1, 2, 3])
         
+    def test_commit(self):
+        # using default (dichotomy) distributor
+        csp = newspace()
+        x = csp.var('x', FiniteDomain([1]))
+        y = csp.var('y', FiniteDomain([1, 2]))
+        z = csp.var('z', FiniteDomain([1, 2, 3, 4]))
+        csp.tell(make_expression([x, y], 'x<y'))
+        csp.tell(make_expression([y, z], 'y<z'))
+        csp.tell(make_expression([x, z], 'x<z'))
+        csp.commit(2)
+        assert csp.dom(y).size() == 1
+        csp.commit(2)
+        assert csp.dom(z).size() == 2
+
+    

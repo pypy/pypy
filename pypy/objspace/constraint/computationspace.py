@@ -60,10 +60,12 @@ W_Distributor.typedef = typedef.TypeDef("W_Distributor")
 
 
 #-- Computation space -------------------
+from pypy.objspace.constraint.distributor import make_dichotomy_distributor
 
 class W_ComputationSpace(Wrappable):
     def __init__(self, obj_space):
         self._space = obj_space
+        self.distributor = make_dichotomy_distributor(self._space)
         # var -> dom
         self.var_dom = {}
         # constraint set
@@ -73,8 +75,14 @@ class W_ComputationSpace(Wrappable):
         # freshly added constraints (tell -> propagate)
         self.to_check = {}
 
+    #-- public interface ---------------
+    
+    def w_ask(self):
+        self.propagate()
+
     def w_clone(self):
         new = newspace(self._space)
+        new.distributor = self.distributor
         for var, dom in self.var_dom.items():
             new.var_dom[var] = dom.w_copy()
         # !! be sure to not put state in constraints
@@ -84,6 +92,12 @@ class W_ComputationSpace(Wrappable):
         for var, const in self.var_const.items():
             new.var_const[var] = const
         return new
+
+    def w_commit(self, w_choice):
+        self.distributor.w_distribute(self, w_choice)
+
+    def w_set_distributor(self, w_distributor):
+        self.distributor = w_distributor
 
     def w_var(self, w_name, w_domain):
         assert isinstance(w_name, W_StringObject)
@@ -110,14 +124,14 @@ class W_ComputationSpace(Wrappable):
     def w_dependant_constraints(self, w_var):
         return self._space.newlist(self.dependant_constraints(w_var))
 
+
+    #-- everything else ---------------
+
     def dependant_constraints(self, var):
         try:
             return self.var_const[var]
         except KeyError:
             return []
-
-    def w_ask(self):
-        self.propagate()
 
     def propagate(self):
         const_q = [(const.estimate_cost_w(self), const)
@@ -159,6 +173,7 @@ W_ComputationSpace.typedef = typedef.TypeDef(
     tell = interp2app(W_ComputationSpace.w_tell),
     ask = interp2app(W_ComputationSpace.w_ask),
     clone = interp2app(W_ComputationSpace.w_clone),
+    commit = interp2app(W_ComputationSpace.w_commit),
     dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints))
 
 
