@@ -270,3 +270,8 @@ class TestGenRpyTestCase:
         fn = self.build_interpfunc(snippet.t_issubclass)
         result = fn(1, 2)
         assert result == True        
+
+    def test_negative_long(self):
+        fn = self.build_interpfunc(snippet.t_neg_long)
+        result = fn()
+        assert result == -132L and type(result) is long

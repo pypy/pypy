@@ -623,6 +623,9 @@ def t_isinstance(x, y):
 def t_issubclass(x, y):
     return issubclass(type(x), (int, long)) and issubclass(type(y), int)
 
+def t_neg_long():
+    return -132L
+
 
 # --------------------(Currently) Non runnable Functions ---------------------
 

@@ -127,9 +127,9 @@ def long_helper(self, name, value):
         'def %s(value):\n'
         '    dic = space.newdict([])\n'
         '    space.exec_("", dic, dic) # init __builtins__\n'
-        '    return space.eval("long(%%r, 16)" %% value, dic, dic)' % unique)
+        '    return space.eval(value, dic, dic)' % unique)
     self.initcode.append1('%s = %s(%r)' % (
-        name, unique, hex(value)[2:-1] ) )
+        name, unique, repr(value) ) )
 
 def bltinmod_helper(self, mod):    
     name = self.uniquename("mod_%s" % mod.__name__)
