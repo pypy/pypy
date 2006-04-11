@@ -32,11 +32,11 @@ class W_AbstractDistributor(W_Distributor):
         """returns the variable having the smallest domain.
         (or one of such varibles if there is a tie)
         """
-        vars_ = [var for var, dom in w_cs.var_dom.content.items()
+        vars_ = [var for var, dom in w_cs.var_dom.items()
                  if dom.size() > 1]
         best = vars_[0]
         for var in vars_:
-            if w_cs.var_dom.content[var].size() < w_cs.var_dom.content[best].size():
+            if w_cs.var_dom[var].size() < w_cs.var_dom[best].size():
                 best = var
         return best
 

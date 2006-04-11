@@ -143,7 +143,8 @@ intersection_mm.register(intersection__FiniteDomain_FiniteDomain,
                          W_FiniteDomain, W_FiniteDomain)
 all_mms['intersection'] = intersection_mm
 
-W_FiniteDomain.typedef = typedef.TypeDef("W_FiniteDomain",
+W_FiniteDomain.typedef = typedef.TypeDef(
+    "W_FiniteDomain",
     W_AbstractDomain.typedef,
     remove_value = interp2app(W_FiniteDomain.w_remove_value),
     remove_values = interp2app(W_FiniteDomain.w_remove_values),

@@ -32,7 +32,7 @@ class AppTest_ComputationSpace(object):
         for v in (v1, v2):
             assert cstr in csp.dependant_constraints(v)
 
-    def test_propagate(self):
+    def test_ask(self):
         csp = newspace()
         x = csp.var('x', FiniteDomain([1]))
         y = csp.var('y', FiniteDomain([1, 2]))
@@ -40,8 +40,25 @@ class AppTest_ComputationSpace(object):
         csp.tell(make_expression([x, y], 'x<y'))
         csp.tell(make_expression([y, z], 'y<z'))
         csp.tell(make_expression([x, z], 'x<z'))
-        csp.propagate()
+        csp.ask()
         assert csp.dom(x) == FiniteDomain([1])
         assert csp.dom(y) == FiniteDomain([2])
         assert csp.dom(z) == FiniteDomain([3])
+
+    def test_clone(self):
+        csp = newspace()
+        x = csp.var('x', FiniteDomain([1]))
+        y = csp.var('y', FiniteDomain([1, 2]))
+        z = csp.var('z', FiniteDomain([1, 2, 3]))
+        csp.tell(make_expression([x, y], 'x<y'))
+        csp.tell(make_expression([y, z], 'y<z'))
+        csp.tell(make_expression([x, z], 'x<z'))
+        new = csp.clone()
+        new.ask()
+        assert new.dom(x) == FiniteDomain([1])
+        assert new.dom(y) == FiniteDomain([2])
+        assert new.dom(z) == FiniteDomain([3])
+        assert csp.dom(x) == FiniteDomain([1])
+        assert csp.dom(y) == FiniteDomain([1, 2])
+        assert csp.dom(z) == FiniteDomain([1, 2, 3])
         

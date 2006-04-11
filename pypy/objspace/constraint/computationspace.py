@@ -65,31 +65,43 @@ class W_ComputationSpace(Wrappable):
     def __init__(self, obj_space):
         self._space = obj_space
         # var -> dom
-        self.var_dom = self._space.newdict({})
+        self.var_dom = {}
         # constraint set
-        self.constraints = self._space.newdict({})
+        self.constraints = {}
         # var -> constraints
         self.var_const = {}
         # freshly added constraints (tell -> propagate)
         self.to_check = {}
 
+    def w_clone(self):
+        new = newspace(self._space)
+        for var, dom in self.var_dom.items():
+            new.var_dom[var] = dom.w_copy()
+        # !! be sure to not put state in constraints
+        new.constraints = self.constraints
+        for const in self.to_check:
+            new.to_check[const] = True
+        for var, const in self.var_const.items():
+            new.var_const[var] = const
+        return new
+
     def w_var(self, w_name, w_domain):
         assert isinstance(w_name, W_StringObject)
         assert isinstance(w_domain, W_AbstractDomain)
-        if w_name in self.var_dom.content:
+        if w_name in self.var_dom:
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Name already used"))
         var = W_Variable(self._space, w_name)
-        self.var_dom.content[var] = w_domain
+        self.var_dom[var] = w_domain
         return var
 
     def w_dom(self, w_variable):
         assert isinstance(w_variable, W_Variable)
-        return self.var_dom.content[w_variable]
+        return self.var_dom[w_variable]
 
     def w_tell(self, w_constraint):
         assert isinstance(w_constraint, W_Constraint)
-        self.constraints.content[w_constraint] = self._space.w_True
+        self.constraints[w_constraint] = self._space.w_True
         for var in w_constraint.affected_variables():
             self.var_const.setdefault(var, [])
             self.var_const[var].append(w_constraint)
@@ -104,8 +116,8 @@ class W_ComputationSpace(Wrappable):
         except KeyError:
             return []
 
-    def w_propagate(self):
-        return self.propagate()
+    def w_ask(self):
+        self.propagate()
 
     def propagate(self):
         const_q = [(const.estimate_cost_w(self), const)
@@ -138,18 +150,18 @@ class W_ComputationSpace(Wrappable):
                 # the set of satifiable constraints of the space
                 if const in affected_constraints:
                     affected_constraints.remove(const)
-
-
+        
 
 W_ComputationSpace.typedef = typedef.TypeDef(
     "W_ComputationSpace",
     var = interp2app(W_ComputationSpace.w_var),
     dom = interp2app(W_ComputationSpace.w_dom),
     tell = interp2app(W_ComputationSpace.w_tell),
-    propagate = interp2app(W_ComputationSpace.w_propagate),
+    ask = interp2app(W_ComputationSpace.w_ask),
+    clone = interp2app(W_ComputationSpace.w_clone),
     dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints))
 
 
-def newspace(space):
-    return W_ComputationSpace(space)
+def newspace(object_space):
+    return W_ComputationSpace(object_space)
 app_newspace = gateway.interp2app(newspace)
