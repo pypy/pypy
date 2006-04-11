@@ -78,9 +78,11 @@ class W_FiniteDomain(W_AbstractDomain):
 
     def w_remove_values(self, w_values):
         """Remove values of domain and check for consistency"""
-        if self._space.is_true(self._space.gt(self._space.len(w_values),
-                                              self._space.newint(0))) :
-            for w_val in w_values.wrappeditems :
+        self.remove_values(w_values.wrappeditems)
+
+    def remove_values(self, values):
+        if len(values) > 0:
+            for w_val in values:
                 del self._values[w_val]
             self._value_removed()
     

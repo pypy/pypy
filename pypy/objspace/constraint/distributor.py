@@ -34,22 +34,20 @@ class W_AbstractDistributor(W_Distributor):
         """
         vars_ = [var for var, dom in w_cs.var_dom.content.items()
                  if dom.size() > 1]
-        
         best = vars_[0]
         for var in vars_:
             if w_cs.var_dom.content[var].size() < w_cs.var_dom.content[best].size():
                 best = var
-        
         return best
 
     def w_distribute(self, w_cs, w_choice):
         assert isinstance(w_choice, W_IntObject)
-        self.distribute(w_cs, self._space.int_w(w_choice))
+        self.distribute(w_cs, self._space.int_w(w_choice) -1)
 
     def distribute(self, w_cs, choice_w):
         variable = self.find_distribution_variable(w_cs)
-        self._do_distribute(w_cs.var_dom.content[variable],
-                            choice_w)
+        domain = w_cs.w_dom(variable)
+        self._do_distribute(w_cs, domain, choice_w)
         for const in w_cs.dependant_constraints(variable):
             w_cs.to_check[const] = True
 
@@ -75,7 +73,7 @@ class W_NaiveDistributor(W_AbstractDistributor):
         # default fanout is 2, see make_naive_distributor
         W_Distributor.__init__(self, object_space, fanout_w)
         
-    def _do_distribute(self, domain, choice):
+    def _do_distribute(self, w_cs, domain, choice):
         values = domain.get_values()
         if choice == 0:
             domain.w_remove_values(values[1:])
@@ -102,19 +100,19 @@ class W_SplitDistributor(W_AbstractDistributor):
         # default fanout is 3, see make_split_distributor
         W_Distributor.__init__(self, object_space, fanout_w)
 
-    def nb_subdomains(self):
-        to_split = self.find_smallest_domain()
-        if self.nb_subspaces:
-            return min(self.nb_subspaces,
-                       self.cs.dom(to_split).size()) 
+    def _subdomains(self, w_cs):
+        """returns the min number of partitions
+           for a domain to be distributed"""
+        to_split = self._find_smallest_domain(w_cs)
+        if self.fanout:
+            return min(self.fanout,
+                       w_cs.w_dom(to_split).size()) 
         else:
-            return self.cs.dom(to_split).size() 
+            return w_cs.w_dom(to_split).size() 
 
-
-    def _do_distribute(self, domain, choice):
-        nb_subspaces = self.nb_subdomains()
+    def _do_distribute(self, w_cs, domain, choice):
         values = domain.get_values()
-        nb_elts = max(1, len(values)*1./nb_subspaces)
+        nb_elts = max(1, len(values)*1./self._subdomains(w_cs))
         start, end = (int(math.floor(choice * nb_elts)),
                       int(math.floor((choice + 1) * nb_elts)))
         domain.remove_values(values[:start])
