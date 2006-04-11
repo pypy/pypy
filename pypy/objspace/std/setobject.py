@@ -11,15 +11,15 @@ class W_BaseSetObject(W_Object):
     def __init__(w_self, space, wrappeditems=None):
         W_Object.__init__(w_self, space)
         w_self.setdata = setdata = r_dict(space.eq_w, space.hash_w)
-        if wrappeditems is not None:
-            iterable_w = space.unpackiterable(wrappeditems)
-            for w_item in iterable_w:
-                w_self.setdata[w_item] = None
+        _initialize_set(space, w_self, wrappeditems)
 
     def __repr__(w_self):
         """representation for debugging purposes"""
         reprlist = [repr(w_item) for w_item in w_self.setdata.keys()]
         return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
+
+    def _newobj(w_self, space):
+        return space.call(space.type(w_self),None)
 
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
@@ -87,18 +87,30 @@ def _iter_to_dict(space, w_iterable):
 
     return data
 
-def _dict_to_set(space, rpdict):
-    return space.newset(W_SetIterObject(space, rpdict))
-
-def _dict_to_frozenset(space, rpdict):
-    #return space.newfrozenset(space.newtuple(rpdict.keys()))
-    return space.newfrozenset(W_SetIterObject(space, rpdict))
+def _initialize_set(space, w_obj, wrappeditems=None):
+    w_obj.setdata.clear()
+    if wrappeditems is not None:
+        w_iterator = space.iter(wrappeditems)
+        while True:
+            try: 
+                w_item = space.next(w_iterator)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            w_obj.setdata[w_item] = None
 
 # helper functions for set operation on dicts
 
 def _is_setlike(space, w_obj):
     if space.is_true(space.isinstance(w_obj, space.w_set)) or \
             space.is_true(space.isinstance(w_obj, space.w_frozenset)):
+        return True
+    else:
+        return False
+
+def _is_frozenset_exact(space, w_obj):
+    if space.eq_w(space.type(w_obj), space.w_frozenset):
         return True
     else:
         return False
@@ -187,10 +199,15 @@ def set_add__Set_ANY(space, w_left, w_other):
     return space.w_None
 
 def set_copy__Set(space, w_left):
-    return space.newset(w_left)
+    w_obj = w_left._newobj(space)
+    w_obj.setdata.update(w_left.setdata)
+    return w_obj
 
 def frozenset_copy__Frozenset(space, w_left):
-    return space.newfrozenset(w_left)
+    if _is_frozenset_exact(space, w_left):
+        return w_left
+    else:
+        return set_copy__Set(space,w_left)
 
 def set_clear__Set(space, w_left):
     w_left.setdata.clear()
@@ -199,18 +216,15 @@ def set_clear__Set(space, w_left):
 def set_difference__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
     new_ld, rd = _difference_dict(space, ld, rd, False)
-    return _dict_to_set(space, new_ld)
+    w_obj = w_left._newobj(space)
+    w_obj.setdata.update(new_ld)
+    return w_obj
 
 sub__Set_Set = set_difference__Set_ANY
 sub__Set_Frozenset = set_difference__Set_ANY
-
-def frozenset_difference__Frozenset_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
-    new_ld, rd = _difference_dict(space, ld, rd, False)
-    return _dict_to_frozenset(space, new_ld)
-
-sub__Frozenset_Set = frozenset_difference__Frozenset_ANY
-sub__Frozenset_Frozenset = frozenset_difference__Frozenset_ANY
+frozenset_difference__Frozenset_ANY = set_difference__Set_ANY
+sub__Frozenset_Set = set_difference__Set_ANY
+sub__Frozenset_Frozenset = set_difference__Set_ANY
 
 
 def set_difference_update__Set_ANY(space, w_left, w_other):
@@ -247,17 +261,18 @@ def contains__Set_ANY(space, w_left, w_other):
     except Exception, exp:
         if _is_setlike(space, w_other):
             w_f = space.newfrozenset(w_other)
-            return space.newbool(w_f)
+            r = w_f in w_left.setdata
+            return space.newbool(r)
         else:
-            return space.w_False
+            raise exp
 
 contains__Frozenset_ANY = contains__Set_ANY
 
-def set_issubset__Set_Set(space, w_left, w_other):
+def set_issubset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    ld, rd = w_left.setdata, w_other.setdata
+    ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
     if len(ld) > len(rd):
         return space.w_False
 
@@ -266,19 +281,17 @@ def set_issubset__Set_Set(space, w_left, w_other):
             return space.w_False
     return space.w_True
 
-set_issubset__Set_Frozenset = set_issubset__Set_Set
-frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
-frozenset_issubset__Frozenset_Frozenset = set_issubset__Set_Set
+frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
-le__Set_Set = set_issubset__Set_Set
-le__Set_Frozenset = set_issubset__Set_Set
-le__Frozenset_Frozenset = set_issubset__Set_Set
+le__Set_Set = set_issubset__Set_ANY
+le__Set_Frozenset = set_issubset__Set_ANY
+le__Frozenset_Frozenset = set_issubset__Set_ANY
 
-def set_issuperset__Set_Set(space, w_left, w_other):
+def set_issuperset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    ld, rd = w_left.setdata, w_other.setdata
+    ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
     if len(ld) < len(rd):
         return space.w_False
 
@@ -287,17 +300,23 @@ def set_issuperset__Set_Set(space, w_left, w_other):
             return space.w_False
     return space.w_True
 
-set_issuperset__Set_Frozenset = set_issuperset__Set_Set
-frozenset_issuperset__Frozenset_Set = set_issuperset__Set_Set
-frozenset_issuperset__Frozenset_Frozenset = set_issuperset__Set_Set
+frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 
-ge__Set_Set = set_issuperset__Set_Set
-ge__Set_Frozenset = set_issuperset__Set_Set
-ge__Frozenset_Frozenset = set_issuperset__Set_Set
+ge__Set_Set = set_issuperset__Set_ANY
+ge__Set_Frozenset = set_issuperset__Set_ANY
+ge__Frozenset_Frozenset = set_issuperset__Set_ANY
 
 def set_discard__Set_ANY(space, w_left, w_item):
-    if w_item in w_left.setdata:
-        del w_left.setdata[w_item]
+    try:
+        if w_item in w_left.setdata:
+            del w_left.setdata[w_item]
+    except Exception, exp:
+        if _is_setlike(space, w_item):
+            w_f = space.newfrozenset(w_item)
+            if w_f in w_left.setdata:
+                del w_left.setdata[w_f]
+        else:
+            raise exp
     
 def set_remove__Set_ANY(space, w_left, w_item):
     try:
@@ -305,6 +324,16 @@ def set_remove__Set_ANY(space, w_left, w_item):
     except KeyError:
         raise OperationError(space.w_KeyError,
                 space.call_method(w_item,'__repr__'))
+    except Exception, exp:
+        if _is_setlike(space, w_item):
+            w_f = space.newfrozenset(w_item)
+            try:
+                del w_left.setdata[w_f]
+            except KeyError:
+                raise OperationError(space.w_KeyError,
+                        space.call_method(w_item,'__repr__'))
+        else:
+            raise exp
 
 def hash__Set(space, w_set):
     raise OperationError(space.w_TypeError,
@@ -339,18 +368,15 @@ def set_pop__Set(space, w_left):
 def set_intersection__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
     new_ld, rd = _intersection_dict(space, ld, rd, False)
-    return _dict_to_set(space, new_ld)
+    w_obj = w_left._newobj(space)
+    w_obj.setdata.update(new_ld)
+    return w_obj
 
 and__Set_Set = set_intersection__Set_ANY
 and__Set_Frozenset = set_intersection__Set_ANY
-
-def frozenset_intersection__Frozenset_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
-    new_ld, rd = _intersection_dict(space, ld, rd, False)
-    return _dict_to_frozenset(space, new_ld)
-
-and__Frozenset_Set = frozenset_intersection__Frozenset_ANY
-and__Frozenset_Frozenset = frozenset_intersection__Frozenset_ANY
+frozenset_intersection__Frozenset_ANY = set_intersection__Set_ANY
+and__Frozenset_Set = set_intersection__Set_ANY
+and__Frozenset_Frozenset = set_intersection__Set_ANY
 
 def set_intersection_update__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
@@ -366,18 +392,17 @@ inplace_and__Set_Frozenset = inplace_and__Set_Set
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
     new_ld, rd = _symmetric_difference_dict(space, ld, rd, False)
-    return _dict_to_set(space, new_ld)
+    w_obj = w_left._newobj(space)
+    w_obj.setdata.update(new_ld)
+    return w_obj
 
 xor__Set_Set = set_symmetric_difference__Set_ANY
 xor__Set_Frozenset = set_symmetric_difference__Set_ANY
 
-def frozenset_symmetric_difference__Frozenset_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
-    new_ld, rd = _symmetric_difference_dict(space, ld, rd, False)
-    return _dict_to_frozenset(space, new_ld)
-
-xor__Frozenset_Set = frozenset_symmetric_difference__Frozenset_ANY
-xor__Frozenset_Frozenset = frozenset_symmetric_difference__Frozenset_ANY
+frozenset_symmetric_difference__Frozenset_ANY = \
+        set_symmetric_difference__Set_ANY
+xor__Frozenset_Set = set_symmetric_difference__Set_ANY
+xor__Frozenset_Frozenset = set_symmetric_difference__Set_ANY
 
 def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
@@ -393,18 +418,15 @@ inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 def set_union__Set_ANY(space, w_left, w_other):
     ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
     new_ld, rd = _union_dict(space, ld, rd, False)
-    return _dict_to_set(space, new_ld)
+    w_obj = w_left._newobj(space)
+    w_obj.setdata.update(new_ld)
+    return w_obj
 
 or__Set_Set = set_union__Set_ANY
 or__Set_Frozenset = set_union__Set_ANY
-
-def frozenset_union__Frozenset_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, _iter_to_dict(space, w_other)
-    new_ld, rd = _union_dict(space, ld, rd, False)
-    return _dict_to_frozenset(space, new_ld)
-
-or__Frozenset_Set = frozenset_union__Frozenset_ANY
-or__Frozenset_Frozenset = frozenset_union__Frozenset_ANY
+frozenset_union__Frozenset_ANY = set_union__Set_ANY
+or__Frozenset_Set = set_union__Set_ANY
+or__Frozenset_Frozenset = set_union__Set_ANY
 
 def len__Set(space, w_left):
     return space.newint(len(w_left.setdata))
@@ -428,7 +450,7 @@ def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse('set',
                             (['some_iterable'], None, None),
                             [W_SetObject(space,None)])
-    W_SetObject.__init__(w_set, space, w_iterable)
+    _initialize_set(space, w_set, w_iterable)
 
 app = gateway.applevel("""
     def ne__Set_ANY(s, o):
@@ -441,10 +463,7 @@ app = gateway.applevel("""
         return s != o and s.issubset(o)
 
     def repr__Set(s):
-        return 'set(%s)' % [x for x in s]
-
-    def repr__Frozenset(s):
-        return 'frozenset(%s)' % [x for x in s]
+        return '%s(%s)' % (s.__class__.__name__, [x for x in s])
 
 """, filename=__file__)
 
@@ -462,7 +481,7 @@ lt__Frozenset_Set = lt__Set_Set
 lt__Frozenset_Frozenset = lt__Set_Set
 
 repr__Set = app.interphook('repr__Set')
-repr__Frozenset = app.interphook('repr__Frozenset')
+repr__Frozenset = app.interphook('repr__Set')
 
 from pypy.objspace.std import frozensettype
 from pypy.objspace.std import settype

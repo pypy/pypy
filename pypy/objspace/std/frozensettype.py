@@ -18,8 +18,11 @@ register_all(vars(), globals())
 
 def descr__frozenset__new__(space, w_frozensettype, w_iterable=NoneNotWrapped):
     from pypy.objspace.std.setobject import W_FrozensetObject
+    from pypy.objspace.std.setobject import _is_frozenset_exact
     if w_iterable is None:
         w_iterable = space.newtuple([])
+    if _is_frozenset_exact(space, w_iterable):
+        return w_iterable
     w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
     W_FrozensetObject.__init__(w_obj, space, w_iterable)
 
