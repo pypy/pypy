@@ -315,6 +315,7 @@ LL_OPERATIONS = {
     'check_no_more_arg':    LLOp(canraise=(Exception,)),
     'decode_arg':           LLOp(canraise=(Exception,)),
     'decode_arg_def':       LLOp(canraise=(Exception,)),
+    'getslice':             LLOp(canraise=(Exception,)),
 }
 
     # __________ operations on PyObjects __________
