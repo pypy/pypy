@@ -47,6 +47,18 @@ W_Constraint.typedef = typedef.TypeDef(
     estimate_cost = interp2app(W_Constraint.w_estimate_cost),
     revise = interp2app(W_Constraint.w_revise))
 
+
+#-- Distributors (standards) ------------
+
+class W_Distributor(Wrappable):
+
+    def __init__(self, object_space, fanout):
+        self._space = object_space
+        self.fanout = fanout
+
+W_Distributor.typedef = typedef.TypeDef("W_Distributor")
+
+
 #-- Computation space -------------------
 
 class W_ComputationSpace(Wrappable):

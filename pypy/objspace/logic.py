@@ -754,20 +754,24 @@ def proxymaker(space, opname, parentfn):
     return proxy
 
 
-#------ domains -----------------
+#------ domains ------------------
 from pypy.objspace.constraint import domain 
 all_mms.update(domain.all_mms)
 
 W_FiniteDomain = domain.W_FiniteDomain
 
-#-------- computationspace --------------
+#-------- computationspace --------
 from pypy.objspace.constraint import computationspace
 all_mms.update(computationspace.all_mms)
 
 W_ComputationSpace = computationspace.W_ComputationSpace
 
-# ---- constraints
+# ---- constraints ----------------
 from pypy.objspace.constraint import constraint
+
+#----- distributors ---------------
+from pypy.objspace.constraint import distributor
+
 
 #-- THE SPACE ---------------------------------------
 
@@ -836,6 +840,14 @@ def Space(*args, **kwds):
                  space.wrap(constraint.app_make_filter))
     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
                  space.wrap(constraint.app_make_alldistinct))
+    #-- distributor --
+    space.setitem(space.builtin.w_dict, space.wrap('NaiveDistributor'),
+                 space.wrap(distributor.app_make_naive_distributor))
+    space.setitem(space.builtin.w_dict, space.wrap('SplitDistributor'),
+                 space.wrap(distributor.app_make_split_distributor))
+    space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
+                 space.wrap(distributor.app_make_dichotomy_distributor))
+    
     
     if USE_COROUTINES:
         import os
