@@ -33,7 +33,7 @@ class PointerRepr(CTypesValueRepr):
 
     def initialize_const(self, p, ptr):
         llcontents = self.r_contents.convert_const(ptr.contents)
-        p.c_data.value = llcontents.c_data
+        p.c_data[0] = llcontents.c_data
         # the following line is probably pointless, as 'llcontents' will be
         # an immortal global constant just like 'p', but better safe than sorry
         p.keepalive_contents = llcontents.c_data_owner_keepalive

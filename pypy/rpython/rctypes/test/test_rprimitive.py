@@ -124,14 +124,14 @@ class Test_specialization:
             return c_int(42)
         res = interpret(create_c_int, [])
         c_data = res.c_data
-        assert c_data.value == 42
+        assert c_data[0] == 42
 
     def test_specialize_c_int_default_value(self):
         def create_c_int():
             return c_int()
         res = interpret(create_c_int, [])
         c_data = res.c_data
-        assert c_data.value == 0
+        assert c_data[0] == 0
     
     def test_specialize_c_int_access_value(self):
         def create_c_int():
@@ -161,14 +161,14 @@ class Test_specialization:
             return c_float(4.2)
         res = interpret(create_c_float, [])
         c_data = res.c_data
-        assert c_data.value == 4.2
+        assert c_data[0] == 4.2
 
     def test_specialize_c_float_default_value(self):
         def create_c_float():
             return c_float()
         res = interpret(create_c_float, [])
         c_data = res.c_data
-        assert c_data.value == 0.0
+        assert c_data[0] == 0.0
 
     def test_specialize_c_float_access_value(self):
         def create_c_float():

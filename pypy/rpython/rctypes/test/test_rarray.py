@@ -124,8 +124,8 @@ class Test_specialization:
 
         res = interpret(create_array, [])
         c_data = res.c_data
-        assert c_data[0].value == 0
-        assert c_data[9].value == 0
+        assert c_data[0][0] == 0
+        assert c_data[9][0] == 0
         py.test.raises(IndexError, "c_data[10]")
         assert len(c_data) == 10
 

@@ -92,7 +92,7 @@ def ll_str2charp(s):
     return llmemory.cast_ptr_to_adr(s.chars) + FIRSTITEMOFS
 
 def ll_getstring(box):
-    p = box.c_data.value
+    p = box.c_data[0]
     if p:
         if box.keepalive_str and ll_str2charp(box.keepalive_str) == p:
             maxlen = len(box.keepalive_str.chars)
@@ -111,9 +111,9 @@ def ll_getstring(box):
 
 def ll_setstring(box, string):
     if string:
-        box.c_data.value = ll_str2charp(string)
+        box.c_data[0] = ll_str2charp(string)
     else:
-        box.c_data.value = llmemory.NULL
+        box.c_data[0] = llmemory.NULL
     box.keepalive_str = string
 
 

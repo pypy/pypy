@@ -18,7 +18,7 @@ class CTypesRepr(Repr):
     #  * 'c_data_type'  is a low-level container type that also represents
     #                   the raw C data; the difference is that we can take
     #                   an lltype pointer to it.  For primitives or pointers
-    #                   this is a Struct with a single field 'value' of
+    #                   this is a FixedSizeArray with a single item of
     #                   type 'll_type'.  Otherwise, c_data_type == ll_type.
     #
     #  * 'lowleveltype' is the Repr's choosen low-level type for the RPython
@@ -177,17 +177,14 @@ class CTypesValueRepr(CTypesRepr):
     semantics, like primitives and pointers."""
 
     def get_c_data_type(self, ll_type):
-        return lltype.Struct('C_Data_%s' % (self.ctype.__name__,),
-                             ('value', ll_type) )
+        return lltype.FixedSizeArray(ll_type, 1)
 
     def getvalue_from_c_data(self, llops, v_c_data):
-        cname = inputconst(lltype.Void, 'value')
-        return llops.genop('getfield', [v_c_data, cname],
+        return llops.genop('getarrayitem', [v_c_data, C_ZERO],
                 resulttype=self.ll_type)
 
     def setvalue_inside_c_data(self, llops, v_c_data, v_value):
-        cname = inputconst(lltype.Void, 'value')
-        llops.genop('setfield', [v_c_data, cname, v_value])
+        llops.genop('setarrayitem', [v_c_data, C_ZERO, v_value])
 
     def getvalue(self, llops, v_box):
         """Reads from the 'value' field of the raw data."""
@@ -202,24 +199,39 @@ class CTypesValueRepr(CTypesRepr):
     def initialize_const(self, p, value):
         if isinstance(value, self.ctype):
             value = value.value
-        p.c_data.value = value
+        p.c_data[0] = value
 
 # ____________________________________________________________
+
+C_ZERO = inputconst(lltype.Signed, 0)
 
 def reccopy(source, dest):
     # copy recursively a structure or array onto another.
     T = lltype.typeOf(source).TO
     assert T == lltype.typeOf(dest).TO
-    assert isinstance(T, lltype.Struct)   # XXX implement arrays
-    for name in T._names:
-        FIELDTYPE = getattr(T, name)
-        if isinstance(FIELDTYPE, lltype.ContainerType):
-            subsrc = getattr(source, name)
-            subdst = getattr(dest,   name)
-            reccopy(subsrc, subdst)
-        else:
-            llvalue = getattr(source, name)
-            setattr(dest, name, llvalue)
+    if isinstance(T, (lltype.Array, lltype.FixedSizeArray)):
+        assert len(source) == len(dest)
+        ITEMTYPE = T.OF
+        for i in range(len(source)):
+            if isinstance(ITEMTYPE, lltype.ContainerType):
+                subsrc = source[i]
+                subdst = dest[i]
+                reccopy(subsrc, subdst)
+            else:
+                llvalue = source[i]
+                dest[i] = llvalue
+    elif isinstance(T, lltype.Struct):
+        for name in T._names:
+            FIELDTYPE = getattr(T, name)
+            if isinstance(FIELDTYPE, lltype.ContainerType):
+                subsrc = getattr(source, name)
+                subdst = getattr(dest,   name)
+                reccopy(subsrc, subdst)
+            else:
+                llvalue = getattr(source, name)
+                setattr(dest, name, llvalue)
+    else:
+        raise TypeError(T)
 
 def reccopy_arrayitem(source, destarray, destindex):
     ITEMTYPE = lltype.typeOf(destarray).TO.OF
@@ -234,18 +246,45 @@ def genreccopy(llops, v_source, v_dest):
     # (v, i) to mean the ith item of the array that v points to.
     T = v_source.concretetype.TO
     assert T == v_dest.concretetype.TO
-    assert isinstance(T, lltype.Struct)   # XXX implement arrays
-    for name in T._names:
-        FIELDTYPE = getattr(T, name)
-        cname = inputconst(lltype.Void, name)
-        if isinstance(FIELDTYPE, lltype.ContainerType):
-            RESTYPE = lltype.Ptr(FIELDTYPE)
-            v_subsrc = llops.genop('getsubstruct', [v_source, cname], RESTYPE)
-            v_subdst = llops.genop('getsubstruct', [v_dest,   cname], RESTYPE)
-            genreccopy(llops, v_subsrc, v_subdst)
-        else:
-            v_value = llops.genop('getfield', [v_source, cname], FIELDTYPE)
-            llops.genop('setfield', [v_dest, cname, v_value])
+
+    if isinstance(T, lltype.FixedSizeArray):
+        # XXX don't do that if the length is large
+        ITEMTYPE = T.OF
+        for i in range(T.length):
+            c_i = inputconst(lltype.Signed, i)
+            if isinstance(ITEMTYPE, lltype.ContainerType):
+                RESTYPE = lltype.Ptr(ITEMTYPE)
+                v_subsrc = llops.genop('getarraysubstruct', [v_source, c_i],
+                                       resulttype = RESTYPE)
+                v_subdst = llops.genop('getarraysubstruct', [v_dest,   c_i],
+                                       resulttype = RESTYPE)
+                genreccopy(llops, v_subsrc, v_subdst)
+            else:
+                v_value = llops.genop('getarrayitem', [v_source, c_i],
+                                      resulttype = ITEMTYPE)
+                llops.genop('setarrayitem', [v_dest, c_i, v_value])
+
+    elif isinstance(T, lltype.Array):
+        raise NotImplementedError("XXX genreccopy() for arrays")
+
+    elif isinstance(T, lltype.Struct):
+        for name in T._names:
+            FIELDTYPE = getattr(T, name)
+            cname = inputconst(lltype.Void, name)
+            if isinstance(FIELDTYPE, lltype.ContainerType):
+                RESTYPE = lltype.Ptr(FIELDTYPE)
+                v_subsrc = llops.genop('getsubstruct', [v_source, cname],
+                                       resulttype = RESTYPE)
+                v_subdst = llops.genop('getsubstruct', [v_dest,   cname],
+                                       resulttype = RESTYPE)
+                genreccopy(llops, v_subsrc, v_subdst)
+            else:
+                v_value = llops.genop('getfield', [v_source, cname],
+                                      resulttype = FIELDTYPE)
+                llops.genop('setfield', [v_dest, cname, v_value])
+
+    else:
+        raise TypeError(T)
 
 def genreccopy_arrayitem(llops, v_source, v_destarray, v_destindex):
     ITEMTYPE = v_destarray.concretetype.TO.OF
