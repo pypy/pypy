@@ -92,6 +92,12 @@ class _CallMethod(MicroInstruction):
 
         generator.call_method(this.concretetype, method.value)
 
+class _RuntimeNew(MicroInstruction):
+    def render(self, generator, op):
+        generator.load(op.args[0])
+        generator.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
+        generator.cast_to(op.result.concretetype)
+
 
 PushAllArgs = _PushAllArgs()
 StoreResult = _StoreResult()
@@ -100,3 +106,4 @@ New = _New()
 SetField = _SetField()
 GetField = _GetField()
 CallMethod = _CallMethod()
+RuntimeNew = _RuntimeNew()

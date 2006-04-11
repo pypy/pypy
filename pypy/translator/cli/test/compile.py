@@ -23,13 +23,49 @@ def check(f, g, *args):
     else:
         print 'OK'
 
-def foo(mylist, i):
-    return mylist[i]
+
+class MyClass:
+    INCREMENT = 1
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def compute(self):
+        return self.x + self.y
+
+    def compute_and_multiply(self, factor):
+        return self.compute() * factor
+
+    def static_meth(x, y):
+        return x*y
+    static_meth = staticmethod(static_meth)
+
+##    def class_meth(cls, x, y):
+##        return x*y + cls.INCREMENT
+##    class_meth = classmethod(class_meth)
+
+    def class_attribute(self):
+        return self.x + self.INCREMENT
+
+class MyDerivedClass(MyClass):
+    INCREMENT = 2
+
+    def __init__(self, x, y):
+        MyClass.__init__(self, x+12, y+34)
+
+    def compute(self):
+        return self.x - self.y
+
+
+
+def init_and_compute(cls, x, y):
+    return cls(x, y).compute()
+
 
 def bar(x, y):
-    mylist = [1,2,3,x,y]
-    mylist[0] = 432
-    return foo(mylist, (x+y)%5)
+    return init_and_compute(MyClass, x, y) + init_and_compute(MyDerivedClass, x, y)
+
 
 f = compile_function(bar, [int, int])
 

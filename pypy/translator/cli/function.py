@@ -253,6 +253,15 @@ class Function(Node, Generator):
         self.db.pending_function(graph)
         self.ilasm.call(func_name)
 
+    def call_signature(self, signature):
+        self.ilasm.call(signature)
+
+    def cast_to(self, lltype):
+        cts_type = self.cts.lltype_to_cts(lltype)
+        if cts_type.startswith('class '):
+            cts_type = cts_type[len('class '):]
+        self.ilasm.opcode('castclass', cts_type)
+
     def new(self, obj):
         self.ilasm.new(self.cts.ctor_name(obj))
 

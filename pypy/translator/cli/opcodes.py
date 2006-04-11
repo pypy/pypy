@@ -1,5 +1,5 @@
-from pypy.translator.cli.metavm import PushArg, PushAllArgs,\
-     StoreResult, Call, InstructionList, New, SetField, GetField, CallMethod
+from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult, Call,\
+     InstructionList, New, SetField, GetField, CallMethod, RuntimeNew
 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
@@ -11,12 +11,11 @@ def _not(op):
 def _abs(type_):
     return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_)]
 
-_runtimenew = 'object [pypylib]pypy.runtime.Utils::RuntimeNew([mscorlib]System.Type)'
 
 opcodes = {
     # __________ object oriented operations __________
     'new':                      [New],
-    'runtimenew':               [PushAllArgs, 'call ' + _runtimenew],
+    'runtimenew':               [RuntimeNew],
     'oosetfield':               [SetField],
     'oogetfield':               [GetField],
     'oosend':                   [CallMethod],

@@ -79,9 +79,13 @@ class LowLevelDatabase(object):
 class AbstractConst(object):
     def make(db, const):
         if isinstance(const, ootype._view):
+            static_type = const._TYPE
             const = const._inst
+        else:
+            static_type = None
+
         if isinstance(const, ootype._instance):
-            return InstanceConst(db, const)
+            return InstanceConst(db, const, static_type)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
@@ -96,9 +100,14 @@ class AbstractConst(object):
         pass
 
 class InstanceConst(AbstractConst):
-    def __init__(self, db, obj):
+    def __init__(self, db, obj, static_type):
         self.cts = CTS(db)
         self.obj = obj
+        if static_type is None:
+            self.static_type = obj._TYPE
+        else:
+            self.static_type = static_type
+            self.cts.lltype_to_cts(obj._TYPE) # force scheduling of obj's class
 
     def __hash__(self):
         return hash(self.obj)
@@ -111,7 +120,7 @@ class InstanceConst(AbstractConst):
         return '%s_%d' % (name, n)
 
     def get_type(self):
-        return self.cts.lltype_to_cts(self.obj._TYPE)
+        return self.cts.lltype_to_cts(self.static_type)
 
     def init(self, ilasm):
         classdef = self.obj._TYPE        
