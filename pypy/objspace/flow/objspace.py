@@ -193,6 +193,8 @@ class FlowObjSpace(ObjSpace):
         self.executioncontext = ec
         from pypy.objspace.flow import specialcase
         specialcase.setup(self)
+        self.const_tracker = None
+        # maybe it would be cleaner to have the tracker in the EC itself?
 
     def exception_match(self, w_exc_type, w_check_class):
         self.executioncontext.recorder.crnt_block.exc_handler = True
