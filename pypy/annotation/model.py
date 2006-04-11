@@ -434,7 +434,7 @@ class SomeCTypesObject(SomeObject):
     MEMORYALIAS = "MEMORYALIAS"
     MIXEDMEMORYOWNERSHIP = "MIXEDMEMORYOWNERSHIP"
     
-    def __init__(self, knowntype, memorystate=None):
+    def __init__(self, knowntype, memorystate):
         if memorystate is None:
             memorystate = knowntype.default_memorystate
         self.knowntype = knowntype

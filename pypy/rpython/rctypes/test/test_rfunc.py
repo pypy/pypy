@@ -7,7 +7,7 @@ from pypy import conftest
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-from ctypes import c_int, c_long, c_char_p
+from ctypes import c_int, c_long, c_char_p, c_char
 
 
 labs = mylib.labs
@@ -35,6 +35,17 @@ def test_labs(n=6):
     assert labs(c_long(0)) == 0
     assert labs(-42) == 42
     return labs(n)
+
+def test_atoi():
+    assert atoi("") == 0
+    assert atoi("42z7") == 42
+    assert atoi("blah") == 0
+    assert atoi("18238") == 18238
+    A = c_char * 10
+    assert atoi(A('\x00')) == 0
+    assert atoi(A('4', '2', 'z', '7', '\x00')) == 42
+    assert atoi(A('b', 'l', 'a', 'h', '\x00')) == 0
+    assert atoi(A('1', '8', '2', '3', '8', '\x00')) == 18238
 
 def test_ll_atoi():
     keepalive = []
@@ -75,6 +86,20 @@ class Test_specialization:
         def fn(n):
             return atoi(choices[n])
 
+        res = [interpret(fn, [i]) for i in range(4)]
+        assert res == [0, 42, 0, 18238]
+
+    def test_specialize_atoi_char_array(self):
+        py.test.skip("in-progress")
+        A = c_char * 10
+        choices = [A('\x00'),
+                   A('4', '2', 'z', '7', '\x00'),
+                   A('b', 'l', 'a', 'h', '\x00'),
+                   A('1', '8', '2', '3', '8', '\x00')]
+        def fn(n):
+            return atoi(choices[n])
+
+        assert fn(3) == 18238
         res = [interpret(fn, [i]) for i in range(4)]
         assert res == [0, 42, 0, 18238]
 

@@ -4,7 +4,7 @@ from pypy.rpython import extregistry
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rctypes.rmodel import CTypesRefRepr, reccopy
+from pypy.rpython.rctypes.rmodel import CTypesRefRepr, genreccopy, reccopy
 
 ArrayType = type(ARRAY(c_int, 10))
 
@@ -25,6 +25,11 @@ class ArrayRepr(CTypesRefRepr):
 
         super(ArrayRepr, self).__init__(rtyper, s_array, c_data_type)
 
+    def initialize_const(self, p, value):
+        for i in range(self.length):
+            llitem = self.r_item.convert_const(value[i])
+            reccopy(llitem.c_data, p.c_data[i])
+
     def get_c_data_of_item(self, llops, v_array, v_index):
         v_c_array = self.get_c_data(llops, v_array)
         return llops.genop('getarraysubstruct', [v_c_array, v_index],
@@ -37,7 +42,7 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
         v_item_c_data = r_array.r_item.get_c_data(hop.llops, v_item)
         v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
         # copy the whole structure's content over
-        reccopy(hop.llops, v_item_c_data, v_c_data)
+        genreccopy(hop.llops, v_item_c_data, v_c_data)
 
     def rtype_getitem((r_array, r_int), hop):
         v_array, v_index = hop.inputargs(r_array, lltype.Signed)
@@ -61,7 +66,12 @@ extregistry.register_type(ArrayType,
     compute_annotation=arraytype_compute_annotation,
     specialize_call=arraytype_specialize_call)
 
+def array_instance_compute_annotation(type, instance):
+    return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
+
 def arraytype_get_repr(rtyper, s_array):
     return ArrayRepr(rtyper, s_array)
 
-extregistry.register_metatype(ArrayType, get_repr=arraytype_get_repr)
+extregistry.register_metatype(ArrayType,
+    compute_annotation=array_instance_compute_annotation,
+    get_repr=arraytype_get_repr)

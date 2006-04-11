@@ -74,6 +74,32 @@ class CTypesRepr(Repr):
         "Return extra keepalive fields used for the content of this object."
         return []
 
+    def convert_const(self, value):
+        if isinstance(value, self.ctype):
+            key = "by_id", id(value)
+            keepalive = value
+        else:
+            if self.ownsmemory:
+                raise TyperError("convert_const(%r) but repr owns memory" % (
+                    value,))
+            key = "by_value", value
+            keepalive = None
+        try:
+            return self.const_cache[key][0]
+        except KeyError:
+            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
+            self.initialize_const(p, value)
+            if self.ownsmemory:
+                result = p
+            else:
+                # we must return a non-memory-owning box that keeps the
+                # memory-owning box alive
+                result = lltype.malloc(self.lowleveltype.TO)
+                result.c_data = p.c_data    # initialize c_data pointer
+                result.c_data_owner_keepalive = p
+            self.const_cache[key] = result, keepalive
+            return result
+
     def get_c_data(self, llops, v_box):
         if self.ownsmemory:
             inputargs = [v_box, inputconst(lltype.Void, "c_data")]
@@ -173,32 +199,6 @@ class CTypesValueRepr(CTypesRepr):
         v_c_data = self.get_c_data(llops, v_box)
         self.setvalue_inside_c_data(llops, v_c_data, v_value)
 
-    def convert_const(self, value):
-        if isinstance(value, self.ctype):
-            key = "by_id", id(value)
-            keepalive = value
-        else:
-            if self.ownsmemory:
-                raise TyperError("convert_const(%r) but repr owns memory" % (
-                    value,))
-            key = "by_value", value
-            keepalive = None
-        try:
-            return self.const_cache[key][0]
-        except KeyError:
-            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
-            self.initialize_const(p, value)
-            if self.ownsmemory:
-                result = p
-            else:
-                # we must return a non-memory-owning box that keeps the
-                # memory-owning box alive
-                result = lltype.malloc(self.lowleveltype.TO)
-                result.c_data = p.c_data    # initialize c_data pointer
-                result.c_data_owner_keepalive = p
-            self.const_cache[key] = result, keepalive
-            return result
-
     def initialize_const(self, p, value):
         if isinstance(value, self.ctype):
             value = value.value
@@ -206,11 +206,35 @@ class CTypesValueRepr(CTypesRepr):
 
 # ____________________________________________________________
 
-def reccopy(llops, v_source, v_dest):
-    # helper to copy recursively a structure or array onto another.
+def reccopy(source, dest):
+    # copy recursively a structure or array onto another.
+    T = lltype.typeOf(source).TO
+    assert T == lltype.typeOf(dest).TO
+    assert isinstance(T, lltype.Struct)   # XXX implement arrays
+    for name in T._names:
+        FIELDTYPE = getattr(T, name)
+        if isinstance(FIELDTYPE, lltype.ContainerType):
+            subsrc = getattr(source, name)
+            subdst = getattr(dest,   name)
+            reccopy(subsrc, subdst)
+        else:
+            llvalue = getattr(source, name)
+            setattr(dest, name, llvalue)
+
+def reccopy_arrayitem(source, destarray, destindex):
+    ITEMTYPE = lltype.typeOf(destarray).TO.OF
+    if isinstance(ITEMTYPE, lltype.Primitive):
+        destarray[destindex] = source
+    else:
+        reccopy(source, destarray[destindex])
+
+def genreccopy(llops, v_source, v_dest):
+    # helper to generate the llops that copy recursively a structure
+    # or array onto another.  'v_source' and 'v_dest' can also be pairs
+    # (v, i) to mean the ith item of the array that v points to.
     T = v_source.concretetype.TO
     assert T == v_dest.concretetype.TO
-    assert isinstance(T, lltype.Struct)
+    assert isinstance(T, lltype.Struct)   # XXX implement arrays
     for name in T._names:
         FIELDTYPE = getattr(T, name)
         cname = inputconst(lltype.Void, name)
@@ -218,7 +242,16 @@ def reccopy(llops, v_source, v_dest):
             RESTYPE = lltype.Ptr(FIELDTYPE)
             v_subsrc = llops.genop('getsubstruct', [v_source, cname], RESTYPE)
             v_subdst = llops.genop('getsubstruct', [v_dest,   cname], RESTYPE)
-            reccopy(llops, v_subsrc, v_subdst)
+            genreccopy(llops, v_subsrc, v_subdst)
         else:
             v_value = llops.genop('getfield', [v_source, cname], FIELDTYPE)
             llops.genop('setfield', [v_dest, cname, v_value])
+
+def genreccopy_arrayitem(llops, v_source, v_destarray, v_destindex):
+    ITEMTYPE = v_destarray.concretetype.TO.OF
+    if isinstance(ITEMTYPE, lltype.Primitive):
+        llops.genop('setarrayitem', [v_destarray, v_destindex, v_source])
+    else:
+        v_dest = llops.genop('getarraysubstruct', [v_destarray, v_destindex],
+                             resulttype = lltype.Ptr(ITEMTYPE))
+        genreccopy(llops, v_source, v_dest)

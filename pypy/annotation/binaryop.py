@@ -724,10 +724,14 @@ class __extend__(pairtype(SomeAddress, SomeInteger)):
         return SomeAddress(is_null=False)
 
 class __extend__(pairtype(SomeAddress, SomeImpossibleValue)):
+    # need to override this specifically to hide the 'raise UnionError'
+    # of pairtype(SomeAddress, SomeObject).
     def union((s_addr, s_imp)):
         return s_addr
 
 class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
+    # need to override this specifically to hide the 'raise UnionError'
+    # of pairtype(SomeObject, SomeAddress).
     def union((s_imp, s_addr)):
         return s_addr
 
@@ -781,3 +785,19 @@ class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
             listdef = ListDef(None, SomeCTypesObject(s_cto.knowntype._type_))
         return SomeList(listdef)
 
+class __extend__(pairtype(SomeCTypesObject, SomeCTypesObject)):
+    def union((s_cto1, s_cto2)):
+        if s_cto1.knowntype == s_cto2.knowntype:
+            states = {}
+            for s in [s_cto1, s_cto2]:
+                if s.memorystate != SomeCTypesObject.NOMEMORY:
+                    states[s.memorystate] = True
+            if len(states) == 0:
+                state = SomeCTypesObject.NOMEMORY
+            elif len(states) == 1:
+                [state] = states.keys()
+            else:
+                state = SomeCTypesObject.MIXEDMEMORYOWNERSHIP
+            return SomeCTypesObject(s_cto1.knowntype, state)
+        else:
+            return SomeObject()

@@ -1,11 +1,13 @@
 from pypy.rpython import extregistry
+from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.rstr import StringRepr, string_repr
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
+from pypy.rpython.rctypes.rarray import ArrayRepr
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pairtype
 
-from ctypes import c_char_p
+from ctypes import c_char, c_char_p
 
 
 class CCharPRepr(CTypesValueRepr):
@@ -50,6 +52,25 @@ class __extend__(pairtype(StringRepr, CCharPRepr)):
         v_owned_box = r_temp.allocate_instance(llops)
         r_temp.setstring(llops, v_owned_box, v)
         return llops.convertvar(v_owned_box, r_temp, r_to)
+
+##class __extend__(pairtype(ArrayRepr, CCharPRepr)):
+##    def convert_from_to((r_from, r_to), v, llops):
+##        if r_from.r_item.ctype != c_char:
+##            return NotImplemented
+##        # warning: no keepalives, only for short-lived conversions like
+##        # in argument passing
+##        r_temp = r_to.r_memoryowner
+##        v_owned_box = r_temp.allocate_instance(llops)
+##        v_char_array_ptr = r_from.get_c_data(llops, v)
+##        v_char_array_adr = llops.genop('cast_ptr_to_adr', [v_char_array_ptr],
+##                                       resulttype = llmemory.Address)
+##        cofs = inputconst(lltype.Signed,
+##                          llmemory.itemoffsetof(r_from.ll_type) +
+##                          llmemory.offsetof(r_from.ll_type.OF, 'value'))
+##        v_first_char_adr = llops.genop('adr_add', [v_char_array_adr, cofs],
+##                                       resulttype = llmemory.Address)
+##        r_temp.setvalue(llops, v_owned_box, v_first_char_adr)
+##        return llops.convertvar(v_owned_box, r_temp, r_to)
 
 
 CCHARP = llmemory.Address    # char *

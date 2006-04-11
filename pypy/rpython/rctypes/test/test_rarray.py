@@ -15,7 +15,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int, ARRAY, POINTER, pointer
+from ctypes import c_int, c_short, ARRAY, POINTER, pointer
 
 c_int_10 = ARRAY(c_int,10)
 
@@ -100,6 +100,23 @@ class Test_annotation:
         
 ##        py.test.raises(IndexError, "s = a.build_types(access_with_invalid_negative_index,[])")
 
+    def test_annotate_prebuilt(self):
+        my_array_2 = (c_short*10)(0, 1, 4, 9, 16, 25, 36, 49, 64, 81)
+        my_array_3 = (c_short*10)(0, 1, 8, 27, 64, 125, 216, 343, 512, 729)
+        def func(i, n):
+            if i == 2:
+                array = my_array_2
+            else:
+                array = my_array_3
+            return array[n]
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int, int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == int
+
 class Test_specialization:
     def test_specialize_array(self):
         def create_array():
@@ -123,6 +140,21 @@ class Test_specialization:
 
         res = interpret(access_array, [44])
         assert res == 1
+
+    def test_specialize_prebuilt(self):
+        my_array_2 = (c_short*10)(0, 1, 4, 9, 16, 25, 36, 49, 64, 81)
+        my_array_3 = (c_short*10)(0, 1, 8, 27, 64, 125, 216, 343, 512, 729)
+        def func(i, n):
+            if i == 2:
+                array = my_array_2
+            else:
+                array = my_array_3
+            return array[n]
+
+        res = interpret(func, [2, 6])
+        assert res == 36
+        res = interpret(func, [3, 7])
+        assert res == 343
 
 class Test_compilation:
     def test_compile_array_access(self):

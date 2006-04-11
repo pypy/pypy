@@ -4,7 +4,7 @@ from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rctypes.rmodel import CTypesValueRepr, reccopy
+from pypy.rpython.rctypes.rmodel import CTypesValueRepr, genreccopy
 
 from ctypes import POINTER, pointer, c_int
 
@@ -86,7 +86,7 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
             # not supported by ctypes either
             raise TyperError("assignment to pointer[x] with x != 0")
         # copy the whole structure's content over
-        reccopy(hop.llops, v_new_c_data, v_target)
+        genreccopy(hop.llops, v_new_c_data, v_target)
 
 # ____________________________________________________________
 
