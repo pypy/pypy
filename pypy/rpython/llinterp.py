@@ -376,11 +376,14 @@ class LLFrame(object):
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
 
-    def op_decode_arg_def(fname, i, name, vargs, vkwds, default):
+    def op_decode_arg_def(self, fname, i, name, vargs, vkwds, default):
         raise NotImplementedError("decode_arg_def")
 
-    def op_check_no_more_arg(fname, n, vargs):
+    def op_check_no_more_arg(self, fname, n, vargs):
         raise NotImplementedError("check_no_more_arg")
+
+    def op_getslice(self, vargs, start, stop_should_be_None):
+        raise NotImplementedError("getslice")   # only for argument parsing
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
