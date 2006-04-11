@@ -47,13 +47,19 @@ try:
 except NameError:
     pass    # Python < 2.4
 
+if getattr(cpy_marshal, 'version', 0) > 1:
+    cpy_dump_version = (1,)
+else:
+    cpy_dump_version = ()
+
 
 def test_cases():
     for case in TESTCASES:
         yield dumps_and_reload, case
         yield loads_from_cpython, case
         yield dumps_to_cpython, case
-        yield dumps_subclass, case
+        if case is not StopIteration:
+            yield dumps_subclass, case
         yield load_from_cpython, case
         yield dump_to_cpython, case
 
@@ -66,7 +72,7 @@ def dumps_and_reload(case):
 def loads_from_cpython(case):
     print 'load_from_cpython', `case`
     try:
-        s = cpy_marshal.dumps(case)
+        s = cpy_marshal.dumps(case, *cpy_dump_version)
     except ValueError:
         py.test.skip("this version of CPython doesn't support this object") 
     obj = marshal.loads(s)
@@ -75,7 +81,7 @@ def loads_from_cpython(case):
 def dumps_to_cpython(case):
     print 'dump_to_cpython', `case`
     try:
-        cpy_marshal.dumps(case)
+        cpy_marshal.dumps(case, *cpy_dump_version)
     except ValueError:
         py.test.skip("this version of CPython doesn't support this object") 
     s = marshal.dumps(case)
@@ -99,7 +105,7 @@ def load_from_cpython(case):
     f1 = open(p, "w")
     try:
         try:
-            s = cpy_marshal.dump(case, f1)
+            s = cpy_marshal.dump(case, f1, *cpy_dump_version)
         finally:
             f1.close()
     except ValueError:
@@ -115,7 +121,7 @@ def load_from_cpython(case):
 def dump_to_cpython(case):
 
     try:
-        cpy_marshal.dumps(case)
+        cpy_marshal.dumps(case, *cpy_dump_version)
     except ValueError:
         py.test.skip("this version of CPython doesn't support this object") 
 
