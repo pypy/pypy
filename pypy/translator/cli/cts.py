@@ -49,16 +49,21 @@ class CTS(object):
     def __init__(self, db):
         self.db = db
 
-    def lltype_to_cts(self, t):
+    def __class(self, result, include_class):
+        if include_class:
+            return 'class ' + result
+        else:
+            return result
+
+    def lltype_to_cts(self, t, include_class=True):
         if isinstance(t, Instance):
-            name = t._name
             self.db.pending_class(t)
-            return 'class %s' % name
+            return self.__class(t._name, include_class)
         elif isinstance(t, StaticMethod):
             return 'void' # TODO: is it correct to ignore StaticMethod?
         elif isinstance(t, List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
-            return 'class [pypylib]pypy.runtime.List`1<%s>' % item_type
+            return self.__class('[pypylib]pypy.runtime.List`1<%s>' % item_type, include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 
@@ -75,7 +80,7 @@ class CTS(object):
         ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
         func_name = func_name or graph.name
 
-        args = graph.getargs()
+        args = [arg for arg in graph.getargs() if arg.concretetype is not Void]
         if is_method:
             args = args[1:]
 
@@ -108,6 +113,3 @@ class CTS(object):
             return parts
         else:
             return None, parts[0]
-
-    def pyexception_to_cts(self, exc):
-        return _get_from_dict(_pyexception_to_cts, exc, 'Unknown exception %s' % exc)

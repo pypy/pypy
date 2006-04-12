@@ -19,6 +19,7 @@ class LowLevelDatabase(object):
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> const_name
+        self.const_names = set()
 
     def pending_function(self, graph):
         self.pending_node(Function(self, graph))
@@ -48,8 +49,11 @@ class LowLevelDatabase(object):
         try:
             name = self.consts[const]
         except KeyError:
-            name = const.get_name(len(self.consts))
+            name = const.get_name()
+            if name in self.const_names:
+                name += '__%d' % len(self.consts)
             self.consts[const] = name
+            self.const_names.add(name)
 
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
 
@@ -90,7 +94,7 @@ class AbstractConst(object):
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
     
-    def get_name(self, n):
+    def get_name(self):
         pass
 
     def get_type(self):
@@ -115,9 +119,8 @@ class InstanceConst(AbstractConst):
     def __eq__(self, other):
         return self.obj == other.obj
 
-    def get_name(self, n):
-        name = self.obj._TYPE._name.replace('.', '_')
-        return '%s_%d' % (name, n)
+    def get_name(self):
+        return self.obj._TYPE._name.replace('.', '_')
 
     def get_type(self):
         return self.cts.lltype_to_cts(self.static_type)

@@ -11,6 +11,29 @@ def _not(op):
 def _abs(type_):
     return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_)]
 
+def _check(op):
+    if isinstance(op, str):
+        op = [PushAllArgs, op, StoreResult]
+
+    label = '__check_block_%d' % _check.count
+    _check.count += 1
+
+    return [
+        '.try {'
+        ] + op + [             # do the real operations
+        'leave %s }' % label,  # continue normal execution
+
+        # if overflow, raise a pypy's OverflowError
+        'catch [mscorlib]System.OverflowException {',
+        'newobj instance void class exceptions.OverflowError::.ctor()',
+        'dup',
+        'ldsfld class Object_meta pypy.runtime.Constants::exceptions_OverflowError_meta',
+        'stfld class Object_meta Object::meta',
+        'throw }',
+
+        '%s: nop' % label      # continue normal execution
+        ]
+_check.count = 0
 
 opcodes = {
     # __________ object oriented operations __________
@@ -21,6 +44,7 @@ opcodes = {
     'oosend':                   [CallMethod],
     'ooupcast':                 DoNothing,
     'oodowncast':               DoNothing, # TODO: is it really safe?
+    'oois':                     'ceq',
 
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
@@ -43,9 +67,9 @@ opcodes = {
 
     'int_is_true':              DoNothing,
     'int_neg':                  'neg',
-    'int_neg_ovf':              ['ldc.i4.0', PushAllArgs, 'sub.ovf'],
+    'int_neg_ovf':              _check(['ldc.i4.0', PushAllArgs, 'sub.ovf', StoreResult]),
     'int_abs':                  _abs('int32'),
-    'int_abs_ovf':              _abs('int32'),
+    'int_abs_ovf':              _check(_abs('int32')),
     'int_invert':               'not',
 
     'int_add':                  'add',
@@ -64,9 +88,9 @@ opcodes = {
     'int_lshift':               'shl',
     'int_rshift':               'shr',
     'int_xor':                  'xor',
-    'int_add_ovf':              'add.ovf',
-    'int_sub_ovf':              'sub.ovf',
-    'int_mul_ovf':              'mul.ovf',
+    'int_add_ovf':              _check('add.ovf'),
+    'int_sub_ovf':              _check('sub.ovf'),
+    'int_mul_ovf':              _check('mul.ovf'),
     'int_floordiv_ovf':         'div', # these can't overflow!
     'int_mod_ovf':              'rem',
     'int_lt_ovf':               'clt',
@@ -79,8 +103,8 @@ opcodes = {
     'int_or_ovf':               'or',
 
     # are they the same?
-    'int_lshift_ovf':           [PushArg(0), 'conv.i8', PushArg(1), 'shl', 'conv.ovf.i4'],
-    'int_lshift_ovf_val':       [PushArg(0), 'conv.i8', PushArg(1), 'shl', 'conv.ovf.i4'],
+    'int_lshift_ovf':           _check([PushArg(0),'conv.i8',PushArg(1), 'shl', 'conv.ovf.i4', StoreResult]),
+    'int_lshift_ovf_val':       _check([PushArg(0),'conv.i8',PushArg(1), 'shl', 'conv.ovf.i4', StoreResult]),
 
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',
@@ -191,7 +215,10 @@ for key, value in opcodes.iteritems():
     if type(value) is str:
         value = InstructionList([PushAllArgs, value, StoreResult])
     elif value is not None:
-        value = InstructionList(value + [StoreResult])
-        
+        if StoreResult not in value:
+            value.append(StoreResult)
+        value = InstructionList(value)
+
     opcodes[key] = value
+
 

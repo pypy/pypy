@@ -28,6 +28,9 @@ class MicroInstruction(object):
     def render(self, generator, op):
         pass
 
+    def __str__(self):
+        return self.__class__.__name__
+
 
 class PushArg(MicroInstruction):
     def __init__(self, n):

@@ -56,7 +56,7 @@ class Function(Node, Generator):
 
         if self.is_method:
             args = self.args[1:] # self is implicit
-            meth_type = 'virtual'
+            meth_type = 'virtual' # TODO: mark as virtual only when strictly necessary
         else:
             args = self.args
             meth_type = 'static'
@@ -100,7 +100,12 @@ class Function(Node, Generator):
                         continue # see above
 
                     assert issubclass(link.exitcase, Exception)
-                    cts_exc = self.cts.pyexception_to_cts(link.exitcase)
+                    #cts_exc = self.cts.pyexception_to_cts(link.exitcase)
+                    #cts_exc = str(link.exitcase) # TODO: is it a bit hackish?
+                    ll_meta_exc = link.llexitcase
+                    self.db.record_const(ll_meta_exc)
+                    ll_exc = ll_meta_exc._inst.class_._INSTANCE
+                    cts_exc = self.cts.lltype_to_cts(ll_exc, False)
                     self.ilasm.begin_catch(cts_exc)
 
                     target = link.target
@@ -198,7 +203,8 @@ class Function(Node, Generator):
         self.locals = locals
 
     def _set_args(self):
-        self.args = map(self.cts.llvar_to_cts, self.graph.getargs())
+        args = [arg for arg in self.graph.getargs() if arg.concretetype is not Void]
+        self.args = map(self.cts.llvar_to_cts, args)
         self.argset = set([argname for argtype, argname in self.args])
 
     def _get_block_name(self, block):
@@ -257,9 +263,7 @@ class Function(Node, Generator):
         self.ilasm.call(signature)
 
     def cast_to(self, lltype):
-        cts_type = self.cts.lltype_to_cts(lltype)
-        if cts_type.startswith('class '):
-            cts_type = cts_type[len('class '):]
+        cts_type = self.cts.lltype_to_cts(lltype, False)
         self.ilasm.opcode('castclass', cts_type)
 
     def new(self, obj):
