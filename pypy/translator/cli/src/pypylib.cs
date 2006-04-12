@@ -12,11 +12,6 @@ namespace pypy.runtime
 
     public class List<T>: System.Collections.Generic.List<T>
     {
-        public void append(T item)
-        {
-            this.Add(item);
-        }
-
         public int length()
         {
             return this.Count;
@@ -31,5 +26,16 @@ namespace pypy.runtime
         {
             this[index] = value_;
         }
+
+        public void append(T item)
+        {
+            this.Add(item);
+        }
+
+        public void extend(List<T> other)
+        {
+            this.AddRange(other);
+        }
+
     }
 }

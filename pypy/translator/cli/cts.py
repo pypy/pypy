@@ -14,6 +14,7 @@ import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
+PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 
 _lltype_to_cts = {
     Void: 'void',
@@ -26,6 +27,7 @@ _lltype_to_cts = {
     Class: 'class [mscorlib]System.Type',
 
     # TODO: it seems a hack
+    List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),
     List.ITEMTYPE_T: '!0',
     }
 
@@ -63,7 +65,7 @@ class CTS(object):
             return 'void' # TODO: is it correct to ignore StaticMethod?
         elif isinstance(t, List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
-            return self.__class('[pypylib]pypy.runtime.List`1<%s>' % item_type, include_class)
+            return self.__class(PYPY_LIST % item_type, include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 

@@ -102,7 +102,7 @@ class compile_function:
         self.graph = t.graphs[0]
 
         if getoption('view'):
-           t.viewcg()
+           t.view()
 
         if getoption('wd'):
             self.tmpdir = py.path.local('.')

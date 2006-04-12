@@ -28,3 +28,21 @@ def list_setitem(x, y):
     lst[0] = 0
     lst[1] = 0
     return sum_(lst)
+
+def list_iteration(x, y):
+    lst = create(x, y)
+    total = 1
+    for item in lst:
+        total *= item
+    return total
+
+def list_concat(x, y):
+    lst1 = create(x, x)
+    lst2 = create(y, y)
+    return sum_(lst1 + lst2)
+
+def list_extend(x, y):
+    lst = create(x, y)
+    lst += [y, y*2]
+    lst.extend([x, y])
+    return sum_(lst)

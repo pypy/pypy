@@ -25,15 +25,14 @@ def check(f, g, *args):
 
 
 def bar(x, y):
-    try:
-        return ovfcheck(x+y)
-    except OverflowError:
-        return 0
+    lst = [1,2,3,x,y]
+    lst.extend([1,2])
+    return 0
 
 f = compile_function(bar, [int, int])
 
 try:
-    check(bar, f, sys.maxint, 13)
+    check(bar, f, 42, 13)
 except py.test.Item.Skipped:
     print 'Test skipped'
 
