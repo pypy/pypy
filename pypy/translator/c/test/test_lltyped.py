@@ -128,3 +128,35 @@ class TestLowLevelType:
         fn = self.getcompiled(llf)
         res = fn(4)
         assert res == -1
+
+    def test_cast_subarray_pointer(self):
+        A = GcArray(Signed)
+        a = malloc(A, 5)
+        a[0] = 0
+        a[1] = 10
+        a[2] = 20
+        a[3] = 30
+        a[4] = 40
+        BOX = Ptr(FixedSizeArray(Signed, 2))
+        b01 = cast_subarray_pointer(BOX, a, 0)
+        b12 = cast_subarray_pointer(BOX, a, 1)
+        b23 = cast_subarray_pointer(BOX, a, 2)
+        b34 = cast_subarray_pointer(BOX, a, 3)
+        def llf(n=int):
+            saved = a[n]
+            a[n] = 1000
+            try:
+                return b01[0] + b12[0] + b23[1] + b34[1]
+            finally:
+                a[n] = saved
+        fn = self.getcompiled(llf)
+        res = fn(0)
+        assert res == 1000 + 10 + 30 + 40
+        res = fn(1)
+        assert res == 0 + 1000 + 30 + 40
+        res = fn(2)
+        assert res == 0 + 10 + 30 + 40
+        res = fn(3)
+        assert res == 0 + 10 + 1000 + 40
+        res = fn(4)
+        assert res == 0 + 10 + 30 + 1000

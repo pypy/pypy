@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
      GcStruct, GcArray, GC_CONTAINER, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
-     RuntimeTypeInfo, getRuntimeTypeInfo, Char
+     RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
@@ -459,14 +459,15 @@ class FixedSizeArrayNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         ContainerNode.__init__(self, db, T, obj)
-        self.ptrname = self.name
+        if not isinstance(obj, _subarray):   # XXX hackish
+            self.ptrname = self.name
 
     def basename(self):
         return self.T._name
 
     def enum_dependencies(self):
-        for name in self.T._names:   # _names == ['item0', 'item1', ...]
-            yield getattr(self.obj, name)
+        for i in range(self.obj.getlength()):
+            yield self.obj.getitem(i)
 
     def getlength(self):
         return 1    # not variable-sized!
