@@ -594,6 +594,7 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 #
 # _________________________ Conversions for CPython _________________________
 
+# part I: wrapping, destructor, preserving object identity
 
 def call_destructor(thing, repr):
     ll_call_destructor(thing, repr)
@@ -602,13 +603,13 @@ def ll_call_destructor(thang, repr):
     return 42 # will be mapped
 
 def rtype_destruct_object(hop):
-    v_any, c_spec = hop.inputargs(*hop.args_r)
+    v_inst, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
     if repr.has_wrapper:
         null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
         # XXX this is a hack! We need an operation to remove a broken PyObject
-        repr.setfield(v_any, '_wrapper_', null, hop.llops, opname='bare_setfield')
-    hop.genop('gc_unprotect', [v_any])
+        repr.setfield(v_inst, '_wrapper_', null, hop.llops, opname='bare_setfield')
+    hop.genop('gc_unprotect', [v_inst])
 
 extregistry.register_value(ll_call_destructor, 
     compute_result_annotation=lambda *args: None,
@@ -623,16 +624,16 @@ def ll_create_pywrapper(thing, repr):
 def rtype_wrap_object_create(hop):
     gencapi = hop.llops.gencapicall
     pyptr = hop.r_result
-    v_any, c_spec = hop.inputargs(*hop.args_r)
+    v_inst, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
     f = call_destructor
-    hop.genop('gc_protect', [v_any])
+    hop.genop('gc_protect', [v_inst])
     ARG = repr.lowleveltype
     reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
     fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARG, reprPBC])
     FUNC = FuncType([ARG, Void], Void)
     c_dtor = hop.inputconst(Ptr(FUNC), fp_dtor)
-    res = gencapi('PyCObject_FromVoidPtr', [v_any, c_dtor], resulttype=hop.r_result)
+    res = gencapi('PyCObject_FromVoidPtr', [v_inst, c_dtor], resulttype=pyptr)
     if repr.has_wrapper:
         cobj = res
         c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
@@ -640,7 +641,7 @@ def rtype_wrap_object_create(hop):
         res = gencapi('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyptr)
         c_self = hop.inputconst(pyobj_repr, '__self__')
         v_result = hop.genop('setattr', [res, c_self, cobj], resulttype=pyptr)
-        repr.setfield(v_any, '_wrapper_', res, hop.llops)
+        repr.setfield(v_inst, '_wrapper_', res, hop.llops)
         hop.genop('gc_unprotect', [res]) # yes a weak ref
     return res
 
@@ -655,10 +656,10 @@ def ll_fetch_pywrapper(thing, repr):
     return 42
 
 def rtype_wrap_object_fetch(hop):
-    v_any, c_spec = hop.inputargs(*hop.args_r)
+    v_inst, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
     if repr.has_wrapper:
-        return repr.getfield(v_any, '_wrapper_', hop.llops)
+        return repr.getfield(v_inst, '_wrapper_', hop.llops)
     else:
         null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
         return null
@@ -673,15 +674,6 @@ def ll_wrap_object(obj, repr):
         ret = create_pywrapper(obj, repr)
     return ret
 
-class __extend__(pairtype(PyObjRepr, InstanceRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_to.has_wrapper:
-            c_self = inputconst(pyobj_repr, '__self__')
-            v = llops.genop('getattr', [v, c_self], resulttype=r_from)
-        v_adr = llops.gencapicall('PyCObject_AsVoidPtr', [v], resulttype=r_to)
-        llops.genop('gc_protect', [v_adr])
-        return v_adr
-
 class __extend__(pairtype(InstanceRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         c_repr = inputconst(Void, r_from)
@@ -689,6 +681,38 @@ class __extend__(pairtype(InstanceRepr, PyObjRepr)):
             return llops.gendirectcall(ll_wrap_object, v, c_repr)
         else:
             return llops.gendirectcall(create_pywrapper, v, c_repr)
+
+# part II: unwrapping, creating the instance
+
+class __extend__(pairtype(PyObjRepr, InstanceRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_to.has_wrapper:
+            init, context = llops.rtyper.get_wrapping_hint(r_to.classdef)
+            if context is init:
+                # saving an extra __new__ method, we create the instance on __init__
+                v_inst = r_to.new_instance(llops)
+                gencapi = llops.gencapicall
+                rtyper = llops.rtyper
+                pyptr = r_from
+                f = call_destructor
+                ARG = r_to.lowleveltype
+                reprPBC = rtyper.annotator.bookkeeper.immutablevalue(r_to)
+                fp_dtor = rtyper.annotate_helper_fn(f, [ARG, reprPBC])
+                FUNC = FuncType([ARG, Void], Void)
+                c_dtor = inputconst(Ptr(FUNC), fp_dtor)
+                v_cobj = gencapi('PyCObject_FromVoidPtr', [v_inst, c_dtor], resulttype=pyptr)
+                c_self = inputconst(pyobj_repr, '__self__')
+                llops.genop('setattr', [v, c_self, v_cobj], resulttype=pyptr)
+                r_to.setfield(v_inst, '_wrapper_', v, llops)
+                llops.genop('gc_protect', [v_inst])
+                llops.genop('gc_unprotect', [v])
+                return v_inst
+
+            c_self = inputconst(pyobj_repr, '__self__')
+            v = llops.genop('getattr', [v, c_self], resulttype=r_from)
+        v_inst = llops.gencapicall('PyCObject_AsVoidPtr', [v], resulttype=r_to)
+        llops.genop('gc_protect', [v_inst])
+        return v_inst
 
 # ____________________________________________________________
 

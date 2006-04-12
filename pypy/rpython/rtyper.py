@@ -57,6 +57,7 @@ class RPythonTyper:
         self.instance_reprs = {}
         self.pbc_reprs = {}
         self.classdefs_with_wrapper = {}
+        self.wrapper_context = None # or add an extra arg to convertvar?
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
         self.oo_meth_impls = {}
@@ -89,7 +90,13 @@ class RPythonTyper:
         self.crash_on_first_typeerror = True
 
     def add_wrapper(self, clsdef):
-        self.classdefs_with_wrapper[clsdef] = clsdef
+        # record that this class has a wrapper, and what the __init__ is
+        init = getattr(clsdef.classdesc.pyobj.__init__, 'im_func', None)
+        self.classdefs_with_wrapper[clsdef] = init
+
+    def set_wrapper_context(self, obj):
+        # not nice, but we sometimes need to know which function we are wrapping
+        self.wrapper_context = obj
 
     def add_pendingsetup(self, repr): 
         assert isinstance(repr, Repr)
@@ -545,6 +552,9 @@ class RPythonTyper:
 
     def needs_wrapper(self, clsdef):
         return clsdef in self.classdefs_with_wrapper
+
+    def get_wrapping_hint(self, clsdef):
+        return self.classdefs_with_wrapper[clsdef], self.wrapper_context
 
     def getcallable(self, graph):
         def getconcretetype(v):

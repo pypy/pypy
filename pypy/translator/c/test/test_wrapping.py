@@ -4,7 +4,6 @@ from py.test import raises
 from pypy.rpython import extregistry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.objectmodel import instantiate
 from pypy.rpython import robject, rclass
 
 import sys
@@ -35,7 +34,6 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
     t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
-    instantiators = {}
     t.annotator.build_types(func, get_annotation(func))
     if not exports:
         exports = []
@@ -43,14 +41,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
     exports = exports + [('__all__', all)]
     for obj in exports:
         if isinstance(obj, type):
-            cls = obj
-            def make():
-                obj = instantiate(cls)
-                return obj
-            make.__name__ = cls.__name__ + '__new__'
-            t.annotator.build_types(make, [])
-            instantiators[cls] = make
-            clsdef = bk.getuniqueclassdef(cls)
+            clsdef = bk.getuniqueclassdef(obj)
             rtyper.add_wrapper(clsdef)
         elif callable(obj):
             t.annotator.build_types(obj, get_annotation(obj))
@@ -71,7 +62,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
 
     cbuilder = CExtModuleBuilder(t, func, gcpolicy=gcpolicy)
     # explicit build of database
-    db = cbuilder.build_database(exports=exports, instantiators=instantiators)
+    db = cbuilder.build_database(exports=exports)
     cbuilder.generate_source(db)
     cbuilder.compile()
 
@@ -263,9 +254,9 @@ class DemoSubclass(DemoClass):
         DemoClass.__init__(self, b, a)
         self.c = c
 
-#    def demo(self, *other):
+    def demo(self, *other):
         #if other: print other
- #       return float(DemoClass.demo(self))
+        return float(DemoClass.demo(self))
     
     def otherdemo(self):
         return 'this is the DemoSubclass', self.a, self.b
@@ -319,38 +310,8 @@ def democlass_helper2(a=int, b=int):
 # _______________________________________________
 # creating our own setup function for the module
 
-def do_the_import():
-    from twisted.internet import reactor    
-    return reactor
-
-def rtype_wraptest(hop):
-    #v_obj, = hop.inputargs((robject.pyobj_repr, ))
-    from pypy.objspace.flow.model import Constant
-    v_obj = Constant(hop.args_s[0].const)
-    v = hop.genop('simple_call', [v_obj], resulttype = robject.pyobj_repr)
-    return v
-
-def wraptest(obj):
-    return obj
-extregistry.register_value(wraptest,
-        compute_result_annotation = annmodel.SomeObject(),
-        specialize_call = rtype_wraptest)
-
-# not sure what to do with the above.
-# use genpickle facility to produce a plain function?
-# create a space and run geninterp on it?
-# tweak flow space to delay the imports for this func?
-
-### XXX write up the rules how to use this ###
-
-def t2():
-    global sys
-    import sys
-
 def setup_new_module(mod, modname):
     # note the name clash with py.test on setup_module
-    #t1()
-    #t2()
     return
     from types import module
     m = module(modname)
@@ -391,6 +352,7 @@ def test_expose_classes():
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
+
 
 if __name__=='__main__':
     test_expose_classes()

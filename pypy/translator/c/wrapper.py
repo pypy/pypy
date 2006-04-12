@@ -98,9 +98,12 @@ def gen_wrapper(func, translator):
             assert rtyper is not None, (
                 "needs the rtyper to perform argument conversions")
             r_arg = rtyper.bindingrepr(inputargs[i])
+            # give the rtyper a chance to know which function we are wrapping
+            rtyper.set_wrapper_context(func)
             varguments[i] = newops.convertvar(varguments[i],
                                               r_from = pyobj_repr,
                                                 r_to = r_arg)
+            rtyper.set_wrapper_context(None)
 
     # "result = direct_call(func, argument_0, argument_1, ..)"
     vlist = [inputconst(typeOf(f), f)] + varguments

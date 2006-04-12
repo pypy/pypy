@@ -33,11 +33,10 @@ class CBuilder(object):
         self.libraries = libraries
         self.exports = {}
 
-    def build_database(self, exports=[], instantiators={}):
+    def build_database(self, exports=[]):
         translator = self.translator
         db = LowLevelDatabase(translator, standalone=self.standalone, 
-                              gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled,
-                              instantiators=instantiators)
+                              gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
 
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData

@@ -21,8 +21,7 @@ from pypy import conftest
 
 class LowLevelDatabase(object):
 
-    def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False,
-                 instantiators={}):
+    def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
         self.translator = translator
         self.standalone = standalone
         self.structdefnodes = {}
@@ -38,7 +37,7 @@ class LowLevelDatabase(object):
         self.infs = []
         self.namespace = CNameManager()
         if not standalone:
-            self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator, instantiators)
+            self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
         if gcpolicy is None:
             from pypy.translator.c import gc
             polname = conftest.option.gcpolicy

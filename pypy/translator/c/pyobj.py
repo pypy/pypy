@@ -23,7 +23,7 @@ class PyObjMaker:
     reconstruct them.
     """
 
-    def __init__(self, namespace, getvalue, translator=None, instantiators={}):
+    def __init__(self, namespace, getvalue, translator=None):
         self.namespace = namespace
         self.getvalue = getvalue
         self.translator = translator
@@ -38,7 +38,6 @@ class PyObjMaker:
         self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
         self.import_hints = {} # I don't seem to need it any longer.
         # leaving the import support intact, doesn't hurt.
-        self.instantiators = instantiators
 
     def nameof(self, obj, debug=None):
         if debug:
@@ -336,7 +335,8 @@ class PyObjMaker:
         return name
 
     def nameof_classobj(self, cls):
-        if cls in self.instantiators:
+        clsdef = self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
+        if self.translator.rtyper.needs_wrapper(clsdef):
             return self.wrap_exported_class(cls)
 
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
@@ -551,16 +551,9 @@ class PyObjMaker:
         if baseargs:
             baseargs = '(%s)' % baseargs
             
-        # fishing for the instantiator
-        instantiator = self.nameof(self.instantiators[cls])
         a = self.initcode.append
         a('class %s%s:'                     % (name, baseargs) )
         a('    __metaclass__ = type')
         a('    __slots__ = ["__self__"] # for PyCObject')
-        a('    def __new__(cls, *args, **kwds):')
-        a('        return %s()'             % instantiator )
-        # XXX
-        # I would like to use instantiator directly, but don't know
-        # how to create a function that ignores all args
         self.later(initclassobj())
         return name
