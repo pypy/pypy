@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype, rclass, llmemory
 from pypy.rpython import rarithmetic, objectmodel, rstack, rint, raddress
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IntegerRepr
+from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
 from pypy.rpython import rstr
 from pypy.rpython import rptr
@@ -307,6 +307,34 @@ def rtype_cast_pointer(hop):
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_cast_subarray_pointer(hop):
+    assert hop.args_s[0].is_constant()
+    assert isinstance(hop.args_r[1], rptr.PtrRepr)
+    v_type, v_input, v_baseoffset = hop.inputargs(lltype.Void, hop.args_r[1],
+                                                  lltype.Signed)
+    hop.exception_cannot_occur()
+    # instead of adding a 'cast_subarray_pointer' ll operation,
+    # we do it with address manipulations
+    return gen_cast_array_pointer(hop.llops, hop.r_result.lowleveltype,
+                                  v_input, v_baseoffset)
+
+def gen_cast_array_pointer(llops, ARRAYPTRTYPE, v_array, v_baseoffset):
+    "Helper to generate the equivalent of a 'cast_subarray_pointer' operation."
+    from pypy.rpython.lltypesystem import llmemory
+    SRCTYPE = v_array.concretetype.TO
+    v_array_adr = llops.genop('cast_ptr_to_adr', [v_array],
+                              resulttype = llmemory.Address)
+    c_ofs1 = inputconst(lltype.Signed, llmemory.ArrayItemsOffset(SRCTYPE))
+    v_array_items_adr = llops.genop('adr_add', [v_array_adr, c_ofs1],
+                                    resulttype = llmemory.Address)
+    c_ofs2 = inputconst(lltype.Signed, llmemory.ItemOffset(SRCTYPE.OF))
+    v_ofs3 = llops.genop('int_mul', [c_ofs2, v_baseoffset],
+                         resulttype = lltype.Signed)
+    v_base_adr = llops.genop('adr_add', [v_array_items_adr, v_ofs3],
+                             resulttype = llmemory.Address)
+    return llops.genop('cast_adr_to_ptr', [v_base_adr],
+                       resulttype = ARRAYPTRTYPE)
+
 def rtype_cast_primitive(hop):
     assert hop.args_s[0].is_constant()
     TGT = hop.args_s[0].const
@@ -341,6 +369,7 @@ def rtype_runtime_type_info(hop):
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
+BUILTIN_TYPER[lltype.cast_subarray_pointer] = rtype_cast_subarray_pointer
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
