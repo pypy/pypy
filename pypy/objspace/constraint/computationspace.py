@@ -62,12 +62,14 @@ W_Distributor.typedef = typedef.TypeDef("W_Distributor")
 #-- Computation space -------------------
 from pypy.objspace.constraint.distributor import make_dichotomy_distributor
 
+
 class W_ComputationSpace(Wrappable):
     def __init__(self, obj_space):
         self._space = obj_space
         self.distributor = make_dichotomy_distributor(self._space)
-        # var -> dom
+        # var -> dom, name->var
         self.var_dom = {}
+        self.name_var = {}
         # constraint set
         self.constraints = {}
         # var -> constraints
@@ -75,6 +77,7 @@ class W_ComputationSpace(Wrappable):
         # freshly added constraints (tell -> propagate)
         self.to_check = {}
         self.status = None
+        self.sol_set = obj_space.newlist([])
 
     #-- public interface ---------------
     
@@ -117,11 +120,12 @@ class W_ComputationSpace(Wrappable):
     def w_var(self, w_name, w_domain):
         assert isinstance(w_name, W_StringObject)
         assert isinstance(w_domain, W_AbstractDomain)
-        if w_name in self.var_dom:
+        if w_name in self.name_var:
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Name already used"))
         var = W_Variable(self._space, w_name)
         self.var_dom[var] = w_domain
+        self.name_var[w_name] = var
         return var
 
     def w_dom(self, w_variable):
@@ -139,6 +143,9 @@ class W_ComputationSpace(Wrappable):
     def w_dependant_constraints(self, w_var):
         return self._space.newlist(self.dependant_constraints(w_var))
 
+    def w_define_problem(self, w_problem):
+        print "there"
+        self.sol_set = self._space.call(w_problem, self)
 
     #-- everything else ---------------
 
@@ -189,7 +196,8 @@ W_ComputationSpace.typedef = typedef.TypeDef(
     ask = interp2app(W_ComputationSpace.w_ask),
     clone = interp2app(W_ComputationSpace.w_clone),
     commit = interp2app(W_ComputationSpace.w_commit),
-    dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints))
+    dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints),
+    define_problem = interp2app(W_ComputationSpace.w_define_problem))
 
 
 def newspace(object_space):

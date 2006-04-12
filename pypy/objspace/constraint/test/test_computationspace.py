@@ -14,8 +14,8 @@ class AppTest_ComputationSpace(object):
         cspace = newspace()
         v = cspace.var("foo", FiniteDomain([1,2,3]))
         assert str(v).startswith('<W_Variable object at')
-        v = cspace.var("foo", FiniteDomain([1,2,3]))
-        assert str(v).startswith('<W_Variable object at')
+        raises(Exception, cspace.var, "foo", FiniteDomain([1,2,3]))
+
 
     def test_dom(self):
         cspace = newspace()
