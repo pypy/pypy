@@ -19,8 +19,13 @@ class W_Variable(Wrappable):
 
     def name_w(self):
         return self._space.str_w(self.w_name)
+    
+    def w_name(self):
+        return self.w_name
 
-W_Variable.typedef = typedef.TypeDef("W_Variable")
+W_Variable.typedef = typedef.TypeDef(
+    "W_Variable",
+    name = interp2app(W_Variable.w_name))
 
 #-- Constraints -------------------------
 
@@ -120,13 +125,17 @@ class W_ComputationSpace(Wrappable):
     def w_var(self, w_name, w_domain):
         assert isinstance(w_name, W_StringObject)
         assert isinstance(w_domain, W_AbstractDomain)
-        if w_name in self.name_var:
+        name = self._space.str_w(w_name)
+        if name in self.name_var:
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Name already used"))
         var = W_Variable(self._space, w_name)
         self.var_dom[var] = w_domain
-        self.name_var[w_name] = var
+        self.name_var[name] = var
         return var
+
+    def w_find_var(self, w_name):
+        return self.name_var[self._space.str_w(w_name)]
 
     def w_dom(self, w_variable):
         assert isinstance(w_variable, W_Variable)
@@ -146,6 +155,9 @@ class W_ComputationSpace(Wrappable):
     def w_define_problem(self, w_problem):
         print "there"
         self.sol_set = self._space.call(w_problem, self)
+
+    def w_set_root(self, w_solution_list):
+        self.sol_set = w_solution_list
 
     #-- everything else ---------------
 
@@ -191,13 +203,15 @@ class W_ComputationSpace(Wrappable):
 W_ComputationSpace.typedef = typedef.TypeDef(
     "W_ComputationSpace",
     var = interp2app(W_ComputationSpace.w_var),
+    find_var = interp2app(W_ComputationSpace.w_find_var),
     dom = interp2app(W_ComputationSpace.w_dom),
     tell = interp2app(W_ComputationSpace.w_tell),
     ask = interp2app(W_ComputationSpace.w_ask),
     clone = interp2app(W_ComputationSpace.w_clone),
     commit = interp2app(W_ComputationSpace.w_commit),
     dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints),
-    define_problem = interp2app(W_ComputationSpace.w_define_problem))
+    define_problem = interp2app(W_ComputationSpace.w_define_problem),
+    set_root = interp2app(W_ComputationSpace.w_set_root))
 
 
 def newspace(object_space):
