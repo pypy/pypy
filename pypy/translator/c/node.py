@@ -338,7 +338,8 @@ class ContainerNode(object):
             self.name = defnode.access_expr(parentnode.name, parentindex)
         self.ptrname = '(&%s)' % self.name
         if self.typename != self.implementationtypename:
-            self.ptrname = '((%s)(void*)%s)' % (self.typename.replace('@', '*'),
+            ptrtypename = db.gettype(Ptr(T))
+            self.ptrname = '((%s)(void*)%s)' % (cdecl(ptrtypename, ''),
                                                 self.ptrname)
 
     def forward_declaration(self):

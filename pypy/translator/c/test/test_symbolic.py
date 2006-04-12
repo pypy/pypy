@@ -56,6 +56,26 @@ def test_itemoffsetof():
     res = fn()
     assert res == 1234501234
 
+def test_itemoffsetof_fixedsizearray():
+    ARRAY = lltype.FixedSizeArray(lltype.Signed, 5)
+    itemoffsets = [llmemory.itemoffsetof(ARRAY, i) for i in range(5)]
+    a = lltype.malloc(ARRAY, immortal=True)
+    def f():
+        adr = llmemory.cast_ptr_to_adr(a)
+        result = 0
+        for i in range(5):
+            a[i] = i + 1
+        for i in range(5):
+            result = result * 10 + (adr + itemoffsets[i]).signed[0]
+        for i in range(5):
+            (adr + itemoffsets[i]).signed[0] = i
+        for i in range(5):
+            result = 10 * result + a[i]
+        return result
+    fn, t = getcompiled(f, [])
+    res = fn()
+    assert res == 1234501234
+
 def test_sizeof_constsize_struct():
     # _not_ a GcStruct, since we want to raw_malloc it
     STRUCT = lltype.Struct("s", ("x", lltype.Signed), ("y", lltype.Signed))

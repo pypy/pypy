@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      CompositeOffset, ArrayLengthOffset
 from pypy.rpython.memory.gc import GCHeaderOffset
 from pypy.rpython.memory.lladdress import NULL
+from pypy.translator.c.support import cdecl
 
 # ____________________________________________________________
 #
@@ -17,19 +18,22 @@ def name_signed(value, db):
         if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE)
             return 'offsetof(%s, %s)'%(
-                db.gettype(value.TYPE).replace('@', ''),
+                cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))
         elif isinstance(value, ItemOffset):
             return '(sizeof(%s) * %s)'%(
-                db.gettype(value.TYPE).replace('@', ''), value.repeat)
+                cdecl(db.gettype(value.TYPE), ''), value.repeat)
         elif isinstance(value, ArrayItemsOffset):
-            return 'offsetof(%s, items)'%(
-                db.gettype(value.TYPE).replace('@', ''))
+            if isinstance(value.TYPE, FixedSizeArray):
+                return '0'
+            else:
+                return 'offsetof(%s, items)'%(
+                    cdecl(db.gettype(value.TYPE), ''))
         elif isinstance(value, ArrayLengthOffset):
             return 'offsetof(%s, length)'%(
-                db.gettype(value.TYPE).replace('@', ''))
+                cdecl(db.gettype(value.TYPE), ''))
         elif isinstance(value, CompositeOffset):
-            return '%s + %s' % (name_signed(value.first, db), name_signed(value.second, db))
+            return '(%s + %s)' % (name_signed(value.first, db), name_signed(value.second, db))
         elif type(value) == AddressOffset:
             return '0'
         elif type(value) == GCHeaderOffset:

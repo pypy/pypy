@@ -377,7 +377,8 @@ class FunctionCodeGenerator(object):
     OP_INDIRECT_CALL = OP_DIRECT_CALL
 
     def OP_UNSAFE_CALL(self, op):
-        line = '((%s (*)())(%s))();'%(self.lltypename(op.result).replace('@', ''), self.expr(op.args[0]))
+        line = '((%s (*)())(%s))();' % (cdecl(self.lltypename(op.result), ''),
+                                        self.expr(op.args[0]))
         if self.lltypemap(op.result) is not Void:
             r = self.expr(op.result)
             line = '%s = %s' % (r, line)
@@ -586,19 +587,19 @@ class FunctionCodeGenerator(object):
 
     #address operations
     def OP_RAW_STORE(self, op):
-       addr = self.expr(op.args[0])
-       TYPE = op.args[1].value
-       offset = self.expr(op.args[2])
-       value = self.expr(op.args[3])
-       typename = self.db.gettype(TYPE).replace("@", "*") #XXX help! is this the way to do it?
-       return "*(((%(typename)s) %(addr)s ) + %(offset)s) = %(value)s;" % locals()
+        addr = self.expr(op.args[0])
+        TYPE = op.args[1].value
+        offset = self.expr(op.args[2])
+        value = self.expr(op.args[3])
+        typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
+        return "*(((%(typename)s) %(addr)s ) + %(offset)s) = %(value)s;" % locals()
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
         TYPE = op.args[1].value
         offset = self.expr(op.args[2])
         result = self.expr(op.result)
-        typename = self.db.gettype(TYPE).replace("@", "*") #XXX see above
+        typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
         return "%(result)s = *(((%(typename)s) %(addr)s ) + %(offset)s);" % locals()
 
 
