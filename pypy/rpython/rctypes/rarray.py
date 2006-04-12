@@ -1,10 +1,12 @@
 from ctypes import ARRAY, c_int
 from pypy.annotation.model import SomeCTypesObject, SomeBuiltin
 from pypy.rpython import extregistry
+from pypy.rpython.rbuiltin import gen_cast_array_pointer
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rctypes.rmodel import CTypesRefRepr, genreccopy, reccopy
+from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
+from pypy.rpython.rctypes.rmodel import genreccopy, reccopy
 
 ArrayType = type(ARRAY(c_int, 10))
 
@@ -20,7 +22,7 @@ class ArrayRepr(CTypesRefRepr):
                                             SomeCTypesObject.MEMORYALIAS))
 
         # Here, self.c_data_type == self.ll_type
-        c_data_type = lltype.FixedSizeArray(self.r_item.c_data_type,
+        c_data_type = lltype.FixedSizeArray(self.r_item.ll_type,
                                             self.length)
 
         super(ArrayRepr, self).__init__(rtyper, s_array, c_data_type)
@@ -28,12 +30,38 @@ class ArrayRepr(CTypesRefRepr):
     def initialize_const(self, p, value):
         for i in range(self.length):
             llitem = self.r_item.convert_const(value[i])
-            reccopy(llitem.c_data, p.c_data[i])
+            if isinstance(self.r_item, CTypesRefRepr):
+                # ByRef case
+                reccopy(llitem.c_data, p.c_data[i])
+            else:
+                # ByValue case
+                p.c_data[i] = llitem.c_data[0]
 
     def get_c_data_of_item(self, llops, v_array, v_index):
         v_c_array = self.get_c_data(llops, v_array)
-        return llops.genop('getarraysubstruct', [v_c_array, v_index],
-                           lltype.Ptr(self.r_item.c_data_type))
+        if isinstance(self.r_item, CTypesRefRepr):
+            # ByRef case
+            return llops.genop('getarraysubstruct', [v_c_array, v_index],
+                               lltype.Ptr(self.r_item.c_data_type))
+        else:
+            # ByValue case
+            A = lltype.FixedSizeArray(self.r_item.ll_type, 1)
+            return gen_cast_array_pointer(llops, lltype.Ptr(A),
+                                          v_c_array, v_index)
+
+    def get_item_value(self, llops, v_array, v_index):
+        # ByValue case only
+        assert isinstance(self.r_item, CTypesValueRepr)
+        v_c_array = self.get_c_data(llops, v_array)
+        return llops.genop('getarrayitem', [v_c_array, v_index],
+                           resulttype = self.r_item.ll_type)
+
+    def set_item_value(self, llops, v_array, v_index, v_newvalue):
+        # ByValue case only
+        assert isinstance(self.r_item, CTypesValueRepr)
+        v_c_array = self.get_c_data(llops, v_array)
+        llops.genop('setarrayitem', [v_c_array, v_index, v_newvalue])
+
 
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_setitem((r_array, r_int), hop):

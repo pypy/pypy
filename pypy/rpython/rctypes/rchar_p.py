@@ -1,8 +1,8 @@
 from pypy.rpython import extregistry
 from pypy.rpython.rmodel import inputconst
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rstr import StringRepr, string_repr
-from pypy.rpython.rctypes.rmodel import CTypesValueRepr
+from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
 from pypy.rpython.rctypes.rarray import ArrayRepr
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pairtype
@@ -53,43 +53,35 @@ class __extend__(pairtype(StringRepr, CCharPRepr)):
         r_temp.setstring(llops, v_owned_box, v)
         return llops.convertvar(v_owned_box, r_temp, r_to)
 
-##class __extend__(pairtype(ArrayRepr, CCharPRepr)):
-##    def convert_from_to((r_from, r_to), v, llops):
-##        if r_from.r_item.ctype != c_char:
-##            return NotImplemented
-##        # warning: no keepalives, only for short-lived conversions like
-##        # in argument passing
-##        r_temp = r_to.r_memoryowner
-##        v_owned_box = r_temp.allocate_instance(llops)
-##        v_char_array_ptr = r_from.get_c_data(llops, v)
-##        v_char_array_adr = llops.genop('cast_ptr_to_adr', [v_char_array_ptr],
-##                                       resulttype = llmemory.Address)
-##        cofs = inputconst(lltype.Signed,
-##                          llmemory.itemoffsetof(r_from.ll_type) +
-##                          llmemory.offsetof(r_from.ll_type.OF, 'value'))
-##        v_first_char_adr = llops.genop('adr_add', [v_char_array_adr, cofs],
-##                                       resulttype = llmemory.Address)
-##        r_temp.setvalue(llops, v_owned_box, v_first_char_adr)
-##        return llops.convertvar(v_owned_box, r_temp, r_to)
+class __extend__(pairtype(ArrayRepr, CCharPRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.r_item.ctype != c_char:
+            return NotImplemented
+        # warning: no keepalives, only for short-lived conversions like
+        # in argument passing
+        r_temp = r_to.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        v_c_array = r_from.get_c_data_of_item(llops, v, C_ZERO)
+        r_temp.setvalue(llops, v_owned_box, v_c_array)
+        return llops.convertvar(v_owned_box, r_temp, r_to)
 
 
-CCHARP = llmemory.Address    # char *
-FIRSTITEMOFS = llmemory.ArrayItemsOffset(string_repr.lowleveltype.TO.chars)
+CCHARP = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
 
 def ll_strlen(p):
     i = 0
-    while ord(p.char[i]) != 0:
+    while ord(p[i]) != 0:
         i += 1
     return i
 
 def ll_strnlen(p, maxlen):
     i = 0
-    while i < maxlen and ord(p.char[i]) != 0:
+    while i < maxlen and ord(p[i]) != 0:
         i += 1
     return i
 
 def ll_str2charp(s):
-    return llmemory.cast_ptr_to_adr(s.chars) + FIRSTITEMOFS
+    return lltype.cast_subarray_pointer(CCHARP, s.chars, 0)
 
 def ll_getstring(box):
     p = box.c_data[0]
@@ -104,7 +96,7 @@ def ll_getstring(box):
             length = ll_strlen(p)
         newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
         for i in range(length):
-            newstr.chars[i] = p.char[i]
+            newstr.chars[i] = p[i]
         return newstr
     else:
         return lltype.nullptr(string_repr.lowleveltype.TO)
@@ -113,7 +105,7 @@ def ll_setstring(box, string):
     if string:
         box.c_data[0] = ll_str2charp(string)
     else:
-        box.c_data[0] = llmemory.NULL
+        box.c_data[0] = lltype.nullptr(CCHARP.TO)
     box.keepalive_str = string
 
 
