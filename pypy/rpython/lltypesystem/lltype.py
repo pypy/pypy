@@ -618,9 +618,9 @@ def cast_subarray_pointer(ARRAYPTRTYPE, arrayptr, baseoffset):
     if not isinstance(CURPTRTYPE, Ptr) or not isinstance(ARRAYPTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
     ARRAYTYPE = ARRAYPTRTYPE.TO
-    if (not isinstance(CURPTRTYPE.TO, Array) or
+    if (not isinstance(CURPTRTYPE.TO, (Array, FixedSizeArray)) or
         not isinstance(ARRAYTYPE, FixedSizeArray)):
-        raise TypeError, "for now, can only cast Array to FixedSizeArray"
+        raise TypeError, "can only cast from arrays to FixedSizeArray"
     if CURPTRTYPE.TO.OF != ARRAYTYPE.OF:
         raise TypeError, "mismatching array item types"
     if not arrayptr:
