@@ -3,7 +3,7 @@ import autopath, os, sys, __builtin__, marshal, zlib
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.translator.gensupp import builtin_base
+from pypy.translator.gensupp import builtin_base, builtin_type_base
 from pypy.translator.c.support import log
 from pypy.translator.c.wrapper import gen_wrapper
 
@@ -335,7 +335,7 @@ class PyObjMaker:
         return name
 
     def nameof_classobj(self, cls):
-        if builtin_base(cls) is object:
+        if isinstance(cls, ClassType) or builtin_type_base(cls) is object:
             clsdef = self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
             if self.translator.rtyper.needs_wrapper(clsdef):
                 return self.wrap_exported_class(cls)
