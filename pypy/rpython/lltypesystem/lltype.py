@@ -788,10 +788,6 @@ class _ptr(object):
         if isinstance(self._T, (Array, FixedSizeArray)):
             start, stop = self._obj.getbounds()
             if not (start <= i < stop):
-                if self._T._hints.get('isrpystring', False) and i == stop:
-                    # special hack for the null terminator
-                    assert self._T.OF == Char
-                    return '\x00'
                 raise IndexError("array index out of bounds")
             o = self._obj.getitem(i)
             return _expose(o, self._solid)
@@ -1044,10 +1040,23 @@ class _array(_parentable):
         return len(self.items)
 
     def getbounds(self):
-        return 0, self.getlength()
+        stop = len(self.items)
+        if self._TYPE._hints.get('isrpystring', False):
+            # special hack for the null terminator
+            assert self._TYPE.OF == Char
+            stop += 1
+        return 0, stop
 
     def getitem(self, index):
-        return self.items[index]
+        try:
+            return self.items[index]
+        except IndexError:
+            if (self._TYPE._hints.get('isrpystring', False) and
+                index == len(self.items)):
+                # special hack for the null terminator
+                assert self._TYPE.OF == Char
+                return '\x00'
+            raise
 
     def setitem(self, index, value):
         self.items[index] = value
