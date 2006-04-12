@@ -335,9 +335,10 @@ class PyObjMaker:
         return name
 
     def nameof_classobj(self, cls):
-        clsdef = self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
-        if self.translator.rtyper.needs_wrapper(clsdef):
-            return self.wrap_exported_class(cls)
+        if builtin_base(cls) is object:
+            clsdef = self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
+            if self.translator.rtyper.needs_wrapper(clsdef):
+                return self.wrap_exported_class(cls)
 
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r should never be reached" % (cls,)
