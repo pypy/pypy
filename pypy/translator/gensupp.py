@@ -54,6 +54,9 @@ class UniqueList(list):
 
 def builtin_base(obj):
     typ = type(obj)
+    return builtin_type_base(typ)
+
+def builtin_type_base(typ):
     from copy_reg import _HEAPTYPE
     while typ.__flags__&_HEAPTYPE:
         typ = typ.__base__
