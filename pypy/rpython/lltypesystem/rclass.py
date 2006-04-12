@@ -636,7 +636,6 @@ def outof_cobject(v_obj, repr, llops):
     return v_inst
 
 def rtype_wrap_object_create(hop):
-    gencapi = hop.llops.gencapicall
     v_inst, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
     v_res = into_cobject(v_inst, repr, hop.llops)
@@ -644,7 +643,7 @@ def rtype_wrap_object_create(hop):
         v_cobj = v_res
         c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
         c_0 = hop.inputconst(Signed, 0)
-        v_res = gencapi('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyobj_repr)
+        v_res = hop.llops.gencapicall('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyobj_repr)
         c_self = hop.inputconst(pyobj_repr, '__self__')
         hop.genop('setattr', [v_res, c_self, v_cobj], resulttype=pyobj_repr)
         repr.setfield(v_inst, '_wrapper_', v_res, hop.llops)
@@ -697,8 +696,6 @@ class __extend__(pairtype(PyObjRepr, InstanceRepr)):
             if context is init:
                 # saving an extra __new__ method, we create the instance on __init__
                 v_inst = r_to.new_instance(llops)
-                gencapi = llops.gencapicall
-                rtyper = llops.rtyper
                 v_cobj = into_cobject(v_inst, r_to, llops)
                 c_self = inputconst(pyobj_repr, '__self__')
                 llops.genop('setattr', [v, c_self, v_cobj], resulttype=pyobj_repr)
