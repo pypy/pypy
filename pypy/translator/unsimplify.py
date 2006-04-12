@@ -59,11 +59,17 @@ def split_block(translator, block, index):
             varmap[var] = copyvar(translator, var)
         return varmap[var]
     moved_operations = block.operations[index:]
+    new_moved_ops = []
     for op in moved_operations:
-        for i, arg in enumerate(op.args):
-            op.args[i] = get_new_name(op.args[i])
+        newop = SpaceOperation(op.opname,
+                               [get_new_name(arg) for arg in op.args],
+                               op.result)
+        new_moved_ops.append(newop)
         vars_produced_in_new_block[op.result] = True
-    for link in block.exits:
+    moved_operations = new_moved_ops
+    links = block.exits
+    block.exits = None
+    for link in links:
         for i, arg in enumerate(link.args):
             #last_exception and last_exc_value are considered to be created
             #when the link is entered
@@ -74,7 +80,7 @@ def split_block(translator, block, index):
     #from block the old block
     newblock = Block(varmap.values())
     newblock.operations = moved_operations
-    newblock.exits = block.exits
+    newblock.exits = links
     newblock.exitswitch = exitswitch
     newblock.exc_handler = block.exc_handler
     for link in newblock.exits:
