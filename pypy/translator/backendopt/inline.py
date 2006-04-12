@@ -183,13 +183,13 @@ class BaseInliner(object):
         if isinstance(var, Constant):
             return var
         if var not in self.varmap:
-            self.varmap[var] = copyvar(self.translator, var)
+            self.varmap[var] = copyvar(None, var)
         return self.varmap[var]
         
     def passon_vars(self, cache_key):
         if cache_key in self._passon_vars:
             return self._passon_vars[cache_key]
-        result = [copyvar(self.translator, var)
+        result = [copyvar(None, var)
                       for var in self.original_passon_vars]
         self._passon_vars[cache_key] = result
         return result
@@ -312,13 +312,12 @@ class BaseInliner(object):
         exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
-            etype = copyvar(self.translator, copiedexceptblock.inputargs[0])
-            evalue = copyvar(self.translator, copiedexceptblock.inputargs[1])
+            etype = copyvar(None, copiedexceptblock.inputargs[0])
+            evalue = copyvar(None, copiedexceptblock.inputargs[1])
             passon_vars = self.passon_vars(i)
             block = Block([etype, evalue] + passon_vars)
             res = Variable()
             res.concretetype = Bool
-            self.translator.annotator.bindings[res] = annmodel.SomeBool()
             cexitcase = Constant(link.llexitcase)
             cexitcase.concretetype = typeOf(cexitcase.value)
             args = [exc_match, etype, cexitcase]
@@ -350,8 +349,7 @@ class BaseInliner(object):
 
       
     def do_inline(self, block, index_operation):
-        splitlink = split_block_with_keepalive(
-            self.translator, block, index_operation)
+        splitlink = split_block_with_keepalive(block, index_operation)
         afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
@@ -360,7 +358,8 @@ class BaseInliner(object):
         # this copy is created with the method passon_vars
         self.original_passon_vars = [arg for arg in block.exits[0].args
                                          if isinstance(arg, Variable)]
-        assert afterblock.operations[0] is self.op
+        assert afterblock.operations[0].opname is self.op.opname
+        self.op = afterblock.operations[0]
         #vars that need to be passed through the blocks of the inlined function
         linktoinlined = splitlink 
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)

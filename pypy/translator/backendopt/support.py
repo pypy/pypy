@@ -62,9 +62,9 @@ def generate_keepalive(vars):
         keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
     return keepalive_ops
 
-def split_block_with_keepalive(translator, block, index_operation,
+def split_block_with_keepalive(block, index_operation,
                                keep_alive_op_args=True):
-    splitlink = split_block(translator, block, index_operation)
+    splitlink = split_block(None, block, index_operation)
     afterblock = splitlink.target
     conservative_keepalives = needs_conservative_livevar_calculation(block)
     if conservative_keepalives:
@@ -78,7 +78,7 @@ def split_block_with_keepalive(translator, block, index_operation,
                 newvar = afterblock.inputargs[index]
             except ValueError:
                 splitlink.args.append(var)
-                newvar = copyvar(translator, var)
+                newvar = copyvar(None, var)
                 afterblock.inputargs.append(newvar)
             keep_alive_vars[i] = newvar
     elif keep_alive_op_args and afterblock.operations: 
@@ -88,8 +88,8 @@ def split_block_with_keepalive(translator, block, index_operation,
         keep_alive_vars = []
     if afterblock.exitswitch == c_last_exception:
         for link in afterblock.exits:
-            betweenblock = insert_empty_block(translator, link)
-            fresh_vars = [copyvar(translator, var) for var in keep_alive_vars]
+            betweenblock = insert_empty_block(None, link)
+            fresh_vars = [copyvar(None, var) for var in keep_alive_vars]
             betweenblock.inputargs.extend(fresh_vars)
             link.args.extend(keep_alive_vars)
             betweenblock.operations = generate_keepalive(fresh_vars)

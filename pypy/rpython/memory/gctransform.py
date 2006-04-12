@@ -82,6 +82,7 @@ class GCTransformer(object):
                 else:
                     insert_empty_block(None, link, newops)
 
+        self.links_to_split = None
         v = Variable('vanishing_exc_value')
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
