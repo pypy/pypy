@@ -317,8 +317,7 @@ class StacklessTransfomer(object):
                        and block.exitswitch == model.c_last_exception:
                     link = block.exits[0]
                 else:
-                    link = support.split_block_with_keepalive(
-                        self.translator, block, i+1)
+                    link = support.split_block_with_keepalive(block, i+1)
                     block.exitswitch = model.c_last_exception
                     link.llexitcase = None
                 var_unwind_exception = varoftype(evalue)
