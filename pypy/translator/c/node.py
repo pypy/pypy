@@ -603,6 +603,7 @@ class FuncNode(ContainerNode):
             yield line
 
         yield '}'
+        del bodyiter
         funcgen.implementation_end()
 
 assert not USESLOTS or '__dict__' not in dir(FuncNode)

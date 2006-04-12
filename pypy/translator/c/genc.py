@@ -309,6 +309,7 @@ class SourceGenerator:
                     continue
                 cost = len(impl) + nbetween
                 yield node, impl
+                del impl
                 if used + cost > split_criteria:
                     # split if criteria met, unless we would produce nothing.
                     raise StopIteration

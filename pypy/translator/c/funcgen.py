@@ -96,6 +96,10 @@ class FunctionCodeGenerator(object):
             newgraph = copygraph(self.graph, shallow=True)
             self.oldgraph = self.graph
             self.graph = newgraph
+            ## protect
+            #for block in self.oldgraph.iterblocks():
+            #    for op in block.operations:
+            #        op.args = tuple(op.args)
             self.db.gctransformer.inline_helpers(newgraph)
             self.collect_var_and_types()
         else:
@@ -113,7 +117,9 @@ class FunctionCodeGenerator(object):
 
     def implementation_end(self):
         self.lltypes = None
+        self.vars = None
         self.blocknum = None
+        self.currentblock = None
         self.graph = self.oldgraph
         del self.oldgraph
 
