@@ -657,29 +657,6 @@ class TestFlowObjSpaceDelay:
             from some.unknown.module import stuff
         g = self.codetest(f)
 
-    def test_lazy_constant_simple(self):
-        def f():
-            global xxx_global
-            from pypy.objspace.flow.test.test_objspace import \
-                 user_defined_function as xxx_global, DATA
-            return xxx_global
-        g = self.codetest(f)
-        consts = [self.space.unwrap(c) for c in self.space.const_tracker.known_consts.values()]
-        assert user_defined_function in consts
-        assert DATA not in consts
-        global xxx_global; xxx_global = 42; del xxx_global
-
-    def not_yet_test_lazy_constant_harder(self):
-        def f():
-            global xxx_global
-            import pypy as xxx_global
-            ret = xxx_global.objspace.flow.test.test_objspace.user_defined_function
-            return ret
-        g = self.codetest(f)
-        consts = [self.space.unwrap(c) for c in self.space.const_tracker.known_consts.values()]
-        assert user_defined_function in consts
-        assert DATA not in consts
-        global xxx_global; xxx_global = 42; del xxx_global
 
 DATA = {'x': 5,
         'y': 6}

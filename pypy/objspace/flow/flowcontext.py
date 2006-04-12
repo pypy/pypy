@@ -211,7 +211,8 @@ class FlowExecutionContext(ExecutionContext):
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = [initialblock]
         self.graph = FunctionGraph(name or code.co_name, initialblock)
-        self.make_link = Link # overridable for transition tracking
+
+    make_link = Link # overridable for transition tracking
 
     def create_frame(self):
         # create an empty frame suitable for the code object
@@ -225,13 +226,6 @@ class FlowExecutionContext(ExecutionContext):
 
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
-
-    def start_monitoring(self, monitorfunc):
-        def make_link(*args):
-            link = Link(*args);
-            monitorfunc(link)
-            return link
-        self.make_link = make_link
 
     def guessexception(self, *classes):
         def replace_exc_values(case):

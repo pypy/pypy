@@ -16,11 +16,8 @@ def sc_import(space, fn, args):
         return space.wrap(__import__(name, glob, loc, frm))
     # redirect it, but avoid exposing the globals
     w_glob = Constant({})
-    w_ret = space.do_operation('simple_call', Constant(__import__),
+    return space.do_operation('simple_call', Constant(__import__),
                                w_name, w_glob, w_loc, w_frm)
-    # let the space decide later if this should be a constant import
-    space.track_possible_constant(w_ret, __import__, w_name, w_glob, w_loc, w_frm)
-    return w_ret
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()

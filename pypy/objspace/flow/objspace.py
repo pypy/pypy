@@ -645,95 +645,27 @@ def override():
     
     def getattr(self, w_obj, w_name):
         # handling special things like sys
-        # (maybe this will vanish with a unique import logic)
+        # unfortunately this will never vanish with a unique import logic :-(
         if w_obj in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
                 return self.do_operation_with_implicit_exceptions('getattr', w_obj, w_name)
-        w_res = self.regular_getattr(w_obj, w_name)
-        # tracking variables which might be(come) constants
-        if self.const_tracker:
-            self.track_possible_constant(w_res, _getattr, w_obj, w_name)
-        return w_res
+        return self.regular_getattr(w_obj, w_name)
 
     FlowObjSpace.regular_getattr = FlowObjSpace.getattr
     FlowObjSpace.getattr = getattr
 
-    # protect us from globals access but support constant import into globals
+    # protect us from globals write access
     def setitem(self, w_obj, w_key, w_val):
         ec = self.getexecutioncontext()
         if not (ec and w_obj is ec.w_globals):
             return self.regular_setitem(w_obj, w_key, w_val)
-        globals = self.unwrap(w_obj)
-        try:
-            key = self.unwrap_for_computation(self.resolve_constant(w_key))
-            val = self.unwrap_for_computation(self.resolve_constant(w_val))
-            if key not in globals or val == globals[key]:
-                globals[key] = val
-                return self.w_None
-        except UnwrapException:
-            pass
         raise SyntaxError, "attempt to modify global attribute %r in %r" % (w_key, ec.graph.func)
 
     FlowObjSpace.regular_setitem = FlowObjSpace.setitem
     FlowObjSpace.setitem = setitem
 
-    def track_possible_constant(self, w_ret, func, *args_w):
-        if not self.const_tracker:
-            self.const_tracker = ConstTracker(self)
-        tracker = self.const_tracker
-        tracker.track_call(w_ret, func, *args_w)
-        self.getexecutioncontext().start_monitoring(tracker.monitor_transition)
-
-    FlowObjSpace.track_possible_constant = track_possible_constant
-
-    def resolve_constant(self, w_obj):
-        if self.const_tracker:
-            w_obj = self.const_tracker.resolve_const(w_obj)
-        return w_obj
-
-    FlowObjSpace.resolve_constant = resolve_constant
-
 override()
-
-
-class ConstTracker(object):
-    def __init__(self, space):
-        assert isinstance(space, FlowObjSpace)
-        self.space = space
-        self.known_consts = {}
-        self.tracked_vars = {}
-        self.mapping = {}
-
-    def track_call(self, w_res, callable, *args_w):
-        """ defer evaluation of this expression until a const is needed
-        """
-        self.mapping[w_res] = w_res
-        self.tracked_vars[w_res] = callable, args_w
-
-    def monitor_transition(self, link):
-        for vin, vout in zip(link.args, link.target.inputargs):
-            # we record all true transitions, but no cycles.
-            if vin in self.mapping and vout not in self.mapping:
-                # the mapping leads directly to the origin.
-                self.mapping[vout] = self.mapping[vin]
-
-    def resolve_const(self, w_obj):
-        """ compute a latent constant expression """
-        if isinstance(w_obj, Constant):
-            return w_obj
-        w = self.mapping.get(w_obj, w_obj)
-        if w in self.known_consts:
-            return self.known_consts[w]
-        if w not in self.tracked_vars:
-            raise SyntaxError, 'RPython: cannot compute a constant for %s in %s' % (
-                w_obj, self.space.getexecutioncontext().graph.func)
-        callable, args_w = self.tracked_vars.pop(w)
-        args_w = [self.resolve_const(w_x) for w_x in args_w]
-        args = [self.space.unwrap_for_computation(w_x) for w_x in args_w]
-        w_ret = self.space.wrap(callable(*args))
-        self.known_consts[w] = w_ret
-        return w_ret
 
 # ______________________________________________________________________
 # End of objspace.py
