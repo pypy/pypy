@@ -182,7 +182,9 @@ class Meth(StaticMethod):
 
 
 class List(OOType):
-    ITEMTYPE_T = object() # placeholder, see below
+    # placeholders
+    SELFTYPE_T = object()
+    ITEMTYPE_T = object()
 
     def __init__(self, ITEMTYPE):
         self._ITEMTYPE = ITEMTYPE
@@ -191,15 +193,20 @@ class List(OOType):
         # This defines the abstract list interface that backends will
         # have to map to their native list implementations.
         # 'ITEMTYPE_T' is used as a placeholder for indicating
-        # arguments that should have ITEMTYPE type.
+        # arguments that should have ITEMTYPE type. 'SELFTYPE_T' indicates 'self'
 
-        generic_types = {self.ITEMTYPE_T: ITEMTYPE}
+        generic_types = {
+            self.SELFTYPE_T: self,
+            self.ITEMTYPE_T: ITEMTYPE,
+            }
+
         self._GENERIC_METHODS = frozendict({
             # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
             "length": Meth([], Signed),
             "append": Meth([self.ITEMTYPE_T], Void),
             "getitem": Meth([Signed], self.ITEMTYPE_T),
             "setitem": Meth([Signed, self.ITEMTYPE_T], Void),
+            "extend": Meth([self.SELFTYPE_T], Void),
         })
 
         self._setup_methods(generic_types)
@@ -542,6 +549,11 @@ class _list(object):
         assert typeOf(item) == self._TYPE._ITEMTYPE
         assert typeOf(index) == Signed
         self._list[index] = item
+
+    def extend(self, other):
+        # NOT_RPYTHON
+        assert typeOf(other) == typeOf(self)
+        self._list.extend(other._list)
 
 class _null_list(_null_mixin(_list), _list):
 

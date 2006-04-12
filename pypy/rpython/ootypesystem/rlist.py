@@ -33,6 +33,7 @@ class BaseListRepr(AbstractBaseListRepr):
             self.lowleveltype.become(ootype.List(self.item_repr.lowleveltype))
 
     def send_message(self, hop, message, can_raise=False):
+        print message
         v_args = hop.inputargs(self, *hop.args_r[1:])
         c_name = hop.inputconst(ootype.Void, message)
         if can_raise:
@@ -45,6 +46,9 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def rtype_method_append(self, hop):
         return self.send_message(hop, "append")
+
+    def rtype_method_extend(self, hop):
+        return self.send_message(hop, "extend")
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
@@ -64,6 +68,7 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
     def rtype_setitem((r_list, r_int), hop):
         # XXX must handle negative indices
         return r_list.send_message(hop, "setitem", can_raise=True)
+
 
 def newlist(llops, r_list, items_v):
     c_1ist = inputconst(ootype.Void, r_list.lowleveltype)
