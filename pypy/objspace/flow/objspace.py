@@ -63,8 +63,6 @@ class FlowObjSpace(ObjSpace):
         #self.make_sys()
         # objects which should keep their SomeObjectness
         self.not_really_const = NOT_REALLY_CONST
-        # tracking variables which might in turn turn into constants.
-        self.const_tracker = None
 
     def enter_cache_building_mode(self):
         # when populating the caches, the flow space switches to
@@ -193,8 +191,6 @@ class FlowObjSpace(ObjSpace):
         self.executioncontext = ec
         from pypy.objspace.flow import specialcase
         specialcase.setup(self)
-        self.const_tracker = None
-        # maybe it would be cleaner to have the tracker in the EC itself?
 
     def exception_match(self, w_exc_type, w_check_class):
         self.executioncontext.recorder.crnt_block.exc_handler = True
