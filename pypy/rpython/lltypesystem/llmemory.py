@@ -218,7 +218,8 @@ class fakeaddress(object):
         ref = self.ref()
         if (isinstance(ref, _arrayitemref) and
             isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
-            isinstance(lltype.typeOf(ref.array).TO, lltype.Array)):
+            isinstance(lltype.typeOf(ref.array).TO, (lltype.FixedSizeArray,
+                                                     lltype.Array))):
             # special case that requires cast_subarray_pointer
             return lltype.cast_subarray_pointer(EXPECTED_TYPE,
                                                 ref.array,
