@@ -577,3 +577,36 @@ def test_fixedsizearray():
     assert s.a[3] == 17
     assert len(s.a) == 5
     py.test.raises(TypeError, "s.a = a")
+
+def test_cast_subarray_pointer():
+    A = GcArray(Signed)
+    a = malloc(A, 5)
+    a[0] = 0
+    a[1] = 10
+    a[2] = 20
+    a[3] = 30
+    a[4] = 40
+    BOX = Ptr(FixedSizeArray(Signed, 2))
+    b01 = cast_subarray_pointer(BOX, a, 0)
+    b12 = cast_subarray_pointer(BOX, a, 1)
+    b23 = cast_subarray_pointer(BOX, a, 2)
+    b34 = cast_subarray_pointer(BOX, a, 3)
+    assert b01[0] == 0
+    assert b01[1] == 10
+    assert b12[0] == 10
+    assert b12[1] == 20
+    assert b23[0] == 20
+    assert b23[1] == 30
+    assert b34[0] == 30
+    assert b34[1] == 40
+    b23[0] = 23
+    assert a[2] == 23
+    b12[1] += 1
+    assert a[2] == 24
+    # out-of-bound access is allowed, if it's within the parent's bounds
+    assert len(b23) == 2
+    assert b23[-1] == 10
+    assert b12[3] == 40
+    py.test.raises(IndexError, "b01[-1]")
+    py.test.raises(IndexError, "b34[2]")
+    py.test.raises(IndexError, "b12[4]")

@@ -160,3 +160,15 @@ def test_fakeadr_eq():
     assert adr1 != adr2
     adr2 += ItemOffset(lltype.Char, -1)
     assert adr1 == adr2
+
+def test_cast_subarray_pointer():
+    A = lltype.GcArray(lltype.Signed)
+    a = lltype.malloc(A, 5)
+    a[3] = 132
+
+    SUBARRAY = lltype.FixedSizeArray(lltype.Signed, 1)
+    adr = cast_ptr_to_adr(a) + itemoffsetof(A, 3)
+    subarray = cast_adr_to_ptr(adr, lltype.Ptr(SUBARRAY))
+    assert subarray[0] == 132
+    subarray[0] += 2
+    assert a[3] == 134

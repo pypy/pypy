@@ -215,7 +215,18 @@ class fakeaddress(object):
         self.ref().set(value)
 
     def _cast_to_ptr(self, EXPECTED_TYPE):
-        return lltype.cast_pointer(EXPECTED_TYPE, self.get())
+        ref = self.ref()
+        if (isinstance(ref, _arrayitemref) and
+            isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
+            isinstance(lltype.typeOf(ref.array).TO, lltype.Array)):
+            # special case that requires cast_subarray_pointer
+            return lltype.cast_subarray_pointer(EXPECTED_TYPE,
+                                                ref.array,
+                                                ref.index)
+        else:
+            # regular case
+            assert isinstance(ref.type(), lltype.ContainerType)
+            return lltype.cast_pointer(EXPECTED_TYPE, ref.get())
 
     def _cast_to_int(self):
         return self.get()._cast_to_int()

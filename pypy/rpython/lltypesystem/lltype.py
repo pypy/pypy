@@ -6,6 +6,7 @@ from pypy.tool.tls import tlsobject
 from pypy.tool.picklesupport import getstate_with_slots, setstate_with_slots, pickleable_weakref
 from types import NoneType
 from sys import maxint
+import weakref
 
 log = py.log.Producer('lltype')
 
@@ -612,6 +613,29 @@ def cast_pointer(PTRTYPE, ptr):
         raise TypeError, "can only cast pointers to other pointers"
     return ptr._cast_to(PTRTYPE)
 
+def cast_subarray_pointer(ARRAYPTRTYPE, arrayptr, baseoffset):
+    CURPTRTYPE = typeOf(arrayptr)
+    if not isinstance(CURPTRTYPE, Ptr) or not isinstance(ARRAYPTRTYPE, Ptr):
+        raise TypeError, "can only cast pointers to other pointers"
+    ARRAYTYPE = ARRAYPTRTYPE.TO
+    if (not isinstance(CURPTRTYPE.TO, Array) or
+        not isinstance(ARRAYTYPE, FixedSizeArray)):
+        raise TypeError, "for now, can only cast Array to FixedSizeArray"
+    if CURPTRTYPE.TO.OF != ARRAYTYPE.OF:
+        raise TypeError, "mismatching array item types"
+    if not arrayptr:
+        raise RuntimeError("cast_subarray_pointer: NULL argument")
+    try:
+        cache = _subarray._cache[arrayptr._obj]
+    except KeyError:
+        cache = _subarray._cache[arrayptr._obj] = {}
+    key = (ARRAYTYPE, baseoffset)
+    try:
+        subarray = cache[key]
+    except KeyError:
+        subarray = cache[key] = _subarray(ARRAYTYPE, arrayptr._obj, baseoffset)
+    return _ptr(ARRAYPTRTYPE, subarray)
+
 def _expose(val, solid=False):
     """XXX A nice docstring here"""
     T = typeOf(val)
@@ -762,9 +786,9 @@ class _ptr(object):
 
     def __getitem__(self, i): # ! can only return basic or ptr !
         if isinstance(self._T, (Array, FixedSizeArray)):
-            if not (0 <= i < self._obj.getlength()):
-                if (self._T._hints.get('isrpystring', False) and
-                    i == self._obj.getlength()):
+            start, stop = self._obj.getbounds()
+            if not (start <= i < stop):
+                if self._T._hints.get('isrpystring', False) and i == stop:
                     # special hack for the null terminator
                     assert self._T.OF == Char
                     return '\x00'
@@ -782,8 +806,9 @@ class _ptr(object):
             if T2 != T1:
                     raise TypeError("%r items:\n"
                                     "expect %r\n"
-                                    "   got %r" % (self._T, T1, T2))                
-            if not (0 <= i < self._obj.getlength()):
+                                    "   got %r" % (self._T, T1, T2))
+            start, stop = self._obj.getbounds()
+            if not (start <= i < stop):
                 raise IndexError("array index out of bounds")
             self._obj.setitem(i, val)
             return
@@ -971,6 +996,9 @@ class _struct(_parentable):
         assert isinstance(self._TYPE, FixedSizeArray)
         return self._TYPE.length
 
+    def getbounds(self):
+        return 0, self.getlength()
+
     def getitem(self, index):         # for FixedSizeArray kind of structs
         assert isinstance(self._TYPE, FixedSizeArray)
         return getattr(self, 'item%d' % index)
@@ -1015,6 +1043,9 @@ class _array(_parentable):
     def getlength(self):
         return len(self.items)
 
+    def getbounds(self):
+        return 0, self.getlength()
+
     def getitem(self, index):
         return self.items[index]
 
@@ -1023,6 +1054,32 @@ class _array(_parentable):
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
+
+
+class _subarray(_parentable):     # only for cast_subarray_pointer()
+    _kind = "subarray"
+    _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
+
+    def __init__(self, TYPE, arrayobj, baseoffset):
+        _parentable.__init__(self, TYPE)
+        self._setparentstructure(arrayobj, baseoffset)
+
+    def getlength(self):
+        assert isinstance(self._TYPE, FixedSizeArray)
+        return self._TYPE.length
+
+    def getbounds(self):
+        baseoffset = self._parent_index
+        start, stop = self._parentstructure().getbounds()
+        return start - baseoffset, stop - baseoffset
+
+    def getitem(self, index):
+        baseoffset = self._parent_index
+        return self._parentstructure().getitem(baseoffset + index)
+
+    def setitem(self, index, value):
+        baseoffset = self._parent_index
+        self._parentstructure().setitem(baseoffset + index, value)
 
 
 class _func(object):
