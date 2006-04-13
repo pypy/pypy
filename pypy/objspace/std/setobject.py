@@ -28,7 +28,8 @@ class W_BaseSetObject(W_Object):
         elif objtype is W_FrozensetObject:
             obj = W_FrozensetObject(space, rdict_w)
         else:
-            obj = space.call(space.type(w_self),W_SetIterObject(space,rdict_w))
+            itemiterator = space.iter(W_SetIterObject(space,rdict_w))
+            obj = space.call_function(space.type(w_self),itemiterator)
         return obj
 
 class W_SetObject(W_BaseSetObject):
