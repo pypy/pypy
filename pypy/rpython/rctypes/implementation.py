@@ -4,6 +4,7 @@ import pypy.rpython.rctypes.rpointer
 import pypy.rpython.rctypes.rarray
 import pypy.rpython.rctypes.rfunc
 import pypy.rpython.rctypes.rchar_p
+import pypy.rpython.rctypes.rstruct
 
 
 # Register the correspondance between SomeCTypesObject and the get_repr()
