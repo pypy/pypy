@@ -29,8 +29,8 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
     from pypy.translator.c import gc
     from pypy.translator.c.genc import CExtModuleBuilder
 
-    global t # allow us to view later
-    t = TranslationContext(do_imports_immediately=False)
+    global _t # allow us to view later
+    _t = t = TranslationContext(do_imports_immediately=False)
     t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper

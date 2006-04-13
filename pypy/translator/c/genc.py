@@ -678,7 +678,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
             globalobject_name,
             base_name,
             wrapper_name,
-            c_string_constant(func_doc or '')))
+            func_doc and c_string_constant(func_doc) or 'NULL'))
     print >> f, '\t{ NULL }\t/* Sentinel */'
     print >> f, '};'
     print >> f, 'static globalfunctiondef_t *globalfunctiondefsptr = &globalfunctiondefs[0];'
