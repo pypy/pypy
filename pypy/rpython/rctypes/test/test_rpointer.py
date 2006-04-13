@@ -3,13 +3,12 @@ Test the rctypes pointer implementation
 """
 
 import py.test
+import pypy.rpython.rctypes.implementation
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 from pypy.rpython.test.test_llinterp import interpret
 
 from ctypes import c_int, c_float, POINTER, pointer
-
-import pypy.rpython.rctypes.implementation
 
 class Test_annotation:
     def test_simple(self):

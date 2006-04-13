@@ -3,6 +3,7 @@ Test the rctypes implementation.
 """
 
 import py.test
+import pypy.rpython.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy import conftest

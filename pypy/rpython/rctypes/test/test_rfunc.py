@@ -1,14 +1,34 @@
 import py
+import sys
+import pypy.rpython.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
-from pypy.rpython.rctypes.test.test_rctypes import mylib
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.lltypesystem import lltype
 
+from ctypes import cdll
 from ctypes import c_int, c_long, c_char_p, c_char
 
+# __________ the standard C library __________
+
+# LoadLibrary is deprecated in ctypes, this should be removed at some point
+if "load" in dir(cdll):
+    cdll_load = cdll.load
+else:
+    cdll_load = cdll.LoadLibrary
+
+if sys.platform == 'win32':
+    mylib = cdll_load('msvcrt.dll')
+elif sys.platform == 'linux2':
+    mylib = cdll_load('libc.so.6')
+elif sys.platform == 'darwin':
+    mylib = cdll.c
+else:
+    py.test.skip("don't know how to load the c lib for %s" % 
+            sys.platform)
+# ____________________________________________
 
 labs = mylib.labs
 labs.restype = c_long

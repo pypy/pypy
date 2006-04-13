@@ -238,19 +238,19 @@ if __name__ == '__main__':
     opts, args = getopt.gnu_getopt(sys.argv[1:], 'h:')
     if not args:
         print >> sys.stderr, doc
-        sys.exit(2)
-    assert len(args) % 2 == 1
-    headers = []
-    for opt, value in opts:
-        if opt == '-h':
-            headers.append('#include <%s>' % (value,))
-    name = args[0]
-    fields = []
-    for i in range(1, len(args), 2):
-        ctype = getattr(ctypes, args[i+1])
-        fields.append((args[i], ctype))
+    else:
+        assert len(args) % 2 == 1
+        headers = []
+        for opt, value in opts:
+            if opt == '-h':
+                headers.append('#include <%s>' % (value,))
+        name = args[0]
+        fields = []
+        for i in range(1, len(args), 2):
+            ctype = getattr(ctypes, args[i+1])
+            fields.append((args[i], ctype))
 
-    S = getstruct(name, '\n'.join(headers), fields)
+        S = getstruct(name, '\n'.join(headers), fields)
 
-    for key, value in S._fields_:
-        print key, value
+        for key, value in S._fields_:
+            print key, value
