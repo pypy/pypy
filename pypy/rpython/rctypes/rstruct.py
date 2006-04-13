@@ -24,7 +24,10 @@ class StructRepr(CTypesRefRepr):
             llfields.append((name, r_field.ll_type))
 
         # Here, self.c_data_type == self.ll_type
-        c_data_type = lltype.Struct(struct_ctype.__name__, *llfields)
+        external = getattr(struct_ctype, '_external_', False)
+        extras = {'hints': {'c_name': struct_ctype.__name__,
+                            'external': external}}
+        c_data_type = lltype.Struct(struct_ctype.__name__, *llfields, **extras)
 
         super(StructRepr, self).__init__(rtyper, s_struct, c_data_type)
 

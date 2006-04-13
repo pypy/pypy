@@ -44,11 +44,16 @@ class StructDefNode:
             basename = db.gettypedefnode(STRUCT).barename
             basename = '%s_len%d' % (basename, varlength)
             with_number = False
-        (self.barename,
-         self.name) = db.namespace.uniquename(basename, with_number=with_number,
-                                              bare=True)
+        if STRUCT._hints.get('c_name'):
+            self.barename = self.name = STRUCT._hints['c_name']
+            self.prefix = ''
+        else:
+            (self.barename,
+             self.name) = db.namespace.uniquename(basename,
+                                                  with_number=with_number,
+                                                  bare=True)
+            self.prefix = somelettersfrom(STRUCT._name) + '_'
         self.dependencies = {}
-        self.prefix = somelettersfrom(STRUCT._name) + '_'
 
     def setup(self):
         # this computes self.fields
@@ -98,6 +103,8 @@ class StructDefNode:
         return '%s.%s' % (baseexpr, fldname)
 
     def definition(self):
+        if self.STRUCT._hints.get('external'):      # XXX hack
+            return
         yield 'struct %s {' % self.name
         is_empty = True
 
@@ -320,7 +327,6 @@ class ContainerNode(object):
                         includes""".split()
 
     def __init__(self, db, T, obj):
-        self.includes = ()
         self.db = db
         self.T = T
         self.obj = obj
@@ -530,7 +536,6 @@ class FuncNode(ContainerNode):
             self.includes = obj.includes
             self.name = self.basename()
         else:
-            self.includes = ()
             self.name = db.namespace.uniquename('g_' + self.basename())
         if not getattr(obj, 'isgchelper', False):
             self.make_funcgens()
@@ -634,7 +639,7 @@ def select_function_code_generators(fnobj, db, functionname):
             return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
-        if getattr(fnobj, 'includes', None):
+        if hasattr(fnobj, 'includes'):
             return []   # assume no wrapper needed
         else:
             return [CExternalFunctionCodeGenerator(fnobj, db)]
@@ -675,7 +680,6 @@ class PyObjectNode(ContainerNode):
     globalcontainer = True
     typename = 'PyObject @'
     implementationtypename = 'PyObject *@'
-    includes = ()
 
     def __init__(self, db, T, obj):
         # obj is a _pyobject here; obj.value is the underlying CPython object

@@ -131,7 +131,6 @@ class RefcountingGcPolicy(BasicGcPolicy):
 class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'refcnt rtti'
     globalcontainer = True
-    includes = ()
     typename = 'void (@)(void *)'
 
     def __init__(self, db, T, obj):
@@ -232,7 +231,6 @@ class BoehmGcPolicy(BasicGcPolicy):
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'boehm rtti'
     globalcontainer = True
-    includes = ()
     typename = 'char @'
 
     def __init__(self, db, T, obj):

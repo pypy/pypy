@@ -544,8 +544,9 @@ def gen_source_standalone(database, modulename, targetdir,
 
     includes = {}
     for node in database.globalcontainers():
-        for include in node.includes:
-            includes[include] = True
+        if hasattr(node, 'includes'):
+            for include in node.includes:
+                includes[include] = True
     includes = includes.keys()
     includes.sort()
     for include in includes:
@@ -604,8 +605,9 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
 
     includes = {}
     for node in database.globalcontainers():
-        for include in node.includes:
-            includes[include] = True
+        if hasattr(node, 'includes'):
+            for include in node.includes:
+                includes[include] = True
     includes = includes.keys()
     includes.sort()
     for include in includes:

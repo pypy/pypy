@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import c_last_exception, copygraph
 from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
 from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong
 from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
-from pypy.rpython.lltypesystem.lltype import pyobjectptr
+from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 
 PyObjPtr = Ptr(PyObject)
@@ -366,9 +366,17 @@ class FunctionCodeGenerator(object):
         return 'OP_CALL_ARGS((%s), %s);' % (', '.join(args), r)
 
     def OP_DIRECT_CALL(self, op):
-        # skip 'void' arguments
-        args = [self.expr(v) for v in op.args if self.lltypemap(v) is not Void]
-        line = '%s(%s);' % (args[0], ', '.join(args[1:]))
+        args = []
+        fn = op.args[0]
+        for v, ARGTYPE in zip(op.args[1:], fn.concretetype.TO.ARGS):
+            if ARGTYPE is Void:
+                continue    # skip 'void' argument
+            args.append(self.expr(v))
+            # special case for rctypes: by-value container args:
+            if isinstance(ARGTYPE, ContainerType):
+                args[-1] = '*%s' % (args[-1],)
+
+        line = '%s(%s);' % (self.expr(fn), ', '.join(args))
         if self.lltypemap(op.result) is not Void:
             # skip assignment of 'void' return value
             r = self.expr(op.result)
@@ -379,7 +387,7 @@ class FunctionCodeGenerator(object):
         return line
 
     # the following works since the extra arguments that indirect_call has
-    # is of type Void, which is removed by OP_DIRECT_CALL
+    # is removed by zip()
     OP_INDIRECT_CALL = OP_DIRECT_CALL
 
     def OP_UNSAFE_CALL(self, op):

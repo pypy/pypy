@@ -34,7 +34,10 @@ else:
 
 # XXX the built module and intermediate files should go to /tmp/usession-*,
 #     see pypy.tool.udir
-compile_c_module([thisdir.join("_rctypes_test.c")], "_rctypes_test")
+c_source = thisdir.join("_rctypes_test.c")
+compile_c_module([c_source], "_rctypes_test")
+includes = (str(c_source),)   # in the sequel, we #include the whole .c file
+del c_source                  # into the generated C sources
 
 if sys.platform == "win32":
     _rctypes_test = cdll_load("_rctypes_test.pyd")
@@ -45,6 +48,7 @@ else:
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
                 ("y", c_int)]
+    _external_ = True       # hack to avoid redeclaration of the struct in C
 
 # _testfunc_byval
 testfunc_byval = _rctypes_test._testfunc_byval
@@ -57,6 +61,7 @@ def ll_testfunc_byval(in_, pout):
         pout.y = in_.y
     return in_.x + in_.y
 testfunc_byval.llinterp_friendly_version = ll_testfunc_byval
+testfunc_byval.includes = includes
 
 # _test_struct
 testfunc_struct = _rctypes_test._testfunc_struct
@@ -75,7 +80,7 @@ testfunc_struct_pointer_id.restype = tagpointptr
 testfunc_struct_pointer_id.argtypes = [tagpointptr]
 
 
-def test_rctypes_dll():     # this test is also annotated/specialized below
+def test_rctypes_dll():
     in_point = tagpoint()
     in_point.x = 42
     in_point.y = 17
@@ -84,6 +89,7 @@ def test_rctypes_dll():     # this test is also annotated/specialized below
     assert res == in_point.x + in_point.y
     assert out_point.x == 42
     assert out_point.y == 17
+    return out_point.x - out_point.y     # this test function is reused below
 
 class Test_annotation:
     def test_annotate_byval(self):
@@ -92,7 +98,14 @@ class Test_annotation:
         s = a.build_types(test_rctypes_dll, [])
         if conftest.option.view:
             t.view()
+        assert s.knowntype == int
 
 class Test_specialization:
     def test_specialize_byval(self):
-        interpret(test_rctypes_dll, [])
+        res = interpret(test_rctypes_dll, [])
+        assert res == 42 - 17
+
+class Test_compile:
+    def test_compile_byval(self):
+        fn = compile(test_rctypes_dll, [])
+        assert fn() == 42 - 17
