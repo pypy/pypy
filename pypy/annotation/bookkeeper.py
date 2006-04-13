@@ -456,7 +456,11 @@ class Bookkeeper:
                         name)
             else:
                 # must be a frozen pre-built constant, but let's check
-                assert pyobj._freeze_()
+                try:
+                    assert pyobj._freeze_()
+                except AttributeError:
+                    raise Exception("unexpected prebuilt constant: %r" % (
+                        pyobj,))
                 result = self.getfrozen(pyobj)
             self.descs[pyobj] = result
             return result
