@@ -379,8 +379,9 @@ class FuncType(ContainerType):
     def __init__(self, args, result):
         for arg in args:
             assert isinstance(arg, LowLevelType)
-            if isinstance(arg, ContainerType):
-                raise TypeError, "function arguments can only be primitives or pointers"
+            # -- disabled the following check for the benefits of rctypes --
+            #if isinstance(arg, ContainerType):
+            #    raise TypeError, "function arguments can only be primitives or pointers"
         self.ARGS = tuple(args)
         assert isinstance(result, LowLevelType)
         if isinstance(result, ContainerType):

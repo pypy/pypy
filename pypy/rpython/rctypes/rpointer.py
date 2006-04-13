@@ -6,7 +6,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, genreccopy
 
-from ctypes import POINTER, pointer, c_int
+from ctypes import POINTER, pointer, byref, c_int
 
 class PointerRepr(CTypesValueRepr):
     def __init__(self, rtyper, s_pointer):
@@ -139,4 +139,10 @@ extregistry.register_value(pointer,
         compute_result_annotation=pointerfn_compute_annotation,
         # same rtyping for calling pointer() or calling a specific instance
         # of PointerType:
+        specialize_call=pointertype_specialize_call)
+
+# byref() is equivalent to pointer() -- the difference is only an
+# optimization that is useful in ctypes but not in rctypes.
+extregistry.register_value(byref,
+        compute_result_annotation=pointerfn_compute_annotation,
         specialize_call=pointertype_specialize_call)

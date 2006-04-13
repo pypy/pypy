@@ -21,6 +21,8 @@ class ExtRegistryInstance(object):
         return self.compute_annotation(type, instance)
     
 EXT_REGISTRY_BY_VALUE = weakref.WeakKeyDictionary()
+EXT_REGISTRY_BY_VALUE_NONWEAK = {}    # for things that cannot be weakly ref'ed
+                                      # like built-in functions
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
 EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
@@ -46,9 +48,15 @@ def create_entry(compute_result_annotation=undefined, compute_annotation=None,
             get_repr)
 
 def register_value(value, **kwargs):
-    assert value not in EXT_REGISTRY_BY_VALUE
-    EXT_REGISTRY_BY_VALUE[value] = create_entry(**kwargs)
-    return EXT_REGISTRY_BY_VALUE[value]
+    try:
+        weakref.ref(value)
+    except TypeError:
+        REG = EXT_REGISTRY_BY_VALUE_NONWEAK
+    else:
+        REG = EXT_REGISTRY_BY_VALUE
+    assert value not in REG
+    REG[value] = create_entry(**kwargs)
+    return REG[value]
     
 def register_type(t, **kwargs):
     assert t not in EXT_REGISTRY_BY_TYPE
@@ -75,7 +83,13 @@ def is_registered_type(tp):
 
 def lookup(instance):
     try:
-        return EXT_REGISTRY_BY_VALUE[instance]
+        weakref.ref(instance)
+    except TypeError:
+        REG = EXT_REGISTRY_BY_VALUE_NONWEAK
+    else:
+        REG = EXT_REGISTRY_BY_VALUE
+    try:
+        return REG[instance]
     except (KeyError, TypeError):
         return lookup_type(type(instance))
         
