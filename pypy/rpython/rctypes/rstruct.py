@@ -5,7 +5,7 @@ from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rbuiltin import gen_cast_structfield_pointer
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
-from pypy.rpython.rctypes.rmodel import genreccopy
+from pypy.rpython.rctypes.rmodel import genreccopy, reccopy
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
 
 StructType = type(Structure)
@@ -27,6 +27,16 @@ class StructRepr(CTypesRefRepr):
         c_data_type = lltype.Struct(struct_ctype.__name__, *llfields)
 
         super(StructRepr, self).__init__(rtyper, s_struct, c_data_type)
+
+    def initialize_const(self, p, value):
+        for name, r_field in self.r_fields.items():
+            llitem = r_field.convert_const(getattr(value, name))
+            if isinstance(r_field, CTypesRefRepr):
+                # ByRef case
+                reccopy(llitem.c_data, getattr(p.c_data, name))
+            else:
+                # ByValue case
+                setattr(p.c_data, name, llitem.c_data[0])
 
     def get_c_data_of_field(self, llops, v_struct, fieldname):
         v_c_struct = self.get_c_data(llops, v_struct)

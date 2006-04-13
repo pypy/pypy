@@ -89,3 +89,45 @@ class Test_specialization:
 
         res = interpret(access_struct, [44])
         assert res == 90
+
+    def test_specialize_prebuilt(self):
+        my_struct_2 = tagpoint(5, 7)
+        my_struct_3 = tagpoint(x=6, y=11)
+        def func(i):
+            if i == 2:
+                struct = my_struct_2
+            else:
+                struct = my_struct_3
+            return struct.y
+
+        res = interpret(func, [2])
+        assert res == 7
+        res = interpret(func, [3])
+        assert res == 11
+
+class Test_compilation:
+    def test_compile_struct_access(self):
+        def access_struct(n):
+            my_struct = tagpoint()
+            my_struct.x = c_int(1)
+            my_struct.y = 2
+            my_struct.x += n
+
+            return my_struct.x * my_struct.y
+
+        fn = compile(access_struct, [int])
+        assert fn(44) == 90
+
+    def test_compile_prebuilt(self):
+        my_struct_2 = tagpoint(5, 7)
+        my_struct_3 = tagpoint(x=6, y=11)
+        def func(i):
+            if i == 2:
+                struct = my_struct_2
+            else:
+                struct = my_struct_3
+            return struct.y
+
+        fn = compile(func, [int])
+        assert fn(2) == 7
+        assert fn(3) == 11
