@@ -7,9 +7,9 @@ from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
         AbstractListIteratorRepr, rtype_newlist
 from pypy.rpython.rlist import dum_nocheck, dum_checkidx
-from pypy.rpython.rslice import SliceRepr
-from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
-from pypy.rpython.rslice import minusone_slice_repr
+from pypy.rpython.lltypesystem.rslice import SliceRepr
+from pypy.rpython.lltypesystem.rslice import startstop_slice_repr, startonly_slice_repr
+from pypy.rpython.lltypesystem.rslice import minusone_slice_repr
 from pypy.rpython.lltypesystem. lltype import \
      GcForwardReference, Ptr, GcArray, GcStruct, \
      Void, Signed, malloc, typeOf, Primitive, \

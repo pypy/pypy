@@ -3,9 +3,12 @@ from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
         AbstractListIteratorRepr, rtype_newlist
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
+from pypy.rpython.lltypesystem.lltype import Signed
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.riterable import iterator_type
-from pypy.rpython.lltypesystem.lltype import Signed
+from pypy.rpython.ootypesystem.rslice import SliceRepr, \
+     startstop_slice_repr, startonly_slice_repr, minusone_slice_repr
+
 
 class BaseListRepr(AbstractBaseListRepr):
 
@@ -78,6 +81,22 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
             hop.exception_is_here()
             return hop.gendirectcall(ll_setitem, v_list, v_index, v_item)
             
+
+class __extend__(pairtype(BaseListRepr, SliceRepr)):
+
+    def rtype_getitem((r_list, r_slic), hop):
+        raise NotImplementedError # TODO
+##        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+##        if r_slic == startonly_slice_repr:
+##            v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
+##            return hop.gendirectcall(ll_listslice_startonly, cRESLIST, v_lst, v_start)
+##        if r_slic == startstop_slice_repr:
+##            v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
+##            return hop.gendirectcall(ll_listslice, cRESLIST, v_lst, v_slice)
+##        if r_slic == minusone_slice_repr:
+##            v_lst, v_ignored = hop.inputargs(r_lst, minusone_slice_repr)
+##            return hop.gendirectcall(ll_listslice_minusone, cRESLIST, v_lst)
+##        raise TyperError('getitem does not support slices with %r' % (r_slic,))
             
 
 def ll_getitem(lst, index):

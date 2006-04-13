@@ -20,7 +20,7 @@ class TypeSystem(object):
                                   None, None, ['__doc__'])
             except ImportError:
                 return None
-        if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
+        if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist', 'rslice',
                 'exceptiondata'):
             mod = load(name)
             if mod is not None:

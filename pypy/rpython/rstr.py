@@ -8,9 +8,9 @@ from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltypesystem.rtuple import TupleRepr # XXX type system!
 from pypy.rpython import rint
-from pypy.rpython.rslice import SliceRepr
-from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
-from pypy.rpython.rslice import minusone_slice_repr
+from pypy.rpython.lltypesystem.rslice import SliceRepr # XXX type system!
+from pypy.rpython.lltypesystem.rslice import startstop_slice_repr, startonly_slice_repr
+from pypy.rpython.lltypesystem.rslice import minusone_slice_repr
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc, \
      Bool, Void, GcArray, nullptr, pyobjectptr
