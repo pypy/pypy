@@ -2,15 +2,6 @@ from pypy.translator.simplify import get_graph
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.rpython.lltypesystem import lltype
 
-class ExceptionInfo(object):
-    def __init__(self, translator, can_raise, cannot_raise=None):
-        self.can_raise = can_raise
-        self.cannot_raise = cannot_raise
-        self.translator = translator
-
-    def exception_match(self, etype):
-        pass
-
 class RaiseAnalyzer(object):
     def __init__(self, translator):
         self.translator = translator
