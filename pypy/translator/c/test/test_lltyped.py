@@ -160,3 +160,41 @@ class TestLowLevelType:
             assert res == 0 + 10 + 1000 + 40
             res = fn(4)
             assert res == 0 + 10 + 30 + 1000
+
+    def test_cast_structfield_pointer(self):
+        S = GcStruct('S', ('x', Signed), ('y', Signed))
+        SUBARRAY = FixedSizeArray(Signed, 1)
+        P = Ptr(SUBARRAY)
+        def llf(n=int):
+            s = malloc(S)
+            a = cast_structfield_pointer(P, s, 'y')
+            a[0] = n
+            return s.y
+
+        fn = self.getcompiled(llf)
+        res = fn(34)
+        assert res == 34
+
+    def test_prebuilt_subarrays(self):
+        a1 = malloc(GcArray(Signed), 5)
+        a2 = malloc(FixedSizeArray(Signed, 5), immortal=True)
+        s  = malloc(GcStruct('S', ('x', Signed), ('y', Signed)))
+        a1[3] = 7000
+        a2[1] =  600
+        s.x   =   50
+        s.y   =    4
+        P = Ptr(FixedSizeArray(Signed, 1))
+        p1 = cast_subarray_pointer(P, a1, 3)
+        p2 = cast_subarray_pointer(P, a2, 1)
+        p3 = cast_structfield_pointer(P, s, 'x')
+        p4 = cast_structfield_pointer(P, s, 'y')
+        def llf():
+            a1[3] += 1000
+            a2[1] +=  100
+            s.x   +=   10
+            s.y   +=    1
+            return p1[0] + p2[0] + p3[0] + p4[0]
+
+        fn = self.getcompiled(llf)
+        res = fn()
+        assert res == 8765
