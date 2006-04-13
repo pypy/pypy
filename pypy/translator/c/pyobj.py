@@ -38,6 +38,7 @@ class PyObjMaker:
         self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
         self.import_hints = {} # I don't seem to need it any longer.
         # leaving the import support intact, doesn't hurt.
+        self.name_for_meth = {} # get nicer wrapper names
 
     def nameof(self, obj, debug=None):
         if debug:
@@ -208,9 +209,9 @@ class PyObjMaker:
         if self.shouldskipfunc(func):
             return self.skipped_function(func)
 
-        fwrapper = gen_wrapper(func, self.translator)
+        fwrapper = gen_wrapper(func, self.translator, self.name_for_meth.get(func, func.__name__))
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
-        self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper)
+        self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper), func.__doc__
         return pycfunctionobj
 
     def import_function(self, func):
@@ -538,14 +539,14 @@ class PyObjMaker:
             content.sort()
             for key, value in content:
                 if key.startswith('__'):
-                    if key in ['__module__', '__doc__', '__dict__',
+                    if key in ['__module__', '__dict__', '__doc__',
                                '__weakref__', '__repr__', '__metaclass__']:
                         continue
                 if self.shouldskipfunc(value):
                     log.WARNING("skipped class function: %r" % value)
                     continue
-#                yield '%s.%s = property(lambda self:%s.__get__(self.__self__))' % (
-#                    name, key, self.nameof(value))
+                if callable(value):
+                    self.name_for_meth[value] = '%s.%s' % (cls.__name__, value.__name__)
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
 
         baseargs = ", ".join(basenames)
@@ -554,6 +555,8 @@ class PyObjMaker:
             
         a = self.initcode.append
         a('class %s%s:'                     % (name, baseargs) )
+        if cls.__doc__:
+            a('    %r'                      % str(cls.__doc__) )
         a('    __metaclass__ = type')
         a('    __slots__ = ["__self__"] # for PyCObject')
         self.later(initclassobj())

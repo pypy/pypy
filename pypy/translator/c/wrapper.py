@@ -10,7 +10,7 @@ from pypy.interpreter.pycode import CO_VARARGS
 from pypy.rpython.typesystem import getfunctionptr
 
 
-def gen_wrapper(func, translator):
+def gen_wrapper(func, translator, newname=None):
     """generate a wrapper function for 'func' that can be put in a
     PyCFunction object.  The wrapper has signature
 
@@ -121,7 +121,7 @@ def gen_wrapper(func, translator):
 
     # "return result"
     block = Block([vself, vargs, vkwds])
-    wgraph = FunctionGraph('pyfn_' + func.func_name, block)
+    wgraph = FunctionGraph('pyfn_' + (newname or func.func_name), block)
     translator.update_call_graph(wgraph, graph, object())
     translator.graphs.append(wgraph)
     block.operations[:] = newops

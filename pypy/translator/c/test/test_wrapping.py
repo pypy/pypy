@@ -43,6 +43,11 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
         if isinstance(obj, type):
             clsdef = bk.getuniqueclassdef(obj)
             rtyper.add_wrapper(clsdef)
+            # pull it all out
+            for name, value in obj.__dict__.items():
+                continue # do we want that
+                if callable(value):
+                    t.annotator.build_types(value, get_annotation(value))
         elif callable(obj):
             t.annotator.build_types(obj, get_annotation(obj))
     if view:
@@ -231,12 +236,14 @@ class DemoBaseNotExposed(object):
 
 # a trivial class to be exposed
 class DemoClass(DemoBaseNotExposed):
+    """this is the doc string"""
     def __init__(self, a, b):
         self.a = a
         self.b = b
         if P:print 'init'
 
     def demo(self):
+        """this is the doc for demo"""
         if P:print 'demo'
         return self.a + self.b
 
@@ -348,6 +355,22 @@ def test_wrap_call_dtor():
 # exposing and using classes from a generasted extension module
 def test_expose_classes():
     m = get_compiled_module(democlass_helper2, use_boehm=not True, exports=[
+        DemoClass, DemoSubclass, DemoNotAnnotated, setup_new_module])
+    obj = m.DemoClass(2, 3)
+    res = obj.demo()
+    assert res == DemoClass(2, 3).demo()
+
+def t(a=int, b=int, c=DemoClass):
+    DemoClass(a, b).demo()
+    DemoSubclass(a, a, b).demo()
+    DemoSubclass(a, a, b).demo(6)
+    DemoSubclass(a, a, b).demo(6, 'hu')
+    if isinstance(c, DemoSubclass):
+        print 42
+        
+# exposing and using classes from a generasted extension module
+def test_asd():
+    m = get_compiled_module(t, use_boehm=not True, exports=[
         DemoClass, DemoSubclass, DemoNotAnnotated, setup_new_module])
     obj = m.DemoClass(2, 3)
     res = obj.demo()

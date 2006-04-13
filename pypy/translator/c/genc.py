@@ -12,7 +12,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.tool import isolate
 from pypy.translator.locality.calltree import CallTree
-from pypy.translator.c.support import log
+from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 
 class CBuilder(object):
@@ -669,13 +669,14 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     print >> f, 'static globalfunctiondef_t globalfunctiondefs[] = {'
     wrappers = pyobjmaker.wrappers.items()
     wrappers.sort()
-    for globalobject_name, (base_name, wrapper_name) in wrappers:
+    for globalobject_name, (base_name, wrapper_name, func_doc) in wrappers:
         print >> f, ('\t{&%s, "%s", {"%s", (PyCFunction)%s, '
-                     'METH_VARARGS|METH_KEYWORDS}},' % (
+                     'METH_VARARGS|METH_KEYWORDS, %s}},' % (
             globalobject_name,
             globalobject_name,
             base_name,
-            wrapper_name))
+            wrapper_name,
+            c_string_constant(func_doc or '')))
     print >> f, '\t{ NULL }\t/* Sentinel */'
     print >> f, '};'
     print >> f, 'static globalfunctiondef_t *globalfunctiondefsptr = &globalfunctiondefs[0];'

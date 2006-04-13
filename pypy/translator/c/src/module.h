@@ -24,6 +24,7 @@
 	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
+	PyGenCFunction_Type.tp_getset = PyCFunction_Type.tp_getset; \
 	PyType_Ready(&PyGenCFunction_Type);	\
 	RPythonError = PyErr_NewException(#modname ".RPythonError", \
 					  NULL, NULL); \
