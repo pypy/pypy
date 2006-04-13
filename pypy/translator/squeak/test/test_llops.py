@@ -1,11 +1,14 @@
 import sys
-from pypy.translator.squeak.test.runtest import compile_function
+from pypy.translator.squeak.test.runtest import compile_function, squeak_checks
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, Float
 from pypy.rpython.test.test_llinterp import interpret
+
+def setup_module(mod):
+    squeak_checks()
 
 def optest(testcase):
     llopname = testcase[0]

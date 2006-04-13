@@ -8,6 +8,18 @@ from pypy import conftest
 def compile_function(func, annotation=[], graph=None):
     return SqueakFunction(func, annotation, graph)
 
+def squeak_checks():
+    try:
+        import posix
+    except ImportError:
+        py.test.skip("Squeak tests only work on Unix right now.")
+    try:
+        py.path.local.sysfind("squeak")
+    except py.error.ENOENT:
+        py.test.skip("Squeak is not on your path.")
+    if os.getenv("SQUEAK_IMAGE") is None:
+        py.test.skip("Squeak tests expect the SQUEAK_IMAGE environment "
+                "variable to point to an image.")
 
 # For now use pipes to communicate with squeak. This is very flaky
 # and only works for posix systems. At some later point we'll
@@ -32,6 +44,7 @@ Smalltalk snapshot: false andQuit: true.
 class SqueakFunction:
 
     def __init__(self, func, annotation, graph=None):
+        squeak_checks()
         self._func = func
         self._gen = self._build(func, annotation, graph)
 
@@ -78,17 +91,6 @@ class SqueakFunction:
 
     def __call__(self, *args):
         # NB: only integers arguments are supported currently
-        try:
-            import posix
-        except ImportError:
-            py.test.skip("Squeak tests only work on Unix right now.")
-        try:
-            py.path.local.sysfind("squeak")
-        except py.error.ENOENT:
-            py.test.skip("Squeak is not on your path.")
-        if os.getenv("SQUEAK_IMAGE") is None:
-            py.test.skip("Squeak tests expect the SQUEAK_IMAGE environment "
-                    "variable to point to an image.")
         startup_st = self._write_startup()
         options = "-headless"
         if hasattr(conftest, "showsqueak") and conftest.option.showsqueak:
