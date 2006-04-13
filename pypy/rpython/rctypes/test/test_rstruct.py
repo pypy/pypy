@@ -50,3 +50,42 @@ class Test_annotation:
 
         if conftest.option.view:
             t.view()
+
+    def test_annotate_prebuilt(self):
+        my_struct_2 = tagpoint(5, 7)
+        my_struct_3 = tagpoint(x=6, y=11)
+        def func(i):
+            if i == 2:
+                struct = my_struct_2
+            else:
+                struct = my_struct_3
+            return struct.y
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == int
+
+class Test_specialization:
+    def test_specialize_struct(self):
+        def create_struct():
+            return tagpoint()
+
+        res = interpret(create_struct, [])
+        c_data = res.c_data
+        assert c_data.x == 0
+        assert c_data.y == 0
+
+    def test_specialize_struct_access(self):
+        def access_struct(n):
+            my_struct = tagpoint()
+            my_struct.x = c_int(1)
+            my_struct.y = 2
+            my_struct.x += n
+
+            return my_struct.x * my_struct.y
+
+        res = interpret(access_struct, [44])
+        assert res == 90

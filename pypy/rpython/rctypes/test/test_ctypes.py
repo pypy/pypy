@@ -63,3 +63,18 @@ def test_char_p():
     assert p[0] == x.value == "world"
     p[0] = "other"
     assert x.value == p.contents.value == p[0] == "other"
+
+def test_struct():
+    class tagpoint(Structure):
+        _fields_ = [('x', c_int),
+                    ('p', POINTER(c_short))]
+
+    y = c_short(123)
+    z = c_short(-33)
+    s = tagpoint()
+    s.p.contents = z
+    assert s.p.contents.value == -33
+    s.p = pointer(y)
+    assert s.p.contents.value == 123
+    s.p.contents.value = 124
+    assert y.value == 124

@@ -65,6 +65,15 @@ class ArrayRepr(CTypesRefRepr):
 
 
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
+    def rtype_getitem((r_array, r_int), hop):
+        v_array, v_index = hop.inputargs(r_array, lltype.Signed)
+        if isinstance(r_array.r_item, PrimitiveRepr):
+            # primitive case (optimization only)
+            return r_array.get_item_value(hop.llops, v_array, v_index)
+        # normal case
+        v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
+        return r_array.r_item.return_c_data(hop.llops, v_c_data)
+
     def rtype_setitem((r_array, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_array, lltype.Signed,
                                                  r_array.r_item)
@@ -78,15 +87,6 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
             # ByValue case (optimization; the above also works in this case)
             v_newvalue = r_array.r_item.getvalue(hop.llops, v_item)
             r_array.set_item_value(hop.llops, v_array, v_index, v_newvalue)
-
-    def rtype_getitem((r_array, r_int), hop):
-        v_array, v_index = hop.inputargs(r_array, lltype.Signed)
-        if isinstance(r_array.r_item, PrimitiveRepr):
-            # primitive case (optimization only)
-            return r_array.get_item_value(hop.llops, v_array, v_index)
-        # normal case
-        v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
-        return r_array.r_item.return_c_data(hop.llops, v_c_data)
 
 # ____________________________________________________________
 
