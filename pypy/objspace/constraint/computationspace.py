@@ -100,7 +100,6 @@ class W_ComputationSpace(Wrappable):
             self.status = self._space.newint(1)
             return self.status
         self.status = self._space.newint(self.distributor.fanout)
-        print "duh ?"
         return self.status
 
     def w_clone(self):
@@ -118,6 +117,7 @@ class W_ComputationSpace(Wrappable):
 
     def w_commit(self, w_choice):
         self.distributor.w_distribute(self, w_choice)
+        self.status = None
 
     def w_set_distributor(self, w_distributor):
         self.distributor = w_distributor
@@ -153,11 +153,19 @@ class W_ComputationSpace(Wrappable):
         return self._space.newlist(self.dependant_constraints(w_var))
 
     def w_define_problem(self, w_problem):
-        print "there"
-        self.sol_set = self._space.call(w_problem, self)
+        self.sol_set = self._space.call(w_problem, self._space.newlist([self]))
 
-    def w_set_root(self, w_solution_list):
-        self.sol_set = w_solution_list
+    def w_merge(self):
+        res = []
+        for var in self.sol_set.wrappeditems:
+            res.append(self.var_dom[var].get_values()[0])
+        return self._space.newtuple(res)
+
+    def w_print_state(self):
+        print "VARS  :", self.name_var.keys()
+        print "CONST :", self.var_const.values()
+        print "DOMS  :", self.var_dom.values()
+        print "CHK   :", self.to_check
 
     #-- everything else ---------------
 
@@ -197,7 +205,7 @@ class W_ComputationSpace(Wrappable):
                 # we should also remove the constraint from
                 # the set of satifiable constraints of the space
                 if const in affected_constraints:
-                    affected_constraints.remove(const)
+                    del affected_constraints[const]
         
 
 W_ComputationSpace.typedef = typedef.TypeDef(
@@ -209,10 +217,10 @@ W_ComputationSpace.typedef = typedef.TypeDef(
     ask = interp2app(W_ComputationSpace.w_ask),
     clone = interp2app(W_ComputationSpace.w_clone),
     commit = interp2app(W_ComputationSpace.w_commit),
+    merge = interp2app(W_ComputationSpace.w_merge),
     dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints),
     define_problem = interp2app(W_ComputationSpace.w_define_problem),
-    set_root = interp2app(W_ComputationSpace.w_set_root))
-
+    print_state = interp2app(W_ComputationSpace.w_print_state))
 
 def newspace(object_space):
     return W_ComputationSpace(object_space)

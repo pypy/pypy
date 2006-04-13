@@ -104,3 +104,17 @@ class AppTest_ComputationSpace(object):
         csp.tell(make_expression([y, z], 'y<z'))
         csp.tell(make_expression([x, z], 'x<z'))
         assert csp.ask() > 1
+
+    def test_merge(self):
+        csp = newspace()
+        def problem(csp):
+            x = csp.var('x', FiniteDomain([1]))
+            y = csp.var('y', FiniteDomain([1, 2]))
+            z = csp.var('z', FiniteDomain([1, 2, 3]))
+            csp.tell(make_expression([x, y], 'x<y'))
+            csp.tell(make_expression([y, z], 'y<z'))
+            csp.tell(make_expression([x, z], 'x<z'))
+            return [x, y, z]
+        csp.define_problem(problem)
+        assert csp.ask() == 1
+        assert csp.merge() == (1, 2, 3)
