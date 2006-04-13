@@ -638,30 +638,9 @@ class __extend__(SomeCTypesObject):
     def getattr(cto, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            # We reactivate the old contents field hack
-            if False:
-                try:
-                    atype = cto.knowntype._fields_def_[attr]
-                except AttributeError:
-                    # We are dereferencing a pointer by accessing its contents attribute
-                    if s_attr.const == "contents":
-                        return SomeCTypesObject(
-                                cto.knowntype._type_, cto.MEMORYALIAS)
-                    else:
-                        raise AttributeError(
-                                "%r object has no attribute %r" % (
-                                    cto.knowntype, s_attr.const))
-            else:
-                if extregistry.is_registered_type(cto.knowntype):
-                    entry = extregistry.lookup_type(cto.knowntype)
-                    s_value = entry.get_field_annotation(cto, attr)
-                    return s_value
-                else:
-                    atype = cto.knowntype._fields_def_[attr]
-            try:
-                return atype.annotator_type
-            except AttributeError:
-                return SomeCTypesObject(atype)
+            entry = extregistry.lookup_type(cto.knowntype)
+            s_value = entry.get_field_annotation(cto, attr)
+            return s_value
         else:
             return SomeObject()
 

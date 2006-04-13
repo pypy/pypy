@@ -775,6 +775,7 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         return s_result.return_annotation()
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
+    # XXX ctypes array slicing not really supported for now
     def setitem((s_cto, s_slice), s_iterable):
         pass
 
