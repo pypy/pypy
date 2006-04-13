@@ -128,8 +128,8 @@ def test_list_getitem_setitem():
     def oof():
         l = new(LT)
         l.append(1)
-        l.setitem(0, 2)
-        return l.getitem(0)
+        l.setitem_nonneg(0, 2)
+        return l.getitem_nonneg(0)
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
@@ -141,7 +141,7 @@ def test_list_getitem_exceptions():
     def oof():
         l = new(LT)
         try:
-            l.getitem(0)
+            l.getitem_nonneg(0)
         except IndexError:
             return -1
         return 0
