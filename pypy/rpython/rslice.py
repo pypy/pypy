@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Void
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
-
+from pypy.rpython.error import TyperError
 
 def select_slice_repr(self):
     # Select which one of the three prebuilt reprs to use.
