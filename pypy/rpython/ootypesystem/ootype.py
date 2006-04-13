@@ -204,8 +204,8 @@ class List(OOType):
             # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
             "length": Meth([], Signed),
             "append": Meth([self.ITEMTYPE_T], Void),
-            "getitem": Meth([Signed], self.ITEMTYPE_T),
-            "setitem": Meth([Signed, self.ITEMTYPE_T], Void),
+            "getitem_nonneg": Meth([Signed], self.ITEMTYPE_T),
+            "setitem_nonneg": Meth([Signed, self.ITEMTYPE_T], Void),
             "extend": Meth([self.SELFTYPE_T], Void),
         })
 
@@ -539,15 +539,17 @@ class _list(object):
         assert typeOf(item) == self._TYPE._ITEMTYPE
         self._list.append(item)
 
-    def getitem(self, index):
+    def getitem_nonneg(self, index):
         # NOT_RPYTHON
         assert typeOf(index) == Signed
+        assert index >= 0
         return self._list[index]
 
-    def setitem(self, index, item):
+    def setitem_nonneg(self, index, item):
         # NOT_RPYTHON
         assert typeOf(item) == self._TYPE._ITEMTYPE
         assert typeOf(index) == Signed
+        assert index >= 0
         self._list[index] = item
 
     def extend(self, other):

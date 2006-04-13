@@ -31,15 +31,15 @@ def test_setitem_getitem():
     LT = List(Signed)
     l = new(LT)
     l.append(2)
-    assert l.getitem(0) == 2
-    l.setitem(0, 3)
-    assert l.getitem(0) == 3
+    assert l.getitem_nonneg(0) == 2
+    l.setitem_nonneg(0, 3)
+    assert l.getitem_nonneg(0) == 3
 
 def test_setitem_indexerror():
     LT = List(Signed)
     l = new(LT)
-    py.test.raises(IndexError, l.getitem, 0)
-    py.test.raises(IndexError, l.setitem, 0, 1)
+    py.test.raises(IndexError, l.getitem_nonneg, 0)
+    py.test.raises(IndexError, l.setitem_nonneg, 0, 1)
 
 def test_null():
     LT = List(Signed)

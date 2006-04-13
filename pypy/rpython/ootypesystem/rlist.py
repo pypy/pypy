@@ -5,6 +5,7 @@ from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.riterable import iterator_type
+from pypy.rpython.lltypesystem.lltype import Signed
 
 class BaseListRepr(AbstractBaseListRepr):
 
@@ -33,7 +34,6 @@ class BaseListRepr(AbstractBaseListRepr):
             self.lowleveltype.become(ootype.List(self.item_repr.lowleveltype))
 
     def send_message(self, hop, message, can_raise=False):
-        print message
         v_args = hop.inputargs(self, *hop.args_r[1:])
         c_name = hop.inputconst(ootype.Void, message)
         if can_raise:
@@ -62,13 +62,33 @@ FixedSizeListRepr = ListRepr
 class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
     def rtype_getitem((r_list, r_int), hop):
-        # XXX must handle negative indices
-        return r_list.send_message(hop, "getitem", can_raise=True)
+        if hop.args_s[1].nonneg:
+            return r_list.send_message(hop, "getitem_nonneg", can_raise=True)
+        else:
+            v_list, v_index = hop.inputargs(r_list, Signed)            
+            hop.exception_is_here()
+            v_res = hop.gendirectcall(ll_getitem, v_list, v_index)
+            return r_list.recast(hop.llops, v_res)
 
     def rtype_setitem((r_list, r_int), hop):
-        # XXX must handle negative indices
-        return r_list.send_message(hop, "setitem", can_raise=True)
+        if hop.args_s[1].nonneg:
+            return r_list.send_message(hop, "setitem_nonneg", can_raise=True)
+        else:
+            v_list, v_index, v_item = hop.inputargs(r_list, Signed, r_list.item_repr)
+            hop.exception_is_here()
+            return hop.gendirectcall(ll_setitem, v_list, v_index, v_item)
+            
+            
 
+def ll_getitem(lst, index):
+    if index < 0:
+        index += lst.length()
+    return lst.getitem_nonneg(index)
+
+def ll_setitem(lst, index, item):
+    if index < 0:
+        index += lst.length()
+    return lst.setitem_nonneg(index, item)
 
 def newlist(llops, r_list, items_v):
     c_1ist = inputconst(ootype.Void, r_list.lowleveltype)
@@ -93,7 +113,7 @@ def ll_extend(l1, l2):
     len2 = l2.length()
     i = 0
     while i < len2:
-        l1.append(l2.getitem(i))
+        l1.append(l2.getitem_nonneg(i))
         i += 1
 
 def ll_concat(RESLIST, l1, l2):
@@ -102,11 +122,11 @@ def ll_concat(RESLIST, l1, l2):
     l = ootype.new(RESLIST)
     i = 0
     while i < len1:
-        l.append(l1.getitem(i))
+        l.append(l1.getitem_nonneg(i))
         i += 1
     i = 0
     while i < len2:
-        l.append(l2.getitem(i))
+        l.append(l2.getitem_nonneg(i))
         i += 1
     return l
 
@@ -134,5 +154,5 @@ def ll_listnext(iter):
     if index >= l.length():
         raise StopIteration
     iter.index = index + 1
-    return l.getitem(index)
+    return l.getitem_nonneg(index)
 
