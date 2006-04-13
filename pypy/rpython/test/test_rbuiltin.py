@@ -335,3 +335,50 @@ def test_cast_primitive():
         return lltype.cast_primitive(lltype.UniChar, v)
     res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
     assert res == u'x'
+
+def test_cast_subarray_pointer():
+    from pypy.rpython.lltypesystem.lltype import malloc, GcArray, Signed
+    from pypy.rpython.lltypesystem.lltype import FixedSizeArray, Ptr
+    for a in [malloc(GcArray(Signed), 5),
+              malloc(FixedSizeArray(Signed, 5), immortal=True)]:
+        a[0] = 0
+        a[1] = 10
+        a[2] = 20
+        a[3] = 30
+        a[4] = 40
+        BOX = Ptr(FixedSizeArray(Signed, 2))
+        b01 = lltype.cast_subarray_pointer(BOX, a, 0)
+        b12 = lltype.cast_subarray_pointer(BOX, a, 1)
+        b23 = lltype.cast_subarray_pointer(BOX, a, 2)
+        b34 = lltype.cast_subarray_pointer(BOX, a, 3)
+        def llf(n):
+            saved = a[n]
+            a[n] = 1000
+            try:
+                return b01[0] + b12[0] + b23[1] + b34[1]
+            finally:
+                a[n] = saved
+
+        res = interpret(llf, [0])
+        assert res == 1000 + 10 + 30 + 40
+        res = interpret(llf, [1])
+        assert res == 0 + 1000 + 30 + 40
+        res = interpret(llf, [2])
+        assert res == 0 + 10 + 30 + 40
+        res = interpret(llf, [3])
+        assert res == 0 + 10 + 1000 + 40
+        res = interpret(llf, [4])
+        assert res == 0 + 10 + 30 + 1000
+
+def test_cast_structfield_pointer():
+    S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+    SUBARRAY = lltype.FixedSizeArray(lltype.Signed, 1)
+    P = lltype.Ptr(SUBARRAY)
+    def llf(n):
+        s = lltype.malloc(S)
+        a = lltype.cast_structfield_pointer(P, s, 'y')
+        a[0] = n
+        return s.y
+
+    res = interpret(llf, [34])
+    assert res == 34

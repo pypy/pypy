@@ -315,10 +315,10 @@ def rtype_cast_subarray_pointer(hop):
     hop.exception_cannot_occur()
     # instead of adding a 'cast_subarray_pointer' ll operation,
     # we do it with address manipulations
-    return gen_cast_array_pointer(hop.llops, hop.r_result.lowleveltype,
-                                  v_input, v_baseoffset)
+    return gen_cast_subarray_pointer(hop.llops, hop.r_result.lowleveltype,
+                                     v_input, v_baseoffset)
 
-def gen_cast_array_pointer(llops, ARRAYPTRTYPE, v_array, v_baseoffset):
+def gen_cast_subarray_pointer(llops, ARRAYPTRTYPE, v_array, v_baseoffset):
     "Helper to generate the equivalent of a 'cast_subarray_pointer' operation."
     from pypy.rpython.lltypesystem import llmemory
     SRCTYPE = v_array.concretetype.TO
@@ -331,6 +331,32 @@ def gen_cast_array_pointer(llops, ARRAYPTRTYPE, v_array, v_baseoffset):
     v_ofs3 = llops.genop('int_mul', [c_ofs2, v_baseoffset],
                          resulttype = lltype.Signed)
     v_base_adr = llops.genop('adr_add', [v_array_items_adr, v_ofs3],
+                             resulttype = llmemory.Address)
+    return llops.genop('cast_adr_to_ptr', [v_base_adr],
+                       resulttype = ARRAYPTRTYPE)
+
+def rtype_cast_structfield_pointer(hop):
+    assert hop.args_s[0].is_constant()
+    assert hop.args_s[2].is_constant()
+    fieldname = hop.args_s[2].const
+    assert isinstance(hop.args_r[1], rptr.PtrRepr)
+    v_type, v_input, v_fieldname = hop.inputargs(lltype.Void, hop.args_r[1],
+                                                 lltype.Void)
+    hop.exception_cannot_occur()
+    # instead of adding a 'cast_structfield_pointer' ll operation,
+    # we do it with address manipulations
+    return gen_cast_structfield_pointer(hop.llops, hop.r_result.lowleveltype,
+                                        v_input, fieldname)
+
+def gen_cast_structfield_pointer(llops, ARRAYPTRTYPE, v_struct, fieldname):
+    "Helper to generate the equivalent of a 'cast_structfield_pointer' op."
+    from pypy.rpython.lltypesystem import llmemory
+    SRCTYPE = v_struct.concretetype.TO
+    v_struct_adr = llops.genop('cast_ptr_to_adr', [v_struct],
+                               resulttype = llmemory.Address)
+    c_ofs1 = inputconst(lltype.Signed,
+                        llmemory.FieldOffset(SRCTYPE, fieldname))
+    v_base_adr = llops.genop('adr_add', [v_struct_adr, c_ofs1],
                              resulttype = llmemory.Address)
     return llops.genop('cast_adr_to_ptr', [v_base_adr],
                        resulttype = ARRAYPTRTYPE)
@@ -370,6 +396,7 @@ BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_subarray_pointer] = rtype_cast_subarray_pointer
+BUILTIN_TYPER[lltype.cast_structfield_pointer] = rtype_cast_structfield_pointer
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result

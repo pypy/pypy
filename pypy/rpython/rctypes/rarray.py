@@ -1,7 +1,7 @@
 from ctypes import ARRAY, c_int
 from pypy.annotation.model import SomeCTypesObject, SomeBuiltin
 from pypy.rpython import extregistry
-from pypy.rpython.rbuiltin import gen_cast_array_pointer
+from pypy.rpython.rbuiltin import gen_cast_subarray_pointer
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
@@ -47,8 +47,8 @@ class ArrayRepr(CTypesRefRepr):
         else:
             # ByValue case
             A = lltype.FixedSizeArray(self.r_item.ll_type, 1)
-            return gen_cast_array_pointer(llops, lltype.Ptr(A),
-                                          v_c_array, v_index)
+            return gen_cast_subarray_pointer(llops, lltype.Ptr(A),
+                                             v_c_array, v_index)
 
     def get_item_value(self, llops, v_array, v_index):
         # ByValue case only
@@ -88,6 +88,7 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
         v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
         return r_array.r_item.return_c_data(hop.llops, v_c_data)
 
+# ____________________________________________________________
 
 def arraytype_specialize_call(hop):
     r_array = hop.r_result

@@ -169,3 +169,17 @@ class Test_compilation:
         fn = compile(access_array, [])
         
         assert fn() == 2
+
+    def test_compile_prebuilt(self):
+        my_array_2 = (c_short*10)(0, 1, 4, 9, 16, 25, 36, 49, 64, 81)
+        my_array_3 = (c_short*10)(0, 1, 8, 27, 64, 125, 216, 343, 512, 729)
+        def func(i, n):
+            if i == 2:
+                array = my_array_2
+            else:
+                array = my_array_3
+            return array[n]
+
+        fn = compile(func, [int, int])
+        assert fn(2, 7) == 49
+        assert fn(3, 6) == 216

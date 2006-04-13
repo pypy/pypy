@@ -429,6 +429,15 @@ def cast_subarray_pointer(PtrT, s_p, s_offset):
                                           0)
     return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
 
+def cast_structfield_pointer(PtrT, s_p, s_fieldname):
+    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
+    assert PtrT.is_constant()
+    assert s_fieldname.is_constant()
+    cast_p = lltype.cast_structfield_pointer(PtrT.const,
+                                             s_p.ll_ptrtype._example(),
+                                             s_fieldname.const)
+    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
+
 def cast_ptr_to_int(s_ptr): # xxx
     return SomeInteger()
 
@@ -446,6 +455,7 @@ BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
 BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
 BUILTIN_ANALYZERS[lltype.cast_subarray_pointer] = cast_subarray_pointer
+BUILTIN_ANALYZERS[lltype.cast_structfield_pointer] = cast_structfield_pointer
 BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
