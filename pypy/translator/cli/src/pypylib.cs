@@ -17,12 +17,12 @@ namespace pypy.runtime
             return this.Count;
         }
 
-        public T getitem(int index)
+        public T getitem_nonneg(int index)
         {
             return this[index];
         }
 
-        public void setitem(int index, T value_)
+        public void setitem_nonneg(int index, T value_)
         {
             this[index] = value_;
         }

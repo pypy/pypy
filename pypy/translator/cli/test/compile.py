@@ -26,8 +26,8 @@ def check(f, g, *args):
 
 def bar(x, y):
     lst = [1,2,3,x,y]
-    lst.extend([1,2])
-    return 0
+    lst[-1] = 42
+    return lst[-1]
 
 f = compile_function(bar, [int, int])
 
