@@ -9,12 +9,10 @@ def remove_unaryops(graph, opnames):
     """Removes unary low-level ops with a name appearing in the opnames list.
     """
     positions = []
-    def visit(node): 
-        if isinstance(node, Block): 
-            for i, op in enumerate(node.operations):
-                if op.opname in opnames:
-                    positions.append((node, i))
-    traverse(visit, graph)
+    for block in graph.iterblocks():
+        for i, op in enumerate(block.operations):
+            if op.opname in opnames:
+                positions.append((block, i))
     while positions:
         block, index = positions.pop()
         op_result = block.operations[index].result
@@ -34,22 +32,13 @@ def remove_unaryops(graph, opnames):
             if isinstance(op_arg, Variable):
                 block.exitswitch = op_arg
             else:
-                assert isinstance(op_arg, Constant)
-                newexits = [link for link in block.exits
-                                 if link.exitcase == op_arg.value]
-                assert len(newexits) == 1
-                newexits[0].exitcase = None
-                if hasattr(newexits[0], 'llexitcase'):
-                    newexits[0].llexitcase = None
-                block.exitswitch = None
-                block.recloseblock(*newexits)
+                simplify.replace_exitswitch_by_constant(block, op_arg)
         block.operations[index] = None
        
     # remove all operations
-    def visit(node): 
-        if isinstance(node, Block) and node.operations:
-            node.operations[:] = filter(None, node.operations)
-    traverse(visit, graph)
+    for block in graph.iterblocks():
+        if block.operations:
+            block.operations[:] = filter(None, block.operations)
 
 def remove_same_as(graph):
     remove_unaryops(graph, ["same_as"])

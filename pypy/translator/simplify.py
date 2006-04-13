@@ -37,6 +37,18 @@ def get_graph(arg, translator):
         return None
 
 
+def replace_exitswitch_by_constant(block, const):
+    assert isinstance(const, Constant)
+    assert const != c_last_exception
+    newexits = [link for link in block.exits
+                     if link.exitcase == const.value]
+    assert len(newexits) == 1
+    newexits[0].exitcase = None
+    if hasattr(newexits[0], 'llexitcase'):
+        newexits[0].llexitcase = None
+    block.exitswitch = None
+    block.recloseblock(*newexits)
+
 # ____________________________________________________________
 
 def eliminate_empty_blocks(graph):
@@ -303,26 +315,13 @@ def join_blocks(graph):
             len(entrymap[link.target]) == 1 and
             link.target.exits):  # stop at the returnblock
             renaming = {}
-            cache_cleanups = {}
             for vprev, vtarg in zip(link.args, link.target.inputargs):
                 renaming[vtarg] = vprev
             def rename(v):
                 return renaming.get(v, v)
             def rename_op(op):
                 args = [rename(a) for a in op.args]
-                if hasattr(op, "cleanup"):
-                    if op.cleanup is None:
-                        cleanup = None
-                    elif op.cleanup not in cache_cleanups:
-                        finallyops, exceptops = op.cleanup
-                        cleanup = (tuple([rename_op(fo) for fo in finallyops]),
-                                   tuple([rename_op(eo) for eo in exceptops]))
-                        cache_cleanups[op.cleanup] = cleanup
-                    else:
-                        cleanup = cache_cleanups[op.cleanup] 
-                    op = SpaceOperation(op.opname, args, rename(op.result), cleanup=cleanup)
-                else:
-                    op = SpaceOperation(op.opname, args, rename(op.result))
+                op = SpaceOperation(op.opname, args, rename(op.result))
                 return op
             for op in link.target.operations:
                 link.prevblock.operations.append(rename_op(op))
@@ -330,8 +329,11 @@ def join_blocks(graph):
             for exit in link.target.exits:
                 newexit = exit.copy(rename)
                 exits.append(newexit)
-            link.prevblock.exitswitch = rename(link.target.exitswitch)
+            newexitswitch = rename(link.target.exitswitch)
+            link.prevblock.exitswitch = newexitswitch
             link.prevblock.recloseblock(*exits)
+            if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
+                replace_exitswitch_by_constant(link.prevblock, newexitswitch)
             stack.extend(exits)
         else:
             if link.target not in seen:

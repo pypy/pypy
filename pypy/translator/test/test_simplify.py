@@ -154,3 +154,21 @@ def test_huge_func():
     assert g(1) == 1001
     # does not crash: previously join_blocks would barf on this
     graph, t = translate(g, [int])
+
+def test_join_blocks_cleans_links():
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.objspace.flow.model import Constant
+    from pypy.translator.backendopt.removenoops import remove_same_as
+    def f(x):
+        return bool(x + 2)
+    def g(x):
+        if f(x):
+            return 1
+        else:
+            return 2
+    graph, t = translate(g, [int], backend_optimize=False)
+    fgraph = graphof(t, f)
+    fgraph.startblock.exits[0].args = [Constant(True, lltype.Bool)]
+    # does not crash: previously join_blocks would barf on this
+    remove_same_as(graph)
+    backend_optimizations(t)
