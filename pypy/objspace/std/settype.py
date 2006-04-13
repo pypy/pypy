@@ -26,20 +26,19 @@ set_reduce                      = SMM('__reduce__',1)
 
 register_all(vars(), globals())
 
-def descr__set__new__(space, w_settype, w_iterable=NoneNotWrapped):
+def descr__new__(space, w_settype, __args__):
     from pypy.objspace.std.setobject import W_SetObject
-    if w_iterable is None:
-        w_iterable = space.newtuple([])
     w_obj = space.allocate_instance(W_SetObject, w_settype)
-    W_SetObject.__init__(w_obj, space, w_iterable)
-
+    W_SetObject.__init__(w_obj, space, None)
     return w_obj
 
 set_typedef = StdTypeDef("set",
     __doc__ = """set(iterable) --> set object
 
 Build an unordered collection.""",
-    __new__ = newmethod(descr__set__new__),
+    __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
+                                                   gateway.W_Root,
+                                                   gateway.Arguments]),
     )
 
 set_typedef.registermethods(globals())
