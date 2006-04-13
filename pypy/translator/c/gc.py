@@ -263,10 +263,21 @@ class NoneGcPolicy(BoehmGcPolicy):
     def pre_pre_gc_code(self):
         yield '#define USING_NO_GC'
 
-# the framework GC policy -- we are very optimistic tonight
 
-class FrameworkGcPolicy(NoneGcPolicy):
+class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.FrameworkGCTransformer
+
+    def struct_setup(self, structdefnode, rtti):
+        pass
+
+    def array_setup(self, arraydefnode):
+        pass
+
+    def rtti_type(self):
+        return BoehmGcRuntimeTypeInfo_OpaqueNode.typename
+
+    def rtti_node_factory(self):
+        return BoehmGcRuntimeTypeInfo_OpaqueNode
 
     def gc_startup_code(self):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
@@ -292,3 +303,9 @@ class FrameworkGcPolicy(NoneGcPolicy):
                 break
             o = n
         return [defnode.db.gctransformer.id_of_type[typeOf(o)] << 1]
+
+    def zero_malloc(self, TYPE, esize, eresult):
+        assert TYPE._gcstatus()   # we don't really support this
+        return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
+                                            eresult)
+

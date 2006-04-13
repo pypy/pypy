@@ -664,7 +664,7 @@ def gc_pointers_inside(v, adr):
                     yield a
 
 
-class FrameworkGCTransformer(BoehmGCTransformer):
+class FrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
