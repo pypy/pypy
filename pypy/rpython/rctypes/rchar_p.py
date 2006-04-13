@@ -12,6 +12,13 @@ from ctypes import c_char, c_char_p
 
 class CCharPRepr(CTypesValueRepr):
 
+    def return_c_data(self, llops, v_c_data):
+        """Read out the RPython string from a raw C pointer.
+        Used when the data is returned from an operation or C function call.
+        """
+        v_char_p = self.getvalue_from_c_data(llops, v_c_data)
+        return llops.gendirectcall(ll_charp2str, v_char_p)
+
     def get_content_keepalives(self):
         "Return an extra keepalive field used for the RPython string."
         return [('keepalive_str', string_repr.lowleveltype)]
@@ -83,6 +90,13 @@ def ll_strnlen(p, maxlen):
 def ll_str2charp(s):
     return lltype.cast_subarray_pointer(CCHARP, s.chars, 0)
 
+def ll_charp2str(p):
+    length = ll_strlen(p)
+    newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    for i in range(length):
+        newstr.chars[i] = p[i]
+    return newstr
+
 def ll_getstring(box):
     p = box.c_data[0]
     if p:
@@ -137,7 +151,9 @@ entry = extregistry.register_type(c_char_p,
         compute_annotation = c_char_compute_annotation,
         get_repr           = c_char_p_get_repr,
         )
+s_value_annotation = annmodel.SomeString(can_be_None=True)
 def c_char_p_get_field_annotation(s_char_p, fieldname):
     assert fieldname == 'value'
-    return annmodel.SomeString(can_be_None=True)
+    return s_value_annotation
 entry.get_field_annotation = c_char_p_get_field_annotation
+entry.s_return_trick = s_value_annotation

@@ -64,6 +64,11 @@ def test_char_p():
     p[0] = "other"
     assert x.value == p.contents.value == p[0] == "other"
 
+    myarray = (c_char_p * 10)()
+    myarray[7] = "hello"
+    assert isinstance(myarray[7], str)
+    assert myarray[7] == "hello"
+
 def test_struct():
     class tagpoint(Structure):
         _fields_ = [('x', c_int),

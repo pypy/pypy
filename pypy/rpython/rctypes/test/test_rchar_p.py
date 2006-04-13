@@ -17,7 +17,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_char_p, pointer
+from ctypes import c_char_p, pointer, Structure
 
 class Test_annotation:
     def test_annotate_c_char_p(self):
@@ -36,6 +36,21 @@ class Test_annotation:
         p = c_char_p("hello")
         def func():
             return p.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+        assert s.knowntype == str
+        if conftest.option.view:
+            t.view()
+
+    def test_annotate_return(self):
+        class S(Structure):
+            _fields_ = [('string', c_char_p)]
+        def func():
+            s = S()
+            s.string = "hello"
+            return s.string
 
         t = TranslationContext()
         a = t.buildannotator()
@@ -81,6 +96,18 @@ class Test_specialization:
         assert func() == 'ka'
         res = interpret(func, [])
         assert ''.join(res.chars) == 'ka'
+
+    def test_specialize_return(self):
+        class S(Structure):
+            _fields_ = [('string', c_char_p)]
+        def func():
+            s = S()
+            s.string = "hello"
+            return s.string
+
+        assert func() == "hello"
+        res = interpret(func, [])
+        assert ''.join(res.chars) == "hello"
 
 
 class Test_compilation:

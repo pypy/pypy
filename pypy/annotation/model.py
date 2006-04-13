@@ -451,11 +451,8 @@ class SomeCTypesObject(SomeObject):
         from pypy.rpython import extregistry
         assert extregistry.is_registered_type(self.knowntype)
         entry = extregistry.lookup_type(self.knowntype)
-        if hasattr(entry, 'lowleveltype'):
-            # special case for returning primitives
-            return lltype_to_annotation(entry.lowleveltype)
-        else:
-            return self
+        # special case for returning primitives or c_char_p
+        return getattr(entry, 's_return_trick', self)
 
 
 class SomeImpossibleValue(SomeObject):

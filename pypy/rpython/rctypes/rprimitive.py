@@ -95,11 +95,12 @@ def do_register(the_type, ll_type):
             compute_annotation=compute_prebuilt_instance_annotation,
             get_repr=primitive_get_repr,
             )
+    s_value_annotation = annmodel.lltype_to_annotation(ll_type)
     def primitive_get_field_annotation(s_primitive, fieldname):
         assert fieldname == 'value'
-        return annmodel.lltype_to_annotation(ll_type)
+        return s_value_annotation
     entry.get_field_annotation = primitive_get_field_annotation
-    entry.lowleveltype = ll_type
+    entry.s_return_trick = s_value_annotation
 
 for the_type, ll_type in ctypes_annotation_list:
     do_register(the_type, ll_type)

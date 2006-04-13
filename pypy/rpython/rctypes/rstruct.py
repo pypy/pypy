@@ -79,7 +79,7 @@ class StructRepr(CTypesRefRepr):
             # primitive case (optimization only)
             return self.get_field_value(hop.llops, v_struct, name)
         # normal case
-        v_c_data = self.get_c_data_of_item(hop.llops, v_struct, name)
+        v_c_data = self.get_c_data_of_field(hop.llops, v_struct, name)
         return r_field.return_c_data(hop.llops, v_c_data)
 
     def rtype_setattr(self, hop):
@@ -91,7 +91,7 @@ class StructRepr(CTypesRefRepr):
         if isinstance(r_field, CTypesRefRepr):
             # ByRef case
             v_new_c_data = r_field.get_c_data(hop.llops, v_item)
-            v_c_data = self.get_c_data_of_item(hop.llops, v_struct, name)
+            v_c_data = self.get_c_data_of_field(hop.llops, v_struct, name)
             # copy the whole structure's content over
             genreccopy(hop.llops, v_new_c_data, v_c_data)
         else:

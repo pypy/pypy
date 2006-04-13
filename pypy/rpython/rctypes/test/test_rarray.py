@@ -16,7 +16,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int, c_short, ARRAY, POINTER, pointer
+from ctypes import c_int, c_short, ARRAY, POINTER, pointer, c_char_p
 
 c_int_10 = ARRAY(c_int,10)
 
@@ -114,6 +114,30 @@ class Test_annotation:
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(func, [int, int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == int
+
+    def test_annotate_variants(self):
+        A1 = c_int * 10
+        A2 = POINTER(c_int) * 10
+        A3 = A1 * 10
+        A4 = POINTER(A1) * 10
+        A5 = c_char_p * 10
+        def func():
+            a1 = A1(); a1[4] = 1000
+            a2 = A2(); a2[5] = pointer(c_int(200))
+            a3 = A3(); a3[2][9] = 30
+            a4 = A4(); a4[3] = pointer(a1); a1[1] = 4
+            a5 = A5(); a5[7] = "hello"
+            res = a1[4] + a2[5].contents.value + a3[2][9] + a4[3].contents[1]
+            res *= ord(a5[7][1])
+            return res
+        assert func() == 1234 * ord('e')
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
         if conftest.option.view:
             a.translator.view()
         assert s.knowntype == int
