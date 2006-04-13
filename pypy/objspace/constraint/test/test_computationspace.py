@@ -118,3 +118,17 @@ class AppTest_ComputationSpace(object):
         csp.define_problem(problem)
         assert csp.ask() == 1
         assert csp.merge() == (1, 2, 3)
+
+    def test_clone_and_merge(self):
+        csp = newspace()
+        def problem(csp):
+            x = csp.var('x', FiniteDomain([1]))
+            y = csp.var('y', FiniteDomain([1, 2]))
+            z = csp.var('z', FiniteDomain([1, 2, 3]))
+            csp.tell(AllDistinct([x, y, z]))
+            return [x, y, z]
+        csp.define_problem(problem)
+        csp.print_state()
+        csp = csp.clone()
+        assert csp.ask() == 1
+        assert csp.merge() == (1, 2, 3)

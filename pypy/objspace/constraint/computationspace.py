@@ -98,6 +98,7 @@ class W_ComputationSpace(Wrappable):
             self.distributor.find_distribution_variable(self)
         except: # FIXME: indexError ?
             self.status = self._space.newint(1)
+            self.w_print_state()
             return self.status
         self.status = self._space.newint(self.distributor.fanout)
         return self.status
@@ -105,14 +106,19 @@ class W_ComputationSpace(Wrappable):
     def w_clone(self):
         new = newspace(self._space)
         new.distributor = self.distributor
+        # copy the domains only
         for var, dom in self.var_dom.items():
             new.var_dom[var] = dom.w_copy()
-        # !! be sure to not put state in constraints
-        new.constraints = self.constraints
+        # keep track of constraint check-list
         for const in self.to_check:
             new.to_check[const] = True
+        # copy the var->const mapping
         for var, const in self.var_const.items():
             new.var_const[var] = const
+        # share other stateless stuff
+        new.constraints = self.constraints
+        new.name_var = self.name_var
+        new.sol_set = self.sol_set
         return new
 
     def w_commit(self, w_choice):
