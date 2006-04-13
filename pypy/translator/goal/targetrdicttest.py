@@ -45,6 +45,13 @@ def entry_point(argv):
     else:
         os.write(1,'\tno exception\n')
 
+    os.write(1,'test 3: getitem with unhashable key: (and catching general Exception)\n')
+    try:
+        mydict[uhobj] 
+    except Exception, e:
+        os.write(1,'\t' + str(e) + '\n')
+    else:
+        os.write(1,'\tno exception\n')
 #   The Following can't be translated (for reasons I don't understand:
 #   it has to do with the assignment.
 #
