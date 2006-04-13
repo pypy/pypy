@@ -23,7 +23,7 @@ def lazily_iter_solve_all(space, direction=Depth):
             sp_stack.appendleft(space)
 
     print "ready to find solution ..."
-    while len(sp_stack):
+    while sp_stack:
         space = sp_stack.pop()
         print ' '*len(sp_stack), "ask [depth = %s]" % len(sp_stack)
         status = space.ask()
@@ -32,7 +32,7 @@ def lazily_iter_solve_all(space, direction=Depth):
             yield space.merge()
         elif status > 1:
             print ' '*len(sp_stack), "%s branches ..." % status
-            for i in range(status):
+            for i in xrange(status):
                 clone = space.clone()
                 clone.commit(status-i)
                 collect(clone)

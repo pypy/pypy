@@ -180,7 +180,7 @@ class ComputationSpace(object):
     def commit(self, choice):
         """if self is distributable, causes the Choose call in the
            space to complete and return some_number as a result. This
-           may cause the spzce to resume execution.
+           may cause the space to resume execution.
            some_number must satisfy 1=<I=<N where N is the first arg
            of the Choose call.
         """

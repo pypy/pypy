@@ -59,30 +59,14 @@ def conference_scheduling(computation_space):
               ('c03','c05','c06','c07'),
               ('c01','c03','c07','c08'))
 
-##     for group in groups:
-##         cs.tell(AllDistinct([cs.find_var(v) for v in group]))
-##         cs.add_expression(AllDistinct(cs, tuple([cs.find_var(v)
-##                                       for v in group])))
-
     for group in groups:
         for conf1 in group:
             for conf2 in group:
-                v1, v2 = cs.find_vars((conf1, conf2))
                 if conf2 > conf1:
+                    v1, v2 = cs.find_vars((conf1, conf2))
                     cs.tell(make_expression([v1, v2], '%s[1] != %s[1]'% (v1.name(),v2.name())))
+    cs.tell(AllDistinct(variables))
 
-##     for g in groups:
-##         for conf1 in g:
-##             for conf2 in g:
-##                 v1, v2 = cs.find_vars(conf1, conf2)
-##                 if conf2 > conf1:
-##                     cs.add_constraint([v1,v2], '%s[1] != %s[1]'% (v1.name,v2.name))
-
-    for conf1 in variables:
-        for conf2 in variables:
-            if conf2 > conf1:
-                cs.tell(make_expression([conf1,conf2],
-                                        '%s != %s'%(conf1.name(),conf2.name())))
     return variables
 
 def sudoku(computation_space):

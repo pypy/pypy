@@ -93,8 +93,9 @@ class W_AllDistinct(W_AbstractConstraint):
         return len(value_set) == len(sol)
 
     def revise(self, w_cs):
+        _spc = self._space
         assert isinstance(w_cs, W_ComputationSpace)
-        variables = [(self._space.int_w(w_cs.w_dom(variable).w_size()),
+        variables = [(_spc.int_w(w_cs.w_dom(variable).w_size()),
                       variable, w_cs.w_dom(variable))
                      for variable in self._variables]
         
@@ -102,10 +103,10 @@ class W_AllDistinct(W_AbstractConstraint):
         # if a domain has a size of 1,
         # then the value must be removed from the other domains
         for size, var, dom in variables:
-            if self._space.eq_w(dom.w_size(), self._space.newint(1)):
+            if _spc.eq_w(dom.w_size(), _spc.newint(1)):
                 #print "AllDistinct removes values"
                 for _siz, _var, _dom in variables:
-                    if not self._space.eq_w(_var, var):
+                    if not _spc.eq_w(_var, var):
                         try:
                             _dom.w_remove_value(dom.w_get_values().wrappeditems[0])
                         except KeyError:
@@ -118,19 +119,21 @@ class W_AllDistinct(W_AbstractConstraint):
         for size, var, dom in variables:
             for val in dom.w_get_values().wrappeditems:
                 values[val] = 0
+
         if len(values) < len(variables):
             #print "AllDistinct failed"
-            raise OperationError(self._space.w_RuntimeError,
-                                 self._space.wrap("Consistency Failure"))
+            raise OperationError(_spc.w_RuntimeError,
+                                 _spc.wrap("ConsistencyFailure"))
 
         # the constraint is entailed if all domains have a size of 1
         for variable in variables:
-            if self._space.is_true(self._space.ne(variable[2].w_size(), self._space.newint(1))):
+            if not _spc.eq_w(variable[2].w_size(),
+                             _spc.newint(1)):       
                 return False
 
         # Question : did we *really* completely check
         # our own alldistinctness predicate ?
-            
+        #print "All distinct entailed"
         return True
 
 W_AllDistinct.typedef = typedef.TypeDef(

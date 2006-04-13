@@ -22,6 +22,9 @@ class AppTest_Solver(object):
         
         sols = solver.solve(spc)
         count = 0
+        solutions = set()
         for sol in sols:
+            assert sol not in solutions
+            solutions.add(sol)
             count += 1
         assert count == 64

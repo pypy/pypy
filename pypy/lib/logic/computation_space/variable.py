@@ -76,7 +76,6 @@ class Var(object):
         return self.__str__()
 
     # public interface
-
     val = property(_get_val, _set_val)
 
     def is_bound(self):
