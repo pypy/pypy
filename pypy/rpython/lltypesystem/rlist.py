@@ -51,6 +51,10 @@ class BaseListRepr(AbstractBaseListRepr):
         # setup() needs to be called to finish this initialization
         self.ll_concat = ll_concat
         self.ll_extend = ll_extend
+        self.ll_listslice_startonly = ll_listslice_startonly
+        self.ll_listslice = ll_listslice
+        self.ll_listslice_minusone = ll_listslice_minusone
+        self.ll_listsetslice = ll_listsetslice
         self.list_builder = ListBuilder()
 
     def _setup_repr_final(self):
@@ -263,7 +267,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
         v_res = hop.gendirectcall(llfn, v_func, *args)
         return self.recast(hop.llops, v_res)
 
-class FixedSizeListRepr(BaseListRepr):
+class FixedSizeListRepr(AbstractListRepr, BaseListRepr):
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
@@ -351,30 +355,6 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
         return hop.gendirectcall(ll_inplace_mul, v_lst, v_factor)
 
-class __extend__(pairtype(BaseListRepr, SliceRepr)):
-
-    def rtype_getitem((r_lst, r_slic), hop):
-        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
-        if r_slic == startonly_slice_repr:
-            v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
-            return hop.gendirectcall(ll_listslice_startonly, cRESLIST, v_lst, v_start)
-        if r_slic == startstop_slice_repr:
-            v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
-            return hop.gendirectcall(ll_listslice, cRESLIST, v_lst, v_slice)
-        if r_slic == minusone_slice_repr:
-            v_lst, v_ignored = hop.inputargs(r_lst, minusone_slice_repr)
-            return hop.gendirectcall(ll_listslice_minusone, cRESLIST, v_lst)
-        raise TyperError('getitem does not support slices with %r' % (r_slic,))
-
-    def rtype_setitem((r_lst, r_slic), hop):
-        #if r_slic == startonly_slice_repr:
-        #    not implemented
-        if r_slic == startstop_slice_repr:
-            v_lst, v_slice, v_lst2 = hop.inputargs(r_lst, startstop_slice_repr,
-                                                   hop.args_r[2])
-            hop.gendirectcall(ll_listsetslice, v_lst, v_slice, v_lst2)
-            return
-        raise TyperError('setitem does not support slices with %r' % (r_slic,))
 
 class __extend__(pairtype(ListRepr, SliceRepr)):
 

@@ -10,11 +10,18 @@ namespace pypy.runtime
         }
     }
 
+    //The public interface List must implement is defined in
+    // rpython.ootypesystem.ootype.List.GENERIC_METHODS
     public class List<T>: System.Collections.Generic.List<T>
     {
         public int length()
         {
             return this.Count;
+        }
+
+        public void append(T item)
+        {
+            this.Add(item);
         }
 
         public T getitem_nonneg(int index)
@@ -25,11 +32,6 @@ namespace pypy.runtime
         public void setitem_nonneg(int index, T value_)
         {
             this[index] = value_;
-        }
-
-        public void append(T item)
-        {
-            this.Add(item);
         }
 
         public void extend(List<T> other)

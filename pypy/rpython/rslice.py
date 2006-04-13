@@ -1,7 +1,12 @@
+from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem.lltype import Signed, Void
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
+
+class AbstractSliceRepr(Repr):
+    pass
+
 
 def select_slice_repr(self):
     # Select which one of the three prebuilt reprs to use.

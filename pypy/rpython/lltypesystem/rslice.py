@@ -1,4 +1,4 @@
-from pypy.rpython.rmodel import Repr
+from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Ptr, Void, malloc
 
@@ -18,7 +18,7 @@ from pypy.rpython.lltypesystem.lltype import \
 SLICE = GcStruct("slice", ("start", Signed), ("stop", Signed))
 
 
-class SliceRepr(Repr):
+class SliceRepr(AbstractSliceRepr):
     pass
 
 startstop_slice_repr = SliceRepr()

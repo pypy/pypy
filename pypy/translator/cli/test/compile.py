@@ -24,10 +24,17 @@ def check(f, g, *args):
         print 'OK'
 
 
+def sum_(lst):
+    total = 0
+    i = 0
+    while i < len(lst):
+        total += lst[i]
+        i += 1
+    return total    
+
 def bar(x, y):
     lst = [1,2,3,x,y]
-    lst[-1] = 42
-    return lst[-1]
+    return sum_(lst[:-1])
 
 f = compile_function(bar, [int, int])
 

@@ -1,6 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, IteratorRepr, inputconst
+from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import robject
 
@@ -72,6 +73,35 @@ class __extend__(pairtype(AbstractListRepr, AbstractBaseListRepr)):
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         hop.gendirectcall(r_lst1.ll_extend, v_lst1, v_lst2)
         return v_lst1
+
+
+class __extend__(pairtype(AbstractListRepr, AbstractSliceRepr)):
+
+    def rtype_getitem((r_lst, r_slic), hop):
+        rs = r_lst.rtyper.type_system.rslice
+        cRESLIST = hop.inputconst(lltype.Void, hop.r_result.LIST)
+        if r_slic == rs.startonly_slice_repr:
+            v_lst, v_start = hop.inputargs(r_lst, rs.startonly_slice_repr)
+            return hop.gendirectcall(r_lst.ll_listslice_startonly, cRESLIST, v_lst, v_start)
+        if r_slic == rs.startstop_slice_repr:
+            v_lst, v_slice = hop.inputargs(r_lst, rs.startstop_slice_repr)
+            return hop.gendirectcall(r_lst.ll_listslice, cRESLIST, v_lst, v_slice)
+        if r_slic == rs.minusone_slice_repr:
+            v_lst, v_ignored = hop.inputargs(r_lst, rs.minusone_slice_repr)
+            return hop.gendirectcall(r_lst.ll_listslice_minusone, cRESLIST, v_lst)
+        raise TyperError('getitem does not support slices with %r' % (r_slic,))
+
+    def rtype_setitem((r_lst, r_slic), hop):
+        #if r_slic == startonly_slice_repr:
+        #    not implemented
+        rs = r_lst.rtyper.type_system.rslice        
+        if r_slic == rs.startstop_slice_repr:
+            v_lst, v_slice, v_lst2 = hop.inputargs(r_lst, rs.startstop_slice_repr,
+                                                   hop.args_r[2])
+            hop.gendirectcall(r_lst.ll_listsetslice, v_lst, v_slice, v_lst2)
+            return
+        raise TyperError('setitem does not support slices with %r' % (r_slic,))
+
 
 # ____________________________________________________________
 #

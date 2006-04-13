@@ -3,7 +3,7 @@ from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
         AbstractListIteratorRepr, rtype_newlist
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
-from pypy.rpython.lltypesystem.lltype import Signed
+from pypy.rpython.lltypesystem.lltype import Signed, Void
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.riterable import iterator_type
 from pypy.rpython.ootypesystem.rslice import SliceRepr, \
@@ -27,6 +27,10 @@ class BaseListRepr(AbstractBaseListRepr):
         self.list_cache = {}
         self.ll_concat = ll_concat
         self.ll_extend = ll_extend
+        self.ll_listslice_startonly = ll_listslice_startonly
+        self.ll_listslice = ll_listslice
+        self.ll_listslice_minusone = ll_listslice_minusone
+        self.ll_listsetslice = ll_listsetslice        
         # setup() needs to be called to finish this initialization
 
     def _setup_repr(self):
@@ -36,8 +40,9 @@ class BaseListRepr(AbstractBaseListRepr):
         if isinstance(self.lowleveltype, ootype.ForwardReference):
             self.lowleveltype.become(ootype.List(self.item_repr.lowleveltype))
 
-    def send_message(self, hop, message, can_raise=False):
-        v_args = hop.inputargs(self, *hop.args_r[1:])
+    def send_message(self, hop, message, can_raise=False, v_args=None):
+        if v_args is None:
+            v_args = hop.inputargs(self, *hop.args_r[1:])
         c_name = hop.inputconst(ootype.Void, message)
         if can_raise:
             hop.exception_is_here()
@@ -80,34 +85,7 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
             v_list, v_index, v_item = hop.inputargs(r_list, Signed, r_list.item_repr)
             hop.exception_is_here()
             return hop.gendirectcall(ll_setitem, v_list, v_index, v_item)
-            
 
-class __extend__(pairtype(BaseListRepr, SliceRepr)):
-
-    def rtype_getitem((r_list, r_slic), hop):
-        raise NotImplementedError # TODO
-##        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
-##        if r_slic == startonly_slice_repr:
-##            v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
-##            return hop.gendirectcall(ll_listslice_startonly, cRESLIST, v_lst, v_start)
-##        if r_slic == startstop_slice_repr:
-##            v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
-##            return hop.gendirectcall(ll_listslice, cRESLIST, v_lst, v_slice)
-##        if r_slic == minusone_slice_repr:
-##            v_lst, v_ignored = hop.inputargs(r_lst, minusone_slice_repr)
-##            return hop.gendirectcall(ll_listslice_minusone, cRESLIST, v_lst)
-##        raise TyperError('getitem does not support slices with %r' % (r_slic,))
-            
-
-def ll_getitem(lst, index):
-    if index < 0:
-        index += lst.length()
-    return lst.getitem_nonneg(index)
-
-def ll_setitem(lst, index, item):
-    if index < 0:
-        index += lst.length()
-    return lst.setitem_nonneg(index, item)
 
 def newlist(llops, r_list, items_v):
     c_1ist = inputconst(ootype.Void, r_list.lowleveltype)
@@ -123,6 +101,16 @@ def newlist(llops, r_list, items_v):
 
 def ll_newlist(LIST):
     return ootype.new(LIST)
+
+def ll_getitem(lst, index):
+    if index < 0:
+        index += lst.length()
+    return lst.getitem_nonneg(index)
+
+def ll_setitem(lst, index, item):
+    if index < 0:
+        index += lst.length()
+    return lst.setitem_nonneg(index, item)
 
 def ll_append(lst, item):
     lst.append(item)
@@ -149,6 +137,54 @@ def ll_concat(RESLIST, l1, l2):
         i += 1
     return l
 
+def ll_listslice_startonly(RESLIST, lst, start):
+    len1 = lst.length()
+    #newlength = len1 - start
+    res = ootype.new(RESLIST) # TODO: pre-allocate newlength elements
+    i = start
+    while i < len1:
+        res.append(lst.getitem_nonneg(i))
+        i += 1
+    return res
+
+def ll_listslice(RESLIST, lst, slice):
+    start = slice.start
+    stop = slice.stop
+    length = lst.length()
+    if stop > length:
+        stop = length
+    #newlength = stop - start
+    res = ootype.new(RESLIST) # TODO: pre-allocate newlength elements
+    i = start
+    while i < stop:
+        res.append(lst.getitem_nonneg(i))
+        i += 1
+    return res
+
+def ll_listslice_minusone(RESLIST, lst):
+    newlength = lst.length() - 1
+    #assert newlength >= 0 # TODO: asserts seems to have problems with ootypesystem
+    res = ootype.new(RESLIST) # TODO: pre-allocate newlength elements
+    i = 0
+    while i < newlength:
+        res.append(lst.getitem_nonneg(i))
+        i += 1
+    return res
+
+def ll_listsetslice(l1, slice, l2):
+    count = l2.length()
+##    assert count == slice.stop - slice.start, (    # TODO: see above
+##        "setslice cannot resize lists in RPython")
+    # XXX but it should be easy enough to support, soon
+    start = slice.start
+    j = start
+    i = 0
+    while i < count:
+        l1.setitem_nonneg(j, l2.getitem_nonneg(i))
+        i += 1
+        j += 1
+
+
 # ____________________________________________________________
 #
 #  Iteration.
@@ -160,6 +196,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
         self.lowleveltype = iterator_type(r_list, r_list.item_repr)
         self.ll_listiter = ll_listiter
         self.ll_listnext = ll_listnext
+
 
 def ll_listiter(ITER, lst):
     iter = ootype.new(ITER)

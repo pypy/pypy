@@ -1,10 +1,10 @@
-from pypy.rpython.rmodel import Repr
+from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import Void, Signed
 from pypy.rpython.ootypesystem import ootype
 
 SLICE = ootype.Instance('Slice', ootype.ROOT, {'start': Signed, 'stop': Signed})
 
-class SliceRepr(Repr):
+class SliceRepr(AbstractSliceRepr):
     pass
 
 startstop_slice_repr = SliceRepr()

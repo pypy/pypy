@@ -46,3 +46,18 @@ def list_extend(x, y):
     lst += [y, y*2]
     lst.extend([x, y])
     return sum_(lst)
+
+def list_negative_index(x, y):
+    lst = create(x, y)
+    lst[-1] = 4321
+    lst[-2] = lst[-1]
+    return sum_(lst)
+
+def list_getslice(x, y):
+    lst = create(x, y)
+    return sum_(lst[1:3]) * sum_(lst[3:]) * sum_(lst[:-1])
+
+def list_setslice(x, y):
+    lst = create(x, y)
+    lst[1:3] = [1234, 5678]
+    return sum_(lst)

@@ -206,6 +206,9 @@ class List(OOType):
             "append": Meth([self.ITEMTYPE_T], Void),
             "getitem_nonneg": Meth([Signed], self.ITEMTYPE_T),
             "setitem_nonneg": Meth([Signed, self.ITEMTYPE_T], Void),
+##            "getslice_startonly": Meth([Signed], self.SELFTYPE_T),
+##            "getslice_startstop": Meth([Signed, Signed], self.SELFTYPE_T),
+##            "reverse": Meth([], self.SELFTYPE_T),
             "extend": Meth([self.SELFTYPE_T], Void),
         })
 
