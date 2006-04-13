@@ -173,3 +173,12 @@ def test_cast_subarray_pointer():
         assert subarray[0] == 132
         subarray[0] += 2
         assert a[3] == 134
+
+def test_cast_structfield_pointer():
+    S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+    s = lltype.malloc(S)
+    SUBARRAY = lltype.FixedSizeArray(lltype.Signed, 1)
+    adr = cast_ptr_to_adr(s) + offsetof(S, 'y')
+    subarray = cast_adr_to_ptr(adr, lltype.Ptr(SUBARRAY))
+    subarray[0] = 121
+    assert s.y == 121

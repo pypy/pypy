@@ -129,7 +129,7 @@ class _structfieldref(object):
     def set(self, value):
         setattr(self.struct, self.fieldname, value)
     def type(self):
-        return getattr(lltype.typeOf(self.struct), self.fieldname)
+        return getattr(lltype.typeOf(self.struct).TO, self.fieldname)
 
 class _obref(object):
     def __init__(self, ob):
@@ -218,12 +218,18 @@ class fakeaddress(object):
         ref = self.ref()
         if (isinstance(ref, _arrayitemref) and
             isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
-            isinstance(lltype.typeOf(ref.array).TO, (lltype.FixedSizeArray,
-                                                     lltype.Array))):
+            ref.type() == EXPECTED_TYPE.TO.OF):
             # special case that requires cast_subarray_pointer
             return lltype.cast_subarray_pointer(EXPECTED_TYPE,
                                                 ref.array,
                                                 ref.index)
+        elif (isinstance(ref, _structfieldref) and
+              isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
+              ref.type() == EXPECTED_TYPE.TO.OF):
+            # special case that requires cast_structfield_pointer
+            return lltype.cast_structfield_pointer(EXPECTED_TYPE,
+                                                   ref.struct,
+                                                   ref.fieldname)
         else:
             # regular case
             assert isinstance(ref.type(), lltype.ContainerType)

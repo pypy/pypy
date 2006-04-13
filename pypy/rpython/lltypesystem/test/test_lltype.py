@@ -610,3 +610,12 @@ def test_cast_subarray_pointer():
         py.test.raises(IndexError, "b01[-1]")
         py.test.raises(IndexError, "b34[2]")
         py.test.raises(IndexError, "b12[4]")
+
+def test_cast_structfield_pointer():
+    S = GcStruct('S', ('x', Signed), ('y', Signed))
+    A = FixedSizeArray(Signed, 1)
+    s = malloc(S)
+    a = cast_structfield_pointer(Ptr(A), s, 'y')
+    a[0] = 34
+    assert s.y == 34
+    py.test.raises(IndexError, "a[1]")

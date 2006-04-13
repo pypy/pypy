@@ -636,6 +636,31 @@ def cast_subarray_pointer(ARRAYPTRTYPE, arrayptr, baseoffset):
         subarray = cache[key] = _subarray(ARRAYTYPE, arrayptr._obj, baseoffset)
     return _ptr(ARRAYPTRTYPE, subarray)
 
+def cast_structfield_pointer(ARRAYPTRTYPE, structptr, fieldname):
+    CURPTRTYPE = typeOf(structptr)
+    if not isinstance(CURPTRTYPE, Ptr) or not isinstance(ARRAYPTRTYPE, Ptr):
+        raise TypeError, "can only cast pointers to other pointers"
+    ARRAYTYPE = ARRAYPTRTYPE.TO
+    if (not isinstance(CURPTRTYPE.TO, Struct) or
+        not isinstance(ARRAYTYPE, FixedSizeArray)):
+        raise TypeError, "can only cast from (Gc)Struct to FixedSizeArray"
+    if ARRAYTYPE.length != 1:
+        raise TypeError, "can only cast to FixedSizeArray of length 1"
+    if getattr(CURPTRTYPE.TO, fieldname) != ARRAYTYPE.OF:
+        raise TypeError, "mismatching array item type"
+    if not structptr:
+        raise RuntimeError("cast_structfield_pointer: NULL argument")
+    try:
+        cache = _subarray._cache[structptr._obj]
+    except KeyError:
+        cache = _subarray._cache[structptr._obj] = {}
+    try:
+        subarray = cache[fieldname]
+    except KeyError:
+        subarray = cache[fieldname] = _subarray(ARRAYTYPE, structptr._obj,
+                                                fieldname)
+    return _ptr(ARRAYPTRTYPE, subarray)
+
 def _expose(val, solid=False):
     """XXX A nice docstring here"""
     T = typeOf(val)
@@ -1066,12 +1091,13 @@ assert not '__dict__' in dir(_struct)
 
 
 class _subarray(_parentable):     # only for cast_subarray_pointer()
+                                  # and cast_structfield_pointer()
     _kind = "subarray"
     _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
 
-    def __init__(self, TYPE, arrayobj, baseoffset):
+    def __init__(self, TYPE, parent, baseoffset_or_fieldname):
         _parentable.__init__(self, TYPE)
-        self._setparentstructure(arrayobj, baseoffset)
+        self._setparentstructure(parent, baseoffset_or_fieldname)
 
     def getlength(self):
         assert isinstance(self._TYPE, FixedSizeArray)
@@ -1079,16 +1105,28 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
 
     def getbounds(self):
         baseoffset = self._parent_index
+        if isinstance(baseoffset, str):
+            return 0, 1     # structfield case
         start, stop = self._parentstructure().getbounds()
         return start - baseoffset, stop - baseoffset
 
     def getitem(self, index):
         baseoffset = self._parent_index
-        return self._parentstructure().getitem(baseoffset + index)
+        if isinstance(baseoffset, str):
+            assert index == 0
+            fieldname = baseoffset    # structfield case
+            return getattr(self._parentstructure(), fieldname)
+        else:
+            return self._parentstructure().getitem(baseoffset + index)
 
     def setitem(self, index, value):
         baseoffset = self._parent_index
-        self._parentstructure().setitem(baseoffset + index, value)
+        if isinstance(baseoffset, str):
+            assert index == 0
+            fieldname = baseoffset    # structfield case
+            setattr(self._parentstructure(), fieldname, value)
+        else:
+            self._parentstructure().setitem(baseoffset + index, value)
 
 
 class _func(object):
