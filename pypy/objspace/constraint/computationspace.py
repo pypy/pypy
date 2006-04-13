@@ -98,7 +98,6 @@ class W_ComputationSpace(Wrappable):
             self.distributor.find_distribution_variable(self)
         except: # FIXME: indexError ?
             self.status = self._space.newint(1)
-            self.w_print_state()
             return self.status
         self.status = self._space.newint(self.distributor.fanout)
         return self.status
@@ -112,11 +111,10 @@ class W_ComputationSpace(Wrappable):
         # keep track of constraint check-list
         for const in self.to_check:
             new.to_check[const] = True
-        # copy the var->const mapping
-        for var, const in self.var_const.items():
-            new.var_const[var] = const
         # share other stateless stuff
+        # this sharing will pose problems ...
         new.constraints = self.constraints
+        new.var_const = self.var_const
         new.name_var = self.name_var
         new.sol_set = self.sol_set
         return new
@@ -143,6 +141,12 @@ class W_ComputationSpace(Wrappable):
     def w_find_var(self, w_name):
         return self.name_var[self._space.str_w(w_name)]
 
+    def w_find_vars(self, w_vars):
+        res = []
+        for var in w_vars.wrappeditems:
+            res.append(self.w_find_var(var))
+        return self._space.newlist(res)
+
     def w_dom(self, w_variable):
         assert isinstance(w_variable, W_Variable)
         return self.var_dom[w_variable]
@@ -166,6 +170,18 @@ class W_ComputationSpace(Wrappable):
         for var in self.sol_set.wrappeditems:
             res.append(self.var_dom[var].get_values()[0])
         return self._space.newtuple(res)
+
+    def w_test_solution(self, w_sol):
+        varset = {}
+        for var, val in zip(self.sol_set.wrappeditems,
+                            w_sol.wrappeditems):
+            varset[var.w_name] = val
+        for _const in self.constraints:
+            if not _const.test_solution(varset):
+                print "Solution", sol, "doesn't satisfy", _const
+                return self._space.newbool(False)
+        return self._space.newbool(True)
+
 
     def w_print_state(self):
         print "VARS  :", self.name_var.keys()
@@ -218,6 +234,7 @@ W_ComputationSpace.typedef = typedef.TypeDef(
     "W_ComputationSpace",
     var = interp2app(W_ComputationSpace.w_var),
     find_var = interp2app(W_ComputationSpace.w_find_var),
+    find_vars = interp2app(W_ComputationSpace.w_find_vars),
     dom = interp2app(W_ComputationSpace.w_dom),
     tell = interp2app(W_ComputationSpace.w_tell),
     ask = interp2app(W_ComputationSpace.w_ask),
@@ -226,6 +243,7 @@ W_ComputationSpace.typedef = typedef.TypeDef(
     merge = interp2app(W_ComputationSpace.w_merge),
     dependant_constraints = interp2app(W_ComputationSpace.w_dependant_constraints),
     define_problem = interp2app(W_ComputationSpace.w_define_problem),
+    test_solution = interp2app(W_ComputationSpace.w_test_solution),
     print_state = interp2app(W_ComputationSpace.w_print_state))
 
 def newspace(object_space):

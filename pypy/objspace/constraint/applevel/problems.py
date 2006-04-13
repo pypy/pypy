@@ -5,6 +5,8 @@ def dummy_problem(computation_space):
     return (ret,)
 
 def send_more_money(computation_space):
+    #FIXME: this problem needs propagators for integer finite domains
+    #       performance is terrible without it
     cs = computation_space
 
     variables = (s, e, n, d, m, o, r, y) = cs.make_vars('s', 'e', 'n', 'd', 'm', 'o', 'r', 'y')
@@ -40,7 +42,6 @@ def conference_scheduling(computation_space):
     variables = [cs.var(v, FiniteDomain(dom_values))
                  for v in ('c01','c02','c03','c04','c05',
                            'c06','c07','c08','c09','c10')]
-
     for conf in ('c03','c04','c05','c06'):
         v = cs.find_var(conf)
         cs.tell(make_expression([v], "%s[0] == 'room C'" % conf))
@@ -58,10 +59,17 @@ def conference_scheduling(computation_space):
               ('c03','c05','c06','c07'),
               ('c01','c03','c07','c08'))
 
-    for group in groups:
-        cs.tell(AllDistinct([cs.find_var(v) for v in group]))
+##     for group in groups:
+##         cs.tell(AllDistinct([cs.find_var(v) for v in group]))
 ##         cs.add_expression(AllDistinct(cs, tuple([cs.find_var(v)
 ##                                       for v in group])))
+
+    for group in groups:
+        for conf1 in group:
+            for conf2 in group:
+                v1, v2 = cs.find_vars((conf1, conf2))
+                if conf2 > conf1:
+                    cs.tell(make_expression([v1, v2], '%s[1] != %s[1]'% (v1.name(),v2.name())))
 
 ##     for g in groups:
 ##         for conf1 in g:

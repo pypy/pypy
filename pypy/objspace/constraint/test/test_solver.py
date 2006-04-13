@@ -9,9 +9,19 @@ class AppTest_Solver(object):
         from pypy.objspace.constraint.applevel import solver, problems
         spc = newspace()
 
-        spc.set_root(problems.conference_scheduling(spc))
-        #FIXME: that 'interation over non-sequence' kills me ...
-        #spc.define_problem(problems.conference_scheduling)
+        spc.define_problem(problems.conference_scheduling)
         
         sols = solver.solve(spc)
         assert str(type(sols)) == "<type 'generator'>"
+
+    def test_solve(self):
+        from pypy.objspace.constraint.applevel import solver, problems
+        spc = newspace()
+
+        spc.define_problem(problems.conference_scheduling)
+        
+        sols = solver.solve(spc)
+        count = 0
+        for sol in sols:
+            count += 1
+        assert count == 64

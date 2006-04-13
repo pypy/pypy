@@ -85,7 +85,7 @@ class W_AllDistinct(W_AbstractConstraint):
         assert isinstance(w_cs, W_ComputationSpace)
         return self.__cost
 
-    def test_solution(self, sol):
+    def test_solution(self, w_sol):
         """test a solution against this constraint
         accept a mapping of variable names to value"""
         values = sol.items()
@@ -103,7 +103,7 @@ class W_AllDistinct(W_AbstractConstraint):
         # then the value must be removed from the other domains
         for size, var, dom in variables:
             if self._space.eq_w(dom.w_size(), self._space.newint(1)):
-                print "AllDistinct removes values"
+                #print "AllDistinct removes values"
                 for _siz, _var, _dom in variables:
                     if not self._space.eq_w(_var, var):
                         try:
@@ -119,7 +119,7 @@ class W_AllDistinct(W_AbstractConstraint):
             for val in dom.w_get_values().wrappeditems:
                 values[val] = 0
         if len(values) < len(variables):
-            print "AllDistinct failed"
+            #print "AllDistinct failed"
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("Consistency Failure"))
 
@@ -163,13 +163,13 @@ class W_Expression(W_AbstractConstraint):
         self.formula = self._space.str_w(w_formula)
         self.filter_func = make_filter(self._space, w_variables, w_formula)
 
-    def test_solution(self, sol ):
+    def test_solution(self, sol_dict):
         """test a solution against this constraint 
         accept a mapping of variable names to value"""
         args = []
         for var in self._variables:
-            args.append( sol[var.w_name] )
-        return self.filterFunc( *args )
+            args.append(sol_dict[var.w_name])
+        return self.filter_func(*args)
 
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
