@@ -16,11 +16,29 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int, c_short, Structure, POINTER, pointer
+from ctypes import c_int, c_short, Structure, POINTER, pointer, c_char_p
 
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
                 ("y", c_int)]
+
+def maketest():
+    class S1(Structure): _fields_ = [('x', c_int)]
+    class S2(Structure): _fields_ = [('x', POINTER(c_int))]
+    class S3(Structure): _fields_ = [('x', S1)]
+    class S4(Structure): _fields_ = [('x', POINTER(S1))]
+    class S5(Structure): _fields_ = [('x', c_char_p)]
+    def func():
+        s1 = S1(); s1.x = 500
+        s2 = S2(); s2.x = pointer(c_int(200))
+        s3 = S3(); s3.x.x = 30
+        s4 = S4(); s4.x = pointer(s1)
+        s5 = S5(); s5.x = "hello"
+        res = s1.x + s2.x.contents.value + s3.x.x + s4.x.contents.x
+        res *= ord(s5.x[4])
+        return res
+    return func, 1230 * ord('o')
+
 
 class Test_annotation:
     def test_annotate_struct(self):
@@ -68,6 +86,16 @@ class Test_annotation:
             a.translator.view()
         assert s.knowntype == int
 
+    def test_annotate_variants(self):
+        func, expected = maketest()
+        assert func() == expected
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == int
+
 class Test_specialization:
     def test_specialize_struct(self):
         def create_struct():
@@ -105,6 +133,11 @@ class Test_specialization:
         res = interpret(func, [3])
         assert res == 11
 
+    def test_specialize_variants(self):
+        func, expected = maketest()
+        res = interpret(func, [])
+        assert res == expected
+
 class Test_compilation:
     def test_compile_struct_access(self):
         def access_struct(n):
@@ -131,3 +164,8 @@ class Test_compilation:
         fn = compile(func, [int])
         assert fn(2) == 7
         assert fn(3) == 11
+
+    def test_compile_variants(self):
+        func, expected = maketest()
+        fn = compile(func, [])
+        assert fn() == expected

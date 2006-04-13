@@ -20,6 +20,24 @@ from ctypes import c_int, c_short, ARRAY, POINTER, pointer, c_char_p
 
 c_int_10 = ARRAY(c_int,10)
 
+def maketest():
+    A1 = c_int * 10
+    A2 = POINTER(c_int) * 10
+    A3 = A1 * 10
+    A4 = POINTER(A1) * 10
+    A5 = c_char_p * 10
+    def func():
+        a1 = A1(); a1[4] = 1000
+        a2 = A2(); a2[5] = pointer(c_int(200))
+        a3 = A3(); a3[2][9] = 30
+        a4 = A4(); a4[3] = pointer(a1); a1[1] = 4
+        a5 = A5(); a5[7] = "hello"
+        res = a1[4] + a2[5].contents.value + a3[2][9] + a4[3].contents[1]
+        res *= ord(a5[7][1])
+        return res
+    return func, 1234 * ord('e')
+
+
 class Test_annotation:
     def test_annotate_array(self):
         def create_array():
@@ -119,22 +137,8 @@ class Test_annotation:
         assert s.knowntype == int
 
     def test_annotate_variants(self):
-        A1 = c_int * 10
-        A2 = POINTER(c_int) * 10
-        A3 = A1 * 10
-        A4 = POINTER(A1) * 10
-        A5 = c_char_p * 10
-        def func():
-            a1 = A1(); a1[4] = 1000
-            a2 = A2(); a2[5] = pointer(c_int(200))
-            a3 = A3(); a3[2][9] = 30
-            a4 = A4(); a4[3] = pointer(a1); a1[1] = 4
-            a5 = A5(); a5[7] = "hello"
-            res = a1[4] + a2[5].contents.value + a3[2][9] + a4[3].contents[1]
-            res *= ord(a5[7][1])
-            return res
-        assert func() == 1234 * ord('e')
-
+        func, expected = maketest()
+        assert func() == expected
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(func, [])
@@ -181,6 +185,11 @@ class Test_specialization:
         res = interpret(func, [3, 7])
         assert res == 343
 
+    def test_specialize_variants(self):
+        func, expected = maketest()
+        res = interpret(func, [])
+        assert res == expected
+
 class Test_compilation:
     def test_compile_array_access(self):
         def access_array():
@@ -207,3 +216,8 @@ class Test_compilation:
         fn = compile(func, [int, int])
         assert fn(2, 7) == 49
         assert fn(3, 6) == 216
+
+    def test_compile_variants(self):
+        func, expected = maketest()
+        fn = compile(func, [])
+        assert fn() == expected
