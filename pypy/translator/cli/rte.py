@@ -9,6 +9,12 @@ import subprocess
 
 from pypy.translator.cli.sdk import SDK
 
+from pypy.tool.ansi_print import ansi_log
+import py
+log = py.log.Producer("cli") 
+py.log.setconsumer("cli", ansi_log) 
+
+
 SRC = 'pypylib.cs'
 DLL = 'pypylib.dll'
 
@@ -35,6 +41,7 @@ def get_pypy_dll():
     return dll
     
 def compile(source, dll):
+    log.red("Compiling pypylib.dll")
     csc = SDK.csc()
     compiler = subprocess.Popen([csc, '/t:library', '/out:%s' % dll, source],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)

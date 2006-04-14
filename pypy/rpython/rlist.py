@@ -36,8 +36,11 @@ class AbstractBaseListRepr(Repr):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
 
 class AbstractListRepr(AbstractBaseListRepr):
-    
     pass
+
+class AbstractFixedSizeListRepr(AbstractBaseListRepr):
+    pass
+
 
 def rtype_newlist(hop):
     nb_args = hop.nb_args
@@ -75,7 +78,7 @@ class __extend__(pairtype(AbstractListRepr, AbstractBaseListRepr)):
         return v_lst1
 
 
-class __extend__(pairtype(AbstractListRepr, AbstractSliceRepr)):
+class __extend__(pairtype(AbstractBaseListRepr, AbstractSliceRepr)):
 
     def rtype_getitem((r_lst, r_slic), hop):
         rs = r_lst.rtyper.type_system.rslice
@@ -101,6 +104,21 @@ class __extend__(pairtype(AbstractListRepr, AbstractSliceRepr)):
             hop.gendirectcall(r_lst.ll_listsetslice, v_lst, v_slice, v_lst2)
             return
         raise TyperError('setitem does not support slices with %r' % (r_slic,))
+
+
+class __extend__(pairtype(AbstractListRepr, AbstractSliceRepr)):
+
+    def rtype_delitem((r_lst, r_slic), hop):
+        rs = r_lst.rtyper.type_system.rslice        
+        if r_slic == rs.startonly_slice_repr:
+            v_lst, v_start = hop.inputargs(r_lst, rs.startonly_slice_repr)
+            hop.gendirectcall(r_lst.ll_listdelslice_startonly, v_lst, v_start)
+            return
+        if r_slic == rs.startstop_slice_repr:
+            v_lst, v_slice = hop.inputargs(r_lst, rs.startstop_slice_repr)
+            hop.gendirectcall(r_lst.ll_listdelslice, v_lst, v_slice)
+            return
+        raise TyperError('delitem does not support slices with %r' % (r_slic,))
 
 
 # ____________________________________________________________

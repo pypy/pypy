@@ -9,7 +9,7 @@ def test_list():
 
 
 def create(x, y):
-    return [x, y, x+y, x*y]
+    return [1, 2, 3, x, y, x+y, x*y]
 
 def sum_(lst):
     total = 0
@@ -61,3 +61,11 @@ def list_setslice(x, y):
     lst = create(x, y)
     lst[1:3] = [1234, 5678]
     return sum_(lst)
+
+##def list_del_item_slice(x, y):
+##    lst = create(x, y)
+##    del lst[0]
+##    del lst[2:4]
+##    del lst[5:]
+##    return sum_(lst)
+

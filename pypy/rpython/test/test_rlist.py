@@ -251,79 +251,80 @@ class BaseTestListRtyping:
         res = interpret(dummyfn, [], type_system=self.ts)
         assert self.ll_to_list(res) == [5, 6, 7, 8, 9]
 
-def test_slice():
-    def dummyfn():
-        l = [5, 6, 7, 8, 9]
-        return l[:2], l[1:4], l[3:]
-    res = interpret(dummyfn, [])
-    assert tolst(res.item0) == [5, 6]
-    assert tolst(res.item1) == [6, 7, 8]
-    assert tolst(res.item2) == [8, 9]
+    def test_slice(self):
+        if self.ts == 'ootype':
+            py.test.skip("ootypesystem doesn't support returning tuples of lists, yet")
+        def dummyfn():
+            l = [5, 6, 7, 8, 9]
+            return l[:2], l[1:4], l[3:]
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert self.ll_to_list(res.item0) == [5, 6]
+        assert self.ll_to_list(res.item1) == [6, 7, 8]
+        assert self.ll_to_list(res.item2) == [8, 9]
 
-    def dummyfn():
-        l = [5, 6, 7, 8]
-        l.append(9)
-        return l[:2], l[1:4], l[3:]
-    res = interpret(dummyfn, [])
-    assert tolst(res.item0) == [5, 6]
-    assert tolst(res.item1) == [6, 7, 8]
-    assert tolst(res.item2) == [8, 9]
+        def dummyfn():
+            l = [5, 6, 7, 8]
+            l.append(9)
+            return l[:2], l[1:4], l[3:]
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert self.ll_to_list(res.item0) == [5, 6]
+        assert self.ll_to_list(res.item1) == [6, 7, 8]
+        assert self.ll_to_list(res.item2) == [8, 9]
 
-def test_set_del_item():
-    def dummyfn():
-        l = [5, 6, 7]
-        l[1] = 55
-        l[-1] = 66
-        return l
-    res = interpret(dummyfn, [])
-    assert tolst(res) == [5, 55, 66]
+    def test_set_del_item(self):
+        def dummyfn():
+            l = [5, 6, 7]
+            l[1] = 55
+            l[-1] = 66
+            return l
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert self.ll_to_list(res) == [5, 55, 66]
 
-    def dummyfn():
-        l = []
-        l.append(5)
-        l.append(6)
-        l.append(7)
-        l[1] = 55
-        l[-1] = 66
-        return l
-    res = interpret(dummyfn, [])
-    assert tolst(res) == [5, 55, 66]
+        def dummyfn():
+            l = []
+            l.append(5)
+            l.append(6)
+            l.append(7)
+            l[1] = 55
+            l[-1] = 66
+            return l
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert self.ll_to_list(res) == [5, 55, 66]
 
-    def dummyfn():
-        l = [5, 6, 7]
-        l[1] = 55
-        l[-1] = 66
-        del l[0]
-        del l[-1]
-        del l[:]
-        return len(l)
-    res = interpret(dummyfn, [])
-    assert res == 0
+        def dummyfn():
+            l = [5, 6, 7]
+            l[1] = 55
+            l[-1] = 66
+            del l[0]
+            del l[-1]
+            del l[:]
+            return len(l)
+        res = interpret(dummyfn, [], type_system=self.ts)
+        assert res == 0
 
-def tolst(l):
-    return map(None, l.ll_items())[:l.ll_length()]
+    def test_setslice(self):
+        if self.ts == 'ootype':
+            py.test.skip("ootypesystem doesn't support returning tuples of lists, yet")        
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[:2] = [6, 5]
+            return l[0], l[1], l[2], l[3]
+        res = interpret(dummyfn, (), type_system=self.ts)
+        assert res.item0 == 6
+        assert res.item1 == 5
+        assert res.item2 == 8
+        assert res.item3 == 7
 
-def test_setslice():
-    def dummyfn():
-        l = [10, 9, 8, 7]
-        l[:2] = [6, 5]
-        return l[0], l[1], l[2], l[3]
-    res = interpret(dummyfn, ())
-    assert res.item0 == 6
-    assert res.item1 == 5
-    assert res.item2 == 8
-    assert res.item3 == 7
-
-    def dummyfn():
-        l = [10, 9, 8]
-        l.append(7)
-        l[:2] = [6, 5]
-        return l[0], l[1], l[2], l[3]
-    res = interpret(dummyfn, ())
-    assert res.item0 == 6
-    assert res.item1 == 5
-    assert res.item2 == 8
-    assert res.item3 == 7
+        def dummyfn():
+            l = [10, 9, 8]
+            l.append(7)
+            l[:2] = [6, 5]
+            return l[0], l[1], l[2], l[3]
+        res = interpret(dummyfn, (), type_system=self.ts)
+        assert res.item0 == 6
+        assert res.item1 == 5
+        assert res.item2 == 8
+        assert res.item3 == 7
 
 def test_insert_pop():
     def dummyfn():

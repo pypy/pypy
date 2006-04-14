@@ -30,7 +30,9 @@ class BaseListRepr(AbstractBaseListRepr):
         self.ll_listslice_startonly = ll_listslice_startonly
         self.ll_listslice = ll_listslice
         self.ll_listslice_minusone = ll_listslice_minusone
-        self.ll_listsetslice = ll_listsetslice        
+        self.ll_listsetslice = ll_listsetslice
+        self.ll_listdelslice_startonly = ll_listdelslice_startonly
+        self.ll_listdelslice = ll_listdelslice
         # setup() needs to be called to finish this initialization
 
     def _setup_repr(self):
@@ -87,6 +89,19 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
             return hop.gendirectcall(ll_setitem, v_list, v_index, v_item)
 
 
+class __extend__(pairtype(ListRepr, IntegerRepr)):
+
+    def rtype_delitem((r_list, r_int), hop):
+        v_list, v_index = hop.inputargs(r_list, Signed)
+        if hop.args_s[1].nonneg:
+            v_count = hop.inputconst(Signed, 1)
+            return r_list.send_message(hop, "remove_range",can_raise=True,
+                                       v_args=[v_list, v_index, v_count])
+        else:
+            hop.exception_is_here()
+            return hop.gendirectcall(ll_delitem, v_list, v_index)
+
+
 def newlist(llops, r_list, items_v):
     c_1ist = inputconst(ootype.Void, r_list.lowleveltype)
     v_result = llops.genop("new", [c_1ist], resulttype=r_list.lowleveltype)
@@ -111,6 +126,11 @@ def ll_setitem(lst, index, item):
     if index < 0:
         index += lst.length()
     return lst.setitem_nonneg(index, item)
+
+def ll_delitem(lst, index):
+    if index < 0:
+        index += lst.length()
+    return lst.remove_range(index, 1)
 
 def ll_append(lst, item):
     lst.append(item)
@@ -184,6 +204,20 @@ def ll_listsetslice(l1, slice, l2):
         i += 1
         j += 1
 
+def ll_listdelslice_startonly(lst, start):
+    count = lst.length() - start
+    if count > 0:
+        lst.remove_range(start, count)
+
+def ll_listdelslice(lst, slice):
+    start = slice.start
+    stop = slice.stop
+    length = lst.length()
+    if stop > length:
+        stop = length
+    count = stop - start
+    if count > 0:
+        lst.remove_range(start, count)
 
 # ____________________________________________________________
 #

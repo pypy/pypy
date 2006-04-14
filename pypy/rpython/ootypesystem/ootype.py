@@ -206,10 +206,8 @@ class List(OOType):
             "append": Meth([self.ITEMTYPE_T], Void),
             "getitem_nonneg": Meth([Signed], self.ITEMTYPE_T),
             "setitem_nonneg": Meth([Signed, self.ITEMTYPE_T], Void),
-##            "getslice_startonly": Meth([Signed], self.SELFTYPE_T),
-##            "getslice_startstop": Meth([Signed, Signed], self.SELFTYPE_T),
-##            "reverse": Meth([], self.SELFTYPE_T),
             "extend": Meth([self.SELFTYPE_T], Void),
+            "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
         })
 
         self._setup_methods(generic_types)
@@ -559,6 +557,9 @@ class _list(object):
         # NOT_RPYTHON
         assert typeOf(other) == typeOf(self)
         self._list.extend(other._list)
+
+    def remove_range(self, start, count):
+        del self._list[start:start+count]
 
 class _null_list(_null_mixin(_list), _list):
 

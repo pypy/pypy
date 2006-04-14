@@ -34,7 +34,8 @@ def sum_(lst):
 
 def bar(x, y):
     lst = [1,2,3,x,y]
-    return sum_(lst[:-1])
+    del lst[:]
+    return sum_(lst)
 
 f = compile_function(bar, [int, int])
 

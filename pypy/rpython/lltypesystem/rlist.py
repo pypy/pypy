@@ -5,7 +5,7 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractListIteratorRepr, rtype_newlist
+        AbstractFixedSizeListRepr, AbstractListIteratorRepr, rtype_newlist
 from pypy.rpython.rlist import dum_nocheck, dum_checkidx
 from pypy.rpython.lltypesystem.rslice import SliceRepr
 from pypy.rpython.lltypesystem.rslice import startstop_slice_repr, startonly_slice_repr
@@ -55,6 +55,8 @@ class BaseListRepr(AbstractBaseListRepr):
         self.ll_listslice = ll_listslice
         self.ll_listslice_minusone = ll_listslice_minusone
         self.ll_listsetslice = ll_listsetslice
+        self.ll_listdelslice_startonly = ll_listdelslice_startonly
+        self.ll_listdelslice = ll_listdelslice
         self.list_builder = ListBuilder()
 
     def _setup_repr_final(self):
@@ -267,7 +269,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
         v_res = hop.gendirectcall(llfn, v_func, *args)
         return self.recast(hop.llops, v_res)
 
-class FixedSizeListRepr(AbstractListRepr, BaseListRepr):
+class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
@@ -355,19 +357,6 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
         return hop.gendirectcall(ll_inplace_mul, v_lst, v_factor)
 
-
-class __extend__(pairtype(ListRepr, SliceRepr)):
-
-    def rtype_delitem((r_lst, r_slic), hop):
-        if r_slic == startonly_slice_repr:
-            v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
-            hop.gendirectcall(ll_listdelslice_startonly, v_lst, v_start)
-            return
-        if r_slic == startstop_slice_repr:
-            v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
-            hop.gendirectcall(ll_listdelslice, v_lst, v_slice)
-            return
-        raise TyperError('delitem does not support slices with %r' % (r_slic,))
 
 class __extend__(pairtype(BaseListRepr, BaseListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):

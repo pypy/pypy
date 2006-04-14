@@ -39,5 +39,10 @@ namespace pypy.runtime
             this.AddRange(other);
         }
 
+        public void remove_range(int start, int count)
+        {
+            this.RemoveRange(start, count);
+        }
+
     }
 }
