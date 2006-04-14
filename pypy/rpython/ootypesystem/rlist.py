@@ -33,6 +33,7 @@ class BaseListRepr(AbstractBaseListRepr):
         self.ll_listsetslice = ll_listsetslice
         self.ll_listdelslice_startonly = ll_listdelslice_startonly
         self.ll_listdelslice = ll_listdelslice
+        self.ll_listindex = ll_listindex
         # setup() needs to be called to finish this initialization
 
     def _setup_repr(self):
@@ -51,8 +52,21 @@ class BaseListRepr(AbstractBaseListRepr):
         return hop.genop("oosend", [c_name] + v_args,
                 resulttype=hop.r_result.lowleveltype)
 
+    def get_eqfunc(self):
+        return inputconst(Void, self.item_repr.get_ll_eq_function())
+
     def rtype_len(self, hop):
         return self.send_message(hop, "length")
+
+    def rtype_is_true(self, hop):
+        v_lst, = hop.inputargs(self)
+        return hop.gendirectcall(ll_list_is_true, v_lst)
+
+    def rtype_bltn_list(self, hop):
+        v_lst = hop.inputarg(self, 0)        
+        c_start = hop.inputconst(Signed, 0)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)        
+        return hop.gendirectcall(self.ll_listslice_startonly, cRESLIST, v_lst, c_start)
 
     def rtype_method_append(self, hop):
         return self.send_message(hop, "append")
@@ -94,9 +108,9 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
     def rtype_delitem((r_list, r_int), hop):
         v_list, v_index = hop.inputargs(r_list, Signed)
         if hop.args_s[1].nonneg:
-            v_count = hop.inputconst(Signed, 1)
+            c_count = hop.inputconst(Signed, 1)
             return r_list.send_message(hop, "remove_range",can_raise=True,
-                                       v_args=[v_list, v_index, v_count])
+                                       v_args=[v_list, v_index, c_count])
         else:
             hop.exception_is_here()
             return hop.gendirectcall(ll_delitem, v_list, v_index)
@@ -131,6 +145,9 @@ def ll_delitem(lst, index):
     if index < 0:
         index += lst.length()
     return lst.remove_range(index, 1)
+
+def ll_list_is_true(lst):
+    return bool(lst) and lst.length() != 0    
 
 def ll_append(lst, item):
     lst.append(item)
@@ -218,6 +235,21 @@ def ll_listdelslice(lst, slice):
     count = stop - start
     if count > 0:
         lst.remove_range(start, count)
+
+def ll_listindex(lst, obj, eqfn):
+    lng = lst.length()
+    j = 0
+    while j < lng:
+        if eqfn is None:
+            if lst.getitem_nonneg(j) == obj:
+                return j
+        else:
+            if eqfn(lst.getitem_nonneg(j), obj):
+                return j
+        j += 1
+    raise ValueError # can't say 'list.index(x): x not in list'
+
+
 
 # ____________________________________________________________
 #

@@ -35,6 +35,13 @@ class AbstractBaseListRepr(Repr):
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
 
+    def rtype_method_index(self, hop):
+        v_lst, v_value = hop.inputargs(self, self.item_repr)
+        hop.has_implicit_exception(ValueError)   # record that we know about it
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll_listindex, v_lst, v_value, self.get_eqfunc())
+
+
 class AbstractListRepr(AbstractBaseListRepr):
     pass
 

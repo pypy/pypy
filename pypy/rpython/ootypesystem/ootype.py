@@ -559,6 +559,7 @@ class _list(object):
         self._list.extend(other._list)
 
     def remove_range(self, start, count):
+        # NOT_RPYTHON        
         del self._list[start:start+count]
 
 class _null_list(_null_mixin(_list), _list):

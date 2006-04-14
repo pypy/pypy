@@ -326,6 +326,41 @@ class BaseTestListRtyping:
         assert res.item2 == 8
         assert res.item3 == 7
 
+    def test_bltn_list(self):
+        def dummyfn():
+            l1 = [42]
+            l2 = list(l1)
+            l2[0] = 0
+            return l1[0]
+        res = interpret(dummyfn, (), type_system=self.ts)
+        assert res == 42
+
+    def test_is_true(self):
+        def is_true(lst):
+            if lst:
+                return True
+            else:
+                return False
+        def dummyfn1():
+            return is_true(None)
+        def dummyfn2():
+            return is_true([])
+        def dummyfn3():
+            return is_true([0])
+        assert interpret(dummyfn1, (), type_system=self.ts) == False
+        assert interpret(dummyfn2, (), type_system=self.ts) == False
+        assert interpret(dummyfn3, (), type_system=self.ts) == True
+
+    def test_list_index_simple(self):
+        def dummyfn(i):
+            l = [5,6,7,8]
+            return l.index(i)
+        
+        res = interpret(dummyfn, (6,), type_system=self.ts)
+        assert res == 1
+        interpret_raises(ValueError, dummyfn, [42], type_system=self.ts)
+
+
 def test_insert_pop():
     def dummyfn():
         l = [6, 7, 8]

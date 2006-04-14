@@ -57,6 +57,7 @@ class BaseListRepr(AbstractBaseListRepr):
         self.ll_listsetslice = ll_listsetslice
         self.ll_listdelslice_startonly = ll_listdelslice_startonly
         self.ll_listdelslice = ll_listdelslice
+        self.ll_listindex = ll_listindex
         self.list_builder = ListBuilder()
 
     def _setup_repr_final(self):
@@ -103,12 +104,6 @@ class BaseListRepr(AbstractBaseListRepr):
     def rtype_is_true(self, hop):
         v_lst, = hop.inputargs(self)
         return hop.gendirectcall(ll_list_is_true, v_lst)
-
-    def rtype_method_index(self, hop):
-        v_lst, v_value = hop.inputargs(self, self.item_repr)
-        hop.has_implicit_exception(ValueError)   # record that we know about it
-        hop.exception_is_here()
-        return hop.gendirectcall(ll_listindex, v_lst, v_value, self.get_eqfunc())
     
     def rtype_method_reverse(self, hop):
         v_lst, = hop.inputargs(self)

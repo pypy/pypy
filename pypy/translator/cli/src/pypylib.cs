@@ -29,9 +29,9 @@ namespace pypy.runtime
             return this[index];
         }
 
-        public void setitem_nonneg(int index, T value_)
+        public void setitem_nonneg(int index, T item)
         {
-            this[index] = value_;
+            this[index] = item;
         }
 
         public void extend(List<T> other)
@@ -44,5 +44,9 @@ namespace pypy.runtime
             this.RemoveRange(start, count);
         }
 
+        public int index(T item)
+        {
+            return this.IndexOf(item);
+        }
     }
 }

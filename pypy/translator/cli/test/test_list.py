@@ -62,10 +62,25 @@ def list_setslice(x, y):
     lst[1:3] = [1234, 5678]
     return sum_(lst)
 
-##def list_del_item_slice(x, y):
-##    lst = create(x, y)
-##    del lst[0]
-##    del lst[2:4]
-##    del lst[5:]
-##    return sum_(lst)
+def list_bltn_list(x, y):
+    lst = create(x, y)
+    lst2 = list(lst)
+    del lst2[:]
+    return sum_(lst)
 
+def list_del_item_slice(x, y):
+    lst = create(x, y)
+    del lst[0]
+    del lst[2:4]
+    del lst[5:]
+    return sum_(lst)
+
+def list_index(x, y):
+    lst = create(x, y)
+    res = lst.index(x)
+    try:
+        lst.index(x*y+1)
+    except ValueError:
+        res += 1
+
+    return res
