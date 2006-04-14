@@ -20,6 +20,7 @@ class AbstractTestClass:
 
     def getcompiled(self, func):
         t = TranslationContext(simplifying=True)
+        self.t = t
         # builds starting-types from func_defs 
         argstypelist = []
         if func.func_defaults:

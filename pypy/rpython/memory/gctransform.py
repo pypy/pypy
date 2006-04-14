@@ -6,6 +6,7 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.translator import graphof
 from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
+from pypy.translator.backendopt import graphanalyze
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel
 from pypy.rpython.memory import gc, lladdress
@@ -664,6 +665,10 @@ def gc_pointers_inside(v, adr):
                     yield a
 
 
+class CollectAnalyzer(graphanalyze.GraphAnalyzer):
+    def operation_is_true(self, op):
+        return op.opname in ("malloc", "malloc_varsize")
+
 class FrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
@@ -822,6 +827,9 @@ class FrameworkGCTransformer(GCTransformer):
         self.malloc_varsize_ptr = self.graph2funcptr(malloc_varsize_graph)
         self.graphs_to_inline[malloc_fixedsize_graph] = True
 
+        self.collect_analyzer = CollectAnalyzer(self.translator)
+        self.collect_analyzer.analyze_all()
+
     def graph2funcptr(self, graph):
         self.need_minimal_transform(graph)
         return const_funcptr_fromgraph(graph)
@@ -971,8 +979,13 @@ class FrameworkGCTransformer(GCTransformer):
         newops.extend(self.pop_roots(livevars))
         return newops, index
 
-    replace_direct_call    = protect_roots
-    replace_indirect_call  = protect_roots
+    def replace_direct_call(self, op, livevars, block):
+        if self.collect_analyzer.analyze(op):
+            return self.protect_roots(op, livevars, block)
+        else:
+            return [op], 0
+    
+    replace_indirect_call  = replace_direct_call
 
     def replace_malloc(self, op, livevars, block):
         TYPE = op.args[0].value

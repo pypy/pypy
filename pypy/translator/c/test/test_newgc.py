@@ -4,6 +4,7 @@ import py
 from py.test import raises
 
 from pypy.translator.translator import TranslationContext
+from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype
 
@@ -193,7 +194,7 @@ class TestUsingFramework(AbstractTestClass):
     from pypy.translator.c.gc import FrameworkGcPolicy as gcpolicy
 
     def test_framework_simple(self):
-        def g(x):
+        def g(x): # cannot cause a collect
             return x + 1
         class A(object):
             pass
@@ -208,6 +209,7 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 2
+        assert len(self.t.graphs[0].startblock.exits[False].target.operations) == 10
 
     def test_framework_varsized(self):
         S = lltype.GcStruct("S", ('x', lltype.Signed))
