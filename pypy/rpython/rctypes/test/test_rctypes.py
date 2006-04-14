@@ -91,6 +91,16 @@ testfunc_struct_pointer_id.llinterp_friendly_version = (
     ll_testfunc_struct_pointer_id)
 testfunc_struct_pointer_id.includes = includes
 
+# _testfunc_swap
+testfunc_swap = _rctypes_test._testfunc_swap
+testfunc_swap.restype = None
+testfunc_swap.argtypes = [tagpointptr]
+
+def ll_testfunc_swap(p):
+    p.x, p.y = p.y, p.x
+testfunc_swap.llinterp_friendly_version = ll_testfunc_swap
+testfunc_swap.includes = includes
+
 
 def test_testfunc_struct():
     in_point = tagpoint()
@@ -119,6 +129,15 @@ def test_testfunc_struct_pointer_id():
     res.contents.x //= 2
     assert in_point.x == 21
     return in_point.x - in_point.y       # this test function is reused below
+
+def test_testfunc_swap():
+    pt = tagpoint()
+    pt.x = 5
+    pt.y = 9
+    testfunc_swap(pointer(pt))
+    assert pt.x == 9
+    assert pt.y == 5
+    return pt.x - pt.y                   # this test function is reused below
 
 class Test_annotation:
     def test_annotate_struct(self):
@@ -150,6 +169,10 @@ class Test_specialization:
         res = interpret(test_testfunc_struct_pointer_id, [])
         assert res == 21 - 17
 
+    def test_specialize_swap(self):
+        res = interpret(test_testfunc_swap, [])
+        assert res == 4
+
 class Test_compile:
     def test_compile_byval(self):
         fn = compile(test_testfunc_byval, [])
@@ -158,3 +181,7 @@ class Test_compile:
     def test_compile_struct_pointer_id(self):
         fn = compile(test_testfunc_struct_pointer_id, [])
         assert fn() == 21 - 17
+
+    def test_compile_swap(self):
+        fn = compile(test_testfunc_swap, [])
+        assert fn() == 4

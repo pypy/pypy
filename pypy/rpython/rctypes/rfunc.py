@@ -15,6 +15,8 @@ def cfuncptrtype_compute_annotation(type, instance):
         Answer the annotation of the external function's result
         """
         result_ctype = instance.restype
+        if result_ctype is None:
+            return None
         s_result = annmodel.SomeCTypesObject(result_ctype,
                                          annmodel.SomeCTypesObject.OWNSMEMORY)
         return s_result.return_annotation()
@@ -51,18 +53,22 @@ def cfuncptrtype_specialize_call(hop):
             # generate the correct dereferencing
             unwrapped_args_v.append(r_arg.get_c_data(hop.llops, v))
             ARGTYPES.append(r_arg.c_data_type)
-    s_res = annmodel.SomeCTypesObject(cfuncptr.restype,
-                                      annmodel.SomeCTypesObject.OWNSMEMORY)
-    r_res = hop.rtyper.getrepr(s_res)
+    if cfuncptr.restype is not None:
+        s_res = annmodel.SomeCTypesObject(cfuncptr.restype,
+                                          annmodel.SomeCTypesObject.OWNSMEMORY)
+        r_res = hop.rtyper.getrepr(s_res)
+        RESTYPE = r_res.ll_type
+    else:
+        RESTYPE = lltype.Void
 
     ll_func = getattr(cfuncptr, 'llinterp_friendly_version', None)
     includes = getattr(cfuncptr, 'includes', ())
     v_result = hop.llops.gencapicall(fnname, unwrapped_args_v,
-                                     resulttype = r_res.ll_type,
+                                     resulttype = RESTYPE,
                                      _callable = ll_func,
                                      includes = includes)
     # XXX hack! hack! temporary! I promize!
-    FUNCTYPE = lltype.FuncType(ARGTYPES, r_res.ll_type)
+    FUNCTYPE = lltype.FuncType(ARGTYPES, RESTYPE)
     last_op = hop.llops[-1]
     assert last_op.opname == 'direct_call'
     last_op.args[0].concretetype = lltype.Ptr(FUNCTYPE)
@@ -70,7 +76,10 @@ def cfuncptrtype_specialize_call(hop):
     last_op.args[0].value._set_T(FUNCTYPE)
     last_op.args[0].value._obj._TYPE = FUNCTYPE
 
-    return r_res.return_value(hop.llops, v_result)
+    if RESTYPE is lltype.Void:
+        return None
+    else:
+        return r_res.return_value(hop.llops, v_result)
 
 extregistry.register_metatype(CFuncPtrType, 
     compute_annotation=cfuncptrtype_compute_annotation,

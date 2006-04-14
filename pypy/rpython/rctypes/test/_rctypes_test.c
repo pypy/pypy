@@ -29,6 +29,13 @@ EXPORT(int) _testfunc_byval(point in, point *pout)
     return in.x + in.y;
 }
 
+EXPORT(void) _testfunc_swap(point *p)
+{
+    int tmp = p->x;
+    p->x = p->y;
+    p->y = tmp;
+}
+
 EXPORT(int) _testfunc_struct(point in)
 {
     return in.x + in.y;
