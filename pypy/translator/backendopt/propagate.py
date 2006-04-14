@@ -134,7 +134,10 @@ class CountingLLFrame(LLFrame):
         return super(CountingLLFrame, self).eval_operation(operation)
 
 def op_can_be_folded(op):
-    return not lloperation.LL_OPERATIONS[op.opname].canfold
+    try:
+        return not lloperation.LL_OPERATIONS[op.opname].canfold
+    except KeyError:
+        return True
 
 def constant_folding(graph, translator):
     """do constant folding if the arguments of an operations are constants"""
@@ -145,7 +148,7 @@ def constant_folding(graph, translator):
         for i, op in enumerate(block.operations):
             if sum([isinstance(arg, Variable) for arg in op.args]):
                 continue
-            if lloperation.LL_OPERATIONS[op.opname].canfold:
+            if op.opname in lloperation.LL_OPERATIONS and lloperation.LL_OPERATIONS[op.opname].canfold:
                 if op.opname in ("getsubstruct", "getarraysubstruct"):
                     if not var_needsgc(op.result):
                         continue
@@ -201,7 +204,8 @@ def partial_folding_once(graph, translator):
             return
         usedvars = {}
         for op in block.operations:
-            if not lloperation.LL_OPERATIONS[op.opname].canfold:
+            if (op.opname not in lloperation.LL_OPERATIONS or
+                not lloperation.LL_OPERATIONS[op.opname].canfold):
                 return
             for arg in op.args:
                 if (isinstance(arg, Variable) and arg in block.inputargs):
@@ -239,6 +243,8 @@ def partial_folding_once(graph, translator):
             else:
                 assert 0, "this should not occur"
             unchanged = link.target == nextblock and link.args == newargs
+            if not unchanged:
+                print "doing partial folding in graph", graph.name
             link.target = nextblock
             link.args = newargs
             checkgraph(graph)
@@ -361,6 +367,7 @@ def propagate_all_per_graph(graph, translator):
                                        translator) or changed
         changed = partial_folding(graph, translator) or changed
         changed = remove_all_getfields(graph, translator) or changed
+        checkgraph(graph)
         return changed
     do_atmost(10, prop)    
 
