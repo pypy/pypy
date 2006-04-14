@@ -280,7 +280,10 @@ def iter_op_pairs(graph, opname1, opname2, equality):
 
 def can_be_same(val1, val2):
     if isinstance(val1, Constant) and isinstance(val2, Constant):
-        return val1.value == val2.value
+        try:
+            return val1.value == val2.value
+        except TypeError:
+            return False
     return val1.concretetype == val2.concretetype
 
 def remove_getfield(graph, translator):
@@ -290,8 +293,11 @@ def remove_getfield(graph, translator):
     def equality(op1, op2):
         if isinstance(op1.args[0], Constant):
             if isinstance(op2.args[0], Constant):
-                return (op1.args[0].value == op2.args[0].value and
-                        op1.args[1].value == op2.args[1].value)
+                try:
+                    return (op1.args[0].value == op2.args[0].value and
+                            op1.args[1].value == op2.args[1].value)
+                except TypeError:
+                    return False
             return False
         return (op1.args[0] == op2.args[0] and
                 op1.args[1].value == op2.args[1].value)

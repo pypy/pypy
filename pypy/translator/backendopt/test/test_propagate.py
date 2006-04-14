@@ -289,3 +289,21 @@ def test_remove_getfield_after_getfield():
     assert len(graph.startblock.operations) == 20
     check_graph(graph, [42], 42, t)
     
+def test_getfield_nonmatching_types():
+    class A(object):
+        pass
+    class B(object):
+        pass
+    global_a = A()
+    global_b = B()
+    def f(x):
+        global_a.x = x
+        global_b.x = 2 * x
+        return global_a.x + global_b.x
+    graph, t = get_graph(f, [int])
+    count = remove_all_getfields(graph, t)
+    assert count == 2
+    if conftest.option.view:
+        t.view()
+    check_graph(graph, [42], 3 * 42, t)
+
