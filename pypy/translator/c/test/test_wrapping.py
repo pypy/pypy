@@ -83,137 +83,45 @@ def getcompiled(func, *args, **kwds):
 # stubs for special annotation/rtyping
 
 
-def wrap_obj(thing):
-    RaiseNameError
+def wrap(thing):
+    return thing # untranslated case
 
-def unwrap_obj(pyobj, typ):
-    RaiseNameError
-unwrap_obj._annspecialcase_ = 'specialize:arg(1)'
-
-def call_destructor(thing, savedrepr):
-    ll_call_destructor(thing, savedrepr)
-
-def ll_call_destructor(thang, savedtrpr):
-    return 42 # really not relevant
-
-"""
-creating a wrapper object with its destructor.
-Note that we need annotate_helper_fn, because
-the destructor is never explicitly called.
-Note also the "hand specialization" which passes the repr through!
-This was only possible with Samuele's hints.
-"""
-
-def rtype_destruct_object(hop):
-    v_any, c_spec = hop.inputargs(*hop.args_r)
-    repr = c_spec.value
-    if repr.has_wrapper:
-        null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
-        # XXX this is a hack! We need an operation to remove a broken PyObject
-        repr.setfield(v_any, '_wrapper_', null, hop.llops, opname='bare_setfield')
-    hop.genop('gc_unprotect', [v_any])
-
-def rtype_unwrap_object(hop):
-    pyptr = hop.args_r[0]
-    klass = hop.args_s[1].const
-    classdef = hop.rtyper.annotator.bookkeeper.getuniqueclassdef(klass)
-    repr = rclass.getinstancerepr(hop.rtyper, classdef, True)
-    v_pyobj, v_type = hop.inputargs(*hop.args_r)
-    if repr.has_wrapper:
-        c_self = hop.inputconst(robject.pyobj_repr, '__self__')
-        v_pyobj = hop.genop('getattr', [v_pyobj, c_self], resulttype=pyptr)
-    v_adr = hop.llops.gencapicall('PyCObject_AsVoidPtr', [v_pyobj], resulttype=hop.r_result)
-    hop.genop('gc_protect', [v_adr])
-    return v_adr
-
-def rtype_wrap_object(hop):
-    v_any, = hop.inputargs(*hop.args_r)
-    repr = hop.args_r[0]
-    c_repr = hop.inputconst(lltype.Void, repr)
-    if repr.has_wrapper:
-        return hop.gendirectcall(ll_wrap_object, v_any, c_repr)
-    else:
-        return hop.gendirectcall(create_pywrapper, v_any, c_repr)
-
-def ll_wrap_object(obj, repr):
-    ret = fetch_pywrapper(obj, repr)
-    if not ret:
-        ret = create_pywrapper(obj, repr)
-    return ret
-
-def create_pywrapper(thing, repr):
-    return ll_create_pywrapper(thing, repr)
-
-def ll_create_pywrapper(thing, repr):
-    return 42
-
-def fetch_pywrapper(thing, repr):
-    return ll_fetch_pywrapper(thing, repr)
-
-def ll_fetch_pywrapper(thing, repr):
-    return 42
-
-def rtype_wrap_object_create(hop):
-    gencapi = hop.llops.gencapicall
-    pyptr = hop.r_result
-    v_any, c_spec = hop.inputargs(*hop.args_r)
-    repr = c_spec.value
-    f = call_destructor
-    hop.genop('gc_protect', [v_any])
-    ARG = repr.lowleveltype
-    reprPBC = hop.rtyper.annotator.bookkeeper.immutablevalue(repr)
-    fp_dtor = hop.rtyper.annotate_helper_fn(f, [ARG, reprPBC])
-    FUNC = lltype.FuncType([ARG, lltype.Void], lltype.Void)
-    c_dtor = hop.inputconst(lltype.Ptr(FUNC), fp_dtor)
-    res = gencapi('PyCObject_FromVoidPtr', [v_any, c_dtor], resulttype=pyptr)
-    if repr.has_wrapper:
-        cobj = res
-        c_cls = hop.inputconst(robject.pyobj_repr, repr.classdef.classdesc.pyobj)
-        c_0 = hop.inputconst(lltype.Signed, 0)
-        res = gencapi('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyptr)
-        c_self = hop.inputconst(robject.pyobj_repr, '__self__')
-        hop.genop('setattr', [res, c_self, cobj], resulttype=pyptr)
-        repr.setfield(v_any, '_wrapper_', res, hop.llops)
-        hop.genop('gc_unprotect', [res]) # yes a weak ref
-    return res
-
-def rtype_wrap_object_fetch(hop):
-    v_any, c_spec = hop.inputargs(*hop.args_r)
-    repr = c_spec.value
-    if repr.has_wrapper:
-        return repr.getfield(v_any, '_wrapper_', hop.llops)
-    else:
-        null = hop.inputconst(lltype.Ptr(lltype.PyObject), lltype.nullptr(lltype.PyObject))
-        return null
+def unwrap(pyobj, typ):
+    assert isinstance(pyobj, typ)
+    return pyobj # untranslated case
+unwrap._annspecialcase_ = 'specialize:arg(1)'
 
 
-def compute_annotation_unwrap(s_wrapper, s_class):
-    assert hasattr(s_class, 'descriptions'), 'need a class in unwrap 2nd arg'
-    descs = s_class.descriptions
+def rtype_unwrap(hop):
+    v_obj = hop.inputarg(hop.args_r[0], 0)
+    return hop.llops.convertvar(v_obj, hop.args_r[0], hop.r_result)
+
+def rtype_wrap(hop):
+    assert len(hop.args_r) == 1, 'wrap() takes exactly one argument'
+    v_obj, = hop.inputargs(*hop.args_r)
+    return hop.llops.convertvar(v_obj, hop.args_r[0], robject.pyobj_repr)
+
+def compute_annotation_unwrap(s_wrapped, s_spec):
+    # this will go away, much better way found!
+    assert hasattr(s_spec, 'descriptions'), 'need a class in unwrap 2nd arg'
+    descs = s_spec.descriptions
     assert len(descs) == 1, 'missing specialisation, classdesc not unique!'
     for desc in descs.keys():
         classdef = desc.getuniqueclassdef()
     return annmodel.SomeInstance(classdef)
 
-extregistry.register_value(ll_create_pywrapper, 
-    compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
-    specialize_call=rtype_wrap_object_create)
+# XXX
+# wrapping/unwrapping should be annotatable.
+# Idea: create tunnel objects which share
+# annotation across SomeObjectness, sharing a key!
 
-extregistry.register_value(ll_fetch_pywrapper, 
-    compute_result_annotation=annmodel.SomePtr(lltype.Ptr(lltype.PyObject)), 
-    specialize_call=rtype_wrap_object_fetch)
-
-extregistry.register_value(ll_call_destructor, 
-    compute_result_annotation=lambda *args: None,
-    specialize_call=rtype_destruct_object)
-
-extregistry.register_value(wrap_obj, 
+extregistry.register_value(wrap, 
     compute_result_annotation=annmodel.SomeObject(),
-    specialize_call=rtype_wrap_object)
+    specialize_call=rtype_wrap)
 
-extregistry.register_value(unwrap_obj, 
+extregistry.register_value(unwrap, 
     compute_result_annotation=compute_annotation_unwrap,
-    specialize_call=rtype_unwrap_object)
+    specialize_call=rtype_unwrap)
 
 # _______________________________________________-
 # the actual tests
@@ -278,28 +186,17 @@ class DemoNotAnnotated(object):
     def retrieve(self):
         return self.hugo
 
-# we have more helper functions here than needed.
-# this was to make the debugging easier.
-
-def call_wrap_obj(inst):
-    return wrap_obj(inst)
-call_wrap_obj._annspecialcase_ = 'specialize:argtype(0)'
-
-def call_unwrap_obj(pyobj, klass):
-    return unwrap_obj(pyobj, klass)
-call_unwrap_obj._annspecialcase_ = 'specialize:arg(1)'
-
 def democlass_helper_sub(a, b):
     # prevend inlining
     if a == -42:
         return democlass_helper_sub(a-1, b)
     inst = DemoClass(a, b)
-    pyobj = call_wrap_obj(inst)
-    obj = call_unwrap_obj(pyobj, DemoClass)
+    pyobj = wrap(inst)
+    obj = unwrap(pyobj, DemoClass)
     ret = obj.demo()
     inst = DemoSubclass(a, b, 42)
-    pyobj = call_wrap_obj(inst)
-    obj = call_unwrap_obj(pyobj, DemoSubclass)
+    pyobj = wrap(inst)
+    obj = unwrap(pyobj, DemoSubclass)
     ret = obj.demo()
     return ret
 
@@ -319,7 +216,6 @@ def democlass_helper2(a=int, b=int):
 
 def setup_new_module(mod, modname):
     # note the name clash with py.test on setup_module
-    return
     from types import module
     m = module(modname)
     allobjs = mod.__dict__.values()
@@ -333,15 +229,6 @@ def setup_new_module(mod, modname):
             funcs.append( (obj.func_name, obj) )
     print 'funcs=', funcs
     funcs.sort()
-    for name, func in funcs:
-        print name, func
-    for name in mod.__all__:
-        obj = getattr(mod, name)
-        #if isinstance(obj, type):
-        # careful, this gives a class!
-        if hasattr(mod, '__bases__'):
-            print name
-        setattr(m, name, obj)
     return m
 
 
