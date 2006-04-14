@@ -70,7 +70,7 @@ def cfuncptrtype_specialize_call(hop):
     last_op.args[0].value._set_T(FUNCTYPE)
     last_op.args[0].value._obj._TYPE = FUNCTYPE
 
-    return v_result
+    return r_res.return_value(hop.llops, v_result)
 
 extregistry.register_metatype(CFuncPtrType, 
     compute_annotation=cfuncptrtype_compute_annotation,

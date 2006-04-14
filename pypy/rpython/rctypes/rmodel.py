@@ -201,6 +201,14 @@ class CTypesValueRepr(CTypesRepr):
             value = value.value
         p.c_data[0] = value
 
+    def return_value(self, llops, v_value):
+        # like return_c_data(), but when the input is only the value
+        # field instead of the c_data pointer
+        r_temp = self.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        r_temp.setvalue(llops, v_owned_box, v_value)
+        return llops.convertvar(v_owned_box, r_temp, self)
+
 # ____________________________________________________________
 
 C_ZERO = inputconst(lltype.Signed, 0)

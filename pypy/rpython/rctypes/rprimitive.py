@@ -34,6 +34,11 @@ class PrimitiveRepr(CTypesValueRepr):
         """
         return self.getvalue_from_c_data(llops, v_c_data)
 
+    def return_value(self, llops, v_value):
+        # like return_c_data(), but when the input is only the value
+        # field instead of the c_data pointer
+        return v_value
+
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
         assert s_attr.is_constant()

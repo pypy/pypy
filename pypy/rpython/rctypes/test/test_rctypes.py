@@ -22,7 +22,7 @@ except ImportError:
 
 
 from ctypes import cdll
-from ctypes import POINTER, Structure, c_int, byref
+from ctypes import POINTER, Structure, c_int, byref, pointer
 
 # __________ compile and load our local test C file __________
 
@@ -50,6 +50,16 @@ class tagpoint(Structure):
                 ("y", c_int)]
     _external_ = True       # hack to avoid redeclaration of the struct in C
 
+# _test_struct
+testfunc_struct = _rctypes_test._testfunc_struct
+testfunc_struct.restype = c_int
+testfunc_struct.argtypes = [tagpoint]
+
+def ll_testfunc_struct(in_):
+    return in_.x + in_.y
+testfunc_struct.llinterp_friendly_version = ll_testfunc_struct
+testfunc_struct.includes = includes
+
 # _testfunc_byval
 testfunc_byval = _rctypes_test._testfunc_byval
 testfunc_byval.restype = c_int
@@ -63,15 +73,11 @@ def ll_testfunc_byval(in_, pout):
 testfunc_byval.llinterp_friendly_version = ll_testfunc_byval
 testfunc_byval.includes = includes
 
-# _test_struct
-testfunc_struct = _rctypes_test._testfunc_struct
-testfunc_struct.restype = c_int
-testfunc_struct.argtypes = [tagpoint]
-
 # _test_struct_id
-testfunc_struct_id = _rctypes_test._testfunc_struct_id
-testfunc_struct_id.restype = tagpoint
-testfunc_struct_id.argtypes = [tagpoint]
+# XXX no support for returning structs
+#testfunc_struct_id = _rctypes_test._testfunc_struct_id
+#testfunc_struct_id.restype = tagpoint
+#testfunc_struct_id.argtypes = [tagpoint]
 
 # _test_struct_id_pointer
 tagpointptr = POINTER(tagpoint)
@@ -79,8 +85,22 @@ testfunc_struct_pointer_id = _rctypes_test._testfunc_struct_pointer_id
 testfunc_struct_pointer_id.restype = tagpointptr
 testfunc_struct_pointer_id.argtypes = [tagpointptr]
 
+def ll_testfunc_struct_pointer_id(pin):
+    return pin
+testfunc_struct_pointer_id.llinterp_friendly_version = (
+    ll_testfunc_struct_pointer_id)
+testfunc_struct_pointer_id.includes = includes
 
-def test_rctypes_dll():
+
+def test_testfunc_struct():
+    in_point = tagpoint()
+    in_point.x = 42
+    in_point.y = 17
+    res = testfunc_struct(in_point)
+    assert res == in_point.x + in_point.y
+    return in_point.x - in_point.y     # this test function is reused below
+
+def test_testfunc_byval():
     in_point = tagpoint()
     in_point.x = 42
     in_point.y = 17
@@ -91,21 +111,50 @@ def test_rctypes_dll():
     assert out_point.y == 17
     return out_point.x - out_point.y     # this test function is reused below
 
+def test_testfunc_struct_pointer_id():
+    in_point = tagpoint()
+    in_point.x = 42
+    in_point.y = 17
+    res = testfunc_struct_pointer_id(byref(in_point))
+    res.contents.x //= 2
+    assert in_point.x == 21
+    return in_point.x - in_point.y       # this test function is reused below
+
 class Test_annotation:
+    def test_annotate_struct(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(test_testfunc_struct, [])
+        if conftest.option.view:
+            t.view()
+        assert s.knowntype == int
+
     def test_annotate_byval(self):
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(test_rctypes_dll, [])
+        s = a.build_types(test_testfunc_byval, [])
         if conftest.option.view:
             t.view()
         assert s.knowntype == int
 
 class Test_specialization:
-    def test_specialize_byval(self):
-        res = interpret(test_rctypes_dll, [])
+    def test_specialize_struct(self):
+        res = interpret(test_testfunc_struct, [])
         assert res == 42 - 17
+
+    def test_specialize_byval(self):
+        res = interpret(test_testfunc_byval, [])
+        assert res == 42 - 17
+
+    def test_specialize_struct_pointer_id(self):
+        res = interpret(test_testfunc_struct_pointer_id, [])
+        assert res == 21 - 17
 
 class Test_compile:
     def test_compile_byval(self):
-        fn = compile(test_rctypes_dll, [])
+        fn = compile(test_testfunc_byval, [])
         assert fn() == 42 - 17
+
+    def test_compile_struct_pointer_id(self):
+        fn = compile(test_testfunc_struct_pointer_id, [])
+        assert fn() == 21 - 17

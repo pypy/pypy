@@ -19,6 +19,11 @@ class CCharPRepr(CTypesValueRepr):
         v_char_p = self.getvalue_from_c_data(llops, v_c_data)
         return llops.gendirectcall(ll_charp2str, v_char_p)
 
+    def return_value(self, llops, v_value):
+        # like return_c_data(), but when the input is only the value
+        # field instead of the c_data pointer
+        return llops.gendirectcall(ll_charp2str, v_value)
+
     def get_content_keepalives(self):
         "Return an extra keepalive field used for the RPython string."
         return [('keepalive_str', string_repr.lowleveltype)]
