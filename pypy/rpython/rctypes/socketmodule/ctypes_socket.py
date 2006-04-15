@@ -2,7 +2,12 @@ import os
 from pypy.rpython.rctypes import ctypes_platform
 from ctypes import *
 
-includes = ('sys/types.h', 'sys/socket.h', 'netinet/in.h', 'netdb.h')
+includes = ('sys/types.h',
+            'sys/socket.h',
+            'netinet/in.h',
+            'netdb.h',
+            'arpa/inet.h',
+            )
 HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
 constants = {}
 
@@ -11,10 +16,19 @@ for name in ['AF_INET',
              'AF_UNSPEC',
              'SOCK_STREAM',
              'SOCK_DGRAM',
+             'NI_MAXHOST',
+             'NI_NUMERICHOST',
              ]:
     constants[name] = ctypes_platform.getconstantinteger(name, HEADER)
 
 # types
+uint16_t = ctypes_platform.getsimpletype('uint16_t', HEADER, c_ushort)
+uint32_t = ctypes_platform.getsimpletype('uint32_t', HEADER, c_uint)
+size_t = ctypes_platform.getsimpletype('size_t', HEADER, c_int)
+size_t = ctypes_platform.getsimpletype('size_t', HEADER, c_int)
+socklen_t = ctypes_platform.getsimpletype('socklen_t', HEADER, c_int)
+
+# struct types
 sockaddr = ctypes_platform.getstruct('struct sockaddr', HEADER,
                                      [('sa_family', c_int),
                                       # unknown and variable fields follow
@@ -54,3 +68,25 @@ getaddrinfo.restype = c_int
 freeaddrinfo = socketdll.freeaddrinfo
 freeaddrinfo.argtypes = [POINTER(addrinfo)]
 freeaddrinfo.restype = None
+
+getnameinfo = socketdll.getnameinfo
+getnameinfo.argtypes = [POINTER(sockaddr), socklen_t,
+                        c_char_p, size_t,
+                        c_char_p, size_t, c_int]
+getnameinfo.restype = c_int
+
+htonl = socketdll.htonl
+htonl.argtypes = [uint32_t]
+htonl.restype = uint32_t
+
+htons = socketdll.htonl
+htons.argtypes = [uint16_t]
+htons.restype = uint16_t
+
+ntohl = socketdll.htonl
+ntohl.argtypes = [uint32_t]
+ntohl.restype = uint32_t
+
+ntohs = socketdll.htonl
+ntohs.argtypes = [uint16_t]
+ntohs.restype = uint16_t

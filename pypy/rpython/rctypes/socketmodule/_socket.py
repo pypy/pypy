@@ -1,4 +1,4 @@
-from ctypes import c_char_p, POINTER, byref
+from ctypes import c_char_p, POINTER, byref, cast, create_string_buffer
 import ctypes_socket as _c
 
 
@@ -42,12 +42,21 @@ class socket(object):
             XXX
 
 
+def makeipaddr(caddr, caddrlen):
+    buf = create_string_buffer(NI_MAXHOST)
+    error = _c.getnameinfo(caddr, caddrlen, buf, NI_MAXHOST,
+                           c_char_p(), 0, NI_NUMERICHOST)
+    if error:
+        XXX
+    return buf.value
+
 def makesockaddr(caddr, caddrlen, proto):
-    if addrlen == 0:
+    if caddrlen == 0:
         # No address -- may be recvfrom() from known socket
         return None
-    if caddr.sa_family == AF_INET:
-        return makeipaddr(caddr), _c.ntohs(
+    if caddr.contents.sa_family == AF_INET:
+        a = cast(caddr, POINTER(_c.sockaddr_in))
+        return makeipaddr(caddr, caddrlen), _c.ntohs(a.contents.sin_port)
     else:
         XXX
 
@@ -66,12 +75,12 @@ def getaddrinfo(host, port, family=AF_UNSPEC, socktype=0, proto=0, flags=0):
     if error:
         XXX
     try:
-        return _getaddrinfo_chainedlist(res0)
+        return _getaddrinfo_chainedlist(res0, proto)
     finally:
         if res0:
             _c.freeaddrinfo(res0)
 
-def _getaddrinfo_chainedlist(res):
+def _getaddrinfo_chainedlist(res, proto):
     result = []
     while res:
         res = res.contents
