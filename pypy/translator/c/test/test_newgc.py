@@ -210,6 +210,36 @@ class TestUsingFramework(AbstractTestClass):
         res = fn()
         assert res == 2
         assert len(self.t.graphs[0].startblock.exits[False].target.operations) == 10
+    def test_framework_safe_pushpop(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        def g(x): # can cause a collect
+            return B()
+        global_a = A()
+        global_a.b = B()
+        global_a.b.a = A()
+        global_a.b.a.b = B()
+        global_a.b.a.b.c = 1
+        def f():
+            global_a.b.a.b.c = 40
+            a = global_a.b.a
+            b = a.b
+            b.c = 41
+            g(1)
+            b0 = a.b
+            b0.c = b.c = 42
+            # this should trigger a couple of collections
+            # XXX make sure it triggers at least one somehow!
+            for i in range(100000):
+                [A()] * 1000
+            return global_a.b.a.b.c
+        fn = self.getcompiled(f)
+        startblock = self.t.graphs[0].startblock
+        res = fn()
+        assert res == 42
+        assert len([op for op in startblock.operations if op.opname == "gc_reload_possibly_moved"]) == 0
 
     def test_framework_varsized(self):
         S = lltype.GcStruct("S", ('x', lltype.Signed))

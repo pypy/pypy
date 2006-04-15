@@ -959,6 +959,7 @@ class FrameworkGCTransformer(GCTransformer):
         livevars = dict.fromkeys(
             [var for var in livevars if not var_ispyobj(var)], True)
         if not needs_conservative_livevar_calculation(block):
+            not_needed = {}
             if index == -1:
                 index = block.operations.index(op) # XXX hum
             needed = {}
@@ -966,11 +967,11 @@ class FrameworkGCTransformer(GCTransformer):
                 if before_op.result not in livevars:
                     continue
                 if before_op.opname in ("cast_pointer", "same_as"):
-                    del livevars[before_op.result]
+                    not_needed[before_op.result] = True
                 elif before_op.opname in ("getfield", "getarrayitem"):
                     if (before_op.args[0] in livevars or
                         isinstance(before_op.args[0], Constant)):
-                        del livevars[before_op.result]
+                        not_needed[before_op.result] = True
             for after_op in block.operations[index:]:
                 for arg in after_op.args:
                     needed[arg] = True
@@ -980,7 +981,7 @@ class FrameworkGCTransformer(GCTransformer):
                     needed[arg] = True
             newlivevars = []
             for var in livevars:
-                if var in needed:
+                if var in needed and var not in not_needed:
                     newlivevars.append(var)
             livevars = newlivevars
         else:
