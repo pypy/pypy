@@ -1058,11 +1058,12 @@ class FrameworkGCTransformer(GCTransformer):
 
     def pop_roots(self, vars):
         for var in vars[::-1]:
-            v = varoftype(llmemory.Address)
+            v = varoftype(lltype.Void)
+            # XXX specific to non-moving collectors
             yield SpaceOperation("direct_call", [self.pop_root_ptr],
                                  v)
-            yield SpaceOperation("gc_reload_possibly_moved", [v, var],
-                                 varoftype(lltype.Void))
+            #yield SpaceOperation("gc_reload_possibly_moved", [v, var],
+            #                     varoftype(lltype.Void))
 
 # XXX copied and modified from lltypelayout.py
 def offsets_to_gc_pointers(TYPE):
