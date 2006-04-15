@@ -232,7 +232,6 @@ class fakeaddress(object):
                                                    ref.fieldname)
         else:
             # regular case
-            assert isinstance(ref.type(), lltype.ContainerType)
             return lltype.cast_pointer(EXPECTED_TYPE, ref.get())
 
     def _cast_to_int(self):
