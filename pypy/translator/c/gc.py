@@ -287,7 +287,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         # XXX this more or less assumes mark-and-sweep gc
-        return '/* %s = %s; */ /* for moving GCs */' % (args[1], args[0])
+        return ''
+        # proper return value for moving GCs:
+        # %s = %s; /* for moving GCs */' % (args[1], args[0])
 
     def common_gcheader_definition(self, defnode):
         # XXX assumes mark and sweep
