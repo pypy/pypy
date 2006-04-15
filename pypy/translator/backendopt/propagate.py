@@ -243,8 +243,8 @@ def partial_folding_once(graph, translator):
             else:
                 assert 0, "this should not occur"
             unchanged = link.target == nextblock and link.args == newargs
-            if not unchanged:
-                print "doing partial folding in graph", graph.name
+#            if not unchanged:
+#                print "doing partial folding in graph", graph.name
             link.target = nextblock
             link.args = newargs
             checkgraph(graph)
@@ -362,10 +362,10 @@ def propagate_all_per_graph(graph, translator):
         changed = False
         changed = rewire_links(graph) or changed
         changed = propagate_consts(graph) or changed
-        changed = coalesce_links(graph) or changed
-        changed = do_atmost(100, constant_folding, graph,
-                                       translator) or changed
-        changed = partial_folding(graph, translator) or changed
+#        changed = coalesce_links(graph) or changed
+#        changed = do_atmost(100, constant_folding, graph,
+#                                       translator) or changed
+#        changed = partial_folding(graph, translator) or changed
         changed = remove_all_getfields(graph, translator) or changed
         checkgraph(graph)
         return changed
