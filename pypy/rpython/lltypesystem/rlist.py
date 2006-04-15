@@ -204,6 +204,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                           "ll_items": ll_items,
                                           "list_builder": self.list_builder,
                                           "ITEM": ITEM,
+                                          "ll_getelement": ll_getelement # XXX: experimental
                                       })
                              )
 
@@ -278,6 +279,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
                                      "ll_items": ll_fixed_items,
                                      "list_builder": self.list_builder,
                                      "ITEM": ITEM,
+                                     "ll_getelement": ll_getelement # XXX: experimental
                                 })
 
             self.LIST.become(ITEMARRAY)
@@ -818,6 +820,24 @@ def ll_listindex(lst, obj, eqfn):
                 return j
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
+
+# XXX experimental: this version uses the getelement interface
+##def ll_listindex(lst, obj, eqfn):
+##    lng = lst.ll_length()
+##    j = 0
+##    while j < lng:
+##        if eqfn is None:
+##            if lst.ll_getelement(j) == obj:
+##                return j
+##        else:
+##            if eqfn(lst.ll_getelement(j), obj):
+##                return j
+##        j += 1
+##    raise ValueError # can't say 'list.index(x): x not in list'
+
+# XXX experimental
+def ll_getelement(lst, index):
+    return lst.ll_items()[index]
 
 TEMP = GcArray(Ptr(rstr.STR))
 
