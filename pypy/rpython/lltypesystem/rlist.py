@@ -204,7 +204,8 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                           "ll_items": ll_items,
                                           "list_builder": self.list_builder,
                                           "ITEM": ITEM,
-                                          "ll_getelement": ll_getelement # XXX: experimental
+                                          "ll_getitem_fast": ll_getitem_fast,
+                                          "ll_setitem_fast": ll_setitem_fast,
                                       })
                              )
 
@@ -279,7 +280,8 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
                                      "ll_items": ll_fixed_items,
                                      "list_builder": self.list_builder,
                                      "ITEM": ITEM,
-                                     "ll_getelement": ll_getelement # XXX: experimental
+                                     "ll_getitem_fast": ll_fixed_getitem_fast,
+                                     "ll_setitem_fast": ll_fixed_setitem_fast
                                 })
 
             self.LIST.become(ITEMARRAY)
@@ -467,13 +469,11 @@ def _ll_list_resize_le(l, newsize):
 
 
 def ll_copy(RESLIST, l):
-    items = l.ll_items()
     length = l.ll_length()
     new_lst = RESLIST.ll_newlist(length)
     i = 0
-    new_items = new_lst.ll_items()
     while i < length:
-        new_items[i] = items[i]
+        new_lst.ll_setitem_fast(i, l.ll_getitem_fast(i))
         i += 1
     return new_lst
 ll_copy.oopspec = 'list.copy(l)'
@@ -488,86 +488,82 @@ def ll_list_is_true(l):
 ll_list_is_true.oopspec = 'list.nonzero(l)'
 
 def ll_append(l, newitem):
-    length = l.length
+    length = l.ll_length()
     _ll_list_resize_ge(l, length+1)
-    l.items[length] = newitem
+    l.ll_setitem_fast(length, newitem)
 ll_append.oopspec = 'list.append(l, newitem)'
 
 # this one is for the special case of insert(0, x)
 def ll_prepend(l, newitem):
-    length = l.length
+    length = l.ll_length()
     _ll_list_resize_ge(l, length+1)
-    items = l.items
     dst = length
     while dst > 0:
         src = dst - 1
-        items[dst] = items[src]
+        l.ll_setitem_fast(dst, l.ll_getitem_fast(src))
         dst = src
-    items[0] = newitem
+    l.ll_setitem_fast(0, newitem)
 ll_prepend.oopspec = 'list.insert(l, 0, newitem)'
 
 def ll_insert_nonneg(l, index, newitem):
-    length = l.length
+    length = l.ll_length()
     _ll_list_resize_ge(l, length+1)
-    items = l.items
     dst = length
     while dst > index:
         src = dst - 1
-        items[dst] = items[src]
+        l.ll_setitem_fast(dst, l.ll_getitem_fast(src))
         dst = src
-    items[index] = newitem
+    l.ll_setitem_fast(index, newitem)
 ll_insert_nonneg.oopspec = 'list.insert(l, index, newitem)'
 
 def ll_pop_nonneg(func, l, index):
-    if func is dum_checkidx and (index >= l.length):
+    if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
-    res = l.items[index]
+    res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 ll_pop_nonneg.oopspec = 'list.pop(l, index)'
 
 def ll_pop_default(func, l):
-    length = l.length
+    length = l.ll_length()
     if func is dum_checkidx and (length == 0):
         raise IndexError
     index = length - 1
     newlength = index
-    items = l.items
-    res = items[index]
+    res = l.ll_getitem_fast(index)
     ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
-        items[index] = nullptr(ITEM.TO)
+        l.ll_setitem_fast(index, nullptr(ITEM.TO))
     _ll_list_resize_le(l, newlength)
     return res
 ll_pop_default.oopspec = 'list.pop(l)'
 
 def ll_pop_zero(func, l):
-    length = l.length
+    length = l.ll_length()
     if func is dum_checkidx and (length == 0):
         raise IndexError
     newlength = length - 1
-    res = l.items[0]
+    res = l.ll_getitem_fast(0)
     j = 0
-    items = l.items
     j1 = j+1
     while j < newlength:
-        items[j] = items[j1]
+        l.ll_setitem_fast(j, l.ll_getitem_fast(j1))
         j = j1
         j1 += 1
     ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
-        items[newlength] = nullptr(ITEM.TO)
+        l.ll_setitem_fast(newlength, nullptr(ITEM.TO))
     _ll_list_resize_le(l, newlength)
     return res
 ll_pop_zero.oopspec = 'list.pop(l, 0)'
 
 def ll_pop(func, l, index):
-    length = l.length
+    length = l.ll_length()
     if index < 0:
         index += length
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    res = l.items[index]
+    res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 ll_pop.oopspec = 'list.pop(l, index)'
@@ -575,12 +571,11 @@ ll_pop.oopspec = 'list.pop(l, index)'
 def ll_reverse(l):
     length = l.ll_length()
     i = 0
-    items = l.ll_items()
     length_1_i = length-1-i
     while i < length_1_i:
-        tmp = items[i]
-        items[i] = items[length_1_i]
-        items[length_1_i] = tmp
+        tmp = l.ll_getitem_fast(i)
+        l.ll_setitem_fast(i, l.ll_getitem_fast(length_1_i))
+        l.ll_setitem_fast(length_1_i, tmp)
         i += 1
         length_1_i -= 1
 ll_reverse.oopspec = 'list.reverse(l)'
@@ -588,7 +583,7 @@ ll_reverse.oopspec = 'list.reverse(l)'
 def ll_getitem_nonneg(func, l, index):
     if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
-    return l.ll_items()[index]
+    return l.ll_getitem_fast(index)
 ll_getitem_nonneg.oopspec = 'list.getitem(l, index)'
 
 def ll_getitem(func, l, index):
@@ -597,13 +592,13 @@ def ll_getitem(func, l, index):
         index += length
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    return l.ll_items()[index]
+    return l.ll_getitem_fast(index)
 ll_getitem.oopspec = 'list.getitem(l, index)'
 
 def ll_setitem_nonneg(func, l, index, newitem):
     if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
-    l.ll_items()[index] = newitem
+    l.ll_setitem_fast(index, newitem)
 ll_setitem_nonneg.oopspec = 'list.setitem(l, index, newitem)'
 
 def ll_setitem(func, l, index, newitem):
@@ -612,29 +607,28 @@ def ll_setitem(func, l, index, newitem):
         index += length
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    l.ll_items()[index] = newitem
+    l.ll_setitem_fast(index, newitem)
 ll_setitem.oopspec = 'list.setitem(l, index, newitem)'
 
 def ll_delitem_nonneg(func, l, index):
-    length = l.length
+    length = l.ll_length()
     if func is dum_checkidx and (index >= length):
         raise IndexError
     newlength = length - 1
     j = index
-    items = l.items
     j1 = j+1
     while j < newlength:
-        items[j] = items[j1]
+        l.ll_setitem_fast(j, l.ll_getitem_fast(j1))
         j = j1
         j1 += 1
     ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
-        items[newlength] = nullptr(ITEM.TO)
+        l.ll_setitem_fast(newlength, nullptr(ITEM.TO))
     _ll_list_resize_le(l, newlength)
 ll_delitem_nonneg.oopspec = 'list.delitem(l, index)'
 
 def ll_delitem(func, l, i):
-    length = l.length
+    length = l.ll_length()
     if i < 0:
         i += length
     if func is dum_checkidx and (i < 0 or i >= length):
@@ -647,32 +641,27 @@ def ll_concat(RESLIST, l1, l2):
     len2 = l2.ll_length()
     newlength = len1 + len2
     l = RESLIST.ll_newlist(newlength)
-    newitems = l.ll_items()
     j = 0
-    source = l1.ll_items()
     while j < len1:
-        newitems[j] = source[j]
+        l.ll_setitem_fast(j, l1.ll_getitem_fast(j))
         j += 1
     i = 0
-    source = l2.ll_items()
     while i < len2:
-        newitems[j] = source[i]
+        l.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
         j += 1
     return l
 ll_concat.oopspec = 'list.concat(l1, l2)'
 
 def ll_extend(l1, l2):
-    len1 = l1.length
+    len1 = l1.ll_length()
     len2 = l2.ll_length()
     newlength = len1 + len2
     _ll_list_resize_ge(l1, newlength)
-    items = l1.items
-    source = l2.ll_items()
     i = 0
     j = len1
     while i < len2:
-        items[j] = source[i]
+        l1.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
         j += 1
 
@@ -680,12 +669,10 @@ def ll_listslice_startonly(RESLIST, l1, start):
     len1 = l1.ll_length()
     newlength = len1 - start
     l = RESLIST.ll_newlist(newlength)
-    newitems = l.ll_items()
     j = 0
-    source = l1.ll_items()
     i = start
     while i < len1:
-        newitems[j] = source[i]
+        l.ll_setitem_fast(j, l1.ll_getitem_fast(i))
         i += 1
         j += 1
     return l
@@ -698,12 +685,10 @@ def ll_listslice(RESLIST, l1, slice):
         stop = length
     newlength = stop - start
     l = RESLIST.ll_newlist(newlength)
-    newitems = l.ll_items()
     j = 0
-    source = l1.ll_items()
     i = start
     while i < stop:
-        newitems[j] = source[i]
+        l.ll_setitem_fast(j, l1.ll_getitem_fast(i))
         i += 1
         j += 1
     return l
@@ -712,11 +697,9 @@ def ll_listslice_minusone(RESLIST, l1):
     newlength = l1.ll_length() - 1
     assert newlength >= 0
     l = RESLIST.ll_newlist(newlength)
-    newitems = l.ll_items()
     j = 0
-    source = l1.ll_items()
     while j < newlength:
-        newitems[j] = source[j]
+        l.ll_setitem_fast(j, l1.ll_getitem_fast(j))
         j += 1
     return l
 
@@ -724,31 +707,30 @@ def ll_listdelslice_startonly(l, start):
     newlength = start
     ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
-        j = l.length - 1
-        items = l.items
+        j = l.ll_length() - 1
         while j >= newlength:
-            items[j] = nullptr(ITEM.TO)
+            l.ll_setitem_fast(j, nullptr(ITEM.TO))
             j -= 1
     _ll_list_resize_le(l, newlength)
 
 def ll_listdelslice(l, slice):
     start = slice.start
     stop = slice.stop
-    if stop > l.length:
-        stop = l.length
-    newlength = l.length - (stop-start)
+    length = l.ll_length()
+    if stop > length:
+        stop = length
+    newlength = length - (stop-start)
     j = start
-    items = l.items
     i = stop
     while j < newlength:
-        items[j] = items[i]
+        l.ll_setitem_fast(j, l.ll_getitem_fast(i))
         i += 1
         j += 1
     ITEM = typeOf(l).TO.ITEM
     if isinstance(ITEM, Ptr):
-        j = l.length - 1
+        j = length - 1
         while j >= newlength:
-            items[j] = nullptr(ITEM.TO)
+            l.ll_setitem_fast(j, nullptr(ITEM.TO))
             j -= 1
     _ll_list_resize_le(l, newlength)
 
@@ -759,11 +741,9 @@ def ll_listsetslice(l1, slice, l2):
     # XXX but it should be easy enough to support, soon
     start = slice.start
     j = start
-    items1 = l1.ll_items()
-    items2 = l2.ll_items()
     i = 0
     while i < count:
-        items1[j] = items2[i]
+        l1.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
         j += 1
 
@@ -781,63 +761,41 @@ def ll_listeq(l1, l2, eqfn):
     if len1 != len2:
         return False
     j = 0
-    items1 = l1.ll_items()
-    items2 = l2.ll_items()
     while j < len1:
         if eqfn is None:
-            if items1[j] != items2[j]:
+            if l1.ll_getitem_fast(j) != l2.ll_getitem_fast(j):
                 return False
         else:
-            if not eqfn(items1[j], items2[j]):
+            if not eqfn(l1.ll_getitem_fast(j), l2.ll_getitem_fast(j)):
                 return False
         j += 1
     return True
 
 def ll_listcontains(lst, obj, eqfn):
-    items = lst.ll_items()
     lng = lst.ll_length()
     j = 0
     while j < lng:
         if eqfn is None:
-            if items[j] == obj:
+            if lst.ll_getitem_fast(j) == obj:
                 return True
         else:
-            if eqfn(items[j], obj):
+            if eqfn(lst.ll_getitem_fast(j), obj):
                 return True
         j += 1
     return False
 
 def ll_listindex(lst, obj, eqfn):
-    items = lst.ll_items()
     lng = lst.ll_length()
     j = 0
     while j < lng:
         if eqfn is None:
-            if items[j] == obj:
+            if lst.ll_getitem_fast(j) == obj:
                 return j
         else:
-            if eqfn(items[j], obj):
+            if eqfn(lst.ll_getitem_fast(j), obj):
                 return j
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
-
-# XXX experimental: this version uses the getelement interface
-##def ll_listindex(lst, obj, eqfn):
-##    lng = lst.ll_length()
-##    j = 0
-##    while j < lng:
-##        if eqfn is None:
-##            if lst.ll_getelement(j) == obj:
-##                return j
-##        else:
-##            if eqfn(lst.ll_getelement(j), obj):
-##                return j
-##        j += 1
-##    raise ValueError # can't say 'list.index(x): x not in list'
-
-# XXX experimental
-def ll_getelement(lst, index):
-    return lst.ll_items()[index]
 
 TEMP = GcArray(Ptr(rstr.STR))
 
@@ -849,13 +807,11 @@ def ll_inplace_mul(l, factor):
     res = l
     _ll_list_resize(res, resultlen)
     j = length
-    source = l.ll_items()
-    target = res.ll_items()
     while j < resultlen:
         i = 0
         while i < length:
             p = j + i
-            target[p] = source[i]
+            res.ll_setitem_fast(p, l.ll_getitem_fast(i))
             i += 1
         j += length
     return res
@@ -868,13 +824,11 @@ def ll_mul(RESLIST, l, factor):
     resultlen = length * factor
     res = RESLIST.ll_newlist(resultlen)
     j = 0
-    source = l.ll_items()
-    target = res.ll_items()
     while j < resultlen:
         i = 0
         while i < length:
             p = j + i
-            target[p] = source[i]
+            res.ll_setitem_fast(p, l.ll_getitem_fast(i))
             i += 1
         j += length
     return res
@@ -882,7 +836,7 @@ def ll_mul(RESLIST, l, factor):
 
 # ____________________________________________________________
 #
-#  Irregular operations.
+#  Accessor methods
 
 def ll_newlist(LIST, length):
     l = malloc(LIST)
@@ -898,6 +852,12 @@ def ll_length(l):
 def ll_items(l):
     return l.items
 
+def ll_getitem_fast(l, index):
+    return l.ll_items()[index]
+
+def ll_setitem_fast(l, index, item):
+    l.ll_items()[index] = item
+
 # fixed size versions
 
 def ll_fixed_newlist(LIST, length):
@@ -911,6 +871,12 @@ def ll_fixed_length(l):
 
 def ll_fixed_items(l):
     return l
+
+def ll_fixed_getitem_fast(l, index):
+    return l[index]
+
+def ll_fixed_setitem_fast(l, index, item):
+    l[index] = item
 
 def newlist(llops, r_list, items_v):
     LIST = r_list.LIST
@@ -967,4 +933,4 @@ def ll_listnext(iter):
     if index >= l.ll_length():
         raise StopIteration
     iter.index = index + 1
-    return l.ll_items()[index]
+    return l.ll_getitem_fast(index)
