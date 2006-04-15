@@ -774,11 +774,15 @@ class FrameworkGCTransformer(GCTransformer):
             top.address[0] = addr
             gcdata.root_stack_top = top + sizeofaddr
 
+        # XXX specific to mark and sweep
         def pop_root():
-            top = gcdata.root_stack_top - sizeofaddr
-            result = top.address[0]
-            gcdata.root_stack_top = top
-            return result
+            gcdata.root_stack_top -= sizeofaddr
+        # this should really be:
+        # def pop_root():
+        #     top = gcdata.root_stack_top - sizeofaddr
+        #     result = top.address[0]
+        #     gcdata.root_stack_top = top
+        #     return result
 
         bk = self.translator.annotator.bookkeeper
 
@@ -805,7 +809,7 @@ class FrameworkGCTransformer(GCTransformer):
                                              [annmodel.SomeAddress()],
                                              annmodel.s_None)
         pop_root_graph = annhelper.getgraph(pop_root, [],
-                                            annmodel.SomeAddress())
+                                            annmodel.s_None)
 
         classdef = bk.getuniqueclassdef(GCData.GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
