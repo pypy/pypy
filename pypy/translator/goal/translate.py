@@ -154,8 +154,9 @@ def load_target(targetspec):
     if not targetspec.endswith('.py'):
         targetspec += '.py'
     thismod = sys.modules[__name__]
-    targetspec_dic = {'__name__':'__rpythonmain__',
-                      'translate': thismod}
+    targetspec_dic = {
+        '__name__': os.path.splitext(os.path.basename(targetspec))[0],
+        'translate': thismod}
     sys.path.insert(0, os.path.dirname(targetspec))
     execfile(targetspec, targetspec_dic)
     return targetspec_dic

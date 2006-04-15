@@ -63,6 +63,7 @@ def print_help():
 
 
 def target(driver, args):
+    driver.exe_name = 'pypy-%(backend)s'
     options = driver.options
 
     tgt_options, _ = opt_parser().parse_args(args)

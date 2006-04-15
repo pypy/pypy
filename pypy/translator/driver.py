@@ -41,7 +41,8 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=Fal
 
 class TranslationDriver(SimpleTaskEngine):
 
-    def __init__(self, options=None, default_goal=None, disable=[]): 
+    def __init__(self, options=None, default_goal=None, disable=[],
+                 exe_name = 'target-%(backend)s'):
         SimpleTaskEngine.__init__(self)
 
         self.log = log
@@ -49,7 +50,8 @@ class TranslationDriver(SimpleTaskEngine):
         if options is None:
             options = DEFAULT_OPTIONS
         self.options = options
- 
+        self.exe_name = exe_name
+
         self.done = {}
 
         self.disable(disable)
@@ -261,7 +263,10 @@ class TranslationDriver(SimpleTaskEngine):
     def create_exe(self):
         import shutil
         exename = mkexename(self.c_entryp)
-        newexename = mkexename('./pypy-%s' % self.options.backend)
+        newexename = self.exe_name % self.options.__dict__
+        if '/' not in newexename and '\\' not in newexename:
+            newexename = './' + newexename
+        newexename = mkexename(newexename)
         shutil.copy(exename, newexename)
         self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
@@ -335,7 +340,8 @@ class TranslationDriver(SimpleTaskEngine):
     def task_compile_llvm(self):
         gen = self.llvmgen
         if self.standalone:
-            self.c_entryp = gen.compile_llvm_source(exe_name='pypy-llvm')
+            exe_name = self.exe_name % self.options.__dict__
+            self.c_entryp = gen.compile_llvm_source(exe_name=exe_name)
             self.create_exe()
         else:
             self.c_entryp = gen.compile_llvm_source(return_fn=True)
@@ -372,7 +378,9 @@ class TranslationDriver(SimpleTaskEngine):
             options = DEFAULT_OPTIONS
 
         driver = TranslationDriver(options, default_goal, disable)
-            
+        if '__name__' in targetspec_dic:
+            driver.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
+
         target = targetspec_dic['target']
         spec = target(driver, args)
 
