@@ -8,6 +8,7 @@ constants = {}
 
 # constants
 for name in ['AF_INET',
+             'AF_UNSPEC',
              'SOCK_STREAM',
              'SOCK_DGRAM',
              ]:

@@ -1,3 +1,4 @@
+from ctypes import c_char_p, POINTER, byref
 import ctypes_socket as _c
 
 
@@ -36,6 +37,46 @@ class socket(object):
             caddr = sockaddr_in()
             caddr.sin_family = AF_INET
             caddr.sin_port   = port
-            caddr.sin_addr.s_addr = getaddrinfo(host)
+            caddr.sin_addr.s_addr = XXX(host)
         else:
             XXX
+
+
+def makesockaddr(caddr, caddrlen, proto):
+    if addrlen == 0:
+        # No address -- may be recvfrom() from known socket
+        return None
+    if caddr.sa_family == AF_INET:
+        return makeipaddr(caddr), _c.ntohs(
+    else:
+        XXX
+
+def getaddrinfo(host, port, family=AF_UNSPEC, socktype=0, proto=0, flags=0):
+    if isinstance(port, (int, long)):
+        port = str(port)
+    hptr = c_char_p(host)   # string or None
+    pptr = c_char_p(port)   # int or string or None
+    hints = _c.addrinfo()
+    hints.ai_family = family
+    hints.ai_socktype = socktype
+    hints.ai_protocol = proto
+    hints.ai_flags = flags
+    res0 = POINTER(_c.addrinfo)()
+    error = _c.getaddrinfo(hptr, pptr, byref(hints), byref(res0))
+    if error:
+        XXX
+    try:
+        return _getaddrinfo_chainedlist(res0)
+    finally:
+        if res0:
+            _c.freeaddrinfo(res0)
+
+def _getaddrinfo_chainedlist(res):
+    result = []
+    while res:
+        res = res.contents
+        addr = makesockaddr(res.ai_addr, res.ai_addrlen, proto)
+        result.append((res.ai_family, res.ai_socktype, res.ai_protocol,
+                       res.ai_canonname or "", addr))
+        res = res.ai_next
+    return result
