@@ -114,6 +114,20 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
+    def test_annotate_POINTER(self):
+        def fn():
+            p = POINTER(c_float)()
+            p.contents = c_float(6.1)
+            return p
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(fn, [])
+        assert s.knowntype == POINTER(c_float)
+
+        if conftest.option.view:
+            t.view()
+
 
 class Test_specialization:
     def test_specialize_c_int_ptr(self):
@@ -227,3 +241,13 @@ class Test_specialization:
 
         res = interpret(fn, [])
         assert res == 12
+
+    def test_specialize_POINTER(self):
+        def fn():
+            p = POINTER(c_float)()
+            p.contents = c_float(6.25)
+            return p
+
+        res = interpret(fn, [])
+        float_c_data = res.c_data[0]
+        assert float_c_data[0] == 6.25

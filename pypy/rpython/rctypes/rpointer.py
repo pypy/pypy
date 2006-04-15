@@ -146,3 +146,19 @@ extregistry.register_value(pointer,
 extregistry.register_value(byref,
         compute_result_annotation=pointerfn_compute_annotation,
         specialize_call=pointertype_specialize_call)
+
+# constant-fold POINTER(CONSTANT_CTYPE) calls
+def POINTER_compute_annotation(s_arg):
+    from pypy.annotation.bookkeeper import getbookkeeper
+    assert s_arg.is_constant(), "POINTER(%r): argument must be constant" % (
+        s_arg,)
+    RESTYPE = POINTER(s_arg.const)
+    return getbookkeeper().immutablevalue(RESTYPE)
+
+def POINTER_specialize_call(hop):
+    assert hop.s_result.is_constant()
+    return hop.inputconst(lltype.Void, hop.s_result.const)
+
+extregistry.register_value(POINTER,
+        compute_result_annotation=POINTER_compute_annotation,
+        specialize_call=POINTER_specialize_call)
