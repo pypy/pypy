@@ -22,7 +22,7 @@ except ImportError:
 
 
 from ctypes import cdll
-from ctypes import POINTER, Structure, c_int, byref, pointer
+from ctypes import POINTER, Structure, c_int, byref, pointer, c_void_p
 
 # __________ compile and load our local test C file __________
 
@@ -100,6 +100,11 @@ def ll_testfunc_swap(p):
     p.x, p.y = p.y, p.x
 testfunc_swap.llinterp_friendly_version = ll_testfunc_swap
 testfunc_swap.includes = includes
+
+# _testfunc_erase_type
+testfunc_erase_type = _rctypes_test._testfunc_erase_type
+testfunc_erase_type.restype = c_void_p
+testfunc_erase_type.argtypes = []
 
 
 def test_testfunc_struct():

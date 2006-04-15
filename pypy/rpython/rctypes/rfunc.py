@@ -22,7 +22,7 @@ def cfuncptrtype_compute_annotation(type, instance):
         return s_result.return_annotation()
 
     return annmodel.SomeBuiltin(compute_result_annotation, 
-        methodname=instance.__name__)
+        methodname=getattr(instance, '__name__', None))
 
 def cfuncptrtype_specialize_call(hop):
     # this is necessary to get the original function pointer when specializing

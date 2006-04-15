@@ -51,6 +51,14 @@ EXPORT(point*) _testfunc_struct_pointer_id( point* pin )
     return pin;
 }   
 
+EXPORT(void *) _testfunc_erase_type(void)
+{
+    static point p;
+    p.x = 'x';
+    p.y = 'y';
+    return (void *)&p;
+}
+
 DL_EXPORT(void)
 init_rctypes_test(void)
 {

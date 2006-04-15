@@ -1,4 +1,7 @@
 import weakref
+import UserDict
+from pypy.tool.uid import Hashable
+
 
 class ExtRegistryFunc(object):
     def __init__(self, compute_result_annotation, specialize_call):
@@ -9,7 +12,7 @@ class ExtRegistryFunc(object):
         assert func is not None
         from pypy.annotation import model as annmodel
         return annmodel.SomeBuiltin(self.compute_result_annotation,
-                                    methodname=func.__name__)
+                                    methodname=getattr(func, '__name__', None))
 
 class ExtRegistryInstance(object):
     def __init__(self, compute_annotation, specialize_call, get_repr):
@@ -19,10 +22,49 @@ class ExtRegistryInstance(object):
     
     def get_annotation(self, type, instance=None):
         return self.compute_annotation(type, instance)
-    
-EXT_REGISTRY_BY_VALUE = weakref.WeakKeyDictionary()
-EXT_REGISTRY_BY_VALUE_NONWEAK = {}    # for things that cannot be weakly ref'ed
-                                      # like built-in functions
+
+# ____________________________________________________________
+
+class FlexibleWeakDict(UserDict.DictMixin):
+    """A WeakKeyDictionary that accepts more or less anything as keys:
+    weakly referenceable objects or not, hashable objects or not.
+    """
+    def __init__(self):
+        self._regdict = {}
+        self._weakdict = weakref.WeakKeyDictionary()
+        self._iddict = {}
+
+    def ref(self, key):
+        try:
+            hash(key)
+        except TypeError:
+            return self._iddict, Hashable(key)   # key is not hashable
+        try:
+            weakref.ref(key)
+        except TypeError:
+            return self._regdict, key            # key cannot be weakly ref'ed
+        else:
+            return self._weakdict, key           # normal case
+
+    def __getitem__(self, key):
+        d, key = self.ref(key)
+        return d[key]
+
+    def __setitem__(self, key, value):
+        d, key = self.ref(key)
+        d[key] = value
+
+    def __delitem__(self, key):
+        d, key = self.ref(key)
+        del d[key]
+
+    def keys(self):
+        return (self._regdict.keys() +
+                self._weakdict.keys() +
+                [hashable.value for hashable in self._iddict])
+
+
+EXT_REGISTRY_BY_VALUE = FlexibleWeakDict()
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
 EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
@@ -48,15 +90,9 @@ def create_entry(compute_result_annotation=undefined, compute_annotation=None,
             get_repr)
 
 def register_value(value, **kwargs):
-    try:
-        weakref.ref(value)
-    except TypeError:
-        REG = EXT_REGISTRY_BY_VALUE_NONWEAK
-    else:
-        REG = EXT_REGISTRY_BY_VALUE
-    assert value not in REG
-    REG[value] = create_entry(**kwargs)
-    return REG[value]
+    assert value not in EXT_REGISTRY_BY_VALUE
+    EXT_REGISTRY_BY_VALUE[value] = create_entry(**kwargs)
+    return EXT_REGISTRY_BY_VALUE[value]
     
 def register_type(t, **kwargs):
     assert t not in EXT_REGISTRY_BY_TYPE
@@ -83,13 +119,7 @@ def is_registered_type(tp):
 
 def lookup(instance):
     try:
-        weakref.ref(instance)
-    except TypeError:
-        REG = EXT_REGISTRY_BY_VALUE_NONWEAK
-    else:
-        REG = EXT_REGISTRY_BY_VALUE
-    try:
-        return REG[instance]
+        return EXT_REGISTRY_BY_VALUE[instance]
     except (KeyError, TypeError):
         return lookup_type(type(instance))
         

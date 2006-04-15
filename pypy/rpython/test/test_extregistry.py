@@ -163,3 +163,16 @@ def test_register_type_with_get_repr():
     
     assert res == 42
     
+def test_register_unhashable():
+    lst1 = [5, 6]
+    lst2 = [5, 6]
+    entry = extregistry.register_value(lst1)
+    assert extregistry.lookup(lst1) is entry
+    py.test.raises(KeyError, "extregistry.lookup(lst2)")
+
+def test_register_non_weakly_refable(n=6):
+    tup1 = (5, 6)
+    tup2 = (5, n)
+    entry = extregistry.register_value(tup1)
+    assert extregistry.lookup(tup1) is entry
+    assert extregistry.lookup(tup2) is entry

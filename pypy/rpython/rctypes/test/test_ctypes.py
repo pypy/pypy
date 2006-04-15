@@ -83,3 +83,9 @@ def test_struct():
     assert s.p.contents.value == 123
     s.p.contents.value = 124
     assert y.value == 124
+
+def test_void_p():
+    x = c_int(12)
+    p1 = cast(pointer(x), c_void_p)
+    p2 = cast(p1, POINTER(c_int))
+    assert p2.contents.value == 12
