@@ -1,7 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
 import ctypes
 
@@ -25,6 +24,8 @@ def cfuncptrtype_compute_annotation(type, instance):
         methodname=getattr(instance, '__name__', None))
 
 def cfuncptrtype_specialize_call(hop):
+    from pypy.rpython.rctypes.rmodel import CTypesValueRepr
+
     # this is necessary to get the original function pointer when specializing
     # the metatype
     assert hop.spaceop.opname == "simple_call"

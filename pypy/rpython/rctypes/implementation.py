@@ -1,11 +1,11 @@
 # Importing for side effect of registering types with extregistry
-import pypy.rpython.rctypes.rprimitive
-import pypy.rpython.rctypes.rpointer
-import pypy.rpython.rctypes.rarray
-import pypy.rpython.rctypes.rfunc
-import pypy.rpython.rctypes.rchar_p
-import pypy.rpython.rctypes.rstruct
-import pypy.rpython.rctypes.rvoid_p
+import pypy.rpython.rctypes.aprimitive
+import pypy.rpython.rctypes.apointer
+import pypy.rpython.rctypes.aarray
+import pypy.rpython.rctypes.afunc
+import pypy.rpython.rctypes.achar_p
+import pypy.rpython.rctypes.astruct
+import pypy.rpython.rctypes.avoid_p
 
 
 # Register the correspondance between SomeCTypesObject and the get_repr()

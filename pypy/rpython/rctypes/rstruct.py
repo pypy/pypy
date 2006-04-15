@@ -1,14 +1,11 @@
-from ctypes import Structure
-from pypy.annotation.model import SomeCTypesObject, SomeBuiltin
-from pypy.rpython import extregistry
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rbuiltin import gen_cast_structfield_pointer
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
 from pypy.rpython.rctypes.rmodel import genreccopy, reccopy
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
+from pypy.annotation.model import SomeCTypesObject
 
-StructType = type(Structure)
 
 class StructRepr(CTypesRefRepr):
     def __init__(self, rtyper, s_struct):
@@ -103,40 +100,3 @@ class StructRepr(CTypesRefRepr):
             # ByValue case (optimization; the above also works in this case)
             v_newvalue = r_field.getvalue(hop.llops, v_item)
             self.set_field_value(hop.llops, v_struct, name, v_newvalue)
-
-# ____________________________________________________________
-
-def structtype_specialize_call(hop):
-    r_struct = hop.r_result
-    return hop.genop("malloc", [
-        hop.inputconst(lltype.Void, r_struct.lowleveltype.TO), 
-        ], resulttype=r_struct.lowleveltype,
-    )
-
-def structtype_compute_annotation(metatype, type):
-    def compute_result_annotation(*arg_s):
-        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-    return SomeBuiltin(compute_result_annotation, methodname=type.__name__)
-
-extregistry.register_type(StructType, 
-    compute_annotation=structtype_compute_annotation,
-    specialize_call=structtype_specialize_call)
-
-def struct_instance_compute_annotation(type, instance):
-    return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-
-def struct_instance_field_annotation(s_struct, fieldname):
-    structtype = s_struct.knowntype
-    for name, ctype in structtype._fields_:
-        if name == fieldname:
-            s_result = SomeCTypesObject(ctype, SomeCTypesObject.MEMORYALIAS)
-            return s_result.return_annotation()
-    raise AttributeError('%r has no field %r' % (structtype, fieldname))
-
-def structtype_get_repr(rtyper, s_struct):
-    return StructRepr(rtyper, s_struct)
-
-entry = extregistry.register_metatype(StructType,
-    compute_annotation=struct_instance_compute_annotation,
-    get_repr=structtype_get_repr)
-entry.get_field_annotation = struct_instance_field_annotation

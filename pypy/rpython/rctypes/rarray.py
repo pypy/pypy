@@ -1,15 +1,15 @@
 from ctypes import ARRAY, c_int
-from pypy.annotation.model import SomeCTypesObject, SomeBuiltin
-from pypy.rpython import extregistry
 from pypy.rpython.rbuiltin import gen_cast_subarray_pointer
-from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
+from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
 from pypy.rpython.rctypes.rmodel import genreccopy, reccopy
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
+from pypy.annotation.model import SomeCTypesObject
 
 ArrayType = type(ARRAY(c_int, 10))
+
 
 class ArrayRepr(CTypesRefRepr):
     def __init__(self, rtyper, s_array):
@@ -89,31 +89,3 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
             # ByValue case (optimization; the above also works in this case)
             v_newvalue = r_array.r_item.getvalue(hop.llops, v_item)
             r_array.set_item_value(hop.llops, v_array, v_index, v_newvalue)
-
-# ____________________________________________________________
-
-def arraytype_specialize_call(hop):
-    r_array = hop.r_result
-    return hop.genop("malloc", [
-        hop.inputconst(lltype.Void, r_array.lowleveltype.TO), 
-        ], resulttype=r_array.lowleveltype,
-    )
-
-def arraytype_compute_annotation(metatype, type):
-    def compute_result_annotation(*arg_s):
-        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-    return SomeBuiltin(compute_result_annotation, methodname=type.__name__)
-
-extregistry.register_type(ArrayType, 
-    compute_annotation=arraytype_compute_annotation,
-    specialize_call=arraytype_specialize_call)
-
-def array_instance_compute_annotation(type, instance):
-    return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
-
-def arraytype_get_repr(rtyper, s_array):
-    return ArrayRepr(rtyper, s_array)
-
-extregistry.register_metatype(ArrayType,
-    compute_annotation=array_instance_compute_annotation,
-    get_repr=arraytype_get_repr)
