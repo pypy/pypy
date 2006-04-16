@@ -185,7 +185,7 @@ def test_dependencies():
     appendgraph = graph.startblock.operations[3].args[0].value._obj.graph
     appendarg0 = appendgraph.startblock.inputargs[0]
     appendstate = adi.getstate(appendarg0)
-    resizegraph = appendgraph.startblock.operations[2].args[0].value._obj.graph
+    resizegraph = [op for op in appendgraph.startblock.operations if op.opname != "same_as"][2].args[0].value._obj.graph
     resizearg0 = resizegraph.startblock.inputargs[0]
     resizestate = adi.getstate(resizearg0)
     reallygraph = resizegraph.startblock.exits[0].target.operations[0].args[0].value._obj.graph
