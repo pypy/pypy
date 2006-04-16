@@ -14,24 +14,24 @@ namespace pypy.runtime
     // rpython.ootypesystem.ootype.List.GENERIC_METHODS
     public class List<T>: System.Collections.Generic.List<T>
     {
-        public int length()
+        public int ll_length()
         {
             return this.Count;
+        }
+
+        public T ll_getitem_fast(int index)
+        {
+            return this[index];
+        }
+
+        public void ll_setitem_fast(int index, T item)
+        {
+            this[index] = item;
         }
 
         public void append(T item)
         {
             this.Add(item);
-        }
-
-        public T getitem_nonneg(int index)
-        {
-            return this[index];
-        }
-
-        public void setitem_nonneg(int index, T item)
-        {
-            this[index] = item;
         }
 
         public void extend(List<T> other)

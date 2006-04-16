@@ -200,17 +200,23 @@ class List(OOType):
             self.ITEMTYPE_T: ITEMTYPE,
             }
 
+        # the methods are named after the ADT methods of lltypesystem's lists
         self._GENERIC_METHODS = frozendict({
             # "name": Meth([ARGUMENT1_TYPE, ARGUMENT2_TYPE, ...], RESULT_TYPE)
-            "length": Meth([], Signed),
-            "append": Meth([self.ITEMTYPE_T], Void),
-            "getitem_nonneg": Meth([Signed], self.ITEMTYPE_T),
-            "setitem_nonneg": Meth([Signed, self.ITEMTYPE_T], Void),
+            "ll_length": Meth([], Signed),
+            "ll_getitem_fast": Meth([Signed], self.ITEMTYPE_T),
+            "ll_setitem_fast": Meth([Signed, self.ITEMTYPE_T], Void),
+            "append": Meth([self.ITEMTYPE_T], Void),            
             "extend": Meth([self.SELFTYPE_T], Void),
             "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
         })
 
         self._setup_methods(generic_types)
+
+    # this is the equivalent of the lltypesystem ll_newlist that is
+    # marked as typeMethod.
+    def ll_newlist(self):
+        return new(self)
 
     def _setup_methods(self, generic_types):
         methods = {}
@@ -531,7 +537,7 @@ class _list(object):
     # use by the llinterpreter and ootype tests. There are NOT_RPYTHON
     # because the annotator is not supposed to follow them.
 
-    def length(self):
+    def ll_length(self):
         # NOT_RPYTHON
         return len(self._list)
 
@@ -540,13 +546,13 @@ class _list(object):
         assert typeOf(item) == self._TYPE._ITEMTYPE
         self._list.append(item)
 
-    def getitem_nonneg(self, index):
+    def ll_getitem_fast(self, index):
         # NOT_RPYTHON
         assert typeOf(index) == Signed
         assert index >= 0
         return self._list[index]
 
-    def setitem_nonneg(self, index, item):
+    def ll_setitem_fast(self, index, item):
         # NOT_RPYTHON
         assert typeOf(item) == self._TYPE._ITEMTYPE
         assert typeOf(index) == Signed

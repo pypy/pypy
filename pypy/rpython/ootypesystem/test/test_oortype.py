@@ -104,7 +104,7 @@ def test_list_len():
 
     def oof():
         l = new(LT)
-        return l.length()
+        return l.ll_length()
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
@@ -116,7 +116,7 @@ def test_list_append():
     def oof():
         l = new(LT)
         l.append(1)
-        return l.length()
+        return l.ll_length()
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
@@ -128,8 +128,8 @@ def test_list_getitem_setitem():
     def oof():
         l = new(LT)
         l.append(1)
-        l.setitem_nonneg(0, 2)
-        return l.getitem_nonneg(0)
+        l.ll_setitem_fast(0, 2)
+        return l.ll_getitem_fast(0)
 
     g = gengraph(oof, [])
     rettype = g.getreturnvar().concretetype
@@ -141,7 +141,7 @@ def test_list_getitem_exceptions():
     def oof():
         l = new(LT)
         try:
-            l.getitem_nonneg(0)
+            l.ll_getitem_fast(0)
         except IndexError:
             return -1
         return 0
@@ -162,7 +162,7 @@ def test_list_annotation():
     LIST = List(Signed)
 
     def oof(lst):
-        return lst.length()
+        return lst.ll_length()
 
     lst = new(LIST)
     lst.append(1)

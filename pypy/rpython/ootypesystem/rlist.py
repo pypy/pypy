@@ -56,7 +56,7 @@ class BaseListRepr(AbstractBaseListRepr):
         return inputconst(Void, self.item_repr.get_ll_eq_function())
 
     def rtype_len(self, hop):
-        return self.send_message(hop, "length")
+        return self.send_message(hop, "ll_length")
 
     def rtype_is_true(self, hop):
         v_lst, = hop.inputargs(self)
@@ -87,7 +87,7 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
     def rtype_getitem((r_list, r_int), hop):
         if hop.args_s[1].nonneg:
-            return r_list.send_message(hop, "getitem_nonneg", can_raise=True)
+            return r_list.send_message(hop, "ll_getitem_fast", can_raise=True)
         else:
             v_list, v_index = hop.inputargs(r_list, Signed)            
             hop.exception_is_here()
@@ -96,7 +96,7 @@ class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
     def rtype_setitem((r_list, r_int), hop):
         if hop.args_s[1].nonneg:
-            return r_list.send_message(hop, "setitem_nonneg", can_raise=True)
+            return r_list.send_message(hop, "ll_setitem_fast", can_raise=True)
         else:
             v_list, v_index, v_item = hop.inputargs(r_list, Signed, r_list.item_repr)
             hop.exception_is_here()
@@ -133,83 +133,84 @@ def ll_newlist(LIST):
 
 def ll_getitem(lst, index):
     if index < 0:
-        index += lst.length()
-    return lst.getitem_nonneg(index)
+        index += lst.ll_length()
+    return lst.ll_getitem_fast(index)
 
 def ll_setitem(lst, index, item):
     if index < 0:
-        index += lst.length()
-    return lst.setitem_nonneg(index, item)
+        index += lst.ll_length()
+    return lst.ll_setitem_fast(index, item)
 
 def ll_delitem(lst, index):
     if index < 0:
-        index += lst.length()
+        index += lst.ll_length()
     return lst.remove_range(index, 1)
 
 def ll_list_is_true(lst):
-    return bool(lst) and lst.length() != 0    
+    return bool(lst) and lst.ll_length() != 0    
 
 def ll_append(lst, item):
     lst.append(item)
 
 def ll_extend(l1, l2):
     # This is a bit inefficient, could also add extend to the list interface
-    len2 = l2.length()
+    len2 = l2.ll_length()
     i = 0
     while i < len2:
-        l1.append(l2.getitem_nonneg(i))
+        l1.append(l2.ll_getitem_fast(i))
         i += 1
 
 def ll_concat(RESLIST, l1, l2):
-    len1 = l1.length()
-    len2 = l2.length()
-    l = ootype.new(RESLIST)
+    len1 = l1.ll_length()
+    len2 = l2.ll_length()
+    #l = ootype.new(RESLIST)
+    l = RESLIST.ll_newlist()
     i = 0
     while i < len1:
-        l.append(l1.getitem_nonneg(i))
+        l.append(l1.ll_getitem_fast(i))
         i += 1
     i = 0
     while i < len2:
-        l.append(l2.getitem_nonneg(i))
+        l.append(l2.ll_getitem_fast(i))
         i += 1
     return l
 
 def ll_listslice_startonly(RESLIST, lst, start):
-    len1 = lst.length()
+    len1 = lst.ll_length()
     #newlength = len1 - start
     res = ootype.new(RESLIST) # TODO: pre-allocate newlength elements
     i = start
     while i < len1:
-        res.append(lst.getitem_nonneg(i))
+        res.append(lst.ll_getitem_fast(i))
         i += 1
     return res
 
 def ll_listslice(RESLIST, lst, slice):
     start = slice.start
     stop = slice.stop
-    length = lst.length()
+    length = lst.ll_length()
     if stop > length:
         stop = length
     #newlength = stop - start
     res = ootype.new(RESLIST) # TODO: pre-allocate newlength elements
     i = start
     while i < stop:
-        res.append(lst.getitem_nonneg(i))
+        res.append(lst.ll_getitem_fast(i))
         i += 1
     return res
 
 def ll_listslice_minusone(RESLIST, lst):
-    newlength = lst.length() - 1
+    newlength = lst.ll_length() - 1
     #assert newlength >= 0 # TODO: asserts seems to have problems with ootypesystem
     res = ootype.new(RESLIST) # TODO: pre-allocate newlength elements
     i = 0
     while i < newlength:
-        res.append(lst.getitem_nonneg(i))
+        res.append(lst.ll_getitem_fast(i))
         i += 1
     return res
 
 def ll_listsetslice(l1, slice, l2):
-    count = l2.length()
+    count = l2.ll_length()
 ##    assert count == slice.stop - slice.start, (    # TODO: see above
 ##        "setslice cannot resize lists in RPython")
     # XXX but it should be easy enough to support, soon
@@ -217,19 +218,19 @@ def ll_listsetslice(l1, slice, l2):
     j = start
     i = 0
     while i < count:
-        l1.setitem_nonneg(j, l2.getitem_nonneg(i))
+        l1.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
         j += 1
 
 def ll_listdelslice_startonly(lst, start):
-    count = lst.length() - start
+    count = lst.ll_length() - start
     if count > 0:
         lst.remove_range(start, count)
 
 def ll_listdelslice(lst, slice):
     start = slice.start
     stop = slice.stop
-    length = lst.length()
+    length = lst.ll_length()
     if stop > length:
         stop = length
     count = stop - start
@@ -237,14 +238,14 @@ def ll_listdelslice(lst, slice):
         lst.remove_range(start, count)
 
 def ll_listindex(lst, obj, eqfn):
-    lng = lst.length()
+    lng = lst.ll_length()
     j = 0
     while j < lng:
         if eqfn is None:
-            if lst.getitem_nonneg(j) == obj:
+            if lst.ll_getitem_fast(j) == obj:
                 return j
         else:
-            if eqfn(lst.getitem_nonneg(j), obj):
+            if eqfn(lst.ll_getitem_fast(j), obj):
                 return j
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
@@ -273,8 +274,8 @@ def ll_listiter(ITER, lst):
 def ll_listnext(iter):
     l = iter.iterable
     index = iter.index
-    if index >= l.length():
+    if index >= l.ll_length():
         raise StopIteration
     iter.index = index + 1
-    return l.getitem_nonneg(index)
+    return l.ll_getitem_fast(index)
 
