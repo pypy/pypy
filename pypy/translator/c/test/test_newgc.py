@@ -209,7 +209,9 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 2
-        assert len(self.t.graphs[0].startblock.exits[False].target.operations) == 10
+        operations = self.t.graphs[0].startblock.exits[False].target.operations
+        assert len([op for op in operations if op.opname == "gc_reload_possibly_moved"]) == 0
+
     def test_framework_safe_pushpop(self):
         class A(object):
             pass
