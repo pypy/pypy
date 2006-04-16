@@ -18,7 +18,7 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
                                       mallocs=True,
                                       ssa_form=True,
                                       merge_if_blocks_to_switch=True,
-                                      propagate=True,
+                                      propagate=False,
                                       heap2stack=False,
                                       clever_malloc_removal=False):
 
