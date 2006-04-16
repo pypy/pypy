@@ -54,14 +54,9 @@ def get_main_options():
     return options
 
 def make_objspace(cmdlineopt):
-    if cmdlineopt.objspace == 'std':
-        from pypy.objspace.std import Space
-    elif cmdlineopt.objspace == 'thunk':
-        from pypy.objspace.thunk import Space
-    elif cmdlineopt.objspace == 'logic':
-        from pypy.objspace.logic import Space
-    else:
-        raise ValueError("cannot instantiate %r space" %(cmdlineopt.objspace,))
+    mod = __import__('pypy.objspace.%s' % cmdlineopt.objspace,
+                     None, None, ['Space'])
+    Space = mod.Space
 
     space = Space(usemodules = cmdlineopt.usemodules, 
                   nofaking = cmdlineopt.nofaking,

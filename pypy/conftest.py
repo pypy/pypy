@@ -58,7 +58,7 @@ def getobjspace(name=None, **kwds):
     try:
         return _SPACECACHE[key]
     except KeyError:
-        assert name in ('std', 'thunk', 'logic'), name 
+        #assert name in ('std', 'thunk', 'logic', etc.), name 
         mod = __import__('pypy.objspace.%s' % name, None, None, ['Space'])
         Space = mod.Space
         try: 
