@@ -93,7 +93,7 @@ class TrivialObjSpace(baseobjspace.ObjSpace):
                                    for key, value in kwds.items()])
                     a = Arguments(self, args_w, kwds_w)
                     res = w_func.call_args(a)
-                    return self.unwrap(res)
+                    return self.expose(res)
                 d['__call__'] = function_call
 
             T = type(typedef.name, (base,), d)
@@ -120,6 +120,15 @@ class TrivialObjSpace(baseobjspace.ObjSpace):
 
     def unwrap(self, w_obj):
         if isinstance(w_obj, Wrappable):
+            return w_obj
+        else:
+            return w_obj.obj
+
+    def expose(self, w_obj):
+        """Turn a W_Root instance into an interp-level object that behaves
+        on top of CPython in the same way as w_obj behaves on top of PyPy.
+        """
+        if isinstance(w_obj, Wrappable):
             try:
                 return w_obj.__trivialfacade
             except AttributeError:
@@ -135,7 +144,7 @@ class TrivialObjSpace(baseobjspace.ObjSpace):
         return w_obj.getclass(self)
 
     def is_true(self, w_obj):
-        return bool(self.unwrap(w_obj))
+        return bool(self.expose(w_obj))
 
     def check_type(self, x, classes):
         if not isinstance(x, classes):
@@ -144,38 +153,38 @@ class TrivialObjSpace(baseobjspace.ObjSpace):
             raise OperationError(self.w_TypeError, self.wrap(msg))
 
     def str_w(self, w_obj):
-        x = self.unwrap(w_obj)
+        x = self.expose(w_obj)
         self.check_type(x, (str, unicode))
         return str(x)
 
     def int_w(self, w_obj):
-        x = self.unwrap(w_obj)
+        x = self.expose(w_obj)
         self.check_type(x, (int, long))
         return int(x)
 
     def uint_w(self, w_obj):
-        x = self.unwrap(w_obj)
+        x = self.expose(w_obj)
         self.check_type(x, (r_uint, int, long))
         return r_uint(x)
 
     def float_w(self, w_obj):
-        x = self.unwrap(w_obj)
+        x = self.expose(w_obj)
         self.check_type(x, (float, int, long))
         return float(x)
 
     def is_w(self, w_x, w_y):
-        return self.unwrap(w_x) is self.unwrap(w_y)
+        return self.expose(w_x) is self.expose(w_y)
 
     def newtuple(self, items_w):
-        items = [self.unwrap(w_item) for w_item in items_w]
+        items = [self.expose(w_item) for w_item in items_w]
         return W_Box(tuple(items))
 
     def newlist(self, items_w):
-        items = [self.unwrap(w_item) for w_item in items_w]
+        items = [self.expose(w_item) for w_item in items_w]
         return W_Box(items)
 
     def newdict(self, items_w):
-        items = [(self.unwrap(w_key), self.unwrap(w_value))
+        items = [(self.expose(w_key), self.expose(w_value))
                  for w_key, w_value in items_w]
         return W_Box(dict(items))
 
@@ -188,16 +197,16 @@ class TrivialObjSpace(baseobjspace.ObjSpace):
         return W_Box(u)
 
     def newslice(self, w_start, w_stop, w_step):
-        sl = slice(self.unwrap(w_start),
-                   self.unwrap(w_stop),
-                   self.unwrap(w_step))
+        sl = slice(self.expose(w_start),
+                   self.expose(w_stop),
+                   self.expose(w_step))
         return W_Box(sl)
 
     def call_args(self, w_callable, args):
-        callable = self.unwrap(w_callable)
+        callable = self.expose(w_callable)
         args_w, kwds_w = args.unpack()
-        args = [self.unwrap(w_value) for w_value in args_w]
-        kwds = dict([(key, self.unwrap(w_value)) for key, w_value in kwds_w])
+        args = [self.expose(w_value) for w_value in args_w]
+        kwds = dict([(key, self.expose(w_value)) for key, w_value in kwds_w])
         try:
             res = callable(*args, **kwds)
         except:
@@ -222,7 +231,7 @@ def setup():
         def make_function():
             operator = FunctionByName[name]
             def do(self, *args_w):
-                args = [self.unwrap(a) for a in args_w]
+                args = [self.expose(a) for a in args_w]
                 try:
                     res = operator(*args)
                 except:
