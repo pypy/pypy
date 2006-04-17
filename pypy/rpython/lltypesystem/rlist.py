@@ -1,6 +1,5 @@
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
-from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import externalvsinternal
@@ -64,31 +63,8 @@ class BaseListRepr(AbstractBaseListRepr):
     def _setup_repr_final(self):
         self.list_builder.setup(self)
 
-    def convert_const(self, listobj):
-        # get object from bound list method
-        #listobj = getattr(listobj, '__self__', listobj)
-        if listobj is None:
-            return nullptr(self.LIST)
-        if not isinstance(listobj, list):
-            raise TyperError("expected a list: %r" % (listobj,))
-        try:
-            key = Constant(listobj)
-            return self.list_cache[key]
-        except KeyError:
-            self.setup()
-            n = len(listobj)
-            result = self.prepare_const(n)
-            self.list_cache[key] = result
-            r_item = self.item_repr
-            if r_item.lowleveltype is not Void:
-                items = result.ll_items()
-                for i in range(n):
-                    x = listobj[i]
-                    items[i] = r_item.convert_const(x)
-            return result
-
-    def prepare_const(self, nitems):
-        raise NotImplementedError
+    def null_const(self):
+        return nullptr(self.LIST)
 
     def get_eqfunc(self):
         return inputconst(Void, self.item_repr.get_ll_eq_function())
@@ -168,6 +144,16 @@ class ListBuilder(object):
 
     def __hash__(self):
         return 1 # bad but not used alone
+
+
+class __extend__(pairtype(BaseListRepr, BaseListRepr)):
+    def rtype_is_((r_lst1, r_lst2), hop):
+        if r_lst1.lowleveltype != r_lst2.lowleveltype:
+            # obscure logic, the is can be true only if both are None
+            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
+
+        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
 
 
 class ListRepr(AbstractListRepr, BaseListRepr):
@@ -318,6 +304,8 @@ def _ll_list_resize_le(l, newsize):
 
 TEMP = GcArray(Ptr(rstr.STR))
 
+def ll_both_none(lst1, lst2):
+    return not lst1 and not lst2
         
 
 # ____________________________________________________________

@@ -1,11 +1,13 @@
 import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rlist import *
 from pypy.rpython.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from pypy.rpython.lltypesystem.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
-from pypy.rpython.test.test_llinterp import interpret, interpret_raises
+from pypy.rpython.test.test_llinterp import interpret #as interpret2
+from pypy.rpython.test.test_llinterp import interpret_raises # as interpret_raises2
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
 
@@ -161,13 +163,27 @@ class TestFixedSizeListImpl(BaseTestListImpl):
 
 # ____________________________________________________________
 
+class Foo: pass
+
+class Bar(Foo): pass
+
 class BaseTestListRtyping:
+
+    def interpret(self, fn, args):
+        return interpret(fn, args, type_system=self.ts)
+
+    def interpret_raises(self, exc, fn, args):
+        return interpret_raises(exc, fn, args, type_system=self.ts)
+
+    def _skip_tuples(self):
+        if self.ts == 'ootype':
+            py.test.skip("ootypesystem doesn't support returning tuples of lists, yet")        
 
     def test_simple(self):
         def dummyfn():
             l = [10, 20, 30]
             return l[2]
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 30
 
     def test_append(self):
@@ -179,7 +195,7 @@ class BaseTestListRtyping:
             l.append(80)
             l.append(90)
             return len(l), l[0], l[-1]
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res.item0 == 5 
         assert res.item1 == 50
         assert res.item2 == 90
@@ -188,14 +204,14 @@ class BaseTestListRtyping:
         def dummyfn():
             l = [5, 10]
             return len(l)
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 2
 
         def dummyfn():
             l = [5]
             l.append(6)
             return len(l)
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 2
 
     def test_iterate(self):
@@ -204,7 +220,7 @@ class BaseTestListRtyping:
             for x in [1, 3, 5, 7, 9]:
                 total += x
             return total
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 25
         def dummyfn():
             total = 0
@@ -213,7 +229,7 @@ class BaseTestListRtyping:
             for x in l:
                 total += x
             return total
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 25
 
     def test_recursive(self):
@@ -223,7 +239,7 @@ class BaseTestListRtyping:
                 l = [l]
                 N -= 1
             return len(l)
-        res = interpret(dummyfn, [5], type_system=self.ts)
+        res = self.interpret(dummyfn, [5])
         assert res == 1
 
         def dummyfn(N):
@@ -232,7 +248,7 @@ class BaseTestListRtyping:
                 l.append(l)
                 N -= 1
             return len(l)
-        res = interpret(dummyfn, [5])
+        res = self.interpret(dummyfn, [5])
         assert res == 5
 
     def test_add(self):
@@ -240,7 +256,7 @@ class BaseTestListRtyping:
             l = [5]
             l += [6,7]
             return l + [8]
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res) == [5, 6, 7, 8]
 
         def dummyfn():
@@ -249,16 +265,15 @@ class BaseTestListRtyping:
             l2 =  l + [8]
             l2.append(9)
             return l2
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res) == [5, 6, 7, 8, 9]
 
     def test_slice(self):
-        if self.ts == 'ootype':
-            py.test.skip("ootypesystem doesn't support returning tuples of lists, yet")
+        self._skip_tuples()
         def dummyfn():
             l = [5, 6, 7, 8, 9]
             return l[:2], l[1:4], l[3:]
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res.item0) == [5, 6]
         assert self.ll_to_list(res.item1) == [6, 7, 8]
         assert self.ll_to_list(res.item2) == [8, 9]
@@ -267,7 +282,7 @@ class BaseTestListRtyping:
             l = [5, 6, 7, 8]
             l.append(9)
             return l[:2], l[1:4], l[3:]
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res.item0) == [5, 6]
         assert self.ll_to_list(res.item1) == [6, 7, 8]
         assert self.ll_to_list(res.item2) == [8, 9]
@@ -278,7 +293,7 @@ class BaseTestListRtyping:
             l[1] = 55
             l[-1] = 66
             return l
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res) == [5, 55, 66]
 
         def dummyfn():
@@ -289,7 +304,7 @@ class BaseTestListRtyping:
             l[1] = 55
             l[-1] = 66
             return l
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res) == [5, 55, 66]
 
         def dummyfn():
@@ -300,17 +315,16 @@ class BaseTestListRtyping:
             del l[-1]
             del l[:]
             return len(l)
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 0
-
+        
     def test_setslice(self):
-        if self.ts == 'ootype':
-            py.test.skip("ootypesystem doesn't support returning tuples of lists, yet")        
+        self._skip_tuples()
         def dummyfn():
             l = [10, 9, 8, 7]
             l[:2] = [6, 5]
             return l[0], l[1], l[2], l[3]
-        res = interpret(dummyfn, (), type_system=self.ts)
+        res = self.interpret(dummyfn, ())
         assert res.item0 == 6
         assert res.item1 == 5
         assert res.item2 == 8
@@ -321,7 +335,7 @@ class BaseTestListRtyping:
             l.append(7)
             l[:2] = [6, 5]
             return l[0], l[1], l[2], l[3]
-        res = interpret(dummyfn, (), type_system=self.ts)
+        res = self.interpret(dummyfn, ())
         assert res.item0 == 6
         assert res.item1 == 5
         assert res.item2 == 8
@@ -333,7 +347,7 @@ class BaseTestListRtyping:
             l2 = list(l1)
             l2[0] = 0
             return l1[0]
-        res = interpret(dummyfn, (), type_system=self.ts)
+        res = self.interpret(dummyfn, ())
         assert res == 42
 
     def test_is_true(self):
@@ -348,266 +362,264 @@ class BaseTestListRtyping:
             return is_true([])
         def dummyfn3():
             return is_true([0])
-        assert interpret(dummyfn1, (), type_system=self.ts) == False
-        assert interpret(dummyfn2, (), type_system=self.ts) == False
-        assert interpret(dummyfn3, (), type_system=self.ts) == True
+        assert self.interpret(dummyfn1, ()) == False
+        assert self.interpret(dummyfn2, ()) == False
+        assert self.interpret(dummyfn3, ()) == True
 
     def test_list_index_simple(self):
         def dummyfn(i):
             l = [5,6,7,8]
             return l.index(i)
         
-        res = interpret(dummyfn, (6,), type_system=self.ts)
+        res = self.interpret(dummyfn, (6,))
         assert res == 1
-        interpret_raises(ValueError, dummyfn, [42], type_system=self.ts)
+        interpret_raises(ValueError, dummyfn, [42])
 
 
-def test_insert_pop():
-    def dummyfn():
-        l = [6, 7, 8]
-        l.insert(0, 5)
-        l.insert(1, 42)
-        l.pop(2)
-        l.pop(0)
-        l.pop(-1)
-        l.pop()
-        return l[-1]
-    res = interpret(dummyfn, ())#, view=True)
-    assert res == 42
+    def test_insert_pop(self):
+        def dummyfn():
+            l = [6, 7, 8]
+            l.insert(0, 5)
+            l.insert(1, 42)
+            l.pop(2)
+            l.pop(0)
+            l.pop(-1)
+            l.pop()
+            return l[-1]
+        res = self.interpret(dummyfn, ())#, view=True)
+        assert res == 42
 
-def test_insert_bug():
-    def dummyfn(n):
-        l = [1]
-        l = l[:]
-        l.pop(0)
-        if n < 0:
-            l.insert(0, 42)
-        else:
-            l.insert(n, 42)
-        return l
-    res = interpret(dummyfn, [0])
-    assert res.ll_length() == 1
-    assert res.ll_items()[0] == 42
-    res = interpret(dummyfn, [-1])
-    assert res.ll_length() == 1
-    assert res.ll_items()[0] == 42
-
-def test_inst_pop():
-    class A:
-        pass
-    l = [A(), A()]
-    def f(idx):
-        try:
-            return l.pop(idx)
-        except IndexError:
-            return None
-    res = interpret(f, [1])
-    assert ''.join(res.super.typeptr.name) == 'A\00'
-        
-
-def test_reverse():
-    def dummyfn():
-        l = [5, 3, 2]
-        l.reverse()
-        return l[0]*100 + l[1]*10 + l[2]
-    res = interpret(dummyfn, ())
-    assert res == 235
-
-    def dummyfn():
-        l = [5]
-        l.append(3)
-        l.append(2)
-        l.reverse()
-        return l[0]*100 + l[1]*10 + l[2]
-    res = interpret(dummyfn, ())
-    assert res == 235
-
-def test_prebuilt_list():
-    klist = ['a', 'd', 'z', 'k']
-    def dummyfn(n):
-        return klist[n]
-    res = interpret(dummyfn, [0])
-    assert res == 'a'
-    res = interpret(dummyfn, [3])
-    assert res == 'k'
-    res = interpret(dummyfn, [-2])
-    assert res == 'z'
-
-    klist = ['a', 'd', 'z']
-    def mkdummyfn():
+    def test_insert_bug(self):
         def dummyfn(n):
-            klist.append('k')
-            return klist[n]
-        return dummyfn
-    res = interpret(mkdummyfn(), [0])
-    assert res == 'a'
-    res = interpret(mkdummyfn(), [3])
-    assert res == 'k'
-    res = interpret(mkdummyfn(), [-2])
-    assert res == 'z'
+            l = [1]
+            l = l[:]
+            l.pop(0)
+            if n < 0:
+                l.insert(0, 42)
+            else:
+                l.insert(n, 42)
+            return l
+        res = self.interpret(dummyfn, [0])
+        assert res.ll_length() == 1
+        assert res.ll_getitem_fast(0) == 42
+        res = self.interpret(dummyfn, [-1])
+        assert res.ll_length() == 1
+        assert res.ll_getitem_fast(0) == 42
 
-def test_bound_list_method():
-    klist = [1, 2, 3]
-    # for testing constant methods without actually mutating the constant
-    def dummyfn(n):
-        klist.extend([])
-    interpret(dummyfn, [7])
-
-def test_list_is():
-    def dummyfn():
-        l1 = []
-        return l1 is l1
-    res = interpret(dummyfn, [])
-    assert res is True
-    def dummyfn():
-        l2 = [1, 2]
-        return l2 is l2
-    res = interpret(dummyfn, [])
-    assert res is True
-    def dummyfn():
-        l1 = [2]
-        l2 = [1, 2]
-        return l1 is l2
-    res = interpret(dummyfn, [])
-    assert res is False
-    def dummyfn():
-        l1 = [1, 2]
-        l2 = [1]
-        l2.append(2)
-        return l1 is l2
-    res = interpret(dummyfn, [])
-    assert res is False
-
-    def dummyfn():
-        l1 = None
-        l2 = [1, 2]
-        return l1 is l2
-    res = interpret(dummyfn, [])
-    assert res is False
-
-    def dummyfn():
-        l1 = None
-        l2 = [1]
-        l2.append(2)
-        return l1 is l2
-    res = interpret(dummyfn, [])
-    assert res is False
-
-def test_list_compare():
-    def fn(i, j, neg=False):
-        s1 = [[1, 2, 3], [4, 5, 1], None]
-        s2 = [[1, 2, 3], [4, 5, 1], [1], [1, 2], [4, 5, 1, 6],
-              [7, 1, 1, 8, 9, 10], None]
-        if neg: return s1[i] != s2[i]
-        return s1[i] == s2[j]
-    for i in range(3):
-        for j in range(7):
-            for case in False, True:
-                res = interpret(fn, [i,j,case])
-                assert res is fn(i, j, case)
-
-    def fn(i, j, neg=False):
-        s1 = [[1, 2, 3], [4, 5, 1], None]
-        l = []
-        l.extend([1,2,3])
-        s2 = [l, [4, 5, 1], [1], [1, 2], [4, 5, 1, 6],
-              [7, 1, 1, 8, 9, 10], None]
-        if neg: return s1[i] != s2[i]
-        return s1[i] == s2[j]
-    for i in range(3):
-        for j in range(7):
-            for case in False, True:
-                res = interpret(fn, [i,j,case])
-                assert res is fn(i, j, case)
-
-
-def test_list_comparestr():
-    def fn(i, j, neg=False):
-        s1 = [["hell"], ["hello", "world"]]
-        s1[0][0] += "o" # ensure no interning
-        s2 = [["hello"], ["world"]]
-        if neg: return s1[i] != s2[i]
-        return s1[i] == s2[j]
-    for i in range(2):
-        for j in range(2):
-            for case in False, True:
-                res = interpret(fn, [i,j,case])
-                assert res is fn(i, j, case)
-
-class Foo: pass
-
-class Bar(Foo): pass
-
-def test_list_compareinst():
-    def fn(i, j, neg=False):
-        foo1 = Foo()
-        foo2 = Foo()
-        bar1 = Bar()
-        s1 = [[foo1], [foo2], [bar1]]
-        s2 = s1[:]
-        if neg: return s1[i] != s2[i]
-        return s1[i] == s2[j]
-    for i in range(3):
-        for j in range(3):
-            for case in False, True:
-                res = interpret(fn, [i, j, case])
-                assert res is fn(i, j, case)
-
-    def fn(i, j, neg=False):
-        foo1 = Foo()
-        foo2 = Foo()
-        bar1 = Bar()
-        s1 = [[foo1], [foo2], [bar1]]
-        s2 = s1[:]
-
-        s2[0].extend([])
+    def test_inst_pop(self):
+        class A:
+            pass
+        l = [A(), A()]
+        def f(idx):
+            try:
+                return l.pop(idx)
+            except IndexError:
+                return None
+        res = self.interpret(f, [1])
+        assert self.class_name(res) == 'A'
+        #''.join(res.super.typeptr.name) == 'A\00'
         
-        if neg: return s1[i] != s2[i]
-        return s1[i] == s2[j]
-    for i in range(3):
-        for j in range(3):
+
+    def test_reverse(self):
+        def dummyfn():
+            l = [5, 3, 2]
+            l.reverse()
+            return l[0]*100 + l[1]*10 + l[2]
+        res = self.interpret(dummyfn, ())
+        assert res == 235
+
+        def dummyfn():
+            l = [5]
+            l.append(3)
+            l.append(2)
+            l.reverse()
+            return l[0]*100 + l[1]*10 + l[2]
+        res = self.interpret(dummyfn, ())
+        assert res == 235
+
+    def test_prebuilt_list(self):
+        klist = ['a', 'd', 'z', 'k']
+        def dummyfn(n):
+            return klist[n]
+        res = self.interpret(dummyfn, [0])
+        assert res == 'a'
+        res = self.interpret(dummyfn, [3])
+        assert res == 'k'
+        res = self.interpret(dummyfn, [-2])
+        assert res == 'z'
+
+        klist = ['a', 'd', 'z']
+        def mkdummyfn():
+            def dummyfn(n):
+                klist.append('k')
+                return klist[n]
+            return dummyfn
+        res = self.interpret(mkdummyfn(), [0])
+        assert res == 'a'
+        res = self.interpret(mkdummyfn(), [3])
+        assert res == 'k'
+        res = self.interpret(mkdummyfn(), [-2])
+        assert res == 'z'
+
+    def test_bound_list_method(self):
+        klist = [1, 2, 3]
+        # for testing constant methods without actually mutating the constant
+        def dummyfn(n):
+            klist.extend([])
+        self.interpret(dummyfn, [7])
+
+    def test_list_is(self):
+        def dummyfn():
+            l1 = []
+            return l1 is l1
+        res = self.interpret(dummyfn, [])
+        assert res is True
+        def dummyfn():
+            l2 = [1, 2]
+            return l2 is l2
+        res = self.interpret(dummyfn, [])
+        assert res is True
+        def dummyfn():
+            l1 = [2]
+            l2 = [1, 2]
+            return l1 is l2
+        res = self.interpret(dummyfn, [])
+        assert res is False
+        def dummyfn():
+            l1 = [1, 2]
+            l2 = [1]
+            l2.append(2)
+            return l1 is l2
+        res = self.interpret(dummyfn, [])
+        assert res is False
+
+        def dummyfn():
+            l1 = None
+            l2 = [1, 2]
+            return l1 is l2
+        res = self.interpret(dummyfn, [])
+        assert res is False
+
+        def dummyfn():
+            l1 = None
+            l2 = [1]
+            l2.append(2)
+            return l1 is l2
+        res = self.interpret(dummyfn, [])
+        assert res is False
+
+    def test_list_compare(self):
+        def fn(i, j, neg=False):
+            s1 = [[1, 2, 3], [4, 5, 1], None]
+            s2 = [[1, 2, 3], [4, 5, 1], [1], [1, 2], [4, 5, 1, 6],
+                  [7, 1, 1, 8, 9, 10], None]
+            if neg: return s1[i] != s2[i]
+            return s1[i] == s2[j]
+        for i in range(3):
+            for j in range(7):
+                for case in False, True:
+                    res = self.interpret(fn, [i,j,case])
+                    assert res is fn(i, j, case)
+
+        def fn(i, j, neg=False):
+            s1 = [[1, 2, 3], [4, 5, 1], None]
+            l = []
+            l.extend([1,2,3])
+            s2 = [l, [4, 5, 1], [1], [1, 2], [4, 5, 1, 6],
+                  [7, 1, 1, 8, 9, 10], None]
+            if neg: return s1[i] != s2[i]
+            return s1[i] == s2[j]
+        for i in range(3):
+            for j in range(7):
+                for case in False, True:
+                    res = self.interpret(fn, [i,j,case])
+                    assert res is fn(i, j, case)
+
+
+    def test_list_comparestr(self):
+        def fn(i, j, neg=False):
+            s1 = [["hell"], ["hello", "world"]]
+            s1[0][0] += "o" # ensure no interning
+            s2 = [["hello"], ["world"]]
+            if neg: return s1[i] != s2[i]
+            return s1[i] == s2[j]
+        for i in range(2):
+            for j in range(2):
+                for case in False, True:
+                    res = self.interpret(fn, [i,j,case])
+                    assert res is fn(i, j, case)
+
+
+    def test_list_compareinst(self):
+        def fn(i, j, neg=False):
+            foo1 = Foo()
+            foo2 = Foo()
+            bar1 = Bar()
+            s1 = [[foo1], [foo2], [bar1]]
+            s2 = s1[:]
+            if neg: return s1[i] != s2[i]
+            return s1[i] == s2[j]
+        for i in range(3):
+            for j in range(3):
+                for case in False, True:
+                    res = self.interpret(fn, [i, j, case])
+                    assert res is fn(i, j, case)
+
+        def fn(i, j, neg=False):
+            foo1 = Foo()
+            foo2 = Foo()
+            bar1 = Bar()
+            s1 = [[foo1], [foo2], [bar1]]
+            s2 = s1[:]
+
+            s2[0].extend([])
+
+            if neg: return s1[i] != s2[i]
+            return s1[i] == s2[j]
+        for i in range(3):
+            for j in range(3):
+                for case in False, True:
+                    res = self.interpret(fn, [i, j, case])
+                    assert res is fn(i, j, case)
+
+
+    def test_list_contains(self):
+        def fn(i, neg=False):
+            foo1 = Foo()
+            foo2 = Foo()
+            bar1 = Bar()
+            bar2 = Bar()
+            lis = [foo1, foo2, bar1]
+            args = lis + [bar2]
+            if neg : return args[i] not in lis
+            return args[i] in lis
+        for i in range(4):
             for case in False, True:
-                res = interpret(fn, [i, j, case])
-                assert res is fn(i, j, case)
+                res = self.interpret(fn, [i, case])
+                assert res is fn(i, case)
+
+        def fn(i, neg=False):
+            foo1 = Foo()
+            foo2 = Foo()
+            bar1 = Bar()
+            bar2 = Bar()
+            lis = [foo1, foo2, bar1]
+            lis.append(lis.pop())
+            args = lis + [bar2]
+            if neg : return args[i] not in lis
+            return args[i] in lis
+        for i in range(4):
+            for case in False, True:
+                res = self.interpret(fn, [i, case])
+                assert res is fn(i, case)
 
 
-def test_list_contains():
-    def fn(i, neg=False):
-        foo1 = Foo()
-        foo2 = Foo()
-        bar1 = Bar()
-        bar2 = Bar()
-        lis = [foo1, foo2, bar1]
-        args = lis + [bar2]
-        if neg : return args[i] not in lis
-        return args[i] in lis
-    for i in range(4):
-        for case in False, True:
-            res = interpret(fn, [i, case])
-            assert res is fn(i, case)
-
-    def fn(i, neg=False):
-        foo1 = Foo()
-        foo2 = Foo()
-        bar1 = Bar()
-        bar2 = Bar()
-        lis = [foo1, foo2, bar1]
-        lis.append(lis.pop())
-        args = lis + [bar2]
-        if neg : return args[i] not in lis
-        return args[i] in lis
-    for i in range(4):
-        for case in False, True:
-            res = interpret(fn, [i, case])
-            assert res is fn(i, case)
-
-
-def test_not_a_char_list_after_all():
-    def fn():
-        l = ['h', 'e', 'l', 'l', 'o']
-        return 'world' in l
-    res = interpret(fn, [])
-    assert res is False
+    def test_not_a_char_list_after_all(self):
+        def fn():
+            l = ['h', 'e', 'l', 'l', 'o']
+            return 'world' in l
+        res = self.interpret(fn, [])
+        assert res is False
 
 def test_list_index():
     def fn(i):
@@ -1093,9 +1105,16 @@ class TestLltypeRtyping(BaseTestListRtyping):
     def ll_to_list(self, l):
         return map(None, l.ll_items())[:l.ll_length()]
 
+    def class_name(self, value):
+        return "".join(value.super.typeptr.name)[:-1]
+    
+
 class TestOotypeRtyping(BaseTestListRtyping):
 
     ts = "ootype"
 
     def ll_to_list(self, l):
         return l._list[:]
+
+    def class_name(self, value):
+        return ootype.dynamicType(value)._name.split(".")[-1] 

@@ -32,10 +32,13 @@ def sum_(lst):
         i += 1
     return total    
 
-def bar(x, y):
-    lst = [1,2,3,x,y] + [1,2]
-    #return sum_(list(lst))
-    return lst[4]
+class A:
+    pass
+
+##def bar(x, y):
+##    lst = [A(), A()]
+##    return lst.pop(1)
+
 
 f = compile_function(bar, [int, int])
 

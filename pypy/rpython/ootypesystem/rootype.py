@@ -59,6 +59,12 @@ class __extend__(pairtype(OOInstanceRepr, OOInstanceRepr)):
         vlist = hop.inputargs(r_ins1, r_ins2)
         return hop.genop('oois', vlist, resulttype=ootype.Bool)
 
+    rtype_eq = rtype_is_
+
+    def rtype_ne(rpair, hop):
+        v = rpair.rtype_eq(hop)
+        return hop.genop("bool_not", [v], resulttype=ootype.Bool)
+
 
 class OOBoundMethRepr(Repr):
     def __init__(self, ootype, name):

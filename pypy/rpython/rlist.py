@@ -1,4 +1,5 @@
 from pypy.annotation.pairtype import pairtype, pair
+from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
 from pypy.rpython.rslice import AbstractSliceRepr
@@ -37,6 +38,34 @@ class AbstractBaseListRepr(Repr):
 
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
+
+    def convert_const(self, listobj):
+        # get object from bound list method
+        #listobj = getattr(listobj, '__self__', listobj)
+        if listobj is None:
+            return self.null_const()
+        if not isinstance(listobj, list):
+            raise TyperError("expected a list: %r" % (listobj,))
+        try:
+            key = Constant(listobj)
+            return self.list_cache[key]
+        except KeyError:
+            self.setup()
+            n = len(listobj)
+            result = self.prepare_const(n)
+            self.list_cache[key] = result
+            r_item = self.item_repr
+            if r_item.lowleveltype is not Void:
+                for i in range(n):
+                    x = listobj[i]
+                    result.ll_setitem_fast(i, r_item.convert_const(x))
+            return result
+
+    def null_const(self):
+        raise NotImplementedError
+
+    def prepare_const(self, nitems):
+        raise NotImplementedError
 
     def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)
@@ -190,14 +219,15 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
             return NotImplemented
         return v
 
-    def rtype_is_((r_lst1, r_lst2), hop):
-        if r_lst1.lowleveltype != r_lst2.lowleveltype:
-            # obscure logic, the is can be true only if both are None
-            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
-            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
+##    # TODO: move it to lltypesystem
+##    def rtype_is_((r_lst1, r_lst2), hop):
+##        if r_lst1.lowleveltype != r_lst2.lowleveltype:
+##            # obscure logic, the is can be true only if both are None
+##            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+##            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
 
-        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
-
+##        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
+ 
     def rtype_eq((r_lst1, r_lst2), hop):
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
@@ -311,8 +341,6 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
 
-def ll_both_none(lst1, lst2):
-    return not lst1 and not lst2
 
 # return a nullptr() if lst is a list of pointers it, else None.  Note
 # that if we are using ootypesystem there are not pointers, so we
