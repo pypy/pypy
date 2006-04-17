@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractListIteratorRepr, rtype_newlist
+        AbstractListIteratorRepr, rtype_newlist, rtype_alloc_and_set
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.lltypesystem.lltype import Signed, Void
