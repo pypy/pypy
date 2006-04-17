@@ -208,6 +208,7 @@ class List(OOType):
             "ll_setitem_fast": Meth([Signed, self.ITEMTYPE_T], Void),
             "_ll_resize_ge": Meth([Signed], Void),
             "_ll_resize_le": Meth([Signed], Void),
+            "_ll_resize": Meth([Signed], Void),
             "append": Meth([self.ITEMTYPE_T], Void),            
             "extend": Meth([self.SELFTYPE_T], Void),
             "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
@@ -558,6 +559,14 @@ class _list(object):
             del self._list[length:]
         assert len(self._list) <= length
 
+    def _ll_resize(self, length):
+        # NOT_RPYTHON
+        if length > len(self._list):
+            self._ll_resize_ge(length)
+        elif length < len(self._list):
+            self._ll_resize_le(length)
+        assert len(self._list) == length
+
     def append(self, item):
         # NOT_RPYTHON
         assert typeOf(item) == self._TYPE._ITEMTYPE
@@ -669,3 +678,4 @@ def ooidentityhash(inst):
 
 
 ROOT = Instance('Root', None, _is_root=True)
+

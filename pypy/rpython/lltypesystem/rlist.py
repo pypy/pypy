@@ -177,6 +177,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                           "ll_setitem_fast": ll_setitem_fast,
                                           "_ll_resize_ge": _ll_list_resize_ge,
                                           "_ll_resize_le": _ll_list_resize_le,
+                                          "_ll_resize": _ll_list_resize,
                                       })
                              )
 
@@ -206,8 +207,6 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
                                      "ITEM": ITEM,
                                      "ll_getitem_fast": ll_fixed_getitem_fast,
                                      "ll_setitem_fast": ll_fixed_setitem_fast,
-                                     "_ll_resize_ge": _ll_list_resize_ge,
-                                     "_ll_resize_le": _ll_list_resize_le,
                                 })
 
             self.LIST.become(ITEMARRAY)

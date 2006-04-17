@@ -709,8 +709,8 @@ def ll_inplace_mul(l, factor):
         factor = 0
     resultlen = length * factor
     res = l
-    #_ll_list_resize(res, resultlen)
-    res._ll_resize_ge(resultlen)
+    res._ll_resize(resultlen)
+    #res._ll_resize_ge(resultlen)
     j = length
     while j < resultlen:
         i = 0
