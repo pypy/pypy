@@ -77,14 +77,17 @@ class ArrayRepr(CTypesRefRepr):
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_getitem((r_array, r_int), hop):
         v_array, v_index = hop.inputargs(r_array, lltype.Signed)
-        if isinstance(r_array.r_item, CTypesRefRepr):
+        if isinstance(r_array.r_item, PrimitiveRepr):
+            # primitive case (optimization; the below also works in this case)
+            # NB. this optimization is invalid for PointerReprs!  See for
+            # example:  a[0].contents = ...  to change the first pointer of
+            # an array of pointers.
+            v_value = r_array.get_item_value(hop.llops, v_array, v_index)
+            return r_array.r_item.return_value(hop.llops, v_value)
+        else:
             # ByRef case
             v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
             return r_array.r_item.return_c_data(hop.llops, v_c_data)
-        else:
-            # ByValue case (optimization; the above also works in this case)
-            v_value = r_array.get_item_value(hop.llops, v_array, v_index)
-            return r_array.r_item.return_value(hop.llops, v_value)
 
     def rtype_setitem((r_array, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_array, lltype.Signed,

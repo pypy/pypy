@@ -233,6 +233,20 @@ class Test_specialization:
         res = interpret(func, [])
         assert res == 42
 
+    def test_array_of_pointers(self):
+        class S(Structure):
+            _fields_ = [('x', c_int)]
+        A = POINTER(S) * 10
+        def func():
+            a = A()
+            s = S()
+            s.x = 11
+            a[2].contents = s
+            a[3] = pointer(s)
+            return a[2].contents.x * a[3].contents.x
+        res = interpret(func, [])
+        assert res == 121
+
 class Test_compilation:
     def test_compile_array_access(self):
         def access_array():
