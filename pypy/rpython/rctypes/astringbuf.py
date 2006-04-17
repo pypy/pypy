@@ -19,6 +19,24 @@ def stringbuf_compute_result_annotation(s_length):
     return annmodel.SomeCTypesObject(StringBufferType,
             annmodel.SomeCTypesObject.OWNSMEMORY)
 
+def stringbuf_specialize_call(hop):
+    from pypy.rpython.lltypesystem import lltype
+    [v_length] = hop.inputargs(lltype.Signed)
+    r_stringbuf = hop.r_result
+    return hop.genop("malloc_varsize", [
+        hop.inputconst(lltype.Void, r_stringbuf.lowleveltype.TO),
+        v_length,
+        ], resulttype=r_stringbuf.lowleveltype,
+    )
+
 extregistry.register_value(create_string_buffer,
     compute_result_annotation=stringbuf_compute_result_annotation,
+    specialize_call=stringbuf_specialize_call,
     )
+
+def stringbuf_get_repr(rtyper, s_stringbuf):
+    from pypy.rpython.rctypes import rstringbuf
+    return rstringbuf.StringBufRepr(rtyper, s_stringbuf, rstringbuf.STRBUFTYPE)
+
+extregistry.register_type(StringBufferType,
+    get_repr=stringbuf_get_repr)

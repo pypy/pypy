@@ -51,21 +51,20 @@ class CTypesRepr(Repr):
 
         if self.ownsmemory:
             self.r_memoryowner = self
-            self.lowleveltype = lltype.Ptr(
-                    lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                        ( "c_data", self.c_data_type ),
-                        *content_keepalives
-                    )
-                )
+            fields = content_keepalives + [
+                ( "c_data", self.c_data_type ),
+                ]
         else:
             s_memoryowner = SomeCTypesObject(ctype,
                                              SomeCTypesObject.OWNSMEMORY)
             self.r_memoryowner = rtyper.getrepr(s_memoryowner)
-            self.lowleveltype = lltype.Ptr(
+            fields = content_keepalives + [
+                ( "c_data_owner_keepalive", self.r_memoryowner.lowleveltype ),
+                ( "c_data", lltype.Ptr(self.c_data_type) ),
+                ]
+        self.lowleveltype = lltype.Ptr(
                 lltype.GcStruct( "CtypesBox_%s" % (ctype.__name__,),
-                 ( "c_data", lltype.Ptr(self.c_data_type) ),
-                 ( "c_data_owner_keepalive", self.r_memoryowner.lowleveltype ),
-                 *content_keepalives
+                    *fields
                 )
             )
         self.const_cache = {} # store generated const values+original value

@@ -46,3 +46,15 @@ class Test_annotation:
 
         if conftest.option.view:
             a.translator.view()
+
+class Test_specialization:
+    def test_specialize_create(self):
+        def func(n):
+            return create_string_buffer(n)
+
+        res = interpret(func, [17])
+        c_data = res.c_data
+        assert c_data[0] == '\x00'
+        assert c_data[16] == '\x00'
+        assert len(c_data) == 17
+        py.test.raises(IndexError, "c_data[17]")
