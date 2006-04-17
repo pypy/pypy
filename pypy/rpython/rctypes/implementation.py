@@ -6,6 +6,7 @@ import pypy.rpython.rctypes.afunc
 import pypy.rpython.rctypes.achar_p
 import pypy.rpython.rctypes.astruct
 import pypy.rpython.rctypes.avoid_p
+import pypy.rpython.rctypes.astringbuf
 
 
 # Register the correspondance between SomeCTypesObject and the get_repr()
