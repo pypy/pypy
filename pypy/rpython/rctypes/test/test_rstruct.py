@@ -138,6 +138,22 @@ class Test_specialization:
         res = interpret(func, [])
         assert res == expected
 
+    def test_struct_of_pointers(self):
+        class S(Structure):
+            _fields_ = [('x', c_int)]
+        class T(Structure):
+            _fields_ = [('p', POINTER(S))]
+        def func():
+            t1 = T()
+            t2 = T()
+            s = S()
+            s.x = 11
+            t1.p = pointer(s)
+            t2.p.contents = s
+            return t1.p.contents.x * t2.p.contents.x
+        res = interpret(func, [])
+        assert res == 121
+
 class Test_compilation:
     def test_compile_struct_access(self):
         def access_struct(n):
