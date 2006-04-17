@@ -2,7 +2,7 @@
 Test the rctypes implementation.
 """
 
-import py.test
+import py
 import pypy.rpython.rctypes.implementation
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
@@ -246,6 +246,22 @@ class Test_specialization:
             return a[2].contents.x * a[3].contents.x
         res = interpret(func, [])
         assert res == 121
+
+    def test_specialize_keepalive(self):
+        py.test.skip("in-progress")
+        class S(Structure):
+            _fields_ = [('x', c_int)]
+        A = POINTER(S) * 10
+        def func():
+            a = A()
+            for i in range(10):
+                s = S()
+                s.x = i*i
+                a[i].contents = s
+            for i in range(10):
+                assert a[i].contents.x == i*i
+        func()
+        interpret(func, [])
 
 class Test_compilation:
     def test_compile_array_access(self):
