@@ -335,6 +335,19 @@ def gen_cast_subarray_pointer(llops, ARRAYPTRTYPE, v_array, v_baseoffset):
     return llops.genop('cast_adr_to_ptr', [v_base_adr],
                        resulttype = ARRAYPTRTYPE)
 
+def gen_add_itemoffset_to_pointer(llops, ITEMTYPE, v_ptr, v_index):
+    "Generates address manipulations equivalent to the C expression ptr+index."
+    from pypy.rpython.lltypesystem import llmemory
+    v_adr = llops.genop('cast_ptr_to_adr', [v_ptr],
+                        resulttype = llmemory.Address)
+    c_ofs = inputconst(lltype.Signed, llmemory.ItemOffset(ITEMTYPE))
+    v_ofs = llops.genop('int_mul', [c_ofs, v_index],
+                        resulttype = lltype.Signed)
+    v_newadr = llops.genop('adr_add', [v_adr, v_ofs],
+                           resulttype = llmemory.Address)
+    return llops.genop('cast_adr_to_ptr', [v_newadr],
+                       resulttype = v_ptr.concretetype)
+
 def rtype_cast_structfield_pointer(hop):
     assert hop.args_s[0].is_constant()
     assert hop.args_s[2].is_constant()

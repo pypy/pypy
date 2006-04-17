@@ -908,7 +908,16 @@ class _ptr(object):
 
     def _cast_to_adr(self):
         from pypy.rpython.lltypesystem import llmemory
-        return llmemory.fakeaddress(self)
+        if isinstance(self._obj, _subarray):
+            # return an address built as an offset in the whole array
+            parent, parentindex = parentlink(self._obj)
+            T = typeOf(parent)
+            addr = llmemory.fakeaddress(_ptr(Ptr(T), parent))
+            addr += llmemory.itemoffsetof(T, parentindex)
+            return addr
+        else:
+            # normal case
+            return llmemory.fakeaddress(self)
 
 assert not '__dict__' in dir(_ptr)
 

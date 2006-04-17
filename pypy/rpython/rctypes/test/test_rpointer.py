@@ -2,13 +2,14 @@
 Test the rctypes pointer implementation
 """
 
-import py.test
+import py
 import pypy.rpython.rctypes.implementation
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.translator.c.test.test_genc import compile
 
-from ctypes import c_int, c_float, POINTER, pointer
+from ctypes import c_int, c_float, POINTER, pointer, Structure
 
 class Test_annotation:
     def test_simple(self):
@@ -251,3 +252,32 @@ class Test_specialization:
         res = interpret(fn, [])
         float_c_data = res.c_data[0]
         assert float_c_data[0] == 6.25
+
+    def test_specialize_getitem_nonzero_index(self):
+        A = c_int * 10
+        class S(Structure):
+            _fields_ = [('x', POINTER(c_int))]
+        def fn():
+            a = A()
+            a[3] = 5
+            s = S()
+            s.x = a
+            return s.x[3]
+        assert fn() == 5
+        res = interpret(fn, [])
+        assert res == 5
+
+class Test_compilation:
+    def test_compile_getitem_nonzero_index(self):
+        A = c_int * 10
+        class S(Structure):
+            _fields_ = [('x', POINTER(c_int))]
+        def func():
+            a = A()
+            a[3] = 5
+            s = S()
+            s.x = a
+            return s.x[3]
+        fn = compile(func, [])
+        res = fn()
+        assert res == 5

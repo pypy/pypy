@@ -1,3 +1,4 @@
+from pypy.rpython.rbuiltin import gen_add_itemoffset_to_pointer
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype
@@ -64,11 +65,14 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
     def rtype_getitem((r_ptr, _), hop):
         self = r_ptr
         v_ptr, v_index = hop.inputargs(self, lltype.Signed)
+        v_c_ptr = self.getvalue(hop.llops, v_ptr)
         if hop.args_s[1].is_constant() and hop.args_s[1].const == 0:
-            v_c_ptr = self.getvalue(hop. llops, v_ptr)
-            return self.r_contents.return_c_data(hop.llops, v_c_ptr)
+            pass   # skip adding the offset
         else:
-            raise NotImplementedError("XXX: pointer[non-zero-index]")
+            v_c_ptr = gen_add_itemoffset_to_pointer(hop.llops,
+                                                    r_ptr.r_contents.ll_type,
+                                                    v_c_ptr, v_index)
+        return self.r_contents.return_c_data(hop.llops, v_c_ptr)
 
     def rtype_setitem((r_ptr, _), hop):
         # p[0] = x  is not the same as  p.contents.value = x
