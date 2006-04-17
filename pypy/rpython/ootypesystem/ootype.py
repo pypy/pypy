@@ -206,6 +206,8 @@ class List(OOType):
             "ll_length": Meth([], Signed),
             "ll_getitem_fast": Meth([Signed], self.ITEMTYPE_T),
             "ll_setitem_fast": Meth([Signed, self.ITEMTYPE_T], Void),
+            "_ll_resize_ge": Meth([Signed], Void),
+            "_ll_resize_le": Meth([Signed], Void),
             "append": Meth([self.ITEMTYPE_T], Void),            
             "extend": Meth([self.SELFTYPE_T], Void),
             "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
@@ -215,8 +217,10 @@ class List(OOType):
 
     # this is the equivalent of the lltypesystem ll_newlist that is
     # marked as typeMethod.
-    def ll_newlist(self):
-        return new(self)
+    def ll_newlist(self, length):
+        lst = new(self)
+        lst._ll_resize_ge(length)
+        return lst
 
     def _setup_methods(self, generic_types):
         methods = {}
@@ -522,7 +526,7 @@ class _bound_meth(object):
 class _list(object):
 
     def __init__(self, LIST):
-        self._TYPE = LIST 
+        self._TYPE = LIST
         self._list = []
 
     def __getattribute__(self, name):
@@ -540,6 +544,19 @@ class _list(object):
     def ll_length(self):
         # NOT_RPYTHON
         return len(self._list)
+
+    def _ll_resize_ge(self, length):
+        # NOT_RPYTHON        
+        if len(self._list) < length:
+            diff = length - len(self._list)
+            self._list += [self._TYPE._ITEMTYPE._defl()] * diff
+        assert len(self._list) >= length
+
+    def _ll_resize_le(self, length):
+        # NOT_RPYTHON
+        if length < len(self._list):
+            del self._list[length:]
+        assert len(self._list) <= length
 
     def append(self, item):
         # NOT_RPYTHON

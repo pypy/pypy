@@ -29,6 +29,27 @@ namespace pypy.runtime
             this[index] = item;
         }
 
+        public void _ll_resize_ge(int length)
+        {
+            if (this.Count < length) 
+            {
+                // TODO: this is inefficient because it can triggers
+                // many array resize
+                int diff = length - this.Count;
+                for(int i=0; i<diff; i++)
+                    this.Add(default(T));
+            }
+        }
+
+        public void _ll_resize_le(int length)
+        {
+            if (length < this.Count)
+            {
+                int diff = this.Count - length;
+                this.RemoveRange(length, diff);
+            }
+        }
+
         public void append(T item)
         {
             this.Add(item);

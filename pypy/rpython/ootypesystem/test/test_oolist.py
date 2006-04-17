@@ -7,6 +7,12 @@ def test_new():
     l = new(LT)
     assert typeOf(l) == LT
 
+def test_ll_newlist():
+    LT = List(Signed)
+    l = LT.ll_newlist(10)
+    assert typeOf(l) == LT
+    assert l.ll_length() == 10
+
 def test_len():
     LT = List(Signed)
     l = new(LT)
