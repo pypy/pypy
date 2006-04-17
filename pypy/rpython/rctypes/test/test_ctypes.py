@@ -100,6 +100,7 @@ def test_char_array():
 
     b = create_string_buffer(3)
     assert type(b) is type(a)
+    assert len(b) == 3
 
     b.value = "nxw"
     assert b[0] == 'n'
@@ -116,3 +117,5 @@ def test_char_array():
 
     s = S()
     s.p = b
+
+    assert len(create_string_buffer(0)) == 0

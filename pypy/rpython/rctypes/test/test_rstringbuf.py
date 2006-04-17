@@ -47,6 +47,18 @@ class Test_annotation:
         if conftest.option.view:
             a.translator.view()
 
+    def test_annotate_len(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            return len(buf)
+
+        a = RPythonAnnotator()
+        s = a.build_types(func, [int])
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            a.translator.view()
+
 class Test_specialization:
     def test_specialize_create(self):
         def func(n):
@@ -58,3 +70,33 @@ class Test_specialization:
         assert c_data[16] == '\x00'
         assert len(c_data) == 17
         py.test.raises(IndexError, "c_data[17]")
+
+    def test_specialize_access(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = 'y'
+            return buf[0]
+
+        res = interpret(func, [17])
+        assert res == 'x'
+
+    def test_specialize_len(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            return len(buf)
+
+        res = interpret(func, [17])
+        assert res == 17
+        res = interpret(func, [0])
+        assert res == 0
+
+    def test_annotate_value(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = 'y'
+            return buf.value
+
+        res = interpret(func, [12])
+        assert ''.join(res.chars) == "xy"

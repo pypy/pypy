@@ -38,5 +38,9 @@ def stringbuf_get_repr(rtyper, s_stringbuf):
     from pypy.rpython.rctypes import rstringbuf
     return rstringbuf.StringBufRepr(rtyper, s_stringbuf, rstringbuf.STRBUFTYPE)
 
-extregistry.register_type(StringBufferType,
+entry = extregistry.register_type(StringBufferType,
     get_repr=stringbuf_get_repr)
+def stringbuf_get_field_annotation(s_array, fieldname):
+    assert fieldname == 'value'
+    return annmodel.SomeString()   # can_be_None = False
+entry.get_field_annotation = stringbuf_get_field_annotation
