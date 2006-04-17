@@ -17,7 +17,8 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int, c_short, ARRAY, POINTER, pointer, c_char_p, c_char
+from ctypes import c_int, c_short, c_char_p, c_char, pointer
+from ctypes import ARRAY, POINTER, Structure
 
 c_int_10 = ARRAY(c_int,10)
 
@@ -218,6 +219,19 @@ class Test_specialization:
             return a.value
         res = interpret(func, [])
         assert ''.join(res.chars) == "xy"
+
+    def test_automatic_cast_array_to_pointer(self):
+        A = c_int * 10
+        class S(Structure):
+            _fields_ = [('p', POINTER(c_int))]
+        def func():
+            a = A()
+            s = S()
+            s.p = a
+            s.p.contents.value = 42
+            return a[0]
+        res = interpret(func, [])
+        assert res == 42
 
 class Test_compilation:
     def test_compile_array_access(self):

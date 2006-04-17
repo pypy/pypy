@@ -5,8 +5,9 @@ from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
-from pypy.rpython.rctypes.rmodel import genreccopy, reccopy
+from pypy.rpython.rctypes.rmodel import genreccopy, reccopy, C_ZERO
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
+from pypy.rpython.rctypes.rpointer import PointerRepr
 from pypy.annotation.model import SomeCTypesObject
 
 ArrayType = type(ARRAY(c_int, 10))
@@ -98,6 +99,16 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
             # ByValue case (optimization; the above also works in this case)
             v_newvalue = r_array.r_item.getvalue(hop.llops, v_item)
             r_array.set_item_value(hop.llops, v_array, v_index, v_newvalue)
+
+
+class __extend__(pairtype(ArrayRepr, PointerRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        # XXX keepalives
+        r_temp = r_to.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        v_c_array = r_from.get_c_data_of_item(llops, v, C_ZERO)
+        r_temp.setvalue(llops, v_owned_box, v_c_array)
+        return llops.convertvar(v_owned_box, r_temp, r_to)
 
 
 def ll_chararrayvalue(box):

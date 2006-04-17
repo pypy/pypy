@@ -121,3 +121,14 @@ def test_char_array():
     assert b.value == '!'
 
     assert len(create_string_buffer(0)) == 0
+
+def test_array():
+    a = (c_int * 10)()
+
+    class S(Structure):
+        _fields_ = [('p', POINTER(c_int))]
+
+    s = S()
+    s.p = a
+    s.p.contents.value = 42
+    assert a[0] == 42
