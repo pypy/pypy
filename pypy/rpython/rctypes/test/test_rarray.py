@@ -4,6 +4,7 @@ Test the rctypes implementation.
 
 import py.test
 import pypy.rpython.rctypes.implementation
+from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
@@ -16,7 +17,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int, c_short, ARRAY, POINTER, pointer, c_char_p
+from ctypes import c_int, c_short, ARRAY, POINTER, pointer, c_char_p, c_char
 
 c_int_10 = ARRAY(c_int,10)
 
@@ -146,6 +147,20 @@ class Test_annotation:
             a.translator.view()
         assert s.knowntype == int
 
+    def test_annotate_char_array_value(self):
+        A = c_char * 3
+        def func():
+            a = A()
+            a[0] = 'x'
+            a[1] = 'y'
+            return a.value
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+        if conftest.option.view:
+            a.translator.view()
+        assert s == annmodel.SomeString()
+
 class Test_specialization:
     def test_specialize_array(self):
         def create_array():
@@ -190,6 +205,16 @@ class Test_specialization:
         res = interpret(func, [])
         assert res == expected
 
+    def test_specialize_char_array_value(self):
+        A = c_char * 3
+        def func():
+            a = A()
+            a[0] = 'x'
+            a[1] = 'y'
+            return a.value
+        res = interpret(func, [])
+        assert ''.join(res.chars) == "xy"
+
 class Test_compilation:
     def test_compile_array_access(self):
         def access_array():
@@ -221,3 +246,13 @@ class Test_compilation:
         func, expected = maketest()
         fn = compile(func, [])
         assert fn() == expected
+
+    def test_compile_char_array_value(self):
+        A = c_char * 3
+        def func():
+            a = A()
+            a[0] = 'x'
+            a[1] = 'y'
+            return a.value
+        fn = compile(func, [])
+        assert fn() == "xy"

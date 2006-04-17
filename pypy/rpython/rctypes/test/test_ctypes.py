@@ -89,3 +89,30 @@ def test_void_p():
     p1 = cast(pointer(x), c_void_p)
     p2 = cast(p1, POINTER(c_int))
     assert p2.contents.value == 12
+
+def test_char_array():
+    a = (c_char * 3)()
+    a[0] = 'x'
+    a[1] = 'y'
+    assert a.value == 'xy'
+    a[2] = 'z'
+    assert a.value == 'xyz'
+
+    b = create_string_buffer(3)
+    assert type(b) is type(a)
+
+    b.value = "nxw"
+    assert b[0] == 'n'
+    assert b[1] == 'x'
+    assert b[2] == 'w'
+
+    b.value = "?"
+    assert b[0] == '?'
+    assert b[1] == '\x00'
+    assert b[2] == 'w'
+
+    class S(Structure):
+        _fields_ = [('p', POINTER(c_char))]
+
+    s = S()
+    s.p = b

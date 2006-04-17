@@ -1,5 +1,5 @@
-from ctypes import ARRAY, c_int
-from pypy.annotation.model import SomeCTypesObject, SomeBuiltin
+from ctypes import ARRAY, c_int, c_char
+from pypy.annotation.model import SomeCTypesObject, SomeBuiltin, SomeString
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 
@@ -28,6 +28,12 @@ def arraytype_get_repr(rtyper, s_array):
     from pypy.rpython.rctypes.rarray import ArrayRepr
     return ArrayRepr(rtyper, s_array)
 
-extregistry.register_metatype(ArrayType,
+entry = extregistry.register_metatype(ArrayType,
     compute_annotation=array_instance_compute_annotation,
     get_repr=arraytype_get_repr)
+def char_array_get_field_annotation(s_array, fieldname):
+    assert fieldname == 'value'
+    if s_array.knowntype._type_ != c_char:
+        raise Exception("only arrays of chars have a .value attribute")
+    return SomeString()   # can_be_None = False
+entry.get_field_annotation = char_array_get_field_annotation

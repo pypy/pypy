@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import \
-     Ptr, ContainerType, Void, Signed, Bool, FuncType, typeOf
+     Ptr, ContainerType, Void, Signed, Bool, FuncType, typeOf, FixedSizeArray
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr
 
@@ -47,9 +47,13 @@ class PtrRepr(Repr):
         hop.genop('setfield', vlist)
 
     def rtype_len(self, hop):
-        vlist = hop.inputargs(self)
-        return hop.genop('getarraysize', vlist,
-                         resulttype = hop.r_result.lowleveltype)
+        ARRAY = hop.args_r[0].lowleveltype.TO
+        if isinstance(ARRAY, FixedSizeArray):
+            return hop.inputconst(Signed, ARRAY.length)
+        else:
+            vlist = hop.inputargs(self)
+            return hop.genop('getarraysize', vlist,
+                             resulttype = hop.r_result.lowleveltype)
 
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)

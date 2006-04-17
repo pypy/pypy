@@ -1,5 +1,6 @@
 from ctypes import ARRAY, c_int
 from pypy.rpython.rbuiltin import gen_cast_subarray_pointer
+from pypy.rpython.rstr import string_repr
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
@@ -37,6 +38,14 @@ class ArrayRepr(CTypesRefRepr):
             else:
                 # ByValue case
                 p.c_data[i] = llitem.c_data[0]
+
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'value'
+        assert self.r_item.ll_type == lltype.Char  # .value: char arrays only
+        v_box = hop.inputarg(self, 0)
+        return hop.gendirectcall(ll_chararrayvalue, v_box)
 
     def get_c_data_of_item(self, llops, v_array, v_index):
         v_c_array = self.get_c_data(llops, v_array)
@@ -89,3 +98,14 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
             # ByValue case (optimization; the above also works in this case)
             v_newvalue = r_array.r_item.getvalue(hop.llops, v_item)
             r_array.set_item_value(hop.llops, v_array, v_index, v_newvalue)
+
+
+def ll_chararrayvalue(box):
+    from pypy.rpython.rctypes import rchar_p
+    p = box.c_data
+    p1 = lltype.cast_subarray_pointer(rchar_p.CCHARP, p, 0)
+    length = rchar_p.ll_strnlen(p1, len(p))
+    newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    for i in range(length):
+        newstr.chars[i] = p[i]
+    return newstr
