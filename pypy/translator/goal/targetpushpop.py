@@ -25,10 +25,24 @@ def f(x):
 global_a = A()
 
 def entry_point(argv):
-    # push argv
-    global_a.b = f(len(argv))
-    # pop argv
-    return global_a.b.x
+    a1 = A()
+    a2 = A()
+    a3 = A()
+    a4 = A()
+    global_a.next = a1
+    a1.x = 1
+    a2.x = 2
+    a3.x = 3
+    a4.x = 4
+    a1.next = a2
+    a2.next = a3
+    a3.next = a4
+    a4.next = None
+    # push stuff
+    global_a.b = B()
+    global_a.b.x = len(argv)
+    # pop stuff
+    return a1.x + a2.x + a3.x + a4.x + global_a.b.x
 
 # _____ Define and setup target ___
 
