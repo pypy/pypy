@@ -256,6 +256,12 @@ def rtype_newlist(hop):
     items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
     return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v)
 
+def rtype_alloc_and_set(hop):
+    r_list = hop.r_result
+    v_count, v_item = hop.inputargs(Signed, r_list.item_repr)
+    cLIST = hop.inputconst(Void, r_list.LIST)
+    return hop.gendirectcall(ll_alloc_and_set, cLIST, v_count, v_item)
+
 
 class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
 
@@ -340,6 +346,18 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  Low-level methods.  These can be run for testing, but are meant to
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
+
+def ll_alloc_and_set(LIST, count, item):
+    if count < 0:
+        count = 0
+    l = LIST.ll_newlist(count)
+    if item: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
+        i = 0
+        while i < count:
+            l.ll_setitem_fast(i, item)
+            i += 1
+    return l
+ll_alloc_and_set.oopspec = 'newlist(count, item)'
 
 
 # return a nullptr() if lst is a list of pointers it, else None.  Note
