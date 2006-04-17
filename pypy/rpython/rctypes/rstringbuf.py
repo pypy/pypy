@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
+from pypy.rpython.rbuiltin import gen_cast_subarray_pointer
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr
 
@@ -19,6 +20,13 @@ class StringBufRepr(CTypesRefRepr):
         assert s_attr.const == 'value'
         v_box = hop.inputarg(self, 0)
         return hop.gendirectcall(ll_chararrayvalue, v_box)
+
+    def get_c_data_of_item(self, llops, v_stringbuf, v_index):
+        v_array = self.get_c_data(llops, v_stringbuf)
+        return gen_cast_subarray_pointer(llops, ONE_CHAR_PTR,
+                                         v_array, v_index)
+
+ONE_CHAR_PTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
 
 
 class __extend__(pairtype(StringBufRepr, IntegerRepr)):

@@ -117,5 +117,7 @@ def test_char_array():
 
     s = S()
     s.p = b
+    s.p.contents.value = '!'
+    assert b.value == '!'
 
     assert len(create_string_buffer(0)) == 0

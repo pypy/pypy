@@ -9,7 +9,7 @@ from pypy.rpython.rstr import string_repr
 from pypy.rpython.lltypesystem import lltype
 
 from ctypes import cdll
-from ctypes import c_int, c_long, c_char_p, c_char
+from ctypes import c_int, c_long, c_char_p, c_char, create_string_buffer
 
 # __________ the standard C library __________
 
@@ -121,6 +121,17 @@ class Test_specialization:
         assert fn(3) == 18238
         res = [interpret(fn, [i]) for i in range(4)]
         assert res == [0, 42, 0, 18238]
+
+    def test_specialize_atoi_stringbuf(self):
+        def fn(n):
+            buf = create_string_buffer(n)
+            buf[0] = '4'
+            buf[1] = '2'
+            return atoi(buf)
+
+        assert fn(11) == 42
+        res = interpret(fn, [11])
+        assert res == 42
 
 class Test_compile:
     def test_compile_labs(self):

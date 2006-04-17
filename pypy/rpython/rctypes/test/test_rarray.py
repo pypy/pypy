@@ -38,6 +38,10 @@ def maketest():
         return res
     return func, 1234 * ord('e')
 
+def test_base():
+    func, expected = maketest()
+    assert func() == expected
+
 
 class Test_annotation:
     def test_annotate_array(self):

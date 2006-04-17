@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rstr import StringRepr, string_repr
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
 from pypy.rpython.rctypes.rarray import ArrayRepr
+from pypy.rpython.rctypes.rstringbuf import StringBufRepr
 from pypy.annotation.pairtype import pairtype
 
 from ctypes import c_char, c_char_p
@@ -74,6 +75,17 @@ class __extend__(pairtype(ArrayRepr, CCharPRepr)):
         v_c_array = r_from.get_c_data_of_item(llops, v, C_ZERO)
         r_temp.setvalue(llops, v_owned_box, v_c_array)
         return llops.convertvar(v_owned_box, r_temp, r_to)
+
+class __extend__(pairtype(StringBufRepr, CCharPRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        # warning: no keepalives, only for short-lived conversions like
+        # in argument passing
+        r_temp = r_to.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        v_c_array = r_from.get_c_data_of_item(llops, v, C_ZERO)
+        r_temp.setvalue(llops, v_owned_box, v_c_array)
+        return llops.convertvar(v_owned_box, r_temp, r_to)
+        # XXX some code duplication above
 
 
 CCHARP = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
