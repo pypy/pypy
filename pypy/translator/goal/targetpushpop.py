@@ -18,6 +18,8 @@ class B(object):
     pass
 
 def f(x):
+    if x == 0:
+        return f(x - 1)
     b = B()
     b.x = x
     return b
@@ -39,7 +41,7 @@ def entry_point(argv):
     a3.next = a4
     a4.next = None
     # push stuff
-    global_a.b = B()
+    global_a.b = f(len(argv))
     global_a.b.x = len(argv)
     # pop stuff
     return a1.x + a2.x + a3.x + a4.x + global_a.b.x
