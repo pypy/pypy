@@ -147,6 +147,22 @@ def test_rtype_constant_r_dicts():
     res = interpret(fn, [2])
     assert res == 2
 
+def test_rtype_r_dict_exceptions():
+    def raising_hash(obj):
+        if id(obj) % 2 == 0:
+            raise TypeError
+        return 1
+    def eq(obj1, obj2):
+        return obj1 is obj2
+    def f():
+        d1 = r_dict(eq, raising_hash)
+        try:
+            x = d1["blabla"]
+        except Exception:
+            return 1
+        return x
+    res = interpret(f, [])
+
 def test_rtype_keepalive():
     from pypy.rpython import objectmodel
     def f():
