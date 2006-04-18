@@ -23,9 +23,9 @@ class CCharPRepr(CTypesValueRepr):
         # field instead of the c_data pointer
         return llops.gendirectcall(ll_charp2str, v_value)
 
-    def get_content_keepalives(self):
-        "Return an extra keepalive field used for the RPython string."
-        return [('keepalive_str', string_repr.lowleveltype)]
+    def get_content_keepalive_type(self):
+        "An extra keepalive used for the RPython string."
+        return string_repr.lowleveltype
 
     def getstring(self, llops, v_box):
         return llops.gendirectcall(ll_getstring, v_box)
@@ -115,12 +115,12 @@ def ll_charp2str(p):
 def ll_getstring(box):
     p = box.c_data[0]
     if p:
-        if box.keepalive_str and ll_str2charp(box.keepalive_str) == p:
-            maxlen = len(box.keepalive_str.chars)
+        if box.keepalive and ll_str2charp(box.keepalive) == p:
+            maxlen = len(box.keepalive.chars)
             length = ll_strnlen(p, maxlen)
             if length == maxlen:
                 # no embedded zero in the string
-                return box.keepalive_str
+                return box.keepalive
         else:
             length = ll_strlen(p)
         newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
@@ -135,4 +135,4 @@ def ll_setstring(box, string):
         box.c_data[0] = ll_str2charp(string)
     else:
         box.c_data[0] = lltype.nullptr(CCHARP.TO)
-    box.keepalive_str = string
+    box.keepalive = string

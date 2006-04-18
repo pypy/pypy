@@ -5,7 +5,7 @@ from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
-from pypy.rpython.rctypes.rmodel import genreccopy, reccopy, C_ZERO
+from pypy.rpython.rctypes.rmodel import genreccopy_arrayitem, reccopy, C_ZERO
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
 from pypy.rpython.rctypes.rpointer import PointerRepr
 from pypy.annotation.model import SomeCTypesObject
@@ -29,6 +29,14 @@ class ArrayRepr(CTypesRefRepr):
                                             self.length)
 
         super(ArrayRepr, self).__init__(rtyper, s_array, c_data_type)
+
+    def get_content_keepalive_type(self):
+        "An extra array of keepalives, one per item."
+        item_keepalive_type = self.r_item.get_content_keepalive_type()
+        if not item_keepalive_type:
+            return None
+        else:
+            return lltype.FixedSizeArray(item_keepalive_type, self.length)
 
     def initialize_const(self, p, value):
         for i in range(self.length):
@@ -67,11 +75,11 @@ class ArrayRepr(CTypesRefRepr):
         return llops.genop('getarrayitem', [v_c_array, v_index],
                            resulttype = self.r_item.ll_type)
 
-    def set_item_value(self, llops, v_array, v_index, v_newvalue):
-        # ByValue case only
-        assert isinstance(self.r_item, CTypesValueRepr)
-        v_c_array = self.get_c_data(llops, v_array)
-        llops.genop('setarrayitem', [v_c_array, v_index, v_newvalue])
+##    def set_item_value(self, llops, v_array, v_index, v_newvalue):
+##        # ByValue case only
+##        assert isinstance(self.r_item, CTypesValueRepr)
+##        v_c_array = self.get_c_data(llops, v_array)
+##        llops.genop('setarrayitem', [v_c_array, v_index, v_newvalue])
 
 
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
@@ -92,16 +100,16 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_setitem((r_array, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_array, lltype.Signed,
                                                  r_array.r_item)
-        if isinstance(r_array.r_item, CTypesRefRepr):
-            # ByRef case
-            v_item_c_data = r_array.r_item.get_c_data(hop.llops, v_item)
-            v_c_data = r_array.get_c_data_of_item(hop.llops, v_array, v_index)
-            # copy the whole structure's content over
-            genreccopy(hop.llops, v_item_c_data, v_c_data)
-        else:
-            # ByValue case (optimization; the above also works in this case)
-            v_newvalue = r_array.r_item.getvalue(hop.llops, v_item)
-            r_array.set_item_value(hop.llops, v_array, v_index, v_newvalue)
+        v_newvalue = r_array.r_item.get_c_data_or_value(hop.llops, v_item)
+        # copy the new value (which might be a whole structure)
+        v_c_array = r_array.get_c_data(hop.llops, v_array)
+        genreccopy_arrayitem(hop.llops, v_newvalue, v_c_array, v_index)
+        # copy the keepalive information too
+        v_keepalive_array = r_array.getkeepalive(hop.llops, v_array)
+        if v_keepalive_array is not None:
+            v_newkeepalive = r_array.r_item.getkeepalive(hop.llops, v_item)
+            genreccopy_arrayitem(hop.llops, v_newkeepalive,
+                                 v_keepalive_array, v_index)
 
 
 class __extend__(pairtype(ArrayRepr, PointerRepr)):

@@ -47,18 +47,20 @@ class CTypesRepr(Repr):
             raise TyperError("unsupported ctypes memorystate %r" % memorystate)
 
         self.c_data_type = self.get_c_data_type(ll_type)
-        content_keepalives = self.get_content_keepalives()
+
+        fields = []
+        content_keepalive_type = self.get_content_keepalive_type()
+        if content_keepalive_type:
+            fields.append(( "keepalive", content_keepalive_type ))
 
         if self.ownsmemory:
             self.r_memoryowner = self
-            fields = content_keepalives + [
-                ( "c_data", self.c_data_type ),
-                ]
+            fields.append(( "c_data", self.c_data_type ))
         else:
             s_memoryowner = SomeCTypesObject(ctype,
                                              SomeCTypesObject.OWNSMEMORY)
             self.r_memoryowner = rtyper.getrepr(s_memoryowner)
-            fields = content_keepalives + [
+            fields += [
                 ( "c_data_owner_keepalive", self.r_memoryowner.lowleveltype ),
                 ( "c_data", lltype.Ptr(self.c_data_type) ),
                 ]
@@ -69,9 +71,10 @@ class CTypesRepr(Repr):
             )
         self.const_cache = {} # store generated const values+original value
 
-    def get_content_keepalives(self):
-        "Return extra keepalive fields used for the content of this object."
-        return []
+    def get_content_keepalive_type(self):
+        """Return the type of the extra keepalive field used for the content
+        of this object."""
+        return None
 
     def convert_const(self, value):
         if isinstance(value, self.ctype):
@@ -148,6 +151,21 @@ class CTypesRepr(Repr):
         # XXX add v_c_data_owner
         return self.allocate_instance_ref(llops, v_c_data)
 
+    def getkeepalive(self, llops, v_box):
+        try:
+            TYPE = self.lowleveltype.TO.keepalive
+        except AttributeError:
+            return None
+        else:
+            if isinstance(TYPE, lltype.ContainerType):
+                TYPE = lltype.Ptr(TYPE)
+                opname = 'getsubstruct'
+            else:
+                opname = 'getfield'
+            c_name = inputconst(lltype.Void, 'keepalive')
+            return llops.genop(opname, [v_box, c_name],
+                               resulttype = TYPE)
+
 
 class __extend__(pairtype(CTypesRepr, CTypesRepr)):
 
@@ -157,7 +175,13 @@ class __extend__(pairtype(CTypesRepr, CTypesRepr)):
         if (r_from.ctype == r_to.ctype and
             r_from.ownsmemory and not r_to.ownsmemory):
             v_c_data = r_from.get_c_data(llops, v)
-            return r_to.allocate_instance_ref(llops, v_c_data, v)
+            v_result =  r_to.allocate_instance_ref(llops, v_c_data, v)
+            # copy of the 'keepalive' field over
+            v_keepalive = r_from.getkeepalive(llops, v)
+            if v_keepalive is not None:
+                genreccopy_structfield(llops, v_keepalive,
+                                       v_result, 'keepalive')
+            return v_result
         else:
             return NotImplemented
 
@@ -169,6 +193,9 @@ class CTypesRefRepr(CTypesRepr):
     def get_c_data_type(self, ll_type):
         assert isinstance(ll_type, lltype.ContainerType)
         return ll_type
+
+    def get_c_data_or_value(self, llops, v_box):
+        return self.get_c_data(llops, v_box)
 
 
 class CTypesValueRepr(CTypesRepr):
@@ -194,6 +221,8 @@ class CTypesValueRepr(CTypesRepr):
         """Writes to the 'value' field of the raw data."""
         v_c_data = self.get_c_data(llops, v_box)
         self.setvalue_inside_c_data(llops, v_c_data, v_value)
+
+    get_c_data_or_value = getvalue
 
     def initialize_const(self, p, value):
         if isinstance(value, self.ctype):
@@ -295,9 +324,19 @@ def genreccopy(llops, v_source, v_dest):
 
 def genreccopy_arrayitem(llops, v_source, v_destarray, v_destindex):
     ITEMTYPE = v_destarray.concretetype.TO.OF
-    if isinstance(ITEMTYPE, lltype.Primitive):
-        llops.genop('setarrayitem', [v_destarray, v_destindex, v_source])
-    else:
+    if isinstance(ITEMTYPE, lltype.ContainerType):
         v_dest = llops.genop('getarraysubstruct', [v_destarray, v_destindex],
                              resulttype = lltype.Ptr(ITEMTYPE))
         genreccopy(llops, v_source, v_dest)
+    else:
+        llops.genop('setarrayitem', [v_destarray, v_destindex, v_source])
+
+def genreccopy_structfield(llops, v_source, v_deststruct, fieldname):
+    c_name = inputconst(lltype.Void, fieldname)
+    FIELDTYPE = getattr(v_deststruct.concretetype.TO, fieldname)
+    if isinstance(FIELDTYPE, lltype.ContainerType):
+        v_dest = llops.genop('getsubstruct', [v_deststruct, c_name],
+                             resulttype = lltype.Ptr(FIELDTYPE))
+        genreccopy(llops, v_source, v_dest)
+    else:
+        llops.genop('setfield', [v_deststruct, c_name, v_source])

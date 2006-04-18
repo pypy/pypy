@@ -248,7 +248,6 @@ class Test_specialization:
         assert res == 121
 
     def test_specialize_keepalive(self):
-        py.test.skip("in-progress")
         class S(Structure):
             _fields_ = [('x', c_int)]
         A = POINTER(S) * 10
@@ -257,7 +256,7 @@ class Test_specialization:
             for i in range(10):
                 s = S()
                 s.x = i*i
-                a[i].contents = s
+                a[i] = pointer(s)
             for i in range(10):
                 assert a[i].contents.x == i*i
         func()

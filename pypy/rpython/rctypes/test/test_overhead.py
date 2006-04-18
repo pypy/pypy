@@ -13,7 +13,7 @@ try:
 except ImportError:
     py.test.skip("this test needs ctypes installed")
 
-from ctypes import c_int
+from ctypes import c_int, Structure, pointer, POINTER
 
 
 def find_mallocs(func, argtypes):
@@ -52,4 +52,29 @@ def test_atoi():
         return test_rfunc.atoi(s)
 
     mallocs = find_mallocs(func, [str])
+    assert not mallocs
+
+def test_array_getitem():
+    A = c_int * 10
+    def func(n):
+        a = A()
+        a[n] = n*2
+        return a[n]
+
+    mallocs = find_mallocs(func, [int])
+    assert len(mallocs) <= 1    # for A() only
+
+def test_array_setitem():
+    class S(Structure):
+        _fields_ = [('x', c_int)]
+    A = POINTER(S) * 10
+
+    def func(a, s, i):
+        while i > 0:
+            s.x = i*i
+            a[i] = pointer(s)
+            i -= 1
+        return a[i].contents.x
+
+    mallocs = find_mallocs(func, [A, S, int])
     assert not mallocs

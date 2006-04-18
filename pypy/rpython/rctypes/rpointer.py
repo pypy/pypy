@@ -20,13 +20,12 @@ class PointerRepr(CTypesValueRepr):
 
         super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
 
-    def get_content_keepalives(self):
-        "Return an extra keepalive field used for the pointer's contents."
-        return [('keepalive_contents',
-                 self.r_contents.r_memoryowner.lowleveltype)]
+    def get_content_keepalive_type(self):
+        "Keepalive for the box that holds the data that 'self' points to."
+        return self.r_contents.r_memoryowner.lowleveltype
 
     def setkeepalive(self, llops, v_box, v_owner):
-        inputargs = [v_box, inputconst(lltype.Void, 'keepalive_contents'),
+        inputargs = [v_box, inputconst(lltype.Void, 'keepalive'),
                      v_owner]
         llops.genop('setfield', inputargs)
 
@@ -35,7 +34,7 @@ class PointerRepr(CTypesValueRepr):
         p.c_data[0] = llcontents.c_data
         # the following line is probably pointless, as 'llcontents' will be
         # an immortal global constant just like 'p', but better safe than sorry
-        p.keepalive_contents = llcontents.c_data_owner_keepalive
+        p.keepalive = llcontents.c_data_owner_keepalive
 
     def setcontents(self, llops, v_ptr, v_contentsbox):
         v_c_data = self.r_contents.get_c_data(llops, v_contentsbox)
