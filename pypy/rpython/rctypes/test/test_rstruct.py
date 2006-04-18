@@ -154,6 +154,24 @@ class Test_specialization:
         res = interpret(func, [])
         assert res == 121
 
+    def test_specialize_keepalive(self):
+        class S(Structure):
+            _fields_ = [('x', c_int)]
+        class T(Structure):
+            _fields_ = [('s', POINTER(S))]
+        def make_t(i):
+            t = T()
+            s = S()
+            s.x = i*i
+            t.s = pointer(s)
+            return t
+        def func():
+            t = make_t(17)
+            return t.s.contents.x
+
+        res = interpret(func, [])
+        assert res == 289
+
 class Test_compilation:
     def test_compile_struct_access(self):
         def access_struct(n):

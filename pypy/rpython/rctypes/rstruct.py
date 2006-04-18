@@ -2,7 +2,7 @@ from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rbuiltin import gen_cast_structfield_pointer
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
-from pypy.rpython.rctypes.rmodel import genreccopy, reccopy
+from pypy.rpython.rctypes.rmodel import genreccopy_structfield, reccopy
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
 from pypy.annotation.model import SomeCTypesObject
 
@@ -27,6 +27,19 @@ class StructRepr(CTypesRefRepr):
         c_data_type = lltype.Struct(struct_ctype.__name__, *llfields, **extras)
 
         super(StructRepr, self).__init__(rtyper, s_struct, c_data_type)
+
+    def get_content_keepalive_type(self):
+        "An extra struct of keepalives, one per field."
+        keepalives = []
+        for name in self.c_data_type._names:
+            r_field = self.r_fields[name]
+            field_keepalive_type = r_field.get_content_keepalive_type()
+            if field_keepalive_type:
+                keepalives.append((name, field_keepalive_type))
+        if not keepalives:
+            return None
+        else:
+            return lltype.Struct('keepalives', *keepalives)
 
     def initialize_const(self, p, value):
         for name, r_field in self.r_fields.items():
@@ -61,13 +74,13 @@ class StructRepr(CTypesRefRepr):
         return llops.genop('getfield', [v_c_struct, c_fieldname],
                            resulttype = r_field.ll_type)
 
-    def set_field_value(self, llops, v_struct, fieldname, v_newvalue):
-        # ByValue case only
-        r_field = self.r_fields[fieldname]
-        assert isinstance(r_field, CTypesValueRepr)
-        v_c_struct = self.get_c_data(llops, v_struct)
-        c_fieldname = inputconst(lltype.Void, fieldname)
-        llops.genop('setfield', [v_c_struct, c_fieldname, v_newvalue])
+##    def set_field_value(self, llops, v_struct, fieldname, v_newvalue):
+##        # ByValue case only
+##        r_field = self.r_fields[fieldname]
+##        assert isinstance(r_field, CTypesValueRepr)
+##        v_c_struct = self.get_c_data(llops, v_struct)
+##        c_fieldname = inputconst(lltype.Void, fieldname)
+##        llops.genop('setfield', [v_c_struct, c_fieldname, v_newvalue])
 
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
@@ -93,13 +106,13 @@ class StructRepr(CTypesRefRepr):
         name = s_attr.const
         r_field = self.r_fields[name]
         v_struct, v_attr, v_item = hop.inputargs(self, lltype.Void, r_field)
-        if isinstance(r_field, CTypesRefRepr):
-            # ByRef case
-            v_new_c_data = r_field.get_c_data(hop.llops, v_item)
-            v_c_data = self.get_c_data_of_field(hop.llops, v_struct, name)
-            # copy the whole structure's content over
-            genreccopy(hop.llops, v_new_c_data, v_c_data)
-        else:
-            # ByValue case (optimization; the above also works in this case)
-            v_newvalue = r_field.getvalue(hop.llops, v_item)
-            self.set_field_value(hop.llops, v_struct, name, v_newvalue)
+        v_newvalue = r_field.get_c_data_or_value(hop.llops, v_item)
+        # copy the new value (which might be a whole substructure)
+        v_c_struct = self.get_c_data(hop.llops, v_struct)
+        genreccopy_structfield(hop.llops, v_newvalue, v_c_struct, name)
+        # copy the keepalive information too
+        v_newkeepalive = r_field.getkeepalive(hop.llops, v_item)
+        if v_newkeepalive is not None:
+            v_keepalive_struct = self.getkeepalive(hop.llops, v_struct)
+            genreccopy_structfield(hop.llops, v_newkeepalive,
+                                   v_keepalive_struct, name)

@@ -3,6 +3,7 @@ Check that backendopt is able to remove most of the overhead introduced
 by the rctypes rtyping.
 """
 
+import py
 import pypy.rpython.rctypes.implementation
 from pypy import conftest
 from pypy.rpython.test.test_llinterp import gengraph
@@ -18,7 +19,7 @@ from ctypes import c_int, Structure, pointer, POINTER
 
 def find_mallocs(func, argtypes):
     t, typer, graph = gengraph(func, argtypes)
-    backend_optimizations(t)
+    backend_optimizations(t, inline_threshold=10)
     if conftest.option.view:
         t.view()
 
@@ -78,3 +79,22 @@ def test_array_setitem():
 
     mallocs = find_mallocs(func, [A, S, int])
     assert not mallocs
+
+def test_struct_setitem():
+    py.test.skip("not working yet")
+    class S(Structure):
+        _fields_ = [('x', c_int)]
+    class T(Structure):
+        _fields_ = [('s', POINTER(S))]
+    def make_t(i):
+        t = T()
+        s = S()
+        s.x = i*i
+        t.s = pointer(s)
+        return t
+    def func():
+        t = make_t(17)
+        return t.s.contents.x
+    
+    mallocs = find_mallocs(func, [])
+    assert not mallocs    # depends on inlining
