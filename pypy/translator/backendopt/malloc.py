@@ -142,12 +142,18 @@ def _try_inline_malloc(info):
                            ("setfield", 0),
                            ("getsubstruct", 0),
                            ("keepalive", 0)])
+    MAYBE_VALID = dict.fromkeys([("getarrayitem", 0),
+                                 ("setarrayitem", 0),
+                                 ("getarraysubstruct", 0)])
     for up in info.usepoints:
         if up[0] != "op":
             return False
         kind, node, op, index = up
         if (op.opname, index) in VALID:
             continue   # ok
+        if (op.opname, index) in MAYBE_VALID:
+            if isinstance(op.args[1], Constant):
+                continue   # ok if the index is constant
         return False
 
     # must not remove mallocs of structures that have a RTTI with a destructor
@@ -224,17 +230,21 @@ def _try_inline_malloc(info):
                 for arg in op.args[1:]:   # should be the first arg only
                     assert arg not in vars
                 if op.args and op.args[0] in vars:
-                    if op.opname == "getfield":
+                    if op.opname in ("getfield", "getarrayitem"):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
+                        if op.opname == "getarrayitem":
+                            fldname = 'item%d' % fldname
                         newop = SpaceOperation("same_as",
                                                [newvarsmap[S, fldname]],
                                                op.result)
                         newops.append(newop)
                         last_removed_access = len(newops)
-                    elif op.opname == "setfield":
+                    elif op.opname in ("setfield", "setarrayitem"):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
+                        if op.opname == "setarrayitem":
+                            fldname = 'item%d' % fldname
                         assert (S, fldname) in newvarsmap
                         newvarsmap[S, fldname] = op.args[2]
                         last_removed_access = len(newops)
@@ -247,9 +257,11 @@ def _try_inline_malloc(info):
                         # via one pointer must be reflected in the other.
                     elif op.opname == 'keepalive':
                         last_removed_access = len(newops)
-                    elif op.opname == "getsubstruct":
+                    elif op.opname in ("getsubstruct", "getarraysubstruct"):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
+                        if op.opname == "getarraysubstruct":
+                            fldname = 'item%d' % fldname
                         equiv = equivalent_substruct(S, fldname)
                         if equiv:
                             # exactly like a cast_pointer

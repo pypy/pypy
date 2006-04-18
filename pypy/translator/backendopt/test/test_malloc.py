@@ -182,3 +182,17 @@ def test_getsubstruct():
         return b.z - b.s.x
 
     check(fn, [int, int], [100, 58], 42)
+
+def test_fixedsizearray():
+    from pypy.rpython.lltypesystem import lltype
+    A = lltype.FixedSizeArray(lltype.Signed, 3)
+    S = lltype.GcStruct('S', ('a', A))
+
+    def fn(n1, n2):
+        s = lltype.malloc(S)
+        a = s.a
+        a[0] = n1
+        a[2] = n2
+        return a[0]-a[2]
+
+    check(fn, [int, int], [100, 42], 58)
