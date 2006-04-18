@@ -1,12 +1,13 @@
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
-from ctypes import c_double, c_char_p
+from ctypes import c_double, c_wchar, c_char_p
 from pypy.annotation import model as annmodel
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
 
 ctypes_annotation_list = {
     c_char:          lltype.Char,
+    c_wchar:         lltype.UniChar,
     c_byte:          lltype.Signed,
     c_ubyte:         lltype.Unsigned,
     c_short:         lltype.Signed,

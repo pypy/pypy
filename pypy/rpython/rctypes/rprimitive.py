@@ -1,7 +1,7 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rmodel import IntegerRepr, FloatRepr, CharRepr
+from pypy.rpython.rmodel import IntegerRepr, FloatRepr, CharRepr, UniCharRepr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
@@ -37,7 +37,8 @@ class PrimitiveRepr(CTypesValueRepr):
 
 class __extend__(pairtype(IntegerRepr, PrimitiveRepr),
                  pairtype(FloatRepr, PrimitiveRepr),
-                 pairtype(CharRepr, PrimitiveRepr)):
+                 pairtype(CharRepr, PrimitiveRepr),
+                 pairtype(UniCharRepr, PrimitiveRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         # first convert 'v' to the precise expected low-level type
         r_input = r_to.rtyper.primitive_to_repr[r_to.ll_type]

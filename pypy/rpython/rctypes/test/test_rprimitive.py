@@ -20,7 +20,7 @@ except ImportError:
 
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
-from ctypes import c_double, c_char_p, pointer
+from ctypes import c_double, c_wchar, c_char_p, pointer
 
 class Test_annotation:
     def test_simple(self):
@@ -224,6 +224,9 @@ class Test_specialization:
             assert x.value == 2.75
             x.value -= 1
             assert x.value == 1.75
+            x = c_wchar(u'A')
+            x.value = unichr(ord(x.value) + 1)
+            assert x.value == u'B'
         interpret(func, [])
 
     def test_convert_from_llvalue(self):
@@ -250,6 +253,9 @@ class Test_specialization:
             assert x.value == 2.75
             pointer(x)[0] -= 1
             assert x.value == 1.75
+            x = c_wchar(u'A')
+            pointer(x)[0] = unichr(ord(pointer(x)[0]) + 1)
+            assert x.value == u'B'
         interpret(func, [])
 
 class Test_compilation:
