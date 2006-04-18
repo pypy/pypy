@@ -223,10 +223,8 @@ class HintTimeshift(object):
         
                                                          
     def read_out_box(self, llops, v_boxes, i):
-        c_dum_nocheck = rmodel.inputconst(lltype.Void, rlist.dum_nocheck)
         c_i = rmodel.inputconst(lltype.Signed, i)
-        s_dum_nocheck = self.rtyper.annotator.bookkeeper.immutablevalue(rlist.dum_nocheck)
-        v_box = llops.gendirectcall(rlist.ll_getitem_nonneg, c_dum_nocheck, v_boxes, c_i)
+        v_box = llops.gendirectcall(rlist.ll_getitem_fast, v_boxes, c_i)
 
         v_box = llops.convertvar(v_box, self.r_box_list.item_repr, self.r_RedBox)
         return v_box
