@@ -255,21 +255,6 @@ class TestSimpleVariable:
 
 class EOL: pass
 
-def generate(thread, Xs, n, limit):
-    """(eager generation of a stream 0|1|2|...)
-    declare
-    fun {Generate N Limit}
-       if N<Limit then
-          N|{Generate N+1 Limit}
-       else nil end
-    end"""
-    if n<limit:
-        Xr = var()
-        Xs.bind((n, Xr))
-        generate(thread, Xr, n+1, limit)
-    else:
-        Xs.bind(None)    
-
 def dgenerate(thread, n, Xs):
     """(demand-driven generation of 0|1|2|...)
     declare
@@ -311,22 +296,6 @@ def dsum(thread, Xs, a, limit):
         Xs.bind(None)
         thread.result = a
 
-def reduc(thread, Xs, a, fun):
-    """declare
-    fun {Sum Xs A}
-        case Xs
-            of X|Xr then {Sum Xr A+X}
-            [] nil then A
-            else {Sum Xs A}
-        end
-    end"""
-    X_Xr = Xs.wait()
-    if X_Xr == None:
-        thread.result = a
-        return
-    Xr = X_Xr[1]
-    reduc(thread, Xr, fun(a, X_Xr[0]), fun)
-
 def run_test(t1, t2):
     t1.start()
     t2.start()
@@ -338,14 +307,62 @@ def run_test(t1, t2):
 
 class TestStream:
                 
-    def test_multiple_readers_eager_list(self):
+    def notest_multiple_readers_eager_list(self):
         """the generator controls the flow"""
         Xs = var()
+
+        def generate(n, limit):
+            """(eager generation of a stream 0|1|2|...)
+            declare
+            fun {Generate N Limit}
+               if N<Limit then
+                  N|{Generate N+1 Limit}
+               else nil end
+            end"""
+            if n<limit:
+                return (var(n), var(generate(n+1, limit)))
+            else:
+                return None
+##             if n<limit:
+##                 Xr = var()
+##                 Xs.bind((n, Xr))
+##                 print "Xs", Xs
+##                 generate(thread, Xr, n+1, limit)
+##             else:
+##                 Xs.bind(None)    
+
+        def wrap_gen(thread, Xs, n, limit):
+            Xs.bind(generate(n, limit))
+
+        def reduc(thread, Xs, a, fun):
+            """declare
+            fun {Sum Xs A}
+                case Xs
+                    of X|Xr then {Sum Xr A+X}
+                    [] nil then A
+                    else {Sum Xs A}
+                end
+            end"""
+            X, Xr = var(), var()
+            try:
+                print "(before) case Xs of X|Xr", Xs, X, Xr
+                unify(Xs.wait(), (X, Xr))
+                print "(after) case Xs of X|Xr", Xs, X, Xr
+            except UnificationFailure:
+                print "(after)case Xs of X|Xr", Xs, X, Xr
+                thread.result = a
+                return
+            #X_Xr = Xs.wait()
+            #if X_Xr == None:
+            #    thread.result = a
+            #    return
+            #Xr = X_Xr[1]
+            reduc(thread, Xr, fun(a, X.wait()), fun)
 
         r1 = FunThread(reduc, Xs, 0, operator.add)
         r2 = FunThread(reduc, Xs, 0, operator.add)
         r3 = FunThread(reduc, Xs, 0, operator.add)
-        generator = FunThread(generate, Xs, 0, 42)
+        generator = FunThread(wrap_gen, Xs, 0, 42)
 
         for r in (r1, r2, r3):
             r.start()

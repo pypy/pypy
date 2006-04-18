@@ -360,6 +360,6 @@ class ComputationSpace(object):
                 dom.reset_flags()
             if entailed:
                 # we should also remove the constraint from
-                # the set of satifiable constraints
+                # the set of satifiable constraints of the space
                 if const in affected_constraints:
                     affected_constraints.remove(const)
