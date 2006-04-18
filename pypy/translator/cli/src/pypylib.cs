@@ -29,6 +29,14 @@ namespace pypy.runtime
             this[index] = item;
         }
 
+        public void _ll_resize(int length)
+        {
+            if (length > this.Count)
+                this._ll_resize_ge(length);
+            else if (length < this.Count)
+                this._ll_resize_le(length);
+        }
+
         public void _ll_resize_ge(int length)
         {
             if (this.Count < length) 
@@ -50,6 +58,7 @@ namespace pypy.runtime
             }
         }
 
+        /*
         public void append(T item)
         {
             this.Add(item);
@@ -69,5 +78,6 @@ namespace pypy.runtime
         {
             return this.IndexOf(item);
         }
+        */
     }
 }
