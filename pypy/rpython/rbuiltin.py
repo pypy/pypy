@@ -327,16 +327,21 @@ def gen_cast_subarray_pointer(llops, ARRAYPTRTYPE, v_array, v_baseoffset):
     c_ofs1 = inputconst(lltype.Signed, llmemory.ArrayItemsOffset(SRCTYPE))
     v_array_items_adr = llops.genop('adr_add', [v_array_adr, c_ofs1],
                                     resulttype = llmemory.Address)
-    c_ofs2 = inputconst(lltype.Signed, llmemory.ItemOffset(SRCTYPE.OF))
-    v_ofs3 = llops.genop('int_mul', [c_ofs2, v_baseoffset],
-                         resulttype = lltype.Signed)
-    v_base_adr = llops.genop('adr_add', [v_array_items_adr, v_ofs3],
-                             resulttype = llmemory.Address)
+    if isinstance(v_baseoffset, Constant) and v_baseoffset.value == 0:
+        v_base_adr = v_array_items_adr
+    else:
+        c_ofs2 = inputconst(lltype.Signed, llmemory.ItemOffset(SRCTYPE.OF))
+        v_ofs3 = llops.genop('int_mul', [c_ofs2, v_baseoffset],
+                             resulttype = lltype.Signed)
+        v_base_adr = llops.genop('adr_add', [v_array_items_adr, v_ofs3],
+                                 resulttype = llmemory.Address)
     return llops.genop('cast_adr_to_ptr', [v_base_adr],
                        resulttype = ARRAYPTRTYPE)
 
 def gen_add_itemoffset_to_pointer(llops, ITEMTYPE, v_ptr, v_index):
     "Generates address manipulations equivalent to the C expression ptr+index."
+    if isinstance(v_index, Constant) and v_index.value == 0:
+        return v_ptr
     from pypy.rpython.lltypesystem import llmemory
     v_adr = llops.genop('cast_ptr_to_adr', [v_ptr],
                         resulttype = llmemory.Address)

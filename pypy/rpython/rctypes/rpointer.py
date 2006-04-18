@@ -66,12 +66,9 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
         self = r_ptr
         v_ptr, v_index = hop.inputargs(self, lltype.Signed)
         v_c_ptr = self.getvalue(hop.llops, v_ptr)
-        if hop.args_s[1].is_constant() and hop.args_s[1].const == 0:
-            pass   # skip adding the offset
-        else:
-            v_c_ptr = gen_add_itemoffset_to_pointer(hop.llops,
-                                                    r_ptr.r_contents.ll_type,
-                                                    v_c_ptr, v_index)
+        v_c_ptr = gen_add_itemoffset_to_pointer(hop.llops,
+                                                r_ptr.r_contents.ll_type,
+                                                v_c_ptr, v_index)
         return self.r_contents.return_c_data(hop.llops, v_c_ptr)
 
     def rtype_setitem((r_ptr, _), hop):

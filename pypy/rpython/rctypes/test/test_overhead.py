@@ -37,3 +37,19 @@ def test_simple():
 
     mallocs = find_mallocs(func, [int])
     assert not mallocs
+
+def test_labs():
+    from pypy.rpython.rctypes.test import test_rfunc
+    def func(n):
+        return test_rfunc.labs(n)
+
+    mallocs = find_mallocs(func, [int])
+    assert not mallocs
+
+def test_atoi():
+    from pypy.rpython.rctypes.test import test_rfunc
+    def func(s):
+        return test_rfunc.atoi(s)
+
+    mallocs = find_mallocs(func, [str])
+    assert not mallocs
