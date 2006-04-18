@@ -167,7 +167,6 @@ def test_add_keepalives():
     check(fn7, [int], [10], 55, must_be_removed=False)
 
 def test_getsubstruct():
-    py.test.skip("in-progress")
     from pypy.rpython.lltypesystem import lltype
     SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
     BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))

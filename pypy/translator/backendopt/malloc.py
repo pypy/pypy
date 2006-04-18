@@ -19,6 +19,27 @@ class LifeTime:
         self.usepoints.update(other.usepoints)
 
 
+def equivalent_substruct(S, fieldname):
+    # we consider a pointer to a GcStruct S as equivalent to a
+    # pointer to a substructure 'S.fieldname' if it's the first
+    # inlined sub-GcStruct.  As an extension we also allow a pointer
+    # to a GcStruct containing just one Struct to be equivalent to
+    # a pointer to that Struct only (although a mere cast_pointer
+    # would not allow casting).  This is needed to malloc-remove
+    # the 'wrapper' GcStructs introduced by previous passes of
+    # malloc removal.
+    if not isinstance(S, lltype.GcStruct):
+        return False
+    if fieldname != S._names[0]:
+        return False
+    FIELDTYPE = S._flds[fieldname]
+    if isinstance(FIELDTYPE, lltype.GcStruct):
+        return True
+    if len(S._names) == 1 and isinstance(FIELDTYPE, lltype.Struct):
+        return 'wrapper'
+    return False
+
+
 def compute_lifetimes(graph):
     """Compute the static data flow of the graph: returns a list of LifeTime
     instances, each of which corresponds to a set of Variables from the graph.
@@ -57,11 +78,17 @@ def compute_lifetimes(graph):
                     # special-case these operations to identify their input
                     # and output variables
                     union(node, op.args[0], node, op.result)
-                else:
-                    for i in range(len(op.args)):
-                        if isinstance(op.args[i], Variable):
-                            set_use_point(node, op.args[i], "op", node, op, i)
-                    set_creation_point(node, op.result, "op", node, op)
+                    continue
+                if op.opname == 'getsubstruct':
+                    S = op.args[0].concretetype.TO
+                    if equivalent_substruct(S, op.args[1].value):
+                        # assumed to be similar to a cast_pointer
+                        union(node, op.args[0], node, op.result)
+                        continue
+                for i in range(len(op.args)):
+                    if isinstance(op.args[i], Variable):
+                        set_use_point(node, op.args[i], "op", node, op, i)
+                set_creation_point(node, op.result, "op", node, op)
             if isinstance(node.exitswitch, Variable):
                 set_use_point(node, node.exitswitch, "exitswitch", node)
 
@@ -108,14 +135,18 @@ def _try_inline_malloc(info):
     STRUCT = lltypes.keys()[0].TO
     assert isinstance(STRUCT, lltype.GcStruct)
 
-    # must be only ever accessed via getfield/setfield or touched by keepalive
+    # must be only ever accessed via getfield/setfield/getsubstruct
+    # or touched by keepalive.  Note that same_as and cast_pointer
+    # are not recorded in usepoints.
+    VALID = dict.fromkeys([("getfield", 0),
+                           ("setfield", 0),
+                           ("getsubstruct", 0),
+                           ("keepalive", 0)])
     for up in info.usepoints:
         if up[0] != "op":
             return False
         kind, node, op, index = up
-        if (op.opname, index) in [("getfield", 0),
-                                  ("setfield", 0),
-                                  ("keepalive", 0)]:
+        if (op.opname, index) in VALID:
             continue   # ok
         return False
 
@@ -130,18 +161,42 @@ def _try_inline_malloc(info):
     
     # success: replace each variable with a family of variables (one per field)
     example = STRUCT._container_example()
+
+    # 'flatnames' is a list of (STRUCTTYPE, fieldname_in_that_struct) that
+    # describes the list of variables that should replace the single
+    # malloc'ed pointer variable that we are about to remove.  For primitive
+    # or pointer fields, the new corresponding variable just stores the
+    # actual value.  For substructures, if pointers to them are "equivalent"
+    # to pointers to the parent structure (see equivalent_substruct()) then
+    # they are just merged, and flatnames will also list the fields within
+    # that substructure.  Other substructures are replaced by a single new
+    # variable which is a pointer to a GcStruct-wrapper; each is malloc'ed
+    # individually, in an exploded way.  (The next malloc removal pass will
+    # get rid of them again, in the typical case.)
     flatnames = []
     flatconstants = {}
+    needsubmallocs = []
+    newvarstype = {}       # map {item-of-flatnames: concretetype}
+
     def flatten(S, example):
         start = 0
-        if S._names and isinstance(S._flds[S._names[0]], lltype.GcStruct):
+        if S._names and equivalent_substruct(S, S._names[0]):
             flatten(S._flds[S._names[0]], getattr(example, S._names[0]))
             start = 1
         for name in S._names[start:]:
-            flatnames.append((S, name))
-            constant = Constant(getattr(example, name))
-            constant.concretetype = lltype.typeOf(constant.value)
-            flatconstants[S, name] = constant
+            key = S, name
+            flatnames.append(key)
+            FIELDTYPE = S._flds[name]
+            if isinstance(FIELDTYPE, lltype.ContainerType):
+                needsubmallocs.append(key)
+                newvarstype[key] = lltype.Ptr(lltype.GcStruct('wrapper',
+                                                          ('data', FIELDTYPE)))
+            else:
+                constant = Constant(getattr(example, name))
+                constant.concretetype = FIELDTYPE
+                flatconstants[key] = constant
+                newvarstype[key] = FIELDTYPE
+
     flatten(STRUCT, example)
 
     variables_by_block = {}
@@ -192,6 +247,29 @@ def _try_inline_malloc(info):
                         # via one pointer must be reflected in the other.
                     elif op.opname == 'keepalive':
                         last_removed_access = len(newops)
+                    elif op.opname == "getsubstruct":
+                        S = op.args[0].concretetype.TO
+                        fldname = op.args[1].value
+                        equiv = equivalent_substruct(S, fldname)
+                        if equiv == "wrapper":
+                            # reading the only Struct field of a GcStruct:
+                            # do it with a getsubstruct on the wrapper ptr var
+                            v = newvarsmap[S, fldname]
+                            newop = SpaceOperation("getsubstruct",
+                                                   [v, op.args[1]],
+                                                   op.result)
+                            newops.append(newop)
+                        elif equiv:
+                            # exactly like a cast_pointer
+                            assert op.result not in vars
+                            vars[op.result] = True
+                        else:
+                            # (S, fldname) in flatnames and in needsubmallocs
+                            newop = SpaceOperation("same_as",
+                                                   [newvarsmap[S, fldname]],
+                                                   op.result)
+                            newops.append(newop)
+                            last_removed_access = len(newops)
                     else:
                         raise AssertionError, op.opname
                 elif op.result in vars:
@@ -199,6 +277,17 @@ def _try_inline_malloc(info):
                     assert vars == {var: True}
                     count[0] += 1
                     # drop the "malloc" operation
+                    newvarsmap = flatconstants.copy()   # zero initial values
+                    # if there are substructures, they are now individually
+                    # malloc'ed in an exploded way.  (They will typically be
+                    # removed again by the next malloc removal pass.)
+                    for key in needsubmallocs:
+                        v = Variable()
+                        v.concretetype = newvarstype[key]
+                        c = Constant(v.concretetype.TO, lltype.Void)
+                        newop = SpaceOperation("malloc", [c], v)
+                        newops.append(newop)
+                        newvarsmap[key] = v
                 else:
                     newops.append(op)
 
@@ -235,7 +324,7 @@ def _try_inline_malloc(info):
                 newvarsmap = {}
                 for key in flatnames:
                     newvar = Variable()
-                    newvar.concretetype = flatconstants[key].concretetype
+                    newvar.concretetype = newvarstype[key]
                     newvarsmap[key] = newvar
                     newinputargs.append(newvar)
                 newinputargs += block.inputargs[i+1:]
@@ -249,8 +338,7 @@ def _try_inline_malloc(info):
             if op.opname == "malloc" and op.result in vars:
                 vars_created_here.append(op.result)
         for var in vars_created_here:
-            newvarsmap = flatconstants.copy()   # dummy initial values
-            flowin(var, newvarsmap)
+            flowin(var, newvarsmap=None)
 
     assert count[0]
     return count[0]
@@ -261,7 +349,7 @@ def remove_mallocs_once(graph):
     lifetimes = compute_lifetimes(graph)
     progress = 0
     for info in lifetimes:
-        progress +=  _try_inline_malloc(info)
+        progress += _try_inline_malloc(info)
     return progress
 
 def remove_simple_mallocs(graph):
