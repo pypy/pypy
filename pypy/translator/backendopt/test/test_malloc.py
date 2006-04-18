@@ -196,3 +196,16 @@ def test_fixedsizearray():
         return a[0]-a[2]
 
     check(fn, [int, int], [100, 42], 58)
+
+def test_wrapper_cannot_be_removed():
+    from pypy.rpython.lltypesystem import lltype
+    SMALL = lltype.OpaqueType('SMALL')
+    BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
+
+    def g(small):
+        return -1
+    def fn():
+        b = lltype.malloc(BIG)
+        g(b.s)
+
+    check(fn, [], [], None, must_be_removed=False)

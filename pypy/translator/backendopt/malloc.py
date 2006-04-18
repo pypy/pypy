@@ -164,6 +164,14 @@ def _try_inline_malloc(info):
             return False
     except (ValueError, AttributeError), e:
         pass
+
+    # to avoid an infinite loop of "removals" without actual progress,
+    # be careful when trying to remove something that already looks like
+    # a GcStruct wrapper
+    if (len(STRUCT._names) == 1 and
+        isinstance(STRUCT._flds[STRUCT._names[0]], lltype.ContainerType) and
+        not equivalent_substruct(STRUCT, STRUCT._names[0])):
+        return False
     
     # success: replace each variable with a family of variables (one per field)
     example = STRUCT._container_example()
