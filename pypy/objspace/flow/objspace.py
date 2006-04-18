@@ -460,6 +460,12 @@ implicit_exceptions = {
     int: [ValueError],      # built-ins that can always raise exceptions
     chr: [ValueError],
     unichr: [ValueError],
+    # specifying IndexError, and KeyError beyond Exception,
+    # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
+    # the annotator tests
+    'getitem': [IndexError, KeyError, Exception],
+    'setitem': [IndexError, KeyError, Exception],
+    'delitem': [IndexError, KeyError, Exception],    
     }
 
 def _add_exceptions(names, exc):
@@ -477,13 +483,13 @@ def _add_except_ovf(names):
         lis.append(OverflowError)
         implicit_exceptions[name+"_ovf"] = lis
 
-for _err in IndexError, KeyError:
-    _add_exceptions("""getitem setitem delitem""", _err)
+#for _err in IndexError, KeyError:
+#    _add_exceptions("""getitem setitem delitem""", _err)
 for _name in 'getattr', 'delattr':
     _add_exceptions(_name, AttributeError)
 for _name in 'iter', 'coerce':
     _add_exceptions(_name, TypeError)
-del _name, _err
+del _name#, _err
 
 _add_exceptions("""div mod divmod truediv floordiv pow
                    inplace_div inplace_mod inplace_divmod inplace_truediv

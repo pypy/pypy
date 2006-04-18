@@ -400,22 +400,27 @@ class __extend__(pairtype(SomeDict, SomeDict)):
 
 class __extend__(pairtype(SomeDict, SomeObject)):
 
+    def _can_only_throw(dic1, *ignore):
+        if dic1.dictdef.dictkey.custom_eq_hash:
+            return None
+        return [KeyError]
+
     def getitem((dic1, obj2)):
         getbookkeeper().count("dict_getitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         return dic1.dictdef.read_value()
-    getitem.can_only_throw = [KeyError]
+    getitem.can_only_throw = _can_only_throw
 
     def setitem((dic1, obj2), s_value):
         getbookkeeper().count("dict_setitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
-    setitem.can_only_throw = [KeyError]
+    setitem.can_only_throw = _can_only_throw
 
     def delitem((dic1, obj2)):
         getbookkeeper().count("dict_delitem", dic1)
         dic1.dictdef.generalize_key(obj2)
-    delitem.can_only_throw = [KeyError]
+    delitem.can_only_throw = _can_only_throw
 
 
 class __extend__(pairtype(SomeSlice, SomeSlice)):

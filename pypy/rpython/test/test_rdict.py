@@ -680,3 +680,30 @@ def test_dict_of_dict():
     assert res == 2
     res = interpret(f, [6])
     assert res == 0
+
+def test_access_in_try():
+    def f(d):
+        try:
+            return d[2]
+        except ZeroDivisionError:
+            return 42
+        return -1
+    def g(n):
+        d = {1: n, 2: 2*n}
+        return f(d)
+    res = interpret(g, [3])
+    assert res == 6
+
+def test_access_in_try_set():
+    def f(d):
+        try:
+            d[2] = 77
+        except ZeroDivisionError:
+            return 42
+        return -1
+    def g(n):
+        d = {1: n}
+        f(d)
+        return d[2]
+    res = interpret(g, [3])
+    assert res == 77

@@ -214,15 +214,17 @@ def simplify_exceptions(graph):
 
     def visit(block):
         if not (isinstance(block, Block)
-                and block.exitswitch == clastexc and len(block.exits) == 2
-                and block.exits[1].exitcase is Exception):
+                and block.exitswitch == clastexc
+                and block.exits[-1].exitcase is Exception):
             return
+        covered = [link.exitcase for link in block.exits[1:-1]]
         seen = []
-        norm, exc = block.exits
+        preserve = list(block.exits[:-1])
+        exc = block.exits[-1]
         last_exception = exc.last_exception
         last_exc_value = exc.last_exc_value
         query = exc.target
-        switches = [ (None, norm) ]
+        switches = []
         # collect the targets
         while len(query.exits) == 2:
             newrenaming = {}
@@ -238,7 +240,13 @@ def simplify_exceptions(graph):
             lno, lyes = query.exits
             assert lno.exitcase == False and lyes.exitcase == True
             if case not in seen:
-                switches.append( (case, lyes) )
+                is_covered = False
+                for cov in covered:
+                    if issubclass(case, cov):
+                        is_covered = True
+                        break
+                if not is_covered:
+                    switches.append( (case, lyes) )
                 seen.append(case)
             exc = lno
             query = exc.target
@@ -248,20 +256,20 @@ def simplify_exceptions(graph):
         exits = []
         for case, oldlink in switches:
             link = oldlink.copy(rename)
-            if case is not None:
-                link.last_exception = last_exception
-                link.last_exc_value = last_exc_value
-                # make the above two variables unique
-                renaming2 = {}
-                def rename2(v):
-                    return renaming2.get(v, v)
-                for v in link.getextravars():
-                    renaming2[v] = Variable(v)
-                link = link.copy(rename2)
+            assert case is not None
+            link.last_exception = last_exception
+            link.last_exc_value = last_exc_value
+            # make the above two variables unique
+            renaming2 = {}
+            def rename2(v):
+                return renaming2.get(v, v)
+            for v in link.getextravars():
+                renaming2[v] = Variable(v)
+            link = link.copy(rename2)
             link.exitcase = case
             link.prevblock = block
             exits.append(link)
-        block.exits = tuple(exits)
+        block.exits = tuple(preserve + exits)
 
     traverse(visit, graph)
 

@@ -1104,6 +1104,32 @@ class BaseTestListRtyping:
 
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
 
+    def test_access_in_try(self):
+        def f(sq):
+            try:
+                return sq[2]
+            except ZeroDivisionError:
+                return 42
+            return -1
+        def g(n):
+            l = [1] * n
+            return f(l)
+        res = self.interpret(g, [3])
+        assert res == 1
+
+    def test_access_in_try_set(self):
+        def f(sq):
+            try:
+                sq[2] = 77
+            except ZeroDivisionError:
+                return 42
+            return -1
+        def g(n):
+            l = [1] * n
+            f(l)
+            return l[2]
+        res = self.interpret(g, [3])
+        assert res == 77
 
 
 class TestLltypeRtyping(BaseTestListRtyping):

@@ -139,6 +139,8 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
         v_tuple, v_index = hop.inputargs(r_tup, Signed)
         if not isinstance(v_index, Constant):
             raise TyperError("non-constant tuple index")
+        if hop.has_implicit_exception(IndexError):
+            hop.exception_cannot_occur()
         index = v_index.value
         v = r_tup.getitem(hop.llops, v_tuple, index)
         return hop.llops.convertvar(v, r_tup.items_r[index], r_tup.external_items_r[index])

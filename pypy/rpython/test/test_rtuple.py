@@ -224,6 +224,18 @@ class AbstractTestRTuple:
         res = self.interpret(f, [0])
         assert self.class_name(res) == "B"
 
+    def test_access_in_try(self):
+        def f(sq):
+            try:
+                return sq[2]
+            except ZeroDivisionError:
+                return 42
+            return -1
+        def g(n):
+            t = (1,2,n)
+            return f(t)
+        res = self.interpret(g, [3])
+        assert res == 3
 
 class TestLLTuple(AbstractTestRTuple):
 
