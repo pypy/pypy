@@ -153,11 +153,12 @@ def _try_inline_malloc(info):
 
     for block, vars in variables_by_block.items():
 
-        def flowin(var, newvarsmap):
+        def flowin(var, newvarsmap, insert_keepalive=False):
             # in this 'block', follow where the 'var' goes to and replace
             # it by a flattened-out family of variables.  This family is given
             # by newvarsmap, whose keys are the 'flatnames'.
             vars = {var: True}
+            last_removed_access = None
 
             def list_newvars():
                 return [newvarsmap[key] for key in flatnames]
@@ -175,11 +176,13 @@ def _try_inline_malloc(info):
                                                [newvarsmap[S, fldname]],
                                                op.result)
                         newops.append(newop)
+                        last_removed_access = len(newops)
                     elif op.opname == "setfield":
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
                         assert (S, fldname) in newvarsmap
                         newvarsmap[S, fldname] = op.args[2]
+                        last_removed_access = len(newops)
                     elif op.opname in ("same_as", "cast_pointer"):
                         assert op.result not in vars
                         vars[op.result] = True
@@ -188,7 +191,7 @@ def _try_inline_malloc(info):
                         # flattened list of variables for both, as a "setfield"
                         # via one pointer must be reflected in the other.
                     elif op.opname == 'keepalive':
-                        pass
+                        last_removed_access = len(newops)
                     else:
                         raise AssertionError, op.opname
                 elif op.result in vars:
@@ -198,7 +201,7 @@ def _try_inline_malloc(info):
                     # drop the "malloc" operation
                 else:
                     newops.append(op)
-            block.operations[:] = newops
+
             assert block.exitswitch not in vars
 
             for link in block.exits:
@@ -206,9 +209,23 @@ def _try_inline_malloc(info):
                 for arg in link.args:
                     if arg in vars:
                         newargs += list_newvars()
+                        insert_keepalive = False   # kept alive by the link
                     else:
                         newargs.append(arg)
                 link.args[:] = newargs
+
+            if insert_keepalive and last_removed_access is not None:
+                keepalives = []
+                for v in list_newvars():
+                    T = v.concretetype
+                    if isinstance(T, lltype.Ptr) and T._needsgc():
+                        v0 = Variable()
+                        v0.concretetype = lltype.Void
+                        newop = SpaceOperation('keepalive', [v], v0)
+                        keepalives.append(newop)
+                newops[last_removed_access:last_removed_access] = keepalives
+
+            block.operations[:] = newops
 
         # look for variables arriving from outside the block
         for var in vars:
@@ -224,7 +241,7 @@ def _try_inline_malloc(info):
                 newinputargs += block.inputargs[i+1:]
                 block.inputargs[:] = newinputargs
                 assert var not in block.inputargs
-                flowin(var, newvarsmap)
+                flowin(var, newvarsmap, insert_keepalive=True)
 
         # look for variables created inside the block by a malloc
         vars_created_here = []

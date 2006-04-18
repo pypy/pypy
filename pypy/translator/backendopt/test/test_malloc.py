@@ -3,6 +3,7 @@ from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
+from pypy.translator import simplify
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.conftest import option
@@ -28,6 +29,8 @@ def check(fn, signature, args, expected_result, must_be_removed=True):
     if option.view:
         t.view()
     remove_simple_mallocs(graph)
+    # to detect missing keepalives:
+    simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
     if option.view:
         t.view()
     if must_be_removed:
@@ -146,3 +149,33 @@ def test_dont_remove_with__del__():
     op = graph.startblock.exits[0].target.exits[1].target.operations[0]
     assert op.opname == "malloc"
 
+def test_add_keepalives():
+    from pypy.rpython.lltypesystem import lltype
+    class A:
+        pass
+    SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
+    BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
+    def fn7(i):
+        big = lltype.malloc(BIG)
+        a = A()
+        a.big = big
+        a.small = big.s
+        while i > 0:
+            a.small.x += i
+            i -= 1
+        return a.small.x
+    check(fn7, [int], [10], 55, must_be_removed=False)
+
+def test_getsubstruct():
+    py.test.skip("in-progress")
+    from pypy.rpython.lltypesystem import lltype
+    SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
+    BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
+
+    def fn(n1, n2):
+        b = lltype.malloc(BIG)
+        b.z = n1
+        b.s.x = n2
+        return b.z - b.s.x
+
+    check(fn, [int, int], [100, 58], 42)
