@@ -216,16 +216,16 @@ def democlass_helper2(a=int, b=int):
 
 def setup_new_module(mod, modname):
     # note the name clash with py.test on setup_module
-    from types import module
-    m = module(modname)
+    import types
+    m = types.ModuleType(modname)
     allobjs = mod.__dict__.values()
     funcs = eval('[]') # or import list from __builtin__
     from twisted.internet import reactor    
     print dir(reactor)
     #whow this works
+    isinstance = eval('isinstance')
     for obj in allobjs:
-        print obj, dir(obj)
-        if hasattr(42, 'func_name'):
+        if isinstance(obj, types.FunctionType):
             funcs.append( (obj.func_name, obj) )
     print 'funcs=', funcs
     funcs.sort()
