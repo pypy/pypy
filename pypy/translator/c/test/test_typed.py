@@ -722,3 +722,48 @@ class TestTypedTestCase:
         fn = self.getcompiled(g)
         assert fn(0) == 1
         assert fn(1) == 42
+
+    def test_r_dict_exceptions(self):
+        from pypy.rpython.objectmodel import r_dict
+        
+        def raising_hash(obj):
+            if obj.startswith("bla"):
+                raise TypeError
+            return 1
+        def eq(obj1, obj2):
+            return obj1 is obj2
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                x = d1["blabla"]
+            except Exception:
+                return 42
+            return x
+        fn = self.getcompiled(f)    
+        res = fn()
+        assert res == 42
+
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                x = d1["blabla"]
+            except TypeError:
+                return 42
+            return x
+        fn = self.getcompiled(f)    
+        res = fn()
+        assert res == 42    
+
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                d1["blabla"] = 2
+            except TypeError:
+                return 42
+            return 0
+        fn = self.getcompiled(f)    
+        res = fn()
+        assert res == 42    
