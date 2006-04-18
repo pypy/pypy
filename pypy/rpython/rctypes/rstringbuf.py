@@ -1,8 +1,8 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rbuiltin import gen_cast_subarray_pointer
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr
+from pypy.objspace.flow.model import Constant
 
 
 class StringBufRepr(CTypesRefRepr):
@@ -23,8 +23,14 @@ class StringBufRepr(CTypesRefRepr):
 
     def get_c_data_of_item(self, llops, v_stringbuf, v_index):
         v_array = self.get_c_data(llops, v_stringbuf)
-        return gen_cast_subarray_pointer(llops, ONE_CHAR_PTR,
-                                         v_array, v_index)
+        v_char_p = llops.genop('direct_arrayitems', [v_array],
+                               resulttype = ONE_CHAR_PTR)
+        if isinstance(v_index, Constant) and v_index.value == 0:
+            pass   # skip direct_ptradd
+        else:
+            v_char_p = llops.genop('direct_ptradd', [v_char_p, v_index],
+                                   resulttype = ONE_CHAR_PTR)
+        return v_char_p
 
 ONE_CHAR_PTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
 

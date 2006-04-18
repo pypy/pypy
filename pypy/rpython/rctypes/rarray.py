@@ -1,5 +1,4 @@
 from ctypes import ARRAY, c_int
-from pypy.rpython.rbuiltin import gen_cast_subarray_pointer
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
@@ -9,6 +8,7 @@ from pypy.rpython.rctypes.rmodel import genreccopy_arrayitem, reccopy, C_ZERO
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
 from pypy.rpython.rctypes.rpointer import PointerRepr
 from pypy.annotation.model import SomeCTypesObject
+from pypy.objspace.flow.model import Constant
 
 ArrayType = type(ARRAY(c_int, 10))
 
@@ -64,9 +64,15 @@ class ArrayRepr(CTypesRefRepr):
                                lltype.Ptr(self.r_item.c_data_type))
         else:
             # ByValue case
-            A = lltype.FixedSizeArray(self.r_item.ll_type, 1)
-            return gen_cast_subarray_pointer(llops, lltype.Ptr(A),
-                                             v_c_array, v_index)
+            P = lltype.Ptr(lltype.FixedSizeArray(self.r_item.ll_type, 1))
+            v_items = llops.genop('direct_arrayitems', [v_c_array],
+                                  resulttype = P)
+            if isinstance(v_index, Constant) and v_index.value == 0:
+                pass   # skip direct_ptradd
+            else:
+                v_items = llops.genop('direct_ptradd', [v_items, v_index],
+                                      resulttype = P)
+            return v_items
 
     def get_item_value(self, llops, v_array, v_index):
         # ByValue case only
@@ -125,8 +131,7 @@ class __extend__(pairtype(ArrayRepr, PointerRepr)):
 def ll_chararrayvalue(box):
     from pypy.rpython.rctypes import rchar_p
     p = box.c_data
-    p1 = lltype.cast_subarray_pointer(rchar_p.CCHARP, p, 0)
-    length = rchar_p.ll_strnlen(p1, len(p))
+    length = rchar_p.ll_strnlen(lltype.direct_arrayitems(p), len(p))
     newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
     for i in range(length):
         newstr.chars[i] = p[i]

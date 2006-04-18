@@ -129,7 +129,7 @@ class TestLowLevelType:
         res = fn(4)
         assert res == -1
 
-    def test_cast_subarray_pointer(self):
+    def test_direct_arrayitems(self):
         for a in [malloc(GcArray(Signed), 5),
                   malloc(FixedSizeArray(Signed, 5), immortal=True)]:
             a[0] = 0
@@ -137,16 +137,16 @@ class TestLowLevelType:
             a[2] = 20
             a[3] = 30
             a[4] = 40
-            BOX = Ptr(FixedSizeArray(Signed, 2))
-            b01 = cast_subarray_pointer(BOX, a, 0)
-            b12 = cast_subarray_pointer(BOX, a, 1)
-            b23 = cast_subarray_pointer(BOX, a, 2)
-            b34 = cast_subarray_pointer(BOX, a, 3)
+            b0 = direct_arrayitems(a)
+            b1 = direct_ptradd(b0, 1)
+            b2 = direct_ptradd(b1, 1)
             def llf(n=int):
+                b0 = direct_arrayitems(a)
+                b3 = direct_ptradd(direct_ptradd(b0, 5), -2)
                 saved = a[n]
                 a[n] = 1000
                 try:
-                    return b01[0] + b12[0] + b23[1] + b34[1]
+                    return b0[0] + b3[-2] + b2[1] + b1[3]
                 finally:
                     a[n] = saved
             fn = self.getcompiled(llf)
@@ -161,13 +161,11 @@ class TestLowLevelType:
             res = fn(4)
             assert res == 0 + 10 + 30 + 1000
 
-    def test_cast_structfield_pointer(self):
+    def test_direct_fieldptr(self):
         S = GcStruct('S', ('x', Signed), ('y', Signed))
-        SUBARRAY = FixedSizeArray(Signed, 1)
-        P = Ptr(SUBARRAY)
         def llf(n=int):
             s = malloc(S)
-            a = cast_structfield_pointer(P, s, 'y')
+            a = direct_fieldptr(s, 'y')
             a[0] = n
             return s.y
 
@@ -183,11 +181,10 @@ class TestLowLevelType:
         a2[1] =  600
         s.x   =   50
         s.y   =    4
-        P = Ptr(FixedSizeArray(Signed, 1))
-        p1 = cast_subarray_pointer(P, a1, 3)
-        p2 = cast_subarray_pointer(P, a2, 1)
-        p3 = cast_structfield_pointer(P, s, 'x')
-        p4 = cast_structfield_pointer(P, s, 'y')
+        p1 = direct_ptradd(direct_arrayitems(a1), 3)
+        p2 = direct_ptradd(direct_arrayitems(a2), 1)
+        p3 = direct_fieldptr(s, 'x')
+        p4 = direct_fieldptr(s, 'y')
         def llf():
             a1[3] += 1000
             a2[1] +=  100

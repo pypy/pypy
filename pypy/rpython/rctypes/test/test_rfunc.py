@@ -72,8 +72,7 @@ def test_ll_atoi():
     def str2subarray(string):
         llstring = string_repr.convert_const(string)
         keepalive.append(llstring)
-        A = lltype.FixedSizeArray(lltype.Char, 1)
-        return lltype.cast_subarray_pointer(lltype.Ptr(A), llstring.chars, 0)
+        return lltype.direct_arrayitems(llstring.chars)
     assert ll_atoi(str2subarray("")) == 0
     assert ll_atoi(str2subarray("42z7")) == 42
     assert ll_atoi(str2subarray("blah")) == 0

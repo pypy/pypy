@@ -614,53 +614,44 @@ def cast_pointer(PTRTYPE, ptr):
         raise TypeError, "can only cast pointers to other pointers"
     return ptr._cast_to(PTRTYPE)
 
-def cast_subarray_pointer(ARRAYPTRTYPE, arrayptr, baseoffset):
-    CURPTRTYPE = typeOf(arrayptr)
-    if not isinstance(CURPTRTYPE, Ptr) or not isinstance(ARRAYPTRTYPE, Ptr):
-        raise TypeError, "can only cast pointers to other pointers"
-    ARRAYTYPE = ARRAYPTRTYPE.TO
-    if (not isinstance(CURPTRTYPE.TO, (Array, FixedSizeArray)) or
-        not isinstance(ARRAYTYPE, FixedSizeArray)):
-        raise TypeError, "can only cast from arrays to FixedSizeArray"
-    if CURPTRTYPE.TO.OF != ARRAYTYPE.OF:
-        raise TypeError, "mismatching array item types"
-    if not arrayptr:
-        raise RuntimeError("cast_subarray_pointer: NULL argument")
-    try:
-        cache = _subarray._cache[arrayptr._obj]
-    except KeyError:
-        cache = _subarray._cache[arrayptr._obj] = {}
-    key = (ARRAYTYPE, baseoffset)
-    try:
-        subarray = cache[key]
-    except KeyError:
-        subarray = cache[key] = _subarray(ARRAYTYPE, arrayptr._obj, baseoffset)
-    return _ptr(ARRAYPTRTYPE, subarray)
-
-def cast_structfield_pointer(ARRAYPTRTYPE, structptr, fieldname):
-    CURPTRTYPE = typeOf(structptr)
-    if not isinstance(CURPTRTYPE, Ptr) or not isinstance(ARRAYPTRTYPE, Ptr):
-        raise TypeError, "can only cast pointers to other pointers"
-    ARRAYTYPE = ARRAYPTRTYPE.TO
-    if (not isinstance(CURPTRTYPE.TO, Struct) or
-        not isinstance(ARRAYTYPE, FixedSizeArray)):
-        raise TypeError, "can only cast from (Gc)Struct to FixedSizeArray"
-    if ARRAYTYPE.length != 1:
-        raise TypeError, "can only cast to FixedSizeArray of length 1"
-    if getattr(CURPTRTYPE.TO, fieldname) != ARRAYTYPE.OF:
-        raise TypeError, "mismatching array item type"
+def direct_fieldptr(structptr, fieldname):
+    """Get a pointer to a field in the struct.  The resulting
+    pointer is actually of type Ptr(FixedSizeArray(FIELD, 1)).
+    It can be used in a regular getarrayitem(0) or setarrayitem(0)
+    to read or write to the field.
+    """
+    CURTYPE = typeOf(structptr).TO
+    if not isinstance(CURTYPE, Struct):
+        raise TypeError, "direct_fieldptr: not a struct"
+    if fieldname not in CURTYPE._flds:
+        raise TypeError, "%s has no field %r" % (CURTYPE, fieldname)
     if not structptr:
-        raise RuntimeError("cast_structfield_pointer: NULL argument")
-    try:
-        cache = _subarray._cache[structptr._obj]
-    except KeyError:
-        cache = _subarray._cache[structptr._obj] = {}
-    try:
-        subarray = cache[fieldname]
-    except KeyError:
-        subarray = cache[fieldname] = _subarray(ARRAYTYPE, structptr._obj,
-                                                fieldname)
-    return _ptr(ARRAYPTRTYPE, subarray)
+        raise RuntimeError("direct_fieldptr: NULL argument")
+    return _subarray._makeptr(structptr._obj, fieldname)
+
+def direct_arrayitems(arrayptr):
+    """Get a pointer to the first item of the array.  The resulting
+    pointer is actually of type Ptr(FixedSizeArray(ITEM, 1)) but can
+    be used in a regular getarrayitem(n) or direct_ptradd(n) to access
+    further elements.
+    """
+    CURTYPE = typeOf(arrayptr).TO
+    if not isinstance(CURTYPE, (Array, FixedSizeArray)):
+        raise TypeError, "direct_arrayitems: not an array"
+    if not arrayptr:
+        raise RuntimeError("direct_arrayitems: NULL argument")
+    return _subarray._makeptr(arrayptr._obj, 0)
+
+def direct_ptradd(ptr, n):
+    """Shift a pointer forward or backward by n items.  The pointer must
+    have been built by direct_arrayitems().
+    """
+    if not ptr:
+        raise RuntimeError("direct_ptradd: NULL argument")
+    if not isinstance(ptr._obj, _subarray):
+        raise TypeError("direct_ptradd: only for direct_arrayitems() ptrs")
+    parent, base = parentlink(ptr._obj)
+    return _subarray._makeptr(parent, base + n)
 
 def _expose(val, solid=False):
     """XXX A nice docstring here"""
@@ -1137,6 +1128,24 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
             setattr(self._parentstructure(), fieldname, value)
         else:
             self._parentstructure().setitem(baseoffset + index, value)
+
+    def _makeptr(parent, baseoffset_or_fieldname):
+        cache = _subarray._cache.setdefault(parent, {})
+        try:
+            subarray = cache[baseoffset_or_fieldname]
+        except KeyError:
+            PARENTTYPE = typeOf(parent)
+            if isinstance(baseoffset_or_fieldname, str):
+                # for direct_fieldptr
+                ITEMTYPE = getattr(PARENTTYPE, baseoffset_or_fieldname)
+            else:
+                # for direct_arrayitems
+                ITEMTYPE = PARENTTYPE.OF
+            ARRAYTYPE = FixedSizeArray(ITEMTYPE, 1)
+            subarray = _subarray(ARRAYTYPE, parent, baseoffset_or_fieldname)
+            cache[baseoffset_or_fieldname] = subarray
+        return _ptr(Ptr(subarray._TYPE), subarray)
+    _makeptr = staticmethod(_makeptr)
 
 
 class _func(object):

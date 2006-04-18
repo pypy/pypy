@@ -103,7 +103,7 @@ def ll_strnlen(p, maxlen):
     return i
 
 def ll_str2charp(s):
-    return lltype.cast_subarray_pointer(CCHARP, s.chars, 0)
+    return lltype.direct_arrayitems(s.chars)
 
 def ll_charp2str(p):
     length = ll_strlen(p)

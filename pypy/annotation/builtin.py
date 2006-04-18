@@ -421,22 +421,22 @@ def cast_pointer(PtrT, s_p):
     cast_p = lltype.cast_pointer(PtrT.const, s_p.ll_ptrtype._defl())
     return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
 
-def cast_subarray_pointer(PtrT, s_p, s_offset):
-    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
-    assert PtrT.is_constant()
-    cast_p = lltype.cast_subarray_pointer(PtrT.const,
-                                          s_p.ll_ptrtype._example(),
-                                          0)
+def direct_fieldptr(s_p, s_fieldname):
+    assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p
+    assert s_fieldname.is_constant()
+    cast_p = lltype.direct_fieldptr(s_p.ll_ptrtype._example(),
+                                    s_fieldname.const)
     return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
 
-def cast_structfield_pointer(PtrT, s_p, s_fieldname):
-    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
-    assert PtrT.is_constant()
-    assert s_fieldname.is_constant()
-    cast_p = lltype.cast_structfield_pointer(PtrT.const,
-                                             s_p.ll_ptrtype._example(),
-                                             s_fieldname.const)
+def direct_arrayitems(s_p):
+    assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p
+    cast_p = lltype.direct_arrayitems(s_p.ll_ptrtype._example())
     return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
+
+def direct_ptradd(s_p, s_n):
+    assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p
+    # don't bother with an example here: the resulting pointer is the same
+    return s_p
 
 def cast_ptr_to_int(s_ptr): # xxx
     return SomeInteger()
@@ -454,8 +454,9 @@ BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
 BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
-BUILTIN_ANALYZERS[lltype.cast_subarray_pointer] = cast_subarray_pointer
-BUILTIN_ANALYZERS[lltype.cast_structfield_pointer] = cast_structfield_pointer
+BUILTIN_ANALYZERS[lltype.direct_fieldptr] = direct_fieldptr
+BUILTIN_ANALYZERS[lltype.direct_arrayitems] = direct_arrayitems
+BUILTIN_ANALYZERS[lltype.direct_ptradd] = direct_ptradd
 BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info

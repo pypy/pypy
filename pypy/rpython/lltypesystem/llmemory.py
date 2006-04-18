@@ -219,17 +219,15 @@ class fakeaddress(object):
         if (isinstance(ref, _arrayitemref) and
             isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
             ref.type() == EXPECTED_TYPE.TO.OF):
-            # special case that requires cast_subarray_pointer
-            return lltype.cast_subarray_pointer(EXPECTED_TYPE,
-                                                ref.array,
-                                                ref.index)
+            # special case that requires direct_arrayitems
+            p_items = lltype.direct_arrayitems(ref.array)
+            return lltype.direct_ptradd(p_items, ref.index)
         elif (isinstance(ref, _structfieldref) and
               isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
               ref.type() == EXPECTED_TYPE.TO.OF):
-            # special case that requires cast_structfield_pointer
-            return lltype.cast_structfield_pointer(EXPECTED_TYPE,
-                                                   ref.struct,
-                                                   ref.fieldname)
+            # special case that requires direct_fieldptr
+            return lltype.direct_fieldptr(ref.struct,
+                                          ref.fieldname)
         else:
             # regular case
             return lltype.cast_pointer(EXPECTED_TYPE, ref.get())

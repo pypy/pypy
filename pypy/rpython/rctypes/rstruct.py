@@ -1,5 +1,4 @@
 from pypy.rpython.rmodel import inputconst
-from pypy.rpython.rbuiltin import gen_cast_structfield_pointer
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
 from pypy.rpython.rctypes.rmodel import genreccopy_structfield, reccopy
@@ -54,16 +53,16 @@ class StructRepr(CTypesRefRepr):
     def get_c_data_of_field(self, llops, v_struct, fieldname):
         v_c_struct = self.get_c_data(llops, v_struct)
         r_field = self.r_fields[fieldname]
+        c_fieldname = inputconst(lltype.Void, fieldname)
         if isinstance(r_field, CTypesRefRepr):
             # ByRef case
-            c_fieldname = inputconst(lltype.Void, fieldname)
             return llops.genop('getsubstruct', [v_c_struct, c_fieldname],
                                lltype.Ptr(r_field.c_data_type))
         else:
             # ByValue case
-            A = lltype.FixedSizeArray(r_field.ll_type, 1)
-            return gen_cast_structfield_pointer(llops, lltype.Ptr(A),
-                                                v_c_struct, fieldname)
+            P = lltype.Ptr(lltype.FixedSizeArray(r_field.ll_type, 1))
+            return llops.genop('direct_fieldptr', [v_c_struct, c_fieldname],
+                               resulttype = P)
 
     def get_field_value(self, llops, v_struct, fieldname):
         # ByValue case only

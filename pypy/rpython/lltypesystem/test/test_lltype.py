@@ -578,7 +578,7 @@ def test_fixedsizearray():
     assert len(s.a) == 5
     py.test.raises(TypeError, "s.a = a")
 
-def test_cast_subarray_pointer():
+def test_direct_arrayitems():
     for a in [malloc(GcArray(Signed), 5),
               malloc(FixedSizeArray(Signed, 5), immortal=True)]:
         a[0] = 0
@@ -586,36 +586,34 @@ def test_cast_subarray_pointer():
         a[2] = 20
         a[3] = 30
         a[4] = 40
-        BOX = Ptr(FixedSizeArray(Signed, 2))
-        b01 = cast_subarray_pointer(BOX, a, 0)
-        b12 = cast_subarray_pointer(BOX, a, 1)
-        b23 = cast_subarray_pointer(BOX, a, 2)
-        b34 = cast_subarray_pointer(BOX, a, 3)
-        assert b01[0] == 0
-        assert b01[1] == 10
-        assert b12[0] == 10
-        assert b12[1] == 20
-        assert b23[0] == 20
-        assert b23[1] == 30
-        assert b34[0] == 30
-        assert b34[1] == 40
-        b23[0] = 23
+        b0 = direct_arrayitems(a)
+        b1 = direct_ptradd(b0, 1)
+        b2 = direct_ptradd(b1, 1)
+        b3 = direct_ptradd(b0, 3)
+        assert b0[0] == 0
+        assert b0[1] == 10
+        assert b0[4] == 40
+        assert b1[0] == 10
+        assert b1[1] == 20
+        assert b2[0] == 20
+        assert b2[1] == 30
+        assert b3[-2] == 10
+        assert b3[0] == 30
+        assert b3[1] == 40
+        assert b2[-2] == 0
+        assert b1[3] == 40
+        b2[0] = 23
         assert a[2] == 23
-        b12[1] += 1
+        b1[1] += 1
         assert a[2] == 24
-        # out-of-bound access is allowed, if it's within the parent's bounds
-        assert len(b23) == 2
-        assert b23[-1] == 10
-        assert b12[3] == 40
-        py.test.raises(IndexError, "b01[-1]")
-        py.test.raises(IndexError, "b34[2]")
-        py.test.raises(IndexError, "b12[4]")
+        py.test.raises(IndexError, "b0[-1]")
+        py.test.raises(IndexError, "b3[2]")
+        py.test.raises(IndexError, "b1[4]")
 
-def test_cast_structfield_pointer():
+def test_direct_fieldptr():
     S = GcStruct('S', ('x', Signed), ('y', Signed))
-    A = FixedSizeArray(Signed, 1)
     s = malloc(S)
-    a = cast_structfield_pointer(Ptr(A), s, 'y')
+    a = direct_fieldptr(s, 'y')
     a[0] = 34
     assert s.y == 34
     py.test.raises(IndexError, "a[1]")

@@ -564,6 +564,21 @@ class FunctionCodeGenerator(object):
         else:
             raise NotImplementedError
 
+    def OP_DIRECT_FIELDPTR(self, op):
+        return self.OP_GETFIELD(op, ampersand='&')
+
+    def OP_DIRECT_ARRAYITEMS(self, op):
+        ARRAY = self.lltypemap(op.args[0]).TO
+        items = self.expr(op.args[0])
+        if not isinstance(ARRAY, FixedSizeArray):
+            items += '->items'
+        return '%s = %s;' % (self.expr(op.result), items)
+
+    def OP_DIRECT_PTRADD(self, op):
+        return '%s = %s + %s;' % (self.expr(op.result),
+                                  self.expr(op.args[0]),
+                                  self.expr(op.args[1]))
+
     def OP_CAST_POINTER(self, op):
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)

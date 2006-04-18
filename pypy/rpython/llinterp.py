@@ -536,6 +536,20 @@ class LLFrame(object):
         assert checkptr(ptr1)
         return not bool(ptr1)
 
+    def op_direct_fieldptr(self, obj, field):
+        assert checkptr(obj)
+        assert isinstance(field, str)
+        return lltype.direct_fieldptr(obj, field)
+
+    def op_direct_arrayitems(self, obj):
+        assert checkptr(obj)
+        return lltype.direct_arrayitems(obj)
+
+    def op_direct_ptradd(self, obj, index):
+        assert checkptr(obj)
+        assert isinstance(index, int)
+        return lltype.direct_ptradd(obj, index)
+
     def op_cast_ptr_to_int(self, ptr1):
         assert checkptr(ptr1)
         assert isinstance(lltype.typeOf(ptr1).TO, (lltype.Array, lltype.Struct))
