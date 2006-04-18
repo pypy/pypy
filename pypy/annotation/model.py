@@ -546,7 +546,7 @@ def annotation_to_lltype(s_val, info=None):
     raise ValueError("%sshould return a low-level type,\ngot instead %r" % (
         info, s_val))
 
-ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
+ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map])
 
 def lltype_to_annotation(T):
     try:
@@ -657,7 +657,7 @@ def missing_operation(cls, name):
         else:
             flattened = args
         for arg in flattened:
-            if arg.__class__ == SomeObject and arg.knowntype != type:
+            if arg.__class__ is SomeObject and arg.knowntype is not type:
                 return  SomeObject()
         bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
         bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
