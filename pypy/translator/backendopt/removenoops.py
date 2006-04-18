@@ -1,5 +1,4 @@
 from pypy.objspace.flow.model import Block, Variable, Constant
-from pypy.objspace.flow.model import traverse
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.backendopt.support import log
 from pypy.translator import simplify
