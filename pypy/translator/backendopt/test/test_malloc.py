@@ -1,5 +1,5 @@
 import py
-from pypy.translator.backendopt.malloc import remove_simple_mallocs
+from pypy.translator.backendopt.malloc import remove_mallocs_once
 from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
@@ -28,16 +28,20 @@ def check(fn, signature, args, expected_result, must_be_removed=True):
     graph = graphof(t, fn)
     if option.view:
         t.view()
-    remove_simple_mallocs(graph)
-    # to detect missing keepalives:
-    simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
-    if option.view:
-        t.view()
+    # to detect missing keepalives and broken intermediate graphs,
+    # we do the loop ourselves instead of calling remove_simple_mallocs()
+    while True:
+        progress = remove_mallocs_once(graph)
+        simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
+        if progress and option.view:
+            t.view()
+        interp = LLInterpreter(t.rtyper)
+        res = interp.eval_graph(graph, args)
+        assert res == expected_result
+        if not progress:
+            break
     if must_be_removed:
         check_malloc_removed(graph)
-    interp = LLInterpreter(t.rtyper)
-    res = interp.eval_graph(graph, args)
-    assert res == expected_result
 
 
 def test_fn1():

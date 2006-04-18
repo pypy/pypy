@@ -36,7 +36,7 @@ def equivalent_substruct(S, fieldname):
     if isinstance(FIELDTYPE, lltype.GcStruct):
         return True
     if len(S._names) == 1 and isinstance(FIELDTYPE, lltype.Struct):
-        return 'wrapper'
+        return True
     return False
 
 
@@ -251,25 +251,19 @@ def _try_inline_malloc(info):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
                         equiv = equivalent_substruct(S, fldname)
-                        if equiv == "wrapper":
-                            # reading the only Struct field of a GcStruct:
-                            # do it with a getsubstruct on the wrapper ptr var
-                            v = newvarsmap[S, fldname]
-                            newop = SpaceOperation("getsubstruct",
-                                                   [v, op.args[1]],
-                                                   op.result)
-                            newops.append(newop)
-                        elif equiv:
+                        if equiv:
                             # exactly like a cast_pointer
                             assert op.result not in vars
                             vars[op.result] = True
                         else:
-                            # (S, fldname) in flatnames and in needsubmallocs
-                            newop = SpaceOperation("same_as",
-                                                   [newvarsmap[S, fldname]],
+                            # do it with a getsubstruct on the independently
+                            # malloc'ed GcStruct
+                            v = newvarsmap[S, fldname]
+                            cname = Constant('data', lltype.Void)
+                            newop = SpaceOperation("getsubstruct",
+                                                   [v, cname],
                                                    op.result)
                             newops.append(newop)
-                            last_removed_access = len(newops)
                     else:
                         raise AssertionError, op.opname
                 elif op.result in vars:
