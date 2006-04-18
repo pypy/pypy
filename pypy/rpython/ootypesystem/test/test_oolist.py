@@ -1,6 +1,7 @@
 import py
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.ootypesystem.ootype import *
+from pypy.rpython.rlist import ll_append
 
 def test_new():
     LT = List(Signed)
@@ -18,25 +19,37 @@ def test_len():
     l = new(LT)
     assert l.ll_length() == 0
 
-def test_append():
+def test_resize():
     LT = List(Signed)
-    l = new(LT)
-    l.append(1)
-    assert l.ll_length() == 1
+    lst = new(LT)
+    lst._ll_resize(10)
+    assert lst.ll_length() == 10
+    lst._ll_resize_ge(9)
+    assert lst.ll_length() == 10
+    lst._ll_resize_ge(20)
+    assert lst.ll_length() >= 20
+    lst._ll_resize_le(10)
+    assert lst.ll_length() <= 10
 
-def test_extend():
-    LT = List(Signed)
-    l1 = new(LT)
-    l2 = new(LT)
-    l1.append(1)
-    l2.append(2)
-    l1.extend(l2)
-    assert l1.ll_length() == 2
+##def test_append():
+##    LT = List(Signed)
+##    l = new(LT)
+##    l.append(1)
+##    assert l.ll_length() == 1
+
+##def test_extend():
+##    LT = List(Signed)
+##    l1 = new(LT)
+##    l2 = new(LT)
+##    l1.append(1)
+##    l2.append(2)
+##    l1.extend(l2)
+##    assert l1.ll_length() == 2
 
 def test_setitem_getitem():
     LT = List(Signed)
     l = new(LT)
-    l.append(2)
+    ll_append(l, 2)
     assert l.ll_getitem_fast(0) == 2
     l.ll_setitem_fast(0, 3)
     assert l.ll_getitem_fast(0) == 3

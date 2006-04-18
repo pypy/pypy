@@ -209,9 +209,9 @@ class List(OOType):
             "_ll_resize_ge": Meth([Signed], Void),
             "_ll_resize_le": Meth([Signed], Void),
             "_ll_resize": Meth([Signed], Void),
-            "append": Meth([self.ITEMTYPE_T], Void),            
-            "extend": Meth([self.SELFTYPE_T], Void),
-            "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
+##            "append": Meth([self.ITEMTYPE_T], Void),            
+##            "extend": Meth([self.SELFTYPE_T], Void),
+##            "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
         })
 
         self._setup_methods(generic_types)
@@ -567,11 +567,6 @@ class _list(object):
             self._ll_resize_le(length)
         assert len(self._list) == length
 
-    def append(self, item):
-        # NOT_RPYTHON
-        assert typeOf(item) == self._TYPE._ITEMTYPE
-        self._list.append(item)
-
     def ll_getitem_fast(self, index):
         # NOT_RPYTHON
         assert typeOf(index) == Signed
@@ -585,14 +580,19 @@ class _list(object):
         assert index >= 0
         self._list[index] = item
 
-    def extend(self, other):
-        # NOT_RPYTHON
-        assert typeOf(other) == typeOf(self)
-        self._list.extend(other._list)
+##    def append(self, item):
+##        # NOT_RPYTHON
+##        assert typeOf(item) == self._TYPE._ITEMTYPE
+##        self._list.append(item)
 
-    def remove_range(self, start, count):
-        # NOT_RPYTHON        
-        del self._list[start:start+count]
+##    def extend(self, other):
+##        # NOT_RPYTHON
+##        assert typeOf(other) == typeOf(self)
+##        self._list.extend(other._list)
+
+##    def remove_range(self, start, count):
+##        # NOT_RPYTHON        
+##        del self._list[start:start+count]
 
 class _null_list(_null_mixin(_list), _list):
 

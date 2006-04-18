@@ -110,24 +110,24 @@ def test_list_len():
     rettype = g.getreturnvar().concretetype
     assert rettype == Signed
 
-def test_list_append():
-    LT = List(Signed)
+##def test_list_append():
+##    LT = List(Signed)
 
-    def oof():
-        l = new(LT)
-        l.append(1)
-        return l.ll_length()
+##    def oof():
+##        l = new(LT)
+##        l.append(1)
+##        return l.ll_length()
 
-    g = gengraph(oof, [])
-    rettype = g.getreturnvar().concretetype
-    assert rettype == Signed
+##    g = gengraph(oof, [])
+##    rettype = g.getreturnvar().concretetype
+##    assert rettype == Signed
 
 def test_list_getitem_setitem():
     LT = List(Signed)
 
     def oof():
         l = new(LT)
-        l.append(1)
+        l._ll_resize(1)
         l.ll_setitem_fast(0, 2)
         return l.ll_getitem_fast(0)
 
@@ -165,6 +165,6 @@ def test_list_annotation():
         return lst.ll_length()
 
     lst = new(LIST)
-    lst.append(1)
+    lst._ll_resize(1)
     res = interpret(oof, [lst], type_system='ootype')
     assert res == 1
