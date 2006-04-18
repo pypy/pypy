@@ -904,7 +904,6 @@ class BaseTestListRtyping:
             assert res == fn(arg)
 
     def test_indexerror(self):
-        self._skip_oo('PyObject*')
         def fn(i):
             l = [5, 8, 3]
             try:
@@ -916,13 +915,13 @@ class BaseTestListRtyping:
             except IndexError:
                 pass
             try:
-                return l[2]    # implicit int->PyObj conversion here
+                return l[2]
             except IndexError:
-                return "oups"
+                return -1
         res = self.interpret(fn, [6])
-        assert res._obj.value == 3
+        assert res == 3
         res = self.interpret(fn, [-2])
-        assert res._obj.value == "oups"
+        assert res == -1
 
         def fn(i):
             l = [5, 8]
@@ -936,13 +935,13 @@ class BaseTestListRtyping:
             except IndexError:
                 pass
             try:
-                return l[2]    # implicit int->PyObj conversion here
+                return l[2]
             except IndexError:
-                return "oups"
+                return -1
         res = self.interpret(fn, [6])
-        assert res._obj.value == 3
+        assert res == 3
         res = self.interpret(fn, [-2])
-        assert res._obj.value == "oups"
+        assert res == -1
 
     def test_no_unneeded_refs(self):
         self._skip_oo('assert')
@@ -999,7 +998,6 @@ class BaseTestListRtyping:
         res = self.interpret(fn, [6])
         assert res == 100
 
-        self._skip_oo('PyObject*')
         def fn(i):
             l = [5, 8]
             l.append(3)
@@ -1012,13 +1010,13 @@ class BaseTestListRtyping:
             except IndexError:
                 pass
             try:
-                return l[2]    # implicit int->PyObj conversion here
+                return l[2]
             except IndexError:
-                return "oups"
+                return -1
         res = self.interpret(fn, [6])
-        assert res._obj.value == 3
+        assert res == 3
         res = self.interpret(fn, [-2])
-        assert res._obj.value == "oups"
+        assert res == -1
 
     def test_voidlist_prebuilt(self):
         frlist = [Freezing()] * 17
