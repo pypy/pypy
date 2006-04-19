@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod, List
 from pypy.translator.cli.option import getoption
+from pypy.translator.cli import oopspec
 
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -100,7 +101,7 @@ class CTS(object):
             return self.graph_to_signature(meth.graph, True, full_name), True
 
         elif isinstance(obj, List):
-            meth = obj._GENERIC_METHODS[name]
+            meth = oopspec.get_method(obj, name)
             class_name = self.lltype_to_cts(obj)
             ret_type = self.lltype_to_cts(meth.RESULT)
             arg_types = [self.lltype_to_cts(arg) for arg in meth.ARGS]

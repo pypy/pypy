@@ -23,6 +23,11 @@ def sum_(lst):
 def list_sum(x, y):
     return sum_(create(x, y))
 
+def list_append(x, y):
+    lst = create(x, y)
+    lst.append(x)
+    return sum_(lst)
+
 def list_setitem(x, y):
     lst = create(x, y)
     lst[0] = 0

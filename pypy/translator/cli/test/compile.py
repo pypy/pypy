@@ -24,20 +24,11 @@ def check(f, g, *args):
         print 'OK'
 
 
-def sum_(lst):
-    total = 0
-    i = 0
-    while i < len(lst):
-        total += lst[i]
-        i += 1
-    return total    
 
-class A:
-    pass
-
-##def bar(x, y):
-##    lst = [A(), A()]
-##    return lst.pop(1)
+def bar(x, y):
+    lst = [1,2]
+    lst.append(x)
+    return lst[2]
 
 
 f = compile_function(bar, [int, int])

@@ -1,3 +1,5 @@
+from pypy.translator.cli import oopspec
+
 class Generator(object):
     def function_signature(self, graph):
         pass
@@ -54,15 +56,29 @@ class _StoreResult(MicroInstruction):
 class _Call(MicroInstruction):
     def render(self, generator, op):
         graph = op.args[0].value.graph
-        cls = getattr(graph.func, 'class_', None)
-
-        self._render_function(generator, graph, op.args)
+        method_name = oopspec.get_method_name(graph, op)
+        if method_name is None:
+            self._render_function(generator, graph, op.args)
+        else:
+            self._render_method(generator, method_name, op.args[1:])
 
     def _render_function(self, generator, graph, args):
         func_sig = generator.function_signature(graph)
         for func_arg in args[1:]: # push parameters
             generator.load(func_arg)
         generator.call(graph, func_sig)
+
+    def _render_method(self, generator, method_name, args):
+        this = args[0]
+        for arg in args: # push parametes
+            generator.load(arg)
+        generator.call_method(this.concretetype, method_name)
+        
+
+class _CallMethod(_Call):
+    def render(self, generator, op):
+        method = op.args[0]
+        self._render_method(generator, method.value, op.args[1:])
 
 class _New(MicroInstruction):
     def render(self, generator, op):
@@ -83,17 +99,6 @@ class _GetField(MicroInstruction):
         this, field = op.args
         generator.load(this)
         generator.get_field(this.concretetype, field.value)
-
-class _CallMethod(MicroInstruction):
-    def render(self, generator, op):
-        method = op.args[0]
-        this = op.args[1]
-
-        # push parameters
-        for func_arg in op.args[1:]:
-            generator.load(func_arg)
-
-        generator.call_method(this.concretetype, method.value)
 
 class _RuntimeNew(MicroInstruction):
     def render(self, generator, op):
