@@ -77,7 +77,7 @@ class __extend__(pairtype(PyObjRepr, TupleRepr)):
             v_item = llops.gencapicall('PyTuple_GetItem_WithIncref', [v, ci],
                                        resulttype = pyobj_repr)
             v_converted = llops.convertvar(v_item, pyobj_repr,
-                                           r_to.items_r[i])
+                                           r_to.external_items_r[i])
             vlist.append(v_converted)
         return r_to.newtuple(llops, r_to, vlist)
 
@@ -89,8 +89,8 @@ class __extend__(pairtype(TupleRepr, PyObjRepr)):
         for i in range(len(r_from.items_r)):
             cname = inputconst(Void, r_from.fieldnames[i])
             v_item = llops.genop('getfield', [v, cname],
-                                 resulttype = r_from.items_r[i].lowleveltype)
-            v_converted = llops.convertvar(v_item, r_from.items_r[i],
+                                 resulttype = r_from.external_items_r[i].lowleveltype)
+            v_converted = llops.convertvar(v_item, r_from.external_items_r[i],
                                            pyobj_repr)
             ci = inputconst(Signed, i)
             llops.gencapicall('PyTuple_SetItem_WithIncref', [v_result, ci,
