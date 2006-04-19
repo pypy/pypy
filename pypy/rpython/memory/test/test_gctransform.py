@@ -244,7 +244,7 @@ def DONOTtest_noconcretetype():
     assert push_count == 0 and pop_count == 1
 
 # ____________________________________________________________________
-# testing the protection magic
+# testing the protection magic and bare_setfield
 
 def protect(obj): RaiseNameError
 def unprotect(obj): RaiseNameError
@@ -269,6 +269,32 @@ def test_protect_unprotect():
         ops = getops(graphof(t, f))
         assert len(ops.get('direct_call', [])) == ex
 
+def generic_op(*args): RaiseNameError
+def rtype_generic_op(hop):
+    args = hop.inputargs(*hop.args_r)
+    args.pop(0)
+    op = hop.args_s[0].const
+    hop.genop(op, args)
+              
+extregistry.register_value(generic_op,
+    compute_result_annotation=lambda *args: None, specialize_call=rtype_generic_op)
+
+def test_bare_setfield():
+    class A:
+        def __init__(self, obj): self.x = obj
+    def f(v):
+        inst = A(v)
+        generic_op('setfield', inst, 'x', v)
+        generic_op('bare_setfield', inst, 'x', v)
+
+    rgc = gctransform.RefcountingGCTransformer
+    bgc = gctransform.BoehmGCTransformer
+    # should not influence PyObject at all
+    for gc in rgc, bgc:
+        t, transformer = rtype_and_transform(f, [object], gc, check=False)
+        ops = getops(graphof(t, f))
+        assert len(ops.get('getfield', [])) == 1
+
 def DONOTtest_protect_unprotect_no_exception_block():
     def p():    protect('this is an object')
     def u():    unprotect('this is an object')
@@ -276,7 +302,6 @@ def DONOTtest_protect_unprotect_no_exception_block():
     gc = gctransform.RefcountingGCTransformer
     for f in p, u:
         t, transformer = rtype_and_transform(f, [], gc, check=False)
-        has_cleanup = False
         ops = getops(graphof(t, f))
         for op in ops.get('direct_call', []):
             assert op.cleanup is None or op.cleanup == ((), ())
