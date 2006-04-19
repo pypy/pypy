@@ -169,7 +169,7 @@ class LowLevelDatabase(object):
                     node = self.getcontainernode(obj._obj)
                     return node.ptrname
                 else:
-                    return 'NULL'
+                    return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
             else:
                 raise Exception("don't know about %r" % (obj,))
 

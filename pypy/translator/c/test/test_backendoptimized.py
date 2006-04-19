@@ -83,14 +83,13 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         res = fn(1)
         assert res == 42
 
-
 class TestTypedOptimizedSwitchTestCase:
 
     class CodeGenerator(_TestTypedTestCase):
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            backend_optimizations(t, merge_if_blocks_to_switch=True)
+            backend_optimizations(t, merge_if_blocks_to_switch=True, propagate=True)
 
     def test_int_switch(self):
         def f(x=int):
@@ -179,6 +178,28 @@ class TestTypedOptimizedSwitchTestCase:
         for x in u'ABCabc@':
             y = ord(x)
             assert fn(y) == f(y)
+
+    def test_typed_NULL(self):
+        class A(object):
+            def __init__(self):
+                self.next = None
+        def g(x):
+            a = A()
+            a.next = A()
+            a.x = x
+            a.next.x = x + 1
+        def f():
+            g(42)
+            a = A()
+            a.x = 43
+            if a.next is not None:
+                return a.next.x
+            return a.x - 1
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f)
+        res = f()
+        assert res == 42
+
 
 class TestTypedOptimizedRaisingOps:
 
