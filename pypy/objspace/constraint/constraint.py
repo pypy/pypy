@@ -2,13 +2,22 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import baseobjspace, typedef, gateway
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.function import Function
 
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.constraint.computationspace import W_ComputationSpace
-from pypy.objspace.constraint.computationspace import W_Constraint
+from pypy.objspace.constraint.computationspace import W_Constraint, W_Variable
+
+from pypy.objspace.std.model import StdObjSpaceMultiMethod
+
+from pypy.objspace.constraint.btree import BTree
 
 import operator
+
+all_mms = {}
+
 
 #-- Exceptions ---------------------------------------
 
@@ -22,7 +31,6 @@ class DomainlessVariables(Exception):
     pass
 
 #-- Constraints ------------------------------------------
-
 
 class W_AbstractConstraint(W_Constraint):
     
@@ -45,7 +53,8 @@ class W_AbstractConstraint(W_Constraint):
         return self._variables
 
     def w_knows_var(self, w_variable):
-        return self._space.newbool(variable in self._variables)
+        assert isinstance(w_variable, W_Variable)
+        return self._space.newbool(w_variable in self._variables)
 
     def w_estimate_cost(self, w_cs):
         """Return an estimate of the cost of the narrowing of the constraint"""
@@ -58,15 +67,20 @@ class W_AbstractConstraint(W_Constraint):
 
     def estimate_cost_w(self, w_cs):
         assert isinstance(w_cs, W_ComputationSpace)
-        return reduce(operator.mul,
-                      [w_cs.w_dom(var).size()
-                       for var in self._variables])
+        v = 1
+        for var in self._variables:
+            v = v * w_cs.w_dom(var).size()
+        return v
 
-    def __eq__(self, other): #FIXME and parent
-        if not isinstance(other, self.__class__): return False
-        return self._variables == other._variables
     
-W_AbstractConstraint.typedef = typedef.TypeDef("W_AbstractConstraint",
+
+##     def __eq__(self, other): #FIXME and parent
+##         if not isinstance(other, self.__class__): return False
+##         return self._variables == other._variables
+    
+W_AbstractConstraint.typedef = typedef.TypeDef(
+    "W_AbstractConstraint",
+    W_Constraint.typedef,                                           
     affected_variables = interp2app(W_AbstractConstraint.w_affected_variables),
     knows_var = interp2app(W_AbstractConstraint.w_knows_var),
     estimate_cost = interp2app(W_AbstractConstraint.w_estimate_cost),
@@ -95,17 +109,25 @@ class W_AllDistinct(W_AbstractConstraint):
     def revise(self, w_cs):
         _spc = self._space
         assert isinstance(w_cs, W_ComputationSpace)
-        variables = [(_spc.int_w(w_cs.w_dom(variable).w_size()),
-                      variable, w_cs.w_dom(variable))
-                     for variable in self._variables]
+
+        ord_vars = BTree()
+        for variable in self._variables:
+            ord_vars.add(_spc.int_w(w_cs.w_dom(variable).w_size()),
+                         (variable, w_cs.w_dom(variable)))
+
+        variables = ord_vars.values()
         
-        variables.sort()
+##         variables = [(_spc.int_w(w_cs.w_dom(variable).w_size()),
+##                       variable, w_cs.w_dom(variable))
+##                      for variable in self._variables]
+##         variables.sort()
+        
         # if a domain has a size of 1,
         # then the value must be removed from the other domains
-        for size, var, dom in variables:
+        for var, dom in variables:
             if _spc.eq_w(dom.w_size(), _spc.newint(1)):
                 #print "AllDistinct removes values"
-                for _siz, _var, _dom in variables:
+                for _var, _dom in variables:
                     if not _spc.eq_w(_var, var):
                         try:
                             _dom.w_remove_value(dom.w_get_values().wrappeditems[0])
@@ -116,7 +138,7 @@ class W_AllDistinct(W_AbstractConstraint):
 
         # if there are less values than variables, the constraint fails
         values = {}
-        for size, var, dom in variables:
+        for var, dom in variables:
             for val in dom.w_get_values().wrappeditems:
                 values[val] = 0
 
@@ -126,8 +148,8 @@ class W_AllDistinct(W_AbstractConstraint):
                                  _spc.wrap("ConsistencyFailure"))
 
         # the constraint is entailed if all domains have a size of 1
-        for variable in variables:
-            if not _spc.eq_w(variable[2].w_size(),
+        for _var, dom in variables:
+            if not _spc.eq_w(dom.w_size(),
                              _spc.newint(1)):       
                 return False
 
@@ -138,23 +160,33 @@ class W_AllDistinct(W_AbstractConstraint):
 
 W_AllDistinct.typedef = typedef.TypeDef(
     "W_AllDistinct", W_AbstractConstraint.typedef,
-    estimate_cost = interp2app(W_AllDistinct.w_estimate_cost),
-    revise = interp2app(W_AllDistinct.w_revise))
+    estimate_cost = interp2app(W_AllDistinct.w_estimate_cost))
+#    revise = interp2app(W_AllDistinct.w_revise))
 
 # function bolted into the space to serve as constructor
 def make_alldistinct(object_space, w_variables):
+    assert len(w_variables.wrappeditems) > 0
     return object_space.wrap(W_AllDistinct(object_space, w_variables))
 app_make_alldistinct = gateway.interp2app(make_alldistinct)
 
 
-def make_filter(object_space, w_variables, w_formula):
+def make_filter__List_String(object_space, w_variables, w_formula):
     """NOT RPYTHON"""
-    var_ids = ','.join([object_space.str_w(var.w_name)
+    assert isinstance(w_variables, W_ListObject)
+    assert isinstance(w_formula, W_StringObject)
+    var_ids = ','.join([var.name_w()
                         for var in w_variables.wrappeditems])
     func_head = 'lambda ' + var_ids + ':'
-    func_obj = eval(func_head + object_space.str_w(w_formula), {}, {})
+    expr = func_head + object_space.str_w(w_formula)
+    func_obj = object_space.eval(expr, object_space.newdict({}),
+                                 object_space.newdict({}))
+    assert isinstance(func_obj, Function)
     return func_obj
-app_make_filter = gateway.interp2app(make_filter)
+
+make_filter_mm = StdObjSpaceMultiMethod('make_filter', 2)
+make_filter_mm.register(make_filter__List_String, W_ListObject, W_StringObject)
+all_mms['make_filter'] = make_filter_mm
+
 
 class W_Expression(W_AbstractConstraint):
     """A constraint represented as a python expression."""
@@ -164,21 +196,21 @@ class W_Expression(W_AbstractConstraint):
         formula is a python expression that will be evaluated as a boolean"""
         W_AbstractConstraint.__init__(self, object_space, w_variables)
         self.formula = self._space.str_w(w_formula)
-        self.filter_func = make_filter(self._space, w_variables, w_formula)
+        self.filter_func = self._space.make_filter(w_variables, w_formula)
 
     def test_solution(self, sol_dict):
         """test a solution against this constraint 
         accept a mapping of variable names to value"""
         args = []
         for var in self._variables:
-            args.append(sol_dict[var.w_name])
+            args.append(sol_dict[var.w_name()])
         return self.filter_func(*args)
 
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
         result_cache = self._space.newdict({})
         for var in self._variables:
-            result_cache.content[var.w_name] = self._space.newdict({})
+            result_cache.content[var.w_name()] = self._space.newdict({})
         return result_cache
 
     def _assign_values(self, w_cs):
@@ -190,7 +222,7 @@ class W_Expression(W_AbstractConstraint):
             variables.append((self._space.int_w(domain.w_size()),
                               [variable, values, self._space.newint(0),
                                self._space.len(values)]))
-            kwargs.content[variable.w_name] = values.wrappeditems[0]
+            kwargs.content[variable.w_name()] = values.wrappeditems[0]
         # sort variables to instanciate those with fewer possible values first
         variables.sort()
 
@@ -201,11 +233,11 @@ class W_Expression(W_AbstractConstraint):
             for size, curr in variables:
                 if self._space.int_w(curr[2]) + 1 < self._space.int_w(curr[-1]):
                     curr[2] = self._space.add(curr[2], self._space.newint(1))
-                    kwargs.content[curr[0].w_name] = curr[1].wrappeditems[self._space.int_w(curr[2])]
+                    kwargs.content[curr[0].w_name()] = curr[1].wrappeditems[self._space.int_w(curr[2])]
                     break
                 else:
                     curr[2] = self._space.newint(0)
-                    kwargs.content[curr[0].w_name] = curr[1].wrappeditems[0]
+                    kwargs.content[curr[0].w_name()] = curr[1].wrappeditems[0]
             else:
                 # it's over
                 go_on = 0
@@ -250,8 +282,8 @@ class W_Expression(W_AbstractConstraint):
         return '<%s>' % self.formula
 
 W_Expression.typedef = typedef.TypeDef("W_Expression",
-    W_AbstractConstraint.typedef,
-    revise = interp2app(W_Expression.w_revise))
+    W_AbstractConstraint.typedef)
+#    revise = interp2app(W_Expression.w_revise))
 
 
 # completely unported
@@ -305,9 +337,6 @@ class BinaryExpression(W_Expression):
         except ConsistencyFailure:
             raise ConsistencyFailure('Inconsistency while applying %s' % \
                                      repr(self))
-        except Exception:
-            print self, kwargs
-            raise 
         return maybe_entailed
 
 
@@ -315,6 +344,7 @@ def make_expression(o_space, w_variables, w_formula):
     """create a new constraint of type Expression or BinaryExpression
     The chosen class depends on the number of variables in the constraint"""
     # encode unicode
+    assert len(w_variables.wrappeditems) > 0
     return W_Expression(o_space, w_variables, w_formula)
     if o_space.eq_w(o_space.len(w_variables), o_space.newint(2)):
         return W_BinaryExpression(o_space, w_variables, w_formula)

@@ -22,6 +22,10 @@ class AppTest_Distributor(object):
         d = NaiveDistributor()
         d.distribute(spc, 2)
         assert spc.dom(y) == FiniteDomain([2])
+        d.distribute(spc, 1)
+        assert spc.dom(y) == FiniteDomain([2])
+        assert spc.dom(z) == FiniteDomain([1])
+        
 
     def test_split_distributor(self):
         spc = newspace()

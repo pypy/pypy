@@ -128,7 +128,6 @@ class AppTest_ComputationSpace(object):
             csp.tell(AllDistinct([x, y, z]))
             return [x, y, z]
         csp.define_problem(problem)
-        csp.print_state()
         csp = csp.clone()
         assert csp.ask() == 1
         assert csp.merge() == (1, 2, 3)

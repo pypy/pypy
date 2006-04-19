@@ -8,7 +8,6 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-
 all_mms = {}
 
 class ConsistencyFailure(Exception):
@@ -33,12 +32,6 @@ class W_AbstractDomain(Wrappable):
     def has_changed(self):
         return self.__changed
 
-    def w_size(self):
-        return self._space.newint(self.size())
-
-    def size(self):
-        pass
-    
     def _value_removed(self):
         """The implementation of remove_value should call this method"""
         self.__changed = True
@@ -78,14 +71,23 @@ class W_FiniteDomain(W_AbstractDomain):
 
     def w_remove_values(self, w_values):
         """Remove values of domain and check for consistency"""
+        assert isinstance(w_values, W_ListObject)
         self.remove_values(w_values.wrappeditems)
 
     def remove_values(self, values):
-        if len(values) > 0:
-            for w_val in values:
-                del self._values[w_val]
-            self._value_removed()
-    
+        assert isinstance(values, list)
+        try:
+            if len(values) > 0:
+                for w_val in values:
+                    del self._values[w_val]
+                self._value_removed()
+        except:
+            raise OperationError(self._space.w_RuntimeError,
+                                 self._space.wrap("attempt to remove unkown value from domain"))
+
+    def w_size(self):
+        return self._space.newint(self.size())
+
     def size(self):
         """computes the size of a finite domain"""
         return len(self._values)

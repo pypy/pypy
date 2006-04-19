@@ -16,6 +16,8 @@ class AppTest_AllDistinct(object):
         assert len(variables) == 2
         assert v1 in variables
         assert v2 in variables
+        assert cstr.knows_var(v1)
+        assert cstr.knows_var(v2)
 
     def test_estimated_cost(self):
         csp = newspace()

@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.constraint.domain import W_AbstractDomain
-
+from pypy.objspace.constraint.util import sort, reverse
 
 all_mms = {}
 
@@ -15,13 +15,13 @@ all_mms = {}
 class W_Variable(Wrappable):
     def __init__(self, obj_space, w_name):
         self._space = obj_space
-        self.w_name = w_name
+        self._name = w_name
 
     def name_w(self):
-        return self._space.str_w(self.w_name)
+        return self._space.str_w(self._name)
     
     def w_name(self):
-        return self.w_name
+        return self._name
 
 W_Variable.typedef = typedef.TypeDef(
     "W_Variable",
@@ -33,33 +33,18 @@ class W_Constraint(Wrappable):
     def __init__(self, object_space):
         self._space = object_space
 
-    def w_affected_variables(self):
-        pass
-
-    def w_is_variable_relevant(self, w_var):
-        pass
-
-    def w_estimate_cost(self, w_cs):
-        pass
-
-    def w_revise(self, w_cs):
-        pass
-    
 W_Constraint.typedef = typedef.TypeDef(
-    "W_Constraint",
-    affected_variables = interp2app(W_Constraint.w_affected_variables),
-    is_variable_relevant = interp2app(W_Constraint.w_is_variable_relevant),
-    estimate_cost = interp2app(W_Constraint.w_estimate_cost),
-    revise = interp2app(W_Constraint.w_revise))
+    "W_Constraint")
 
 
 #-- Distributors (standards) ------------
 
 class W_Distributor(Wrappable):
 
-    def __init__(self, object_space, fanout_w):
+    def __init__(self, object_space, fanout):
+        assert isinstance(fanout, int)
         self._space = object_space
-        self.fanout = fanout_w
+        self._fanout = fanout
 
 W_Distributor.typedef = typedef.TypeDef("W_Distributor")
 
@@ -99,7 +84,7 @@ class W_ComputationSpace(Wrappable):
         except: # FIXME: indexError ?
             self.status = self._space.newint(1)
             return self.status
-        self.status = self._space.newint(self.distributor.fanout)
+        self.status = self.distributor.w_fanout()
         return self.status
 
     def w_clone(self):
@@ -148,7 +133,9 @@ class W_ComputationSpace(Wrappable):
         return self._space.newlist(res)
 
     def w_dom(self, w_variable):
-        assert isinstance(w_variable, W_Variable)
+        if not isinstance(w_variable, W_Variable):
+            raise OperationError(self._space.w_RuntimeError,
+                                 self._space.wrap("dom() takes a variable"))
         return self.var_dom[w_variable]
 
     def w_tell(self, w_constraint):
@@ -172,22 +159,24 @@ class W_ComputationSpace(Wrappable):
         return self._space.newtuple(res)
 
     def w_test_solution(self, w_sol):
-        varset = {}
-        for var, val in zip(self.sol_set.wrappeditems,
-                            w_sol.wrappeditems):
-            varset[var.w_name] = val
-        for _const in self.constraints:
-            if not _const.test_solution(varset):
-                print "Solution", sol, "doesn't satisfy", _const
-                return self._space.newbool(False)
-        return self._space.newbool(True)
+        pass
+##         varset = {}
+##         for var, val in zip(self.sol_set.wrappeditems,
+##                             w_sol.wrappeditems):
+##             varset[var.w_name()] = val
+##         for _const in self.constraints:
+##             if not _const.test_solution(varset):
+##                 #print "Solution", sol, "doesn't satisfy", _const
+##                 return self._space.newbool(False)
+##         return self._space.newbool(True)
 
 
     def w_print_state(self):
-        print "VARS  :", self.name_var.keys()
-        print "CONST :", self.var_const.values()
-        print "DOMS  :", self.var_dom.values()
-        print "CHK   :", self.to_check
+        pass
+##         print "VARS  :", self.name_var.keys()
+##         print "CONST :", self.var_const.values()
+##         print "DOMS  :", self.var_dom.values()
+##         print "CHK   :", self.to_check
 
     #-- everything else ---------------
 
@@ -202,8 +191,8 @@ class W_ComputationSpace(Wrappable):
                    for const in self.to_check]
         self.to_check = {}
         assert const_q != []
-        const_q.sort()
-        const_q.reverse() # for pop() friendlyness
+        sort(const_q)
+        reverse(const_q) # for pop() friendlyness
         affected_constraints = {}
         while True:
             if not const_q:
