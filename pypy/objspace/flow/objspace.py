@@ -599,52 +599,17 @@ for line in ObjSpace.MethodTable:
     make_op(*line)
 
 """
-Strategy for a new import logic
--------------------------------
-
-It is an old problem to decide whether to use do_imports_immediately.
-In general, it would be nicer not to use this flag for RPython, in order
-to make it easy to support imports at run-time for extensions.
-
-On the other hand, there are situations where this is absolutely needed:
-Some of the ll helper functions need to import something late, to
-avoid circular imports. Not doing the import immediately would cause
-a crash, because the imported object would become SomeObject.
-
-We would like to have control over imports even on a per-import policy.
-
-As a general solution, I came up with the following trick, or maybe it's
-not a trick but a good concept:
-
-By declaring the imported subject as a global, you trigger the immediate
-import. This is consistent with the RPython concept that globals
-should never change, just with the addition that objects may be added.
-In addition, we consider global modules to be immutable, making attribute
-access a constant operation.
-
-As a generalisation, we can enforce that getattr/setattr on any
-object that is unwrappable for computation is evaluated
-immediately. This gives us early detection of programming errors.
-XXX this step isn't done, yet, need to discuss this.
-
-Implementation
---------------
-
-It is not completely trivial, since we have to intercept the process
-of flowing, to keep trak of which variable might become a constant.
-Finally I ended up with a rather simple solution:
-Flowcontext monitors every link creation, by no longer using
-Link() directly, but redirecting this to a function make_link,
-which can be patched to record the creation of links.
-
-The actual tracking and constant resolving is implemented in the
-ConstTracker class below.
-
+This is just a placeholder for some code I'm checking in elsewhere.
+It is provenly possible to determine constantness of certain expressions
+a little later. I introduced this a bit too early, together with tieing
+this to something being global, which was a bad idea.
+The concept is still valid, and it can  be used to force something to
+be evaluated immediately because it is supposed to be a constant.
+One good possible use of this is loop unrolling.
+This will be found in an 'experimental' folder with some use cases.
 """
 
 def override():
-    from __builtin__ import getattr as _getattr # uhmm
-    
     def getattr(self, w_obj, w_name):
         # handling special things like sys
         # unfortunately this will never vanish with a unique import logic :-(
