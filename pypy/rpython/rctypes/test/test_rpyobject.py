@@ -31,3 +31,16 @@ class Test_annotation:
         assert s.knowntype == py_object
         if conftest.option.view:
             a.translator.view()
+
+    def test_annotate_prebuilt(self):
+        five = py_object(5)
+        hello = py_object("hello")
+
+        def fn(i):
+            return [five, hello][i]
+
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert s.knowntype == py_object
+        if conftest.option.view:
+            a.translator.view()
