@@ -81,7 +81,6 @@ def test_array_setitem():
     assert not mallocs
 
 def test_struct_setitem():
-    py.test.skip("not working yet")
     class S(Structure):
         _fields_ = [('x', c_int)]
     class T(Structure):

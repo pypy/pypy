@@ -209,3 +209,46 @@ def test_wrapper_cannot_be_removed():
         g(b.s)
 
     check(fn, [], [], None, must_be_removed=False)
+
+def test_direct_fieldptr():
+    from pypy.rpython.lltypesystem import lltype
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+
+    def fn():
+        s = lltype.malloc(S)
+        s.x = 11
+        p = lltype.direct_fieldptr(s, 'x')
+        return p[0]
+
+    check(fn, [], [], 11)
+
+def test_direct_fieldptr_2():
+    from pypy.rpython.lltypesystem import lltype
+    T = lltype.GcStruct('T', ('z', lltype.Signed))
+    S = lltype.GcStruct('S', ('t', T),
+                             ('x', lltype.Signed),
+                             ('y', lltype.Signed))
+    def fn():
+        s = lltype.malloc(S)
+        s.x = 10
+        s.t.z = 1
+        px = lltype.direct_fieldptr(s, 'x')
+        py = lltype.direct_fieldptr(s, 'y')
+        pz = lltype.direct_fieldptr(s.t, 'z')
+        py[0] = 31
+        return px[0] + s.y + pz[0]
+
+    check(fn, [], [], 42)
+
+def test_getarraysubstruct():
+    from pypy.rpython.lltypesystem import lltype
+    U = lltype.Struct('U', ('n', lltype.Signed))
+    for length in [1, 2]:
+        S = lltype.GcStruct('S', ('a', lltype.FixedSizeArray(U, length)))
+        for index in range(length):
+
+            def fn():
+                s = lltype.malloc(S)
+                s.a[index].n = 12
+                return s.a[index].n
+            check(fn, [], [], 12)

@@ -23,8 +23,8 @@ def equivalent_substruct(S, fieldname):
     # we consider a pointer to a GcStruct S as equivalent to a
     # pointer to a substructure 'S.fieldname' if it's the first
     # inlined sub-GcStruct.  As an extension we also allow a pointer
-    # to a GcStruct containing just one Struct to be equivalent to
-    # a pointer to that Struct only (although a mere cast_pointer
+    # to a GcStruct containing just one field to be equivalent to
+    # a pointer to that field only (although a mere cast_pointer
     # would not allow casting).  This is needed to malloc-remove
     # the 'wrapper' GcStructs introduced by previous passes of
     # malloc removal.
@@ -35,7 +35,7 @@ def equivalent_substruct(S, fieldname):
     FIELDTYPE = S._flds[fieldname]
     if isinstance(FIELDTYPE, lltype.GcStruct):
         return True
-    if len(S._names) == 1 and isinstance(FIELDTYPE, lltype.Struct):
+    if len(S._names) == 1:
         return True
     return False
 
@@ -79,7 +79,7 @@ def compute_lifetimes(graph):
                     # and output variables
                     union(node, op.args[0], node, op.result)
                     continue
-                if op.opname == 'getsubstruct':
+                if op.opname in ('getsubstruct', 'direct_fieldptr'):
                     S = op.args[0].concretetype.TO
                     if equivalent_substruct(S, op.args[1].value):
                         # assumed to be similar to a cast_pointer
@@ -135,26 +135,42 @@ def _try_inline_malloc(info):
     STRUCT = lltypes.keys()[0].TO
     assert isinstance(STRUCT, lltype.GcStruct)
 
-    # must be only ever accessed via getfield/setfield/getsubstruct
-    # or touched by keepalive.  Note that same_as and cast_pointer
-    # are not recorded in usepoints.
-    VALID = dict.fromkeys([("getfield", 0),
-                           ("setfield", 0),
-                           ("getsubstruct", 0),
-                           ("keepalive", 0)])
-    MAYBE_VALID = dict.fromkeys([("getarrayitem", 0),
-                                 ("setarrayitem", 0),
-                                 ("getarraysubstruct", 0)])
+    # must be only ever accessed via getfield/setfield/getsubstruct/
+    # direct_fieldptr, or touched by keepalive.  Note that same_as and
+    # cast_pointer are not recorded in usepoints.
+    FIELD_ACCESS     = dict.fromkeys(["getfield",
+                                      "setfield",
+                                      "keepalive",
+                                      "getarrayitem",
+                                      "setarrayitem"])
+    SUBSTRUCT_ACCESS = dict.fromkeys(["getsubstruct",
+                                      "direct_fieldptr",
+                                      "getarraysubstruct"])
+
+    CHECK_ARRAY_INDEX = dict.fromkeys(["getarrayitem",
+                                       "setarrayitem",
+                                       "getarraysubstruct"])
+    accessed_substructs = {}
+
     for up in info.usepoints:
         if up[0] != "op":
             return False
         kind, node, op, index = up
-        if (op.opname, index) in VALID:
-            continue   # ok
-        if (op.opname, index) in MAYBE_VALID:
-            if isinstance(op.args[1], Constant):
-                continue   # ok if the index is constant
-        return False
+        if index != 0:
+            return False
+        if op.opname in CHECK_ARRAY_INDEX:
+            if not isinstance(op.args[1], Constant):
+                return False    # non-constant array index
+        if op.opname in FIELD_ACCESS:
+            pass   # ok
+        elif op.opname in SUBSTRUCT_ACCESS:
+            S = op.args[0].concretetype.TO
+            name = op.args[1].value
+            if not isinstance(name, str):      # access by index
+                name = 'item%d' % (name,)
+            accessed_substructs[S, name] = True
+        else:
+            return False
 
     # must not remove mallocs of structures that have a RTTI with a destructor
 
@@ -165,16 +181,7 @@ def _try_inline_malloc(info):
     except (ValueError, AttributeError), e:
         pass
 
-    # to avoid an infinite loop of "removals" without actual progress,
-    # be careful when trying to remove something that already looks like
-    # a GcStruct wrapper
-    if (len(STRUCT._names) == 1 and
-        isinstance(STRUCT._flds[STRUCT._names[0]], lltype.ContainerType) and
-        not equivalent_substruct(STRUCT, STRUCT._names[0])):
-        return False
-    
     # success: replace each variable with a family of variables (one per field)
-    example = STRUCT._container_example()
 
     # 'flatnames' is a list of (STRUCTTYPE, fieldname_in_that_struct) that
     # describes the list of variables that should replace the single
@@ -191,27 +198,47 @@ def _try_inline_malloc(info):
     flatconstants = {}
     needsubmallocs = []
     newvarstype = {}       # map {item-of-flatnames: concretetype}
+    direct_fieldptr_key = {}
 
-    def flatten(S, example):
+    def flatten(S):
         start = 0
         if S._names and equivalent_substruct(S, S._names[0]):
-            flatten(S._flds[S._names[0]], getattr(example, S._names[0]))
-            start = 1
+            SUBTYPE = S._flds[S._names[0]]
+            if isinstance(SUBTYPE, lltype.Struct):
+                flatten(SUBTYPE)
+                start = 1
+            else:
+                ARRAY = lltype.FixedSizeArray(SUBTYPE, 1)
+                direct_fieldptr_key[ARRAY, 'item0'] = S, S._names[0]
         for name in S._names[start:]:
             key = S, name
             flatnames.append(key)
             FIELDTYPE = S._flds[name]
-            if isinstance(FIELDTYPE, lltype.ContainerType):
+            if key in accessed_substructs:
                 needsubmallocs.append(key)
                 newvarstype[key] = lltype.Ptr(lltype.GcStruct('wrapper',
                                                           ('data', FIELDTYPE)))
-            else:
-                constant = Constant(getattr(example, name))
+            elif not isinstance(FIELDTYPE, lltype.ContainerType):
+                example = FIELDTYPE._defl()
+                constant = Constant(example)
                 constant.concretetype = FIELDTYPE
                 flatconstants[key] = constant
                 newvarstype[key] = FIELDTYPE
+            #else:
+            #   the inlined substructure is never accessed, drop it
 
-    flatten(STRUCT, example)
+    flatten(STRUCT)
+    assert len(direct_fieldptr_key) <= 1
+
+    def key_for_field_access(S, fldname):
+        if isinstance(S, lltype.FixedSizeArray):
+            if not isinstance(fldname, str):      # access by index
+                fldname = 'item%d' % (fldname,)
+            try:
+                return direct_fieldptr_key[S, fldname]
+            except KeyError:
+                pass
+        return S, fldname
 
     variables_by_block = {}
     for block, var in info.variables:
@@ -241,20 +268,31 @@ def _try_inline_malloc(info):
                     if op.opname in ("getfield", "getarrayitem"):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
-                        if op.opname == "getarrayitem":
-                            fldname = 'item%d' % fldname
-                        newop = SpaceOperation("same_as",
-                                               [newvarsmap[S, fldname]],
-                                               op.result)
+                        key = key_for_field_access(S, fldname)
+                        if key in accessed_substructs:
+                            c_name = Constant('data', lltype.Void)
+                            newop = SpaceOperation("getfield",
+                                                   [newvarsmap[key], c_name],
+                                                   op.result)
+                        else:
+                            newop = SpaceOperation("same_as",
+                                                   [newvarsmap[key]],
+                                                   op.result)
                         newops.append(newop)
                         last_removed_access = len(newops)
                     elif op.opname in ("setfield", "setarrayitem"):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
-                        if op.opname == "setarrayitem":
-                            fldname = 'item%d' % fldname
-                        assert (S, fldname) in newvarsmap
-                        newvarsmap[S, fldname] = op.args[2]
+                        key = key_for_field_access(S, fldname)
+                        assert key in newvarsmap
+                        if key in accessed_substructs:
+                            c_name = Constant('data', lltype.Void)
+                            newop = SpaceOperation("setfield",
+                                         [newvarsmap[key], c_name, op.args[2]],
+                                                   op.result)
+                            newops.append(newop)
+                        else:
+                            newvarsmap[key] = op.args[2]
                         last_removed_access = len(newops)
                     elif op.opname in ("same_as", "cast_pointer"):
                         assert op.result not in vars
@@ -265,7 +303,8 @@ def _try_inline_malloc(info):
                         # via one pointer must be reflected in the other.
                     elif op.opname == 'keepalive':
                         last_removed_access = len(newops)
-                    elif op.opname in ("getsubstruct", "getarraysubstruct"):
+                    elif op.opname in ("getsubstruct", "getarraysubstruct",
+                                       "direct_fieldptr"):
                         S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
                         if op.opname == "getarraysubstruct":
@@ -278,9 +317,13 @@ def _try_inline_malloc(info):
                         else:
                             # do it with a getsubstruct on the independently
                             # malloc'ed GcStruct
+                            if op.opname == "direct_fieldptr":
+                                opname = "direct_fieldptr"
+                            else:
+                                opname = "getsubstruct"
                             v = newvarsmap[S, fldname]
                             cname = Constant('data', lltype.Void)
-                            newop = SpaceOperation("getsubstruct",
+                            newop = SpaceOperation(opname,
                                                    [v, cname],
                                                    op.result)
                             newops.append(newop)
@@ -289,7 +332,7 @@ def _try_inline_malloc(info):
                 elif op.result in vars:
                     assert op.opname == "malloc"
                     assert vars == {var: True}
-                    count[0] += 1
+                    progress = True
                     # drop the "malloc" operation
                     newvarsmap = flatconstants.copy()   # zero initial values
                     # if there are substructures, they are now individually
@@ -299,9 +342,13 @@ def _try_inline_malloc(info):
                         v = Variable()
                         v.concretetype = newvarstype[key]
                         c = Constant(v.concretetype.TO, lltype.Void)
+                        if c.value == op.args[0].value:
+                            progress = False   # replacing a malloc with
+                                               # the same malloc!
                         newop = SpaceOperation("malloc", [c], v)
                         newops.append(newop)
                         newvarsmap[key] = v
+                    count[0] += progress
                 else:
                     newops.append(op)
 
@@ -354,7 +401,6 @@ def _try_inline_malloc(info):
         for var in vars_created_here:
             flowin(var, newvarsmap=None)
 
-    assert count[0]
     return count[0]
 
 def remove_mallocs_once(graph):
