@@ -11,6 +11,7 @@ from pypy import conftest
 from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.lltypesystem import lltype
 
 from ctypes import py_object
 
@@ -44,3 +45,12 @@ class Test_annotation:
         assert s.knowntype == py_object
         if conftest.option.view:
             a.translator.view()
+
+class Test_specialization:
+    def test_specialize_wrapping(self):
+        def wrap(x):
+            return py_object(x)
+
+        res = interpret(wrap, [9])
+        assert lltype.typeOf(res.c_data[0]) == lltype.Ptr(lltype.PyObject)
+        assert res.c_data[0]._obj.value == 9

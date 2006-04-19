@@ -155,3 +155,11 @@ def test_truth_value():
     assert not c_char_p(None)
 
     assert not c_void_p()
+
+def test_py_object():
+    class TAG:
+        pass
+    x = py_object(TAG)
+    assert x.value is TAG
+    x.value = 42
+    assert x.value == 42
