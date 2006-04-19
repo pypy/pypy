@@ -89,7 +89,7 @@ class TestTypedOptimizedSwitchTestCase:
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            backend_optimizations(t, merge_if_blocks_to_switch=True, propagate=True)
+            backend_optimizations(t, merge_if_blocks_to_switch=True)
 
     def test_int_switch(self):
         def f(x=int):
@@ -179,6 +179,14 @@ class TestTypedOptimizedSwitchTestCase:
             y = ord(x)
             assert fn(y) == f(y)
 
+class TestOptimizedWithPropagate:
+
+    class CodeGenerator(_TestTypedTestCase):
+        def process(self, t):
+            _TestTypedTestCase.process(self, t)
+            self.t = t
+            backend_optimizations(t, propagate=True)
+
     def test_typed_NULL(self):
         class A(object):
             def __init__(self):
@@ -199,6 +207,7 @@ class TestTypedOptimizedSwitchTestCase:
         fn = codegenerator.getcompiled(f)
         res = f()
         assert res == 42
+
 
 
 class TestTypedOptimizedRaisingOps:
