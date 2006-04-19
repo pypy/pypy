@@ -54,3 +54,12 @@ class Test_specialization:
         res = interpret(wrap, [9])
         assert lltype.typeOf(res.c_data[0]) == lltype.Ptr(lltype.PyObject)
         assert res.c_data[0]._obj.value == 9
+
+    def test_specialize_ass_value(self):
+        # reading .value is not allowed, as it can't be annotated!
+        def func(x):
+            o = py_object()
+            o.value = x
+
+        interpret(func, [9])
+        interpret(func, [9.2])

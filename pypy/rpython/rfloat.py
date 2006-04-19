@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import \
-     Signed, Unsigned, Bool, Float, Void
+     Signed, Unsigned, Bool, Float, Void, pyobjectptr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr, StringRepr
@@ -198,12 +198,14 @@ class __extend__(pairtype(PyObjRepr, FloatRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_to.lowleveltype == Float:
             return llops.gencapicall('PyFloat_AsDouble', [v],
-                                     resulttype=Float)
+                                     resulttype=Float,
+                                   _callable=lambda pyo: float(pyo._obj.value))
         return NotImplemented
 
 class __extend__(pairtype(FloatRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Float:
             return llops.gencapicall('PyFloat_FromDouble', [v],
-                                     resulttype=pyobj_repr)
+                                     resulttype=pyobj_repr,
+                                     _callable=lambda x: pyobjectptr(x))
         return NotImplemented
