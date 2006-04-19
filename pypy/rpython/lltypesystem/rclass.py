@@ -470,7 +470,7 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True)
+            self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True, opname=opname)
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
@@ -639,13 +639,13 @@ def rtype_wrap_object_create(hop):
     v_inst, c_spec = hop.inputargs(*hop.args_r)
     repr = c_spec.value
     v_res = into_cobject(v_inst, repr, hop.llops)
+    v_cobj = v_res
+    c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
+    c_0 = hop.inputconst(Signed, 0)
+    v_res = hop.llops.gencapicall('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyobj_repr)
+    c_self = hop.inputconst(pyobj_repr, '__self__')
+    hop.genop('setattr', [v_res, c_self, v_cobj], resulttype=pyobj_repr)
     if repr.has_wrapper:
-        v_cobj = v_res
-        c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
-        c_0 = hop.inputconst(Signed, 0)
-        v_res = hop.llops.gencapicall('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyobj_repr)
-        c_self = hop.inputconst(pyobj_repr, '__self__')
-        hop.genop('setattr', [v_res, c_self, v_cobj], resulttype=pyobj_repr)
         repr.setfield(v_inst, '_wrapper_', v_res, hop.llops)
         hop.genop('gc_unprotect', [v_res]) # yes a weak ref
     return v_res
@@ -702,9 +702,9 @@ class __extend__(pairtype(PyObjRepr, InstanceRepr)):
                 r_to.setfield(v_inst, '_wrapper_', v, llops)
                 llops.genop('gc_unprotect', [v])
                 return v_inst
-
-            c_self = inputconst(pyobj_repr, '__self__')
-            v = llops.genop('getattr', [v, c_self], resulttype=r_from)
+        # if we don't have a wrapper field, we just don't support __init__
+        c_self = inputconst(pyobj_repr, '__self__')
+        v = llops.genop('getattr', [v, c_self], resulttype=r_from)
         return outof_cobject(v, r_to, llops)
 
 # ____________________________________________________________
