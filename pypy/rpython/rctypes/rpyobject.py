@@ -6,6 +6,11 @@ from pypy.rpython.robject import pyobj_repr
 
 class CTypesPyObjRepr(CTypesValueRepr):
 
+    def initialize_const(self, p, value):
+        if isinstance(value, self.ctype):
+            value = value.value
+        p.c_data[0] = lltype.pyobjectptr(value)
+
     # reading .value is not allowed, as it can't be annotated!
 
     def rtype_setattr(self, hop):

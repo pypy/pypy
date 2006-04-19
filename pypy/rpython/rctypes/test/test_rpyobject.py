@@ -63,3 +63,15 @@ class Test_specialization:
 
         interpret(func, [9])
         interpret(func, [9.2])
+
+    def test_specialize_prebuilt(self):
+        five = py_object(5)
+        hello = py_object("hello")
+
+        def fn(i):
+            return [five, hello][i]
+
+        res = interpret(fn, [0])
+        assert res.c_data[0]._obj.value == 5
+        res = interpret(fn, [1])
+        assert res.c_data[0]._obj.value == "hello"
