@@ -6,6 +6,7 @@ from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython.memory.gctransform import varoftype
+from pypy.rpython import rtyper
 from pypy.rpython import rclass
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.annotation import model as annmodel
@@ -114,6 +115,12 @@ class ExceptionTransformer(object):
 
         mixlevelannotator.finish()
 
+        ExcDataDef = translator.annotator.bookkeeper.getuniqueclassdef(ExcData)
+        self.ExcData_repr = rclass.getinstancerepr(translator.rtyper, ExcDataDef)
+        exc_data_ptr = self.ExcData_repr.convert_const(exc_data)
+        self.cexcdata = Constant(exc_data_ptr, self.ExcData_repr.lowleveltype)
+        self.cnulltype = Constant(null_type, self.lltype_of_exception_type)
+        
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
     
     def transform_completely(self):
@@ -249,10 +256,15 @@ class ExceptionTransformer(object):
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result) 
 
     def gen_exc_check(self, block, returnblock):
-        var_exc_occured = Variable()
-        var_exc_occured.concretetype = lltype.Bool
+        #var_exc_occured = Variable()
+        #var_exc_occured.concretetype = lltype.Bool
+        #block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
+
+        llops = rtyper.LowLevelOpList(None)
+        v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
+        var_exc_occured = llops.genop('ptr_ne', [v_exc_type, self.cnulltype], lltype.Bool)
+        block.operations.extend(llops)
         
-        block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
         block.exitswitch = var_exc_occured
         #exception occurred case
         l = Link([error_value(returnblock.inputargs[0].concretetype)], returnblock)
