@@ -9,11 +9,6 @@ from pypy import conftest
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
-
 from ctypes import c_int, c_float, POINTER, pointer, Structure
 
 class Test_annotation:

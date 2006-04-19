@@ -9,11 +9,6 @@ from pypy import conftest
 from pypy.rpython.test.test_llinterp import gengraph
 from pypy.translator.backendopt.all import backend_optimizations
 
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
-
 from ctypes import c_int, Structure, pointer, POINTER
 
 

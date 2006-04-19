@@ -1,5 +1,5 @@
 """
-Checks that importing and registering the annotations for rctypes
+Check that importing and registering the annotations for rctypes
 doesn't bring in the whole rtyper.
 """
 

@@ -1,5 +1,5 @@
 """
-Test the rctypes implementation.
+Test the c_char_p implementation.
 """
 
 import py.test
@@ -11,11 +11,6 @@ from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
-
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
 
 from ctypes import c_char_p, pointer, Structure
 

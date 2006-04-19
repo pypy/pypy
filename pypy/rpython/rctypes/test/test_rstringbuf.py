@@ -1,5 +1,5 @@
 """
-Test the rctypes implementation.
+Test the create_string_buffer() implementation.
 """
 
 import py.test
@@ -11,11 +11,6 @@ from pypy import conftest
 from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
-
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
 
 from ctypes import create_string_buffer
 from pypy.rpython.rctypes.astringbuf import StringBufferType

@@ -1,3 +1,7 @@
+"""
+Test external function calls.
+"""
+
 import py
 import sys
 import pypy.rpython.rctypes.implementation

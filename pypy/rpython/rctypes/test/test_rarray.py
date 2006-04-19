@@ -1,5 +1,5 @@
 """
-Test the rctypes implementation.
+Test the array implementation.
 """
 
 import py
@@ -11,11 +11,6 @@ from pypy import conftest
 from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
-
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
 
 from ctypes import c_int, c_short, c_char_p, c_char, pointer
 from ctypes import ARRAY, POINTER, Structure

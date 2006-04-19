@@ -1,5 +1,5 @@
 """
-Test the rctypes implementation.
+Test the primitive c_* implementation.
 """
 
 import py.test
@@ -12,11 +12,6 @@ from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import r_longlong, r_ulonglong
-
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
 
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float

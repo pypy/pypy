@@ -1,5 +1,5 @@
 """
-Test the rctypes implementation.
+Test the c_void_p implementation.
 """
 
 import py.test
@@ -10,11 +10,6 @@ from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.test.test_llinterp import interpret
-
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
 
 from ctypes import c_void_p, c_int, cast, pointer, POINTER
 

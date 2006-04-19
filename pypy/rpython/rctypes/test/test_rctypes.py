@@ -15,12 +15,6 @@ from pypy.rpython.test.test_llinterp import interpret
 
 thisdir = py.path.local(__file__).dirpath()
 
-try:
-    import ctypes
-except ImportError:
-    py.test.skip("this test needs ctypes installed")
-
-
 from ctypes import cdll
 from ctypes import POINTER, Structure, c_int, byref, pointer, c_void_p
 
