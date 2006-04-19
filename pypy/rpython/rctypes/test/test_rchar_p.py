@@ -104,6 +104,12 @@ class Test_specialization:
         res = interpret(func, [])
         assert ''.join(res.chars) == "hello"
 
+    def test_truth_value(self):
+        def func():
+            assert c_char_p("hello")
+            assert c_char_p("")
+            assert not c_char_p(None)
+        interpret(func, [])
 
 class Test_compilation:
     def test_compile_c_char_p(self):

@@ -645,6 +645,9 @@ class __extend__(SomeCTypesObject):
         else:
             return SomeObject()
 
+    def is_true(cto):
+        return SomeBool()
+
 #_________________________________________
 # memory addresses
 

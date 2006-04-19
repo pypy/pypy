@@ -253,6 +253,21 @@ class Test_specialization:
             assert x.value == u'B'
         interpret(func, [])
 
+    def test_truth_value(self):
+        bigzero = r_ulonglong(0)
+        big = r_ulonglong(2L**42)
+        def func(n, z):
+            assert c_int(n)
+            assert not c_int(z)
+            assert c_int(-1)
+            assert not c_byte(z)
+            assert not c_char(chr(z))
+            assert not c_float(z)
+            assert not c_double(z)
+            assert not c_ulonglong(bigzero)
+            assert c_ulonglong(big)
+        interpret(func, [17, 0])
+
 class Test_compilation:
     def test_compile_c_int(self):
         def create_c_int():

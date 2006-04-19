@@ -43,6 +43,11 @@ class Test_specialization:
         assert lltype.typeOf(res.item0.c_data[0]) == llmemory.Address
         assert res.item1 == 12
 
+    def test_truth_value(self):
+        def func():
+            assert not c_void_p()
+        interpret(func, [])
+
 class Test_compilation:
     def test_compile_c_char_p(self):
         def func():

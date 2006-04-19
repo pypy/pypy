@@ -7,11 +7,18 @@ PointerType = type(POINTER(c_int))
 
 
 # c_void_p() as a function
-def c_void_p_compute_result_annotation(s_arg=None):
-    raise NotImplementedError("XXX calling c_void_p()")
+def c_void_p_compute_result_annotation():
+    return annmodel.SomeCTypesObject(c_void_p,
+                                     annmodel.SomeCTypesObject.OWNSMEMORY)
+
+def c_void_specialize_call(hop):
+    r_void_p = hop.r_result
+    v_result = r_void_p.allocate_instance(hop.llops)
+    return v_result
 
 extregistry.register_value(c_void_p,
     compute_result_annotation=c_void_p_compute_result_annotation,
+    specialize_call=c_void_specialize_call,
     )
 
 # c_void_p instances

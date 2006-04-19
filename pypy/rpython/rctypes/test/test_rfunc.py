@@ -14,6 +14,7 @@ from pypy.rpython.lltypesystem import lltype
 
 from ctypes import cdll
 from ctypes import c_int, c_long, c_char_p, c_char, create_string_buffer
+from ctypes import POINTER
 
 # __________ the standard C library __________
 
@@ -53,6 +54,10 @@ def ll_atoi(p):
     return result
 atoi.llinterp_friendly_version = ll_atoi
 
+time_ = mylib.time
+time_.restype = c_long    # should rather use ctypes_platform.getsimpletype()
+time_.argtypes = [POINTER(c_long)]
+
 
 def test_labs(n=6):
     assert labs(n) == abs(n)
@@ -81,6 +86,13 @@ def test_ll_atoi():
     assert ll_atoi(str2subarray("42z7")) == 42
     assert ll_atoi(str2subarray("blah")) == 0
     assert ll_atoi(str2subarray("18238")) == 18238
+
+def test_time():
+    import time
+    t1 = time.time()
+    t2 = time_(None)
+    t3 = time.time()
+    assert int(t1) <= t2 <= int(t3 + 1.0)
 
 class Test_annotation:
     def test_annotate_labs(self):
@@ -141,3 +153,13 @@ class Test_compile:
         fn = compile(test_labs, [int])
         res = fn(-11)
         assert res == 11
+
+    def test_compile_time(self):
+        import time
+        def fn1():
+            return time_(None)
+        fn = compile(fn1, [])
+        t1 = time.time()
+        t2 = fn()
+        t3 = time.time()
+        assert int(t1) <= t2 <= int(t3 + 1.0)

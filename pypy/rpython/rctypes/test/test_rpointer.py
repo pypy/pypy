@@ -267,6 +267,14 @@ class Test_specialization:
         res = interpret(fn, [])
         assert res == 5
 
+    def test_specialize_null_pointer(self):
+        def fn():
+            p = POINTER(c_int)()
+            assert not p
+            p.contents = c_int(12)
+            assert p
+        interpret(fn, [])
+
 class Test_compilation:
     def test_compile_getitem_nonzero_index(self):
         A = c_int * 10

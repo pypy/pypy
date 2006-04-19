@@ -132,3 +132,26 @@ def test_array():
     s.p = a
     s.p.contents.value = 42
     assert a[0] == 42
+
+def test_truth_value():
+    p = POINTER(c_int)()
+    assert not p
+    p.contents = c_int(12)
+    assert p
+    # I can't figure out how to reset p to NULL...
+
+    assert c_int(12)
+    assert not c_int(0)    # a bit strange, if you ask me
+    assert c_int(-1)
+    assert not c_byte(0)
+    assert not c_char('\x00')   # hum
+    assert not c_float(0.0)
+    assert not c_double(0.0)
+    assert not c_ulonglong(0)
+    assert c_ulonglong(2L**42)
+
+    assert c_char_p("hello")
+    assert c_char_p("")
+    assert not c_char_p(None)
+
+    assert not c_void_p()

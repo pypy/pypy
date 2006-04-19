@@ -1,6 +1,6 @@
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.error import TyperError
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.pairtype import pairtype
 
@@ -237,7 +237,27 @@ class CTypesValueRepr(CTypesRepr):
         r_temp.setvalue(llops, v_owned_box, v_value)
         return llops.convertvar(v_owned_box, r_temp, self)
 
+    def rtype_is_true(self, hop):
+        [v_box] = hop.inputargs(self)
+        v_value = self.getvalue(hop.llops, v_box)
+        if v_value.concretetype in (lltype.Char, lltype.UniChar):
+            llfn = ll_c_char_is_true
+        elif v_value.concretetype == llmemory.Address:
+            llfn = ll_address_is_true
+        else:
+            llfn = ll_is_true
+        return hop.gendirectcall(llfn, v_value)
+
 # ____________________________________________________________
+
+def ll_is_true(x):
+    return bool(x)
+
+def ll_c_char_is_true(x):
+    return bool(ord(x))
+
+def ll_address_is_true(x):
+    return x != llmemory.NULL
 
 C_ZERO = inputconst(lltype.Signed, 0)
 
