@@ -1,6 +1,9 @@
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import \
-     GcStruct, Signed, Ptr, Void, malloc
+     GcStruct, Signed, Ptr, Void, malloc, PyObject, nullptr
+from pypy.annotation.pairtype import pairtype
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython.rmodel import inputconst, PyObjPtr, IntegerRepr
 
 # ____________________________________________________________
 #
@@ -36,3 +39,27 @@ def ll_newslice(start, stop):
     s.stop = stop
     return s
 
+# ____________________________________________________________
+#
+# limited support for casting into PyObject
+
+# stuff like this should go into one file maybe
+
+class __extend__(pairtype(SliceRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        null = inputconst(Ptr(PyObject), nullptr(PyObject))
+        def pyint(v):
+            return llops.gencapicall('PyInt_FromLong', [v], resulttype=r_to)
+        v_step = v_start = v_stop = null
+        if r_from.lowleveltype is Signed:
+            v_start = pyint(v)
+        elif r_from.lowleveltype is Void:
+            v_stop = inputconst(r_to, -1)
+        else:
+            v_start = pyint(llops.genop('getfield', [v, inputconst(Void, 'start')],
+                            resulttype=Signed))
+            v_stop = pyint(llops.genop('getfield', [v, inputconst(Void, 'stop')],
+                           resulttype=Signed))
+        return llops.gencapicall('PySlice_New',
+                                 [v_start, v_stop, v_step],
+                                 resulttype = pyobj_repr)

@@ -5,6 +5,7 @@ from pypy.rpython import extregistry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import robject, rclass
+from pypy.translator.tool.cbuild import enable_fast_compilation
 
 import sys
 
@@ -214,20 +215,53 @@ def democlass_helper2(a=int, b=int):
 # _______________________________________________
 # creating our own setup function for the module
 
+# this class *can* be used for faster access.
+# the compiler anyway chews quite a bit on it...
+class BuiltinHelper(object):
+    # the following would be much easier if we had
+    # loop unrolling right inside the flowing process
+    src = []
+    src.append('def __init__(self):')
+    src.append('    import __builtin__ as b')
+    import __builtin__
+    for name in dir(__builtin__):
+        obj = getattr(__builtin__, name)
+        if callable(obj) and hasattr(obj, '__name__'):
+            src.append('    self.%s = b.%s' % (name, obj.__name__))
+    src = '\n'.join(src)
+    #print src
+    exec src
+    del __builtin__, name, obj, src
+
 def setup_new_module(mod, modname):
     # note the name clash with py.test on setup_module
     import types
     m = types.ModuleType(modname)
     allobjs = mod.__dict__.values()
     funcs = eval('[]') # or import list from __builtin__
-    from twisted.internet import reactor    
-    print dir(reactor)
+    # one alternative
+    #bltn = BuiltinHelper()
+    # less code:
+    import __builtin__ as bltn
+    print bltn.list('hallo')
+    #from twisted.internet import reactor    
+    #print dir(reactor)
     #whow this works
     isinstance = eval('isinstance')
+    # above is possible, this is probably a better compromise:
+    isinstance = bltn.isinstance
     for obj in allobjs:
         if isinstance(obj, types.FunctionType):
             funcs.append( (obj.func_name, obj) )
     print 'funcs=', funcs
+    print funcs[3:]
+    #funcs += [2, 3, 5]
+    # not yet
+    stuff = bltn.range(10)
+    print stuff[3:]
+    print stuff[:3]
+    print stuff[3:7]
+    print stuff[:-1]
     funcs.sort()
     return m
 
