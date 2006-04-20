@@ -427,18 +427,17 @@ class FunctionCodeGenerator(object):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
-        fieldname = structdef.c_struct_field_name(op.args[1].value)
-        return self.generic_get(op, '%s%s->%s' % (ampersand,
-                                                  self.expr(op.args[0]),
-                                                  fieldname))
+        expr = ampersand + structdef.ptr_access_expr(self.expr(op.args[0]),
+                                                     op.args[1].value)
+        return self.generic_get(op, expr)
 
     def OP_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
-        fieldname = structdef.c_struct_field_name(op.args[1].value)
-        return self.generic_set(op, '%s->%s' % (self.expr(op.args[0]),
-                                                fieldname))
+        expr = structdef.ptr_access_expr(self.expr(op.args[0]),
+                                         op.args[1].value)
+        return self.generic_set(op, expr)
 
     OP_BARE_SETFIELD = OP_SETFIELD
 

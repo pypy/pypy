@@ -1,7 +1,8 @@
+from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
-from pypy.rpython.robject import pyobj_repr
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 
 class CTypesPyObjRepr(CTypesValueRepr):
@@ -20,3 +21,10 @@ class CTypesPyObjRepr(CTypesValueRepr):
         v_pyobj, v_attr, v_newvalue = hop.inputargs(self, lltype.Void,
                                                     pyobj_repr)
         self.setvalue(hop.llops, v_pyobj, v_newvalue)
+
+
+class __extend__(pairtype(CTypesPyObjRepr, PyObjRepr)):
+    # conversion used by wrapper.py in genc when returning a py_object
+    # from a function exposed in a C extension module
+    def convert_from_to((r_from, r_to), v, llops):
+        return r_from.getvalue(llops, v)

@@ -36,7 +36,7 @@ class TestLowLevelType:
             a3 = big.a3
             a42 = big.a42
             a7[0] = -1
-            a7[6] = -2
+            a7.item6 = -2
             a3[0].v = -3
             a3[2].v = -4
             a42[0][0] = -5
@@ -44,7 +44,7 @@ class TestLowLevelType:
             assert a7[0] == -1
             assert a7[6] == -2
             assert a3[0].v == -3
-            assert a3[2].v == -4
+            assert a3.item2.v == -4
             assert a42[0][0] == -5
             assert a42[5][6] == -6
             return len(a42)*100 + len(a42[4])

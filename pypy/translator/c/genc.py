@@ -55,13 +55,14 @@ class CBuilder(object):
         pfname = db.get(pf)
         self.exports[self.entrypoint.func_name] = pf
         for obj in exports:
-            objname = None
             if type(obj) is tuple:
                 objname, obj = obj
+            elif hasattr(obj, '__name__'):
+                objname = obj.__name__
+            else:
+                objname = None
             po = self.getentrypointptr(obj)
             poname = db.get(po)
-            if hasattr(obj, '__name__'):
-                objname = obj.__name__
             objname = objname or poname
             if objname in self.exports:
                 raise NameError, 'duplicate name in export: %s is %s and %s' % (

@@ -102,6 +102,10 @@ class StructDefNode:
         fldname = self.c_struct_field_name(fldname)
         return '%s.%s' % (baseexpr, fldname)
 
+    def ptr_access_expr(self, baseexpr, fldname):
+        fldname = self.c_struct_field_name(fldname)
+        return '%s->%s' % (baseexpr, fldname)
+
     def definition(self):
         if self.STRUCT._hints.get('external'):      # XXX hack
             return
@@ -187,6 +191,9 @@ class ArrayDefNode:
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)
 
+    def ptr_access_expr(self, baseexpr, index):
+        return '%s->items[%d]' % (baseexpr, index)
+
     def definition(self):
         gcpolicy = self.db.gcpolicy
         yield 'struct %s {' % self.name
@@ -266,6 +273,8 @@ class FixedSizeArrayDefNode:
             assert index.startswith('item')
             index = int(index[4:])
         return '%s[%d]' % (baseexpr, index)
+
+    ptr_access_expr = access_expr
 
     def definition(self):
         return []    # no declaration is needed

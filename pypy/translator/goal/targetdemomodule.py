@@ -1,4 +1,5 @@
 from pypy.module._demo import demo
+from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 
 from ctypes import *
 
@@ -67,7 +68,7 @@ def entry_point(n):
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, [int]
+    return entry_point, [int], PyPyAnnotatorPolicy()
 
 
 if __name__ == '__main__':
