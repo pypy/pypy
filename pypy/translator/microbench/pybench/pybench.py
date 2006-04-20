@@ -262,14 +262,17 @@ class Benchmark:
 
     def html_stat(self, compare_to=None, hidenoise=0):
 
+        import autopath
         from py.xml import html
 
         if not compare_to:
-            table = html.table(html.thead(
-                      html.tr([ html.th(x,  align='left', mochi_format = y)
-                          for (x,y) in [('Tests','str'), ('per run','float'),
-                             ('per oper.', 'float'), ('overhead', 'float')])),
-                             id = "sortable_table")
+            table = html.table(
+                        html.thead(
+                            html.tr(
+                                [ html.th(x,  align='left', mochi_format = y)
+                            for (x,y) in [('Tests','str'), ('per run','float'),
+                                  ('per oper.', 'float'), ('overhead', 'float')]])
+                                    ),id = "sortable_table")
                                
             tests = self.tests.items()
             tests.sort()
@@ -278,16 +281,18 @@ class Benchmark:
                 table.append(html.tr( html.td(name),
                                       html.td((avg*1000.0),
                                       html.td(op_avg*1000000.0),
-									  html.td(ov_avg*1000.0)
-									 )
-                table.append(html.tr('Average round time %s' % (self.roundtime * 1000.0))
+                                      html.td(ov_avg*1000.0))
+                                    ))
+                table.append(html.tr(
+                                    'Average round time %s' % (self.roundtime * 1000.0))
+                                            )
             return table
         else:
             table = html.table(html.thead(
                       html.tr([ html.th(x,  align='left', mochi_format = y)
                           for (x,y) in [('Tests','str'), ('per run','float'),
-                             ('per oper.', 'float'), ('diff', 'float')])),
-                             id = "sortable_table")
+                             ('per oper.', 'float'), ('diff', 'float')]]),
+                             id = "sortable_table"))
             tests = self.tests.items()
             tests.sort()
             compatible = 1
@@ -311,20 +316,22 @@ class Benchmark:
                 table.append(html.tr( html.td(name),
                                       html.td((avg*1000.0),
                                       html.td(op_avg*1000000.0),
-									  html.td(qop_avg)
-									 )
+                                      html.td(qop_avg)
+                                    )))
             if compatible and compare_to.roundtime > 0 and \
                compare_to.version == self.version:
                 table.append(html.tr(
-				     html.td('Average round time'),
-					 html.td(self.roundtime * 1000.0),
-					 html.td(''),
-					 html.td('%+7.2f%%'% (((self.roundtime*self.warp)/
-                        (compare_to.roundtime*compare_to.warp)-1.0)*100.0)))
+                                 html.td('Average round time'),
+                                 html.td(self.roundtime * 1000.0),
+                                 html.td(''),
+                                 html.td('%+7.2f%%'% (((self.roundtime*self.warp)/ 
+                                        (compare_to.roundtime*compare_to.warp)-1.0)*100.0)
+                                        )))
+                                    
             else:
                 table.append(html.tr(
-				     html.td('Average round time'),
-					 html.td(self.roundtime * 1000.0)))
+                                    html.td('Average round time'),
+                                    html.td(self.roundtime * 1000.0)))
             return table
 
 def print_machine():
@@ -353,6 +360,7 @@ class PyBenchCmdline(Application):
                ArgumentOption('-w','set warp factor to arg',Setup.Warp_factor),
                SwitchOption('-d','hide noise in compares', 0),
                SwitchOption('--no-gc','disable garbage collection', 0),
+               SwitchOption('-x','write html table', 0),
                ]
 
     about = """\
@@ -376,6 +384,7 @@ python pybench.py -s p15 -c p14
         hidenoise = self.values['-d']
         warp = self.values['-w']
         nogc = self.values['--no-gc']
+        html = self.values['-x']
         
         # Switch off GC
         if nogc:
@@ -414,7 +423,13 @@ python pybench.py -s p15 -c p14
                 print 'Benchmark: %s (rounds=%i, warp=%i)' % \
                       (bench.name,bench.rounds,bench.warp)
                 print
-                bench.print_stat(compare_to, hidenoise)
+                if html:
+                    table = bench.html_stat(compare_to, hidenoise)
+                    f = open('index.html','w')
+                    print >>f,table.unicode()
+                    f.close()
+                else:
+                    bench.print_stat(compare_to, hidenoise)
             except IOError:
                 print '* Error opening/reading file',show_bench
                 print
