@@ -9,7 +9,7 @@ from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
 from pypy.rpython import rstr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
-from pypy.rpython.rdict import rtype_r_dict
+from pypy.rpython.lltypesystem.rdict import rtype_r_dict # TODO: typesystem?
 from pypy.tool import sourcetools
 from pypy.rpython import extregistry
 

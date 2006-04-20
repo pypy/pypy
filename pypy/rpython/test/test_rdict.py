@@ -1,7 +1,8 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.test.test_llinterp import interpret 
-from pypy.rpython import rstr, rint, rdict
+from pypy.rpython import rstr, rint
+from pypy.rpython.lltypesystem import rdict
 
 import py
 py.log.setconsumer("rtyper", py.log.STDOUT)

@@ -31,20 +31,6 @@ def test_resize():
     lst._ll_resize_le(10)
     assert lst.ll_length() <= 10
 
-##def test_append():
-##    LT = List(Signed)
-##    l = new(LT)
-##    l.append(1)
-##    assert l.ll_length() == 1
-
-##def test_extend():
-##    LT = List(Signed)
-##    l1 = new(LT)
-##    l2 = new(LT)
-##    l1.append(1)
-##    l2.append(2)
-##    l1.extend(l2)
-##    assert l1.ll_length() == 2
 
 def test_setitem_getitem():
     LT = List(Signed)

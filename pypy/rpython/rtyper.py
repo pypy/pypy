@@ -522,7 +522,7 @@ class RPythonTyper:
         return self.type_system.rlist.rtype_newlist(hop)
 
     def translate_op_newdict(self, hop):
-        return rdict.rtype_newdict(hop)
+        return self.type_system.rdict.rtype_newdict(hop)
 
     def translate_op_alloc_and_set(self, hop):
         return self.type_system.rlist.rtype_alloc_and_set(hop)
@@ -860,7 +860,7 @@ class LowLevelOpList(list):
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice, rrange
-from pypy.rpython import rstr, rdict 
+from pypy.rpython import rstr, rdict
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rexternalobj
 from pypy.rpython import rptr

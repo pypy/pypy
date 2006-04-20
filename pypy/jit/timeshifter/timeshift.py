@@ -5,8 +5,8 @@ from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
 from pypy.jit.timeshifter import rvalue
 from pypy.jit.timeshifter.rtimeshift import JITState
-from pypy.rpython import rmodel, rdict, rgenop, annlowlevel
-from pypy.rpython.lltypesystem import rtuple, rlist
+from pypy.rpython import rmodel, rgenop, annlowlevel
+from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
 from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList

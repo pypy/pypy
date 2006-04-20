@@ -181,8 +181,38 @@ class Meth(StaticMethod):
         StaticMethod.__init__(self, args, result)
 
 
-class List(OOType):
-    # placeholders
+class BuiltinType(OOType):
+
+    def _setup_methods(self, generic_types):
+        methods = {}
+        for name, meth in self._GENERIC_METHODS.iteritems():
+            args = [generic_types.get(arg, arg) for arg in meth.ARGS]
+            result = generic_types.get(meth.RESULT, meth.RESULT)            
+            methods[name] = Meth(args, result)
+        self._METHODS = frozendict(methods)
+
+    def _lookup(self, meth_name):
+        METH = self._METHODS.get(meth_name)
+        meth = None
+        if METH is not None:
+            cls = self._get_interp_class()
+            meth = _meth(METH, _name=meth_name, _callable=getattr(cls, meth_name))
+        return self, meth
+
+    def _example(self):
+        return new(self)
+
+    def _defl(self):
+        return self._null
+
+    def _get_interp_class(self):
+        raise NotImplementedError
+
+
+class List(BuiltinType):
+    # placeholders for types
+    # make sure that each derived class has his own SELFTYPE_T
+    # placeholder, because we want backends to distinguish that.
     SELFTYPE_T = object()
     ITEMTYPE_T = object()
 
@@ -209,9 +239,6 @@ class List(OOType):
             "_ll_resize_ge": Meth([Signed], Void),
             "_ll_resize_le": Meth([Signed], Void),
             "_ll_resize": Meth([Signed], Void),
-##            "append": Meth([self.ITEMTYPE_T], Void),            
-##            "extend": Meth([self.SELFTYPE_T], Void),
-##            "remove_range": Meth([Signed, Signed], Void), # remove_range(start, count)
         })
 
         self._setup_methods(generic_types)
@@ -223,14 +250,6 @@ class List(OOType):
         lst._ll_resize_ge(length)
         return lst
 
-    def _setup_methods(self, generic_types):
-        methods = {}
-        for name, meth in self._GENERIC_METHODS.iteritems():
-            args = [generic_types.get(arg, arg) for arg in meth.ARGS]
-            result = generic_types.get(meth.RESULT, meth.RESULT)            
-            methods[name] = Meth(args, result)
-        self._METHODS = frozendict(methods)
-
     # NB: We are expecting Lists of the same ITEMTYPE to compare/hash
     # equal. We don't redefine __eq__/__hash__ since the implementations
     # from LowLevelType work fine, especially in the face of recursive
@@ -241,19 +260,48 @@ class List(OOType):
         return '%s(%s)' % (self.__class__.__name__,
                 saferecursive(str, "...")(self._ITEMTYPE))
 
-    def _lookup(self, meth_name):
-        METH = self._METHODS.get(meth_name)
-        meth = None
-        if METH is not None:
-            meth = _meth(METH, _name=meth_name,
-                    _callable=getattr(_list, meth_name))
-        return self, meth
+    def _get_interp_class(self):
+        return _list
 
-    def _example(self):
-        return new(self)
 
-    def _defl(self):
-        return self._null
+class Dict(BuiltinType):
+    # placeholders for types
+    SELFTYPE_T = object()
+    KEYTYPE_T = object()
+    VALUETYPE_T = object()
+
+    def __init__(self, KEYTYPE, VALUETYPE):
+        self._KEYTYPE = KEYTYPE
+        self._VALUETYPE = VALUETYPE
+        self._null = _null_dict(self)
+
+        generic_types = {
+            self.SELFTYPE_T: self,
+            self.KEYTYPE_T: KEYTYPE,
+            self.VALUETYPE_T: VALUETYPE
+            }
+
+        self._GENERIC_METHODS = frozendict({
+            "ll_length": Meth([], Signed),
+            "ll_getitem": Meth([self.KEYTYPE_T], self.VALUETYPE_T),
+            "ll_setitem": Meth([self.KEYTYPE_T, self.VALUETYPE_T], Void),
+        })
+
+        self._setup_methods(generic_types)
+
+    # NB: We are expecting Dicts of the same KEYTYPE, VALUETYPE to
+    # compare/hash equal. We don't redefine __eq__/__hash__ since the
+    # implementations from LowLevelType work fine, especially in the
+    # face of recursive data structures. But it is important to make
+    # sure that attributes of supposedly equal Dicts compare/hash
+    # equal.
+
+    def __str__(self):
+        return '%s(%s)' % (self.__class__.__name__,
+                saferecursive(str, "...")(self._KEYTYPE, self._VALUETYPE))
+
+    def _get_interp_class(self):
+        return _dict
 
 
 class ForwardReference(OOType):
@@ -523,13 +571,7 @@ class _bound_meth(object):
        callb, checked_args = self.meth._checkargs(args)
        return callb(self.inst, *checked_args)
 
-
-class _list(object):
-
-    def __init__(self, LIST):
-        self._TYPE = LIST
-        self._list = []
-
+class _builtin_type(object):
     def __getattribute__(self, name):
         TYPE = object.__getattribute__(self, "_TYPE")
         _, meth = TYPE._lookup(name)
@@ -537,6 +579,13 @@ class _list(object):
             return meth._bound(TYPE, self)
 
         return object.__getattribute__(self, name)
+    
+
+class _list(_builtin_type):
+
+    def __init__(self, LIST):
+        self._TYPE = LIST
+        self._list = []
 
     # The following are implementations of the abstract list interface for
     # use by the llinterpreter and ootype tests. There are NOT_RPYTHON
@@ -580,30 +629,40 @@ class _list(object):
         assert index >= 0
         self._list[index] = item
 
-##    def append(self, item):
-##        # NOT_RPYTHON
-##        assert typeOf(item) == self._TYPE._ITEMTYPE
-##        self._list.append(item)
-
-##    def extend(self, other):
-##        # NOT_RPYTHON
-##        assert typeOf(other) == typeOf(self)
-##        self._list.extend(other._list)
-
-##    def remove_range(self, start, count):
-##        # NOT_RPYTHON        
-##        del self._list[start:start+count]
-
 class _null_list(_null_mixin(_list), _list):
 
     def __init__(self, LIST):
         self.__dict__["_TYPE"] = LIST 
 
+class _dict(object):
+    def __init__(self, DICT):
+        self._TYPE = DICT
+        self._dict = {}
+
+    def ll_length(self):
+        # NOT_RPYTHON
+        return len(self._dict)
+
+    def ll_getitem(self, key):
+        assert typeOf(key) == self._TYPE._KEYTYPE
+        return self._dict[key]
+
+    def ll_setitem(self, key, value):
+        assert typeOf(key) == self._TYPE._KEYTYPE
+        assert typeOf(value) == self._TYPE._VALUETYPE
+        self._dict[key] = value
+
+class _null_dict(_null_mixin(_dict), _dict):
+
+    def __init__(self, DICT):
+        self.__dict__["_TYPE"] = DICT
+
+
 def new(TYPE):
     if isinstance(TYPE, Instance):
         return make_instance(TYPE)
-    elif isinstance(TYPE, List):
-        return _list(TYPE)
+    elif isinstance(TYPE, BuiltinType):
+        return TYPE._get_interp_class()(TYPE)
 
 def runtimenew(class_):
     assert isinstance(class_, _class)

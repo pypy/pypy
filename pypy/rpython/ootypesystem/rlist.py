@@ -25,15 +25,6 @@ class BaseListRepr(AbstractBaseListRepr):
         self.lowleveltype = self.LIST
         self.listitem = listitem
         self.list_cache = {}
-##        self.ll_concat = ll_concat
-##        self.ll_extend = ll_extend
-##        self.ll_listslice_startonly = ll_listslice_startonly
-##        self.ll_listslice = ll_listslice
-##        self.ll_listslice_minusone = ll_listslice_minusone
-##        self.ll_listsetslice = ll_listsetslice
-##        self.ll_listdelslice_startonly = ll_listdelslice_startonly
-##        self.ll_listdelslice = ll_listdelslice
-##        self.ll_listindex = ll_listindex
         # setup() needs to be called to finish this initialization
 
     def _setup_repr(self):
