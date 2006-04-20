@@ -1,0 +1,206 @@
+Two possible proposals :
+
+I. Specialized propagators for specialized finite domains
+=========================================================
+
+Concerns WP9 (concurrent constraint & logic programming workpackage).
+
+We need specialized propagators for specialized finite domains (over
+numbers, sets, etc.). There are two ways to provide them :
+
+* RPython : which means implementing and debugging a lot of stuff,
+  with possibly subotpimal runtime performance but no external
+  dependency, 
+
+* wrapping Gecode : first finish the c-wrapper around Gecode, then use
+  rctypes to provide interpreter access to low-level Gecode
+  functionality, and finally integrate it into the existing
+  interpreter-level constraint solver.
+
+Rctypes is what PyPy offers, mimicking python ctypes, to interface the
+interpreter with C code. The machinery is still very young and the
+advancement of the project might be hindered by defects or
+incompleteness of rctypes. The point is that, even if the actual
+wrapping of gecode is incomplete, the effort to build it at least
+should yield a better rctypes.
+
+One modest, reasonable target could be running the simple
+send-more-money problem with very few actual search steps due to the
+efficient propagation happening on integer finite domains.
+
+
+II. Provide efficient builtin numeric arrays 
+============================================
+
+Implements numeric arrays (as in numeric/numpy/numarray) as builtin
+types of pypy so that numeric operations on arrays are recognized by
+the annotator, rtyper and backends and translated optimally.
+
+
+III. A template system for Python code
+=====================================
+
+Related mainly to WP10 (aspects ...), but of WP9 interest.
+
+Use case
+--------
+
+We might need a way to extend python with macro-like features, so
+as to be able to provide the choice/or operator (and others) without
+touching the grammar file (it means in short : making available the new
+operator at runtime by way of importing some module).
+
+Examples of choice usage :
+
+ def soft_color():
+     choice: 
+         return 'beige' 
+     or: 
+         return 'coral'
+
+ def hard_color():
+     choice: 
+         return 'mauve' 
+     or: 
+         return 'ochre'
+
+ def contrast_colors(C1, C2):
+     choice:
+         C1 :=: soft_color()
+         C2 :=: hard_color()
+     or:
+         C1 :=: hard_color()
+         C2 :=: soft_color()
+
+ def suit():
+     Shirt, Pants, Socks = ?, ?, ?
+     contrast_colors(Shirt, Pants)  
+     contrast_colors(Pants, Socks)
+     if Shirt == Socks: 
+        fail()
+     return (Shirt, Pants, Socks)
+
+
+If we give the suit entry point to the solver built for WP9, we can
+(lazily) get an enumeration of all suits respecting our ruleset.
+
+Some explanation for choice/or, ?, :=: and fail() :
+
+* choice/or : this construct places a so-called non-deterministic
+  choice point into a program. It is different from an 'if' in the
+  sense that for one complete run of the program, only one choice
+  point may be chosen. The solver is practically responsible for
+  exploring the space of 'worlds' in which the program go through the
+  different choice points. Some of these worlds will fail (they don't
+  belong to a solution), some other will yield a valid solution of our
+  program. Each choice point can be made of arbitrary Python code.
+
+  The important thing, wrt WP10, is to understand that choice is
+  merely syntactic sugar over the primitive choose() operator. Any
+  choice/or construct can be rewritten in terms of choose, as in :
+
+   choice: <s1> or: <s2> or: ... or: <sN>
+
+  which has to be rewritten as :
+
+   choice = choose(N)
+   if choice == 1:
+      <s1>
+   elif choice == 2:
+      <s2>
+   ...
+   else: # choice == N
+      <sN>
+
+  This is possible because all choice points are known at compile
+  time.
+
+  See the Annex for an example on how (shortly) this could be done in
+  Lisp.
+
+* ? denotes a logic variable, i.e a variable which has no value at
+  creation-time (not even None) and can be bound only once. Currently,
+  the newvar() builtin is used instead of it in PyPy
+
+* :=: is a short-cut notation we might want instead of merely calling
+  unify, as in : unify(Term1, Term2)
+
+* fail() makes the current computation space fail: it means that the
+  current computation reached an inconsistent (from a logic point of
+  view) state and cannot yield a solution.
+
+Rationale
+---------
+
+Macros are functions that execute at compile-time, so as to provide
+language extensions usable at run-time, by way of source code (or AST)
+transformations. Tens of years of work in the field have make it clear
+that many macros are infinitely easier to write provided one has means
+to express source code as templates in which compile-time computed
+information can be injected.
+
+Some easy example for Python : let's say we want an 'unless operator',
+which writes as :
+
+ unless <test>:
+    ... op sequence ...
+
+and should be translated back to the following legal CPython code :
+
+ if not <test>:
+    ... op sequence ...
+
+One could define unless as a macro which takes the test and operation
+sequence as parameters and returns an AST which conforms to plain Python.
+
+ def test(test, op_seq):
+     templ =  `if not ~test: ~op_seq`
+     return templ
+
+Here we use a set of new operators, which provide a functionality
+sometimes called quasiquotation.
+
+The `...` (backquote) syntax allows to embed literal pieces of Python
+code ; the ~ (called unquote, and others, to be defined) allows to
+inject (eventually computed) data into the template.
+
+This is extremely rough and basic but can give an idea. Mature ways
+to do it are exposed in the programming languages Dylan
+(http://people.csail.mit.edu/jrb/Projects/dexprs.pdf) and, maybe more
+in touch with the Python world, logix (http://livelogix.net/logix/).
+
+Todo
+----
+
+Investigate ways to provide a quasiquotation/templating mechanism
+suitable for a language like Python. 
+
+
+Annex
+-----
+
+  A Common Lisp programmer would have a 'choice' operator like this :
+
+  (choice <s1> <s2>)
+
+  ... for instance :
+
+  (defun contrast (C1 C2)
+    (choice         
+       ((unify C1 (soft-color))
+        (unify C2 (hard-color)))
+       ((unify C1 (hard-color))
+        (unify C2 (soft-color)))))
+
+  He would define choice as a macro, as follows :
+
+  (defmacro choice (&body choice-points)
+    (let ((choices (length choice-points))
+          (choice (gensym "choice")))
+      `(let ((,choice (choose ,choices)))
+        (cond
+          ,(loop for alternative in choice-points
+                 for i from 1 upto choices
+                 collect `((= ,i ,choice) 
+                           (progn ,alternative)))))))
+
