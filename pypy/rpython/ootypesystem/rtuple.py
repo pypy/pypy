@@ -40,14 +40,19 @@ class TupleRepr(AbstractTupleRepr):
         v_tup = hop.inputarg(self, 0)
         LIST = hop.r_result.lowleveltype
         c_list = inputconst(ootype.Void, LIST)
-        v_list = hop.gendirectcall(rlist.ll_newlist, c_list)
+        v_list = hop.genop('new', [c_list], resulttype=LIST)
+        c_resize = inputconst(ootype.Void, '_ll_resize')
+        c_setitem = inputconst(ootype.Void, 'll_setitem_fast')
+        c_length = inputconst(ootype.Signed, len(self.items_r))
+        hop.genop('oosend', [c_resize, v_list, c_length], resulttype=ootype.Void)
         for index in range(len(self.items_r)):
             name = self.fieldnames[index]
             r_item = self.items_r[index]
             c_name = hop.inputconst(ootype.Void, name)
             v_item = hop.genop("oogetfield", [v_tup, c_name], resulttype=r_item)
             v_item = hop.llops.convertvar(v_item, r_item, hop.r_result.item_repr)
-            hop.gendirectcall(rlist.ll_append, v_list, v_item)
+            c_index = inputconst(ootype.Signed, index)
+            hop.genop('oosend', [c_setitem, v_list, c_index, v_item], resulttype=ootype.Void)
         return v_list
 
 _tuple_types = {}
