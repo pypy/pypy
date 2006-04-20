@@ -62,12 +62,17 @@ def cfuncptrtype_specialize_call(hop):
     else:
         RESTYPE = lltype.Void
 
-    ll_func = getattr(cfuncptr, 'llinterp_friendly_version', None)
-    includes = getattr(cfuncptr, 'includes', ())
+    kwds = {}
+    if hasattr(cfuncptr, 'llinterp_friendly_version'):
+        kwds['_callable'] = cfuncptr.llinterp_friendly_version
+    if (cfuncptr._flags_ & ctypes._FUNCFLAG_PYTHONAPI) == 0:
+        kwds['includes'] = getattr(cfuncptr, 'includes', ())
+    #else:
+    #   no 'includes': hack to trigger in GenC a PyErr_Occurred() check
+
     v_result = hop.llops.gencapicall(fnname, unwrapped_args_v,
                                      resulttype = RESTYPE,
-                                     _callable = ll_func,
-                                     includes = includes)
+                                     **kwds)
     # XXX hack! hack! temporary! I promize!
     FUNCTYPE = lltype.FuncType(ARGTYPES, RESTYPE)
     last_op = hop.llops[-1]

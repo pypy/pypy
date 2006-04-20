@@ -12,9 +12,9 @@ from pypy import conftest
 from pypy.rpython.rstr import string_repr
 from pypy.rpython.lltypesystem import lltype
 
-from ctypes import cdll
+from ctypes import cdll, pythonapi, _FUNCFLAG_PYTHONAPI
 from ctypes import c_int, c_long, c_char_p, c_char, create_string_buffer
-from ctypes import POINTER
+from ctypes import POINTER, py_object
 
 # __________ the standard C library __________
 
@@ -163,3 +163,29 @@ class Test_compile:
         t2 = fn()
         t3 = time.time()
         assert int(t1) <= t2 <= int(t3 + 1.0)
+
+    def test_compile_pythonapi(self):
+        PyInt_AsLong = pythonapi.PyInt_AsLong
+        PyInt_AsLong.argtypes = [py_object]
+        PyInt_AsLong.restype = c_long
+        assert PyInt_AsLong._flags_ & _FUNCFLAG_PYTHONAPI
+
+        PyNumber_Add = pythonapi.PyNumber_Add
+        PyNumber_Add.argtypes = [py_object, py_object]
+        PyNumber_Add.restype = py_object
+
+        def fn1(x, crash):
+            pyobj = py_object(x)
+            pyobj = PyNumber_Add(pyobj, pyobj)
+            x = PyInt_AsLong(pyobj)
+            if crash:
+                # fn(sys.maxint, 1) should crash on PyInt_AsLong before
+                # it arrives here.  If by mistake it arrives here then
+                # we get a TypeError instead of the OverflowError
+                PyNumber_Add(py_object(5), py_object("x"))
+            return x
+
+        fn = compile(fn1, [int, int])
+        res = fn(17, 0)
+        assert res == 34
+        py.test.raises(OverflowError, 'fn(sys.maxint, 1)')

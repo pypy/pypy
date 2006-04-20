@@ -163,3 +163,9 @@ def test_py_object():
     assert x.value is TAG
     x.value = 42
     assert x.value == 42
+
+def test_pythonapi():
+    pythonapi.PyInt_AsLong.argtypes = [py_object]
+    pythonapi.PyInt_AsLong.restype = c_long
+    assert pythonapi.PyInt_AsLong(py_object(17L)) == 17
+    py.test.raises(TypeError, "pythonapi.PyInt_AsLong(py_object('hello'))")
