@@ -40,7 +40,7 @@ class BaseListRepr(AbstractBaseListRepr):
     def prepare_const(self, n):
         result = self.LIST.ll_newlist(n)
         return result
-        
+
 
     def send_message(self, hop, message, can_raise=False, v_args=None):
         if v_args is None:

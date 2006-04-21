@@ -7,7 +7,23 @@ from pypy.rpython.lltypesystem import rdict
 import py
 py.log.setconsumer("rtyper", py.log.STDOUT)
 
-def test_dict_creation(): 
+class BaseTestDictRtyping:
+    def interpret(self, fn, args):
+        return interpret(fn, args, type_system=self.ts)
+
+    def interpret_raises(self, exc, fn, args):
+        return interpret_raises(exc, fn, args, type_system=self.ts)
+
+
+    def test_dict_creation(self):
+        def createdict(i):
+            d = {i: i+1}
+            return d[i]
+        res = self.interpret(createdict, [42])
+        assert res == 43
+
+# XXX: most tests doesn't works because ootypesystem doesn't support strings, yet
+def test_dict_creation():
     def createdict(i): 
         d = {'hello' : i}
         return d['hello']
@@ -708,3 +724,11 @@ def test_access_in_try_set():
         return d[2]
     res = interpret(g, [3])
     assert res == 77
+
+
+
+class TestLltypeRtyping(BaseTestDictRtyping):
+    ts = "lltype"
+
+class TestOotypeRtyping(BaseTestDictRtyping):
+    ts = "ootype"

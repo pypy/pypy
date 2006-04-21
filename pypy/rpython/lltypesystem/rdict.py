@@ -58,23 +58,6 @@ class DictRepr(AbstractDictRepr):
         self.dict_cache = {}
         self._custom_eq_hash_repr = custom_eq_hash
         # setup() needs to be called to finish this initialization
-        
-    def pickrepr(self, item_repr):
-        if self.custom_eq_hash:
-            return item_repr, item_repr
-        else:
-            return rmodel.externalvsinternal(self.rtyper, item_repr)
-
-    def pickkeyrepr(self, key_repr):
-        external, internal = self.pickrepr(key_repr)
-        if external != internal:
-            internal = external
-            while not self.rtyper.needs_hash_support(internal.classdef):
-                internal = internal.rbase
-        return external, internal
-        
-    def compact_repr(self):
-        return 'DictR %s %s' % (self.key_repr.compact_repr(), self.value_repr.compact_repr())
 
     def _setup_repr(self):
         if 'key_repr' not in self.__dict__:
@@ -186,11 +169,6 @@ class DictRepr(AbstractDictRepr):
             self.DICT.become(lltype.GcStruct("dicttable", adtmeths=adtmeths,
                                              *fields))
 
-    def recast_value(self, llops, v):
-        return llops.convertvar(v, self.value_repr, self.external_value_repr)
-
-    def recast_key(self, llops, v):
-        return llops.convertvar(v, self.key_repr, self.external_key_repr)
 
     def convert_const(self, dictobj):
         # get object from bound dict methods

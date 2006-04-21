@@ -6,7 +6,7 @@ from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rpython import objectmodel
-from pypy.rpython.rmodel import Repr
+from pypy.rpython import rmodel
 
 
 class __extend__(annmodel.SomeDict):
@@ -36,8 +36,30 @@ class __extend__(annmodel.SomeDict):
 
 
 
-class AbstractDictRepr(Repr):
-    pass
+class AbstractDictRepr(rmodel.Repr):
+
+    def pickrepr(self, item_repr):
+        if self.custom_eq_hash:
+            return item_repr, item_repr
+        else:
+            return rmodel.externalvsinternal(self.rtyper, item_repr)
+
+    def pickkeyrepr(self, key_repr):
+        external, internal = self.pickrepr(key_repr)
+        if external != internal:
+            internal = external
+            while not self.rtyper.needs_hash_support(internal.classdef):
+                internal = internal.rbase
+        return external, internal
+        
+    def compact_repr(self):
+        return 'DictR %s %s' % (self.key_repr.compact_repr(), self.value_repr.compact_repr())
+
+    def recast_value(self, llops, v):
+        return llops.convertvar(v, self.value_repr, self.external_value_repr)
+
+    def recast_key(self, llops, v):
+        return llops.convertvar(v, self.key_repr, self.external_key_repr)
 
 
 def rtype_newdict(hop):
