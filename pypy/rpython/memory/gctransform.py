@@ -720,7 +720,6 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_roots = lltype.malloc(lltype.Array(llmemory.Address), 0,
                                             immortal=True)
         gcdata.static_root_start = gcdata.static_root_end = llmemory.cast_ptr_to_adr(gcdata.static_roots)
-        gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
         self.gcdata = gcdata
         self.type_info_list = []
         self.id_of_type = {}      # {LLTYPE: type_id}
@@ -750,6 +749,7 @@ class FrameworkGCTransformer(GCTransformer):
                     if self.stack_current.address[0] != NULL:
                         return self.stack_current
                 return NULL
+        gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
 
         def frameworkgc_setup():
             # run-time initialization code
@@ -1017,28 +1017,21 @@ class FrameworkGCTransformer(GCTransformer):
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
 
         # surely there's a better way of doing this?
-        s_gcdata = self.translator.annotator.bookkeeper.immutablevalue(self.gcdata)
-        r_gcdata = self.translator.rtyper.getrepr(s_gcdata)
         s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
         r_gc = self.translator.rtyper.getrepr(s_gc)
-        
-        newop0 = SpaceOperation(
-            "getfield",
-            [rmodel.inputconst(r_gcdata, self.gcdata), Constant("inst_gc", lltype.Void)],
-            varoftype(r_gc.lowleveltype))
+        const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
         if len(op.args) == 1:
-            args = [self.malloc_fixedsize_ptr, newop0.result, c_type_id,
+            args = [self.malloc_fixedsize_ptr, const_gc, c_type_id,
                     c_size]
         else:
             v_length = op.args[1]
             c_ofstolength = rmodel.inputconst(lltype.Signed, info['ofstolength'])
             c_varitemsize = rmodel.inputconst(lltype.Signed, info['varitemsize'])
-            args = [self.malloc_varsize_ptr, newop0.result, c_type_id,
+            args = [self.malloc_varsize_ptr, const_gc, c_type_id,
                     v_length, c_size, c_varitemsize, c_ofstolength] 
         newop = SpaceOperation("direct_call", args, v)
         ops, index = self.protect_roots(newop, livevars, block,
                                         block.operations.index(op))
-        ops.insert(0, newop0)
         ops.append(SpaceOperation("cast_adr_to_ptr", [v], op.result))
         return ops
 
