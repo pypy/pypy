@@ -20,6 +20,7 @@ SWITCH_STATE = lltype.GcStruct('state_switch',
                                ('c', llmemory.Address))
 
 def switch(c):
+    # this is untested so far!
     if not global_state.restartstate:
         u = UnwindException()
         s = lltype.malloc(SWITCH_STATE)
@@ -35,18 +36,24 @@ def switch(c):
         global_state.top = s.c
         return top.f_back
 
+
+
 def stack_frames_depth():
-    if not global_state.restartstate:
+    if not global_state.restart_substate:
         u = UnwindException()
         s = lltype.malloc(STATE_HEADER)
         s.restartstate = 1
-        s.function = llmemory.cast_ptr_to_adr(count_stack_depth)
-        s.retval_type = RETVAL_VOID
-        add_frame_state(u, s.header)
+        # the next three lines are pure rtyper-pleasing hacks
+        f = stack_frames_depth
+        if global_state.restart_substate:
+            f = None
+        s.function = llmemory.cast_ptr_to_adr(f)
+        s.retval_type = RETVAL_LONG
+        add_frame_state(u, s)
         raise u
     else:
         cur = global_state.top
-        global_state.restartstate = 0
+        global_state.restart_substate = 0
         depth = 0
         while cur:
             depth += 1

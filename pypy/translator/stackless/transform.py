@@ -8,6 +8,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code 
 from pypy.rpython.rclass import getinstancerepr
+from pypy.rpython.typesystem import getfunctionptr
 
 from pypy.translator.stackless.code import STATE_HEADER, null_state
 
@@ -99,9 +100,8 @@ class StacklessTransfomer(object):
         ADD_FRAME_STATE_TYPE = lltype.FuncType(
             [self.unwind_exception_type, lltype.Ptr(STATE_HEADER)],
             lltype.Void)
-        self.add_frame_state_ptr = model.Constant(lltype.functionptr(
-            ADD_FRAME_STATE_TYPE, "add_frame_state",
-            graph=add_frame_state_graph),
+        self.add_frame_state_ptr = model.Constant(
+            getfunctionptr(add_frame_state_graph),
             lltype.Ptr(ADD_FRAME_STATE_TYPE))
 
         RESUME_STATE_TYPE = lltype.FuncType([], lltype.Signed)
