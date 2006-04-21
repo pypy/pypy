@@ -178,3 +178,16 @@ def test_pythonapi():
     pythonapi.PyInt_AsLong.restype = c_long
     assert pythonapi.PyInt_AsLong(py_object(17L)) == 17
     py.test.raises(TypeError, "pythonapi.PyInt_AsLong(py_object('hello'))")
+
+def test_py_object_subclass():
+    # automatic unwrapping of the py_object result
+    pythonapi.PyInt_FromLong.argtypes = [c_long]
+    pythonapi.PyInt_FromLong.restype = py_object
+    assert isinstance(pythonapi.PyInt_FromLong(17), int)
+
+    # but not if we subclass it...
+    class W_Object(py_object):
+        pass
+    pythonapi.PyInt_FromLong.argtypes = [c_long]
+    pythonapi.PyInt_FromLong.restype = W_Object
+    assert isinstance(pythonapi.PyInt_FromLong(17), W_Object)

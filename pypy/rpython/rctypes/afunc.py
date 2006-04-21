@@ -21,6 +21,13 @@ class CallEntry(ExtRegistryEntry):
         result_ctype = self.instance.restype
         if result_ctype is None:
             return None
+        if result_ctype is ctypes.py_object:
+            raise Exception("ctypes functions cannot have restype=py_object; "
+                            "set their restype to a subclass of py_object "
+                            "and call apyobject.register_py_object_subclass")
+            #... because then in ctypes you don't get automatic unwrapping.
+            #    That would not be annotatable, for the same reason that
+            #    reading the .value attribute of py_object is not annotatable
         s_result = SomeCTypesObject(result_ctype, SomeCTypesObject.OWNSMEMORY)
         return s_result.return_annotation()
 

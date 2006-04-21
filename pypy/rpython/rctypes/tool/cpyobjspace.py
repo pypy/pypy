@@ -1,58 +1,65 @@
 import sys
 from ctypes import *
 
+class W_Object(py_object):
+    "A py_object subclass, representing wrapped objects for the CPyObjSpace."
+
+from pypy.rpython.rctypes import apyobject
+apyobject.register_py_object_subclass(W_Object)
+
+
 assert sys.version < (2, 5), "XXX fix Py_ssize_t for Python 2.5"
 Py_ssize_t = c_int
 
 PyObject_GetAttr = pythonapi.PyObject_GetAttr
-PyObject_GetAttr.argtypes = [py_object, py_object]
-PyObject_GetAttr.restype = py_object
+PyObject_GetAttr.argtypes = [W_Object, W_Object]
+PyObject_GetAttr.restype = W_Object
 
 PyImport_ImportModule = pythonapi.PyImport_ImportModule
 PyImport_ImportModule.argtypes = [c_char_p]
-PyImport_ImportModule.restype = py_object
+PyImport_ImportModule.restype = W_Object
 
 PyInt_FromLong = pythonapi.PyInt_FromLong
 PyInt_FromLong.argtypes = [c_long]
-PyInt_FromLong.restype = py_object
+PyInt_FromLong.restype = W_Object
 
 PyString_FromStringAndSize = pythonapi.PyString_FromStringAndSize
 PyString_FromStringAndSize.argtypes = [c_char_p, Py_ssize_t]
-PyString_FromStringAndSize.restype = py_object
+PyString_FromStringAndSize.restype = W_Object
 
 PyString_InternInPlace = pythonapi.PyString_InternInPlace
-PyString_InternInPlace.argtypes = [POINTER(py_object)]
+PyString_InternInPlace.argtypes = [POINTER(W_Object)]
 PyString_InternInPlace.restype = None
 
 PyObject_SetItem = pythonapi.PyObject_SetItem
-PyObject_SetItem.argtypes = [py_object, py_object, py_object]
+PyObject_SetItem.argtypes = [W_Object, W_Object, W_Object]
 PyObject_SetItem.restype = c_int
 
 PyObject_Call = pythonapi.PyObject_Call
-PyObject_Call.argtypes = [py_object, py_object, py_object]
-PyObject_Call.restype = py_object
+PyObject_Call.argtypes = [W_Object, W_Object, W_Object]
+PyObject_Call.restype = W_Object
 
 PyTuple_New = pythonapi.PyTuple_New
 PyTuple_New.argtypes = [Py_ssize_t]
-PyTuple_New.restype = py_object
+PyTuple_New.restype = W_Object
 
 PyDict_New = pythonapi.PyDict_New
 PyDict_New.argtypes = []
-PyDict_New.restype = py_object
+PyDict_New.restype = W_Object
 
 PyDict_SetItem = pythonapi.PyDict_SetItem
-PyDict_SetItem.argtypes = [py_object, py_object, py_object]
+PyDict_SetItem.argtypes = [W_Object, W_Object, W_Object]
 PyDict_SetItem.restype = c_int
 
 
 class CPyObjSpace:
-    W_Object = py_object
+    W_Object = W_Object
 
     def __init__(self):
-        self.w_int = py_object(int)
-        self.w_None = py_object(None)
-        self.w_False = py_object(False)
-        self.w_True = py_object(True)
+        self.w_int   = W_Object(int)
+        self.w_None  = W_Object(None)
+        self.w_False = W_Object(False)
+        self.w_True  = W_Object(True)
 
     def getbuiltinmodule(self, name):
         return PyImport_ImportModule(name)

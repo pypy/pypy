@@ -26,3 +26,9 @@ class ObjEntry(CTypesObjEntry):
         from pypy.rpython.rctypes.rpyobject import CTypesPyObjRepr
         lowleveltype = lltype.Ptr(lltype.PyObject)
         return CTypesPyObjRepr(rtyper, s_pyobject, lowleveltype)
+
+
+def register_py_object_subclass(subcls):
+    assert issubclass(subcls, py_object)
+    CallEntry._register_value(subcls)
+    ObjEntry._register_type(subcls)

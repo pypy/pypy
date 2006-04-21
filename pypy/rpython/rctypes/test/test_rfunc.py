@@ -183,24 +183,28 @@ class Test_compile:
         assert int(t1) <= t2 <= int(t3 + 1.0)
 
     def test_compile_pythonapi(self):
+        from pypy.rpython.rctypes import apyobject
+        class W_Object(py_object):
+            pass
+        apyobject.register_py_object_subclass(W_Object)
         PyInt_AsLong = pythonapi.PyInt_AsLong
-        PyInt_AsLong.argtypes = [py_object]
+        PyInt_AsLong.argtypes = [W_Object]
         PyInt_AsLong.restype = c_long
         assert PyInt_AsLong._flags_ & _FUNCFLAG_PYTHONAPI
 
         PyNumber_Add = pythonapi.PyNumber_Add
-        PyNumber_Add.argtypes = [py_object, py_object]
-        PyNumber_Add.restype = py_object
+        PyNumber_Add.argtypes = [W_Object, W_Object]
+        PyNumber_Add.restype = W_Object
 
         def fn1(x, crash):
-            pyobj = py_object(x)
+            pyobj = W_Object(x)
             pyobj = PyNumber_Add(pyobj, pyobj)
             x = PyInt_AsLong(pyobj)
             if crash:
                 # fn(sys.maxint, 1) should crash on PyInt_AsLong before
                 # it arrives here.  If by mistake it arrives here then
                 # we get a TypeError instead of the OverflowError
-                PyNumber_Add(py_object(5), py_object("x"))
+                PyNumber_Add(W_Object(5), W_Object("x"))
             return x
 
         fn = compile(fn1, [int, int])
