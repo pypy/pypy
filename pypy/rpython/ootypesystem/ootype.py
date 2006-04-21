@@ -297,8 +297,8 @@ class Dict(BuiltinType):
     # equal.
 
     def __str__(self):
-        return '%s(%s)' % (self.__class__.__name__,
-                saferecursive(str, "...")(self._KEYTYPE, self._VALUETYPE))
+        return '%s%s' % (self.__class__.__name__,
+                saferecursive(str, "(...)")((self._KEYTYPE, self._VALUETYPE)))
 
     def _get_interp_class(self):
         return _dict
@@ -306,7 +306,7 @@ class Dict(BuiltinType):
 
 class ForwardReference(OOType):
     def become(self, real_instance):
-        if not isinstance(real_instance, (Instance, List)):
+        if not isinstance(real_instance, (Instance, BuiltinType)):
             raise TypeError("ForwardReference can only be to an instance, "
                             "not %r" % (real_instance,))
         self.__class__ = real_instance.__class__
@@ -558,7 +558,7 @@ class _meth(_callable):
         _callable.__init__(self, METHOD, **attrs)
 
     def _bound(self, DEFINST, inst):
-        assert isinstance(inst, _instance) or isinstance(inst, _list)
+        assert isinstance(inst, _instance) or isinstance(inst, _builtin_type)
         return _bound_meth(DEFINST, inst, self)
 
 class _bound_meth(object):
@@ -634,7 +634,7 @@ class _null_list(_null_mixin(_list), _list):
     def __init__(self, LIST):
         self.__dict__["_TYPE"] = LIST 
 
-class _dict(object):
+class _dict(_builtin_type):
     def __init__(self, DICT):
         self._TYPE = DICT
         self._dict = {}
