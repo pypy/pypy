@@ -87,6 +87,18 @@ class ArrayRepr(CTypesRefRepr):
 ##        v_c_array = self.get_c_data(llops, v_array)
 ##        llops.genop('setarrayitem', [v_c_array, v_index, v_newvalue])
 
+    def setitem(self, llops, v_array, v_index, v_item):
+        v_newvalue = self.r_item.get_c_data_or_value(llops, v_item)
+        # copy the new value (which might be a whole structure)
+        v_c_array = self.get_c_data(llops, v_array)
+        genreccopy_arrayitem(llops, v_newvalue, v_c_array, v_index)
+        # copy the keepalive information too
+        v_keepalive_array = self.getkeepalive(llops, v_array)
+        if v_keepalive_array is not None:
+            v_newkeepalive = self.r_item.getkeepalive(llops, v_item)
+            genreccopy_arrayitem(llops, v_newkeepalive,
+                                 v_keepalive_array, v_index)
+
 
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_getitem((r_array, r_int), hop):
@@ -106,16 +118,7 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_setitem((r_array, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_array, lltype.Signed,
                                                  r_array.r_item)
-        v_newvalue = r_array.r_item.get_c_data_or_value(hop.llops, v_item)
-        # copy the new value (which might be a whole structure)
-        v_c_array = r_array.get_c_data(hop.llops, v_array)
-        genreccopy_arrayitem(hop.llops, v_newvalue, v_c_array, v_index)
-        # copy the keepalive information too
-        v_keepalive_array = r_array.getkeepalive(hop.llops, v_array)
-        if v_keepalive_array is not None:
-            v_newkeepalive = r_array.r_item.getkeepalive(hop.llops, v_item)
-            genreccopy_arrayitem(hop.llops, v_newkeepalive,
-                                 v_keepalive_array, v_index)
+        r_array.setitem(hop.llops, v_array, v_index, v_item)
 
 
 class __extend__(pairtype(ArrayRepr, PointerRepr)):

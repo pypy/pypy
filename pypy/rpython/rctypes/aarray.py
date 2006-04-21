@@ -6,8 +6,18 @@ from pypy.rpython.lltypesystem import lltype
 ArrayType = type(ARRAY(c_int, 10))
 
 def arraytype_specialize_call(hop):
+    from pypy.rpython.error import TyperError
+    from pypy.rpython.rmodel import inputconst
     r_array = hop.r_result
-    return r_array.allocate_instance(hop.llops)
+    v_result = r_array.allocate_instance(hop.llops)
+    if hop.nb_args > r_array.length:
+        raise TyperError("too many arguments for an array of length %d" % (
+            r_array.length,))
+    for i in range(hop.nb_args):
+        v_item = hop.inputarg(r_array.r_item, arg=i)
+        c_index = inputconst(lltype.Signed, i)
+        r_array.setitem(hop.llops, v_result, c_index, v_item)
+    return v_result
 
 def arraytype_compute_annotation(metatype, type):
     def compute_result_annotation(*arg_s):

@@ -257,6 +257,17 @@ class Test_specialization:
         func()
         interpret(func, [])
 
+    def test_specialize_constructor_args(self):
+        A = c_int * 5
+        def func(x, y):
+            return A(x, y)
+        res = interpret(func, [123, 456])
+        assert res.c_data[0] == 123
+        assert res.c_data[1] == 456
+        assert res.c_data[2] == 0
+        assert res.c_data[3] == 0
+        assert res.c_data[4] == 0
+
 class Test_compilation:
     def test_compile_array_access(self):
         def access_array():

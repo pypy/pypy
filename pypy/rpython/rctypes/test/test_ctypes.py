@@ -139,6 +139,9 @@ def test_array():
     s.p.contents.value = 42
     assert a[0] == 42
 
+    a = (c_int * 5)(5, 6, 7)
+    assert list(a) == [5, 6, 7, 0, 0]
+
 def test_truth_value():
     p = POINTER(c_int)()
     assert not p
