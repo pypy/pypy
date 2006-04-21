@@ -84,6 +84,12 @@ def test_struct():
     s.p.contents.value = 124
     assert y.value == 124
 
+    s = tagpoint(x=12)
+    assert s.x == 12
+    s = tagpoint(17, p=pointer(z))
+    assert s.x == 17
+    assert s.p.contents.value == -33
+
 def test_void_p():
     x = c_int(12)
     p1 = cast(pointer(x), c_void_p)

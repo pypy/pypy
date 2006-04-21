@@ -105,13 +105,17 @@ class StructRepr(CTypesRefRepr):
         name = s_attr.const
         r_field = self.r_fields[name]
         v_struct, v_attr, v_item = hop.inputargs(self, lltype.Void, r_field)
-        v_newvalue = r_field.get_c_data_or_value(hop.llops, v_item)
+        self.setfield(hop.llops, v_struct, name, v_item)
+
+    def setfield(self, llops, v_struct, name, v_item):
+        r_field = self.r_fields[name]
+        v_newvalue = r_field.get_c_data_or_value(llops, v_item)
         # copy the new value (which might be a whole substructure)
-        v_c_struct = self.get_c_data(hop.llops, v_struct)
-        genreccopy_structfield(hop.llops, v_newvalue, v_c_struct, name)
+        v_c_struct = self.get_c_data(llops, v_struct)
+        genreccopy_structfield(llops, v_newvalue, v_c_struct, name)
         # copy the keepalive information too
-        v_newkeepalive = r_field.getkeepalive(hop.llops, v_item)
+        v_newkeepalive = r_field.getkeepalive(llops, v_item)
         if v_newkeepalive is not None:
-            v_keepalive_struct = self.getkeepalive(hop.llops, v_struct)
-            genreccopy_structfield(hop.llops, v_newkeepalive,
+            v_keepalive_struct = self.getkeepalive(llops, v_struct)
+            genreccopy_structfield(llops, v_newkeepalive,
                                    v_keepalive_struct, name)

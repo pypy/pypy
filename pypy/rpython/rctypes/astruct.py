@@ -6,15 +6,41 @@ from pypy.rpython.lltypesystem import lltype
 StructType = type(Structure)
 
 
-def structtype_specialize_call(hop):
+def structtype_specialize_call(hop, **kwds_i):
+    from pypy.rpython.error import TyperError
     r_struct = hop.r_result
-    return hop.genop("malloc", [
-        hop.inputconst(lltype.Void, r_struct.lowleveltype.TO), 
-        ], resulttype=r_struct.lowleveltype,
-    )
+    v_result = r_struct.allocate_instance(hop.llops)
+    index_by_name = {}
+    name_by_index = {}
+    # collect the keyword arguments
+    for key, index in kwds_i.items():
+        assert key.startswith('i_')
+        name = key[2:]
+        assert index not in name_by_index
+        index_by_name[name] = index
+        name_by_index[index] = name
+    # add the positional arguments
+    fieldsiter = iter(r_struct.c_data_type._names)
+    for i in range(hop.nb_args):
+        if i not in name_by_index:
+            try:
+                name = fieldsiter.next()
+            except StopIteration:
+                raise TyperError("too many arguments in struct construction")
+            if name in index_by_name:
+                raise TyperError("multiple values for field %r" % (name,))
+            index_by_name[name] = i
+            name_by_index[i] = name
+    # initialize the fields from the arguments, as far as they are present
+    for name in r_struct.c_data_type._names:
+        if name in index_by_name:
+            index = index_by_name[name]
+            v_valuebox = hop.inputarg(r_struct.r_fields[name], arg=index)
+            r_struct.setfield(hop.llops, v_result, name, v_valuebox)
+    return v_result
 
 def structtype_compute_annotation(metatype, type):
-    def compute_result_annotation(*arg_s):
+    def compute_result_annotation(*arg_s, **kwds_s):
         return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
     return SomeBuiltin(compute_result_annotation, methodname=type.__name__)
 

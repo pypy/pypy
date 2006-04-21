@@ -7,10 +7,7 @@ ArrayType = type(ARRAY(c_int, 10))
 
 def arraytype_specialize_call(hop):
     r_array = hop.r_result
-    return hop.genop("malloc", [
-        hop.inputconst(lltype.Void, r_array.lowleveltype.TO), 
-        ], resulttype=r_array.lowleveltype,
-    )
+    return r_array.allocate_instance(hop.llops)
 
 def arraytype_compute_annotation(metatype, type):
     def compute_result_annotation(*arg_s):

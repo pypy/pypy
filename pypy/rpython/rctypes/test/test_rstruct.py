@@ -4,6 +4,7 @@ Test the Structure implementation.
 
 import py.test
 import pypy.rpython.rctypes.implementation
+from pypy.rpython.error import TyperError
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
@@ -12,6 +13,7 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 
 from ctypes import c_int, c_short, Structure, POINTER, pointer, c_char_p
+from ctypes import c_char
 
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
@@ -166,6 +168,39 @@ class Test_specialization:
 
         res = interpret(func, [])
         assert res == 289
+
+    def test_specialize_constructor_args(self):
+        class S(Structure):
+            _fields_ = [('x', c_int),
+                        ('y', c_char)]
+        def func(x, y):
+            s0 = S(x)
+            s1 = S(x, y)
+            s2 = S(y=y)
+            s3 = S(x, y=y)
+            return (s0, s1, s2, s3)
+
+        res = interpret(func, [4, '?'])
+        assert res.item0.c_data.x == 4
+        assert res.item0.c_data.y == '\x00'
+        assert res.item1.c_data.x == 4
+        assert res.item1.c_data.y == '?'
+        assert res.item2.c_data.x == 0
+        assert res.item2.c_data.y == '?'
+        assert res.item3.c_data.x == 4
+        assert res.item3.c_data.y == '?'
+
+    def test_specialize_bad_constructor_args(self):
+        class S(Structure):
+            _fields_ = [('x', c_int),
+                        ('y', c_char)]
+        def f1(x, y):
+            S(x, y, 7)
+        py.test.raises(TyperError, "interpret(f1, [4, '?'])")
+
+        def f2(x):
+            S(x, x=5)
+        py.test.raises(TyperError, "interpret(f2, [4])")
 
 class Test_compilation:
     def test_compile_struct_access(self):
