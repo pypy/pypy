@@ -135,7 +135,7 @@ def checkadr(addr):
     return lltype.typeOf(addr) == llmemory.Address
     
 def checkinst(inst):
-    return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.List))
+    return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType))
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
@@ -889,7 +889,7 @@ class LLFrame(object):
     #Operation of ootype
 
     def op_new(self, INST):
-        assert isinstance(INST, (ootype.Instance, ootype.List))
+        assert isinstance(INST, (ootype.Instance, ootype.BuiltinType))
         return ootype.new(INST)
 
     def op_runtimenew(self, class_):
