@@ -66,9 +66,6 @@ def test_int_ops():
         x += i >= i
         x += i > i
         x += x % i
-        x += x ** 0
-        x += x ** 1
-        x += x ** 2
         x += i + 1 * i // i - 1
         return int(x+0.0001)
     f = compile_function(ops, [int])
@@ -85,9 +82,6 @@ def test_uint_ops():
         x += i >= i
         x += i > i
         x += x % i
-        x += x ** 0
-        x += x ** 1
-        x += x ** 2
         x += i + 1 * i // i - 1
         return int(x+0.0001)
     f = compile_function(ops, [r_uint])
@@ -103,9 +97,6 @@ def test_float_ops():
         x += flt != flt
         x += flt >= flt
         x += flt > flt
-        x += x ** 0
-        x += x ** 1
-        x += x ** 2
         x += int(flt + 1 * flt / flt - 1)
         return x 
     f = compile_function(ops, [float])
