@@ -2,7 +2,6 @@ from ctypes import py_object
 from pypy.annotation.model import SomeCTypesObject
 from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.robject import pyobj_repr
 
 
 # __________ py_object() calls __________
@@ -11,6 +10,7 @@ def py_object_compute_result_annotation(s_obj=None):
     return SomeCTypesObject(py_object, SomeCTypesObject.OWNSMEMORY)
 
 def py_object_specialize_call(hop):
+    from pypy.rpython.robject import pyobj_repr
     r_pyobject = hop.r_result
     v_result = r_pyobject.allocate_instance(hop.llops)
     if len(hop.args_s):
