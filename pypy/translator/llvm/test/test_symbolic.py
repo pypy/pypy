@@ -22,21 +22,6 @@ def test_offsetof():
     res = fn()
     assert res == 12
 
-def test_offsetof():
-    STRUCT = lltype.GcStruct("s", ("x", lltype.Signed), ("y", lltype.Signed))
-    offsetx = llmemory.offsetof(STRUCT, 'x')
-    offsety = llmemory.offsetof(STRUCT, 'y')
-    def f():
-        s = lltype.malloc(STRUCT)
-        s.x = 1
-        adr = llmemory.cast_ptr_to_adr(s)
-        result = (adr + offsetx).signed[0]
-        (adr + offsety).signed[0] = 2
-        return result * 10 + s.y
-    fn = compile_function(f, [])
-    res = fn()
-    assert res == 12
-
 def test_sizeof_array_with_no_length():
     py.test.skip("inprogress")
     A = lltype.GcArray(lltype.Signed, hints={'nolength': True})
