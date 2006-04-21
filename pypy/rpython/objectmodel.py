@@ -25,7 +25,6 @@ class ComputedIntSymbolic(Symbolic):
         return lltype.Signed
 
 import new
-import weakref
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."
