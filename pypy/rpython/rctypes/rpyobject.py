@@ -28,3 +28,15 @@ class __extend__(pairtype(CTypesPyObjRepr, PyObjRepr)):
     # from a function exposed in a C extension module
     def convert_from_to((r_from, r_to), v, llops):
         return r_from.getvalue(llops, v)
+
+class __extend__(pairtype(PyObjRepr, CTypesPyObjRepr)):
+    # conversion used by wrapper.py in genc when passing a py_object
+    # argument into a function exposed in a C extension module
+    def convert_from_to((r_from, r_to), v, llops):
+        # allocate a memory-owning box to hold a copy of the 'PyObject*'
+        r_temp = r_to.r_memoryowner
+        v_owned_box = r_temp.allocate_instance(llops)
+        r_temp.setvalue(llops, v_owned_box, v)
+        # return this box possibly converted to the expected output repr,
+        # which might be a memory-aliasing box
+        return llops.convertvar(v_owned_box, r_temp, r_to)

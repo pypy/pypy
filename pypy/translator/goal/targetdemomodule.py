@@ -62,13 +62,13 @@ class CPyObjSpace:
 
 space = CPyObjSpace()
 
-def entry_point(n):
-    return demo.measuretime(space, n, space.w_int)
+def entry_point(n, w_callable):
+    return demo.measuretime(space, n, w_callable)
 
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, [int], PyPyAnnotatorPolicy()
+    return entry_point, [int, py_object], PyPyAnnotatorPolicy()
 
 
 if __name__ == '__main__':
@@ -78,4 +78,4 @@ if __name__ == '__main__':
     else:
         N = int(sys.argv[1])
     print 'Timing for %d iterations...' % N
-    print entry_point(N), 'seconds'
+    print entry_point(N, int), 'seconds'
