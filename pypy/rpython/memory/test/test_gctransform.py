@@ -293,7 +293,7 @@ def test_bare_setfield():
     for gc in rgc, bgc:
         t, transformer = rtype_and_transform(f, [object], gc, check=False)
         ops = getops(graphof(t, f))
-        assert len(ops.get('getfield', [])) == 1
+        assert len(ops.get('getfield', [])) == 2
 
 def DONOTtest_protect_unprotect_no_exception_block():
     def p():    protect('this is an object')
@@ -396,7 +396,7 @@ def test_simple_barrier():
     t, transformer = rtype_and_transform(f, [], gctransform.RefcountingGCTransformer, check=False)
     graph = graphof(t, f)
     ops = getops(graph)
-    assert len(ops['getfield']) == 2
+    assert len(ops['getfield']) == 5
     assert len(ops['setfield']) == 4
 
 def test_arraybarrier():
