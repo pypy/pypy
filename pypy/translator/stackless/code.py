@@ -15,6 +15,44 @@ def decode_state(currentframe):
             currentframe.retval_type,
             currentframe.restartstate)
 
+SWITCH_STATE = lltype.GcStruct('state_switch',
+                               ('header', STATE_HEADER),
+                               ('c', llmemory.Address))
+
+def switch(c):
+    if not global_state.restartstate:
+        u = UnwindException()
+        s = lltype.malloc(SWITCH_STATE)
+        s.c = llmemory.cast_ptr_to_adr(c)
+        s.header.restartstate = 1
+        s.header.function = llmemory.cast_ptr_to_adr(switch)
+        s.header.retval_type = RETVAL_VOID_P
+        add_frame_state(u, s.header)
+        raise u
+    else:
+        top = global_state.top
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
+        global_state.top = s.c
+        return top.f_back
+
+def stack_frames_depth():
+    if not global_state.restartstate:
+        u = UnwindException()
+        s = lltype.malloc(STATE_HEADER)
+        s.restartstate = 1
+        s.function = llmemory.cast_ptr_to_adr(count_stack_depth)
+        s.retval_type = RETVAL_VOID
+        add_frame_state(u, s.header)
+        raise u
+    else:
+        cur = global_state.top
+        global_state.restartstate = 0
+        depth = 0
+        while cur:
+            depth += 1
+            cur = cur.f_back
+        return depth
+
 class StacklessData:
     def __init__(self):
         self.top = null_state
