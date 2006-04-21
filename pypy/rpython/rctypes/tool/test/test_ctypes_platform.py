@@ -1,5 +1,5 @@
 import py, sys, struct
-from pypy.rpython.rctypes import ctypes_platform
+from pypy.rpython.rctypes.tool import ctypes_platform
 import ctypes
 
 

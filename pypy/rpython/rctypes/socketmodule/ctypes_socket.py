@@ -1,5 +1,5 @@
 import os
-from pypy.rpython.rctypes import ctypes_platform
+from pypy.rpython.rctypes.tool import ctypes_platform
 from ctypes import *
 
 includes = ('sys/types.h',
