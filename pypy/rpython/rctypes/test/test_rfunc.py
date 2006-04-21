@@ -111,6 +111,24 @@ class Test_annotation:
         if conftest.option.view:
             a.translator.view()
 
+    def test_annotate_reflow_bug(self):
+        class Space:
+            meth = staticmethod(labs)
+            def _freeze_(self):
+                return True
+        def g(x):
+            return x
+        def fn(space):
+            space.meth(g(0))
+            g(-1)
+        space = Space()
+        def ep():
+            return fn(space)
+        a = RPythonAnnotator()
+        a.build_types(ep, [])
+        if conftest.option.view:
+            a.translator.view()
+
 class Test_specialization:
     def test_specialize_labs(self):
         res = interpret(test_labs, [-11])

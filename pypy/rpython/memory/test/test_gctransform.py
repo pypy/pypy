@@ -6,7 +6,7 @@ from pypy.translator.c.exceptiontransform import ExceptionTransformer
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
 from pypy.annotation import model as annmodel
-from pypy.rpython import extregistry
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy import conftest
 
 import py
@@ -248,12 +248,18 @@ def DONOTtest_noconcretetype():
 
 def protect(obj): RaiseNameError
 def unprotect(obj): RaiseNameError
-def rtype_protect(hop): hop.genop('gc_protect', [hop.inputargs(hop.args_r[0])[0]])
-def rtype_unprotect(hop): hop.genop('gc_unprotect', [hop.inputargs(hop.args_r[0])[0]])
-extregistry.register_value(protect,
-    compute_result_annotation=lambda *args: None, specialize_call=rtype_protect)
-extregistry.register_value(unprotect,
-    compute_result_annotation=lambda *args: None, specialize_call=rtype_unprotect)
+
+class Entry(ExtRegistryEntry):
+    _about_ = protect
+    s_result_annotation = None
+    def specialize_call(self, hop):
+        hop.genop('gc_protect', hop.inputargs(hop.args_r[0]))
+
+class Entry(ExtRegistryEntry):
+    _about_ = unprotect
+    s_result_annotation = None
+    def specialize_call(self, hop):
+        hop.genop('gc_unprotect', hop.inputargs(hop.args_r[0]))
 
 def test_protect_unprotect():
     def p():    protect('this is an object')
@@ -270,14 +276,15 @@ def test_protect_unprotect():
         assert len(ops.get('direct_call', [])) == ex
 
 def generic_op(*args): RaiseNameError
-def rtype_generic_op(hop):
-    args = hop.inputargs(*hop.args_r)
-    args.pop(0)
-    op = hop.args_s[0].const
-    hop.genop(op, args)
-              
-extregistry.register_value(generic_op,
-    compute_result_annotation=lambda *args: None, specialize_call=rtype_generic_op)
+
+class Entry(ExtRegistryEntry):
+    _about_ = generic_op
+    s_result_annotation = None
+    def specialize_call(self, hop):
+        args = hop.inputargs(*hop.args_r)
+        args.pop(0)
+        op = hop.args_s[0].const
+        hop.genop(op, args)
 
 def test_bare_setfield():
     class A:

@@ -2,7 +2,7 @@
 The table of all LL operations.
 """
 
-from pypy.rpython import extregistry
+from pypy.rpython.extregistry import ExtRegistryEntry
 
 
 class LLOp(object):
@@ -28,27 +28,12 @@ class LLOp(object):
         # The operation manipulates PyObjects
         self.pyobj = pyobj
 
-        # XXX refactor extregistry to allow a single registration
-        extregistry.register_value(self,
-                compute_result_annotation = self.compute_result_annotation,
-                specialize_call           = self.specialize)
-
     # __________ make the LLOp instances callable from LL helpers __________
 
     __name__ = property(lambda self: 'llop_'+self.opname)
 
     def __call__(self, RESULTTYPE, *args):
         raise TypeError, "llop is meant to be rtyped and not called direclty"
-
-    def compute_result_annotation(self, RESULTTYPE, *args):
-        from pypy.annotation.model import lltype_to_annotation
-        assert RESULTTYPE.is_constant()
-        return lltype_to_annotation(RESULTTYPE.const)
-
-    def specialize(self, hop):
-        args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
-        hop.exception_is_here()
-        return hop.genop(self.opname, args_v, resulttype=hop.r_result.lowleveltype)
 
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
@@ -65,6 +50,22 @@ def enum_foldable_ops(raising_is_ok=False):
         if opdesc.canfold:
             if not opdesc.canraise or raising_is_ok:
                 yield opname
+
+
+class Entry(ExtRegistryEntry):
+    "Annotation and rtyping of LLOp instances, which are callable."
+    _type_ = LLOp
+
+    def compute_result_annotation(self, RESULTTYPE, *args):
+        from pypy.annotation.model import lltype_to_annotation
+        assert RESULTTYPE.is_constant()
+        return lltype_to_annotation(RESULTTYPE.const)
+
+    def specialize_call(self, hop):
+        op = self.instance    # the LLOp object that was called
+        args_v = [hop.inputarg(r, i+1) for i, r in enumerate(hop.args_r[1:])]
+        hop.exception_is_here()
+        return hop.genop(op.opname, args_v, resulttype=hop.r_result.lowleveltype)
 
 # ____________________________________________________________
 #

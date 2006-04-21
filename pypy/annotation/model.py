@@ -29,7 +29,7 @@ generic element in some specific subset of the set of all objects.
 
 
 from types import BuiltinFunctionType, MethodType, FunctionType
-import pypy
+import pypy.tool.instancemethod
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -388,6 +388,11 @@ class SomeBuiltin(SomeObject):
     immutable = True
 
     def __init__(self, analyser, s_self=None, methodname=None):
+        if isinstance(analyser, MethodType):
+            analyser = pypy.tool.instancemethod.InstanceMethod(
+                analyser.im_func,
+                analyser.im_self,
+                analyser.im_class)
         self.analyser = analyser
         self.s_self = s_self
         self.methodname = methodname

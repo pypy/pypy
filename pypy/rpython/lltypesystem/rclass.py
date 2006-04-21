@@ -18,7 +18,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Array, Char, Void, attachRuntimeTypeInfo, \
      FuncType, Bool, Signed, functionptr, FuncType, PyObject
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython import extregistry
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 
 #
@@ -602,18 +602,21 @@ def call_destructor(thing, repr):
 def ll_call_destructor(thang, repr):
     return 42 # will be mapped
 
-def rtype_destruct_object(hop):
-    v_inst, c_spec = hop.inputargs(*hop.args_r)
-    repr = c_spec.value
-    if repr.has_wrapper:
-        null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
-        # XXX this is a hack! We need an operation to remove a broken PyObject
-        repr.setfield(v_inst, '_wrapper_', null, hop.llops, opname='bare_setfield')
-    hop.genop('gc_unprotect', [v_inst])
+class Entry(ExtRegistryEntry):
+    _about_ = ll_call_destructor
+    s_result_annotation = None
 
-extregistry.register_value(ll_call_destructor, 
-    compute_result_annotation=lambda *args: None,
-    specialize_call=rtype_destruct_object)
+    def specialize_call(self, hop):
+        v_inst, c_spec = hop.inputargs(*hop.args_r)
+        repr = c_spec.value
+        if repr.has_wrapper:
+            null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
+            # XXX this is a hack! We need an operation to remove a broken
+            # PyObject
+            repr.setfield(v_inst, '_wrapper_', null, hop.llops,
+                          opname='bare_setfield')
+        hop.genop('gc_unprotect', [v_inst])
+
 
 def create_pywrapper(thing, repr):
     return ll_create_pywrapper(thing, repr)
@@ -635,24 +638,26 @@ def outof_cobject(v_obj, repr, llops):
     llops.genop('gc_protect', [v_inst])
     return v_inst
 
-def rtype_wrap_object_create(hop):
-    v_inst, c_spec = hop.inputargs(*hop.args_r)
-    repr = c_spec.value
-    v_res = into_cobject(v_inst, repr, hop.llops)
-    v_cobj = v_res
-    c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
-    c_0 = hop.inputconst(Signed, 0)
-    v_res = hop.llops.gencapicall('PyType_GenericAlloc', [c_cls, c_0], resulttype=pyobj_repr)
-    c_self = hop.inputconst(pyobj_repr, '__self__')
-    hop.genop('setattr', [v_res, c_self, v_cobj], resulttype=pyobj_repr)
-    if repr.has_wrapper:
-        repr.setfield(v_inst, '_wrapper_', v_res, hop.llops)
-        hop.genop('gc_unprotect', [v_res]) # yes a weak ref
-    return v_res
+class Entry(ExtRegistryEntry):
+    _about_ = ll_create_pywrapper
+    s_result_annotation = annmodel.SomePtr(Ptr(PyObject))
 
-extregistry.register_value(ll_create_pywrapper, 
-    compute_result_annotation=annmodel.SomePtr(Ptr(PyObject)), 
-    specialize_call=rtype_wrap_object_create)
+    def specialize_call(self, hop):
+        v_inst, c_spec = hop.inputargs(*hop.args_r)
+        repr = c_spec.value
+        v_res = into_cobject(v_inst, repr, hop.llops)
+        v_cobj = v_res
+        c_cls = hop.inputconst(pyobj_repr, repr.classdef.classdesc.pyobj)
+        c_0 = hop.inputconst(Signed, 0)
+        v_res = hop.llops.gencapicall('PyType_GenericAlloc', [c_cls, c_0],
+                                      resulttype=pyobj_repr)
+        c_self = hop.inputconst(pyobj_repr, '__self__')
+        hop.genop('setattr', [v_res, c_self, v_cobj], resulttype=pyobj_repr)
+        if repr.has_wrapper:
+            repr.setfield(v_inst, '_wrapper_', v_res, hop.llops)
+            hop.genop('gc_unprotect', [v_res]) # yes a weak ref
+        return v_res
+
 
 def fetch_pywrapper(thing, repr):
     return ll_fetch_pywrapper(thing, repr)
@@ -660,19 +665,20 @@ def fetch_pywrapper(thing, repr):
 def ll_fetch_pywrapper(thing, repr):
     return 42
 
-def rtype_wrap_object_fetch(hop):
-    v_inst, c_spec = hop.inputargs(*hop.args_r)
-    repr = c_spec.value
-    if repr.has_wrapper:
-        return repr.getfield(v_inst, '_wrapper_', hop.llops)
-    else:
-        null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
-        return null
+class Entry(ExtRegistryEntry):
+    _about_ = ll_fetch_pywrapper
+    s_result_annotation = annmodel.SomePtr(Ptr(PyObject))
 
-extregistry.register_value(ll_fetch_pywrapper, 
-    compute_result_annotation=annmodel.SomePtr(Ptr(PyObject)), 
-    specialize_call=rtype_wrap_object_fetch)
-    
+    def specialize_call(self, hop):
+        v_inst, c_spec = hop.inputargs(*hop.args_r)
+        repr = c_spec.value
+        if repr.has_wrapper:
+            return repr.getfield(v_inst, '_wrapper_', hop.llops)
+        else:
+            null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
+            return null
+
+
 def ll_wrap_object(obj, repr):
     ret = fetch_pywrapper(obj, repr)
     if not ret:

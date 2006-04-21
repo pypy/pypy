@@ -3,25 +3,69 @@ import UserDict
 from pypy.tool.uid import Hashable
 
 
-class ExtRegistryFunc(object):
-    def __init__(self, compute_result_annotation, specialize_call):
-        self.compute_result_annotation = compute_result_annotation
-        self.specialize_call = specialize_call
-    
-    def get_annotation(self, type, func=None):
+class AutoRegisteringType(type):
+
+    def __init__(selfcls, name, bases, dict):
+        super(AutoRegisteringType, selfcls).__init__(selfcls,
+                                                     name, bases, dict)
+        if '_about_' in dict:
+            selfcls._register_value(dict['_about_'])
+            del selfcls._about_   # avoid keeping a ref
+        if '_type_' in dict:
+            selfcls._register_type(dict['_type_'])
+            del selfcls._type_
+        if '_metatype_' in dict:
+            selfcls._register_metatype(dict['_metatype_'])
+            del selfcls._metatype_
+
+    def _register_value(selfcls, key):
+        assert key not in EXT_REGISTRY_BY_VALUE
+        EXT_REGISTRY_BY_VALUE[key] = selfcls
+
+    def _register_type(selfcls, key):
+        assert key not in EXT_REGISTRY_BY_TYPE
+        EXT_REGISTRY_BY_TYPE[key] = selfcls
+
+    def _register_metatype(selfcls, key):
+        assert key not in EXT_REGISTRY_BY_METATYPE
+        EXT_REGISTRY_BY_METATYPE[key] = selfcls
+
+
+class ExtRegistryEntry(object):
+    __metaclass__ = AutoRegisteringType
+
+    def __init__(self, type, instance=None):
+        self.type = type
+        self.instance = instance
+
+    # structural equality, and trying hard to be hashable: Entry instances
+    # are used as keys to map annotations to Reprs in the rtyper.
+    # Warning, it's based on only 'type' and 'instance'.
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.type == other.type and
+                self.instance == other.instance)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.__class__, self.type, Hashable(self.instance)))
+
+    def compute_annotation(self):
+        # default implementation useful for built-in functions,
+        # can be overriden
+        func = self.instance
         assert func is not None
         from pypy.annotation import model as annmodel
-        return annmodel.SomeBuiltin(self.compute_result_annotation,
-                                    methodname=getattr(func, '__name__', None))
+        analyser = self.compute_result_annotation
+        methodname = getattr(func, '__name__', None)
+        return annmodel.SomeBuiltin(analyser, methodname=methodname)
 
-class ExtRegistryInstance(object):
-    def __init__(self, compute_annotation, specialize_call, get_repr):
-        self.compute_annotation = compute_annotation
-        self.specialize_call = specialize_call
-        self.get_repr = get_repr
-    
-    def get_annotation(self, type, instance=None):
-        return self.compute_annotation(type, instance)
+    def compute_result_annotation(self, *args_s, **kwds_s):
+        # default implementation for built-in functions with a constant
+        # result annotation, can be overriden
+        return self.s_result_annotation
 
 # ____________________________________________________________
 
@@ -68,64 +112,39 @@ EXT_REGISTRY_BY_VALUE = FlexibleWeakDict()
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
 EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
-def create_annotation_callable(annotation):
-    from pypy.annotation import model as annmodel
-    if isinstance(annotation, annmodel.SomeObject) or annotation is None:
-        s_result = annotation
-        def annotation(*args):
-            return s_result
-        
-    return annotation
+# ____________________________________________________________
+# Public interface to access the registry
 
-undefined = object()
-
-def create_entry(compute_result_annotation=undefined, compute_annotation=None,
-                 specialize_call=None, get_repr=None):
-    if compute_result_annotation is not undefined:
-        compute_result_annotation = create_annotation_callable(
-            compute_result_annotation)
-        return ExtRegistryFunc(compute_result_annotation, specialize_call)
-    else:
-        return ExtRegistryInstance(compute_annotation, specialize_call, 
-            get_repr)
-
-def register_value(value, **kwargs):
-    assert value not in EXT_REGISTRY_BY_VALUE
-    EXT_REGISTRY_BY_VALUE[value] = create_entry(**kwargs)
-    return EXT_REGISTRY_BY_VALUE[value]
-    
-def register_type(t, **kwargs):
-    assert t not in EXT_REGISTRY_BY_TYPE
-    EXT_REGISTRY_BY_TYPE[t] = create_entry(**kwargs)
-    return EXT_REGISTRY_BY_TYPE[t]
-    
-def register_metatype(t, **kwargs):
-    assert t not in EXT_REGISTRY_BY_METATYPE
-    EXT_REGISTRY_BY_METATYPE[t] = create_entry(**kwargs)
-    return EXT_REGISTRY_BY_METATYPE[t]
-
-def lookup_type(tp):
+def _lookup_type_cls(tp):
     try:
         return EXT_REGISTRY_BY_TYPE[tp]
     except (KeyError, TypeError):
         return EXT_REGISTRY_BY_METATYPE[type(tp)]
 
+def lookup_type(tp):
+    Entry = _lookup_type_cls(tp)
+    return Entry(tp)
+
 def is_registered_type(tp):
     try:
-        lookup_type(tp)
+        _lookup_type_cls(tp)
     except KeyError:
         return False
     return True
 
-def lookup(instance):
+def _lookup_cls(instance):
     try:
         return EXT_REGISTRY_BY_VALUE[instance]
     except (KeyError, TypeError):
-        return lookup_type(type(instance))
-        
+        return _lookup_type_cls(type(instance))
+
+def lookup(instance):
+    Entry = _lookup_cls(instance)
+    return Entry(type(instance), instance)
+
 def is_registered(instance):
     try:
-        lookup(instance)
+        _lookup_cls(instance)
     except KeyError:
         return False
     return True

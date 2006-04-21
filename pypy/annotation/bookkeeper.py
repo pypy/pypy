@@ -358,7 +358,7 @@ class Bookkeeper:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
         elif extregistry.is_registered(x):
-            result = extregistry.lookup(x).get_annotation(tp, x)
+            result = extregistry.lookup(x).compute_annotation()
 ##        elif hasattr(x, "compute_result_annotation"):
 ##            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
 ##        elif hasattr(tp, "compute_annotation"):
@@ -522,7 +522,7 @@ class Bookkeeper:
 ##        elif hasattr(t, "compute_annotation"):
 ##            return t.compute_annotation()
         elif extregistry.is_registered_type(t):
-            return extregistry.lookup_type(t).get_annotation(t)
+            return extregistry.lookup_type(t).compute_annotation()
         elif t.__module__ != '__builtin__' and t not in self.pbctypes:
             classdef = self.getuniqueclassdef(t)
             return SomeInstance(classdef)

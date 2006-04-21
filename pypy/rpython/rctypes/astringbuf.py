@@ -1,5 +1,6 @@
-from pypy.rpython import extregistry
-from pypy.annotation import model as annmodel
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.rctypes.implementation import CTypesObjEntry
+from pypy.annotation.model import SomeCTypesObject, SomeString
 
 from ctypes import create_string_buffer, c_char
 
@@ -13,34 +14,35 @@ class StringBufferType(object):
     #_length_ = unspecified
 
 
-def stringbuf_compute_result_annotation(s_length):
-    if s_length.knowntype != int:
-        raise Exception("rctypes only supports create_string_buffer(length)")
-    return annmodel.SomeCTypesObject(StringBufferType,
-            annmodel.SomeCTypesObject.OWNSMEMORY)
+class CreateStringBufferFnEntry(ExtRegistryEntry):
+    "Annotation and rtyping of calls to ctypes.create_string_buffer()"
+    _about_ = create_string_buffer
 
-def stringbuf_specialize_call(hop):
-    from pypy.rpython.lltypesystem import lltype
-    [v_length] = hop.inputargs(lltype.Signed)
-    r_stringbuf = hop.r_result
-    return hop.genop("malloc_varsize", [
-        hop.inputconst(lltype.Void, r_stringbuf.lowleveltype.TO),
-        v_length,
-        ], resulttype=r_stringbuf.lowleveltype,
-    )
+    def compute_result_annotation(self, s_length):
+        if s_length.knowntype != int:
+            raise Exception("only supports create_string_buffer(length)")
+        return SomeCTypesObject(StringBufferType, SomeCTypesObject.OWNSMEMORY)
 
-extregistry.register_value(create_string_buffer,
-    compute_result_annotation=stringbuf_compute_result_annotation,
-    specialize_call=stringbuf_specialize_call,
-    )
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        [v_length] = hop.inputargs(lltype.Signed)
+        r_stringbuf = hop.r_result
+        return hop.genop("malloc_varsize", [
+            hop.inputconst(lltype.Void, r_stringbuf.lowleveltype.TO),
+            v_length,
+            ], resulttype=r_stringbuf.lowleveltype,
+        )
 
-def stringbuf_get_repr(rtyper, s_stringbuf):
-    from pypy.rpython.rctypes import rstringbuf
-    return rstringbuf.StringBufRepr(rtyper, s_stringbuf, rstringbuf.STRBUFTYPE)
 
-entry = extregistry.register_type(StringBufferType,
-    get_repr=stringbuf_get_repr)
-def stringbuf_get_field_annotation(s_array, fieldname):
-    assert fieldname == 'value'
-    return annmodel.SomeString()   # can_be_None = False
-entry.get_field_annotation = stringbuf_get_field_annotation
+class ObjEntry(CTypesObjEntry):
+    "Annotation and rtyping of instances of the pseudo-ctype StringBufferType"
+    _type_ = StringBufferType
+
+    def get_field_annotation(self, s_array, fieldname):
+        assert fieldname == 'value'
+        return SomeString()   # can_be_None = False
+
+    def get_repr(self, rtyper, s_stringbuf):
+        from pypy.rpython.rctypes import rstringbuf
+        return rstringbuf.StringBufRepr(rtyper, s_stringbuf,
+                                        rstringbuf.STRBUFTYPE)

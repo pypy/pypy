@@ -67,8 +67,7 @@ class CPyObjSpace:
         raise TypeError("wrap(%r)" % (x,))
     wrap._annspecialcase_ = "specialize:wrap"
 
-    def getattr(self, w_obj, w_attr):
-        return PyObject_GetAttr(w_obj, w_attr)
+    getattr = staticmethod(PyObject_GetAttr)
 
     def call_function(self, w_callable):
         return PyObject_Call(w_callable, PyTuple_New(0), PyDict_New())
