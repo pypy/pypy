@@ -6,7 +6,8 @@ from pypy.translator.js.funcnode import FuncNode, ExternalFuncNode
 from pypy.translator.js.structnode import StructNode, StructVarsizeNode
 from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, VoidArrayNode
 from pypy.translator.js.opaquenode import OpaqueNode
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.js.log import log 
             
@@ -23,7 +24,9 @@ class Database(object):
             lltype.SignedLongLong: "int",
             lltype.UnsignedLongLong: "uint",
             lltype.UniChar: "uint",
-            lltype.Void: "void"}
+            lltype.Void: "void",
+            llmemory.Address: "sbyte*",
+            }
 
     def __init__(self, translator, js): 
         self.translator = translator
@@ -233,6 +236,13 @@ class Database(object):
             repr = self.float_to_str(value)
         elif type_ is lltype.Void:
             repr = "undefined"
+        elif isinstance(value, Symbolic):
+            if isinstance(value, llmemory.AddressOffset):
+                return self.offset_str(value)
+            elif isinstance(value, ComputedIntSymbolic):
+                repr = '%d' % (value.compute_fn(),)
+            else:
+                raise NotImplementedError("symbolic: %r" % (value,))
         else:
             repr = str(value)
         return repr
