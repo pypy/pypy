@@ -189,6 +189,7 @@ class GcWrapper(object):
         self.constantroots = fgcc.cvter.constantroots
         self.pseudo_root_pointers = NULL
         self.roots = []
+        self.gc.setup()
 
 
     def get_arg_malloc(self, TYPE, size=0):
@@ -276,6 +277,7 @@ class AnnotatingGcWrapper(GcWrapper):
         def instantiate_gc():
             gc = gc_class(AddressLinkedList)
             gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7)
+            gc.setup()
             return gc
         func, dummy_get_roots1, dummy_get_roots2 = gc.get_dummy_annotate(
             self.gc.__class__, self.AddressLinkedList)

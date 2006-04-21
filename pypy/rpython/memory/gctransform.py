@@ -720,6 +720,7 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_roots = lltype.malloc(lltype.Array(llmemory.Address), 0,
                                             immortal=True)
         gcdata.static_root_start = gcdata.static_root_end = llmemory.cast_ptr_to_adr(gcdata.static_roots)
+        gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
         self.gcdata = gcdata
         self.type_info_list = []
         self.id_of_type = {}      # {LLTYPE: type_id}
@@ -755,7 +756,7 @@ class FrameworkGCTransformer(GCTransformer):
             stackbase = lladdress.raw_malloc(GCData.rootstacksize)
             gcdata.root_stack_top  = stackbase
             gcdata.root_stack_base = stackbase
-            gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
+            gcdata.gc.setup()
             gcdata.gc.set_query_functions(
                 q_is_varsize,
                 q_offsets_to_gc_pointers,

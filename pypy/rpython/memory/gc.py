@@ -32,6 +32,7 @@ class GCError(Exception):
 def get_dummy_annotate(gc_class, AddressLinkedList):
     def dummy_annotate():
         gc = gc_class(AddressLinkedList)
+        gc.setup()
         gc.get_roots = dummy_get_roots1 #prevent the get_roots attribute to 
         gc.get_roots = dummy_get_roots2 #be constants
         a = gc.malloc(1, 2)
@@ -87,6 +88,9 @@ class GCBase(object):
         "NOT_RPYTHON"
         pass
 
+    def setup(self):
+        pass
+
 class DummyGC(GCBase):
     _alloc_flavor_ = "raw"
 
@@ -121,10 +125,13 @@ class MarkSweepGC(GCBase):
         self.heap_size = start_heap_size
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
-        self.malloced_objects = AddressLinkedList()
+        self.malloced_objects = None
         self.AddressLinkedList = AddressLinkedList
         #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
+
+    def setup(self):
+        self.malloced_objects = self.AddressLinkedList()
 
     def malloc(self, typeid, length=0):
         if self.bytes_malloced > self.heap_size:
@@ -250,12 +257,17 @@ class SemiSpaceGC(GCBase):
                  get_roots=None):
         self.bytes_malloced = 0
         self.space_size = space_size
-        self.tospace = raw_malloc(space_size)
-        self.top_of_space = self.tospace + space_size
-        self.fromspace = raw_malloc(space_size)
-        self.free = self.tospace
-        #self.set_query_functions(None, None, None, None, None, None, None)
+        self.tospace = NULL
+        self.top_of_space = NULL
+        self.fromspace = NULL
+        self.free = NULL
         self.get_roots = get_roots
+
+    def setup(self):
+        self.tospace = raw_malloc(self.space_size)
+        self.top_of_space = self.tospace + self.space_size
+        self.fromspace = raw_malloc(self.space_size)
+        self.free = self.tospace
 
     def free_memory(self):
         "NOT_RPYTHON"
@@ -386,13 +398,17 @@ class DeferredRefcountingGC(GCBase):
     _alloc_flavor_ = "raw"
 
     def __init__(self, AddressLinkedList, max_refcount_zero=50, get_roots=None):
-        self.zero_ref_counts = AddressLinkedList()
+        self.zero_ref_counts = None
         self.AddressLinkedList = AddressLinkedList
         self.length_zero_ref_counts = 0
         self.max_refcount_zero = max_refcount_zero
         #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
         self.collecting = False
+
+    def setup(self):
+        self.zero_ref_counts = self.AddressLinkedList()
+        
 
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
