@@ -10,7 +10,7 @@ from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython.module.support import from_rstr
-from pypy.rpython import extregistry
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.codegen.llvm.jitcode import JITcode
 
 
@@ -257,24 +257,31 @@ VARLIST = lltype.Ptr(lltype.GcArray(CONSTORVAR,
 
 # helpers
 def setannotation(func, annotation, specialize_as_constant=False):
-    if specialize_as_constant:
-        def specialize(hop):
-            llvalue = func(hop.args_s[0].const)
-            return hop.inputconst(lltype.typeOf(llvalue), llvalue)
-    else:
-        # specialize as direct_call
-        def specialize(hop):
-            FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r],
-                                       hop.r_result.lowleveltype)
-            args_v = hop.inputargs(*hop.args_r)
-            funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
-                                         _callable=func)
-            cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
-            return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
-    extregistry.register_value(func,
-           compute_result_annotation = annotation,
-           specialize_call = specialize)
+    class Entry(ExtRegistryEntry):
+        "Annotation and specialization for calls to 'func'."
+        _about_ = func
+
+        if annotation is None or isinstance(annotation, annmodel.SomeObject):
+            s_result_annotation = annotation
+        else:
+            def compute_result_annotation(self, *args_s):
+                return annotation(*args_s)
+
+        if specialize_as_constant:
+            def specialize_call(self, hop):
+                llvalue = func(hop.args_s[0].const)
+                return hop.inputconst(lltype.typeOf(llvalue), llvalue)
+        else:
+            # specialize as direct_call
+            def specialize_call(self, hop):
+                FUNCTYPE = lltype.FuncType([r.lowleveltype for r in hop.args_r],
+                                           hop.r_result.lowleveltype)
+                args_v = hop.inputargs(*hop.args_r)
+                funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
+                                             _callable=func)
+                cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
+                return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
 # annotations
 from pypy.annotation import model as annmodel
