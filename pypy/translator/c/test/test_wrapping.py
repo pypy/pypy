@@ -1,7 +1,7 @@
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 from py.test import raises
-from pypy.rpython import extregistry
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import robject, rclass
@@ -93,36 +93,37 @@ def unwrap(pyobj, typ):
 unwrap._annspecialcase_ = 'specialize:arg(1)'
 
 
-def rtype_unwrap(hop):
-    v_obj = hop.inputarg(hop.args_r[0], 0)
-    return hop.llops.convertvar(v_obj, hop.args_r[0], hop.r_result)
-
-def rtype_wrap(hop):
-    assert len(hop.args_r) == 1, 'wrap() takes exactly one argument'
-    v_obj, = hop.inputargs(*hop.args_r)
-    return hop.llops.convertvar(v_obj, hop.args_r[0], robject.pyobj_repr)
-
-def compute_annotation_unwrap(s_wrapped, s_spec):
-    # this will go away, much better way found!
-    assert hasattr(s_spec, 'descriptions'), 'need a class in unwrap 2nd arg'
-    descs = s_spec.descriptions
-    assert len(descs) == 1, 'missing specialisation, classdesc not unique!'
-    for desc in descs.keys():
-        classdef = desc.getuniqueclassdef()
-    return annmodel.SomeInstance(classdef)
-
 # XXX
 # wrapping/unwrapping should be annotatable.
 # Idea: create tunnel objects which share
 # annotation across SomeObjectness, sharing a key!
 
-extregistry.register_value(wrap, 
-    compute_result_annotation=annmodel.SomeObject(),
-    specialize_call=rtype_wrap)
+class Entry(ExtRegistryEntry):
+    _about_ = unwrap
 
-extregistry.register_value(unwrap, 
-    compute_result_annotation=compute_annotation_unwrap,
-    specialize_call=rtype_unwrap)
+    def compute_result_annotation(self, s_wrapped, s_spec):
+        # this will go away, much better way found!
+        assert hasattr(s_spec, 'descriptions'), 'need a class in unwrap 2nd arg'
+        descs = s_spec.descriptions
+        assert len(descs) == 1, 'missing specialisation, classdesc not unique!'
+        for desc in descs.keys():
+            classdef = desc.getuniqueclassdef()
+        return annmodel.SomeInstance(classdef)
+
+    def specialize_call(self, hop):
+        v_obj = hop.inputarg(hop.args_r[0], 0)
+        return hop.llops.convertvar(v_obj, hop.args_r[0], hop.r_result)
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = wrap
+
+    s_result_annotation = annmodel.SomeObject()
+
+    def specialize_call(self, hop):
+        assert len(hop.args_r) == 1, 'wrap() takes exactly one argument'
+        v_obj, = hop.inputargs(*hop.args_r)
+        return hop.llops.convertvar(v_obj, hop.args_r[0], robject.pyobj_repr)
 
 # _______________________________________________-
 # the actual tests
