@@ -1,6 +1,6 @@
 from pypy.module._demo import demo
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
-from pypy.rpython.rctypes.tool.cpyobjspace import CPyObjSpace
+from pypy.objspace.cpy.objspace import CPyObjSpace
 import pypy.rpython.rctypes.implementation
 
 
