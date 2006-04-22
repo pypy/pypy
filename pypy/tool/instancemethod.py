@@ -7,16 +7,16 @@ class InstanceMethod(object):
         self.im_self = im_self
         self.im_class = im_class
 
-    def __call__(__self, *args, **kwds):
-        firstarg = __self.im_self
+    def __call__(self, *args, **kwds):
+        firstarg = self.im_self
         if firstarg is None:
-            if not args or not isinstance(args[0], __self.im_class):
+            if not args or not isinstance(args[0], self.im_class):
                 raise TypeError(
                     "must be called with %r instance as first argument" % (
-                    __self.im_class,))
+                    self.im_class,))
             firstarg = args[0]
             args = args[1:]
-        return __self.im_func(firstarg, *args, **kwds)
+        return self.im_func(firstarg, *args, **kwds)
 
     def __eq__(self, other):
         return isinstance(other, InstanceMethod) and (
