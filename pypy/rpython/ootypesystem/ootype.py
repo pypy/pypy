@@ -186,10 +186,21 @@ class BuiltinType(OOType):
     def _setup_methods(self, generic_types):
         methods = {}
         for name, meth in self._GENERIC_METHODS.iteritems():
-            args = [generic_types.get(arg, arg) for arg in meth.ARGS]
-            result = generic_types.get(meth.RESULT, meth.RESULT)            
+            #args = [generic_types.get(arg, arg) for arg in meth.ARGS]
+            #result = generic_types.get(meth.RESULT, meth.RESULT)
+            args = [self._specialize_type(arg, generic_types) for arg in meth.ARGS]
+            result = self._specialize_type(meth.RESULT, generic_types)
             methods[name] = Meth(args, result)
         self._METHODS = frozendict(methods)
+
+    def _specialize_type(self, type_, generic_types):
+        if isinstance(type_, BuiltinType):
+            return type_._specialize(generic_types)
+        else:
+            return generic_types.get(type_, type_)
+
+    def _specialize(self, generic_types):
+        raise NotImplementedError
 
     def _lookup(self, meth_name):
         METH = self._METHODS.get(meth_name)
@@ -263,6 +274,10 @@ class List(BuiltinType):
     def _get_interp_class(self):
         return _list
 
+    def _specialize(self, generic_types):
+        ITEMTYPE = self._specialize_type(self._ITEMTYPE, generic_types)
+        return self.__class__(ITEMTYPE)
+
 
 class Dict(BuiltinType):
     # placeholders for types
@@ -306,6 +321,10 @@ class Dict(BuiltinType):
     def _get_interp_class(self):
         return _dict
 
+    def _specialize(self, generic_types):
+        KEYTYPE = self._specialize_type(self._KEYTYPE, generic_types)
+        VALUETYPE = self._specialize_type(self._VALUETYPE, generic_types)
+        return self.__class__(KEYTYPE, VALUETYPE)
 
 class ForwardReference(OOType):
     def become(self, real_instance):
@@ -757,4 +776,3 @@ def ooidentityhash(inst):
 
 
 ROOT = Instance('Root', None, _is_root=True)
-
