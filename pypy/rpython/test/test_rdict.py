@@ -1,6 +1,6 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype 
-from pypy.rpython.test.test_llinterp import interpret 
+from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython import rstr, rint
 from pypy.rpython.lltypesystem import rdict
 
@@ -14,13 +14,6 @@ class BaseTestDictRtyping:
     def interpret_raises(self, exc, fn, args):
         return interpret_raises(exc, fn, args, type_system=self.ts)
 
-
-    def test_dict_creation(self):
-        def createdict(i):
-            d = {i: i+1}
-            return d[i]
-        res = self.interpret(createdict, [42])
-        assert res == 43
 
 # XXX: most tests doesn't works because ootypesystem doesn't support strings, yet
 def test_dict_creation():
@@ -732,3 +725,68 @@ class TestLltypeRtyping(BaseTestDictRtyping):
 
 class TestOotypeRtyping(BaseTestDictRtyping):
     ts = "ootype"
+
+    # these tests are similar to those above, but they don't use strings
+    def test_dict_creation(self):
+        def createdict(i):
+            d = {i: i+1}
+            return d[i]
+        res = self.interpret(createdict, [42])
+        assert res == 43
+
+    def test_dict_getitem_setitem(self):
+        def func(i):
+            d = {i: i+1}
+            d[i] = i+2
+            return d[i]
+        res = self.interpret(func, [42])
+
+    def test_dict_is_true(self):
+        def func(i):
+            if i:
+                d = {}
+            else:
+                d = {i: i+1}
+            if d:
+                return i
+            else:
+                return i+1
+        assert self.interpret(func, [42]) == 43
+        assert self.interpret(func, [0]) == 0
+
+    def test_contains(self):
+        def func(x, y):
+            d = {x: x+1}
+            return y in d
+        assert self.interpret(func, [42, 0]) == False
+        assert self.interpret(func, [42, 42]) == True
+
+    def test_delitem(self):
+        def func(x, y):
+            d = {x: x+1}
+            del d[y]
+        self.interpret(func, [42, 42]) # don't raise anything
+        self.interpret_raises(KeyError, func, [42, 0])
+
+    def test_length(self):
+        def func(num):
+            d = {}
+            for i in range(num):
+                d[i] = i+1
+            return len(d)
+        assert self.interpret(func, [0]) == 0
+        assert self.interpret(func, [2]) == 2
+
+    def test_get(self):
+        def func(x, y):
+            d = {x: x+1}
+            return d.get(x, y) + d.get(x+1, y)
+        assert self.interpret(func, [42, 13]) == 56
+    
+    def test_setdefault(self):
+        def func(x, y):
+            d = {}
+            d.setdefault(x, y)
+            return d[x]
+        assert self.interpret(func, [42, 13]) == 13
+    

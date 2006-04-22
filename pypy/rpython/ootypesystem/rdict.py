@@ -62,6 +62,29 @@ class DictRepr(AbstractDictRepr):
         return hop.genop("oosend", [c_name] + v_args,
                 resulttype=hop.r_result.lowleveltype)
 
+    def rtype_len(self, hop):
+        v_dict, = hop.inputargs(self)
+        return self.send_message(hop, 'll_length')
+
+    def rtype_is_true(self, hop):
+        v_dict, = hop.inputargs(self)
+        return hop.gendirectcall(ll_dict_is_true, v_dict)
+
+    def rtype_method_get(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                 self.value_repr)
+        hop.exception_cannot_occur()
+        v_res = self.send_message(hop, 'll_get')
+        #v_res = hop.gendirectcall(ll_get, v_dict, v_key, v_default)
+        return self.recast_value(hop.llops, v_res)
+
+    def rtype_method_setdefault(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                 self.value_repr)
+        hop.exception_cannot_occur()
+        v_res = hop.gendirectcall(ll_dict_setdefault, v_dict, v_key, v_default)
+        return self.recast_value(hop.llops, v_res)
+
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 
@@ -70,15 +93,16 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         if not r_dict.custom_eq_hash: # TODO: why only in this case?
             hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
-        v_res = r_dict.send_message(hop, 'll_getitem', can_raise=True)
+        c_dummy_default = hop.inputconst(r_dict.value_repr.lowleveltype, r_dict.value_repr.ll_dummy_value)
+        v_res = hop.gendirectcall(ll_dict_getitem, v_dict, v_key, c_dummy_default)
         return r_dict.recast_value(hop.llops, v_res)
 
-##    def rtype_delitem((r_dict, r_key), hop):
-##        v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
-##        if not r_dict.custom_eq_hash:
-##            hop.has_implicit_exception(KeyError)   # record that we know about it        
-##        hop.exception_is_here()
-##        return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
+    def rtype_delitem((r_dict, r_key), hop):
+        v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
+        if not r_dict.custom_eq_hash: # TODO: why only in this case?
+            hop.has_implicit_exception(KeyError)   # record that we know about it        
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
@@ -87,8 +111,35 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 ##        else:
 ##            hop.exception_cannot_occur()
         hop.exception_is_here()
-        return r_dict.send_message(hop, 'll_setitem', can_raise=True)
+        return r_dict.send_message(hop, 'll_set', can_raise=True)
+
+    def rtype_contains((r_dict, r_key), hop):
+        v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
+        return r_dict.send_message(hop, 'll_contains')
+
 
 
 def ll_newdict(DICT):
     return ootype.new(DICT)
+
+def ll_dict_is_true(d):
+    # check if a dict is True, allowing for None
+    return bool(d) and d.ll_length() != 0
+
+def ll_dict_getitem(d, key, dummy_default):
+    # TODO: this is inefficient because it does two lookups
+    if d.ll_contains(key):
+        return d.ll_get(key, dummy_default) # dummy_default is never returned
+    else:
+        raise KeyError
+
+def ll_dict_delitem(d, key):
+    if not d.ll_remove(key):
+        raise KeyError
+
+def ll_dict_setdefault(d, key, default):
+    try:
+        return ll_dict_getitem(d, key, default)
+    except KeyError:
+        d.ll_set(key, default)
+        return default

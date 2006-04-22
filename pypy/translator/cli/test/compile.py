@@ -26,10 +26,8 @@ def check(f, g, *args):
 
 
 def bar(x, y):
-    lst = [1,2]
-    lst.append(x)
-    return lst[2]
-
+    d = {x: y}
+    return d[x]
 
 f = compile_function(bar, [int, int])
 

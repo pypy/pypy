@@ -283,8 +283,11 @@ class Dict(BuiltinType):
 
         self._GENERIC_METHODS = frozendict({
             "ll_length": Meth([], Signed),
-            "ll_getitem": Meth([self.KEYTYPE_T], self.VALUETYPE_T),
-            "ll_setitem": Meth([self.KEYTYPE_T, self.VALUETYPE_T], Void),
+            "ll_get": Meth([self.KEYTYPE_T, self.VALUETYPE_T], self.VALUETYPE_T), # ll_get(key, default)
+            "ll_set": Meth([self.KEYTYPE_T, self.VALUETYPE_T], Void),
+            "ll_remove": Meth([self.KEYTYPE_T], Bool), # return False is key was not present
+            "ll_contains": Meth([self.KEYTYPE_T], Bool),
+            #"ll_keys": Meth([], List(self.KEYTYPE_T)),
         })
 
         self._setup_methods(generic_types)
@@ -643,14 +646,31 @@ class _dict(_builtin_type):
         # NOT_RPYTHON
         return len(self._dict)
 
-    def ll_getitem(self, key):
+    def ll_get(self, key, default):
+        # NOT_RPYTHON        
         assert typeOf(key) == self._TYPE._KEYTYPE
-        return self._dict[key]
+        assert typeOf(key) == self._TYPE._VALUETYPE
+        return self._dict.get(key, default)
 
-    def ll_setitem(self, key, value):
+    def ll_set(self, key, value):
+        # NOT_RPYTHON        
         assert typeOf(key) == self._TYPE._KEYTYPE
         assert typeOf(value) == self._TYPE._VALUETYPE
         self._dict[key] = value
+
+    def ll_remove(self, key):
+        # NOT_RPYTHON
+        assert typeOf(key) == self._TYPE._KEYTYPE
+        try:
+            del self._dict[key]
+            return True
+        except KeyError:
+            return False
+
+    def ll_contains(self, key):
+        # NOT_RPYTHON
+        assert typeOf(key) == self._TYPE._KEYTYPE
+        return key in self._dict
 
 class _null_dict(_null_mixin(_dict), _dict):
 
