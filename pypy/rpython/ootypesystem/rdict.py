@@ -85,6 +85,10 @@ class DictRepr(AbstractDictRepr):
         v_res = hop.gendirectcall(ll_dict_setdefault, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
 
+    def rtype_method_keys(self, hop):
+        hop.exception_cannot_occur()        
+        return self.send_message(hop, 'll_keys')
+
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 

@@ -726,6 +726,9 @@ class TestLltypeRtyping(BaseTestDictRtyping):
 class TestOotypeRtyping(BaseTestDictRtyping):
     ts = "ootype"
 
+    def ll_to_list(self, l):
+        return l._list[:]
+
     # these tests are similar to those above, but they don't use strings
     def test_dict_creation(self):
         def createdict(i):
@@ -789,4 +792,10 @@ class TestOotypeRtyping(BaseTestDictRtyping):
             d.setdefault(x, y)
             return d[x]
         assert self.interpret(func, [42, 13]) == 13
-    
+
+    def test_keys(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            return d.keys()
+        res = self.ll_to_list(self.interpret(func, [42, 13]))
+        assert res == [42, 13] or res == [13, 42]
