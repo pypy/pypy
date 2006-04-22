@@ -57,18 +57,18 @@ def configure(CConfig):
     print >> f
     for key, entry in entries:
         print >> f, 'void dump_section_%s(void) {' % (key,)
-        print >> f, '\tprintf("-+- %s\\n");' % (key,)
         for line in entry.prepare_code():
             if line and line[0] != '#':
                 line = '\t' + line
             print >> f, line
-        print >> f, '\tprintf("---\\n");'
         print >> f, '}'
         print >> f
 
     print >> f, 'int main(void) {'
     for key, entry in entries:
+        print >> f, '\tprintf("-+- %s\\n");' % (key,)
         print >> f, '\tdump_section_%s();' % (key,)
+        print >> f, '\tprintf("---\\n");'
     print >> f, '\treturn 0;'
     print >> f, '}'
     f.close()
@@ -207,14 +207,14 @@ class ConstantInteger(CConfigEntry):
         self.name = name
 
     def prepare_code(self):
-        yield '    if ((%s) < 0) {' % (self.name,)
-        yield '        long long x = (long long)(%s);' % (self.name,)
-        yield '        printf("value: %lld\\n", x);'
-        yield '    } else {'
-        yield '        unsigned long long x = (unsigned long long)(%s);' % (
-                            self.name,)
-        yield '        printf("value: %llu\\n", x);'
-        yield '    }'
+        yield 'if ((%s) < 0) {' % (self.name,)
+        yield '    long long x = (long long)(%s);' % (self.name,)
+        yield '    printf("value: %lld\\n", x);'
+        yield '} else {'
+        yield '    unsigned long long x = (unsigned long long)(%s);' % (
+                        self.name,)
+        yield '    printf("value: %llu\\n", x);'
+        yield '}'
 
     def build_result(self, info):
         return info['value']
@@ -328,6 +328,11 @@ def run_example_code(filepath, include_dirs=[]):
             section[key] = int(value)
 
 # ____________________________________________________________
+
+def get_python_include_dir():
+    from distutils import sysconfig
+    gcv = sysconfig.get_config_vars()
+    return gcv['INCLUDEPY']
 
 if __name__ == '__main__':
     doc = """Example:

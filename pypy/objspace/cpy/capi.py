@@ -14,23 +14,26 @@ apyobject.register_py_object_subclass(W_Object)
 ###############################################################
 # ____________________ Types and constants ____________________
 
-##Py_ssize_t = ctypes_platform.getsimpletype('Py_ssize_t',
-##    """ #include <Python.h>
-##        #if PY_VERSION_HEX < 0x02050000   /* < 2.5 */
-##        typedef int Py_ssize_t;
-##        #endif
-##    """,                                   c_int)
+class CConfig:
+    _header_ = """
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02050000   /* < 2.5 */
+typedef int Py_ssize_t;
+#endif
+    """
+    _include_dirs_ = [ctypes_platform.get_python_include_dir()]
+    
+    Py_ssize_t = ctypes_platform.SimpleType('Py_ssize_t')
 
-##Py_LT = ctypes_platform.getconstantinteger('Py_LT', "#include <Python.h>")
-##Py_LE = ctypes_platform.getconstantinteger('Py_LE', "#include <Python.h>")
-##Py_EQ = ctypes_platform.getconstantinteger('Py_EQ', "#include <Python.h>")
-##Py_NE = ctypes_platform.getconstantinteger('Py_NE', "#include <Python.h>")
-##Py_GT = ctypes_platform.getconstantinteger('Py_GT', "#include <Python.h>")
-##Py_GE = ctypes_platform.getconstantinteger('Py_GE', "#include <Python.h>")
+    Py_LT = ctypes_platform.ConstantInteger('Py_LT')
+    Py_LE = ctypes_platform.ConstantInteger('Py_LE')
+    Py_EQ = ctypes_platform.ConstantInteger('Py_EQ')
+    Py_NE = ctypes_platform.ConstantInteger('Py_NE')
+    Py_GT = ctypes_platform.ConstantInteger('Py_GT')
+    Py_GE = ctypes_platform.ConstantInteger('Py_GE')
 
-# XXX ctypes_platform needs to be enhanced...
-Py_ssize_t = c_int
-Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT, Py_GE = range(6)
+globals().update(ctypes_platform.configure(CConfig))
+del CConfig
 
 
 ###########################################################
