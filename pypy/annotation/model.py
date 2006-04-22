@@ -559,7 +559,7 @@ def lltype_to_annotation(T):
     except TypeError:
         s = None    # unhashable T, e.g. a Ptr(GcForwardReference())
     if s is None:
-        if isinstance(T, (ootype.Instance, ootype.List)):
+        if isinstance(T, (ootype.Instance, ootype.BuiltinType)):
             return SomeOOInstance(T)
         elif isinstance(T, ootype.StaticMethod):
             return SomeOOStaticMeth(T)
