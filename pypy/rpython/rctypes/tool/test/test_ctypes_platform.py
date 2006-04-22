@@ -1,5 +1,6 @@
 import py, sys, struct
 from pypy.rpython.rctypes.tool import ctypes_platform
+from pypy.tool.udir import udir
 import ctypes
 
 
@@ -102,3 +103,24 @@ def test_defined():
     res = ctypes_platform.getdefined('ALFKJLKJFLKJFKLEJDLKEWMECEE',
                                      '#define ALFKJLKJFLKJFKLEJDLKEWMECEE')
     assert res
+
+def test_configure():
+    test_h = udir.join('test_ctypes_platform.h')
+    test_h.write('#define XYZZY 42\n')
+
+    class CConfig:
+        _header_ = """ /* a C comment */
+                       #include <stdio.h>
+                       #include <test_ctypes_platform.h>
+                   """
+        _include_dirs_ = [str(udir)]
+
+        FILE = ctypes_platform.Struct('FILE', [])
+        ushort = ctypes_platform.SimpleType('unsigned short')
+        XYZZY = ctypes_platform.ConstantInteger('XYZZY')
+
+    res = ctypes_platform.configure(CConfig)
+    assert issubclass(res['FILE'], ctypes.Structure)
+    assert res == {'FILE': res['FILE'],
+                   'ushort': ctypes.c_ushort,
+                   'XYZZY': 42}
