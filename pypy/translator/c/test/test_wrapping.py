@@ -47,7 +47,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
             clsdef = bk.getuniqueclassdef(obj)
             rtyper.add_wrapper(clsdef)
         elif isinstance(obj, types.FunctionType):
-            t.annotator.build_types(obj, get_annotation(obj))
+            pass#t.annotator.build_types(obj, get_annotation(obj))
 
     if view:
         t.viewcg()
@@ -160,6 +160,11 @@ class DemoClass(DemoBaseNotExposed):
     def __del__(self):
         delmonitor.notify()
         if P:print 'del'
+
+    def __add__(self, other):
+        # XXX I would like to use type(), but its support is very limited
+        #return type(self)(self.a + other.a, self.b + other.b)
+        return DemoClass(self.a + other.a, self.b + other.b)
 
 # see if we get things exported with subclassing
 class DemoSubclass(DemoClass):
@@ -279,20 +284,29 @@ def test_expose_classes():
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
 
+def extfunc(inst):
+    return inst.demo()
+
+def extfunc2(tup):
+    inst1, inst2 = tup
+    return inst1.__add__(inst2)
+
 def t(a=int, b=int, c=DemoClass):
     x = DemoClass(a, b)
     x.demo()
     DemoSubclass(a, a, b).demo()
     DemoSubclass(a, a, b).demo(6)
     y = DemoSubclass(a, a, b).demo(6, 'hu')
+    extfunc(x)
+    extfunc2( (x, x) )
     if isinstance(c, DemoSubclass):
         print 42
-    return DemoBaseNotExposed(17, 4) # see if it works without wrapper
+    return x.__add__(x), DemoBaseNotExposed(17, 4) # see if it works without wrapper
 
 # exposing and using classes from a generasted extension module
 def test_asd():
     m = get_compiled_module(t, use_boehm=not True, exports=[
-        DemoClass, DemoSubclass, DemoNotAnnotated])
+        DemoClass, DemoSubclass, DemoNotAnnotated, extfunc, extfunc2])
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
