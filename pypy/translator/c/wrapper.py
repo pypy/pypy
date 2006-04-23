@@ -1,14 +1,17 @@
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import Block, Link, FunctionGraph, checkgraph
 from pypy.rpython.lltypesystem.lltype import \
-     Ptr, PyObject, typeOf, Signed, FuncType, functionptr
+     Ptr, PyObject, typeOf, Signed, FuncType, functionptr, nullptr, Void
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rmodel import inputconst, PyObjPtr
 from pypy.rpython.robject import pyobj_repr
 from pypy.interpreter.pycode import CO_VARARGS
 
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.annotation.model import s_None, SomeInstance
+from pypy.translator.backendopt.inline import simple_inline_function
 
+ALWAYS_INLINE = False
 
 def gen_wrapper(func, translator, newname=None):
     """generate a wrapper function for 'func' that can be put in a
@@ -21,20 +24,28 @@ def gen_wrapper(func, translator, newname=None):
     # have been decoded.
     
     # get the fully typed low-level pointer to the function, if available
-    nb_positional_args = func.func_code.co_argcount
-    vararg = bool(func.func_code.co_flags & CO_VARARGS)
 
+    do_inline = ALWAYS_INLINE
     if translator.annotator is None:
         # get the graph from the translator, "push it back" so that it's
         # still available for further buildflowgraph() calls
         graph = translator.buildflowgraph(func)
         translator._prebuilt_graphs[func] = graph
     else:
-        bk = translator.annotator.bookkeeper
-        graph = bk.getdesc(func).cachedgraph(None)
+        if isinstance(func, FunctionGraph):
+            graph = func
+            func = graph.func
+            # in this case we want to inline for sure, because we
+            # created this extra graph with a single call-site.
+            do_inline = True
+        else:
+            bk = translator.annotator.bookkeeper
+            graph = bk.getdesc(func).cachedgraph(None)
 
     f = getfunctionptr(graph)
     FUNCTYPE = typeOf(f).TO
+    nb_positional_args = func.func_code.co_argcount
+    vararg = bool(func.func_code.co_flags & CO_VARARGS)
     assert len(FUNCTYPE.ARGS) == nb_positional_args + vararg
 
     newops = LowLevelOpList(translator.rtyper)
@@ -133,6 +144,8 @@ def gen_wrapper(func, translator, newname=None):
         # that need to be specialized now
         translator.rtyper.specialize_more_blocks()
 
+    if do_inline:
+        simple_inline_function(translator, graph, wgraph)
     return functionptr(FuncType([PyObjPtr,
                                  PyObjPtr,
                                  PyObjPtr],
@@ -140,3 +153,46 @@ def gen_wrapper(func, translator, newname=None):
                        wgraph.name,
                        graph = wgraph,
                        exception_policy = "CPython")
+
+def new_method_graph(graph, clsdef, newname, translator):
+    ann = translator.annotator
+    rtyper = translator.rtyper
+
+    f = getfunctionptr(graph)
+    FUNCTYPE = typeOf(f).TO
+
+    newops = LowLevelOpList(translator.rtyper)
+
+    callargs = graph.getargs()[:]
+    v_self_old = callargs.pop(0)
+    v_self = Variable(v_self_old.name)
+    binding = SomeInstance(clsdef)
+    v_self.concretetype = rtyper.getrepr(binding).lowleveltype
+    ann.setbinding(v_self, binding)
+    v_self_call = newops.convertvar(v_self,
+                                  r_from = rtyper.bindingrepr(v_self),
+                                    r_to = rtyper.bindingrepr(v_self_old))
+
+    vlist = [inputconst(typeOf(f), f)] + [v_self_call] + callargs
+    newops.genop('direct_call', vlist, resulttype=Void)
+
+    # "return result"
+    funcargs = [v_self] + callargs
+    block = Block(funcargs)
+    newgraph = FunctionGraph(newname, block)
+    translator.update_call_graph(newgraph, graph, object())
+    translator.graphs.append(newgraph)
+    block.operations[:] = newops
+    block.closeblock(Link([inputconst(Void, None)], newgraph.returnblock))
+
+    vres = newgraph.getreturnvar()
+    ann.setbinding(vres, s_None)
+    checkgraph(newgraph)
+    # pretend to be the same function, as we actually
+    # will become inlined.
+    newgraph.func = graph.func
+    translator.rtyper.specialize_more_blocks()
+    # not sure if we want this all the time?
+    if ALWAYS_INLINE:
+        simple_inline_function(translator, graph, newgraph)
+    return newgraph

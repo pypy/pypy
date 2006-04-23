@@ -2,10 +2,10 @@ from __future__ import generators
 import autopath, os, sys, __builtin__, marshal, zlib
 from types import FunctionType, CodeType, InstanceType, ClassType
 
-from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
 from pypy.translator.gensupp import builtin_base, builtin_type_base
 from pypy.translator.c.support import log
-from pypy.translator.c.wrapper import gen_wrapper
+from pypy.translator.c.wrapper import gen_wrapper, new_method_graph
 
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
@@ -55,6 +55,8 @@ class PyObjMaker:
     def computenameof(self, obj):
         obj_builtin_base = builtin_base(obj)
         if obj_builtin_base in (object, int, long) and type(obj) is not obj_builtin_base:
+            if isinstance(obj, FunctionGraph):
+                return self.nameof_graph(obj)
             # assume it's a user defined thingy
             return self.nameof_instance(obj)
         else:
@@ -209,7 +211,8 @@ class PyObjMaker:
         if self.shouldskipfunc(func):
             return self.skipped_function(func)
 
-        fwrapper = gen_wrapper(func, self.translator, self.name_for_meth.get(func, func.__name__))
+        fwrapper = gen_wrapper(func, self.translator,
+                               newname=self.name_for_meth.get(func, func.__name__))
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
         self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper), func.__doc__
         return pycfunctionobj
@@ -371,7 +374,8 @@ class PyObjMaker:
             ignore = getattr(cls, 'NOT_RPYTHON_ATTRIBUTES', [])
             for key, value in content:
                 if key.startswith('__'):
-                    if key in ['__module__', '__doc__', '__dict__',
+                    # we do not expose __del__, because it would be called twice
+                    if key in ['__module__', '__doc__', '__dict__', '__del__',
                                '__weakref__', '__repr__', '__metaclass__']:
                         continue
                     # XXX some __NAMES__ are important... nicer solution sought
@@ -534,20 +538,46 @@ class PyObjMaker:
         metaclass = "type"
         name = self.uniquename('gwcls_' + cls.__name__)
         basenames = [self.nameof(base) for base in cls.__bases__]
+        # we merge the class dicts for more speed
+        def merge_classdicts(cls):
+            dic = {}
+            for cls in cls.mro()[:-1]:
+                for key, value in cls.__dict__.items():
+                    if key not in dic:
+                        dic[key] = value
+            return dic
         def initclassobj():
-            content = cls.__dict__.items()
+            content = merge_classdicts(cls).items()
             content.sort()
+            init_seen = False
             for key, value in content:
                 if key.startswith('__'):
-                    if key in ['__module__', '__dict__', '__doc__',
+                    # we do not expose __del__, because it would be called twice
+                    if key in ['__module__', '__dict__', '__doc__', '__del__',
                                '__weakref__', '__repr__', '__metaclass__']:
                         continue
                 if self.shouldskipfunc(value):
                     log.WARNING("skipped class function: %r" % value)
                     continue
-                if callable(value):
-                    self.name_for_meth[value] = '%s.%s' % (cls.__name__, value.__name__)
+                if isinstance(value, FunctionType):
+                    func = value
+                    fname = '%s.%s' % (cls.__name__, func.__name__)
+                    if func.__name__ == '__init__':
+                        init_seen = True
+                        # there is the problem with exposed classes inheriting from
+                        # classes which are internal. We need to create a new wrapper
+                        # for every class which uses an inherited __init__, because
+                        # this is the context where we create the instance.
+                        ann = self.translator.annotator
+                        clsdef = ann.bookkeeper.getuniqueclassdef(cls)
+                        graph = ann.bookkeeper.getdesc(func).cachedgraph(None)
+                        if ann.binding(graph.getargs()[0]).classdef is not clsdef:
+                            value = new_method_graph(graph, clsdef, fname, self.translator)
+                    self.name_for_meth[value] = fname
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
+            if not init_seen:
+                log.WARNING('No __init__ found for %s - you cannot build instances' %
+                            cls.__name__)
 
         baseargs = ", ".join(basenames)
         if baseargs:
@@ -561,3 +591,10 @@ class PyObjMaker:
         a('    __slots__ = ["__self__"] # for PyCObject')
         self.later(initclassobj())
         return name
+
+    def nameof_graph(self, g):
+        newname=self.name_for_meth.get(g, g.func.__name__)
+        fwrapper = gen_wrapper(g, self.translator, newname=newname)
+        pycfunctionobj = self.uniquename('gfunc_' + newname)
+        self.wrappers[pycfunctionobj] = g.func.__name__, self.getvalue(fwrapper), g.func.__doc__
+        return pycfunctionobj

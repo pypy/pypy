@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import robject, rclass
 from pypy.translator.tool.cbuild import enable_fast_compilation
 
-import sys
+import sys, types
 
 P = False  # debug printing
 
@@ -22,7 +22,7 @@ def get_annotation(func):
     missing = [object] * (func.func_code.co_argcount - len(argstypelist))
     return missing + argstypelist
 
-def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
+def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
                 use_boehm=False, exports=None):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
@@ -35,22 +35,20 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
     t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
-    t.annotator.build_types(func, get_annotation(func))
     if not exports:
         exports = []
     all = [obj.__name__ for obj in exports]
     exports = exports + [('__all__', all)]
+
+    t.annotator.build_types(func, get_annotation(func))
+
     for obj in exports:
         if isinstance(obj, type):
             clsdef = bk.getuniqueclassdef(obj)
             rtyper.add_wrapper(clsdef)
-            # pull it all out
-            for name, value in obj.__dict__.items():
-                continue # do we want that
-                if callable(value):
-                    t.annotator.build_types(value, get_annotation(value))
-        elif callable(obj):
+        elif isinstance(obj, types.FunctionType):
             t.annotator.build_types(obj, get_annotation(obj))
+
     if view:
         t.viewcg()
     rtyper.specialize()
@@ -70,10 +68,10 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=0*1,
     # explicit build of database
     db = cbuilder.build_database(exports=exports)
     cbuilder.generate_source(db)
-    cbuilder.compile()
-
     if view:
         t.viewcg()
+    cbuilder.compile()
+
     return cbuilder.import_module()
 
 def getcompiled(func, *args, **kwds):
@@ -142,10 +140,6 @@ class DelMonitor(object):
 delmonitor = DelMonitor()
 
 class DemoBaseNotExposed(object):
-    pass
-
-# a trivial class to be exposed
-class DemoClass(DemoBaseNotExposed):
     """this is the doc string"""
     def __init__(self, a, b):
         self.a = a
@@ -157,6 +151,9 @@ class DemoClass(DemoBaseNotExposed):
         if P:print 'demo'
         return self.a + self.b
 
+
+# a trivial class to be exposed
+class DemoClass(DemoBaseNotExposed):
     def demonotcalled(self):
         return self.demo() + 42
 
@@ -283,17 +280,19 @@ def test_expose_classes():
     assert res == DemoClass(2, 3).demo()
 
 def t(a=int, b=int, c=DemoClass):
-    DemoClass(a, b).demo()
+    x = DemoClass(a, b)
+    x.demo()
     DemoSubclass(a, a, b).demo()
     DemoSubclass(a, a, b).demo(6)
-    DemoSubclass(a, a, b).demo(6, 'hu')
+    y = DemoSubclass(a, a, b).demo(6, 'hu')
     if isinstance(c, DemoSubclass):
         print 42
-        
+    return DemoBaseNotExposed(17, 4) # see if it works without wrapper
+
 # exposing and using classes from a generasted extension module
 def test_asd():
     m = get_compiled_module(t, use_boehm=not True, exports=[
-        DemoClass, DemoSubclass, DemoNotAnnotated, setup_new_module])
+        DemoClass, DemoSubclass, DemoNotAnnotated])
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
