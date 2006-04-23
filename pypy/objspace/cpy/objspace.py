@@ -53,8 +53,8 @@ class CPyObjSpace:
     int_w   = staticmethod(PyInt_AsLong)
 
     def call_function(self, w_callable, *args_w):
-        w_args = self.newtuple(list(args_w))   # XXX not very efficient
-        return PyObject_Call(w_callable, w_args, PyDict_New())
+        args_w += (None,)
+        return PyObject_CallFunctionObjArgs(w_callable, *args_w)
 
     def _freeze_(self):
         return True

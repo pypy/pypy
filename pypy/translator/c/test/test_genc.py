@@ -30,9 +30,10 @@ def compile_db(db):
                            libraries = db.gcpolicy.gc_libraries())
     return m
 
-def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True):
+def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
+            annotatorpolicy=None):
     t = TranslationContext()
-    a = t.buildannotator()
+    a = t.buildannotator(policy=annotatorpolicy)
     a.build_types(fn, argtypes)
     t.buildrtyper().specialize()
     if backendopt:

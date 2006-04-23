@@ -62,6 +62,10 @@ PyObject_Call = pythonapi.PyObject_Call
 PyObject_Call.argtypes = [W_Object, W_Object, W_Object]
 PyObject_Call.restype = W_Object
 
+PyObject_CallFunctionObjArgs = pythonapi.PyObject_CallFunctionObjArgs
+PyObject_CallFunctionObjArgs.restype = W_Object
+#PyObject_CallFunctionObjArgs.argtypes = [W_Object, ..., final NULL]
+
 PyObject_RichCompare = pythonapi.PyObject_RichCompare
 PyObject_RichCompare.argtypes = [W_Object, W_Object, c_int]
 PyObject_RichCompare.restype = W_Object

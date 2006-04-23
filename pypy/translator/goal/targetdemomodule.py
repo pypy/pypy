@@ -22,4 +22,4 @@ if __name__ == '__main__':
     else:
         N = int(sys.argv[1])
     print 'Timing for %d iterations...' % N
-    print entry_point(N, int), 'seconds'
+    print entry_point(N, space.W_Object(int)), 'seconds'
