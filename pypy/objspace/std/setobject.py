@@ -454,7 +454,7 @@ def set_intersection_update__Set_ANY(space, w_left, w_other):
     return space.w_None
 
 def inplace_and__Set_Set(space, w_left, w_other):
-    set_intersection_update__Set_ANY(space, w_left, w_other)
+    set_intersection_update__Set_Set(space, w_left, w_other)
     return w_left
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set

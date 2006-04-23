@@ -28,30 +28,27 @@ def entry_point(argv):
     os.write(1,'test 1: hashing an unhashable object\n')
     try:
         myhash(uhobj) 
-    except KeyError:
-        os.write(1,'\tKeyError\n')
-    except TypeError:
-        os.write(1,'\tTypeError\n')
+    except KeyError,e:
+        os.write(1,'\tKeyError\t')
+        os.write(1,str(e) + '\n')
+    except TypeError,e:
+        os.write(1,'\tTypeError\t')
+        os.write(1,str(e) + '\n')
     else:
         os.write(1,'\tno exception\n')
 
     os.write(1,'test 2: getitem with unhashable key:\n')
     try:
         mydict[uhobj] 
-    except KeyError:
-        os.write(1,'\tKeyError\n')
-    except TypeError:
-        os.write(1,'\tTypeError\n')
+    except KeyError,e:
+        os.write(1,'\tKeyError\t')
+        os.write(1,str(e) + '\n')
+    except TypeError,e:
+        os.write(1,'\tTypeError\t')
+        os.write(1,str(e) + '\n')
     else:
         os.write(1,'\tno exception\n')
 
-    os.write(1,'test 3: getitem with unhashable key: (and catching general Exception)\n')
-    try:
-        mydict[uhobj] 
-    except Exception, e:
-        os.write(1,'\t' + str(e) + '\n')
-    else:
-        os.write(1,'\tno exception\n')
 #   The Following can't be translated (for reasons I don't understand:
 #   it has to do with the assignment.
 #
