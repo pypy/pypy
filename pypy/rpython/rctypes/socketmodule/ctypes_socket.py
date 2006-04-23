@@ -1,6 +1,6 @@
 import os
 from pypy.rpython.rctypes.tool import ctypes_platform
-import ctypes.util
+from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 from ctypes import *
 
 includes = ('sys/types.h',
@@ -53,9 +53,9 @@ addrinfo = ctypes_platform.getstruct('struct addrinfo', HEADER,
 SetPointerType(addrinfo_ptr, addrinfo)
 
 # functions
-dllname = ctypes.util.find_library('c')
+dllname = util.find_library('c')
 assert dllname is not None
-socketdll = ctypes.cdll.LoadLibrary(dllname)
+socketdll = cdll.LoadLibrary(dllname)
 
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
