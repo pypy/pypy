@@ -611,8 +611,9 @@ class Entry(ExtRegistryEntry):
         repr = c_spec.value
         if repr.has_wrapper:
             null = hop.inputconst(Ptr(PyObject), nullptr(PyObject))
-            # XXX this is a hack! We need an operation to remove a broken
-            # PyObject
+            # XXX this bare_setfield is needed because we cannot do refcount operations
+            # XXX on a dead object. Actually this is an abuse. Instead,
+            # XXX we should consider a different operation for 'uninitialized fields'
             repr.setfield(v_inst, '_wrapper_', null, hop.llops,
                           opname='bare_setfield')
         hop.genop('gc_unprotect', [v_inst])
