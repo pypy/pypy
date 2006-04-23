@@ -51,6 +51,69 @@ class socket(object):
             return caddr
         else:
             raise NotImplementedError('sorry') # XXX
+    
+    def listen(self, backlog):
+        if self._fd != -1:
+            fd = self._fd
+            res = _c.listen(fd, backlog)
+            if res == -1:
+                XXX
+        else:
+            XXX
+                    
+    def accept(self):
+        pass
+
+    def connect_ex(self):
+        pass
+    
+    def dup(self):
+        pass
+    
+    def fileno(self):
+        pass
+    
+    def getpeername(self):
+        pass
+    
+    def getsockname(self):
+        pass
+    
+    def getsockopt(self):
+        pass
+    
+    def gettimeout(self):
+        pass
+    
+    def makefile(self):
+        pass
+    
+    def recv(self):
+        pass
+    
+    def recvfrom(self):
+        pass
+    
+    def send(self):
+        pass
+    
+    def sendall(self):
+        pass
+    
+    def sendto(self):
+        pass
+    
+    def setblocking(self):
+        pass
+    
+    def setsockopt(self):
+        pass
+        
+    def settimeout(self):
+        pass
+    
+    def shutdown(self):
+        pass
 
     def connect(self, addr):
         caddr = self._getsockaddr(addr)
@@ -58,7 +121,6 @@ class socket(object):
         result = _c.socketconnect(self._fd, paddr, sizeof(caddr))
         if result == -1:
             raise error(_c.errno.value)
-
 
 def makeipaddr(caddr, caddrlen):
     buf = create_string_buffer(NI_MAXHOST)
