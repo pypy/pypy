@@ -14,7 +14,8 @@ from pypy.rpython.lltypesystem import lltype
 
 from ctypes import cdll, pythonapi, _FUNCFLAG_PYTHONAPI
 from ctypes import c_int, c_long, c_char_p, c_char, create_string_buffer
-from ctypes import POINTER, py_object, util
+from ctypes import POINTER, py_object, byref
+from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 
 # __________ the standard C library __________
 
@@ -48,6 +49,10 @@ atoi.llinterp_friendly_version = ll_atoi
 time_ = mylib.time
 time_.restype = c_long    # should rather use ctypes_platform.getsimpletype()
 time_.argtypes = [POINTER(c_long)]
+
+ctime = mylib.ctime
+ctime.restype = c_char_p
+#ctimes.argtypes: omitted for this test
 
 
 def test_labs(n=6):
@@ -84,6 +89,13 @@ def test_time():
     t2 = time_(None)
     t3 = time.time()
     assert int(t1) <= t2 <= int(t3 + 1.0)
+
+def test_ctime():
+    import time
+    N = 99999999
+    s1 = time.ctime(N)
+    s2 = ctime(byref(c_long(N)))
+    assert s1.strip() == s2.strip()
 
 class Test_annotation:
     def test_annotate_labs(self):
@@ -202,3 +214,14 @@ class Test_compile:
         res = fn(17, 0)
         assert res == 34
         py.test.raises(OverflowError, 'fn(sys.maxint, 1)')
+
+    def test_compile_ctime(self):
+        import time
+        N = 123456789
+        def func(n):
+            return ctime(byref(c_long(n)))
+
+        fn = compile(func, [int])
+        s1 = time.ctime(N)
+        s2 = fn(N)
+        assert s1.strip() == s2.strip()

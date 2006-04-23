@@ -1,4 +1,6 @@
 from pypy.annotation.model import SomeCTypesObject
+from pypy.annotation import model as annmodel
+from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype
 
@@ -36,11 +38,28 @@ class CallEntry(ExtRegistryEntry):
         cfuncptr = self.instance
         fnname = cfuncptr.__name__
 
+        def repr_for_ctype(ctype):
+            s = SomeCTypesObject(ctype, SomeCTypesObject.MEMORYALIAS)
+            return hop.rtyper.getrepr(s)
+
         args_r = []
-        for ctype in cfuncptr.argtypes:
-            s_arg = SomeCTypesObject(ctype, SomeCTypesObject.MEMORYALIAS)
-            r_arg = hop.rtyper.getrepr(s_arg)
-            args_r.append(r_arg)
+        if getattr(cfuncptr, 'argtypes', None) is not None:
+            for ctype in cfuncptr.argtypes:
+                args_r.append(repr_for_ctype(ctype))
+        else:
+            # unspecified argtypes: use ctypes rules for arguments
+            for s_arg, r_arg in zip(hop.args_s, hop.args_r):
+                if not isinstance(s_arg, SomeCTypesObject):
+                    # accept integers, strings, or None
+                    if isinstance(s_arg, annmodel.SomeInteger):
+                        r_arg = repr_for_ctype(c_long)
+                    elif (isinstance(s_arg, annmodel.SomeString)
+                          or s_arg == annmodel.s_None):
+                        r_arg = repr_for_ctype(c_char_p)
+                    else:
+                        raise TyperError("call with no argtypes: don't know "
+                                         "how to convert argument %r"%(s_arg,))
+                args_r.append(r_arg)
 
         vlist = hop.inputargs(*args_r)
         unwrapped_args_v = []
