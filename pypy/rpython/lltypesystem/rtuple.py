@@ -77,7 +77,7 @@ class __extend__(pairtype(PyObjRepr, TupleRepr)):
             v_item = llops.gencapicall('PyTuple_GetItem_WithIncref', [v, ci],
                                        resulttype = pyobj_repr)
             v_converted = llops.convertvar(v_item, pyobj_repr,
-                                           r_to.external_items_r[i])
+                                           r_to.items_r[i])
             vlist.append(v_converted)
         return r_to.newtuple(llops, r_to, vlist)
 
