@@ -54,6 +54,7 @@ SetPointerType(addrinfo_ptr, addrinfo)
 
 # functions
 dllname = ctypes.util.find_library('c')
+assert dllname is not None
 socketdll = ctypes.cdll.LoadLibrary(dllname)
 
 socket = socketdll.socket

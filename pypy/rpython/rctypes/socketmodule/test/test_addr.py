@@ -1,4 +1,5 @@
-from _socket import *
+import py
+from pypy.rpython.rctypes.socketmodule._socket import *
 
 def test_getaddrinfo():
     lst = getaddrinfo('snake.cs.uni-duesseldorf.de', None)
