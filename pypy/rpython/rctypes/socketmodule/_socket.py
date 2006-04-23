@@ -10,7 +10,7 @@ class error(Exception):
 
 def _ip_to_number(ip):
     p1, p2, p3, p4 = [ int(part) for part in ip.split('.') ]
-    num = ((p4 * 256 + p3) * 256 + p2) * 256 + p1
+    num = ((p1 * 256 + p2) * 256 + p3) * 256 + p4
     return num
 
 
@@ -44,10 +44,11 @@ class socket(object):
         if self.family == AF_INET:
             (host, port) = addr
             ip = host # XXX
+            num = _ip_to_number(ip)
             caddr = _c.sockaddr_in()
             caddr.sin_family = AF_INET
             caddr.sin_port = _c.htons(port)
-            caddr.sin_addr.s_addr = _ip_to_number(ip)
+            caddr.sin_addr.s_addr = _c.htonl(num)
             return caddr
         else:
             raise NotImplementedError('sorry') # XXX

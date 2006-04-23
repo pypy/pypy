@@ -60,10 +60,6 @@ socketdll = cdll.LoadLibrary(dllname)
 
 errno = c_int.in_dll(socketdll, 'errno')
 
-htons = socketdll.htons
-htons.argtypes = [uint16_t]
-htons.restype = uint16_t
-
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
 socket.restype = c_int
