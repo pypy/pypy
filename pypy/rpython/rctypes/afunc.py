@@ -52,10 +52,10 @@ class CallEntry(ExtRegistryEntry):
                 if not isinstance(s_arg, SomeCTypesObject):
                     # accept integers, strings, or None
                     if isinstance(s_arg, annmodel.SomeInteger):
-                        r_arg = repr_for_ctype(c_long)
+                        r_arg = repr_for_ctype(ctypes.c_long)
                     elif (isinstance(s_arg, annmodel.SomeString)
                           or s_arg == annmodel.s_None):
-                        r_arg = repr_for_ctype(c_char_p)
+                        r_arg = repr_for_ctype(ctypes.c_char_p)
                     else:
                         raise TyperError("call with no argtypes: don't know "
                                          "how to convert argument %r"%(s_arg,))
