@@ -168,3 +168,17 @@ def test_list_annotation():
     lst._ll_resize(1)
     res = interpret(oof, [lst], type_system='ootype')
     assert res == 1
+
+def test_ootypeintro():
+
+    class A:
+        def method(self, number):
+            return number + 2
+    
+    def oof():
+        a = A()
+        return a.method(3)
+
+    res = interpret(oof, [], type_system='ootype')
+
+

@@ -1,6 +1,7 @@
 import autopath
 
 from pypy.objspace.flow import FlowObjSpace
+from pypy.translator.translator import TranslationContext
 from pypy.translator.gencl import GenCL
 from py.process import cmdexec 
 
@@ -37,15 +38,19 @@ def writelisp(gen, obj):
         return content
 
 def _make_cl_func(func, cl, path, argtypes=[]):
-    fun = FlowObjSpace().build_flow(func)
-    gen = GenCL(fun, argtypes)
+    t = TranslationContext()
+    t.buildannotator().build_types(func, argtypes)
+    t.buildrtyper(type_system="ootype").specialize()
+    graph = t.graphs[0]
+        
+    gen = GenCL(graph, argtypes)
     out = gen.globaldeclarations() + '\n' + gen.emitcode()
     i = 1
-    fpath = path.join("%s.lisp" % fun.name)
+    fpath = path.join("%s.lisp" % graph.name)
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
-        print >>fp, "(write (", fun.name,
+        print >>fp, "(write (", graph.name,
         for arg in args:
             print >>fp, writelisp(gen, arg),
         print >>fp, "))"

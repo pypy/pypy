@@ -29,6 +29,7 @@ class Op:
 
     binary_ops = {
         #"add": "+",
+        "int_add": "+",
         "sub": "-",
         "inplace_add": "+", # weird, but it works
         "inplace_lshift": "ash",
@@ -174,9 +175,6 @@ class GenCL:
         simplify_graph(fun)
         self.fun = fun
         self.blockref = {}
-        self.annotate(input_arg_types)
-        transform_graph(self.ann, extra_passes=default_extra_passes
-                        +[transform_slice])
 
     def annotate(self, input_arg_types):
         ann = RPythonAnnotator()
@@ -188,7 +186,7 @@ class GenCL:
         self.ann = annotator
 
     def get_type(self, var):
-        return self.ann.gettype(var)
+        return var.concretetype
 
     def repr_unknown(self, obj):
         return '#<%r>' % (obj,)
