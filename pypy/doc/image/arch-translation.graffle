@@ -25,7 +25,7 @@
 			<key>FitText</key>
 			<string>YES</string>
 			<key>ID</key>
-			<integer>251</integer>
+			<integer>18</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -61,7 +61,7 @@
 			<key>Class</key>
 			<string>LineGraphic</string>
 			<key>ID</key>
-			<integer>250</integer>
+			<integer>17</integer>
 			<key>Points</key>
 			<array>
 				<string>{221.362, 359.809}</string>
@@ -84,7 +84,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>241</integer>
+				<integer>8</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -93,14 +93,14 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>244</integer>
+				<integer>11</integer>
 			</dict>
 			<key>ID</key>
-			<integer>249</integer>
+			<integer>16</integer>
 			<key>Points</key>
 			<array>
-				<string>{213.769, 321.845}</string>
-				<string>{159.43, 304.457}</string>
+				<string>{213.634, 321.17}</string>
+				<string>{159.738, 304.246}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -119,14 +119,14 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>241</integer>
+				<integer>8</integer>
 			</dict>
 		</dict>
 		<dict>
 			<key>Class</key>
 			<string>LineGraphic</string>
 			<key>ID</key>
-			<integer>248</integer>
+			<integer>15</integer>
 			<key>Points</key>
 			<array>
 				<string>{280.421, 370.895}</string>
@@ -149,7 +149,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>241</integer>
+				<integer>8</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -158,14 +158,14 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>241</integer>
+				<integer>8</integer>
 			</dict>
 			<key>ID</key>
-			<integer>247</integer>
+			<integer>14</integer>
 			<key>Points</key>
 			<array>
-				<string>{359.656, 369.082}</string>
-				<string>{285.738, 344.308}</string>
+				<string>{359.872, 368.983}</string>
+				<string>{285.748, 344.258}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -184,7 +184,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>239</integer>
+				<integer>6</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -193,10 +193,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>242</integer>
+				<integer>9</integer>
 			</dict>
 			<key>ID</key>
-			<integer>246</integer>
+			<integer>13</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -263,7 +263,7 @@ Code Generation}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>244</integer>
+				<integer>11</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -272,15 +272,15 @@ Code Generation}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>244</integer>
+				<integer>11</integer>
 			</dict>
 			<key>ID</key>
-			<integer>245</integer>
+			<integer>12</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
 					<key>FixedWidth</key>
-					<real>1.138190e+02</real>
+					<real>1.276204e+02</real>
 					<key>Label</key>
 					<dict>
 						<key>Align</key>
@@ -291,7 +291,7 @@ Code Generation}</string>
 {\colortbl;\red255\green255\blue255;}
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
 
-\f0\fs24 \cf0 high level typing}</string>
+\f0\fs24 \cf0 object oriented typing}</string>
 					</dict>
 					<key>LabelVisible</key>
 					<string>YES</string>
@@ -325,7 +325,7 @@ Code Generation}</string>
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{233.526, 192.904}</string>
+				<string>{233.527, 192.904}</string>
 				<string>{135.838, 266.911}</string>
 			</array>
 			<key>Style</key>
@@ -343,7 +343,7 @@ Code Generation}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>237</integer>
+				<integer>4</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -352,7 +352,7 @@ Code Generation}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>244</integer>
+			<integer>11</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Style</key>
@@ -371,7 +371,7 @@ Code Generation}</string>
 {\colortbl;\red255\green255\blue255;}
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\qc
 
-\f0\fs24 \cf0 higher level flow graphs}</string>
+\f0\fs24 \cf0 oo-typed flow graphs}</string>
 			</dict>
 		</dict>
 		<dict>
@@ -380,10 +380,10 @@ Code Generation}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>242</integer>
+				<integer>9</integer>
 			</dict>
 			<key>ID</key>
-			<integer>243</integer>
+			<integer>10</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -432,8 +432,8 @@ Code Generation}</string>
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{391.292, 408.13}</string>
-				<string>{282.587, 511.554}</string>
+				<string>{391.834, 408.009}</string>
+				<string>{282.638, 511.62}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -450,7 +450,7 @@ Code Generation}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>239</integer>
+				<integer>6</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -459,7 +459,7 @@ Code Generation}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>242</integer>
+			<integer>9</integer>
 			<key>Shape</key>
 			<string>Hexagon</string>
 			<key>Style</key>
@@ -494,7 +494,7 @@ Code Generation}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>241</integer>
+			<integer>8</integer>
 			<key>Shape</key>
 			<string>Trapazoid</string>
 			<key>Text</key>
@@ -507,7 +507,7 @@ Code Generation}</string>
 
 \f0\fs24 \cf0 \
 Translation Aspects\
-theading\
+threading\
 GC\
 ...\
 }</string>
@@ -519,10 +519,10 @@ GC\
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>239</integer>
+				<integer>6</integer>
 			</dict>
 			<key>ID</key>
-			<integer>240</integer>
+			<integer>7</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -570,8 +570,8 @@ GC\
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{271.12, 195.121}</string>
-				<string>{396.878, 364.007}</string>
+				<string>{271.112, 195.122}</string>
+				<string>{396.877, 364.007}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -588,7 +588,7 @@ GC\
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>237</integer>
+				<integer>4</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -597,7 +597,7 @@ GC\
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>239</integer>
+			<integer>6</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Style</key>
@@ -631,10 +631,10 @@ flow graphs}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>237</integer>
+				<integer>4</integer>
 			</dict>
 			<key>ID</key>
-			<integer>238</integer>
+			<integer>5</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -682,7 +682,7 @@ flow graphs}</string>
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{382.146, 95.5429}</string>
+				<string>{382.147, 95.5427}</string>
 				<string>{284.004, 157.997}</string>
 			</array>
 			<key>Style</key>
@@ -700,7 +700,7 @@ flow graphs}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>235</integer>
+				<integer>2</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -709,7 +709,7 @@ flow graphs}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>237</integer>
+			<integer>4</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Text</key>
@@ -729,10 +729,10 @@ flow graphs}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>235</integer>
+				<integer>2</integer>
 			</dict>
 			<key>ID</key>
-			<integer>236</integer>
+			<integer>3</integer>
 			<key>Labels</key>
 			<array>
 				<dict>
@@ -782,8 +782,8 @@ Interpretation\
 			</array>
 			<key>Points</key>
 			<array>
-				<string>{171, 77.5853}</string>
-				<string>{352.781, 80.238}</string>
+				<string>{171, 77.4621}</string>
+				<string>{352.742, 80.2099}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -800,7 +800,7 @@ Interpretation\
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>234</integer>
+				<integer>1</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -809,7 +809,7 @@ Interpretation\
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>235</integer>
+			<integer>2</integer>
 			<key>Shape</key>
 			<string>Cloud</string>
 			<key>Text</key>
@@ -829,7 +829,7 @@ Interpretation\
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>ID</key>
-			<integer>234</integer>
+			<integer>1</integer>
 			<key>Shape</key>
 			<string>Rectangle</string>
 			<key>Style</key>
@@ -982,7 +982,7 @@ Python Code\
 	bD4KCQkJCQk8L2FycmF5PgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5j
 	bGllbnQ8L2tleT4KCQkJCQk8c3RyaW5nPmNvbS5hcHBsZS5wcmludGluZ21hbmFnZXI8
 	L3N0cmluZz4KCQkJCQk8a2V5PmNvbS5hcHBsZS5wcmludC50aWNrZXQubW9kRGF0ZTwv
-	a2V5PgoJCQkJCTxkYXRlPjIwMDYtMDItMjVUMTA6Mjk6NTJaPC9kYXRlPgoJCQkJCTxr
+	a2V5PgoJCQkJCTxkYXRlPjIwMDYtMDQtMjNUMDQ6NDE6NTdaPC9kYXRlPgoJCQkJCTxr
 	ZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5zdGF0ZUZsYWc8L2tleT4KCQkJCQk8aW50
 	ZWdlcj4wPC9pbnRlZ2VyPgoJCQkJPC9kaWN0PgoJCQk8L2FycmF5PgoJCTwvZGljdD4K
 	CQk8a2V5PmNvbS5hcHBsZS5wcmludC5QYWdlRm9ybWF0LlBNQWRqdXN0ZWRQYXBlclJl
@@ -997,7 +997,7 @@ Python Code\
 	ZSswMjwvcmVhbD4KCQkJCQk8L2FycmF5PgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50
 	LnRpY2tldC5jbGllbnQ8L2tleT4KCQkJCQk8c3RyaW5nPmNvbS5hcHBsZS5wcmludGlu
 	Z21hbmFnZXI8L3N0cmluZz4KCQkJCQk8a2V5PmNvbS5hcHBsZS5wcmludC50aWNrZXQu
-	bW9kRGF0ZTwva2V5PgoJCQkJCTxkYXRlPjIwMDYtMDItMjVUMTA6Mjk6NTJaPC9kYXRl
+	bW9kRGF0ZTwva2V5PgoJCQkJCTxkYXRlPjIwMDYtMDQtMjNUMDQ6NDE6NTdaPC9kYXRl
 	PgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5zdGF0ZUZsYWc8L2tleT4K
 	CQkJCQk8aW50ZWdlcj4wPC9pbnRlZ2VyPgoJCQkJPC9kaWN0PgoJCQk8L2FycmF5PgoJ
 	CTwvZGljdD4KCQk8a2V5PmNvbS5hcHBsZS5wcmludC5QYXBlckluZm8uUE1QYXBlck5h
@@ -1064,14 +1064,14 @@ Python Code\
 	cml2YXRlTG9jazwva2V5PgoJPGZhbHNlLz4KCTxrZXk+Y29tLmFwcGxlLnByaW50LnRp
 	Y2tldC50eXBlPC9rZXk+Cgk8c3RyaW5nPmNvbS5hcHBsZS5wcmludC5QYWdlRm9ybWF0
 	VGlja2V0PC9zdHJpbmc+CjwvZGljdD4KPC9wbGlzdD4KhpKEmZkPTlNQcmludEFsbFBh
-	Z2VzhpKgkoSZmQtOU1BhcGVyTmFtZYaShJmZCW5hLWxldHRlcoaShJmZFU5TSG9yaXpv
-	bmFsUGFnaW5hdGlvboaShKGbop4AhpKEmZkWTlNIb3Jpem9udGFsbHlDZW50ZXJlZIaS
-	ppKEmZkJTlNQcmludGVyhpKEhIQJTlNQcmludGVyAJSShJmZASCGhpKEmZkITlNDb3Bp
-	ZXOGkoShm4SEAVOiAYaShJmZD05TU2NhbGluZ0ZhY3RvcoaShKGbhIQBZqMBhpKEmZkN
-	TlNSaWdodE1hcmdpboaShKGbuaMkhpKEmZkOTlNCb3R0b21NYXJnaW6GkoShm7mjJIaS
-	hJmZDE5TTGVmdE1hcmdpboaShKGbuaMkhpKEmZkLTlNUb3BNYXJnaW6GkoShm7mjJIaS
-	hJmZCk5TTGFzdFBhZ2WGkoShm4SXl4J/////hpKEmZkLTlNGaXJzdFBhZ2WGkoShm7ai
-	AYaShJmZDU5TT3JpZW50YXRpb26GkoShm6KeAIaGhg==
+	Z2VzhpKgkoSZmQtOU1BhcGVyTmFtZYaShJmZBkxldHRlcoaShJmZFU5TSG9yaXpvbmFs
+	UGFnaW5hdGlvboaShKGbop4AhpKEmZkWTlNIb3Jpem9udGFsbHlDZW50ZXJlZIaSppKE
+	mZkJTlNQcmludGVyhpKEhIQJTlNQcmludGVyAJSShJmZEEhQIExhc2VySmV0IDEyMDCG
+	hpKEmZkITlNDb3BpZXOGkoShm4SEAVOiAYaShJmZD05TU2NhbGluZ0ZhY3RvcoaShKGb
+	hIQBZqMBhpKEmZkNTlNSaWdodE1hcmdpboaShKGbuaMkhpKEmZkOTlNCb3R0b21NYXJn
+	aW6GkoShm7mjJIaShJmZDE5TTGVmdE1hcmdpboaShKGbuaMkhpKEmZkLTlNUb3BNYXJn
+	aW6GkoShm7mjJIaShJmZCk5TTGFzdFBhZ2WGkoShm4SXl4J/////hpKEmZkLTlNGaXJz
+	dFBhZ2WGkoShm7aiAYaShJmZDU5TT3JpZW50YXRpb26GkoShm6KeAIaGhg==
 	</data>
 	<key>RowAlign</key>
 	<integer>0</integer>
@@ -1082,7 +1082,7 @@ Python Code\
 	<key>WindowInfo</key>
 	<dict>
 		<key>Frame</key>
-		<string>{{123, 265}, {555, 578}}</string>
+		<string>{{123, 254}, {555, 578}}</string>
 		<key>VisibleRegion</key>
 		<string>{{0, 0}, {540, 501}}</string>
 		<key>Zoom</key>
