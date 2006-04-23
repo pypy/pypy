@@ -75,12 +75,6 @@ class __extend__(pairtype(BaseListRepr, BaseListRepr)):
 def newlist(llops, r_list, items_v):
     c_list = inputconst(ootype.Void, r_list.lowleveltype)
     v_result = llops.genop("new", [c_list], resulttype=r_list.lowleveltype)
-##    c_append = inputconst(ootype.Void, "append")
-##    # This is very inefficient for a large amount of initial items ...
-##    for v_item in items_v:
-##        llops.genop("oosend", [c_append, v_result, v_item],
-##                resulttype=ootype.Void)
-
     c_resize = inputconst(ootype.Void, "_ll_resize")
     c_length = inputconst(ootype.Signed, len(items_v))
     llops.genop("oosend", [c_resize, v_result, c_length], resulttype=ootype.Void)
@@ -91,6 +85,10 @@ def newlist(llops, r_list, items_v):
         llops.genop("oosend", [c_setitem, v_result, ci, v_item], resulttype=ootype.Void)
     return v_result
 
+def ll_newlist(LIST, length):
+    lst = ootype.new(LIST)
+    lst._ll_resize(length)
+    return lst
 
 
 # ____________________________________________________________

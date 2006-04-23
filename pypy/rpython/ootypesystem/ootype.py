@@ -257,9 +257,8 @@ class List(BuiltinType):
     # this is the equivalent of the lltypesystem ll_newlist that is
     # marked as typeMethod.
     def ll_newlist(self, length):
-        lst = new(self)
-        lst._ll_resize_ge(length)
-        return lst
+        from pypy.rpython.ootypesystem import rlist
+        return rlist.ll_newlist(self, length)
 
     # NB: We are expecting Lists of the same ITEMTYPE to compare/hash
     # equal. We don't redefine __eq__/__hash__ since the implementations
