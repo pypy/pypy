@@ -8,11 +8,6 @@ globals().update(_c.constants)
 class error(Exception):
     pass
 
-def _ip_to_number(ip):
-    p1, p2, p3, p4 = [ int(part) for part in ip.split('.') ]
-    num = ((p1 * 256 + p2) * 256 + p3) * 256 + p4
-    return num
-
 
 class socket(object):
 
@@ -44,11 +39,10 @@ class socket(object):
         if self.family == AF_INET:
             (host, port) = addr
             ip = host # XXX
-            num = _ip_to_number(ip)
             caddr = _c.sockaddr_in()
             caddr.sin_family = AF_INET
             caddr.sin_port = _c.htons(port)
-            caddr.sin_addr.s_addr = _c.htonl(num)
+            _c.inet_aton(ip, pointer(caddr.sin_addr))
             return caddr
         else:
             raise NotImplementedError('sorry') # XXX

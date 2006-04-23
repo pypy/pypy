@@ -100,3 +100,7 @@ ntohl.restype = uint32_t
 ntohs = socketdll.htonl
 ntohs.argtypes = [uint16_t]
 ntohs.restype = uint16_t
+
+inet_aton = socketdll.inet_aton
+inet_aton.argtypes = [c_char_p, POINTER(in_addr)]
+inet_aton.restype = c_int
