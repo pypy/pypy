@@ -32,6 +32,13 @@ typedef int Py_ssize_t;
     Py_GT = ctypes_platform.ConstantInteger('Py_GT')
     Py_GE = ctypes_platform.ConstantInteger('Py_GE')
 
+    PyMethodDef = ctypes_platform.Struct('PyMethodDef',
+                                         [('ml_name', c_char_p),
+                                          ('ml_meth', c_void_p),
+                                          ('ml_flags', c_int),
+                                          ('ml_doc', c_char_p)])
+    METH_VARARGS = ctypes_platform.ConstantInteger('METH_VARARGS')
+
 globals().update(ctypes_platform.configure(CConfig))
 del CConfig
 
@@ -82,6 +89,10 @@ PySequence_SetItem.restype = c_int
 PyInt_FromLong = pythonapi.PyInt_FromLong
 PyInt_FromLong.argtypes = [c_long]
 PyInt_FromLong.restype = W_Object
+
+PyInt_AsLong = pythonapi.PyInt_AsLong
+PyInt_AsLong.argtypes = [W_Object]
+PyInt_AsLong.restype = c_long
 
 
 ###################################################
@@ -134,3 +145,20 @@ PyDict_SetItem.restype = c_int
 PyImport_ImportModule = pythonapi.PyImport_ImportModule
 PyImport_ImportModule.argtypes = [c_char_p]
 PyImport_ImportModule.restype = W_Object
+
+
+##############################################################
+# ____________________ Built-in functions ____________________
+
+PyArg_ParseTuple = pythonapi.PyArg_ParseTuple
+PyArg_ParseTuple.restype = c_int
+#PyArg_ParseTuple.argtypes = [W_Object, c_char_p, ...]
+
+PyArg_ParseTupleAndKeywords = pythonapi.PyArg_ParseTupleAndKeywords
+PyArg_ParseTupleAndKeywords.restype = c_int
+#PyArg_ParseTupleAndKeywords.argtypes = [W_Object, W_Object,
+#                                        c_char_p, POINTER(c_char_p), ...]
+
+PyCFunction_NewEx = pythonapi.PyCFunction_NewEx
+PyCFunction_NewEx.argtypes = [POINTER(PyMethodDef), W_Object, W_Object]
+PyCFunction_NewEx.restype = W_Object

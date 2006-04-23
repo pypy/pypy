@@ -374,6 +374,8 @@ class BuiltinCodeSignature(Signature):
             frame_cls = type("BuiltinFrame_UwS_%s" % label, (BuiltinFrame,), d)
 
             class MyBuiltinFrameFactory(BuiltinFrameFactory):
+                # export 'unwrap_spec' for inspection from outside gateway.py
+                unwrap_spec = self.unwrap_spec
 
                 def create(self, space, code, w_globals):
                     newframe = frame_cls(space, code, w_globals)
