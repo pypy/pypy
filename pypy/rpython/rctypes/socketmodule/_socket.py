@@ -1,8 +1,17 @@
-from ctypes import c_char_p, POINTER, byref, cast, create_string_buffer
+from ctypes import c_char_p, POINTER, pointer, byref, cast, create_string_buffer, sizeof
 import ctypes_socket as _c
 
 
 globals().update(_c.constants)
+
+
+class error(Exception):
+    pass
+
+def _ip_to_number(ip):
+    p1, p2, p3, p4 = [ int(part) for part in ip.split('.') ]
+    num = ((p4 * 256 + p3) * 256 + p2) * 256 + p1
+    return num
 
 
 class socket(object):
@@ -13,7 +22,7 @@ class socket(object):
         self.proto  = proto
         self._fd = _c.socket(family, type, proto)
         if self._fd == -1:
-            XXX
+            raise error(_c.errno.value)
 
     def __del__(self):
         if self._fd != -1:
@@ -29,17 +38,26 @@ class socket(object):
         caddr, caddrlen = self._getsockaddr(addr)
         res = _c.bind(self._fd, caddr, caddrlen)
         if res < 0:
-            XXX
+            raise error(_c.errno.value)
 
     def _getsockaddr(self, addr):
         if self.family == AF_INET:
             (host, port) = addr
-            caddr = sockaddr_in()
+            ip = host # XXX
+            caddr = _c.sockaddr_in()
             caddr.sin_family = AF_INET
-            caddr.sin_port   = port
-            caddr.sin_addr.s_addr = XXX(host)
+            caddr.sin_port = _c.htons(port)
+            caddr.sin_addr.s_addr = _ip_to_number(ip)
+            return caddr
         else:
-            XXX
+            raise NotImplementedError('sorry') # XXX
+
+    def connect(self, addr):
+        caddr = self._getsockaddr(addr)
+        paddr = cast(pointer(caddr), _c.sockaddr_ptr)
+        result = _c.socketconnect(self._fd, paddr, sizeof(caddr))
+        if result == -1:
+            raise error(_c.errno.value)
 
 
 def makeipaddr(caddr, caddrlen):

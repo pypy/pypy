@@ -34,6 +34,7 @@ sockaddr = ctypes_platform.getstruct('struct sockaddr', HEADER,
                                      [('sa_family', c_int),
                                       # unknown and variable fields follow
                                       ])
+sockaddr_ptr = POINTER(sockaddr)
 in_addr = ctypes_platform.getstruct('struct in_addr', HEADER,
                                     [('s_addr', c_uint)])
 sockaddr_in = ctypes_platform.getstruct('struct sockaddr_in', HEADER,
@@ -57,11 +58,21 @@ dllname = util.find_library('c')
 assert dllname is not None
 socketdll = cdll.LoadLibrary(dllname)
 
+errno = c_int.in_dll(socketdll, 'errno')
+
+htons = socketdll.htons
+htons.argtypes = [uint16_t]
+htons.restype = uint16_t
+
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
 socket.restype = c_int
 
 socketclose = os.close
+
+socketconnect = socketdll.connect
+socketconnect.argtypes = [c_int, POINTER(sockaddr), socklen_t]
+socketconnect.restype = c_int
 
 getaddrinfo = socketdll.getaddrinfo
 getaddrinfo.argtypes = [c_char_p, c_char_p, POINTER(addrinfo),
