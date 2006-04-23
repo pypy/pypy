@@ -9,7 +9,7 @@ from pypy.translator.tool.cbuild import enable_fast_compilation
 
 import sys, types
 
-P = False  # debug printing
+P = not False  # debug printing
 
 def get_annotation(func):
     argstypelist = []
@@ -32,7 +32,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
 
     global _t # allow us to view later
     _t = t = TranslationContext(do_imports_immediately=False)
-    t.buildannotator()
+    ann = t.buildannotator()
     rtyper = t.buildrtyper()
     bk = rtyper.annotator.bookkeeper
     if not exports:
@@ -40,14 +40,16 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
     all = [obj.__name__ for obj in exports]
     exports = exports + [('__all__', all)]
 
-    t.annotator.build_types(func, get_annotation(func))
+    ann.build_types(func, get_annotation(func))
 
     for obj in exports:
         if isinstance(obj, type):
             clsdef = bk.getuniqueclassdef(obj)
             rtyper.add_wrapper(clsdef)
         elif isinstance(obj, types.FunctionType):
-            pass#t.annotator.build_types(obj, get_annotation(obj))
+            if not ann.bookkeeper.getdesc(obj).querycallfamily():
+                # not annotated, so enforce it
+                ann.build_types(obj, get_annotation(obj))
 
     if view:
         t.viewcg()
@@ -246,7 +248,7 @@ def setup_new_module(mod, modname):
     #bltn = BuiltinHelper()
     # less code:
     import __builtin__ as bltn
-    print bltn.list('hallo')
+    if P:print bltn.list('hallo')
     #from twisted.internet import reactor    
     #print dir(reactor)
     #whow this works
@@ -254,17 +256,17 @@ def setup_new_module(mod, modname):
     # above is possible, this is probably a better compromise:
     isinstance = bltn.isinstance
     for obj in allobjs:
-        if isinstance(obj, types.FunctionType):
-            funcs.append( (obj.func_name, obj) )
-    print 'funcs=', funcs
-    print funcs[3:]
+        if isinstance(obj, types.BuiltinFunctionType):
+            funcs.append( (obj.__name__, obj) )
+    if P:print 'funcs=', funcs
+    if P:print funcs[3:]
     #funcs += [2, 3, 5]
     # not yet
     stuff = bltn.range(10)
-    print stuff[3:]
-    print stuff[:3]
-    print stuff[3:7]
-    print stuff[:-1]
+    if P:print stuff[3:]
+    if P:print stuff[:3]
+    if P:print stuff[3:7]
+    if P:print stuff[:-1]
     funcs.sort()
     return m
 
