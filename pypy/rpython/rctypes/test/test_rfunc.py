@@ -225,3 +225,15 @@ class Test_compile:
         s1 = time.ctime(N)
         s2 = fn(N)
         assert s1.strip() == s2.strip()
+
+    def test_compile_ctime_vararg(self):
+        import time
+        N = 101010101
+        def func(n):
+            args = (byref(c_long(n)),)
+            return ctime(*args)
+
+        fn = compile(func, [int])
+        s1 = time.ctime(N)
+        s2 = fn(N)
+        assert s1.strip() == s2.strip()

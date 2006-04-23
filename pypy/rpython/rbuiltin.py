@@ -86,7 +86,27 @@ class BuiltinFunctionRepr(Repr):
         from pypy.interpreter.argument import Arguments
         arguments = Arguments.fromshape(None, hop.args_s[1].const, # shape
                                         range(hop.nb_args-2))
-        args_s, kwds = arguments.unpack()
+        if arguments.w_starstararg is not None:
+            raise TyperError("**kwds call not implemented")
+        if arguments.w_stararg is not None:
+            # expand the *arg in-place -- it must be a tuple
+            from pypy.rpython.rtuple import AbstractTupleRepr
+            if arguments.w_stararg != hop.nb_args - 3:
+                raise TyperError("call pattern too complex")
+            hop.nb_args -= 1
+            v_tuple = hop.args_v.pop()
+            s_tuple = hop.args_s.pop()
+            r_tuple = hop.args_r.pop()
+            if not isinstance(r_tuple, AbstractTupleRepr):
+                raise TyperError("*arg must be a tuple")
+            for i in range(len(r_tuple.items_r)):
+                v_item = r_tuple.getitem(hop.llops, v_tuple, i)
+                hop.nb_args += 1
+                hop.args_v.append(v_item)
+                hop.args_s.append(s_tuple.items[i])
+                hop.args_r.append(r_tuple.items_r[i])
+
+        kwds = arguments.kwds_w or {}
         # prefix keyword arguments with 'i_'
         kwds_i = {}
         for key, index in kwds.items():
