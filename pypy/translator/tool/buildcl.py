@@ -4,6 +4,7 @@ from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
 from pypy.translator.gencl import GenCL
 from py.process import cmdexec 
+from pypy import conftest
 
 class Literal:
     def __init__(self, val):
@@ -41,6 +42,10 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
     t.buildrtyper(type_system="ootype").specialize()
+
+    if conftest.option.view:
+        t.view()
+    
     graph = t.graphs[0]
         
     gen = GenCL(graph, argtypes)

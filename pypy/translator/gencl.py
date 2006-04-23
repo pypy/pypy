@@ -34,6 +34,7 @@ class Op:
         "inplace_add": "+", # weird, but it works
         "inplace_lshift": "ash",
         "mod": "mod",
+        "int_mod": "mod",
         "lt": "<",
         "le": "<=",
         "eq": "=",
@@ -81,18 +82,19 @@ class Op:
         self.gen.emit_typecase(table, arg1)
         print "))"
 
-    def op_is_true(self):
-        s = self.str
-        result, (arg1,) = self.result, self.args
-        print "(setq", s(result)
+    def op_is_true(self, arg):
+        print "(setq", self.str(self.result)
         table = {
             (bool,): "%s",
             (int,): "(not (zerop %s))",
             (long,): "(not (zerop %s))",
             (list,): "(not (zerop (length %s)))",
         }
-        self.gen.emit_typecase(table, arg1)
+        self.gen.emit_typecase(table, arg)
         print ")"
+    
+    def op_int_is_true(self):
+        self.op_is_true(self.args[0])
 
     def op_newtuple(self):
         s = self.str

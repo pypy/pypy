@@ -55,7 +55,6 @@ class TestGenCLTestCase:
         assert cl_if([[]], 50, 100) == 50
 
     def test_gcd(self):
-        py.test.skip("temporarily disabled")
         cl_gcd = make_cl_func(t.my_gcd, [int, int])
         assert cl_gcd(96, 64) == 32
 
