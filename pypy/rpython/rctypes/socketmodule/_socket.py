@@ -26,7 +26,7 @@ class socket(object):
 
     def __del__(self):
         if self._fd != -1:
-            _c.closesocket(self._fd)
+            _c.socketclose(self._fd)
 
     def close(self):
         fd = self._fd
