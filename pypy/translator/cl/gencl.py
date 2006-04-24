@@ -59,6 +59,12 @@ class Op:
     def op_int_is_true(self, result, arg):
         yield "(setf %s (not (zerop %s)))" % (result, arg)
 
+    def op_direct_call(self, result, fun, *args):
+        graph = self.args[0].value.graph
+        self.gen.pendinggraphs.append(graph)
+        args = " ".join(args)
+        yield "(setf %s (%s %s))" % (result, fun, args)
+
     def declare_class(self, cls):
         # cls is really type of Instance
         name = cls._name
@@ -122,11 +128,8 @@ class ListImpl:
 
 class GenCL:
 
-    def __init__(self, fun, input_arg_types=[]):
-        # NB. 'fun' is a graph!
-        simplify_graph(fun)
-        self.fun = fun
-        self.blockref = {}
+    def __init__(self, entry_point, input_arg_types=[]):
+        self.pendinggraphs = [entry_point]
         self.declarations = []
 
     def annotate(self, input_arg_types):
@@ -148,8 +151,10 @@ class GenCL:
         return declarations + "\n" + code
 
     def emit(self):
-        for line in self.emit_defun(self.fun):
-            yield line
+        while self.pendinggraphs:
+            graph = self.pendinggraphs.pop()
+            for line in self.emit_defun(graph):
+                yield line
 
     def emit_defun(self, fun):
         yield ";;;; Main"
@@ -162,6 +167,7 @@ class GenCL:
         yield "(prog"
         blocklist = list(fun.iterblocks())
         vardict = {}
+        self.blockref = {}
         for block in blocklist:
             tag = len(self.blockref)
             self.blockref[block] = tag
