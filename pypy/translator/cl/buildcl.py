@@ -1,4 +1,3 @@
-import autopath
 import os
 import py
 
