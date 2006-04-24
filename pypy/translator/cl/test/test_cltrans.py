@@ -1,29 +1,14 @@
 import autopath
-from pypy.tool.udir import udir
 import py 
 import os
-from pypy.objspace.flow import FlowObjSpace 
 
-
-from pypy.translator.cl.buildcl import cl_detect, _make_cl_func
+from pypy.translator.cl.buildcl import make_cl_func
 from pypy.translator.cl.buildcl import Literal
-
-def setup_module(mod): 
-    mod.global_cl = cl_detect()
-
-def make_cl_func(func, argtypes=[]):
-    return _make_cl_func(func, global_cl, udir, argtypes)
-
 
 from pypy.translator.test import snippet as t
 
-class TestGenCLTestCase:
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
 
-    def setup_method(self,method):
-        if not global_cl:
-            py.test.skip("Common Lisp neither configured nor detected.")
+class TestGenCLTestCase:
 
     def test_if(self):
         py.test.skip("temporarily disabled")

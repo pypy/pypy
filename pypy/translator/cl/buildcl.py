@@ -2,11 +2,14 @@ import autopath
 import os
 import py
 
+from pypy.tool.udir import udir
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
 from py.process import cmdexec 
 from pypy import conftest
+
+global_cl = None
 
 def is_on_path(name):
     try:
@@ -61,6 +64,14 @@ def writelisp(gen, obj):
         elif isinstance(obj, tuple):
             content = "'" + content # quote Lisp list
         return content
+
+def make_cl_func(func, argtypes=[]):
+    global global_cl
+    if global_cl is None:
+        global_cl = cl_detect()
+    if not global_cl:
+        py.test.skip("Common Lisp neither configured nor detected.")
+    return _make_cl_func(func, global_cl, udir, argtypes)
 
 def _make_cl_func(func, cl, path, argtypes=[]):
     t = TranslationContext()
