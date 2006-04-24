@@ -106,7 +106,8 @@ class ListImpl:
         return "(length %s)" % (self.obj,)
 
     def ll_getitem_fast(self, index):
-        pass
+        index = repr_arg(index)
+        return "(aref %s %s)" % (self.obj, index)
 
     def ll_setitem_fast(self, index, value):
         index = repr_arg(index)

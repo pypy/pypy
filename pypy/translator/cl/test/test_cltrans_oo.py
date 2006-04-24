@@ -17,7 +17,7 @@ def test_list_length():
     cl_list_length_one = make_cl_func(list_length_one, [int])
     assert cl_list_length_one(0) == 1
 
-def dont_test_list_get():
+def test_list_get():
     def list_and_get(number):
         lst = [number]
         return lst[0]

@@ -1,3 +1,5 @@
+import types
+
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.ootypesystem.ootype import _static_meth
 
@@ -14,6 +16,9 @@ def repr_fun_name(name):
     return name.replace('_', '-')
 
 def repr_const(val):
+    if isinstance(val, types.FunctionType):
+        if val.func_name == 'dum_nocheck': # XXX
+            return "'dummy"
     if isinstance(val, _static_meth):
         return repr_fun_name(val._name) # XXX make sure function names are unique
     if isinstance(val, tuple):
