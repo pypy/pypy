@@ -6,15 +6,8 @@ globals().update(_c.constants)
 
 
 class error(Exception):
-    pass
-
-def makesockaddr(self, caddr):
-    family = caddr.sa_family
-    if family == AF_INET:
-        caddr = cast(pointer(caddr), POINTER(_c.sockaddr_in)).contents
-        return (_c.inet_ntoa(caddr.sin_addr), _c.ntohs(caddr.sin_port))
-    else:
-        raise NotImplementedError('Unsupported address family') # XXX
+    def __init__(self, errno):
+        Exception.__init__(self, errno, _c.strerror(errno)) 
 
 
 class socket(object):
@@ -59,25 +52,25 @@ class socket(object):
             raise NotImplementedError('Unsupported address family') # XXX
 
     def listen(self, backlog):
-        if self._fd != -1:
-            fd = self._fd
-            res = _c.listen(fd, backlog)
-            if res == -1:
-                raise error(_c.errno.value)
-        else:
-            XXX
+        fd = self._fd
+        if backlog < 1:
+            backlog = 1
+        res = _c.listen(fd, backlog)
+        if res == -1:
+            raise error(_c.errno.value)
                     
     def accept(self):
-        peeraddr = _c.sockaddr()
-        peeraddrlen = _c.socklen_t(sizeof(peeraddr))
-        newfd = _c.socketaccept(self._fd, pointer(peeraddr),
+        peeraddr = pointer(_c.sockaddr())
+        peeraddrlen = _c.socklen_t(sizeof(_c.sockaddr))
+        newfd = _c.socketaccept(self._fd, peeraddr,
                                 pointer(peeraddrlen))
         if newfd < 0:
             raise error(_c.errno.value)
         newsocket = socket(self.family, self.type, self.proto, newfd)
-        return (newsocket, makesockaddr(peeraddr))
+        return (newsocket, makesockaddr(peeraddr, peeraddrlen, self.proto))
     
     def connect_ex(self, addr):
+        host, port = addr
         caddr = self._getsockaddr(addr)
         paddr = cast(pointer(caddr), _c.sockaddr_ptr)
         result = _c.socketconnect(self._fd, paddr,
@@ -93,22 +86,22 @@ class socket(object):
         return self._fd
     
     def getpeername(self):
-        peeraddr = _c.sockaddr()
-        peeraddrlen = _c.socklen_t(sizeof(peeraddr))
-        res = _c.socketgetpeername(self._fd, pointer(peeraddr),
+        peeraddr = pointer(_c.sockaddr())
+        peeraddrlen = _c.socklen_t(sizeof(_c.sockaddr))
+        res = _c.socketgetpeername(self._fd, peeraddr,
                                    pointer(peeraddrlen))
         if res < 0:
             raise error(_c.errno.value)
-        return makesockaddr(peeraddr)
+        return makesockaddr(peeraddr, peeraddrlen, self.proto)
     
     def getsockname(self):
-        peeraddr = _c.sockaddr()
-        peeraddrlen = _c.socklen_t(sizeof(peeraddr))
-        res = _c.socketgetsockname(self._fd, pointer(peeraddr),
+        peeraddr = pointer(_c.sockaddr())
+        peeraddrlen = _c.socklen_t(sizeof(_c.sockaddr))
+        res = _c.socketgetsockname(self._fd, peeraddr,
                                    pointer(peeraddrlen))
         if res < 0:
             raise error(_c.errno.value)
-        return makesockaddr(peeraddr)
+        return makesockaddr(peeraddr, peeraddrlen, self.proto)
     
     def getsockopt(self, level, optname, buflen=-1):
         pass
@@ -169,7 +162,7 @@ def makesockaddr(caddr, caddrlen, proto):
         a = cast(caddr, POINTER(_c.sockaddr_in))
         return makeipaddr(caddr, caddrlen), _c.ntohs(a.contents.sin_port)
     else:
-        XXX
+        raise NotImplementedError("Unsupported address family %d" % caddr.contents.sa_family)
 
 def getaddrinfo(host, port, family=AF_UNSPEC, socktype=0, proto=0, flags=0):
     if isinstance(port, (int, long)):

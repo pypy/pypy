@@ -14,13 +14,18 @@ includes = ('sys/types.h',
             'arpa/inet.h'
             )
 HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
-constants = {}
+constants = {"BDADDR_ANY": "00:00:00:00:00:00",
+             "BDADDR_LOCAL": "00:00:00:FF:FF:FF"}
 
 # constants
-for name in ['AF_APPLETALK', 'AF_INET', 'AF_INET6', 'AF_IPX','AF_ROUTE', 
-'AF_SNA', 'AF_UNIX', 'AF_UNSPEC', 'AI_ADDRCONFIG', 'AI_ALL', 'AI_CANONNAME',
-'AI_DEFAULT', 'AI_MASK', 'AI_NUMERICHOST', 'AI_PASSIVE', 'AI_V4MAPPED',
-'AI_V4MAPPED_CFG', 'EAI_ADDRFAMILY', 'EAI_AGAIN', 'EAI_BADFLAGS',
+for name in ['AF_APPLETALK', 'AF_ASH', 'AF_ATMPVC', 'AF_ATMSVC', 'AF_AX25',
+             'AF_BLUETOOTH', 'AF_BRIDGE', 'AF_ECONET', 'AF_INET', 'AF_INET6',
+             'AF_IPX', 'AF_IRDA', 'AF_KEY', 'AF_NETBEUI', 'AF_NETLINK',
+             'AF_NETROM', 'AF_PACKET', 'AF_PPPOX', 'AF_ROSE', 'AF_ROUTE',
+             'AF_SECURITY', 'AF_WANPIPE', 'AF_SNA', 'AF_UNIX', 'AF_X25',
+             'AF_UNSPEC', 'AI_ADDRCONFIG', 'AI_ALL', 'AI_CANONNAME',
+'AI_DEFAULT', 'AI_MASK', 'AI_NUMERICHOST', 'AI_NUMERICSERV', 'AI_PASSIVE', 'AI_V4MAPPED',
+'AI_V4MAPPED_CFG', 'BDADDR_ANY', 'EAI_ADDRFAMILY', 'EAI_AGAIN', 'EAI_BADFLAGS',
 'EAI_BADHINTS', 'EAI_FAIL', 'EAI_FAMILY', 'EAI_MAX', 'EAI_MEMORY',
 'EAI_NODATA', 'EAI_NONAME', 'EAI_PROTOCOL', 'EAI_SERVICE', 'EAI_SOCKTYPE',
 'EAI_SYSTEM', 'INADDR_UNSPEC_GROUP', 'IPPROTO_AH',
@@ -118,6 +123,9 @@ assert dllname is not None
 socketdll = cdll.LoadLibrary(dllname)
 
 errno = c_int.in_dll(socketdll, 'errno')
+strerror = socketdll.strerror
+strerror.argtypes = [c_int]
+strerror.restype = c_char_p
 
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
@@ -148,15 +156,15 @@ htonl = socketdll.htonl
 htonl.argtypes = [uint32_t]
 htonl.restype = uint32_t
 
-htons = socketdll.htonl
+htons = socketdll.htons
 htons.argtypes = [uint16_t]
 htons.restype = uint16_t
 
-ntohl = socketdll.htonl
+ntohl = socketdll.ntohl
 ntohl.argtypes = [uint32_t]
 ntohl.restype = uint32_t
 
-ntohs = socketdll.htonl
+ntohs = socketdll.ntohs
 ntohs.argtypes = [uint16_t]
 ntohs.restype = uint16_t
 
