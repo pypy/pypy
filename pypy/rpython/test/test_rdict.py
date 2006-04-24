@@ -819,3 +819,41 @@ class TestOotypeRtyping(BaseTestDictRtyping):
         res = [self.ll_to_tuple(item, 2) for item in res]
         assert res == [(42, 43), (13, 14)] or res == [(13, 14), (42, 43)]
 
+    def test_iteration(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            tot = 0
+            for key in  d:
+                tot += key
+            return tot
+        assert self.interpret(func, [42, 13]) == 55
+
+    def test_iterkeys(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            tot = 0
+            for key in  d.iterkeys():
+                tot += key
+            return tot
+        assert self.interpret(func, [42, 13]) == 55
+
+    def test_itervalues(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            tot = 0
+            for value in  d.itervalues():
+                tot += value
+            return tot
+        assert self.interpret(func, [42, 13]) == 57
+
+    def test_iteritems(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            tot1 = 0
+            tot2 = 0
+            for key, value in  d.iteritems():
+                tot1 += key
+                tot2 += value
+            return tot1, tot2
+        res = self.ll_to_tuple(self.interpret(func, [42, 13]), 2)
+        assert res == (55, 57)

@@ -8,6 +8,13 @@ from pypy.rpython import robject
 from pypy.rpython import objectmodel
 from pypy.rpython import rmodel
 
+def dum_keys(): pass
+def dum_values(): pass
+def dum_items():pass
+dum_variant = {"keys":   dum_keys,
+               "values": dum_values,
+               "items":  dum_items}
+
 
 class __extend__(annmodel.SomeDict):
     def rtyper_makerepr(self, rtyper):
@@ -71,3 +78,29 @@ def rtype_newdict(hop):
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     v_result = hop.gendirectcall(hop.rtyper.type_system.rdict.ll_newdict, cDICT)
     return v_result
+
+
+class AbstractDictIteratorRepr(rmodel.IteratorRepr):
+    def newiter(self, hop):
+        v_dict, = hop.inputargs(self.r_dict)
+        citerptr = hop.inputconst(lltype.Void, self.lowleveltype)
+        return hop.gendirectcall(self.ll_dictiter, citerptr, v_dict)
+
+    def rtype_next(self, hop):
+        variant = self.variant
+        v_iter, = hop.inputargs(self)
+        v_func = hop.inputconst(lltype.Void, dum_variant[self.variant])
+        if variant in ('keys', 'values'):
+            c1 = hop.inputconst(lltype.Void, None)
+        else:
+            c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
+        v = hop.gendirectcall(self.ll_dictnext, v_iter, v_func, c1)
+        if variant == 'keys':
+            return self.r_dict.recast_key(hop.llops, v)
+        elif variant == 'values':
+            return self.r_dict.recast_value(hop.llops, v)
+        else:
+            return v
+    

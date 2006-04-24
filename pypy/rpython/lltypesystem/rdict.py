@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rdict import AbstractDictRepr, rtype_newdict
+from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
+     rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
@@ -377,13 +378,6 @@ def ll_keyeq_custom(d, key1, key2):
     DICT = lltype.typeOf(d).TO
     return hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
 
-def dum_keys(): pass
-def dum_values(): pass
-def dum_items():pass
-dum_variant = {"keys":   dum_keys,
-               "values": dum_values,
-               "items":  dum_items}
-
 def ll_dict_len(d):
     return d.num_items 
 
@@ -591,7 +585,7 @@ def rtype_r_dict(hop):
 #
 #  Iteration.
 
-class DictIteratorRepr(rmodel.IteratorRepr):
+class DictIteratorRepr(AbstractDictIteratorRepr):
 
     def __init__(self, r_dict, variant="keys"):
         self.r_dict = r_dict
@@ -599,29 +593,9 @@ class DictIteratorRepr(rmodel.IteratorRepr):
         self.lowleveltype = lltype.Ptr(lltype.GcStruct('dictiter',
                                          ('dict', r_dict.lowleveltype),
                                          ('index', lltype.Signed)))
+        self.ll_dictiter = ll_dictiter
+        self.ll_dictnext = ll_dictnext
 
-    def newiter(self, hop):
-        v_dict, = hop.inputargs(self.r_dict)
-        citerptr = hop.inputconst(lltype.Void, self.lowleveltype)
-        return hop.gendirectcall(ll_dictiter, citerptr, v_dict)
-
-    def rtype_next(self, hop):
-        variant = self.variant
-        v_iter, = hop.inputargs(self)
-        v_func = hop.inputconst(lltype.Void, dum_variant[self.variant])
-        if variant in ('keys', 'values'):
-            c1 = hop.inputconst(lltype.Void, None)
-        else:
-            c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
-        hop.has_implicit_exception(StopIteration) # record that we know about it
-        hop.exception_is_here()
-        v = hop.gendirectcall(ll_dictnext, v_iter, v_func, c1)
-        if variant == 'keys':
-            return self.r_dict.recast_key(hop.llops, v)
-        elif variant == 'values':
-            return self.r_dict.recast_value(hop.llops, v)
-        else:
-            return v
 
 def ll_dictiter(ITERPTR, d):
     iter = lltype.malloc(ITERPTR.TO)

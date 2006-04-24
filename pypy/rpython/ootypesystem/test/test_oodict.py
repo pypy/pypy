@@ -17,5 +17,4 @@ def test_setitem_getitem():
     DT = Dict(Signed, Float)
     d = new(DT)
     d.ll_set(42, 123.45)
-    assert d.ll_get(42, 0.0) == 123.45
-    assert d.ll_get(43, 0.0) == 0.0
+    assert d.ll_get(42) == 123.45

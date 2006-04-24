@@ -1,17 +1,17 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rdict import AbstractDictRepr, rtype_newdict
+from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
+     rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rlist import ll_newlist
+from pypy.rpython.ootypesystem.riterable import iterator_type
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rpython import objectmodel
 from pypy.rpython import rmodel
 
-def dum_values(): pass
-def dum_items():pass
 
 class DictRepr(AbstractDictRepr):
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
@@ -65,6 +65,9 @@ class DictRepr(AbstractDictRepr):
         return hop.genop("oosend", [c_name] + v_args,
                 resulttype=hop.r_result.lowleveltype)
 
+    def make_iterator_repr(self, *variant):
+        return DictIteratorRepr(self, *variant)
+
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)
         return self.send_message(hop, 'll_length')
@@ -77,8 +80,7 @@ class DictRepr(AbstractDictRepr):
         v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
                                                  self.value_repr)
         hop.exception_cannot_occur()
-        v_res = self.send_message(hop, 'll_get')
-        #v_res = hop.gendirectcall(ll_get, v_dict, v_key, v_default)
+        v_res = hop.gendirectcall(ll_dict_get, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
 
     def rtype_method_setdefault(self, hop):
@@ -103,14 +105,19 @@ class DictRepr(AbstractDictRepr):
         r_list = hop.r_result
         cLIST = hop.inputconst(ootype.Void, r_list.lowleveltype)
         c_func = hop.inputconst(ootype.Void, spec)        
-        c_dummy_default = hop.inputconst(self.value_repr.lowleveltype,
-                                         self.value_repr.ll_dummy_value)
-        return hop.gendirectcall(ll_dict_values_items, v_dict, cLIST, c_func, c_dummy_default)
+        return hop.gendirectcall(ll_dict_values_items, v_dict, cLIST, c_func)
 
-##    def rtype_method_items(self, hop):
-##        v_dict, = hop.inputargs(self)
-##        return hop.gendirectcall(ll_dict_items, v_dict)
+    def rtype_method_iterkeys(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "keys").newiter(hop)
 
+    def rtype_method_itervalues(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "values").newiter(hop)
+
+    def rtype_method_iteritems(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "items").newiter(hop)
 
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
@@ -120,8 +127,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         if not r_dict.custom_eq_hash: # TODO: why only in this case?
             hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
-        c_dummy_default = hop.inputconst(r_dict.value_repr.lowleveltype, r_dict.value_repr.ll_dummy_value)
-        v_res = hop.gendirectcall(ll_dict_getitem, v_dict, v_key, c_dummy_default)
+        v_res = hop.gendirectcall(ll_dict_getitem, v_dict, v_key)
         return r_dict.recast_value(hop.llops, v_res)
 
     def rtype_delitem((r_dict, r_key), hop):
@@ -153,10 +159,10 @@ def ll_dict_is_true(d):
     # check if a dict is True, allowing for None
     return bool(d) and d.ll_length() != 0
 
-def ll_dict_getitem(d, key, dummy_default):
+def ll_dict_getitem(d, key):
     # TODO: this is inefficient because it does two lookups
     if d.ll_contains(key):
-        return d.ll_get(key, dummy_default) # dummy_default is never returned
+        return d.ll_get(key)
     else:
         raise KeyError
 
@@ -164,21 +170,28 @@ def ll_dict_delitem(d, key):
     if not d.ll_remove(key):
         raise KeyError
 
+def ll_dict_get(d, key, default):
+    # TODO: this is inefficient because it does two lookups
+    if d.ll_contains(key):
+        return d.ll_get(key)
+    else:
+        return default
+
 def ll_dict_setdefault(d, key, default):
     try:
-        return ll_dict_getitem(d, key, default)
+        return ll_dict_getitem(d, key)
     except KeyError:
         d.ll_set(key, default)
         return default
 
-def ll_dict_values_items(d, LIST, func, dummy_default):
+def ll_dict_values_items(d, LIST, func):
     keys = d.ll_keys()
     length = keys.ll_length()
     result = ll_newlist(LIST, length)
     i = 0
     while i < length:
         key = keys.ll_getitem_fast(i)
-        value = d.ll_get(key, dummy_default) # dummy_default is never returned
+        value = d.ll_get(key)
         if func is dum_items:
             r = ootype.new(LIST._ITEMTYPE)
             r.item0 = key   # TODO: do we need casting?
@@ -189,3 +202,45 @@ def ll_dict_values_items(d, LIST, func, dummy_default):
 
         i += 1
     return result
+
+
+# ____________________________________________________________
+#
+#  Iteration.
+
+class DictIteratorRepr(AbstractDictIteratorRepr):
+
+    def __init__(self, r_dict, variant="keys"):
+        self.r_dict = r_dict
+        self.variant = variant
+        self.lowleveltype = iterator_type(r_dict, r_dict.key_repr)
+        self.ll_dictiter = ll_dictiter
+        self.ll_dictnext = ll_dictnext
+
+def ll_dictiter(ITER, d):
+    iter = ootype.new(ITER)
+    iter.iterable = d
+    iter.index = 0
+    return iter
+
+# TODO: this is very inefficient for values and items because it does
+# a dict lookup at every iteration. Need to be refactored.
+def ll_dictnext(iter, func, RETURNTYPE):
+    d = iter.iterable
+    keys = d.ll_keys()
+    index = iter.index
+    if index >= keys.ll_length():
+        raise StopIteration
+    iter.index = index + 1
+
+    key = keys.ll_getitem_fast(index)
+    if func is dum_keys:
+        return key
+    elif func is dum_values:
+        return d.ll_get(key)
+    elif func is dum_items:
+        res = ootype.new(RETURNTYPE)
+        res.item0 = key
+        res.item1 = d.ll_get(key)
+        return res
+        

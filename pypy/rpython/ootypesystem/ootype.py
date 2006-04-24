@@ -297,7 +297,7 @@ class Dict(BuiltinType):
 
         self._GENERIC_METHODS = frozendict({
             "ll_length": Meth([], Signed),
-            "ll_get": Meth([self.KEYTYPE_T, self.VALUETYPE_T], self.VALUETYPE_T), # ll_get(key, default)
+            "ll_get": Meth([self.KEYTYPE_T], self.VALUETYPE_T),
             "ll_set": Meth([self.KEYTYPE_T, self.VALUETYPE_T], Void),
             "ll_remove": Meth([self.KEYTYPE_T], Bool), # return False is key was not present
             "ll_contains": Meth([self.KEYTYPE_T], Bool),
@@ -664,11 +664,11 @@ class _dict(_builtin_type):
         # NOT_RPYTHON
         return len(self._dict)
 
-    def ll_get(self, key, default):
+    def ll_get(self, key):
         # NOT_RPYTHON        
         assert typeOf(key) == self._TYPE._KEYTYPE
-        assert typeOf(key) == self._TYPE._VALUETYPE
-        return self._dict.get(key, default)
+        assert key in self._dict
+        return self._dict[key]
 
     def ll_set(self, key, value):
         # NOT_RPYTHON        
