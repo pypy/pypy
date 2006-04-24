@@ -2,7 +2,7 @@ import autopath
 
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
-from pypy.translator.gencl import GenCL
+from pypy.translator.cl.gencl import GenCL
 from py.process import cmdexec 
 from pypy import conftest
 

@@ -29,12 +29,12 @@ def is_on_path(name):
         return True 
 
 def make_cl_func(func, argtypes=[]):
-    from pypy.translator.tool.buildcl import _make_cl_func
+    from pypy.translator.cl.buildcl import _make_cl_func
     return _make_cl_func(func, global_cl, udir, argtypes)
 
 
 from pypy.translator.test import snippet as t
-from pypy.translator.tool.buildcl import Literal
+from pypy.translator.cl.buildcl import Literal
 
 class TestGenCLTestCase:
     def setup_class(cls): 
