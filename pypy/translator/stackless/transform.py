@@ -100,9 +100,6 @@ class StacklessTransfomer(object):
         ADD_FRAME_STATE_TYPE = lltype.FuncType(
             [self.unwind_exception_type, lltype.Ptr(STATE_HEADER)],
             lltype.Void)
-        self.add_frame_state_ptr = model.Constant(
-            getfunctionptr(add_frame_state_graph),
-            lltype.Ptr(ADD_FRAME_STATE_TYPE))
 
         RESUME_STATE_TYPE = lltype.FuncType([], lltype.Signed)
         resume_state_graph = mixlevelannotator.getgraph(
@@ -153,6 +150,10 @@ class StacklessTransfomer(object):
             lltype.Ptr(FETCH_RETVAL_VOID_P_TYPE))
 
         mixlevelannotator.finish()
+
+        self.add_frame_state_ptr = model.Constant(
+            getfunctionptr(add_frame_state_graph),
+            lltype.Ptr(ADD_FRAME_STATE_TYPE))
 
         s_global_state = bk.immutablevalue(code.global_state)
         r_global_state = translator.rtyper.getrepr(s_global_state)
