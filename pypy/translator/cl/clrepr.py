@@ -24,12 +24,6 @@ def repr_const(val):
         val.replace("\"", "\\\"")
         val = '"' + val + '"'
         return val
-    elif isinstance(val, type(Exception)) and issubclass(val, Exception):
-        return "'%s" % val.__name__
-    elif val is last_exception:
-        return "last-exc"
-    elif val is last_exc_value:
-        return "'last-exc-value"
     else:
         return repr_unknown(val)
 
