@@ -3,7 +3,7 @@ from pypy.rpython import rarithmetic, rclass, rmodel
 from pypy.translator.backendopt import support
 from pypy.objspace.flow import model
 from pypy.rpython.memory.gctransform import varoftype
-from pypy.translator.unsimplify import copyvar
+from pypy.translator import unsimplify
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code 
@@ -170,6 +170,8 @@ class StacklessTransfomer(object):
         if self.resume_points:
             self.insert_resume_handling(graph)
 
+        model.checkgraph(graph)
+
         self.curr_graph = None
 
     def ops_read_global_state_field(self, targetvar, fieldname):
@@ -195,7 +197,7 @@ class StacklessTransfomer(object):
 
     def insert_resume_handling(self, graph):
         old_start_block = graph.startblock
-        newinputargs = [copyvar(self.translator, v)
+        newinputargs = [unsimplify.copyvar(self.translator, v)
                         for v in old_start_block.inputargs]
         new_start_block = model.Block(newinputargs)
         var_resume_state = varoftype(lltype.Signed)
@@ -221,7 +223,7 @@ class StacklessTransfomer(object):
                 varoftype(lltype.Void)))
             varmap = {}
             for i, arg in enumerate(resume_point.args):
-                newarg = varmap[arg] = copyvar(self.translator, arg)
+                newarg = varmap[arg] = unsimplify.copyvar(self.translator, arg)
                 assert arg is not resume_point.var_result
                 fname = model.Constant(frame_state_type._names[i+1], lltype.Void)
                 ops.append(model.SpaceOperation(
@@ -232,6 +234,9 @@ class StacklessTransfomer(object):
                 rettype = STORAGE_TYPES[r]
             else:
                 rettype = lltype.Void
+
+            need_address_conversion = False
+                
             if rettype == lltype.Signed:
                 getretval = self.fetch_retval_long_ptr
             if rettype == lltype.SignedLongLong:
@@ -241,9 +246,21 @@ class StacklessTransfomer(object):
             elif rettype == lltype.Float:
                 getretval = self.fetch_retval_float_ptr
             elif rettype == llmemory.Address:
+                if resume_point.var_result.concretetype is not \
+                       llmemory.Address:
+                    if resume_point.var_result in \
+                           resume_point.links_to_resumption[0].args:
+                        need_address_conversion = True
                 getretval = self.fetch_retval_void_p_ptr
-            varmap[resume_point.var_result] = retval = (
-                copyvar(self.translator, resume_point.var_result))
+            
+            if need_address_conversion:
+                varmap[resume_point.var_result] = retval = (
+                    varoftype(llmemory.Address))
+                self.translator.annotator.setbinding(
+                    retval, annmodel.SomeAddress())
+            else:
+                varmap[resume_point.var_result] = retval = (
+                    unsimplify.copyvar(self.translator, resume_point.var_result))
             ops.append(model.SpaceOperation("direct_call", [getretval], retval))
 
             newblock.operations.extend(ops)
@@ -254,7 +271,7 @@ class StacklessTransfomer(object):
                         return varmap[arg]
                     else:
                         assert arg in [l.last_exception, l.last_exc_value]
-                        r = copyvar(self.translator, arg)
+                        r = unsimplify.copyvar(self.translator, arg)
                         varmap[arg] = r
                         return r
                 else:
@@ -267,6 +284,20 @@ class StacklessTransfomer(object):
                 newblock.exitswitch = model.c_last_exception
             else:
                 newblock.exitswitch = None
+
+            if need_address_conversion:
+                convertblock = unsimplify.insert_empty_block(
+                    self.translator, newblock.exits[0])
+                returnvarindex = newblock.exits[0].args.index(retval)
+                newvar = unsimplify.copyvar(self.translator, resume_point.var_result)
+                convertblock.operations.append(
+                    model.SpaceOperation("cast_adr_to_ptr",
+                                         [convertblock.inputargs[returnvarindex]],
+                                         newvar))
+                convertblock.exits[0].args[returnvarindex] = newvar
+                self.translator.rtyper.insert_link_conversions(convertblock)
+                
+            self.translator.rtyper.insert_link_conversions(newblock)
             
             resuming_links.append(
                 model.Link([], newblock, resume_point_index+1))
@@ -293,6 +324,18 @@ class StacklessTransfomer(object):
                     link = block.exits[0]
                 else:
                     link = support.split_block_with_keepalive(block, i+1)
+                    # this section deserves a whinge:
+                    
+                    # i want to use rtyper.insert_link_conversions() in
+                    # insert_resume_handling().  insert_link_conversions()
+                    # calls bindingrepr(), which depends on variables having
+                    # annotations.  split_block called copyvar(None, ...)
+                    # which doesn't preserve the annotation.  so put it back
+                    # here.  it certainly sucks that this module has to worry
+                    # about annotations :(
+                    ann = self.translator.annotator
+                    for f, t in zip(link.args, link.target.inputargs):
+                        ann.setbinding(t, ann.binding(f))
                     block.exitswitch = model.c_last_exception
                     link.llexitcase = None
                 var_unwind_exception = varoftype(evalue)
@@ -345,8 +388,9 @@ class StacklessTransfomer(object):
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
-        inputargs = [copyvar(self.translator, v) for v in varstosave]
-        var_unwind_exception = copyvar(self.translator, var_unwind_exception) 
+        inputargs = [unsimplify.copyvar(self.translator, v) for v in varstosave]
+        var_unwind_exception = unsimplify.copyvar(
+            self.translator, var_unwind_exception) 
 
         fields = []
         n = []

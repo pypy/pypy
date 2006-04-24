@@ -28,3 +28,22 @@ def test_simple():
 
     res = run_stackless_function(fn, fn, f, g2, g1)
     assert res.strip() == "10"
+
+def test_with_ptr():
+    def f(n):
+        if n > 0:
+            res = f(n-1)
+        else:
+            res = code.stack_frames_depth(), 1
+        return res
+
+    def fn(ignored):
+        count0, _ = f(0)
+        count10, _ = f(10)
+        return count10 - count0
+
+    res = llinterp_stackless_function(fn, fn, f)
+    assert res == 10
+
+    res = run_stackless_function(fn, fn, f)
+    assert res.strip() == "10"
