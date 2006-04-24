@@ -43,6 +43,10 @@ class Literal:
 
 def readlisp(s):
     # Return bool/int/str or give up
+    lines = s.splitlines()
+    lines = [ line for line in lines if line and not line.startswith(';') ]
+    assert len(lines) == 1
+    s = lines[0]
     import string
     s = s.strip()
     if s == "T":
