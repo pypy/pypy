@@ -134,7 +134,10 @@ class GenCL:
         lines = list(self.emit())
         declarations = "\n".join(self.declarations)
         code = "\n".join(lines)
-        return declarations + "\n" + code + "\n"
+        if declarations:
+            return declarations + "\n" + code + "\n"
+        else:
+            return code + "\n"
 
     def emit(self):
         while self.pendinggraphs:
