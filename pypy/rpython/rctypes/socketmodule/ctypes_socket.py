@@ -148,3 +148,19 @@ socketrecvfrom = socketdll.recvfrom
 socketrecvfrom.argtypes = [c_int, c_void_p, size_t,
                            c_int, sockaddr_ptr, POINTER(socklen_t)]
 socketrecvfrom.restype = ssize_t
+
+socketsend = socketdll.send
+socketsend.argtypes = [c_int,
+                       c_void_p, #this should be constant
+                       size_t, c_int]
+socketsend.restype = ssize_t
+
+socketsendto = socketdll.sendto
+socketsendto.argtypes = [c_int, c_void_p, #this should be constant
+                         size_t, c_int, sockaddr_ptr, #this should be const
+                         socklen_t]
+socketsendto.restype = ssize_t
+
+socketshutdown = socketdll.shutdown
+socketshutdown.argtypes = [c_int, c_int]
+socketshutdown.restype = c_int
