@@ -132,18 +132,6 @@ class GenCL:
         self.pendinggraphs = [entry_point]
         self.declarations = []
 
-    def annotate(self, input_arg_types):
-        ann = RPythonAnnotator()
-        inputcells = [ann.typeannotation(t) for t in input_arg_types]
-        ann.build_graph_types(self.fun, inputcells)
-        self.setannotator(ann)
-
-    def setannotator(self, annotator):
-        self.ann = annotator
-
-    def get_type(self, var):
-        return var.concretetype
-
     def emitcode(self, public=True):
         lines = list(self.emit())
         declarations = "\n".join(self.declarations)
@@ -172,7 +160,8 @@ class GenCL:
             tag = len(self.blockref)
             self.blockref[block] = tag
             for var in block.getvariables():
-                vardict[var] = self.get_type(var)
+                # In the future, we could assign type information here
+                vardict[var] = None
         yield "( last-exc"
         for var in vardict:
             if var in arglist:
