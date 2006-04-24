@@ -108,10 +108,10 @@ class TestGenCLTestCase:
         assert cl_sum(range(12)) == 66
 
     def test_int_add(self):
-        def f(number):
+        def add_two(number):
             return number + 2
-        cl_add = make_cl_func(f, [int])
-        assert cl_add(5) == 7
+        cl_add_two = make_cl_func(add_two, [int])
+        assert cl_add_two(5) == 7
 
 
 # TODO
