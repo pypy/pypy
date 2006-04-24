@@ -5,7 +5,7 @@ import sys, time
 PORT = 8037
 
 class EchoServer(SocketServer.TCPServer):
-
+    allow_reuse_address = True
     def __init__(self, *args, **kwargs):
         self.address_family = kwargs["address_family"]
         del kwargs["address_family"]
@@ -32,8 +32,10 @@ class EchoRequestHandler(SocketServer.StreamRequestHandler):
                 raise RuntimeError()
             self.wfile.write(client_string)
 
+def create_server(address_family=socket.AF_INET):
+    return EchoServer(("", PORT), EchoRequestHandler, address_family=address_family)
 def start_server(address_family=socket.AF_INET):
-    server = EchoServer(("", PORT), EchoRequestHandler, address_family=address_family)
+    server = create_server(address_family) 
     server.serve()    
 
 if __name__ == "__main__":
