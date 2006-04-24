@@ -1,3 +1,5 @@
+from pypy.objspace.flow.model import Constant, Variable, last_exception
+
 def repr_unknown(obj):
     return '#<%r>' % (obj,)
 
