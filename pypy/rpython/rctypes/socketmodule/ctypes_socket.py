@@ -6,6 +6,8 @@ from ctypes import *
 includes = ('sys/types.h',
             'sys/socket.h',
             'netinet/in.h',
+            'unistd.h',
+            'stdio.h',
             'netdb.h',
             'arpa/inet.h',
             )
@@ -26,7 +28,7 @@ for name in ['AF_INET',
 uint16_t = ctypes_platform.getsimpletype('uint16_t', HEADER, c_ushort)
 uint32_t = ctypes_platform.getsimpletype('uint32_t', HEADER, c_uint)
 size_t = ctypes_platform.getsimpletype('size_t', HEADER, c_int)
-size_t = ctypes_platform.getsimpletype('size_t', HEADER, c_int)
+ssize_t = ctypes_platform.getsimpletype('ssize_t', HEADER, c_int)
 socklen_t = ctypes_platform.getsimpletype('socklen_t', HEADER, c_int)
 
 # struct types
@@ -53,6 +55,8 @@ addrinfo = ctypes_platform.getstruct('struct addrinfo', HEADER,
                                       ('ai_next', addrinfo_ptr)])
 SetPointerType(addrinfo_ptr, addrinfo)
 
+FILE_ptr = ctypes_platform.getstruct('FILE *', HEADER,
+                                     [])
 # functions
 dllname = util.find_library('c')
 assert dllname is not None
@@ -67,20 +71,20 @@ socket.restype = c_int
 socketclose = os.close
 
 socketconnect = socketdll.connect
-socketconnect.argtypes = [c_int, POINTER(sockaddr), socklen_t]
+socketconnect.argtypes = [c_int, sockaddr_ptr, socklen_t]
 socketconnect.restype = c_int
 
 getaddrinfo = socketdll.getaddrinfo
-getaddrinfo.argtypes = [c_char_p, c_char_p, POINTER(addrinfo),
-                        POINTER(POINTER(addrinfo))]
+getaddrinfo.argtypes = [c_char_p, c_char_p, addrinfo_ptr,
+                        POINTER(addrinfo_ptr)]
 getaddrinfo.restype = c_int
 
 freeaddrinfo = socketdll.freeaddrinfo
-freeaddrinfo.argtypes = [POINTER(addrinfo)]
+freeaddrinfo.argtypes = [addrinfo_ptr]
 freeaddrinfo.restype = None
 
 getnameinfo = socketdll.getnameinfo
-getnameinfo.argtypes = [POINTER(sockaddr), socklen_t,
+getnameinfo.argtypes = [sockaddr_ptr, socklen_t,
                         c_char_p, size_t,
                         c_char_p, size_t, c_int]
 getnameinfo.restype = c_int
@@ -106,5 +110,41 @@ inet_aton.argtypes = [c_char_p, POINTER(in_addr)]
 inet_aton.restype = c_int
 
 socketaccept = socketdll.accept
-socketaccept.argtypes = [c_int, POINTER(sockaddr), POINTER(socklen_t)]
+socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
 socketaccept.restype = c_int
+
+socketdup = socketdll.dup
+socketdup.argtypes = [c_int]
+socketdup.restype = c_int
+
+socketfileno = socketdll.fileno
+socketfileno.argtypes = [FILE_ptr]
+socketfileno.restype = c_int
+
+socketgetpeername = socketdll.getpeername
+socketgetpeername.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
+socketgetpeername.restype = c_int
+
+socketgetsockname = socketdll.getsockname
+socketgetsockname.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
+socketgetsockname.restype = c_int
+
+socketgetsockopt = socketdll.getsockopt
+socketgetsockopt.argtypes = [c_int, c_int, c_int, 
+                             c_void_p, POINTER(socklen_t)]
+socketgetsockopt.restype = c_int
+
+socketsetsockopt = socketdll.setsockopt
+socketsetsockopt.argtypes = [c_int, c_int, c_int,
+                             c_void_p, #this should be constant
+                             socklen_t]
+socketsetsockopt.restype = c_int
+
+socketrecv = socketdll.recv
+socketrecv.argtypes = [c_int, c_void_p, c_int, c_int]
+socketrecv.recv = ssize_t
+
+socketrecvfrom = socketdll.recvfrom
+socketrecvfrom.argtypes = [c_int, c_void_p, size_t,
+                           c_int, sockaddr_ptr, POINTER(socklen_t)]
+socketrecvfrom.restype = ssize_t
