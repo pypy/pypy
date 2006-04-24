@@ -71,22 +71,14 @@ class Op:
         return class_declaration
 
     def op_new(self):
+        target = self.str(self.result)
         cls = self.args[0].value
         if isinstance(cls, List):
-            generator = self.op_new_list
+            yield "(setf %s (make-array 0 :adjustable t))" % (target,)
         else:
-            generator = self.op_new_instance
-        for line in generator(cls):
-            yield line
-
-    def op_new_list(self, cls):
-        target = self.str(self.result)
-        yield "(setf %s (make-array 0 :adjustable t))" % (target,)
-
-    def op_new_instance(self, cls):
-        yield self.declare_class(cls)
-        target = self.str(self.result)
-        yield "(setf %s (make-%s))" % (target, cls._name)
+            declaration = self.declare_class(cls)
+            self.gen.declarations.append(declaration)
+            yield "(setf %s (make-%s))" % (target, cls._name)
 
     def op_oosend(self):
         method = self.args[0].value
@@ -142,6 +134,7 @@ class GenCL:
         simplify_graph(fun)
         self.fun = fun
         self.blockref = {}
+        self.declarations = []
 
     def annotate(self, input_arg_types):
         ann = RPythonAnnotator()
@@ -156,8 +149,10 @@ class GenCL:
         return var.concretetype
 
     def emitcode(self, public=True):
-        code = "\n".join(list(self.emit()))
-        return code
+        lines = list(self.emit())
+        declarations = "\n".join(self.declarations)
+        code = "\n".join(lines)
+        return declarations + "\n" + code
 
     def emit(self):
         for line in self.emit_defun(self.fun):
