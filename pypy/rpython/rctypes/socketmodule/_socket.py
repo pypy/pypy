@@ -1,12 +1,20 @@
 from ctypes import c_char_p, POINTER, pointer, byref, cast, create_string_buffer, sizeof
 import ctypes_socket as _c
-
+import os
 
 globals().update(_c.constants)
 
 
 class error(Exception):
     pass
+
+def makesockaddr(self, caddr):
+    family = caddr.sa_family
+    if family == AF_INET:
+        caddr = cast(pointer(caddr), POINTER(_c.sockaddr_in)).contents
+        return (_c.inet_ntoa(caddr.sin_addr), _c.ntohs(caddr.sin_port))
+    else:
+        raise NotImplementedError('Unsupported address family') # XXX
 
 
 class socket(object):
@@ -50,14 +58,6 @@ class socket(object):
         else:
             raise NotImplementedError('Unsupported address family') # XXX
 
-    def _convert_from_caddr(self, caddr):
-        family = caddr.sa_family
-        if family == AF_INET:
-            caddr = cast(pointer(caddr), POINTER(_c.sockaddr_in)).contents
-            return (_c.inet_ntoa(caddr.sin_addr), _c.ntohs(caddr.sin_port))
-        else:
-            raise NotImplementedError('Unsupported address family') # XXX
-
     def listen(self, backlog):
         if self._fd != -1:
             fd = self._fd
@@ -69,36 +69,55 @@ class socket(object):
                     
     def accept(self):
         peeraddr = _c.sockaddr()
-        
-        newfd = _c.socketaccept(self._fd, pointer(peeraddr), sizeof(peeraddr))
+        peeraddrlen = _c.socklen_t(sizeof(peeraddr))
+        newfd = _c.socketaccept(self._fd, pointer(peeraddr),
+                                pointer(peeraddrlen))
         if newfd < 0:
             raise error(_c.errno.value)
         newsocket = socket(self.family, self.type, self.proto, newfd)
-        return (newsocket, self._convert_from_caddr(peeraddr))
+        return (newsocket, makesockaddr(peeraddr))
     
-    def connect_ex(self):
-        pass
+    def connect_ex(self, addr):
+        caddr = self._getsockaddr(addr)
+        paddr = cast(pointer(caddr), _c.sockaddr_ptr)
+        result = _c.socketconnect(self._fd, paddr,
+                                  _c.socklen_t(sizeof(caddr)))
+        if result == -1:
+            return _c.errno.value
+        return 0
     
     def dup(self):
-        pass
+        raise NotImplementedError
     
     def fileno(self):
-        pass
+        return self._fd
     
     def getpeername(self):
-        pass
+        peeraddr = _c.sockaddr()
+        peeraddrlen = _c.socklen_t(sizeof(peeraddr))
+        res = _c.socketgetpeername(self._fd, pointer(peeraddr),
+                                   pointer(peeraddrlen))
+        if res < 0:
+            raise error(_c.errno.value)
+        return makesockaddr(peeraddr)
     
     def getsockname(self):
-        pass
+        peeraddr = _c.sockaddr()
+        peeraddrlen = _c.socklen_t(sizeof(peeraddr))
+        res = _c.socketgetsockname(self._fd, pointer(peeraddr),
+                                   pointer(peeraddrlen))
+        if res < 0:
+            raise error(_c.errno.value)
+        return makesockaddr(peeraddr)
     
-    def getsockopt(self):
+    def getsockopt(self, level, optname, buflen=-1):
         pass
     
     def gettimeout(self):
         pass
     
     def makefile(self):
-        pass
+        raise NotImplementedError
     
     def recv(self):
         pass
@@ -128,12 +147,10 @@ class socket(object):
         pass
 
     def connect(self, addr):
-        caddr = self._getsockaddr(addr)
-        paddr = cast(pointer(caddr), _c.sockaddr_ptr)
-        result = _c.socketconnect(self._fd, paddr, sizeof(caddr))
-        if result == -1:
-            raise error(_c.errno.value)
-
+        err = self.connect_ex(addr)
+        if err:
+            raise error(err)
+        
 def makeipaddr(caddr, caddrlen):
     buf = create_string_buffer(NI_MAXHOST)
     error = _c.getnameinfo(caddr, caddrlen, buf, NI_MAXHOST,
