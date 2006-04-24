@@ -47,7 +47,6 @@ def readlisp(s):
     lines = [ line for line in lines if line and not line.startswith(';') ]
     assert len(lines) == 1
     s = lines[0]
-    import string
     s = s.strip()
     if s == "T":
         return True
@@ -55,7 +54,7 @@ def readlisp(s):
         return False
     elif s[0] == '"':
         return s[1:-1]
-    elif s.strip(string.digits) == '':
+    elif s.isdigit():
         return int(s)
     else:
         return Literal(s)
