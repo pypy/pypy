@@ -4,37 +4,18 @@ import py
 import os
 from pypy.objspace.flow import FlowObjSpace 
 
+
+from pypy.translator.cl.buildcl import cl_detect, _make_cl_func
+from pypy.translator.cl.buildcl import Literal
+
 def setup_module(mod): 
-    mod.global_cl = os.getenv("PYPY_CL")
-    if not mod.global_cl:  
-        mod.global_cl = cl_detect()
-
-def cl_detect():
-    if is_on_path("clisp"):
-        return "clisp"
-    if is_on_path("lisp"):
-        if is_on_path("cmuclinvoke.sh"):
-            return "cmuclinvoke.sh"
-    if is_on_path("sbcl"):
-        if is_on_path("sbclinvoke.sh"):
-            return "sbclinvoke.sh"
-    return None
-
-def is_on_path(name):
-    try:
-        py.path.local.sysfind(name) 
-    except py.error.ENOENT: 
-        return False 
-    else: 
-        return True 
+    mod.global_cl = cl_detect()
 
 def make_cl_func(func, argtypes=[]):
-    from pypy.translator.cl.buildcl import _make_cl_func
     return _make_cl_func(func, global_cl, udir, argtypes)
 
 
 from pypy.translator.test import snippet as t
-from pypy.translator.cl.buildcl import Literal
 
 class TestGenCLTestCase:
     def setup_class(cls): 

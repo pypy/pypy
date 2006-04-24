@@ -1,10 +1,34 @@
 import autopath
+import os
+import py
 
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
 from py.process import cmdexec 
 from pypy import conftest
+
+def is_on_path(name):
+    try:
+        py.path.local.sysfind(name)
+    except py.error.ENOENT:
+        return False
+    else:
+        return True
+
+def cl_detect():
+    cl = os.getenv("PYPY_CL")
+    if cl:
+        return cl
+    if is_on_path("clisp"):
+        return "clisp"
+    if is_on_path("lisp"):
+        if is_on_path("cmuclinvoke.sh"):
+            return "cmuclinvoke.sh"
+    if is_on_path("sbcl"):
+        if is_on_path("sbclinvoke.sh"):
+            return "sbclinvoke.sh"
+    return None
 
 class Literal:
     def __init__(self, val):
