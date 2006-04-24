@@ -267,11 +267,6 @@ class GenCL:
             else:
                 print self.repr_var(var),
         print ")"
-        print ";; DEBUG: type inference"
-        for var in vardict:
-            tp = vardict[var]
-            if tp:
-                print ";;", self.repr_var(var), "is", tp.__name__
         print "(setq last-exc nil)"
         for block in blocklist:
             self.emit_block(block)
