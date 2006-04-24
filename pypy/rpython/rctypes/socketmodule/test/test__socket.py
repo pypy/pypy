@@ -47,5 +47,16 @@ class TestSocket:
         host, port = sockname
         assert host == self.HOST
         assert port == self.PORT
-        
+
+    def test_getsockname(self):
+        s = _rsocket.socket(self.family, _socket.SOCK_STREAM, 0)
+        HOST = "127.0.0.1"
+        PORT = 1025
+        s.bind((HOST, PORT))
+        sockname = s.getsockname()
+        s.close()
+        host, port = sockname
+        assert host == HOST
+        assert port == PORT
+
 

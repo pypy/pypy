@@ -34,8 +34,9 @@ class socket(object):
             _c.socketclose(fd)
 
     def bind(self, addr):
-        caddr, caddrlen = self._getsockaddr(addr)
-        res = _c.bind(self._fd, caddr, caddrlen)
+        caddr = self._getsockaddr(addr)
+        paddr = cast(pointer(caddr), _c.sockaddr_ptr)
+        res = _c.socketbind(self._fd, paddr, sizeof(caddr))
         if res < 0:
             raise error(_c.errno.value)
 

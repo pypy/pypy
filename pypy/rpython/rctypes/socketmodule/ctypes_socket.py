@@ -176,13 +176,9 @@ socketaccept = socketdll.accept
 socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
 socketaccept.restype = c_int
 
-socketdup = socketdll.dup
-socketdup.argtypes = [c_int]
-socketdup.restype = c_int
-
-socketfileno = socketdll.fileno
-socketfileno.argtypes = [FILE_ptr]
-socketfileno.restype = c_int
+socketbind = socketdll.bind
+socketbind.argtypes = [c_int, sockaddr_ptr, socklen_t]
+socketbind.restype = c_int
 
 socketgetpeername = socketdll.getpeername
 socketgetpeername.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
