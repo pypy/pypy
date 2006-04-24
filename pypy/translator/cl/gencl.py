@@ -96,6 +96,27 @@ class Op:
     def op_int_is_true(self):
         self.op_is_true(self.args[0])
 
+    def declare_class(self, cls):
+        # cls is really type of Instance
+        name = cls._name
+        fields = cls._fields
+        fieldnames = fields.keys()
+        field_declaration = ' '.join(fieldnames)
+        class_declaration = "(defstruct %s (%s))" % (name, field_declaration)
+        return class_declaration
+
+    def op_new(self):
+        cls = self.args[0].value
+        print self.declare_class(cls)
+        target = self.str(self.result)
+        print "(setq %s (make-%s))" % (target, cls._name)
+
+    def op_oogetfield(self):
+        print "; oogetfield called"
+
+    def op_oosetfield(self):
+        print "; oosetfield called"
+
     def op_newtuple(self):
         s = self.str
         print "(setq", s(self.result), "(list",
