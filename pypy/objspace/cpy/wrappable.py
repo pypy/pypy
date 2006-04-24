@@ -36,4 +36,15 @@ class __extend__(pairtype(CPyObjSpace, BuiltinFunction)):
                          )
         w_result = PyCFunction_NewEx(byref(ml), None, func.w_module)
         w_result.ml = ml   # keep ml alive as long as w_result is around
-        return w_result
+
+        # argh! callbacks of mode PyDLL are not supported by ctypes so far
+        # (as of 0.9.9.4).  XXX hack.  I am not happy.
+
+        def hackish_trampoline(*args):
+            args_w = [space.W_Object(a) for a in args]
+            w_result = bltin(space, *args_w)
+            return w_result.value
+
+        w_pseudoresult = W_Object(hackish_trampoline)
+        w_pseudoresult._hack_replace_with_ = w_result
+        return w_pseudoresult
