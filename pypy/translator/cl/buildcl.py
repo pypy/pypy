@@ -79,6 +79,15 @@ def make_cl_func(func, argtypes=[]):
         py.test.skip("Common Lisp neither configured nor detected.")
     return _make_cl_func(func, global_cl, udir, argtypes)
 
+pretty_printer = """
+(let* ((filename "%s")
+       (content (with-open-file (f filename)
+         (loop for sexp = (read f nil) while sexp collect sexp))))
+  (with-open-file (out filename
+      :direction :output :if-does-not-exist :create :if-exists :supersede)
+    (loop for sexp in content do (pprint sexp out))))
+"""
+
 def _make_cl_func(func, cl, path, argtypes=[]):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
@@ -93,6 +102,11 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     out = gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % graph.name)
+    script = path.join(".printer.lisp")
+    fp = file(str(script), "w")
+    fp.write(pretty_printer % (fpath,))
+    fp.close()
+
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
@@ -101,6 +115,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
             print >>fp, writelisp(arg),
         print >>fp, "))"
         fp.close()
+        cmdexec("%s %s" % (cl, str(script)))
         output = cmdexec("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
