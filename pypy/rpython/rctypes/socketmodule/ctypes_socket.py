@@ -205,6 +205,10 @@ socketbind = socketdll.bind
 socketbind.argtypes = [c_int, sockaddr_ptr, socklen_t]
 socketbind.restype = c_int
 
+socketlisten = socketdll.listen
+socketlisten.argtypes = [c_int, c_int]
+socketlisten.restype = c_int
+
 socketgetpeername = socketdll.getpeername
 socketgetpeername.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
 socketgetpeername.restype = c_int

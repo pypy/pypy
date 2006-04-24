@@ -16,20 +16,20 @@ def test_interfaces():
     interface_matcher(_socket.socket, _rsocket.socket)
     interface_matcher(_rsocket.socket, _socket.socket)
 
-class TestSocket:
+class TestSocketWithServer:
 
     HOST = "127.0.0.1"
     PORT = echoserver.PORT
     family = _socket.AF_INET
     
-    def setup_class(cls):    
-        thread.start_new_thread(echoserver.start_server, (),
-                                            {"address_family": cls.family})
-        import time
-        time.sleep(1)
-    def teardown_class(cls):
+    def setup_class(self):
+        self.server = echoserver.create_server()
+        thread.start_new_thread(self.server.serve, (),
+                                            {"address_family": self.family})
+        
+    def teardown_class(self):
         import telnetlib
-        tn = telnetlib.Telnet(cls.HOST, cls.PORT)
+        tn = telnetlib.Telnet(self.HOST, self.PORT)
         tn.write("shutdown\n")
         tn.close()
 
@@ -40,7 +40,7 @@ class TestSocket:
         assert e.args[0] == errno.EINVAL
     
     def test_getpeername(self):
-        s = _rsocket.socket(self.family, _socket.SOCK_STREAM, 0)
+        s = _rsocket.socket(self.family, _rsocket.SOCK_STREAM, 0)
         s.connect((self.HOST, self.PORT))
         sockname = s.getpeername()
         s.close()
@@ -48,15 +48,39 @@ class TestSocket:
         assert host == self.HOST
         assert port == self.PORT
 
+    
+class TestSocket:
+    HOST = "127.0.0.1"
+    PORT = 1025
+    ADDR = (HOST, PORT)
+
+    def connecting_client(self, addr):
+        socket = __import__("socket", {}, {}, [])
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(addr)
+        self.client_addr = s.getsockname()
+        s.send("@")
+        data = s.recv(1024)
+        while data:
+            data = s.recv(1024)
+        s.close()
+
     def test_getsockname(self):
-        s = _rsocket.socket(self.family, _socket.SOCK_STREAM, 0)
-        HOST = "127.0.0.1"
-        PORT = 1025
-        s.bind((HOST, PORT))
+        s = _rsocket.socket(_rsocket.AF_INET, _rsocket.SOCK_STREAM, 0)
+        s.bind(self.ADDR)
         sockname = s.getsockname()
         s.close()
-        host, port = sockname
-        assert host == HOST
-        assert port == PORT
+        assert sockname == self.ADDR
 
-
+    def test_accept(self):
+        s = _rsocket.socket(_rsocket.AF_INET, _rsocket.SOCK_STREAM, 0)
+        s.bind((self.HOST, 0))
+        s.listen(1)
+        ADDR = s.getsockname()
+        thread.start_new_thread(self.connecting_client, (ADDR,))
+        client, clientaddr = s.accept()
+        res = client.recv(1)
+        assert res == "@"
+        assert clientaddr == self.client_addr
+        client.close()
+        

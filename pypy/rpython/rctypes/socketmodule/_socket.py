@@ -56,7 +56,7 @@ class socket(object):
         fd = self._fd
         if backlog < 1:
             backlog = 1
-        res = _c.listen(fd, backlog)
+        res = _c.socketlisten(fd, backlog)
         if res == -1:
             raise error(_c.errno.value)
                     
@@ -113,8 +113,12 @@ class socket(object):
     def makefile(self):
         raise NotImplementedError
     
-    def recv(self):
-        pass
+    def recv(self, bufsize, flags=0):
+        buf = create_string_buffer(bufsize)
+        read_bytes = _c.socketrecv(self._fd, buf, bufsize, flags)
+        if read_bytes < 0:
+            raise error(_c.errno)
+        return buf[:read_bytes]
     
     def recvfrom(self):
         pass
