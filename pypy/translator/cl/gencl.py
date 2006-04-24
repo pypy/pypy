@@ -102,7 +102,7 @@ class Op:
         fields = cls._fields
         fieldnames = fields.keys()
         field_declaration = ' '.join(fieldnames)
-        class_declaration = "(defstruct %s (%s))" % (name, field_declaration)
+        class_declaration = "(defstruct %s %s)" % (name, field_declaration)
         return class_declaration
 
     def op_new(self):
