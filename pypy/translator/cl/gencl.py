@@ -33,7 +33,7 @@ class Op:
     def op_same_as(self):
         target = self.str(self.result)
         origin = self.str(self.args[0])
-        print "(setq %s %s)" % (target, origin)
+        print "(setf %s %s)" % (target, origin)
 
     binary_ops = {
         #"add": "+",
@@ -57,17 +57,17 @@ class Op:
         s = self.str
         result, (arg1, arg2) = self.result, self.args
         cl_op = self.binary_ops[op]
-        print "(setq", s(result), "(", cl_op, s(arg1), s(arg2), "))"
+        print "(setf", s(result), "(", cl_op, s(arg1), s(arg2), "))"
 
     def op_contains(self):
         s = self.str
         result, (arg1, arg2) = self.result, self.args
-        print "(setq", s(result), "(not (not (find", s(arg2), s(arg1), "))))"
+        print "(setf", s(result), "(not (not (find", s(arg2), s(arg1), "))))"
 
     def op_add(self):
         s = self.str
         result, (arg1, arg2) = self.result, self.args
-        print "(setq", s(result)
+        print "(setf", s(result)
         table = {
             (int, int): "(+ %s %s)",
             (int, long): "(+ %s %s)",
@@ -82,7 +82,7 @@ class Op:
     def op_not_(self):
         s = self.str
         result, (arg1,) = self.result, self.args
-        print "(setq", s(result), "(not"
+        print "(setf", s(result), "(not"
         table = {
             (bool,): "(not %s)",
             (int,): "(zerop %s)",
@@ -93,7 +93,7 @@ class Op:
         print "))"
 
     def op_is_true(self, arg):
-        print "(setq", self.str(self.result)
+        print "(setf", self.str(self.result)
         table = {
             (bool,): "%s",
             (int,): "(not (zerop %s))",
@@ -124,12 +124,12 @@ class Op:
 
     def op_new_list(self, cls):
         target = self.str(self.result)
-        print "(setq %s (make-array 0 :adjustable t))" % (target,)
+        print "(setf %s (make-array 0 :adjustable t))" % (target,)
 
     def op_new_instance(self, cls):
         print self.declare_class(cls)
         target = self.str(self.result)
-        print "(setq %s (make-%s))" % (target, cls._name)
+        print "(setf %s (make-%s))" % (target, cls._name)
 
     def op_oosend(self):
         method = self.args[0].value
@@ -144,7 +144,7 @@ class Op:
         clsname = self.args[0].concretetype._name
         fieldname = self.args[1].value
         obj = self.str(self.args[0])
-        print "(setq %s (%s-%s %s))" % (target, clsname, fieldname, obj)
+        print "(setf %s (%s-%s %s))" % (target, clsname, fieldname, obj)
 
     def op_oosetfield(self):
         target = self.str(self.result)
@@ -158,14 +158,14 @@ class Op:
 
     def op_newtuple(self):
         s = self.str
-        print "(setq", s(self.result), "(list",
+        print "(setf", s(self.result), "(list",
         for arg in self.args:
             print s(arg),
         print "))"
 
     def op_newlist(self):
         s = self.str
-        print "(setq", s(self.result), "(vector",
+        print "(setf", s(self.result), "(vector",
         for arg in self.args:
             print s(arg),
         print "))"
@@ -173,7 +173,7 @@ class Op:
     def op_alloc_and_set(self):
         s = self.str
         result, (size, init) = self.result, self.args
-        print "(setq", s(result), "(make-array", s(size), "))"
+        print "(setf", s(result), "(make-array", s(size), "))"
         print "(fill", s(result), s(init), ")"
 
     def op_setitem(self):
@@ -184,14 +184,14 @@ class Op:
     def op_iter(self):
         s = self.str
         result, (seq,) = self.result, self.args
-        print "(setq", s(result), "(make-iterator", s(seq), "))"
+        print "(setf", s(result), "(make-iterator", s(seq), "))"
 
     def op_next(self):
         s = self.str
         result, (iterator,) = self.result, self.args
         print "(let ((result (funcall", s(iterator), ")))"
-        print "  (setq", s(result), "(car result))"
-        print "  (setq last-exc (cdr result)))"
+        print "  (setf", s(result), "(car result))"
+        print "  (setf last-exc (cdr result)))"
 
     builtin_map = {
         pow: "expt",
@@ -209,7 +209,7 @@ class Op:
             return
         s = self.str
         args = self.args[1:]
-        print "(setq", s(self.result), "(", self.builtin_map[func],
+        print "(setf", s(self.result), "(", self.builtin_map[func],
         for arg in args:
             print s(arg),
         print "))"
@@ -217,12 +217,12 @@ class Op:
     def op_getslice(self):
         s = self.str
         result, (seq, start, end) = self.result, self.args
-        print "(setq", s(result), "(python-slice", s(seq), s(start), s(end), "))"
+        print "(setf", s(result), "(python-slice", s(seq), s(start), s(end), "))"
 
     def op_pow(self):
         s = self.str
         result, (x,y,z) = self.result, self.args
-        print "(setq", s(result)
+        print "(setf", s(result)
         table = {
             (int, int, type(None)): (lambda args: args[:2], "(expt %s %s)"),
         }
@@ -286,7 +286,7 @@ class GenCL:
 
     def emit_defun(self, fun):
         print ";;;; Main"
-        print "(defun", fun.name
+        print "(defun", fun.name,
         arglist = fun.getargs()
         print "(",
         for arg in arglist:
@@ -307,11 +307,11 @@ class GenCL:
             else:
                 print repr_var(var),
         print ")"
-        print "(setq last-exc nil)"
+        print "(setf last-exc nil)"
         for block in blocklist:
+            print
             self.emit_block(block)
-        print ")"
-        print ")"
+        print "))"
 
     def emit_block(self, block):
         self.cur_block = block
@@ -354,7 +354,7 @@ class GenCL:
             print "(something-like-throw-exception %s %s)" % (exc_cls, exc_value)
         else:
             retval = repr_var(block.inputargs[0])
-            print "(return", retval, ")"
+            print "(return", retval, ")",
 
     def emit_jump(self, block):
         tag = self.blockref[block]
@@ -363,10 +363,13 @@ class GenCL:
     def emit_link(self, link):
         source = map(repr_arg, link.args)
         target = map(repr_var, link.target.inputargs)
-        print "(psetq", # parallel assignment
-        for s, t in zip(source, target):
+        print "(setf",
+        couples = zip(source, target)
+        for s, t in couples[:-1]:
             print t, s
-        print ")"
+        else:
+            s, t = couples[-1]
+            print t, s, ")"
         self.emit_jump(link.target)
 
     typemap = {

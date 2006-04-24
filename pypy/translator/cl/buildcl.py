@@ -26,7 +26,7 @@ def cl_detect():
         return cl
     if is_on_path("openmcl"):
         if is_on_path("openmclinvoke.sh"):
-            return "sbclinvoke.sh"
+            return "openmclinvoke.sh"
     if is_on_path("clisp"):
         return "clisp"
     if is_on_path("lisp"):
