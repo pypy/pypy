@@ -6,7 +6,7 @@ from pypy.tool.udir import udir
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
-from pypy.translator.cl.clrepr import repr_const
+from pypy.translator.cl.clrepr import repr_const, repr_fun_name
 from py.process import cmdexec 
 from pypy import conftest
 
@@ -112,7 +112,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
-        print >>fp, "(write (", graph.name,
+        print >>fp, "(write (", repr_fun_name(graph.name),
         for arg in args:
             print >>fp, writelisp(arg),
         print >>fp, "))"

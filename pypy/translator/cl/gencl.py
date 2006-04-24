@@ -5,7 +5,7 @@ from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph, default_extra_passes, transform_slice
 
 from pypy.rpython.ootypesystem.ootype import Instance, List
-from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const
+from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
 
 class Op:
@@ -71,7 +71,7 @@ class Op:
         fields = cls._fields
         fieldnames = ['('+field+')' for field in fields.keys()]
         field_declaration = ' '.join(fieldnames)
-        class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
+        class_declaration = "(defclass %s () (%s))" % (repr_class_name(name), field_declaration)
         return class_declaration
 
     def op_new(self, result, _):
@@ -81,7 +81,7 @@ class Op:
         else:
             declaration = self.declare_class(cls)
             self.gen.declarations.append(declaration)
-            yield "(setf %s (make-instance '%s))" % (result, cls._name)
+            yield "(setf %s (make-instance '%s))" % (result, repr_class_name(cls._name))
 
     def op_oosend(self, result, *ignore):
         method = self.args[0].value
@@ -143,7 +143,7 @@ class GenCL:
                 yield line
 
     def emit_defun(self, fun):
-        yield "(defun " + fun.name
+        yield "(defun " + repr_fun_name(fun.name)
         arglist = fun.getargs()
         args = " ".join(map(repr_var, arglist))
         yield "(%s)" % (args,)
