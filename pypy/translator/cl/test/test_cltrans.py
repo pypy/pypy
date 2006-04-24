@@ -25,7 +25,6 @@ class TestGenCLTestCase:
         assert cl_gcd(96, 64) == 32
 
     def test_is_perfect(self): # pun intended
-        py.test.skip("temporarily disabled")
         cl_perfect = make_cl_func(t.is_perfect_number, [int])
         assert cl_perfect(24) == False
         assert cl_perfect(28) == True

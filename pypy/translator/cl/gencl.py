@@ -27,6 +27,11 @@ class Op:
         print ";;", self.op
         print ";; Op", self.opname, "is missing"
 
+    def op_same_as(self):
+        target = self.str(self.result)
+        origin = self.str(self.args[0])
+        print "(setq %s %s)" % (target, origin)
+
     binary_ops = {
         #"add": "+",
         "int_add": "+",
@@ -36,8 +41,10 @@ class Op:
         "mod": "mod",
         "int_mod": "mod",
         "lt": "<",
+        "int_lt": "<",
         "le": "<=",
         "eq": "=",
+        "int_eq": "=",
         "gt": ">",
         "and_": "logand",
         "getitem": "elt",
