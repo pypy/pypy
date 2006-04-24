@@ -91,7 +91,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     graph = t.graphs[0]
         
     gen = GenCL(graph, argtypes)
-    out = gen.globaldeclarations() + '\n' + gen.emitcode()
+    out = gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % graph.name)
     def _(*args):
