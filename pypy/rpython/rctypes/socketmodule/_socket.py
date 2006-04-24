@@ -27,7 +27,7 @@ class socket(object):
         fd = self._fd
         if fd != -1:
             self._fd = -1
-            _c.closesocket(fd)
+            _c.socketclose(fd)
 
     def bind(self, addr):
         caddr, caddrlen = self._getsockaddr(addr)
