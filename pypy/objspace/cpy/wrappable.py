@@ -9,6 +9,7 @@ from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.objspace import CPyObjSpace
 from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.gateway import BuiltinCode, ObjSpace, W_Root
+from pypy.rpython import extregistry
 
 
 class __extend__(pairtype(CPyObjSpace, BuiltinFunction)):
@@ -29,4 +30,28 @@ class __extend__(pairtype(CPyObjSpace, BuiltinFunction)):
             w_result = bltin(space, *args_w)
             return space.unwrap(w_result)
 
-        return W_Object(trampoline)
+        w_result = W_Object(trampoline)
+
+        # override the annotation behavior of 'w_result'
+        # to emulate a call to the bltin function at interp-level
+        BaseEntry = extregistry._lookup_cls(w_result)
+        uniquekey = bltin
+        nb_args = len(unwrap_spec) - 1
+
+        class TrampolineEntry(BaseEntry):
+            _about_ = w_result
+            def compute_annotation(self):
+                from pypy.annotation.bookkeeper import getbookkeeper
+                bookkeeper = getbookkeeper()
+                s_bltin = bookkeeper.immutablevalue(bltin)
+                s_space = bookkeeper.immutablevalue(space)
+                s_w_obj = bookkeeper.valueoftype(W_Object)
+                args_s = [s_space] + [s_w_obj]*nb_args
+                s_result = bookkeeper.emulate_pbc_call(uniquekey, s_bltin,
+                                                       args_s)
+                assert s_w_obj.contains(s_result), (
+                    "%r should return a wrapped obj, got %r instead" % (
+                    bltin, s_result))
+                return super(TrampolineEntry, self).compute_annotation()
+
+        return w_result
