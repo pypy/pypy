@@ -11,14 +11,17 @@ class error(Exception):
 
 class socket(object):
 
-    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0):
+    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _fd=None):
         self.family = family
         self.type   = type
         self.proto  = proto
-        self._fd = _c.socket(family, type, proto)
-        if self._fd == -1:
-            raise error(_c.errno.value)
-
+        if _fd is None:
+            self._fd = _c.socket(family, type, proto)
+            if self._fd == -1:
+                raise error(_c.errno.value)
+        else:
+            self._fd = _fd
+            
     def __del__(self):
         if self._fd != -1:
             _c.socketclose(self._fd)
@@ -45,20 +48,34 @@ class socket(object):
             _c.inet_aton(ip, pointer(caddr.sin_addr))
             return caddr
         else:
-            raise NotImplementedError('sorry') # XXX
-    
+            raise NotImplementedError('Unsupported address family') # XXX
+
+    def _convert_from_caddr(self, caddr):
+        family = caddr.sa_family
+        if family == AF_INET:
+            caddr = cast(pointer(caddr), POINTER(_c.sockaddr_in)).contents
+            return (_c.inet_ntoa(caddr.sin_addr), _c.ntohs(caddr.sin_port))
+        else:
+            raise NotImplementedError('Unsupported address family') # XXX
+
     def listen(self, backlog):
         if self._fd != -1:
             fd = self._fd
             res = _c.listen(fd, backlog)
             if res == -1:
-                XXX
+                raise error(_c.errno.value)
         else:
             XXX
                     
     def accept(self):
-        pass
-
+        peeraddr = _c.sockaddr()
+        
+        newfd = _c.socketaccept(self._fd, pointer(peeraddr), sizeof(peeraddr))
+        if newfd < 0:
+            raise error(_c.errno.value)
+        newsocket = socket(self.family, self.type, self.proto, newfd)
+        return (newsocket, self._convert_from_caddr(peeraddr))
+    
     def connect_ex(self):
         pass
     
