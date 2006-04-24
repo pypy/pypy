@@ -69,9 +69,9 @@ class Op:
         # cls is really type of Instance
         name = cls._name
         fields = cls._fields
-        fieldnames = fields.keys()
+        fieldnames = ['('+field+')' for field in fields.keys()]
         field_declaration = ' '.join(fieldnames)
-        class_declaration = "(defstruct %s %s)" % (name, field_declaration)
+        class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
         return class_declaration
 
     def op_new(self, result, _):
@@ -81,7 +81,7 @@ class Op:
         else:
             declaration = self.declare_class(cls)
             self.gen.declarations.append(declaration)
-            yield "(setf %s (make-%s))" % (result, cls._name)
+            yield "(setf %s (make-instance '%s))" % (result, cls._name)
 
     def op_oosend(self, result, *ignore):
         method = self.args[0].value
@@ -93,16 +93,15 @@ class Op:
         yield "(setf %s %s)" % (result, code)
 
     def op_oogetfield(self, result, obj, _):
-        clsname = self.args[0].concretetype._name
         fieldname = self.args[1].value
-        yield "(setf %s (%s-%s %s))" % (result, clsname, fieldname, obj)
+        yield "(setf %s (slot-value %s '%s))" % (result, obj, fieldname)
 
     def op_oosetfield(self, result, obj, _, value):
         clsname = self.args[0].concretetype._name
         fieldname = self.args[1].value
         if fieldname == "meta": # XXX
             raise StopIteration
-        yield "(setf (%s-%s %s) %s)" % (clsname, fieldname, obj, value)
+        yield "(setf (slot-value %s '%s) %s)" % (obj, fieldname, value)
 
 
 class ListImpl:
