@@ -97,7 +97,6 @@ class Op:
         yield "(setf %s (slot-value %s '%s))" % (result, obj, fieldname)
 
     def op_oosetfield(self, result, obj, _, value):
-        clsname = self.args[0].concretetype._name
         fieldname = self.args[1].value
         if fieldname == "meta": # XXX
             raise StopIteration
@@ -135,7 +134,7 @@ class GenCL:
         lines = list(self.emit())
         declarations = "\n".join(self.declarations)
         code = "\n".join(lines)
-        return declarations + "\n" + code
+        return declarations + "\n" + code + "\n"
 
     def emit(self):
         while self.pendinggraphs:
@@ -144,13 +143,10 @@ class GenCL:
                 yield line
 
     def emit_defun(self, fun):
-        yield ";;;; Main"
         yield "(defun " + fun.name
         arglist = fun.getargs()
-        yield "("
-        for arg in arglist:
-            yield repr_var(arg)
-        yield ")"
+        args = " ".join(map(repr_var, arglist))
+        yield "(%s)" % (args,)
         yield "(prog"
         blocklist = list(fun.iterblocks())
         vardict = {}
@@ -161,16 +157,14 @@ class GenCL:
             for var in block.getvariables():
                 # In the future, we could assign type information here
                 vardict[var] = None
-        yield "( last-exc"
+        yield "("
         for var in vardict:
             if var in arglist:
                 yield "(%s %s)" % (repr_var(var), repr_var(var))
             else:
                 yield repr_var(var)
         yield ")"
-        yield "(setf last-exc nil)"
         for block in blocklist:
-            yield ""
             for line in self.emit_block(block):
                 yield line
         yield "))"
@@ -239,4 +233,3 @@ class GenCL:
             s, t = couples[-1]
             yield "%s %s)" % (t, s)
         yield self.format_jump(link.target)
-
