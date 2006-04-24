@@ -23,6 +23,9 @@ def cl_detect():
     cl = os.getenv("PYPY_CL")
     if cl:
         return cl
+    if is_on_path("openmcl"):
+        if is_on_path("openmclinvoke.sh"):
+            return "sbclinvoke.sh"
     if is_on_path("clisp"):
         return "clisp"
     if is_on_path("lisp"):
