@@ -112,10 +112,21 @@ class Op:
         print "(setq %s (make-%s))" % (target, cls._name)
 
     def op_oogetfield(self):
-        print "; oogetfield called"
+        target = self.str(self.result)
+        clsname = self.args[0].concretetype._name
+        fieldname = self.args[1].value
+        obj = self.str(self.args[0])
+        print "(setq %s (%s-%s %s))" % (target, clsname, fieldname, obj)
 
     def op_oosetfield(self):
-        print "; oosetfield called"
+        target = self.str(self.result)
+        clsname = self.args[0].concretetype._name
+        fieldname = self.args[1].value
+        if fieldname == "meta": # XXX
+            return
+        obj = self.str(self.args[0])
+        fieldvalue = self.str(self.args[2])
+        print "(setf (%s-%s %s) %s)" % (clsname, fieldname, obj, fieldvalue)
 
     def op_newtuple(self):
         s = self.str
