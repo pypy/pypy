@@ -1,5 +1,5 @@
 from pypy.module._demo import demo
-from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
+from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
 from pypy.objspace.cpy.objspace import CPyObjSpace
 import pypy.rpython.rctypes.implementation
 
@@ -12,7 +12,7 @@ def entry_point(n, w_callable):
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, [int, CPyObjSpace.W_Object], PyPyAnnotatorPolicy()
+    return entry_point, [int, CPyObjSpace.W_Object], CPyAnnotatorPolicy()
 
 
 if __name__ == '__main__':

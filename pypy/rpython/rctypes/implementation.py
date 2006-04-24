@@ -80,7 +80,9 @@ class CTypesEntry(ExtRegistryEntry):
                 entry = extregistry.lookup(o)
                 if isinstance(entry, CTypesEntry):
                     entry.object_seen(bookkeeper)
-        recfind(self.instance._objects)
+                    recfind(o._objects)
+                    recfind(o.__dict__)   # for extra keepalives
+        recfind(self.instance)
 
     def object_seen(self, bookkeeper):
         """To be overriden for ctypes objects whose mere presence influences

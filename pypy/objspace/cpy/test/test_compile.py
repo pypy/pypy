@@ -2,11 +2,12 @@ import py
 from pypy.translator.c.test.test_genc import compile
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
+from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
 from pypy.objspace.cpy.objspace import CPyObjSpace
 import pypy.rpython.rctypes.implementation
 from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy import conftest
 
 
 def test_demo():
@@ -17,7 +18,7 @@ def test_demo():
         return demo.measuretime(space, n, w_callable)
 
     fn = compile(entry_point, [int, CPyObjSpace.W_Object],
-                 annotatorpolicy = PyPyAnnotatorPolicy())
+                 annotatorpolicy = CPyAnnotatorPolicy())
 
     res = fn(10, long)
     assert isinstance(res, int)
@@ -43,17 +44,22 @@ def maketest():
 def test_annotate_bltinfunc():
     entrypoint = maketest()
     t = TranslationContext()
-    a = t.buildannotator(policy=PyPyAnnotatorPolicy())
+    a = t.buildannotator(policy=CPyAnnotatorPolicy())
     s = a.build_types(entrypoint, [int])
+    if conftest.option.view:
+        t.view()
     assert s.knowntype == int
     graph = graphof(t, myfunc)
     assert len(graph.getargs()) == 2
     s = a.binding(graph.getargs()[1])
     assert s.knowntype == CPyObjSpace.W_Object
+    s = a.binding(graph.getreturnvar())
+    assert s.knowntype == CPyObjSpace.W_Object
 
 def test_compile_bltinfunc():
     py.test.skip("in-progress")
     entrypoint = maketest()
-    fn = compile(entrypoint, [int], annotatorpolicy=PyPyAnnotatorPolicy())
+    fn = compile(entrypoint, [int],
+                 annotatorpolicy = CPyAnnotatorPolicy())
     res = fn(-6)
     assert res == -42
