@@ -124,3 +124,25 @@ def test_configure():
     assert res == {'FILE': res['FILE'],
                    'ushort': ctypes.c_ushort,
                    'XYZZY': 42}
+def test_nested_structs():
+    class CConfig:
+        _header_ = """
+struct x {
+    int foo;
+    unsigned long bar;
+    };
+struct y {
+    char c;
+    struct x x;
+    };
+"""
+        x = ctypes_platform.Struct("struct x", [("bar", ctypes.c_short)])
+        y = ctypes_platform.Struct("struct y", [("x", x)])
+
+    res = ctypes_platform.configure(CConfig)
+    c_x = res["x"]
+    c_y = res["y"]
+    c_y_fields = dict(c_y._fields_)
+    assert issubclass(c_x , ctypes.Structure)
+    assert issubclass(c_y, ctypes.Structure)
+    assert c_y_fields["x"] is c_x

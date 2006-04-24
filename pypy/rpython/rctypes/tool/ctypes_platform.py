@@ -37,6 +37,26 @@ def getdefined(macro, c_header_source):
 #
 # General interface
 
+class ConfigResult:
+    def __init__(self, CConfig, info, entries):
+        self.CConfig = CConfig
+        self.result = {}
+        self.info = info
+        self.entries = entries
+        
+    def get_entry_result(self, entry):
+        try:
+            return self.result[entry]
+        except KeyError:
+            pass
+        name = self.entries[entry]
+        info = self.info[name]
+        self.result[entry] = entry.build_result(info, self)
+
+    def get_result(self):
+        return dict([(name, self.result[entry])
+                     for entry, name in self.entries.iteritems()])
+    
 def configure(CConfig):
     """Examine the local system by running the C compiler.
     The CConfig class contains CConfigEntry attribues that describe
@@ -77,10 +97,16 @@ def configure(CConfig):
     infolist = list(run_example_code(filepath, include_dirs))
     assert len(infolist) == len(entries)
 
-    result = {}
+    resultinfo = {}
+    resultentries = {}
     for info, (key, entry) in zip(infolist, entries):
-        result[key] = entry.build_result(info)
-    return result
+        resultinfo[key] = info
+        resultentries[entry] = key
+        
+    result = ConfigResult(CConfig, resultinfo, resultentries)
+    for name, entry in entries:
+        result.get_entry_result(entry)
+    return result.get_result()
 
 # ____________________________________________________________
 
@@ -119,23 +145,30 @@ class Struct(CConfigEntry):
                 yield 'dump("fldunsigned %s", s.%s > 0);' % (fieldname,
                                                              fieldname)
 
-    def build_result(self, info):
+    def build_result(self, info, config_result):
         alignment = 1
         layout = [None] * info['size']
         for fieldname, fieldtype in self.interesting_fields:
-            offset = info['fldofs '  + fieldname]
-            size   = info['fldsize ' + fieldname]
-            sign   = info.get('fldunsigned ' + fieldname, False)
-            if (size, sign) != size_and_sign(fieldtype):
-                fieldtype = fixup_ctype(fieldtype, fieldname, (size, sign))
-            layout_addfield(layout, offset, fieldtype, fieldname)
-            alignment = max(alignment, ctypes.alignment(fieldtype))
+            if isinstance(fieldtype, Struct):
+                offset = info['fldofs '  + fieldname]
+                size   = info['fldsize ' + fieldname]
+                c_fieldtype = config_result.get_entry_result(fieldtype)
+                layout_addfield(layout, offset, c_fieldtype, fieldname)
+                alignment = max(alignment, ctype_alignment(c_fieldtype))
+            else:
+                offset = info['fldofs '  + fieldname]
+                size   = info['fldsize ' + fieldname]
+                sign   = info.get('fldunsigned ' + fieldname, False)
+                if (size, sign) != size_and_sign(fieldtype):
+                    fieldtype = fixup_ctype(fieldtype, fieldname, (size, sign))
+                layout_addfield(layout, offset, fieldtype, fieldname)
+                alignment = max(alignment, ctype_alignment(fieldtype))
 
         # try to enforce the same alignment as the one of the original
         # structure
         if alignment < info['align']:
             choices = [ctype for ctype in alignment_types
-                             if ctypes.alignment(ctype) == info['align']]
+                             if ctype_alignment(ctype) == info['align']]
             assert choices, "unsupported alignment %d" % (info['align'],)
             choices = [(ctypes.sizeof(ctype), i, ctype)
                        for i, ctype in enumerate(choices)]
@@ -190,7 +223,7 @@ class SimpleType(CConfigEntry):
             yield 'x = 0; x = ~x;'
             yield 'dump("unsigned", x > 0);'
 
-    def build_result(self, info):
+    def build_result(self, info, config_result):
         size = info['size']
         sign = info.get('unsigned', False)
         ctype = self.ctype_hint
@@ -216,8 +249,35 @@ class ConstantInteger(CConfigEntry):
         yield '    printf("value: %llu\\n", x);'
         yield '}'
 
-    def build_result(self, info):
+    def build_result(self, info, config_result):
         return info['value']
+
+class DefinedConstantInteger(CConfigEntry):
+    """An entry in a CConfig class that stands for an externally
+    defined integer constant. If not #defined the value will be None.
+    """
+    def __init__(self, macro):
+        self.name = self.macro = macro
+
+    def prepare_code(self):
+        yield '#ifdef %s' % self.macro
+        yield 'dump("defined", 1);'
+        yield 'if ((%s) < 0) {' % (self.macro,)
+        yield '    long long x = (long long)(%s);' % (self.macro,)
+        yield '    printf("value: %lld\\n", x);'
+        yield '} else {'
+        yield '    unsigned long long x = (unsigned long long)(%s);' % (
+                        self.macro,)
+        yield '    printf("value: %llu\\n", x);'
+        yield '}'
+        yield '#else'
+        yield 'dump("defined", 0);'
+        yield '#endif'
+
+    def build_result(self, info, config_result):
+        if info["defined"]:
+            return info['value']
+        return None
 
 
 class Defined(CConfigEntry):
@@ -234,12 +294,19 @@ class Defined(CConfigEntry):
         yield 'dump("defined", 0);'
         yield '#endif'
 
-    def build_result(self, info):
+    def build_result(self, info, config_result):
         return bool(info['defined'])
 
 # ____________________________________________________________
 #
 # internal helpers
+
+def ctype_alignment(c_type):
+    if issubclass(c_type, ctypes.Structure):
+        return max([ctype_alignment(fld_type)
+                     for fld_name, fld_type in c_type._fields_])
+    
+    return ctypes.alignment(c_type)
 
 def uniquefilepath(LAST=[0]):
     i = LAST[0]
