@@ -1,5 +1,5 @@
-from pypy.objspace.flow.model import Constant, Variable, last_exception
-from pypy.rpython.ootypesystem.ootype import _static_meth, Instance
+from pypy.objspace.flow.model import Constant, Variable
+from pypy.rpython.ootypesystem.ootype import _static_meth
 
 def repr_unknown(obj):
     return '#<%r>' % (obj,)

@@ -1,9 +1,3 @@
-from pypy.objspace.flow.model import Constant
-from pypy.annotation.annrpython import RPythonAnnotator
-
-from pypy.translator.simplify import simplify_graph
-from pypy.translator.transform import transform_graph, default_extra_passes, transform_slice
-
 from pypy.rpython.ootypesystem.ootype import Instance, List
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
