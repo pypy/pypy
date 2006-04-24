@@ -103,7 +103,7 @@ class ListImpl:
         self.obj = repr_arg(receiver)
 
     def ll_length(self):
-        pass
+        return "(length %s)" % (self.obj,)
 
     def ll_getitem_fast(self, index):
         pass

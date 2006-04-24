@@ -10,7 +10,7 @@ def test_simple():
     cl_new_get_set = make_cl_func(new_get_set)
     assert cl_new_get_set() == 42
 
-def dont_test_list_length():
+def test_list_length():
     def list_length_one(number):
         lst = [number]
         return len(lst)
