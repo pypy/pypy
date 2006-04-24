@@ -729,6 +729,10 @@ class TestOotypeRtyping(BaseTestDictRtyping):
     def ll_to_list(self, l):
         return l._list[:]
 
+    def ll_to_tuple(self, t, num):
+        lst = [getattr(t, 'item%d' % i) for i in range(num)]
+        return tuple(lst)
+
     # these tests are similar to those above, but they don't use strings
     def test_dict_creation(self):
         def createdict(i):
@@ -799,3 +803,19 @@ class TestOotypeRtyping(BaseTestDictRtyping):
             return d.keys()
         res = self.ll_to_list(self.interpret(func, [42, 13]))
         assert res == [42, 13] or res == [13, 42]
+
+    def test_values(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            return d.values()
+        res = self.ll_to_list(self.interpret(func, [42, 13]))
+        assert res == [43, 14] or res == [14, 43]
+    
+    def test_items(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            return d.items()
+        res = self.ll_to_list(self.interpret(func, [42, 13]))
+        res = [self.ll_to_tuple(item, 2) for item in res]
+        assert res == [(42, 43), (13, 14)] or res == [(13, 14), (42, 43)]
+

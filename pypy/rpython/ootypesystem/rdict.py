@@ -3,12 +3,15 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, rtype_newdict
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.rlist import ll_newlist
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rpython import objectmodel
 from pypy.rpython import rmodel
 
+def dum_values(): pass
+def dum_items():pass
 
 class DictRepr(AbstractDictRepr):
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
@@ -89,6 +92,26 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()        
         return self.send_message(hop, 'll_keys')
 
+    def rtype_method_values(self, hop):
+        return self._rtype_method_vi(hop, dum_values)
+
+    def rtype_method_items(self, hop):
+        return self._rtype_method_vi(hop, dum_items)
+
+    def _rtype_method_vi(self, hop, spec):
+        v_dict, = hop.inputargs(self)
+        r_list = hop.r_result
+        cLIST = hop.inputconst(ootype.Void, r_list.lowleveltype)
+        c_func = hop.inputconst(ootype.Void, spec)        
+        c_dummy_default = hop.inputconst(self.value_repr.lowleveltype,
+                                         self.value_repr.ll_dummy_value)
+        return hop.gendirectcall(ll_dict_values_items, v_dict, cLIST, c_func, c_dummy_default)
+
+##    def rtype_method_items(self, hop):
+##        v_dict, = hop.inputargs(self)
+##        return hop.gendirectcall(ll_dict_items, v_dict)
+
+
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 
@@ -147,3 +170,22 @@ def ll_dict_setdefault(d, key, default):
     except KeyError:
         d.ll_set(key, default)
         return default
+
+def ll_dict_values_items(d, LIST, func, dummy_default):
+    keys = d.ll_keys()
+    length = keys.ll_length()
+    result = ll_newlist(LIST, length)
+    i = 0
+    while i < length:
+        key = keys.ll_getitem_fast(i)
+        value = d.ll_get(key, dummy_default) # dummy_default is never returned
+        if func is dum_items:
+            r = ootype.new(LIST._ITEMTYPE)
+            r.item0 = key   # TODO: do we need casting?
+            r.item1 = value
+            result.ll_setitem_fast(i, r)
+        elif func is dum_values:
+            result.ll_setitem_fast(i, value)
+
+        i += 1
+    return result
