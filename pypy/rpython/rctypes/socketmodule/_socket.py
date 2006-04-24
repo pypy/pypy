@@ -151,6 +151,8 @@ class socket(object):
         if err:
             raise error(err)
         
+SocketType = socket
+
 def makeipaddr(caddr, caddrlen):
     buf = create_string_buffer(NI_MAXHOST)
     error = _c.getnameinfo(caddr, caddrlen, buf, NI_MAXHOST,

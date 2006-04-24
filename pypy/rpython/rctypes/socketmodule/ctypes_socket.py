@@ -1,4 +1,5 @@
 import os
+import distutils
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 from ctypes import *
@@ -6,23 +7,76 @@ from ctypes import *
 includes = ('sys/types.h',
             'sys/socket.h',
             'netinet/in.h',
+            'netinet/tcp.h',
             'unistd.h',
             'stdio.h',
             'netdb.h',
-            'arpa/inet.h',
+            'arpa/inet.h'
             )
 HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
 constants = {}
 
 # constants
-for name in ['AF_INET',
-             'AF_UNSPEC',
-             'SOCK_STREAM',
-             'SOCK_DGRAM',
-             'NI_MAXHOST',
-             'NI_NUMERICHOST',
-             ]:
-    constants[name] = ctypes_platform.getconstantinteger(name, HEADER)
+for name in ['AF_APPLETALK', 'AF_INET', 'AF_INET6', 'AF_IPX','AF_ROUTE', 
+'AF_SNA', 'AF_UNIX', 'AF_UNSPEC', 'AI_ADDRCONFIG', 'AI_ALL', 'AI_CANONNAME',
+'AI_DEFAULT', 'AI_MASK', 'AI_NUMERICHOST', 'AI_PASSIVE', 'AI_V4MAPPED',
+'AI_V4MAPPED_CFG', 'EAI_ADDRFAMILY', 'EAI_AGAIN', 'EAI_BADFLAGS',
+'EAI_BADHINTS', 'EAI_FAIL', 'EAI_FAMILY', 'EAI_MAX', 'EAI_MEMORY',
+'EAI_NODATA', 'EAI_NONAME', 'EAI_PROTOCOL', 'EAI_SERVICE', 'EAI_SOCKTYPE',
+'EAI_SYSTEM', 'INADDR_UNSPEC_GROUP', 'IPPROTO_AH',
+'IPPROTO_DSTOPTS', 'IPPROTO_EGP', 'IPPROTO_EON', 'IPPROTO_ESP',
+'IPPROTO_FRAGMENT', 'IPPROTO_GGP', 'IPPROTO_GRE', 'IPPROTO_HELLO',
+'IPPROTO_HOPOPTS', 'IPPROTO_ICMP', 'IPPROTO_ICMPV6', 'IPPROTO_IDP',
+'IPPROTO_IGMP', 'IPPROTO_IPCOMP', 'IPPROTO_IPIP',
+'IPPROTO_IPV4', 'IPPROTO_IPV6', 'IPPROTO_MAX', 'IPPROTO_ND', 'IPPROTO_NONE',
+'IPPROTO_PIM', 'IPPROTO_PUP', 'IPPROTO_ROUTING',
+'IPPROTO_RSVP', 'IPPROTO_TCP', 'IPPROTO_TP', 'IPPROTO_XTP',
+'IPV6_CHECKSUM', 'IPV6_DSTOPTS', 'IPV6_HOPLIMIT', 'IPV6_HOPOPTS',
+'IPV6_JOIN_GROUP', 'IPV6_LEAVE_GROUP', 'IPV6_MULTICAST_HOPS',
+'IPV6_MULTICAST_IF', 'IPV6_MULTICAST_LOOP', 'IPV6_NEXTHOP', 'IPV6_PKTINFO',
+'IPV6_RTHDR', 'IPV6_RTHDR_TYPE_0', 'IPV6_UNICAST_HOPS', 'IPV6_V6ONLY',
+'IP_ADD_MEMBERSHIP', 'IP_DEFAULT_MULTICAST_LOOP', 'IP_DEFAULT_MULTICAST_TTL',
+'IP_DROP_MEMBERSHIP', 'IP_HDRINCL', 'IP_MAX_MEMBERSHIPS', 'IP_MULTICAST_IF',
+'IP_MULTICAST_LOOP', 'IP_MULTICAST_TTL', 'IP_OPTIONS', 'IP_RECVDSTADDR',
+'IP_RECVOPTS', 'IP_RECVRETOPTS', 'IP_RETOPTS', 'IP_TOS', 'IP_TTL',
+'MSG_CTRUNC', 'MSG_DONTROUTE', 'MSG_DONTWAIT', 'MSG_EOR', 'MSG_OOB',
+'MSG_PEEK', 'MSG_TRUNC', 'MSG_WAITALL', 'NI_DGRAM', 'NI_MAXHOST',
+'NI_MAXSERV', 'NI_NAMEREQD', 'NI_NOFQDN', 'NI_NUMERICHOST', 'NI_NUMERICSERV',
+'SOCK_DGRAM', 'SOCK_RAW', 'SOCK_RDM',
+'SOCK_SEQPACKET', 'SOCK_STREAM',  'SOL_SOCKET',
+'SO_ACCEPTCONN', 'SO_BROADCAST', 'SO_DEBUG', 'SO_DONTROUTE',
+'SO_ERROR', 'SO_KEEPALIVE', 'SO_LINGER', 'SO_OOBINLINE', 'SO_RCVBUF',
+'SO_RCVLOWAT', 'SO_RCVTIMEO', 'SO_REUSEADDR', 'SO_REUSEPORT', 'SO_SNDBUF',
+'SO_SNDLOWAT', 'SO_SNDTIMEO', 'SO_TYPE', 'SO_USELOOPBACK', 'TCP_MAXSEG',
+'TCP_NODELAY', 'AF_DECnet']:
+    try:
+        constants[name] = ctypes_platform.getconstantinteger(name, HEADER)
+    except distutils.errors.CompileError:
+        pass
+
+for special, default in [('SOL_IP', 0),
+                         ('SOL_TCP', 6),
+                         ('SOL_UDP', 17),
+                         ('SOMAXCONN', 5),
+                         ('IPPROTO_IP', 6),
+                         ('IPPROTO_UDP', 17),
+                         ('IPPROTO_RAW', 255),
+                         ('IPPORT_RESERVED', 1024),
+                         ('IPPORT_USERRESERVED', 5000),
+                         ('INADDR_ANY', 0x00000000),
+                         ('INADDR_BROADCAST', 0xffffffff),
+                         ('INADDR_LOOPBACK', 0x7F000001),
+                         ('INADDR_UNSPEC_GROUP', 0xe0000000),
+                         ('INADDR_ALLHOSTS_GROUP', 0xe0000001),
+                         ('INADDR_MAX_LOCAL_GROUP', 0xe00000ff),
+                         ('INADDR_NONE', 0xffffffff),
+                         ('SHUT_RD', 0),
+                         ('SHUT_WR', 1),
+                         ('SHUT_RDWR', 2)]:
+    try:
+        constants[special] = ctypes_platform.getconstantinteger(special, HEADER)
+    except distutils.errors.CompileError:
+        constants[special] = default
 
 # types
 uint16_t = ctypes_platform.getsimpletype('uint16_t', HEADER, c_ushort)
@@ -57,6 +111,7 @@ SetPointerType(addrinfo_ptr, addrinfo)
 
 FILE_ptr = ctypes_platform.getstruct('FILE *', HEADER,
                                      [])
+
 # functions
 dllname = util.find_library('c')
 assert dllname is not None
