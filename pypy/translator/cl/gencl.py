@@ -1,9 +1,10 @@
-from pypy.objspace.flow.model import Constant, Variable, last_exception
+from pypy.objspace.flow.model import Constant
 from pypy.annotation.annrpython import RPythonAnnotator
 
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph, default_extra_passes, transform_slice
 
+from pypy.rpython.ootypesystem.ootype import Instance, List
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const
 
 
@@ -116,9 +117,27 @@ class Op:
 
     def op_new(self):
         cls = self.args[0].value
+        if isinstance(cls, List):
+            self.op_new_list(cls)
+        else:
+            self.op_new_instance(cls)
+
+    def op_new_list(self, cls):
+        target = self.str(self.result)
+        print "(setq %s (make-array 0 :adjustable t))" % (target,)
+
+    def op_new_instance(self, cls):
         print self.declare_class(cls)
         target = self.str(self.result)
         print "(setq %s (make-%s))" % (target, cls._name)
+
+    def op_oosend(self):
+        method = self.args[0].value
+        receiver = self.args[1]
+        args = self.args[2:]
+        if isinstance(receiver.concretetype, List):
+            impl = ListImpl(receiver)
+            getattr(impl, method)(*args)
 
     def op_oogetfield(self):
         target = self.str(self.result)
@@ -209,6 +228,27 @@ class Op:
         }
         self.gen.emit_typecase(table, x, y, z)
         print ")"
+
+
+class ListImpl:
+
+    def __init__(self, receiver):
+        self.obj = repr_arg(receiver)
+
+    def ll_length(self):
+        pass
+
+    def ll_getitem_fast(self, index):
+        pass
+
+    def ll_setitem_fast(self, index, value):
+        index = repr_arg(index)
+        value = repr_arg(value)
+        return "(setf (aref %s %s) %s)" % (self.obj, index, value)
+
+    def _ll_resize(self, size):
+        size = repr_arg(size)
+        return "(adjust-array %s %s)" % (self.obj, size)
 
 
 class GenCL:
