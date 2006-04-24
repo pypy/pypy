@@ -102,10 +102,12 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     out = gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % graph.name)
-    script = path.join(".printer.lisp")
-    fp = file(str(script), "w")
-    fp.write(pretty_printer % (fpath,))
-    fp.close()
+
+    if conftest.option.prettyprint:
+        script = path.join(".printer.lisp")
+        fp = file(str(script), "w")
+        fp.write(pretty_printer % (fpath,))
+        fp.close()
 
     def _(*args):
         fpath.write(out)
@@ -115,7 +117,8 @@ def _make_cl_func(func, cl, path, argtypes=[]):
             print >>fp, writelisp(arg),
         print >>fp, "))"
         fp.close()
-        cmdexec("%s %s" % (cl, str(script)))
+        if conftest.option.prettyprint:
+            cmdexec("%s %s" % (cl, str(script)))
         output = cmdexec("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
