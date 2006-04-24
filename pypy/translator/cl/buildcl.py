@@ -6,6 +6,7 @@ from pypy.tool.udir import udir
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
+from pypy.translator.cl.clrepr import repr_const
 from py.process import cmdexec 
 from pypy import conftest
 
@@ -55,12 +56,11 @@ def readlisp(s):
     else:
         return Literal(s)
 
-def writelisp(gen, obj):
-    #if isinstance(obj, (bool, int, type(None), str)):
-    if isinstance(obj, (int, type(None), str)):
-        return gen.repr_const(obj)
+def writelisp(obj):
+    if isinstance(obj, (bool, int, type(None), str)):
+        return repr_const(obj)
     if isinstance(obj, (tuple, list)):
-        content = ' '.join([writelisp(gen, elt) for elt in obj])
+        content = ' '.join([writelisp(elt) for elt in obj])
         content = '(' + content + ')'
         if isinstance(obj, list):
             content = '#' + content
@@ -95,7 +95,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         fp = file(str(fpath), "a")
         print >>fp, "(write (", graph.name,
         for arg in args:
-            print >>fp, writelisp(gen, arg),
+            print >>fp, writelisp(arg),
         print >>fp, "))"
         fp.close()
         output = cmdexec("%s %s" % (cl, str(fpath)))
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     gen = GenCL(fun)
 
     what = [True, "universe", 42, None, ("of", "them", ["eternal", 95])]
-    it = writelisp(gen, what)
+    it = writelisp(what)
     print what
     print it
     assert it == '#(t "universe" 42 nil \'("of" "them" #("eternal" 95)))'
