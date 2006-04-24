@@ -24,13 +24,13 @@ class Op:
                 yield line
         else:
             meth = getattr(self, "op_" + self.opname)
-            for line in meth():
+            result = repr_arg(self.result)
+            args = map(repr_arg, self.args)
+            for line in meth(result, *args):
                 yield line
 
-    def op_same_as(self):
-        target = self.str(self.result)
-        origin = self.str(self.args[0])
-        yield "(setf %s %s)" % (target, origin)
+    def op_same_as(self, result, arg):
+        yield "(setf %s %s)" % (result, arg)
 
     binary_ops = {
         #"add": "+",
@@ -56,10 +56,8 @@ class Op:
         cl_op = self.binary_ops[op]
         yield "(setf %s (%s %s %s))" % (s(result), cl_op, s(arg1), s(arg2))
 
-    def op_int_is_true(self):
-        target = self.str(self.result) 
-        arg = self.str(self.args[0])
-        yield "(setf %s (not (zerop %s)))" % (target, arg)
+    def op_int_is_true(self, result, arg):
+        yield "(setf %s (not (zerop %s)))" % (result, arg)
 
     def declare_class(self, cls):
         # cls is really type of Instance
@@ -70,40 +68,35 @@ class Op:
         class_declaration = "(defstruct %s %s)" % (name, field_declaration)
         return class_declaration
 
-    def op_new(self):
-        target = self.str(self.result)
+    def op_new(self, result, _):
         cls = self.args[0].value
         if isinstance(cls, List):
-            yield "(setf %s (make-array 0 :adjustable t))" % (target,)
+            yield "(setf %s (make-array 0 :adjustable t))" % (result,)
         else:
             declaration = self.declare_class(cls)
             self.gen.declarations.append(declaration)
-            yield "(setf %s (make-%s))" % (target, cls._name)
+            yield "(setf %s (make-%s))" % (result, cls._name)
 
-    def op_oosend(self):
+    def op_oosend(self, result, *ignore):
         method = self.args[0].value
         receiver = self.args[1]
         args = self.args[2:]
         if isinstance(receiver.concretetype, List):
             impl = ListImpl(receiver)
-            getattr(impl, method)(*args)
+            code = getattr(impl, method)(*args)
+        yield "(setf %s %s)" % (result, code)
 
-    def op_oogetfield(self):
-        target = self.str(self.result)
+    def op_oogetfield(self, result, obj, _):
         clsname = self.args[0].concretetype._name
         fieldname = self.args[1].value
-        obj = self.str(self.args[0])
-        yield "(setf %s (%s-%s %s))" % (target, clsname, fieldname, obj)
+        yield "(setf %s (%s-%s %s))" % (result, clsname, fieldname, obj)
 
-    def op_oosetfield(self):
-        target = self.str(self.result)
+    def op_oosetfield(self, result, obj, _, value):
         clsname = self.args[0].concretetype._name
         fieldname = self.args[1].value
         if fieldname == "meta": # XXX
             raise StopIteration
-        obj = self.str(self.args[0])
-        fieldvalue = self.str(self.args[2])
-        yield "(setf (%s-%s %s) %s)" % (clsname, fieldname, obj, fieldvalue)
+        yield "(setf (%s-%s %s) %s)" % (clsname, fieldname, obj, value)
 
 
 class ListImpl:
