@@ -36,19 +36,19 @@ def test_inherit():
     print code
     assert code.count("defclass") == 2
 
-def dont_test_isinstance():
+def test_isinstance():
     class Foo:
         pass
     class Bar(Foo):
         pass
-    class Baz:
+    class Baz(Foo):
         pass
     def check_isinstance(flag):
         if flag:
             obj = Bar()
         else:
             obj = Baz()
-        return isinstance(obj, Foo)
+        return isinstance(obj, Bar)
     cl_check_isinstance = make_cl_func(check_isinstance, [bool])
     assert cl_check_isinstance(True) == True
 

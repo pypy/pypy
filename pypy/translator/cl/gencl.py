@@ -23,8 +23,11 @@ class Op:
         for line in method(result, *args):
             yield line
 
-    def op_same_as(self, result, arg):
+    def nop(self, result, arg):
         yield "(setf %s %s)" % (result, arg)
+
+    op_same_as = nop
+    op_ooupcast = nop
 
     def make_binary_op(cl_op):
         def _(self, result, arg1, arg2):
@@ -83,7 +86,12 @@ class Op:
             yield "(setf %s (make-array 0 :adjustable t))" % (result,)
         else:
             self.declare_class(cls)
-            yield "(setf %s (make-instance '%s))" % (result, repr_class_name(cls._name))
+            clsname = repr_class_name(cls._name)
+            yield "(setf %s (make-instance '%s))" % (result, clsname)
+
+    def op_instanceof(self, result, arg, _):
+        clsname = repr_class_name(self.args[1].value._name)
+        yield "(setf %s (typep %s '%s))" % (result, arg, clsname)
 
     def op_oosend(self, result, *ignore):
         method = self.args[0].value
