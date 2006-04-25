@@ -2,11 +2,9 @@ import os
 import py
 
 from pypy.tool.udir import udir
-from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
 from pypy.translator.cl.clrepr import repr_const, repr_fun_name
-from py.process import cmdexec 
 from pypy import conftest
 
 global_cl = None
@@ -97,7 +95,6 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     
     gen = GenCL(t, func)
     out = gen.emitcode()
-    i = 1
     fpath = path.join("%s.lisp" % func.func_name)
 
     if conftest.option.prettyprint:
@@ -115,7 +112,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         print >>fp, "))"
         fp.close()
         if conftest.option.prettyprint:
-            cmdexec("%s %s" % (cl, str(script)))
-        output = cmdexec("%s %s" % (cl, str(fpath)))
+            py.process.cmdexec("%s %s" % (cl, str(script)))
+        output = py.process.cmdexec("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
