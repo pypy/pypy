@@ -110,22 +110,22 @@ def wrap_timeouterror(space):
     return w_error
 
 def setipaddr(space, name, addr_ret, addr_ret_size, af):
-	hints = _c.addr_info
-	hints.ai_family = af
-	hints.ai_socktype = _c.SOCK_DGRAM
-	hints.ai_flags = _c.AI_PASSIVE
-	res = _c.addr_info_ptr
-	err = _c.getaddrinfo( None, "0", pointer(hints), pointer(res))
+    hints = _c.addr_info
+    hints.ai_family = af
+    hints.ai_socktype = _c.SOCK_DGRAM
+    hints.ai_flags = _c.AI_PASSIVE
+    res = _c.addr_info_ptr
+    err = _c.getaddrinfo( None, "0", pointer(hints), pointer(res))
     if err:
-	 	raise w_get_socketgaierror(_c.errno)
-	if res.contents.ai_next:
-		raise OperationError(_socket.error, space.wrap("wildcard resolved to multiple address"))
-	addr = res.contents.ai_addr
-	_c.freeaddrinfo(res)
+        raise w_get_socketgaierror(_c.errno)
+    if res.contents.ai_next:
+        raise OperationError(_socket.error, space.wrap("wildcard resolved to multiple address"))
+    addr = res.contents.ai_addr
+    _c.freeaddrinfo(res)
     return addr
 		
 def w_makesockaddr(space, caddr, caddrlen, proto):
-    if caddr.contents.sa_family == AF_INET:
+    if caddr.contents.sa_family == _c.AF_INET:
         a = cast(caddr, POINTER(_c.sockaddr_in))
         return space.newtuple([space.wrap(_c.inet_ntoa(a.contents.sin_addr)),
                                 space.wrap(_c.ntohs(a.contents.sin_port))])
@@ -163,12 +163,24 @@ def gethostbyname_ex(space, name):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    try:
-        return space.wrap(socket.gethostbyname_ex(name))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
-gethostbyname_ex.unwrap_spec = [ObjSpace, str]
+    hostent = _c.gethostbyname(name)
+    if not hostent:
+        raise  w_get_socketherror(_c.h_errno.value)
+    aliases = []
+    for alias in hostent.contents.h_aliases:
+         if alias is None:
+             break
+         aliases.append(space.wrap(alias))
+    address_list = []
+    for addr in hostent.contents.h_addr_list:
+         if addr is None:
+             break
+         address_list.append(space.wrap(addr))
 
+    return space.newtuple([space.wrap(name), space.newlist(aliases), 
+                            space.newlist(address_list)])
+gethostbyname_ex.unwrap_spec = [ObjSpace, str]
+    
 def gethostbyaddr(space, ip_num):
     """gethostbyaddr(host) -> (name, aliaslist, addresslist)
 
