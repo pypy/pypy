@@ -8,8 +8,8 @@ class TupleRepr(AbstractTupleRepr):
 
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)
-        #self.lowleveltype = ootype.Tuple(dict(zip(self.fieldnames, self.lltypes)))
-        self.lowleveltype = tuple_type(self.fieldnames, self.lltypes)
+        self.lowleveltype = ootype.Tuple(dict(zip(self.fieldnames, self.lltypes)))
+        #self.lowleveltype = tuple_type(self.fieldnames, self.lltypes)
 
     def newtuple(cls, llops, r_tuple, items_v):
         # items_v should have the lowleveltype of the internal reprs

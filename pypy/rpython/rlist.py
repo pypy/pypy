@@ -12,11 +12,10 @@ def dum_nocheck(): pass
 
 class __extend__(annmodel.SomeList):
     def rtyper_makerepr(self, rtyper):
-        from pypy.rpython import rrange
         listitem = self.listdef.listitem
         s_value = listitem.s_value
         if listitem.range_step is not None and not listitem.mutated:
-            return rrange.RangeRepr(listitem.range_step)
+            return rtyper.type_system.rrange.RangeRepr(listitem.range_step)
         elif (s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
             return robject.pyobj_repr
         else:
