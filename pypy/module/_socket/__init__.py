@@ -31,6 +31,7 @@ class Module(MixedModule):
 
         for constant, value in _c.constants.iteritems():
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+        super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
 
 #Module.interpleveldefs['has_ipv6'] = "space.wrap(%s)" % _socket.has_ipv6
