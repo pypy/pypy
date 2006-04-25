@@ -80,6 +80,8 @@ def w_get_socketerror(space, message, errno=-1):
     w_module = space.getbuiltinmodule('_socket')
     w_errortype = space.getattr(w_module, space.wrap('error'))
     if errno > -1:
+        if message is None:
+            message = socket_strerror(errno)
         return OperationError(w_errortype, space.wrap(errno), space.wrap(message))
     else:
         return OperationError(w_errortype, space.wrap(message))
@@ -88,6 +90,8 @@ def w_get_socketgaierror(space, message, errno=-1):
     w_module = space.getbuiltinmodule('_socket')
     w_errortype = space.getattr(w_module, space.wrap('gaierror'))
     if errno > -1:
+        if message is None:
+            message = _c.gai_strerror(errno)
         return OperationError(w_errortype, space.wrap(errno), space.wrap(message))
     else:
         return OperationError(w_errortype, space.wrap(message))
@@ -96,6 +100,8 @@ def w_get_socketherror(space, message, errno=-1):
     w_module = space.getbuiltinmodule('_socket')
     w_errortype = space.getattr(w_module, space.wrap('herror'))
     if errno > -1:
+        if message is None:
+            message = _c.hstrerror(errno)
         return OperationError(w_errortype, space.wrap(errno), space.wrap(message))
     else:
         return OperationError(w_errortype, space.wrap(message))
@@ -117,7 +123,7 @@ def setipaddr(space, name, addr_ret, addr_ret_size, af):
     res = _c.addr_info_ptr
     err = _c.getaddrinfo( None, "0", pointer(hints), pointer(res))
     if err:
-        raise w_get_socketgaierror(_c.errno)
+        raise w_get_socketgaierror(space, None, _c.errno)
     if res.contents.ai_next:
         raise OperationError(_socket.error, space.wrap("wildcard resolved to multiple address"))
     addr = res.contents.ai_addr
@@ -142,7 +148,7 @@ def gethostname(space):
     namebuff = ctypes.create_string_buffer(BUFFLEN)
     res = _c.gethostname(namebuff, BUFFLEN - 1)
     if res < 0:
-        raise w_get_socketerror(_c.errno.value)
+        raise w_get_socketerror(space, None, _c.errno.value)
     return space.wrap(namebuff.value)
 gethostname.unwrap_spec = [ObjSpace]
 
@@ -153,7 +159,7 @@ def gethostbyname(space, name):
     """
     hostent = _c.gethostbyname(name)
     if not hostent:
-        raise  w_get_socketherror(_c.h_errno.value)
+        raise  w_get_socketherror(space, None, _c.h_errno.value)
     return space.wrap(hostent.contents.h_addr)
 gethostbyname.unwrap_spec = [ObjSpace, str]
 
@@ -171,7 +177,7 @@ gethostbyname_ex.unwrap_spec = [ObjSpace, str]
 def common_gethost(space, hostent):
 
     if not hostent:
-        raise  w_get_socketherror(space, _c.hstrerror(_c.h_errno.value), _c.h_errno.value)
+        raise  w_get_socketherror(space, None, _c.h_errno.value)
     aliases = []
     for alias in hostent.contents.h_aliases:
          if alias is None:
@@ -195,7 +201,7 @@ def gethostbyaddr(space, name):
     """
     hostent = _c.gethostbyname(name)
     if not hostent:
-        raise  w_get_socketherror(_c.h_errno.value)
+        raise  w_get_socketherror(space, None, _c.h_errno.value)
     p_addr = hostent.contents.h_addr_list[0]
 
     hostent = _c.gethostbyaddr(p_addr, ctypes.sizeof(_c.in_addr), _c.AF_INET)
@@ -582,8 +588,8 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     hints.ai_socktype = socktype
     hints.ai_protocol = proto
     retval = _c.getaddrinfo(host, port, ctypes.pointer(hints), ctypes.pointer(res))
-    if retval < 0:
-        raise w_get_socketgaierror(_c.gai_strerror(_c.errno), _c.errno.value)
+    if retval != 0:
+        raise w_get_socketgaierror(space, None, retval)
 
     try:
         result = []
@@ -733,7 +739,7 @@ class Socket(Wrappable):
             res = _c.close(self.fd)
             if res < 0:
                 errno = _c.errno.value
-                raise w_get_socketerror(space, socket_strerror(errno), errno)
+                raise w_get_socketerror(space, None, errno)
             self.closed = True
     close.unwrap_spec = ['self', ObjSpace]
 
