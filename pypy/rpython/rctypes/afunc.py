@@ -33,32 +33,32 @@ class CallEntry(CTypesEntry):
         s_result = SomeCTypesObject(result_ctype, SomeCTypesObject.OWNSMEMORY)
         return s_result.return_annotation()
 
-    def object_seen(self, bookkeeper):
-        "Called when the annotator sees this ctypes function object."
-        # if the function is a Python callback, emulate a call to it
-        # so that the callback is properly annotated
-        if hasattr(self.instance, 'callback'):
-            callback = self.instance.callback
-            argtypes = self.instance.argtypes
-            restype  = self.instance.restype
-            s_callback = bookkeeper.immutablevalue(callback)
-            # the input arg annotations, which are automatically unwrapped
-            args_s = [bookkeeper.valueoftype(ctype).return_annotation()
-                      for ctype in argtypes]
-            uniquekey = (callback, argtypes, restype)
-            s_res = bookkeeper.emulate_pbc_call(uniquekey, s_callback, args_s)
-            # check the result type
-            if restype is None:
-                s_expected = annmodel.s_None
-            else:
-                s_expected = bookkeeper.valueoftype(restype)
-            # can also return the unwrapped version of the ctype,
-            # e.g. an int instead of a c_int
-            s_orelse = s_expected.return_annotation()
-            assert s_expected.contains(s_res) or s_orelse.contains(s_res), (
-                "%r should return a %s but returned %s" % (callback,
-                                                           restype,
-                                                           s_res))
+##    def object_seen(self, bookkeeper):
+##        "Called when the annotator sees this ctypes function object."
+##        # if the function is a Python callback, emulate a call to it
+##        # so that the callback is properly annotated
+##        if hasattr(self.instance, 'callback'):
+##            callback = self.instance.callback
+##            argtypes = self.instance.argtypes
+##            restype  = self.instance.restype
+##            s_callback = bookkeeper.immutablevalue(callback)
+##            # the input arg annotations, which are automatically unwrapped
+##            args_s = [bookkeeper.valueoftype(ctype).return_annotation()
+##                      for ctype in argtypes]
+##            uniquekey = (callback, argtypes, restype)
+##            s_res = bookkeeper.emulate_pbc_call(uniquekey, s_callback, args_s)
+##            # check the result type
+##            if restype is None:
+##                s_expected = annmodel.s_None
+##            else:
+##                s_expected = bookkeeper.valueoftype(restype)
+##            # can also return the unwrapped version of the ctype,
+##            # e.g. an int instead of a c_int
+##            s_orelse = s_expected.return_annotation()
+##            assert s_expected.contains(s_res) or s_orelse.contains(s_res), (
+##                "%r should return a %s but returned %s" % (callback,
+##                                                           restype,
+##                                                           s_res))
 
     def specialize_call(self, hop):
         from pypy.rpython.rctypes.rmodel import CTypesValueRepr

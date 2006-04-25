@@ -23,21 +23,21 @@ class ObjEntry(CTypesObjEntry):
     "Annotation and rtyping of py_object instances."
     _type_ = py_object
 
-    def object_seen(self, bookkeeper):
-        "Called when the annotator sees this py_object."
-        # extension: if the py_object instance has a 'builder' attribute,
-        # it must be a pair (callable, args) which is meant to be called
-        # at initialization-time when the compiled extension module is
-        # first imported.  It returns the "real" Python object.
-        if hasattr(self.instance, 'builder'):
-            # emulate a call so that the callable is properly annotated
-            callable, args = self.instance.builder
-            s_callable = bookkeeper.immutablevalue(callable)
-            args_s = [bookkeeper.immutablevalue(a) for a in args]
-            uniquekey = Hashable(self.instance)
-            s_res = bookkeeper.emulate_pbc_call(uniquekey, s_callable, args_s)
-            assert (issubclass(s_res.knowntype, py_object) or
-                    isinstance(s_res, SomeImpossibleValue))
+##    def object_seen(self, bookkeeper):
+##        "Called when the annotator sees this py_object."
+##        # extension: if the py_object instance has a 'builder' attribute,
+##        # it must be a pair (callable, args) which is meant to be called
+##        # at initialization-time when the compiled extension module is
+##        # first imported.  It returns the "real" Python object.
+##        if hasattr(self.instance, 'builder'):
+##            # emulate a call so that the callable is properly annotated
+##            callable, args = self.instance.builder
+##            s_callable = bookkeeper.immutablevalue(callable)
+##            args_s = [bookkeeper.immutablevalue(a) for a in args]
+##            uniquekey = Hashable(self.instance)
+##            s_res = bookkeeper.emulate_pbc_call(uniquekey, s_callable, args_s)
+##            assert (issubclass(s_res.knowntype, py_object) or
+##                    isinstance(s_res, SomeImpossibleValue))
 
     def get_repr(self, rtyper, s_pyobject):
         from pypy.rpython.rctypes.rpyobject import CTypesPyObjRepr

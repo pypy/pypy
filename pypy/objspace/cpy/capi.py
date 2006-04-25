@@ -3,7 +3,7 @@ import ctypes
 from ctypes import *
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes import apyobject
-from pypy.rpython.rctypes.implementation import CALLBACK_FUNCTYPE
+##from pypy.rpython.rctypes.implementation import CALLBACK_FUNCTYPE
 
 class W_Object(py_object):
     "A py_object subclass, representing wrapped objects for the CPyObjSpace."
@@ -16,11 +16,11 @@ apyobject.register_py_object_subclass(W_Object)
 ###############################################################
 # ____________________ Types and constants ____________________
 
-PyCFunction = CALLBACK_FUNCTYPE(W_Object, W_Object, W_Object, callconv=PyDLL)
-PyNoArgsFunction = CALLBACK_FUNCTYPE(W_Object, W_Object, callconv=PyDLL)
-PyCFunctionWithKeywords = CALLBACK_FUNCTYPE(W_Object,
-                                            W_Object, W_Object, W_Object,
-                                            callconv=PyDLL)
+##PyCFunction = CALLBACK_FUNCTYPE(W_Object, W_Object, W_Object, callconv=PyDLL)
+##PyNoArgsFunction = CALLBACK_FUNCTYPE(W_Object, W_Object, callconv=PyDLL)
+##PyCFunctionWithKeywords = CALLBACK_FUNCTYPE(W_Object,
+##                                            W_Object, W_Object, W_Object,
+##                                            callconv=PyDLL)
 
 class CConfig:
     _header_ = """
@@ -40,12 +40,12 @@ typedef int Py_ssize_t;
     Py_GT = ctypes_platform.ConstantInteger('Py_GT')
     Py_GE = ctypes_platform.ConstantInteger('Py_GE')
 
-    PyMethodDef = ctypes_platform.Struct('PyMethodDef',
-                                         [('ml_name', c_char_p),
-                                          ('ml_meth', PyCFunction),
-                                          ('ml_flags', c_int),
-                                          ('ml_doc', c_char_p)])
-    METH_VARARGS = ctypes_platform.ConstantInteger('METH_VARARGS')
+##    PyMethodDef = ctypes_platform.Struct('PyMethodDef',
+##                                         [('ml_name', c_char_p),
+##                                          ('ml_meth', PyCFunction),
+##                                          ('ml_flags', c_int),
+##                                          ('ml_doc', c_char_p)])
+##    METH_VARARGS = ctypes_platform.ConstantInteger('METH_VARARGS')
 
 globals().update(ctypes_platform.configure(CConfig))
 del CConfig
@@ -171,6 +171,6 @@ PyArg_ParseTupleAndKeywords.restype = c_int
 #PyArg_ParseTupleAndKeywords.argtypes = [W_Object, W_Object,
 #                                        c_char_p, POINTER(c_char_p), ...]
 
-PyCFunction_NewEx = pythonapi.PyCFunction_NewEx
-PyCFunction_NewEx.argtypes = [POINTER(PyMethodDef), W_Object, W_Object]
-PyCFunction_NewEx.restype = W_Object
+##PyCFunction_NewEx = pythonapi.PyCFunction_NewEx
+##PyCFunction_NewEx.argtypes = [POINTER(PyMethodDef), W_Object, W_Object]
+##PyCFunction_NewEx.restype = W_Object
