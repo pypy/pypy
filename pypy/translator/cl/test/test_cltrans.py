@@ -7,7 +7,6 @@ from pypy.translator.cl.buildcl import Literal
 
 from pypy.translator.test import snippet as t
 
-
 def dont_test_return_str():
     def return_str():
         return 'test'
@@ -15,14 +14,12 @@ def dont_test_return_str():
     assert cl_return_str() == 'test'
 
 def test_if():
-    py.test.skip("temporarily disabled")
-    cl_if = make_cl_func(t.if_then_else, [object, object, object])
+    cl_if = make_cl_func(t.if_then_else, [bool, int, int])
     assert cl_if(True, 50, 100) == 50
     assert cl_if(False, 50, 100) == 100
+    cl_if = make_cl_func(t.if_then_else, [int, int, int])
     assert cl_if(0, 50, 100) == 100
     assert cl_if(1, 50, 100) == 50
-    assert cl_if([], 50, 100) == 100
-    assert cl_if([[]], 50, 100) == 50
 
 def test_gcd():
     cl_gcd = make_cl_func(t.my_gcd, [int, int])
@@ -34,17 +31,19 @@ def test_is_perfect(): # pun intended
     assert cl_perfect(28) == True
 
 def test_bool():
-    py.test.skip("temporarily disabled")
-    cl_bool = make_cl_func(t.my_bool, [object])
+    cl_bool = make_cl_func(t.my_bool, [int])
     assert cl_bool(0) == False
     assert cl_bool(42) == True
+    cl_bool = make_cl_func(t.my_bool, [bool])
     assert cl_bool(True) == True
 
 def test_contains():
-    py.test.skip("temporarily disabled")
-    my_contains = make_cl_func(t.my_contains, [list, int])
-    assert my_contains([1, 2, 3], 1)
-    assert not my_contains([1, 2, 3], 0)
+    py.test.skip("fails for obscure dict-related reasons")
+    def contains_int(num):
+        return t.my_contains([1,2,3], num)
+    my_contains = make_cl_func(contains_int, [int])
+    assert my_contains(1)
+    assert not my_contains(0)
     is_one_or_two = make_cl_func(t.is_one_or_two, [int])
     assert is_one_or_two(2)
     assert not is_one_or_two(3)
@@ -60,7 +59,7 @@ def test_sieve():
     assert cl_sieve() == 1028
 
 def test_easy():
-    py.test.skip("temporarily disabled")
+    #py.test.skip("temporarily disabled")
     # These are the Pyrex tests which were easy to adopt.
     f1 = make_cl_func(t.simple_func, [int])
     assert f1(1) == 2

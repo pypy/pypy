@@ -38,6 +38,8 @@ class Op:
     op_int_eq = make_binary_op("=")
     op_int_gt = make_binary_op(">")
     op_int_lt = make_binary_op("<")
+    op_int_le = make_binary_op("<=")
+    op_int_and = make_binary_op("logand")
     op_int_mod = make_binary_op("mod")
     op_int_sub = make_binary_op("-")
     op_float_sub = make_binary_op("-")
