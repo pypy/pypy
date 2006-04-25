@@ -76,6 +76,9 @@ class CTypesEntry(ExtRegistryEntry):
             if isinstance(o, dict):
                 for x in o.itervalues():
                     recfind(x)
+            elif isinstance(o, (list, tuple)):
+                for x in o:
+                    recfind(x)
             elif extregistry.is_registered(o):
                 entry = extregistry.lookup(o)
                 if isinstance(entry, CTypesEntry):

@@ -4,6 +4,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
 from pypy.objspace.cpy.objspace import CPyObjSpace
+from pypy.objspace.cpy import wrappable, capi
 import pypy.rpython.rctypes.implementation
 from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
@@ -53,6 +54,12 @@ def test_annotate_bltinfunc():
     assert len(graph.getargs()) == 2
     s = a.binding(graph.getargs()[1])
     assert s.knowntype == CPyObjSpace.W_Object
+    s = a.binding(graph.getreturnvar())
+    assert s.knowntype == CPyObjSpace.W_Object
+    graph = graphof(t, wrappable.builtin_function_builder)
+    assert len(graph.getargs()) == 2
+    s = a.binding(graph.getargs()[0])
+    assert s.knowntype == capi.PyMethodDef
     s = a.binding(graph.getreturnvar())
     assert s.knowntype == CPyObjSpace.W_Object
 
