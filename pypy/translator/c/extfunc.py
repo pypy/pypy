@@ -8,7 +8,6 @@ from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.module.thread.rpython import ll_thread
-from pypy.module._socket.rpython import ll__socket
 
 # table of functions hand-written in src/ll_*.h
 EXTERNALS = {
@@ -59,18 +58,6 @@ EXTERNALS = {
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',
-    ll__socket.ll__socket_gethostname:   'LL__socket_gethostname',
-    ll__socket.ll__socket_gethostbyname: 'LL__socket_gethostbyname',
-    ll__socket.ll__socket_getaddrinfo:   'LL__socket_getaddrinfo',
-    ll__socket.ll__socket_nextaddrinfo:  'LL__socket_nextaddrinfo',
-    ll__socket.ll__socket_freeaddrinfo:  'LL__socket_freeaddrinfo',
-    ll__socket.ll__socket_ntohs: 'LL__socket_ntohs',
-    ll__socket.ll__socket_htons: 'LL__socket_htons',
-    ll__socket.ll__socket_htonl: 'LL__socket_htonl',
-    ll__socket.ll__socket_ntohl: 'LL__socket_htonl',
-    ll__socket.ll__socket_newsocket: 'LL__socket_newsocket',
-    ll__socket.ll__socket_connect: 'LL__socket_connect',
-    ll__socket.ll__socket_getpeername: 'LL__socket_getpeername',
     }
 
 #______________________________________________________
@@ -101,8 +88,6 @@ def predeclare_common_types(db, rtyper, optimize=True):
     yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
     yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
-    yield ('RPySOCKET_ADDRINFO', ll__socket.ADDRINFO_RESULT)
-    yield ('RPySOCKET_SOCKNAME', ll__socket.SOCKNAME)
 
 def predeclare_utility_functions(db, rtyper, optimize=True):
     # Common utility functions
@@ -164,17 +149,6 @@ def get_extfunc_helper_ptrs(db, rtyper, optimize=True):
         not optimize):
         r.append(annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10)))
 
-    if (ll__socket.ll__socket_nextaddrinfo in db.externalfuncs or
-        not optimize):
-        args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
-                lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-        r.append(annotate(ll__socket.ll__socket_addrinfo, *args))
-        
-    if (ll__socket.ll__socket_getpeername in db.externalfuncs or
-        not optimize):
-        args = [lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
-        r.append(annotate(ll__socket.ll__socket_sockname, *args))
-
     return r
 
 def predeclare_extfunc_helpers(db, rtyper, optimize=True):
@@ -194,16 +168,6 @@ def predeclare_extfunc_helpers(db, rtyper, optimize=True):
         not optimize):
         yield decl(ll_os.ll_stat_result)
         yield ('LL_NEED_OS_STAT', 1)
-
-    if (ll__socket.ll__socket_nextaddrinfo in db.externalfuncs or
-        not optimize):
-        yield decl(ll__socket.ll__socket_addrinfo)
-        yield ('LL_NEED__SOCKET_ADDRINFO', 1)
-        
-    if (ll__socket.ll__socket_getpeername in db.externalfuncs or
-        not optimize):
-        yield decl(ll__socket.ll__socket_sockname)
-        yield ('LL_NEED__SOCKET_SOCKNAME', 1)
 
 def predeclare_extfuncs(db, rtyper, optimize=True):
     modules = {}
