@@ -8,6 +8,12 @@ from pypy.translator.cl.buildcl import Literal
 from pypy.translator.test import snippet as t
 
 
+def dont_test_return_str():
+    def return_str():
+        return 'test'
+    cl_return_str = make_cl_func(return_str)
+    assert cl_return_str() == 'test'
+
 def test_if():
     py.test.skip("temporarily disabled")
     cl_if = make_cl_func(t.if_then_else, [object, object, object])
