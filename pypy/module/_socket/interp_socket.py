@@ -109,6 +109,21 @@ def wrap_timeouterror(space):
                                   space.wrap("timed out"))
     return w_error
 
+def setipaddr(space, name, addr_ret, addr_ret_size, af):
+	hints = _c.addr_info
+	hints.ai_family = af
+	hints.ai_socktype = _c.SOCK_DGRAM
+	hints.ai_flags = _c.AI_PASSIVE
+	res = _c.addr_info_ptr
+	err = _c.getaddrinfo( None, "0", pointer(hints), pointer(res))
+    if err:
+	 	raise w_get_socketgaierror(_c.errno)
+	if res.contents.ai_next:
+		raise OperationError(_socket.error, space.wrap("wildcard resolved to multiple address"))
+	addr = res.contents.ai_addr
+	_c.freeaddrinfo(res)
+    return addr
+		
 def w_makesockaddr(space, caddr, caddrlen, proto):
     if caddr.contents.sa_family == AF_INET:
         a = cast(caddr, POINTER(_c.sockaddr_in))
@@ -128,7 +143,7 @@ def gethostname(space):
     res = _c.gethostname(namebuff, BUFFLEN - 1)
     if res < 0:
         raise w_get_socketerror(_c.errno.value)
-    return namebuff.value
+    return space.wrap(namebuff.value)
 gethostname.unwrap_spec = [ObjSpace]
 
 def gethostbyname(space, name):
@@ -136,10 +151,10 @@ def gethostbyname(space, name):
 
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
-    try:
-        return space.wrap(_socket.gethostbyname(name))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    hostent = _c.gethostbyname(name)
+    if not hostent:
+        raise  w_get_socketherror(_c.h_errno.value)
+    return space.wrap(hostent.contents.h_name)
 gethostbyname.unwrap_spec = [ObjSpace, str]
 
 def gethostbyname_ex(space, name):
@@ -253,7 +268,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(_socket.ntohs(x))
+    return space.wrap(_c.ntohs(x))
 ntohs.unwrap_spec = [ObjSpace, int]
 
 def ntohl(space, w_x):
@@ -270,7 +285,7 @@ def ntohl(space, w_x):
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
 
-    return space.wrap(_socket.ntohl(x))
+    return space.wrap(_c.ntohl(x))
 ntohl.unwrap_spec = [ObjSpace, W_Root]
 
 def htons(space, x):
@@ -278,7 +293,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(_socket.htons(x))
+    return space.wrap(_c.htons(x))
 htons.unwrap_spec = [ObjSpace, int]
 
 def htonl(space, w_x):
@@ -295,7 +310,7 @@ def htonl(space, w_x):
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
 
-    return space.wrap(_socket.htonl(x))
+    return space.wrap(_c.htonl(x))
 htonl.unwrap_spec = [ObjSpace, W_Root]
 
 def inet_aton(space, ip):
@@ -335,14 +350,14 @@ def inet_pton(space, family, ip):
     Convert an IP address from string format to a packed string suitable
     for use with low-level network functions.
     """
-    if family == socket.AF_INET:
+    if family == _c.AF_INET:
         packed = inet_pton_ipv4(space, ip)
         if len(packed) == 0:
             raise w_get_socketerror(space,
                             "illegal IP address string passed to inet_pton")
         else:
             return space.wrap(packed)
-    elif socket.has_ipv6 and family == socket.AF_INET6:
+    elif _c.has_ipv6 and family == _c.AF_INET6:
         packed = inet_pton_ipv6(space, ip)
         if len(packed) == 0:
             raise w_get_socketerror(space,
@@ -449,9 +464,9 @@ def inet_ntop(space, family, packed):
 
     Convert a packed IP address of the given family to string format.
     """
-    if family == socket.AF_INET:
+    if family == _c.AF_INET:
         return space.wrap(inet_ntop_ipv4(space, packed))
-    elif socket.has_ipv6 and family == socket.AF_INET6:
+    elif _c.has_ipv6 and family == _c.AF_INET6:
         return space.wrap(inet_ntop_ipv6(space, packed))
     else:
         raise OperationError(space.w_ValueError,
@@ -573,8 +588,8 @@ def getnameinfo(space, w_sockaddr, flags):
     Get host and port for a sockaddr."""
     sockaddr = space.unwrap(w_sockaddr)
     try:
-        return space.wrap(socket.getnameinfo(sockaddr, flags))
-    except socket.error, e:
+        return space.wrap(_c.getnameinfo(sockaddr, flags))
+    except _c.error, e:
         raise wrap_socketerror(space, e)
 getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
 
@@ -619,18 +634,18 @@ getdefaulttimeout.unwrap_spec = [ObjSpace]
 def getsockettype(space):
     return space.gettypeobject(Socket.typedef)
 
-def newsocket(space, w_subtype, family=socket.AF_INET,
-              type=socket.SOCK_STREAM, proto=0):
+def newsocket(space, w_subtype, family=_c.AF_INET,
+              type=_c.SOCK_STREAM, proto=0):
     # sets the timeout for the CPython implementation
     timeout = getstate(space).defaulttimeout
     if timeout < 0.0:
-        socket.setdefaulttimeout(None)
+        _c.setdefaulttimeout(None)
     else:
-        socket.setdefaulttimeout(timeout)
+        _c.setdefaulttimeout(timeout)
 
     try:
-        fd = rsocket.newsocket(family, type, proto)
-    except socket.error, e: # On untranslated PyPy
+        fd = _c.socket(family, type, proto)
+    except _c.error, e: # On untranslated PyPy
         raise wrap_socketerror(space, e)
     except OSError, e: # On translated PyPy
         raise w_get_socketerror(space, e.strerror, e.errno)
@@ -987,11 +1002,10 @@ settimeout shutdown
 """.split()
 socketmethods = {}
 for methodname in socketmethodnames:
-    if hasattr(_socket.socket, methodname):
-        method = getattr(Socket, methodname)
-        assert hasattr(method,'unwrap_spec'), methodname
-        assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
-        socketmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
+    method = getattr(Socket, methodname)
+    assert hasattr(method,'unwrap_spec'), methodname
+    assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
+    socketmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
 
 Socket.typedef = TypeDef("_socket.socket",
     __doc__ = """\

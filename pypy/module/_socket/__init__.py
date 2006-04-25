@@ -1,6 +1,6 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-import _socket
+from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c 
 import sys
 
 class Module(MixedModule):
@@ -25,12 +25,9 @@ for name in """
     getdefaulttimeout setdefaulttimeout 
     """.split():
     
-    if hasattr(_socket, name):
-        Module.interpleveldefs[name] = 'interp_socket.%s' % (name, )
+    Module.interpleveldefs[name] = 'interp_socket.%s' % (name, )
 
-for constant in dir(_socket):
-    value = getattr(_socket, constant)
-    if constant.isupper() and type(value) in (int, str):
-        Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+for constant, value in _c.constants.iteritems():
+    Module.interpleveldefs[constant] = "space.wrap(%r)" % value
 
-Module.interpleveldefs['has_ipv6'] = "space.wrap(%s)" % _socket.has_ipv6
+#Module.interpleveldefs['has_ipv6'] = "space.wrap(%s)" % _socket.has_ipv6
