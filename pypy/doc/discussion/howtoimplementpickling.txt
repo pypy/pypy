@@ -1,0 +1,118 @@
+Designing thread pickling
+-------------------------
+
+Thread pickling is a unique feature in Stackless Python
+and should be implemented for PyPy pretty soon.
+
+What is meant by pickling?
+..........................
+
+I'd like to define thread pickling as a restartable subset
+of a running program. The re-runnable part should be based
+upon Python frame chains, represented by coroutines, tasklets
+or any other application level switchable subcontext.
+It is surely possible to support pickling of arbitrary
+interplevel state, but this seems to be not mandatory as long
+as we consider Stackless as the reference implementation.
+Extensions of this might be considered when the basic task
+is fulfilled.
+
+Pickling should create a re-startable coroutine-alike thing
+that can run on a different machine, same Python version,
+but not necessarily the same PyPy translation. This belongs
+to the harder parts.
+
+What is not meant by pickling?
+..............................
+
+Saving the whole memory state and writing a loader that
+reconstructs the whole binary with its state im memory
+is not what I consider a real solution. In some sense,
+this can be a fall-back if we fail in every other case,
+but I consider it really nasty for the C backend.
+
+If we had a dynamic backend that supports direct creation
+of the program and its state (example: a Forth backend),
+I would see it as a valid solution, since it is
+relocatable. It is of course a possible fall-back to write
+sucn a backend of we fail otherwise.
+
+There are some simple steps and some more difficult ones.
+Let's start with the simple.
+
+Basic necessities
+.................
+
+Pickling of a running thread involves a bit more than normal
+object pickling, because there exist many objects which
+don't have a pickling interface, and people would not care
+aboutpickling them at all. But with thread pickling, these
+objects simply exist as local variables and are needed
+to restore the current runtime environment, and the user
+should not have to know what goes into the pickle.
+
+Examples are
+
+- generators
+- frames
+- cells
+- iterators
+- tracebacks
+
+to name just a few. Fortunately most of these objects already have
+got a pickling implementation in Stackless Python, namely the
+prickelpit.c file.
+
+It should be simple and straightforward to redo these implementations.
+Nevertheless there is a complication. The most natural to support
+pickling is providing a __getstate__/__setstate__ method pair.
+This is ok for extension types like coroutines/tasklets, but
+not allowed to use for existing types, since adding new methods
+would change the interface of these objects. For Stackless,
+I used the copyreg module, instead, and created special surrogate
+objects as placeholders, which replace the type of the object
+after unpickling with the right type pointer. For details, see
+the prickelpit.c file in the Stackless distribution.
+
+The real problem
+................
+
+There are currently some crucial differences between Stackless
+Python (SLP for now) and the PyPy Stackless support (PyPy for now)
+as far as it is grown.
+When CPython does a call to a Python function, there are several
+helper functions involved for adjusting parameters, unpacking
+methods and some more. SLP takes a hard time to remove all these
+C functions from the C stack before starting the Python interpreter
+for the function. This change of behavior is done manually for
+all the helper functions by figuring out, which variables are
+still needed after the call. It turns out that in most cases,
+it is possible to let all the helper functions finish their
+work and return form the function call before the interpreter
+is started at all.
+
+This is the major difference which needs to be tackled for PyPy.
+Whenever we run a Python function, quite a number of functions
+incarnate on the C stack, and they get *not* finished before
+running the new frame. In case of a coroutine switch, we just
+save the whole chain of activation records - c function
+entrypoints with the saved block variables. This is ok for
+coroutine switching, but in the sense of SLP, it is rather
+incomplete and not stackless at all. The stack still exists,
+we can unwind and rebuild it, but it is a problem.
+
+Why a problem?
+..............
+
+In an ideal world, thread pickling would just be building
+chains of pickled frames and nothing else. For every different
+extra activation record like mentioned above, we have the
+problem of how to save this information. We need a representation
+which is not machine or compiler dependent. Right now, PyPy
+is quite unstable in terms of which blocks it will produce,
+what gets inlined, etc. The best solution possible is to try
+to get completely rid of these extra structures.
+
+Unfortunately this is not even possible with SLP, because
+there are different flavors of state which make it hard
+to go without extra information.
