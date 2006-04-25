@@ -1,5 +1,5 @@
 from ctypes import py_object
-from pypy.annotation.model import SomeCTypesObject, SomeImpossibleValue
+from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy.rpython.rctypes.implementation import CTypesCallEntry, CTypesObjEntry
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import Hashable
@@ -22,6 +22,13 @@ class CallEntry(CTypesCallEntry):
 class ObjEntry(CTypesObjEntry):
     "Annotation and rtyping of py_object instances."
     _type_ = py_object
+
+    def get_field_annotation(self, s_pyobject, fieldname):
+        assert fieldname == "value"
+        # reading the .value field results in an object of
+        # completely unknown type.  This crashes the annotator if
+        # it is not in allow_someobjects mode.
+        return SomeObject()
 
 ##    def object_seen(self, bookkeeper):
 ##        "Called when the annotator sees this py_object."

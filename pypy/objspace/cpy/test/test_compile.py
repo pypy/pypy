@@ -42,7 +42,6 @@ def maketest():
     return entrypoint
 
 def test_annotate_bltinfunc():
-    py.test.skip("in-progress")
     entrypoint = maketest()
     t = TranslationContext()
     a = t.buildannotator(policy=CPyAnnotatorPolicy())
