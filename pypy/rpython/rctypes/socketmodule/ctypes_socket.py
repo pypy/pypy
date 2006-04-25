@@ -113,6 +113,15 @@ CConfig.addrinfo = ctypes_platform.Struct('struct addrinfo',
                                       ('ai_canonname', c_char_p),
                                       ('ai_next', addrinfo_ptr)])
 
+CConfig.hostent = ctypes_platform.Struct('struct hostent',
+                                     [('h_name', c_char_p),
+                                      ('h_aliases', POINTER(c_char_p)),
+                                      ('h_addrtype', c_int),
+                                      ('h_length', c_int),
+                                      ('h_addr_list', POINTER(c_char_p))
+                                      ])
+
+
 
 class cConfig:
     pass
@@ -128,6 +137,8 @@ for name, default in constants_w_defaults:
         constants[name] = value
     else:
         constants[name] = default
+
+locals().update(constants)
 
 uint16_t = cConfig.uint16_t
 uint32_t = cConfig.uint32_t
@@ -276,3 +287,7 @@ getaddrinfo.restype = c_int
 gethostname = socketdll.gethostname
 gethostname.argtypes = [POINTER(c_char), c_int]
 gethostname.restype = c_int
+
+gethostbyname = socketdll.gethostbyname
+gethostbyname.argtypes = [POINTER(c_char)]
+gethostbyname.restype = POINTER(cConfig.hostent)
