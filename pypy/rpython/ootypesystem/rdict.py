@@ -5,7 +5,6 @@ from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rlist import ll_newlist
-from pypy.rpython.ootypesystem.riterable import iterator_type
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
 from pypy.rpython import robject
@@ -213,34 +212,33 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
     def __init__(self, r_dict, variant="keys"):
         self.r_dict = r_dict
         self.variant = variant
-        self.lowleveltype = iterator_type(r_dict, r_dict.key_repr)
+        self.lowleveltype = self._get_type()
         self.ll_dictiter = ll_dictiter
         self.ll_dictnext = ll_dictnext
 
+    def _get_type(self):
+        KEYTYPE = self.r_dict.key_repr.lowleveltype
+        VALUETYPE = self.r_dict.value_repr.lowleveltype
+        ITER = ootype.DictItemsIterator(KEYTYPE, VALUETYPE)
+        return ootype.Tuple({"iterator": ITER})
+
+
 def ll_dictiter(ITER, d):
     iter = ootype.new(ITER)
-    iter.iterable = d
-    iter.index = 0
+    iter.iterator = d.ll_get_items_iterator()
     return iter
 
-# TODO: this is very inefficient for values and items because it does
-# a dict lookup at every iteration. Need to be refactored.
 def ll_dictnext(iter, func, RETURNTYPE):
-    d = iter.iterable
-    keys = d.ll_keys()
-    index = iter.index
-    if index >= keys.ll_length():
+    it = iter.iterator
+    if not it.ll_go_next():
         raise StopIteration
-    iter.index = index + 1
 
-    key = keys.ll_getitem_fast(index)
     if func is dum_keys:
-        return key
+        return it.ll_current_key()
     elif func is dum_values:
-        return d.ll_get(key)
+        return it.ll_current_value()
     elif func is dum_items:
         res = ootype.new(RETURNTYPE)
-        res.item0 = key
-        res.item1 = d.ll_get(key)
+        res.item0 = it.ll_current_key()
+        res.item1 = it.ll_current_value()
         return res
-        

@@ -805,7 +805,9 @@ class _dict(_builtin_type):
     def ll_get_items_iterator(self):
         # NOT_RPYTHON
         ITER = DictItemsIterator(self._TYPE._KEYTYPE, self._TYPE._VALUETYPE)
-        return _dict_items_iterator(ITER, self._dict)
+        iter = _dict_items_iterator(ITER)
+        iter._items = self._dict.items()
+        return iter
 
 class _null_dict(_null_mixin(_dict), _dict):
     def __init__(self, DICT):
@@ -813,9 +815,9 @@ class _null_dict(_null_mixin(_dict), _dict):
 
 
 class _dict_items_iterator(_builtin_type):
-    def __init__(self, ITER, d):
+    def __init__(self, ITER):
         self._TYPE = ITER
-        self._items = d.items()
+        self._items = []
         self._index = -1
 
     def ll_go_next(self):
