@@ -20,4 +20,3 @@ class SocketType:
 socket = SocketType
 
 
-def setipaddress()
