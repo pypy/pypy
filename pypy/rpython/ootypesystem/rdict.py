@@ -90,21 +90,21 @@ class DictRepr(AbstractDictRepr):
         return self.recast_value(hop.llops, v_res)
 
     def rtype_method_keys(self, hop):
-        hop.exception_cannot_occur()        
-        return self.send_message(hop, 'll_keys')
+        return self._rtype_method_kvi(hop, dum_keys)
 
     def rtype_method_values(self, hop):
-        return self._rtype_method_vi(hop, dum_values)
+        return self._rtype_method_kvi(hop, dum_values)
 
     def rtype_method_items(self, hop):
-        return self._rtype_method_vi(hop, dum_items)
+        return self._rtype_method_kvi(hop, dum_items)
 
-    def _rtype_method_vi(self, hop, spec):
+    def _rtype_method_kvi(self, hop, spec):
         v_dict, = hop.inputargs(self)
         r_list = hop.r_result
         cLIST = hop.inputconst(ootype.Void, r_list.lowleveltype)
-        c_func = hop.inputconst(ootype.Void, spec)        
-        return hop.gendirectcall(ll_dict_values_items, v_dict, cLIST, c_func)
+        c_func = hop.inputconst(ootype.Void, spec)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_dict_kvi, v_dict, cLIST, c_func)
 
     def rtype_method_iterkeys(self, hop):
         hop.exception_cannot_occur()
@@ -183,23 +183,23 @@ def ll_dict_setdefault(d, key, default):
         d.ll_set(key, default)
         return default
 
-def ll_dict_values_items(d, LIST, func):
-    keys = d.ll_keys()
-    length = keys.ll_length()
+def ll_dict_kvi(d, LIST, func):
+    length = d.ll_length()
     result = ll_newlist(LIST, length)
+    it = d.ll_get_items_iterator()
     i = 0
-    while i < length:
-        key = keys.ll_getitem_fast(i)
-        value = d.ll_get(key)
+    while it.ll_go_next():
+        if func is dum_keys:
+            result.ll_setitem_fast(i, it.ll_current_key())
+        elif func is dum_values:
+            result.ll_setitem_fast(i, it.ll_current_value())
         if func is dum_items:
             r = ootype.new(LIST._ITEMTYPE)
-            r.item0 = key   # TODO: do we need casting?
-            r.item1 = value
+            r.item0 = it.ll_current_key()   # TODO: do we need casting?
+            r.item1 = it.ll_current_value()
             result.ll_setitem_fast(i, r)
-        elif func is dum_values:
-            result.ll_setitem_fast(i, value)
-
         i += 1
+    #assert i == length
     return result
 
 
@@ -242,3 +242,4 @@ def ll_dictnext(iter, func, RETURNTYPE):
         res.item0 = it.ll_current_key()
         res.item1 = it.ll_current_value()
         return res
+

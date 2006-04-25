@@ -358,7 +358,6 @@ class Dict(BuiltinADTType):
             "ll_set": Meth([self.KEYTYPE_T, self.VALUETYPE_T], Void),
             "ll_remove": Meth([self.KEYTYPE_T], Bool), # return False is key was not present
             "ll_contains": Meth([self.KEYTYPE_T], Bool),
-            "ll_keys": Meth([], List(self.KEYTYPE_T)), # deprecated
             "ll_get_items_iterator": Meth([], DictItemsIterator(self.KEYTYPE_T, self.VALUETYPE_T)),
         })
 
@@ -795,12 +794,6 @@ class _dict(_builtin_type):
         # NOT_RPYTHON
         assert typeOf(key) == self._TYPE._KEYTYPE
         return key in self._dict
-
-    def ll_keys(self):
-        # NOT_RPYTHON
-        keys = _list(List(self._TYPE._KEYTYPE))
-        keys._list = self._dict.keys()
-        return keys
 
     def ll_get_items_iterator(self):
         # NOT_RPYTHON
