@@ -1,13 +1,11 @@
-import _socket, socket, errno, os, sys
+import sys
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, interp2app
-from pypy.module._socket.rpython import rsocket
-
-# Force the declarations of external functions
-import pypy.module._socket.rpython.exttable
+from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c
+import ctypes
 
 IPV4_ADDRESS_SIZE = 4
 IPV6_ADDRESS_SIZE = 16
@@ -75,33 +73,28 @@ if sys.platform == 'win32':
     def socket_strerror(errno):
         return WIN32_ERROR_MESSAGES.get(errno, "winsock error")
 else:
-    import os
     def socket_strerror(errno):
-        try:
-            return os.strerror(errno)
-        except ValueError:
-            return "socket error %d" % (errno,)
-
-def wrap_socketerror(space, e):
-    assert isinstance(e, socket.error)
-    errno = e.args[0]
-    msg = socket_strerror(errno)
-
-    w_module = space.getbuiltinmodule('_socket')
-    if isinstance(e, socket.gaierror):
-        w_errortype = space.getattr(w_module, space.wrap('gaierror'))
-    elif isinstance(e, socket.herror):
-        w_errortype = space.getattr(w_module, space.wrap('herror'))
-    else:
-        w_errortype = space.getattr(w_module, space.wrap('error'))
-
-    return OperationError(w_errortype,
-                          space.wrap(errno),
-                          space.wrap(msg))
+        return _c.strerror(errno)
 
 def w_get_socketerror(space, message, errno=-1):
     w_module = space.getbuiltinmodule('_socket')
     w_errortype = space.getattr(w_module, space.wrap('error'))
+    if errno > -1:
+        return OperationError(w_errortype, space.wrap(errno), space.wrap(message))
+    else:
+        return OperationError(w_errortype, space.wrap(message))
+
+def w_get_socketgaierror(space, message, errno=-1):
+    w_module = space.getbuiltinmodule('_socket')
+    w_errortype = space.getattr(w_module, space.wrap('gaierror'))
+    if errno > -1:
+        return OperationError(w_errortype, space.wrap(errno), space.wrap(message))
+    else:
+        return OperationError(w_errortype, space.wrap(message))
+
+def w_get_socketherror(space, message, errno=-1):
+    w_module = space.getbuiltinmodule('_socket')
+    w_errortype = space.getattr(w_module, space.wrap('herror'))
     if errno > -1:
         return OperationError(w_errortype, space.wrap(errno), space.wrap(message))
     else:
@@ -116,15 +109,26 @@ def wrap_timeouterror(space):
                                   space.wrap("timed out"))
     return w_error
 
+def w_makesockaddr(space, caddr, caddrlen, proto):
+    if caddr.contents.sa_family == AF_INET:
+        a = cast(caddr, POINTER(_c.sockaddr_in))
+        return space.newtuple([space.wrap(_c.inet_ntoa(a.contents.sin_addr)),
+                                space.wrap(_c.ntohs(a.contents.sin_port))])
+    else:
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("Unsupported address family %d" % caddr.contents.sa_family))
+
 def gethostname(space):
     """gethostname() -> string
 
     Return the current host name.
     """
-    try:
-        return space.wrap(_socket.gethostname())
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    BUFFLEN = 1024
+    namebuff = ctypes.create_string_buffer(BUFFLEN)
+    res = _c.gethostname(namebuff, BUFFLEN - 1)
+    if res < 0:
+        raise w_get_socketerror(_c.errno.value)
+    return namebuff.value
 gethostname.unwrap_spec = [ObjSpace]
 
 def gethostbyname(space, name):
@@ -505,16 +509,6 @@ def inet_ntop_ipv6(space, packed):
             ip += "%x" % part
         return ip
 
-def enumerateaddrinfo(space, addr):
-    result = []
-    while True:
-        addrinfo = addr.nextinfo()
-        if addrinfo[0] == 0:
-            break
-        info = addrinfo[:4] + (addrinfo[4:],)
-        result.append(space.wrap(info))
-    return space.newlist(result)
-
 def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     """getaddrinfo(host, port [, family, socktype, proto, flags])
         -> list of (family, socktype, proto, canonname, sockaddr)
@@ -545,15 +539,32 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
         raise OperationError(space.w_TypeError,
                              space.wrap("Int or String expected"))
 
-    try:
-        addr = rsocket.getaddrinfo(host, port, family, socktype, proto, flags)
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    res = addrinfo_ptr
+    hints = _c.addrinfo
+    hints.ai_flags = flags
+    hints.ai_family = family
+    hints.ai_socktype = socktype
+    hints.ai_protocol = proto
+    retval = _c.getaddrinfo(host, port, pointer(hints), pointer(res))
+    if retval < 0:
+        raise w_get_socketgaierror(_c.gai_strerror(_c.errno), _c.errno.value)
 
     try:
-        return enumerateaddrinfo(space, addr)
+        result = []
+        next = res
+        while next:
+            info = next.contents
+            next = info.ai_next
+            w_family = space.wrap(info.ai_family.value)
+            w_socktype = space.wrap(info.ai_socktype.value)
+            w_proto = space.wrap(info.ai_protocol.value)
+            w_canonname = space.wrap(info.ai_canonname.value)
+            w_addr = w_makesockaddr(sapce, info.ai_canonname, info.ai_addrlen.value)
+            results.append(space.newtuple([w_family, w_socktype, w_proto,
+                                           w_canonname, w_addr]))
+            return space.newlist(result)
     finally:
-        addr.free()
+        _c.freeaddrinfo(res)
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
 
 def getnameinfo(space, w_sockaddr, flags):
@@ -679,13 +690,10 @@ class Socket(Wrappable):
         Close the socket.  It cannot be used after this call.
         """
         if not self.closed:
-            try:
-                # Reusing the os.close primitive to save us from writing a 
-                # socket-specific close primitive. This might not be perfectly
-                # cross-platform (Windows?).
-                os.close(self.fd)
-            except OSError, e:
-                raise w_get_socketerror(space, e.strerror, e.errno)
+            res = _c.close(self.fd)
+            if res < 0:
+                errno = _c.errno.value
+                raise w_get_socketerror(space, socket_strerror(errno), errno)
             self.closed = True
     close.unwrap_spec = ['self', ObjSpace]
 

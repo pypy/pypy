@@ -148,9 +148,20 @@ assert dllname is not None
 socketdll = cdll.LoadLibrary(dllname)
 
 errno = c_int.in_dll(socketdll, 'errno')
+
 strerror = socketdll.strerror
 strerror.argtypes = [c_int]
 strerror.restype = c_char_p
+
+gai_strerror = socketdll.gai_strerror
+gai_strerror.argtypes = [c_int]
+gai_strerror.restype = c_char_p
+
+h_errno = c_int.in_dll(socketdll, 'h_errno')
+
+hstrerror = socketdll.hstrerror
+hstrerror.argtypes = [c_int]
+hstrerror.restype = c_char_p
 
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
@@ -196,6 +207,10 @@ ntohs.restype = uint16_t
 inet_aton = socketdll.inet_aton
 inet_aton.argtypes = [c_char_p, POINTER(in_addr)]
 inet_aton.restype = c_int
+
+close = socketdll.close
+close.argtypes = [c_int]
+close.restype = c_int
 
 socketaccept = socketdll.accept
 socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
@@ -252,3 +267,12 @@ socketsendto.restype = ssize_t
 socketshutdown = socketdll.shutdown
 socketshutdown.argtypes = [c_int, c_int]
 socketshutdown.restype = c_int
+
+
+getaddrinfo = socketdll.getaddrinfo
+getaddrinfo.argtypes = [ c_char_p, c_char_p, addrinfo_ptr, POINTER(addrinfo_ptr)]
+getaddrinfo.restype = c_int
+
+gethostname = socketdll.gethostname
+gethostname.argtypes = [POINTER(c_char), c_int]
+gethostname.restype = c_int

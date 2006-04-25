@@ -60,9 +60,9 @@ class TestSocket:
         s.connect(addr)
         self.client_addr = s.getsockname()
         s.send("@")
-        data = s.recv(1024)
+        self.received = s.recv(1024)
         while data:
-            data = s.recv(1024)
+            self.received += s.recv(1024)
         s.close()
 
     def test_getsockname(self):
