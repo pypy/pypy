@@ -1,5 +1,6 @@
 import autopath
 import py
+py.test.skip("in progress")
 import _socket, thread
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import TranslationContext
