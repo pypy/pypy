@@ -95,12 +95,10 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     if conftest.option.view:
         t.view()
     
-    graph = t.graphs[0]
-        
-    gen = GenCL(graph, argtypes)
+    gen = GenCL(t, func, argtypes)
     out = gen.emitcode()
     i = 1
-    fpath = path.join("%s.lisp" % graph.name)
+    fpath = path.join("%s.lisp" % func.func_name)
 
     if conftest.option.prettyprint:
         script = path.join(".printer.lisp")
@@ -111,7 +109,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
-        print >>fp, "(write (", repr_fun_name(graph.name),
+        print >>fp, "(write (", repr_fun_name(func.func_name),
         for arg in args:
             print >>fp, writelisp(arg),
         print >>fp, "))"

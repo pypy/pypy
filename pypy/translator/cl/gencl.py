@@ -1,4 +1,7 @@
-from pypy.rpython.ootypesystem.ootype import Instance, List
+import types
+
+from pypy.translator.translator import graphof
+from pypy.rpython.ootypesystem.ootype import Instance, List, _static_meth, _meth
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
 
@@ -54,8 +57,8 @@ class Op:
         yield "(setf %s (not (zerop %s)))" % (result, arg)
 
     def op_direct_call(self, result, fun, *args):
-        graph = self.args[0].value.graph
-        self.gen.pendinggraphs.append(graph)
+        funobj = self.args[0].value
+        self.gen.pendinggraphs.append(funobj)
         args = " ".join(args)
         yield "(setf %s (%s %s))" % (result, fun, args)
 
@@ -80,11 +83,19 @@ class Op:
     def op_oosend(self, result, *ignore):
         method = self.args[0].value
         receiver = self.args[1]
+        cls = receiver.concretetype
         args = self.args[2:]
-        if isinstance(receiver.concretetype, List):
+        if isinstance(cls, List):
             impl = ListImpl(receiver)
             code = getattr(impl, method)(*args)
-        yield "(setf %s %s)" % (result, code)
+            yield "(setf %s %s)" % (result, code)
+        elif isinstance(cls, Instance):
+            methodobj = cls._methods[method]
+            methodobj._method_name = method # XXX
+            self.gen.pendinggraphs.append(methodobj)
+            args = map(repr_arg, args)
+            args = " ".join(args)
+            yield "(setf %s (%s %s %s))" % (result, repr_fun_name(method), repr_arg(receiver), args)
 
     def op_oogetfield(self, result, obj, _):
         fieldname = self.args[1].value
@@ -121,8 +132,9 @@ class ListImpl:
 
 class GenCL:
 
-    def __init__(self, entry_point, input_arg_types=[]):
-        self.pendinggraphs = [entry_point]
+    def __init__(self, context, funobj, input_arg_types=[]):
+        self.context = context
+        self.pendinggraphs = [funobj]
         self.declarations = []
 
     def emitcode(self, public=True):
@@ -136,15 +148,40 @@ class GenCL:
 
     def emit(self):
         while self.pendinggraphs:
-            graph = self.pendinggraphs.pop()
-            for line in self.emit_defun(graph):
-                yield line
+            obj = self.pendinggraphs.pop()
+            if isinstance(obj, types.FunctionType):
+                graph = graphof(self.context, obj)
+                for line in self.emit_defun(graph):
+                    yield line
+            elif isinstance(obj, _static_meth):
+                graph = obj.graph
+                for line in self.emit_defun(graph):
+                    yield line
+            elif isinstance(obj, _meth):
+                graph = obj.graph
+                name = obj._method_name # XXX
+                for line in self.emit_defmethod(graph, name):
+                    yield line
 
     def emit_defun(self, fun):
         yield "(defun " + repr_fun_name(fun.name)
         arglist = fun.getargs()
         args = " ".join(map(repr_var, arglist))
         yield "(%s)" % (args,)
+        for line in self.emit_body(fun, arglist):
+            yield line
+
+    def emit_defmethod(self, fun, name):
+        yield "(defmethod %s" % (repr_fun_name(name))
+        arglist = fun.getargs()
+        cls = arglist[0].concretetype
+        selfvar = repr_var(arglist[0])
+        args = " ".join(map(repr_var, arglist[1:]))
+        yield "((%s %s) %s)" % (selfvar, repr_class_name(cls._name), args)
+        for line in self.emit_body(fun, arglist):
+            yield line
+
+    def emit_body(self, fun, arglist):
         yield "(prog"
         blocklist = list(fun.iterblocks())
         vardict = {}
