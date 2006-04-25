@@ -78,7 +78,8 @@ class Op:
             self.declare_class(cls._superclass)
             supername = repr_class_name(cls._superclass._name)
             class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
-        self.gen.declarations.append(class_declaration)
+        if class_declaration not in self.gen.declarations:
+            self.gen.declarations.append(class_declaration)
 
     def op_new(self, result, _):
         cls = self.args[0].value
