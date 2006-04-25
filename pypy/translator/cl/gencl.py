@@ -164,10 +164,13 @@ class GenCL:
     def emit_defmethod(self, fun, name):
         yield "(defmethod %s" % (repr_fun_name(name))
         arglist = fun.getargs()
-        cls = arglist[0].concretetype
         selfvar = repr_var(arglist[0])
+        clsname = repr_class_name(arglist[0].concretetype._name)
         args = " ".join(map(repr_var, arglist[1:]))
-        yield "((%s %s) %s)" % (selfvar, repr_class_name(cls._name), args)
+        if args:
+            yield "((%s %s) %s)" % (selfvar, clsname, args)
+        else:
+            yield "((%s %s))" % (selfvar, clsname)
         for line in self.emit_body(fun, arglist):
             yield line
 
@@ -182,13 +185,15 @@ class GenCL:
             for var in block.getvariables():
                 # In the future, we could assign type information here
                 vardict[var] = None
-        yield "("
+        varnames = []
         for var in vardict:
+            varname = repr_var(var)
             if var in arglist:
-                yield "(%s %s)" % (repr_var(var), repr_var(var))
+                varnames.append("(%s %s)" % (varname, varname))
             else:
-                yield repr_var(var)
-        yield ")"
+                varnames.append(varname)
+        varnames = " ".join(varnames)
+        yield "(%s)" % (varnames,)
         for block in blocklist:
             for line in self.emit_block(block):
                 yield line
@@ -241,7 +246,7 @@ class GenCL:
             yield "(something-like-throw-exception %s %s)" % (exc_cls, exc_value)
         else:
             retval = repr_var(block.inputargs[0])
-            yield "(return %s )" % retval
+            yield "(return %s)" % retval
 
     def format_jump(self, block):
         tag = self.blockref[block]
@@ -250,11 +255,7 @@ class GenCL:
     def emit_link(self, link):
         source = map(repr_arg, link.args)
         target = map(repr_var, link.target.inputargs)
-        yield "(setf"
-        couples = zip(source, target)
-        for s, t in couples[:-1]:
-            yield "%s %s" % (t, s)
-        else:
-            s, t = couples[-1]
-            yield "%s %s)" % (t, s)
+        couples = [ "%s %s" % (t, s) for (s, t) in zip(source, target)]
+        couples = " ".join(couples)
+        yield "(setf %s)" % (couples,)
         yield self.format_jump(link.target)
