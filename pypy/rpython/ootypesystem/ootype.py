@@ -869,5 +869,8 @@ def ooidentityhash(inst):
 def setItemType(LIST, ITEMTYPE):
     return LIST._set_itemtype(ITEMTYPE)
 
+def hasItemType(LIST):
+    return LIST._ITEMTYPE is not None
+
 
 ROOT = Instance('Root', None, _is_root=True)

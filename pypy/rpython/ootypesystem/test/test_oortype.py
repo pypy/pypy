@@ -149,15 +149,6 @@ def test_list_getitem_exceptions():
     res = interpret(oof, [], type_system='ootype')
     assert res is -1
 
-def test_list_lltype_identity():
-    t = TranslationContext()
-    t.buildannotator()
-    rtyper = t.buildrtyper()
-    repr1 = ListRepr(rtyper, signed_repr)
-    repr2 = ListRepr(rtyper, signed_repr)
-    assert repr1.lowleveltype == repr2.lowleveltype
-    assert hash(repr1.lowleveltype) == hash(repr2.lowleveltype)
-
 def test_list_annotation():
     LIST = List(Signed)
 

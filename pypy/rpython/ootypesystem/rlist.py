@@ -14,14 +14,13 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
-        if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
+        if not isinstance(item_repr, Repr):
             assert callable(item_repr)
             self._item_repr_computer = item_repr
-            self.LIST = ootype.ForwardReference()
         else:
-            self.LIST = ootype.List(item_repr.lowleveltype)
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(rtyper, item_repr)
+        self.LIST = ootype.List()
         self.lowleveltype = self.LIST
         self.listitem = listitem
         self.list_cache = {}
@@ -31,8 +30,8 @@ class BaseListRepr(AbstractBaseListRepr):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = \
                     externalvsinternal(self.rtyper, self._item_repr_computer())
-        if isinstance(self.lowleveltype, ootype.ForwardReference):
-            self.lowleveltype.become(ootype.List(self.item_repr.lowleveltype))
+        if not ootype.hasItemType(self.lowleveltype):
+            ootype.setItemType(self.lowleveltype, self.item_repr.lowleveltype)
 
     def null_const(self):
         return self.LIST._null
