@@ -59,33 +59,31 @@ class UnwrapSpecRecipe:
 
     bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
 
-    def dispatch(self, meth_family, el, orig_sig, new_sig):
+    def dispatch(self, el, *args):
         if isinstance(el, str):
-            getattr(self, "%s_%s" % (meth_family, el))(el, orig_sig, new_sig)
+            getattr(self, "visit_%s" % (el,))(el, *args)
         elif isinstance(el, tuple):
-            getattr(self, "%s_%s" % (meth_family, 'function'))(el, orig_sig, new_sig)
+            self.visit_function(el, *args)
         else:
             for typ in self.bases_order:
                 if issubclass(el, typ):
-                    getattr(self, "%s__%s" % (meth_family, typ.__name__))(el, orig_sig, new_sig)
+                    visit = getattr(self, "visit__%s" % (typ.__name__,))
+                    visit(el, *args)
                     break
             else:
-                assert False, "no match for unwrap_spec element: %s" % el
+                raise Exception("%s: no match for unwrap_spec element %s" % (
+                    self.__class__.__name__, el))
 
-    def check(self, el, orig_sig, new_sig):
-        self.dispatch("check", el, orig_sig, new_sig)
 
-    def emit(self, el, orig_sig, new_sig):
-        self.dispatch("emit", el, orig_sig, new_sig)
-
+class UnwrapSpec_Check(UnwrapSpecRecipe):
 
     # checks for checking interp2app func argument names wrt unwrap_spec
     # and synthetizing an app-level signature
 
-    def check_function(self, (func, cls), orig_sig, app_sig):
-        self.check(cls, orig_sig, app_sig)
+    def visit_function(self, (func, cls), orig_sig, app_sig):
+        self.dispatch(cls, orig_sig, app_sig)
         
-    def check__Wrappable(self, el, orig_sig, app_sig):
+    def visit__Wrappable(self, el, orig_sig, app_sig):
         name = el.__name__
         argname = orig_sig.next_arg()
         assert not argname.startswith('w_'), (
@@ -93,10 +91,10 @@ class UnwrapSpecRecipe:
             "not start with 'w_'" % (name, argname, orig_sig.func))
         app_sig.append(argname)
         
-    def check__ObjSpace(self, el, orig_sig, app_sig):
+    def visit__ObjSpace(self, el, orig_sig, app_sig):
         orig_sig.next_arg()
 
-    def check__W_Root(self, el, orig_sig, app_sig):
+    def visit__W_Root(self, el, orig_sig, app_sig):
         assert el is W_Root, "oops"
         argname = orig_sig.next_arg()
         assert argname.startswith('w_'), (
@@ -104,14 +102,14 @@ class UnwrapSpecRecipe:
             "start with 'w_'" % (argname, orig_sig.func))
         app_sig.append(argname[2:])
 
-    def check__Arguments(self, el, orig_sig, app_sig):
+    def visit__Arguments(self, el, orig_sig, app_sig):
         argname = orig_sig.next_arg()
         assert app_sig.varargname is None,(
             "built-in function %r has conflicting rest args specs" % orig_sig.func)
         app_sig.varargname = 'args'
         app_sig.kwargname = 'keywords'
 
-    def check_starargs(self, el, orig_sig, app_sig):
+    def visit_starargs(self, el, orig_sig, app_sig):
         varargname = orig_sig.varargname
         assert varargname.endswith('_w'), (
             "argument *%s of built-in function %r should end in '_w'" %
@@ -120,7 +118,7 @@ class UnwrapSpecRecipe:
             "built-in function %r has conflicting rest args specs" % orig_sig.func)
         app_sig.varargname = varargname[:-2]
 
-    def check_args_w(self, el, orig_sig, app_sig):
+    def visit_args_w(self, el, orig_sig, app_sig):
         argname = orig_sig.next_arg()
         assert argname.endswith('_w'), (
             "rest arguments arg %s of built-in function %r should end in '_w'" %
@@ -129,7 +127,7 @@ class UnwrapSpecRecipe:
             "built-in function %r has conflicting rest args specs" % orig_sig.func)
         app_sig.varargname = argname[:-2]    
 
-    def check_w_args(self, el, orig_sig, app_sig):
+    def visit_w_args(self, el, orig_sig, app_sig):
         argname = orig_sig.next_arg()
         assert argname.startswith('w_'), (
             "rest arguments arg %s of built-in function %r should start 'w_'" %
@@ -138,7 +136,7 @@ class UnwrapSpecRecipe:
             "built-in function %r has conflicting rest args specs" % orig_sig.func)
         app_sig.varargname = argname[2:]
 
-    def check__object(self, el, orig_sig, app_sig):
+    def visit__object(self, el, orig_sig, app_sig):
         if el not in (int, str, float):
             assert False, "unsupported basic type in unwrap_spec"
         name = el.__name__
@@ -148,9 +146,12 @@ class UnwrapSpecRecipe:
             "not start with 'w_'" % (name, argname, orig_sig.func))
         app_sig.append(argname)        
 
+
+class UnwrapSpec_Emit(UnwrapSpecRecipe):
+
     # collect code to emit for interp2app builtin frames based on unwrap_spec
 
-    def emit_function(self, (func, cls), orig_sig, emit_sig):
+    def visit_function(self, (func, cls), orig_sig, emit_sig):
         name = func.__name__
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
@@ -161,7 +162,7 @@ class UnwrapSpecRecipe:
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
 
-    def emit__Wrappable(self, el, orig_sig, emit_sig):
+    def visit__Wrappable(self, el, orig_sig, emit_sig):
         name = el.__name__
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
@@ -172,17 +173,17 @@ class UnwrapSpecRecipe:
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
 
-    def emit__ObjSpace(self, el, orig_sig, emit_sig):
+    def visit__ObjSpace(self, el, orig_sig, emit_sig):
         emit_sig.run_args.append('self.space')
 
-    def emit__W_Root(self, el, orig_sig, emit_sig):
+    def visit__W_Root(self, el, orig_sig, emit_sig):
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
             "self.w_arg%d = scope_w[%d]" % (cur,cur))
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.w_arg%d" % cur)
 
-    def emit__Arguments(self, el, orig_sig, emit_sig):
+    def visit__Arguments(self, el, orig_sig, emit_sig):
         cur = emit_sig.through_scope_w
         emit_sig.through_scope_w += 2
         emit_sig.miniglobals['Arguments'] = Arguments
@@ -192,28 +193,28 @@ class UnwrapSpecRecipe:
                 % (cur, cur+1))
         emit_sig.run_args.append("self.arguments_arg")
 
-    def emit_starargs(self, el, orig_sig, emit_sig):
+    def visit_starargs(self, el, orig_sig, emit_sig):
         emit_sig.setfastscope.append(
             "self.starargs_arg_w = self.space.unpacktuple(scope_w[%d])" %
                 (emit_sig.through_scope_w))
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("*self.starargs_arg_w")
 
-    def emit_args_w(self, el, orig_sig, emit_sig):
+    def visit_args_w(self, el, orig_sig, emit_sig):
         emit_sig.setfastscope.append(
             "self.args_w = self.space.unpacktuple(scope_w[%d])" %
                  (emit_sig.through_scope_w))
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.args_w")
 
-    def emit_w_args(self, el, orig_sig, emit_sig):
+    def visit_w_args(self, el, orig_sig, emit_sig):
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
             "self.w_args = scope_w[%d]" % cur)
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.w_args")
 
-    def emit__object(self, el, orig_sig, emit_sig):
+    def visit__object(self, el, orig_sig, emit_sig):
         if el not in (int, str, float):
             assert False, "unsupported basic type in uwnrap_spec"
         name = el.__name__
@@ -224,44 +225,42 @@ class UnwrapSpecRecipe:
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
 
-    # unwrapping code for fastfunc argument handling
 
-    def fastfunc_unwrap(self, el, info):
-        self.dispatch("fastfunc_unwrap", el, None, info)
+class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecRecipe):
 
-    def fastfunc_unwrap_function(self, (func, cls), ignore, info):
+    def visit_function(self, (func, cls), info):
         raise FastFuncNotSupported
 
-    def fastfunc_unwrap__Wrappable(self, el, ignore, info):
+    def visit__Wrappable(self, el, info):
         name = el.__name__
         cur = info.narg
         info.unwrap.append("space.interp_w(%s, w%d)" % (name, cur))
         info.miniglobals[name] = el
         info.narg += 1
 
-    def fastfunc_unwrap__ObjSpace(self, el, ignore, info):
+    def visit__ObjSpace(self, el, info):
         if info.index != 0:
             raise FastFuncNotSupported
         info.unwrap.append("space")
         
-    def fastfunc_unwrap__W_Root(self, el, ignore, info):
+    def visit__W_Root(self, el, info):
         cur = info.narg
         info.unwrap.append("w%d" % cur)
         info.narg += 1
 
-    def fastfunc_unwrap__Arguments(self, el, ignore, info):
+    def visit__Arguments(self, el, info):
         raise FastFuncNotSupported
 
-    def fastfunc_unwrap_starargs(self, el, ignore, info):
+    def visit_starargs(self, el, info):
         raise FastFuncNotSupported
 
-    def fastfunc_unwrap_args_w(self, el, ignore, info):
+    def visit_args_w(self, el, info):
         raise FastFuncNotSupported
 
-    def fastfunc_unwrap_w_args(self, el, ignore, info):
+    def visit_w_args(self, el, info):
         raise FastFuncNotSupported
 
-    def fastfunc_unwrap__object(self, el, ignore, info):
+    def visit__object(self, el, info):
         if el not in (int, str, float):
             assert False, "unsupported basic type in uwnrap_spec"
         name = el.__name__
@@ -400,7 +399,7 @@ class BuiltinCodeSignature(Signature):
 def make_builtin_frame_factory(func, orig_sig, unwrap_spec):
     "NOT_RPYTHON"
     name = (getattr(func, '__module__', None) or '')+'_'+func.__name__
-    emit_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpecRecipe().emit,
+    emit_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Emit().dispatch,
                                               BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec))
     return emit_sig.make_frame_factory(func)
 
@@ -416,7 +415,7 @@ class FastFuncInfo(object):
 
 def make_fastfunc(func, unwrap_spec):
     info = FastFuncInfo()
-    recipe = UnwrapSpecRecipe().fastfunc_unwrap
+    recipe = UnwrapSpec_FastFunc_Unwrap().dispatch
     for el in unwrap_spec:
         recipe(el, info)
         info.index += 1
@@ -490,7 +489,7 @@ class BuiltinCode(eval.Code):
 
         orig_sig = Signature(func, argnames, varargname, kwargname)
 
-        app_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpecRecipe().check,
+        app_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Check().dispatch,
                                              Signature(func))
 
         self.sig = argnames, varargname, kwargname = app_sig.signature()
