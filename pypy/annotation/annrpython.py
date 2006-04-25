@@ -243,12 +243,19 @@ class RPythonAnnotator:
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         if self.policy.allow_someobjects:
             return
+
+        # is the function itself tagged with allow_someobjects?
+        position_key = where or getattr(self.bookkeeper, 'position_key', None)
+        if position_key is not None:
+            graph, block, i = position_key
+            try:
+                if graph.func.allow_someobjects:
+                    return
+            except AttributeError:
+                pass
+
         msglines = ["annotation of %r degenerated to SomeObject()" % (what,)]
-        try:
-            position_key = where or self.bookkeeper.position_key
-        except AttributeError:
-            pass
-        else:
+        if position_key is not None:
             msglines.append(".. position: %s" % (self.whereami(position_key),))
         if called_from_graph is not None:
             msglines.append(".. called from %r" % (called_from_graph,))
@@ -427,10 +434,10 @@ class RPythonAnnotator:
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
-    def bindinputargs(self, graph, block, inputcells,
-                      called_from_graph=None, where=None):
+    def bindinputargs(self, graph, block, inputcells, called_from_graph=None):
         # Create the initial bindings for the input args of a block.
         assert len(block.inputargs) == len(inputcells)
+        where = (graph, block, None)
         for a, cell in zip(block.inputargs, inputcells):
             self.setbinding(a, cell, called_from_graph, where=where)
         self.annotated[block] = False  # must flowin.
@@ -442,8 +449,7 @@ class RPythonAnnotator:
         unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
-            self.bindinputargs(graph, block, unions,
-                               called_from_graph, where=(graph, block, None))
+            self.bindinputargs(graph, block, unions, called_from_graph)
 
     def whereami(self, position_key):
         graph, block, i = position_key

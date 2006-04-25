@@ -27,6 +27,7 @@ class __extend__(pairtype(CPyObjSpace, BuiltinFunction)):
             w_arg = space.W_Object(a)
             w_result = bltin(space, w_arg)
             return w_result.value
+        trampoline.allow_someobjects = True    # annotator hint
 
         w_result = W_Object(trampoline)
 
