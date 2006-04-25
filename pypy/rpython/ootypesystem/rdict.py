@@ -220,7 +220,7 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
         KEYTYPE = self.r_dict.key_repr.lowleveltype
         VALUETYPE = self.r_dict.value_repr.lowleveltype
         ITER = ootype.DictItemsIterator(KEYTYPE, VALUETYPE)
-        return ootype.Tuple({"iterator": ITER})
+        return ootype.Record({"iterator": ITER})
 
 
 def ll_dictiter(ITER, d):

@@ -1,11 +1,11 @@
-from pypy.rpython.ootypesystem.ootype import Signed, Tuple, new
+from pypy.rpython.ootypesystem.ootype import Signed, Record, new
 from pypy.rpython.rrange import AbstractRangeRepr, AbstractRangeIteratorRepr
 
-RANGE = Tuple({"start": Signed, "stop": Signed})
-RANGEITER = Tuple({"next": Signed, "stop": Signed})
+RANGE = Record({"start": Signed, "stop": Signed})
+RANGEITER = Record({"next": Signed, "stop": Signed})
 
-RANGEST = Tuple({"start": Signed, "stop": Signed, "step": Signed})
-RANGESTITER = Tuple({"next": Signed, "stop": Signed, "step": Signed})
+RANGEST = Record({"start": Signed, "stop": Signed, "step": Signed})
+RANGESTITER = Record({"next": Signed, "stop": Signed, "step": Signed})
 
 class RangeRepr(AbstractRangeRepr):
 

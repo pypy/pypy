@@ -132,7 +132,7 @@ class TestInterpreted:
         res = interpret(f, [3], type_system="ootype")
         assert res == 3 
 
-    def dont_test_listtype_explosion(self):
+    def test_listtype_explosion(self):
         def f(x):
             l1 = [x]
             l2 = [x]
@@ -147,4 +147,20 @@ class TestInterpreted:
         r_l1 = typer.getrepr(s_l1)
         r_l2 = typer.getrepr(s_l2)
         assert r_l1.lowleveltype == r_l2.lowleveltype 
+
+    def test_tupletype_explosion(self):
+        def f(x):
+            t1 = ([x], [x, x])
+            t2 = ([x, x], [x])
+            return t1, t2 
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [int])
+        typer = t.buildrtyper(type_system="ootype")
+        typer.specialize()
+        
+        s_t1, s_t2 = s.items
+        r_t1 = typer.getrepr(s_t1)
+        r_t2 = typer.getrepr(s_t2)
+        assert r_t1.lowleveltype == r_t2.lowleveltype 
 

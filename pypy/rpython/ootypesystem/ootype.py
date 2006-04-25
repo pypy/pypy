@@ -192,15 +192,15 @@ class BuiltinType(OOType):
     def _get_interp_class(self):
         raise NotImplementedError
 
-class Tuple(BuiltinType):
+class Record(BuiltinType):
 
-    # We try to keep Tuple as similar to Instance as possible, so backends
+    # We try to keep Record as similar to Instance as possible, so backends
     # can treat them polymorphically, if they choose to do so.
     
     def __init__(self, fields):
         self._fields = frozendict()
         self._add_fields(fields)
-        self._null = _null_tuple(self)
+        self._null = _null_record(self)
 
     def _add_fields(self, fields):
         fields.copy()
@@ -212,7 +212,7 @@ class Tuple(BuiltinType):
         return self._null
 
     def _get_interp_class(self):
-        return _tuple
+        return _record
 
     def _field_type(self, name):
         try:
@@ -836,7 +836,7 @@ class _null_dict_items_iterator(_null_mixin(_dict_items_iterator), _dict_items_i
         self.__dict__["_TYPE"] = ITER
 
 
-class _tuple(object):
+class _record(object):
 
     def __init__(self, TYPE):
         self._items = {}
@@ -862,10 +862,10 @@ class _tuple(object):
         else:
             return 0 # for all null tuples
 
-class _null_tuple(_null_mixin(_tuple), _tuple):
+class _null_record(_null_mixin(_record), _record):
 
-    def __init__(self, TUPLE):
-        self.__dict__["_TYPE"] = TUPLE 
+    def __init__(self, RECORD):
+        self.__dict__["_TYPE"] = RECORD 
 
 
 def new(TYPE):
@@ -942,7 +942,7 @@ def oodowncast(INSTANCE, instance):
     return instance._downcast(INSTANCE)
 
 def ooidentityhash(inst):
-    assert isinstance(typeOf(inst), (Instance, Tuple))
+    assert isinstance(typeOf(inst), (Instance, Record))
     return inst._identityhash()
 
 def setItemType(LIST, ITEMTYPE):
