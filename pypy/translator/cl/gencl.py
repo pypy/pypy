@@ -132,12 +132,12 @@ class ListImpl:
 
 class GenCL:
 
-    def __init__(self, context, funobj, input_arg_types=[]):
+    def __init__(self, context, funobj):
         self.context = context
         self.pendinggraphs = [funobj]
         self.declarations = []
 
-    def emitcode(self, public=True):
+    def emitcode(self):
         lines = list(self.emit())
         declarations = "\n".join(self.declarations)
         code = "\n".join(lines)

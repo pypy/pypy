@@ -95,7 +95,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     if conftest.option.view:
         t.view()
     
-    gen = GenCL(t, func, argtypes)
+    gen = GenCL(t, func)
     out = gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % func.func_name)
