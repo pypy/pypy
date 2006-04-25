@@ -1,4 +1,4 @@
-from pypy.translator.cl.buildcl import make_cl_func
+from pypy.translator.cl.buildcl import make_cl_func, generate_cl_func
 
 def test_simple():
     class C:
@@ -24,6 +24,33 @@ def test_inc():
         return obj.get()
     cl_inc = make_cl_func(inc, [int])
     assert cl_inc(5) == 6
+
+def test_inherit():
+    class Foo:
+        pass
+    class Bar(Foo):
+        pass
+    def check_inheritance():
+        obj = Bar()
+    code = generate_cl_func(check_inheritance)
+    print code
+    assert code.count("defclass") == 2
+
+def dont_test_isinstance():
+    class Foo:
+        pass
+    class Bar(Foo):
+        pass
+    class Baz:
+        pass
+    def check_isinstance(flag):
+        if flag:
+            obj = Bar()
+        else:
+            obj = Baz()
+        return isinstance(obj, Foo)
+    cl_check_isinstance = make_cl_func(check_isinstance, [bool])
+    assert cl_check_isinstance(True) == True
 
 def test_list_length():
     def list_length_one(number):

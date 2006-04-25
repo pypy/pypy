@@ -2,7 +2,8 @@ import types
 
 from pypy.tool.udir import udir
 from pypy.translator.translator import graphof
-from pypy.rpython.ootypesystem.ootype import Instance, List, _static_meth, _meth
+from pypy.rpython.ootypesystem.ootype import Instance, List, _static_meth, _meth, ROOT
+from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
 
@@ -65,20 +66,23 @@ class Op:
 
     def declare_class(self, cls):
         # cls is really type of Instance
-        name = cls._name
-        fields = cls._fields
-        fieldnames = ['('+field+')' for field in fields.keys()]
-        field_declaration = ' '.join(fieldnames)
-        class_declaration = "(defclass %s () (%s))" % (repr_class_name(name), field_declaration)
-        return class_declaration
+        name = repr_class_name(cls._name)
+        field_declaration = ['('+field+')' for field in cls._fields]
+        field_declaration = " ".join(field_declaration)
+        if cls._superclass in (OBJECT, ROOT):
+            class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
+        else:
+            self.declare_class(cls._superclass)
+            supername = repr_class_name(cls._superclass._name)
+            class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
+        self.gen.declarations.append(class_declaration)
 
     def op_new(self, result, _):
         cls = self.args[0].value
         if isinstance(cls, List):
             yield "(setf %s (make-array 0 :adjustable t))" % (result,)
         else:
-            declaration = self.declare_class(cls)
-            self.gen.declarations.append(declaration)
+            self.declare_class(cls)
             yield "(setf %s (make-instance '%s))" % (result, repr_class_name(cls._name))
 
     def op_oosend(self, result, *ignore):
