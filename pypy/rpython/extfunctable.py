@@ -119,7 +119,15 @@ def declareptrtype(typ, tag, **methodsdecl):
 
 # _____________________________________________________________
 
-
+def record_call(func, args_s, symbol):
+    from pypy.annotation import bookkeeper
+    bk = bookkeeper.getbookkeeper()
+    # this would be nice!
+    #bk.pbc_call(bk.immutablevalue(func),
+    #            bk.build_args("simple_call", args_s),
+    #            emulated=True)
+    bk.annotator.translator._implicitly_called_by_externals.append(
+        (func, args_s, symbol))
 
 def noneannotation(*args):
     return None
@@ -130,14 +138,20 @@ def posannotation(*args):
 
 def statannotation(*args):
     from pypy.annotation.model import SomeInteger, SomeTuple
+    from pypy.rpython.module.ll_os import ll_stat_result
+    record_call(ll_stat_result, [SomeInteger()]*10, 'OS_STAT')
     return SomeTuple((SomeInteger(),)*10)
 
 def frexpannotation(*args):
     from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
+    from pypy.rpython.module.ll_math import ll_frexp_result
+    record_call(ll_frexp_result, (SomeFloat(), SomeInteger()), 'MATH_FREXP')
     return SomeTuple((SomeFloat(), SomeInteger()))
 
 def modfannotation(*args):
     from pypy.annotation.model import SomeTuple, SomeFloat
+    from pypy.rpython.module.ll_math import ll_modf_result
+    record_call(ll_modf_result, (SomeFloat(), SomeFloat()), 'MATH_MODF')
     return SomeTuple((SomeFloat(), SomeFloat()))
 
 def strnullannotation(*args):

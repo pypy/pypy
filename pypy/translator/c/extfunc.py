@@ -126,48 +126,22 @@ def predeclare_utility_functions(db, rtyper, optimize=True):
 
 
 def get_extfunc_helper_ptrs(db, rtyper, optimize=True):
-    # XXX need some way of finding out if the externals needing have
-    # been annotated -- db.externalfuncs gets filled out by
-    # select_function_code_generator which is called from
-    # FuncNode.__init__ (probably...) which is after this gets called.
-    optimize = False 
-    def annotate(func, *argtypes):
-        fptr = rtyper.annotate_helper(func, argtypes)
+
+    def annotate(func, args):
+        fptr = rtyper.annotate_helper(func, args)
         db.helper2ptr[func] = fptr
         return (func.__name__, fptr)
 
-    r = []
-
-    if ll_math.ll_math_frexp in db.externalfuncs or not optimize:
-        r.append(annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed))
-        
-    if ll_math.ll_math_modf in db.externalfuncs or not optimize:
-        r.append(annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float))
-
-    if (ll_os.ll_os_stat in db.externalfuncs or
-        ll_os.ll_os_fstat in db.externalfuncs or
-        not optimize):
-        r.append(annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10)))
-
-    return r
+    for func, args, symb in db.translator._implicitly_called_by_externals:
+        yield annotate(func, args)
 
 def predeclare_extfunc_helpers(db, rtyper, optimize=True):
-    def decl(f):
-        return (f.__name__, db.helper2ptr[f])
-    
-    if ll_math.ll_math_frexp in db.externalfuncs or not optimize:
-        yield decl(ll_math.ll_frexp_result)
-        yield ('LL_NEED_MATH_FREXP', 1)
-        
-    if ll_math.ll_math_modf in db.externalfuncs or not optimize:
-        yield decl(ll_math.ll_modf_result)
-        yield ('LL_NEED_MATH_MODF', 1)
+    def decl(func):
+        return (func.__name__, db.helper2ptr[func])
 
-    if (ll_os.ll_os_stat in db.externalfuncs or
-        ll_os.ll_os_fstat in db.externalfuncs or
-        not optimize):
-        yield decl(ll_os.ll_stat_result)
-        yield ('LL_NEED_OS_STAT', 1)
+    for func, args, symb in db.translator._implicitly_called_by_externals:
+        yield decl(func)
+        yield ('LL_NEED_' + symb, 1)
 
 def predeclare_extfuncs(db, rtyper, optimize=True):
     modules = {}

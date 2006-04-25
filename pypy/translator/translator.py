@@ -34,6 +34,8 @@ class TranslationContext(object):
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
 
+        self._implicitly_called_by_externals = []
+
     def buildflowgraph(self, func):
         """Get the flow graph for a function."""
         if not isinstance(func, types.FunctionType):
