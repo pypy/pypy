@@ -216,7 +216,7 @@ class Tuple(BuiltinType):
 
     def _field_type(self, name):
         try:
-            return self._items[name]
+            return self._fields[name][0]
         except KeyError:
             raise TypeError("No field names %r" % name)
 
@@ -262,10 +262,13 @@ class List(BuiltinADTType):
     SELFTYPE_T = object()
     ITEMTYPE_T = object()
 
-    def __init__(self, ITEMTYPE):
+    def __init__(self, ITEMTYPE=None):
         self._ITEMTYPE = ITEMTYPE
         self._null = _null_list(self)
+        if ITEMTYPE is not None:
+            self._init_methods()
 
+    def _init_methods(self):
         # This defines the abstract list interface that backends will
         # have to map to their native list implementations.
         # 'ITEMTYPE_T' is used as a placeholder for indicating
@@ -273,7 +276,7 @@ class List(BuiltinADTType):
 
         generic_types = {
             self.SELFTYPE_T: self,
-            self.ITEMTYPE_T: ITEMTYPE,
+            self.ITEMTYPE_T: self._ITEMTYPE,
             }
 
         # the methods are named after the ADT methods of lltypesystem's lists
@@ -301,6 +304,18 @@ class List(BuiltinADTType):
     # data structures. But it is important to make sure that attributes
     # of supposedly equal Lists compare/hash equal.
 
+    def __eq__(self, other):
+        if not isinstance(other, List):
+            return False
+        if self._ITEMTYPE is None or other._ITEMTYPE is None:
+            raise TypeError("Can't compare uninitialized List type.")
+        return BuiltinADTType.__eq__(self, other)    
+
+    def __hash__(self):
+        if self._ITEMTYPE is None:
+            raise TypeError("Can't hash uninitialized List type.")
+        return BuiltinADTType.__hash__(self)    
+
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__,
                 saferecursive(str, "...")(self._ITEMTYPE))
@@ -314,6 +329,10 @@ class List(BuiltinADTType):
     
     def _defl(self):
         return self._null
+
+    def _set_itemtype(self, ITEMTYPE):
+        self._ITEMTYPE = ITEMTYPE
+        self._init_methods()
 
 
 class Dict(BuiltinADTType):
@@ -846,6 +865,9 @@ def oodowncast(INSTANCE, instance):
 def ooidentityhash(inst):
     assert isinstance(typeOf(inst), (Instance, Tuple))
     return inst._identityhash()
+
+def setItemType(LIST, ITEMTYPE):
+    return LIST._set_itemtype(ITEMTYPE)
 
 
 ROOT = Instance('Root', None, _is_root=True)
