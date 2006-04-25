@@ -1,5 +1,6 @@
 import types
 
+from pypy.tool.udir import udir
 from pypy.translator.translator import graphof
 from pypy.rpython.ootypesystem.ootype import Instance, List, _static_meth, _meth
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
@@ -134,8 +135,16 @@ class GenCL:
 
     def __init__(self, context, funobj):
         self.context = context
+        self.entry_point = funobj
         self.pendinggraphs = [funobj]
         self.declarations = []
+
+    def emitfile(self):
+        name = self.entry_point.func_name
+        path = udir.join("%s.lisp" % (name,))
+        code = self.emitcode()
+        path.write(code)
+        return str(path)
 
     def emitcode(self):
         lines = list(self.emit())
