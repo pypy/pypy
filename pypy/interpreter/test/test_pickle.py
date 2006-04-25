@@ -1,27 +1,27 @@
-import py
-import pickle
-
-def test_pickle_cell():
-    py.test.skip("cell pickling is work in progress")
-    def g():
-        x = None
-        def f():
-            return x
-        return f.func_closure[0]
-    try:
+class AppTestInterpObjectPickling:
+ 
+    def test_pickle_cell(self):
+        import pickle       
+        def g():
+            x = [42]
+            def f():
+                x[0] += 1
+                return x
+            return f.func_closure[0]
         cell = g()
-        pickle.dumps(cell)
-    except IndexError, e:
-        raise
+        pckl = pickle.dumps(g())
+        result = pickle.loads(pckl)
+        assert cell == result
+        assert not (cell != result)
 
-def test_pickle_generator():
-    py.test.skip("generator pickling is work in progress")
-    def giveme(n):
-        x = 0
-        while x < n:
-            yield x
-    generator = giveme(10)
-    pickle.dumps(generator)
+    #def test_pickle_generator(self):
+    #    import pickle        
+    #    def giveme(n):
+    #        x = 0
+    #        while x < n:
+    #            yield x
+    #    generator = giveme(10)
+    #    print pickle.dumps(generator)
     
 #TODO: test pickling of code objects
 #TODO: test pickling of function objects

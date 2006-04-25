@@ -539,7 +539,15 @@ GeneratorIterator.typedef = TypeDef("generator",
     gi_frame   = interp_attrproperty('frame', cls=GeneratorIterator), 
 )
 
-Cell.typedef = TypeDef("cell")
+Cell.typedef = TypeDef("cell",
+    __eq__       = interp2app(Cell.descr__eq__,
+                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __ne__       = descr_generic_ne,
+    __reduce__   = interp2app(Cell.descr__reduce__, 
+                              unwrap_spec=['self', ObjSpace]),
+    __setstate__ = interp2app(Cell.descr__setstate__,
+                              unwrap_spec=['self', ObjSpace, W_Root]), 
+)
 
 Ellipsis.typedef = TypeDef("Ellipsis", 
     __repr__   = interp2app(Ellipsis.descr__repr__),
