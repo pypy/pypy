@@ -164,8 +164,14 @@ def gethostbyname_ex(space, name):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     hostent = _c.gethostbyname(name)
+    return common_gethost(space,hostent)
+
+gethostbyname_ex.unwrap_spec = [ObjSpace, str]
+
+def common_gethost(space, hostent):
+
     if not hostent:
-        raise  w_get_socketherror(_c.h_errno.value)
+        raise  w_get_socketherror(space, _c.hstrerror(_c.h_errno.value), _c.h_errno.value)
     aliases = []
     for alias in hostent.contents.h_aliases:
          if alias is None:
@@ -178,20 +184,22 @@ def gethostbyname_ex(space, name):
              break
          address_list.append(space.wrap(_c.inet_ntoa(addr.contents)))
 
-    return space.newtuple([space.wrap(hostent.contents.h_name), space.newlist(aliases), 
-                            space.newlist(address_list)])
-gethostbyname_ex.unwrap_spec = [ObjSpace, str]
+    return space.newtuple([space.wrap(hostent.contents.h_name), 
+                     space.newlist(aliases), space.newlist(address_list)])
     
-def gethostbyaddr(space, ip_num):
+def gethostbyaddr(space, name):
     """gethostbyaddr(host) -> (name, aliaslist, addresslist)
 
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    try:
-        return space.wrap(socket.gethostbyaddr(ip_num))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    hostent = _c.gethostbyname(name)
+    if not hostent:
+        raise  w_get_socketherror(_c.h_errno.value)
+    p_addr = hostent.contents.h_addr_list[0]
+
+    hostent = _c.gethostbyaddr(p_addr, ctypes.sizeof(_c.in_addr), _c.AF_INET)
+    return common_gethost(space, hostent)
 gethostbyaddr.unwrap_spec = [ObjSpace, str]
 
 def getservbyname(space, name, w_proto=NoneNotWrapped):
