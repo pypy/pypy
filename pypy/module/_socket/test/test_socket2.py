@@ -4,7 +4,7 @@ from pypy.tool.udir import udir
 import py
 import socket, sys
 
-#py.test.skip('In-progress')
+py.test.skip('In-progress')
 
 def setup_module(mod):
     mod.space = StdObjSpace(usemodules=['_socket'])
