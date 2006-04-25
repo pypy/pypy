@@ -360,9 +360,20 @@ class TranslationDriver(SimpleTaskEngine):
     def task_source_cl(self):
         from pypy.translator.cl.gencl import GenCL
         self.gen = GenCL(self.translator, self.entry_point)
-        self.gen.emitcode()
-    task_source_cl = taskdef(task_source_cl, ['backendopt', 'rtype'],
+        filename = self.gen.emitfile()
+        self.log.info("Wrote %s" % (filename,))
+    task_source_cl = taskdef(task_source_cl, ['ootype'],
                              'Generating Common Lisp source')
+
+    def task_compile_cl(self):
+        pass
+    task_compile_cl = taskdef(task_compile_cl, ['source_cl'],
+                              'XXX')
+
+    def task_run_cl(self):
+        pass
+    task_run_cl = taskdef(task_run_cl, ['compile_cl'],
+                              'XXX')
 
     def proceed(self, goals):
         if not goals:
