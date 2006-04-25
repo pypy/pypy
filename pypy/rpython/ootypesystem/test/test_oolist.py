@@ -2,6 +2,7 @@ import py
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.ootypesystem.ootype import *
 from pypy.rpython.rlist import ll_append
+from pypy.translator.translator import TranslationContext
 
 def test_new():
     LT = List(Signed)
@@ -110,4 +111,28 @@ class TestInterpreted:
             return l[2]
         res = interpret(f, [3], type_system="ootype")
         assert res == 3 
+
+    def test_initialize(self):
+        def f(x):
+            l = [1, 2]
+            l.append(x)
+            return l[2]
+        res = interpret(f, [3], type_system="ootype")
+        assert res == 3 
+
+    def dont_test_listtype_explosion(self):
+        def f(x):
+            l1 = [x]
+            l2 = [x]
+            return l1, l2 
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [int])
+        typer = t.buildrtyper(type_system="ootype")
+        typer.specialize()
+        
+        s_l1, s_l2 = s.items
+        r_l1 = typer.getrepr(s_l1)
+        r_l2 = typer.getrepr(s_l2)
+        assert r_l1.lowleveltype == r_l2.lowleveltype 
 

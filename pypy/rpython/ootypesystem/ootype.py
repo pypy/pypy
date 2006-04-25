@@ -183,6 +183,40 @@ class Meth(StaticMethod):
 
 class BuiltinType(OOType):
 
+    def _example(self):
+        return new(self)
+
+    def _defl(self):
+        return self._null
+
+    def _get_interp_class(self):
+        raise NotImplementedError
+
+class Tuple(BuiltinType):
+    
+    def __init__(self, ITEMTYPES):
+        self._items = frozendict(ITEMTYPES)
+        self._null = _null_tuple(self)
+
+    def _defl(self):
+        return self._null
+
+    def _get_interp_class(self):
+        return _tuple
+
+    def _field_type(self, name):
+        try:
+            return self._items[name]
+        except KeyError:
+            raise TypeError("No field names %r" % name)
+
+    _check_field = _field_type
+
+    def _lookup(self, meth_name):
+        return self, None
+
+class BuiltinADTType(BuiltinType):
+
     def _setup_methods(self, generic_types):
         methods = {}
         for name, meth in self._GENERIC_METHODS.iteritems():
@@ -194,7 +228,7 @@ class BuiltinType(OOType):
         self._METHODS = frozendict(methods)
 
     def _specialize_type(self, type_, generic_types):
-        if isinstance(type_, BuiltinType):
+        if isinstance(type_, BuiltinADTType):
             return type_._specialize(generic_types)
         else:
             return generic_types.get(type_, type_)
@@ -210,17 +244,8 @@ class BuiltinType(OOType):
             meth = _meth(METH, _name=meth_name, _callable=getattr(cls, meth_name))
         return self, meth
 
-    def _example(self):
-        return new(self)
 
-    def _defl(self):
-        return self._null
-
-    def _get_interp_class(self):
-        raise NotImplementedError
-
-
-class List(BuiltinType):
+class List(BuiltinADTType):
     # placeholders for types
     # make sure that each derived class has his own SELFTYPE_T
     # placeholder, because we want backends to distinguish that.
@@ -276,9 +301,12 @@ class List(BuiltinType):
     def _specialize(self, generic_types):
         ITEMTYPE = self._specialize_type(self._ITEMTYPE, generic_types)
         return self.__class__(ITEMTYPE)
+    
+    def _defl(self):
+        return self._null
 
 
-class Dict(BuiltinType):
+class Dict(BuiltinADTType):
     # placeholders for types
     SELFTYPE_T = object()
     KEYTYPE_T = object()
@@ -327,7 +355,7 @@ class Dict(BuiltinType):
 
 class ForwardReference(OOType):
     def become(self, real_instance):
-        if not isinstance(real_instance, (Instance, BuiltinType)):
+        if not isinstance(real_instance, (Instance, BuiltinADTType)):
             raise TypeError("ForwardReference can only be to an instance, "
                             "not %r" % (real_instance,))
         self.__class__ = real_instance.__class__
@@ -600,7 +628,7 @@ class _builtin_type(object):
             return meth._bound(TYPE, self)
 
         return object.__getattribute__(self, name)
-    
+
 
 class _list(_builtin_type):
 
@@ -701,6 +729,36 @@ class _null_dict(_null_mixin(_dict), _dict):
     def __init__(self, DICT):
         self.__dict__["_TYPE"] = DICT
 
+class _tuple(object):
+
+    def __init__(self, TYPE):
+        self._items = {}
+        self._TYPE = TYPE
+        for name, ITEMTYPE in TYPE._items.items():
+            self._items[name] = ITEMTYPE._defl()
+
+    def __getattr__(self, name):
+        items = self.__dict__["_items"]
+        if name in items:
+            return items[name]
+        return self.__dict__[name]
+
+    def __setattr__(self, name, value):
+        if hasattr(self, "_items") and name in self._items:
+            self._items[name] = value
+        else:
+            self.__dict__[name] = value
+
+    def _identityhash(self):
+        if self:
+            return id(self)
+        else:
+            return 0 # for all null tuples
+
+class _null_tuple(_null_mixin(_tuple), _tuple):
+
+    def __init__(self, TUPLE):
+        self.__dict__["_TYPE"] = TUPLE 
 
 def new(TYPE):
     if isinstance(TYPE, Instance):
@@ -776,7 +834,7 @@ def oodowncast(INSTANCE, instance):
     return instance._downcast(INSTANCE)
 
 def ooidentityhash(inst):
-    assert isinstance(typeOf(inst), Instance)
+    assert isinstance(typeOf(inst), (Instance, Tuple))
     return inst._identityhash()
 
 
