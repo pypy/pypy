@@ -193,10 +193,20 @@ class BuiltinType(OOType):
         raise NotImplementedError
 
 class Tuple(BuiltinType):
+
+    # We try to keep Tuple as similar to Instance as possible, so backends
+    # can treat them polymorphically, if they choose to do so.
     
-    def __init__(self, ITEMTYPES):
-        self._items = frozendict(ITEMTYPES)
+    def __init__(self, fields):
+        self._fields = frozendict()
+        self._add_fields(fields)
         self._null = _null_tuple(self)
+
+    def _add_fields(self, fields):
+        fields.copy()
+        for name, ITEMTYPE in fields.items():
+            fields[name] = ITEMTYPE, ITEMTYPE._defl()
+        self._fields.update(fields)
 
     def _defl(self):
         return self._null
@@ -734,8 +744,8 @@ class _tuple(object):
     def __init__(self, TYPE):
         self._items = {}
         self._TYPE = TYPE
-        for name, ITEMTYPE in TYPE._items.items():
-            self._items[name] = ITEMTYPE._defl()
+        for name, (_, default) in TYPE._fields.items():
+            self._items[name] = default
 
     def __getattr__(self, name):
         items = self.__dict__["_items"]
