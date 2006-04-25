@@ -75,9 +75,14 @@ class Op:
             methodobj = cls._methods[method]
             methodobj._method_name = method # XXX
             self.gen.pendinggraphs.append(methodobj)
+            name = repr_fun_name(method)
+            selfvar = repr_arg(receiver)
             args = map(repr_arg, args)
             args = " ".join(args)
-            yield "(setf %s (%s %s %s))" % (result, repr_fun_name(method), repr_arg(receiver), args)
+            if args:
+                yield "(setf %s (%s %s %s))" % (result, name, selfvar, args)
+            else:
+                yield "(setf %s (%s %s))" % (result, name, selfvar)
 
     def op_oogetfield(self, result, obj, _):
         fieldname = self.args[1].value
