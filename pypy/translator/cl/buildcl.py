@@ -86,15 +86,7 @@ pretty_printer = """
 """
 
 def _make_cl_func(func, cl, path, argtypes=[]):
-    t = TranslationContext()
-    t.buildannotator().build_types(func, argtypes)
-    t.buildrtyper(type_system="ootype").specialize()
-
-    if conftest.option.view:
-        t.view()
-    
-    gen = GenCL(t, func)
-    out = gen.emitcode()
+    out = generate_cl_func(func, argtypes)
     fpath = path.join("%s.lisp" % func.func_name)
 
     if conftest.option.prettyprint:
@@ -116,3 +108,15 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         output = py.process.cmdexec("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
+
+def generate_cl_func(func, argtypes=[]):
+    t = TranslationContext()
+    t.buildannotator().build_types(func, argtypes)
+    t.buildrtyper(type_system="ootype").specialize()
+
+    if conftest.option.view:
+        t.view()
+    
+    gen = GenCL(t, func)
+    code = gen.emitcode()
+    return code
