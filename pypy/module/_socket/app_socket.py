@@ -2,6 +2,8 @@
 
 See the socket module for documentation."""
 
+import _socket
+
 class error(Exception):
     pass
 
@@ -19,4 +21,5 @@ class SocketType:
 
 socket = SocketType
 
-
+def gethostbyname(name):
+    return _socket.gethostbyname_ex(name)[2][0]

@@ -118,7 +118,7 @@ CConfig.hostent = ctypes_platform.Struct('struct hostent',
                                       ('h_aliases', POINTER(c_char_p)),
                                       ('h_addrtype', c_int),
                                       ('h_length', c_int),
-                                      ('h_addr_list', POINTER(c_char_p))
+                                      ('h_addr_list', POINTER(POINTER(c_char)))
                                       ])
 
 
@@ -218,6 +218,10 @@ ntohs.restype = uint16_t
 inet_aton = socketdll.inet_aton
 inet_aton.argtypes = [c_char_p, POINTER(in_addr)]
 inet_aton.restype = c_int
+
+inet_ntoa = socketdll.inet_ntoa
+inet_ntoa.argtypes = [in_addr]
+inet_ntoa.restype = c_char_p
 
 close = socketdll.close
 close.argtypes = [c_int]

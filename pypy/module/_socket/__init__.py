@@ -9,6 +9,7 @@ class Module(MixedModule):
         'herror'     : 'app_socket.herror',
         'gaierror'   : 'app_socket.gaierror',
         'timeout'    : 'app_socket.timeout',
+        'gethostbyname': 'app_socket.gethostbyname',
     }
 
     interpleveldefs = {
@@ -17,7 +18,7 @@ class Module(MixedModule):
     }
 
 for name in """
-    gethostbyname gethostbyname_ex gethostbyaddr gethostname
+    gethostbyname_ex gethostbyaddr gethostname
     getservbyname getservbyport getprotobyname
     fromfd socketpair
     ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop

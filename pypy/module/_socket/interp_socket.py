@@ -126,7 +126,7 @@ def setipaddr(space, name, addr_ret, addr_ret_size, af):
 		
 def w_makesockaddr(space, caddr, caddrlen, proto):
     if caddr.contents.sa_family == _c.AF_INET:
-        a = cast(caddr, POINTER(_c.sockaddr_in))
+        a = _c.cast(caddr, ctypes.POINTER(_c.sockaddr_in))
         return space.newtuple([space.wrap(_c.inet_ntoa(a.contents.sin_addr)),
                                 space.wrap(_c.ntohs(a.contents.sin_port))])
     else:
@@ -154,7 +154,7 @@ def gethostbyname(space, name):
     hostent = _c.gethostbyname(name)
     if not hostent:
         raise  w_get_socketherror(_c.h_errno.value)
-    return space.wrap(hostent.contents.h_name)
+    return space.wrap(hostent.contents.h_addr)
 gethostbyname.unwrap_spec = [ObjSpace, str]
 
 def gethostbyname_ex(space, name):
@@ -172,12 +172,13 @@ def gethostbyname_ex(space, name):
              break
          aliases.append(space.wrap(alias))
     address_list = []
-    for addr in hostent.contents.h_addr_list:
-         if addr is None:
+    h_addr_list = ctypes.cast(hostent.contents.h_addr_list, ctypes.POINTER(ctypes.POINTER(_c.in_addr)))
+    for addr in h_addr_list:
+         if not addr:
              break
-         address_list.append(space.wrap(addr))
+         address_list.append(space.wrap(_c.inet_ntoa(addr.contents)))
 
-    return space.newtuple([space.wrap(name), space.newlist(aliases), 
+    return space.newtuple([space.wrap(hostent.contents.h_name), space.newlist(aliases), 
                             space.newlist(address_list)])
 gethostbyname_ex.unwrap_spec = [ObjSpace, str]
     
@@ -566,13 +567,13 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
         raise OperationError(space.w_TypeError,
                              space.wrap("Int or String expected"))
 
-    res = addrinfo_ptr
-    hints = _c.addrinfo
+    res = _c.addrinfo_ptr()
+    hints = _c.addrinfo()
     hints.ai_flags = flags
     hints.ai_family = family
     hints.ai_socktype = socktype
     hints.ai_protocol = proto
-    retval = _c.getaddrinfo(host, port, pointer(hints), pointer(res))
+    retval = _c.getaddrinfo(host, port, ctypes.pointer(hints), ctypes.pointer(res))
     if retval < 0:
         raise w_get_socketgaierror(_c.gai_strerror(_c.errno), _c.errno.value)
 
@@ -582,14 +583,18 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
         while next:
             info = next.contents
             next = info.ai_next
-            w_family = space.wrap(info.ai_family.value)
-            w_socktype = space.wrap(info.ai_socktype.value)
-            w_proto = space.wrap(info.ai_protocol.value)
-            w_canonname = space.wrap(info.ai_canonname.value)
-            w_addr = w_makesockaddr(sapce, info.ai_canonname, info.ai_addrlen.value)
-            results.append(space.newtuple([w_family, w_socktype, w_proto,
+            w_family = space.wrap(info.ai_family)
+            w_socktype = space.wrap(info.ai_socktype)
+            w_proto = space.wrap(info.ai_protocol)
+            if info.ai_canonname:
+                w_canonname = space.wrap(info.ai_canonname)
+            else:
+                w_canonname = space.wrap('')
+            w_addr = w_makesockaddr(space, info.ai_addr, info.ai_addrlen,
+                                    info.ai_protocol)
+            result.append(space.newtuple([w_family, w_socktype, w_proto,
                                            w_canonname, w_addr]))
-            return space.newlist(result)
+        return space.newlist(result)
     finally:
         _c.freeaddrinfo(res)
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
