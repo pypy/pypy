@@ -358,7 +358,8 @@ class Dict(BuiltinADTType):
             "ll_set": Meth([self.KEYTYPE_T, self.VALUETYPE_T], Void),
             "ll_remove": Meth([self.KEYTYPE_T], Bool), # return False is key was not present
             "ll_contains": Meth([self.KEYTYPE_T], Bool),
-            "ll_keys": Meth([], List(self.KEYTYPE_T)),
+            "ll_keys": Meth([], List(self.KEYTYPE_T)), # deprecated
+            "ll_get_items_iterator": Meth([], DictItemsIterator(self.KEYTYPE_T, self.VALUETYPE_T)),
         })
 
         self._setup_methods(generic_types)
@@ -381,6 +382,54 @@ class Dict(BuiltinADTType):
         KEYTYPE = self._specialize_type(self._KEYTYPE, generic_types)
         VALUETYPE = self._specialize_type(self._VALUETYPE, generic_types)
         return self.__class__(KEYTYPE, VALUETYPE)
+
+class DictItemsIterator(BuiltinADTType):
+    SELFTYPE_T = object()
+    KEYTYPE_T = object()
+    VALUETYPE_T = object()
+
+    def __init__(self, KEYTYPE, VALUETYPE):
+        self._KEYTYPE = KEYTYPE
+        self._VALUETYPE = VALUETYPE
+        self._null = _null_dict_items_iterator(self)
+
+        generic_types = {
+            self.SELFTYPE_T: self,
+            self.KEYTYPE_T: KEYTYPE,
+            self.VALUETYPE_T: VALUETYPE
+            }
+
+        # some words about the interface of the iterator: we can't
+        # write the next() method directly in the backend because of
+        # two reasons:
+        #  1) tuples aren't BuiltinType, yet, so we can't make them
+        #     generic; moreover, they are constructed on-the-fly, so the
+        #     two-item tuple type that an hypotetic next() would return
+        #     isn't available at this time.
+        #  2) StopIteration is generated at translation time too, so
+        #     this would prevent backends to do a precompilation of
+        #     support code.
+
+        self._GENERIC_METHODS = frozendict({
+            "ll_go_next": Meth([], Bool), # move forward; return False is there is no more data available
+            "ll_current_key": Meth([], self.KEYTYPE_T),
+            "ll_current_value": Meth([], self.VALUETYPE_T),
+        })
+
+        self._setup_methods(generic_types)
+
+    def __str__(self):
+        return '%s%s' % (self.__class__.__name__,
+                saferecursive(str, "(...)")((self._KEYTYPE, self._VALUETYPE)))
+
+    def _get_interp_class(self):
+        return _dict_items_iterator
+
+    def _specialize(self, generic_types):
+        KEYTYPE = self._specialize_type(self._KEYTYPE, generic_types)
+        VALUETYPE = self._specialize_type(self._VALUETYPE, generic_types)
+        return self.__class__(KEYTYPE, VALUETYPE)
+    
 
 class ForwardReference(OOType):
     def become(self, real_instance):
@@ -753,10 +802,44 @@ class _dict(_builtin_type):
         keys._list = self._dict.keys()
         return keys
 
-class _null_dict(_null_mixin(_dict), _dict):
+    def ll_get_items_iterator(self):
+        # NOT_RPYTHON
+        ITER = DictItemsIterator(self._TYPE._KEYTYPE, self._TYPE._VALUETYPE)
+        return _dict_items_iterator(ITER, self._dict)
 
+class _null_dict(_null_mixin(_dict), _dict):
     def __init__(self, DICT):
         self.__dict__["_TYPE"] = DICT
+
+
+class _dict_items_iterator(_builtin_type):
+    def __init__(self, ITER, d):
+        self._TYPE = ITER
+        self._items = d.items()
+        self._index = -1
+
+    def ll_go_next(self):
+        # NOT_RPYTHON
+        self._index += 1        
+        if self._index >= len(self._items):
+            return False
+        else:
+            return True
+
+    def ll_current_key(self):
+        # NOT_RPYTHON
+        assert 0 <= self._index < len(self._items)
+        return self._items[self._index][0]
+    
+    def ll_current_value(self):
+        # NOT_RPYTHON
+        assert 0 <= self._index < len(self._items)
+        return self._items[self._index][1]
+
+class _null_dict_items_iterator(_null_mixin(_dict_items_iterator), _dict_items_iterator):
+    def __init__(self, ITER):
+        self.__dict__["_TYPE"] = ITER
+
 
 class _tuple(object):
 
@@ -788,6 +871,7 @@ class _null_tuple(_null_mixin(_tuple), _tuple):
 
     def __init__(self, TUPLE):
         self.__dict__["_TYPE"] = TUPLE 
+
 
 def new(TYPE):
     if isinstance(TYPE, Instance):

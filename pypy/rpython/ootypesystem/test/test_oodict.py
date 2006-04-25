@@ -18,3 +18,15 @@ def test_setitem_getitem():
     d = new(DT)
     d.ll_set(42, 123.45)
     assert d.ll_get(42) == 123.45
+
+def test_iteritems():
+    DT = Dict(Signed, Float)
+    d = new(DT)
+    d.ll_set(42, 43.0)
+    d.ll_set(52, 53.0)
+    it = d.ll_get_items_iterator()
+    items = []
+    while it.ll_go_next():
+        items.append((it.ll_current_key(), it.ll_current_value()))
+    items.sort()
+    assert items == [(42, 43.0), (52, 53.0)]
