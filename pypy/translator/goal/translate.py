@@ -46,7 +46,7 @@ opts = {
     '0_source': [OPT(('-s', '--source'), "Generate source code", GOAL),
                OPT(('--no-source',), "Don't generate source code", SKIP_GOAL)],
 
-    '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm'])],
+    '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm', 'cl'])],
 
     '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'framework', 'none'])],
     '3_stackless': [OPT(('--stackless',), "Stackless code generation", True)],

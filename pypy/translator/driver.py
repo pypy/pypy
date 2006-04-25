@@ -357,6 +357,13 @@ class TranslationDriver(SimpleTaskEngine):
                             "Running compiled llvm source",
                             idemp=True)
 
+    def task_source_cl(self):
+        from pypy.translator.cl.gencl import GenCL
+        self.gen = GenCL(self.translator, self.entry_point)
+        self.gen.emitcode()
+    task_source_cl = taskdef(task_source_cl, ['backendopt', 'rtype'],
+                             'Generating Common Lisp source')
+
     def proceed(self, goals):
         if not goals:
             if self.default_goal:
