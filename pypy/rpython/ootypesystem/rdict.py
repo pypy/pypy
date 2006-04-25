@@ -69,6 +69,7 @@ class DictRepr(AbstractDictRepr):
 
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)
+        hop.exception_cannot_occur()
         return self.send_message(hop, 'll_length')
 
     def rtype_is_true(self, hop):
@@ -88,6 +89,17 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         v_res = hop.gendirectcall(ll_dict_setdefault, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
+
+    def rtype_method_copy(self, hop):
+        v_dict, = hop.inputargs(self)
+        cDICT = hop.inputconst(ootype.Void, self.lowleveltype)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_dict_copy, cDICT, v_dict)
+
+    def rtype_method_update(self, hop):
+        v_dict1, v_dict2 = hop.inputargs(self, self)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_dict_update, v_dict1, v_dict2)
 
     def rtype_method_keys(self, hop):
         return self._rtype_method_kvi(hop, dum_keys)
@@ -118,6 +130,10 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return DictIteratorRepr(self, "items").newiter(hop)
 
+    def rtype_method_clear(self, hop):
+        v_dict, = hop.inputargs(self)
+        hop.exception_cannot_occur()
+        return self.send_message(hop, 'll_clear')
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 
@@ -147,9 +163,12 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_contains((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
+        hop.exception_cannot_occur()
         return r_dict.send_message(hop, 'll_contains')
 
 
+def rtype_r_dict(hop):
+    pass # TODO
 
 def ll_newdict(DICT):
     return ootype.new(DICT)
@@ -157,6 +176,19 @@ def ll_newdict(DICT):
 def ll_dict_is_true(d):
     # check if a dict is True, allowing for None
     return bool(d) and d.ll_length() != 0
+
+def ll_dict_copy(DICT, d):
+    res = ootype.new(DICT)
+    ll_dict_update(res, d)
+    return res
+
+def ll_dict_update(d1, d2):
+    it = d2.ll_get_items_iterator()
+    while it.ll_go_next():
+        key = it.ll_current_key()
+        value = it.ll_current_value()
+        d1.ll_set(key, value)
+
 
 def ll_dict_getitem(d, key):
     # TODO: this is inefficient because it does two lookups

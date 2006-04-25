@@ -81,6 +81,7 @@ def rtype_newdict(hop):
 
 
 class AbstractDictIteratorRepr(rmodel.IteratorRepr):
+
     def newiter(self, hop):
         v_dict, = hop.inputargs(self.r_dict)
         citerptr = hop.inputconst(lltype.Void, self.lowleveltype)

@@ -857,3 +857,38 @@ class TestOotypeRtyping(BaseTestDictRtyping):
             return tot1, tot2
         res = self.ll_to_tuple(self.interpret(func, [42, 13]), 2)
         assert res == (55, 57)
+
+    def test_copy(self):
+        def func(x, y):
+            d = {x: x+1, y: y+1}
+            d2 = d.copy()
+            d[x] = 0
+            d[y] = 0
+            tot1 = 0
+            tot2 = 0
+            for key, value in  d2.iteritems():
+                tot1 += key
+                tot2 += value
+            return tot1, tot2
+        res = self.ll_to_tuple(self.interpret(func, [42, 13]), 2)
+        assert res == (55, 57)
+
+    def test_update(self):
+        def func():
+            dic = {1:1000, 2:200}
+            d2 = {2:30, 3:4}
+            dic.update(d2)
+            ok = len(dic) == 3
+            sum = ok
+            for key in dic:
+                sum += dic[key]
+            return sum
+        res = self.interpret(func, ())
+        assert res == 1035
+
+    def test_clear(self):
+        def func():
+            dic = {1: 2, 3:4}
+            dic.clear()
+            return len(dic)
+        assert self.interpret(func, ()) == 0
