@@ -10,49 +10,30 @@ class Op:
 
     def __init__(self, gen, op):
         self.gen = gen
-        self.str = repr_arg
         self.op = op
         self.opname = op.opname
         self.args = op.args
         self.result = op.result
 
     def __iter__(self):
-        if self.opname in self.binary_ops:
-            for line in self.op_binary(self.opname):
-                yield line
-        else:
-            meth = getattr(self, "op_" + self.opname)
-            result = repr_arg(self.result)
-            args = map(repr_arg, self.args)
-            for line in meth(result, *args):
-                yield line
+        method = getattr(self, "op_" + self.opname)
+        result = repr_arg(self.result)
+        args = map(repr_arg, self.args)
+        for line in method(result, *args):
+            yield line
 
     def op_same_as(self, result, arg):
         yield "(setf %s %s)" % (result, arg)
 
-    binary_ops = {
-        #"add": "+",
-        "int_add": "+",
-        "sub": "-",
-        "inplace_add": "+", # weird, but it works
-        "inplace_lshift": "ash",
-        "mod": "mod",
-        "int_mod": "mod",
-        "lt": "<",
-        "int_lt": "<",
-        "le": "<=",
-        "eq": "=",
-        "int_eq": "=",
-        "gt": ">",
-        "and_": "logand",
-        "getitem": "elt",
-    }
+    def make_binary_op(cl_op):
+        def _(self, result, arg1, arg2):
+            yield "(setf %s (%s %s %s))" % (result, cl_op, arg1, arg2)
+        return _
 
-    def op_binary(self, op):
-        s = self.str
-        result, (arg1, arg2) = self.result, self.args
-        cl_op = self.binary_ops[op]
-        yield "(setf %s (%s %s %s))" % (s(result), cl_op, s(arg1), s(arg2))
+    op_int_add = make_binary_op("+")
+    op_int_eq = make_binary_op("=")
+    op_int_lt = make_binary_op("<")
+    op_int_mod = make_binary_op("mod")
 
     def op_int_is_true(self, result, arg):
         yield "(setf %s (not (zerop %s)))" % (result, arg)
