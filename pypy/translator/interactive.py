@@ -56,6 +56,7 @@ class Translation(object):
         'source_c': [],
         'compile_c': [],
         'compile_llvm': [],
+        'source_cl': [],
     }
 
     def view(self):
@@ -152,6 +153,11 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         self.ensure_backend('llvm')
         self.driver.source_llvm()
+
+    def source_cl(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('cl')
+        self.driver.source_cl()
 
     def compile(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
