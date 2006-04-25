@@ -57,7 +57,6 @@ def test_annotate_bltinfunc():
     assert s.knowntype == CPyObjSpace.W_Object
 
 def test_compile_bltinfunc():
-    py.test.skip("in-progress")
     entrypoint = maketest()
     fn = compile(entrypoint, [int],
                  annotatorpolicy = CPyAnnotatorPolicy())

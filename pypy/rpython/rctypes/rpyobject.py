@@ -12,7 +12,13 @@ class CTypesPyObjRepr(CTypesValueRepr):
             value = value.value
         p.c_data[0] = lltype.pyobjectptr(value)
 
-    # reading .value is not allowed, as it can't be annotated!
+    def rtype_getattr(self, hop):
+        # only for 'allow_someobjects' annotations
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'value'
+        v_pyobj = hop.inputarg(self, 0)
+        return self.getvalue(hop.llops, v_pyobj)
 
     def rtype_setattr(self, hop):
         s_attr = hop.args_s[1]
