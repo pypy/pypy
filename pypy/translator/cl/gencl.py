@@ -32,8 +32,27 @@ class Op:
 
     op_int_add = make_binary_op("+")
     op_int_eq = make_binary_op("=")
+    op_int_gt = make_binary_op(">")
     op_int_lt = make_binary_op("<")
     op_int_mod = make_binary_op("mod")
+    op_int_sub = make_binary_op("-")
+    op_float_sub = make_binary_op("-")
+    op_float_truediv = make_binary_op("/")
+    op_char_eq = make_binary_op("char=")
+    op_char_le = make_binary_op("char<=")
+    op_char_ne = make_binary_op("char/=")
+
+    def op_cast_char_to_int(self, result, arg):
+        yield "(setf %s (char-code (char %s 0)))" % (result, arg)
+
+    def op_cast_int_to_char(self, result, arg):
+        yield "(setf %s (string (code-char %s)))" % (result, arg)
+
+    def op_cast_int_to_float(self, result, arg):
+        yield "(setf %s (float %s))" % (result, arg)
+
+    def op_bool_not(self, result, arg):
+        yield "(setf %s (not %s))" % (result, arg)
 
     def op_int_is_true(self, result, arg):
         yield "(setf %s (not (zerop %s)))" % (result, arg)
@@ -93,6 +112,12 @@ class Op:
         if fieldname == "meta": # XXX
             raise StopIteration
         yield "(setf (slot-value %s '%s) %s)" % (obj, fieldname, value)
+
+    def op_ooidentityhash(self, result, arg):
+        yield "(setf %s (sxhash %s))" % (result, arg)
+
+    def op_oononnull(self, result, arg):
+        yield "(setf %s (not (null %s)))" % (result, arg)
 
 
 class ListImpl:
