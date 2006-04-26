@@ -188,14 +188,20 @@ def test_wrong_order_setitem():
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython import raddress
-from pypy.rpython.lltypesystem.llmemory import NULL
+from pypy.rpython.lltypesystem.llmemory import NULL, fakeaddress
 import weakref
 
 def cast_object_to_address(obj):
-    pass
+    return fakeaddress(weakref.ref(obj))
 
 def cast_address_to_object(address, expected_result):
-    pass
+    wref = address.ref().get()
+    if wref is None: # NULL address
+        return None
+    obj = wref()
+    assert obj is not None
+    assert isinstance(obj, expected_result)
+    return obj
 
 class Entry(ExtRegistryEntry):
     _about_ = cast_object_to_address
@@ -259,6 +265,7 @@ def test_weakref_alive():
         ref1 = get_weakref(f)
         ref2 = get_weakref(f)
         return f.x + ref2.ref().x + (ref1 is ref2)
+    assert func() == 65
     f = compile_func(func, [])
     assert f() == 65
 
@@ -270,6 +277,7 @@ def test_weakref_dying():
     def func():
         ref = g()
         return ref.ref() is None
+    assert func()
     f = compile_func(func, [])
     assert f()
 
