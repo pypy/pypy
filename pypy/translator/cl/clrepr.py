@@ -34,10 +34,13 @@ def repr_const(val):
     elif val is None:
         return "nil"
     elif isinstance(val, str):
-        val.replace("\\", "\\\\")
-        val.replace("\"", "\\\"")
-        val = '"' + val + '"'
-        return val
+        if len(val) == 1:
+            return "#\%c" % (val,)
+        else:
+            val.replace("\\", "\\\\")
+            val.replace("\"", "\\\"")
+            val = '"' + val + '"'
+            return val
     else:
         return repr_unknown(val)
 

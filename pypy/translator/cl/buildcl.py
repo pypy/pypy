@@ -39,7 +39,7 @@ class Literal:
         self.val = val
 
 def readlisp(s):
-    # Return bool/int/str or give up
+    # Return bool/int/char/str or give up
     lines = s.splitlines()
     lines = [ line for line in lines if line and not line.startswith(';') ]
     assert len(lines) == 1
@@ -49,6 +49,8 @@ def readlisp(s):
         return True
     elif s == "NIL":
         return False
+    elif s.startswith("#\\"):
+        return s[2:]
     elif s[0] == '"':
         return s[1:-1]
     elif s.isdigit():

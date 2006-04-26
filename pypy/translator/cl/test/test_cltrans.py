@@ -2,6 +2,7 @@ import autopath
 import py 
 import os
 
+from pypy.annotation.model import SomeChar
 from pypy.translator.cl.buildcl import make_cl_func
 from pypy.translator.cl.buildcl import Literal
 
@@ -12,6 +13,18 @@ def dont_test_return_str():
         return 'test'
     cl_return_str = make_cl_func(return_str)
     assert cl_return_str() == 'test'
+
+def test_chr_ord():
+    def chr_ord(num):
+        char = chr(num)
+        return ord(char)
+    cl_chr_ord = make_cl_func(chr_ord, [int])
+    assert cl_chr_ord(32) == 32
+    def ord_chr(char):
+        num = ord(char)
+        return chr(num)
+    cl_ord_chr = make_cl_func(ord_chr, [SomeChar()])
+    assert cl_ord_chr('a') == 'a'
 
 def test_if():
     cl_if = make_cl_func(t.if_then_else, [bool, int, int])

@@ -49,10 +49,10 @@ class Op:
     op_char_ne = make_binary_op("char/=")
 
     def op_cast_char_to_int(self, result, arg):
-        yield "(setf %s (char-code (char %s 0)))" % (result, arg)
+        yield "(setf %s (char-code %s))" % (result, arg)
 
     def op_cast_int_to_char(self, result, arg):
-        yield "(setf %s (string (code-char %s)))" % (result, arg)
+        yield "(setf %s (code-char %s))" % (result, arg)
 
     def op_cast_int_to_float(self, result, arg):
         yield "(setf %s (float %s))" % (result, arg)
