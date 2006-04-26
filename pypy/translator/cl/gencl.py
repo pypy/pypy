@@ -2,7 +2,7 @@ import types
 
 from pypy.tool.udir import udir
 from pypy.translator.translator import graphof
-from pypy.rpython.ootypesystem.ootype import Instance, List, _static_meth, _meth, ROOT
+from pypy.rpython.ootypesystem.ootype import List, Record, Instance, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
@@ -69,8 +69,18 @@ class Op:
         args = " ".join(args)
         yield "(setf %s (%s %s))" % (result, fun, args)
 
+    def declare_struct(self, cls):
+        # cls is Record
+        name = "struct" + str(self.gen.structcount)
+        field_declaration = cls._fields.keys()
+        field_declaration = " ".join(field_declaration)
+        struct_declaration = "(defstruct %s %s)" % (name, field_declaration)
+        self.gen.declarations.append(struct_declaration)
+        self.gen.structcount += 1
+        return name
+
     def declare_class(self, cls):
-        # cls is really type of Instance
+        # cls is Instance
         name = repr_class_name(cls._name)
         field_declaration = ['('+field+')' for field in cls._fields]
         field_declaration = " ".join(field_declaration)
@@ -87,9 +97,14 @@ class Op:
         cls = self.args[0].value
         if isinstance(cls, List):
             yield "(setf %s (make-array 0 :adjustable t))" % (result,)
-        else:
+        elif isinstance(cls, Record):
+            clsname = self.declare_struct(cls)
+            yield "(setf %s (make-%s))" % (result, clsname)
+        elif isinstance(cls, Instance):
             self.declare_class(cls)
             yield "(setf %s (make-instance %s))" % (result, clsname)
+        else:
+            raise NotImplementedError()
 
     def op_instanceof(self, result, arg, clsname):
         yield "(setf %s (typep %s %s))" % (result, arg, clsname)
@@ -162,6 +177,7 @@ class GenCL:
         self.entry_point = funobj
         self.pendinggraphs = [funobj]
         self.declarations = []
+        self.structcount = 0
 
     def emitfile(self):
         name = self.entry_point.func_name
