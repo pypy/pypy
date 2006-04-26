@@ -14,6 +14,7 @@ def decode_state(currentframe):
     return (currentframe.function,
             currentframe.retval_type,
             currentframe.restartstate)
+decode_state.stackless_explict = True
 
 SWITCH_STATE = lltype.GcStruct('state_switch',
                                ('header', STATE_HEADER),
@@ -35,7 +36,7 @@ def switch(c):
         s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
         global_state.top = s.c
         return top.f_back
-
+switch.stackless_explicit = True
 
 
 def stack_frames_depth():
@@ -59,6 +60,7 @@ def stack_frames_depth():
             depth += 1
             cur = cur.f_back
         return depth
+stack_frames_depth.stackless_explicit = True
 
 class StacklessData:
     def __init__(self):
@@ -90,6 +92,7 @@ def call_function(fn, retval_code):
     elif retval_code == RETVAL_VOID_P:
         global_state.retval_void_p = lloperation.llop.unsafe_call(
             llmemory.Address, fn)
+call_function.stackless_explicit = True
 
 class UnwindException(Exception):
     def __init__(self):
@@ -125,7 +128,7 @@ def slp_main_loop():
 
     if global_state.exception is not None:
         raise global_state.exception
-
+slp_main_loop.stackless_explicit = True
 
 def add_frame_state(u, frame_state):
     if not u.frame_top:
@@ -133,6 +136,7 @@ def add_frame_state(u, frame_state):
     else:
         u.frame_bottom.f_back = frame_state
         u.frame_bottom = frame_state
+add_frame_state.stackless_explicit = True
 
 def resume_state():
     """Return and zero the 'restart_substate', the index of the resume
@@ -140,6 +144,7 @@ def resume_state():
     x = global_state.restart_substate
     global_state.restart_substate = 0
     return x 
+resume_state.stackless_explicit = True
 
 # XXX would like to be able to say
 #def resume_header():
@@ -152,28 +157,32 @@ def resume_state():
 def fetch_retval_void():
     if global_state.exception:
         raise global_state.exception
+fetch_retval_void.stackless_explicit = True
 
 def fetch_retval_long():
     if global_state.exception:
         raise global_state.exception
     else:
         return global_state.retval_long
+fetch_retval_long.stackless_explicit = True
 
 def fetch_retval_longlong():
     if global_state.exception:
         raise global_state.exception
     else:
         return global_state.retval_longlong
+fetch_retval_longlong.stackless_explicit = True
 
 def fetch_retval_float():
     if global_state.exception:
         raise global_state.exception
     else:
         return global_state.retval_float
+fetch_retval_float.stackless_explicit = True
 
 def fetch_retval_void_p():
     if global_state.exception:
         raise global_state.exception
     else:
         return global_state.retval_void_p
-
+fetch_retval_void_p.stackless_explicit = True

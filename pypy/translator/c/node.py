@@ -645,6 +645,9 @@ def select_function_code_generators(fnobj, db, functionname):
                 from pypy.translator.c.stackless import SlpFunctionCodeGenerator
                 return [SlpFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
         else:
+            if db.translator and db.translator.stacklesstransformer is not None:
+                if not hasattr(fnobj, 'isgchelper'):
+                    db.translator.stacklesstransformer.transform_graph(fnobj.graph)
             return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case

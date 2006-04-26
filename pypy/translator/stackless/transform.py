@@ -74,7 +74,7 @@ class ResumePoint:
         self.links_to_resumption = links_to_resumption
         self.frame_state_type = frame_state_type
 
-class StacklessTransfomer(object):
+class StacklessTransformer(object):
     def __init__(self, translator):
         self.translator = translator
 
@@ -134,6 +134,7 @@ class StacklessTransfomer(object):
         self.ll_global_state = model.Constant(
             r_global_state.convert_const(code.global_state),
             r_global_state.lowleveltype)
+        self.seen_blocks = set()
 
 
     def frame_type_for_vars(self, vars):
@@ -158,14 +159,24 @@ class StacklessTransfomer(object):
             self.frametypes[key] = T
             return T
 
+    def transform_all(self):
+        for graph in self.translator.graphs:
+            self.transform_graph(graph)
+        
     def transform_graph(self, graph):
         self.resume_points = []
+        
+        if hasattr(graph, 'func'):
+            if getattr(graph.func, 'stackless_explicit', False):
+                return
         
         assert self.curr_graph is None
         self.curr_graph = graph
         
         for block in list(graph.iterblocks()):
+            assert block not in self.seen_blocks
             self.transform_block(block)
+            self.seen_blocks.add(block)
 
         if self.resume_points:
             self.insert_resume_handling(graph)
@@ -295,9 +306,11 @@ class StacklessTransfomer(object):
                                          [convertblock.inputargs[returnvarindex]],
                                          newvar))
                 convertblock.exits[0].args[returnvarindex] = newvar
-                self.translator.rtyper.insert_link_conversions(convertblock)
+##                 self.translator.rtyper.insert_link_conversions(
+##                     convertblock, convertlinks=False)
                 
-            self.translator.rtyper.insert_link_conversions(newblock)
+##             self.translator.rtyper.insert_link_conversions(
+##                 newblock, convertlinks=False)
             
             resuming_links.append(
                 model.Link([], newblock, resume_point_index+1))
@@ -322,6 +335,9 @@ class StacklessTransfomer(object):
                 if i == len(block.operations) - 1 \
                        and block.exitswitch == model.c_last_exception:
                     link = block.exits[0]
+                    exitcases = dict.fromkeys(l.exitcase for l in block.exits)
+                    if code.UnwindException in exitcases:
+                        return
                 else:
                     link = support.split_block_with_keepalive(block, i+1)
                     # this section deserves a whinge:
@@ -335,7 +351,9 @@ class StacklessTransfomer(object):
                     # about annotations :(
                     ann = self.translator.annotator
                     for f, t in zip(link.args, link.target.inputargs):
-                        ann.setbinding(t, ann.binding(f))
+                        nb = ann.binding(f, True)
+                        if nb is not None:
+                            ann.setbinding(t, nb)
                     block.exitswitch = model.c_last_exception
                     link.llexitcase = None
                 var_unwind_exception = varoftype(evalue)
@@ -366,7 +384,7 @@ class StacklessTransfomer(object):
                                 args, var_unwind_exception)
 
                 self.resume_points.append(
-                    ResumePoint(op.result, args, block.exits, frame_state_type))
+                    ResumePoint(op.result, args, tuple(block.exits), frame_state_type))
 
                 newlink = model.Link(args + [var_unwind_exception], 
                                      save_block, code.UnwindException)
