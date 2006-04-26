@@ -82,6 +82,14 @@ PyObject_RichCompareBool = pythonapi.PyObject_RichCompareBool
 PyObject_RichCompareBool.argtypes = [W_Object, W_Object, c_int]
 PyObject_RichCompareBool.restype = c_int
 
+PyObject_GetIter = pythonapi.PyObject_GetIter
+PyObject_GetIter.argtypes = [W_Object]
+PyObject_GetIter.restype = W_Object
+
+PyIter_Next = pythonapi.PyIter_Next
+PyIter_Next.argtypes = [W_Object]
+PyIter_Next.restype = W_Object
+
 
 #############################################################
 # ____________________ Sequence Protocol ____________________
@@ -117,6 +125,10 @@ PyString_FromStringAndSize.restype = W_Object
 PyString_InternInPlace = pythonapi.PyString_InternInPlace
 PyString_InternInPlace.argtypes = [POINTER(W_Object)]
 PyString_InternInPlace.restype = None
+
+PyString_AsString = pythonapi.PyString_AsString
+PyString_AsString.argtypes = [W_Object]
+PyString_AsString.restype = c_char_p
 
 
 ##################################################

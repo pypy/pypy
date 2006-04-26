@@ -1,18 +1,21 @@
-from pypy.module._demo import demo
+from pypy.module._demo import Module, demo
 from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
 from pypy.objspace.cpy.objspace import CPyObjSpace
 import pypy.rpython.rctypes.implementation
 
 
 space = CPyObjSpace()
+Module.appleveldefs.clear()   # XXX! for now
+module = Module(space, space.wrap('_demo'))
+w_moduledict = module.getdict()
 
-def entry_point(n, w_callable):
-    return demo.measuretime(space, n, w_callable)
+def getdict():
+    return w_moduledict
 
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, [int, CPyObjSpace.W_Object], CPyAnnotatorPolicy()
+    return getdict, [], CPyAnnotatorPolicy(space)
 
 
 if __name__ == '__main__':
@@ -22,4 +25,4 @@ if __name__ == '__main__':
     else:
         N = int(sys.argv[1])
     print 'Timing for %d iterations...' % N
-    print entry_point(N, space.W_Object(int)), 'seconds'
+    print demo.measuretime(space, N, space.W_Object(int)), 'seconds'
