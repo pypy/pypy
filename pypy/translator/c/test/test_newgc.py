@@ -185,6 +185,94 @@ def test_wrong_order_setitem():
     res = fn(1)
     assert res == 1
 
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.annotation import model as annmodel
+from pypy.rpython import raddress
+from pypy.rpython.lltypesystem.llmemory import NULL
+import weakref
+
+def cast_object_to_address(obj):
+    pass
+
+def cast_address_to_object(address, expected_result):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_object_to_address
+
+    def compute_result_annotation(self, s_obj):
+        return annmodel.SomeAddress()
+
+    def specialize_call(self, hop):
+        vlist = hop.inputargs(hop.args_r[0])
+        return hop.genop('cast_ptr_to_adr', vlist,
+                         resulttype=hop.r_result.lowleveltype)
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_address_to_object
+
+    def compute_result_annotation(self, s_int, s_clspbc):
+        assert len(s_clspbc.descriptions) == 1
+        desc = s_clspbc.descriptions.keys()[0]
+        cdef = desc.getuniqueclassdef()
+        return annmodel.SomeInstance(cdef)
+
+    def specialize_call(self, hop):
+        assert isinstance(hop.args_r[0], raddress.AddressRepr)
+        vlist = [hop.inputarg(raddress.address_repr, arg=0)]
+        return hop.genop('cast_adr_to_ptr', vlist,
+                         resulttype = hop.r_result.lowleveltype)
+
+class Weakrefable(object):
+    __lifeline__ = None
+
+class Weakref(object):
+    def __init__(self, obj):
+        self.address = cast_object_to_address(obj)
+    
+    def ref(self):
+        return cast_address_to_object(self.address, Weakrefable)
+
+    def invalidate(self):
+        self.address = NULL
+
+class WeakrefLifeline(object):
+    def __init__(self, obj):
+        self.ref = Weakref(obj)
+        
+    def __del__(self):
+        self.ref.invalidate()
+    
+    def get_weakref(self):
+        return self.ref
+
+def get_weakref(obj):
+    assert isinstance(obj, Weakrefable)
+    if obj.__lifeline__ is None:
+        obj.__lifeline__ = WeakrefLifeline(obj)
+    return obj.__lifeline__.get_weakref()
+
+def test_weakref_alive():
+    def func():
+        f = Weakrefable()
+        f.x = 32
+        ref1 = get_weakref(f)
+        ref2 = get_weakref(f)
+        return f.x + ref2.ref().x + (ref1 is ref2)
+    f = compile_func(func, [])
+    assert f() == 65
+
+def test_weakref_dying():
+    def g():
+        f = Weakrefable()
+        f.x = 32
+        return get_weakref(f)
+    def func():
+        ref = g()
+        return ref.ref() is None
+    f = compile_func(func, [])
+    assert f()
+
 # _______________________________________________________________
 # test framework
 
