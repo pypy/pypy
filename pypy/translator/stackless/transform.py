@@ -297,20 +297,18 @@ class StacklessTransformer(object):
                 newblock.exitswitch = None
 
             if need_address_conversion:
-                convertblock = unsimplify.insert_empty_block(
-                    self.translator, newblock.exits[0])
-                returnvarindex = newblock.exits[0].args.index(retval)
                 newvar = unsimplify.copyvar(self.translator, resume_point.var_result)
-                convertblock.operations.append(
-                    model.SpaceOperation("cast_adr_to_ptr",
-                                         [convertblock.inputargs[returnvarindex]],
-                                         newvar))
-                convertblock.exits[0].args[returnvarindex] = newvar
-##                 self.translator.rtyper.insert_link_conversions(
-##                     convertblock, convertlinks=False)
-                
-##             self.translator.rtyper.insert_link_conversions(
-##                 newblock, convertlinks=False)
+                newops = [model.SpaceOperation("cast_adr_to_ptr",
+                                               [retval],
+                                               newvar)]
+                convertblock = unsimplify.insert_empty_block(
+                    self.translator, newblock.exits[0], newops)
+                # begin ouch!
+                index = newblock.exits[0].args.index(retval)
+                var = convertblock.inputargs[index]
+                index2 = convertblock.exits[0].args.index(var)
+                convertblock.exits[0].args[index2] = newvar
+                # end ouch!
             
             resuming_links.append(
                 model.Link([], newblock, resume_point_index+1))
