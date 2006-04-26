@@ -56,6 +56,52 @@ def free_non_gc_object(obj):
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
 
+def cast_object_to_address(obj):
+    import weakref
+    from pypy.rpython.lltypesystem.llmemory import fakeaddress
+    return fakeaddress(weakref.ref(obj))
+
+def cast_address_to_object(address, expected_result):
+    wref = address.ref().get()
+    if wref is None: # NULL address
+        return None
+    obj = wref()
+    assert obj is not None
+    assert isinstance(obj, expected_result)
+    return obj
+
+from pypy.rpython.extregistry import ExtRegistryEntry
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_object_to_address
+
+    def compute_result_annotation(self, s_obj):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeAddress()
+
+    def specialize_call(self, hop):
+        vlist = hop.inputargs(hop.args_r[0])
+        return hop.genop('cast_ptr_to_adr', vlist,
+                         resulttype=hop.r_result.lowleveltype)
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_address_to_object
+
+    def compute_result_annotation(self, s_int, s_clspbc):
+        from pypy.annotation import model as annmodel
+        assert len(s_clspbc.descriptions) == 1
+        desc = s_clspbc.descriptions.keys()[0]
+        cdef = desc.getuniqueclassdef()
+        return annmodel.SomeInstance(cdef)
+
+    def specialize_call(self, hop):
+        from pypy.rpython import raddress
+        assert isinstance(hop.args_r[0], raddress.AddressRepr)
+        vlist = [hop.inputarg(raddress.address_repr, arg=0)]
+        return hop.genop('cast_adr_to_ptr', vlist,
+                         resulttype = hop.r_result.lowleveltype)
+
+
    
 # __ hlinvoke XXX this doesn't seem completely the right place for this
 
