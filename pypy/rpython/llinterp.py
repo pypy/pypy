@@ -450,7 +450,10 @@ class LLFrame(object):
         for arg in obj.graph.startblock.inputargs:
             args.append(arg.concretetype._defl())
         frame = self.__class__(graph, args, self.llinterpreter, self)
-        return frame.eval()
+        result = frame.eval()
+        if isinstance(lltype.typeOf(result), lltype.Ptr):
+            result = llmemory.cast_ptr_to_adr(result)
+        return result
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:
