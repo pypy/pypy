@@ -22,7 +22,7 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
     def visit__W_Root(self, el, orig_sig, tramp):
         argname = orig_sig.next_arg()
         assert argname.startswith('w_')
-        basename = 'o_' + argname[2:]
+        basename = argname[2:]
         tramp.inputargs.append(basename)
         tramp.wrappings.append('%s = ___W_Object(%s)' % (argname, basename))
         tramp.passedargs.append(argname)
@@ -33,11 +33,10 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
                         float: 'XXX'}
         argname = orig_sig.next_arg()
         assert not argname.startswith('w_')
-        basename = 'o_' + argname
-        tramp.inputargs.append(basename)
+        tramp.inputargs.append(argname)
         tramp.wrappings.append('%s = %s(%s)' % (argname,
                                                 convertermap[el],
-                                                basename))
+                                                argname))
         tramp.passedargs.append(argname)
 
 
