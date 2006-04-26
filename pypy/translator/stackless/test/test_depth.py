@@ -48,3 +48,43 @@ def test_with_ptr():
 
     res = run_stackless_function(fn)
     assert res.strip() == "10"
+
+def test_manytimes():
+    def f(n):
+        if n > 0:
+            res = f(n-1)
+        else:
+            res = code.stack_frames_depth(), 1
+        return res
+
+    def fn(ignored):
+        count0, _ = f(0)
+        count10, _ = f(100)
+        return count10 - count0
+
+    res = llinterp_stackless_function(fn)
+    assert res == 100
+
+    res = run_stackless_function(fn)
+    assert res.strip() == "100"
+
+def test_arguments():
+    def f(n, d, t):
+        if n > 0:
+            res = f(n-1, d, t)
+        else:
+            res = code.stack_frames_depth(), d, t
+        return res
+
+    def fn(ignored):
+        count0, d, t = f(0, 5.5, (1, 2))
+        count10, d, t = f(10, 5.5, (1, 2))
+        return count10 - count0 + int(d)
+
+    res = llinterp_stackless_function(fn)
+    assert res == 15
+
+    res = run_stackless_function(fn)
+    assert res.strip() == "15"
+    
+

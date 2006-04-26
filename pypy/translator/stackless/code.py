@@ -118,7 +118,8 @@ def slp_main_loop():
         try:
             call_function(fn, signature)
         except UnwindException, u:   #XXX annotation support needed
-            nextframe = u.frame_top 
+            u.frame_bottom.f_back = nextframe
+            nextframe = u.frame_top
         except Exception, e:
             global_state.exception = e
         else:
