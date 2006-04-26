@@ -48,6 +48,7 @@ def replace_exitswitch_by_constant(block, const):
         newexits[0].llexitcase = None
     block.exitswitch = None
     block.recloseblock(*newexits)
+    return newexits
 
 # ____________________________________________________________
 
@@ -341,7 +342,8 @@ def join_blocks(graph):
             link.prevblock.exitswitch = newexitswitch
             link.prevblock.recloseblock(*exits)
             if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
-                replace_exitswitch_by_constant(link.prevblock, newexitswitch)
+                exits = replace_exitswitch_by_constant(link.prevblock,
+                                                       newexitswitch)
             stack.extend(exits)
         else:
             if link.target not in seen:

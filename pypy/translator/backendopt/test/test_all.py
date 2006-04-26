@@ -150,3 +150,20 @@ def test_idempotent():
     digest3 = md5digest(t)
     assert digest1 == digest3
 
+
+def test_bug_inlined_if():
+    def f(x, flag):
+        if flag:
+            y = x
+        else:
+            y = x+1
+        return y*5
+    def myfunc(x):
+        return f(x, False) - f(x, True)
+
+    assert myfunc(10) == 5
+
+    t = translateopt(myfunc, [int], inline_threshold=100)
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graphof(t, myfunc), [10])
+    assert res == 5
