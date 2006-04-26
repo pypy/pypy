@@ -24,16 +24,16 @@ def repr_const(val):
     if isinstance(val, tuple):
         val = map(repr_const, val)
         return "'(%s)" % ' '.join(val)
-    elif isinstance(val, bool): # should precedes int
+    if isinstance(val, bool): # should precede int
         if val:
             return "t"
         else:
             return "nil"
-    elif isinstance(val, (int, long)):
+    if isinstance(val, (int, long)):
         return str(val)
-    elif val is None:
+    if val is None:
         return "nil"
-    elif isinstance(val, str):
+    if isinstance(val, str):
         if len(val) == 1:
             return "#\%c" % (val,)
         else:
@@ -41,13 +41,11 @@ def repr_const(val):
             val.replace("\"", "\\\"")
             val = '"' + val + '"'
             return val
-    else:
-        return repr_unknown(val)
+    return repr_unknown(val)
 
 def repr_arg(arg):
     if isinstance(arg, Variable):
         return repr_var(arg)
-    elif isinstance(arg, Constant):
+    if isinstance(arg, Constant):
         return repr_const(arg.value)
-    else:
-        return repr_unknown(arg)
+    return repr_unknown(arg)
