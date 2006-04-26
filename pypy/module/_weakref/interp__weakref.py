@@ -27,7 +27,6 @@ class W_Weakref(Wrappable):
             try:
                 w_self.space.call_function(w_self.w_callable, w_self)
             except OperationError, e:
-                print e
                 os.write(2, "XXX\n")
 
 class WeakrefLifeline(object):
@@ -35,7 +34,8 @@ class WeakrefLifeline(object):
         self.refs_w = []
         
     def __del__(self):
-        for w_ref in self.refs_w:
+        for i in range(len(self.refs_w) - 1, -1, -1):
+            w_ref = self.refs_w[i]
             w_ref.invalidate()
     
     def get_weakref(self, space, w_subtype, w_obj, w_callable):
