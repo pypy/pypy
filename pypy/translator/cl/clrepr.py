@@ -35,6 +35,9 @@ def repr_const(val):
     if isinstance(val, tuple):
         val = map(repr_const, val)
         return "'(%s)" % ' '.join(val)
+    if isinstance(val, list):
+        val = map(repr_const, val)
+        return "#(%s)" % ' '.join(val)
     if isinstance(val, bool): # should precede int
         if val:
             return "t"

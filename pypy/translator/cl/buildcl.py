@@ -58,18 +58,6 @@ def readlisp(s):
     else:
         return Literal(s)
 
-def writelisp(obj):
-    if isinstance(obj, (bool, int, type(None), str)):
-        return repr_const(obj)
-    if isinstance(obj, (tuple, list)):
-        content = ' '.join([writelisp(elt) for elt in obj])
-        content = '(' + content + ')'
-        if isinstance(obj, list):
-            content = '#' + content
-        elif isinstance(obj, tuple):
-            content = "'" + content # quote Lisp list
-        return content
-
 def make_cl_func(func, argtypes=[]):
     global global_cl
     if global_cl is None:
@@ -102,7 +90,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         fp = file(str(fpath), "a")
         print >>fp, "(write (", repr_fun_name(func.func_name),
         for arg in args:
-            print >>fp, writelisp(arg),
+            print >>fp, repr_const(arg),
         print >>fp, "))"
         fp.close()
         if conftest.option.prettyprint:
