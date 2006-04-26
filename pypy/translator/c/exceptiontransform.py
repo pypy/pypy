@@ -122,6 +122,8 @@ class ExceptionTransformer(object):
         self.cnulltype = Constant(null_type, self.lltype_of_exception_type)
         
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+
+        self.seen_graphs = {}
     
     def transform_completely(self):
         for graph in self.translator.graphs:
@@ -135,8 +137,11 @@ class ExceptionTransformer(object):
         from the current graph with a special value (False/-1/-1.0/null).
         Because of the added exitswitch we need an additional block.
         """
+        assert id(graph) not in self.seen_graphs
+        self.seen_graphs[id(graph)] = True
         join_blocks(graph)
-        for block in list(graph.iterblocks()): #collect the blocks before changing them
+        # collect the blocks before changing them
+        for block in list(graph.iterblocks()):
             self.transform_block(graph, block)
         self.transform_except_block(graph, graph.exceptblock)
         cleanup_graph(graph)

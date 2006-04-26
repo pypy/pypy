@@ -175,3 +175,14 @@ def test_needs_keepalive():
     f = compile_func(foo, [int])
     res = f(0)
     assert res == 43
+
+def test_no_multiple_transform():
+    def f(x):
+        return x + 1
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    g = graphof(t, f)
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    etrafo.create_exception_handling(g)
+    py.test.raises(AssertionError, etrafo.create_exception_handling, g)
