@@ -8,7 +8,7 @@ from pypy.translator.translator import graphof
 from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
 from pypy.translator.backendopt import graphanalyze
 from pypy.annotation import model as annmodel
-from pypy.rpython import rmodel, rptr, annlowlevel
+from pypy.rpython import rmodel, rptr, annlowlevel, typesystem
 from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 import sets, os
@@ -528,7 +528,7 @@ def const_funcptr_fromgraph(graph):
     FUNC = lltype.FuncType([v.concretetype for v in graph.startblock.inputargs],
                            graph.returnblock.inputargs[0].concretetype)
     return rmodel.inputconst(lltype.Ptr(FUNC),
-                             lltype.functionptr(FUNC, graph.name, graph=graph))
+                             typesystem.getfunctionptr(graph))
 
 def find_gc_ptrs_in_type(TYPE):
     if isinstance(TYPE, lltype.Array):
