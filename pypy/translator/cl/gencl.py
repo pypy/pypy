@@ -35,8 +35,10 @@ class Op:
         return _
 
     op_int_add = make_binary_op("+")
+    op_int_mul = make_binary_op("*")
     op_int_eq = make_binary_op("=")
     op_int_gt = make_binary_op(">")
+    op_int_ge = make_binary_op(">=")
     op_int_lt = make_binary_op("<")
     op_int_le = make_binary_op("<=")
     op_int_and = make_binary_op("logand")

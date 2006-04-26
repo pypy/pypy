@@ -26,6 +26,13 @@ def test_chr_ord():
     cl_ord_chr = make_cl_func(ord_chr, [SomeChar()])
     assert cl_ord_chr('a') == 'a'
 
+def test_range():
+    def get_three():
+        lst = range(7)
+        return lst[3]
+    cl_get_three = make_cl_func(get_three)
+    assert cl_get_three() == 3
+
 def test_if():
     cl_if = make_cl_func(t.if_then_else, [bool, int, int])
     assert cl_if(True, 50, 100) == 50
