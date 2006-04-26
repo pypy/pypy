@@ -6,6 +6,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
 from pypy.translator.cl.clrepr import repr_const, repr_fun_name
 from pypy import conftest
+from pypy.translator.cl import conftest as clconftest
 
 global_cl = None
 
@@ -79,7 +80,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     out = generate_cl_func(func, argtypes)
     fpath = path.join("%s.lisp" % func.func_name)
 
-    if conftest.option.prettyprint:
+    if clconftest.option.prettyprint:
         script = path.join(".printer.lisp")
         fp = file(str(script), "w")
         fp.write(pretty_printer % (fpath,))
@@ -93,7 +94,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
             print >>fp, repr_const(arg),
         print >>fp, "))"
         fp.close()
-        if conftest.option.prettyprint:
+        if clconftest.option.prettyprint:
             py.process.cmdexec("%s %s" % (cl, str(script)))
         output = py.process.cmdexec("%s %s" % (cl, str(fpath)))
         return readlisp(output)
