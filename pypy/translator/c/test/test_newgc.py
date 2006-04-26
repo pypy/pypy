@@ -7,7 +7,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype
-
+from pypy.rpython.objectmodel import cast_address_to_object, cast_object_to_address
 from pypy.rpython.memory.gctransform import GCTransformer
 
 from pypy import conftest
@@ -185,50 +185,6 @@ def test_wrong_order_setitem():
     res = fn(1)
     assert res == 1
 
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.annotation import model as annmodel
-from pypy.rpython import raddress
-from pypy.rpython.lltypesystem.llmemory import NULL, fakeaddress
-import weakref
-
-def cast_object_to_address(obj):
-    return fakeaddress(weakref.ref(obj))
-
-def cast_address_to_object(address, expected_result):
-    wref = address.ref().get()
-    if wref is None: # NULL address
-        return None
-    obj = wref()
-    assert obj is not None
-    assert isinstance(obj, expected_result)
-    return obj
-
-class Entry(ExtRegistryEntry):
-    _about_ = cast_object_to_address
-
-    def compute_result_annotation(self, s_obj):
-        return annmodel.SomeAddress()
-
-    def specialize_call(self, hop):
-        vlist = hop.inputargs(hop.args_r[0])
-        return hop.genop('cast_ptr_to_adr', vlist,
-                         resulttype=hop.r_result.lowleveltype)
-
-class Entry(ExtRegistryEntry):
-    _about_ = cast_address_to_object
-
-    def compute_result_annotation(self, s_int, s_clspbc):
-        assert len(s_clspbc.descriptions) == 1
-        desc = s_clspbc.descriptions.keys()[0]
-        cdef = desc.getuniqueclassdef()
-        return annmodel.SomeInstance(cdef)
-
-    def specialize_call(self, hop):
-        assert isinstance(hop.args_r[0], raddress.AddressRepr)
-        vlist = [hop.inputarg(raddress.address_repr, arg=0)]
-        return hop.genop('cast_adr_to_ptr', vlist,
-                         resulttype = hop.r_result.lowleveltype)
-
 class Weakrefable(object):
     __lifeline__ = None
 
@@ -240,6 +196,7 @@ class Weakref(object):
         return cast_address_to_object(self.address, Weakrefable)
 
     def invalidate(self):
+        from pypy.rpython.lltypesystem.llmemory import NULL
         self.address = NULL
 
 class WeakrefLifeline(object):
