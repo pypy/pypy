@@ -30,7 +30,6 @@ class TranslationContext(object):
             raise TypeError("unexpected keyword argument")
         self.annotator = None
         self.rtyper = None
-        print 'NULLING', self
         self.stacklesstransformer = None
         self.graphs = []      # [graph]
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
