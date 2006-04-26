@@ -83,18 +83,16 @@ class Op:
         if class_declaration not in self.gen.declarations:
             self.gen.declarations.append(class_declaration)
 
-    def op_new(self, result, _):
+    def op_new(self, result, clsname):
         cls = self.args[0].value
         if isinstance(cls, List):
             yield "(setf %s (make-array 0 :adjustable t))" % (result,)
         else:
             self.declare_class(cls)
-            clsname = repr_class_name(cls._name)
-            yield "(setf %s (make-instance '%s))" % (result, clsname)
+            yield "(setf %s (make-instance %s))" % (result, clsname)
 
-    def op_instanceof(self, result, arg, _):
-        clsname = repr_class_name(self.args[1].value._name)
-        yield "(setf %s (typep %s '%s))" % (result, arg, clsname)
+    def op_instanceof(self, result, arg, clsname):
+        yield "(setf %s (typep %s %s))" % (result, arg, clsname)
 
     def op_oosend(self, result, *ignore):
         method = self.args[0].value

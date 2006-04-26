@@ -1,7 +1,7 @@
 import types
 
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.rpython.ootypesystem.ootype import _static_meth
+from pypy.rpython.ootypesystem.ootype import Instance, _static_meth
 
 def repr_unknown(obj):
     return '#<%r>' % (obj,)
@@ -16,6 +16,8 @@ def repr_fun_name(name):
     return name.replace('_', '-')
 
 def repr_const(val):
+    if isinstance(val, Instance):
+        return "'" + repr_class_name(val._name)
     if isinstance(val, types.FunctionType):
         if val.func_name == 'dum_nocheck': # XXX
             return "'dummy"
