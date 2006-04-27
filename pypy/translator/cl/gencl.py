@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.translator.translator import graphof
 from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
-from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
+from pypy.translator.cl.clrepr import clrepr, repr_fun_name, repr_class_name
 
 class InsertionOrderedDict(dict):
     def __init__(self):
@@ -31,7 +31,7 @@ class Op:
 
     def __iter__(self):
         method = getattr(self, "op_" + self.opname)
-        result = repr_arg(self.result)
+        result = clrepr(self.result)
         args = map(self.gen.check_declaration, self.args)
         for line in method(result, *args):
             yield line
@@ -93,6 +93,7 @@ class Op:
             yield "(setf %s (make-%s))" % (result, clsname)
         elif isinstance(cls, Instance):
             self.gen.declare_class(cls)
+            clsname = clrepr(cls)
             yield "(setf %s (make-instance %s))" % (result, clsname)
         else:
             raise NotImplementedError()
@@ -101,6 +102,7 @@ class Op:
         yield "(setf %s (make-instance %s))" % (result, arg)
 
     def op_instanceof(self, result, arg, clsname):
+        clsname = clrepr(self.args[1].value)
         yield "(setf %s (typep %s %s))" % (result, arg, clsname)
 
     def op_oosend(self, result, *ignore):
@@ -117,7 +119,7 @@ class Op:
             methodobj._method_name = method # XXX
             self.gen.pendinggraphs.append(methodobj)
             name = repr_fun_name(method)
-            selfvar = repr_var(receiver)
+            selfvar = clrepr(receiver)
             args = map(self.gen.check_declaration, args)
             args = " ".join(args)
             if args:
@@ -143,22 +145,22 @@ class Op:
 class ListImpl:
 
     def __init__(self, receiver):
-        self.obj = repr_var(receiver)
+        self.obj = clrepr(receiver)
 
     def ll_length(self):
         return "(length %s)" % (self.obj,)
 
     def ll_getitem_fast(self, index):
-        index = repr_arg(index)
+        index = clrepr(index)
         return "(aref %s %s)" % (self.obj, index)
 
     def ll_setitem_fast(self, index, value):
-        index = repr_arg(index)
-        value = repr_arg(value)
+        index = clrepr(index)
+        value = clrepr(value)
         return "(setf (aref %s %s) %s)" % (self.obj, index, value)
 
     def _ll_resize(self, size):
-        size = repr_arg(size)
+        size = clrepr(size)
         return "(adjust-array %s %s)" % (self.obj, size)
 
 
@@ -176,7 +178,7 @@ class GenCL:
         if isinstance(arg, Constant):
             if isinstance(arg.concretetype, Instance):
                 return self.declare_constant_instance(arg)
-        return repr_arg(arg)
+        return clrepr(arg)
 
     def declare_struct(self, cls):
         # cls is Record
@@ -207,7 +209,7 @@ class GenCL:
         INST = dynamicType(const.value)
         self.declare_class(INST)
         inst = oodowncast(INST, const.value)
-        cls = repr_const(INST)
+        cls = clrepr(INST)
         const_declaration = []
         const_declaration.append("(setf %s (make-instance %s))" % (name, cls))
         fields = INST._allfields()
@@ -215,7 +217,7 @@ class GenCL:
             fieldvalue = getattr(inst, fieldname)
             if isinstance(fieldvalue, _class):
                 self.declare_class(fieldvalue._INSTANCE)
-            fieldvaluerepr = repr_const(getattr(inst, fieldname))
+            fieldvaluerepr = clrepr(getattr(inst, fieldname))
             const_declaration.append("(setf (slot-value %s '%s) %s)" % (name, fieldname, fieldvaluerepr))
         const_declaration = "\n".join(const_declaration)
         self.declarations[const] = const_declaration
@@ -258,7 +260,7 @@ class GenCL:
     def emit_defun(self, fun):
         yield "(defun " + repr_fun_name(fun.name)
         arglist = fun.getargs()
-        args = " ".join(map(repr_var, arglist))
+        args = " ".join(map(clrepr, arglist))
         yield "(%s)" % (args,)
         for line in self.emit_body(fun, arglist):
             yield line
@@ -266,9 +268,9 @@ class GenCL:
     def emit_defmethod(self, fun, name):
         yield "(defmethod %s" % (repr_fun_name(name))
         arglist = fun.getargs()
-        selfvar = repr_var(arglist[0])
+        selfvar = clrepr(arglist[0])
         clsname = repr_class_name(arglist[0].concretetype._name)
-        args = " ".join(map(repr_var, arglist[1:]))
+        args = " ".join(map(clrepr, arglist[1:]))
         if args:
             yield "((%s %s) %s)" % (selfvar, clsname, args)
         else:
@@ -289,7 +291,7 @@ class GenCL:
                 vardict[var] = None
         varnames = []
         for var in vardict:
-            varname = repr_var(var)
+            varname = clrepr(var)
             if var in arglist:
                 varnames.append("(%s %s)" % (varname, varname))
             else:
@@ -318,7 +320,7 @@ class GenCL:
             if (len(exits) == 2 and
                 exits[0].exitcase == False and
                 exits[1].exitcase == True):
-                yield "(if " + repr_arg(block.exitswitch)
+                yield "(if " + clrepr(block.exitswitch)
                 yield "(progn"
                 for line in self.emit_link(exits[1]):
                     yield line
@@ -332,22 +334,22 @@ class GenCL:
                 # shouldn't be needed but in Python 2.2 we can't tell apart
                 # 0 vs nil  and  1 vs t  :-(
                 for exit in exits[:-1]:
-                    yield "(if (equalp " + repr_arg(block.exitswitch)
-                    yield repr_const(exit.exitcase) + ')'
+                    yield "(if (equalp " + clrepr(block.exitswitch)
+                    yield clrepr(exit.exitcase) + ')'
                     yield "(progn"
                     for line in self.emit_link(exit):
                         yield line
                     yield ")"
-                yield "(progn ; else should be %s" % repr_const(exits[-1].exitcase)
+                yield "(progn ; else should be %s" % clrepr(exits[-1].exitcase)
                 for line in self.emit_link(exits[-1]):
                     yield line
                 yield ")" * len(exits)
         elif len(block.inputargs) == 2:    # exc_cls, exc_value
-            exc_cls   = repr_var(block.inputargs[0])
-            exc_value = repr_var(block.inputargs[1])
+            exc_cls   = clrepr(block.inputargs[0])
+            exc_value = clrepr(block.inputargs[1])
             yield "(something-like-throw-exception %s %s)" % (exc_cls, exc_value)
         else:
-            retval = repr_var(block.inputargs[0])
+            retval = clrepr(block.inputargs[0])
             yield "(return %s)" % retval
 
     def format_jump(self, block):
@@ -356,7 +358,7 @@ class GenCL:
 
     def emit_link(self, link):
         source = map(self.check_declaration, link.args)
-        target = map(repr_var, link.target.inputargs)
+        target = map(clrepr, link.target.inputargs)
         couples = [ "%s %s" % (t, s) for (s, t) in zip(source, target)]
         couples = " ".join(couples)
         yield "(setf %s)" % (couples,)

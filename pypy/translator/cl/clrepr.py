@@ -1,9 +1,34 @@
-import types
-
 from pypy.objspace.flow.model import Constant, Variable, Atom
 from pypy.rpython.rmodel import HalfConcreteWrapper
-from pypy.rpython.ootypesystem.ootype import List, Record, Instance, instance_impl, _class, _static_meth
+from pypy.rpython.ootypesystem.ootype import List, Record, Instance
+from pypy.rpython.ootypesystem.ootype import Signed, Unsigned, Float, Char
+from pypy.rpython.ootypesystem.ootype import Bool, Void, UniChar, Class
+from pypy.rpython.ootypesystem.ootype import StaticMethod, Meth, typeOf
 from pypy.rpython.ootypesystem.rclass import CLASSTYPE
+
+def clrepr(item):
+    if isinstance(item, str):
+        if len(item) == 1:
+            return "#\\" + item
+        return repr_fun_name(item)
+    if isinstance(item, bool):
+        if item: 
+            return "t"
+        else:
+            return "nil"
+    if isinstance(item, (int, long, float)):
+        return str(item)
+    if isinstance(item, (list, tuple)):
+        return "'(" + ' '.join(item) + ")"
+    if isinstance(item, Variable):
+        return repr_var(item)
+    if isinstance(item, Constant):
+        return repr_const(item)
+    if isinstance(item, Instance):
+        return "'" + repr_class_name(item._name)
+    if typeOf(item) is Class:
+        return "'" + item._INSTANCE._name
+    return repr_unknown(item)
 
 def repr_unknown(obj):
     name = obj.__class__.__name__
@@ -21,55 +46,47 @@ def repr_class_name(name):
 def repr_fun_name(name):
     return name.replace('_', '-')
 
-def repr_const(val):
-    if isinstance(val, HalfConcreteWrapper):
-        val = val.concretize().value
-        return repr_const(val)
-    if isinstance(val, Atom):
+def repr_const(item):
+    if isinstance(item.value, HalfConcreteWrapper):
+        item = item.concretize()
+
+    if isinstance(item.concretetype, Atom):
         return repr_atom(val)
-    if isinstance(val, List):
-        return "'array"
-    if isinstance(val, Record):
-        return "'struct" # XXX
-    if isinstance(val, Instance):
-        return "'" + repr_class_name(val._name)
-    if isinstance(val, _class):
-        return "'" + repr_class_name(val._INSTANCE._name)
-    if isinstance(val, types.FunctionType):
-        if val.func_name == 'dum_nocheck': # XXX
-            return "'dummy"
-    if isinstance(val, _static_meth):
-        return repr_fun_name(val._name) # XXX make sure function names are unique
-    if isinstance(val, tuple):
-        val = map(repr_const, val)
-        return "'(%s)" % ' '.join(val)
-    if isinstance(val, list):
-        val = map(repr_const, val)
+
+    if isinstance(item.concretetype, List):
+        val = map(repr_const, item.value)
         return "#(%s)" % ' '.join(val)
-    if isinstance(val, bool): # should precede int
-        if val:
+
+    if isinstance(item.concretetype, Record):
+        val = map(repr_const, item.value)
+        return "'(%s)" % ' '.join(val)
+
+    if isinstance(item.concretetype, Instance):
+        return "'" + repr_class_name(item.value._name)
+
+    if item.concretetype is Class:
+        return "'" + repr_class_name(item.value._INSTANCE._name)
+
+    if item.concretetype is Void:
+        return "nil"
+
+    if isinstance(item.concretetype, StaticMethod):
+        return repr_fun_name(item.value._name)
+
+    if item.concretetype is Bool: # should precede int
+        if item.value:
             return "t"
         else:
             return "nil"
-    if isinstance(val, (int, long)):
-        return str(val)
-    if isinstance(val, float):
-        return str(val)
-    if val is None:
-        return "nil"
-    if isinstance(val, str):
-        if len(val) == 1:
-            return "#\%c" % (val,)
-        else:
-            val.replace("\\", "\\\\")
-            val.replace("\"", "\\\"")
-            val = '"' + val + '"'
-            return val
-    return repr_unknown(val)
 
-def repr_arg(arg):
-    if isinstance(arg, Variable):
-        return repr_var(arg)
-    if isinstance(arg, Constant):
-        return repr_const(arg.value)
-    return repr_unknown(arg)
+    if item.concretetype is Signed or item.concretetype is Unsigned:
+        #, long)): Not yet real longs
+        return str(item.value)
+
+    if item.concretetype is Float:
+        return str(item.value)
+
+    if item.value is None:
+        return "nil"
+
+    return repr_unknown(item)
