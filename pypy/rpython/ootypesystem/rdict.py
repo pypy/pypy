@@ -135,6 +135,28 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return self.send_message(hop, 'll_clear')
 
+    def convert_const(self, dictobj):
+        if dictobj is None:
+            return lltype.nullptr(self.DICT)
+        if not isinstance(dictobj, dict):
+            raise TyperError("expected a dict: %r" % (dictobj,))
+        try:
+            key = Constant(dictobj)
+            return self.dict_cache[key]
+        except KeyError:
+            self.setup()
+            l_dict = ll_newdict(self.DICT)
+            self.dict_cache[key] = l_dict 
+            r_key = self.key_repr
+            r_value = self.value_repr
+
+            # XXX need handling of r_dict here
+            for dictkey, dictvalue in dictobj.items():
+                llkey = r_key.convert_const(dictkey)
+                llvalue = r_value.convert_const(dictvalue)
+                l_dict.ll_set(llkey, llvalue)
+            return l_dict
+
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
 
     def rtype_getitem((r_dict, r_key), hop):
