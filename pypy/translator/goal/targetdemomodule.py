@@ -9,13 +9,16 @@ Module.appleveldefs.clear()   # XXX! for now
 module = Module(space, space.wrap('_demo'))
 w_moduledict = module.getdict()
 
-def getdict():
-    return w_moduledict
+def __init__(mod):
+    w_mod = CPyObjSpace.W_Object(mod)
+    w_dict = space.getattr(w_mod, space.wrap('__dict__'))
+    space.call_method(w_dict, 'update', w_moduledict)
+__init__.allow_someobjects = True
 
 # _____ Define and setup target ___
 
 def target(*args):
-    return getdict, [], CPyAnnotatorPolicy(space)
+    return __init__, [object], CPyAnnotatorPolicy(space)
 
 
 if __name__ == '__main__':
