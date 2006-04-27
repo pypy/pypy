@@ -9,12 +9,33 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert code == result
 
-    def test_pickle_func(self):
+    def test_pickle_global_func(self):
+        import new
+        mod = new.module('mod')
+        import sys
+        sys.modules['mod'] = mod
+        def func():
+            return 42
+        mod.__dict__['func'] = func
+        func.__module__ = 'mod'
+        import pickle
+        pckl = pickle.dumps(func)
+        result = pickle.loads(pckl)
+        assert func is result
+        del sys.modules['mod']
+
+    def test_pickle_builtin_func(self):
+        import pickle
+        pckl = pickle.dumps(map)
+        result = pickle.loads(pckl)
+        assert map is result
+
+    def test_pickle_nested_func(self):
         skip("work in progress")
         def func():
             return 42
         import pickle
-        pckl = pickle.dumps(func)
+        pckl   = pickle.dumps(func)
         result = pickle.loads(pckl)
         assert func == result
         
