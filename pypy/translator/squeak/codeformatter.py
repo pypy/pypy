@@ -96,7 +96,7 @@ class CodeFormatter:
     def name_constant(self, value):
         if isinstance(value, bool):
             return str(value).lower()
-        elif isinstance(value, ootype.Instance):
+        elif isinstance(value, (ootype.Instance, ootype.Record)):
             return self.format_Instance(value)
         elif value is None:
             return "nil"

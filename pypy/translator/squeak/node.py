@@ -4,7 +4,7 @@ from pypy.translator.backendopt.removenoops import remove_unaryops
 from pypy.translator.squeak.opformatter import OpFormatter
 from pypy.translator.squeak.codeformatter import CodeFormatter, Message
 from pypy.translator.squeak.codeformatter import Field, Assignment, CustomVariable
-from pypy.rpython.ootypesystem.ootype import Instance, Class, ROOT, _view
+from pypy.rpython.ootypesystem.ootype import Instance, Class, Record, ROOT, _view
 from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast
 
 class CodeNode:
@@ -31,11 +31,15 @@ class ClassNode(CodeNode):
             self.class_vars = class_vars
         self.host_base = host_base
         self.hash_key = INSTANCE
+        # We can treat Instances and Records uniformly, this looks
+        # slightly hackish but just works.
+        if isinstance(INSTANCE, Record): 
+            self.host_base = "Object"
 
     def dependencies(self):
         deps = []
-        if self.INSTANCE._superclass is not None \
-                and self.host_base is None: # not root
+        if self.host_base is None \
+                and self.INSTANCE._superclass is not None: # not root or record
             deps.append(ClassNode(self.gen, self.INSTANCE._superclass))
         return deps
 

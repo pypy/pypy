@@ -1,6 +1,7 @@
 from pypy.translator.gensupp import NameManager
 from pypy.translator.squeak.node import FunctionNode, ClassNode, SetupNode
 from pypy.translator.squeak.node import MethodNode, SetterNode, GetterNode
+from pypy.rpython.ootypesystem.ootype import Record
 try:
     set
 except NameError:
@@ -71,8 +72,11 @@ class GenSqueak:
         return squeak_method_name
         
     def unique_class_name(self, INSTANCE):
-        self.schedule_node(ClassNode(self, INSTANCE))
-        class_name = INSTANCE._name.split(".")[-1]
+        class_node = self.schedule_node(ClassNode(self, INSTANCE))
+        if isinstance(INSTANCE, Record): # XXX quick hack
+            class_name = "Record"
+        else:
+            class_name = INSTANCE._name.split(".")[-1]
         squeak_class_name = self.unique_name(INSTANCE, class_name)
         return "Py%s" % squeak_class_name
 
