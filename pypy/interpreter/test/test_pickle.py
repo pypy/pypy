@@ -1,5 +1,17 @@
 class AppTestInterpObjectPickling:
- 
+
+    def test_pickle_code(self):
+        import pickle
+        def f():
+            return 42
+        code = f.func_code
+        pckl = pickle.dumps(code)
+        result = pickle.loads(pckl)
+        assert code == result
+
+    def DONTtest_pickle_func(self):
+        pass
+    
     def test_pickle_cell(self):
         import pickle       
         def g():
@@ -14,6 +26,42 @@ class AppTestInterpObjectPickling:
         assert cell == result
         assert not (cell != result)
 
+    def DONTtest_pickle_frame(self):
+        pass
+
+    def DONTtest_pickle_traceback(self):
+        pass
+
+    def DONTtest_pickle_module(self):
+        pass
+
+    def DONTtest_pickle_moduledict(self):
+        pass
+
+    def DONTtest_pickle_iter(self):
+        pass
+
+    def DONTtest_pickle_method(self):
+        pass
+
+    def DONTtest_pickle_dictiter(self):
+        pass
+
+    def DONTtest_pickle_enum(self):
+        pass
+
+    def DONTtest_pickle_enumfactory(self):
+        pass
+
+    def DONTtest_pickle_listiter(self):
+        pass
+
+    def DONTtest_pickle_rangeiter(self):
+        pass
+
+    def DONTtest_pickle_tupleiter(self):
+        pass
+
     #def test_pickle_generator(self):
     #    import pickle        
     #    def giveme(n):
@@ -22,28 +70,3 @@ class AppTestInterpObjectPickling:
     #            yield x
     #    generator = giveme(10)
     #    print pickle.dumps(generator)
-    
-#TODO: test pickling of code objects
-#TODO: test pickling of function objects
-#TODO: test pickling of frame objects
-#TODO: test pickling of tracebacks
-#TODO: test pickling of modules
-
-'''
-etc. etc. etc.
-init_codetype()
-init_functype()
-init_celltype()
-init_frametype()
-init_tracebacktype()
-init_moduletype()
-init_moduledicttype()
-init_itertype()
-init_methodtype()
-init_dictitertype()
-init_enumtype()
-init_enumfactorytype()
-init_listitertype()
-init_rangeitertype()
-init_tupleitertype()
-'''

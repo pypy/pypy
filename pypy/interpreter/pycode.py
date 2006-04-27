@@ -10,6 +10,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
+from pypy.interpreter.mixedmodule import MixedModule
 
 # helper
 
@@ -380,3 +381,26 @@ class PyCode(eval.Code):
         return space.wrap(code)
     descr_code__new__.unwrap_spec = unwrap_spec 
 
+    def descr__reduce__(self, space):
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('code_new')
+        w        = space.wrap
+        tup      = [
+            w(self.co_argcount), 
+            w(self.co_nlocals), 
+            w(self.co_stacksize), 
+            w(self.co_flags),
+            w(self.co_code), 
+            space.newtuple(self.co_consts_w), 
+            space.newtuple(self.co_names_w), 
+            space.newtuple([w(v) for v in self.co_varnames]), 
+            w(self.co_filename),
+            w(self.co_name), 
+            w(self.co_firstlineno),
+            w(self.co_lnotab), 
+            space.newtuple([w(v) for v in self.co_freevars]),
+            space.newtuple([w(v) for v in self.co_cellvars]),
+            #hidden_applevel=False, magic = 62061 | 0x0a0d0000
+        ]
+        return space.newtuple([new_inst, space.newtuple(tup)])

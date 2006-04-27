@@ -38,11 +38,12 @@ class Cell(Wrappable):
     def descr__reduce__(self, space):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
-        cell_new = mod.get('cell_new')
+        new_inst = mod.get('cell_new')
         if self.w_value is None:    #when would this happen?
-            return space.newtuple([cell_new, space.newtuple([])])
-        return space.newtuple([cell_new, space.newtuple([]),
-            space.newtuple([self.w_value])])
+            return space.newtuple([new_inst, space.newtuple([])])
+        tup = [self.w_value]
+        return space.newtuple([new_inst, space.newtuple([]),
+                               space.newtuple(tup)])
 
     def descr__setstate__(self, space, w_state):
         self.w_value = space.getitem(w_state, space.wrap(0))
