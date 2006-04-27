@@ -1,6 +1,7 @@
 import types
 
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.objspace.flow.model import Constant, Variable, Atom
+from pypy.rpython.rmodel import HalfConcreteWrapper
 from pypy.rpython.ootypesystem.ootype import List, Record, Instance, instance_impl, _static_meth
 from pypy.rpython.ootypesystem.rclass import CLASSTYPE
 
@@ -10,7 +11,10 @@ def repr_unknown(obj):
 
 def repr_var(var):
     return var.name
-    
+
+def repr_atom(atom):
+    return "'" + str(atom)
+
 def repr_class_name(name):
     return name.replace('_', '-')
 
@@ -18,6 +22,11 @@ def repr_fun_name(name):
     return name.replace('_', '-')
 
 def repr_const(val):
+    if isinstance(val, HalfConcreteWrapper):
+        val = val.concretize().value
+        return repr_const(val)
+    if isinstance(val, Atom):
+        return repr_atom(val)
     if isinstance(val, List):
         return "'array"
     if isinstance(val, Record):

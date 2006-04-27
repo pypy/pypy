@@ -11,7 +11,7 @@ def test_call():
     assert cl_add_one(1) == 2
 
 def test_indirect_call():
-    py.test.skip("fails with HalfConcreteWrapper")
+    py.test.skip("needs exception handling")
     def id(n):
         return n
     def square(n):
