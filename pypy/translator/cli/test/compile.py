@@ -26,8 +26,8 @@ def check(f, g, *args):
 
 
 def bar(x, y):
-    d = {x: y}
-    return d[x]
+    a = [x] + [y]
+    return a[0]
 
 f = compile_function(bar, [int, int])
 

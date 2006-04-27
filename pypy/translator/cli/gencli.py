@@ -45,7 +45,8 @@ class GenCli(object):
         
         # TODO: instance methods that are also called as unbound
         # methods are rendered twice, once within the class and once
-        # as an external function. Fix this.        
+        # as an external function. Fix this.
+        self.fix_names()
         self.gen_entrypoint()
         self.gen_pendings()
         self.db.gen_constants(self.ilasm)
@@ -65,4 +66,11 @@ class GenCli(object):
             node = self.db._pending_nodes.pop()
             node.render(self.ilasm)
 
-
+    def fix_names(self):
+        # it could happen that two distinct graph have the same name;
+        # here we assign an unique name to each graph.
+        names = set()
+        for graph in self.translator.graphs:
+            while graph.name in names:
+                graph.name += '_'
+            names.add(graph.name)

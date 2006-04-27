@@ -47,7 +47,7 @@ class Function(Node, Generator):
         return (not block.exits) and len(block.inputargs) == 2        
 
     def render(self, ilasm):
-        if self.db.function_name(self.graph) is not None and not self.is_method:
+        if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
 
         self.ilasm = ilasm
@@ -255,9 +255,10 @@ class Function(Node, Generator):
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
 
-    def call(self, graph, func_name):
+    def call_graph(self, graph):
         self.db.pending_function(graph)
-        self.ilasm.call(func_name)
+        func_sig = self.function_signature(graph)        
+        self.ilasm.call(func_sig)
 
     def call_signature(self, signature):
         self.ilasm.call(signature)

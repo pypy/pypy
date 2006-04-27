@@ -38,7 +38,7 @@ class LowLevelDatabase(object):
     def record_class(self, classdef, name):
         self.classes[classdef] = name
 
-    def function_name(self, graph):
+    def graph_name(self, graph):
         return self.functions.get(graph, None)
 
     def class_name(self, classdef):

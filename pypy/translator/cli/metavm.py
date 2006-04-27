@@ -63,10 +63,10 @@ class _Call(MicroInstruction):
             self._render_method(generator, method_name, op.args[1:])
 
     def _render_function(self, generator, graph, args):
-        func_sig = generator.function_signature(graph)
+        #func_sig = generator.function_signature(graph)
         for func_arg in args[1:]: # push parameters
             generator.load(func_arg)
-        generator.call(graph, func_sig)
+        generator.call_graph(graph)
 
     def _render_method(self, generator, method_name, args):
         this = args[0]
