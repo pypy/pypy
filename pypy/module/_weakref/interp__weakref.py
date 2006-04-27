@@ -208,7 +208,7 @@ W_Proxy.typedef = TypeDef("weakproxy",
     __new__ = interp2app(descr__new__proxy),
     __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
     **proxy_typedef_dict)
-W_Proxy.typedef.accepable_as_base_class = False
+W_Proxy.typedef.acceptable_as_base_class = False
 
 W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __new__ = interp2app(descr__new__callableproxy),
@@ -216,5 +216,5 @@ W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __call__ = interp2app(W_CallableProxy.descr__call__,
                           unwrap_spec=['self', ObjSpace, Arguments]), 
     **callable_proxy_typedef_dict)
-W_CallableProxy.typedef.accepable_as_base_class = False
+W_CallableProxy.typedef.acceptable_as_base_class = False
 

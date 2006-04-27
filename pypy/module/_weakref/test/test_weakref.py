@@ -166,3 +166,11 @@ class AppTestProxy(object):
         a = A()
         p = _weakref.proxy(a)
         raises(TypeError, hash, p)
+
+    def test_subclassing_not_allowed(self):
+        import _weakref
+        def tryit():
+            class A(_weakref.ProxyType):
+                pass
+            return A
+        raises(TypeError, tryit)
