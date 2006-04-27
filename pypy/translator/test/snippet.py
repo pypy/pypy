@@ -41,7 +41,7 @@ def my_contains(seq=seqtype, elem=anytype):
     return elem in seq
 
 def is_one_or_two(n=int):
-    return n in (1, 2)
+    return n in [1, 2]
 
 def two_plus_two():
     """Array test"""

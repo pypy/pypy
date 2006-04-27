@@ -58,7 +58,6 @@ def test_bool():
     assert cl_bool(True) == True
 
 def test_contains():
-    py.test.skip("fails for obscure dict-related reasons")
     def contains_int(num):
         return t.my_contains([1,2,3], num)
     my_contains = make_cl_func(contains_int, [int])
