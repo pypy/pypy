@@ -207,7 +207,7 @@ def gethostbyaddr(space, name):
         raise  w_get_socketherror(space, None, _c.h_errno.value)
     p_addr = hostent.contents.h_addr_list[0]
 
-    hostent = _c.gethostbyaddr(p_addr, _c.in_addr, _c.AF_INET)
+    hostent = _c.gethostbyaddr(p_addr, _c.in_addr_size, _c.AF_INET)
     return common_gethost(space, hostent)
 gethostbyaddr.unwrap_spec = [ObjSpace, str]
 
