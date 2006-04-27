@@ -24,7 +24,7 @@ In no particular order:
   modules.
 
 * A research project: experiment with optimizations in PyPy, e.g. by trying
-  various data structures for dicts or other built-in objects, by switching
+  various **data structures** for dicts or other built-in objects, by switching
   between data structures at run-time, comparing results for different
   applications, etc.  This should produce experimental results (mostly
   timings, memory usage trade-offs) as much as code.
