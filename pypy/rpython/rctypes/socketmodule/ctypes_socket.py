@@ -341,3 +341,7 @@ getprotobyname.restype = POINTER(cConfig.protoent)
 fcntl = socketdll.fcntl
 fcntl.argtypes = [c_int] * 3
 fcntl.restype = c_int
+
+memcpy = socketdll.memcpy
+memcpy.argtypes = [c_void_p, c_void_p, size_t]
+memcpy.restype = c_void_p
