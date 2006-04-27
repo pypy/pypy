@@ -15,6 +15,9 @@ In no particular order:
   developpers, and it is now the best path to write extension modules that are
   compatible with both CPython and PyPy.  See for example
   http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  
+  (This is not documented so far; for an example on which we are working now,
+  look at the socket module at
+  http://codespeak.net/svn/pypy/dist/pypy/module/_socket/).
 
 * A related idea is to provide efficient numeric arrays (as in
   numeric/numpy/numarray) in this way, or `recreate them as builtins`_.
@@ -22,7 +25,9 @@ In no particular order:
 * Start a back-end for a new target platform, e.g. for the **Java** virtual
   machine.  This would be a path to bring PyPy and Jython closer and help
   support Jython's effort to keep up-to-date, in particular with extension
-  modules.
+  modules.  Other back-ends that we are already working on are for Squeak,
+  Microsoft's CLI, and Common Lisp; look for ``squeak``, ``cli`` and ``cl``
+  in http://codespeak.net/svn/pypy/dist/pypy/translator.
 
 * A research project: experiment with optimizations in PyPy, e.g. by trying
   various **data structures** for dicts or other built-in objects, by switching
@@ -37,13 +42,15 @@ In no particular order:
 * Write **new object spaces** adding features like transparent or
   semi-transparent distribution of a program across several machines, and/or
   persistence (pickling of program state).
+  Read more about `object spaces`_...
 
 * Write an interpreter for **another dynamic language** in the PyPy framework.
   For example, a Javascript interpreter would be suitable.  Ruby too (though
   the latter is probably more than two months of work).  Or Scheme, or... etc.
 
 * A different kind of project: work on **py.test** to add features like
-  distributed testing, automatic reports, etc.
+  distributed testing, automatic reports, etc.  The py.test tool is part of
+  the `py lib`_, on which many PyPy developers work.
 
 * Constraint programming: `efficient propagators for specialized
   finite domains`_ (like numbers, sets, intervals).
@@ -57,11 +64,13 @@ Note: currently it is a bit difficult for us to identify nice independent
 sub-tasks in the context of the JIT compiler of PyPy...
 
 Feel free to mention your interest and discuss these ideas on the `pypy-dev
-mailing list`_.
+mailing list`_.  You can also have a look around our documentation_.
 
 
 .. _`efficient propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/constraints.txt
 .. _`recreate them as builtins`: http://codespeak.net/svn/pypy/extradoc/soc-2006/numeric-arrays.txt
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
-
+.. _`object spaces`: objspace.html
+.. _`py lib`: http://codespeak.net/py/
+.. _documentation: index.html
