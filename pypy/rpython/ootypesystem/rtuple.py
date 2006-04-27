@@ -1,6 +1,5 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
-from pypy.rpython.ootypesystem.riterable import iterator_type
 from pypy.rpython.ootypesystem import ootype
 
 
@@ -67,7 +66,8 @@ class Length1TupleIteratorRepr(AbstractTupleIteratorRepr):
 
     def __init__(self, r_tuple):
         self.r_tuple = r_tuple
-        self.lowleveltype = iterator_type(r_tuple)
+        self.lowleveltype = ootype.Record(
+                {"iterable": r_tuple.lowleveltype, "index": ootype.Signed})
         self.ll_tupleiter = ll_tupleiter
         self.ll_tuplenext = ll_tuplenext
 
