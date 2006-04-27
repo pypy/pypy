@@ -91,6 +91,23 @@ class AppTestWeakref(object):
         wref1 = wref(a)
         assert isinstance(wref1, wref)
 
+    def test_weakref_equality(self):
+        import _weakref
+        class A:
+            def __eq__(self, other):
+                return True
+        a1 = A()
+        a2 = A()
+        ref1 = _weakref.ref(a1)
+        ref2 = _weakref.ref(a2)
+        assert ref1 == ref2
+        del a1
+        assert not ref1 == ref2
+        assert ref1 != ref2
+        del a2
+        assert not ref1 == ref2
+        assert ref1 != ref2
+
     def test_getweakrefs(self):
         import _weakref
         class A:

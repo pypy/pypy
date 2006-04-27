@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.rpython.objectmodel import cast_address_to_object, cast_object_to_address
 from pypy.rpython.lltypesystem.llmemory import NULL
 
@@ -80,9 +80,20 @@ def descr__new__(space, w_subtype, w_obj, w_callable=None):
         w_obj.__lifeline__ = WeakrefLifeline()
     return w_obj.__lifeline__.get_weakref(space, w_subtype, w_obj, w_callable)
 
+def descr__eq__(space, ref1, ref2):
+    if ref1.address == NULL or ref2.address == NULL:
+        return space.is_(ref1, ref2)
+    return space.eq(ref1.descr__call__(), ref2.descr__call__())
+
+def descr__ne__(space, ref1, ref2):
+    return space.not_(space.eq(ref1, ref2))
 
 W_Weakref.typedef = TypeDef("weakref",
     __new__ = interp2app(descr__new__),
+    __eq__ = interp2app(descr__eq__,
+                        unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
+    __ne__ = interp2app(descr__ne__,
+                        unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
     __call__ = interp2app(W_Weakref.descr__call__, unwrap_spec=['self'])
 )
 
