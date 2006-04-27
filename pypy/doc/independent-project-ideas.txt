@@ -16,8 +16,8 @@ In no particular order:
   compatible with both CPython and PyPy.  See for example
   http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  
 
-* A related idea is to provide `efficient numeric arrays`_ (as in
-  numeric/numpy/numarray) in this way.
+* A related idea is to provide efficient numeric arrays (as in
+  numeric/numpy/numarray) in this way, or `recreate them as builtins`_.
 
 * Start a back-end for a new target platform, e.g. for the **Java** virtual
   machine.  This would be a path to bring PyPy and Jython closer and help
@@ -61,7 +61,7 @@ mailing list`_.
 
 
 .. _`efficient propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/constraints.txt
-.. _`efficient numeric arrays`: http://codespeak.net/svn/pypy/extradoc/soc-2006/numeric-arrays.txt
+.. _`recreate them as builtins`: http://codespeak.net/svn/pypy/extradoc/soc-2006/numeric-arrays.txt
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 
