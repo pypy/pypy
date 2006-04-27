@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyopcode import PyInterpFrame
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.mixedmodule import MixedModule
 
 class Cell(Wrappable):
     "A simple container for a wrapped value."
@@ -35,7 +36,9 @@ class Cell(Wrappable):
         return space.eq(self.w_value, other.w_value)    
         
     def descr__reduce__(self, space):
-        cell_new = space.getbuiltinmodule('_pickle_support').get('cell_new')
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        cell_new = mod.get('cell_new')
         if self.w_value is None:    #when would this happen?
             return space.newtuple([cell_new, space.newtuple([])])
         return space.newtuple([cell_new, space.newtuple([]),
