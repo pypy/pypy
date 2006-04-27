@@ -7,6 +7,18 @@ from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Reco
 from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
+class InsertionOrderedDict(dict):
+    def __init__(self):
+        super(InsertionOrderedDict, self).__init__()
+        self.ordered_keys = []
+
+    def __setitem__(self, key, val):
+        super(InsertionOrderedDict, self).__setitem__(key, val)
+        if key not in self.ordered_keys:
+            self.ordered_keys.append(key)
+
+    def values(self):
+        return [self[key] for key in self.ordered_keys]
 
 class Op:
 
@@ -20,7 +32,7 @@ class Op:
     def __iter__(self):
         method = getattr(self, "op_" + self.opname)
         result = repr_arg(self.result)
-        args = map(self.gen.repr_arg, self.args)
+        args = map(self.gen.check_declaration, self.args)
         for line in method(result, *args):
             yield line
 
@@ -106,7 +118,7 @@ class Op:
             self.gen.pendinggraphs.append(methodobj)
             name = repr_fun_name(method)
             selfvar = repr_var(receiver)
-            args = map(self.gen.repr_arg, args)
+            args = map(self.gen.check_declaration, args)
             args = " ".join(args)
             if args:
                 yield "(setf %s (%s %s %s))" % (result, name, selfvar, args)
@@ -156,11 +168,11 @@ class GenCL:
         self.context = context
         self.entry_point = funobj
         self.pendinggraphs = [funobj]
-        self.declarations = []
+        self.declarations = InsertionOrderedDict()
         self.constcount = 0
         self.structcount = 0
 
-    def repr_arg(self, arg):
+    def check_declaration(self, arg):
         if isinstance(arg, Constant):
             if isinstance(arg.concretetype, Instance):
                 return self.declare_constant_instance(arg)
@@ -172,7 +184,7 @@ class GenCL:
         field_declaration = cls._fields.keys()
         field_declaration = " ".join(field_declaration)
         struct_declaration = "(defstruct %s %s)" % (name, field_declaration)
-        self.declarations.append(struct_declaration)
+        self.declarations[name] = struct_declaration
         self.structcount += 1
         return name
 
@@ -187,8 +199,7 @@ class GenCL:
             self.declare_class(cls._superclass)
             supername = repr_class_name(cls._superclass._name)
             class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
-        if class_declaration not in self.declarations:
-            self.declarations.append(class_declaration)
+        self.declarations[name] = class_declaration
 
     def declare_constant_instance(self, const):
         # const.concretetype is Instance
@@ -207,7 +218,7 @@ class GenCL:
             fieldvaluerepr = repr_const(getattr(inst, fieldname))
             const_declaration.append("(setf (slot-value %s '%s) %s)" % (name, fieldname, fieldvaluerepr))
         const_declaration = "\n".join(const_declaration)
-        self.declarations.append(const_declaration)
+        self.declarations[const] = const_declaration
         self.constcount += 1
         return name
 
@@ -220,7 +231,7 @@ class GenCL:
 
     def emitcode(self):
         lines = list(self.emit())
-        declarations = "\n".join(self.declarations)
+        declarations = "\n".join(self.declarations.values())
         code = "\n".join(lines)
         if declarations:
             return declarations + "\n" + code + "\n"
@@ -344,7 +355,7 @@ class GenCL:
         return "(go tag" + str(tag) + ")"
 
     def emit_link(self, link):
-        source = map(self.repr_arg, link.args)
+        source = map(self.check_declaration, link.args)
         target = map(repr_var, link.target.inputargs)
         couples = [ "%s %s" % (t, s) for (s, t) in zip(source, target)]
         couples = " ".join(couples)
