@@ -37,10 +37,12 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
     bk = rtyper.annotator.bookkeeper
     if not exports:
         exports = []
-    all = [obj.__name__ for obj in exports]
+    all = [obj.__name__ for obj in exports if obj.__name__ != '__init__']
     exports = exports + [('__all__', all)]
 
     ann.build_types(func, get_annotation(func))
+
+    pyobj_options = {}
 
     for obj in exports:
         if isinstance(obj, type):
@@ -50,6 +52,8 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
             if not ann.bookkeeper.getdesc(obj).querycallfamily():
                 # not annotated, so enforce it
                 ann.build_types(obj, get_annotation(obj))
+            if obj.__name__ == '__init__':
+                pyobj_options['use_true_methods'] = True
 
     if view:
         t.viewcg()
@@ -68,9 +72,6 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
 
     cbuilder = CExtModuleBuilder(t, func, gcpolicy=gcpolicy)
     # explicit build of database
-    pyobj_options = {
-        'use_true_methods': '__init__' in exports
-        }
     db = cbuilder.build_database(exports=exports, pyobj_options=pyobj_options)
     cbuilder.generate_source(db)
     if view:

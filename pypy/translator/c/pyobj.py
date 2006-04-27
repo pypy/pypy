@@ -577,7 +577,8 @@ class PyObjMaker:
                         if ann.binding(graph.getargs()[0]).classdef is not clsdef:
                             value = new_method_graph(graph, clsdef, fname, self.translator)
                     self.name_for_meth[value] = fname
-                    self.is_method[value] = self.use_true_methods
+                    if self.use_true_methods:
+                        self.is_method[value] = True
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
             if not init_seen:
                 log.WARNING('No __init__ found for %s - you cannot build instances' %
