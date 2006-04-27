@@ -78,6 +78,19 @@ class AppTestWeakref(object):
         del a
         assert alive.a is None
 
+    def test_weakref_reusing(self):
+        import _weakref
+        class A:
+            pass
+        a = A()
+        ref1 = _weakref.ref(a)
+        ref2 = _weakref.ref(a)
+        assert ref1 is ref2
+        class wref(_weakref.ref):
+            pass
+        wref1 = wref(a)
+        assert isinstance(wref1, wref)
+
     def test_getweakrefs(self):
         import _weakref
         class A:

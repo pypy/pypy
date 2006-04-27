@@ -24,7 +24,6 @@ class W_Weakref(Wrappable):
         w_self.address = NULL
 
     def activate_callback(w_self):
-        import os
         if not w_self.space.is_w(w_self.w_callable, w_self.space.w_None):
             try:
                 w_self.space.call_function(w_self.w_callable, w_self)
@@ -40,6 +39,7 @@ class W_Weakref(Wrappable):
 class WeakrefLifeline(object):
     def __init__(self):
         self.addr_refs = []
+        self.w_cached_weakref = None
         
     def __del__(self):
         for i in range(len(self.addr_refs) - 1, -1, -1):
@@ -54,10 +54,18 @@ class WeakrefLifeline(object):
                 w_ref.activate_callback()
     
     def get_weakref(self, space, w_subtype, w_obj, w_callable):
+        w_weakreftype = space.gettypeobject(W_Weakref.typedef)
+        is_weakreftype = space.is_w(w_weakreftype, w_subtype)
+        can_reuse = space.is_w(w_callable, space.w_None)
+        if is_weakreftype and can_reuse and self.w_cached_weakref is not None:
+            return self.w_cached_weakref
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
-        W_Weakref.__init__(w_ref, space, self, len(self.addr_refs),
+        index = len(self.addr_refs)
+        W_Weakref.__init__(w_ref, space, self, index,
                            w_obj, w_callable)
         self.addr_refs.append(cast_object_to_address(w_ref))
+        if is_weakreftype and can_reuse:
+            self.w_cached_weakref = w_ref
         return w_ref
 
     def ref_is_dead(self, index):
