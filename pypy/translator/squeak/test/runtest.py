@@ -4,6 +4,7 @@ from pypy.tool.udir import udir
 from pypy.translator.squeak.gensqueak import GenSqueak, camel_case
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
+from pypy.translator.squeak import conftest as sqconftest
 
 def compile_function(func, annotation=[], graph=None):
     return SqueakFunction(func, annotation, graph)
@@ -93,7 +94,7 @@ class SqueakFunction:
         # NB: only integers arguments are supported currently
         startup_st = self._write_startup()
         options = "-headless"
-        if hasattr(conftest, "showsqueak") and conftest.option.showsqueak:
+        if sqconftest.option.showsqueak:
             options = ""
         cmd = 'squeak %s -- %s %s "%s" %s' \
                 % (options, startup_st, udir.join(self._gen.filename),
