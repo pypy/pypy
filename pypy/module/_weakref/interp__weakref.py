@@ -71,6 +71,8 @@ class W_Weakref(Wrappable):
         w_self.index = index
 
     def dereference(self):
+        if self.address == NULL:
+            return self.space.w_None
         return cast_address_to_object(self.address, W_Weakrefable)
         
     def invalidate(w_self):
@@ -145,7 +147,9 @@ def getweakrefs(space, w_obj):
 # Proxy
 
 class W_Proxy(W_Weakref):
-    pass
+    def descr__hash__(self, space):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("unhashable type"))
 
 class W_CallableProxy(W_Proxy):
     def descr__call__(self, space, __args__):
@@ -173,6 +177,7 @@ def force(space, proxy):
     if not isinstance(proxy, W_Proxy):
         return proxy
     w_obj = proxy.dereference()
+    assert w_obj is not None
     if space.is_w(w_obj, space.w_None):
         raise OperationError(
             space.w_ReferenceError,
@@ -181,13 +186,13 @@ def force(space, proxy):
 
 proxy_typedef_dict = {}
 callable_proxy_typedef_dict = {}
-special_ops = {'repr': True}
+special_ops = {'repr': True, 'userdel': True, 'hash': True}
 
 for opname, _, arity, special_methods in ObjSpace.MethodTable:
     if opname in special_ops:
         continue
     nonspaceargs =  ", ".join(["w_obj%s" % i for i in range(arity)])
-    code = "def func(space, %s):\n" % (nonspaceargs, )
+    code = "def func(space, %s):\n    '''%s'''\n" % (nonspaceargs, opname)
     for i in range(arity):
         code += "    w_obj%s = force(space, w_obj%s)\n" % (i, i)
     code += "    return space.%s(%s)" % (opname, nonspaceargs)
@@ -201,11 +206,13 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
 
 W_Proxy.typedef = TypeDef("weakproxy",
     __new__ = interp2app(descr__new__proxy),
+    __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
     **proxy_typedef_dict)
 W_Proxy.typedef.accepable_as_base_class = False
 
 W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __new__ = interp2app(descr__new__callableproxy),
+    __hash__ = interp2app(W_Proxy.descr__hash__, unwrap_spec=['self', ObjSpace]),
     __call__ = interp2app(W_CallableProxy.descr__call__,
                           unwrap_spec=['self', ObjSpace, Arguments]), 
     **callable_proxy_typedef_dict)

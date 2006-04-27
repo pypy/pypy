@@ -159,3 +159,10 @@ class AppTestProxy(object):
         raises(TypeError, _weakref.ProxyType, [])
         raises(TypeError, _weakref.CallableProxyType, [])
 
+    def test_dont_hash(self):
+        import _weakref
+        class A(object):
+            pass
+        a = A()
+        p = _weakref.proxy(a)
+        raises(TypeError, hash, p)
