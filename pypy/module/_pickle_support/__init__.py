@@ -7,5 +7,6 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-	'cell_new': 'maker.cell_new'
+        'cell_new': 'maker.cell_new',
+        'code_new': 'maker.code_new',
     }
