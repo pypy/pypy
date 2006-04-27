@@ -175,13 +175,17 @@ class Function(Wrappable):
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('func_new')
         w        = space.wrap
+        if self.closure is None:
+            w_closure = space.w_None
+        else:
+            w_closure = space.newtuple([w(cell) for cell in self.closure])
         tup      = [
             w(self.code),
             #space.newdict([]), #XXX because pickle.py has no _pickle_moduledict yet...
             self.w_func_globals,
             w(self.name),
             space.newtuple(self.defs_w),
-            w(self.closure),
+            w_closure,
         ]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
