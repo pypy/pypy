@@ -153,3 +153,9 @@ class AppTestProxy(object):
         a_ = _weakref.proxy(a)
         a_()
         assert global_a.x == 1
+
+    def test_dont_create_directly(self):
+        import _weakref
+        raises(TypeError, _weakref.ProxyType, [])
+        raises(TypeError, _weakref.CallableProxyType, [])
+

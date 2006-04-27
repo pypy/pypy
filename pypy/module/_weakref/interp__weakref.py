@@ -159,10 +159,15 @@ def proxy(space, w_obj, w_callable=None):
     return w_obj.__lifeline__.get_proxy(space, w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):
-    assert isinstance(w_obj, W_Weakrefable)
-    if w_obj.__lifeline__ is None:
-        w_obj.__lifeline__ = WeakrefLifeline()
-    return w_obj.__lifeline__.get_proxy(space, w_subtype, w_obj, w_callable)
+    raise OperationError(
+        space.w_TypeError,
+        space.wrap("cannot create 'weakproxy' instances"))
+
+def descr__new__callableproxy(space, w_subtype, w_obj, w_callable=None):
+    raise OperationError(
+        space.w_TypeError,
+        space.wrap("cannot create 'weakcallableproxy' instances"))
+
 
 def force(space, proxy):
     if not isinstance(proxy, W_Proxy):
@@ -199,8 +204,8 @@ W_Proxy.typedef = TypeDef("weakproxy",
     **proxy_typedef_dict)
 W_Proxy.typedef.accepable_as_base_class = False
 
-W_CallableProxy.typedef = TypeDef("callableweakproxy",
-    __new__ = interp2app(descr__new__proxy),
+W_CallableProxy.typedef = TypeDef("weakcallableproxy",
+    __new__ = interp2app(descr__new__callableproxy),
     __call__ = interp2app(W_CallableProxy.descr__call__,
                           unwrap_spec=['self', ObjSpace, Arguments]), 
     **callable_proxy_typedef_dict)
