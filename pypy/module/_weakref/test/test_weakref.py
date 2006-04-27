@@ -117,3 +117,39 @@ class AppTestWeakref(object):
         assert _weakref.getweakrefs(None) == []
         ref1 = _weakref.ref(a)
         assert _weakref.getweakrefs(a) == [ref1]
+
+class AppTestProxy(object):
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('_weakref',))
+        cls.space = space
+                    
+    def test_simple(self):
+        import _weakref
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+        a = A(1)
+        p = _weakref.proxy(a)
+        assert p.x == 1
+        assert str(p) == str(a)
+        raises(TypeError, p)
+
+    def test_caching(self):
+        import _weakref
+        class A(object): pass
+        a = A()
+        assert _weakref.proxy(a) is _weakref.proxy(a)
+
+    def test_callable_proxy(self):
+        import _weakref
+        class A(object):
+            def __call__(self):
+                global_a.x = 1
+        global_a = A()
+        global_a.x = 41
+        A_ = _weakref.proxy(A)
+        a = A_()
+        assert isinstance(a, A)
+        a_ = _weakref.proxy(a)
+        a_()
+        assert global_a.x == 1

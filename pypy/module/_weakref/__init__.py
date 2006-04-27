@@ -8,4 +8,7 @@ class Module(MixedModule):
         'getweakrefcount': 'interp__weakref.getweakrefcount',
         'getweakrefs': 'interp__weakref.getweakrefs',
         'ReferenceType': 'interp__weakref.W_Weakref',
+        'ProxyType': 'interp__weakref.W_Proxy', 
+        'CallableProxyType': 'interp__weakref.W_Proxy',
+        'proxy': 'interp__weakref.proxy'
     }
