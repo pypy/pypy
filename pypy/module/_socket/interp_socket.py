@@ -4,8 +4,10 @@ from pypy.interpreter.baseobjspace import Wrappable, UnpackValueError
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, interp2app
+from pypy.interpreter import gateway
 from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c
 import ctypes
+from pypy.rpython.rctypes import implementation as rctypes_implemetation
 import errno
 
 IPV4_ADDRESS_SIZE = 4
@@ -122,7 +124,7 @@ def setipaddr(space, name, addr_ret, addr_ret_size, af):
     hints.ai_socktype = _c.SOCK_DGRAM
     hints.ai_flags = _c.AI_PASSIVE
     res = _c.addr_info_ptr
-    err = _c.getaddrinfo( None, "0", pointer(hints), pointer(res))
+    err = _c.getaddrinfo( None, "0", _c.pointer(hints), _c.pointer(res))
     if err:
         raise w_get_socketgaierror(space, None, err)
     if res.contents.ai_next:
@@ -205,7 +207,7 @@ def gethostbyaddr(space, name):
         raise  w_get_socketherror(space, None, _c.h_errno.value)
     p_addr = hostent.contents.h_addr_list[0]
 
-    hostent = _c.gethostbyaddr(p_addr, ctypes.sizeof(_c.in_addr), _c.AF_INET)
+    hostent = _c.gethostbyaddr(p_addr, _c.in_addr, _c.AF_INET)
     return common_gethost(space, hostent)
 gethostbyaddr.unwrap_spec = [ObjSpace, str]
 
@@ -221,7 +223,7 @@ def getservbyname(space, name, w_proto=NoneNotWrapped):
         proto = space.str_w(w_proto)
     servent_ptr = _c.getservbyname(name, proto)
     if not servent_ptr:
-        raise w_get_socketerror("service/port not found")
+        raise w_get_socketerror(space, "service/port not found")
     return space.wrap(_c.ntohs(servent_ptr.contents.s_port))
 getservbyname.unwrap_spec = [ObjSpace, str, W_Root]
 
@@ -237,7 +239,7 @@ def getservbyport(space, port, w_proto=NoneNotWrapped):
         proto = space.str_w(w_proto)
     servent_ptr = _c.getservbyport(_c.htons(port), proto)
     if not servent_ptr:
-        raise w_get_socketerror("port/proto not found")
+        raise w_get_socketerror(space, "port/proto not found")
     return space.wrap(servent_ptr.contents.s_name)
 getservbyport.unwrap_spec = [ObjSpace, int, W_Root]
 
@@ -248,7 +250,7 @@ def getprotobyname(space, name):
     """
     protoent_ptr = _c.getprotobyname(name)
     if not protoent_ptr:
-        raise w_get_socketerror('protocol not found')
+        raise w_get_socketerror(space, 'protocol not found')
     return space.wrap(protoent_ptr.contents.p_proto)
 
 getprotobyname.unwrap_spec = [ObjSpace, str]
@@ -262,7 +264,7 @@ def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
 
     newfd = _c.dup(fd)
     if newfd < 0:
-        raise w_get_socketerror(None, _c.errno.value)
+        raise w_get_socketerror(space, None, _c.errno.value)
     if w_proto is None:
         return space.wrap(Socket(space, newfd, family, type))
     else:
@@ -270,7 +272,7 @@ def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
         return space.wrap(Socket(space, newfd, family, type, proto))
 fromfd.unwrap_spec = [ObjSpace, int, int, int, W_Root]
 
-def socketpair(space, w_family=NoneNotWrapped, w_type=NoneNotWrapped, w_proto=NoneNotWrapped):
+def socketpair(space, w_family=NoneNotWrapped, w_sock_type=NoneNotWrapped, w_proto=NoneNotWrapped):
     """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
     Create a pair of socket objects from the sockets returned by the platform
@@ -278,20 +280,24 @@ def socketpair(space, w_family=NoneNotWrapped, w_type=NoneNotWrapped, w_proto=No
     The arguments are the same as for socket() except the default family is
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
-    try:
-        if w_family is None:
-            return space.wrap(socket.socketpair())
-        elif w_type is None:
-            return space.wrap(socket.socketpair(space.int_w(w_family)))
-        elif w_proto is None:
-            return space.wrap(socket.socketpair(space.int_w(w_family),
-                                                space.int_w(w_type)))
-        else:
-            return space.wrap(socket.socketpair(space.int_w(w_family),
-                                                space.int_w(w_type),
-                                                space.int_w(w_proto)))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    family = _c.AF_UNIX
+    sock_type = _c.SOCK_STREAM
+    proto = 0
+    if w_family is not None:
+        family = space.int_w(w_family)
+        
+    if w_sock_type is not None:
+        sock_type = space.int_w(w_sock_type)
+    if w_proto is not None:
+        proto = space.int_w(w_proto)
+    result = ctypes.ARRAY(ctypes.c_int, 2)
+    error = _c.socketpair(family, sock_type, proto, result)
+    if error < 0:
+        raise w_get_socketerror(space, None, _c.errno.value)
+    s0 = Socket(space, result[0], family, sock_type, proto)
+    s1 = Socket(space, result[1], family, sock_type, proto)
+    return space.newtuple([s0, s1])
+
 socketpair.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 def ntohs(space, x):
@@ -591,7 +597,7 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     hints.ai_family = family
     hints.ai_socktype = socktype
     hints.ai_protocol = proto
-    retval = _c.getaddrinfo(host, port, ctypes.pointer(hints), ctypes.pointer(res))
+    retval = _c.getaddrinfo(host, port, _c.pointer(hints), _c.pointer(res))
     if retval != 0:
         raise w_get_socketgaierror(space, None, retval)
 
@@ -608,8 +614,9 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
                 w_canonname = space.wrap(info.ai_canonname)
             else:
                 w_canonname = space.wrap('')
-            w_addr = w_makesockaddr(space, info.ai_addr, info.ai_addrlen,
-                                    info.ai_protocol)
+            w_addr = w_makesockaddr(space,
+                                    _c.cast(info.ai_addr, _c.sockaddr_ptr),
+                                    info.ai_addrlen, info.ai_protocol)
             result.append(space.newtuple([w_family, w_socktype, w_proto,
                                            w_canonname, w_addr]))
         return space.newlist(result)
@@ -653,15 +660,15 @@ def getnameinfo(space, w_sockaddr, flags):
                                  space.wrap('argument 1 should be 2 items (%d given)' % sockaddr_len))
             
     elif family == _c.AF_INET6:
-        sin6_ptr = ctypes.cast(res.contents.ai_addr, POINTER(_c.sockaddr_in6))
+        sin6_ptr = ctypes.cast(res.contents.ai_addr, ctypes.POINTER(_c.sockaddr_in6))
         sin6_ptr.contents.sin6_flowinfo = flowinfo
         sin6_ptr.contents.sin6_scope_id = scope_id
 
     hostbuf = ctypes.create_string_buffer(_c.NI_MAXHOST)
     portbuf = ctypes.create_string_buffer(_c.NI_MAXSERV)
     error = _c.getnameinfo(res.contents.ai_addr, res.contents.ai_addrlen,
-                        hostbuf, ctypes.sizeof(hostbuf),
-                        portbuf, ctypes.sizeof(portbuf), flags)
+                        hostbuf, _c.NI_MAXHOST,
+                        portbuf, _c.NI_MAXSERV, flags)
 
     if res:
         _c.freeaddrinfo(res)
@@ -785,12 +792,14 @@ class Socket(Wrappable):
         connection, and the address of the client.  For IP sockets, the address
         info is a pair (hostaddr, port).
         """
-        try:
-            newfd, address = self.fd.accept()
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
-        newsock = Socket(newfd, self.family, self.type, self.proto)
-        return space.wrap((newsock, address))
+        peeraddr = _c.pointer(_c.sockaddr())
+        peeraddrlen = _c.socklen_t(_c.sockaddr_size)
+        newfd = _c.socketaccept(self._fd, peeraddr,
+                                _c.pointer(peeraddrlen))
+        if newfd < 0:
+            raise w_get_socketerror(_c.errno.value)
+        newsocket = Socket(space, newfd, self.family, self.type, self.proto)
+        return space.newtuple([newsocket, w_makesockaddr(space, peeraddr, peeraddrlen.value, self.proto)])
     accept.unwrap_spec = ['self', ObjSpace]
 
     def bind(self, space, w_addr):
@@ -800,11 +809,10 @@ class Socket(Wrappable):
         pair (host, port); the host must refer to the local host. For raw packet
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
         """
-        addr = space.unwrap(w_addr)
-        try:
-            self.fd.bind(addr)
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        caddr_ptr, caddr_len = self._getsockaddr(space, w_addr)
+        res = _c.socketbind(self._fd, caddr_ptr, caddr_len)
+        if res < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
     bind.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def close(self, space):
@@ -826,13 +834,8 @@ class Socket(Wrappable):
         Connect the socket to a remote address.  For IP sockets, the address
         is a pair (host, port).
         """
-        sockaddr_ptr, sockaddr_len = self._getsockaddr(space, w_addr)
-        err = _c.socketconnect(self.fd, sockaddr_ptr, sockaddr_len)
-        if err:
-            errno = _c.errno.value
-            if self.timeout > 0.0:
-                # XXX timeout doesn't really work at the moment
-                pass
+        errno = self.connect_ex(space, w_addr)
+        if errno:
             raise w_get_socketerror(space, None, errno)
     connect.unwrap_spec = ['self', ObjSpace, W_Root]
 
@@ -842,11 +845,15 @@ class Socket(Wrappable):
         This is like connect(address), but returns an error code (the errno value)
         instead of raising an exception when an error occurs.
         """
-        addr = space.unwrap(w_addr)
-        try:
-            self.fd.connect(addr)
-        except socket.error, e:
-            return space.wrap(e.errno)
+        sockaddr_ptr, sockaddr_len = self._getsockaddr(space, w_addr)
+        err = _c.socketconnect(self.fd, sockaddr_ptr, sockaddr_len)
+        if err:
+            errno = _c.errno.value
+            if self.timeout > 0.0:
+                # XXX timeout doesn't really work at the moment
+                pass
+            return errno
+        return 0
     connect_ex.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def dup(self, space):
@@ -854,12 +861,11 @@ class Socket(Wrappable):
 
         Return a new socket object connected to the same system resource.
         """
-        try:
-            newfd = self.fd.dup()
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
-        newsock = Socket(newfd, self.family, self.type, self.proto)
-        return space.wrap(newsock)
+        newfd = _c.dup(self.fd)
+        if newfd < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return Socket(space, newfd, self.family, self.type, self.proto)
+
     dup.unwrap_spec = ['self', ObjSpace]
 
     def fileno(self, space):
@@ -881,12 +887,12 @@ class Socket(Wrappable):
         """
     def getpeername(self, space):
         peeraddr = ctypes.pointer(_c.sockaddr())
-        peeraddrlen = _c.socklen_t(ctypes.sizeof(_c.sockaddr))
+        peeraddrlen = _c.socklen_t(_c.sockaddr_size)
         res = _c.socketgetpeername(self.fd, peeraddr,
                                    ctypes.pointer(peeraddrlen))
         if res < 0:
-            raise w_get_socketerror(None, _c.errno.value)
-        return w_makesockaddr(space, peeraddr, peeraddrlen, self.proto)
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return w_makesockaddr(space, peeraddr, peeraddrlen.value, self.proto)
     getpeername.unwrap_spec = ['self', ObjSpace]
 
     def getsockname(self, space):
@@ -895,10 +901,13 @@ class Socket(Wrappable):
         Return the address of the local endpoint.  For IP sockets, the address
         info is a pair (hostaddr, port).
         """
-        try:
-            return space.wrap(self.fd.getsockname())
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        peeraddr = ctypes.pointer(_c.sockaddr())
+        peeraddrlen = _c.socklen_t(_c.sockaddr_size)
+        res = _c.socketgetsockname(self.fd, peeraddr,
+                                   ctypes.pointer(peeraddrlen))
+        if res < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return w_makesockaddr(space, peeraddr, peeraddrlen.value, self.proto)
     getsockname.unwrap_spec = ['self', ObjSpace]
 
     def getsockopt(self, space, level, option, w_buffersize=NoneNotWrapped):
@@ -908,14 +917,21 @@ class Socket(Wrappable):
         If a nonzero buffersize argument is given, the return value is a
         string of that length; otherwise it is an integer.
         """
-        try:
-            if w_buffersize is None:
-                return space.wrap(self.fd.getsockopt(level, option))
-            else:
-                buffersize = space.int_w(w_buffersize)
-                return space.wrap(self.fd.getsockopt(level, option, buffersize))
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        if w_buffersize is not None:
+            c_buffersize = _c.c_int(space.int_w(w_buffersize))
+            buffer = ctypes.create_string_buffer(c_buffersize.value)
+            err = _c.socketgetsockopt(self.fd, level, option, buffer,
+                                ctypes.POINTER(c_buffersize))
+            if err:
+                raise w_get_socketerror(space, None, _c.errno.value)
+            return space.wrap(buffer[:c_buffersize.value])
+        # Assume integer option
+        optval = _c.c_int()
+        err = _c.socketgetsockopt(self.fd, level, option, _c.pointer(optval),
+                            _c.c_int_size)
+        if err:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return space.wrap(optval.value)
     getsockopt.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
 
     def listen(self, space, backlog):
@@ -925,24 +941,16 @@ class Socket(Wrappable):
         least 1; it specifies the number of unaccepted connection that the system
         will allow before refusing new connections.
         """
-        try:
-            self.fd.listen(backlog)
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        if backlog < 1:
+            backlog = 1
+        res = _c.socketlisten(self.fd, backlog)
+        if res == -1:
+            raise w_get_socketerror(space, None, _c.errno.value)
     listen.unwrap_spec = ['self', ObjSpace, int]
 
-    def makefile(self, space, mode="r", buffersize=-1):
-        """makefile([mode[, buffersize]]) -> file object
-
-        Return a regular file object corresponding to the socket.
-        The mode and buffersize arguments are as for the built-in open() function.
-        """
-        try:
-            f = self.fd.makefile(mode, buffersize)
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
-        return f
-    makefile.unwrap_spec = ['self', ObjSpace, str, int]
+    def makefile(self, space, w_mode='r', w_buffsize=-1):
+        return app_makefile(space, self, w_mode, w_buffsize)
+    makefile.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
 
     def recv(self, space, buffersize, flags=0):
         """recv(buffersize[, flags]) -> data
@@ -952,10 +960,12 @@ class Socket(Wrappable):
         at least one byte is available or until the remote end is closed.  When
         the remote end is closed and all data is read, return the empty string.
         """
-        try:
-            return space.wrap(self.fd.recv(buffersize, flags))
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        buf = _c.create_string_buffer(buffersize)
+        read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+        if read_bytes < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return space.wrap(buf[:read_bytes])
+        
     recv.unwrap_spec = ['self', ObjSpace, int, int]
 
     def recvfrom(self, space, buffersize, flags=0):
@@ -963,10 +973,14 @@ class Socket(Wrappable):
 
         Like recv(buffersize, flags) but also return the sender's address info.
         """
-        try:
-            return space.wrap(self.fd.recvfrom(buffersize, flags))
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        buf = _c.create_string_buffer(buffersize)
+        sockaddr = _c.sockaddr()
+        read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
+                                 _c.pointer(sockaddr), _c.sockaddr_size)
+        w_addr = w_makesockaddr(space, _c.pointer(sockaddr), _c.sockaddr_size, self.proto)
+        if read_bytes < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return space.newtuple([space.wrap(buf[:read_bytes]), w_addr])
     recvfrom.unwrap_spec = ['self', ObjSpace, int, int]
 
     def send(self, space, data, flags=0):
@@ -976,10 +990,10 @@ class Socket(Wrappable):
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy.
         """
-        try:
-            return space.wrap(self.fd.send(data, flags))
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        res = _c.send(self.fd, data, len(data), flags)
+        if res < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return space.wrap(res)
     send.unwrap_spec = ['self', ObjSpace, str, int]
 
     def sendall(self, space, data, flags=0):
@@ -990,10 +1004,11 @@ class Socket(Wrappable):
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent.
         """
-        try:
-            self.fd.sendall(data, flags)
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+        while data:
+            res = _c.send(self.fd, data, len(data), flags)
+            if res < 0:
+                raise w_get_socketerror(space, None, _c.errno.value)
+            data = data[res:]
     sendall.unwrap_spec = ['self', ObjSpace, str, int]
 
     def sendto(self, space, data, w_param2, w_param3=NoneNotWrapped):
@@ -1005,15 +1020,15 @@ class Socket(Wrappable):
         if w_param3 is None:
             # 2 args version
             flags = 0
-            addr = space.str_w(w_param2)
+            addr, addr_len = self._getsockaddr(space, w_param2)
         else:
             # 3 args version
             flags = space.int_w(w_param2)
-            addr = space.str_w(w_param3)
-        try:
-            self.fd.sendto(data, flags, addr)
-        except socket.error, e:
-            raise wrap_socketerror(space, e)
+            addr, addr_len = self._getsockaddr(space, w_param3)
+        res = _c.sendto(self.fd, data, len(data), flags, addr, addr_len)
+        if res < 0:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        return space.wrap(res)
     sendto.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
 
     def setblocking(self, space, flag):
@@ -1035,13 +1050,14 @@ class Socket(Wrappable):
         Set a socket option.  See the Unix manual for level and option.
         The value argument can either be an integer or a string.
         """
-
         if space.is_true(space.isinstance(w_value, space.w_str)):
             strvalue = space.str_w(w_value)
-            self.fd.setsockopt(level, option, strvalue)
+            _c.socketsetsockopt(self.fd, level, option, strvalue,
+                          len(strvalue))
         else:
-            intvalue = space.int_w(w_value)
-            self.fd.setsockopt(level, option, intvalue)
+            intvalue = ctypes.c_int(space.int_w(w_value))
+            _c.socketsetsockopt(self.fd, level, option, _c.pointer(intvalue),
+                           _c.c_int_size)
     setsockopt.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
 
     def gettimeout(self, space):
@@ -1072,9 +1088,8 @@ class Socket(Wrappable):
             if timeout < 0.0:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("Timeout value out of range"))
-
         self.timeout = timeout
-        self.fd.settimeout(timeout)
+        self.setblocking(space, timeout < 0.0)
     settimeout.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def shutdown(self, space, how):
@@ -1084,8 +1099,23 @@ class Socket(Wrappable):
         writing side of the socket (flag == SHUT_WR), or both ends
         (flag == SHUT_RDWR).
         """
-        self.fd.shutdown(how)
+        err = _c.shutdown(self.fd, how)
+        if err:
+            raise w_get_socketerror(space, None, _c.errno.value)
+        
     shutdown.unwrap_spec = ['self', ObjSpace, int]
+
+app_makefile = gateway.applevel(r'''
+def makefile(self, mode="r", buffersize=-1):
+    """makefile([mode[, buffersize]]) -> file object
+    
+    Return a regular file object corresponding to the socket.
+    The mode and buffersize arguments are as for the built-in open() function.
+    """
+    import os
+    newfd = os.dup(self.fileno())
+    return os.fdopen(newfd, mode, buffersize)
+''', filename =__file__).interphook('makefile')
 
 socketmethodnames = """
 accept bind close connect connect_ex dup fileno

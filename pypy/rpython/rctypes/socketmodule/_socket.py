@@ -71,7 +71,6 @@ class socket(object):
         return (newsocket, makesockaddr(peeraddr, peeraddrlen, self.proto))
     
     def connect_ex(self, addr):
-        host, port = addr
         caddr = self._getsockaddr(addr)
         paddr = cast(pointer(caddr), _c.sockaddr_ptr)
         result = _c.socketconnect(self._fd, paddr,

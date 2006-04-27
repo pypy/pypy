@@ -168,10 +168,14 @@ size_t = cConfig.size_t
 ssize_t = cConfig.ssize_t
 socklen_t = cConfig.socklen_t
 sockaddr = cConfig.sockaddr
+sockaddr_size = sizeof(sockaddr)
 sockaddr_in = cConfig.sockaddr_in
+sockaddr_in6 = cConfig.sockaddr_in6
 in_addr = cConfig.in_addr
+in_addr_size = sizeof(in_addr)
 addrinfo = cConfig.addrinfo
 
+c_int_size = sizeof(c_int)
 SetPointerType(addrinfo_ptr, addrinfo)
 SetPointerType(sockaddr_ptr, sockaddr)
 
@@ -288,22 +292,22 @@ socketrecv = socketdll.recv
 socketrecv.argtypes = [c_int, c_void_p, c_int, c_int]
 socketrecv.recv = ssize_t
 
-socketrecvfrom = socketdll.recvfrom
-socketrecvfrom.argtypes = [c_int, c_void_p, size_t,
-                           c_int, sockaddr_ptr, POINTER(socklen_t)]
-socketrecvfrom.restype = ssize_t
+recvfrom = socketdll.recvfrom
+recvfrom.argtypes = [c_int, c_void_p, size_t,
+                     c_int, sockaddr_ptr, POINTER(socklen_t)]
+recvfrom.restype = ssize_t
 
-socketsend = socketdll.send
-socketsend.argtypes = [c_int,
+send = socketdll.send
+send.argtypes = [c_int,
                        c_void_p, #this should be constant
                        size_t, c_int]
-socketsend.restype = ssize_t
+send.restype = ssize_t
 
-socketsendto = socketdll.sendto
-socketsendto.argtypes = [c_int, c_void_p, #this should be constant
+sendto = socketdll.sendto
+sendto.argtypes = [c_int, c_void_p, #this should be constant
                          size_t, c_int, sockaddr_ptr, #this should be const
                          socklen_t]
-socketsendto.restype = ssize_t
+sendto.restype = ssize_t
 
 socketshutdown = socketdll.shutdown
 socketshutdown.argtypes = [c_int, c_int]
@@ -345,3 +349,11 @@ fcntl.restype = c_int
 memcpy = socketdll.memcpy
 memcpy.argtypes = [c_void_p, c_void_p, size_t]
 memcpy.restype = c_void_p
+
+socketpair = socketdll.socketpair
+socketpair.argtypes = [c_int, c_int, c_int, POINTER(c_int)]
+socketpair.restype = c_int
+
+shutdown = socketdll.shutdown
+shutdown.argtypes = [c_int, c_int]
+shutdown.restype = c_int
