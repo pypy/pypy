@@ -33,7 +33,7 @@ class CBuilder(object):
         self.libraries = libraries
         self.exports = {}
 
-    def build_database(self, exports=[]):
+    def build_database(self, exports=[], pyobj_options=None):
         translator = self.translator
         db = LowLevelDatabase(translator, standalone=self.standalone, 
                               gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
@@ -42,6 +42,11 @@ class CBuilder(object):
             from pypy.translator.c.stackless import StacklessData
             db.stacklessdata = StacklessData(db)
             db.use_stackless_transformation = self.use_stackless_transformation
+
+        # pass extra options into pyobjmaker
+        if pyobj_options:
+            for key, value in pyobj_options.items():
+                setattr(db.pyobjmaker, key, value)
 
         # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
@@ -720,6 +725,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
         pyobjnode = database.containernodes[pyobjptr._obj]
         print >> f, '\tPyModule_AddObject(m, "%s", %s);' % (publicname,
                                                             pyobjnode.name)
+    print >> f, '\tcall_postsetup(m);'
     print >> f, '}'
     f.close()
 

@@ -39,6 +39,8 @@ class PyObjMaker:
         self.import_hints = {} # I don't seem to need it any longer.
         # leaving the import support intact, doesn't hurt.
         self.name_for_meth = {} # get nicer wrapper names
+        self.is_method = {}
+        self.use_true_methods = False # may be overridden
 
     def nameof(self, obj, debug=None):
         if debug:
@@ -212,7 +214,8 @@ class PyObjMaker:
             return self.skipped_function(func)
 
         fwrapper = gen_wrapper(func, self.translator,
-                               newname=self.name_for_meth.get(func, func.__name__))
+                               newname=self.name_for_meth.get(func, func.__name__),
+                               as_method=func in self.is_method)
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
         self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper), func.__doc__
         return pycfunctionobj
@@ -574,6 +577,7 @@ class PyObjMaker:
                         if ann.binding(graph.getargs()[0]).classdef is not clsdef:
                             value = new_method_graph(graph, clsdef, fname, self.translator)
                     self.name_for_meth[value] = fname
+                    self.is_method[value] = self.use_true_methods
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
             if not init_seen:
                 log.WARNING('No __init__ found for %s - you cannot build instances' %

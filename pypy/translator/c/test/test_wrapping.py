@@ -9,7 +9,7 @@ from pypy.translator.tool.cbuild import enable_fast_compilation
 
 import sys, types
 
-P = not False  # debug printing
+P = False  # debug printing
 
 def get_annotation(func):
     argstypelist = []
@@ -68,7 +68,10 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
 
     cbuilder = CExtModuleBuilder(t, func, gcpolicy=gcpolicy)
     # explicit build of database
-    db = cbuilder.build_database(exports=exports)
+    pyobj_options = {
+        'use_true_methods': '__init__' in exports
+        }
+    db = cbuilder.build_database(exports=exports, pyobj_options=pyobj_options)
     cbuilder.generate_source(db)
     if view:
         t.viewcg()
@@ -238,38 +241,70 @@ class BuiltinHelper(object):
     exec src
     del __builtin__, name, obj, src
 
-def setup_new_module(mod, modname):
-    # note the name clash with py.test on setup_module
-    import types
-    m = types.ModuleType(modname)
-    allobjs = mod.__dict__.values()
-    funcs = eval('[]') # or import list from __builtin__
-    # one alternative
-    #bltn = BuiltinHelper()
-    # less code:
-    import __builtin__ as bltn
-    if P:print bltn.list('hallo')
-    #from twisted.internet import reactor    
-    #print dir(reactor)
-    #whow this works
-    isinstance = eval('isinstance')
-    # above is possible, this is probably a better compromise:
-    isinstance = bltn.isinstance
-    for obj in allobjs:
-        if isinstance(obj, types.BuiltinFunctionType):
-            funcs.append( (obj.__name__, obj) )
-    if P:print 'funcs=', funcs
-    if P:print funcs[3:]
-    #funcs += [2, 3, 5]
-    # not yet
-    stuff = bltn.range(10)
-    if P:print stuff[3:]
-    if P:print stuff[:3]
-    if P:print stuff[3:7]
-    if P:print stuff[:-1]
-    funcs.sort()
-    return m
 
+def get_methodname(funcidx):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_methodname
+    s_result_annotation = annmodel.SomeObject()
+
+    def specialize_call(self, hop):
+        v_idx, = hop.inputargs(*hop.args_r)
+        v_res = hop.llops.gencapicall('postsetup_get_methodname', [v_idx],
+                                      resulttype=robject.pyobj_repr)
+        return v_res
+
+def build_method(funcidx):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = build_method
+    s_result_annotation = annmodel.SomeObject()
+
+    def specialize_call(self, hop):
+        v_idx, v_type = hop.inputargs(*hop.args_r)
+        v_res = hop.llops.gencapicall('postsetup_build_method', [v_idx, v_type],
+                                      resulttype=robject.pyobj_repr)
+        return v_res
+
+def get_typedict(cls):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_typedict
+    s_result_annotation = annmodel.SomeObject()
+
+    def specialize_call(self, hop):
+        v_type, = hop.inputargs(*hop.args_r)
+        v_res = hop.llops.gencapicall('postsetup_get_typedict', [v_type],
+                                      resulttype=robject.pyobj_repr)
+        return v_res
+
+def __init__(mod):
+    import types
+    import __builtin__ as bltn
+    hasattr = bltn.hasattr
+    isinstance = bltn.isinstance
+    classes = []
+    x = 0
+    for name in mod.__all__:
+        obj = getattr(mod, name)
+        if isinstance(obj, type) and hasattr(obj, '__self__'):
+            classes.append(obj)
+    idx = 0
+    while 1:
+        name = get_methodname(idx)
+        if not name:
+            break
+        func = getattr(mod, name)
+        for cls in classes:
+            dic = get_typedict(cls)
+            for methname, value in dic.items():
+                if func is value:
+                    meth = build_method(idx, cls)
+                    dic[methname] = meth
+        idx += 1
 
 # creating an object, wrapping, unwrapping, call function, check whether __del__ is called
 def test_wrap_call_dtor():
@@ -281,7 +316,7 @@ def test_wrap_call_dtor():
 # exposing and using classes from a generasted extension module
 def test_expose_classes():
     m = get_compiled_module(democlass_helper2, use_boehm=not True, exports=[
-        DemoClass, DemoSubclass, DemoNotAnnotated, setup_new_module])
+        DemoClass, DemoSubclass, DemoNotAnnotated, __init__])
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()

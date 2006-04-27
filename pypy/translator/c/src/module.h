@@ -60,8 +60,10 @@ typedef struct {
 
 /* helper-hook for post-setup */
 static globalfunctiondef_t *globalfunctiondefsptr;
-static PyObject *postsetup_get_type_dict(PyObject *tp);
+static PyObject *postsetup_get_typedict(PyObject *tp);
+static PyObject *postsetup_get_methodname(int funcidx);
 static PyObject *postsetup_build_method(int funcidx, PyObject *type);
+int call_postsetup(PyObject *m);
 
 /* implementations */
 
@@ -145,7 +147,7 @@ static int setup_initcode(char* frozendata[], int len)
 	return 0;
 }
 
-static PyObject *postsetup_get_type_dict(PyObject *tp)
+static PyObject *postsetup_get_typedict(PyObject *tp)
 {
     PyTypeObject *type = (PyTypeObject *)tp;
     PyObject *ret;
@@ -155,11 +157,39 @@ static PyObject *postsetup_get_type_dict(PyObject *tp)
     return ret;
 }
 
+static PyObject *postsetup_get_methodname(int funcidx)
+{   
+    globalfunctiondef_t *gfuncdef = &globalfunctiondefsptr[funcidx];
+
+    if (gfuncdef->p)
+	return PyString_FromString(gfuncdef->gfunc_name);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static PyObject *postsetup_build_method(int funcidx, PyObject *type)
 {   
     globalfunctiondef_t *gfuncdef = &globalfunctiondefsptr[funcidx];
 
-    return PyDescr_NewMethod((PyTypeObject *)type, &gfuncdef->ml);
+    if (gfuncdef->p)
+	return PyDescr_NewMethod((PyTypeObject *)type, &gfuncdef->ml);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+int call_postsetup(PyObject *m)
+{
+    PyObject *init, *ret;
+    
+    init = PyDict_GetItemString(this_module_globals, "__init__");
+    if (init == NULL) {
+	PyErr_Clear();
+	return 0;
+    }
+    ret = PyObject_CallFunction(init, "O", m);
+    if (ret == NULL)
+	return -1;
+    return 0;
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */
