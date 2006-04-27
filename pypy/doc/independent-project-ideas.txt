@@ -1,0 +1,61 @@
+Independent project ideas in PyPy
+=================================
+
+PyPy allows experimentation in a lot of directions.  This page is meant to
+collect some ideas of things to try.  We have built it with Google's Summer of
+Code in mind, which means that we try to describe ideas and projects that
+should fit in two months of work including getting started with PyPy.
+(This might not actually be true, if you want to finish it all; two months
+should get some major sub-goals done.)
+
+In no particular order:
+
+* Rewrite one or several CPython extension modules to be based on **ctypes**
+  (newly integrated in Python 2.5): this is generally useful for Python
+  developpers, and it is now the best path to write extension modules that are
+  compatible with both CPython and PyPy.  See for example
+  http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  A related
+  idea is to provide efficient numeric arrays (as in numeric/numpy/numarray)
+  in this way.
+
+* Start a back-end for a new target platform, e.g. for the **Java** virtual
+  machine.  This would be a path to bring PyPy and Jython closer and help
+  support Jython's effort to keep up-to-date, in particular with extension
+  modules.
+
+* A research project: experiment with optimizations in PyPy, e.g. by trying
+  various data structures for dicts or other built-in objects, by switching
+  between data structures at run-time, comparing results for different
+  applications, etc.  This should produce experimental results (mostly
+  timings, memory usage trade-offs) as much as code.
+
+* Revive **rexec** : implement security checks, sandboxing, or
+  some similar model within PyPy (which, if I may venture an opinion, makes
+  more sense and is more robust than trying to do it in CPython).
+
+* Write **new object spaces** adding features like transparent or
+  semi-transparent distribution of a program across several machines, and/or
+  persistence (pickling of program state).
+
+* Write an interpreter for **another dynamic language** in the PyPy framework.
+  For example, a Javascript interpreter would be suitable.  Ruby too (though
+  the latter is probably more than two months of work).  Or Scheme, or... etc.
+
+* A different kind of project: work on **py.test** to add features like
+  distributed testing, automatic reports, etc.
+
+* Constraint programming: `Specialized propagators for specialized finite
+  domains`_.
+
+...or whatever else interests you!
+
+Note: currently it is a bit difficult for us to identify nice independent
+sub-tasks in the context of the JIT compiler of PyPy...
+
+Feel free to mention your interest and discuss these ideas on the `pypy-dev
+mailing list`_.
+
+
+.. _`Specialized propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/wp09_10_ideas.txt
+.. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+
