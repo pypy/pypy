@@ -18,6 +18,7 @@ py.log.setconsumer("cli", ansi_log)
 
 PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
+PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
 
 _lltype_to_cts = {
     ootype.Void: 'void',
@@ -35,6 +36,9 @@ _lltype_to_cts = {
     ootype.Dict.SELFTYPE_T: 'class ' + (PYPY_DICT % ('!0', '!1')),
     ootype.Dict.KEYTYPE_T: '!0',
     ootype.Dict.VALUETYPE_T: '!1',
+    ootype.DictItemsIterator.SELFTYPE_T: 'class ' + (PYPY_DICT_ITEMS_ITERATOR % ('!0', '!1')),
+    ootype.DictItemsIterator.KEYTYPE_T: '!0',
+    ootype.DictItemsIterator.VALUETYPE_T: '!1',
     }
 
 _pyexception_to_cts = {
@@ -79,6 +83,10 @@ class CTS(object):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
             return self.__class(PYPY_DICT % (key_type, value_type), include_class)
+        elif isinstance(t, ootype.DictItemsIterator):
+            key_type = self.lltype_to_cts(t._KEYTYPE)
+            value_type = self.lltype_to_cts(t._VALUETYPE)
+            return self.__class(PYPY_DICT_ITEMS_ITERATOR % (key_type, value_type), include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 

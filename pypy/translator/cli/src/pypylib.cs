@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace pypy.runtime
 {
@@ -111,6 +112,36 @@ namespace pypy.runtime
         public void ll_clear()
         {
             this.Clear();
+        }
+
+        public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
+        {
+            return new DictItemsIterator<TKey, TValue>(this.GetEnumerator());
+        }
+    }
+
+    public class DictItemsIterator<TKey, TValue>
+    {
+        IEnumerator<KeyValuePair<TKey, TValue>> it;
+
+        public DictItemsIterator(IEnumerator<KeyValuePair<TKey, TValue>> it)
+        {
+            this.it = it;
+        }
+
+        public bool ll_go_next()
+        {
+            return it.MoveNext();
+        }
+
+        public TKey ll_current_key()
+        {
+            return it.Current.Key;
+        }
+
+        public TValue ll_current_value()
+        {
+            return it.Current.Value;
         }
     }
 }

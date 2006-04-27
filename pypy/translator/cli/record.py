@@ -9,7 +9,7 @@ class Record(Node):
         self.cts = CTS(db)
         self.record = record
 
-        trans = string.maketrans('(),', '___')
+        trans = string.maketrans('<>(), ', '______')
         name = ['Record']
         for f_name, (f_type, f_default) in record._fields.iteritems():
             type_name = f_type._short_name().translate(trans)
