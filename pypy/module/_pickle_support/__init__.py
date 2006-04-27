@@ -9,4 +9,5 @@ class Module(MixedModule):
     interpleveldefs = {
         'cell_new': 'maker.cell_new',
         'code_new': 'maker.code_new',
+        'func_new': 'maker.func_new',
     }

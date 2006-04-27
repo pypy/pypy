@@ -169,6 +169,33 @@ class Function(Wrappable):
     def descr_function_repr(self):
         return self.getrepr(self.space, 'function %s' % (self.name,))
 
+    def descr__reduce__(self, space):
+        '''
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('code_new')
+        w        = space.wrap
+        tup      = [
+            w(self.co_argcount), 
+            w(self.co_nlocals), 
+            w(self.co_stacksize), 
+            w(self.co_flags),
+            w(self.co_code), 
+            space.newtuple(self.co_consts_w), 
+            space.newtuple(self.co_names_w), 
+            space.newtuple([w(v) for v in self.co_varnames]), 
+            w(self.co_filename),
+            w(self.co_name), 
+            w(self.co_firstlineno),
+            w(self.co_lnotab), 
+            space.newtuple([w(v) for v in self.co_freevars]),
+            space.newtuple([w(v) for v in self.co_cellvars]),
+            #hidden_applevel=False, magic = 62061 | 0x0a0d0000
+        ]
+        return space.newtuple([new_inst, space.newtuple(tup)])
+        '''
+        raise 'Function.desc__reduce__ here'
+        
     def fget_func_defaults(space, self):
         values_w = self.defs_w
         if not values_w:
