@@ -12,7 +12,7 @@ from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 
-from ctypes import create_string_buffer
+from ctypes import create_string_buffer, sizeof, c_int
 from pypy.rpython.rctypes.astringbuf import StringBufferType
 
 
@@ -86,7 +86,7 @@ class Test_specialization:
         res = interpret(func, [0])
         assert res == 0
 
-    def test_annotate_value(self):
+    def test_specialize_value(self):
         def func(n):
             buf = create_string_buffer(n)
             buf[0] = 'x'
@@ -95,3 +95,25 @@ class Test_specialization:
 
         res = interpret(func, [12])
         assert ''.join(res.chars) == "xy"
+
+    def test_specialize_sizeof(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            return sizeof(buf)
+        res = interpret(func, [117])
+        assert res == 117
+
+
+class Test_compilation:
+    def test_compile_const_sizeof(self):
+        A = c_int * 42
+        def func():
+            x = c_int()
+            a = A()
+            return sizeof(x), sizeof(a), sizeof(c_int), sizeof(A)
+        fn = compile(func, [])
+        res = fn()
+        assert res[0] == sizeof(c_int)
+        assert res[1] == sizeof(c_int) * 42
+        assert res[2] == sizeof(c_int)
+        assert res[3] == sizeof(c_int) * 42

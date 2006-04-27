@@ -191,3 +191,9 @@ def test_py_object_subclass():
     pythonapi.PyInt_FromLong.argtypes = [c_long]
     pythonapi.PyInt_FromLong.restype = W_Object
     assert isinstance(pythonapi.PyInt_FromLong(17), W_Object)
+
+def test_sizeof():
+    x = create_string_buffer(117)
+    assert sizeof(x) == 117    # assumes that chars are one byte each
+    x = (c_int * 42)()
+    assert sizeof(x) == 42 * sizeof(c_int)

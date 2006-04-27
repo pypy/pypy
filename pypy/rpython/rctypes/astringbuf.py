@@ -1,8 +1,8 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rctypes.implementation import CTypesObjEntry
-from pypy.annotation.model import SomeCTypesObject, SomeString
+from pypy.annotation.model import SomeCTypesObject, SomeString, SomeInteger
 
-from ctypes import create_string_buffer, c_char
+from ctypes import create_string_buffer, c_char, sizeof
 
 
 class StringBufferType(object):
@@ -46,3 +46,29 @@ class ObjEntry(CTypesObjEntry):
         from pypy.rpython.rctypes import rstringbuf
         return rstringbuf.StringBufRepr(rtyper, s_stringbuf,
                                         rstringbuf.STRBUFTYPE)
+
+
+class SizeOfFnEntry(ExtRegistryEntry):
+    "Annotation and rtyping of calls to ctypes.sizeof()"
+    _about_ = sizeof
+
+    def compute_result_annotation(self, s_arg):
+        return SomeInteger(nonneg=True)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        from pypy.rpython.error import TyperError
+        [s_arg] = hop.args_s
+        [r_arg] = hop.args_r
+        if isinstance(s_arg, SomeCTypesObject):
+            if s_arg.knowntype is StringBufferType:
+                # sizeof(string_buffer) == len(string_buffer)
+                return r_arg.rtype_len(hop)
+        else:
+            if not s_arg.is_constant():
+                raise TyperError("ctypes.sizeof(non_ctypes_object)")
+            # XXX check that s_arg.const is really a ctypes type
+            ctype = s_arg.const
+            s_arg = SomeCTypesObject(ctype, SomeCTypesObject.OWNSMEMORY)
+            r_arg = hop.rtyper.getrepr(s_arg)
+        return hop.inputconst(lltype.Signed, llmemory.sizeof(r_arg.ll_type))
