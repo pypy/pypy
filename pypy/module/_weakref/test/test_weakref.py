@@ -10,8 +10,10 @@ class AppTestWeakref(object):
         class A:
             pass
         a = A()
+        assert _weakref.getweakrefcount(a) == 0
         ref = _weakref.ref(a)
         assert ref() is a
+        assert _weakref.getweakrefcount(a) == 1
         del a
         assert ref() is None
 
@@ -25,6 +27,7 @@ class AppTestWeakref(object):
             a2.ref = ref()
         ref1 = _weakref.ref(a1, callback)
         ref2 = _weakref.ref(a1)
+        assert _weakref.getweakrefcount(a1) == 2
         del a1
         assert ref1() is None
         assert a2.ref is None
@@ -44,3 +47,33 @@ class AppTestWeakref(object):
         del a1
         assert a2.x == 42
         
+    def test_dont_callback_if_weakref_dead(self):
+        import _weakref
+        class A:
+            pass
+        a1 = A()
+        a1.x = 40
+        a2 = A()
+        def callback(ref):
+            a1.x = 42
+        assert _weakref.getweakrefcount(a2) == 0
+        ref = _weakref.ref(a2, callback)
+        assert _weakref.getweakrefcount(a2) == 1
+        ref = None
+        assert _weakref.getweakrefcount(a2) == 0
+        a2 = None
+        assert a1.x == 40
+
+    def test_callback_cannot_ressurect(self):
+        import _weakref
+        class A:
+            pass
+        a = A()
+        alive = A()
+        alive.a = 1
+        def callback(ref2):
+            alive.a = ref1()
+        ref1 = _weakref.ref(a, callback)
+        ref2 = _weakref.ref(a, callback)
+        del a
+        assert alive.a is None
