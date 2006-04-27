@@ -55,18 +55,6 @@ class TupleRepr(AbstractTupleRepr):
             hop.genop('oosend', [c_setitem, v_list, c_index, v_item], resulttype=ootype.Void)
         return v_list
 
-_tuple_types = {}
-
-def tuple_type(fieldnames, fieldtypes):
-    key = tuple(fieldtypes)
-    if _tuple_types.has_key(key):
-        return _tuple_types[key]
-    else:
-        fields = dict(zip(fieldnames, fieldtypes))
-        INST = ootype.Instance("Tuple%s" % len(fieldnames), ootype.ROOT, fields)
-        _tuple_types[key] = INST
-        return INST
-
 
 def rtype_newtuple(hop):
     return TupleRepr._rtype_newtuple(hop)
