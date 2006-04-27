@@ -1,3 +1,4 @@
+import py
 from pypy.translator.cl.buildcl import make_cl_func, generate_cl_func
 
 def test_simple():
@@ -51,6 +52,26 @@ def test_isinstance():
         return isinstance(obj, Bar)
     cl_check_isinstance = make_cl_func(check_isinstance, [bool])
     assert cl_check_isinstance(True) == True
+
+def test_class():
+    py.test.skip("TODO")
+    class Foo:
+        value = 0
+    class Bar(Foo):
+        value = 1
+    class Baz(Foo):
+        value = 2
+    def pick_class(flag):
+        if flag:
+            return Bar
+        else:
+            return Baz
+    def dynamic_class(flag):
+        cls = pick_class(flag)
+        return cls.value
+    cl_dynamic_class = make_cl_func(dynamic_class, [bool])
+    assert cl_dynamic_class(True) == 1
+    assert cl_dynamic_class(False) == 2
 
 def test_list_length():
     def list_length_one(number):
