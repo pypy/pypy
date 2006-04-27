@@ -37,7 +37,7 @@ program's entry point must be a zero arity procedure. Any program
 whose execution path contains a 'choice' is a logic, or relational (in
 Oz parlance) program.
 
-For instance :
+For instance::
 
  def foo():
      choice:
@@ -46,7 +46,7 @@ For instance :
          from math import sqrt
          return sqrt(4)
 
-def bar():
+ def bar():
     choice: return 0 or: return 1
 
  def entry_point():
@@ -82,9 +82,9 @@ spaces will be failed and thus discarded, the third will be a solution
 space and ready to be later merged. We leave the semantics of space
 merging for another day.
 
-Pardon the silly ascii art :
+Pardon the silly ascii art::
 
-entry_point -> foo : choice
+ entry_point -> foo : choice
                        /\
                       /  \
                      /    2 (solution)
@@ -113,7 +113,7 @@ For this we need another method of spaces :
 choose()
 
 The choice operator can be written straightforwardly in terms of
-choose :
+choose::
 
  def foo():
      choice = choose(3)
