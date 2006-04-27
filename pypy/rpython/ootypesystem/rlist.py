@@ -5,7 +5,6 @@ from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rmodel import inputconst, externalvsinternal
 from pypy.rpython.lltypesystem.lltype import Signed, Void
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.riterable import iterator_type
 from pypy.rpython.ootypesystem.rslice import SliceRepr, \
      startstop_slice_repr, startonly_slice_repr, minusone_slice_repr
 
@@ -98,7 +97,8 @@ class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
-        self.lowleveltype = iterator_type(r_list, r_list.item_repr)
+        self.lowleveltype = ootype.Record(
+                {"iterable": r_list.lowleveltype, "index": ootype.Signed})
         self.ll_listiter = ll_listiter
         self.ll_listnext = ll_listnext
 
