@@ -225,6 +225,11 @@ class Record(BuiltinType):
     def _lookup(self, meth_name):
         return self, None
 
+    def __str__(self):
+        item_str = ["%s: %s" % (str(name), str(ITEMTYPE))
+                    for name, (ITEMTYPE, _) in self._fields.items()]
+        return '%s(%s)' % (self.__class__.__name__, ", ".join(item_str))
+
 class BuiltinADTType(BuiltinType):
 
     def _setup_methods(self, generic_types):
