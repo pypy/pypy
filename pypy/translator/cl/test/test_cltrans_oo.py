@@ -76,6 +76,27 @@ def test_class():
     assert cl_dynamic_class(True) == 1
     assert cl_dynamic_class(False) == 2
 
+def test_instance():
+    py.test.skip("TODO")
+    class Foo:
+        value = 0
+    class Bar(Foo):
+        value = 1
+    class Baz(Foo):
+        value = 2
+    def pick_class(flag):
+        if flag:
+            return Bar
+        else:
+            return Baz
+    def dynamic_instance(flag):
+        cls = pick_class(flag)
+        obj = cls()
+        return obj.value
+    cl_dynamic_instance = make_cl_func(dynamic_instance, [bool])
+    assert cl_dynamic_instance(True) == 1
+    assert cl_dynamic_instance(False) == 2
+
 def test_list_length():
     def list_length_one(number):
         lst = [number]

@@ -3,7 +3,7 @@ import types
 from pypy.tool.udir import udir
 from pypy.objspace.flow.model import Constant
 from pypy.translator.translator import graphof
-from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Record, Instance, _static_meth, _meth, ROOT
+from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
@@ -85,6 +85,9 @@ class Op:
             yield "(setf %s (make-instance %s))" % (result, clsname)
         else:
             raise NotImplementedError()
+
+    def op_runtimenew(self, result, arg):
+        yield "(setf %s (make-instance %s))" % (result, arg)
 
     def op_instanceof(self, result, arg, clsname):
         yield "(setf %s (typep %s %s))" % (result, arg, clsname)
@@ -199,8 +202,11 @@ class GenCL:
         const_declaration.append("(setf %s (make-instance %s))" % (name, cls))
         fields = INST._allfields()
         for fieldname in fields:
-            fieldvalue = repr_const(getattr(inst, fieldname))
-            const_declaration.append("(setf (slot-value %s '%s) %s)" % (name, fieldname, fieldvalue))
+            fieldvalue = getattr(inst, fieldname)
+            if isinstance(fieldvalue, _class):
+                self.declare_class(fieldvalue._INSTANCE)
+            fieldvaluerepr = repr_const(getattr(inst, fieldname))
+            const_declaration.append("(setf (slot-value %s '%s) %s)" % (name, fieldname, fieldvaluerepr))
         const_declaration = "\n".join(const_declaration)
         self.declarations.append(const_declaration)
         self.constcount += 1
