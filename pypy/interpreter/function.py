@@ -194,7 +194,7 @@ class Function(Wrappable):
         ]
         return space.newtuple([new_inst, space.newtuple(tup)])
         '''
-        raise 'Function.desc__reduce__ here'
+        raise Exception('Function.desc__reduce__ here')
         
     def fget_func_defaults(space, self):
         values_w = self.defs_w
