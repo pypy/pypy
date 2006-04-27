@@ -9,6 +9,7 @@ includes = ('sys/types.h',
             'netinet/in.h',
             'netinet/tcp.h',
             'unistd.h',
+            'fcntl.h',
             'stdio.h',
             'netdb.h',
             'arpa/inet.h'
@@ -19,6 +20,9 @@ constants = {}
 class CConfig:
     _header_ = HEADER
     # constants
+    O_NONBLOCK = ctypes_platform.ConstantInteger('O_NONBLOCK')
+    F_GETFL = ctypes_platform.ConstantInteger('F_GETFL')
+    F_SETFL = ctypes_platform.ConstantInteger('F_SETFL')
     
 constant_names = ['AF_APPLETALK', 'AF_ASH', 'AF_ATMPVC', 'AF_ATMSVC', 'AF_AX25',
                   'AF_BLUETOOTH', 'AF_BRIDGE', 'AF_ECONET', 'AF_INET', 'AF_INET6',
@@ -102,6 +106,11 @@ CConfig.sockaddr_in = ctypes_platform.Struct('struct sockaddr_in',
                                         [('sin_family', c_int),
                                          ('sin_port',   c_ushort),
                                          ('sin_addr',   CConfig.in_addr)])
+
+CConfig.sockaddr_in6  = ctypes_platform.Struct('struct sockaddr_in6',
+                                               [('sin6_flowinfo', c_int),
+                                                ('sin6_scope_id', c_int),
+                                                ])
 addrinfo_ptr = POINTER("addrinfo")
 CConfig.addrinfo = ctypes_platform.Struct('struct addrinfo',
                                      [('ai_flags', c_int),
@@ -122,6 +131,13 @@ CConfig.hostent = ctypes_platform.Struct('struct hostent',
                                       ])
 
 
+CConfig.servent = ctypes_platform.Struct('struct servent',
+                                         [('s_name', c_char_p),
+                                          ('s_port', c_int)])
+
+CConfig.protoent = ctypes_platform.Struct('struct protoent',
+                                          [('p_proto', c_int),
+                                           ])
 
 class cConfig:
     pass
@@ -138,7 +154,13 @@ for name, default in constants_w_defaults:
     else:
         constants[name] = default
 
+constants['has_ipv6'] = True # This is a configuration option in CPython
+
 locals().update(constants)
+
+O_NONBLOCK = cConfig.O_NONBLOCK
+F_GETFL = cConfig.F_GETFL
+F_SETFL = cConfig.F_SETFL
 
 uint16_t = cConfig.uint16_t
 uint32_t = cConfig.uint32_t
@@ -157,6 +179,10 @@ SetPointerType(sockaddr_ptr, sockaddr)
 dllname = util.find_library('c')
 assert dllname is not None
 socketdll = cdll.LoadLibrary(dllname)
+
+dup = socketdll.dup
+dup.argtypes = [c_int]
+dup.restype = c_int
 
 errno = c_int.in_dll(socketdll, 'errno')
 
@@ -295,3 +321,23 @@ gethostname.restype = c_int
 gethostbyname = socketdll.gethostbyname
 gethostbyname.argtypes = [POINTER(c_char)]
 gethostbyname.restype = POINTER(cConfig.hostent)
+
+gethostbyaddr = socketdll.gethostbyaddr
+gethostbyaddr.argtypes = [POINTER(c_char), c_int, c_int]
+gethostbyaddr.restype = POINTER(cConfig.hostent)
+
+getservbyname = socketdll.getservbyname
+getservbyname.argtypes = [c_char_p, c_char_p]
+getservbyname.restype = POINTER(cConfig.servent)
+
+getservbyport = socketdll.getservbyport
+getservbyport.argtypes = [c_int, c_char_p]
+getservbyport.restype = POINTER(cConfig.servent)
+
+getprotobyname = socketdll.getprotobyname
+getprotobyname.argtypes = [c_char_p]
+getprotobyname.restype = POINTER(cConfig.protoent)
+
+fcntl = socketdll.fcntl
+fcntl.argtypes = [c_int] * 3
+fcntl.restype = c_int

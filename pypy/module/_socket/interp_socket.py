@@ -215,13 +215,13 @@ def getservbyname(space, name, w_proto=NoneNotWrapped):
     The optional protocol name, if given, should be 'tcp' or 'udp',
     otherwise any protocol will match.
     """
-    try:
-        if w_proto is None:
-            return space.wrap(socket.getservbyname(name))
-        else:
-            return space.wrap(socket.getservbyname(name, space.str_w(w_proto)))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    proto = None
+    if w_proto:
+        proto = space.str_w(w_proto)
+    servent_ptr = _c.getservbyname(name, proto)
+    if not servent_ptr:
+        raise w_get_socketerror("service/port not found")
+    return space.wrap(_c.ntohs(servent_ptr.contents.s_port))
 getservbyname.unwrap_spec = [ObjSpace, str, W_Root]
 
 def getservbyport(space, port, w_proto=NoneNotWrapped):
@@ -231,13 +231,13 @@ def getservbyport(space, port, w_proto=NoneNotWrapped):
     The optional protocol name, if given, should be 'tcp' or 'udp',
     otherwise any protocol will match.
     """
-    try:
-        if w_proto is None:
-            return space.wrap(socket.getservbyport(port))
-        else:
-            return space.wrap(socket.getservbyport(port, space.str_w(w_proto)))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    proto = None
+    if w_proto:
+        proto = space.str_w(w_proto)
+    servent_ptr = _c.getservbyport(_c.htons(port), proto)
+    if not servent_ptr:
+        raise w_get_socketerror("port/proto not found")
+    return space.wrap(servent_ptr.contents.s_name)
 getservbyport.unwrap_spec = [ObjSpace, int, W_Root]
 
 def getprotobyname(space, name):
@@ -245,10 +245,11 @@ def getprotobyname(space, name):
 
     Return the protocol number for the named protocol.  (Rarely used.)
     """
-    try:
-        return space.wrap(socket.getprotobyname(name))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    protoent_ptr = _c.getprotobyname(name)
+    if not protoent_ptr:
+        raise w_get_socketerror('protocol not found')
+    return space.wrap(protoent_ptr.contents.p_proto)
+
 getprotobyname.unwrap_spec = [ObjSpace, str]
 
 def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
@@ -257,13 +258,15 @@ def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
     Create a socket object from the given file descriptor.
     The remaining arguments are the same as for socket().
     """
-    try:
-        if w_proto is None:
-            return space.wrap(socket.fromfd(fd, family, type))
-        else:
-            return space.wrap(socket.fromfd(fd, family, type, space.int_w(w_proto)))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+
+    newfd = _c.dup(fd)
+    if newfd < 0:
+        raise w_get_socketerror(None, _c.errno)
+    if w_proto is None:
+        return space.wrap(Socket(space, newfd, family, type))
+    else:
+        proto = space.int_w(w_proto)
+        return space.wrap(Socket(space, newfd, family, type, proto))
 fromfd.unwrap_spec = [ObjSpace, int, int, int, W_Root]
 
 def socketpair(space, w_family=NoneNotWrapped, w_type=NoneNotWrapped, w_proto=NoneNotWrapped):
@@ -617,11 +620,54 @@ def getnameinfo(space, w_sockaddr, flags):
     """getnameinfo(sockaddr, flags) --> (host, port)
 
     Get host and port for a sockaddr."""
-    sockaddr = space.unwrap(w_sockaddr)
-    try:
-        return space.wrap(_c.getnameinfo(sockaddr, flags))
-    except _c.error, e:
-        raise wrap_socketerror(space, e)
+    w_flowinfo = w_scope_id = space.wrap(0)
+    sockaddr_len = space.int_w(space.len(w_sockaddr))
+    if sockaddr_len == 2:
+        w_host, w_port = space.unpackiterable(w_sockaddr, 2)
+    elif sockaddr_len == 3:
+        w_host, w_port, w_flowinfo = space.unpackiterable(w_sockaddr, 3)
+    elif sockaddr_len == 4:
+        w_host, w_port, w_flowinfo, w_scope_id = space.unpackiterable(w_sockaddr, 4)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap('argument 1 should be 2-4 items (%d given)' % sockaddr_len))
+    host = space.str_w(w_host)
+    port = space.int_w(w_port)
+    flowinfo = space.int_w(w_flowinfo)
+    scope_id = space.int_w(w_scope_id)
+
+    res = _c.addrinfo_ptr()
+    hints = _c.addrinfo()
+    hints.ai_family = _c.AF_UNSPEC
+    hints.ai_socktype = _c.SOCK_DGRAM
+    retval = _c.getaddrinfo(host, str(port), ctypes.pointer(hints), ctypes.pointer(res))
+    if retval != 0:
+        raise w_get_socketgaierror(space, None, retval)
+    family = res.contents.ai_family
+    if family == _c.AF_INET:
+        if sockaddr_len != 2:
+            if res:
+                _c.freeaddrinfo(res)
+            raise OperationError(space.w_TypeError,
+                                 space.wrap('argument 1 should be 2 items (%d given)' % sockaddr_len))
+            
+    elif family == _c.AF_INET6:
+        sin6_ptr = ctypes.cast(res.contents.ai_addr, POINTER(_c.sockaddr_in6))
+        sin6_ptr.contents.sin6_flowinfo = flowinfo
+        sin6_ptr.contents.sin6_scope_id = scope_id
+
+    hostbuf = ctypes.create_string_buffer(_c.NI_MAXHOST)
+    portbuf = ctypes.create_string_buffer(_c.NI_MAXSERV)
+    error = _c.getnameinfo(res.contents.ai_addr, res.contents.ai_addrlen,
+                        hostbuf, ctypes.sizeof(hostbuf),
+                        portbuf, ctypes.sizeof(portbuf), flags)
+
+    if res:
+        _c.freeaddrinfo(res)
+    if error:
+        raise w_get_socketgaierror(None, error)
+    return space.newtuple([space.wrap(hostbuf.value),
+                           space.wrap(portbuf.value)])
 getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
 
 # _____________________________________________________________
@@ -667,13 +713,6 @@ def getsockettype(space):
 
 def newsocket(space, w_subtype, family=_c.AF_INET,
               type=_c.SOCK_STREAM, proto=0):
-    # sets the timeout for the CPython implementation
-    timeout = getstate(space).defaulttimeout
-    if timeout < 0.0:
-        _c.setdefaulttimeout(None)
-    else:
-        _c.setdefaulttimeout(timeout)
-
     try:
         fd = _c.socket(family, type, proto)
     except _c.error, e: # On untranslated PyPy
@@ -690,16 +729,26 @@ def newsocket(space, w_subtype, family=_c.AF_INET,
 descr_socket_new = interp2app(newsocket,
                                unwrap_spec=[ObjSpace, W_Root, int, int, int])
 
+def setblocking(fd, block):
+    delay_flag = _c.fcntl(fd, _c.F_GETFL, 0)
+    if block:
+        delay_flag &= ~_c.O_NONBLOCK
+    else:
+        delay_flag |= _c.O_NONBLOCK
+    _c.fcntl(fd, _c.F_SETFL, delay_flag)
+    
 class Socket(Wrappable):
     "A wrappable box around an interp-level socket object."
 
-    def __init__(self, space, fd, family, type, proto):
+    def __init__(self, space, fd, family, type, proto=0):
         self.fd = fd
         self.family = family
         self.type = type
         self.proto = proto
-        self.timeout = getstate(space).defaulttimeout
         self.closed = False
+        self.timeout = getstate(space).defaulttimeout
+        if self.timeout >= 0.0:
+            setblocking(self.fd, False)
 
     def accept(self, space):
         """accept() -> (socket object, address info)

@@ -4,8 +4,6 @@ from pypy.tool.udir import udir
 import py
 import socket, sys
 
-py.test.skip('In-progress')
-
 def setup_module(mod):
     mod.space = StdObjSpace(usemodules=['_socket'])
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
@@ -92,13 +90,13 @@ def test_fromfd():
            """(_socket, fd, family, type, proto): 
                  return _socket.fromfd(fd, family, type, proto)""")
 
-    assert space.unwrap(fd).fileno()
+    assert space.unwrap(space.call_method(fd, 'fileno'))
     fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
             space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM)],
                 """(_socket, fd, family, type):
                     return _socket.fromfd(fd, family, type)""")
 
-    assert space.unwrap(fd).fileno()
+    assert space.unwrap(space.call_method(fd, 'fileno'))
 
 def test_ntohs():
     w_n = space.appexec([w_socket, space.wrap(125)],
