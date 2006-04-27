@@ -14,9 +14,10 @@ In no particular order:
   (newly integrated in Python 2.5): this is generally useful for Python
   developpers, and it is now the best path to write extension modules that are
   compatible with both CPython and PyPy.  See for example
-  http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  A related
-  idea is to provide efficient numeric arrays (as in numeric/numpy/numarray)
-  in this way.
+  http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  
+
+* A related idea is to provide `efficient numeric arrays`_ (as in
+  numeric/numpy/numarray) in this way.
 
 * Start a back-end for a new target platform, e.g. for the **Java** virtual
   machine.  This would be a path to bring PyPy and Jython closer and help
@@ -44,8 +45,11 @@ In no particular order:
 * A different kind of project: work on **py.test** to add features like
   distributed testing, automatic reports, etc.
 
-* Constraint programming: `Specialized propagators for specialized finite
-  domains`_.
+* Constraint programming: `efficient propagators for specialized
+  finite domains`_ (like numbers, sets, intervals).
+
+* A `code templating solution`_ for Python code, allowing to extend
+  the language syntax, control flow operators, etc.
 
 ...or whatever else interests you!
 
@@ -56,6 +60,8 @@ Feel free to mention your interest and discuss these ideas on the `pypy-dev
 mailing list`_.
 
 
-.. _`Specialized propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/wp09_10_ideas.txt
+.. _`efficient propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/constraints.txt
+.. _`efficient numeric arrays`: http://codespeak.net/svn/pypy/extradoc/soc-2006/numeric-arrays.txt
+.. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 
