@@ -24,10 +24,15 @@ def check(f, g, *args):
         print 'OK'
 
 
+class Foo:
+    def __init__(self, x):
+        self.x = x
 
 def bar(x, y):
-    a = [x] + [y]
-    return a[0]
+    t = (x,y)
+    return t[0]
+#    f = Foo(3)
+#    return f.x
 
 f = compile_function(bar, [int, int])
 

@@ -6,7 +6,7 @@ import exceptions
 
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod, List
+from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod, List, Record
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
 
@@ -62,6 +62,9 @@ class CTS(object):
         if isinstance(t, Instance):
             self.db.pending_class(t)
             return self.__class(t._name, include_class)
+        elif isinstance(t, Record):
+            name = self.db.pending_record(t)
+            return self.__class(name, include_class)
         elif isinstance(t, StaticMethod):
             return 'void' # TODO: is it correct to ignore StaticMethod?
         elif isinstance(t, List):

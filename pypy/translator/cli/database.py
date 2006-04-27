@@ -1,6 +1,7 @@
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
+from pypy.translator.cli.record import Record
 from pypy.rpython.ootypesystem import ootype
 
 try:
@@ -26,6 +27,11 @@ class LowLevelDatabase(object):
 
     def pending_class(self, classdef):
         self.pending_node(Class(self, classdef))
+
+    def pending_record(self, record):
+        r = Record(self, record)
+        self.pending_node(r)
+        return r.get_name()
 
     def pending_node(self, node):
         if node in self._pending_nodes or node in self._rendered_nodes:
