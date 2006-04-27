@@ -4,7 +4,6 @@ import os
 
 from pypy.annotation.model import SomeChar
 from pypy.translator.cl.buildcl import make_cl_func
-from pypy.translator.cl.buildcl import Literal
 
 from pypy.translator.test import snippet as t
 
@@ -25,6 +24,18 @@ def test_chr_ord():
         return chr(num)
     cl_ord_chr = make_cl_func(ord_chr, [SomeChar()])
     assert cl_ord_chr('a') == 'a'
+
+def test_float_int():
+    def cast_float(num):
+        return float(num)
+    cl_cast_float = make_cl_func(cast_float, [int])
+    assert cl_cast_float(1) == 1.0
+    def cast_int(num):
+        return int(num)
+    cl_cast_int = make_cl_func(cast_int, [float])
+    assert cl_cast_int(1.0) == 1
+    assert cl_cast_int(1.5) == 1
+    assert cl_cast_int(-1.5) == -1
 
 def test_range():
     def get_three():

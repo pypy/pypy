@@ -31,6 +31,17 @@ class Op:
     op_ooupcast = nop
     op_oodowncast = nop
 
+    def make_unary_op(cl_op):
+        def _(self, result, arg):
+            yield "(setf %s (%s %s))" % (result, cl_op, arg)
+        return _
+
+    op_bool_not = make_unary_op("not")
+    op_cast_char_to_int = make_unary_op("char-code")
+    op_cast_int_to_char = make_unary_op("code-char")
+    op_cast_float_to_int = make_unary_op("truncate")
+    op_cast_int_to_float = make_unary_op("float")
+
     def make_binary_op(cl_op):
         def _(self, result, arg1, arg2):
             yield "(setf %s (%s %s %s))" % (result, cl_op, arg1, arg2)
@@ -51,18 +62,6 @@ class Op:
     op_char_eq = make_binary_op("char=")
     op_char_le = make_binary_op("char<=")
     op_char_ne = make_binary_op("char/=")
-
-    def op_cast_char_to_int(self, result, arg):
-        yield "(setf %s (char-code %s))" % (result, arg)
-
-    def op_cast_int_to_char(self, result, arg):
-        yield "(setf %s (code-char %s))" % (result, arg)
-
-    def op_cast_int_to_float(self, result, arg):
-        yield "(setf %s (float %s))" % (result, arg)
-
-    def op_bool_not(self, result, arg):
-        yield "(setf %s (not %s))" % (result, arg)
 
     def op_int_is_true(self, result, arg):
         yield "(setf %s (not (zerop %s)))" % (result, arg)

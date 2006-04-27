@@ -53,6 +53,8 @@ def repr_const(val):
             return "nil"
     if isinstance(val, (int, long)):
         return str(val)
+    if isinstance(val, float):
+        return str(val)
     if val is None:
         return "nil"
     if isinstance(val, str):

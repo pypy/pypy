@@ -4,6 +4,7 @@ def test_const():
     assert repr_const(True) == 't'
     assert repr_const(False) == 'nil'
     assert repr_const(42) == '42'
+    assert repr_const(1.5) == '1.5'
     assert repr_const(None) == 'nil'
     assert repr_const('a') == '#\\a'
     assert repr_const('answer') == '"answer"'

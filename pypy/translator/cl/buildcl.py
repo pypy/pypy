@@ -35,12 +35,8 @@ def cl_detect():
             return "sbclinvoke.sh"
     return None
 
-class Literal:
-    def __init__(self, val):
-        self.val = val
-
 def readlisp(s):
-    # Return bool/int/char/str or give up
+    # Return bool/char/str/int/float or give up
     lines = s.splitlines()
     lines = [ line for line in lines if line and not line.startswith(';') ]
     assert len(lines) == 1
@@ -56,8 +52,11 @@ def readlisp(s):
         return s[1:-1]
     elif s.isdigit():
         return int(s)
-    else:
-        return Literal(s)
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    raise NotImplementedError("cannot read %s" % (s,))
 
 def make_cl_func(func, argtypes=[]):
     global global_cl
