@@ -2,7 +2,7 @@ import types
 
 from pypy.objspace.flow.model import Constant, Variable, Atom
 from pypy.rpython.rmodel import HalfConcreteWrapper
-from pypy.rpython.ootypesystem.ootype import List, Record, Instance, instance_impl, _static_meth
+from pypy.rpython.ootypesystem.ootype import List, Record, Instance, instance_impl, _class, _static_meth
 from pypy.rpython.ootypesystem.rclass import CLASSTYPE
 
 def repr_unknown(obj):
@@ -33,9 +33,8 @@ def repr_const(val):
         return "'struct" # XXX
     if isinstance(val, Instance):
         return "'" + repr_class_name(val._name)
-    if isinstance(val, instance_impl):
-        if val._TYPE is CLASSTYPE:
-            return "'standard-class"
+    if isinstance(val, _class):
+        return "'" + repr_class_name(val._INSTANCE._name)
     if isinstance(val, types.FunctionType):
         if val.func_name == 'dum_nocheck': # XXX
             return "'dummy"

@@ -32,10 +32,14 @@ def test_inherit():
     class Bar(Foo):
         pass
     def check_inheritance():
-        obj = Bar()
+        Bar()
     code = generate_cl_func(check_inheritance)
     print code
-    assert code.count("defclass") == 2
+    classcount = code.count("defclass")
+    # Divide by two to get rid of meta hierarchy
+    # Minus one to get rid of Object
+    realcount = (classcount / 2) - 1
+    assert realcount == 2
 
 def test_isinstance():
     class Foo:
@@ -54,7 +58,6 @@ def test_isinstance():
     assert cl_check_isinstance(True) == True
 
 def test_class():
-    py.test.skip("TODO")
     class Foo:
         value = 0
     class Bar(Foo):

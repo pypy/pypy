@@ -1,8 +1,9 @@
 import types
 
 from pypy.tool.udir import udir
+from pypy.objspace.flow.model import Constant
 from pypy.translator.translator import graphof
-from pypy.rpython.ootypesystem.ootype import List, Record, Instance, _static_meth, _meth, ROOT
+from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Record, Instance, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import repr_arg, repr_var, repr_const, repr_fun_name, repr_class_name
 
@@ -19,7 +20,7 @@ class Op:
     def __iter__(self):
         method = getattr(self, "op_" + self.opname)
         result = repr_arg(self.result)
-        args = map(repr_arg, self.args)
+        args = map(self.gen.repr_arg, self.args)
         for line in method(result, *args):
             yield line
 
@@ -28,6 +29,7 @@ class Op:
 
     op_same_as = nop
     op_ooupcast = nop
+    op_oodowncast = nop
 
     def make_binary_op(cl_op):
         def _(self, result, arg1, arg2):
@@ -71,39 +73,15 @@ class Op:
         args = " ".join(args)
         yield "(setf %s (%s %s))" % (result, fun, args)
 
-    def declare_struct(self, cls):
-        # cls is Record
-        name = "struct" + str(self.gen.structcount)
-        field_declaration = cls._fields.keys()
-        field_declaration = " ".join(field_declaration)
-        struct_declaration = "(defstruct %s %s)" % (name, field_declaration)
-        self.gen.declarations.append(struct_declaration)
-        self.gen.structcount += 1
-        return name
-
-    def declare_class(self, cls):
-        # cls is Instance
-        name = repr_class_name(cls._name)
-        field_declaration = ['('+field+')' for field in cls._fields]
-        field_declaration = " ".join(field_declaration)
-        if cls._superclass in (OBJECT, ROOT):
-            class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
-        else:
-            self.declare_class(cls._superclass)
-            supername = repr_class_name(cls._superclass._name)
-            class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
-        if class_declaration not in self.gen.declarations:
-            self.gen.declarations.append(class_declaration)
-
     def op_new(self, result, clsname):
         cls = self.args[0].value
         if isinstance(cls, List):
             yield "(setf %s (make-array 0 :adjustable t))" % (result,)
         elif isinstance(cls, Record):
-            clsname = self.declare_struct(cls)
+            clsname = self.gen.declare_struct(cls)
             yield "(setf %s (make-%s))" % (result, clsname)
         elif isinstance(cls, Instance):
-            self.declare_class(cls)
+            self.gen.declare_class(cls)
             yield "(setf %s (make-instance %s))" % (result, clsname)
         else:
             raise NotImplementedError()
@@ -125,8 +103,8 @@ class Op:
             methodobj._method_name = method # XXX
             self.gen.pendinggraphs.append(methodobj)
             name = repr_fun_name(method)
-            selfvar = repr_arg(receiver)
-            args = map(repr_arg, args)
+            selfvar = repr_var(receiver)
+            args = map(self.gen.repr_arg, args)
             args = " ".join(args)
             if args:
                 yield "(setf %s (%s %s %s))" % (result, name, selfvar, args)
@@ -139,8 +117,6 @@ class Op:
 
     def op_oosetfield(self, result, obj, _, value):
         fieldname = self.args[1].value
-        if fieldname == "meta": # XXX
-            raise StopIteration
         yield "(setf (slot-value %s '%s) %s)" % (obj, fieldname, value)
 
     def op_ooidentityhash(self, result, arg):
@@ -153,7 +129,7 @@ class Op:
 class ListImpl:
 
     def __init__(self, receiver):
-        self.obj = repr_arg(receiver)
+        self.obj = repr_var(receiver)
 
     def ll_length(self):
         return "(length %s)" % (self.obj,)
@@ -179,7 +155,56 @@ class GenCL:
         self.entry_point = funobj
         self.pendinggraphs = [funobj]
         self.declarations = []
+        self.constcount = 0
         self.structcount = 0
+
+    def repr_arg(self, arg):
+        if isinstance(arg, Constant):
+            if isinstance(arg.concretetype, Instance):
+                return self.declare_constant_instance(arg)
+        return repr_arg(arg)
+
+    def declare_struct(self, cls):
+        # cls is Record
+        name = "struct" + str(self.structcount)
+        field_declaration = cls._fields.keys()
+        field_declaration = " ".join(field_declaration)
+        struct_declaration = "(defstruct %s %s)" % (name, field_declaration)
+        self.declarations.append(struct_declaration)
+        self.structcount += 1
+        return name
+
+    def declare_class(self, cls):
+        # cls is Instance
+        name = repr_class_name(cls._name)
+        field_declaration = ['('+field+')' for field in cls._fields]
+        field_declaration = " ".join(field_declaration)
+        if cls._superclass is ROOT:
+            class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
+        else:
+            self.declare_class(cls._superclass)
+            supername = repr_class_name(cls._superclass._name)
+            class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
+        if class_declaration not in self.declarations:
+            self.declarations.append(class_declaration)
+
+    def declare_constant_instance(self, const):
+        # const.concretetype is Instance
+        name = "const" + str(self.constcount)
+        INST = dynamicType(const.value)
+        self.declare_class(INST)
+        inst = oodowncast(INST, const.value)
+        cls = repr_const(INST)
+        const_declaration = []
+        const_declaration.append("(setf %s (make-instance %s))" % (name, cls))
+        fields = INST._allfields()
+        for fieldname in fields:
+            fieldvalue = repr_const(getattr(inst, fieldname))
+            const_declaration.append("(setf (slot-value %s '%s) %s)" % (name, fieldname, fieldvalue))
+        const_declaration = "\n".join(const_declaration)
+        self.declarations.append(const_declaration)
+        self.constcount += 1
+        return name
 
     def emitfile(self):
         name = self.entry_point.func_name
@@ -314,7 +339,7 @@ class GenCL:
         return "(go tag" + str(tag) + ")"
 
     def emit_link(self, link):
-        source = map(repr_arg, link.args)
+        source = map(self.repr_arg, link.args)
         target = map(repr_var, link.target.inputargs)
         couples = [ "%s %s" % (t, s) for (s, t) in zip(source, target)]
         couples = " ".join(couples)
