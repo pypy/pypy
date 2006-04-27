@@ -118,6 +118,19 @@ class AppTestWeakref(object):
         ref1 = _weakref.ref(a)
         assert _weakref.getweakrefs(a) == [ref1]
 
+    def test_hashing(self):
+        import _weakref
+        class A(object):
+            def __hash__(self):
+                return 42
+        a = A()
+        w = _weakref.ref(a)
+        assert hash(a) == hash(w)
+        del a
+        assert hash(w) == 42
+        w = _weakref.ref(A())
+        raises(TypeError, hash, w)
+
 class AppTestProxy(object):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_weakref',))

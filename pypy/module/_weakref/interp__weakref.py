@@ -21,12 +21,12 @@ class WeakrefLifeline(object):
         for i in range(len(self.addr_refs) - 1, -1, -1):
             addr_ref = self.addr_refs[i]
             if addr_ref != NULL:
-                w_ref = cast_address_to_object(addr_ref, W_Weakref)
+                w_ref = cast_address_to_object(addr_ref, W_WeakrefBase)
                 w_ref.invalidate()
         for i in range(len(self.addr_refs) - 1, -1, -1):
             addr_ref = self.addr_refs[i]
             if addr_ref != NULL:
-                w_ref = cast_address_to_object(addr_ref, W_Weakref)
+                w_ref = cast_address_to_object(addr_ref, W_WeakrefBase)
                 w_ref.activate_callback()
     
     def get_weakref(self, space, w_subtype, w_obj, w_callable):
@@ -62,7 +62,7 @@ class WeakrefLifeline(object):
         self.addr_refs[index] = NULL
 
 
-class W_Weakref(Wrappable):
+class W_WeakrefBase(Wrappable):
     def __init__(w_self, space, lifeline, index, w_obj, w_callable):
         w_self.space = space
         w_self.address = cast_object_to_address(w_obj)
@@ -91,6 +91,20 @@ class W_Weakref(Wrappable):
                                               WeakrefLifeline)
             lifeline.ref_is_dead(w_self.index)
 
+class W_Weakref(W_WeakrefBase):
+    def __init__(w_self, space, lifeline, index, w_obj, w_callable):
+        W_WeakrefBase.__init__(w_self, space, lifeline, index, w_obj, w_callable)
+        w_self.w_hash = None
+
+    def descr_hash(self):
+        if self.w_hash is not None:
+            return self.w_hash
+        w_obj = self.dereference()
+        if self.space.is_w(w_obj, self.space.w_None):
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("weak object has gone away"))
+        self.w_hash = self.space.hash(w_obj)
+        return self.w_hash
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
     assert isinstance(w_obj, W_Weakrefable)
@@ -112,6 +126,7 @@ W_Weakref.typedef = TypeDef("weakref",
                         unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
     __ne__ = interp2app(descr__ne__,
                         unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
+    __hash__ = interp2app(W_Weakref.descr_hash, unwrap_spec=['self']),
     __call__ = interp2app(W_Weakref.dereference, unwrap_spec=['self'])
 )
 
@@ -140,13 +155,13 @@ def getweakrefs(space, w_obj):
         for i in range(len(lifeline.addr_refs)):
             addr = lifeline.addr_refs[i]
             if addr != NULL:
-                result.append(cast_address_to_object(addr, W_Weakref))
+                result.append(cast_address_to_object(addr, W_WeakrefBase))
         return space.newlist(result)
 
 #_________________________________________________________________
 # Proxy
 
-class W_Proxy(W_Weakref):
+class W_Proxy(W_WeakrefBase):
     def descr__hash__(self, space):
         raise OperationError(space.w_TypeError,
                              space.wrap("unhashable type"))
