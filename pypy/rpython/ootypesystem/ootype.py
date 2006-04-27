@@ -225,6 +225,12 @@ class Record(BuiltinType):
     def _lookup(self, meth_name):
         return self, None
 
+    def _lookup_field(self, name):
+        try:
+            return self, self._field_type(name)
+        except TypeError:
+            return self, None
+
     def __str__(self):
         item_str = ["%s: %s" % (str(name), str(ITEMTYPE))
                     for name, (ITEMTYPE, _) in self._fields.items()]
