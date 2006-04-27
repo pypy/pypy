@@ -164,3 +164,6 @@ def intern(space, w_str):
     if space.is_w(space.type(w_str), space.w_str):
         return space.new_interned_str(space.str_w(w_str))
     raise OperationError(space.w_TypeError, space.wrap("intern() argument 1 must be string."))
+
+def callable(space, w_object):
+    return space.callable(w_object)

@@ -78,15 +78,16 @@ def hasattr(ob, attr):
     except AttributeError:
         return False
 
-def callable(ob):
-    import __builtin__ # XXX this is insane but required for now for geninterp
-    for c in type(ob).__mro__:
-        if '__call__' in c.__dict__:
-            if isinstance(ob, __builtin__._instance): # old style instance!
-                return getattr(ob, '__call__', None) is not None
-            return True
-    else:
-        return False
+# Replaced by the interp-level helper space.callable(): 
+##def callable(ob):
+##    import __builtin__ # XXX this is insane but required for now for geninterp
+##    for c in type(ob).__mro__:
+##        if '__call__' in c.__dict__:
+##            if isinstance(ob, __builtin__._instance): # old style instance!
+##                return getattr(ob, '__call__', None) is not None
+##            return True
+##    else:
+##        return False
 
 def dir(*args):
     """dir([object]) -> list of strings

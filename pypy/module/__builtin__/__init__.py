@@ -37,7 +37,6 @@ class Module(MixedModule):
         'issubclass'    : 'app_inspect.issubclass',
         'isinstance'    : 'app_inspect.isinstance',
         'hasattr'       : 'app_inspect.hasattr',
-        'callable'      : 'app_inspect.callable',
         'globals'       : 'app_inspect.globals',
         'locals'        : 'app_inspect.locals',
         'vars'          : 'app_inspect.vars',
@@ -105,6 +104,7 @@ class Module(MixedModule):
         'id'            : 'operation.id',
         '_seqiter'      : 'operation._seqiter',
         'intern'        : 'operation.intern',
+        'callable'      : 'operation.callable',
 
         'compile'       : 'compiling.compile',
         'eval'          : 'compiling.eval',
