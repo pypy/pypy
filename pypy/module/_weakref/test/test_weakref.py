@@ -77,3 +77,13 @@ class AppTestWeakref(object):
         ref2 = _weakref.ref(a, callback)
         del a
         assert alive.a is None
+
+    def test_getweakrefs(self):
+        import _weakref
+        class A:
+            pass
+        a = A()
+        assert _weakref.getweakrefs(a) == []
+        assert _weakref.getweakrefs(None) == []
+        ref1 = _weakref.ref(a)
+        assert _weakref.getweakrefs(a) == [ref1]

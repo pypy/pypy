@@ -29,7 +29,7 @@ class W_Weakref(Wrappable):
             try:
                 w_self.space.call_function(w_self.w_callable, w_self)
             except OperationError, e:
-                os.write(2, "XXX\n")
+                e.write_unraisable(w_self.space, 'function', w_self.w_callable)
 
     def __del__(w_self):
         if w_self.address != NULL:
@@ -78,9 +78,9 @@ def getweakrefcount(space, w_obj):
 
 def getweakrefs(space, w_obj):
     if not isinstance(w_obj, W_Weakrefable):
-        return space.newlist()
+        return space.newlist([])
     if w_obj.__lifeline__ is None:
-        return space.newlist()
+        return space.newlist([])
     else:
         lifeline = w_obj.__lifeline__
         result = []
