@@ -4,9 +4,10 @@ Translate between PyPy ootypesystem and .NET Common Type System
 
 import exceptions
 
-from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
+#from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod, List, Record
+#from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod, List, Record, Dict
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
 
@@ -16,20 +17,24 @@ log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log) 
 
 PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
+PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
 
 _lltype_to_cts = {
-    Void: 'void',
-    Signed: 'int32',    
-    Unsigned: 'unsigned int32',
+    ootype.Void: 'void',
+    ootype.Signed: 'int32',    
+    ootype.Unsigned: 'unsigned int32',
     SignedLongLong: 'int64',
     UnsignedLongLong: 'unsigned int64',
-    Bool: 'bool',
-    Float: 'float64',    
-    Class: 'class [mscorlib]System.Type',
+    ootype.Bool: 'bool',
+    ootype.Float: 'float64',    
+    ootype.Class: 'class [mscorlib]System.Type',
 
-    # TODO: it seems a hack
-    List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),
-    List.ITEMTYPE_T: '!0',
+    # maps generic types to their ordinal
+    ootype.List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),
+    ootype.List.ITEMTYPE_T: '!0',
+    ootype.Dict.SELFTYPE_T: 'class ' + (PYPY_DICT % ('!0', '!1')),
+    ootype.Dict.KEYTYPE_T: '!0',
+    ootype.Dict.VALUETYPE_T: '!1',
     }
 
 _pyexception_to_cts = {
@@ -59,17 +64,21 @@ class CTS(object):
             return result
 
     def lltype_to_cts(self, t, include_class=True):
-        if isinstance(t, Instance):
+        if isinstance(t, ootype.Instance):
             self.db.pending_class(t)
             return self.__class(t._name, include_class)
-        elif isinstance(t, Record):
+        elif isinstance(t, ootype.Record):
             name = self.db.pending_record(t)
             return self.__class(name, include_class)
-        elif isinstance(t, StaticMethod):
+        elif isinstance(t, ootype.StaticMethod):
             return 'void' # TODO: is it correct to ignore StaticMethod?
-        elif isinstance(t, List):
+        elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
             return self.__class(PYPY_LIST % item_type, include_class)
+        elif isinstance(t, ootype.Dict):
+            key_type = self.lltype_to_cts(t._KEYTYPE)
+            value_type = self.lltype_to_cts(t._VALUETYPE)
+            return self.__class(PYPY_DICT % (key_type, value_type), include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 
@@ -86,7 +95,7 @@ class CTS(object):
         ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
         func_name = func_name or graph.name
 
-        args = [arg for arg in graph.getargs() if arg.concretetype is not Void]
+        args = [arg for arg in graph.getargs() if arg.concretetype is not ootype.Void]
         if is_method:
             args = args[1:]
 
@@ -97,13 +106,13 @@ class CTS(object):
 
     def method_signature(self, obj, name):
         # TODO: use callvirt only when strictly necessary
-        if isinstance(obj, Instance):
+        if isinstance(obj, ootype.Instance):
             owner, meth = obj._lookup(name)
             class_name = obj._name
             full_name = 'class %s::%s' % (class_name, name)
             return self.graph_to_signature(meth.graph, True, full_name), True
 
-        elif isinstance(obj, List):
+        elif isinstance(obj, ootype.BuiltinType):
             meth = oopspec.get_method(obj, name)
             class_name = self.lltype_to_cts(obj)
             ret_type = self.lltype_to_cts(meth.RESULT)

@@ -80,4 +80,37 @@ namespace pypy.runtime
         }
         */
     }
+
+    public class Dict<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
+    {
+        public int ll_length()
+        {
+            return this.Count;
+        }
+
+        public TValue ll_get(TKey key)
+        {
+            return this[key];
+        }
+
+        public void ll_set(TKey key, TValue value)
+        {
+            this[key] = value;
+        }
+
+        public bool ll_remove(TKey key)
+        {
+            return this.Remove(key);
+        }
+
+        public bool ll_contains(TKey key)
+        {
+            return this.ContainsKey(key);
+        }
+
+        public void ll_clear()
+        {
+            this.Clear();
+        }
+    }
 }
