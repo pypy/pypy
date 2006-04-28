@@ -1,6 +1,6 @@
 import py
 from pypy.rpython.test.test_llinterp import interpret 
-from pypy.rpython.ootypesystem.ootype import Signed, Float, Dict, new, typeOf
+from pypy.rpython.ootypesystem.ootype import Signed, Float, Dict, new, typeOf, setValueType
 
 def test_new():
     DT = Dict(Signed, Float)
@@ -30,3 +30,16 @@ def test_iteritems():
         items.append((it.ll_current_key(), it.ll_current_value()))
     items.sort()
     assert items == [(42, 43.0), (52, 53.0)]
+
+def test_optional_valuetype():
+    DT = Dict(Signed)
+    DT2 = Dict(Signed, Float)
+    assert DT != Signed
+    py.test.raises(TypeError, "DT == DT2")
+    py.test.raises(TypeError, "DT2 == DT")
+    py.test.raises(TypeError, hash, DT)
+    setValueType(DT, Float)
+    assert DT == DT2
+    assert DT2 == DT
+    assert hash(DT) == hash(DT2)
+
