@@ -1,7 +1,8 @@
+import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython.rarithmetic import intmask
 
 
@@ -98,6 +99,19 @@ class BaseTestRclass:
         assert res == 2
         res = interpret(dummyfn, [1], type_system=self.ts)
         assert res == 4
+
+    def test_runtime_exception(self):
+        py.test.skip("God help us")
+        def pick(flag):
+            if flag:
+                return TypeError
+            else:
+                return ValueError
+        def f(flag):
+            ex = pick(flag)
+            raise ex()
+        interpret_raises(TypeError, f, [True], type_system=self.ts)
+        interpret_raises(ValueError, f, [False], type_system=self.ts)
 
     def test_classattr_as_defaults(self):
         def dummyfn():
