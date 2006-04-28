@@ -892,3 +892,13 @@ class TestOotypeRtyping(BaseTestDictRtyping):
             dic.clear()
             return len(dic)
         assert self.interpret(func, ()) == 0
+
+    def test_recursive(self):
+        py.test.skip("work-in-progress")
+        def func(i):
+            dic = {i: {}}
+            dic[i] = dic
+            return dic[i]
+        res = self.interpret(func, [5])
+        assert res.ll_get(5) is res
+
