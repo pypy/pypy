@@ -26,7 +26,7 @@ def test_inc():
     cl_inc = make_cl_func(inc, [int])
     assert cl_inc(5) == 6
 
-def test_twice():
+def test_method_twice():
     class IntHolder:
         def __init__(self, number):
             self.number = number
@@ -39,8 +39,10 @@ def test_twice():
         obj.inc()
         obj.inc()
         return obj.get()
-    cl_inc_two = make_cl_func(inc_two, [int])
-    assert cl_inc_two(5) == 7
+    code = generate_cl_func(inc_two, [int])
+    print code
+    methodcount = code.count("defmethod")
+    assert methodcount == 3
 
 def test_inherit():
     class Foo:
