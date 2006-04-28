@@ -58,10 +58,31 @@ class BaseTestRclass:
         assert res == 12
 
     def test_classattr_both(self):
-        print self.ts
         class A:
             a = 1
         class B(A):
+            a = 2
+        def pick(i):
+            if i == 0:
+                return A
+            else:
+                return B
+            
+        def dummyfn(i):
+            C = pick(i)
+            i = C()
+            return C.a + i.a
+        res = interpret(dummyfn, [0], type_system=self.ts)
+        assert res == 2
+        res = interpret(dummyfn, [1], type_system=self.ts)
+        assert res == 4
+
+    def test_classattr_both2(self):
+        class Base(object):
+            a = 0
+        class A(Base):
+            a = 1
+        class B(Base):
             a = 2
         def pick(i):
             if i == 0:
