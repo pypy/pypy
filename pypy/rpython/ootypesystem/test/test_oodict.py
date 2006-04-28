@@ -43,3 +43,9 @@ def test_optional_valuetype():
     assert DT2 == DT
     assert hash(DT) == hash(DT2)
 
+def test_recursive_str_hash():
+    DT = Dict(Signed)
+    setValueType(DT, DT)
+    assert isinstance(str(DT), str)
+    assert isinstance(hash(DT), int)
+

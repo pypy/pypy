@@ -387,8 +387,8 @@ class Dict(BuiltinADTType):
     # equal.
 
     def __str__(self):
-        return '%s%s' % (self.__class__.__name__,
-                saferecursive(str, "(...)")((self._KEYTYPE, self._VALUETYPE)))
+        return '%s(%s, %s)' % (self.__class__.__name__,
+                self._KEYTYPE, saferecursive(str, "...")(self._VALUETYPE))
 
     def __eq__(self, other):
         if not isinstance(other, Dict):
