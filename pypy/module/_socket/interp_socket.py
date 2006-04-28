@@ -182,16 +182,21 @@ def common_gethost(space, hostent):
     if not hostent:
         raise  w_get_socketherror(space, None, _c.h_errno.value)
     aliases = []
-    for alias in hostent.contents.h_aliases:
-         if alias is None:
-             break
+    i = 0
+    h_aliases = hostent.contents.h_aliases
+    alias = h_aliases[0]
+    while alias is not None:
          aliases.append(space.wrap(alias))
+         i += 1
+         alias = h_aliases[i]
     address_list = []
     h_addr_list = ctypes.cast(hostent.contents.h_addr_list, ctypes.POINTER(ctypes.POINTER(_c.in_addr)))
-    for addr in h_addr_list:
-         if not addr:
-             break
+    i = 0
+    addr = h_addr_list[0]
+    while addr is not None:
          address_list.append(space.wrap(_c.inet_ntoa(addr.contents)))
+         i += 1
+         addr = h_addr_list[i]
 
     return space.newtuple([space.wrap(hostent.contents.h_name), 
                      space.newlist(aliases), space.newlist(address_list)])
@@ -290,7 +295,7 @@ def socketpair(space, w_family=NoneNotWrapped, w_sock_type=NoneNotWrapped, w_pro
         sock_type = space.int_w(w_sock_type)
     if w_proto is not None:
         proto = space.int_w(w_proto)
-    result = ctypes.ARRAY(ctypes.c_int, 2)
+    result = _c.socketpair_t()
     error = _c.socketpair(family, sock_type, proto, result)
     if error < 0:
         raise w_get_socketerror(space, None, _c.errno.value)
@@ -673,7 +678,7 @@ def getnameinfo(space, w_sockaddr, flags):
     if res:
         _c.freeaddrinfo(res)
     if error:
-        raise w_get_socketgaierror(None, error)
+        raise w_get_socketgaierror(space, None, error)
     return space.newtuple([space.wrap(hostbuf.value),
                            space.wrap(portbuf.value)])
 getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
@@ -775,11 +780,11 @@ class Socket(Wrappable):
             if retval != 0:
                 raise w_get_socketgaierror(space, None, retval)
             addrinfo = res.contents
-            addrlen = addrinfo.ai_addrlen 
-            caddr_ptr = ctypes.create_string_buffer(addrlen)
-            _c.memcpy(caddr_ptr, addrinfo.ai_addr, addrlen)
+            addrlen = addrinfo.ai_addrlen
+            caddr_buf = ctypes.create_string_buffer(int(addrlen)) # XXX forcing a long to an int
+            _c.memcpy(caddr_buf, addrinfo.ai_addr, addrlen)
             
-            sockaddr_ptr = ctypes.cast(caddr_ptr, _c.sockaddr_ptr)
+            sockaddr_ptr = ctypes.cast(caddr_buf, _c.sockaddr_ptr)
             return sockaddr_ptr, addrlen
 
         else:
@@ -794,10 +799,10 @@ class Socket(Wrappable):
         """
         peeraddr = _c.pointer(_c.sockaddr())
         peeraddrlen = _c.socklen_t(_c.sockaddr_size)
-        newfd = _c.socketaccept(self._fd, peeraddr,
+        newfd = _c.socketaccept(self.fd, peeraddr,
                                 _c.pointer(peeraddrlen))
         if newfd < 0:
-            raise w_get_socketerror(_c.errno.value)
+            raise w_get_socketerror(space, None, _c.errno.value)
         newsocket = Socket(space, newfd, self.family, self.type, self.proto)
         return space.newtuple([newsocket, w_makesockaddr(space, peeraddr, peeraddrlen.value, self.proto)])
     accept.unwrap_spec = ['self', ObjSpace]
@@ -810,7 +815,7 @@ class Socket(Wrappable):
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
         """
         caddr_ptr, caddr_len = self._getsockaddr(space, w_addr)
-        res = _c.socketbind(self._fd, caddr_ptr, caddr_len)
+        res = _c.socketbind(self.fd, caddr_ptr, caddr_len)
         if res < 0:
             raise w_get_socketerror(space, None, _c.errno.value)
     bind.unwrap_spec = ['self', ObjSpace, W_Root]
@@ -834,12 +839,12 @@ class Socket(Wrappable):
         Connect the socket to a remote address.  For IP sockets, the address
         is a pair (host, port).
         """
-        errno = self.connect_ex(space, w_addr)
+        errno = self._connect_ex(space, w_addr)
         if errno:
             raise w_get_socketerror(space, None, errno)
     connect.unwrap_spec = ['self', ObjSpace, W_Root]
 
-    def connect_ex(self, space, w_addr):
+    def _connect_ex(self, space, w_addr):
         """connect_ex(address) -> errno
         
         This is like connect(address), but returns an error code (the errno value)
@@ -854,6 +859,9 @@ class Socket(Wrappable):
                 pass
             return errno
         return 0
+    
+    def connect_ex(self, space, w_addr):
+        return space.wrap(self._connect_ex(space, w_addr))
     connect_ex.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def dup(self, space):
@@ -921,7 +929,7 @@ class Socket(Wrappable):
             c_buffersize = _c.c_int(space.int_w(w_buffersize))
             buffer = ctypes.create_string_buffer(c_buffersize.value)
             err = _c.socketgetsockopt(self.fd, level, option, buffer,
-                                ctypes.POINTER(c_buffersize))
+                                ctypes.pointer(c_buffersize))
             if err:
                 raise w_get_socketerror(space, None, _c.errno.value)
             return space.wrap(buffer[:c_buffersize.value])
@@ -1038,10 +1046,7 @@ class Socket(Wrappable):
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        if flag:
-            self.settimeout(space, None)
-        else:
-            self.settimeout(space, 0.0)
+        setblocking(self.fd, bool(flag))
     setblocking.unwrap_spec = ['self', ObjSpace, int]
 
     def setsockopt(self, space, level, option, w_value):
@@ -1089,7 +1094,7 @@ class Socket(Wrappable):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("Timeout value out of range"))
         self.timeout = timeout
-        self.setblocking(space, timeout < 0.0)
+        setblocking(self.fd, timeout < 0.0)
     settimeout.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def shutdown(self, space, how):

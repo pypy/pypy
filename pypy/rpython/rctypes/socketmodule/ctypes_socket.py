@@ -350,6 +350,7 @@ memcpy = socketdll.memcpy
 memcpy.argtypes = [c_void_p, c_void_p, size_t]
 memcpy.restype = c_void_p
 
+socketpair_t = ARRAY(c_int, 2)
 socketpair = socketdll.socketpair
 socketpair.argtypes = [c_int, c_int, c_int, POINTER(c_int)]
 socketpair.restype = c_int
