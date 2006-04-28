@@ -9,8 +9,8 @@ from pypy.rpython.ootypesystem.rclass import CLASSTYPE
 def clrepr(item):
     if isinstance(item, str):
         if len(item) == 1:
-            return "#\\" + item
-        return repr_fun_name(item)
+            return "#\\%c" % (item,)
+        return '"%s"' % (item,)
     if isinstance(item, bool):
         if item: 
             return "t"
@@ -18,6 +18,8 @@ def clrepr(item):
             return "nil"
     if isinstance(item, (int, long, float)):
         return str(item)
+    if item is None:
+        return "nil"
     if isinstance(item, (list, tuple)):
         return "'(" + ' '.join(item) + ")"
     if isinstance(item, Variable):
