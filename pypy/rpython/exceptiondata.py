@@ -21,5 +21,10 @@ class AbstractExceptionData:
         bk = rtyper.annotator.bookkeeper
         for cls in self.standardexceptions:
             classdef = bk.getuniqueclassdef(cls)
+
+    def finish(self, rtyper):
+        bk = rtyper.annotator.bookkeeper
+        for cls in self.standardexceptions:
+            classdef = bk.getuniqueclassdef(cls)
             rclass.getclassrepr(rtyper, classdef).setup()
 

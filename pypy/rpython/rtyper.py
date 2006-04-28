@@ -155,6 +155,7 @@ class RPythonTyper:
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
         self.type_system.perform_normalizations(self)
+        self.exceptiondata.finish(self)
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}

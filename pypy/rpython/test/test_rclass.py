@@ -101,7 +101,6 @@ class BaseTestRclass:
         assert res == 4
 
     def test_runtime_exception(self):
-        py.test.skip("God help us")
         def pick(flag):
             if flag:
                 return TypeError
