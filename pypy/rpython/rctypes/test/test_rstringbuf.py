@@ -12,7 +12,8 @@ from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 
-from ctypes import create_string_buffer, sizeof, c_int
+from ctypes import create_string_buffer, cast, POINTER, c_void_p, c_char
+from ctypes import c_char_p, c_long, pointer, sizeof, c_int
 from pypy.rpython.rctypes.astringbuf import StringBufferType
 
 
@@ -54,6 +55,33 @@ class Test_annotation:
         if conftest.option.view:
             a.translator.view()
 
+    def test_annotate_slice(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = 'y'
+            return buf[:2]
+
+        a = RPythonAnnotator()
+        s = a.build_types(func, [int])
+        assert s == annmodel.SomeString()
+
+    def test_annotate_cast_to_ptr(self):
+        charp = POINTER(c_char)
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = 'y'
+            buf[2] = 'z'
+            cp = cast(buf, charp)
+            vp = cast(buf, c_void_p)
+            return  cp[0] + cast(vp, charp)[2]
+        
+        a = RPythonAnnotator()
+        s = a.build_types(func, [int])
+        assert s == annmodel.SomeString()
+
+            
 class Test_specialization:
     def test_specialize_create(self):
         def func(n):
@@ -96,6 +124,31 @@ class Test_specialization:
         res = interpret(func, [12])
         assert ''.join(res.chars) == "xy"
 
+    def test_specialize_slice(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = 'y'
+            buf[2] = 'z'
+            return buf[:2] + '_' + buf[1:3] + '_' + buf[9:]
+
+        res = interpret(func, [12])
+        assert ''.join(res.chars) == "xy_yz_\0\0\0"
+
+    def test_specialize_cast_to_ptr(self):
+        charp = POINTER(c_char)
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = 'y'
+            buf[2] = 'z'
+            cp = cast(buf, charp)
+            vp = cast(buf, c_void_p)
+            return  cp[0] + '_' + cast(vp, charp)[2]
+        
+        res = interpret(func, [12])
+        assert ''.join(res.chars) == 'x_z'
+
     def test_specialize_sizeof(self):
         def func(n):
             buf = create_string_buffer(n)
@@ -117,3 +170,17 @@ class Test_compilation:
         assert res[1] == sizeof(c_int) * 42
         assert res[2] == sizeof(c_int)
         assert res[3] == sizeof(c_int) * 42
+
+    def test_compile_cast_to_ptr(self):
+        charp = POINTER(c_char)
+        def func(n):
+            c_n = c_long(n)
+            c_n_ptr = cast(pointer(c_n), POINTER(c_char))
+            buf = create_string_buffer(sizeof(c_long))
+            for i in range(sizeof(c_long)):
+                buf[i] = c_n_ptr[i]
+            c_long_ptr = cast(buf, POINTER(c_long))
+            return c_long_ptr.contents.value
+        fn = compile(func, [int])
+        res = fn(0x12345678)
+        assert res == 0x12345678

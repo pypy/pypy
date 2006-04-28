@@ -785,10 +785,13 @@ class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
         pass
 
     def getitem((s_cto, s_slice)):
-        try:
-            listdef = ListDef(None, s_cto.knowntype._type_.annotator_type)
-        except AttributeError:
-            listdef = ListDef(None, SomeCTypesObject(s_cto.knowntype._type_))
+        result_ctype = s_cto.knowntype._type_
+        s_result = SomeCTypesObject(result_ctype,
+                                    memorystate=SomeCTypesObject.MEMORYALIAS)
+        list_item = s_result.return_annotation()
+        if isinstance(list_item, SomeChar):
+            return SomeString()
+        listdef = ListDef(None, list_item)
         return SomeList(listdef)
 
 class __extend__(pairtype(SomeCTypesObject, SomeCTypesObject)):

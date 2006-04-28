@@ -3,7 +3,8 @@ from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr
 from pypy.objspace.flow.model import Constant
-
+from pypy.rpython.rslice import AbstractSliceRepr
+from pypy.rpython.rstr import string_repr
 
 class StringBufRepr(CTypesRefRepr):
 
@@ -32,6 +33,7 @@ class StringBufRepr(CTypesRefRepr):
                                    resulttype = ONE_CHAR_PTR)
         return v_char_p
 
+
 ONE_CHAR_PTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
 
 
@@ -48,6 +50,45 @@ class __extend__(pairtype(StringBufRepr, IntegerRepr)):
                                                      lltype.Char)
         v_array = r_stringbuf.get_c_data(hop.llops, v_stringbuf)
         hop.genop('setarrayitem', [v_array, v_index, v_item])
+
+class __extend__(pairtype(StringBufRepr, AbstractSliceRepr)):
+    def rtype_getitem((r_stringbuf, r_slice), hop):
+        rs = r_stringbuf.rtyper.type_system.rslice
+        if r_slice == rs.startonly_slice_repr:
+            v_stringbuf, v_start = hop.inputargs(r_stringbuf, rs.startonly_slice_repr)
+            v_array = r_stringbuf.get_c_data(hop.llops, v_stringbuf)
+            return hop.gendirectcall(ll_slice_startonly, v_array, v_start)
+        if r_slice == rs.startstop_slice_repr:
+            v_stringbuf, v_slice = hop.inputargs(r_stringbuf, rs.startstop_slice_repr)
+            v_array = r_stringbuf.get_c_data(hop.llops, v_stringbuf)
+            return hop.gendirectcall(ll_slice, v_array, v_slice)
+        raise TyperError('getitem does not support slices with %r' % (r_slice,))
+
+def ll_slice_startonly(sbuf, start):
+    return ll_slice_start_stop(sbuf, start, len(sbuf))
+    
+def ll_slice(sbuf, slice):
+    return ll_slice_start_stop(sbuf, slice.start, slice.stop)
+
+def ll_slice_start_stop(sbuf, start, stop):
+    length = len(sbuf)
+    if start < 0:
+        start = length + start
+    if start < 0:
+        start = 0
+    if stop < 0:
+        stop = length + stop
+    if stop < 0:
+        stop = 0
+    if stop > length:
+        stop = length
+    if start > stop:
+        start = stop
+    newlength = stop - start
+    newstr = lltype.malloc(string_repr.lowleveltype.TO, newlength)
+    for i in range(newlength):
+        newstr.chars[i] = sbuf[start + i]
+    return newstr
 
 
 STRBUFTYPE = lltype.Array(lltype.Char)
