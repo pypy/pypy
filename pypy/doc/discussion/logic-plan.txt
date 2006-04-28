@@ -191,3 +191,51 @@ Thread cloning
 It is expected that PyPy coroutines/greenlets/microthreads be at some
 point picklable. One could implement clone() using the thread pickling
 machinery.
+
+Such is the abstract interface of computation spaces (the
+inherit-from-threads part is a bit speculative) :
+
+ class MicroThread ...
+      "provided by PyPy, stackless team"
+
+ class CompSpace(Microthread):
+
+      """solver API"""
+
+      def ask(self):
+          """
+          blocks until the space is stable, which means that
+          the embedded computation has reached a fixpoint
+          returns int in [0,1,n]
+             0 : space is failed (further calls to the 
+                                  space raise an exception)
+             1 : space is entailed (solution found)
+             n : space is distributable (n choice points)
+          """
+
+      def commit(self, choice):
+          """tells the space which choice point to pick"""
+
+      def clone(self):
+          """returns a cloned computation space"""
+
+      def merge(self):
+          """
+          extract solution values from an entailed space
+          furher calls to space methods will raise 
+          an exception
+          """
+
+      """distributor API"""
+
+      def choose(self):
+          """
+          blocks until commit is called
+          returns the choice value that
+          was given to the commit call
+          """
+
+
+Programs runing in a computation spaces should not be allowed to alter
+the top-level space (i.e interaction with the global program state and
+outside world).
