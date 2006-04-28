@@ -223,7 +223,7 @@ class GenCL:
     def declare_class(self, cls):
         # cls is Instance
         if cls in self.declarations:
-            return
+            return self.declarations[cls][0]
         name = clrepr(cls._name, symbol=True)
         field_declaration = ['('+clrepr(field, True)+')' for field in cls._fields]
         field_declaration = " ".join(field_declaration)
@@ -238,6 +238,7 @@ class GenCL:
             methodobj = cls._methods[method]
             methodobj._method_name = method
             self.pendinggraphs.append(methodobj)
+        return name
 
     def declare_exception(self, cls):
         # cls is Instance
@@ -246,10 +247,10 @@ class GenCL:
             return self.declarations[cls][0]
         name = clrepr(cls._name, symbol=True)
         if cls._superclass is OBJECT:
-            exception_declaration = "(define-condition %s () ())" % (name,)
+            supername = self.declare_class(OBJECT)
+            exception_declaration = "(define-condition %s (condition %s) ())" % (name, supername)
         else:
-            self.declare_exception(cls._superclass)
-            supername = clrepr(cls._superclass._name, symbol=True)
+            supername = self.declare_exception(cls._superclass)
             exception_declaration = "(define-condition %s (%s) ())" % (name, supername)
         self.declarations[cls] = (name, exception_declaration)
         return name
@@ -407,7 +408,8 @@ class GenCL:
                 self.emit_link(body)
                 for exception in exceptions:
                     yield "(%s ()" % (exception,)
-                    self.emit_link(exceptions[exception])
+                    for line in self.emit_link(exceptions[exception]):
+                        yield line
                     yield ")"
             else:
                 # this is for the more general case.  The previous special case
