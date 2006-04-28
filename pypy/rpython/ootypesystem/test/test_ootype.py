@@ -381,3 +381,13 @@ def test_visibility():
     assert a.zz() == 1
     assert b.zz() == 3
 
+def test_view_instance_hash():
+    I = Instance("Foo", ROOT)
+
+    inst = new(I)
+    inst_up = ooupcast(ROOT, inst)
+    inst_up2 = ooupcast(ROOT, inst)
+
+    assert inst_up == inst_up2
+    assert hash(inst_up) == hash(inst_up2)
+

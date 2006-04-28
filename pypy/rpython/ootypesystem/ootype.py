@@ -599,6 +599,9 @@ class _view(object):
         assert isinstance(other, _view)
         return self._inst == other._inst
 
+    def __hash__(self):
+        return hash(self._inst)
+
     def __nonzero__(self):
         return bool(self._inst)
 
