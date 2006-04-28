@@ -356,7 +356,6 @@ class BaseTestListRtyping:
         assert self.ll_to_list(res) == [5, 6, 7, 8, 9]
 
     def test_slice(self):
-        self._skip_oo('tuples of lists')
         def dummyfn():
             l = [5, 6, 7, 8, 9]
             return l[:2], l[1:4], l[3:]
@@ -406,7 +405,6 @@ class BaseTestListRtyping:
         assert res == 0
         
     def test_setslice(self):
-        self._skip_oo('tuples of lists')
         def dummyfn():
             l = [10, 9, 8, 7]
             l[:2] = [6, 5]
@@ -1051,7 +1049,6 @@ class BaseTestListRtyping:
         assert res == 2
 
     def test_type_erase_fixed_size(self):
-        self._skip_oo('tuples of lists')
         class A(object):
             pass
         class B(object):
@@ -1076,7 +1073,6 @@ class BaseTestListRtyping:
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
 
     def test_type_erase_var_size(self):
-        self._skip_oo('tuples of lists')        
         class A(object):
             pass
         class B(object):
