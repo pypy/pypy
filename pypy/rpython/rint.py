@@ -307,7 +307,7 @@ class __extend__(IntegerRepr):
         return vlist[0]
 
     def ll_str(self, i):
-        from pypy.rpython.rstr import STR
+        from pypy.rpython.lltypesystem.rstr import STR
         temp = malloc(CHAR_ARRAY, 20)
         len = 0
         sign = 0
@@ -358,7 +358,7 @@ for i in range(16):
     hex_chars[i] = "%x"%i
 
 def ll_int2hex(i, addPrefix):
-    from pypy.rpython.rstr import STR
+    from pypy.rpython.lltypesystem.rstr import STR
     temp = malloc(CHAR_ARRAY, 20)
     len = 0
     sign = 0
@@ -391,7 +391,7 @@ def ll_int2hex(i, addPrefix):
     return result
 
 def ll_int2oct(i, addPrefix):
-    from pypy.rpython.rstr import STR
+    from pypy.rpython.lltypesystem.rstr import STR
     if i == 0:
         result = malloc(STR, 1)
         result.chars[0] = '0'

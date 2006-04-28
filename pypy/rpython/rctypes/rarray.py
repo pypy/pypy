@@ -1,5 +1,5 @@
 from ctypes import ARRAY, c_int
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype

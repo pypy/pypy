@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.rstr import STR
+from pypy.rpython.lltypesystem.rstr import STR
 
 from pypy.translator.llvm.log import log
 log = log.gc

@@ -14,7 +14,7 @@ Dummy low-level implementations for the external functions of the 'os' module.
 # and buffer preparation stuff is not useful.
 
 import os, errno
-from pypy.rpython.rstr import STR
+from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy, _ll_strfill

@@ -7,7 +7,6 @@ from pypy.rpython.rmodel import FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr, StringRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rstr import string_repr
-from pypy.rpython import rstr
 from pypy.rpython.rmodel import log
 
 import math
@@ -87,6 +86,7 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
 
 class __extend__(pairtype(StringRepr, FloatRepr)):
     def rtype_mod(_, hop):
+        rstr = hop.rtyper.type_system.rstr
         return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 #Helpers FloatRepr,FloatRepr

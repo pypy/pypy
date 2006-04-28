@@ -10,7 +10,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.lltypesystem import lltype
 
 from ctypes import cdll, pythonapi, PyDLL, _FUNCFLAG_PYTHONAPI

@@ -4,7 +4,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.jit.llabstractinterp.llabstractinterp import LLAbstractInterp
 from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.lltypesystem.rstr import string_repr
 
 from pypy.jit.tl import tlr
 

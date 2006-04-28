@@ -1,6 +1,7 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.rstr import StringRepr, string_repr
+from pypy.rpython.rstr import StringRepr
+from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
 from pypy.rpython.rctypes.rarray import ArrayRepr
 from pypy.rpython.rctypes.rstringbuf import StringBufRepr

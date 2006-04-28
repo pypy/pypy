@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython import rstr
+from pypy.rpython.lltypesystem import rstr
 from pypy.annotation import model as annmodel
 from pypy.jit.llabstractinterp.llabstractinterp import LLAbstractInterp, Policy
 from pypy.objspace.flow import model as flowmodel

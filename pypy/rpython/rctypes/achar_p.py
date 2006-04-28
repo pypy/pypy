@@ -9,7 +9,7 @@ class CallEntry(CTypesCallEntry):
     _about_ = c_char_p
 
     def specialize_call(self, hop):
-        from pypy.rpython.rstr import string_repr
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         r_char_p = hop.r_result
         v_result = r_char_p.allocate_instance(hop.llops)
         if len(hop.args_s):

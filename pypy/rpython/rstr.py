@@ -33,7 +33,7 @@ SIGNED_ARRAY = GcArray(Signed)
 
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
-        return string_repr
+        return rtyper.type_system.rstr.string_repr
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -56,7 +56,6 @@ unichar_repr = UniCharRepr()
 
 
 class __extend__(StringRepr):
-    lowleveltype = Ptr(STR)
 
     def convert_const(self, value):
         if value is None:
@@ -223,9 +222,6 @@ class __extend__(StringRepr):
 
     def ll_str(self, s):
         return s
-
-    def make_iterator_repr(self):
-        return string_iterator_repr
 
 class __extend__(pairtype(StringRepr, IntegerRepr)):
     def rtype_getitem(_, hop):
@@ -1109,35 +1105,18 @@ def ll_int(s, base):
 #
 #  Iteration.
 
-class StringIteratorRepr(IteratorRepr):
-    lowleveltype = Ptr(GcStruct('stringiter',
-                                ('string', string_repr.lowleveltype),
-                                ('index', Signed)))
+class AbstractStringIteratorRepr(IteratorRepr):
+
     def newiter(self, hop):
         v_str, = hop.inputargs(string_repr)
-        return hop.gendirectcall(ll_striter, v_str)
+        return hop.gendirectcall(self.ll_striter, v_str)
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_strnext, v_iter)
+        return hop.gendirectcall(self.ll_strnext, v_iter)
 
-string_iterator_repr = StringIteratorRepr()
-
-def ll_striter(string):
-    iter = malloc(string_iterator_repr.lowleveltype.TO)
-    iter.string = string
-    iter.index = 0
-    return iter
-
-def ll_strnext(iter):
-    chars = iter.string.chars
-    index = iter.index
-    if index >= len(chars):
-        raise StopIteration
-    iter.index = index + 1
-    return chars[index]
 
 # these should be in rclass, but circular imports prevent (also it's
 # not that insane that a string constant is built in this file).

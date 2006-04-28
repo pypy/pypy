@@ -14,7 +14,7 @@ from pypy.rpython.lltypesystem.lltype import \
      GcForwardReference, Ptr, GcArray, GcStruct, \
      Void, Signed, malloc, typeOf, Primitive, \
      Bool, nullptr, typeMethod
-from pypy.rpython import rstr
+from pypy.rpython.lltypesystem import rstr
 from pypy.rpython import robject
 
 # ____________________________________________________________

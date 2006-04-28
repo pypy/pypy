@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.jit.llabstractinterp.llabstractinterp import LLAbstractInterp, Policy
 from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.objectmodel import hint
 
 policy = Policy(inlining=True, const_propagate=True, concrete_args=False,

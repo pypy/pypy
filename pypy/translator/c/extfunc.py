@@ -2,8 +2,8 @@ import types
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.support import cdecl
-from pypy.rpython.rstr import STR
-from pypy.rpython import rstr
+from pypy.rpython.lltypesystem.rstr import STR
+from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack

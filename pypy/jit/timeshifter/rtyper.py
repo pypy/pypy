@@ -4,7 +4,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython import annlowlevel
 from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
 from pypy.rpython.rmodel import Repr, inputconst
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.typesystem import TypeSystem
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rgenop

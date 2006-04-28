@@ -538,7 +538,7 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def ll_str(self, i): # doesn't work for non-gc classes!
         instance = cast_pointer(OBJECTPTR, i)
-        from pypy.rpython import rstr
+        from pypy.rpython.lltypesystem import rstr
         nameLen = len(instance.typeptr.name)
         nameString = malloc(rstr.STR, nameLen-1)
         i = 0
