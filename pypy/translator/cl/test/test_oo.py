@@ -94,6 +94,26 @@ def test_class():
     assert cl_dynamic_class(True) == 1
     assert cl_dynamic_class(False) == 2
 
+def test_runtimenew():
+    class Foo:
+        pass
+    class Bar(Foo):
+        pass
+    class Baz(Foo):
+        pass
+    def pick_class(flag):
+        if flag:
+            return Bar
+        else:
+            return Baz
+    def runtime_new(flag):
+        cls = pick_class(flag)
+        cls()
+        return 0
+    cl_runtime_new = make_cl_func(runtime_new, [bool])
+    assert cl_runtime_new(True) == 0
+    assert cl_runtime_new(False) == 0
+
 def test_instance():
     py.test.skip("TODO")
     class Foo:
