@@ -203,19 +203,21 @@ class GenCL:
 
     def declare_struct(self, cls):
         # cls is Record
+        if cls in self.declarations:
+            return self.declarations[cls][0]
         name = "struct" + str(self.structcount)
         field_declaration = cls._fields.keys()
         field_declaration = " ".join(field_declaration)
         struct_declaration = "(defstruct %s %s)" % (name, field_declaration)
-        self.declarations[name] = struct_declaration
+        self.declarations[cls] = (name, struct_declaration)
         self.structcount += 1
         return name
 
     def declare_class(self, cls):
         # cls is Instance
-        name = clrepr(cls._name, symbol=True)
-        if name in self.declarations:
+        if cls in self.declarations:
             return
+        name = clrepr(cls._name, symbol=True)
         field_declaration = ['('+clrepr(field, True)+')' for field in cls._fields]
         field_declaration = " ".join(field_declaration)
         if cls._superclass is ROOT:
@@ -224,7 +226,7 @@ class GenCL:
             self.declare_class(cls._superclass)
             supername = clrepr(cls._superclass._name, symbol=True)
             class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
-        self.declarations[name] = class_declaration
+        self.declarations[cls] = (name, class_declaration)
         for method in cls._methods:
             methodobj = cls._methods[method]
             methodobj._method_name = method
@@ -232,6 +234,10 @@ class GenCL:
 
     def declare_constant_instance(self, const):
         # const.concretetype is Instance
+        if const in self.declarations:
+            return self.declarations[const][0]
+        if const.value is const.concretetype._null:
+            return "nil"
         name = "const" + str(self.constcount)
         INST = dynamicType(const.value)
         self.declare_class(INST)
@@ -251,7 +257,7 @@ class GenCL:
                                                                         clrepr(fieldname, True),
                                                                         clrepr(fieldvaluerepr, True)))
         const_declaration = "\n".join(const_declaration)
-        self.declarations[const] = const_declaration
+        self.declarations[const] = (name, const_declaration)
         self.constcount += 1
         return name
 
@@ -264,7 +270,7 @@ class GenCL:
 
     def emitcode(self):
         lines = list(self.emit())
-        declarations = "\n".join(self.declarations.values())
+        declarations = "\n".join([d[1] for d in self.declarations.values()])
         code = "\n".join(lines)
         if declarations:
             return declarations + "\n" + code + "\n"
