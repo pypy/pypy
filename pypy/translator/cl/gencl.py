@@ -1,7 +1,7 @@
 import types
 
 from pypy.tool.udir import udir
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, c_last_exception
 from pypy.translator.translator import graphof
 from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
@@ -101,10 +101,13 @@ class Op:
             yield "(setf %s (make-%s))" % (clrepr(result, True),
                                            clrepr(clsname, True))
         elif isinstance(cls, Instance):
-            self.gen.declare_class(cls)
             clsname = clrepr(cls)
-            yield "(setf %s (make-instance %s))" % (clrepr(result, True),
-                                                    clrepr(clsname, True))
+            if self.gen.is_exception_instance(cls):
+                self.gen.declare_exception(cls)
+                yield "(setf %s (make-condition %s))" % (result, clsname)
+            else:
+                self.gen.declare_class(cls)
+                yield "(setf %s (make-instance %s))" % (result, clsname)
         else:
             raise NotImplementedError()
 
@@ -195,6 +198,10 @@ class GenCL:
         self.constcount = 0
         self.structcount = 0
 
+    def is_exception_instance(self, INST):
+        exceptiondata = self.context.rtyper.exceptiondata
+        return exceptiondata.is_exception_instance(INST)
+
     def check_declaration(self, arg):
         if isinstance(arg, Constant):
             if isinstance(arg.concretetype, Instance):
@@ -231,6 +238,21 @@ class GenCL:
             methodobj = cls._methods[method]
             methodobj._method_name = method
             self.pendinggraphs.append(methodobj)
+
+    def declare_exception(self, cls):
+        # cls is Instance
+        assert self.is_exception_instance(cls)
+        if cls in self.declarations:
+            return self.declarations[cls][0]
+        name = clrepr(cls._name, symbol=True)
+        if cls._superclass is OBJECT:
+            exception_declaration = "(define-condition %s () ())" % (name,)
+        else:
+            self.declare_exception(cls._superclass)
+            supername = clrepr(cls._superclass._name, symbol=True)
+            exception_declaration = "(define-condition %s (%s) ())" % (name, supername)
+        self.declarations[cls] = (name, exception_declaration)
+        return name
 
     def declare_constant_instance(self, const):
         # const.concretetype is Instance
@@ -348,6 +370,8 @@ class GenCL:
         self.cur_block = block
         tag = self.blockref[block]
         yield "tag" + clrepr(str(tag), True)
+        if block.exitswitch is c_last_exception:
+            yield "(handler-case"
         for op in block.operations:
             emit_op = Op(self, op)
             for line in emit_op:
@@ -370,6 +394,21 @@ class GenCL:
                 for line in self.emit_link(exits[0]):
                     yield line
                 yield "))"
+            elif block.exitswitch is c_last_exception:
+                body = None
+                exceptions = {}
+                for exit in exits:
+                    if exit.exitcase is None:
+                        body = exit
+                    else:
+                        cls = exit.llexitcase.class_._INSTANCE
+                        exception = self.declare_exception(cls)
+                        exceptions[exception] = exit
+                self.emit_link(body)
+                for exception in exceptions:
+                    yield "(%s ()" % (exception,)
+                    self.emit_link(exceptions[exception])
+                    yield ")"
             else:
                 # this is for the more general case.  The previous special case
                 # shouldn't be needed but in Python 2.2 we can't tell apart
@@ -385,14 +424,14 @@ class GenCL:
                 for line in self.emit_link(exits[-1]):
                     yield line
                 yield ")" * len(exits)
-        elif len(block.inputargs) == 2:    # exc_cls, exc_value
-            exc_cls   = clrepr(block.inputargs[0], True)
+        elif len(block.inputargs) == 2:
             exc_value = clrepr(block.inputargs[1], True)
-            yield "(something-like-throw-exception %s %s)" % (clrepr(exc_cls, True),
-                                                              clrepr(exc_value, True))
+            yield "(error %s)" % (exc_value,)
         else:
             retval = clrepr(block.inputargs[0])
             yield "(return %s)" % clrepr(retval, True)
+        if block.exitswitch is c_last_exception:
+            yield ")"
 
     def format_jump(self, block):
         tag = self.blockref[block]

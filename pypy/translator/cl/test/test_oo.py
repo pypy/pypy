@@ -135,7 +135,6 @@ def test_instance():
     assert cl_dynamic_instance(False) == 2
 
 def test_nullable():
-    #py.test.skip("fails with null inst")
     class Foo:
         def __init__(self, value):
             self.value = value

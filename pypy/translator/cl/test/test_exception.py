@@ -2,7 +2,6 @@ import py
 from pypy.translator.cl.buildcl import make_cl_func
 
 def test_handle_exception():
-    py.test.skip("TODO")
     class MyException(Exception):
         pass
     def raise_exception():
