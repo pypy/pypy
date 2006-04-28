@@ -9,20 +9,27 @@ from pypy.objspace.flow.model import Constant
 
 class PointerRepr(CTypesValueRepr):
     def __init__(self, rtyper, s_pointer):
-        ptr_ctype = s_pointer.knowntype
-        ref_ctype = ptr_ctype._type_
+        # For recursive types, getting the r_contents is delayed until
+        # _setup_repr().
+        ll_contents = lltype.Ptr(lltype.ForwardReference())
+        self.keepalive_box_type = lltype.GcForwardReference()
+        super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
 
+    def _setup_repr(self):
         # Find the repr and low-level type of the contents from its ctype
+        rtyper = self.rtyper
+        ref_ctype = self.ctype._type_
         self.r_contents = rtyper.getrepr(SomeCTypesObject(ref_ctype,
                                                SomeCTypesObject.MEMORYALIAS))
-
-        ll_contents = lltype.Ptr(self.r_contents.c_data_type)
-
-        super(PointerRepr, self).__init__(rtyper, s_pointer, ll_contents)
+        if isinstance(self.ll_type.TO, lltype.ForwardReference):
+            self.ll_type.TO.become(self.r_contents.c_data_type)
+        if isinstance(self.keepalive_box_type, lltype.GcForwardReference):
+            self.keepalive_box_type.become(
+                self.r_contents.r_memoryowner.lowleveltype.TO)
 
     def get_content_keepalive_type(self):
         "Keepalive for the box that holds the data that 'self' points to."
-        return self.r_contents.r_memoryowner.lowleveltype
+        return lltype.Ptr(self.keepalive_box_type)
 
     def setkeepalive(self, llops, v_box, v_owner):
         inputargs = [v_box, inputconst(lltype.Void, 'keepalive'),

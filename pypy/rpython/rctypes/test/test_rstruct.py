@@ -152,7 +152,6 @@ class Test_specialization:
         assert res == 121
 
     def test_struct_with_pointer_to_self(self):
-        py.test.skip('In-preogress')
         PS = POINTER('S')
         class S(Structure):
             _fields_ = [('l', PS), ('r', PS)]
@@ -160,11 +159,12 @@ class Test_specialization:
 
         def func():
             s0 = S()
-            s0.r = s0
-            s0.l = pointer(S())
-            s0.l.r = s0
+            s0.r.contents = s0
+            s0.l.contents = S()
+            s0.l.contents.r.contents = s0
 
-            return bool(s0.r.contents.l.contents.r)
+            return bool(s0.r.contents.l.contents.l)
+        assert not func()
         res = interpret(func, [])
         assert res is False
         
