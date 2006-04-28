@@ -52,6 +52,7 @@ class MixedModule(Module):
                         bltin = BuiltinFunction(func)
                         bltin.w_module = self.w_name
                         func._builtinversion_ = bltin
+                        bltin.name = name
                     w_value = space.wrap(bltin)
                 space.setitem(self.w_dict, w_name, w_value) 
         return w_value
