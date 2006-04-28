@@ -4,7 +4,7 @@ from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rslice import AbstractSliceRepr
-from pypy.rpython.rstr import string_repr
+from pypy.rpython.lltypesystem.rstr import string_repr
 
 class StringBufRepr(CTypesRefRepr):
 
