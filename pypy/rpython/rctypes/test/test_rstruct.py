@@ -13,7 +13,7 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 
 from ctypes import c_int, c_short, Structure, POINTER, pointer, c_char_p
-from ctypes import c_char
+from ctypes import c_char, SetPointerType
 
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
@@ -151,6 +151,23 @@ class Test_specialization:
         res = interpret(func, [])
         assert res == 121
 
+    def test_struct_with_pointer_to_self(self):
+        py.test.skip('In-preogress')
+        PS = POINTER('S')
+        class S(Structure):
+            _fields_ = [('l', PS), ('r', PS)]
+        SetPointerType(PS, S)
+
+        def func():
+            s0 = S()
+            s0.r = s0
+            s0.l = pointer(S())
+            s0.l.r = s0
+
+            return bool(s0.r.contents.l.contents.r)
+        res = interpret(func, [])
+        assert res is False
+        
     def test_specialize_keepalive(self):
         class S(Structure):
             _fields_ = [('x', c_int)]
