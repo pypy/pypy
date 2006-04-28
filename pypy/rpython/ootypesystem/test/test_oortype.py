@@ -172,4 +172,18 @@ def test_ootypeintro():
 
     res = interpret(oof, [], type_system='ootype')
 
+def test_is_exception_instance():
+    def f():
+        return NameError()
+
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    if conftest.option.view:
+        t.view()
+    rtyper = t.buildrtyper(type_system="ootype")
+    rtyper.specialize()
+    graph = graphof(t, f) 
+    
+    INST = graph.getreturnvar().concretetype
+    assert rtyper.exceptiondata.is_exception_instance(INST)
 

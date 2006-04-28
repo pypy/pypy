@@ -8,6 +8,18 @@ from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
 class ExceptionData(AbstractExceptionData):
     """Public information for the code generators to help with exceptions."""
 
+    def __init__(self, rtyper):
+        AbstractExceptionData.__init__(self, rtyper)
+        self._compute_exception_instance(rtyper)
+
+    def _compute_exception_instance(self, rtyper):
+        excdef = rtyper.annotator.bookkeeper.getuniqueclassdef(Exception)
+        excrepr = rclass.getinstancerepr(rtyper, excdef)
+        self._EXCEPTION_INST = excrepr.lowleveltype
+
+    def is_exception_instance(self, INSTANCE):
+        return ootype.isSubclass(INSTANCE, self._EXCEPTION_INST)
+
     def make_helpers(self, rtyper):
         self.fn_exception_match = self.make_exception_matcher(rtyper)
         self.fn_pyexcclass2exc = self.make_pyexcclass2exc(rtyper)
