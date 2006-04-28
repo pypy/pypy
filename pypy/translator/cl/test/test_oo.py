@@ -26,6 +26,22 @@ def test_inc():
     cl_inc = make_cl_func(inc, [int])
     assert cl_inc(5) == 6
 
+def test_twice():
+    class IntHolder:
+        def __init__(self, number):
+            self.number = number
+        def inc(self):
+            self.number += 1
+        def get(self):
+            return self.number
+    def inc_two(number):
+        obj = IntHolder(number)
+        obj.inc()
+        obj.inc()
+        return obj.get()
+    cl_inc_two = make_cl_func(inc_two, [int])
+    assert cl_inc_two(5) == 7
+
 def test_inherit():
     class Foo:
         pass
