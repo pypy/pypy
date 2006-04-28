@@ -79,6 +79,7 @@ class Module(MixedModule):
         # default __metaclass__
         '__metaclass__' : '(space.w_type)',
         '_isfake'       : 'special._isfake',
+        '_pdb'          : 'special._pdb',
 
         # interp-level function definitions
         'abs'           : 'operation.abs',
