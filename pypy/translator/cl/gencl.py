@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.translator.translator import graphof
 from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, List, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
-from pypy.translator.cl.clrepr import clrepr, repr_fun_name, repr_class_name
+from pypy.translator.cl.clrepr import clrepr
 
 class InsertionOrderedDict(dict):
     def __init__(self):
@@ -118,7 +118,7 @@ class Op:
             methodobj = cls._methods[method]
             methodobj._method_name = method # XXX
             self.gen.pendinggraphs.append(methodobj)
-            name = repr_fun_name(method)
+            name = clrepr(method, symbol=True)
             selfvar = clrepr(receiver)
             args = map(self.gen.check_declaration, args)
             args = " ".join(args)
@@ -192,14 +192,14 @@ class GenCL:
 
     def declare_class(self, cls):
         # cls is Instance
-        name = repr_class_name(cls._name)
+        name = clrepr(cls._name, symbol=True)
         field_declaration = ['('+field+')' for field in cls._fields]
         field_declaration = " ".join(field_declaration)
         if cls._superclass is ROOT:
             class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
         else:
             self.declare_class(cls._superclass)
-            supername = repr_class_name(cls._superclass._name)
+            supername = clrepr(cls._superclass._name, symbol=True)
             class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
         self.declarations[name] = class_declaration
 
@@ -258,7 +258,7 @@ class GenCL:
                     yield line
 
     def emit_defun(self, fun):
-        yield "(defun " + repr_fun_name(fun.name)
+        yield "(defun " + clrepr(fun.name, symbol=True)
         arglist = fun.getargs()
         args = " ".join(map(clrepr, arglist))
         yield "(%s)" % (args,)
@@ -266,10 +266,10 @@ class GenCL:
             yield line
 
     def emit_defmethod(self, fun, name):
-        yield "(defmethod %s" % (repr_fun_name(name))
+        yield "(defmethod %s" % (clrepr(name, symbol=True))
         arglist = fun.getargs()
         selfvar = clrepr(arglist[0])
-        clsname = repr_class_name(arglist[0].concretetype._name)
+        clsname = clrepr(arglist[0].concretetype._name, symbol=True)
         args = " ".join(map(clrepr, arglist[1:]))
         if args:
             yield "((%s %s) %s)" % (selfvar, clsname, args)

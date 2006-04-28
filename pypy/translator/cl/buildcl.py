@@ -4,7 +4,7 @@ import py
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.cl.gencl import GenCL
-from pypy.translator.cl.clrepr import clrepr, repr_fun_name
+from pypy.translator.cl.clrepr import clrepr
 from pypy import conftest
 from pypy.translator.cl import conftest as clconftest
 
@@ -88,7 +88,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
-        print >>fp, "(write (", repr_fun_name(func.func_name),
+        print >>fp, "(write (", clrepr(func.func_name, symbol=True),
         for arg in args:
             print >>fp, clrepr(arg),
         print >>fp, "))"
