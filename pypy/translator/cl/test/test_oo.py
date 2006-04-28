@@ -112,3 +112,22 @@ def test_instance():
     cl_dynamic_instance = make_cl_func(dynamic_instance, [bool])
     assert cl_dynamic_instance(True) == 1
     assert cl_dynamic_instance(False) == 2
+
+def test_nullable():
+    py.test.skip("fails with null inst")
+    class Foo:
+        def __init__(self, value):
+            self.value = value
+    def maybe_foo(flag):
+        if flag:
+            return Foo(1)
+        else:
+            return None
+    def maybe_one(flag):
+        obj = maybe_foo(flag)
+        if obj is None:
+            obj = Foo(2)
+        return obj.value
+    cl_maybe_one = make_cl_func(maybe_one, [bool])
+    assert cl_maybe_one(True) == 1
+    assert cl_maybe_one(False) == 2
