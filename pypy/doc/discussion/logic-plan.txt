@@ -218,7 +218,7 @@ inherit-from-threads part is a bit speculative)::
 
       def clone(self):
           """returns a cloned computation space"""
-
+ 
       def merge(self):
           """
           extract solution values from an entailed space
@@ -235,6 +235,25 @@ inherit-from-threads part is a bit speculative)::
           was given to the commit call
           """
 
+      def fail(self):
+          """
+          mark the space as failed
+          """
+
+      """
+      constraint stuff : a space acts as/contains a constraint 
+      store which holds : logic variables, constraint variables 
+      (logic vars augmented with finite domains), constraints
+      """
+         
+      def var(self, domain, name=None):
+          """
+          creates a possibly named contraint variable inside 
+          the space, returns the variable object
+          """
+
+      def tell(self, constraint):
+          """register a constraint""" 
 
 Programs runing in a computation spaces should not be allowed to alter
 the top-level space (i.e interaction with the global program state and
