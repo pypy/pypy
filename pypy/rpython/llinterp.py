@@ -1023,7 +1023,7 @@ class Tracer(object):
 
     FOOTER = """</pre></body></html>"""
 
-    ENTER = ('''\n\t<a href="#" onclick="togglestate('div%d')">%s</a>'''
+    ENTER = ('''\n\t<a href="javascript:togglestate('div%d')">%s</a>'''
              '''\n<div id="div%d" style="display: %s">\t''')
     LEAVE = '''\n</div>\t'''
 
