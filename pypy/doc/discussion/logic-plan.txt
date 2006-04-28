@@ -193,7 +193,7 @@ point picklable. One could implement clone() using the thread pickling
 machinery.
 
 Such is the abstract interface of computation spaces (the
-inherit-from-threads part is a bit speculative) :
+inherit-from-threads part is a bit speculative)::
 
  class MicroThread ...
       "provided by PyPy, stackless team"
