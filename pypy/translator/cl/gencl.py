@@ -37,7 +37,7 @@ class Op:
             yield line
 
     def nop(self, result, arg):
-        yield "(setf %s %s)" % (result, arg)
+        yield "(setf %s %s)" % (clrepr(result, True), clrepr(arg, True))
 
     op_same_as = nop
     op_ooupcast = nop
@@ -45,7 +45,9 @@ class Op:
 
     def make_unary_op(cl_op):
         def _(self, result, arg):
-            yield "(setf %s (%s %s))" % (result, cl_op, arg)
+            yield "(setf %s (%s %s))" % (clrepr(result, True),
+                                         cl_op,
+                                         clrepr(arg, True))
         return _
 
     op_bool_not = make_unary_op("not")
@@ -56,7 +58,10 @@ class Op:
 
     def make_binary_op(cl_op):
         def _(self, result, arg1, arg2):
-            yield "(setf %s (%s %s %s))" % (result, cl_op, arg1, arg2)
+            yield "(setf %s (%s %s %s))" % (clrepr(result, True),
+                                            cl_op,
+                                            clrepr(arg1, True),
+                                            clrepr(arg2, True))
         return _
 
     op_int_add = make_binary_op("+")
@@ -76,34 +81,42 @@ class Op:
     op_char_ne = make_binary_op("char/=")
 
     def op_int_is_true(self, result, arg):
-        yield "(setf %s (not (zerop %s)))" % (result, arg)
+        yield "(setf %s (not (zerop %s)))" % (clrepr(result, True),
+                                              clrepr(arg, True))
 
     def op_direct_call(self, result, fun, *args):
         funobj = self.args[0].value
         self.gen.pendinggraphs.append(funobj)
         args = " ".join(args)
-        yield "(setf %s (%s %s))" % (result, fun, args)
+        yield "(setf %s (%s %s))" % (clrepr(result, True),
+                                     clrepr(fun, True),
+                                     clrepr(args, True))
 
     def op_new(self, result, clsname):
         cls = self.args[0].value
         if isinstance(cls, List):
-            yield "(setf %s (make-array 0 :adjustable t))" % (result,)
+            yield "(setf %s (make-array 0 :adjustable t))" % (clrepr(result, True),)
         elif isinstance(cls, Record):
             clsname = self.gen.declare_struct(cls)
-            yield "(setf %s (make-%s))" % (result, clsname)
+            yield "(setf %s (make-%s))" % (clrepr(result, True),
+                                           clrepr(clsname, True))
         elif isinstance(cls, Instance):
             self.gen.declare_class(cls)
             clsname = clrepr(cls)
-            yield "(setf %s (make-instance %s))" % (result, clsname)
+            yield "(setf %s (make-instance %s))" % (clrepr(result, True),
+                                                    clrepr(clsname, True))
         else:
             raise NotImplementedError()
 
     def op_runtimenew(self, result, arg):
-        yield "(setf %s (make-instance %s))" % (result, arg)
+        yield "(setf %s (make-instance %s))" % (clrepr(result, True),
+                                                clrepr(arg, True))
 
     def op_instanceof(self, result, arg, clsname):
         clsname = clrepr(self.args[1].value)
-        yield "(setf %s (typep %s %s))" % (result, arg, clsname)
+        yield "(setf %s (typep %s %s))" % (clrepr(result, True),
+                                           clrepr(arg, True),
+                                           clrepr(clsname, True))
 
     def op_oosend(self, result, *ignore):
         method = self.args[0].value
@@ -113,7 +126,7 @@ class Op:
         if isinstance(cls, List):
             impl = ListImpl(receiver)
             code = getattr(impl, method)(*args)
-            yield "(setf %s %s)" % (result, code)
+            yield "(setf %s %s)" % (clrepr(result, True), clrepr(code, True))
         elif isinstance(cls, Instance):
             methodobj = cls._methods[method]
             methodobj._method_name = method # XXX
@@ -123,23 +136,34 @@ class Op:
             args = map(self.gen.check_declaration, args)
             args = " ".join(args)
             if args:
-                yield "(setf %s (%s %s %s))" % (result, name, selfvar, args)
+                yield "(setf %s (%s %s %s))" % (clrepr(result, True),
+                                                clrepr(name, True),
+                                                clrepr(selfvar, True),
+                                                clrepr(args, True))
             else:
-                yield "(setf %s (%s %s))" % (result, name, selfvar)
+                yield "(setf %s (%s %s))" % (clrepr(result, True),
+                                             clrepr(name, True),
+                                             clrepr(selfvar, True))
 
     def op_oogetfield(self, result, obj, _):
         fieldname = self.args[1].value
-        yield "(setf %s (slot-value %s '%s))" % (result, obj, fieldname)
+        yield "(setf %s (slot-value %s '%s))" % (clrepr(result, True),
+                                                 clrepr(obj, True),
+                                                 clrepr(fieldname, True))
 
     def op_oosetfield(self, result, obj, _, value):
         fieldname = self.args[1].value
-        yield "(setf (slot-value %s '%s) %s)" % (obj, fieldname, value)
+        yield "(setf (slot-value %s '%s) %s)" % (clrepr(obj, True),
+                                                 clrepr(fieldname, True),
+                                                 clrepr(value, True))
 
     def op_ooidentityhash(self, result, arg):
-        yield "(setf %s (sxhash %s))" % (result, arg)
+        yield "(setf %s (sxhash %s))" % (clrepr(result, True),
+                                         clrepr(arg, True))
 
     def op_oononnull(self, result, arg):
-        yield "(setf %s (not (null %s)))" % (result, arg)
+        yield "(setf %s (not (null %s)))" % (clrepr(result, True),
+                                             clrepr(arg, True))
 
 
 class ListImpl:
@@ -193,7 +217,7 @@ class GenCL:
     def declare_class(self, cls):
         # cls is Instance
         name = clrepr(cls._name, symbol=True)
-        field_declaration = ['('+field+')' for field in cls._fields]
+        field_declaration = ['('+clrepr(field, True)+')' for field in cls._fields]
         field_declaration = " ".join(field_declaration)
         if cls._superclass is ROOT:
             class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
@@ -211,14 +235,18 @@ class GenCL:
         inst = oodowncast(INST, const.value)
         cls = clrepr(INST)
         const_declaration = []
-        const_declaration.append("(setf %s (make-instance %s))" % (name, cls))
+        const_declaration.append("(setf %s (make-instance %s))" % (clrepr(name, True),
+                                                                   clrepr(cls, True)))
         fields = INST._allfields()
         for fieldname in fields:
             fieldvalue = getattr(inst, fieldname)
             if isinstance(fieldvalue, _class):
                 self.declare_class(fieldvalue._INSTANCE)
             fieldvaluerepr = clrepr(getattr(inst, fieldname))
-            const_declaration.append("(setf (slot-value %s '%s) %s)" % (name, fieldname, fieldvaluerepr))
+            ### XXX
+            const_declaration.append("(setf (slot-value %s '%s) %s)" % (clrepr(name, True),
+                                                                        clrepr(fieldname, True),
+                                                                        clrepr(fieldvaluerepr, True)))
         const_declaration = "\n".join(const_declaration)
         self.declarations[const] = const_declaration
         self.constcount += 1
@@ -260,7 +288,7 @@ class GenCL:
     def emit_defun(self, fun):
         yield "(defun " + clrepr(fun.name, symbol=True)
         arglist = fun.getargs()
-        args = " ".join(map(clrepr, arglist))
+        args = " ".join(map(lambda item: clrepr(item, True), arglist))
         yield "(%s)" % (args,)
         for line in self.emit_body(fun, arglist):
             yield line
@@ -268,13 +296,16 @@ class GenCL:
     def emit_defmethod(self, fun, name):
         yield "(defmethod %s" % (clrepr(name, symbol=True))
         arglist = fun.getargs()
-        selfvar = clrepr(arglist[0])
+        selfvar = clrepr(arglist[0], True)
         clsname = clrepr(arglist[0].concretetype._name, symbol=True)
-        args = " ".join(map(clrepr, arglist[1:]))
+        args = " ".join(map(lambda item: clrepr(item, True), arglist[1:]))
         if args:
-            yield "((%s %s) %s)" % (selfvar, clsname, args)
+            yield "((%s %s) %s)" % (clrepr(selfvar, True),
+                                    clrepr(clsname, True),
+                                    clrepr(args, True))
         else:
-            yield "((%s %s))" % (selfvar, clsname)
+            yield "((%s %s))" % (clrepr(selfvar, True),
+                                 clrepr(clsname, True))
         for line in self.emit_body(fun, arglist):
             yield line
 
@@ -293,9 +324,10 @@ class GenCL:
         for var in vardict:
             varname = clrepr(var)
             if var in arglist:
-                varnames.append("(%s %s)" % (varname, varname))
+                varnames.append("(%s %s)" % (clrepr(varname, True),
+                                             clrepr(varname, True)))
             else:
-                varnames.append(varname)
+                varnames.append(clrepr(varname, True))
         varnames = " ".join(varnames)
         yield "(%s)" % (varnames,)
         for block in blocklist:
@@ -306,7 +338,7 @@ class GenCL:
     def emit_block(self, block):
         self.cur_block = block
         tag = self.blockref[block]
-        yield "tag" + str(tag)
+        yield "tag" + clrepr(str(tag), True)
         for op in block.operations:
             emit_op = Op(self, op)
             for line in emit_op:
@@ -320,7 +352,7 @@ class GenCL:
             if (len(exits) == 2 and
                 exits[0].exitcase == False and
                 exits[1].exitcase == True):
-                yield "(if " + clrepr(block.exitswitch)
+                yield "(if " + clrepr(block.exitswitch, True)
                 yield "(progn"
                 for line in self.emit_link(exits[1]):
                     yield line
@@ -334,32 +366,33 @@ class GenCL:
                 # shouldn't be needed but in Python 2.2 we can't tell apart
                 # 0 vs nil  and  1 vs t  :-(
                 for exit in exits[:-1]:
-                    yield "(if (equalp " + clrepr(block.exitswitch)
-                    yield clrepr(exit.exitcase) + ')'
+                    yield "(if (equalp " + clrepr(block.exitswitch, True)
+                    yield clrepr(exit.exitcase, True) + ')'
                     yield "(progn"
                     for line in self.emit_link(exit):
                         yield line
                     yield ")"
-                yield "(progn ; else should be %s" % clrepr(exits[-1].exitcase)
+                yield "(progn ; else should be %s" % clrepr(exits[-1].exitcase, True)
                 for line in self.emit_link(exits[-1]):
                     yield line
                 yield ")" * len(exits)
         elif len(block.inputargs) == 2:    # exc_cls, exc_value
-            exc_cls   = clrepr(block.inputargs[0])
-            exc_value = clrepr(block.inputargs[1])
-            yield "(something-like-throw-exception %s %s)" % (exc_cls, exc_value)
+            exc_cls   = clrepr(block.inputargs[0], True)
+            exc_value = clrepr(block.inputargs[1], True)
+            yield "(something-like-throw-exception %s %s)" % (clrepr(exc_cls, True),
+                                                              clrepr(exc_value, True))
         else:
             retval = clrepr(block.inputargs[0])
-            yield "(return %s)" % retval
+            yield "(return %s)" % clrepr(retval, True)
 
     def format_jump(self, block):
         tag = self.blockref[block]
-        return "(go tag" + str(tag) + ")"
+        return "(go tag" + clrepr(str(tag), True) + ")"
 
     def emit_link(self, link):
         source = map(self.check_declaration, link.args)
         target = map(clrepr, link.target.inputargs)
-        couples = [ "%s %s" % (t, s) for (s, t) in zip(source, target)]
+        couples = [ "%s %s" % (clrepr(t, True), clrepr(s, True)) for (s, t) in zip(source, target)]
         couples = " ".join(couples)
         yield "(setf %s)" % (couples,)
         yield self.format_jump(link.target)
