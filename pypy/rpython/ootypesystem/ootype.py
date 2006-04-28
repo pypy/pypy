@@ -352,13 +352,16 @@ class Dict(BuiltinADTType):
     KEYTYPE_T = object()
     VALUETYPE_T = object()
 
-    def __init__(self, KEYTYPE, VALUETYPE=None):
+    def __init__(self, KEYTYPE=None, VALUETYPE=None):
         self._KEYTYPE = KEYTYPE
         self._VALUETYPE = VALUETYPE
         self._null = _null_dict(self)
 
-        if VALUETYPE is not None:
+        if self._is_initialized():
             self._init_methods()
+
+    def _is_initialized(self):
+        return self._KEYTYPE is not None and self._VALUETYPE is not None
 
     def _init_methods(self):
         generic_types = {
@@ -393,12 +396,12 @@ class Dict(BuiltinADTType):
     def __eq__(self, other):
         if not isinstance(other, Dict):
             return False
-        if self._VALUETYPE is None or other._VALUETYPE is None:
+        if not self._is_initialized() or not other._is_initialized():
             raise TypeError("Can't compare uninitialized Dict type.")
         return BuiltinADTType.__eq__(self, other) 
 
     def __hash__(self):
-        if self._VALUETYPE is None:
+        if not self._is_initialized():
             raise TypeError("Can't hash uninitialized Dict type.")
         return BuiltinADTType.__hash__(self)
 
@@ -410,7 +413,8 @@ class Dict(BuiltinADTType):
         VALUETYPE = self._specialize_type(self._VALUETYPE, generic_types)
         return self.__class__(KEYTYPE, VALUETYPE)
 
-    def _set_valuetype(self, VALUETYPE):
+    def _set_types(self, KEYTYPE, VALUETYPE):
+        self._KEYTYPE = KEYTYPE
         self._VALUETYPE = VALUETYPE
         self._init_methods()
 
@@ -986,11 +990,11 @@ def setItemType(LIST, ITEMTYPE):
 def hasItemType(LIST):
     return LIST._ITEMTYPE is not None
 
-def setValueType(DICT, VALUETYPE):
-    return DICT._set_valuetype(VALUETYPE)
+def setDictTypes(DICT, KEYTYPE, VALUETYPE):
+    return DICT._set_types(KEYTYPE, VALUETYPE)
 
-def hasValueType(DICT):
-    return DICT._VALUETYPE is not None
+def hasDictTypes(DICT):
+    return DICT._is_initialized()
 
 
 ROOT = Instance('Root', None, _is_root=True)

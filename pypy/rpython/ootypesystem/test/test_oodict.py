@@ -1,6 +1,6 @@
 import py
 from pypy.rpython.test.test_llinterp import interpret 
-from pypy.rpython.ootypesystem.ootype import Signed, Float, Dict, new, typeOf, setValueType
+from pypy.rpython.ootypesystem.ootype import Signed, Float, Dict, new, typeOf, setDictTypes
 
 def test_new():
     DT = Dict(Signed, Float)
@@ -31,21 +31,21 @@ def test_iteritems():
     items.sort()
     assert items == [(42, 43.0), (52, 53.0)]
 
-def test_optional_valuetype():
-    DT = Dict(Signed)
+def test_optional_types():
+    DT = Dict()
     DT2 = Dict(Signed, Float)
     assert DT != Signed
     py.test.raises(TypeError, "DT == DT2")
     py.test.raises(TypeError, "DT2 == DT")
     py.test.raises(TypeError, hash, DT)
-    setValueType(DT, Float)
+    setDictTypes(DT, Signed, Float)
     assert DT == DT2
     assert DT2 == DT
     assert hash(DT) == hash(DT2)
 
 def test_recursive_str_hash():
-    DT = Dict(Signed)
-    setValueType(DT, DT)
+    DT = Dict()
+    setDictTypes(DT, Signed, DT)
     assert isinstance(str(DT), str)
     assert isinstance(hash(DT), int)
 
