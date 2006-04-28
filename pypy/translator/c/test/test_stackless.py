@@ -178,6 +178,18 @@ class TestStackless(object):
         data = self.wrap_stackless_function(f)
         assert int(data.strip()) == 1234567
 
+    def test_foo(self):
+        def f():
+            c = g()
+            c.switch()
+            return 1
+        def g():
+            d = yield_current_frame_to_caller()
+            return d
+        data = self.wrap_stackless_function(f)
+        assert data.strip() == '1'
+        
+
     def test_yield_noswitch_frame(self):
         # this time we make sure that function 'g' does not
         # need to switch and even does not need to be stackless

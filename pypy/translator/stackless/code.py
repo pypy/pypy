@@ -14,30 +14,86 @@ def decode_state(currentframe):
     return (currentframe.function,
             currentframe.retval_type,
             currentframe.restartstate)
-decode_state.stackless_explict = True
+decode_state.stackless_explicit = True
 
 SWITCH_STATE = lltype.GcStruct('state_switch',
                                ('header', STATE_HEADER),
                                ('c', llmemory.Address))
 
-def switch(c):
-    # this is untested so far!
-    if not global_state.restartstate:
+class Frame(object):
+    def __init__(self, state):
+        self.state = state
+    __init__.stackless_explicit = True
+    def switch(self):
+        if global_state.restart_substate == 0:
+            u = UnwindException()
+            s = lltype.malloc(SWITCH_STATE)
+            s.header.restartstate = 1
+            # the next three lines are pure rtyper-pleasing hacks
+            f = Frame.switch
+            if global_state.restart_substate:
+                f = None
+            s.c = llmemory.cast_ptr_to_adr(self.state)
+            s.header.function = llmemory.cast_ptr_to_adr(f)
+            add_frame_state(u, s.header)
+            raise u
+        elif global_state.restart_substate == 1:
+            top = global_state.top
+            state = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
+            u = UnwindException()
+            s.header.restartstate = 2
+            c = lltype.cast_adr_to_ptr(lltype.Ptr(STATE_HEADER), top)
+            s.header.function = c.function
+            s.reader.retval_type = RETVAL_VOID_P
+            # the next three lines are pure rtyper-pleasing hacks
+            f = Frame.switch
+            if global_state.restart_substate:
+                f = None
+            add_frame_state(u, s.header)
+            raise u            
+        else:
+            top = global_state.top
+            global_state.restart_substate = 0
+            r = top.f_back
+            state = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
+            global_state.top = lltype.cast_adr_to_ptr(lltype.Ptr(STATE_HEADER), state.c)
+            #global_state.restart_substate = state.header.restartstate
+            return r
+    switch.stackless_explicit = True
+
+def yield_current_frame_to_caller():
+    if global_state.restart_substate == 0:
         u = UnwindException()
-        s = lltype.malloc(SWITCH_STATE)
-        s.c = llmemory.cast_ptr_to_adr(c)
-        s.header.restartstate = 1
-        s.header.function = llmemory.cast_ptr_to_adr(switch)
-        s.header.retval_type = RETVAL_VOID_P
-        add_frame_state(u, s.header)
+        s = lltype.malloc(STATE_HEADER)
+        s.restartstate = 1
+        # the next three lines are pure rtyper-pleasing hacks
+        f = yield_current_frame_to_caller
+        if global_state.restart_substate:
+            f = None
+        s.function = llmemory.cast_ptr_to_adr(f)
+        s.retval_type = RETVAL_VOID_P
+        add_frame_state(u, s)
+        raise u
+    elif global_state.restart_substate == 1:
+        ycftc_state = global_state.top
+        our_caller_state = ycftc_state.f_back
+        caller_state = our_caller_state.f_back
+        cur = caller_state
+        while cur.f_back:
+            cur = cur.f_back
+        bot = cur
+        u = UnwindException()
+        u.frame_top = caller_state
+        u.frame_bottom = bot
+        global_state.retval_void_p = llmemory.cast_ptr_to_adr(Frame(ycftc_state))
+        global_state.restart_substate = 2
         raise u
     else:
-        top = global_state.top
-        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
-        global_state.top = s.c
-        return top.f_back
-switch.stackless_explicit = True
-
+        pass
+        
+        
+yield_current_frame_to_caller.stackless_explicit = True
+    
 
 def stack_frames_depth():
     if not global_state.restart_substate:
