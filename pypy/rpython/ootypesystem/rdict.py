@@ -35,7 +35,7 @@ class DictRepr(AbstractDictRepr):
         if already_computed:
             self.DICT = ootype.Dict(key_repr.lowleveltype, value_repr.lowleveltype)
         else:
-            self.DICT = ootype.ForwardReference()
+            self.DICT = ootype.Dict()
         self.lowleveltype = self.DICT
 
         self.dictkey = dictkey
@@ -51,9 +51,9 @@ class DictRepr(AbstractDictRepr):
         if 'value_repr' not in self.__dict__:
             self.external_value_repr, self.value_repr = self.pickrepr(self._value_repr_computer())
             
-        if isinstance(self.DICT, ootype.ForwardReference):
-            self.lowleveltype.become(ootype.Dict(self.key_repr.lowleveltype,
-                                                 self.value_repr.lowleveltype))
+        if not ootype.hasDictTypes(self.DICT):
+            ootype.setDictTypes(self.DICT, self.key_repr.lowleveltype,
+                    self.value_repr.lowleveltype)
 
     def send_message(self, hop, message, can_raise=False, v_args=None):
         if v_args is None:
