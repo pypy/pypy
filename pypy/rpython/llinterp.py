@@ -36,6 +36,8 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
+    TRACING = True
+
     def __init__(self, typer, heap=lltype):
         self.bindings = {}
         self.typer = typer
@@ -47,19 +49,41 @@ class LLInterpreter(object):
         if hasattr(heap, "prepare_graphs_and_create_gc"):
             flowgraphs = typer.annotator.translator.graphs
             self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
+        if self.TRACING:
+            self.tracer = Tracer()
+        else:
+            self.tracer = None
 
     def eval_graph(self, graph, args=()):
         llframe = LLFrame(graph, args, self)
+        if self.tracer:
+            self.tracer.start()
+        retval = None
         try:
-            return llframe.eval()
-        except LLException, e:
-            log.error("LLEXCEPTION: %s" % (e, ))
-            self.print_traceback()
-            raise
-        except Exception, e:
-            log.error("AN ERROR OCCURED: %s" % (e, ))
-            self.print_traceback()
-            raise
+            try:
+                retval = llframe.eval()
+            except LLException, e:
+                log.error("LLEXCEPTION: %s" % (e, ))
+                self.print_traceback()
+                if self.tracer:
+                    self.tracer.dump('LLException: %s\n' % (e,))
+                raise
+            except Exception, e:
+                log.error("AN ERROR OCCURED: %s" % (e, ))
+                self.print_traceback()
+                if self.tracer:
+                    line = str(e)
+                    if line:
+                        line = ': ' + line
+                    line = '* %s' % (e.__class__.__name__,) + line
+                    self.tracer.dump(line + '\n')
+                raise
+        finally:
+            if self.tracer:
+                if retval is not None:
+                    self.tracer.dump('   ---> %r\n' % (retval,))
+                self.tracer.stop()
+        return retval
 
     def print_traceback(self):
         frame = self.active_frame
@@ -68,11 +92,12 @@ class LLInterpreter(object):
             frames.append(frame)
             frame = frame.f_back
         frames.reverse()
+        lines = []
         for frame in frames:
             logline = frame.graph.name
             if frame.curr_block is None:
                 logline += " <not running yet>"
-                log.traceback(logline)
+                lines.append(logline)
                 continue
             try:
                 logline += " " + self.typer.annotator.annotated[frame.curr_block].__module__
@@ -80,13 +105,19 @@ class LLInterpreter(object):
                 # if the graph is from the GC it was not produced by the same
                 # translator :-(
                 logline += " <unknown module>"
-            log.traceback(logline)
+            lines.append(logline)
             for i, operation in enumerate(frame.curr_block.operations):
                 if i == frame.curr_operation_index:
                     logline = "E  %s"
                 else:
                     logline = "   %s"
-                log.traceback(logline % (operation, ))
+                lines.append(logline % (operation, ))
+        if self.tracer:
+            self.tracer.dump('Traceback\n', bold=True)
+            for line in lines:
+                self.tracer.dump(line + '\n')
+        for line in lines:
+            log.traceback(line)
 
     def find_roots(self):
         #log.findroots("starting")
@@ -204,19 +235,25 @@ class LLFrame(object):
     def eval(self):
         self.llinterpreter.active_frame = self
         graph = self.graph
-        #log.frame("evaluating", graph.name)
-        nextblock = graph.startblock
-        args = self.args
-        while 1:
-            self.clear()
-            self.fillvars(nextblock, args)
-            nextblock, args = self.eval_block(nextblock)
-            if nextblock is None:
-                self.llinterpreter.active_frame = self.f_back
-                for obj in self.alloca_objects:
-                    #XXX slighly unclean
-                    obj._setobj(None)
-                return args
+        tracer = self.llinterpreter.tracer
+        if tracer:
+            tracer.enter(graph)
+        try:
+            nextblock = graph.startblock
+            args = self.args
+            while 1:
+                self.clear()
+                self.fillvars(nextblock, args)
+                nextblock, args = self.eval_block(nextblock)
+                if nextblock is None:
+                    self.llinterpreter.active_frame = self.f_back
+                    for obj in self.alloca_objects:
+                        #XXX slighly unclean
+                        obj._setobj(None)
+                    return args
+        finally:
+            if tracer:
+                tracer.leave()
 
     def eval_block(self, block):
         """ return (nextblock, values) tuple. If nextblock
@@ -237,16 +274,20 @@ class LLFrame(object):
         # determine nextblock and/or return value
         if len(block.exits) == 0:
             # return block
+            tracer = self.llinterpreter.tracer
             if len(block.inputargs) == 2:
                 # exception
+                if tracer:
+                    tracer.dump('raise')
                 etypevar, evaluevar = block.getvariables()
                 etype = self.getval(etypevar)
                 evalue = self.getval(evaluevar)
                 # watch out, these are _ptr's
                 raise LLException(etype, evalue)
+            if tracer:
+                tracer.dump('return')
             resultvar, = block.getvariables()
             result = self.getval(resultvar)
-            #log.operation("returning", repr(result))
             return None, result
         elif block.exitswitch is None:
             # single-exit block
@@ -283,7 +324,9 @@ class LLFrame(object):
         return link.target, [self.getval(x) for x in link.args]
 
     def eval_operation(self, operation):
-        #log.operation("considering", operation)
+        tracer = self.llinterpreter.tracer
+        if tracer:
+            tracer.dump(str(operation))
         ophandler = self.getoperationhandler(operation.opname)
         # XXX slighly unnice but an important safety check
         if operation.opname == 'direct_call':
@@ -313,6 +356,11 @@ class LLFrame(object):
         else:
             self.handle_cleanup(operation)
         self.setvar(operation.result, retval)
+        if tracer:
+            if retval is None:
+                tracer.dump('\n')
+            else:
+                tracer.dump('   ---> %r\n' % (retval,))
 
     def handle_cleanup(self, operation, exception=False):
         cleanup = getattr(operation, 'cleanup', None)
@@ -952,6 +1000,86 @@ class LLFrame(object):
 
     def op_ooidentityhash(self, inst):
         return ootype.ooidentityhash(inst)
+
+
+class Tracer(object):
+    Counter = 0
+    file = None
+
+    HEADER = """<html><head>
+        <script language=javascript type='text/javascript'>
+        function togglestate(name) {
+          item = document.getElementById(name)
+          if (item.style.display == 'none')
+            item.style.display = 'block';
+          else
+            item.style.display = 'none';
+        }
+        </script>
+        </head>
+
+        <body><pre>
+    """
+
+    FOOTER = """</pre></body></html>"""
+
+    ENTER = ('''\n\t<a href="#" onclick="togglestate('div%d')">%s</a>'''
+             '''\n<div id="div%d" style="display: %s">\t''')
+    LEAVE = '''\n</div>\t'''
+
+    def htmlquote(self, s, text_to_html={}):
+        # HTML quoting, lazily initialized
+        if not text_to_html:
+            import htmlentitydefs
+            for key, value in htmlentitydefs.entitydefs.items():
+                text_to_html[value] = '&' + key + ';'
+        return ''.join([text_to_html.get(c, c) for c in s])
+
+    def start(self):
+        # start of a dump file
+        from pypy.tool.udir import udir
+        n = Tracer.Counter
+        Tracer.Counter += 1
+        self.file = udir.join('llinterp_trace_%d.html' % n).open('w')
+        print >> self.file, self.HEADER
+        self.count = 0
+        self.indentation = ''
+
+    def stop(self):
+        # end of a dump file
+        if self.file:
+            print >> self.file, self.FOOTER
+            self.file.close()
+            self.file = None
+
+    def enter(self, graph):
+        # enter evaluation of a graph
+        if self.file:
+            s = self.htmlquote(str(graph))
+            i = s.rfind(')')
+            s = s[:i+1] + '<b>' + s[i+1:] + '</b>'
+            if self.count == 0:
+                display = 'block'
+            else:
+                display = 'none'
+            text = self.ENTER % (self.count, s, self.count, display)
+            self.indentation += '    '
+            self.file.write(text.replace('\t', self.indentation))
+            self.count += 1
+
+    def leave(self):
+        # leave evaluation of a graph
+        if self.file:
+            self.indentation = self.indentation[:-4]
+            self.file.write(self.LEAVE.replace('\t', self.indentation))
+
+    def dump(self, text, bold=False):
+        if self.file:
+            text = self.htmlquote(text)
+            if bold:
+                text = '<b>%s</b>' % (text,)
+            self.file.write(text.replace('\n', '\n'+self.indentation))
+
 
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help

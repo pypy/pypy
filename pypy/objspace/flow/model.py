@@ -67,12 +67,14 @@ class FunctionGraph(object):
         return getsource(self.func)
     source = roproperty(getsource)
 
-    def __repr__(self):
+    def __str__(self):
         if hasattr(self, 'func'):
-            fnrepr = nice_repr_for_func(self.func, self.name)
+            return nice_repr_for_func(self.func, self.name)
         else:
-            fnrepr = self.name
-        return '<FunctionGraph of %s at 0x%x>' % (fnrepr, uid(self))
+            return self.name
+
+    def __repr__(self):
+        return '<FunctionGraph of %s at 0x%x>' % (self, uid(self))
 
     def iterblocks(self):
         block = self.startblock
