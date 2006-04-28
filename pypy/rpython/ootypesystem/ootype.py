@@ -465,18 +465,6 @@ class DictItemsIterator(BuiltinADTType):
         VALUETYPE = self._specialize_type(self._VALUETYPE, generic_types)
         return self.__class__(KEYTYPE, VALUETYPE)
     
-
-class ForwardReference(OOType):
-    def become(self, real_instance):
-        if not isinstance(real_instance, (Instance, BuiltinADTType)):
-            raise TypeError("ForwardReference can only be to an instance, "
-                            "not %r" % (real_instance,))
-        self.__class__ = real_instance.__class__
-        self.__dict__ = real_instance.__dict__
-
-    def __hash__(self):
-        raise TypeError("%r object is not hashable" % self.__class__.__name__)
-
 # ____________________________________________________________
 
 class _class(object):

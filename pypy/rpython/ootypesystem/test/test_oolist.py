@@ -73,16 +73,14 @@ def test_optional_itemtype():
     assert hash(LT) == hash(LT2)
 
 def test_recursive():
-    FORWARD = ForwardReference()
-    LT = List(FORWARD)
-    FORWARD.become(LT)
+    LT = List()
+    setItemType(LT, LT)
     assert LT == LT
     assert hash(LT) == hash(LT)
     str(LT) # make sure this doesn't recurse infinitely
 
-    FORWARD2 = ForwardReference()
-    LT2 = List(FORWARD2)
-    FORWARD2.become(LT2)
+    LT2 = List()
+    setItemType(LT2, LT2)
     assert LT == LT2
     assert hash(LT) == hash(LT2)
 
