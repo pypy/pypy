@@ -115,7 +115,6 @@ def test_runtimenew():
     assert cl_runtime_new(False) == 0
 
 def test_instance():
-    py.test.skip("TODO")
     class Foo:
         value = 0
     class Bar(Foo):

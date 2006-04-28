@@ -128,9 +128,6 @@ class Op:
             code = getattr(impl, method)(*args)
             yield "(setf %s %s)" % (clrepr(result, True), clrepr(code, True))
         elif isinstance(cls, Instance):
-            methodobj = cls._methods[method]
-            methodobj._method_name = method # XXX
-            self.gen.pendinggraphs.append(methodobj)
             name = clrepr(method, symbol=True)
             selfvar = clrepr(receiver)
             args = map(self.gen.check_declaration, args)
@@ -226,6 +223,10 @@ class GenCL:
             supername = clrepr(cls._superclass._name, symbol=True)
             class_declaration = "(defclass %s (%s) (%s))" % (name, supername, field_declaration)
         self.declarations[name] = class_declaration
+        for method in cls._methods:
+            methodobj = cls._methods[method]
+            methodobj._method_name = method
+            self.pendinggraphs.append(methodobj)
 
     def declare_constant_instance(self, const):
         # const.concretetype is Instance
