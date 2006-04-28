@@ -4,9 +4,8 @@ from pypy.rpython.lltypesystem.lltype import \
      Signed, Unsigned, Bool, Float, Void, pyobjectptr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import FloatRepr
-from pypy.rpython.rmodel import IntegerRepr, BoolRepr, StringRepr
+from pypy.rpython.rmodel import IntegerRepr, BoolRepr, AbstractStringRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rstr import string_repr
 from pypy.rpython.rmodel import log
 
 import math
@@ -84,7 +83,7 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
     def rtype_ge(_, hop):
         return _rtype_compare_template(hop, 'ge')
 
-class __extend__(pairtype(StringRepr, FloatRepr)):
+class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
     def rtype_mod(_, hop):
         rstr = hop.rtyper.type_system.rstr
         return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
@@ -140,6 +139,8 @@ class __extend__(FloatRepr):
         from pypy.rpython.module.ll_strtod import ll_strtod_formatd
         return ll_strtod_formatd(percent_f, f)
 
+# XXX this will need to be type system independent
+from pypy.rpython.lltypesystem.rstr import string_repr
 percent_f = string_repr.convert_const("%f")
 
 TAKE_NEXT = float(2**31)

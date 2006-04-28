@@ -327,10 +327,10 @@ class BoolRepr(IntegerRepr):
         from pypy.rpython.rint import signed_repr
         self.as_int = signed_repr
 
-class StringRepr(Repr):
+class AbstractStringRepr(Repr):
     pass
 
-class CharRepr(StringRepr):
+class CharRepr(AbstractStringRepr):
     lowleveltype = Char
 
 class UniCharRepr(Repr):

@@ -1,14 +1,15 @@
-from pypy.rpython.rstr import string_repr, StringRepr, STR, AbstractStringIteratorRepr
+from pypy.rpython.rstr import AbstractStringRepr, STR, AbstractStringIteratorRepr
 from pypy.rpython.lltypesystem.lltype import Ptr
 from pypy.rpython.ootypesystem.ootype import Signed, Record
 
-class __extend__(StringRepr):
+class StringRepr(AbstractStringRepr):
 
     lowleveltype = Ptr(STR)
 
     def make_iterator_repr(self):
         return string_iterator_repr
 
+string_repr = StringRepr()
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
 

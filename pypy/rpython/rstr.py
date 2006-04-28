@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
-from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst, UniCharRepr
+from pypy.rpython.rmodel import AbstractStringRepr, CharRepr, inputconst, UniCharRepr
 from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltypesystem.rtuple import TupleRepr # XXX type system!
@@ -50,12 +50,12 @@ class __extend__(annmodel.SomeUnicodeCodePoint):
         return self.__class__,
 
 CONST_STR_CACHE = WeakValueDictionary()
-string_repr = StringRepr()
+#string_repr = StringRepr()
 char_repr   = CharRepr()
 unichar_repr = UniCharRepr()
 
 
-class __extend__(StringRepr):
+class __extend__(AbstractStringRepr):
 
     def convert_const(self, value):
         if value is None:
@@ -82,43 +82,42 @@ class __extend__(StringRepr):
     def get_ll_fasthash_function(self):
         return ll_strfasthash
 
-    def can_ll_be_null(self, s_value):
-        if self is string_repr:
-            return s_value.can_be_none()
-        else:
-            return True     # for CharRepr/UniCharRepr subclasses,
-                            # where NULL is always valid: it is chr(0)
-
     def rtype_len(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strlen, v_str)
 
     def rtype_is_true(self, hop):
         s_str = hop.args_s[0]
         if s_str.can_be_None:
+            string_repr = hop.rtyper.type_system.rstr.string_repr
             v_str, = hop.inputargs(string_repr)
             return hop.gendirectcall(ll_str_is_true, v_str)
         else:
             # defaults to checking the length
-            return super(StringRepr, self).rtype_is_true(hop)
+            return super(AbstractStringRepr, self).rtype_is_true(hop)
 
     def rtype_ord(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, = hop.inputargs(string_repr)
         c_zero = inputconst(Signed, 0)
         v_chr = hop.gendirectcall(ll_stritem_nonneg, v_str, c_zero)
         return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
 
     def rtype_method_startswith(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_value = hop.inputargs(string_repr, string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_startswith, v_str, v_value)
 
     def rtype_method_endswith(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_value = hop.inputargs(string_repr, string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_endswith, v_str, v_value)
 
     def rtype_method_find(_, hop, reverse=False):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str = hop.inputarg(string_repr, arg=0)
         if hop.args_r[1] == char_repr:
             v_value = hop.inputarg(char_repr, arg=1)
@@ -144,12 +143,13 @@ class __extend__(StringRepr):
     def rtype_method_rfind(self, hop):
         return self.rtype_method_find(hop, reverse=True)
 
-    def rtype_method_strip(_, hop, left=True, right=True):
+    def rtype_method_strip(self, hop, left=True, right=True):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str = hop.inputarg(string_repr, arg=0)
         v_char = hop.inputarg(char_repr, arg=1)
         v_left = hop.inputconst(Bool, left)
         v_right = hop.inputconst(Bool, right)
-        return hop.gendirectcall(ll_strip, v_str, v_char, v_left, v_right)
+        return hop.gendirectcall(self.ll_strip, v_str, v_char, v_left, v_right)
 
     def rtype_method_lstrip(self, hop):
         return self.rtype_method_strip(hop, left=True, right=False)
@@ -157,18 +157,21 @@ class __extend__(StringRepr):
     def rtype_method_rstrip(self, hop):
         return self.rtype_method_strip(hop, left=False, right=True)
 
-    def rtype_method_upper(_, hop):
+    def rtype_method_upper(self, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_upper, v_str)
+        return hop.gendirectcall(self.ll_upper, v_str)
         
-    def rtype_method_lower(_, hop):
+    def rtype_method_lower(self, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_lower, v_str)
+        return hop.gendirectcall(self.ll_lower, v_str)
         
-    def rtype_method_join(_, hop):
+    def rtype_method_join(self, hop):
         hop.exception_cannot_occur()
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         if hop.s_result.is_constant():
             return inputconst(string_repr, hop.s_result.const)
         r_lst = hop.args_r[1]
@@ -189,12 +192,13 @@ class __extend__(StringRepr):
             return hop.gendirectcall(llfn, v_length, v_items)
         else:
             if r_lst.item_repr == string_repr:
-                llfn = ll_join
+                llfn = self.ll_join
             else:
                 raise TyperError("sep.join() of non-string list: %r" % r_lst)
             return hop.gendirectcall(llfn, v_str, v_length, v_items)
 
     def rtype_method_split(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
         cLIST = hop.inputconst(Void, hop.r_result.lowleveltype.TO)
         hop.exception_cannot_occur()
@@ -203,12 +207,14 @@ class __extend__(StringRepr):
     def rtype_method_replace(_, hop):
         if not (hop.args_r[1] == char_repr and hop.args_r[2] == char_repr):
             raise TyperError, 'replace only works for char args'
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_c1, v_c2 = hop.inputargs(string_repr, char_repr, char_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
 
     def rtype_int(_, hop):
         hop.has_implicit_exception(ValueError)   # record that we know about it
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         if hop.nb_args == 1:
             v_str, = hop.inputargs(string_repr)
             c_base = inputconst(Signed, 10)
@@ -223,8 +229,9 @@ class __extend__(StringRepr):
     def ll_str(self, s):
         return s
 
-class __extend__(pairtype(StringRepr, IntegerRepr)):
+class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
     def rtype_getitem(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_index = hop.inputargs(string_repr, Signed)
         if hop.has_implicit_exception(IndexError):
             if hop.args_s[1].nonneg:
@@ -243,9 +250,10 @@ class __extend__(pairtype(StringRepr, IntegerRepr)):
         return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 
-class __extend__(pairtype(StringRepr, SliceRepr)):
+class __extend__(pairtype(AbstractStringRepr, SliceRepr)):
 
     def rtype_getitem((_, r_slic), hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         if r_slic == startonly_slice_repr:
             v_str, v_start = hop.inputargs(string_repr, startonly_slice_repr)
             return hop.gendirectcall(ll_stringslice_startonly, v_str, v_start)
@@ -258,40 +266,47 @@ class __extend__(pairtype(StringRepr, SliceRepr)):
         raise TyperError(r_slic)
 
 
-class __extend__(pairtype(StringRepr, StringRepr)):
+class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
     def rtype_add(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         return hop.gendirectcall(ll_strconcat, v_str1, v_str2)
     rtype_inplace_add = rtype_add
 
     def rtype_eq(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         return hop.gendirectcall(ll_streq, v_str1, v_str2)
     
     def rtype_ne(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         vres = hop.gendirectcall(ll_streq, v_str1, v_str2)
         return hop.genop('bool_not', [vres], resulttype=Bool)
 
     def rtype_lt(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
         return hop.genop('int_lt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
     def rtype_le(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
         return hop.genop('int_le', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
     def rtype_ge(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
         return hop.genop('int_ge', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
     def rtype_gt(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
@@ -300,8 +315,9 @@ class __extend__(pairtype(StringRepr, StringRepr)):
     def rtype_mod(_, hop):
         return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
-class __extend__(pairtype(StringRepr, CharRepr)):
+class __extend__(pairtype(AbstractStringRepr, CharRepr)):
     def rtype_contains(_, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
         return hop.gendirectcall(ll_contains, v_str, v_chr)
     
@@ -373,6 +389,7 @@ def do_stringformat(hop, sourcevarsrepr):
             else:
                 raise TyperError, "%%%s is not RPython" % (code, )
         else:
+            from pypy.rpython.lltypesystem.rstr import string_repr
             vchunk = inputconst(string_repr, thing)
         i = inputconst(Signed, i)
         hop.genop('setarrayitem', [vtemp, i, vchunk])
@@ -381,7 +398,7 @@ def do_stringformat(hop, sourcevarsrepr):
     return hop.gendirectcall(ll_join_strs, size, vtemp)
     
 
-class __extend__(pairtype(StringRepr, TupleRepr)):
+class __extend__(pairtype(AbstractStringRepr, TupleRepr)):
     def rtype_mod(_, hop):
         r_tuple = hop.args_r[1]
         v_tuple = hop.args_v[1]
@@ -515,20 +532,22 @@ def _rtype_unchr_compare_template(hop, func):
 #
 # _________________________ Conversions _________________________
 
-class __extend__(pairtype(CharRepr, StringRepr)):
+class __extend__(pairtype(CharRepr, AbstractStringRepr)):
     def convert_from_to((r_from, r_to), v, llops):
+        string_repr = llops.rtyper.type_system.rstr.string_repr
         if r_from == char_repr and r_to == string_repr:
             return llops.gendirectcall(ll_chr2str, v)
         return NotImplemented
 
-class __extend__(pairtype(StringRepr, CharRepr)):
+class __extend__(pairtype(AbstractStringRepr, CharRepr)):
     def convert_from_to((r_from, r_to), v, llops):
+        string_repr = llops.rtyper.type_system.rstr.string_repr
         if r_from == string_repr and r_to == char_repr:
             c_zero = inputconst(Signed, 0)
             return llops.gendirectcall(ll_stritem_nonneg, v, c_zero)
         return NotImplemented
 
-class __extend__(pairtype(PyObjRepr, StringRepr)):
+class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
         cstr = inputconst(Void, STR)
@@ -538,11 +557,13 @@ class __extend__(pairtype(PyObjRepr, StringRepr)):
         v_chars = llops.genop('getsubstruct', [v_result, cchars],
                               resulttype=Ptr(STR.chars))
         llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
+        string_repr = llops.rtyper.type_system.rstr.string_repr
         v_result = llops.convertvar(v_result, string_repr, r_to)
         return v_result
 
-class __extend__(pairtype(StringRepr, PyObjRepr)):
+class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
+        string_repr = llops.rtyper.type_system.rstr.string_repr
         v = llops.convertvar(v, r_from, string_repr)
         cchars = inputconst(Void, "chars")
         v_chars = llops.genop('getsubstruct', [v, cchars],
@@ -842,100 +863,6 @@ def ll_rfind(s1, s2, start, end):
                 i = e
     return -1
 
-emptystr = string_repr.convert_const("")
-
-def ll_strip(s, ch, left, right):
-    s_len = len(s.chars)
-    if s_len == 0:
-        return emptystr
-    lpos = 0
-    rpos = s_len - 1
-    if left:
-        while lpos < rpos and s.chars[lpos] == ch:
-            lpos += 1
-    if right:
-        while lpos < rpos and s.chars[rpos] == ch:
-            rpos -= 1
-    r_len = rpos - lpos + 1
-    result = malloc(STR, r_len)
-    i = 0
-    j = lpos
-    while i < r_len:
-        result.chars[i] = s.chars[j]
-        i += 1
-        j += 1
-    return result
-
-def ll_upper(s):
-    s_chars = s.chars
-    s_len = len(s_chars)
-    if s_len == 0:
-        return emptystr
-    i = 0
-    result = malloc(STR, s_len)
-    while i < s_len:
-        ch = s_chars[i]
-        if 'a' <= ch <= 'z':
-            ch = chr(ord(ch) - 32)
-        result.chars[i] = ch
-        i += 1
-    return result
-
-def ll_lower(s):
-    s_chars = s.chars
-    s_len = len(s_chars)
-    if s_len == 0:
-        return emptystr
-    i = 0
-    result = malloc(STR, s_len)
-    while i < s_len:
-        ch = s_chars[i]
-        if 'A' <= ch <= 'Z':
-            ch = chr(ord(ch) + 32)
-        result.chars[i] = ch
-        i += 1
-    return result
-
-def ll_join(s, length, items):
-    s_chars = s.chars
-    s_len = len(s_chars)
-    num_items = length
-    if num_items == 0:
-        return emptystr
-    itemslen = 0
-    i = 0
-    while i < num_items:
-        itemslen += len(items[i].chars)
-        i += 1
-    result = malloc(STR, itemslen + s_len * (num_items - 1))
-    res_chars = result.chars
-    res_index = 0
-    i = 0
-    item_chars = items[i].chars
-    item_len = len(item_chars)
-    j = 0
-    while j < item_len:
-        res_chars[res_index] = item_chars[j]
-        j += 1
-        res_index += 1
-    i += 1
-    while i < num_items:
-        j = 0
-        while j < s_len:
-            res_chars[res_index] = s_chars[j]
-            j += 1
-            res_index += 1
-
-        item_chars = items[i].chars
-        item_len = len(item_chars)
-        j = 0
-        while j < item_len:
-            res_chars[res_index] = item_chars[j]
-            j += 1
-            res_index += 1
-        i += 1
-    return result
-
 def ll_join_strs(length, items):
     num_items = length
     itemslen = 0
@@ -1108,6 +1035,7 @@ def ll_int(s, base):
 class AbstractStringIteratorRepr(IteratorRepr):
 
     def newiter(self, hop):
+        string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(self.ll_striter, v_str)
 
@@ -1117,13 +1045,3 @@ class AbstractStringIteratorRepr(IteratorRepr):
         hop.exception_is_here()
         return hop.gendirectcall(self.ll_strnext, v_iter)
 
-
-# these should be in rclass, but circular imports prevent (also it's
-# not that insane that a string constant is built in this file).
-
-instance_str_prefix = string_repr.convert_const("<")
-instance_str_suffix = string_repr.convert_const(" object>")
-
-list_str_open_bracket = string_repr.convert_const("[")
-list_str_close_bracket = string_repr.convert_const("]")
-list_str_sep = string_repr.convert_const(", ")

@@ -77,7 +77,7 @@ def target(driver, args):
     return entry_point, [SomeString()], PyPyAnnotatorPolicy()
 
 def get_llinterp_args():
-    from pypy.rpython import rstr
+    from pypy.rpython.lltypesystem import rstr
     ll_str = rstr.string_repr.convert_const("app_example.py")
     return [ll_str]
 

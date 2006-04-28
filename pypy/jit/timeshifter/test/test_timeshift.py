@@ -9,7 +9,8 @@ from pypy.jit.llabstractinterp.test.test_llabstractinterp import annotation
 from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import hint, keepalive_until_here
-from pypy.rpython import rgenop, rstr
+from pypy.rpython import rgenop
+from pypy.rpython.lltypesystem import rstr
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph

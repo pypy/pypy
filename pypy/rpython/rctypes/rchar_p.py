@@ -1,6 +1,6 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.rstr import StringRepr
+from pypy.rpython.rstr import AbstractStringRepr
 from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
 from pypy.rpython.rctypes.rarray import ArrayRepr
@@ -56,7 +56,7 @@ class CCharPRepr(CTypesValueRepr):
         self.setstring(hop.llops, v_char_p, v_value)
 
 
-class __extend__(pairtype(StringRepr, CCharPRepr)):
+class __extend__(pairtype(AbstractStringRepr, CCharPRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         # r_from could be char_repr: first convert it to string_repr
         v = llops.convertvar(v, r_from, string_repr)
