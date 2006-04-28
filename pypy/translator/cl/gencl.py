@@ -214,6 +214,8 @@ class GenCL:
     def declare_class(self, cls):
         # cls is Instance
         name = clrepr(cls._name, symbol=True)
+        if name in self.declarations:
+            return
         field_declaration = ['('+clrepr(field, True)+')' for field in cls._fields]
         field_declaration = " ".join(field_declaration)
         if cls._superclass is ROOT:
