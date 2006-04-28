@@ -2,6 +2,9 @@
 import autopath
 import py
 import sys
+if sys.version_info[:2] != (2,3):
+	raise RuntimeError("Genreportdata.py needs Python 2.3")
+	
 mydir = py.magic.autopath().dirpath().realpath()
 from pypy.tool.pytest import htmlreport 
 from pypy.tool.pytest import confpath 
