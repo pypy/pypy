@@ -375,6 +375,24 @@ class TranslationDriver(SimpleTaskEngine):
     task_run_cl = taskdef(task_run_cl, ['compile_cl'],
                               'XXX')
 
+    def task_source_squeak(self):
+        from pypy.translator.squeak.gensqueak import GenSqueak
+        self.gen = GenCL(dir, self.translator)
+        filename = self.gen.gen()
+        self.log.info("Wrote %s" % (filename,))
+    task_source_squeak = taskdef(task_source_squeak, ['ootype'],
+                             'Generating Squeak source')
+
+    def task_compile_squeak(self):
+        pass
+    task_compile_squeak = taskdef(task_compile_squeak, ['source_squeak'],
+                              'XXX')
+
+    def task_run_squeak(self):
+        pass
+    task_run_squeak = taskdef(task_run_squeak, ['compile_squeak'],
+                              'XXX')
+
     def proceed(self, goals):
         if not goals:
             if self.default_goal:
