@@ -212,14 +212,25 @@ class Pickler:
         self.proto = int(protocol)
         self.bin = protocol >= 1
         self.fast = 0
-        ## Stackless addition BEGIN
-        #XXX support not included yet in pypy
+    
+    def _pickle_moduledict(self, obj):
         try:
-            from stackless import _pickle_moduledict
-        except ImportError:
-            _pickle_moduledict = lambda self, obj:None
-        self._pickle_moduledict = _pickle_moduledict
-        ## Stackless addition END
+            modict = self.module_dict_ids
+        except AttributeError:
+            modict = {}
+            from sys import modules
+            for mod in modules.values():
+                if isinstance(mod, ModuleType):
+                    modict[id(mod.__dict__)] = mod
+            self.module_dict_ids = modict
+    		
+        thisid = id(obj)
+        try:
+            themodule = modict[thisid]
+        except KeyError:
+            return None
+        from __builtin__ import getattr
+        return getattr, (themodule, '__dict__')
 
     def clear_memo(self):
         """Clears the pickler's "memo".
@@ -661,10 +672,11 @@ class Pickler:
 
     def save_dict(self, obj):
         ## Stackless addition BEGIN
-        modict_saver = self._pickle_moduledict(self, obj)
+        modict_saver = self._pickle_moduledict(obj)
         if modict_saver is not None:
             return self.save_reduce(*modict_saver)
         ## Stackless addition END
+
         write = self.write
 
         if self.bin:
