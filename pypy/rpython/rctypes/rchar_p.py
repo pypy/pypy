@@ -45,6 +45,7 @@ class CCharPRepr(CTypesValueRepr):
         assert s_attr.is_constant()
         assert s_attr.const == 'value'
         v_char_p = hop.inputarg(self, 0)
+        hop.exception_cannot_occur()
         return self.getstring(hop.llops, v_char_p)
 
     def rtype_setattr(self, hop):

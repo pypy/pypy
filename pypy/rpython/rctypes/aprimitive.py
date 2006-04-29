@@ -28,6 +28,7 @@ class CallEntry(CTypesCallEntry):
 
     def specialize_call(self, hop):
         r_primitive = hop.r_result
+        hop.exception_cannot_occur()
         v_result = r_primitive.allocate_instance(hop.llops)
         if len(hop.args_s):
             v_value, = hop.inputargs(r_primitive.ll_type)

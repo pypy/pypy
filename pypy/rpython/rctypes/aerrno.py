@@ -30,6 +30,7 @@ class GetErrnoFnEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.llops.gencapicall('geterrno', [],
                                      resulttype = lltype.Signed,
                                      includes = (),

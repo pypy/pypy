@@ -18,6 +18,7 @@ class CTypesPyObjRepr(CTypesValueRepr):
         assert s_attr.is_constant()
         assert s_attr.const == 'value'
         v_pyobj = hop.inputarg(self, 0)
+        hop.exception_cannot_occur()
         return self.getvalue(hop.llops, v_pyobj)
 
     def rtype_setattr(self, hop):

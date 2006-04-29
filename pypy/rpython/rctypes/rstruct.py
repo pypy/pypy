@@ -87,6 +87,7 @@ class StructRepr(CTypesRefRepr):
         name = s_attr.const
         r_field = self.r_fields[name]
         v_struct, v_attr = hop.inputargs(self, lltype.Void)
+        hop.exception_cannot_occur()
         if isinstance(r_field, PrimitiveRepr):
             # primitive case (optimization; the below also works in this case)
             # NB. this optimization is invalid for PointerReprs!  See for

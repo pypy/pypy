@@ -119,6 +119,7 @@ class CallEntry(CTypesEntry):
         #else:
         #   no 'includes': hack to trigger in GenC a PyErr_Occurred() check
 
+        hop.exception_cannot_occur()
         v_result = hop.llops.gencapicall(fnname, unwrapped_args_v,
                                          resulttype = RESTYPE,
                                          **kwds)

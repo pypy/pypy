@@ -13,6 +13,7 @@ class CallEntry(CTypesCallEntry):
     def specialize_call(self, hop, **kwds_i):
         from pypy.rpython.error import TyperError
         r_struct = hop.r_result
+        hop.exception_cannot_occur()
         v_result = r_struct.allocate_instance(hop.llops)
         index_by_name = {}
         name_by_index = {}

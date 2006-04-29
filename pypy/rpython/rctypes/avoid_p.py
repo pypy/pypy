@@ -14,6 +14,7 @@ class CallEntry(CTypesCallEntry):
 
     def specialize_call(self, hop):
         r_void_p = hop.r_result
+        hop.exception_cannot_occur()
         v_result = r_void_p.allocate_instance(hop.llops)
         return v_result
 
@@ -72,4 +73,5 @@ class CastFnEntry(ExtRegistryEntry):
             # cast to pointer
             v_result = hop.genop('cast_adr_to_ptr', [v_adr],
                                  resulttype = hop.r_result.ll_type)
+        hop.exception_cannot_occur()
         return hop.r_result.return_value(hop.llops, v_result)

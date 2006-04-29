@@ -57,6 +57,7 @@ class PointerRepr(CTypesValueRepr):
         assert s_attr.const == 'contents'
         v_ptr = hop.inputarg(self, 0)
         v_c_ptr = self.getvalue(hop.llops, v_ptr)
+        hop.exception_cannot_occur()
         return self.r_contents.allocate_instance_ref(hop.llops, v_c_ptr)
 
     def rtype_setattr(self, hop):
@@ -74,6 +75,7 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
         self = r_ptr
         v_ptr, v_index = hop.inputargs(self, lltype.Signed)
         v_c_ptr = self.getvalue(hop.llops, v_ptr)
+        hop.exception_cannot_occur()
         if isinstance(v_index, Constant) and v_index.value == 0:
             pass   # skip direct_ptradd
         else:
@@ -95,4 +97,5 @@ class __extend__(pairtype(PointerRepr, IntegerRepr)):
             # not supported by ctypes either
             raise TyperError("assignment to pointer[x] with x != 0")
         # copy the whole structure's content over
+        hop.exception_cannot_occur()
         genreccopy(hop.llops, v_new_c_data, v_target)

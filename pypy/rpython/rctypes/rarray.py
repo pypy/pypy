@@ -54,6 +54,7 @@ class ArrayRepr(CTypesRefRepr):
         assert s_attr.const == 'value'
         assert self.r_item.ll_type == lltype.Char  # .value: char arrays only
         v_box = hop.inputarg(self, 0)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_chararrayvalue, v_box)
 
     def get_c_data_of_item(self, llops, v_array, v_index):
@@ -103,6 +104,7 @@ class ArrayRepr(CTypesRefRepr):
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_getitem((r_array, r_int), hop):
         v_array, v_index = hop.inputargs(r_array, lltype.Signed)
+        hop.exception_cannot_occur()
         if isinstance(r_array.r_item, PrimitiveRepr):
             # primitive case (optimization; the below also works in this case)
             # NB. this optimization is invalid for PointerReprs!  See for
@@ -118,6 +120,7 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_setitem((r_array, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_array, lltype.Signed,
                                                  r_array.r_item)
+        hop.exception_cannot_occur()
         r_array.setitem(hop.llops, v_array, v_index, v_item)
 
 

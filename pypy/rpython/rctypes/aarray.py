@@ -14,6 +14,7 @@ class CallEntry(CTypesCallEntry):
         from pypy.rpython.error import TyperError
         from pypy.rpython.rmodel import inputconst
         r_array = hop.r_result
+        hop.exception_cannot_occur()
         v_result = r_array.allocate_instance(hop.llops)
         if hop.nb_args > r_array.length:
             raise TyperError("too many arguments for an array of length %d" % (

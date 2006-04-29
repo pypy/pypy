@@ -12,6 +12,7 @@ class CallEntry(CTypesCallEntry):
     def specialize_call(self, hop):
         from pypy.rpython.robject import pyobj_repr
         r_pyobject = hop.r_result
+        hop.exception_cannot_occur()
         v_result = r_pyobject.allocate_instance(hop.llops)
         if len(hop.args_s):
             [v_input] = hop.inputargs(pyobj_repr)

@@ -27,6 +27,7 @@ class CreateStringBufferFnEntry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype
         [v_length] = hop.inputargs(lltype.Signed)
         r_stringbuf = hop.r_result
+        hop.exception_cannot_occur()
         return hop.genop("malloc_varsize", [
             hop.inputconst(lltype.Void, r_stringbuf.lowleveltype.TO),
             v_length,
@@ -60,6 +61,7 @@ class SizeOfFnEntry(ExtRegistryEntry):
         from pypy.rpython.error import TyperError
         [s_arg] = hop.args_s
         [r_arg] = hop.args_r
+        hop.exception_cannot_occur()
         if isinstance(s_arg, SomeCTypesObject):
             if s_arg.knowntype is StringBufferType:
                 # sizeof(string_buffer) == len(string_buffer)

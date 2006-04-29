@@ -20,6 +20,7 @@ class StringBufRepr(CTypesRefRepr):
         assert s_attr.is_constant()
         assert s_attr.const == 'value'
         v_box = hop.inputarg(self, 0)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_chararrayvalue, v_box)
 
     def get_c_data_of_item(self, llops, v_stringbuf, v_index):
@@ -41,6 +42,7 @@ class __extend__(pairtype(StringBufRepr, IntegerRepr)):
     def rtype_getitem((r_stringbuf, r_int), hop):
         v_stringbuf, v_index = hop.inputargs(r_stringbuf, lltype.Signed)
         v_array = r_stringbuf.get_c_data(hop.llops, v_stringbuf)
+        hop.exception_cannot_occur()
         return hop.genop('getarrayitem', [v_array, v_index],
                          resulttype = lltype.Char)
 
@@ -49,6 +51,7 @@ class __extend__(pairtype(StringBufRepr, IntegerRepr)):
                                                      lltype.Signed,
                                                      lltype.Char)
         v_array = r_stringbuf.get_c_data(hop.llops, v_stringbuf)
+        hop.exception_cannot_occur()
         hop.genop('setarrayitem', [v_array, v_index, v_item])
 
 class __extend__(pairtype(StringBufRepr, AbstractSliceRepr)):

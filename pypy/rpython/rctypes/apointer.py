@@ -45,6 +45,7 @@ class PointerFnEntry(ExtRegistryEntry):
 
     def specialize_call(hop):
         r_ptr = hop.r_result
+        hop.exception_cannot_occur()
         v_result = r_ptr.allocate_instance(hop.llops)
         if len(hop.args_s):
             v_contentsbox, = hop.inputargs(r_ptr.r_contents)
@@ -70,4 +71,5 @@ class POINTERFnEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         assert hop.s_result.is_constant()
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, hop.s_result.const)
