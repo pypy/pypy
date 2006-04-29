@@ -123,9 +123,6 @@ class AppTestInterpObjectPickling:
         result   = pickle.loads(pckl)
         assert mod is result
 
-    def test_pickle_iter(self):
-        skip("work in progress")
-
     def test_pickle_method(self):
         skip("work in progress")
         class myclass(object):
@@ -179,7 +176,7 @@ class AppTestInterpObjectPickling:
         
     #def test_pickle_enumfactory(self):
     #    skip("work in progress")
-        
+
     def test_pickle_sequenceiter(self):
         '''
         In PyPy there is no distinction here between listiterator and
@@ -202,6 +199,16 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert type(riter) is type(result)
         assert list(result) == [2,3,4]
+
+    def test_pickle_reversed_iterator(self):
+        import pickle
+        i = reversed(xrange(5))
+        i.next()
+        i.next()
+        pckl   = pickle.dumps(i)
+        result = pickle.loads(pckl)
+        assert type(i) is type(result)
+        assert list(result) == [2,1,0]
 
     def test_pickle_generator(self):
         skip("work in progress")

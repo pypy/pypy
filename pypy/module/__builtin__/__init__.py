@@ -35,6 +35,8 @@ class Module(MixedModule):
         'app_functional._install_pickle_support_for_xrange_iterator',
         'sorted'        : 'app_functional.sorted',
         'reversed'      : 'app_functional.reversed',
+        '_install_pickle_support_for_reversed_iterator':
+        'app_functional._install_pickle_support_for_reversed_iterator',
 
         'issubclass'    : 'app_inspect.issubclass',
         'isinstance'    : 'app_inspect.isinstance',

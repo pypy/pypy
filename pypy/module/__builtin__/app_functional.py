@@ -418,3 +418,21 @@ class reversed_iterator(object):
         if self.remaining > len(self.seq):
             self.remaining = 0
         return self.remaining
+
+    def __reduce__(self):
+        tup = (self.seq, self.remaining)
+        return (make_reversed_iterator, tup)
+
+def make_reversed_iterator(seq, remaining):
+    ri = reversed_iterator.__new__(reversed_iterator)
+    ri.seq = seq
+    #or "ri = reversed_iterator(seq)" but that executes len(seq)
+    ri.remaining = remaining
+    return ri
+
+def _install_pickle_support_for_reversed_iterator():
+    import _pickle_support
+    make_reversed_iterator.__module__ = '_pickle_support'
+    _pickle_support.make_reversed_iterator = make_reversed_iterator
+
+
