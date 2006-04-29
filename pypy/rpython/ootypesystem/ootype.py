@@ -184,7 +184,10 @@ class Meth(StaticMethod):
 class String(OOType):
 
     def _defl(self):
-        return ""
+        return make_string("")
+    
+    def _example(self):
+        return self._defl()
 
 String = String()
 
