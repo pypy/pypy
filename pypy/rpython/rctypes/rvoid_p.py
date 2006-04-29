@@ -3,6 +3,7 @@ from pypy.rpython.rctypes.rstringbuf import StringBufRepr
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rchar_p import CCharPRepr
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython.rctypes.rpointer import PointerRepr
 
 class CVoidPRepr(CTypesValueRepr):
     pass  # No operations supported on c_void_p instances so far
@@ -21,6 +22,14 @@ class __extend__(pairtype(StringBufRepr, CVoidPRepr)):
         # XXX some code duplication above
 
 class __extend__(pairtype(CCharPRepr, CVoidPRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v_ptr = r_from.getvalue(llops, v)
+        v_adr = llops.genop('cast_ptr_to_adr', [v_ptr],
+                            resulttype = llmemory.Address)
+                            
+        return r_to.return_value(llops, v_adr)
+
+class __extend__(pairtype(PointerRepr, CVoidPRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         v_ptr = r_from.getvalue(llops, v)
         v_adr = llops.genop('cast_ptr_to_adr', [v_ptr],

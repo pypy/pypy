@@ -176,10 +176,24 @@ class Test_annotation:
         string = 'abc xyz'
         def f(x):
             buf = create_string_buffer(len(string) + 1)
-            res = memcpy(buf, string, len(string))
+            res = memcpy(buf, c_char_p(string), len(string))
             return buf.value
         a = RPythonAnnotator()
         s = a.build_types(f, [int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == str
+
+    def test_annotate_call_void_p_arg_with_ptr(self):
+        string = 'abc xyz'
+        c_char_ptr = POINTER(c_char)
+        def f():
+            buf = create_string_buffer(len(string) + 1)
+            cp = cast(buf, c_char_ptr)
+            res = memcpy(cp, c_char_p(string), len(string))
+            return buf.value
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
         if conftest.option.view:
             a.translator.view()
         assert s.knowntype == str
@@ -268,6 +282,17 @@ class Test_specialization:
         assert ''.join(res.chars) == string
         
 
+    def test_specialize_call_void_p_arg_with_ptr(self):
+        string = 'abc xyz'
+        c_char_ptr = POINTER(c_char)
+        def f():
+            buf = create_string_buffer(len(string) + 1)
+            cp = cast(buf, c_char_ptr)
+            res = memcpy(cp, c_char_p(string), len(string))
+            return buf.value
+        res = interpret(f, [])
+        assert ''.join(res.chars) == string
+
 class Test_compile:
     def test_compile_labs(self):
         fn = compile(test_labs, [int])
@@ -347,3 +372,14 @@ class Test_compile:
         fn = compile(f, [])
         assert fn() == string
         
+    def test_compile_call_void_p_arg_with_ptr(self):
+        string = 'abc xyz'
+        c_char_ptr = POINTER(c_char)
+        def f():
+            buf = create_string_buffer(len(string) + 1)
+            cp = cast(buf, c_char_ptr)
+            res = memcpy(cp, c_char_p(string), len(string))
+            return buf.value
+        fn = compile(f, [])
+        assert fn() == string
+
