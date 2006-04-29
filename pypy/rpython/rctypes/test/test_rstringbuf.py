@@ -124,6 +124,18 @@ class Test_specialization:
         res = interpret(func, [12])
         assert ''.join(res.chars) == "xy"
 
+    def test_specialize_setvalue(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            buf.value = 'abcde'
+            assert buf.value == 'abcde'
+            buf.value = 'x'
+            assert buf.value == 'x'
+            return ord(buf[2])
+
+        res = interpret(func, [12])
+        assert res == ord('c')    # not overridden by buf.value='x'
+
     def test_specialize_slice(self):
         def func(n):
             buf = create_string_buffer(n)

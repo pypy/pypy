@@ -23,6 +23,13 @@ class StringBufRepr(CTypesRefRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_chararrayvalue, v_box)
 
+    def rtype_setattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'value'
+        v_box, v_attr, v_value = hop.inputargs(self, lltype.Void, string_repr)
+        hop.gendirectcall(ll_stringbuf_setvalue_from_string, v_box, v_value)
+
     def get_c_data_of_item(self, llops, v_stringbuf, v_index):
         v_array = self.get_c_data(llops, v_stringbuf)
         v_char_p = llops.genop('direct_arrayitems', [v_array],
@@ -92,6 +99,18 @@ def ll_slice_start_stop(sbuf, start, stop):
     for i in range(newlength):
         newstr.chars[i] = sbuf[start + i]
     return newstr
+
+
+def ll_stringbuf_setvalue_from_string(box, s):
+    # Copy the string into the stringbuf.  In ctypes the final \x00 is
+    # copied unless the string has exactly the same size as the stringbuf.
+    # We do the same, but unlike ctypes don't raise ValueError if the
+    # string is longer than the stringbuf; we just truncate instead.
+    # There is no support for setattr raising exceptions in RPython so far.
+    p = box.c_data
+    n = min(len(s.chars) + 1, len(p))
+    for i in range(n):
+        p[i] = s.chars[i]
 
 
 STRBUFTYPE = lltype.Array(lltype.Char)
