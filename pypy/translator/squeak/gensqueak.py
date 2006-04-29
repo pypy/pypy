@@ -22,6 +22,7 @@ class GenSqueak:
         self.generated_nodes = set()
         self.constant_insts = {}
 
+    def gen(self):
         graph = self.translator.graphs[0]
         self.pending_nodes.append(FunctionNode(self, graph))
         self.filename = '%s.st' % graph.name
@@ -30,6 +31,7 @@ class GenSqueak:
         self.pending_nodes.append(SetupNode(self, self.constant_insts)) 
         self.gen_source(file)
         file.close()
+        return self.filename
 
     def gen_source(self, file):
         while self.pending_nodes:

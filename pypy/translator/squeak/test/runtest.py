@@ -67,7 +67,9 @@ class SqueakFunction:
         self.graph = t.graphs[0]
         if conftest.option.view:
            t.viewcg()
-        return GenSqueak(udir, t)
+        gen = GenSqueak(udir, t)
+        gen.gen()
+        return gen
 
     def _write_startup(self):
         startup_st = udir.join("startup.st")

@@ -13,7 +13,8 @@ def build_sqfunc(func, args=[], view=False):
    t.buildrtyper(type_system="ootype").specialize()
    if view or conftest.option.view:
       t.viewcg()
-   GenSqueak(udir, t)
+   gen = GenSqueak(udir, t)
+   gen.gen()
 
 
 C = Instance("test", ROOT, {'a': (Signed, 3)})
