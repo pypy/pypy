@@ -498,6 +498,8 @@ class BaseTestRPBC:
         assert self.read_attr(res, "extra") == 42
 
     def test_conv_from_None(self):
+        if self.ts == "ootype":
+            py.test.skip("disabled while ootype string support is incomplete")
         class A(object): pass
         def none():
             return None
@@ -969,7 +971,7 @@ class BaseTestRPBC:
 
     def test_pbc_imprecise_attrfamily(self):
         if self.ts == "ootype":
-            py.test.skip("fix me if ootype fully supports lists")
+            py.test.skip("disabled while ootype string support is incomplete")
         fr1 = Freezing(); fr1.x = 5; fr1.y = [8]
         fr2 = Freezing(); fr2.x = 6; fr2.y = ["string"]
         def head(fr):
@@ -984,6 +986,8 @@ class BaseTestRPBC:
         assert res == 8 + 6
 
     def test_multiple_specialized_functions(self):
+        if self.ts == "ootype":
+            py.test.skip("disabled while ootype string support is incomplete")
         def myadder(x, y):   # int,int->int or str,str->str
             return x+y
         def myfirst(x, y):   # int,int->int or str,str->str
@@ -1008,6 +1012,8 @@ class BaseTestRPBC:
             assert res == f(i)
 
     def test_specialized_method_of_frozen(self):
+        if self.ts == "ootype":
+            py.test.skip("disabled while ootype string support is incomplete")
         class space:
             def _freeze_(self):
                 return True
@@ -1035,6 +1041,8 @@ class BaseTestRPBC:
         assert ''.join(res.chars) == 'tag2:hellotag2:< 42 >'
 
     def test_specialized_method(self):
+        if self.ts == "ootype":
+            py.test.skip("disabled while ootype string support is incomplete")
         class A:
             def __init__(self, tag):
                 self.tag = tag
