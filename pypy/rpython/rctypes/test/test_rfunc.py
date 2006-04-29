@@ -3,7 +3,7 @@ Test external function calls.
 """
 
 import py
-import sys, errno
+import sys
 import pypy.rpython.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext, graphof
@@ -119,21 +119,6 @@ def test_ctime():
     s2 = ctime(byref(c_long(N)))
     assert s1.strip() == s2.strip()
 
-def test_open():
-    if sys.platform == 'win32':
-        py.test.skip("Unix only")
-    open = mylib.open
-    fd = open("/_rctypes_test_rfunc/this/directory/does/not/exist/at/all!",
-              0, 0)
-    try:
-        util.setfromerrno()
-    except OSError, e:
-        pass
-    else:
-        raise AssertionError("util.setfromerrno() should have raised")
-    assert fd == -1
-    assert e.errno == errno.ENOENT
-
 ##def test_callback():
 ##    assert callback(100) == 103
 ##    assert pycallback(100) == 103
@@ -197,7 +182,6 @@ class Test_annotation:
         if conftest.option.view:
             a.translator.view()
         assert s.knowntype == str
-        
 
 ##    def test_annotate_callback(self):
 ##        def fn(n):

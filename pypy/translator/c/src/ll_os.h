@@ -62,6 +62,8 @@ struct RPyOpaque_DIR *LL_os_opendir(RPyString *dirname);
 RPyString *LL_os_readdir(struct RPyOpaque_DIR *dir);
 void LL_os_closedir(struct RPyOpaque_DIR *dir);
 
+#define geterrno()  errno
+
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE

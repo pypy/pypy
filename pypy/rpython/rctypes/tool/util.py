@@ -1,15 +1,8 @@
 """
-This is the module 'ctypes.util', copied from ctypes 0.9.9.6,
-with an extra setfromerrno() helper.
+This is the module 'ctypes.util', copied from ctypes 0.9.9.6.
 """
 import sys, os
 import ctypes
-
-def setfromerrno(exc=OSError):
-    """Raise an exception of the given class with the last failed C library
-    function's errno."""
-    ctypes.pythonapi.PyErr_SetFromErrno(ctypes.py_object(exc))
-
 
 # find_library(name) returns the pathname of a library, or None.
 if os.name == "nt":
