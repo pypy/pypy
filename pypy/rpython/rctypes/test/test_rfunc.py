@@ -11,10 +11,11 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
 from pypy.rpython.lltypesystem.rstr import string_repr
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 from ctypes import cdll, pythonapi, PyDLL, _FUNCFLAG_PYTHONAPI
-from ctypes import c_int, c_long, c_char_p, c_char, create_string_buffer
+from ctypes import c_int, c_long, c_char_p, c_void_p, c_char
+from ctypes import create_string_buffer, cast
 from ctypes import POINTER, py_object, byref, Structure
 from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 
@@ -63,6 +64,18 @@ ctime.restype = c_char_p
 ##PyIntIntCallback = CALLBACK_FUNCTYPE(c_int, c_int, callconv=PyDLL)
 ##pycallback = PyIntIntCallback(mycallback)
 
+def ll_memcpy(dst, src, length):
+    C_ARRAY = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
+    c_src = llmemory.cast_adr_to_ptr(src, C_ARRAY)
+    c_dst = llmemory.cast_adr_to_ptr(dst, C_ARRAY)
+    for i in range(length):
+        c_dst[i] = c_src[i]
+    return dst
+
+memcpy = mylib.memcpy
+memcpy.argtypes = [c_void_p, c_void_p, c_long]
+memcpy.restype = c_void_p
+memcpy.llinterp_friendly_version = ll_memcpy
 
 def test_labs(n=6):
     assert labs(n) == abs(n)
@@ -159,6 +172,18 @@ class Test_annotation:
         a.build_types(ep, [])
         if conftest.option.view:
             a.translator.view()
+    def test_annotate_call_void_p_arg_with_stringbuf(self):
+        string = 'abc xyz'
+        def f(x):
+            buf = create_string_buffer(len(string) + 1)
+            res = memcpy(buf, string, len(string))
+            return buf.value
+        a = RPythonAnnotator()
+        s = a.build_types(f, [int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == str
+        
 
 ##    def test_annotate_callback(self):
 ##        def fn(n):
@@ -232,6 +257,17 @@ class Test_specialization:
         res = interpret(fn, [11])
         assert res == 42
 
+    def test_specialize_call_void_p_arg_with_stringbuf(self):
+        string = 'abc xyz'
+        def f():
+            buf = create_string_buffer(len(string) + 1)
+            res = memcpy(buf, c_char_p(string), len(string))
+            return buf.value
+        assert f() == string
+        res = interpret(f, [])
+        assert ''.join(res.chars) == string
+        
+
 class Test_compile:
     def test_compile_labs(self):
         fn = compile(test_labs, [int])
@@ -300,3 +336,14 @@ class Test_compile:
         s1 = time.ctime(N)
         s2 = fn(N)
         assert s1.strip() == s2.strip()
+
+    def test_compile_call_void_p_arg_with_stringbuf(self):
+        string = 'abc xyz'
+        def f():
+            buf = create_string_buffer(len(string) + 1)
+            res = memcpy(buf, c_char_p(string), len(string))
+            return buf.value
+        assert f() == string
+        fn = compile(f, [])
+        assert fn() == string
+        
