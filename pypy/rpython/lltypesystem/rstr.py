@@ -1,5 +1,5 @@
 from pypy.rpython.rstr import AbstractStringRepr, STR, AbstractStringIteratorRepr, \
-        ll_strconcat
+        ll_strconcat, do_stringformat
 from pypy.rpython.lltypesystem.lltype import malloc, GcStruct, Ptr, Signed
 
 class StringRepr(AbstractStringRepr):

@@ -247,7 +247,8 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
         return hop.gendirectcall(llfn, v_str, v_index)
 
     def rtype_mod(_, hop):
-        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+        rstr = hop.rtyper.type_system.rstr
+        return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 
 class __extend__(pairtype(AbstractStringRepr, SliceRepr)):
@@ -313,7 +314,8 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
                          resulttype=Bool)
 
     def rtype_mod(_, hop):
-        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+        rstr = hop.rtyper.type_system.rstr
+        return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 class __extend__(pairtype(AbstractStringRepr, CharRepr)):
     def rtype_contains(_, hop):
@@ -410,7 +412,8 @@ class __extend__(pairtype(AbstractStringRepr, TupleRepr)):
                               resulttype=r_arg)
             sourcevars.append((vitem, r_arg))
 
-        return do_stringformat(hop, sourcevars)
+        rstr = hop.rtyper.type_system.rstr
+        return rstr.do_stringformat(hop, sourcevars)
                 
 
 class __extend__(CharRepr):
