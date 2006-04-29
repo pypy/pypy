@@ -147,15 +147,25 @@ class Op:
 
     def op_oogetfield(self, result, obj, _):
         fieldname = self.args[1].value
-        yield "(setf %s (slot-value %s '%s))" % (clrepr(result, True),
-                                                 clrepr(obj, True),
-                                                 clrepr(fieldname, True))
+        if isinstance(self.args[0].concretetype, Record):
+            yield "(setf %s (slot-value %s '%s))" % (clrepr(result, True),
+                                                   clrepr(obj, True),
+                                                   clrepr(fieldname, True))
+        else:
+            yield "(setf %s (%s %s))" % (clrepr(result, True),
+                                         clrepr(fieldname, True),
+                                         clrepr(obj, True))
 
     def op_oosetfield(self, result, obj, _, value):
         fieldname = self.args[1].value
-        yield "(setf (slot-value %s '%s) %s)" % (clrepr(obj, True),
-                                                 clrepr(fieldname, True),
-                                                 clrepr(value, True))
+        if isinstance(self.args[0].concretetype, Record):
+            yield "(setf (slot-value %s '%s) %s)" % (clrepr(obj, True),
+                                                     clrepr(fieldname, True),
+                                                     clrepr(value, True))
+        else:
+            yield "(setf (%s %s) %s)" % (clrepr(fieldname, True),
+                                         clrepr(obj, True),
+                                         clrepr(value, True))
 
     def op_ooidentityhash(self, result, arg):
         yield "(setf %s (sxhash %s))" % (clrepr(result, True),
@@ -225,7 +235,10 @@ class GenCL:
         if cls in self.declarations:
             return self.declarations[cls][0]
         name = clrepr(cls._name, symbol=True)
-        field_declaration = ['('+clrepr(field, True)+')' for field in cls._fields]
+        field_declaration = []
+        for field in cls._fields:
+            field = clrepr(field, True)
+            field_declaration.append('('+field+' :accessor '+field+')')
         field_declaration = " ".join(field_declaration)
         if cls._superclass is ROOT:
             class_declaration = "(defclass %s () (%s))" % (name, field_declaration)
@@ -247,8 +260,7 @@ class GenCL:
             return self.declarations[cls][0]
         name = clrepr(cls._name, symbol=True)
         if cls._superclass is OBJECT:
-            supername = self.declare_class(OBJECT)
-            exception_declaration = "(define-condition %s (condition %s) ())" % (name, supername)
+            exception_declaration = "(define-condition %s () ((meta :accessor meta)))" % (name)
         else:
             supername = self.declare_exception(cls._superclass)
             exception_declaration = "(define-condition %s (%s) ())" % (name, supername)
