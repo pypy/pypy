@@ -13,6 +13,7 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 
 from ctypes import c_char_p, pointer, Structure
+from ctypes import c_int, c_char, create_string_buffer, CFUNCTYPE
 
 class Test_annotation:
     def test_annotate_c_char_p(self):
@@ -110,6 +111,31 @@ class Test_specialization:
             assert c_char_p("")
             assert not c_char_p(None)
         interpret(func, [])
+
+    def test_convert_pointers(self):
+        from pypy.rpython.rctypes.rchar_p import ll_strlen
+        strlen = CFUNCTYPE(c_int, c_char_p)()   # not directly executable!
+        strlen.__name__ = 'strlen'
+        strlen.llinterp_friendly_version = ll_strlen
+        PTR = c_char_p("hello")
+        BUF = create_string_buffer(10)
+        BUF.value = "hello"
+
+        def func(n):
+            # constant arguments
+            assert strlen("hello") == 5
+            assert strlen(PTR) == 5
+            assert strlen(BUF) == 5
+            # variable arguments
+            s = chr(n) + 'bc'
+            assert strlen(s) == 3
+            assert strlen(c_char_p(s)) == 3
+            assert strlen((c_char * 6)('a', 'b')) == 2
+            buf = create_string_buffer(10)
+            buf.value = "hello"
+            assert strlen(buf) == 5
+
+        interpret(func, [65])
 
 class Test_compilation:
     def test_compile_c_char_p(self):

@@ -267,6 +267,13 @@ class _signed_fakeaccessor(_fakeaccessor):
 class _char_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Char
 
+    def convert(self, value):
+        # hack to try to interpret the items of an array of bytes as chars
+        if lltype.typeOf(value) == lltype.Signed:
+            value = chr(value)
+        assert lltype.typeOf(value) == lltype.Char
+        return value
+
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = Address
 

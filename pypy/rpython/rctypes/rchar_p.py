@@ -7,7 +7,7 @@ from pypy.rpython.rctypes.rarray import ArrayRepr
 from pypy.rpython.rctypes.rstringbuf import StringBufRepr
 from pypy.annotation.pairtype import pairtype
 
-from ctypes import c_char, c_char_p
+from ctypes import c_char, c_char_p, cast
 
 
 class CCharPRepr(CTypesValueRepr):
@@ -33,6 +33,13 @@ class CCharPRepr(CTypesValueRepr):
 
     def setstring(self, llops, v_box, v_str):
         llops.gendirectcall(ll_setstring, v_box, v_str)
+
+    def convert_const(self, value):
+        if not isinstance(value, (str, c_char_p)):
+            # maybe an array of characters? cast to a c_char_p
+            assert type(value)._type_ == c_char
+            value = cast(value, c_char_p)
+        return super(CCharPRepr, self).convert_const(value)
 
     def initialize_const(self, p, string):
         if isinstance(string, c_char_p):
