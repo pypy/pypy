@@ -125,3 +125,9 @@ class TestUsingBoehm(AbstractTestClass):
         # if res is still 0, then we haven't tested anything so fail.
         # it might be the test's fault though.
         assert res > 0
+        
+
+class TestUsingExactBoehm(TestUsingBoehm):
+    from pypy.translator.c.gc import MoreExactBoehmGcPolicy as gcpolicy
+
+
