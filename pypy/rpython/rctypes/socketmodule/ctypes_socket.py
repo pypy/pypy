@@ -2,6 +2,7 @@ import os
 import distutils
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
+from pypy.rpython.rctypes.aerrno import geterrno
 from ctypes import *
 
 includes = ('sys/types.h',
@@ -188,7 +189,7 @@ dup = socketdll.dup
 dup.argtypes = [c_int]
 dup.restype = c_int
 
-errno = c_int.in_dll(socketdll, 'errno')
+#errno = c_int.in_dll(socketdll, 'errno')
 
 strerror = socketdll.strerror
 strerror.argtypes = [c_int]
@@ -198,11 +199,11 @@ gai_strerror = socketdll.gai_strerror
 gai_strerror.argtypes = [c_int]
 gai_strerror.restype = c_char_p
 
-h_errno = c_int.in_dll(socketdll, 'h_errno')
-
-hstrerror = socketdll.hstrerror
-hstrerror.argtypes = [c_int]
-hstrerror.restype = c_char_p
+#h_errno = c_int.in_dll(socketdll, 'h_errno')
+#
+#hstrerror = socketdll.hstrerror
+#hstrerror.argtypes = [c_int]
+#hstrerror.restype = c_char_p
 
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]

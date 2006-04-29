@@ -19,7 +19,7 @@ class socket(object):
         if _fd is None:
             self._fd = _c.socket(family, type, proto)
             if self._fd == -1:
-                raise error(_c.errno.value)
+                raise error(_c.geterrno())
         else:
             self._fd = _fd
             
@@ -38,7 +38,7 @@ class socket(object):
         paddr = cast(pointer(caddr), _c.sockaddr_ptr)
         res = _c.socketbind(self._fd, paddr, sizeof(caddr))
         if res < 0:
-            raise error(_c.errno.value)
+            raise error(_c.geterrno())
 
     def _getsockaddr(self, addr):
         if self.family == AF_INET:
@@ -58,7 +58,7 @@ class socket(object):
             backlog = 1
         res = _c.socketlisten(fd, backlog)
         if res == -1:
-            raise error(_c.errno.value)
+            raise error(_c.geterrno())
                     
     def accept(self):
         peeraddr = pointer(_c.sockaddr())
@@ -66,7 +66,7 @@ class socket(object):
         newfd = _c.socketaccept(self._fd, peeraddr,
                                 pointer(peeraddrlen))
         if newfd < 0:
-            raise error(_c.errno.value)
+            raise error(_c.geterrno())
         newsocket = socket(self.family, self.type, self.proto, newfd)
         return (newsocket, makesockaddr(peeraddr, peeraddrlen, self.proto))
     
@@ -76,7 +76,7 @@ class socket(object):
         result = _c.socketconnect(self._fd, paddr,
                                   _c.socklen_t(sizeof(caddr)))
         if result == -1:
-            return _c.errno.value
+            return _c.geterrno()
         return 0
     
     def dup(self):
@@ -91,7 +91,7 @@ class socket(object):
         res = _c.socketgetpeername(self._fd, peeraddr,
                                    pointer(peeraddrlen))
         if res < 0:
-            raise error(_c.errno.value)
+            raise error(_c.geterrno())
         return makesockaddr(peeraddr, peeraddrlen, self.proto)
     
     def getsockname(self):
@@ -100,7 +100,7 @@ class socket(object):
         res = _c.socketgetsockname(self._fd, peeraddr,
                                    pointer(peeraddrlen))
         if res < 0:
-            raise error(_c.errno.value)
+            raise error(_c.geterrno())
         return makesockaddr(peeraddr, peeraddrlen, self.proto)
     
     def getsockopt(self, level, optname, buflen=-1):
