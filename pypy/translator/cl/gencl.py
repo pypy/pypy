@@ -384,7 +384,7 @@ class GenCL:
         tag = self.blockref[block]
         yield "tag" + clrepr(str(tag), True)
         if block.exitswitch is c_last_exception:
-            yield "(handler-case"
+            yield "(handler-case (progn"
         for op in block.operations:
             emit_op = Op(self, op)
             for line in emit_op:
@@ -417,7 +417,9 @@ class GenCL:
                         cls = exit.llexitcase.class_._INSTANCE
                         exception = self.declare_exception(cls)
                         exceptions[exception] = exit
-                self.emit_link(body)
+                for line in self.emit_link(body):
+                    yield line
+                yield ")" # closes the progn for the handler-case
                 for exception in exceptions:
                     yield "(%s ()" % (exception,)
                     for line in self.emit_link(exceptions[exception]):

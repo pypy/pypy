@@ -1,5 +1,4 @@
 from pypy.objspace.flow.model import Constant, Variable, Atom
-from pypy.rpython.rmodel import HalfConcreteWrapper
 from pypy.rpython.ootypesystem.ootype import List, Record, Instance
 from pypy.rpython.ootypesystem.ootype import Signed, Unsigned, Float, Char
 from pypy.rpython.ootypesystem.ootype import Bool, Void, UniChar, Class
@@ -21,9 +20,6 @@ def clrepr(item, symbol=False):
     return repr_unknown(item)
 
 def repr_const(item):
-    if isinstance(item.value, HalfConcreteWrapper):
-        item = item.concretize()
-
     fun = dispatch.get(type(item.concretetype), None)
     if fun is not None:
         return fun(item)

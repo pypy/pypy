@@ -44,16 +44,6 @@ def test_range():
     cl_get_three = make_cl_func(get_three)
     assert cl_get_three() == 3
 
-def test_iteration():
-    py.test.skip("needs exception handling")
-    def get_last(num):
-        last = 0
-        for i in range(num):
-            last = i
-        return last
-    cl_get_last = make_cl_func(get_last, [int])
-    assert cl_get_last(5) == 4
-
 def test_if():
     cl_if = make_cl_func(t.if_then_else, [bool, int, int])
     assert cl_if(True, 50, 100) == 50
@@ -99,7 +89,6 @@ def test_sieve():
     assert cl_sieve() == 1028
 
 def test_easy():
-    #py.test.skip("temporarily disabled")
     # These are the Pyrex tests which were easy to adopt.
     f1 = make_cl_func(t.simple_func, [int])
     assert f1(1) == 2
