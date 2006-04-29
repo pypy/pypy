@@ -17,7 +17,7 @@ class StructRepr(CTypesRefRepr):
             r_field = rtyper.getrepr(SomeCTypesObject(field_ctype,
                                                 SomeCTypesObject.MEMORYALIAS))
             self.r_fields[name] = r_field
-            llfields.append((name, r_field.ll_type))
+            llfields.append((cmangle(name), r_field.ll_type))
 
         # Here, self.c_data_type == self.ll_type
         external = getattr(struct_ctype, '_external_', False)
@@ -30,11 +30,11 @@ class StructRepr(CTypesRefRepr):
     def get_content_keepalive_type(self):
         "An extra struct of keepalives, one per field."
         keepalives = []
-        for name in self.c_data_type._names:
+        for name, field_ctype in self.ctype._fields_:
             r_field = self.r_fields[name]
             field_keepalive_type = r_field.get_content_keepalive_type()
             if field_keepalive_type:
-                keepalives.append((name, field_keepalive_type))
+                keepalives.append((cmangle(name), field_keepalive_type))
         if not keepalives:
             return None
         else:
@@ -45,15 +45,15 @@ class StructRepr(CTypesRefRepr):
             llitem = r_field.convert_const(getattr(value, name))
             if isinstance(r_field, CTypesRefRepr):
                 # ByRef case
-                reccopy(llitem.c_data, getattr(p.c_data, name))
+                reccopy(llitem.c_data, getattr(p.c_data, cmangle(name)))
             else:
                 # ByValue case
-                setattr(p.c_data, name, llitem.c_data[0])
+                setattr(p.c_data, cmangle(name), llitem.c_data[0])
 
     def get_c_data_of_field(self, llops, v_struct, fieldname):
         v_c_struct = self.get_c_data(llops, v_struct)
         r_field = self.r_fields[fieldname]
-        c_fieldname = inputconst(lltype.Void, fieldname)
+        c_fieldname = inputconst(lltype.Void, cmangle(fieldname))
         if isinstance(r_field, CTypesRefRepr):
             # ByRef case
             return llops.genop('getsubstruct', [v_c_struct, c_fieldname],
@@ -69,7 +69,7 @@ class StructRepr(CTypesRefRepr):
         r_field = self.r_fields[fieldname]
         assert isinstance(r_field, CTypesValueRepr)
         v_c_struct = self.get_c_data(llops, v_struct)
-        c_fieldname = inputconst(lltype.Void, fieldname)
+        c_fieldname = inputconst(lltype.Void, cmangle(fieldname))
         return llops.genop('getfield', [v_c_struct, c_fieldname],
                            resulttype = r_field.ll_type)
 
@@ -112,10 +112,15 @@ class StructRepr(CTypesRefRepr):
         v_newvalue = r_field.get_c_data_or_value(llops, v_item)
         # copy the new value (which might be a whole substructure)
         v_c_struct = self.get_c_data(llops, v_struct)
-        genreccopy_structfield(llops, v_newvalue, v_c_struct, name)
+        genreccopy_structfield(llops, v_newvalue, v_c_struct, cmangle(name))
         # copy the keepalive information too
         v_newkeepalive = r_field.getkeepalive(llops, v_item)
         if v_newkeepalive is not None:
             v_keepalive_struct = self.getkeepalive(llops, v_struct)
             genreccopy_structfield(llops, v_newkeepalive,
-                                   v_keepalive_struct, name)
+                                   v_keepalive_struct, cmangle(name))
+
+def cmangle(name):
+    # obscure: names starting with '_' are not allowed in
+    # lltype.Struct, so we prefix all names with 'c_'
+    return 'c_' + name

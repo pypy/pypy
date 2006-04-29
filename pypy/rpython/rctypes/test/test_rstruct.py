@@ -100,8 +100,8 @@ class Test_specialization:
 
         res = interpret(create_struct, [])
         c_data = res.c_data
-        assert c_data.x == 0
-        assert c_data.y == 0
+        assert c_data.c_x == 0
+        assert c_data.c_y == 0
 
     def test_specialize_struct_access(self):
         def access_struct(n):
@@ -198,14 +198,14 @@ class Test_specialization:
             return (s0, s1, s2, s3)
 
         res = interpret(func, [4, '?'])
-        assert res.item0.c_data.x == 4
-        assert res.item0.c_data.y == '\x00'
-        assert res.item1.c_data.x == 4
-        assert res.item1.c_data.y == '?'
-        assert res.item2.c_data.x == 0
-        assert res.item2.c_data.y == '?'
-        assert res.item3.c_data.x == 4
-        assert res.item3.c_data.y == '?'
+        assert res.item0.c_data.c_x == 4
+        assert res.item0.c_data.c_y == '\x00'
+        assert res.item1.c_data.c_x == 4
+        assert res.item1.c_data.c_y == '?'
+        assert res.item2.c_data.c_x == 0
+        assert res.item2.c_data.c_y == '?'
+        assert res.item3.c_data.c_x == 4
+        assert res.item3.c_data.c_y == '?'
 
     def test_specialize_bad_constructor_args(self):
         class S(Structure):

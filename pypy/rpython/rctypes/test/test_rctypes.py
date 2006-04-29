@@ -41,7 +41,8 @@ else:
 # struct tagpoint
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
-                ("y", c_int)]
+                ("y", c_int),
+                ("_z", c_int)]
     _external_ = True       # hack to avoid redeclaration of the struct in C
 
 # _test_struct
@@ -50,7 +51,7 @@ testfunc_struct.restype = c_int
 testfunc_struct.argtypes = [tagpoint]
 
 def ll_testfunc_struct(in_):
-    return in_.x + in_.y
+    return in_.c_x + in_.c_y
 testfunc_struct.llinterp_friendly_version = ll_testfunc_struct
 testfunc_struct.includes = includes
 
@@ -61,9 +62,9 @@ testfunc_byval.argtypes = [tagpoint, POINTER(tagpoint)]
 
 def ll_testfunc_byval(in_, pout):
     if pout:
-        pout.x = in_.x
-        pout.y = in_.y
-    return in_.x + in_.y
+        pout.c_x = in_.c_x
+        pout.c_y = in_.c_y
+    return in_.c_x + in_.c_y
 testfunc_byval.llinterp_friendly_version = ll_testfunc_byval
 testfunc_byval.includes = includes
 
@@ -91,7 +92,8 @@ testfunc_swap.restype = None
 testfunc_swap.argtypes = [tagpointptr]
 
 def ll_testfunc_swap(p):
-    p.x, p.y = p.y, p.x
+    p.c_x, p.c_y = p.c_y, p.c_x
+    p.c__z += 1
 testfunc_swap.llinterp_friendly_version = ll_testfunc_swap
 testfunc_swap.includes = includes
 
@@ -133,9 +135,11 @@ def test_testfunc_swap():
     pt = tagpoint()
     pt.x = 5
     pt.y = 9
+    pt._z = 99
     testfunc_swap(pointer(pt))
     assert pt.x == 9
     assert pt.y == 5
+    assert pt._z == 100
     return pt.x - pt.y                   # this test function is reused below
 
 class Test_annotation:

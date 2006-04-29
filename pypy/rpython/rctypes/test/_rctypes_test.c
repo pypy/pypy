@@ -17,6 +17,7 @@ PyMethodDef module_methods[] = {
 typedef struct tagpoint {
 	int x;
 	int y;
+	int _z;
 } point;
 
 EXPORT(int) _testfunc_byval(point in, point *pout)
@@ -34,6 +35,7 @@ EXPORT(void) _testfunc_swap(point *p)
     int tmp = p->x;
     p->x = p->y;
     p->y = tmp;
+    p->_z++;
 }
 
 EXPORT(int) _testfunc_struct(point in)

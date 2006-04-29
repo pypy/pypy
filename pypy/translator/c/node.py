@@ -46,7 +46,7 @@ class StructDefNode:
             with_number = False
         if STRUCT._hints.get('c_name'):
             self.barename = self.name = STRUCT._hints['c_name']
-            self.prefix = ''
+            self.c_struct_field_name = self.verbatim_field_name
         else:
             (self.barename,
              self.name) = db.namespace.uniquename(basename,
@@ -93,7 +93,13 @@ class StructDefNode:
         return 'struct %s @' % self.name
 
     def c_struct_field_name(self, name):
+        # occasionally overridden in __init__():
+        #    self.c_struct_field_name = self.verbatim_field_name
         return self.prefix + name
+
+    def verbatim_field_name(self, name):
+        assert name.startswith('c_')   # produced in this way by rctypes
+        return name[2:]
 
     def c_struct_field_type(self, name):
         return self.STRUCT._flds[name]
