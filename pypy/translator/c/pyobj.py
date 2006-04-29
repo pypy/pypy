@@ -624,3 +624,4 @@ class PyObjMaker:
         name = self.uniquename('gprop')
         expr = 'property(%s, %s, %s, %s)' % (tuple(stuff))
         self.initcode_python(name, expr)
+        return name
