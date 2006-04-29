@@ -187,7 +187,7 @@ class Struct(CConfigEntry):
         for i, cell in enumerate(layout):
             if cell is not None:
                 continue
-            layout_addfield(layout, i, ctypes.c_char, 'pad%d' % (n,))
+            layout_addfield(layout, i, ctypes.c_char, '_pad%d' % (n,))
             n += 1
 
         # build the ctypes Structure
