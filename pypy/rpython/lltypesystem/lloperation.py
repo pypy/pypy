@@ -317,6 +317,7 @@ LL_OPERATIONS = {
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),
     'check_no_more_arg':    LLOp(canraise=(Exception,)),
+    'check_self_nonzero':   LLOp(canraise=(Exception,)),
     'decode_arg':           LLOp(canraise=(Exception,)),
     'decode_arg_def':       LLOp(canraise=(Exception,)),
     'getslice':             LLOp(canraise=(Exception,)),

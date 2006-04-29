@@ -225,7 +225,9 @@
 #define OP_DECODE_ARG_DEF(fname, pos, name, vargs, vkwds, def, r)	\
 	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, def))) CFAIL()
 #define OP_CHECK_NO_MORE_ARG(fname, n, vargs, r)	\
-	if (check_no_more_arg(fname, n, vargs) < 0) CFAIL()
+	if ((r=check_no_more_arg(fname, n, vargs)) < 0) CFAIL()
+#define OP_CHECK_SELF_NONZERO(fname, self, r)	\
+	if ((r=check_self_nonzero(fname, self)) < 0) CFAIL()
 
 unsigned long long RPyLong_AsUnsignedLongLong(PyObject *v);
 long long RPyLong_AsLongLong(PyObject *v);

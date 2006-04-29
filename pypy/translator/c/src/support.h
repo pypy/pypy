@@ -46,9 +46,10 @@ PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...);
 PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
 			    PyObject* vargs, PyObject* vkwds, PyObject* def);
 int check_no_more_arg(PyObject* fname, int n, PyObject* vargs);
+int check_self_nonzero(PyObject* fname, PyObject* self);
 PyObject *PyTuple_GetItem_WithIncref(PyObject *tuple, int index);
 int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o);
-
+int PySequence_Contains_with_exc(PyObject *seq, PyObject *ob);
 
 /* implementations */
 
@@ -387,6 +388,17 @@ int check_no_more_arg(PyObject* fname, int n, PyObject* vargs)
 	return 0;
 }
 
+int check_self_nonzero(PyObject* fname, PyObject* self)
+{
+	if (!self) {
+		    PyErr_Format(PyExc_TypeError,
+				"%s() expects instance first arg",
+				PyString_AS_STRING(fname));
+		    return -1;
+	}
+	return 0;
+}
+		
 /************************************************************/
 
 PyObject *PyTuple_GetItem_WithIncref(PyObject *tuple, int index)
@@ -400,6 +412,15 @@ int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o)
 {
 	Py_INCREF(o);
 	return PyTuple_SetItem(tuple, index, o);
+}
+
+int PySequence_Contains_with_exc(PyObject *seq, PyObject *ob)
+{
+	int ret = PySequence_Contains(seq, ob);
+	
+	if (ret < 0) 
+		CFAIL();
+	return ret;
 }
 
 #endif /* PYPY_STANDALONE */

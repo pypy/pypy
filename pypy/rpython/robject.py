@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import \
-     PyObject, Ptr, Void, pyobjectptr, nullptr
+     PyObject, Ptr, Void, pyobjectptr, nullptr, Bool
 from pypy.rpython.rmodel import Repr, VoidRepr, inputconst
 from pypy.rpython import rclass
 from pypy.tool.sourcetools import func_with_new_name
@@ -69,3 +69,10 @@ for opname in annmodel.UNARY_OPERATIONS:
 for opname in annmodel.BINARY_OPERATIONS:
     make_operation(opname, pairtype(PyObjRepr, Repr))
     make_operation(opname, pairtype(Repr, PyObjRepr))
+
+    
+class __extend__(pairtype(PyObjRepr, PyObjRepr)): 
+    def rtype_contains((r_seq, r_item), hop):
+        v_seq, v_item = hop.inputargs(r_seq, r_item)
+        return hop.llops.gencapicall('PySequence_Contains_with_exc',
+                                     [v_seq, v_item], resulttype=Bool)

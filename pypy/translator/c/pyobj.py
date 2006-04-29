@@ -81,6 +81,8 @@ class PyObjMaker:
         self.initcode.append("%s = %s" % (name, pyexpr))
 
     def nameof_object(self, value):
+        if isinstance(object, property):
+            return self.nameof_property(value)
         if type(value) is not object:
             raise Exception, "nameof(%r)" % (value,)
         name = self.uniquename('g_object')
@@ -579,6 +581,15 @@ class PyObjMaker:
                     self.name_for_meth[value] = fname
                     if self.use_true_methods:
                         self.is_method[value] = True
+                elif isinstance(value, property):
+                    fget, fset, fdel, doc = value.fget, value.fset, value.fdel, value.__doc__
+                    for f in fget, fset, fdel:
+                        if f and self.use_true_methods:
+                            self.is_method[f] = True
+                    stuff = [self.nameof(x) for x in fget, fset, fdel, doc]
+                    yield '%s.%s = property(%s, %s, %s, %s)' % ((name, key) +
+                                                                tuple(stuff))
+                    continue
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
             if not init_seen:
                 log.WARNING('No __init__ found for %s - you cannot build instances' %
@@ -603,3 +614,13 @@ class PyObjMaker:
         pycfunctionobj = self.uniquename('gfunc_' + newname)
         self.wrappers[pycfunctionobj] = g.func.__name__, self.getvalue(fwrapper), g.func.__doc__
         return pycfunctionobj
+
+    def nameof_property(self, p):
+        fget, fset, fdel, doc = p.fget, p.fset, p.fdel, p.__doc__
+        for f in fget, fset, fdel:
+            if f and self.use_true_methods:
+                self.is_method[f] = True
+        stuff = [self.nameof(x) for x in fget, fset, fdel, doc]
+        name = self.uniquename('gprop')
+        expr = 'property(%s, %s, %s, %s)' % (tuple(stuff))
+        self.initcode_python(name, expr)

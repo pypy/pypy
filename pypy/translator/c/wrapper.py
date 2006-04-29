@@ -101,12 +101,14 @@ def gen_wrapper(func, translator, newname=None, as_method=False):
                  inputconst(Signed, nb_positional_args),
                  vargs,
                  ]
-        newops.genop('check_no_more_arg', vlist)
+        newops.genop('check_no_more_arg', vlist, resulttype=Signed)
 
     # use the rtyper to produce the conversions
     inputargs = f._obj.graph.getargs()
     if as_method:
         varguments.insert(0, vself)
+        vlist = [vfname, vself]
+        newops.genop('check_self_nonzero', vlist, resulttype=Signed)
     for i in range(len(varguments)):
         if FUNCTYPE.ARGS[i] != PyObjPtr:
             # "argument_i = type_conversion_operations(argument_i)"
