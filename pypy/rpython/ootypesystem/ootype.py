@@ -181,6 +181,13 @@ class Meth(StaticMethod):
         StaticMethod.__init__(self, args, result)
 
 
+class String(OOType):
+
+    def _defl(self):
+        return ""
+
+String = String()
+
 class BuiltinType(OOType):
 
     def _example(self):
@@ -642,6 +649,10 @@ if STATICNESS:
 else:
     instance_impl = _instance
 
+def make_string(value):
+    assert isinstance(value, str)
+    return _string(value)
+
 def make_instance(INSTANCE):
     inst = _instance(INSTANCE)
     if STATICNESS:
@@ -723,6 +734,9 @@ class _bound_meth(object):
     def __call__(self, *args):
        callb, checked_args = self.meth._checkargs(args)
        return callb(self.inst, *checked_args)
+
+class _string(str):
+    _TYPE = String
 
 class _builtin_type(object):
     def __getattribute__(self, name):

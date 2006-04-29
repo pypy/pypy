@@ -1,6 +1,9 @@
+from weakref import WeakValueDictionary
 from pypy.rpython.rstr import AbstractStringRepr, char_repr, STR, AbstractStringIteratorRepr, \
-        ll_strconcat, do_stringformat
-from pypy.rpython.lltypesystem.lltype import malloc, GcStruct, Ptr, Signed
+        ll_strconcat, do_stringformat, ll_strhash
+from pypy.rpython.lltypesystem.lltype import malloc, GcStruct, Ptr, nullptr, Signed
+
+CONST_STR_CACHE = WeakValueDictionary()
 
 class StringRepr(AbstractStringRepr):
 
@@ -12,6 +15,22 @@ class StringRepr(AbstractStringRepr):
         self.ll_upper = ll_upper
         self.ll_lower = ll_lower
         self.ll_join = ll_join
+
+    def convert_const(self, value):
+        if value is None:
+            return nullptr(STR)
+        #value = getattr(value, '__self__', value)  # for bound string methods
+        if not isinstance(value, str):
+            raise TyperError("not a str: %r" % (value,))
+        try:
+            return CONST_STR_CACHE[value]
+        except KeyError:
+            p = malloc(STR, len(value))
+            for i in range(len(value)):
+                p.chars[i] = value[i]
+            ll_strhash(p)   # precompute the hash
+            CONST_STR_CACHE[value] = p
+            return p
 
     def make_iterator_repr(self):
         return string_iterator_repr

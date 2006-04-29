@@ -1,10 +1,18 @@
 from pypy.rpython.rstr import AbstractStringRepr, STR, AbstractStringIteratorRepr
 from pypy.rpython.lltypesystem.lltype import Ptr
-from pypy.rpython.ootypesystem.ootype import Signed, Record
+from pypy.rpython.ootypesystem.ootype import Signed, Record, String, make_string
 
 class StringRepr(AbstractStringRepr):
 
-    lowleveltype = Ptr(STR)
+    lowleveltype = String
+
+    def convert_const(self, value):
+        # XXX what do we do about null strings?
+        #if value is None:
+        #    return nullptr(STR)
+        if not isinstance(value, str):
+            raise TyperError("not a str: %r" % (value,))
+        return make_string(value)
 
     def make_iterator_repr(self):
         return string_iterator_repr
