@@ -362,6 +362,18 @@ class xrange_iterator(object):
     def __len__(self):
         return self._remaining
 
+    def __reduce__(self):
+        tup = (self._current, self._remaining, self._step)
+        return (make_xrange_iterator, tup)
+
+def make_xrange_iterator(*args):
+    return xrange_iterator(*args)
+    
+def _install_pickle_support_for_xrange_iterator():
+    import _pickle_support
+    make_xrange_iterator.__module__ = '_pickle_support'
+    _pickle_support.make_xrange_iterator = make_xrange_iterator
+ 
 # ____________________________________________________________
 
 def sorted(lst, cmp=None, key=None, reverse=None):

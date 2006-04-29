@@ -24,21 +24,40 @@ class AppTestInterpObjectPickling:
         assert func is result
         del sys.modules['mod']
 
+    def test_pickle_not_imported_module(self):
+        import new
+        mod = new.module('mod')
+        mod.__dict__['a'] = 1
+        import pickle
+        pckl = pickle.dumps(mod)
+        result = pickle.loads(pckl)
+        assert mod.__name__ == result.__name__
+        assert mod.__dict__ == result.__dict__
+        #print mod.__dict__
+
     def test_pickle_builtin_func(self):
         import pickle
         pckl = pickle.dumps(map)
         result = pickle.loads(pckl)
         assert map is result
 
-    def test_pickle_nested_func(self):
-        skip("work in progress")
+    def test_pickle_non_top_reachable_func(self):
         def func():
             return 42
+        global a
+        a = 42
+        del globals()['test_pickle_non_top_reachable_func']
         import pickle
         pckl   = pickle.dumps(func)
         result = pickle.loads(pckl)
-        assert func == result
-        
+        assert func.func_name     == result.func_name
+        assert func.func_closure  == result.func_closure
+        assert func.func_code     == result.func_code
+        assert func.func_defaults == result.func_defaults
+        assert func.func_dict     == result.func_dict
+        assert func.func_doc      == result.func_doc
+        assert func.func_globals  == result.func_globals
+
     def test_pickle_cell(self):
         def g():
             x = [42]
@@ -83,40 +102,65 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert tb == result
 
-    def test_pickle_module(self): #XXX this passes for the wrong reason!
-        skip("work in progress")
-        def f():
-            pass
+    def test_pickle_module(self):
         import pickle
-        mod    = f.__module__ #XXX returns a string?
+        mod    = pickle
         pckl   = pickle.dumps(mod)
         result = pickle.loads(pckl)
-        assert mod == result
+        assert mod is result
 
-    def test_pickle_moduledict(self): #XXX this test is not correct!
-        skip("work in progress")
-        def f():
-            pass
+    def test_pickle_moduledict(self):
         import pickle
-        modedict = f.__module__.__dict__ 
+        moddict  = pickle.__dict__
         pckl     = pickle.dumps(moddict)
         result   = pickle.loads(pckl)
-        assert mod == result
+        assert moddict is result
+
+    def test_pickle_bltins_module(self):
+        import pickle
+        mod  = __builtins__
+        pckl     = pickle.dumps(mod)
+        result   = pickle.loads(pckl)
+        assert mod is result
 
     def test_pickle_iter(self):
         skip("work in progress")
 
     def test_pickle_method(self):
         skip("work in progress")
-        class C(object):
+        class myclass(object):
             def f(self):
                 pass
         import pickle
-        method   = C.f
+        method   = myclass.f
         pckl     = pickle.dumps(method)
         result   = pickle.loads(pckl)
         assert method == result
         
+    def test_pickle_staticmethod(self):
+        skip("work in progress")
+        class myclass(object):
+            def f(self):
+                pass
+            f = staticmethod(f)
+        import pickle
+        method   = myclass.f
+        pckl     = pickle.dumps(method)
+        result   = pickle.loads(pckl)
+        assert method == result
+
+    def test_pickle_classmethod(self):
+        skip("work in progress")
+        class myclass(object):
+            def f(self):
+                pass
+            f = classmethod(f)
+        import pickle
+        method   = myclass.f
+        pckl     = pickle.dumps(method)
+        result   = pickle.loads(pckl)
+        assert method == result
+
     def test_pickle_dictiter(self):
         skip("work in progress")
         import pickle
@@ -127,9 +171,14 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_enum(self):
         skip("work in progress")
-
-    def test_pickle_enumfactory(self):
-        skip("work in progress")
+        import pickle
+        e      = enumerate([])
+        pckl   = pickle.dumps(e)
+        result = pickle.loads(pckl)
+        assert e == result
+        
+    #def test_pickle_enumfactory(self):
+    #    skip("work in progress")
         
     def test_pickle_sequenceiter(self):
         '''
@@ -144,13 +193,15 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert liter == result
 
-    def test_pickle_rangeiter(self):
-        skip("work in progress")
+    def test_pickle_xrangeiter(self):
         import pickle
         riter  = iter(xrange(5))
+        riter.next()
+        riter.next()
         pckl   = pickle.dumps(riter)
         result = pickle.loads(pckl)
-        assert riter == result
+        assert type(riter) is type(result)
+        assert list(result) == [2,3,4]
 
     def test_pickle_generator(self):
         skip("work in progress")

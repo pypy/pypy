@@ -1,9 +1,10 @@
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.function import Function
+from pypy.interpreter.function import Function, Method
+from pypy.interpreter.module import Module
 from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 
 
 #note: for now we don't use the actual value when creating the Cell.
@@ -22,3 +23,12 @@ def func_new(space, __args__):
     w_type = space.gettypeobject(Function.typedef)
     return space.call_args(w_type, __args__)
 func_new.unwrap_spec = [ObjSpace, Arguments]
+
+def module_new(space, w_name, w_dict):
+    new_mod = Module(space, w_name, w_dict)
+    return space.wrap(new_mod)
+
+def method_new(space, __args__):
+    w_type = space.gettypeobject(Method.typedef)
+    return space.call_args(w_type, __args__)
+method_new.unwrap_spec = [ObjSpace, Arguments]

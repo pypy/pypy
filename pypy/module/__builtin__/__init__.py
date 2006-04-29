@@ -31,6 +31,8 @@ class Module(MixedModule):
         'any'           : 'app_functional.any',
         'enumerate'     : 'app_functional.enumerate',
         'xrange'        : 'app_functional.xrange',
+        '_install_pickle_support_for_xrange_iterator':
+        'app_functional._install_pickle_support_for_xrange_iterator',
         'sorted'        : 'app_functional.sorted',
         'reversed'      : 'app_functional.reversed',
 
@@ -137,3 +139,15 @@ class Module(MixedModule):
        builtin = module.Module(space, None)
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
        return builtin
+
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON"""
+        space = self.space
+        # call installations for pickle support
+        for name in self.loaders.keys():
+            if name.startswith('_install_pickle_support_for_'):
+                w_install = self.get(name)
+                space.call_function(w_install)
+                # xxx hide the installer
+                space.delitem(self.w_dict, space.wrap(name))
+                del self.loaders[name]

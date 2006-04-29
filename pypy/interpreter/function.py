@@ -169,7 +169,7 @@ class Function(Wrappable):
     def descr_function_repr(self):
         return self.getrepr(self.space, 'function %s' % (self.name,))
 
-    def descr__reduce__(self, space):
+    def descr_function__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
@@ -181,7 +181,6 @@ class Function(Wrappable):
             w_closure = space.newtuple([w(cell) for cell in self.closure])
         tup      = [
             w(self.code),
-            #space.newdict([]), #XXX because pickle.py has no _pickle_moduledict yet...
             self.w_func_globals,
             w(self.name),
             space.newtuple(self.defs_w),
@@ -390,6 +389,19 @@ class Method(Wrappable):
             return space.w_False
         return space.eq(self.w_function, other.w_function)
 
+    def descr_method__reduce__(self, space):
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('method_new')
+        w        = space.wrap
+        w_instance = self.w_instance or space.w_None
+        if space.is_w( self.w_class, space.w_None ):
+            tup = [self.w_function, w_instance]
+        else:
+            tup = [self.w_function, w_instance, self.w_class]
+        return space.newtuple([new_inst, space.newtuple(tup)])
+        
 class StaticMethod(Wrappable):
     """A static method.  Note that there is one class staticmethod at
     app-level too currently; this is only used for __new__ methods."""
