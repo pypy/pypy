@@ -377,7 +377,7 @@ class TranslationDriver(SimpleTaskEngine):
 
     def task_source_squeak(self):
         from pypy.translator.squeak.gensqueak import GenSqueak
-        self.gen = GenCL(dir, self.translator)
+        self.gen = GenSqueak(dir, self.translator)
         filename = self.gen.gen()
         self.log.info("Wrote %s" % (filename,))
     task_source_squeak = taskdef(task_source_squeak, ['ootype'],
