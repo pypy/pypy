@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 PyObjPtr = Ptr(PyObject)
 
-class BasicGcPolicy:
+class BasicGcPolicy(object):
     
     def __init__(self, db, thread_enabled=False):
         self.db = db
@@ -32,6 +32,9 @@ class BasicGcPolicy:
 
     def array_gcheader_initdata(self, defnode):
         return self.common_gcheader_initdata(defnode)
+
+    def struct_after_definition(self, defnode):
+        return []
 
     def gc_libraries(self):
         return []
@@ -155,6 +158,9 @@ class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
 class BoehmInfo:
     finalizer = None
 
+    # for MoreExactBoehmGcPolicy
+    malloc_exact = False
+
 class BoehmGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.BoehmGCTransformer
 
@@ -249,6 +255,78 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
 
     def implementation(self):
         yield 'char %s  /* uninitialized */;' % self.name
+
+
+class MoreExactBoehmGcPolicy(BoehmGcPolicy):
+    """ policy to experiment with giving some layout information to boehm. Use
+    new class to prevent breakage. """
+
+    def __init__(self, db, thread_enabled=False):
+        super(MoreExactBoehmGcPolicy, self).__init__(db, thread_enabled)
+        self.exactly_typed_structs = {}
+
+    def get_descr_name(self, defnode):
+        # XXX somewhat illegal way of introducing a name
+        return '%s__gc_descr__' % (defnode.name, )
+
+    def pre_pre_gc_code(self):
+        for line in super(MoreExactBoehmGcPolicy, self).pre_pre_gc_code():
+            yield line
+        yield "#include <gc/gc_typed.h>"
+
+    def struct_setup(self, structdefnode, rtti):
+        self.setup_gcinfo(structdefnode)
+        T = structdefnode.STRUCT
+        if T._is_varsize():
+            malloc_exact = T._flds[T._arrayfld]._is_atomic()
+        else:
+            malloc_exact = True
+        if malloc_exact:
+            if structdefnode.gcinfo is None:
+                structdefnode.gcinfo = BoehmInfo()
+            structdefnode.gcinfo.malloc_exact = True
+            self.exactly_typed_structs[structdefnode.STRUCT] = structdefnode
+
+    def struct_after_definition(self, defnode):
+        if defnode.gcinfo and defnode.gcinfo.malloc_exact:
+            yield 'GC_descr %s;' % (self.get_descr_name(defnode), )
+
+    def gc_startup_code(self):
+        for line in super(MoreExactBoehmGcPolicy, self).gc_startup_code():
+            yield line
+        for TYPE, defnode in self.exactly_typed_structs.iteritems():
+            T = defnode.gettype().replace("@", "")
+            yield "{"
+            yield "GC_word T_bitmap[GC_BITMAP_SIZE(%s)] = {0};" % (T, )
+            for field in TYPE._flds:
+                if getattr(TYPE, field) == lltype.Void:
+                    continue
+                yield "GC_set_bit(T_bitmap, GC_WORD_OFFSET(%s, %s));" % (
+                    T, defnode.c_struct_field_name(field))
+            yield "%s = GC_make_descriptor(T_bitmap, GC_WORD_LEN(%s));" % (
+                self.get_descr_name(defnode), T)
+            yield "}"
+
+    def zero_malloc(self, TYPE, esize, eresult):
+        defnode = self.db.gettypedefnode(TYPE)
+        gcinfo = defnode.gcinfo
+        if gcinfo:
+            if not gcinfo.malloc_exact:
+                assert TYPE._gcstatus()   # _is_atomic() depends on this!
+                is_atomic = TYPE._is_atomic()
+                is_varsize = TYPE._is_varsize()
+                result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d);' % (
+                    esize, eresult, is_atomic, is_varsize)
+            else:
+                result = '%s = GC_MALLOC_EXPLICITLY_TYPED(%s, %s);' % (
+                    eresult, esize, self.get_descr_name(defnode))
+            if gcinfo.finalizer:
+                result += ('\nGC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);'
+                       % (eresult, gcinfo.finalizer))
+        else:
+            return super(MoreExactBoehmGcPolicy, self).zero_malloc(
+                TYPE, esize, eresult)
+        return result
 
 # to get an idea how it looks like with no refcount/gc at all
 

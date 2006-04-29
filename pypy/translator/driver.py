@@ -227,6 +227,9 @@ class TranslationDriver(SimpleTaskEngine):
         if opt.gc =='boehm':
             from pypy.translator.c import gc
             gcpolicy = gc.BoehmGcPolicy
+        if opt.gc =='exact_boehm':
+            from pypy.translator.c import gc
+            gcpolicy = gc.MoreExactBoehmGcPolicy
         if opt.gc == 'none':
             from pypy.translator.c import gc
             gcpolicy = gc.NoneGcPolicy

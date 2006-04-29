@@ -44,6 +44,8 @@ class LowLevelDatabase(object):
             if polname is not None:
                 if polname == 'boehm':
                     gcpolicy = gc.BoehmGcPolicy
+                elif polname == 'exact_boehm':
+                    gcpolicy = gc.MoreExactBoehmGcPolicy
                 elif polname == 'ref':
                     gcpolicy = gc.RefcountingGcPolicy
                 elif polname == 'none':

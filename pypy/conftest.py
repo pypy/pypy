@@ -43,7 +43,7 @@ option = py.test.Config.addoptions("pypy options",
                help="view translation tests' flow graphs with Pygame"),
         Option('--gc', action="store", default=None, 
                type="choice", dest="gcpolicy",
-               choices=['ref', 'boehm', 'none', 'framework'],
+               choices=['ref', 'boehm', 'none', 'framework', 'exact_boehm'],
                help="GcPolicy class to use for genc tests"),
     )
 

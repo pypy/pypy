@@ -117,7 +117,6 @@ class StructDefNode:
             return
         yield 'struct %s {' % self.name
         is_empty = True
-
         for name, typename in self.fields:
             line = '%s;' % cdecl(typename, name)
             if typename == PrimitiveType[Void]:
@@ -128,6 +127,8 @@ class StructDefNode:
         if is_empty:
             yield '\t' + 'int _dummy; /* this struct is empty */'
         yield '};'
+        for line in self.db.gcpolicy.struct_after_definition(self):
+            yield line
 
     def visitor_lines(self, prefix, on_field):
         STRUCT = self.STRUCT
