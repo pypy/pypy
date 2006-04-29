@@ -277,10 +277,13 @@ class MoreExactBoehmGcPolicy(BoehmGcPolicy):
     def struct_setup(self, structdefnode, rtti):
         self.setup_gcinfo(structdefnode)
         T = structdefnode.STRUCT
-        if T._is_varsize():
-            malloc_exact = T._flds[T._arrayfld]._is_atomic()
+        if T._is_atomic():
+            malloc_exact = False
         else:
-            malloc_exact = True
+            if T._is_varsize():
+                malloc_exact = T._flds[T._arrayfld]._is_atomic()
+            else:
+                malloc_exact = True
         if malloc_exact:
             if structdefnode.gcinfo is None:
                 structdefnode.gcinfo = BoehmInfo()
