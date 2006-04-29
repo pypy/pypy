@@ -303,8 +303,8 @@ def test_join():
     res = interpret(lambda: ''.join(['abc', 'de', 'fghi']), [])
     assert ''.join(res.chars) == "abcdefghi"
 
-    #res = interpret(lambda: '.'.join(['abc', 'def']), [])
-    #assert ''.join(res.chars) == 'abc.def'
+    res = interpret(lambda: '.'.join(['abc', 'def']), [])
+    assert ''.join(res.chars) == 'abc.def'
     
     def fn(i, j):
         s1 = [ '', ',', ' and ']

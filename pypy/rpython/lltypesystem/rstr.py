@@ -1,4 +1,4 @@
-from pypy.rpython.rstr import AbstractStringRepr, STR, AbstractStringIteratorRepr, \
+from pypy.rpython.rstr import AbstractStringRepr, char_repr, STR, AbstractStringIteratorRepr, \
         ll_strconcat, do_stringformat
 from pypy.rpython.lltypesystem.lltype import malloc, GcStruct, Ptr, Signed
 
@@ -114,6 +114,11 @@ def ll_join(s, length, items):
             res_index += 1
         i += 1
     return result
+
+char_repr.ll_strip = ll_strip
+char_repr.ll_upper = ll_upper
+char_repr.ll_lower = ll_lower
+char_repr.ll_join = ll_join
 
 string_repr = StringRepr()
 
