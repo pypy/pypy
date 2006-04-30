@@ -18,18 +18,16 @@ class OpFormatter:
             yield line
 
     def nop(self, result, arg):
-        yield "(setf %s %s)" % (clrepr(result, True), clrepr(arg, True))
+        yield "(setf %s %s)" % (result, arg)
 
     op_same_as = nop
     op_ooupcast = nop
     op_oodowncast = nop
 
     def make_unary_op(cl_op):
-        def _(self, result, arg):
-            yield "(setf %s (%s %s))" % (clrepr(result, True),
-                                         cl_op,
-                                         clrepr(arg, True))
-        return _
+        def unary_op(self, result, arg):
+            yield "(setf %s (%s %s))" % (result, cl_op, arg)
+        return unary_op
 
     op_bool_not = make_unary_op("not")
     op_cast_char_to_int = make_unary_op("char-code")
@@ -38,12 +36,9 @@ class OpFormatter:
     op_cast_int_to_float = make_unary_op("float")
 
     def make_binary_op(cl_op):
-        def _(self, result, arg1, arg2):
-            yield "(setf %s (%s %s %s))" % (clrepr(result, True),
-                                            cl_op,
-                                            clrepr(arg1, True),
-                                            clrepr(arg2, True))
-        return _
+        def binary_op(self, result, arg1, arg2):
+            yield "(setf %s (%s %s %s))" % (result, cl_op, arg1, arg2)
+        return binary_op
 
     op_int_add = make_binary_op("+")
     op_int_mul = make_binary_op("*")
