@@ -69,24 +69,22 @@ class OpFormatter:
                                      clrepr(fun, True),
                                      clrepr(args, True))
 
-    def op_new(self, result, clsname):
+    def op_new(self, result, _):
         cls = self.args[0].value
         if isinstance(cls, List):
-            yield "(setf %s (make-array 0 :adjustable t))" % (clrepr(result, True),)
+            yield "(setf %s (make-array 0 :adjustable t))" % (result,)
         elif isinstance(cls, Record):
             clsname = self.gen.declare_struct(cls)
-            yield "(setf %s (make-%s))" % (clrepr(result, True),
-                                           clrepr(clsname, True))
+            yield "(setf %s (make-%s))" % (result, clsname)
         elif isinstance(cls, Instance):
-            clsname = clrepr(cls)
             if self.gen.is_exception_instance(cls):
-                self.gen.declare_exception(cls)
-                yield "(setf %s (make-condition %s))" % (result, clsname)
+                clsname = self.gen.declare_exception(cls)
+                yield "(setf %s (make-condition '%s))" % (result, clsname)
             else:
-                self.gen.declare_class(cls)
-                yield "(setf %s (make-instance %s))" % (result, clsname)
+                clsname = self.gen.declare_class(cls)
+                yield "(setf %s (make-instance '%s))" % (result, clsname)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError("op_new on %s" % (cls,))
 
     def op_runtimenew(self, result, arg):
         yield "(setf %s (make-instance %s))" % (clrepr(result, True),
