@@ -8,8 +8,8 @@ def test_list_length():
     assert cl_list_length_one(0) == 1
 
 def test_list_get():
-    def list_and_get(number):
+    def list_get(number):
         lst = [number]
         return lst[0]
-    cl_list_and_get = make_cl_func(list_and_get, [int])
-    assert cl_list_and_get(1985) == 1985
+    cl_list_get = make_cl_func(list_get, [int])
+    assert cl_list_get(1985) == 1985
