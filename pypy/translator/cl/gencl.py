@@ -457,7 +457,8 @@ class GenCL:
     def emit_link(self, link):
         source = map(self.check_declaration, link.args)
         target = map(clrepr, link.target.inputargs)
-        couples = [ "%s %s" % (clrepr(t, True), clrepr(s, True)) for (s, t) in zip(source, target)]
-        couples = " ".join(couples)
-        yield "(setf %s)" % (couples,)
+        couples = ["%s %s" % (t, s) for (s, t) in zip(source, target)]
+        if couples:
+            couples = " ".join(couples)
+            yield "(setf %s)" % (couples,)
         yield self.format_jump(link.target)
