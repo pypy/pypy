@@ -43,7 +43,7 @@ def test_method_twice():
     methodcount = code.count("defmethod")
     assert methodcount == 3
 
-def test_inherit():
+def test_inheritance():
     class Foo:
         pass
     class Bar(Foo):
@@ -72,8 +72,9 @@ def test_isinstance():
         return isinstance(obj, Bar)
     cl_check_isinstance = make_cl_func(check_isinstance, [bool])
     assert cl_check_isinstance(True) == True
+    assert cl_check_isinstance(False) == False
 
-def test_class():
+def test_class_variable():
     class Foo:
         value = 0
     class Bar(Foo):
@@ -92,7 +93,7 @@ def test_class():
     assert cl_dynamic_class(True) == 1
     assert cl_dynamic_class(False) == 2
 
-def test_runtimenew():
+def test_runtime_new():
     class Foo:
         pass
     class Bar(Foo):
@@ -107,12 +108,12 @@ def test_runtimenew():
     def runtime_new(flag):
         cls = pick_class(flag)
         cls()
-        return 0
+        return True
     cl_runtime_new = make_cl_func(runtime_new, [bool])
-    assert cl_runtime_new(True) == 0
-    assert cl_runtime_new(False) == 0
+    assert cl_runtime_new(True)
+    assert cl_runtime_new(False)
 
-def test_instance():
+def test_instance_variable():
     class Foo:
         value = 0
     class Bar(Foo):
