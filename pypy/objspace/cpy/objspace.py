@@ -17,6 +17,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         self.w_Exception     = W_Object(Exception)
         self.w_StopIteration = W_Object(StopIteration)
         self.w_TypeError     = W_Object(TypeError)
+        self.w_KeyError      = W_Object(KeyError)
         self.wrap_cache = {}
         self.rev_wrap_cache = {}
 
@@ -50,12 +51,6 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def unwrap(self, w_obj):
         assert isinstance(w_obj, W_Object)
         return w_obj.value
-
-    def finditem(self, w_obj, w_key):
-        try:
-            return self.getitem(w_obj, w_key)
-        except KeyError:   # XXX think about OperationError
-            return None
 
     def interpclass_w(self, w_obj):
         try:
