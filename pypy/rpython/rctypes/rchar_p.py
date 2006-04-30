@@ -35,7 +35,7 @@ class CCharPRepr(CTypesValueRepr):
         llops.gendirectcall(ll_setstring, v_box, v_str)
 
     def convert_const(self, value):
-        if not isinstance(value, (str, c_char_p)):
+        if value is not None and not isinstance(value, (str, c_char_p)):
             # maybe an array of characters? cast to a c_char_p
             assert type(value)._type_ == c_char
             value = cast(value, c_char_p)
