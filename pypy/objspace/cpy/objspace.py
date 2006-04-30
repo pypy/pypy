@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):
-    from pypy.objspace.cpy.capi import W_Object
+    from pypy.objspace.cpy.ctypes_base import W_Object
 
     def initialize(self):
         self.options.geninterp = True
@@ -16,6 +16,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         self.w_type  = W_Object(type)
         self.w_Exception     = W_Object(Exception)
         self.w_StopIteration = W_Object(StopIteration)
+        self.w_TypeError     = W_Object(TypeError)
         self.wrap_cache = {}
         self.rev_wrap_cache = {}
 
@@ -70,6 +71,9 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     int_w   = staticmethod(PyInt_AsLong)
     str_w   = staticmethod(PyString_AsString)
     iter    = staticmethod(PyObject_GetIter)
+
+    add     = staticmethod(PyNumber_Add)
+    sub     = staticmethod(PyNumber_Subtract)
 
     def call_function(self, w_callable, *args_w):
         args_w += (None,)

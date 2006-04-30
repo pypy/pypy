@@ -1,4 +1,5 @@
 from pypy.objspace.cpy.objspace import CPyObjSpace
+from pypy.tool.pytest.appsupport import raises_w
 from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
@@ -29,3 +30,11 @@ def test_builtin_function_keywords():
     w_result = space.call_args(w_entrypoint, args)
     result = space.int_w(w_result)
     assert result == -21
+
+def test_exception():
+    space = CPyObjSpace()
+    func = interp2app(entrypoint1).__spacebind__(space)
+    bltin = BuiltinFunction(func)
+    w_entrypoint = space.wrap(bltin)
+    w1 = space.wrap('not an int')
+    raises_w(space, space.w_TypeError, space.call_function, w_entrypoint, w1)

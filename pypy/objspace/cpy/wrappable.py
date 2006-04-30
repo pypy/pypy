@@ -7,6 +7,7 @@ import py
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.objspace import CPyObjSpace
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode, ObjSpace, W_Root
 from pypy.interpreter.gateway import UnwrapSpecRecipe, Signature
@@ -71,16 +72,25 @@ class __extend__(pairtype(CPyObjSpace, Function)):
         sourcelines = ['def trampoline(%s):' % (', '.join(tramp.inputargs),)]
         for line in tramp.wrappings:
             sourcelines.append('    ' + line)
-        sourcelines.append('    w_result = ___bltin(%s)' % (
+        sourcelines.append('    try:')
+        sourcelines.append('        w_result = ___bltin(%s)' % (
             ', '.join(tramp.passedargs),))
+        sourcelines.append('    except ___OperationError, e:')
+        sourcelines.append('        ___PyErr_SetObject(e.w_type.value,')
+        sourcelines.append('                           e.w_value.value)')
+        sourcelines.append('        return None')  # should never be seen
+        sourcelines.append('    #except ___Exception, e:')
+        sourcelines.append('    #    raise ___RPythonError(XXX)')
         sourcelines.append('    return w_result.value')
         sourcelines.append('')
 
         miniglobals = {
-            '___space':        space,
-            '___W_Object':     CPyObjSpace.W_Object,
-            '___PyInt_AsLong': PyInt_AsLong,
-            '___bltin':        bltin,
+            '___space':           space,
+            '___W_Object':        CPyObjSpace.W_Object,
+            '___PyInt_AsLong':    PyInt_AsLong,
+            '___bltin':           bltin,
+            '___OperationError':  OperationError,
+            '___PyErr_SetObject': RAW_PyErr_SetObject,
             }
         exec py.code.Source('\n'.join(sourcelines)).compile() in miniglobals
 

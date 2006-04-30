@@ -11,8 +11,8 @@ class OperationError(Exception):
 
     OperationError instances have three public attributes (and no .args),
     w_type, w_value and application_traceback, which contain the wrapped
-    type and value describing the exception, and the unwrapped list of
-    (frame, instruction_position) making the application-level traceback.
+    type and value describing the exception, and a chained list of
+    PyTraceback objects making the application-level traceback.
     """
 
     def __init__(self, w_type, w_value, tb=None):
