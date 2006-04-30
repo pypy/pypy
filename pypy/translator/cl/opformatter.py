@@ -64,10 +64,8 @@ class OpFormatter:
     def op_direct_call(self, result, fun, *args):
         funobj = self.args[0].value
         self.gen.pendinggraphs.append(funobj)
-        args = " ".join(args)
-        yield "(setf %s (%s %s))" % (clrepr(result, True),
-                                     clrepr(fun, True),
-                                     clrepr(args, True))
+        funcall = " ".join((fun,) + args)
+        yield "(setf %s (%s))" % (result, funcall)
 
     def op_new(self, result, _):
         cls = self.args[0].value
@@ -96,29 +94,19 @@ class OpFormatter:
                                            clrepr(arg, True),
                                            clrepr(clsname, True))
 
-    def op_oosend(self, result, *ignore):
+    def op_oosend(self, result, _, selfvar, *args):
         method = self.args[0].value
-        receiver = self.args[1]
-        cls = receiver.concretetype
-        args = self.args[2:]
+        cls = self.args[1].concretetype
         if isinstance(cls, List):
-            impl = ListImpl(receiver)
+            impl = ListImpl(selfvar)
             code = getattr(impl, method)(*args)
-            yield "(setf %s %s)" % (clrepr(result, True), clrepr(code, True))
+            yield "(setf %s %s)" % (result, code)
         elif isinstance(cls, Instance):
             name = clrepr(method, symbol=True)
-            selfvar = clrepr(receiver)
-            args = map(self.gen.check_declaration, args)
-            args = " ".join(args)
-            if args:
-                yield "(setf %s (%s %s %s))" % (clrepr(result, True),
-                                                clrepr(name, True),
-                                                clrepr(selfvar, True),
-                                                clrepr(args, True))
-            else:
-                yield "(setf %s (%s %s))" % (clrepr(result, True),
-                                             clrepr(name, True),
-                                             clrepr(selfvar, True))
+            funcall = " ".join((name, selfvar) + args)
+            yield "(setf %s (%s))" % (result, funcall)
+        else:
+            raise NotImplementedError("op_oosend on %s" % (cls,))
 
     def op_oogetfield(self, result, obj, _):
         fieldname = self.args[1].value
@@ -152,21 +140,17 @@ class OpFormatter:
 
 class ListImpl:
 
-    def __init__(self, receiver):
-        self.obj = clrepr(receiver)
+    def __init__(self, obj):
+        self.obj = obj
 
     def ll_length(self):
         return "(length %s)" % (self.obj,)
 
     def ll_getitem_fast(self, index):
-        index = clrepr(index)
         return "(aref %s %s)" % (self.obj, index)
 
     def ll_setitem_fast(self, index, value):
-        index = clrepr(index)
-        value = clrepr(value)
         return "(setf (aref %s %s) %s)" % (self.obj, index, value)
 
     def _ll_resize(self, size):
-        size = clrepr(size)
         return "(adjust-array %s %s)" % (self.obj, size)
