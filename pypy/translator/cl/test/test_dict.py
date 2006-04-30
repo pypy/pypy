@@ -1,6 +1,6 @@
 from pypy.translator.cl.buildcl import make_cl_func
 
-def notest_dict_length():
+def test_dict_length():
     def dict_length_one(key, val):
         dic = {key:val}
         return len(dic)

@@ -1,4 +1,4 @@
-from pypy.rpython.ootypesystem.ootype import List, Record, Instance
+from pypy.rpython.ootypesystem.ootype import List, Dict, Record, Instance
 from pypy.translator.cl.clrepr import clrepr
 
 class OpFormatter:
@@ -71,6 +71,8 @@ class OpFormatter:
         cls = self.args[0].value
         if isinstance(cls, List):
             yield "(setf %s (make-array 0 :adjustable t))" % (result,)
+        elif isinstance(cls, Dict):
+            yield "(setf %s (make-hash-table))" % (result,)
         elif isinstance(cls, Record):
             clsname = self.gen.declare_struct(cls)
             yield "(setf %s (make-%s))" % (result, clsname)
@@ -99,6 +101,10 @@ class OpFormatter:
         cls = self.args[1].concretetype
         if isinstance(cls, List):
             impl = ListImpl(selfvar)
+            code = getattr(impl, method)(*args)
+            yield "(setf %s %s)" % (result, code)
+        elif isinstance(cls, Dict):
+            impl = DictImpl(selfvar)
             code = getattr(impl, method)(*args)
             yield "(setf %s %s)" % (result, code)
         elif isinstance(cls, Instance):
@@ -154,3 +160,14 @@ class ListImpl:
 
     def _ll_resize(self, size):
         return "(adjust-array %s %s)" % (self.obj, size)
+
+class DictImpl:
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def ll_length(self):
+        return "(hash-table-count %s)" % (self.obj,)
+
+    def ll_set(self, key, value):
+        return "(setf (gethash %s %s) %s)" % (key, self.obj, value)
