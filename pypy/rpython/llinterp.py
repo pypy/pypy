@@ -433,6 +433,9 @@ class LLFrame(object):
     def op_getslice(self, vargs, start, stop_should_be_None):
         raise NotImplementedError("getslice")   # only for argument parsing
 
+    def op_check_self_nonzero(self, fname, vself):
+        raise NotImplementedError("check_self_nonzero")
+
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
         FIELDTYPE = getattr(lltype.typeOf(obj).TO, fieldname)
