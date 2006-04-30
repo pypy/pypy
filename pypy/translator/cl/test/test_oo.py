@@ -1,5 +1,5 @@
 import py
-from pypy.translator.cl.buildcl import make_cl_func, generate_cl_func
+from pypy.translator.cl.buildcl import make_cl_func, generate_cl_code
 
 def test_simple():
     class C:
@@ -39,8 +39,7 @@ def test_method_twice():
         obj.inc()
         obj.inc()
         return obj.get()
-    code = generate_cl_func(inc_two, [int])
-    print code
+    code = generate_cl_code(inc_two, [int])
     methodcount = code.count("defmethod")
     assert methodcount == 3
 
@@ -51,8 +50,7 @@ def test_inherit():
         pass
     def check_inheritance():
         Bar()
-    code = generate_cl_func(check_inheritance)
-    print code
+    code = generate_cl_code(check_inheritance)
     classcount = code.count("defclass")
     # Divide by two to get rid of meta hierarchy
     # Minus one to get rid of Object

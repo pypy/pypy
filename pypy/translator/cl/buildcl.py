@@ -76,7 +76,7 @@ pretty_printer = """
 """
 
 def _make_cl_func(func, cl, path, argtypes=[]):
-    out = generate_cl_func(func, argtypes)
+    code = generate_cl_code(func, argtypes)
     fpath = path.join("%s.lisp" % func.func_name)
 
     if clconftest.option.prettyprint:
@@ -86,7 +86,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         fp.close()
 
     def _(*args):
-        fpath.write(out)
+        fpath.write(code)
         fp = file(str(fpath), "a")
         print >>fp, "(write (", clrepr(func.func_name, symbol=True),
         for arg in args:
@@ -99,7 +99,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         return readlisp(output)
     return _
 
-def generate_cl_func(func, argtypes=[]):
+def generate_cl_code(func, argtypes=[]):
     t = TranslationContext()
     t.buildannotator().build_types(func, argtypes)
     t.buildrtyper(type_system="ootype").specialize()
