@@ -76,37 +76,43 @@ pretty_printer = """
 """
 
 def _make_cl_func(func, cl, path, argtypes=[]):
-    code = generate_cl_code(func, argtypes)
-    fpath = path.join("%s.lisp" % func.func_name)
+    gen = build_generator(func, argtypes)
+    fname = gen.entry_name
+    fpath = gen.emitfile()
 
     if clconftest.option.prettyprint:
-        script = path.join(".printer.lisp")
-        fp = file(str(script), "w")
-        fp.write(pretty_printer % (fpath,))
-        fp.close()
+        printer = path.join(".printer.lisp")
+        code = pretty_printer % (fpath,)
+        printer.write(code)
+        py.process.cmdexec("%s %s" % (cl, printer))
 
-    def _(*args):
-        fpath.write(code)
-        fp = file(str(fpath), "a")
-        print >>fp, "(write (", clrepr(func.func_name, symbol=True),
-        for arg in args:
-            print >>fp, clrepr(arg),
-        print >>fp, "))"
+    def wrapper(*args):
+        loader = path.join(".loader.lisp")
+        fp = loader.open("w")
+        fp.write('(load "%s")\n' % (fpath,))
+        if args:
+            args = " ".join(map(clrepr, args))
+            fp.write("(write (%s %s))\n" % (fname, args))
+        else:
+            fp.write("(write (%s))\n" % (fname,))
         fp.close()
-        if clconftest.option.prettyprint:
-            py.process.cmdexec("%s %s" % (cl, str(script)))
-        output = py.process.cmdexec("%s %s" % (cl, str(fpath)))
+        output = py.process.cmdexec("%s %s" % (cl, loader))
         return readlisp(output)
-    return _
+
+    return wrapper
 
 def generate_cl_code(func, argtypes=[]):
-    t = TranslationContext()
-    t.buildannotator().build_types(func, argtypes)
-    t.buildrtyper(type_system="ootype").specialize()
-
-    if conftest.option.view:
-        t.view()
-    
-    gen = GenCL(t, func)
+    gen = build_generator(func, argtypes)
     code = gen.emitcode()
     return code
+
+def build_generator(func, argtypes=[]):
+    context = TranslationContext()
+    context.buildannotator().build_types(func, argtypes)
+    context.buildrtyper(type_system="ootype").specialize()
+
+    if conftest.option.view:
+        context.view()
+
+    gen = GenCL(context, func)
+    return gen

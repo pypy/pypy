@@ -203,6 +203,7 @@ class GenCL:
     def __init__(self, context, funobj):
         self.context = context
         self.entry_point = funobj
+        self.entry_name = clrepr(funobj.func_name, symbol=True)
         self.pendinggraphs = [funobj]
         self.declarations = InsertionOrderedDict()
         self.constcount = 0
@@ -297,7 +298,7 @@ class GenCL:
         return name
 
     def emitfile(self):
-        name = self.entry_point.func_name
+        name = self.entry_name
         path = udir.join("%s.lisp" % (name,))
         code = self.emitcode()
         path.write(code)
