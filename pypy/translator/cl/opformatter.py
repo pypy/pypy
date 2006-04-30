@@ -169,5 +169,11 @@ class DictImpl:
     def ll_length(self):
         return "(hash-table-count %s)" % (self.obj,)
 
+    def ll_contains(self, key):
+        return "(nth-value 1 (gethash %s %s))" % (key, self.obj)
+
+    def ll_get(self, key):
+        return "(gethash %s %s)" % (key, self.obj)
+
     def ll_set(self, key, value):
         return "(setf (gethash %s %s) %s)" % (key, self.obj, value)
