@@ -37,6 +37,15 @@ def test_float_int():
     assert cl_cast_int(1.5) == 1
     assert cl_cast_int(-1.5) == -1
 
+def test_int_div():
+    def int_div(a, b):
+        return a / b
+    cl_int_div = make_cl_func(int_div, [int, int])
+    assert cl_int_div(4, 2) == 2
+    assert cl_int_div(5, 2) == 2
+    assert cl_int_div(4, -2) == -2
+    assert cl_int_div(5, -2) == -3
+
 def test_range():
     def get_three():
         lst = range(7)
