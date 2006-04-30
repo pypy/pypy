@@ -118,7 +118,7 @@ builtin one. As an example, consider the following RPython code::
     return -1
 
 Given that IndexError has no subclasses, we can map it to
-IndexOutOfBoundException and directly catch this one:
+IndexOutOfBoundException and directly catch this one::
 
   try
   {
