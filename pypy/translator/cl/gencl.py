@@ -3,7 +3,7 @@ import types
 from pypy.tool.udir import udir
 from pypy.objspace.flow.model import Constant, c_last_exception
 from pypy.translator.translator import graphof
-from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, Instance, _class, _static_meth, _meth, ROOT
+from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import clrepr
 from pypy.translator.cl.opformatter import OpFormatter
@@ -42,8 +42,18 @@ class GenCL:
                 return self.declare_constant_instance(arg)
         return clrepr(arg)
 
+    def declare_any(self, cls):
+        if isinstance(cls, Record):
+            return self.declare_struct(cls)
+        if isinstance(cls, Instance):
+            if self.is_exception_instance(cls):
+                return self.declare_exception(cls)
+            else:
+                return self.declare_class(cls)
+        raise NotImplementedError("cannot declare %s" % (cls,))
+
     def declare_struct(self, cls):
-        # cls is Record
+        assert isinstance(cls, Record)
         if cls in self.declarations:
             return self.declarations[cls][0]
         name = "struct" + str(self.structcount)
@@ -55,7 +65,8 @@ class GenCL:
         return name
 
     def declare_class(self, cls):
-        # cls is Instance
+        assert isinstance(cls, Instance)
+        assert not self.is_exception_instance(cls)
         if cls in self.declarations:
             return self.declarations[cls][0]
         name = clrepr(cls._name, symbol=True)
@@ -78,7 +89,7 @@ class GenCL:
         return name
 
     def declare_exception(self, cls):
-        # cls is Instance
+        assert isinstance(cls, Instance)
         assert self.is_exception_instance(cls)
         if cls in self.declarations:
             return self.declarations[cls][0]
@@ -109,7 +120,7 @@ class GenCL:
         for fieldname in fields:
             fieldvalue = getattr(inst, fieldname)
             if isinstance(fieldvalue, _class):
-                self.declare_class(fieldvalue._INSTANCE)
+                self.declare_any(fieldvalue._INSTANCE)
             fieldvaluerepr = clrepr(getattr(inst, fieldname))
             ### XXX
             const_declaration.append("(setf (slot-value %s '%s) %s)" % (clrepr(name, True),
