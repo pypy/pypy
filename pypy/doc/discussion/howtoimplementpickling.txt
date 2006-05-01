@@ -174,6 +174,101 @@ In this sense, it was the astonishing resume when Richard and I discussed
 this: PyPy essentially does a variant of Hard switching! At least it
 does a compromize that does not really help with pickling.
 
+On the other had, this approach is half the way. It turns out to
+be an improvement over SLP not to have to avoid recursions in the
+first place. Instead, it seems to be even more elegant and efficient
+to get rid of unnecessary state right in the context of a switch!
+
 Ways to handle the problem in a minimalistic way
 ................................................
 
+Comparing the different approaches of SLP and PyPy, it appears to be
+not necessary to change the interpreter in the first place. PyPy does
+not need to change its calling behavior in order t be cooperative.
+The key point is to find out which activation records need to
+be stored at all. This should be possible to identify as a part
+of the stackless transform.
+
+Consider the simple most common case of calling a normal Python function.
+There are several calls to functions involved, which do preparational
+steps. Without trying to be exact (this is part of the work to be done),
+involved steps are
+
+- decode the arguments of the function
+
+- prepare a new frame
+
+- store the arguments in the frame
+
+- execute the frame
+
+- return the result
+
+Now assume that we do not execute the frame, but do a context switch instead,
+then a sequence of activation records is stored on the heap.
+If we want to re-activate this chain of activation records, what do
+we really need to do the function call?
+
+- the argument decoding is done, already, and the fact that we could have done
+  the function call shows, that no exception ocoured. We can ignore the rest
+  this activation record and do the housekeeping.
+  
+- the frame is prepared, and arguments are stored in it. The operation
+  succeeded, and we have the frame. We can ignore exception handling
+  and just do housekeeping by getting rid of references.
+  
+- for executing the frame, we need a special function that executes frames. It
+  is possible that we need different flavors due to contexts. SLP does this
+  by using different registered functions which operate on a frame, depending
+  on the frame's state (first entry, reentry after call, returning etc)
+
+- after executing the frame, exceptions need to be handled in the usual way,
+  and we should return to the issuer of the call.
+
+Some deeper analysis is needed to get these things correct.
+But is should have become quite clear, that after all the preparational
+things have been done, there is no other state necessary than what we
+have in the Python frames: bound arguments, instruction pointer, that's it.
+
+My proposal is now to do such an analysis by hand, identify the different
+cases to be handled, and then trying to find an algorithm that automatically
+identifies the blocks in the whole program, where the restoring of the
+C stack can be avoided, and we can jump back to the caller, directly.
+
+A rough sketch of the necessary analysis:
+
+for every block in an RPython function that can reach unwind:
+Analyse control flow. It should be immediately leading to
+the return block with only one output variable. All other alive variables
+should have ended their liveness in this block.
+
+I think this will not work in the first place. For the bound frame
+arguments for instance, I think we need some notation that these are
+held by the frame, and we can drop their liveness before doing the call,
+hence we don't need to save these variables in the activation record,
+and hence the whole activation record can be removed.
+
+As a conclusion of this incomplete first analysis, it seems to be necessary
+to identify useless activation records in order to support pickling.
+The remaining, irreducible activation records should then be those
+which hold a reference to a Python frame.
+Such a chain is pickleable if its root points back to the context switching code
+of the interp-level implementation of coroutines.
+
+As an observation, this transform not only enables pickling, but
+also is an optimization, if we can save to save many activation records.
+
+Another possible observation which I hope to be able to prove is this:
+The remaining irreducible activation records which don't just hold
+a Python frame are those which should be considered special.
+They should be turned into something like special frames, and they would
+be the key to make PyPy completely stackless, a goal which is practically
+impossible for SLP! These activation records would need to become
+part of the official interface and need to get naming support for
+their necessary functions.
+
+I wish to stop this paper here. I believe everything else
+needs to be tried in an implementation, and this is so far
+all I can do just with imagination.
+
+best - chris
