@@ -1,5 +1,5 @@
-Designing thread pickling
--------------------------
+Designing thread pickling or "the Essence of Stackless Python"
+--------------------------------------------------------------
 
 Thread pickling is a unique feature in Stackless Python
 and should be implemented for PyPy pretty soon.
@@ -116,3 +116,39 @@ to get completely rid of these extra structures.
 Unfortunately this is not even possible with SLP, because
 there are different flavors of state which make it hard
 to go without extra information.
+
+Analogies between SLP and PyPy
+..............................
+
+SLP has undergone several rewrites. The first implemenation was aiming
+at complete collaboration. A new frame's execution was deferred until
+all the preparational C function calls had left the C stack. There
+was no extra state to be saved.
+
+Well, this is only partially true - there are a couple of situations
+where a recursive call could not be avoided, since the necessary support
+would require heave rewriting of the implementation.
+Examples are
+
+- map is a stateful implementation of iterating over a sequence
+  of operations. It can be made non-recursive if the map operation
+  creates its own frame to keep state.
+  
+- __init__ looks trivial, but the semantics is that the return value
+  of __init__ is supposed to be None, and CPy has a special check for this
+  after the call. This might simply be ignored, but it is a simple example
+  for a case that cannot be hadnled automatically.
+  
+- things like operator.__add__ can theoretically generate a wild pattern
+  of recursive calls while CPy tries to figure out if it is a numeric
+  add or a sequence add, and other callbacks may occur when methods
+  like __coerce__ get involved.
+  
+The second implementation took a radically different approach. Context
+switches were done by hijacking parts of the C stack, storing them
+away and replacing them by the stack fragment that the target needs.
+This is very powerful and allows to switch even in the context of
+foreign code. With a little risk, I was even able to add concurrency
+to foreign Fortran code. 
+
+The above concept is called Hard switchind, the collaborative Soft switching.
