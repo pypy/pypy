@@ -117,8 +117,8 @@ Unfortunately this is not even possible with SLP, because
 there are different flavors of state which make it hard
 to go without extra information.
 
-Analogies between SLP and PyPy
-..............................
+SLP switching strategies
+........................
 
 SLP has undergone several rewrites. The first implemenation was aiming
 at complete collaboration. A new frame's execution was deferred until
@@ -151,4 +151,29 @@ This is very powerful and allows to switch even in the context of
 foreign code. With a little risk, I was even able to add concurrency
 to foreign Fortran code. 
 
-The above concept is called Hard switchind, the collaborative Soft switching.
+The above concept is called Hard switching, the collaborative Soft switching.
+Note that an improved version of Hard is still the building block
+for greenlets, which makes them not really green - I'd name it yellow.
+
+The latest SLP rewrite combines both ideas, trying to use Soft whenever
+possible, but using Hard when nested interpreters are in the way.
+
+Notabene, it was never tried to pickle tasklets when Hard
+was involved. In SLP, pickling works with Soft. To gather more
+pickleable situations, you need to invent new frame types
+or write replacement Python code and switch it Soft.
+
+Analogies between SLP and PyPy
+..............................
+
+Right now, PyPy saves C state of functions in tiny activation records.
+This is an improvement over storing raw stack slices, but the pattern
+is similar: The C stack state gets restored when we switch.
+
+In this sense, it was the astonishing resume when Richard and I discussed
+this: PyPy essentially does a variant of Hard switching! At least it
+does a compromize that does not really help with pickling.
+
+Ways to handle the problem in a minimalistic way
+................................................
+
