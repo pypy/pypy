@@ -622,6 +622,7 @@ class BaseTestListRtyping:
 
 
     def test_list_comparestr(self):
+        self._skip_oo('strings')
         def fn(i, j, neg=False):
             s1 = [["hell"], ["hello", "world"]]
             s1[0][0] += "o" # ensure no interning
@@ -700,6 +701,7 @@ class BaseTestListRtyping:
 
 
     def test_not_a_char_list_after_all(self):
+        self._skip_oo('strings')
         def fn():
             l = ['h', 'e', 'l', 'l', 'o']
             return 'world' in l

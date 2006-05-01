@@ -88,6 +88,8 @@ class AbstractTestRTuple:
         assert res is False 
 
     def test_conv(self):
+        if self.type_system == "ootype":
+            py.test.skip("fix me if ootypes supports strings")
         def t0():
             return (3, 2, None)
         def t1():
