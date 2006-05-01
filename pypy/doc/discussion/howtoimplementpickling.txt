@@ -127,7 +127,8 @@ was no extra state to be saved.
 
 Well, this is only partially true - there are a couple of situations
 where a recursive call could not be avoided, since the necessary support
-would require heave rewriting of the implementation.
+would require heavy rewriting of the implementation.
+
 Examples are
 
 - map is a stateful implementation of iterating over a sequence
@@ -162,12 +163,14 @@ possible, but using Hard when nested interpreters are in the way.
 Notabene, it was never tried to pickle tasklets when Hard
 was involved. In SLP, pickling works with Soft. To gather more
 pickleable situations, you need to invent new frame types
-or write replacement Python code and switch it Soft.
+or write replacement Python code and switch it using Soft.
 
 Analogies between SLP and PyPy
 ..............................
 
-Right now, PyPy saves C state of functions in tiny activation records.
+Right now, PyPy saves C state of functions in tiny activation records:
+the alive variables of a block, together with the entry point of
+the function tnat was left.
 This is an improvement over storing raw stack slices, but the pattern
 is similar: The C stack state gets restored when we switch.
 
@@ -178,7 +181,8 @@ does a compromize that does not really help with pickling.
 On the other hand, this approach is half the way. It turns out to
 be an improvement over SLP not to have to avoid recursions in the
 first place. Instead, it seems to be even more elegant and efficient
-to get rid of unnecessary state right in the context of a switch!
+to get rid of unnecessary state right in the context of a switch
+and no earlier!
 
 Ways to handle the problem in a minimalistic way
 ................................................
@@ -208,7 +212,7 @@ involved steps are
 Now assume that we do not execute the frame, but do a context switch instead,
 then right now a sequence of activation records is stored on the heap.
 If we want to re-activate this chain of activation records, what do
-we really need befor we can do the function call?
+we really need to restore before we can do the function call?
 
 - the argument decoding is done, already, and the fact that we could have done
   the function call shows, that no exception occured. We can ignore the rest
@@ -227,7 +231,7 @@ we really need befor we can do the function call?
   and we should return to the issuer of the call.
 
 Some deeper analysis is needed to get these things correct.
-But is should have become quite clear, that after all the preparational
+But it should have become quite clear, that after all the preparational
 steps have been done, there is no other state necessary than what we
 have in the Python frames: bound arguments, instruction pointer, that's it.
 
@@ -257,7 +261,7 @@ Such a chain is pickleable iff its root points back to the context switching cod
 of the interp-level implementation of coroutines.
 
 As an observation, this transform not only enables pickling, but
-also is an optimization, if we can save to save many activation records.
+also is an optimization, if we can avoid saving many activation records.
 
 Another possible observation which I hope to be able to prove is this:
 The remaining irreducible activation records which don't just hold
@@ -284,18 +288,18 @@ of a missing optimization that we still did not try to solve.
 
 Speaking in terms of GC transform, and especially the refcounting,
 it is probably easy to understand what I mean. Our current refcounting
-implementation is naive, in the sense that we donot try to do the
+implementation is naive, in the sense that we do not try to do the
 optimizations which every extension writer does by hand:
 We do not try to save references.
 
 This is also why I'm always arguing that refcounting can be and
-effectively *is* efficient, because CPythob does it very well.
+effectively *is* efficient, because CPython does it very well.
 
 Our refcounting is not aware of variable lifeness, it does not
 track references which are known to be held by other objects.
 Optimizing that would do two things: The refcounting would become
-very efficient, since we would save som 80 % of it.
-THe second part, which is relevant to the pickling problem is this:
+very efficient, since we would save some 80 % of it.
+The second part, which is relevant to the pickling problem is this:
 By doing a proper analysis, we already would have lost references to 
 all the variables which we don't need to save any longer, because
 we know that they are held in, for instance, frames.
@@ -303,11 +307,9 @@ we know that they are held in, for instance, frames.
 I hope you understand that: If we improve the life-time analysis
 of veriables, the sketched problem of above about which blocks
 need to save state and which don't, should become trivial and should
-just vanish.
-
-Doing this correctly will solve the pickling problem quasi
+just vanish. Doing this correctly will solve the pickling problem quasi
 automatically, leading to a more efficient implementation at the same time.
 
-I can hear you yelling at me in advance, but it is the truth.
+I hope I told the truth and will try to prove it.
 
 ciao - chris
