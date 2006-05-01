@@ -64,7 +64,7 @@ got a pickling implementation in Stackless Python, namely the
 prickelpit.c file.
 
 It should be simple and straightforward to redo these implementations.
-Nevertheless there is a complication. The most natural to support
+Nevertheless there is a complication. The most natural way to support
 pickling is providing a __getstate__/__setstate__ method pair.
 This is ok for extension types like coroutines/tasklets, but
 not allowed to use for existing types, since adding new methods
@@ -137,12 +137,13 @@ Examples are
 - __init__ looks trivial, but the semantics is that the return value
   of __init__ is supposed to be None, and CPy has a special check for this
   after the call. This might simply be ignored, but it is a simple example
-  for a case that cannot be hadnled automatically.
+  for a case that cannot be handled automatically.
   
 - things like operator.__add__ can theoretically generate a wild pattern
   of recursive calls while CPy tries to figure out if it is a numeric
   add or a sequence add, and other callbacks may occur when methods
-  like __coerce__ get involved.
+  like __coerce__ get involved. This will never be solved for SLP, but
+  might get a solution by the strategy outlined below.
   
 The second implementation took a radically different approach. Context
 switches were done by hijacking parts of the C stack, storing them
@@ -151,11 +152,11 @@ This is very powerful and allows to switch even in the context of
 foreign code. With a little risk, I was even able to add concurrency
 to foreign Fortran code. 
 
-The above concept is called Hard switching, the collaborative Soft switching.
+The above concept is called Hard (switching), the collaborative Soft (switching).
 Note that an improved version of Hard is still the building block
 for greenlets, which makes them not really green - I'd name it yellow.
 
-The latest SLP rewrite combines both ideas, trying to use Soft whenever
+The latest SLP rewrites combine both ideas, trying to use Soft whenever
 possible, but using Hard when nested interpreters are in the way.
 
 Notabene, it was never tried to pickle tasklets when Hard
@@ -171,10 +172,10 @@ This is an improvement over storing raw stack slices, but the pattern
 is similar: The C stack state gets restored when we switch.
 
 In this sense, it was the astonishing resume when Richard and I discussed
-this: PyPy essentially does a variant of Hard switching! At least it
+this last week: PyPy essentially does a variant of Hard switching! At least it
 does a compromize that does not really help with pickling.
 
-On the other had, this approach is half the way. It turns out to
+On the other hand, this approach is half the way. It turns out to
 be an improvement over SLP not to have to avoid recursions in the
 first place. Instead, it seems to be even more elegant and efficient
 to get rid of unnecessary state right in the context of a switch!
@@ -184,7 +185,7 @@ Ways to handle the problem in a minimalistic way
 
 Comparing the different approaches of SLP and PyPy, it appears to be
 not necessary to change the interpreter in the first place. PyPy does
-not need to change its calling behavior in order t be cooperative.
+not need to change its calling behavior in order to be cooperative.
 The key point is to find out which activation records need to
 be stored at all. This should be possible to identify as a part
 of the stackless transform.
@@ -205,13 +206,13 @@ involved steps are
 - return the result
 
 Now assume that we do not execute the frame, but do a context switch instead,
-then a sequence of activation records is stored on the heap.
+then right now a sequence of activation records is stored on the heap.
 If we want to re-activate this chain of activation records, what do
-we really need to do the function call?
+we really need befor we can do the function call?
 
 - the argument decoding is done, already, and the fact that we could have done
-  the function call shows, that no exception ocoured. We can ignore the rest
-  this activation record and do the housekeeping.
+  the function call shows, that no exception occured. We can ignore the rest
+  of this activation record and do the housekeeping.
   
 - the frame is prepared, and arguments are stored in it. The operation
   succeeded, and we have the frame. We can ignore exception handling
@@ -220,20 +221,20 @@ we really need to do the function call?
 - for executing the frame, we need a special function that executes frames. It
   is possible that we need different flavors due to contexts. SLP does this
   by using different registered functions which operate on a frame, depending
-  on the frame's state (first entry, reentry after call, returning etc)
+  on the frame's state (first entry, reentry after call, returning, yielding etc)
 
 - after executing the frame, exceptions need to be handled in the usual way,
   and we should return to the issuer of the call.
 
 Some deeper analysis is needed to get these things correct.
 But is should have become quite clear, that after all the preparational
-things have been done, there is no other state necessary than what we
+steps have been done, there is no other state necessary than what we
 have in the Python frames: bound arguments, instruction pointer, that's it.
 
 My proposal is now to do such an analysis by hand, identify the different
 cases to be handled, and then trying to find an algorithm that automatically
 identifies the blocks in the whole program, where the restoring of the
-C stack can be avoided, and we can jump back to the caller, directly.
+C stack can be avoided, and we can jump back to the previous caller, directly.
 
 A rough sketch of the necessary analysis:
 
@@ -252,7 +253,7 @@ As a conclusion of this incomplete first analysis, it seems to be necessary
 to identify useless activation records in order to support pickling.
 The remaining, irreducible activation records should then be those
 which hold a reference to a Python frame.
-Such a chain is pickleable if its root points back to the context switching code
+Such a chain is pickleable iff its root points back to the context switching code
 of the interp-level implementation of coroutines.
 
 As an observation, this transform not only enables pickling, but
