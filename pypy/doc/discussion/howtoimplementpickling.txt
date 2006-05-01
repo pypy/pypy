@@ -273,3 +273,41 @@ needs to be tried in an implementation, and this is so far
 all I can do just with imagination.
 
 best - chris
+
+Just an addition after some more thinking
+.........................................
+
+Actually it struck me after checking this in, that the problem of
+determining which blocks need to save state and which not it not
+really a Stackless problem. It is a system-immanent problem
+of a missing optimization that we still did not try to solve.
+
+Speaking in terms of GC transform, and especially the refcounting,
+it is probably easy to understand what I mean. Our current refcounting
+implementation is naive, in the sense that we donot try to do the
+optimizations which every extension writer does by hand:
+We do not try to save references.
+
+This is also why I'm always arguing that refcounting can be and
+effectively *is* efficient, because CPythob does it very well.
+
+Our refcounting is not aware of variable lifeness, it does not
+track references which are known to be held by other objects.
+Optimizing that would do two things: The refcounting would become
+very efficient, since we would save som 80 % of it.
+THe second part, which is relevant to the pickling problem is this:
+By doing a proper analysis, we already would have lost references to 
+all the variables which we don't need to save any longer, because
+we know that they are held in, for instance, frames.
+
+I hope you understand that: If we improve the life-time analysis
+of veriables, the sketched problem of above about which blocks
+need to save state and which don't, should become trivial and should
+just vanish.
+
+Doing this correctly will solve the pickling problem quasi
+automatically, leading to a more efficient implementation at the same time.
+
+I can hear you yelling at me in advance, but it is the truth.
+
+ciao - chris
