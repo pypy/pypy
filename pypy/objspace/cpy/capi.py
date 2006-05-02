@@ -223,6 +223,12 @@ RAW_PyErr_SetObject.argtypes = [W_Object, W_Object]
 RAW_PyErr_SetObject.restype = None
 RAW_PyErr_SetObject._rctypes_pyerrchecker_ = None
 
+# WARNING: consumes references
+RAW_PyErr_Restore = pythonapi.PyErr_Restore
+RAW_PyErr_Restore.argtypes = [W_Object, W_Object, W_Object]
+RAW_PyErr_Restore.restype = None
+RAW_PyErr_Restore._rctypes_pyerrchecker_ = None
+
 RAW_PyErr_Occurred = pythonapi.PyErr_Occurred
 RAW_PyErr_Occurred.argtypes = []
 RAW_PyErr_Occurred.restype = c_int

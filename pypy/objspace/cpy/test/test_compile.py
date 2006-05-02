@@ -150,12 +150,10 @@ def test_compile_exception_from_rpython():
 
 def test_compile_exception_through_rpython():
     space = CPyObjSpace()
-    def myfunc(n):
-        w_sys = space.getbuiltinmodule('sys')
-        w_n = space.wrap(n)
-        space.call_method(w_sys, 'exit', w_n)
+    def myfunc(w_callback):
+        space.call_function(w_callback, space.wrap(5))
         return space.w_None   # should not actually reach this point
-    myfunc.unwrap_spec = [int]
+    myfunc.unwrap_spec = [W_Root]
     w_myfunc = space.wrap(interp2app(myfunc))
 
     def entrypoint():
@@ -163,7 +161,13 @@ def test_compile_exception_through_rpython():
 
     fn = compile(entrypoint, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    def mycallback(n):
+        assert n == 5
+        raise SystemExit(12)
+
     myfunc1 = fn()
-    e = py.test.raises(SystemExit, myfunc1, 5)
+    e = py.test.raises(SystemExit, myfunc1, mycallback)
     ex = e.value
-    assert ex.args == (5,)
+    assert ex.args == (12,)
+    assert e.traceback[-1].frame.code.name == 'mycallback'

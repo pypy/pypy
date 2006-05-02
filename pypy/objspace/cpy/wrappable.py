@@ -6,6 +6,7 @@ into CPython objects (subclasses of W_Object).
 import py
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.objspace.cpy.capi import *
+from pypy.objspace.cpy.refcount import Py_XIncref
 from pypy.objspace.cpy.objspace import CPyObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
@@ -49,6 +50,19 @@ class TrampolineSignature(object):
         self.passedargs = []
 
 
+def reraise(e):
+    w_type      = e.w_type
+    w_value     = e.w_value
+    w_traceback = e.application_traceback
+    if e.application_traceback is None:
+        w_traceback = W_Object()    # NULL
+    else:
+        Py_XIncref(w_traceback)
+    Py_XIncref(w_type)
+    Py_XIncref(w_value)
+    RAW_PyErr_Restore(e.w_type, e.w_value, w_traceback)
+
+
 class __extend__(pairtype(CPyObjSpace, Function)):
 
     def wrap((space, func)):
@@ -76,8 +90,7 @@ class __extend__(pairtype(CPyObjSpace, Function)):
         sourcelines.append('        w_result = ___bltin(%s)' % (
             ', '.join(tramp.passedargs),))
         sourcelines.append('    except ___OperationError, e:')
-        sourcelines.append('        ___PyErr_SetObject(e.w_type.value,')
-        sourcelines.append('                           e.w_value.value)')
+        sourcelines.append('        ___reraise(e)')
         # the following line is not reached, unless we are translated
         # in which case it makes the function return (PyObject*)NULL.
         sourcelines.append('        w_result = ___W_Object()')
@@ -92,7 +105,7 @@ class __extend__(pairtype(CPyObjSpace, Function)):
             '___PyInt_AsLong':    PyInt_AsLong,
             '___bltin':           bltin,
             '___OperationError':  OperationError,
-            '___PyErr_SetObject': RAW_PyErr_SetObject,
+            '___reraise':         reraise,
             }
         exec py.code.Source('\n'.join(sourcelines)).compile() in miniglobals
 

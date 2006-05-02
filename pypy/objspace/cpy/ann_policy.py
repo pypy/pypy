@@ -29,11 +29,11 @@ class CPyAnnotatorPolicy(PyPyAnnotatorPolicy):
             # restart this loop: for all we know follow_annotations()
             # could have found new objects
 
-        # force w_type, w_value attributes into the OperationError class
+        # force w_type/w_value/w_traceback attrs into the OperationError class
         bk = annotator.bookkeeper
         classdef = bk.getuniqueclassdef(OperationError)
         s_instance = annmodel.SomeInstance(classdef=classdef)
-        for name in ['w_type', 'w_value']:
+        for name in ['w_type', 'w_value', 'w_traceback']:
             s_instance.setattr(bk.immutablevalue(name),
                                bk.valueoftype(W_Object))
 

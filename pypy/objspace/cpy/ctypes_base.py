@@ -33,7 +33,7 @@ def rctypes_pyerrchecker():
         w_val = W_Object()
         w_tb  = W_Object()
         RAW_PyErr_Fetch(byref(w_exc), byref(w_val), byref(w_tb))
-        raise OperationError(w_exc, w_val)    # XXX traceback
+        raise OperationError(w_exc, w_val, w_tb)
 
 class CPyAPI(PyDLL):
     """Class of the singleton 'cpyapi' object, out of which C functions
@@ -53,7 +53,8 @@ class CPyAPI(PyDLL):
             except:
                 exc, val, tb = sys.exc_info()
                 raise OperationError(W_Object(exc),
-                                     W_Object(val))   # XXX traceback
+                                     W_Object(val),
+                                     W_Object(tb))
 
 cpyapi = CPyAPI.__new__(CPyAPI)
 cpyapi.__dict__ = pythonapi.__dict__.copy()
