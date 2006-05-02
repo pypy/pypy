@@ -13,7 +13,7 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype
 
-from ctypes import py_object
+from ctypes import py_object, CFUNCTYPE, c_int
 
 
 class Test_annotation:
@@ -46,6 +46,23 @@ class Test_annotation:
         if conftest.option.view:
             a.translator.view()
 
+    def test_annotate_mix_with_None(self):
+        def fn(i):
+            if i == 1:
+                p = py_object(123)
+            elif i == 2:
+                p = py_object()
+            else:
+                p = None
+            return p
+
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert s.knowntype == py_object
+        assert s.can_be_none()    # NB. it's actually always True for now
+        if conftest.option.view:
+            a.translator.view()
+
 class Test_specialization:
     def test_specialize_wrapping(self):
         def wrap(x):
@@ -75,3 +92,23 @@ class Test_specialization:
         assert res.c_data[0]._obj.value == 5
         res = interpret(fn, [1])
         assert res.c_data[0]._obj.value == "hello"
+
+    def test_specialize_with_none(self):
+        def g(i):
+            if i == 1:
+                p = py_object(123)
+            elif i == 2:
+                p = py_object()
+            else:
+                p = None
+            return p
+        def fn(i):
+            p = g(i)
+            return bool(p), p is None
+
+        res = interpret(fn, [1])
+        assert (res.item0, res.item1) == (True, False)
+        res = interpret(fn, [2])
+        assert (res.item0, res.item1) == (False, False)
+        res = interpret(fn, [3])
+        assert (res.item0, res.item1) == (False, True)

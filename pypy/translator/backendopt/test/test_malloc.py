@@ -252,3 +252,11 @@ def test_getarraysubstruct():
                 s.a[index].n = 12
                 return s.a[index].n
             check(fn, [], [], 12)
+
+def test_ptr_nonzero():
+    from pypy.rpython.lltypesystem import lltype
+    S = lltype.GcStruct('S')
+    def fn():
+        s = lltype.malloc(S)
+        return bool(s)
+    check(fn, [], [], True)

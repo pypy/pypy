@@ -9,7 +9,7 @@ from pypy import conftest
 from pypy.rpython.test.test_llinterp import gengraph
 from pypy.translator.backendopt.all import backend_optimizations
 
-from ctypes import c_int, Structure, pointer, POINTER
+from ctypes import c_int, Structure, pointer, POINTER, py_object
 
 
 def find_mallocs(func, argtypes):
@@ -91,4 +91,17 @@ def test_struct_setitem():
         return t.s.contents.x
     
     mallocs = find_mallocs(func, [])
+    assert not mallocs    # depends on inlining
+
+def test_using_pyobject():
+    def g(n):
+        if n == 2:
+            w = py_object()
+        else:
+            w = py_object(n)
+        return w
+    def func(n):
+        return bool(g(n))
+
+    mallocs = find_mallocs(func, [int])
     assert not mallocs    # depends on inlining

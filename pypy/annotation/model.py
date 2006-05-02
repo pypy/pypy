@@ -427,7 +427,9 @@ class SomeCTypesObject(SomeObject):
         self.memorystate = memorystate 
 
     def can_be_none(self):
-        return False
+        # only 'py_object' can also be None
+        import ctypes
+        return issubclass(self.knowntype, ctypes.py_object)
 
     def return_annotation(self):
         """Returns either 'self' or the annotation of the unwrapped version

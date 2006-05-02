@@ -136,11 +136,13 @@ def _try_inline_malloc(info):
     assert isinstance(STRUCT, lltype.GcStruct)
 
     # must be only ever accessed via getfield/setfield/getsubstruct/
-    # direct_fieldptr, or touched by keepalive.  Note that same_as and
-    # cast_pointer are not recorded in usepoints.
+    # direct_fieldptr, or touched by keepalive or ptr_iszero/ptr_nonzero.
+    # Note that same_as and cast_pointer are not recorded in usepoints.
     FIELD_ACCESS     = dict.fromkeys(["getfield",
                                       "setfield",
                                       "keepalive",
+                                      "ptr_iszero",
+                                      "ptr_nonzero",
                                       "getarrayitem",
                                       "setarrayitem"])
     SUBSTRUCT_ACCESS = dict.fromkeys(["getsubstruct",
@@ -327,6 +329,12 @@ def _try_inline_malloc(info):
                                                    [v, cname],
                                                    op.result)
                             newops.append(newop)
+                    elif op.opname in ("ptr_iszero", "ptr_nonzero"):
+                        # we know the pointer is not NULL if it comes from
+                        # a successful malloc
+                        c = Constant(op.opname == "ptr_nonzero", lltype.Bool)
+                        newop = SpaceOperation('same_as', [c], op.result)
+                        newops.append(newop)
                     else:
                         raise AssertionError, op.opname
                 elif op.result in vars:

@@ -7,6 +7,12 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 class CTypesPyObjRepr(CTypesValueRepr):
 
+    def convert_const(self, value):
+        if value is None:
+            return lltype.nullptr(self.lowleveltype.TO)
+        else:
+            return super(CTypesPyObjRepr, self).convert_const(value)
+
     def initialize_const(self, p, value):
         if isinstance(value, self.ctype):
             value = value.value
@@ -28,6 +34,13 @@ class CTypesPyObjRepr(CTypesValueRepr):
         v_pyobj, v_attr, v_newvalue = hop.inputargs(self, lltype.Void,
                                                     pyobj_repr)
         self.setvalue(hop.llops, v_pyobj, v_newvalue)
+
+    def rtype_is_true(self, hop):
+        [v_box] = hop.inputargs(self)
+        return hop.gendirectcall(ll_pyobjbox_is_true, v_box)
+
+def ll_pyobjbox_is_true(box):
+    return bool(box) and bool(box.c_data[0])
 
 
 class __extend__(pairtype(CTypesPyObjRepr, PyObjRepr)):

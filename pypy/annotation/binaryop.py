@@ -810,3 +810,17 @@ class __extend__(pairtype(SomeCTypesObject, SomeCTypesObject)):
             return SomeCTypesObject(s_cto1.knowntype, state)
         else:
             return SomeObject()
+
+class __extend__(pairtype(SomeCTypesObject, SomePBC)):
+    def union((obj, pbc)):
+        if pbc.isNone() and obj.can_be_none():
+            return obj
+        else:
+            return SomeObject()
+
+class __extend__(pairtype(SomePBC, SomeCTypesObject)):
+    def union((pbc, obj)):
+        if pbc.isNone() and obj.can_be_none():
+            return obj
+        else:
+            return SomeObject()
