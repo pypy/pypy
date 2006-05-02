@@ -8,6 +8,7 @@ from pypy.interpreter import gateway
 from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c
 import ctypes
 from pypy.rpython.rctypes import implementation as rctypes_implemetation
+from pypy.rpython.rarithemetic import intmask
 import errno
 
 IPV4_ADDRESS_SIZE = 4
@@ -606,12 +607,12 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     if retval != 0:
         raise w_get_socketgaierror(space, None, retval)
 
-    try:
-        result = []
-        next = res
-        while next:
-            info = next.contents
-            next = info.ai_next
+    result = []
+    next = res
+    while next:
+        info = next.contents
+        next = info.ai_next
+        try:
             w_family = space.wrap(info.ai_family)
             w_socktype = space.wrap(info.ai_socktype)
             w_proto = space.wrap(info.ai_protocol)
@@ -620,13 +621,16 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
             else:
                 w_canonname = space.wrap('')
             w_addr = w_makesockaddr(space,
-                                    _c.cast(info.ai_addr, _c.sockaddr_ptr),
-                                    info.ai_addrlen, info.ai_protocol)
+            _c.cast(info.ai_addr, _c.sockaddr_ptr),
+                    info.ai_addrlen, info.ai_protocol)
             result.append(space.newtuple([w_family, w_socktype, w_proto,
-                                           w_canonname, w_addr]))
-        return space.newlist(result)
-    finally:
-        _c.freeaddrinfo(res)
+                                w_canonname, w_addr]))
+        except:
+            _c.freeaddrinfo(res)
+            raise
+    res = space.newlist(result)
+    _c.freeaddrinfo(res)
+    return res
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
 
 def getnameinfo(space, w_sockaddr, flags):
@@ -781,7 +785,7 @@ class Socket(Wrappable):
                 raise w_get_socketgaierror(space, None, retval)
             addrinfo = res.contents
             addrlen = addrinfo.ai_addrlen
-            caddr_buf = ctypes.create_string_buffer(int(addrlen)) # XXX forcing a long to an int
+            caddr_buf = ctypes.create_string_buffer(intmask(addrlen)) # XXX forcing a long to an int
             _c.memcpy(caddr_buf, addrinfo.ai_addr, addrlen)
             
             sockaddr_ptr = ctypes.cast(caddr_buf, _c.sockaddr_ptr)
@@ -985,9 +989,10 @@ class Socket(Wrappable):
         """
         buf = _c.create_string_buffer(buffersize)
         sockaddr = _c.sockaddr()
+        sockaddr_size = _c.socklen_t()
         read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
-                                 _c.pointer(sockaddr), _c.sockaddr_size)
-        w_addr = w_makesockaddr(space, _c.pointer(sockaddr), _c.sockaddr_size, self.proto)
+                                 _c.pointer(sockaddr), _c.pointer(sockaddr_size))
+        w_addr = w_makesockaddr(space, _c.pointer(sockaddr), sockaddr_size.value, self.proto)
         if read_bytes < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
         return space.newtuple([space.wrap(buf[:read_bytes]), w_addr])
@@ -1059,12 +1064,14 @@ class Socket(Wrappable):
         """
         if space.is_true(space.isinstance(w_value, space.w_str)):
             strvalue = space.str_w(w_value)
+            size = _c.socklen_t(len(strvalue))
             _c.socketsetsockopt(self.fd, level, option, strvalue,
-                          len(strvalue))
+                          size)
         else:
             intvalue = ctypes.c_int(space.int_w(w_value))
+            size = _c.socklen_t(_c.c_int_size)
             _c.socketsetsockopt(self.fd, level, option, _c.pointer(intvalue),
-                           _c.c_int_size)
+                           size)
     setsockopt.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
 
     def gettimeout(self, space):
