@@ -189,8 +189,10 @@ class AppTest_Descroperation:
         s = S("abc")
         setattr(s, s, s)
         assert len(s.__dict__) == 1
-        assert type(s.__dict__.keys()[0]) is str   # don't store S keys
-        assert s.abc is s
+        # this behavior changed in 2.4
+        #assert type(s.__dict__.keys()[0]) is str   # don't store S keys
+        #assert s.abc is s
+        getattr(s,s) is s
 
     def test_notimplemented(self):
         #import types

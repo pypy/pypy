@@ -34,7 +34,7 @@ class MixedModule(Module):
         w_value = space.finditem(self.w_dict, w_name)
         if self.lazy and w_value is None:
             name = space.str_w(w_name)
-            w_name = space.new_interned_str(name)
+            w_name = space.new_interned_w_str(w_name)
             try: 
                 loader = self.loaders[name]
             except KeyError: 

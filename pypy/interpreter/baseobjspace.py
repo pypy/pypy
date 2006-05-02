@@ -385,6 +385,15 @@ class ObjSpace(object):
         else:
             return self.w_False
 
+    def new_interned_w_str(self, w_s):
+        s = self.str_w(w_s)
+        try:
+            return self.interned_strings[s]
+        except KeyError:
+            pass
+        self.interned_strings[s] = w_s
+        return w_s
+
     def new_interned_str(self, s):
         try:
             return self.interned_strings[s]
