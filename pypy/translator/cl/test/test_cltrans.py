@@ -143,9 +143,18 @@ def test_powerset():
     assert result.val == (
                       '#(#() #(0) #(1) #(0 1) #(2) #(0 2) #(1 2) #(0 1 2))')
 def test_yast():
-    py.test.skip("missing op_iter")
-    cl_sum = make_cl_func(t.yast, [list]) # yet another sum test
-    assert cl_sum(range(12)) == 66
+    def yast1(n):
+        # Need this to avoid name clashes in the generated code
+        return t.yast(range(n))
+    cl_sum = make_cl_func(yast1, [int]) # yet another sum test
+    assert cl_sum(12) == 66
+
+def test_name_clash():
+    py.test.skip("Name clash between the 2 yast functions")
+    def yast(n):
+        return t.yast(range(n))
+    cl_sum = make_cl_func(yast, [int])
+    assert cl_sum(12) == 66
 
 def test_int_add():
     def add_two(number):
@@ -159,5 +168,3 @@ def test_int_add():
 # - append/reverse. not RPython. delegate?
 # attrs
 # - attribute. need object. symbol-plist?
-# yast
-# - need way to specify that argument is list of int.
