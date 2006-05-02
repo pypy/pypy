@@ -349,7 +349,7 @@ class StacklessTransformer(object):
                     # about annotations :(
                     ann = self.translator.annotator
                     for f, t in zip(link.args, link.target.inputargs):
-                        nb = ann.binding(f, True)
+                        nb = ann.binding(f, None)
                         if nb is not None:
                             ann.setbinding(t, nb)
                     block.exitswitch = model.c_last_exception

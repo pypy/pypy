@@ -97,9 +97,7 @@ class HintBookkeeper(object):
     def current_op_binding(self):
         _, block, i = self.position_key
         op = block.operations[i]
-        hs_res = self.annotator.binding(op.result, extquery=True)
-        if hs_res is None:
-            hs_res = annmodel.s_ImpossibleValue
+        hs_res = self.annotator.binding(op.result, annmodel.s_ImpossibleValue)
         return hs_res
 
     def getvirtualcontainerdef(self, TYPE, constructor=None):

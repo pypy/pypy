@@ -15,6 +15,7 @@ py.log.setconsumer("annrpython", ansi_log)
 class AnnotatorError(Exception):
     pass
 
+FAIL = object()
 
 class RPythonAnnotator:
     """Block annotator for RPython.
@@ -136,7 +137,7 @@ class RPythonAnnotator:
         # recursively proceed until no more pending block is left
         if complete_now:
             self.complete()
-        return self.binding(flowgraph.getreturnvar(), extquery=True)
+        return self.binding(flowgraph.getreturnvar(), None)
 
     def gettype(self, variable):
         """Return the known type of a control flow graph variable,
@@ -217,14 +218,14 @@ class RPythonAnnotator:
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
 
-    def binding(self, arg, extquery=False):
+    def binding(self, arg, default=FAIL):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
             try:
                 return self.bindings[arg]
             except KeyError:
-                if extquery:
-                    return None
+                if default is not FAIL:
+                    return default
                 else:
                     raise
         elif isinstance(arg, Constant):

@@ -33,7 +33,7 @@ def polluted_qgen(translator):
     def visit(block):
         if isinstance(block, flowmodel.Block):
             for v in block.getvariables():
-                s = annotator.binding(v, extquery=True)
+                s = annotator.binding(v, None)
                 if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
                     raise Found
     for g in translator.graphs:
@@ -47,8 +47,8 @@ def check_exceptblocks_qgen(translator):
     annotator = translator.annotator
     for graph in translator.graphs:
         et, ev = graph.exceptblock.inputargs
-        s_et = annotator.binding(et, extquery=True)
-        s_ev = annotator.binding(ev, extquery=True)
+        s_et = annotator.binding(et, None)
+        s_ev = annotator.binding(ev, None)
         if s_et:
             if s_et.knowntype == type:
                 if s_et.__class__ == annmodel.SomeObject:

@@ -207,7 +207,7 @@ class Bookkeeper:
                         if op.opname in ('simple_call', 'call_args'):
                             yield op
                         # some blocks are partially annotated
-                        if binding(op.result, extquery=True) is None:
+                        if binding(op.result, None) is None:
                             break   # ignore the unannotated part
 
             for call_op in call_sites():
@@ -235,9 +235,7 @@ class Bookkeeper:
             s_callable = self.immutablevalue(adtmeth.func)
             args_s = [SomePtr(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
-            s_result = binding(call_op.result, extquery=True)
-            if s_result is None:
-                s_result = s_ImpossibleValue
+            s_result = binding(call_op.result, s_ImpossibleValue)
             self.consider_call_site_for_pbc(s_callable,
                                             call_op.opname,
                                             args_s, s_result)
@@ -577,9 +575,7 @@ class Bookkeeper:
             fn, block, i = self.position_key
             op = block.operations[i]
             s_previous_result = self.annotator.binding(op.result,
-                                                       extquery=True)
-            if s_previous_result is None:
-                s_previous_result = s_ImpossibleValue
+                                                       s_ImpossibleValue)
         else:
             if emulated is True:
                 whence = None

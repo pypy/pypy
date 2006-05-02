@@ -137,9 +137,7 @@ class RPythonTyper:
         return result
 
     def binding(self, var):
-        s_obj = self.annotator.binding(var, True)
-        if s_obj is None:
-            s_obj = annmodel.SomeObject()
+        s_obj = self.annotator.binding(var, annmodel.SomeObject())
         return s_obj
 
     def bindingrepr(self, var):
