@@ -137,8 +137,8 @@ class RPythonTyper:
             self.add_pendingsetup(result)
         return result
 
-    def binding(self, var):
-        s_obj = self.annotator.binding(var, annmodel.SomeObject())
+    def binding(self, var, default=annmodel.SomeObject()):
+        s_obj = self.annotator.binding(var, default)
         return s_obj
 
     def bindingrepr(self, var):
