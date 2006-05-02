@@ -5,7 +5,6 @@ import pypy.rpython.rctypes.implementation
 
 
 space = CPyObjSpace()
-Module.appleveldefs.clear()   # XXX! for now
 module = Module(space, space.wrap('_demo'))
 w_moduledict = module.getdict()
 
@@ -17,7 +16,8 @@ __init__.allow_someobjects = True
 
 # _____ Define and setup target ___
 
-def target(*args):
+def target(driver, args):
+    driver.exe_name = '_demo'
     return __init__, [object], CPyAnnotatorPolicy(space)
 
 

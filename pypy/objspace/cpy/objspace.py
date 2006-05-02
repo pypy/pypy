@@ -9,7 +9,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     from pypy.objspace.cpy.ctypes_base import W_Object
 
     def initialize(self):
-        self.options.geninterp = True
+        self.options.geninterp = False
         self.w_int   = W_Object(int)
         self.w_tuple = W_Object(tuple)
         self.w_None  = W_Object(None)
@@ -148,3 +148,10 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return self.w_True
         else:
             return self.w_False
+
+    def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
+        "NOT_RPYTHON"
+        from types import CodeType
+        if not isinstance(statement, (str, CodeType)):
+            raise TypeError("CPyObjSpace.exec_(): only for CPython code objs")
+        exec statement in w_globals.value, w_locals.value

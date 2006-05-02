@@ -388,7 +388,8 @@ class InstanceRepr(AbstractInstanceRepr):
         return malloc(self.object_type, flavor=self.getflavor()) # pick flavor
 
     def has_wrapper(self):
-        return self.rtyper.needs_wrapper(self.classdef)
+        return self.classdef is not None and (
+            self.rtyper.needs_wrapper(self.classdef.classdesc.pyobj))
     has_wrapper = property(has_wrapper)
 
     def get_ll_hash_function(self):

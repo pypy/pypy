@@ -21,6 +21,7 @@ class CBuilder(object):
     symboltable = None
     stackless = False
     use_stackless_transformation = False
+    modulename = None
     
     def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False):
         self.translator = translator
@@ -87,7 +88,9 @@ class CBuilder(object):
         pf = self.getentrypointptr()
         pfname = db.get(pf)
 
-        modulename = uniquemodulename('testing')
+        if self.modulename is None:
+            self.modulename = uniquemodulename('testing')
+        modulename = self.modulename
         targetdir = udir.ensure(modulename, dir=1)
         self.targetdir = targetdir
         defines = {}

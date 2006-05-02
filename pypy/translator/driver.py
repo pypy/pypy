@@ -245,6 +245,8 @@ class TranslationDriver(SimpleTaskEngine):
                             gcpolicy       = gcpolicy,
                             thread_enabled = getattr(opt, 'thread', False))
         cbuilder.stackless = opt.stackless
+        if not standalone:     # xxx messy
+            cbuilder.modulename = self.exe_name % self.options.__dict__
         database = cbuilder.build_database()
         self.log.info("database for generating C source was created")
         self.cbuilder = cbuilder

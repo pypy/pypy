@@ -632,14 +632,15 @@ class ObjSpace(object):
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
 
-    def exec_(self, statement, w_globals, w_locals):
+    def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
         import types
         from pypy.interpreter.pycode import PyCode
         if isinstance(statement, str):
             statement = compile(statement, '?', 'exec')
         if isinstance(statement, types.CodeType):
-            statement = PyCode._from_code(self, statement)
+            statement = PyCode._from_code(self, statement,
+                                          hidden_applevel=hidden_applevel)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         w_key = self.wrap('__builtins__')
