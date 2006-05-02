@@ -46,13 +46,12 @@ class LLInterpreter(object):
         # XXX hack: set gc to None because
         # prepare_graphs_and_create_gc might already use the llinterpreter!
         self.gc = None
+        self.tracer = None
         if hasattr(heap, "prepare_graphs_and_create_gc"):
             flowgraphs = typer.annotator.translator.graphs
             self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
         if self.TRACING:
             self.tracer = Tracer()
-        else:
-            self.tracer = None
 
     def eval_graph(self, graph, args=()):
         llframe = LLFrame(graph, args, self)
