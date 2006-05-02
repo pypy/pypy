@@ -175,32 +175,24 @@ def test_py_object():
 
 def test_pythonapi():
     PyInt_AsLong = pythonapi.PyInt_AsLong
-    saved = PyInt_AsLong.__dict__.copy()
-    try:
-        PyInt_AsLong.argtypes = [py_object]
-        PyInt_AsLong.restype = c_long
-        assert PyInt_AsLong(py_object(17L)) == 17
-        py.test.raises(TypeError, "PyInt_AsLong(py_object('hello'))")
-    finally:
-        PyInt_AsLong.__dict__ = saved
+    PyInt_AsLong.argtypes = [py_object]
+    PyInt_AsLong.restype = c_long
+    assert PyInt_AsLong(py_object(17L)) == 17
+    py.test.raises(TypeError, "PyInt_AsLong(py_object('hello'))")
 
 def test_py_object_subclass():
     PyInt_FromLong = pythonapi.PyInt_FromLong
-    saved = PyInt_FromLong.__dict__.copy()
-    try:
-        # automatic unwrapping of the py_object result
-        PyInt_FromLong.argtypes = [c_long]
-        PyInt_FromLong.restype = py_object
-        assert isinstance(PyInt_FromLong(17), int)
+    # automatic unwrapping of the py_object result
+    PyInt_FromLong.argtypes = [c_long]
+    PyInt_FromLong.restype = py_object
+    assert isinstance(PyInt_FromLong(17), int)
 
-        # but not if we subclass it...
-        class W_Object(py_object):
-            pass
-        PyInt_FromLong.argtypes = [c_long]
-        PyInt_FromLong.restype = W_Object
-        assert isinstance(PyInt_FromLong(17), W_Object)
-    finally:
-        PyInt_FromLong.__dict__ = saved
+    # but not if we subclass it...
+    class W_Object(py_object):
+        pass
+    PyInt_FromLong.argtypes = [c_long]
+    PyInt_FromLong.restype = W_Object
+    assert isinstance(PyInt_FromLong(17), W_Object)
 
 def test_sizeof():
     x = create_string_buffer(117)
@@ -210,23 +202,19 @@ def test_sizeof():
 
 def test_convert_pointers():
     PyString_FromString = pythonapi.PyString_FromString
-    saved = PyString_FromString.__dict__.copy()
-    try:
-        PyString_FromString.restype = py_object
+    PyString_FromString.restype = py_object
 
-        # automatic conversions to c_char_p
-        PyString_FromString.argtypes = [c_char_p]
-        assert PyString_FromString("hello") == "hello"
-        assert PyString_FromString(c_char_p("hello")) == "hello"
-        assert PyString_FromString((c_char * 6)(*"hello")) == "hello"
-        assert PyString_FromString(create_string_buffer("hello")) == "hello"
+    # automatic conversions to c_char_p
+    PyString_FromString.argtypes = [c_char_p]
+    assert PyString_FromString("hello") == "hello"
+    assert PyString_FromString(c_char_p("hello")) == "hello"
+    assert PyString_FromString((c_char * 6)(*"hello")) == "hello"
+    assert PyString_FromString(create_string_buffer("hello")) == "hello"
 
-        # automatic conversions to c_void_p
-        PyString_FromString.argtypes = [c_void_p]
-        assert PyString_FromString("hello") == "hello"
-        assert PyString_FromString(c_char_p("hello")) == "hello"
-        assert PyString_FromString((c_char * 6)(*"hello")) == "hello"
-        assert PyString_FromString((c_byte * 6)(104,101,108,108,111)) =="hello"
-        assert PyString_FromString(create_string_buffer("hello")) == "hello"
-    finally:
-        PyString_FromString.__dict__ = saved
+    # automatic conversions to c_void_p
+    PyString_FromString.argtypes = [c_void_p]
+    assert PyString_FromString("hello") == "hello"
+    assert PyString_FromString(c_char_p("hello")) == "hello"
+    assert PyString_FromString((c_char * 6)(*"hello")) == "hello"
+    assert PyString_FromString((c_byte * 6)(104,101,108,108,111)) =="hello"
+    assert PyString_FromString(create_string_buffer("hello")) == "hello"
