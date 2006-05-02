@@ -3,7 +3,7 @@ import types
 from pypy.tool.udir import udir
 from pypy.objspace.flow.model import Constant, c_last_exception, FunctionGraph
 from pypy.translator.translator import graphof
-from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, Record, Instance, _class, _static_meth, _meth, ROOT
+from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, null, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.translator.cl.clrepr import clrepr
 from pypy.translator.cl.opformatter import OpFormatter
@@ -38,6 +38,9 @@ class GenCL:
 
     def check_declaration(self, arg):
         if isinstance(arg, Constant):
+            if isinstance(arg.concretetype, (Record, Instance)):
+                if arg.value is null(arg.concretetype):
+                    return "nil"
             if isinstance(arg.concretetype, Instance):
                 return self.declare_constant_instance(arg)
         return clrepr(arg)
@@ -106,8 +109,6 @@ class GenCL:
         # const.concretetype is Instance
         if const in self.declarations:
             return self.declarations[const][0]
-        if const.value is const.concretetype._null:
-            return "nil"
         name = "const" + str(self.constcount)
         INST = dynamicType(const.value)
         self.declare_class(INST)
