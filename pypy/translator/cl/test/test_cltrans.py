@@ -114,7 +114,7 @@ def test_easy():
     assert f6(30) == 3657
 
 def test_string():
-    py.test.skip("temporarily disabled")
+    py.test.skip("strings not supported")
     cl_greet = make_cl_func(t.greet, [str])
     assert cl_greet("world") == "helloworld"
     cl_stringmaker = make_cl_func(t.nested_whiles, [int, int])
@@ -122,29 +122,28 @@ def test_string():
                       "...!...!...!...!...!")
 
 def test_for():
-    py.test.skip("temporarily disabled")
+    py.test.skip("strings not supported")
     cl_python = make_cl_func(t.choose_last)
     assert cl_python() == "python"
 
 def test_builtin():
-    py.test.skip("temporarily disabled")
     cl_builtinusage = make_cl_func(t.builtinusage)
     assert cl_builtinusage() == 4
 
 def test_slice():
-    py.test.skip("temporarily disabled")
+    py.test.skip("either this is not RPython or gencl has something horribly wrong")
     cl_half = make_cl_func(t.half_of_n, [int])
     assert cl_half(10) == 5
 
 def test_powerset():
-    py.test.skip("temporarily disabled")
+    py.test.skip("another test that fails in the rtyper, not RPython?")
     cl_powerset = make_cl_func(t.powerset, [int])
     result = cl_powerset(3)
     assert result.__class__ == Literal
     assert result.val == (
                       '#(#() #(0) #(1) #(0 1) #(2) #(0 2) #(1 2) #(0 1 2))')
 def test_yast():
-    py.test.skip("temporarily disabled")
+    py.test.skip("missing op_iter")
     cl_sum = make_cl_func(t.yast, [list]) # yet another sum test
     assert cl_sum(range(12)) == 66
 
