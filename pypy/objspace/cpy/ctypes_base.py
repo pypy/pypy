@@ -26,6 +26,15 @@ apyobject.register_py_object_subclass(W_Object)
 class LevelError(Exception):
     pass
 
+def rctypes_pyerrchecker():
+    from pypy.objspace.cpy.capi import RAW_PyErr_Occurred, RAW_PyErr_Fetch
+    if RAW_PyErr_Occurred():
+        w_exc = W_Object()
+        w_val = W_Object()
+        w_tb  = W_Object()
+        RAW_PyErr_Fetch(byref(w_exc), byref(w_val), byref(w_tb))
+        raise OperationError(w_exc, w_val)    # XXX traceback
+
 class CPyAPI(PyDLL):
     """Class of the singleton 'cpyapi' object, out of which C functions
     are getattr'd.  It returns C function whose exception behavior matches
@@ -34,6 +43,7 @@ class CPyAPI(PyDLL):
     """
     class _FuncPtr(PyDLL._FuncPtr):
         _flags_ = PyDLL._FuncPtr._flags_
+        _rctypes_pyerrchecker_ = staticmethod(rctypes_pyerrchecker)
 
         def __call__(*args, **kwds):
             try:
@@ -43,8 +53,7 @@ class CPyAPI(PyDLL):
             except:
                 exc, val, tb = sys.exc_info()
                 raise OperationError(W_Object(exc),
-                                     W_Object(val),
-                                     W_Object(tb))
+                                     W_Object(val))   # XXX traceback
 
 cpyapi = CPyAPI.__new__(CPyAPI)
 cpyapi.__dict__ = pythonapi.__dict__.copy()

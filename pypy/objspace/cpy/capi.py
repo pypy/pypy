@@ -86,6 +86,14 @@ PyIter_Next = cpyapi.PyIter_Next
 PyIter_Next.argtypes = [W_Object]
 PyIter_Next.restype = W_Object
 
+PyObject_IsTrue = cpyapi.PyObject_IsTrue
+PyObject_IsTrue.argtypes = [W_Object]
+PyObject_IsTrue.restype = c_int
+
+PyObject_Type = cpyapi.PyObject_Type
+PyObject_Type.argtypes = [W_Object]
+PyObject_Type.restype = W_Object
+
 
 ###########################################################
 # ____________________ Number Protocol ____________________
@@ -109,6 +117,14 @@ PySequence_Tuple.restype = W_Object
 PySequence_SetItem = cpyapi.PySequence_SetItem
 PySequence_SetItem.argtypes = [W_Object, Py_ssize_t, W_Object]
 PySequence_SetItem.restype = c_int
+
+
+########################################################
+# ____________________ Type Objects ____________________
+
+PyType_IsSubtype = cpyapi.PyType_IsSubtype
+PyType_IsSubtype.argtypes = [W_Object, W_Object]
+PyType_IsSubtype.restype = c_int
 
 
 ###########################################################
@@ -178,13 +194,6 @@ PyImport_ImportModule = cpyapi.PyImport_ImportModule
 PyImport_ImportModule.argtypes = [c_char_p]
 PyImport_ImportModule.restype = W_Object
 
-# "RAW" because it comes from pythonapi instead of cpyapi
-# which makes it raise the set exception directly instead
-# of wrapping it into an OperationError
-RAW_PyErr_SetObject = pythonapi.PyErr_SetObject
-RAW_PyErr_SetObject.argtypes = [W_Object, W_Object]
-RAW_PyErr_SetObject.restype = None
-
 
 ##############################################################
 # ____________________ Built-in functions ____________________
@@ -201,3 +210,27 @@ PyArg_ParseTupleAndKeywords.restype = c_int
 ##PyCFunction_NewEx = cpyapi.PyCFunction_NewEx
 ##PyCFunction_NewEx.argtypes = [POINTER(PyMethodDef), W_Object, W_Object]
 ##PyCFunction_NewEx.restype = W_Object
+
+
+##############################################################
+# ____________________ Exception handling ____________________
+
+# "RAW" because it comes from pythonapi instead of cpyapi.
+# The normal error handling (wrapping CPython exceptions into
+# an OperationError) is disabled.
+RAW_PyErr_SetObject = pythonapi.PyErr_SetObject
+RAW_PyErr_SetObject.argtypes = [W_Object, W_Object]
+RAW_PyErr_SetObject.restype = None
+RAW_PyErr_SetObject._rctypes_pyerrchecker_ = None
+
+RAW_PyErr_Occurred = pythonapi.PyErr_Occurred
+RAW_PyErr_Occurred.argtypes = []
+RAW_PyErr_Occurred.restype = c_int
+RAW_PyErr_Occurred._rctypes_pyerrchecker_ = None
+
+RAW_PyErr_Fetch = pythonapi.PyErr_Fetch
+RAW_PyErr_Fetch.argtypes = [POINTER(W_Object),
+                            POINTER(W_Object),
+                            POINTER(W_Object)]
+RAW_PyErr_Fetch.restype = None
+RAW_PyErr_Fetch._rctypes_pyerrchecker_ = None

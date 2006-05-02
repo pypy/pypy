@@ -114,7 +114,12 @@ class CallEntry(CTypesEntry):
         kwds = {}
         if hasattr(cfuncptr, 'llinterp_friendly_version'):
             kwds['_callable'] = cfuncptr.llinterp_friendly_version
+        suppress_pyerr_occurred = False
         if (cfuncptr._flags_ & ctypes._FUNCFLAG_PYTHONAPI) == 0:
+            suppress_pyerr_occurred = True
+        if hasattr(cfuncptr, '_rctypes_pyerrchecker_'):
+            suppress_pyerr_occurred = True
+        if suppress_pyerr_occurred:
             kwds['includes'] = getattr(cfuncptr, 'includes', ())
         #else:
         #   no 'includes': hack to trigger in GenC a PyErr_Occurred() check
@@ -131,6 +136,19 @@ class CallEntry(CTypesEntry):
         last_op.args[0].value._set_TYPE(last_op.args[0].concretetype)
         last_op.args[0].value._set_T(FUNCTYPE)
         last_op.args[0].value._obj._TYPE = FUNCTYPE
+
+        if getattr(cfuncptr, '_rctypes_pyerrchecker_', None):
+            # special extension to support the CPyObjSpace
+            # XXX hackish: someone else -- like the annotator policy --
+            # must ensure that this extra function has been annotated
+            from pypy.translator.translator import graphof
+            func = cfuncptr._rctypes_pyerrchecker_
+            graph = graphof(hop.rtyper.annotator.translator, func)
+            hop.llops.record_extra_call(graph)
+            # build the 'direct_call' operation
+            f = hop.rtyper.getcallable(graph)
+            c = hop.inputconst(lltype.typeOf(f), f)
+            hop.genop('direct_call', [c])
 
         if RESTYPE is lltype.Void:
             return None

@@ -10,6 +10,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def initialize(self):
         self.options.geninterp = True
         self.w_int   = W_Object(int)
+        self.w_tuple = W_Object(tuple)
         self.w_None  = W_Object(None)
         self.w_False = W_Object(False)
         self.w_True  = W_Object(True)
@@ -66,6 +67,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     int_w   = staticmethod(PyInt_AsLong)
     str_w   = staticmethod(PyString_AsString)
     iter    = staticmethod(PyObject_GetIter)
+    type    = staticmethod(PyObject_Type)
 
     add     = staticmethod(PyNumber_Add)
     sub     = staticmethod(PyNumber_Subtract)
@@ -135,3 +137,12 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         if not w_res:
             raise OperationError(self.w_StopIteration, self.w_None)
         return w_res
+
+    def is_true(self, w_obj):
+        return PyObject_IsTrue(w_obj) != 0
+
+    def issubtype(self, w_type1, w_type2):
+        if PyType_IsSubtype(w_type1, w_type2):
+            return self.w_True
+        else:
+            return self.w_False

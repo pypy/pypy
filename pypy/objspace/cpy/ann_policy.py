@@ -2,7 +2,7 @@ from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.interpreter.error import OperationError
-from pypy.objspace.cpy.ctypes_base import W_Object
+from pypy.objspace.cpy.ctypes_base import W_Object, rctypes_pyerrchecker
 
 class CPyAnnotatorPolicy(PyPyAnnotatorPolicy):
     """Annotation policy to compile CPython extension modules with
@@ -30,8 +30,15 @@ class CPyAnnotatorPolicy(PyPyAnnotatorPolicy):
             # could have found new objects
 
         # force w_type, w_value attributes into the OperationError class
-        classdef = annotator.bookkeeper.getuniqueclassdef(OperationError)
+        bk = annotator.bookkeeper
+        classdef = bk.getuniqueclassdef(OperationError)
         s_instance = annmodel.SomeInstance(classdef=classdef)
         for name in ['w_type', 'w_value']:
-            s_instance.setattr(annotator.bookkeeper.immutablevalue(name),
-                               annotator.bookkeeper.valueoftype(W_Object))
+            s_instance.setattr(bk.immutablevalue(name),
+                               bk.valueoftype(W_Object))
+
+        # annotate rctypes_pyerrchecker()
+        uniquekey = rctypes_pyerrchecker
+        s_pyerrchecker = bk.immutablevalue(rctypes_pyerrchecker)
+        s_result = bk.emulate_pbc_call(uniquekey, s_pyerrchecker, [])
+        assert annmodel.s_None.contains(s_result)

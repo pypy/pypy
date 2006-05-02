@@ -78,9 +78,11 @@ class __extend__(pairtype(CPyObjSpace, Function)):
         sourcelines.append('    except ___OperationError, e:')
         sourcelines.append('        ___PyErr_SetObject(e.w_type.value,')
         sourcelines.append('                           e.w_value.value)')
-        sourcelines.append('        return None')  # should never be seen
-        sourcelines.append('    #except ___Exception, e:')
-        sourcelines.append('    #    raise ___RPythonError(XXX)')
+        # the following line is not reached, unless we are translated
+        # in which case it makes the function return (PyObject*)NULL.
+        sourcelines.append('        w_result = ___W_Object()')
+        #sourcelines.append('    except ___Exception, e:')
+        #sourcelines.append('        raise ___RPythonError(XXX)')
         sourcelines.append('    return w_result.value')
         sourcelines.append('')
 

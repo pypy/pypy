@@ -323,6 +323,36 @@ class Test_compile:
         assert res == 34
         py.test.raises(OverflowError, 'fn(sys.maxint, 1)')
 
+    def test_compile_pyerrchecker(self):
+        from pypy.rpython.rctypes import apyobject
+        class W_Object(py_object):
+            pass
+        apyobject.register_py_object_subclass(W_Object)
+
+        def mypyerrchecker():
+            # for this test, always raises
+            raise ZeroDivisionError
+
+        PyNumber_Add = pythonapi.PyNumber_Add
+        PyNumber_Add.argtypes = [W_Object, W_Object]
+        PyNumber_Add.restype = W_Object
+        assert PyNumber_Add._flags_ & _FUNCFLAG_PYTHONAPI
+        PyNumber_Add._rctypes_pyerrchecker_ = mypyerrchecker
+        # special extension ^^^ to support the CPyObjSpace
+        try:
+            def fn1(n):
+                if n < 0:
+                    # for this test, force mypyerrchecker() to be annotated
+                    # using this trick
+                    mypyerrchecker()
+                pyobj = W_Object(n)
+                return PyNumber_Add(pyobj, pyobj)
+
+            fn = compile(fn1, [int])
+            py.test.raises(ZeroDivisionError, fn, 64)
+        finally:
+            del PyNumber_Add._rctypes_pyerrchecker_
+
     def test_compile_ctime(self):
         import time
         N = 123456789

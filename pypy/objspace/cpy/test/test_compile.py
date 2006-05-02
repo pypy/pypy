@@ -5,6 +5,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
 from pypy.objspace.cpy.objspace import CPyObjSpace
 import pypy.rpython.rctypes.implementation
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy import conftest
@@ -104,3 +105,65 @@ def test_compile_demo():
                  annotatorpolicy = CPyAnnotatorPolicy(space))
     res = fn(10, complex)
     assert isinstance(res, int)
+
+# ____________________________________________________________
+
+def test_compile_exception_to_rpython():
+    space = CPyObjSpace()
+    def entrypoint(n):
+        w_sys = space.getbuiltinmodule('sys')
+        w_n = space.wrap(n)
+        try:
+            space.call_method(w_sys, 'exit', w_n)
+        except OperationError, e:
+            # a bit fragile: this test assumes that the OperationError
+            # is *not* normalized
+            return space.newtuple([e.w_type, e.w_value])
+        else:
+            return space.wrap('did not raise??')
+
+    fn = compile(entrypoint, [int],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    result = fn(5)
+    assert result == (SystemExit, 5)
+
+def test_compile_exception_from_rpython():
+    space = CPyObjSpace()
+    w_SystemExit = space.W_Object(SystemExit)
+    def myfunc(n):
+        if n > 0:
+            raise OperationError(w_SystemExit, space.wrap(n))
+        else:
+            return space.wrap(n)
+    myfunc.unwrap_spec = [int]
+    w_myfunc = space.wrap(interp2app(myfunc))
+
+    def entrypoint():
+        return w_myfunc
+
+    fn = compile(entrypoint, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    myfunc1 = fn()
+    e = py.test.raises(SystemExit, myfunc1, 5)
+    ex = e.value
+    assert ex.args == (5,)
+
+def test_compile_exception_through_rpython():
+    space = CPyObjSpace()
+    def myfunc(n):
+        w_sys = space.getbuiltinmodule('sys')
+        w_n = space.wrap(n)
+        space.call_method(w_sys, 'exit', w_n)
+        return space.w_None   # should not actually reach this point
+    myfunc.unwrap_spec = [int]
+    w_myfunc = space.wrap(interp2app(myfunc))
+
+    def entrypoint():
+        return w_myfunc
+
+    fn = compile(entrypoint, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    myfunc1 = fn()
+    e = py.test.raises(SystemExit, myfunc1, 5)
+    ex = e.value
+    assert ex.args == (5,)
