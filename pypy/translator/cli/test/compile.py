@@ -28,11 +28,17 @@ class Foo:
     def __init__(self, x):
         self.x = x
 
+def foo(a, b):
+    pass
+
+from pypy.rpython.rarithmetic import ovfcheck
+
 def bar(x, y):
-    t = (x,y)
-    return t[0]
-#    f = Foo(3)
-#    return f.x
+    try:
+        l = [x, y]
+        return l[0]
+    except IndexError:
+        return 0
 
 f = compile_function(bar, [int, int])
 

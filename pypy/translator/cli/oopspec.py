@@ -36,6 +36,6 @@ BUILTIN_TYPES = {
 
 BUILTIN_METHODS = {
     List : {
-        'append': Meth([List.ITEMTYPE_T], Void)
+        'Add': Meth([List.ITEMTYPE_T], Void)
         }
     } 

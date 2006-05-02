@@ -59,12 +59,12 @@ namespace pypy.runtime
             }
         }
 
+        /*
         public void append(T item)
         {
             this.Add(item);
         }
 
-        /*
         public void extend(List<T> other)
         {
             this.AddRange(other);
