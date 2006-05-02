@@ -107,7 +107,7 @@ def repr_instance(item):
     return "'" + repr_class(item)
 
 def repr_static_method(item):
-    return clrepr(item.value._name, symbol=True)
+    return "'" + clrepr(item.value._name, symbol=True)
 
 dispatch = {
         Class: repr_class,

@@ -1,7 +1,7 @@
 import types
 
 from pypy.tool.udir import udir
-from pypy.objspace.flow.model import Constant, c_last_exception
+from pypy.objspace.flow.model import Constant, c_last_exception, FunctionGraph
 from pypy.translator.translator import graphof
 from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
@@ -162,6 +162,10 @@ class GenCL:
                 graph = obj.graph
                 name = obj._method_name # XXX
                 for line in self.emit_defmethod(graph, name):
+                    yield line
+            elif isinstance(obj, FunctionGraph):
+                graph = obj
+                for line in self.emit_defun(graph):
                     yield line
 
     def emit_defun(self, fun):

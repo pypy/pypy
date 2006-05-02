@@ -61,11 +61,19 @@ class OpFormatter:
         yield "(setf %s (not (zerop %s)))" % (clrepr(result, True),
                                               clrepr(arg, True))
 
-    def op_direct_call(self, result, fun, *args):
+    def op_direct_call(self, result, _, *args):
         funobj = self.args[0].value
         self.gen.pendinggraphs.append(funobj)
+        fun = clrepr(funobj._name, symbol=True)
         funcall = " ".join((fun,) + args)
         yield "(setf %s (%s))" % (result, funcall)
+
+    def op_indirect_call(self, result, fun, *args):
+        graphs = self.args[-1].value
+        self.gen.pendinggraphs.extend(graphs)
+        args = args[:-1]
+        funcall = " ".join((fun,) + args)
+        yield "(setf %s (funcall %s))" % (result, funcall)
 
     def op_new(self, result, _):
         cls = self.args[0].value
