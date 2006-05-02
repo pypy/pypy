@@ -8,7 +8,7 @@ from pypy.interpreter import gateway
 from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c
 import ctypes
 from pypy.rpython.rctypes import implementation as rctypes_implemetation
-from pypy.rpython.rarithemetic import intmask
+from pypy.rpython.rarithmetic import intmask
 import errno
 
 IPV4_ADDRESS_SIZE = 4
