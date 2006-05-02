@@ -162,6 +162,10 @@ PyTuple_New = cpyapi.PyTuple_New
 PyTuple_New.argtypes = [Py_ssize_t]
 PyTuple_New.restype = W_Object
 
+PyTuple_SetItem = cpyapi.PyTuple_SetItem
+PyTuple_SetItem.argtypes = [W_Object, Py_ssize_t, W_Object]
+PyTuple_SetItem.restype = c_int
+
 
 #################################################
 # ____________________ Lists ____________________
@@ -173,6 +177,10 @@ PyList_New.restype = W_Object
 PyList_Append = cpyapi.PyList_Append
 PyList_Append.argtypes = [W_Object, W_Object]
 PyList_Append.restype = c_int
+
+PyList_SetItem = cpyapi.PyList_SetItem
+PyList_SetItem.argtypes = [W_Object, Py_ssize_t, W_Object]
+PyList_SetItem.restype = c_int
 
 
 ########################################################
@@ -193,6 +201,10 @@ PyDict_SetItem.restype = c_int
 PyImport_ImportModule = cpyapi.PyImport_ImportModule
 PyImport_ImportModule.argtypes = [c_char_p]
 PyImport_ImportModule.restype = W_Object
+
+_PyObject_Dump = cpyapi._PyObject_Dump
+_PyObject_Dump.argtypes = [W_Object]
+_PyObject_Dump.restype = None
 
 
 ##############################################################

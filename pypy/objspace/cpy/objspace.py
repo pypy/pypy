@@ -1,4 +1,5 @@
 from pypy.objspace.cpy.capi import *
+from pypy.objspace.cpy.refcount import Py_Incref
 from pypy.annotation.pairtype import pair
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
@@ -98,16 +99,17 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         return w_dict
 
     def newlist(self, items_w):
-        w_list = PyList_New(0)
-        for w_item in items_w:
-            # XXX inefficient but:
-            #       PyList_SetItem steals a ref so it's harder to use
-            #       PySequence_SetItem crashes if it replaces a NULL item
-            PyList_Append(w_list, w_item)
+        n = len(items_w)
+        w_list = PyList_New(n)
+        for i in range(n):
+            w_item = items_w[i]
+            Py_Incref(w_item)
+            PyList_SetItem(w_list, i, w_item)
         return w_list
 
     def newtuple(self, items_w):
-        # XXX not very efficient, but PyTuple_SetItem steals a ref
+        # XXX not very efficient, but PyTuple_SetItem complains if the
+        # refcount of the tuple is not exactly 1
         w_list = self.newlist(items_w)
         return PySequence_Tuple(w_list)
 
