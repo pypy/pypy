@@ -12,8 +12,9 @@ from pypy.rpython.memory.gctransform import GCTransformer
 
 from pypy import conftest
 
-def compile_func(fn, inputtypes):
-    t = TranslationContext()
+def compile_func(fn, inputtypes, t=None):
+    if t is None:
+        t = TranslationContext()
     t.buildannotator().build_types(fn, inputtypes)
     t.buildrtyper().specialize()
     builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
@@ -192,6 +193,33 @@ def test_wrong_order_setitem():
     fn = compile_func(f, [int])
     res = fn(1)
     assert res == 1
+
+def test_wrong_startblock_incref():
+    class B(object):
+        pass
+    def g(b):
+        while True:
+            b.x -= 10
+            if b.x < 0:
+                return b.x
+    def f(n):
+        b = B()
+        b.x = n
+        return g(b)
+
+    # XXX obscure: remove the first empty block in the graph of 'g'
+    t = TranslationContext()
+    graph = t.buildflowgraph(g)
+    assert graph.startblock.operations == []
+    graph.startblock = graph.startblock.exits[0].target
+    graph.startblock.isstartblock = True
+    from pypy.objspace.flow.model import checkgraph
+    checkgraph(graph)
+    t._prebuilt_graphs[g] = graph
+
+    fn = compile_func(f, [int], t)
+    res = fn(112)
+    assert res == -8
 
 class Weakrefable(object):
     __lifeline__ = None

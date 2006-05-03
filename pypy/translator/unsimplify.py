@@ -35,6 +35,14 @@ def insert_empty_block(translator, link, newops=[]):
     link.target = newblock
     return newblock
 
+def insert_empty_startblock(translator, graph):
+    vars = [copyvar(translator, v) for v in graph.startblock.inputargs]
+    newblock = Block(vars)
+    newblock.closeblock(Link(vars, graph.startblock))
+    graph.startblock.isstartblock = False
+    graph.startblock = newblock
+    graph.startblock.isstartblock = True
+
 def split_block(translator, block, index):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 

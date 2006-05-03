@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
+from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.translator import graphof
 from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
 from pypy.translator.backendopt import graphanalyze
@@ -67,7 +68,18 @@ class GCTransformer(object):
             return
         self.seen_graphs[graph] = True
         self.links_to_split = {} # link -> vars to pop_alive across the link
-        
+
+        # add push_alives at the beginning of the graph
+        newops = []
+        for var in graph.startblock.inputargs:
+            if var_needsgc(var):
+                newops.extend(self.push_alive(var))
+        if newops:  # only to check if we are going to add any operation at all
+            insert_empty_startblock(None, graph)
+            for var in graph.startblock.inputargs:
+                if var_needsgc(var):
+                    graph.startblock.operations.extend(self.push_alive(var))
+
         for block in graph.iterblocks():
             self.transform_block(block)
         for link, livecounts in self.links_to_split.iteritems():
@@ -104,10 +116,6 @@ class GCTransformer(object):
         newops = []
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         newops = []
-        if block.isstartblock:
-            for var in block.inputargs:
-                if var_needsgc(var):
-                    newops.extend(self.push_alive(var))
         # XXX this is getting obscure.  Maybe we should use the basic
         # graph-transforming capabilities of the RTyper instead, as we
         # seem to run into all the same problems as the ones we already
