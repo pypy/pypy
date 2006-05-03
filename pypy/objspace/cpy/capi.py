@@ -94,6 +94,14 @@ PyObject_Type = cpyapi.PyObject_Type
 PyObject_Type.argtypes = [W_Object]
 PyObject_Type.restype = W_Object
 
+PyObject_Str = cpyapi.PyObject_Str
+PyObject_Str.argtyps = [W_Object]
+PyObject_Str.restype = W_Object
+
+PyObject_Repr = cpyapi.PyObject_Repr
+PyObject_Repr.argtyps = [W_Object]
+PyObject_Repr.restype = W_Object
+
 
 ###########################################################
 # ____________________ Number Protocol ____________________

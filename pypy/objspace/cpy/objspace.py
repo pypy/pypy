@@ -12,6 +12,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         self.options.geninterp = False
         self.w_int   = W_Object(int)
         self.w_tuple = W_Object(tuple)
+        self.w_str   = W_Object(str)
         self.w_None  = W_Object(None)
         self.w_False = W_Object(False)
         self.w_True  = W_Object(True)
@@ -69,6 +70,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     str_w   = staticmethod(PyString_AsString)
     iter    = staticmethod(PyObject_GetIter)
     type    = staticmethod(PyObject_Type)
+    str     = staticmethod(PyObject_Str)
+    repr    = staticmethod(PyObject_Repr)
 
     add     = staticmethod(PyNumber_Add)
     sub     = staticmethod(PyNumber_Subtract)
