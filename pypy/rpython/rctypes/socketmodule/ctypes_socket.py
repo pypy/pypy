@@ -128,7 +128,7 @@ CConfig.hostent = ctypes_platform.Struct('struct hostent',
                                       ('h_aliases', POINTER(c_char_p)),
                                       ('h_addrtype', c_int),
                                       ('h_length', c_int),
-                                      ('h_addr_list', POINTER(POINTER(c_char)))
+                                      ('h_addr_list', POINTER(c_char_p))
                                       ])
 
 
@@ -320,11 +320,11 @@ getaddrinfo.argtypes = [ c_char_p, c_char_p, addrinfo_ptr, POINTER(addrinfo_ptr)
 getaddrinfo.restype = c_int
 
 gethostname = socketdll.gethostname
-gethostname.argtypes = [POINTER(c_char), c_int]
+gethostname.argtypes = [c_char_p, c_int]
 gethostname.restype = c_int
 
 gethostbyname = socketdll.gethostbyname
-gethostbyname.argtypes = [POINTER(c_char)]
+gethostbyname.argtypes = [c_char_p]
 gethostbyname.restype = POINTER(cConfig.hostent)
 
 gethostbyaddr = socketdll.gethostbyaddr
