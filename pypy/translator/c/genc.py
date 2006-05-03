@@ -79,7 +79,7 @@ class CBuilder(object):
 
     have___thread = None
 
-    def generate_source(self, db=None):
+    def generate_source(self, db=None, defines={}):
         assert self.c_source_filename is None
         translator = self.translator
 
@@ -93,7 +93,7 @@ class CBuilder(object):
         modulename = self.modulename
         targetdir = udir.ensure(modulename, dir=1)
         self.targetdir = targetdir
-        defines = {}
+        defines = defines.copy()
         # defines={'COUNT_OP_MALLOCS': 1}
         if CBuilder.have___thread is None:
             CBuilder.have___thread = check_under_under_thread()

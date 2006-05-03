@@ -259,6 +259,15 @@ class MinimalGCTransformer(GCTransformer):
 
     # ----------------------------------------------------------------
 
+def ll_call_destructor(destrptr, destr_v):
+    try:
+        destrptr(destr_v)
+    except:
+        try:
+            os.write(2, "a destructor raised an exception, ignoring it\n")
+        except:
+            pass
+
 def _static_deallocator_body_for_type(v, TYPE, depth=1):
     if isinstance(TYPE, lltype.Array):
         inner = list(_static_deallocator_body_for_type('v_%i'%depth, TYPE.OF, depth+1))
@@ -444,13 +453,7 @@ def ll_deallocator(addr):
         # refcount is at zero, temporarily bump it to 1:
         gcheader.signed[0] = 1
         destr_v = cast_pointer(DESTR_ARG, v)
-        try:
-            destrptr(destr_v)
-        except:
-            try:
-                os.write(2, "a destructor raised an exception, ignoring it\\n")
-            except:
-                pass
+        ll_call_destructor(destrptr, destr_v)
         refcount = gcheader.signed[0] - 1
         gcheader.signed[0] = refcount
         if refcount == 0:
@@ -459,7 +462,9 @@ def ll_deallocator(addr):
     except:
         pass
     llop.gc_restore_exception(lltype.Void, exc_instance)
-        
+    pop_alive(exc_instance)
+    # XXX layering of exceptiontransform versus gcpolicy
+
 """ % (body, )
         else:
             call_del = None
@@ -476,7 +481,7 @@ def ll_deallocator(addr):
              'PTR_TYPE': lltype.Ptr(TYPE),
              'DESTR_ARG': DESTR_ARG,
              'EXC_INSTANCE_TYPE': self.translator.rtyper.exceptiondata.lltype_of_exception_value,
-             'os': py.std.os}
+             'll_call_destructor': ll_call_destructor}
         exec src in d
         this = d['ll_deallocator']
         g, fptr = self.annotate_helper(this, [llmemory.Address], lltype.Void)
@@ -627,14 +632,8 @@ class BoehmGCTransformer(GCTransformer):
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
             def ll_finalizer(addr):
                 exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
-                try:
-                    v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                    destrptr(v)
-                except:
-                    try:
-                        os.write(2, "a destructor raised an exception, ignoring it\n")
-                    except:
-                        pass
+                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                ll_call_destructor(destrptr, v)
                 llop.gc_restore_exception(lltype.Void, exc_instance)
             g, fptr = self.annotate_helper(ll_finalizer, [llmemory.Address], lltype.Void)
         else:

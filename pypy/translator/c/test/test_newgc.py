@@ -17,12 +17,20 @@ def compile_func(fn, inputtypes):
     t.buildannotator().build_types(fn, inputtypes)
     t.buildrtyper().specialize()
     builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
-    builder.generate_source()
+    builder.generate_source(defines={'COUNT_OP_MALLOCS': 1})
     builder.compile()
     builder.import_module()
     if conftest.option.view:
         t.view()
-    return builder.get_entry_point()
+    module = builder.c_ext_module
+    compiled_fn = builder.get_entry_point()
+    def checking_fn(*args, **kwds):
+        try:
+            return compiled_fn(*args, **kwds)
+        finally:
+            mallocs, frees = module.malloc_counters()
+            assert mallocs == frees
+    return checking_fn
 
 def test_something():
     def f():
