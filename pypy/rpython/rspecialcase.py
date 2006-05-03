@@ -7,9 +7,6 @@ def rtype_call_specialcase(hop):
     if len(s_pbc.descriptions) != 1:
         raise TyperError("not monomorphic call_specialcase")
     desc, = s_pbc.descriptions
-    if hasattr(desc.pyobj, 'compute_ll_ops'):
-        # XXX bug mwh to write some tests for this stuff
-        return desc.pyobj.compute_ll_ops(hop)
     tag = desc.pyobj._annspecialcase_
     if not tag.startswith("override:"):
         raise TyperError("call_specialcase only supports 'override:' functions")

@@ -11,7 +11,7 @@ from pypy import conftest
 
 import py
 
-def checkblock(block):
+def checkblock(block, is_borrowed):
     if block.operations == ():
         # a return/exception block -- don't want to think about them
         # (even though the test passes for somewhat accidental reasons)
@@ -19,7 +19,9 @@ def checkblock(block):
     if block.isstartblock:
         refs_in = 0
     else:
-        refs_in = len([v for v in block.inputargs if isinstance(v, Variable) and var_needsgc(v)])
+        refs_in = len([v for v in block.inputargs if isinstance(v, Variable)
+                                                  and var_needsgc(v)
+                                                  and not is_borrowed(v)])
     push_alives = len([op for op in block.operations
                        if op.opname == 'gc_push_alive'])
     pyobj_push_alives = len([op for op in block.operations
@@ -43,7 +45,10 @@ def checkblock(block):
         return
     for link in block.exits:
         assert block.exitswitch is not c_last_exception
-        refs_out = len([v for v in link.args if var_needsgc(v)])
+        refs_out = 0
+        for v2 in link.target.inputargs:
+            if var_needsgc(v2) and not is_borrowed(v2):
+                refs_out += 1
         pyobj_pushes = pyobj_push_alives + implicit_pyobj_pushalives
         nonpyobj_pushes = push_alives + nonpyobj_gc_returning_calls
         assert refs_in + pyobj_pushes + nonpyobj_pushes == pop_alives + pyobj_pop_alives + refs_out
@@ -67,14 +72,16 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
     etrafo = ExceptionTransformer(t)
     etrafo.transform_completely()
     transformer = transformcls(t)
-    transformer.transform(t.graphs)
+    graphs_borrowed = {}
+    for graph in t.graphs:
+        graphs_borrowed[graph] = transformer.transform_graph(graph)
     if conftest.option.view:
         t.view()
     t.checkgraphs()
     if check:
-        for graph in t.graphs:
+        for graph, is_borrowed in graphs_borrowed.iteritems():
             for block in graph.iterblocks():
-                checkblock(block)
+                checkblock(block, is_borrowed)
     return t, transformer
 
 def test_simple():

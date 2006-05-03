@@ -5,13 +5,17 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.unsimplify import insert_empty_startblock
+from pypy.translator.unsimplify import starts_with_empty_block
+from pypy.translator.unsimplify import remove_empty_startblock
 from pypy.translator.translator import graphof
 from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
 from pypy.translator.backendopt import graphanalyze
+from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel, typesystem
 from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+from pypy.rpython.extregistry import ExtRegistryEntry
 import sets, os
 
 NEVER_RAISING_OPS = ['gc_protect', 'gc_unprotect']
@@ -69,16 +73,13 @@ class GCTransformer(object):
         self.seen_graphs[graph] = True
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
-        # add push_alives at the beginning of the graph
-        newops = []
-        for var in graph.startblock.inputargs:
-            if var_needsgc(var):
-                newops.extend(self.push_alive(var))
-        if newops:  # only to check if we are going to add any operation at all
+        # for sanity, we need an empty block at the start of the graph
+        if not starts_with_empty_block(graph):
             insert_empty_startblock(self.translator, graph)
+        is_borrowed = self.compute_borrowed_vars(graph)
 
         for block in graph.iterblocks():
-            self.transform_block(block)
+            self.transform_block(block, is_borrowed)
         for link, livecounts in self.links_to_split.iteritems():
             newops = []
             for var, livecount in livecounts.iteritems():
@@ -87,15 +88,36 @@ class GCTransformer(object):
                 for i in range(-livecount):
                     newops.extend(self.push_alive(var))
             if newops:
-                if len(link.prevblock.exits) == 1:
+                if link.prevblock.exitswitch is None:
                     link.prevblock.operations.extend(newops)
                 else:
-                    insert_empty_block(None, link, newops)
+                    insert_empty_block(self.translator, link, newops)
+
+        # remove the empty block at the start of the graph, which should
+        # still be empty (but let's check)
+        if starts_with_empty_block(graph):
+            remove_empty_startblock(graph)
 
         self.links_to_split = None
         v = Variable('vanishing_exc_value')
         v.concretetype = self.get_lltype_of_exception_value()
         graph.exc_cleanup = (v, self.pop_alive(v))
+        return is_borrowed    # xxx for tests only
+
+    def compute_borrowed_vars(self, graph):
+        # the input args are borrowed, and stay borrowed for as long as they
+        # are not merged with other values.
+        var_families = DataFlowFamilyBuilder(graph).get_variable_families()
+        borrowed_reps = {}
+        for v in graph.getargs():
+            borrowed_reps[var_families.find_rep(v)] = True
+        # no support for returning borrowed values so far
+        retvar = graph.getreturnvar()
+
+        def is_borrowed(v1):
+            return (var_families.find_rep(v1) in borrowed_reps
+                    and v1 is not retvar)
+        return is_borrowed
 
     def inline_helpers(self, graph):
         if self.inline:
@@ -109,13 +131,11 @@ class GCTransformer(object):
                     pass
             checkgraph(graph)
 
-    def transform_block(self, block):
+    def transform_block(self, block, is_borrowed):
         newops = []
-        livevars = [var for var in block.inputargs if var_needsgc(var)]
+        livevars = [var for var in block.inputargs if var_needsgc(var)
+                                                   and not is_borrowed(var)]
         newops = []
-        if block.isstartblock:
-            for var in livevars:
-                newops.extend(self.push_alive(var))
         # XXX this is getting obscure.  Maybe we should use the basic
         # graph-transforming capabilities of the RTyper instead, as we
         # seem to run into all the same problems as the ones we already
@@ -137,7 +157,8 @@ class GCTransformer(object):
                 elif op.opname not in ('direct_call', 'indirect_call'):
                     lst = list(self.push_alive(op.result))
                     newops.extend(lst)
-                livevars.append(op.result)
+                if not is_borrowed(op.result):
+                    livevars.append(op.result)
         if len(block.exits) == 0:
             # everything is fine already for returnblocks and exceptblocks
             pass
@@ -150,11 +171,14 @@ class GCTransformer(object):
                 newops.extend(self.pop_alive(var))
             for link in block.exits:
                 livecounts = dict.fromkeys(sets.Set(livevars) - deadinallexits, 1)
-                for v in link.args:
+                for v, v2 in zip(link.args, link.target.inputargs):
+                    if is_borrowed(v2):
+                        continue
                     if v in livecounts:
                         livecounts[v] -= 1
                     elif var_needsgc(v):
-                        assert isinstance(v, Constant)
+                        # 'v' is typically a Constant here, but it can be
+                        # a borrowed variable going into a non-borrowed one
                         livecounts[v] = -1
                 self.links_to_split[link] = livecounts
         if newops:
@@ -253,9 +277,11 @@ class GCTransformer(object):
         return Constant(ptr, lltype.Ptr(lltype.FuncType(ll_args, ll_result)))
 
     def finish(self):
+        if self.translator is not None:
+            self.mixlevelannotator.finish_annotate()
         self.finished = True
         if self.translator is not None:
-            self.mixlevelannotator.finish()
+            self.mixlevelannotator.finish_rtype()
 
 class MinimalGCTransformer(GCTransformer):
     def push_alive(self, var):
@@ -265,7 +291,40 @@ class MinimalGCTransformer(GCTransformer):
         return []
 
 
-    # ----------------------------------------------------------------
+# ----------------------------------------------------------------
+
+class LLTransformerOp(object):
+    """Objects that can be called in ll functions.
+    Their calls are replaced by a simple operation of the GC transformer,
+    e.g. ll_pop_alive.
+    """
+    def __init__(self, transformer, opname):
+        self.transformer = transformer
+        self.opname = opname
+
+class LLTransformerOpEntry(ExtRegistryEntry):
+    "Annotation and specialization of LLTransformerOp() instances."
+    _type_ = LLTransformerOp
+
+    def compute_result_annotation(self, s_arg):
+        assert isinstance(s_arg, annmodel.SomePtr)
+        PTRTYPE = s_arg.ll_ptrtype
+        if PTRTYPE.TO is not lltype.PyObject:
+            # look for and annotate a dynamic deallocator if necessary;
+            # doing so implicitly in specialize_call() is too late.
+            op = self.instance   # the LLTransformerOp instance
+            op.transformer.dynamic_deallocation_funcptr_for_type(PTRTYPE.TO)
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        op = self.instance   # the LLTransformerOp instance
+        meth = getattr(op.transformer, op.opname)
+        newops = meth(hop.args_v[0])
+        hop.llops.extend(newops)
+        hop.exception_cannot_occur()
+        return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
+
+# ----------------------------------------------------------------
 
 def ll_call_destructor(destrptr, destr_v):
     try:
@@ -427,14 +486,6 @@ class RefcountingGCTransformer(GCTransformer):
         if TYPE in self.static_deallocator_funcptrs:
             return self.static_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
-        def compute_pop_alive_ll_ops(hop):
-            hop.llops.extend(self.pop_alive(hop.args_v[1]))
-            hop.exception_cannot_occur()
-            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
-        def ll_pop_alive(var):
-            pass
-        ll_pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
-        ll_pop_alive.llresult = lltype.Void
 
         rtti = self.get_rtti(TYPE) 
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -479,7 +530,7 @@ def ll_deallocator(addr):
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def ll_deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
                    body + '\n    llop.gc_free(lltype.Void, addr)\n')
-        d = {'pop_alive': ll_pop_alive,
+        d = {'pop_alive': LLTransformerOp(self, 'pop_alive'),
              'llop': llop,
              'lltype': lltype,
              'destrptr': destrptr,
@@ -606,15 +657,7 @@ class BoehmGCTransformer(GCTransformer):
     def finalizer_funcptr_for_type(self, TYPE):
         if TYPE in self.finalizer_funcptrs:
             return self.finalizer_funcptrs[TYPE]
-        
-        def compute_pop_alive_ll_ops(hop):
-            hop.llops.extend(self.pop_alive(hop.args_v[1]))
-            return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
-        def ll_pop_alive(var):
-            pass
-        ll_pop_alive.compute_ll_ops = compute_pop_alive_ll_ops
-        ll_pop_alive.llresult = lltype.Void
-        
+
         rtti = self.get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
             destrptr = rtti._obj.destructor_funcptr
@@ -628,7 +671,7 @@ class BoehmGCTransformer(GCTransformer):
                 raise Exception("can't mix PyObjects and __del__ with Boehm")
 
             static_body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
-            d = {'pop_alive':ll_pop_alive,
+            d = {'pop_alive': LLTransformerOp(self, 'pop_alive'),
                  'PTR_TYPE':lltype.Ptr(TYPE),
                  'cast_adr_to_ptr': llmemory.cast_adr_to_ptr}
             src = ("def ll_finalizer(addr):\n"

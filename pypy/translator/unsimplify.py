@@ -43,6 +43,16 @@ def insert_empty_startblock(translator, graph):
     graph.startblock = newblock
     graph.startblock.isstartblock = True
 
+def starts_with_empty_block(graph):
+    return (not graph.startblock.operations
+            and graph.startblock.exitswitch is None
+            and graph.startblock.exits[0].args == graph.getargs())
+
+def remove_empty_startblock(graph):
+    graph.startblock.isstartblock = False
+    graph.startblock = graph.startblock.exits[0].target
+    graph.startblock.isstartblock = True
+
 def split_block(translator, block, index):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 

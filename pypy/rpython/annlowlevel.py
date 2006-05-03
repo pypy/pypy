@@ -47,10 +47,6 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     override_do_imports_immediately = True
 
     def default_specialize(pol, funcdesc, args_s):
-        if hasattr(funcdesc, 'pyobj') and hasattr(funcdesc.pyobj, 'llresult'):
-            # XXX bug mwh to write some tests for this stuff
-            funcdesc.overridden = True
-            return annmodel.lltype_to_annotation(funcdesc.pyobj.llresult)
         key = []
         new_args_s = []
         for s_obj in args_s:
@@ -154,6 +150,10 @@ class MixLevelHelperAnnotator:
             return repr.convert_const(obj)
 
     def finish(self):
+        self.finish_annotate()
+        self.finish_rtype()
+
+    def finish_annotate(self):
         # push all the graphs into the annotator's pending blocks dict at once
         rtyper = self.rtyper
         ann = rtyper.annotator
@@ -172,6 +172,9 @@ class MixLevelHelperAnnotator:
                                 "originally specified: %r\n"
                                 " found by annotating: %r" %
                                 (graph, s_result, s_real_result))
+
+    def finish_rtype(self):
+        rtyper = self.rtyper
         rtyper.type_system.perform_normalizations(rtyper)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
