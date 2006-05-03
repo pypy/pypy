@@ -328,7 +328,7 @@ gethostbyname.argtypes = [c_char_p]
 gethostbyname.restype = POINTER(cConfig.hostent)
 
 gethostbyaddr = socketdll.gethostbyaddr
-gethostbyaddr.argtypes = [POINTER(c_char), c_int, c_int]
+gethostbyaddr.argtypes = [c_char_p, c_int, c_int]
 gethostbyaddr.restype = POINTER(cConfig.hostent)
 
 getservbyname = socketdll.getservbyname
