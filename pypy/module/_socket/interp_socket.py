@@ -476,9 +476,12 @@ def inet_pton_ipv6(space, ip):
             number = number * 16 + (char_ord - A_ord) + 10
             pos += 1
         elif char == ".":
-            if i - pos == 0:
+            new_pos = i - pos
+            if new_pos == 0:
                 return ""
-            packed_v4 = inet_pton_ipv4(space, ip[i - pos:])
+            packed_v4 = ""
+            if new_pos > 0:
+                packed_v4 = inet_pton_ipv4(space, ip[new_pos:])
             if len(packed_v4) == 0:
                 return ""
             packed += packed_v4
@@ -608,7 +611,26 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
         raise w_get_socketgaierror(space, None, retval)
 
     result = []
-    next = res
+    next = None
+    if res:
+        info = res.contents
+        next = info.ai_next
+        try:
+            w_family = space.wrap(info.ai_family)
+            w_socktype = space.wrap(info.ai_socktype)
+            w_proto = space.wrap(info.ai_protocol)
+            if info.ai_canonname:
+                w_canonname = space.wrap(info.ai_canonname)
+            else:
+                w_canonname = space.wrap('')
+            w_addr = w_makesockaddr(space,
+            _c.cast(info.ai_addr, _c.sockaddr_ptr),
+                    info.ai_addrlen, info.ai_protocol)
+            result.append(space.newtuple([w_family, w_socktype, w_proto,
+                                w_canonname, w_addr]))
+        except:
+            _c.freeaddrinfo(res)
+            raise
     while next:
         info = next.contents
         next = info.ai_next
