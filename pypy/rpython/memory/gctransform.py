@@ -18,9 +18,6 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.extregistry import ExtRegistryEntry
 import sets, os
 
-NEVER_RAISING_OPS = ['gc_protect', 'gc_unprotect']
-
-
 def var_ispyobj(var):
     if hasattr(var, 'concretetype'):
         if isinstance(var.concretetype, lltype.Ptr):
