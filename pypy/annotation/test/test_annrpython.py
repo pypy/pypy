@@ -1975,6 +1975,23 @@ class TestAnnotateTestCase:
         assert s.__class__ == annmodel.SomeObject
         assert s.knowntype == type
 
+    def test_annotate_iter_empty_container(self):
+        def f():
+            n = 0
+            d = {}
+            for x in []:                n += x
+            for y in d:                 n += y
+            for z in d.iterkeys():      n += z
+            for s in d.itervalues():    n += s
+            for t, u in d.items():      n += t * u
+            for t, u in d.iteritems():  n += t * u
+            return n
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.is_constant()
+        assert s.const == 0
+
 def g(n):
     return [0,1,2,n]
 

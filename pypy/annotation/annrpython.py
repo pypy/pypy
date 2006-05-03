@@ -488,11 +488,12 @@ class RPythonAnnotator:
                 exits = [link for link in block.exits
                               if link.exitcase is not None]
 
-            elif e.op.opname in ('simple_call', 'call_args'):
+            elif e.op.opname in ('simple_call', 'call_args', 'next'):
                 # XXX warning, keep the name of the call operations in sync
                 # with the flow object space.  These are the operations for
                 # which it is fine to always raise an exception.  We then
                 # swallow the BlockedInference and that's it.
+                # About 'next': see test_annotate_iter_empty_container().
                 return
 
             else:

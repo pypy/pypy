@@ -614,7 +614,9 @@ def ll_dictnext(iter, func, RETURNTYPE):
             index = index + 1
             if entry.valid():
                 iter.index = index
-                if func is dum_items:
+                if RETURNTYPE is lltype.Void:
+                    return None
+                elif func is dum_items:
                     r = lltype.malloc(RETURNTYPE.TO)
                     r.item0 = recast(RETURNTYPE.TO.item0, entry.key)
                     r.item1 = recast(RETURNTYPE.TO.item1, entry.value)
@@ -707,15 +709,16 @@ def ll_kvi(dic, LIST, func):
         entry = entries[i]
         if entry.valid():
             ELEM = lltype.typeOf(items).TO.OF
-            if func is dum_items:
-                r = lltype.malloc(ELEM.TO)
-                r.item0 = recast(ELEM.TO.item0, entry.key)
-                r.item1 = recast(ELEM.TO.item1, entry.value)
-                items[p] = r
-            elif func is dum_keys:
-                items[p] = recast(ELEM, entry.key)
-            elif func is dum_values:
-                items[p] = recast(ELEM, entry.value)
+            if ELEM is not lltype.Void:
+                if func is dum_items:
+                    r = lltype.malloc(ELEM.TO)
+                    r.item0 = recast(ELEM.TO.item0, entry.key)
+                    r.item1 = recast(ELEM.TO.item1, entry.value)
+                    items[p] = r
+                elif func is dum_keys:
+                    items[p] = recast(ELEM, entry.key)
+                elif func is dum_values:
+                    items[p] = recast(ELEM, entry.value)
             p += 1
         i += 1
     return res

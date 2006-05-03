@@ -7,7 +7,7 @@ from pypy.annotation.model import \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
-     SomeCTypesObject,\
+     SomeCTypesObject, s_ImpossibleValue, \
      unionof, set, missing_operation, add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
@@ -317,8 +317,13 @@ class __extend__(SomeDict):
         elif variant == 'values':
             return dct.dictdef.read_value()
         elif variant == 'items':
-            return SomeTuple((dct.dictdef.read_key(),
-                              dct.dictdef.read_value()))
+            s_key   = dct.dictdef.read_key()
+            s_value = dct.dictdef.read_value()
+            if (isinstance(s_key, SomeImpossibleValue) or
+                isinstance(s_value, SomeImpossibleValue)):
+                return s_ImpossibleValue
+            else:
+                return SomeTuple((s_key, s_value))
         else:
             raise ValueError
 
@@ -342,8 +347,7 @@ class __extend__(SomeDict):
         return getbookkeeper().newlist(dct.dictdef.read_value())
 
     def method_items(dct):
-        return getbookkeeper().newlist(SomeTuple((dct.dictdef.read_key(),
-                                                  dct.dictdef.read_value())))
+        return getbookkeeper().newlist(dct.getanyitem('items'))
 
     def method_iterkeys(dct):
         return SomeIterator(dct, 'keys')
@@ -388,7 +392,7 @@ class __extend__(SomeString):
     def method_join(str, s_list):
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
-        if s_item == SomeImpossibleValue():
+        if isinstance(s_item, SomeImpossibleValue):
             return immutablevalue("")
         return SomeString()
 
