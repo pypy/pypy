@@ -14,8 +14,8 @@ W_Weakrefable.__lifeline__ = None
 class WeakrefLifeline(object):
     def __init__(self):
         self.addr_refs = []
-        self.w_cached_weakref = None
-        self.w_cached_proxy = None
+        self.cached_weakref_index = -1
+        self.cached_proxy_index = -1
         
     def __del__(self):
         for i in range(len(self.addr_refs) - 1, -1, -1):
@@ -33,21 +33,23 @@ class WeakrefLifeline(object):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         is_weakreftype = space.is_w(w_weakreftype, w_subtype)
         can_reuse = space.is_w(w_callable, space.w_None)
-        if is_weakreftype and can_reuse and self.w_cached_weakref is not None:
-            return self.w_cached_weakref
+        if is_weakreftype and can_reuse and self.cached_weakref_index >= 0:
+            cached_weakref_address = self.addr_refs[self.cached_weakref_index]
+            return cast_address_to_object(cached_weakref_address, W_Weakref)
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
         index = len(self.addr_refs)
         W_Weakref.__init__(w_ref, space, self, index,
                            w_obj, w_callable)
         self.addr_refs.append(cast_object_to_address(w_ref))
         if is_weakreftype and can_reuse:
-            self.w_cached_weakref = w_ref
+            self.cached_weakref_index = index
         return w_ref
 
     def get_proxy(self, space, w_obj, w_callable):
         can_reuse = space.is_w(w_callable, space.w_None)
-        if can_reuse and self.w_cached_proxy is not None:
-            return self.w_cached_proxy
+        if can_reuse and self.cached_proxy_index >= 0:
+            cached_proxy_address = self.addr_refs[self.cached_proxy_index]
+            return cast_address_to_object(cached_proxy_address, W_Proxy)
         index = len(self.addr_refs)
         if space.is_true(space.callable(w_obj)):
             w_proxy = W_CallableProxy(space, self, index, w_obj, w_callable)
@@ -55,11 +57,15 @@ class WeakrefLifeline(object):
             w_proxy = W_Proxy(space, self, index, w_obj, w_callable)
         self.addr_refs.append(cast_object_to_address(w_proxy))
         if can_reuse:
-            self.w_cached_proxy = w_proxy
+            self.cached_proxy_index = index
         return w_proxy
 
     def ref_is_dead(self, index):
         self.addr_refs[index] = NULL
+        if self.cached_proxy_index == index:
+            self.cached_proxy_index = -1
+        if self.cached_weakref_index == index:
+            self.cached_weakref_index = -1
 
 
 class W_WeakrefBase(Wrappable):

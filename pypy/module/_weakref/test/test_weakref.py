@@ -91,6 +91,19 @@ class AppTestWeakref(object):
         wref1 = wref(a)
         assert isinstance(wref1, wref)
 
+    def test_correct_weakrefcount_after_death(self):
+        import _weakref
+        class A:
+            pass
+        a = A()
+        ref1 = _weakref.ref(a)
+        ref2 = _weakref.ref(a)
+        assert _weakref.getweakrefcount(a) == 1
+        del ref1
+        assert _weakref.getweakrefcount(a) == 1
+        del ref2
+        assert _weakref.getweakrefcount(a) == 0
+
     def test_weakref_equality(self):
         import _weakref
         class A:
