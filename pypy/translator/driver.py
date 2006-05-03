@@ -42,7 +42,7 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=Fal
 class TranslationDriver(SimpleTaskEngine):
 
     def __init__(self, options=None, default_goal=None, disable=[],
-                 exe_name = 'target-%(backend)s'):
+                 exe_name = 'target-%(backend)s', extmod_name=None):
         SimpleTaskEngine.__init__(self)
 
         self.log = log
@@ -51,6 +51,7 @@ class TranslationDriver(SimpleTaskEngine):
             options = DEFAULT_OPTIONS
         self.options = options
         self.exe_name = exe_name
+        self.extmod_name = extmod_name
 
         self.done = {}
 
@@ -245,8 +246,8 @@ class TranslationDriver(SimpleTaskEngine):
                             gcpolicy       = gcpolicy,
                             thread_enabled = getattr(opt, 'thread', False))
         cbuilder.stackless = opt.stackless
-        if not standalone:     # xxx messy
-            cbuilder.modulename = self.exe_name % self.options.__dict__
+        if not standalone:     # xxx more messy
+            cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()
         self.log.info("database for generating C source was created")
         self.cbuilder = cbuilder
