@@ -628,9 +628,9 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
         except:
             _c.freeaddrinfo(res)
             raise
-    res = space.newlist(result)
+    result = space.newlist(result)
     _c.freeaddrinfo(res)
-    return res
+    return result
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
 
 def getnameinfo(space, w_sockaddr, flags):
@@ -675,9 +675,10 @@ def getnameinfo(space, w_sockaddr, flags):
 
     hostbuf = ctypes.create_string_buffer(_c.NI_MAXHOST)
     portbuf = ctypes.create_string_buffer(_c.NI_MAXSERV)
+    maxhost = _c.size_t(_c.NI_MAXHOST)
     error = _c.getnameinfo(res.contents.ai_addr, res.contents.ai_addrlen,
-                        hostbuf, _c.NI_MAXHOST,
-                        portbuf, _c.NI_MAXSERV, flags)
+                        hostbuf, maxhost,
+                        portbuf, _c.size_t(_c.NI_MAXSERV), flags)
 
     if res:
         _c.freeaddrinfo(res)
