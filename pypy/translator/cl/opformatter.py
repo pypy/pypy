@@ -34,6 +34,7 @@ class OpFormatter:
     op_cast_int_to_char = make_unary_op("code-char")
     op_cast_float_to_int = make_unary_op("truncate")
     op_cast_int_to_float = make_unary_op("float")
+    op_int_neg = make_unary_op("not")
 
     def make_binary_op(cl_op):
         def binary_op(self, result, arg1, arg2):
@@ -47,6 +48,7 @@ class OpFormatter:
     op_int_eq = make_binary_op("=")
     op_int_gt = make_binary_op(">")
     op_int_ge = make_binary_op(">=")
+    op_int_ne = make_binary_op("/=")
     op_int_lt = make_binary_op("<")
     op_int_le = make_binary_op("<=")
     op_int_and = make_binary_op("logand")
@@ -165,6 +167,12 @@ class ListImpl:
 
     def ll_setitem_fast(self, index, value):
         return "(setf (aref %s %s) %s)" % (self.obj, index, value)
+    
+    def _ll_resize_le(self, size):
+        return "(adjust-array %s %s)" % (self.obj, size)
+    
+    def _ll_resize_ge(self, size):
+        return "(adjust-array %s %s)" % (self.obj, size)
 
     def _ll_resize(self, size):
         return "(adjust-array %s %s)" % (self.obj, size)

@@ -109,12 +109,13 @@ class GenCL:
         # const.concretetype is Instance
         if const in self.declarations:
             return self.declarations[const][0]
-        name = "const" + str(self.constcount)
+        name = "+const" + str(self.constcount) + "+"
         INST = dynamicType(const.value)
         self.declare_class(INST)
         inst = oodowncast(INST, const.value)
         cls = clrepr(INST)
         const_declaration = []
+        const_declaration.append("(defvar %s nil)" % clrepr(name, True))
         const_declaration.append("(setf %s (make-instance %s))" % (clrepr(name, True),
                                                                    clrepr(cls, True)))
         fields = INST._allfields()

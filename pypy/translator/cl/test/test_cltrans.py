@@ -131,8 +131,19 @@ def test_builtin():
     assert cl_builtinusage() == 4
 
 def test_slice():
-    py.test.skip("either this is not RPython or gencl has something horribly wrong")
-    cl_half = make_cl_func(t.half_of_n, [int])
+    def half_of_n(n=int):
+        """Slice test"""
+        i = 0
+        lst = range(n)
+        while lst:
+            lst = lst[1:]
+            if len(lst) > 0:
+                lst.pop()
+            i = i + 1
+        return i
+    cl_half = make_cl_func(half_of_n, [int])
+    assert cl_half(2) == 1
+    assert cl_half(4) == 2
     assert cl_half(10) == 5
 
 def test_powerset():
