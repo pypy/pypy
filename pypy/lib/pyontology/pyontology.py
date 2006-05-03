@@ -19,6 +19,7 @@ for k,v in namespaces.items():
 Class = URIRef(u'http://www.w3.org/2002/07/owl#Class')
 rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
 rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
+rdf_nil = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil')
 
 def getUriref(ns, obj):
     return URIRef(namespaces[ns]+'#'+obj)
@@ -27,9 +28,10 @@ def check_format(f):
     if type(f) == str:
         tmp = file(f, "r")
     else:
-        tmp = f
+        tmp = f.open()
     start = tmp.read(10)
-    if "<?xml" in start:
+    tmp.close()
+    if "<" in start:
         format = "xml"
     else:
         format = "n3"
@@ -47,9 +49,18 @@ class ClassDomain(AbstractDomain):
     def __init__(self, name='', values=[], bases = []):
         AbstractDomain.__init__(self)
         self.bases = bases+[self]
-        self.values = values
+        self.values = {}
+        self.setValues(values)
         self.name = name
         self.properties = {}
+        # The TBox is a dictionary containing terminology constraints
+        # on predicates for this class. Keys are predicates, constraint 
+        # tupples ie. (p,'Carddinality') and values are list, comparison
+        # tupples
+        self.TBox = {}
+        # The ABox contains the constraints the individuals of the class 
+        # shall comply to 
+        self.ABox = {}
 
     def __repr__(self):
         return "<%s %s %r>" % (self.__class__, str(self.name),self.getValues())
@@ -76,10 +87,10 @@ class ClassDomain(AbstractDomain):
         return self.bases
 
     def getValues(self):
-        return self.values
+        return self.values.keys()
 
     def setValues(self, values):
-        self.values = values
+        self.values = dict.fromkeys(values)
 
 class List(ClassDomain):
 
@@ -189,7 +200,7 @@ builtin_voc = {
                getUriref('owl', 'Class') : ClassDomain,
                getUriref('owl', 'ObjectProperty') : ObjectProperty,
                getUriref('owl', 'AllDifferent') : AllDifferent ,
-##               getUriref('owl', 'AnnotationProperty') : AnnotationProperty,
+               getUriref('owl', 'AnnotationProperty') : Property, #XXX AnnotationProperty,
                getUriref('owl', 'DataRange') : DataRange,
                getUriref('owl', 'DatatypeProperty') : DatatypeProperty,
 ##               getUriref('owl', 'DeprecatedClass') : DeprecatedClass,
@@ -222,7 +233,7 @@ class Ontology:
     def add_file(self, f, format=None):
         if not format:
             format = check_format(f)
-        self.graph.load(f,format=format)
+        self.graph.load(f, format=format)
 
     def attach_fd(self):
         for (s, p, o) in (self.graph.triples((None,)*3)):
@@ -245,17 +256,39 @@ class Ontology:
                 # Set the values of the property p to o
                 sub = self.make_var(ClassDomain, s) 
                 obj = self.make_var(Thing, o) 
-                res = self.variables[avar].addValue(sub, obj) 
+                propdom = self.variables[avar]
+                res = propdom.addValue(sub, obj) 
 
     def solve(self,verbose=0):
-        #self.merge_constraints()
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
         return Solver().solve(rep, verbose)
 
     def consistency(self, verbose=0):
         self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
         self.rep.consistency(verbose)
- 
+
+    def flatten_rdf_list(self, rdf_list):
+        res = []
+        if not type(rdf_list) == list:
+            avar = self.make_var(List, rdf_list)
+            lis = list(self.graph.objects(rdf_list, rdf_first))
+            if not lis:
+                return res
+            res.append(lis[0])
+            lis = list(self.graph.objects(rdf_list, rdf_rest))[0]
+            while lis != rdf_nil:
+                res.append(list(self.graph.objects(lis, rdf_first))[0])
+                lis = list(self.graph.objects(lis, rdf_rest))[0]
+        else:
+            # For testing 
+            avar = self.make_var(List, BNode('anon_%r'%rdf_list))
+            if type(rdf_list[0]) ==  list:
+                res = [tuple(x) for x in rdf_list]
+            else:
+                res = rdf_list
+        self.variables[avar].setValues(res)
+        return avar
+            
     def make_var(self, cls=fd, a=''):
         if type(a) == URIRef:
             if a.find('#') != -1:
@@ -272,6 +305,10 @@ class Ontology:
             return var
         if not var in self.variables:
             self.variables[var] = cls(var)
+        elif type(self.variables[var]) in cls.__bases__:
+            vals = self.variables[var].getValues()
+            self.variables[var] = cls(var)
+            self.variables[var].setValues(vals)
         return var 
 
 #---------------- Implementation ----------------
@@ -288,44 +325,38 @@ class Ontology:
             self.constraints.append(constrain)
         else:
             # var is a builtin class
-            svar = self.make_var(None, s)
             cls =builtin_voc[var]
-            if not (self.variables.has_key(svar) and isinstance(self.variables[svar], cls)):
+            if cls == List:
+                return
+            else:
+                svar = self.make_var(None, s)
+            if not (self.variables.has_key(svar) and 
+                   isinstance(self.variables[svar], cls)):
                 svar = self.make_var(cls, s)
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
 
     def first(self, s, var):
-        avar = self.make_var(ClassDomain, var)
-        svar = self.make_var(List, s)
-        vals = []
-        vals += self.variables[svar].getValues()
-        vals.insert(0, avar)
-        self.variables[svar].setValues(vals)
+        pass
 
     def rest(self, s, var):
-        if var == URIRef(namespaces['rdf']+'#nil'):
-            return 
-        else:
-            avar = self.make_var(List, var)
-        svar = self.make_var(List, s)
-        vals = []
-        vals += self.variables[svar].getValues()
-        vals.append( avar)
-        self.variables[svar].setValues(vals)
-
+        pass
+    
     def onProperty(self, s, var):
         svar =self.make_var(Restriction, s)
         avar =self.make_var(Property, var)
         self.variables[svar].property = avar
+        
 
 #---Class Axioms---#000000#FFFFFF-----------------------------------------------
 
     def subClassOf(self, s, var):
         # s is a subclass of var means that the 
         # class extension of s is a subset of the
-        # class extension of var. 
+        # class extension of var, ie if a indiviual is in 
+        # the extension of s it must be in the extension of
+        # var
         avar = self.make_var(None, var)
         svar = self.make_var(ClassDomain, s)
         cons = SubClassConstraint( svar, avar)
@@ -349,22 +380,36 @@ class Ontology:
             pass
 
     def oneOf(self, s, var):
-        avar = self.make_var(List, var)
+        var = self.flatten_rdf_list(var)
+        #avar = self.make_var(List, var)
         svar = self.make_var(ClassDomain, s)
-        cons = OneofPropertyConstraint(svar, avar)
-        self.constraints.append(cons)
+        res = self.variables[var].getValues()
+        self.variables[svar].setValues(res)
 
     def unionOf(self,s, var):
-        avar = self.make_var(List, var)
+        var = self.flatten_rdf_list(var)
+        vals = self.variables[var].getValues()
+
+        res = []
+        for val in vals:
+             res.extend([x for x in val])
         svar = self.make_var(ClassDomain, s)
-        cons = UnionofConstraint(svar, avar)
-        self.constraints.append(cons)
+        vals = self.variables[svar].getValues()
+        res.extend(vals)
+        self.variables[svar].setValues(res)
 
     def intersectionOf(self, s, var):
-        avar = self.make_var(List, var)
+        var = self.flatten_rdf_list(var)
+        vals = self.variables[var].getValues()
+        res = vals[0]
+        for l in vals[1:]:
+            result = []
+            for v in res:
+                if v in l :
+                    result.append(v)
+            res = result
         svar = self.make_var(ClassDomain, s)
-        cons = IntersectionofConstraint(svar, avar)
-        self.constraints.append(cons)
+        self.variables[svar].setValues(res)
 
 #---Property Axioms---#000000#FFFFFF--------------------------------------------
 
@@ -407,12 +452,22 @@ class Ontology:
         svar =self.make_var(Restriction, s)
         constrain = MaxCardinality(svar, int(var))
         self.constraints.append(constrain) 
-
+        # Make a new variable that can hold the domain of possible cardinality
+        # values
+        self.variables[svar].TBox['Cardinality'] = (range( int(var)+1), 'in')
+#        var_name = '%s_Cardinality' % svar
+#        self.variables[var_name] = fd(range(int(var)+1))
+	          
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
         svar =self.make_var(Restriction, s)
         constrain = MinCardinality(svar, int(var))
         self.constraints.append(constrain) 
+        self.variables[svar].TBox['Cardinality'] = ( range(int(var)), 'not in')
+#        var_name = '%s_Cardinality' % svar
+#        self.variables[var_name] = fd(range(int(var)))
+#        constraint = Expression(var_name,' not in')
+#        self.constraints.append(constraint)
 
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
@@ -420,6 +475,9 @@ class Ontology:
         # Check if var is an int, else find the int buried in the structure
         constrain = Cardinality(svar, int(var))
         self.constraints.append(constrain) 
+        self.variables[svar].TBox['Cardinality'] = ( [int(var)], 'in')
+#        var_name = '%s_Cardinality' % svar
+#        self.variables['var_name'] = fd(int(var))        
 
     def differentFrom(self, s, var):
         s_var = self.make_var(Thing, s)
@@ -430,7 +488,12 @@ class Ontology:
 #XXX need to change this
     def distinctMembers(self, s, var):
         s_var = self.make_var(AllDifferent, s)
-        var_var = self.make_var(List, var)
+        var_var = self.flatten_rdf_list(var)
+        #var_var = self.make_var(List, var)
+        for v in var_var:
+           indx = var_var.index(v) 
+           for other in var_var[indx+1:]:
+               self.differentFrom(v, other)
         constrain = AllDifferentConstraint(s_var, var_var)
         self.constraints.append(constrain)
 
@@ -478,6 +541,14 @@ class OwlConstraint(AbstractConstraint):
     def estimateCost(self, domains):
         return self.cost
 
+def get_cardinality(props, cls):
+        if props.get(cls):
+           card = len(props[cls]) 
+        elif props.get(None):
+           card = len(props[None]) 
+        else:
+           card = 0
+        return card 
 
 class MaxCardinality(AbstractConstraint):
     """Contraint: all values must be distinct"""
@@ -498,8 +569,12 @@ class MaxCardinality(AbstractConstraint):
         """narrowing algorithm for the constraint"""
         prop = domains[self.variable].property
         props = Linkeddict(domains[prop].getValues())
-        cls = domains[self.variable].getValues()[0]
-        if len(props[cls]) > self.cardinality:
+        dom = domains[self.variable].getValues()
+        if not dom:
+            return 0
+        cls = dom[0]
+        card = get_cardinality(props, cls)
+        if card > self.cardinality:
             raise ConsistencyFailure("Maxcardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
         else:
             return 1
@@ -511,7 +586,8 @@ class MinCardinality(MaxCardinality):
         prop = domains[self.variable].property
         props = Linkeddict(domains[prop].getValues())
         cls = domains[self.variable].getValues()[0]
-        if len(props[cls]) < self.cardinality:
+        card = get_cardinality(props, cls)
+        if card < self.cardinality:
             raise ConsistencyFailure("MinCardinality of %i not achieved by the value %i" %(self.cardinality,len(props[cls])))
         else:
             return 1
@@ -523,8 +599,10 @@ class Cardinality(MaxCardinality):
         prop = domains[self.variable].property
         props = Linkeddict(domains[prop].getValues())
         cls = domains[self.variable].getValues()[0]
-        if len(props[cls]) != self.cardinality:
-            raise ConsistencyFailure("Cardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
+        card = get_cardinality(props, cls)
+        if card != self.cardinality:
+            raise ConsistencyFailure("Cardinality of %i exceeded by the value %r for %r" %
+                                     (self.cardinality, props[cls], prop))
         else:
             return 1
 
@@ -536,7 +614,7 @@ class SubClassConstraint(AbstractConstraint):
         AbstractConstraint.__init__(self, [variable, cls_or_restriction])
         self.object = cls_or_restriction
         self.variable = variable
-
+        
     def estimateCost(self, domains):
         return self.cost
 
@@ -550,6 +628,7 @@ class SubClassConstraint(AbstractConstraint):
         vals += superdom.getValues()
         vals += subdom.getValues() +[self.variable]
         superdom.setValues(vals)
+	        
         return 0
 
 class DisjointClassConstraint(SubClassConstraint):
@@ -557,8 +636,6 @@ class DisjointClassConstraint(SubClassConstraint):
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
-##        bases = get_values(superdom, domains, 'getBases')  
-##        subdom.bases += [bas for bas in bases if bas not in subdom.bases]
         vals1 = superdom.getValues()  
         vals2 = subdom.getValues()  
         for i in vals1:
@@ -573,27 +650,30 @@ class ComplementClassConstraint(SubClassConstraint):
 
 class RangeConstraint(SubClassConstraint):
 
-    cost = 200
+    cost = 30
     
     def narrow(self, domains):
         propdom = domains[self.variable]
         rangedom = domains[self.object]
         newrange = rangedom.getValues()
-        range = []
+        res = []
         oldrange = propdom.range
         if oldrange:
             for v in oldrange:
                 if v in newrange:
-                    range.append(v)
+                    res.append(v)
         else:
-            range = newrange
-        propdom.range = range
-        prop = Linkeddict(propdom.getValues())
-        for pval in sum(prop.values(),[]):
-            if pval not in range:
-                raise ConsistencyFailure("Value %r not in range %r"%(pval,range))
+            res = newrange
+        propdom.range = res
+        propdom.setValues([(None,i) for i in res])
+        #prop = Linkeddict(propdom.getValues())
+        #for pval in sum(prop.values(),[]):
+        #    if pval not in range:
+        #        raise ConsistencyFailure("Value %r not in range %r for Var %s"%(pval,range, self.variable))
 
 class DomainConstraint(SubClassConstraint):
+
+    cost = 200
 
     def narrow(self, domains):
         propdom = domains[self.variable]
@@ -626,13 +706,16 @@ class SubPropertyConstraint(SubClassConstraint):
 
 class EquivalentPropertyConstraint(SubClassConstraint):
 
+    cost = 100
+    
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
         vals = superdom.getValues()  
         for val in subdom.getValues():
             if not val in vals:
-                raise ConsistencyFailure("Value not in prescribed range")
+                raise ConsistencyFailure("The Property %s is not equivalent to Property %s" %
+                                         (self.variable, self.object))
 
 class TypeConstraint(SubClassConstraint):
     cost = 1
@@ -654,7 +737,7 @@ class FunctionalCardinality(OwlConstraint):
         domain_dict = Linkeddict(domain)
         for cls, val in domain_dict.items():
             if len(val) != 1:
-                raise ConsistencyFailure("Maxcardinality exceeded")
+                raise ConsistencyFailure("FunctionalCardinality error")
         else:
             return 0
 
@@ -667,7 +750,7 @@ class InverseFunctionalCardinality(OwlConstraint):
         vals = {}
         for cls, val in domain:
             if vals.has_key(val):
-                raise ConsistencyFailure("Maxcardinality exceeded")
+                raise ConsistencyFailure("InverseFunctionalCardinality error")
             else:
                 vals[val] = 1
         else:
@@ -682,7 +765,6 @@ class Linkeddict(dict):
             else:
                 if not v in dict.__getitem__(self,k):
                     dict.__getitem__(self,k).append(v)
-##            dict.__getitem__(self,k).append(v)
             
 class TransitiveConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
@@ -710,7 +792,8 @@ class SymmetricConstraint(OwlConstraint):
 
 class InverseofConstraint(SubClassConstraint):
     """Contraint: all values must be distinct"""
-
+    cost = 200
+    
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
         obj_domain = domains[self.object].getValues()
@@ -718,10 +801,12 @@ class InverseofConstraint(SubClassConstraint):
         res = []
         for cls, val in obj_domain:
             if not (val,cls) in sub_domain:
-                raise ConsistencyFailure("Inverseof failed") 
+                raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
+                                         (val, cls, sub_domain) )
         for cls, val in sub_domain:
             if not (val,cls) in obj_domain:
-                raise ConsistencyFailure("Inverseof failed") 
+                raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
+                                         (val, cls, obj_domain)) 
 
 class DifferentfromConstraint(SubClassConstraint):
 
@@ -768,6 +853,7 @@ class ListConstraint(OwlConstraint):
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
+        
         vals =[]
         vals += domains[self.variable].getValues()
         if vals == []:
@@ -775,6 +861,8 @@ class ListConstraint(OwlConstraint):
         while True:
             if vals[-1] in domains.keys() and isinstance(domains[vals[-1]], List):
                 vals = vals[:-1] + domains[vals[-1]].getValues()
+                if domains[vals[-1]].remove : 
+                    domains.pop(vals[-1])
             else:
                 break
         domains[self.variable].setValues(vals)
@@ -798,11 +886,10 @@ class RestrictionConstraint(OwlConstraint):
         
 class OneofPropertyConstraint(AbstractConstraint):
 
-    def __init__(self, variable, List):
-        AbstractConstraint.__init__(self, [variable, List])
+    def __init__(self, variable, list_of_vals):
+        AbstractConstraint.__init__(self, [variable ])
         self.variable = variable
-        self.List = List
-
+        self.List = list_of_vals
     cost = 100
 
     def estimateCost(self, domains):
@@ -811,6 +898,7 @@ class OneofPropertyConstraint(AbstractConstraint):
     def narrow(self, domains):
         val = domains[self.List].getValues()
         if isinstance(domains[self.variable],Restriction):
+            # This should actually never happen ??
             property = domains[self.variable].property
             cls = domains[self.variable].getValues()[0]
             prop = Linkeddict(domains[property].getValues())
@@ -852,7 +940,28 @@ class IntersectionofConstraint(OneofPropertyConstraint):
             for u in remove:
                 intersection.remove(u)
         cls = domains[self.variable].setValues(intersection)
-        
+        term = {}
+        for l in [domains[x] for x in val]:
+            if hasattr(l,'TBox'):
+                TBox = l.TBox
+                prop = l.property
+                for item in TBox.values():
+                    term.setdefault(prop,[])
+                    term[prop].append(item)
+        for prop in term:
+            axioms = term[prop]
+            ranges = [ax[0] for ax in axioms]
+            res = []
+            while axioms:
+                r, comp = axioms.pop(0)
+                if res:
+                    res = [x for x in res if eval('x %s r' % comp)]
+                else:
+                    res = [x for x in r if eval('x %s r' % comp)]
+                if not res:
+                    axioms.append((r,comp))
+        if not res:
+            raise ConsistencyFailure("Inconsistent use of intersectionOf")
 
 class SomeValueConstraint(OneofPropertyConstraint):
 

@@ -11,15 +11,17 @@ except ImportError:
 from pypy.lib.pyontology.pyontology import * # Ontology, ClassDomain, SubClassConstraint 
 from rdflib import Graph, URIRef, BNode
 
+UR = URIRef
 def rdf_list(ont, name, data):
     owllist = URIRef(name)
     obj = URIRef(namespaces['rdf']+'#List')
     ont.type(owllist, obj)
     own =owllist
     for i,dat in enumerate(data[:-1]):
-        next = URIRef( name + str(i))
+        next = BNode( name + str(i))
         print next,i,dat,own
         ont.first(own, dat)
+        ont.type(next, obj)
         ont.rest(own,  next)
         own = next
     ont.first(own, data[-1])
@@ -189,7 +191,7 @@ def test_domain_merge():
     assert len(O.constraints) == 2
     for con in O.constraints:
         con.narrow(O.variables)
-    assert O.variables['a_'].getValues() ==[] #O.variables['b_']
+    assert O.variables['a_'].getValues() ==[] 
 
 def test_subproperty():
     O = Ontology()
@@ -340,6 +342,7 @@ def test_hasvalue():
     py.test.raises(ConsistencyFailure, O.consistency)
 
 def test_List():
+    py.test.skip("Need to be rewritten using RDF-XML")
     O = Ontology()
     own = URIRef('favlist')
     obj = URIRef(namespaces['rdf']+'#List')
@@ -350,52 +353,34 @@ def test_List():
     O.rest( URIRef('1'),  URIRef('2'))
     O.first( URIRef('2'), 2)
     O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
-    assert len(O.constraints) == 1
+    O.flatten_rdf_list(own)
     O.consistency(5)
     assert O.rep._domains['favlist_'].getValues() == [0,1,2]
-    
-def test_oneofrestriction():
-    O = Ontology()
-    restrict = BNode('anon')
-    obj = URIRef(namespaces['owl']+'#Restriction')
-    O.type(restrict, obj)
-    p = URIRef('p')
-    O.onProperty(restrict,p)
-    obj = URIRef(namespaces['owl']+'#ObjectProperty')
-    O.type(p, obj)
-    p = URIRef('favlist')
-    O.oneOf(restrict, p)
-    own = rdf_list(O, 'favlist', [0, 1, 2])
-    own = URIRef('class')
-    obj = URIRef(namespaces['rdf']+'#Class')
-    O.type(own, obj)
-    O.subClassOf(own,restrict)
-    py.test.raises(ConsistencyFailure, O.consistency)
 
 def test_oneofclassenumeration():
     O = Ontology()
     restrict = BNode('anon')
-    own = rdf_list(O, 'favlist', ['first', 'second', 'third'])
+    own = [UR('first'), UR('second'), UR('third')]
     O.oneOf(restrict, own)
     O.type(restrict, namespaces['owl']+'#Class')
     O.consistency(4)
-    print O.rep._domains
     assert len(O.rep._domains[restrict].getValues()) == 3
+    assert set(O.rep._domains[restrict].getValues()) == set(own)
 
 def test_oneofdatarange():
     O = Ontology()
     restrict = BNode('anon')
-    own = rdf_list(O, 'favlist', ['1','2','3'])
+    own = ['1','2','3'] 
     O.oneOf(restrict, own)
     O.type(restrict, namespaces['owl']+'#DataRange')
     O.consistency(4)
-    print O.rep._domains
     assert len(O.rep._domains[restrict].getValues()) == 3
+    assert set(O.rep._domains[restrict].getValues()) == set(own)
 
 def test_somevaluesfrom_datarange():
     O = Ontology()
     datarange = BNode('anon')
-    own = rdf_list(O, 'favlist', ['1','2','3'])
+    own =  ['1','2','3']
     O.oneOf(datarange, own)
     O.type(datarange, namespaces['owl']+'#DataRange')
     restrict = BNode('anon1')
@@ -416,7 +401,7 @@ def test_somevaluesfrom_datarange():
 def test_allvaluesfrom_datarange():
     O = Ontology()
     datarange = BNode('anon')
-    own = rdf_list(O, 'favlist', ['1','2','3'])
+    own = ['1','2','3']
     O.oneOf(datarange, own)
     O.type(datarange, namespaces['owl']+'#DataRange')
     restrict = BNode('anon1')
@@ -439,27 +424,22 @@ def test_unionof():
     cls = BNode('anon')
     own1 = BNode('liist1')
     own2 = BNode('liist2')
-    list1 = rdf_list(O, 'favlist1', ['1', '2', '3'])
-    list2 = rdf_list(O, 'favlist2', ['3', '4', '5'])
-    own = rdf_list(O, 'favlist', [own1, own2])
+    list1 =  ['1', '2', '3'] 
+    list2 =  ['3', '4', '5'] 
+    own = [list1, list2] 
     O.oneOf( own1, list1)
     O.oneOf( own2, list2)
     O.unionOf(cls, own)
     O.type(cls, namespaces['owl']+'#Class')
     O.consistency(3)
-    assert O.rep._domains[cls].getValues() == ['1', '2', '3', '4', '5']
+    res = O.rep._domains[cls].getValues()
+    res.sort()
+    assert res == ['1', '2', '3', '4', '5']
 
 def test_intersectionof():
     O = Ontology()
     cls = BNode('anon')
-    own1 = BNode('liist1')
-    own2 = BNode('liist2')
-    list1 = rdf_list(O, 'favlist1', ['1', '2', '3'])
-    list2 = rdf_list(O, 'favlist2', ['3', '4', '5'])
-    own = rdf_list(O, 'favlist', [own1, own2])
-    O.oneOf( own1, list1)
-    O.oneOf( own2, list2)
-    O.intersectionOf(cls, own)
+    O.intersectionOf(cls, [['1','2','3'],['3','4','5']])
     O.type(cls, namespaces['owl']+'#Class')
     O.consistency(3)
     assert O.rep._domains[cls].getValues() == ['3']
@@ -502,7 +482,6 @@ def test_sameas():
     O.type(sub, obj)
     O.variables[O.make_var(None,sub)].setValues([(cls,'1')])
     O.consistency(3)
-#    assert len(O.rep._constraints) == 4
     assert ('liist1','1') in O.rep._domains[O.make_var(None,sub)].getValues()
 
 def test_sameasconsistency():
@@ -516,8 +495,38 @@ def test_sameasconsistency():
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(sub, obj)
     O.variables[O.make_var(None,sub)].setValues([(cls,'1'), (own1,'2')])
-    print O.variables
     for dom in O.variables.values() :print type(dom)
     py.test.raises(ConsistencyFailure, O.consistency, 3)
 
 
+def test_cardinality_terminology():
+    py.test.skip("In progress")
+    # Modeled after one of the standard tests (approved/maxCardinality)
+    # 'cls' by subclassing two maxCardinality restrictions becomes the set of
+    # individuals satisfying both restriction, ie having exactly 2 values of
+    # predicate p
+
+    O = Ontology()
+    cls = URIRef('cls')
+    O.type(cls, namespaces['owl']+'#Class')
+
+    p = URIRef('p')
+    O.type(p, namespaces['owl']+'#ObjectProperty')
+
+    restr = BNode('anon')
+    O.subClassOf(cls, restr)
+    O.maxCardinality(restr, 2)
+    O.type(restr, namespaces['owl']+'#Restriction')
+    O.onProperty(restr, p)
+
+    restr2 = BNode('anon2')
+    O.type(restr2, namespaces['owl']+'#Restriction')
+    O.onProperty(restr2, p)
+    O.subClassOf(cls, restr2)
+    O.minCardinality(restr2, 3)
+    constraints = len(O.constraints)
+    py.test.raises(ConsistencyFailure, O.consistency, 3)
+    assert len(O.constraints) < constraints
+    py.test.raises(ConsistencyFailure, O.consistency, 3)
+
+    
