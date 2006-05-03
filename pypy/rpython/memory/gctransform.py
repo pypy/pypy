@@ -75,10 +75,7 @@ class GCTransformer(object):
             if var_needsgc(var):
                 newops.extend(self.push_alive(var))
         if newops:  # only to check if we are going to add any operation at all
-            insert_empty_startblock(None, graph)
-            for var in graph.startblock.inputargs:
-                if var_needsgc(var):
-                    graph.startblock.operations.extend(self.push_alive(var))
+            insert_empty_startblock(self.translator, graph)
 
         for block in graph.iterblocks():
             self.transform_block(block)
@@ -116,6 +113,9 @@ class GCTransformer(object):
         newops = []
         livevars = [var for var in block.inputargs if var_needsgc(var)]
         newops = []
+        if block.isstartblock:
+            for var in livevars:
+                newops.extend(self.push_alive(var))
         # XXX this is getting obscure.  Maybe we should use the basic
         # graph-transforming capabilities of the RTyper instead, as we
         # seem to run into all the same problems as the ones we already
