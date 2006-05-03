@@ -13,3 +13,14 @@ def test_dict_get():
         return dic[number]
     cl_dict_get = make_cl_func(dict_get, [int])
     assert cl_dict_get(42) == 43
+
+def test_dict_iter():
+    py.test.skip("not supported yet")
+    def dict_iter():
+        dic = {1:2, 3:4, 5:6}
+        i = 0
+        for key in dic:
+            i = i + dic[key]
+        return i
+    cl_dict_iter = make_cl_func(dict_iter, [])
+    assert cl_dict_iter() == 12

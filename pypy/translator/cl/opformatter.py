@@ -1,4 +1,5 @@
 from pypy.rpython.ootypesystem.ootype import List, Dict, Record, Instance
+from pypy.rpython.ootypesystem.ootype import DictItemsIterator
 from pypy.translator.cl.clrepr import clrepr
 
 class OpFormatter:
@@ -117,6 +118,10 @@ class OpFormatter:
             impl = DictImpl(selfvar)
             code = getattr(impl, method)(*args)
             yield "(setf %s %s)" % (result, code)
+        elif isinstance(cls, DictItemsIterator):
+            impl = DictItemsIteratorImpl(selfvar)
+            code = getattr(impl, method)(*args)
+            yield "(setf %s %s)" % (result, code)
         elif isinstance(cls, Instance):
             name = clrepr(method, symbol=True)
             funcall = " ".join((name, selfvar) + args)
@@ -193,3 +198,18 @@ class DictImpl:
 
     def ll_set(self, key, value):
         return "(setf (gethash %s %s) %s)" % (key, self.obj, value)
+
+    def ll_get_items_iterator(self):
+        raise NotImplementedError()
+
+class DictItemsIteratorImpl:
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def ll_go_next(self):
+        raise NotImplementedError()
+
+    def ll_current_key(self):
+        raise NotImplementedError()
+
