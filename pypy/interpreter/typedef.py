@@ -77,6 +77,8 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
                 except OperationError, e:
                     e.write_unraisable(self.space, 'method __del__ of ', self)
                     e.clear(self.space)   # break up reference cycles
+                if hasattr(cls, '__del__'):
+                    cls.__del__(self)
     elif wants_slots:
         supercls = get_unique_interplevel_subclass(cls, hasdict, False, False)
         

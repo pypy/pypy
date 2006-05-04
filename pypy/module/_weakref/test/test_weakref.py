@@ -144,6 +144,24 @@ class AppTestWeakref(object):
         w = _weakref.ref(A())
         raises(TypeError, hash, w)
 
+    def test_weakref_subclass_with_del(self):
+        import _weakref
+        class Ref(_weakref.ref):
+            def __del__(self):
+                b.a = 42
+        class A(object):
+            pass
+        a = A()
+        b = A()
+        b.a = 1
+        w = Ref(a)
+        del w
+        assert b.a == 42
+        if _weakref.getweakrefcount(a) > 0:
+            # the following can crash if the presence of the applevel __del__
+            # leads to the fact that the __del__ of _weakref.ref is not called.
+            assert _weakref.getweakrefs(a)[0]() is a
+
 class AppTestProxy(object):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_weakref',))
