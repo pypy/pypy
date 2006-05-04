@@ -1,3 +1,4 @@
+import py
 from pypy.translator.cl.buildcl import make_cl_func
 
 def test_dict_length():
