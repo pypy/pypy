@@ -332,6 +332,34 @@ class TestUsingFramework(AbstractTestClass):
         assert res == 42
         assert len([op for op in startblock.operations if op.opname == "gc_reload_possibly_moved"]) == 0
 
+    def test_framework_protect_getfield(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        def prepare(b, n):
+            a = A()
+            a.value = n
+            b.a = a
+            b.othervalue = 5
+        def g(a):
+            # this should trigger 3 collections
+            for i in range(1000000):
+                prepare(B(), -1)
+            # we need to prevent it getting inlined
+            if not a:
+                g(A())
+            return a.value
+        def f():
+            b = B()
+            prepare(b, 123)
+            a = b.a
+            b.a = None
+            return g(a) + b.othervalue
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 128
+
     def test_framework_varsized(self):
         S = lltype.GcStruct("S", ('x', lltype.Signed))
         T = lltype.GcStruct("T", ('y', lltype.Signed),

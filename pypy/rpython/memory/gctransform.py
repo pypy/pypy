@@ -1009,36 +1009,7 @@ class FrameworkGCTransformer(GCTransformer):
         return newgcdependencies
 
     def protect_roots(self, op, livevars, block, index=-1):
-        livevars = dict.fromkeys(
-            [var for var in livevars if not var_ispyobj(var)], True)
-        if not needs_conservative_livevar_calculation(block):
-            not_needed = {}
-            if index == -1:
-                index = block.operations.index(op) # XXX hum
-            needed = {}
-            for before_op in block.operations[:index]:
-                if before_op.result not in livevars:
-                    continue
-                if before_op.opname in ("cast_pointer", "same_as"):
-                    not_needed[before_op.result] = True
-                elif before_op.opname in ("getfield", "getarrayitem"):
-                    if (before_op.args[0] in livevars or
-                        isinstance(before_op.args[0], Constant)):
-                        not_needed[before_op.result] = True
-            for after_op in block.operations[index:]:
-                for arg in after_op.args:
-                    needed[arg] = True
-                needed[after_op.result] = True
-            for exit in block.exits:
-                for arg in exit.args:
-                    needed[arg] = True
-            newlivevars = []
-            for var in livevars:
-                if var in needed and var not in not_needed:
-                    newlivevars.append(var)
-            livevars = newlivevars
-        else:
-            livevars = livevars.keys()
+        livevars = [var for var in livevars if not var_ispyobj(var)]
         newops = list(self.push_roots(livevars))
         index = len(newops)
         newops.append(op)
