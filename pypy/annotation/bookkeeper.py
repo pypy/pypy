@@ -274,12 +274,13 @@ class Bookkeeper:
             listdef.generalize(s_value)
         return SomeList(listdef)
 
-    def getdictdef(self):
+    def getdictdef(self, is_r_dict=False):
         """Get the DictDef associated with the current position."""
         try:
             dictdef = self.dictdefs[self.position_key]
         except KeyError:
-            dictdef = self.dictdefs[self.position_key] = DictDef(self)
+            dictdef = DictDef(self, is_r_dict=is_r_dict)
+            self.dictdefs[self.position_key] = dictdef
         return dictdef
 
     def newdict(self, *items_s):

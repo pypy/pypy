@@ -7,8 +7,9 @@ from pypy.annotation.listdef import ListItem
 class DictKey(ListItem):
     custom_eq_hash = False
 
-    def __init__(self, bookkeeper, s_value):
+    def __init__(self, bookkeeper, s_value, is_r_dict=False):
         ListItem.__init__(self, bookkeeper, s_value)
+        self.is_r_dict = is_r_dict
         self.enable_hashing()
 
     def patch(self):
@@ -26,7 +27,8 @@ class DictKey(ListItem):
                                               other=other)
 
     def enable_hashing(self):
-        if isinstance(self.s_value, SomeInstance):
+        # r_dicts don't need the RPython hash of their keys
+        if isinstance(self.s_value, SomeInstance) and not self.is_r_dict:
             self.bookkeeper.needs_hash_support[self.s_value.classdef] = True
 
     def generalize(self, s_other_value):
@@ -90,8 +92,9 @@ class DictDef:
     DictDef stores."""
 
     def __init__(self, bookkeeper, s_key = SomeImpossibleValue(),
-                                 s_value = SomeImpossibleValue()):
-        self.dictkey = DictKey(bookkeeper, s_key)
+                                 s_value = SomeImpossibleValue(),
+                               is_r_dict = False):
+        self.dictkey = DictKey(bookkeeper, s_key, is_r_dict)
         self.dictkey.itemof[self] = True
         self.dictvalue = DictValue(bookkeeper, s_value)
         self.dictvalue.itemof[self] = True

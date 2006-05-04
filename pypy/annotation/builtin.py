@@ -287,7 +287,7 @@ def robjmodel_we_are_translated():
     return immutablevalue(True)
 
 def robjmodel_r_dict(s_eqfn, s_hashfn):
-    dictdef = getbookkeeper().getdictdef()
+    dictdef = getbookkeeper().getdictdef(is_r_dict=True)
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
     return SomeDict(dictdef)
 
