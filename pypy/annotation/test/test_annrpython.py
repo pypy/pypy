@@ -2018,17 +2018,23 @@ class TestAnnotateTestCase:
         class B(Base, Mixin):
             pass
 
+        class C(B):
+            pass
+
         def f():
             a = A()
             v0 = a.m(2)
             b = B()
             v1 = b.m('x')
-            return v0, v1
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
 
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s.items[0], annmodel.SomeInteger)
         assert isinstance(s.items[1], annmodel.SomeChar)        
+        assert isinstance(s.items[2], annmodel.SomeChar)        
         
 
 def g(n):

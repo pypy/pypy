@@ -448,12 +448,17 @@ class BaseTestRclass:
         class B(Base, Mixin):
             pass
 
+        class C(B):
+            pass
+
         def f():
             a = A()
             v0 = a.m(2)
             b = B()
             v1 = b.m('x')
-            return v0, v1
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
 
         res = interpret(f, [], type_system=self.ts)
         assert typeOf(res.item0) == Signed

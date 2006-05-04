@@ -333,7 +333,7 @@ class ClassDesc(Desc):
             for b1 in baselist:
                 if b1 is object:
                     continue
-                if getattr(b1, '_mixin_', False):
+                if b1.__dict__.get('_mixin_', False):
                     assert b1.__bases__ == () or b1.__bases__ == (object,), (
                         "mixin class %r should have no base" % (b1,))
                     self.add_sources_for_class(b1, mixin=True)
