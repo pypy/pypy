@@ -70,6 +70,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
     
     if wants_del:
         supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots, False)
+        parent_destructor = getattr(cls, '__del__', None)
         class Proto(object):
             def __del__(self):
                 try:
@@ -77,8 +78,8 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
                 except OperationError, e:
                     e.write_unraisable(self.space, 'method __del__ of ', self)
                     e.clear(self.space)   # break up reference cycles
-                if hasattr(cls, '__del__'):
-                    cls.__del__(self)
+                if parent_destructor is not None:
+                    parent_destructor(self)
     elif wants_slots:
         supercls = get_unique_interplevel_subclass(cls, hasdict, False, False)
         
