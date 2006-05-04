@@ -12,7 +12,7 @@ from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
-from pypy.rpython.rarithmetic import r_longlong
+from pypy.rpython.rarithmetic import base_int
 import sys
 import os
 import __builtin__
@@ -281,9 +281,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
-        if isinstance(x, r_longlong):
+        if isinstance(x, base_int):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
+
+        # _____ below here is where the annotator should not get _____
+        
         if isinstance(x, long):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
@@ -309,7 +312,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.w_Ellipsis
 
         if self.options.nofaking:
-            # annotation should actually not get here 
+            # annotation should actually not get here.  If it does, you get
+            # an error during rtyping because '%r' is not supported.  It tells
+            # you that there was a space.wrap() on a strange object.
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("nofaking enabled: refusing "
                                            "to wrap cpython value %r" %(x,)))

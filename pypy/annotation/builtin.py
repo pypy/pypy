@@ -93,6 +93,10 @@ def restricted_ulonglong(s_obj):    # for r_uint
     return constpropagate(pypy.rpython.rarithmetic.r_ulonglong, [s_obj],
                           SomeInteger(size=2, nonneg=True, unsigned=True))
 
+def restricted_base_int(s_obj):
+    # insane hack: only for isinstance(., base_int), not for base_int()
+    raise Exception("cannot call rarithmetic.base_int()")
+
 def builtin_float(s_obj):
     return constpropagate(float, [s_obj], SomeFloat())
 
@@ -140,10 +144,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     if s_type.is_constant():
         typ = s_type.const
         if issubclass(typ, pypy.rpython.rarithmetic.base_int):
-            if s_obj.is_constant():
-                r.const = isinstance(s_obj.const, typ)
-            else:
-                r.const = issubclass(s_obj.knowntype, typ)
+            r.const = issubclass(s_obj.knowntype, typ)
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
@@ -358,6 +359,7 @@ for name, value in globals().items():
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_longlong] = restricted_longlong
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_ulonglong] = restricted_ulonglong
+BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.base_int] = restricted_base_int
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask

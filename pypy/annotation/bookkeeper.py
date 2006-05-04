@@ -18,6 +18,7 @@ from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.annotation import description
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
+from pypy.rpython.rarithmetic import base_int
 from pypy.rpython.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -500,7 +501,7 @@ class Bookkeeper:
             return SomeInteger()
         elif t is r_uint:
             return SomeInteger(nonneg = True, unsigned = True)
-        elif t is r_ulonglong:
+        elif t is r_ulonglong or t is base_int:
             return SomeInteger(nonneg = True, unsigned = True, size = 2)
         elif t is r_longlong:
             return SomeInteger(size = 2)

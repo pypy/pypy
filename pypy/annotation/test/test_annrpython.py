@@ -10,7 +10,7 @@ from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, base_int
 from pypy.rpython import objectmodel
 from pypy.objspace.flow import FlowObjSpace
 
@@ -952,6 +952,16 @@ class TestAnnotateTestCase:
             return f(v)
         a = self.RPythonAnnotator()
         s = a.build_types(g, [])
+        assert s.const == True
+
+    def test_isinstance_base_int(self):
+        def f(x):
+            return isinstance(x, base_int)
+        def g(n):
+            v = r_uint(n)
+            return f(v)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
         assert s.const == True
 
     def test_alloc_like(self):
