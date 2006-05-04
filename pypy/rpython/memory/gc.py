@@ -170,7 +170,8 @@ class MarkSweepGC(GCBase):
         return result + size_gc_header
 
     def collect(self):
-##         print "collecting"
+        import os
+        os.write(2, 'collecting... ')
         self.bytes_malloced = 0
         roots = self.get_roots()
         objects = self.AddressLinkedList()
@@ -237,11 +238,11 @@ class MarkSweepGC(GCBase):
             else:
                 freed_size += size + MarkSweepGC._size_gc_header
                 raw_free(curr)
-##         print "free %s bytes. the heap is %s bytes." % (freed_size, curr_heap_size)
         free_non_gc_object(self.malloced_objects)
         self.malloced_objects = newmo
         if curr_heap_size > self.heap_size:
             self.heap_size = curr_heap_size
+        os.write(2, "freed %s bytes. the heap is now %s bytes.\n" % (freed_size, curr_heap_size))
 
     def size_gc_header(self, typeid=0):
         return MarkSweepGC._size_gc_header
