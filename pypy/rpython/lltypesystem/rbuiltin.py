@@ -24,24 +24,8 @@ def rtype_builtin_isinstance(hop):
         cnone = hop.inputconst(rlist, None)
         return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
 
-    class_repr = rclass.get_type_repr(hop.rtyper)
     assert isinstance(hop.args_r[0], rclass.InstanceRepr)
-    instance_repr = hop.args_r[0].common_repr()
-
-    v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
-    if isinstance(v_cls, Constant):
-        cls = v_cls.value
-        # XXX re-implement the following optimization
-        #if cls.subclassrange_max == cls.subclassrange_min:
-        #    # a class with no subclass
-        #    return hop.gendirectcall(rclass.ll_isinstance_exact, v_obj, v_cls)
-        #else:
-        minid = hop.inputconst(lltype.Signed, cls.subclassrange_min)
-        maxid = hop.inputconst(lltype.Signed, cls.subclassrange_max)
-        return hop.gendirectcall(rclass.ll_isinstance_const, v_obj, minid,
-                                 maxid)
-    else:
-        return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
+    return hop.args_r[0].rtype_isinstance(hop)
 
 def ll_instantiate(typeptr):   # NB. used by rpbc.ClassesPBCRepr as well
     my_instantiate = typeptr.instantiate
@@ -75,8 +59,13 @@ def rtype_builtin___import__(hop):
     c = hop.inputconst(pyobj_repr, __import__)
     return hop.genop('simple_call', [c] + args_v, resulttype = pyobj_repr)
 
+def rtype_getvalue_from_unboxed(hop):
+    from pypy.rpython.lltypesystem.rtagged import rtype_getvalue_from_unboxed
+    return rtype_getvalue_from_unboxed(hop)
+
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
+BUILTIN_TYPER[objectmodel.getvalue_from_unboxed] = rtype_getvalue_from_unboxed
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[__import__] = rtype_builtin___import__

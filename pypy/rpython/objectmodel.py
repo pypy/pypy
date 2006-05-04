@@ -3,6 +3,8 @@ This file defines utilities for manipulating objects in an
 RPython-compliant way.
 """
 
+import sys, new
+
 class Symbolic(object):
 
     def annotation(self):
@@ -24,7 +26,6 @@ class ComputedIntSymbolic(Symbolic):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
 
-import new
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."
@@ -107,6 +108,31 @@ class Entry(ExtRegistryEntry):
 
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
+
+
+class UnboxedValue(object):
+    """A mixin class to use for classes that have exactly one field which
+    is an integer.  They are represented as a tagged pointer."""
+    _mixin_ = True
+
+    def __new__(cls, value):
+        assert '__init__' not in cls.__dict__  # won't be called anyway
+        int_as_pointer = value * 2 + 1   # XXX for now
+        if -sys.maxint-1 <= int_as_pointer <= sys.maxint:
+            result = super(UnboxedValue, cls).__new__(cls)
+            result._value_ = value
+            return result
+        else:
+            raise OverflowError("UnboxedValue: argument out of range")
+
+    def __init__(self, value):
+        pass
+
+    def getvalue(self):
+        return getvalue_from_unboxed(self)
+
+def getvalue_from_unboxed(obj):
+    return obj._value_     # this function is special-cased by the annotator
 
 # ____________________________________________________________
 

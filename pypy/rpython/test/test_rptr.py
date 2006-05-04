@@ -93,3 +93,19 @@ def test_adtmeths():
         return A.flag
     res = interpret(f, [], policy=policy)
     assert res
+
+def test_odd_ints():
+    T = GcStruct('T')
+    S = GcStruct('S', ('t', T))
+    PT = Ptr(T)
+    PS = Ptr(S)
+    def fn(n):
+        s = cast_int_to_ptr(PS, n)
+        assert typeOf(s) == PS
+        assert cast_ptr_to_int(s) == n
+        t = cast_pointer(PT, s)
+        assert typeOf(t) == PT
+        assert cast_ptr_to_int(t) == n
+        assert s == cast_pointer(PS, t)
+
+    interpret(fn, [11521])

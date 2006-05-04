@@ -392,7 +392,7 @@ class InstanceRepr(AbstractInstanceRepr):
     def create_instance(self):
         return ootype.new(self.object_type)
 
-    def new_instance(self, llops):
+    def new_instance(self, llops, classcallhop=None):
         """Build a new instance, without calling __init__."""
         classrepr = getclassrepr(self.rtyper, self.classdef) 
         v_instance =  llops.genop("new",
@@ -423,6 +423,8 @@ class InstanceRepr(AbstractInstanceRepr):
                     continue
                 llattrvalue = self.allfields[mangled].convert_const(attrvalue)
             setattr(result, mangled, llattrvalue)
+
+buildinstancerepr = InstanceRepr
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):

@@ -870,6 +870,8 @@ class _ptr(object):
             return self
         if not self: # null pointer cast
             return PTRTYPE._defl()
+        if isinstance(self._obj, int):
+            return _ptr(PTRTYPE, self._obj, solid=True)
         if down_or_up > 0:
             p = self
             while down_or_up:
@@ -893,9 +895,15 @@ class _ptr(object):
 
     def _cast_to_int(self):
         obj = self._obj
+        if isinstance(obj, int):
+            return obj     # special case for cast_int_to_ptr() results
         while obj._parentstructure():
             obj = obj._parentstructure() 
-        return id(obj)
+        result = id(obj)
+        # assume that id() returns an addressish value which is
+        # not zero and aligned to at least a multiple of 4
+        assert result != 0 and (result & 3) == 0
+        return result
 
     def _cast_to_adr(self):
         from pypy.rpython.lltypesystem import llmemory
@@ -1264,6 +1272,10 @@ def pyobjectptr(obj):
 
 def cast_ptr_to_int(ptr):
     return ptr._cast_to_int()
+
+def cast_int_to_ptr(PTRTYPE, oddint):
+    assert oddint & 1, "only odd integers can be cast back to ptr"
+    return _ptr(PTRTYPE, oddint, solid=True)
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, GcStruct):

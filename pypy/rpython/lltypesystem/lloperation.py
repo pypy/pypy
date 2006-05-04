@@ -266,6 +266,7 @@ LL_OPERATIONS = {
     'ptr_nonzero':          LLOp(canfold=True),
     'ptr_iszero':           LLOp(canfold=True),
     'cast_ptr_to_int':      LLOp(sideeffects=False),
+    'cast_int_to_ptr':      LLOp(sideeffects=False),
     'direct_fieldptr':      LLOp(canfold=True),
     'direct_arrayitems':    LLOp(canfold=True),
     'direct_ptradd':        LLOp(canfold=True),

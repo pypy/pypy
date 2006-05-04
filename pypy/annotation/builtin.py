@@ -314,6 +314,9 @@ def robjmodel_keepalive_until_here(*args_s):
 def robjmodel_hint(s, **kwds_s):
     return s
 
+def robjmodel_getvalue_from_unboxed(s):
+    return SomeInteger()
+
 def llmemory_cast_ptr_to_adr(s):
     return SomeAddress()
 
@@ -370,6 +373,8 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hint] = robjmodel_hint
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.getvalue_from_unboxed] = \
+                                               robjmodel_getvalue_from_unboxed
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_ptr] = llmemory_cast_adr_to_ptr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_int] = llmemory_cast_adr_to_int
@@ -443,6 +448,10 @@ def direct_ptradd(s_p, s_n):
 def cast_ptr_to_int(s_ptr): # xxx
     return SomeInteger()
 
+def cast_int_to_ptr(PtrT, s_int):
+    assert PtrT.is_constant()
+    return SomePtr(ll_ptrtype=PtrT.const)
+
 def getRuntimeTypeInfo(T):
     assert T.is_constant()
     return immutablevalue(lltype.getRuntimeTypeInfo(T.const))
@@ -460,6 +469,7 @@ BUILTIN_ANALYZERS[lltype.direct_fieldptr] = direct_fieldptr
 BUILTIN_ANALYZERS[lltype.direct_arrayitems] = direct_arrayitems
 BUILTIN_ANALYZERS[lltype.direct_ptradd] = direct_ptradd
 BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int
+BUILTIN_ANALYZERS[lltype.cast_int_to_ptr] = cast_int_to_ptr
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 

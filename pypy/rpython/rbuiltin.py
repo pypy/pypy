@@ -376,8 +376,16 @@ def rtype_cast_primitive(hop):
 def rtype_cast_ptr_to_int(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_int', vlist,
                      resulttype = lltype.Signed)
+
+def rtype_cast_int_to_ptr(hop):
+    assert hop.args_s[0].is_constant()
+    v_type, v_input = hop.inputargs(lltype.Void, lltype.Signed)
+    hop.exception_cannot_occur()
+    return hop.genop('cast_int_to_ptr', [v_input],
+                     resulttype = hop.r_result.lowleveltype)
 
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
@@ -392,6 +400,7 @@ BUILTIN_TYPER[lltype.direct_fieldptr] = rtype_direct_fieldptr
 BUILTIN_TYPER[lltype.direct_arrayitems] = rtype_direct_arrayitems
 BUILTIN_TYPER[lltype.direct_ptradd] = rtype_direct_ptradd
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
+BUILTIN_TYPER[lltype.cast_int_to_ptr] = rtype_cast_int_to_ptr
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
 BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result

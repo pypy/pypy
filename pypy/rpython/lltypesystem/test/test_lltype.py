@@ -617,3 +617,14 @@ def test_direct_fieldptr():
     a[0] = 34
     assert s.y == 34
     py.test.raises(IndexError, "a[1]")
+
+def test_odd_ints():
+    T = GcStruct('T')
+    S = GcStruct('S', ('t', T))
+    s = cast_int_to_ptr(Ptr(S), 21)
+    assert typeOf(s) == Ptr(S)
+    assert cast_ptr_to_int(s) == 21
+    t = cast_pointer(Ptr(T), s)
+    assert typeOf(t) == Ptr(T)
+    assert cast_ptr_to_int(t) == 21
+    assert s == cast_pointer(Ptr(S), t)

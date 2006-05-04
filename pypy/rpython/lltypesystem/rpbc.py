@@ -166,7 +166,11 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
             assert isinstance(s_instance, annmodel.SomeInstance)
             classdef = hop.s_result.classdef
             v_instance = rclass.rtype_new_instance(hop.rtyper, classdef,
-                                                   hop.llops)
+                                                   hop.llops, hop)
+            if isinstance(v_instance, tuple):
+                v_instance, must_call_init = v_instance
+                if not must_call_init:
+                    return v_instance
             s_init = classdef.classdesc.s_read_attribute('__init__')
             v_init = Constant("init-func-dummy")   # this value not really used
         else:

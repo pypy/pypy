@@ -334,7 +334,8 @@ class LLFrame(object):
             assert isinstance(operation.args[0], Variable)
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
-        if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast', 'cast_adr_to_ptr']:
+        if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast',
+                                'cast_adr_to_ptr', 'cast_int_to_ptr']:
             vals.insert(0, operation.result.concretetype)
         try:
             retval = ophandler(*vals)
@@ -607,6 +608,9 @@ class LLFrame(object):
         assert checkptr(ptr1)
         assert isinstance(lltype.typeOf(ptr1).TO, (lltype.Array, lltype.Struct))
         return lltype.cast_ptr_to_int(ptr1)
+
+    def op_cast_int_to_ptr(self, tp, int1):
+        return lltype.cast_int_to_ptr(tp, int1)
 
     def op_cast_ptr_to_adr(self, ptr):
         assert checkptr(ptr)

@@ -33,7 +33,7 @@ def getinstancerepr(rtyper, classdef, nogc=False):
         #    # see getclassrepr()
         #    result = getinstancerepr(rtyper, None, nogc=False)
         #else:
-        result = rtyper.type_system.rclass.InstanceRepr(
+        result = rtyper.type_system.rclass.buildinstancerepr(
                         rtyper, classdef, does_need_gc=does_need_gc)
 
         rtyper.instance_reprs[classdef, does_need_gc] = result
@@ -132,8 +132,8 @@ class AbstractInstanceRepr(Repr):
     def _setup_repr_final(self):
         pass
 
-    def new_instance(self, llops):
-        pass
+    def new_instance(self, llops, classcallhop=None):
+        raise NotImplementedError
 
     def convert_const(self, value):
         if value is None:
@@ -165,19 +165,19 @@ class AbstractInstanceRepr(Repr):
             return result
 
     def rtype_type(self, hop):
-        pass
+        raise NotImplementedError
 
     def rtype_getattr(self, hop):
-        pass
+        raise NotImplementedError
 
     def rtype_setattr(self, hop):
-        pass
+        raise NotImplementedError
 
     def rtype_is_true(self, hop):
-        pass
+        raise NotImplementedError
 
     def ll_str(self, i):
-        pass
+        raise NotImplementedError
 
     def get_ll_eq_function(self):
         return None    # defaults to compare by identity ('==' on pointers)
@@ -187,9 +187,9 @@ class AbstractInstanceRepr(Repr):
 
 # ____________________________________________________________
 
-def rtype_new_instance(rtyper, classdef, llops):
+def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
     rinstance = getinstancerepr(rtyper, classdef)
-    return rinstance.new_instance(llops)
+    return rinstance.new_instance(llops, classcallhop)
 
 def instance_annotation_for_cls(rtyper, cls):
     try:

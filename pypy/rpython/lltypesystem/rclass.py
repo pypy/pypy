@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
+from pypy.rpython.objectmodel import UnboxedValue
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -64,7 +65,8 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char))),
-                            ('instantiate', Ptr(FuncType([], OBJECTPTR)))))
+                            ('instantiate', Ptr(FuncType([], OBJECTPTR))),
+                            hints = {'immutable': True}))
 # non-gc case
 NONGCOBJECT = Struct('nongcobject', ('typeptr', CLASSTYPE))
 NONGCOBJECTPTR = Ptr(OBJECT)
@@ -121,9 +123,10 @@ class ClassRepr(AbstractClassRepr):
             #
             self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
             self.rbase.setup()
+            kwds = {'hints': {'immutable': True}}
             vtable_type = Struct('%s_vtable' % self.classdef.name,
                                  ('super', self.rbase.vtable_type),
-                                 *llfields)
+                                 *llfields, **kwds)
             self.vtable_type.become(vtable_type)
             allmethods.update(self.rbase.allmethods)
         self.clsfields = clsfields
@@ -473,7 +476,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 raise MissingRTypeAttribute(attr)
             self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True, opname=opname)
 
-    def new_instance(self, llops):
+    def new_instance(self, llops, classcallhop=None):
         """Build a new instance, without calling __init__."""
         mallocop = 'malloc'
         ctype = inputconst(Void, self.object_type)
@@ -549,6 +552,44 @@ class InstanceRepr(AbstractInstanceRepr):
         return rstr.ll_strconcat(rstr.instance_str_prefix,
                                  rstr.ll_strconcat(nameString,
                                                    rstr.instance_str_suffix))
+
+    def rtype_isinstance(self, hop):
+        class_repr = get_type_repr(hop.rtyper)
+        instance_repr = self.common_repr()
+
+        v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
+        if isinstance(v_cls, Constant):
+            cls = v_cls.value
+            # XXX re-implement the following optimization
+            #if cls.subclassrange_max == cls.subclassrange_min:
+            #    # a class with no subclass
+            #    return hop.gendirectcall(rclass.ll_isinstance_exact, v_obj, v_cls)
+            #else:
+            minid = hop.inputconst(Signed, cls.subclassrange_min)
+            maxid = hop.inputconst(Signed, cls.subclassrange_max)
+            return hop.gendirectcall(ll_isinstance_const, v_obj, minid, maxid)
+        else:
+            return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
+
+
+def buildinstancerepr(rtyper, classdef, does_need_gc=True):
+    if classdef is None:
+        unboxed = []
+    else:
+        unboxed = [subdef for subdef in classdef.getallsubdefs()
+                          if subdef.classdesc.pyobj is not None and
+                             issubclass(subdef.classdesc.pyobj, UnboxedValue)]
+    if len(unboxed) == 0:
+        return InstanceRepr(rtyper, classdef, does_need_gc)
+    else:
+        # the UnboxedValue class and its parent classes need a
+        # special repr for their instances
+        if len(unboxed) != 1:
+            raise TyperError("%r has several UnboxedValue subclasses" % (
+                classdef,))
+        assert does_need_gc
+        from pypy.rpython.lltypesystem import rtagged
+        return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
