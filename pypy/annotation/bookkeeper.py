@@ -344,7 +344,8 @@ class Bookkeeper:
             except KeyError:
                 result = SomeDict(DictDef(self, 
                                           SomeImpossibleValue(),
-                                          SomeImpossibleValue()))
+                                          SomeImpossibleValue(),
+                                          is_r_dict = tp is r_dict))
                 self.immutable_cache[key] = result
                 if tp is r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
