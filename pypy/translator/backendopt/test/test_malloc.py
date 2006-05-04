@@ -6,6 +6,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import simplify
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.lltypesystem import lltype
 from pypy.conftest import option
 
 def check_malloc_removed(graph):
@@ -154,7 +155,6 @@ def test_dont_remove_with__del__():
     assert op.opname == "malloc"
 
 def test_add_keepalives():
-    from pypy.rpython.lltypesystem import lltype
     class A:
         pass
     SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
@@ -171,7 +171,6 @@ def test_add_keepalives():
     check(fn7, [int], [10], 55, must_be_removed=False)
 
 def test_getsubstruct():
-    from pypy.rpython.lltypesystem import lltype
     SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
     BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
 
@@ -184,7 +183,6 @@ def test_getsubstruct():
     check(fn, [int, int], [100, 58], 42)
 
 def test_fixedsizearray():
-    from pypy.rpython.lltypesystem import lltype
     A = lltype.FixedSizeArray(lltype.Signed, 3)
     S = lltype.GcStruct('S', ('a', A))
 
@@ -198,7 +196,6 @@ def test_fixedsizearray():
     check(fn, [int, int], [100, 42], 58)
 
 def test_wrapper_cannot_be_removed():
-    from pypy.rpython.lltypesystem import lltype
     SMALL = lltype.OpaqueType('SMALL')
     BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
 
@@ -211,7 +208,6 @@ def test_wrapper_cannot_be_removed():
     check(fn, [], [], None, must_be_removed=False)
 
 def test_direct_fieldptr():
-    from pypy.rpython.lltypesystem import lltype
     S = lltype.GcStruct('S', ('x', lltype.Signed))
 
     def fn():
@@ -223,7 +219,6 @@ def test_direct_fieldptr():
     check(fn, [], [], 11)
 
 def test_direct_fieldptr_2():
-    from pypy.rpython.lltypesystem import lltype
     T = lltype.GcStruct('T', ('z', lltype.Signed))
     S = lltype.GcStruct('S', ('t', T),
                              ('x', lltype.Signed),
@@ -241,7 +236,6 @@ def test_direct_fieldptr_2():
     check(fn, [], [], 42)
 
 def test_getarraysubstruct():
-    from pypy.rpython.lltypesystem import lltype
     U = lltype.Struct('U', ('n', lltype.Signed))
     for length in [1, 2]:
         S = lltype.GcStruct('S', ('a', lltype.FixedSizeArray(U, length)))
@@ -254,9 +248,18 @@ def test_getarraysubstruct():
             check(fn, [], [], 12)
 
 def test_ptr_nonzero():
-    from pypy.rpython.lltypesystem import lltype
     S = lltype.GcStruct('S')
     def fn():
         s = lltype.malloc(S)
         return bool(s)
     check(fn, [], [], True)
+
+def test_substruct_not_accessed():
+    SMALL = lltype.Struct('SMALL', ('x', lltype.Signed))
+    BIG = lltype.GcStruct('BIG', ('z', lltype.Signed), ('s', SMALL))
+    def fn():
+        x = lltype.malloc(BIG)
+        while x.z < 10:    # makes several blocks
+            x.z += 3
+        return x.z
+    check(fn, [], [], 12)

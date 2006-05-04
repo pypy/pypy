@@ -214,10 +214,10 @@ def _try_inline_malloc(info):
                 direct_fieldptr_key[ARRAY, 'item0'] = S, S._names[0]
         for name in S._names[start:]:
             key = S, name
-            flatnames.append(key)
             FIELDTYPE = S._flds[name]
             if key in accessed_substructs:
                 needsubmallocs.append(key)
+                flatnames.append(key)
                 newvarstype[key] = lltype.Ptr(lltype.GcStruct('wrapper',
                                                           ('data', FIELDTYPE)))
             elif not isinstance(FIELDTYPE, lltype.ContainerType):
@@ -225,6 +225,7 @@ def _try_inline_malloc(info):
                 constant = Constant(example)
                 constant.concretetype = FIELDTYPE
                 flatconstants[key] = constant
+                flatnames.append(key)
                 newvarstype[key] = FIELDTYPE
             #else:
             #   the inlined substructure is never accessed, drop it
