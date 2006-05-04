@@ -16,7 +16,6 @@ def test_dict_get():
     assert cl_dict_get(42) == 43
 
 def test_dict_iter():
-    py.test.skip("not supported yet")
     def dict_iter():
         dic = {1:2, 3:4, 5:6}
         i = 0

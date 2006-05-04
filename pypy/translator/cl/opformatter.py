@@ -200,7 +200,13 @@ class DictImpl:
         return "(setf (gethash %s %s) %s)" % (key, self.obj, value)
 
     def ll_get_items_iterator(self):
-        raise NotImplementedError()
+        # This is explicitly unspecified by the specification.
+        # Should think of a better way to do this.
+        return """\
+(let ((temp (gensym)))
+  (setf (symbol-value temp)
+    (with-hash-table-iterator (iter %s)
+      (lambda () (iter)))) temp)""" % (self.obj,)
 
 class DictItemsIteratorImpl:
 
@@ -208,8 +214,12 @@ class DictItemsIteratorImpl:
         self.obj = obj
 
     def ll_go_next(self):
-        raise NotImplementedError()
+        return """\
+(multiple-value-bind (more key value)
+    (funcall (symbol-value %s))
+  (setf (get %s 'key) key)
+  (setf (get %s 'value) value)
+  more)""" % (self.obj, self.obj, self.obj)
 
     def ll_current_key(self):
-        raise NotImplementedError()
-
+        return "(get %s 'key)" % (self.obj,)
