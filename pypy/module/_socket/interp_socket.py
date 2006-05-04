@@ -194,7 +194,7 @@ def common_gethost(space, hostent):
     h_addr_list = ctypes.cast(hostent.contents.h_addr_list, ctypes.POINTER(ctypes.POINTER(_c.in_addr)))
     i = 0
     addr = h_addr_list[0]
-    while addr is not None:
+    while addr:
          address_list.append(space.wrap(_c.inet_ntoa(addr.contents)))
          i += 1
          addr = h_addr_list[i]
