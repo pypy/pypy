@@ -618,7 +618,7 @@ StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject, W_L
 #_________________________________________________________________
 
 # Helper Functions
-def args_from_long(l): #YYYYYY
+def args_from_long(l):
     if l < 0:
         sign = -1
     elif l > 0:
@@ -634,7 +634,9 @@ def args_from_long(l): #YYYYYY
     if sign == 0:
         digits = [0]
     return digits, sign
-
+args_from_long._annspecialcase_ = "specialize:argtype(0)"
+# ^^^ specialized by the precise type of 'l', which is typically a r_xxx
+#     instance from rpython.rarithmetic
 
 def _x_add(a, b):
     """ Add the absolute values of two long integers. """
