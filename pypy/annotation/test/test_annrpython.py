@@ -2002,6 +2002,35 @@ class TestAnnotateTestCase:
         assert s.is_constant()
         assert s.const == 0
 
+    def test_mixin(self):
+        class Mixin(object):
+            _mixin_ = True
+
+            def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            return v0, v1
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeChar)        
+        
+
 def g(n):
     return [0,1,2,n]
 

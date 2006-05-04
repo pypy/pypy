@@ -336,7 +336,7 @@ class ClassDesc(Desc):
                 if getattr(b1, '_mixin_', False):
                     assert b1.__bases__ == () or b1.__bases__ == (object,), (
                         "mixin class %r should have no base" % (b1,))
-                    self.add_sources_for_class(b1)
+                    self.add_sources_for_class(b1, mixin=True)
                 else:
                     assert base is object, ("multiple inheritance only supported "
                                             "with _mixin_: %r" % (cls,))
@@ -346,7 +346,7 @@ class ClassDesc(Desc):
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
 
-    def add_sources_for_class(self, cls):
+    def add_sources_for_class(self, cls, mixin=False):
         for name, value in cls.__dict__.items():
             ## -- useless? -- ignore some special attributes
             ##if name.startswith('_') and not isinstance(value, types.FunctionType):
@@ -355,7 +355,7 @@ class ClassDesc(Desc):
                 # for debugging
                 if not hasattr(value, 'class_'):
                     value.class_ = self.pyobj # remember that this is really a method
-                if self.specialize:
+                if self.specialize or mixin:
                     # make a custom funcdesc that specializes on its first
                     # argument (i.e. 'self').
                     from pypy.annotation.specialize import specialize_argtype

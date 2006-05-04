@@ -432,7 +432,32 @@ class BaseTestRclass:
         res = interpret(f, [], type_system=self.ts)
         assert res == 1
 
-   
+    def test_mixin(self):
+        class Mixin(object):
+            _mixin_ = True
+
+            def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            return v0, v1
+
+        res = interpret(f, [], type_system=self.ts)
+        assert typeOf(res.item0) == Signed
+
 
 class TestLltype(BaseTestRclass):
 
