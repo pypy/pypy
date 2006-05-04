@@ -355,7 +355,7 @@ class ClassDesc(Desc):
                 # for debugging
                 if not hasattr(value, 'class_'):
                     value.class_ = self.pyobj # remember that this is really a method
-                if self.specialize or mixin:
+                if self.specialize:
                     # make a custom funcdesc that specializes on its first
                     # argument (i.e. 'self').
                     from pypy.annotation.specialize import specialize_argtype
@@ -363,6 +363,12 @@ class ClassDesc(Desc):
                         return specialize_argtype(funcdesc, args_s, 0)
                     funcdesc = FunctionDesc(self.bookkeeper, value,
                                             specializer=argtype0)
+                    self.classdict[name] = funcdesc
+                    continue
+                if mixin:
+                    # make a new copy of the FunctionDesc for this class,
+                    # but don't specialize further for all subclasses
+                    funcdesc = FunctionDesc(self.bookkeeper, value)
                     self.classdict[name] = funcdesc
                     continue
                 # NB. if value is, say, AssertionError.__init__, then we
