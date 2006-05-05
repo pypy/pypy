@@ -463,6 +463,30 @@ class BaseTestRclass:
         res = interpret(f, [], type_system=self.ts)
         assert typeOf(res.item0) == Signed
 
+    def test___class___attribute(self):
+        class Base(object): pass
+        class A(Base): pass
+        class B(Base): pass
+        class C(A): pass
+        def seelater():
+            C()
+        def f(n):
+            if n == 1:
+                x = A()
+            else:
+                x = B()
+            y = B()
+            result = x.__class__, y.__class__
+            seelater()
+            return result
+        def g():
+            cls1, cls2 = f(1)
+            return cls1 is A, cls2 is B
+
+        res = interpret(g, [], type_system=self.ts)
+        assert res.item0
+        assert res.item1
+
 
 class TestLltype(BaseTestRclass):
 

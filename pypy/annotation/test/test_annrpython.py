@@ -2035,7 +2035,31 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[0], annmodel.SomeInteger)
         assert isinstance(s.items[1], annmodel.SomeChar)        
         assert isinstance(s.items[2], annmodel.SomeChar)        
-        
+
+    def test___class___attribute(self):
+        class Base(object): pass
+        class A(Base): pass
+        class B(Base): pass
+        class C(A): pass
+        def seelater():
+            C()
+        def f(n):
+            if n == 1:
+                x = A()
+            else:
+                x = B()
+            y = B()
+            result = x.__class__, y.__class__
+            seelater()
+            return result
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s.items[0], annmodel.SomePBC)
+        assert len(s.items[0].descriptions) == 4
+        assert isinstance(s.items[1], annmodel.SomePBC)
+        assert len(s.items[1].descriptions) == 1
+
 
 def g(n):
     return [0,1,2,n]

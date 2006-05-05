@@ -67,6 +67,7 @@ class Attribute:
     #      instances that have the attribute set will turn off readonly-ness.
 
     def __init__(self, name, bookkeeper):
+        assert name != '__class__'
         self.name = name
         self.bookkeeper = bookkeeper
         self.s_value = SomeImpossibleValue()
@@ -131,10 +132,12 @@ class ClassDef:
         self.shortname = self.name.split('.')[-1]        
         self.subdefs = []
         self.attr_sources = {}   # {name: list-of-sources}
+        self.read_locations_of__class__ = {}
 
         if classdesc.basedesc:
             self.basedef = classdesc.basedesc.getuniqueclassdef()
             self.basedef.subdefs.append(self)
+            self.basedef.see_new_subclass(self)
         else:
             self.basedef = None
 
@@ -369,6 +372,17 @@ class ClassDef:
             return True
         else:
             return False
+
+    def see_new_subclass(self, classdef):
+        for position in self.read_locations_of__class__:
+            self.bookkeeper.annotator.reflowfromposition(position)
+        if self.basedef is not None:
+            self.basedef.see_new_subclass(classdef)
+
+    def read_attr__class__(self):
+        position = self.bookkeeper.position_key
+        self.read_locations_of__class__[position] = True
+        return SomePBC([subdef.classdesc for subdef in self.getallsubdefs()])
 
     def _freeze_(self):
         raise Exception, "ClassDefs are used as knowntype for instances but cannot be used as immutablevalue arguments directly"

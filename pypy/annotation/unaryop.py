@@ -467,6 +467,8 @@ class __extend__(SomeInstance):
     def getattr(ins, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
+            if attr == '__class__':
+                return ins.classdef.read_attr__class__()
             attrdef = ins.classdef.find_attribute(attr)
             position = getbookkeeper().position_key
             attrdef.read_locations[position] = True

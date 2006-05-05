@@ -519,6 +519,10 @@ class InstanceRepr(AbstractInstanceRepr):
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         vinst, vattr = hop.inputargs(self, Void)
+        if attr == '__class__' and hop.r_result.lowleveltype is Void:
+            # special case for when the result of '.__class__' is a constant
+            [desc] = hop.s_result.descriptions
+            return hop.inputconst(Void, desc.pyobj)
         if attr in self.allinstancefields:
             return self.getfield(vinst, attr, hop.llops)
         elif attr in self.rclass.allmethods:
