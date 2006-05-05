@@ -165,7 +165,8 @@ class Bookkeeper:
         self.dictdefs = {}       # map position_keys to DictDefs
         self.immutable_cache = {}
 
-        self.pbc_maximal_access_sets = UnionFind(description.AttrFamily)
+        self.classpbc_attr_families = {} # {'attr': UnionFind(ClassAttrFamily)}
+        self.frozenpbc_attr_families = UnionFind(description.FrozenAttrFamily)
         self.pbc_maximal_call_families = UnionFind(description.CallFamily)
 
         self.emulated_pbc_calls = {}
@@ -533,6 +534,17 @@ class Bookkeeper:
                 o.knowntype = t
             return o
 
+    def get_classpbc_attr_families(self, attrname):
+        """Return the UnionFind for the ClassAttrFamilies corresponding to
+        attributes of the given name.
+        """
+        map = self.classpbc_attr_families
+        try:
+            access_sets = map[attrname]
+        except KeyError:
+            access_sets = map[attrname] = UnionFind(description.ClassAttrFamily)
+        return access_sets
+
     def pbc_getattr(self, pbc, s_attr):
         assert s_attr.is_constant()
         attr = s_attr.const
@@ -541,8 +553,8 @@ class Bookkeeper:
         if not descs:
             return SomeImpossibleValue()
         first = descs[0]
-        change = first.mergeattrfamilies(*descs[1:])
-        attrfamily = first.getattrfamily()
+        change = first.mergeattrfamilies(descs[1:], attr)
+        attrfamily = first.getattrfamily(attr)
 
         position = self.position_key
         attrfamily.read_locations[position] = True
@@ -552,8 +564,8 @@ class Bookkeeper:
             actuals.append(desc.s_read_attribute(attr))
         s_result = unionof(*actuals)
 
-        attrfamily.attrs[attr] = unionof(s_result,
-            attrfamily.attrs.get(attr, s_ImpossibleValue))
+        s_oldvalue = attrfamily.get_s_value(attr)
+        attrfamily.set_s_value(attr, unionof(s_result, s_oldvalue))
 
         if change:
             for position in attrfamily.read_locations:

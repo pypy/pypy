@@ -177,14 +177,14 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
             # instantiating a class from multiple possible classes
             from pypy.rpython.lltypesystem.rbuiltin import ll_instantiate
             vtypeptr = hop.inputarg(self, arg=0)
-            access_set = self.get_access_set()
-            r_class = self.get_class_repr()
-            if '__init__' in access_set.attrs:
-                s_init = access_set.attrs['__init__']
+            try:
+                access_set, r_class = self.get_access_set('__init__')
+            except MissingRTypeAttribute:
+                s_init = annmodel.s_ImpossibleValue
+            else:
+                s_init = access_set.s_value
                 v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
                                              hop.llops)
-            else:
-                s_init = annmodel.s_ImpossibleValue
             v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
             v_instance = hop.genop('cast_pointer', [v_inst1],
                                    resulttype = r_instance)

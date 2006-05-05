@@ -1220,6 +1220,33 @@ class BaseTestRPBC:
         res = interpret(f, [1], type_system=self.ts)
         assert res == 65
 
+    def test_multiple_attribute_access_patterns(self):
+        class Base(object):
+            pass
+        class A(Base):
+            value = 1000
+            def meth(self): return self.n + 1
+        class B(A):
+            def meth(self): return self.n + 2
+        class C(Base):
+            value = 2000
+            def meth(self): ShouldNotBeSeen
+        def AorB(n):
+            if n == 5: return A
+            else:      return B
+        def BorC(n):
+            if n == 3: return B
+            else:      return C
+        def f(n):
+            value = BorC(n).value
+            x = B()
+            x.n = 100
+            return value + AorB(n).meth(x)
+
+        for i in [1, 3, 5]:
+            res = interpret(f, [i])
+            assert res == f(i)
+
 
 def test_call_from_list():
     # Don't test with ootype, since it doesn't support lists in a

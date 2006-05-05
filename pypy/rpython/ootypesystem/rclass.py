@@ -53,12 +53,11 @@ class ClassRepr(AbstractClassRepr):
             # attributes showing up in getattrs done on the class as a PBC
             extra_access_sets = self.rtyper.class_pbc_attributes.get(
                 self.classdef, {})
-            for access_set, counter in extra_access_sets.items():
-                for attr, s_value in access_set.attrs.items():
-                    r = self.rtyper.getrepr(s_value)
-                    mangled_name = pbcmangle('pbc%d' % counter, attr)
-                    pbcfields[access_set, attr] = mangled_name, r
-                    llfields.append((mangled_name, r.lowleveltype))
+            for access_set, (attr, counter) in extra_access_sets.items():
+                r = self.rtyper.getrepr(access_set.s_value)
+                mangled_name = pbcmangle('pbc%d' % counter, attr)
+                pbcfields[access_set, attr] = mangled_name, r
+                llfields.append((mangled_name, r.lowleveltype))
             
             self.rbase.setup()
             ootype.addFields(self.lowleveltype, dict(llfields))

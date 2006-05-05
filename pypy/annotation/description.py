@@ -47,15 +47,15 @@ class CallFamily:
             self.total_calltable_size += 1
 
 
-class AttrFamily:
-    """A family of Desc objects that have common 'getattr' sites.
-    The attr families are conceptually a partition of FrozenDesc and ClassDesc
-    objects, where the equivalence relation is the transitive closure of
-    'd1~d2 if d1 and d2 might have an attribute read on them by the same
-    getattr operation.'
+class FrozenAttrFamily:
+    """A family of FrozenDesc objects that have any common 'getattr' sites.
+    The attr families are conceptually a partition of FrozenDesc objects,
+    where the equivalence relation is the transitive closure of:
+    d1~d2 if d1 and d2 might have some attribute read on them by the same
+    getattr operation.
     """
     def __init__(self, desc):
-        self.descs = { desc: True }
+        self.descs = {desc: True}
         self.read_locations = {}     # set of position_keys
         self.attrs = {}              # { attr: s_value }
 
@@ -63,6 +63,49 @@ class AttrFamily:
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.attrs.update(other.attrs)
+
+    def get_s_value(self, attrname):
+        try:
+            return self.attrs[attrname]
+        except KeyError:
+            from pypy.annotation.model import s_ImpossibleValue
+            return s_ImpossibleValue
+
+    def set_s_value(self, attrname, s_value):
+        self.attrs[attrname] = s_value
+
+
+class ClassAttrFamily:
+    """A family of ClassDesc objects that have common 'getattr' sites for a
+    given attribute name.  The attr families are conceptually a partition
+    of ClassDesc objects, where the equivalence relation is the transitive
+    closure of:  d1~d2 if d1 and d2 might have a common attribute 'attrname'
+    read on them by the same getattr operation.
+
+    The 'attrname' is not explicitly stored here, but is the key used
+    in the dictionary bookkeeper.pbc_maximal_access_sets_map.
+    """
+    # The difference between ClassAttrFamily and FrozenAttrFamily is that
+    # FrozenAttrFamily is the union for all attribute names, but
+    # ClassAttrFamily is more precise: it is only about one attribut name.
+
+    def __init__(self, desc):
+        from pypy.annotation.model import s_ImpossibleValue
+        self.descs = { desc: True }
+        self.read_locations = {}     # set of position_keys
+        self.s_value = s_ImpossibleValue    # union of possible values
+
+    def update(self, other):
+        from pypy.annotation.model import unionof
+        self.descs.update(other.descs)
+        self.read_locations.update(other.read_locations)
+        self.s_value = unionof(self.s_value, other.s_value)
+
+    def get_s_value(self, attrname):
+        return self.s_value
+
+    def set_s_value(self, attrname, s_value):
+        self.s_value = s_value
 
 # ____________________________________________________________
 
@@ -99,30 +142,6 @@ class Desc(object):
         changed, rep, callfamily = call_families.find(self.rowkey())
         for desc in others:
             changed1, rep, callfamily = call_families.union(rep, desc.rowkey())
-            changed = changed or changed1
-        return changed
-
-    def getattrfamily(self):
-        """Get the AttrFamily object. Possibly creates one."""
-        access_sets = self.bookkeeper.pbc_maximal_access_sets
-        _, _, attrfamily = access_sets.find(self)
-        return attrfamily
-
-    def queryattrfamily(self):
-        """Retrieve the AttrFamily object if there is one, otherwise
-           return None."""
-        access_sets = self.bookkeeper.pbc_maximal_access_sets
-        try:
-            return access_sets[self]
-        except KeyError:
-            return None
-
-    def mergeattrfamilies(self, *others):
-        """Merge the attr families of the given Descs into one."""
-        access_sets = self.bookkeeper.pbc_maximal_access_sets
-        changed, rep, attrfamily = access_sets.find(self)
-        for desc in others:
-            changed1, rep, attrfamily = access_sets.union(rep, desc)
             changed = changed or changed1
         return changed
 
@@ -548,6 +567,30 @@ class ClassDesc(Desc):
     def rowkey(self):
         return self
 
+    def getattrfamily(self, attrname):
+        "Get the ClassAttrFamily object for attrname. Possibly creates one."
+        access_sets = self.bookkeeper.get_classpbc_attr_families(attrname)
+        _, _, attrfamily = access_sets.find(self)
+        return attrfamily
+
+    def queryattrfamily(self, attrname):
+        """Retrieve the ClassAttrFamily object for attrname if there is one,
+           otherwise return None."""
+        access_sets = self.bookkeeper.get_classpbc_attr_families(attrname)
+        try:
+            return access_sets[self]
+        except KeyError:
+            return None
+
+    def mergeattrfamilies(self, others, attrname):
+        """Merge the attr families of the given Descs into one."""
+        access_sets = self.bookkeeper.get_classpbc_attr_families(attrname)
+        changed, rep, attrfamily = access_sets.find(self)
+        for desc in others:
+            changed1, rep, attrfamily = access_sets.union(rep, desc)
+            changed = changed or changed1
+        return changed
+
 
 class MethodDesc(Desc):
     knowntype = types.MethodType
@@ -663,6 +706,30 @@ class FrozenDesc(Desc):
         else:
             raise AssertionError("name clash: %r" % (name,))
         self.attrcache[name] = value
+
+    def getattrfamily(self, attrname=None):
+        "Get the FrozenAttrFamily object for attrname. Possibly creates one."
+        access_sets = self.bookkeeper.frozenpbc_attr_families
+        _, _, attrfamily = access_sets.find(self)
+        return attrfamily
+
+    def queryattrfamily(self, attrname=None):
+        """Retrieve the FrozenAttrFamily object for attrname if there is one,
+           otherwise return None."""
+        access_sets = self.bookkeeper.frozenpbc_attr_families
+        try:
+            return access_sets[self]
+        except KeyError:
+            return None
+
+    def mergeattrfamilies(self, others, attrname=None):
+        """Merge the attr families of the given Descs into one."""
+        access_sets = self.bookkeeper.frozenpbc_attr_families
+        changed, rep, attrfamily = access_sets.find(self)
+        for desc in others:
+            changed1, rep, attrfamily = access_sets.union(rep, desc)
+            changed = changed or changed1
+        return changed
 
 
 class MethodOfFrozenDesc(Desc):

@@ -599,24 +599,22 @@ class AbstractClassesPBCRepr(Repr):
             self.lowleveltype = Void
         else:
             self.lowleveltype = rtyper.type_system.rclass.CLASSTYPE
-        self._access_set = None
-        self._class_repr = None
 
-    def get_access_set(self):
-        if self._access_set is None:
-            classdescs = self.s_pbc.descriptions.keys()
-            access = classdescs[0].getattrfamily()
-            for classdesc in classdescs[1:]:
-                access1 = classdesc.getattrfamily() 
-                assert access1 is access       # XXX not implemented
-            commonbase = access.commonbase
-            self._class_repr = rclass.getclassrepr(self.rtyper, commonbase)
-            self._access_set = access
-        return self._access_set
-
-    def get_class_repr(self):
-        self.get_access_set()
-        return self._class_repr
+    def get_access_set(self, attrname):
+        """Return the ClassAttrFamily corresponding to accesses to 'attrname'
+        and the ClassRepr of the class which stores this attribute in
+        its vtable.
+        """
+        classdescs = self.s_pbc.descriptions.keys()
+        access = classdescs[0].queryattrfamily(attrname)
+        for classdesc in classdescs[1:]:
+            access1 = classdesc.queryattrfamily(attrname)
+            assert access1 is access       # XXX not implemented
+        if access is None:
+            raise rclass.MissingRTypeAttribute(attrname)
+        commonbase = access.commonbase
+        class_repr = rclass.getclassrepr(self.rtyper, commonbase)
+        return access, class_repr
 
     def convert_desc(self, desc):
         if desc not in self.s_pbc.descriptions:
@@ -635,11 +633,10 @@ class AbstractClassesPBCRepr(Repr):
             return hop.inputconst(hop.r_result, hop.s_result.const)
         else:
             attr = hop.args_s[1].const
-            access_set = self.get_access_set()
-            class_repr = self.get_class_repr()
+            access_set, class_repr = self.get_access_set(attr)
             vcls, vattr = hop.inputargs(class_repr, Void)
             v_res = class_repr.getpbcfield(vcls, access_set, attr, hop.llops)
-            s_res = access_set.attrs[attr]
+            s_res = access_set.s_value
             r_res = self.rtyper.getrepr(s_res)
             return hop.llops.convertvar(v_res, r_res, hop.r_result)
 
@@ -663,11 +660,8 @@ class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
         if r_clspbc.lowleveltype is Void:
             return inputconst(r_cls, r_clspbc.s_pbc.const)
         # convert from ptr-to-object-vtable to ptr-to-more-precise-vtable
-        # but first check if it is safe
         assert (r_clspbc.lowleveltype ==
             r_clspbc.rtyper.type_system.rclass.CLASSTYPE)
-        if not r_clspbc.get_class_repr().classdef.issubclass(r_cls.classdef):
-            return NotImplemented
         return r_cls.fromclasstype(v, llops)
 
 class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):

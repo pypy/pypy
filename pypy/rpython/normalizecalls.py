@@ -186,29 +186,30 @@ def merge_classpbc_getattr_into_classdef(rtyper):
     # PBC access set of the family of classes of 'some_class'.  If the classes
     # have corresponding ClassDefs, they are not updated by the annotator.
     # We have to do it now.
-    access_sets = rtyper.annotator.bookkeeper.pbc_maximal_access_sets
-    for access_set in access_sets.infos():
-        descs = access_set.descs
-        if len(descs) <= 1:
-            continue
-        if not isinstance(descs.iterkeys().next(), description.ClassDesc):
-            continue
-        classdefs = [desc.getuniqueclassdef() for desc in descs]
-        commonbase = classdefs[0]
-        for cdef in classdefs[1:]:
-            commonbase = commonbase.commonbase(cdef)
-            if commonbase is None:
-                raise TyperError("reading attributes %r: no common base class "
-                                 "for %r" % (
-                    access_set.attrs.keys(), descs.keys()))
-        extra_access_sets = rtyper.class_pbc_attributes.setdefault(commonbase,
-                                                                   {})
-        if commonbase in rtyper.class_reprs:
-            assert access_set in extra_access_sets # minimal sanity check
-            return
-        access_set.commonbase = commonbase
-        if access_set not in extra_access_sets:
-            extra_access_sets[access_set] = len(extra_access_sets)
+    all_families = rtyper.annotator.bookkeeper.classpbc_attr_families
+    for attrname, access_sets in all_families.items():
+        for access_set in access_sets.infos():
+            descs = access_set.descs
+            if len(descs) <= 1:
+                continue
+            if not isinstance(descs.iterkeys().next(), description.ClassDesc):
+                continue
+            classdefs = [desc.getuniqueclassdef() for desc in descs]
+            commonbase = classdefs[0]
+            for cdef in classdefs[1:]:
+                commonbase = commonbase.commonbase(cdef)
+                if commonbase is None:
+                    raise TyperError("reading attribute %r: no common base "
+                                     "class for %r" % (attrname, descs.keys()))
+            extra_access_sets = rtyper.class_pbc_attributes.setdefault(
+                commonbase, {})
+            if commonbase in rtyper.class_reprs:
+                assert access_set in extra_access_sets # minimal sanity check
+                continue
+            access_set.commonbase = commonbase
+            if access_set not in extra_access_sets:
+                counter = len(extra_access_sets)
+                extra_access_sets[access_set] = attrname, counter
 
 # ____________________________________________________________
 
@@ -222,19 +223,17 @@ def create_class_constructors(annotator):
         descs = family.descs.keys()
         if not isinstance(descs[0], description.ClassDesc):
             continue
-        # Note that a callfamily of classes must really be in the same
-        # attrfamily as well; This property is relied upon on various
-        # places in the rtyper
-        change = descs[0].mergeattrfamilies(*descs[1:])
+        # Note that if classes are in the same callfamily, their __init__
+        # attribute must be in the same attrfamily as well.
+        change = descs[0].mergeattrfamilies(descs[1:], '__init__')
         if hasattr(descs[0].getuniqueclassdef(), 'my_instantiate_graph'):
             assert not change, "after the fact change to a family of classes" # minimal sanity check
             return
-        attrfamily = descs[0].getattrfamily()
         # Put __init__ into the attr family, for ClassesPBCRepr.call()
-        s_value = attrfamily.attrs.get('__init__', annmodel.s_ImpossibleValue)
+        attrfamily = descs[0].getattrfamily('__init__')
         inits_s = [desc.s_read_attribute('__init__') for desc in descs]
-        s_value = annmodel.unionof(s_value, *inits_s)
-        attrfamily.attrs['__init__'] = s_value
+        s_value = annmodel.unionof(attrfamily.s_value, *inits_s)
+        attrfamily.s_value = s_value
         # ClassesPBCRepr.call() will also need instantiate() support
         for desc in descs:
             bk.needs_generic_instantiate[desc.getuniqueclassdef()] = True
