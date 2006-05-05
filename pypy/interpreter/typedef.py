@@ -48,7 +48,6 @@ class TypeDef:
 def get_default_hash_function(cls):
     # go to the first parent class of 'cls' that as a typedef
     while 'typedef' not in cls.__dict__:
-        print cls, '=> !'
         cls = cls.__bases__[0]
         if cls is object:
             # not found: 'cls' must have been an abstract class,
