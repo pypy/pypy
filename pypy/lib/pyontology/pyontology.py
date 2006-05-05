@@ -37,6 +37,7 @@ def check_format(f):
     else:
         format = "n3"
     return format
+
 class ClassDomain(AbstractDomain):
     
     # Class domain is intended as a (abstract/virtual) domain for implementing
@@ -220,6 +221,7 @@ class Ontology:
     
     def __init__(self, store = 'default'):
         self.graph = Graph(store)
+        self.store = store
         if store != 'default':
             self.graph.open(py.path.local().join("db").strpath)
         self.variables = {}
@@ -229,19 +231,26 @@ class Ontology:
     
     def add(self, triple):
         self.graph.add(triple)
-    
+
     def add_file(self, f, format=None):
+        tmp = Graph('default')
+        tmp.load(f, format)
+        for triple in tmp.triples((None,)*3):
+            self.add(triple)
+            
+    def load_file(self, f, format=None):
         if not format:
             format = check_format(f)
         self.graph.load(f, format=format)
     
     def attach_fd(self):
         for (s, p, o) in (self.graph.triples((None,)*3)):
-            if (s, p, o) in self.seen:
+            if (s, p, o) in self.seen.keys():
                 continue
             self.seen[(s, p, o)] = True
             self.consider_triple((s, p, o))
-    
+        assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
+
     def consider_triple(self,(s, p, o)):
         if p.find('#') != -1:
             ns, func = p.split('#')
@@ -252,10 +261,6 @@ class Ontology:
             #predicate is one of builtin OWL or rdf predicates
             pred = getattr(self, func)
             res = pred(s, o)
-            if not res :
-                return
-            if type(res) != list :
-                res = [res]
             avar = self.make_var(ClassDomain, s)
         else:
             avar = self.make_var(Property, p)
@@ -265,6 +270,32 @@ class Ontology:
             propdom = self.variables[avar]
             res = propdom.addValue(sub, obj)
 
+    def evaluate(self, terms):
+        # terms is a dictionary of types of restriction and list of values for this restriction
+        term = terms['Cardinality']
+        if len(term) < 1: return	
+        mini = maxi = equal = None
+        
+        for tp,val in term:
+            if tp == '<':
+               if not maxi or val < maxi : maxi = val
+            elif tp == '>':
+               if not mini or val > mini : mini = val
+            else:
+                if equal:
+                    raise ConsistencyFailure
+                equal = val
+
+        if mini and maxi and (mini > maxi or
+                             equal < mini or
+                             equal > maxi):
+            raise ConsistencyFailure
+        
+    def check_TBoxes(self):
+        for var, cls in self.variables.items():
+            for prop, terms in cls.TBox.items():
+                if len(terms) > 1: 
+                    self.evaluate(terms)
     
     def solve(self,verbose=0):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
@@ -299,12 +330,13 @@ class Ontology:
     def resolve_item(self, item):
         item_as_subject = self.graph.triples((item, None, None))
         for triple in item_as_subject:
-            if triple in self.seen:
+            if triple in self.seen.keys():
                continue
             self.seen[triple] = True
             self.consider_triple(triple)
     
     def make_var(self, cls=fd, a=''):
+        self.resolve_item(a)
         if type(a) == URIRef:
             if a.find('#') != -1:
                 ns,name = a.split('#')
@@ -374,6 +406,17 @@ class Ontology:
         # var
         avar = self.make_var(None, var)
         svar = self.make_var(ClassDomain, s)
+        obj = self.variables[avar]
+        sub = self.variables[svar]
+        if obj.TBox:
+            sub.TBox.setdefault(obj.property, {})
+            op = sub.TBox[obj.property]
+            for restr in obj.TBox.keys():
+                op.setdefault(restr,[])
+                op[restr].extend(obj.TBox[restr])
+
+            assert len(sub.TBox) > 0 
+#            self.variables.pop(avar)
         cons = SubClassConstraint( svar, avar)
         self.constraints.append(cons)
     
@@ -467,22 +510,14 @@ class Ontology:
         svar =self.make_var(Restriction, s)
         constrain = MaxCardinality(svar, int(var))
         self.constraints.append(constrain)
-        # Make a new variable that can hold the domain of possible cardinality
-        # values
-        self.variables[svar].TBox['Cardinality'] = (range( int(var)+1), 'in')
-#        var_name = '%s_Cardinality' % svar
-#        self.variables[var_name] = fd(range(int(var)+1))
+        self.variables[svar].TBox['Cardinality'] = [( '>', int(var))]
     
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
         svar =self.make_var(Restriction, s)
         constrain = MinCardinality(svar, int(var))
         self.constraints.append(constrain)
-        self.variables[svar].TBox['Cardinality'] = ( range(int(var)), 'not in')
-#        var_name = '%s_Cardinality' % svar
-#        self.variables[var_name] = fd(range(int(var)))
-#        constraint = Expression(var_name,' not in')
-#        self.constraints.append(constraint)
+        self.variables[svar].TBox['Cardinality'] = [( '>', int(var))]
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
@@ -490,33 +525,7 @@ class Ontology:
         # Check if var is an int, else find the int buried in the structure
         constrain = Cardinality(svar, int(var))
         self.constraints.append(constrain)
-        self.variables[svar].TBox['Cardinality'] = ( [int(var)], 'in')
-#        var_name = '%s_Cardinality' % svar
-#        self.variables['var_name'] = fd(int(var))
-    
-    def differentFrom(self, s, var):
-        s_var = self.make_var(Thing, s)
-        var_var = self.make_var(Thing, var)
-        constrain = DifferentfromConstraint(s_var, var_var)
-        self.constraints.append(constrain)
-
-#XXX need to change this
-    def distinctMembers(self, s, var):
-        s_var = self.make_var(AllDifferent, s)
-        var_var = self.flatten_rdf_list(var)
-        #var_var = self.make_var(List, var)
-        for v in var_var:
-           indx = var_var.index(v)
-           for other in var_var[indx+1:]:
-               self.differentFrom(v, other)
-        constrain = AllDifferentConstraint(s_var, var_var)
-        self.constraints.append(constrain)
-    
-    def sameAs(self, s, var):
-        s_var = self.make_var(None, s)
-        var_var = self.make_var(None, var)
-        constrain = SameasConstraint(s_var, var_var)
-        self.constraints.append(constrain)
+        self.variables[svar].TBox['Cardinality'] = [( '=', int(var))]
     
     def hasValue(self, s, var):
         svar = self.make_var(Restriction, s)
@@ -535,9 +544,35 @@ class Ontology:
         avar = self.make_var(None, var)
         constrain = SomeValueConstraint(svar, avar)
         self.constraints.append(constrain)
+
+# -----------------              ----------------
     
     def imports(self, s, var):
         # PP TODO: implement this
         pass
 
-# ----------------- Helper classes ----------------
+    def sameAs(self, s, var):
+        s_var = self.make_var(Thing, s)
+        var_var = self.make_var(Thing, var)
+        constrain = SameasConstraint(s_var, var_var)
+        self.constraints.append(constrain)
+
+
+    def differentFrom(self, s, var):
+        s_var = self.make_var(Thing, s)
+        var_var = self.make_var(Thing, var)
+        constrain = DifferentfromConstraint(s_var, var_var)
+        self.constraints.append(constrain)
+
+#XXX need to change this
+    def distinctMembers(self, s, var):
+        s_var = self.make_var(AllDifferent, s)
+        var_var = self.flatten_rdf_list(var)
+        #var_var = self.make_var(List, var)
+        for v in var_var:
+           indx = var_var.index(v)
+           for other in var_var[indx+1:]:
+               self.differentFrom(v, other)
+        constrain = AllDifferentConstraint(s_var, var_var)
+        self.constraints.append(constrain)
+
