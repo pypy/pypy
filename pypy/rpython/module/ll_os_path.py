@@ -6,7 +6,6 @@ Dummy low-level implementations for the external functions of the 'os.path' modu
 
 import os
 import stat
-from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy
 from pypy.rpython.module.ll_os import ll_os_stat
 

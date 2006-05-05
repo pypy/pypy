@@ -1,12 +1,12 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable
-from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc
 
 
 # utility conversion functions
 def to_rstr(s):
+    from pypy.rpython.lltypesystem.rstr import STR
     if s is None:
         return lltype.nullptr(STR)
     p = malloc(STR, len(s))
