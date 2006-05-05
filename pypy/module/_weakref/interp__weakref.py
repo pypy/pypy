@@ -7,9 +7,6 @@ from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.rpython.objectmodel import cast_address_to_object, cast_object_to_address
 from pypy.rpython.lltypesystem.llmemory import NULL
 
-W_Weakrefable = W_Root
-W_Weakrefable.__lifeline__ = None
-
 
 class WeakrefLifeline(object):
     def __init__(self):
@@ -67,6 +64,18 @@ class WeakrefLifeline(object):
         if self.cached_weakref_index == index:
             self.cached_weakref_index = -1
 
+    def get_any_weakref(self, space):
+        if self.cached_weakref_index != -1:
+            return cast_address_to_object(
+                self.addr_refs[self.cached_weakref_index], W_WeakrefBase)
+        w_weakreftype = space.gettypeobject(W_Weakref.typedef)
+        for i in range(len(self.addr_refs)):
+            addr = self.addr_refs[i]
+            if addr != NULL:
+                w_ref = cast_address_to_object(addr, W_WeakrefBase)
+                if space.is_true(space.isinstance(w_ref, w_weakreftype)):
+                    return w_ref
+        return space.w_None
 
 class W_WeakrefBase(Wrappable):
     def __init__(w_self, space, lifeline, index, w_obj, w_callable):
@@ -79,7 +88,7 @@ class W_WeakrefBase(Wrappable):
     def dereference(self):
         if self.address == NULL:
             return self.space.w_None
-        return cast_address_to_object(self.address, W_Weakrefable)
+        return cast_address_to_object(self.address, W_Root)
         
     def invalidate(w_self):
         w_self.address = NULL
@@ -113,10 +122,11 @@ class W_Weakref(W_WeakrefBase):
         return self.w_hash
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
-    assert isinstance(w_obj, W_Weakrefable)
-    if w_obj.__lifeline__ is None:
-        w_obj.__lifeline__ = WeakrefLifeline()
-    return w_obj.__lifeline__.get_weakref(space, w_subtype, w_obj, w_callable)
+    lifeline = w_obj.getweakref()
+    if lifeline is None:
+        lifeline = WeakrefLifeline()
+        w_obj.setweakref(space, lifeline)
+    return lifeline.get_weakref(space, w_subtype, w_obj, w_callable)
 
 def descr__eq__(space, ref1, ref2):
     if ref1.address == NULL or ref2.address == NULL:
@@ -138,12 +148,10 @@ W_Weakref.typedef = TypeDef("weakref",
 
 
 def getweakrefcount(space, w_obj):
-    if not isinstance(w_obj, W_Weakrefable):
-        return space.wrap(0)
-    if w_obj.__lifeline__ is None:
+    lifeline = w_obj.getweakref()
+    if lifeline is None:
         return space.wrap(0)
     else:
-        lifeline = w_obj.__lifeline__
         result = 0
         for i in range(len(lifeline.addr_refs)):
             if lifeline.addr_refs[i] != NULL:
@@ -151,12 +159,10 @@ def getweakrefcount(space, w_obj):
         return space.wrap(result)
 
 def getweakrefs(space, w_obj):
-    if not isinstance(w_obj, W_Weakrefable):
-        return space.newlist([])
-    if w_obj.__lifeline__ is None:
+    lifeline = w_obj.getweakref()
+    if lifeline is None:
         return space.newlist([])
     else:
-        lifeline = w_obj.__lifeline__
         result = []
         for i in range(len(lifeline.addr_refs)):
             addr = lifeline.addr_refs[i]
@@ -178,10 +184,11 @@ class W_CallableProxy(W_Proxy):
         return space.call_args(w_obj, __args__)
 
 def proxy(space, w_obj, w_callable=None):
-    assert isinstance(w_obj, W_Weakrefable)
-    if w_obj.__lifeline__ is None:
-        w_obj.__lifeline__ = WeakrefLifeline()
-    return w_obj.__lifeline__.get_proxy(space, w_obj, w_callable)
+    lifeline = w_obj.getweakref()
+    if lifeline is None:
+        lifeline = WeakrefLifeline()
+        w_obj.setweakref(space, lifeline) 
+    return lifeline.get_proxy(space, w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):
     raise OperationError(

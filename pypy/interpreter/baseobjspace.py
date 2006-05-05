@@ -7,7 +7,8 @@ from pypy.tool.cache import Cache
 from pypy.rpython.rarithmetic import r_uint, intmask
 import os
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
+__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root',
+           'WeakrefableMixin']
 
 
 class W_Root(object):
@@ -61,13 +62,32 @@ class W_Root(object):
     def identity_hash(self, space):
         return space.wrap(intmask(hash(self))) #space.id(self)
 
+    # used by _weakref implemenation
+
+    def getweakref(self):
+        return None
+
+    def setweakref(self, space, weakreflifeline):
+        typename = space.type(self).getname(space, '?')
+        raise OperationError(space.w_TypeError, space.wrap(
+            "cannot create weak reference to '%s' object" % typename))
+
 class Wrappable(W_Root):
     """A subclass of Wrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
     def __spacebind__(self, space):
         return self
 
+class WeakrefableMixin(object):
+    _mixin_ = True
+    __lifeline__ = None
 
+    def getweakref(self):
+        return self.__lifeline__
+
+    def setweakref(self, space, weakreflifeline):
+        self.__lifeline__ = weakreflifeline
+    
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
     be attached to the space by defining a function or class 'f' which

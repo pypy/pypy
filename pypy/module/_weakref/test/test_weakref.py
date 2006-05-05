@@ -13,6 +13,7 @@ class AppTestWeakref(object):
         assert _weakref.getweakrefcount(a) == 0
         ref = _weakref.ref(a)
         assert ref() is a
+        assert a.__weakref__ is ref
         assert _weakref.getweakrefcount(a) == 1
         del a
         assert ref() is None
@@ -143,6 +144,78 @@ class AppTestWeakref(object):
         assert hash(w) == 42
         w = _weakref.ref(A())
         raises(TypeError, hash, w)
+
+    def test_weakref_subclassing(self):
+        import _weakref
+        class A(object):
+            pass
+        class Ref(_weakref.ref):
+            pass
+        def callable(ref):
+            b.a = 42
+        a = A()
+        b = A()
+        b.a = 1
+        w = Ref(a, callable)
+        assert a.__weakref__ is w
+        assert b.__weakref__ is None
+        w1 = _weakref.ref(a)
+        w2 = _weakref.ref(a, callable)
+        assert a.__weakref__ is w1
+        del a
+        assert w1() is None
+        assert w() is None
+        assert w2() is None
+        assert b.a == 42
+
+    def test_function_weakrefable(self):
+        skip("wip")
+        import _weakref
+        def f(x):
+            return 42
+        wf = _weakref.ref(f)
+        assert wf()() == 42
+        del f
+        assert wf() is None
+
+    def test_method_weakrefable(self):
+        skip("wip")
+        import _weakref
+        class A(object):
+            def f(self):
+                return 42
+        a = A()
+        w_unbound = _weakref.ref(A.f)
+        assert w_unbound()(A()) == 42
+        w_bound = _weakref.ref(A().f)
+        assert w_bound()() == 42
+        del A
+        assert w_unbound() is None
+        assert w_bound() is None
+
+    def test_set_weakrefable(self):
+        skip("wip")
+        import _weakref
+        s = set([1, 2, 3, 4])
+        w = _weakref.ref(s)
+        assert w() is s
+        del s
+        assert w() is None
+
+    def test_generator_weakrefable(self):
+        skip("wip")
+        import _weakref
+        def f(x):
+            for i in range(x):
+                yield x
+        g = f(10)
+        w = _weakref.ref(g)
+        r = w().next()
+        assert r == 0
+        r = g.next()
+        assert r == 1
+        del g
+        assert w() is None
 
     def test_weakref_subclass_with_del(self):
         import _weakref

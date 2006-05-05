@@ -5,7 +5,7 @@
 import py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, WeakrefableMixin
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2
 from pypy.rpython.objectmodel import instantiate
@@ -36,26 +36,25 @@ class TypeDef:
         return True
 
 
-def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False):
-    key = cls, hasdict, wants_slots, needsdel
+def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
+                                    weakrefable=False):
+    weakrefable = weakrefable and not issubclass(cls, WeakrefableMixin)
+    key = cls, hasdict, wants_slots, needsdel, weakrefable
     try:
         return _subclass_cache[key]
     except KeyError:
-        name = hasdict and "WithDict" or "NoDict"
-        name += wants_slots and "WithSlots" or "NoSlots"
-        name += needsdel and "WithDel" or "NoDel"
-        subcls = _buildusercls(cls, hasdict, wants_slots, needsdel)
+        subcls = _buildusercls(cls, hasdict, wants_slots, needsdel, weakrefable)
         _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def _buildusercls(cls, hasdict, wants_slots, wants_del):
+def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
     "NOT_RPYTHON: initialization-time only"
     typedef = cls.typedef
     
     if hasdict and typedef.hasdict:
-        return get_unique_interplevel_subclass(cls, False, wants_slots, wants_del)
+        return get_unique_interplevel_subclass(cls, False, wants_slots, wants_del, weakrefable)
     
     name = ['User']
     if not hasdict:
@@ -64,12 +63,15 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
         name.append('WithSlots')
     if wants_del:
         name.append('WithDel')
+    if weakrefable:
+        name.append('Weakrefable')
+    
     name.append(cls.__name__)
     
     name = ''.join(name)
-    
     if wants_del:
-        supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots, False)
+        supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots,
+                                                   False, False)
         parent_destructor = getattr(cls, '__del__', None)
         class Proto(object):
             def __del__(self):
@@ -81,7 +83,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
                 if parent_destructor is not None:
                     parent_destructor(self)
     elif wants_slots:
-        supercls = get_unique_interplevel_subclass(cls, hasdict, False, False)
+        supercls = get_unique_interplevel_subclass(cls, hasdict, False, False, False)
         
         class Proto(object):
             def user_setup_slots(self, nslots):
@@ -93,7 +95,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
             def getslotvalue(self, index):
                 return self.slots_w[index]
     elif hasdict:
-        supercls = get_unique_interplevel_subclass(cls, False, False, False)
+        supercls = get_unique_interplevel_subclass(cls, False, False, False, False)
         
         class Proto(object):
             def getdict(self):
@@ -135,7 +137,10 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del):
                  for key, value in Proto.__dict__.items()
                  if not key.startswith('_') or key == '__del__'])
     
-    subcls = type(name, (supercls,), body)
+    if weakrefable and not issubclass(supercls, WeakrefableMixin):
+        subcls = type(name, (WeakrefableMixin, supercls), body)
+    else:
+        subcls = type(name, (supercls,), body)
     
     return subcls
 
@@ -374,6 +379,12 @@ def descr_get_dict(space, w_obj):
 def descr_set_dict(space, w_obj, w_dict):
     w_obj.setdict(space, w_dict)
 
+def descr_get_weakref(space, w_obj):
+    lifeline = w_obj.getweakref()
+    if lifeline is None:
+        return space.w_None
+    return lifeline.get_any_weakref(space)
+
 def generic_ne(space, w_obj1, w_obj2):
     if space.eq_w(w_obj1, w_obj2):
         return space.w_False
@@ -399,6 +410,10 @@ def fget_co_flags(space, code): # unwrapping through unwrap_spec
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = space.wrap(code.getdocstring())
     return space.newtuple([w_docstring])
+
+weakref_descr = GetSetProperty(descr_get_weakref)
+weakref_descr.name = '__weakref__'
+
 
 Code.typedef = TypeDef('internal-code',
     co_name = interp_attrproperty('co_name', cls=Code),

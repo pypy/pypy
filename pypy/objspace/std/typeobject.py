@@ -2,6 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter import gateway
+from pypy.interpreter.typedef import WeakrefableMixin, weakref_descr
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
@@ -37,7 +38,7 @@ def _mangle(name, klass):
 
     return "_%s%s" % (klass, name)
 
-class W_TypeObject(W_Object):
+class W_TypeObject(WeakrefableMixin, W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
     lazyloaders = {} # can be overridden by specific instances
@@ -51,6 +52,7 @@ class W_TypeObject(W_Object):
         w_self.ensure_static__new__()
         w_self.nslots = 0
         w_self.needsdel = False
+        w_self.weakrefable = False
         w_self.w_bestbase = None
 
         # make sure there is a __doc__ in dict_w
@@ -121,6 +123,7 @@ class W_TypeObject(W_Object):
                                                             "multiple inheritance"))
                 w_self.hasdict = w_self.hasdict or w_base.hasdict
                 w_self.needsdel = w_self.needsdel or w_base.needsdel
+                w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
             if not w_newstyle: # only classic bases
                 raise OperationError(space.w_TypeError,
                                      space.wrap("a new-style class can't have only classic bases"))
@@ -135,8 +138,10 @@ class W_TypeObject(W_Object):
                 w_self.w_bestbase = w_newstyle
 
             wantdict = True
+            wantweakref = True
             if '__slots__' in dict_w:
                 wantdict = False
+                wantweakref = False
 
                 w_slots = dict_w['__slots__']
                 if space.is_true(space.isinstance(w_slots, space.w_str)):
@@ -165,6 +170,12 @@ class W_TypeObject(W_Object):
                             raise OperationError(space.w_TypeError,
                                                  space.wrap("__dict__ slot disallowed: we already got one"))
                         wantdict = True
+                    elif slot_name == '__weakref__':
+                        if w_self.weakrefable:
+                            raise OperationError(space.w_TypeError,
+                                                 space.wrap("__weakref__ slot disallowed: we already got one"))
+                                                
+                        wantweakref = True
                     else:
                         # create member
                         slot_name = _mangle(slot_name, name)
@@ -182,6 +193,9 @@ class W_TypeObject(W_Object):
                 w_self.hasdict = True
             if '__del__' in dict_w:
                 w_self.needsdel = True
+            if wantweakref and not w_self.weakrefable:
+                w_self.dict_w['__weakref__'] = space.wrap(weakref_descr)
+                w_self.weakrefable = True
             w_type = space.type(w_self)
             if not space.is_w(w_type, space.w_type):
                 w_self.mro_w = []

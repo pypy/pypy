@@ -417,7 +417,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             instance =  instantiate(cls)
         else:
             w_subtype = w_type.check_user_subclass(w_subtype)
-            subcls = get_unique_interplevel_subclass(cls, w_subtype.hasdict, w_subtype.nslots != 0, w_subtype.needsdel)
+            subcls = get_unique_interplevel_subclass(cls, w_subtype.hasdict, w_subtype.nslots != 0, w_subtype.needsdel, w_subtype.weakrefable)
             instance = instantiate(subcls)
             instance.user_setup(self, w_subtype, w_subtype.nslots)
         assert isinstance(instance, cls)
