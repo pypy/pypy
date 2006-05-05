@@ -500,7 +500,7 @@ def test_sameasconsistency():
 
 
 def test_cardinality_terminology():
-    py.test.skip("In progress")
+    #py.test.skip("In progress")
     # Modeled after one of the standard tests (approved/maxCardinality)
     # 'cls' by subclassing two maxCardinality restrictions becomes the set of
     # individuals satisfying both restriction, ie having exactly 2 values of
@@ -526,7 +526,7 @@ def test_cardinality_terminology():
     O.minCardinality(restr2, 3)
     constraints = len(O.constraints)
     py.test.raises(ConsistencyFailure, O.consistency, 3)
-    assert len(O.constraints) < constraints
-    py.test.raises(ConsistencyFailure, O.consistency, 3)
+    
+    assert 0
 
     
