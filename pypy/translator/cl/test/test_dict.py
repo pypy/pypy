@@ -22,5 +22,16 @@ def test_dict_iter():
         for key in dic:
             i = i + dic[key]
         return i
-    cl_dict_iter = make_cl_func(dict_iter, [])
+    cl_dict_iter = make_cl_func(dict_iter)
     assert cl_dict_iter() == 12
+
+def test_dict_values():
+    def dict_values():
+        dic = {1:2, 3:4, 5:6}
+        i = 0
+        for value in dic.values():
+            i = i + value
+        return i
+    cl_dict_value = make_cl_func(dict_values)
+    assert cl_dict_value() == 12
+

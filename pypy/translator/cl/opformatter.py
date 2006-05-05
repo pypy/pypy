@@ -214,8 +214,12 @@ class DictItemsIteratorImpl:
     def ll_go_next(self):
         return """\
 (multiple-value-bind (more key value)
-    (funcall (car %s))
+    (funcall (first %s))
   more)""" % (self.obj,)
 
     def ll_current_key(self):
-        return "(funcall (cdr %s))" % (self.obj,)
+        return "(funcall (second %s))" % (self.obj,)
+
+    def ll_current_value(self):
+        return "(funcall (third %s))" % (self.obj,)
+

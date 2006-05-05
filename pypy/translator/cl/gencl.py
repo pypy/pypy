@@ -75,15 +75,17 @@ class GenCL:
 (defun %s (hash)
   (let ((current-index -1)
         (keys (loop for keys being the hash-keys in hash collect keys)))
-    (cons (lambda ()
-            (let ((more (<= (incf current-index) (1- (length keys)))))
-              (if more
-                (let* ((key (nth current-index keys))
-                       (val (gethash key hash)))
-                  (values more key val))
-                (values nil nil nil))))
-          (lambda ()
-            (nth current-index keys)))))""" % (name)
+      (list (lambda ()
+              (let ((more (<= (incf current-index) (1- (length keys)))))
+                (if more
+                  (let* ((key (nth current-index keys))
+                         (val (gethash key hash)))
+                    (values more key val))
+                  (values nil nil nil))))
+            (lambda ()
+              (nth current-index keys))
+            (lambda ()
+              (gethash (nth current-index keys) hash)))))""" % (name)
         self.declarations[name] = (name,  definition)
         return name
 
