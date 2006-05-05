@@ -39,9 +39,9 @@ def test_makevar():
      
 def test_subClassof():
     O = Ontology()
-    a = URIRef(u'A')
-    b = URIRef(u'B')
-    c = URIRef(u'C')
+    a = O.make_var(ClassDomain,URIRef(u'A'))
+    b = O.make_var(ClassDomain,URIRef(u'B'))
+    c = O.make_var(ClassDomain,URIRef(u'C'))
     O.subClassOf(b, a)
     O.subClassOf(c, b)
     obj = URIRef(namespaces['owl']+'#Class')
@@ -104,10 +104,10 @@ def test_subClassconstraintMulti2():
     assert 'a' in c.getValues()
 
 def test_equivalentClass():
-    a = URIRef('A')
-    b = URIRef('B')
-    c = URIRef('C')
     O = Ontology()
+    a = O.make_var(ClassDomain,URIRef('A'))
+    b = O.make_var(ClassDomain,URIRef('B'))
+    c = O.make_var(ClassDomain,URIRef('C'))
     O.equivalentClass(c, a)
     O.equivalentClass(c, b)
     A = O.make_var(ClassDomain, a)
@@ -507,13 +507,13 @@ def test_cardinality_terminology():
     # predicate p
 
     O = Ontology()
-    cls = URIRef('cls')
+    cls = O.make_var(ClassDomain,URIRef('cls'))
     O.type(cls, namespaces['owl']+'#Class')
 
-    p = URIRef('p')
+    p = O.make_var(Property,URIRef('p'))
     O.type(p, namespaces['owl']+'#ObjectProperty')
 
-    restr = BNode('anon')
+    restr = O.make_var(Restriction,BNode('anon'))
     O.subClassOf(cls, restr)
     O.maxCardinality(restr, 2)
     O.type(restr, namespaces['owl']+'#Restriction')
@@ -526,7 +526,28 @@ def test_cardinality_terminology():
     O.minCardinality(restr2, 3)
     constraints = len(O.constraints)
     py.test.raises(ConsistencyFailure, O.consistency, 3)
-    
-    assert 0
 
-    
+def test_add_file():
+    O = Ontology()
+    O.add_file('premises001.rdf')
+    trip = list(O.graph.triples((None,)*3))
+    O.attach_fd()
+    ll = len(O.variables)
+    l = len(trip)
+    O.add_file('conclusions001.rdf')
+    O.attach_fd()
+    lll = len(O.variables)
+    assert len(list(O.graph.triples((None,)*3))) > l
+
+def test_more_cardinality():
+    O = Ontology()
+    O.add_file('premises003.rdf')
+    trip = list(O.graph.triples((None,)*3))
+    O.attach_fd()
+    ll = len(O.variables)
+    l = len(trip)
+    O.add_file('conclusions003.rdf')
+    O.attach_fd()
+    O.check_TBoxes()
+    lll = len(O.variables)
+    assert len(list(O.graph.triples((None,)*3))) > l
