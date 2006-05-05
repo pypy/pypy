@@ -5,7 +5,7 @@
 import py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, WeakrefableMixin
+from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2
 from pypy.rpython.objectmodel import instantiate
@@ -16,8 +16,10 @@ class TypeDef:
         self.name = __name
         self.base = __base
         self.hasdict = '__dict__' in rawdict
+        self.weakrefable = '__weakref__' in rawdict
         if __base is not None:
             self.hasdict |= __base.hasdict
+            self.weakrefable |= __base.weakrefable
         self.rawdict = {}
         self.acceptable_as_base_class = True
         # xxx used by faking
@@ -38,7 +40,6 @@ class TypeDef:
 
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
                                     weakrefable=False):
-    weakrefable = weakrefable and not issubclass(cls, WeakrefableMixin)
     key = cls, hasdict, wants_slots, needsdel, weakrefable
     try:
         return _subclass_cache[key]
@@ -54,8 +55,10 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     
     if hasdict and typedef.hasdict:
-        return get_unique_interplevel_subclass(cls, False, wants_slots, wants_del, weakrefable)
-    
+        hasdict = False
+    if weakrefable and typedef.weakrefable:
+        weakrefable = False
+
     name = ['User']
     if not hasdict:
         name.append('NoDict')
@@ -69,7 +72,16 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
     name.append(cls.__name__)
     
     name = ''.join(name)
-    if wants_del:
+    if weakrefable:
+        supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots,
+                                                   wants_del, False)
+        class Proto(object):
+            _lifeline_ = None
+            def getweakref(self):
+                return self._lifeline_
+            def setweakref(self, space, weakreflifeline):
+                self._lifeline_ = weakreflifeline
+    elif wants_del:
         supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots,
                                                    False, False)
         parent_destructor = getattr(cls, '__del__', None)
@@ -135,13 +147,8 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
     
     body = dict([(key, value)
                  for key, value in Proto.__dict__.items()
-                 if not key.startswith('_') or key == '__del__'])
-    
-    if weakrefable and not issubclass(supercls, WeakrefableMixin):
-        subcls = type(name, (WeakrefableMixin, supercls), body)
-    else:
-        subcls = type(name, (supercls,), body)
-    
+                 if not key.startswith('__') or key == '__del__'])
+    subcls = type(name, (supercls,), body)
     return subcls
 
 def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
@@ -414,6 +421,17 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
 weakref_descr = GetSetProperty(descr_get_weakref)
 weakref_descr.name = '__weakref__'
 
+def make_weakref_descr(cls):
+    # force the interface into the given cls
+    def getweakref(self):
+        return self._lifeline_
+    def setweakref(self, space, weakreflifeline):
+        self._lifeline_ = weakreflifeline
+    cls._lifeline_ = None
+    cls.getweakref = getweakref
+    cls.setweakref = setweakref
+    return weakref_descr
+
 
 Code.typedef = TypeDef('internal-code',
     co_name = interp_attrproperty('co_name', cls=Code),
@@ -516,6 +534,7 @@ Function.typedef = TypeDef("function",
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
     __module__ = getset___module__,
+    __weakref__ = make_weakref_descr(Function),
     # XXX func_closure, etc.pp
     )
 
@@ -533,6 +552,7 @@ Method.typedef = TypeDef("method",
     __repr__ = interp2app(Method.descr_method_repr),
     __reduce__ = interp2app(Method.descr_method__reduce__,
                             unwrap_spec=['self', ObjSpace]),
+    __weakref__ = make_weakref_descr(Method),
     # XXX getattribute/setattribute etc.pp
     )
 
@@ -563,6 +583,7 @@ GeneratorIterator.typedef = TypeDef("generator",
     __iter__   = interp2app(GeneratorIterator.descr__iter__),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = interp_attrproperty('frame', cls=GeneratorIterator),
+    __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 
 Cell.typedef = TypeDef("cell",

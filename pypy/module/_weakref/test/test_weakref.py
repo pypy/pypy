@@ -169,32 +169,32 @@ class AppTestWeakref(object):
         assert b.a == 42
 
     def test_function_weakrefable(self):
-        skip("wip")
         import _weakref
         def f(x):
             return 42
         wf = _weakref.ref(f)
-        assert wf()() == 42
+        assert wf()(63) == 42
         del f
         assert wf() is None
 
     def test_method_weakrefable(self):
-        skip("wip")
         import _weakref
         class A(object):
             def f(self):
                 return 42
         a = A()
-        w_unbound = _weakref.ref(A.f)
+        meth = A.f
+        w_unbound = _weakref.ref(meth)
         assert w_unbound()(A()) == 42
-        w_bound = _weakref.ref(A().f)
+        meth = A().f
+        w_bound = _weakref.ref(meth)
         assert w_bound()() == 42
-        del A
+        del meth
         assert w_unbound() is None
         assert w_bound() is None
 
     def test_set_weakrefable(self):
-        skip("wip")
+        skip("missing: weakrefs to interp-level sets")
         import _weakref
         s = set([1, 2, 3, 4])
         w = _weakref.ref(s)
@@ -203,11 +203,10 @@ class AppTestWeakref(object):
         assert w() is None
 
     def test_generator_weakrefable(self):
-        skip("wip")
         import _weakref
         def f(x):
             for i in range(x):
-                yield x
+                yield i
         g = f(10)
         w = _weakref.ref(g)
         r = w().next()

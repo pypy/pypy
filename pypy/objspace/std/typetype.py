@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
+from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.stdtypedef import *
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
@@ -150,4 +151,5 @@ type_typedef = StdTypeDef("type",
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
+    __weakref__ = weakref_descr,
     )

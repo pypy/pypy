@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter import gateway
-from pypy.interpreter.typedef import WeakrefableMixin, weakref_descr
+from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
@@ -38,7 +38,7 @@ def _mangle(name, klass):
 
     return "_%s%s" % (klass, name)
 
-class W_TypeObject(WeakrefableMixin, W_Object):
+class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
     lazyloaders = {} # can be overridden by specific instances
@@ -52,7 +52,6 @@ class W_TypeObject(WeakrefableMixin, W_Object):
         w_self.ensure_static__new__()
         w_self.nslots = 0
         w_self.needsdel = False
-        w_self.weakrefable = False
         w_self.w_bestbase = None
 
         # make sure there is a __doc__ in dict_w
@@ -62,6 +61,7 @@ class W_TypeObject(WeakrefableMixin, W_Object):
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
             w_self.hasdict = overridetypedef.hasdict
+            w_self.weakrefable = overridetypedef.weakrefable
             w_self.__flags__ = 0 # not a heaptype
             if overridetypedef.base is not None:
                 w_self.w_bestbase = space.gettypeobject(overridetypedef.base)
@@ -102,6 +102,7 @@ class W_TypeObject(WeakrefableMixin, W_Object):
                                                 instancetypedef.name))
             w_self.instancetypedef = instancetypedef
             w_self.hasdict = False
+            w_self.weakrefable = False
             hasoldstylebase = False
             w_most_derived_base_with_slots = None
             w_newstyle = None
@@ -171,7 +172,7 @@ class W_TypeObject(WeakrefableMixin, W_Object):
                                                  space.wrap("__dict__ slot disallowed: we already got one"))
                         wantdict = True
                     elif slot_name == '__weakref__':
-                        if w_self.weakrefable:
+                        if wantweakref or w_self.weakrefable:
                             raise OperationError(space.w_TypeError,
                                                  space.wrap("__weakref__ slot disallowed: we already got one"))
                                                 
@@ -313,7 +314,14 @@ class W_TypeObject(WeakrefableMixin, W_Object):
             return w_self.dict_w['__module__']
         else:
             return space.wrap('__builtin__')
-        
+
+    # for now, weakref support for W_TypeObject is hard to get automatically
+    _lifeline_ = None
+    def getweakref(self):
+        return self._lifeline_
+    def setweakref(self, space, weakreflifeline):
+        self._lifeline_ = weakreflifeline
+
 
 def call__Type(space, w_type, __args__):
     # special case for type(x)

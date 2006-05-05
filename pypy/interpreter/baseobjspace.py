@@ -7,8 +7,7 @@ from pypy.tool.cache import Cache
 from pypy.rpython.rarithmetic import r_uint, intmask
 import os
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root',
-           'WeakrefableMixin']
+__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 
 class W_Root(object):
@@ -78,16 +77,6 @@ class Wrappable(W_Root):
     def __spacebind__(self, space):
         return self
 
-class WeakrefableMixin(object):
-    _mixin_ = True
-    __lifeline__ = None
-
-    def getweakref(self):
-        return self.__lifeline__
-
-    def setweakref(self, space, weakreflifeline):
-        self.__lifeline__ = weakreflifeline
-    
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
     be attached to the space by defining a function or class 'f' which
