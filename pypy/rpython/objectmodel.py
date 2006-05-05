@@ -128,6 +128,9 @@ class UnboxedValue(object):
     def __init__(self, value):
         pass
 
+    def __repr__(self):
+        return '<unboxed %d>' % (self.getvalue(),)
+
     def getvalue(self):
         return getvalue_from_unboxed(self)
 

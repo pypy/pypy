@@ -43,7 +43,11 @@ class TaggedInstanceRepr(InstanceRepr):
         return v_instance, False   # don't call __init__
 
     def convert_const(self, value):
-        raise NotImplementedError
+        if value is None:
+            return self.null_instance()
+        else:
+            number = value.getvalue()
+            return ll_int_to_unboxed(self.lowleveltype, number)
 
     def getfield(self, vinst, attr, llops, force_cast=False):
         if attr != '__class__':
@@ -58,13 +62,22 @@ class TaggedInstanceRepr(InstanceRepr):
             return cunboxedcls
 
     def rtype_type(self, hop):
-        raise NotImplementedError
+        [vinst] = hop.inputargs(self)
+        return self.getfield(vinst, '__class__', hop.llops)
 
     def rtype_setattr(self, hop):
-        raise NotImplementedError
+        raise TyperError("cannot set attributes on %r" % (self,))
 
     def ll_str(self, i):
-        raise NotImplementedError
+        if lltype.cast_ptr_to_int(i) & 1:
+            from pypy.rpython.lltypesystem import rstr
+            from pypy.rpython.rint import signed_repr
+            llstr1 = signed_repr.ll_str(ll_unboxed_to_int(i))
+            return rstr.ll_strconcat(rstr.unboxed_instance_str_prefix,
+                      rstr.ll_strconcat(llstr1,
+                                        rstr.unboxed_instance_str_suffix))
+        else:
+            return InstanceRepr.ll_str(self, i)
 
     def rtype_isinstance(self, hop):
         if not hop.args_s[1].is_constant():
@@ -83,6 +96,12 @@ class TaggedInstanceRepr(InstanceRepr):
         return hop.gendirectcall(ll_unboxed_isinstance_const, v_obj,
                                  minid, maxid, c_answer_if_unboxed)
 
+
+def ll_int_to_unboxed(PTRTYPE, value):
+    return lltype.cast_int_to_ptr(PTRTYPE, value*2+1)
+
+def ll_unboxed_to_int(p):
+    return lltype.cast_ptr_to_int(p) >> 1
 
 def ll_unboxed_getclass(instance, class_if_unboxed):
     if lltype.cast_ptr_to_int(instance) & 1:

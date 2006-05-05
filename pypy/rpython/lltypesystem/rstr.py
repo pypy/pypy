@@ -177,6 +177,9 @@ string_iterator_repr = StringIteratorRepr()
 instance_str_prefix = string_repr.convert_const("<")
 instance_str_suffix = string_repr.convert_const(" object>")
 
+unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
+unboxed_instance_str_suffix = string_repr.convert_const(">")
+
 list_str_open_bracket = string_repr.convert_const("[")
 list_str_close_bracket = string_repr.convert_const("]")
 list_str_sep = string_repr.convert_const(", ")

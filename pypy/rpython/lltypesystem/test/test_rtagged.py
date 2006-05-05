@@ -5,15 +5,24 @@ from pypy.rpython.objectmodel import UnboxedValue
 
 
 class A(object):
-    pass
+    def meth(self, x):
+        raise NotImplementedError
+
 class B(A):
     def __init__(self, normalint):
         self.normalint = normalint
+    def meth(self, x):
+        return self.normalint + x + 2
+
 class C(A, UnboxedValue):
-    pass
+    def meth(self, x):
+        return self.getvalue() + x + 3
+
+# ____________________________________________________________
 
 def test_on_top_of_cpython():
     assert C(17).getvalue() == 17
+    assert C(20).meth(10) == 33
 
 def test_instantiate():
     def fn1(n):
@@ -51,3 +60,72 @@ def test_overflowerror():
     res = interpret(fn2, [sys.maxint])
     assert res.item0 == 'B'
     assert res.item1 == sys.maxint
+
+def test_prebuilt():
+    c = C(111)
+    def fn(n):
+        if n < 0:
+            x = c
+        else:
+            x = C(n)
+        return x.getvalue()
+
+    res = interpret(fn, [12])
+    assert res == 12
+    res = interpret(fn, [-1])
+    assert res == 111
+
+def test_C_or_None():
+    def g(x):
+        if x is None:
+            return sys.maxint
+        else:
+            return x.getvalue()
+    def fn(n):
+        if n < 0:
+            x = None
+        else:
+            x = C(n)
+        return g(x)
+
+    res = interpret(fn, [-1])
+    assert res == sys.maxint
+    res = interpret(fn, [56])
+    assert res == 56
+
+def test_type():
+    def fn(n):
+        if n < 0:
+            x = B(n)
+        else:
+            x = C(n)
+        return type(x) is B, type(x) is C
+
+    res = interpret(fn, [-212])
+    assert res.item0 and not res.item1
+    res = interpret(fn, [9874])
+    assert res.item1 and not res.item0
+
+def test_str():
+    def fn(n):
+        if n > 0:
+            x = B(n)
+        else:
+            x = C(n)
+        return str(x)
+    res = interpret(fn, [-832])
+    assert ''.join(res.chars) == '<unboxed -832>'
+    res = interpret(fn, [1])
+    assert ''.join(res.chars) == '<B object>'
+
+def test_method():
+    def fn(n):
+        if n > 0:
+            x = B(n)
+        else:
+            x = C(n)
+        return x.meth(100)
+    res = interpret(fn, [1000])
+    assert res == 1102
+    res = interpret(fn, [-1000])
+    assert res == -897
