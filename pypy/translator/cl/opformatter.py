@@ -115,7 +115,7 @@ class OpFormatter:
             code = getattr(impl, method)(*args)
             yield "(setf %s %s)" % (result, code)
         elif isinstance(cls, Dict):
-            impl = DictImpl(selfvar)
+            impl = DictImpl(selfvar, self.gen)
             code = getattr(impl, method)(*args)
             yield "(setf %s %s)" % (result, code)
         elif isinstance(cls, DictItemsIterator):
@@ -131,7 +131,7 @@ class OpFormatter:
 
     def op_oogetfield(self, result, obj, _):
         fieldname = self.args[1].value
-        if isinstance(self.args[0].concretetype, Record):
+        if isinstance(self.args[0].concretetype, Record):   
             yield "(setf %s (slot-value %s '%s))" % (clrepr(result, True),
                                                    clrepr(obj, True),
                                                    clrepr(fieldname, True))
@@ -184,8 +184,9 @@ class ListImpl:
 
 class DictImpl:
 
-    def __init__(self, obj):
+    def __init__(self, obj, gen):
         self.obj = obj
+        self.gen = gen
 
     def ll_length(self):
         return "(hash-table-count %s)" % (self.obj,)
@@ -202,11 +203,8 @@ class DictImpl:
     def ll_get_items_iterator(self):
         # This is explicitly unspecified by the specification.
         # Should think of a better way to do this.
-        return """\
-(let ((temp (gensym)))
-  (setf (symbol-value temp)
-    (with-hash-table-iterator (iter %s)
-      (lambda () (iter)))) temp)""" % (self.obj,)
+        name = self.gen.declare_dict_iter()
+        return "(%s %s)" % (name, self.obj)
 
 class DictItemsIteratorImpl:
 
@@ -216,10 +214,8 @@ class DictItemsIteratorImpl:
     def ll_go_next(self):
         return """\
 (multiple-value-bind (more key value)
-    (funcall (symbol-value %s))
-  (setf (get %s 'key) key)
-  (setf (get %s 'value) value)
-  more)""" % (self.obj, self.obj, self.obj)
+    (funcall (car %s))
+  more)""" % (self.obj,)
 
     def ll_current_key(self):
-        return "(get %s 'key)" % (self.obj,)
+        return "(funcall (cdr %s))" % (self.obj,)

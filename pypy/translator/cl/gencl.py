@@ -67,6 +67,26 @@ class GenCL:
         self.structcount += 1
         return name
 
+    def declare_dict_iter(self):
+        name = 'pypy-dict-iter'
+        if name in self.declarations:
+            return self.declarations[name][0]
+        definition = """\
+(defun %s (hash)
+  (let ((current-index -1)
+        (keys (loop for keys being the hash-keys in hash collect keys)))
+    (cons (lambda ()
+            (let ((more (<= (incf current-index) (1- (length keys)))))
+              (if more
+                (let* ((key (nth current-index keys))
+                       (val (gethash key hash)))
+                  (values more key val))
+                (values nil nil nil))))
+          (lambda ()
+            (nth current-index keys)))))""" % (name)
+        self.declarations[name] = (name,  definition)
+        return name
+
     def declare_class(self, cls):
         assert isinstance(cls, Instance)
         assert not self.is_exception_instance(cls)
