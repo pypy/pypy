@@ -26,7 +26,7 @@ list_reversed = StdObjSpaceMultiMethod('__reversed__', 1)
 ##''', filename=__file__).interphook('reversed')
 def list_reversed__ANY(space, w_list):
     from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
-    return W_ReverseSeqIterObject(space,w_list,-1)
+    return W_ReverseSeqIterObject(space, w_list, -1)
 
 register_all(vars(), globals())
 
@@ -35,7 +35,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_listtype, __args__):
     from pypy.objspace.std.listobject import W_ListObject
     w_obj = space.allocate_instance(W_ListObject, w_listtype)
-    W_ListObject.__init__(w_obj, space, [])
+    W_ListObject.__init__(w_obj, [])
     return w_obj
 
 # ____________________________________________________________

@@ -23,8 +23,8 @@ class TestW_LongObject:
         y = 123858582373821923936744221L
         for i in [-1, 1]:
             for j in [-1, 1]:
-                f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x * i))
-                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y * j))
+                f1 = lobj.W_LongObject(*lobj.args_from_long(x * i))
+                f2 = lobj.W_LongObject(*lobj.args_from_long(y * j))
                 result = lobj.add__Long_Long(self.space, f1, f2)
                 assert result.longval() == x * i + y * j
 
@@ -33,20 +33,20 @@ class TestW_LongObject:
         y = 88961284756491823819191823L
         for i in [-1, 1]:
             for j in [-1, 1]:
-                f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x * i))
-                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y * j))
+                f1 = lobj.W_LongObject(*lobj.args_from_long(x * i))
+                f2 = lobj.W_LongObject(*lobj.args_from_long(y * j))
                 result = lobj.sub__Long_Long(self.space, f1, f2)
                 assert result.longval() == x * i - y * j
 
     def test_subzz(self):
-        w_l0 = lobj.W_LongObject(self.space, [0])
+        w_l0 = lobj.W_LongObject([0])
         assert self.space.sub(w_l0, w_l0).longval() == 0
 
     def test_mul(self):
         x = -1238585838347L
         y = 585839391919233L
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+        f2 = lobj.W_LongObject(*lobj.args_from_long(y))
         result = lobj.mul__Long_Long(self.space, f1, f2)
         assert result.longval() == x * y
         # also test a * a, it has special code
@@ -57,7 +57,7 @@ class TestW_LongObject:
         # signs are not handled in the helpers!
         x = 1238585838347L
         y = 3
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
         f2 = y
         remainder = lobj._inplace_divrem1(f1, f1, f2)
         assert (f1.longval(), remainder) == divmod(x, y)
@@ -66,7 +66,7 @@ class TestW_LongObject:
         # signs are not handled in the helpers!
         x = 1238585838347L
         y = 3
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
         f2 = y
         div, rem = lobj._divrem1(f1, f2)
         assert (div.longval(), rem) == divmod(x, y)
@@ -75,7 +75,7 @@ class TestW_LongObject:
         x = 1238585838347L
         y = 3
         z = 42
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
         f2 = y
         f3 = z
         prod = lobj._muladd1(f1, f2, f3)
@@ -87,8 +87,8 @@ class TestW_LongObject:
             y = long(randint(0, 1 << 30))
             y <<= 30
             y += randint(0, 1 << 30)
-            f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-            f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+            f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+            f2 = lobj.W_LongObject(*lobj.args_from_long(y))
             div, rem = lobj._x_divrem(f1, f2)
             assert div.longval(), rem.longval() == divmod(x, y)
 
@@ -101,18 +101,18 @@ class TestW_LongObject:
             for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
                 sx *= x
                 sy *= y
-                f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(sx))
-                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(sy))
+                f1 = lobj.W_LongObject(*lobj.args_from_long(sx))
+                f2 = lobj.W_LongObject(*lobj.args_from_long(sy))
                 div, rem = lobj._x_divrem(f1, f2)
                 assert div.longval(), rem.longval() == divmod(sx, sy)
 
     def test__AsDouble(self):
         x = 12345678901234567890L ** 10
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
         d = lobj._AsDouble(f1)
         assert d == float(x)
         x = x ** 100
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
         assert raises(OverflowError, lobj._AsDouble, f1)
 
     def test__FromDouble(self):
@@ -129,15 +129,15 @@ class TestW_LongObject:
 
     # testing Karatsuba stuff
     def test__v_iadd(self):
-        f1 = lobj.W_LongObject(self.space, [lobj.MASK] * 10, 1)
-        f2 = lobj.W_LongObject(self.space, [1], 1)
+        f1 = lobj.W_LongObject([lobj.MASK] * 10, 1)
+        f2 = lobj.W_LongObject([1], 1)
         carry = lobj._v_iadd(f1.digits, 1, len(f1.digits)-1, f2.digits, 1)
         assert carry == 1
         assert f1.longval() == lobj.MASK
 
     def test__v_isub(self):
-        f1 = lobj.W_LongObject(self.space, [lobj.MASK] + [0] * 9 + [1], 1)
-        f2 = lobj.W_LongObject(self.space, [1], 1)
+        f1 = lobj.W_LongObject([lobj.MASK] + [0] * 9 + [1], 1)
+        f2 = lobj.W_LongObject([1], 1)
         borrow = lobj._v_isub(f1.digits, 1, len(f1.digits)-1, f2.digits, 1)
         assert borrow == 0
         assert f1.longval() == (1 << lobj.SHIFT) ** 10 - 1
@@ -146,32 +146,32 @@ class TestW_LongObject:
         split = 5
         diglo = [0] * split
         dighi = [lobj.MASK] * split
-        f1 = lobj.W_LongObject(self.space, diglo + dighi, 1)
+        f1 = lobj.W_LongObject(diglo + dighi, 1)
         hi, lo = lobj._kmul_split(f1, split)
         assert lo.digits == [0]
         assert hi.digits == dighi
 
     def test__k_mul(self):
         digs= lobj.KARATSUBA_CUTOFF * 5
-        f1 = lobj.W_LongObject(self.space, [lobj.MASK] * digs, 1)
-        f2 = lobj._x_add(f1,lobj.W_LongObject(self.space, [1], 1))
+        f1 = lobj.W_LongObject([lobj.MASK] * digs, 1)
+        f2 = lobj._x_add(f1,lobj.W_LongObject([1], 1))
         ret = lobj._k_mul(f1, f2)
         assert ret.longval() == f1.longval() * f2.longval()
 
     def test__k_lopsided_mul(self):
         digs_a = lobj.KARATSUBA_CUTOFF + 3
         digs_b = 3 * digs_a
-        f1 = lobj.W_LongObject(self.space, [lobj.MASK] * digs_a, 1)
-        f2 = lobj.W_LongObject(self.space, [lobj.MASK] * digs_b, 1)
+        f1 = lobj.W_LongObject([lobj.MASK] * digs_a, 1)
+        f2 = lobj.W_LongObject([lobj.MASK] * digs_b, 1)
         ret = lobj._k_lopsided_mul(f1, f2)
         assert ret.longval() == f1.longval() * f2.longval()
 
     def test_eq(self):
         x = 5858393919192332223L
         y = 585839391919233111223311112332L
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(-x))
-        f3 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+        f2 = lobj.W_LongObject(*lobj.args_from_long(-x))
+        f3 = lobj.W_LongObject(*lobj.args_from_long(y))
         assert self.space.is_true(lobj.eq__Long_Long(self.space, f1, f1))
         assert self.space.is_true(lobj.eq__Long_Long(self.space, f2, f2))
         assert self.space.is_true(lobj.eq__Long_Long(self.space, f3, f3))
@@ -182,14 +182,14 @@ class TestW_LongObject:
         val = [0, 0x111111111111, 0x111111111112, 0x111111111112FFFF]
         for x in gen_signs(val):
             for y in gen_signs(val):
-                f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+                f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+                f2 = lobj.W_LongObject(*lobj.args_from_long(y))
                 assert (x < y) ==  self.space.is_true(
                     lobj.lt__Long_Long(self.space, f1, f2))
 
     def test_int_conversion(self):
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(12332))
-        f2 = lobj.delegate_Int2Long(self.space.newint(12332))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(12332))
+        f2 = lobj.delegate_Int2Long(self.space, self.space.newint(12332))
         assert f2.longval() == f1.longval()
         assert lobj.int__Long(self.space, f2).intval == 12332
         assert lobj.int_w__Long(self.space, f2) == 12332
@@ -203,9 +203,10 @@ class TestW_LongObject:
     def test_conversions(self):
         space = self.space
         for v in (0, 1, -1, sys.maxint, -sys.maxint-1):
-            assert lobj.W_LongObject(self.space, *lobj.args_from_long(v)).longval() == v
+            assert lobj.W_LongObject(*lobj.args_from_long(v)).longval() == v
             w_v = space.newint(v)
-            for w_lv in (lobj.long__Int(space, w_v), lobj.delegate_Int2Long(w_v)):
+            for w_lv in (lobj.long__Int(space, w_v),
+                         lobj.delegate_Int2Long(self.space, w_v)):
                 assert w_lv.longval() == v
                 assert lobj.int_w__Long(space, w_lv) == v
                 assert space.is_true(space.isinstance(lobj.int__Long(space, w_lv), space.w_int))            
@@ -218,19 +219,19 @@ class TestW_LongObject:
                 else:
                     space.raises_w(space.w_ValueError, lobj.uint_w__Long, space, w_lv)
 
-        w_toobig_lv1 = lobj.W_LongObject(space, *lobj.args_from_long(sys.maxint+1))
+        w_toobig_lv1 = lobj.W_LongObject(*lobj.args_from_long(sys.maxint+1))
         assert w_toobig_lv1.longval() == sys.maxint+1
-        w_toobig_lv2 = lobj.W_LongObject(space, *lobj.args_from_long(sys.maxint+2))
+        w_toobig_lv2 = lobj.W_LongObject(*lobj.args_from_long(sys.maxint+2))
         assert w_toobig_lv2.longval() == sys.maxint+2
-        w_toobig_lv3 = lobj.W_LongObject(space, *lobj.args_from_long(-sys.maxint-2))
+        w_toobig_lv3 = lobj.W_LongObject(*lobj.args_from_long(-sys.maxint-2))
         assert w_toobig_lv3.longval() == -sys.maxint-2        
 
         for w_lv in (w_toobig_lv1, w_toobig_lv2, w_toobig_lv3):            
             space.raises_w(space.w_OverflowError, lobj.int_w__Long, space, w_lv)
             assert space.is_true(space.isinstance(lobj.int__Long(space, w_lv), space.w_long))
 
-        w_lmaxuint = lobj.W_LongObject(space, *lobj.args_from_long(2*sys.maxint+1))
-        w_toobig_lv4 = lobj.W_LongObject(space, *lobj.args_from_long(2*sys.maxint+2))        
+        w_lmaxuint = lobj.W_LongObject(*lobj.args_from_long(2*sys.maxint+1))
+        w_toobig_lv4 = lobj.W_LongObject(*lobj.args_from_long(2*sys.maxint+2))        
 
         u = lobj.uint_w__Long(space, w_lmaxuint)
         assert u == 2*sys.maxint+1
@@ -244,17 +245,17 @@ class TestW_LongObject:
         x = 10L
         y = 2L
         z = 13L
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
-        f3 = lobj.W_LongObject(self.space, *lobj.args_from_long(z))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+        f2 = lobj.W_LongObject(*lobj.args_from_long(y))
+        f3 = lobj.W_LongObject(*lobj.args_from_long(z))
         v = lobj.pow__Long_Long_Long(self.space, f1, f2, f3)
         assert v.longval() == pow(x, y, z)
-        f1, f2, f3 = [lobj.W_LongObject(self.space, *lobj.args_from_long(i))
+        f1, f2, f3 = [lobj.W_LongObject(*lobj.args_from_long(i))
                       for i in (10L, -1L, 42L)]
         self.space.raises_w(self.space.w_TypeError,
                             lobj.pow__Long_Long_Long,
                             self.space, f1, f2, f3)
-        f1, f2, f3 = [lobj.W_LongObject(self.space, *lobj.args_from_long(i))
+        f1, f2, f3 = [lobj.W_LongObject(*lobj.args_from_long(i))
                       for i in (10L, 5L, 0L)]
         self.space.raises_w(self.space.w_ValueError,
                             lobj.pow__Long_Long_Long,
@@ -263,33 +264,33 @@ class TestW_LongObject:
     def test_pow_lln(self):
         x = 10L
         y = 2L
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+        f2 = lobj.W_LongObject(*lobj.args_from_long(y))
         v = lobj.pow__Long_Long_None(self.space, f1, f2, self.space.w_None)
         assert v.longval() == x ** y
 
     def test_normalize(self):
-        f1 = lobj.W_LongObject(self.space, [1, 0], 1)
+        f1 = lobj.W_LongObject([1, 0], 1)
         f1._normalize()
         assert len(f1.digits) == 1
-        f0 = lobj.W_LongObject(self.space, [0], 0)
+        f0 = lobj.W_LongObject([0], 0)
         assert self.space.is_true(
             self.space.eq(lobj.sub__Long_Long(self.space, f1, f1), f0))
 
     def test_invert(self):
         x = 3 ** 40
-        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(-x))
+        f1 = lobj.W_LongObject(*lobj.args_from_long(x))
+        f2 = lobj.W_LongObject(*lobj.args_from_long(-x))
         r1 = lobj.invert__Long(self.space, f1)
         r2 = lobj.invert__Long(self.space, f2)
         assert r1.longval() == -(x + 1)
         assert r2.longval() == -(-x + 1)
 
     def test_shift(self):
-        negative = lobj.W_LongObject(self.space, *lobj.args_from_long(-23))
-        big = lobj.W_LongObject(self.space, *lobj.args_from_long(2L ** 100L))
+        negative = lobj.W_LongObject(*lobj.args_from_long(-23))
+        big = lobj.W_LongObject(*lobj.args_from_long(2L ** 100L))
         for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
-            f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+            f1 = lobj.W_LongObject(*lobj.args_from_long(x))
             self.space.raises_w(self.space.w_ValueError,
                                 lobj.lshift__Long_Long, self.space, f1,
                                 negative)
@@ -303,7 +304,7 @@ class TestW_LongObject:
                                 lobj.rshift__Long_Long, self.space, f1,
                                 big)                                
             for y in [0L, 1L, 32L, 2304L, 11233L, 3 ** 9]:
-                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+                f2 = lobj.W_LongObject(*lobj.args_from_long(y))
                 res1 = lobj.lshift__Long_Long(self.space, f1, f2).longval()
                 res2 = lobj.rshift__Long_Long(self.space, f1, f2).longval()
                 assert res1 == x << y

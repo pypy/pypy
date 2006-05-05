@@ -16,7 +16,7 @@ class W_BoolObject(W_Root):
 class W_StringObject(W_Root):
     pass
 
-def delegate_b2i(w_x):
+def delegate_b2i(space, w_x):
     assert isinstance(w_x, W_BoolObject)
     return W_IntObject()
 

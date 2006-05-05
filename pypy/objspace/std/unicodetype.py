@@ -92,7 +92,7 @@ def unicode_from_string(space, w_str):
             # raising UnicodeDecodeError is messy, so "please crash for me"
             return unicode_from_object(space, w_str)
         codelist.append(unichr(code))
-    return W_UnicodeObject(space, codelist)
+    return W_UnicodeObject(codelist)
 
 
 def descr__new__(space, w_unicodetype, w_string=None, w_encoding=None, w_errors=None):
@@ -109,7 +109,7 @@ def descr__new__(space, w_unicodetype, w_string=None, w_encoding=None, w_errors=
             return w_obj
         w_value = w_obj
     elif space.is_w(w_obj, space.w_None):
-        w_value = W_UnicodeObject(space, [])
+        w_value = W_UnicodeObject([])
     elif (space.is_w(w_encoding, space.w_None) and
           space.is_w(w_errors, space.w_None)):
         if space.is_true(space.isinstance(w_obj, space.w_str)):
@@ -123,7 +123,7 @@ def descr__new__(space, w_unicodetype, w_string=None, w_encoding=None, w_errors=
     # help the annotator! also the ._value depends on W_UnicodeObject layout
     assert isinstance(w_value, W_UnicodeObject)
     w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
-    W_UnicodeObject.__init__(w_newobj, space, w_value._value)
+    W_UnicodeObject.__init__(w_newobj, w_value._value)
     return w_newobj
 
 # ____________________________________________________________

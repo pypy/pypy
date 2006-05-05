@@ -11,7 +11,7 @@ def descr__new__(space, w_tupletype, w_sequence=NoneNotWrapped):
     else:
         tuple_w = space.unpackiterable(w_sequence)
     w_obj = space.allocate_instance(W_TupleObject, w_tupletype)
-    W_TupleObject.__init__(w_obj, space, tuple_w)
+    W_TupleObject.__init__(w_obj, tuple_w)
     return w_obj
 
 # ____________________________________________________________

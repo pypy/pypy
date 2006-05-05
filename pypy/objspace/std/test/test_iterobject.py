@@ -18,7 +18,7 @@ class TestW_IterObject:
     def test_iter(self):
         w = self.space.wrap
         w_tuple = self.space.newtuple([w(5), w(3), w(99)])
-        w_iter = W_SeqIterObject(self.space, w_tuple)
+        w_iter = W_SeqIterObject(w_tuple)
         self.body3(w_iter)
         
     def test_iter_builtin(self):
@@ -29,7 +29,7 @@ class TestW_IterObject:
 
     def test_emptyiter(self):
         w_list = self.space.newlist([])
-        w_iter = W_SeqIterObject(self.space, w_list)
+        w_iter = W_SeqIterObject(w_list)
         self.body0(w_iter)
         
     def test_emptyiter_builtin(self):

@@ -51,7 +51,7 @@ def descr__new__(space, w_type, __args__):
                                  space.wrap("default __new__ takes "
                                             "no parameters"))
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
-    W_ObjectObject.__init__(w_obj, space)
+    #W_ObjectObject.__init__(w_obj)
     return w_obj
 
 def descr__init__(space, w_obj, __args__):

@@ -8,8 +8,7 @@ from pypy.interpreter import gateway
 
 class W_BaseSetObject(W_Object):
 
-    def __init__(w_self, space, setdata=None):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, setdata=None):
         if setdata is None:
             w_self.setdata = r_dict(space.eq_w, space.hash_w)
         else:
@@ -21,28 +20,25 @@ class W_BaseSetObject(W_Object):
         return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
 
     def _newobj(w_self, space, rdict_w=None):
-        #return space.call(space.type(w_self),W_SetIterObject(space,rdict_w))
+        #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
         objtype = type(w_self)
         if objtype is W_SetObject:
-            obj = W_SetObject(space, rdict_w)
+            obj = W_SetObject(rdict_w)
         elif objtype is W_FrozensetObject:
-            obj = W_FrozensetObject(space, rdict_w)
+            obj = W_FrozensetObject(rdict_w)
         else:
-            itemiterator = space.iter(W_SetIterObject(space,rdict_w))
+            itemiterator = space.iter(W_SetIterObject(rdict_w))
             obj = space.call_function(space.type(w_self),itemiterator)
         return obj
 
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 
-    def __init__(w_self, space, setdata=None):
-        W_BaseSetObject.__init__(w_self, space, setdata)
-
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
 
-    def __init__(w_self, space, setdata):
-        W_BaseSetObject.__init__(w_self, space, setdata)
+    def __init__(w_self, setdata):
+        W_BaseSetObject.__init__(w_self, setdata)
         w_self.hash = -1
 
 registerimplementation(W_SetObject)
@@ -51,8 +47,7 @@ registerimplementation(W_FrozensetObject)
 class W_SetIterObject(W_Object):
     from pypy.objspace.std.settype import setiter_typedef as typedef
 
-    def __init__(w_self, space, setdata):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, setdata):
         w_self.content = content = setdata
         w_self.len = len(content)
         w_self.pos = 0
@@ -525,7 +520,7 @@ def len__Set(space, w_left):
 len__Frozenset = len__Set
 
 def iter__Set(space, w_left):
-    return W_SetIterObject(space, w_left.setdata)
+    return W_SetIterObject(w_left.setdata)
 
 iter__Frozenset = iter__Set
 

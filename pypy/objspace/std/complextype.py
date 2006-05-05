@@ -168,7 +168,7 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         realval = space.float_w(w_real)
         imagval = space.float_w(w_imag)
     w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
-    W_ComplexObject.__init__(w_obj, space, realval, imagval)
+    W_ComplexObject.__init__(w_obj, realval, imagval)
 
     return w_obj
 

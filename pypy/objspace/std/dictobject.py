@@ -15,7 +15,6 @@ class W_DictObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
     def __init__(w_self, space, w_otherdict=None):
-        W_Object.__init__(w_self, space)
         if w_otherdict is None:
             w_self.content = r_dict(space.eq_w, space.hash_w)
         else:
@@ -29,8 +28,7 @@ class W_DictObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.content)
 
-    def unwrap(w_dict):
-        space = w_dict.space
+    def unwrap(w_dict, space):
         result = {}
         for w_key, w_value in w_dict.content.items():
             # generic mixed types unwrap
@@ -43,7 +41,7 @@ registerimplementation(W_DictObject)
 def init__Dict(space, w_dict, __args__):
     w_src, w_kwds = __args__.parse('dict',
                           (['seq_or_map'], None, 'kwargs'), # signature
-                          [W_DictObject(space)])        # default argument
+                          [W_DictObject(space)])            # default argument
     w_dict.content.clear()
     try:
         space.getattr(w_src, space.wrap("keys"))
@@ -216,7 +214,7 @@ class W_DictIterObject(W_Object):
     from pypy.objspace.std.dicttype import dictiter_typedef as typedef
 
     def __init__(w_self, space, w_dictobject):
-        W_Object.__init__(w_self, space)
+        w_self.space = space
         w_self.content = content = w_dictobject.content
         w_self.len = len(content)
         w_self.pos = 0

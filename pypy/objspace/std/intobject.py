@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
+from pypy.objspace.std.inttype import wrapint
 
 """
 In order to have the same behavior running
@@ -12,15 +13,14 @@ something CPython does not do anymore.
 class W_IntObject(W_Object):
     from pypy.objspace.std.inttype import int_typedef as typedef
     
-    def __init__(w_self, space, intval):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, intval):
         w_self.intval = intval
 
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%d)" % (w_self.__class__.__name__, w_self.intval)
 
-    def unwrap(w_self):
+    def unwrap(w_self, space):
         return int(w_self.intval)
 
 
@@ -52,22 +52,6 @@ def repr__Int(space, w_int1):
     return space.wrap(res)
 
 str__Int = repr__Int
-
-## deprecated
-## we are going to support rich compare, only
-
-##def int_int_cmp(space, w_int1, w_int2):
-##    i = w_int1.intval
-##    j = w_int2.intval
-##    if i < j:
-##        ret = -1
-##    elif i > j:
-##        ret = 1
-##    else:
-##        ret = 0
-##    return W_IntObject(space, ret)
-##
-##StdObjSpace.cmp.register(int_int_cmp, W_IntObject, W_IntObject)
 
 def lt__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
@@ -118,7 +102,7 @@ def add__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer addition"))
-    return W_IntObject(space, z)
+    return wrapint(z)
 
 def sub__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -128,7 +112,7 @@ def sub__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer substraction"))
-    return W_IntObject(space, z)
+    return wrapint(z)
 
 def mul__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -138,7 +122,7 @@ def mul__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer multiplication"))
-    return W_IntObject(space, z)
+    return wrapint(z)
 
 def _floordiv(space, w_int1, w_int2):
     x = w_int1.intval
@@ -151,7 +135,7 @@ def _floordiv(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer division"))
-    return W_IntObject(space, z)
+    return wrapint(z)
 
 def _truediv(space, w_int1, w_int2):
     # XXX how to do delegation to float elegantly?
@@ -172,7 +156,7 @@ def mod__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer modulo"))
-    return W_IntObject(space, z)
+    return wrapint(z)
 
 def divmod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -224,7 +208,7 @@ def _impl_int_int_pow(space, iv, iw, iz=0):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer exponentiation"))
-    return W_IntObject(space, ix)
+    return wrapint(ix)
 
 def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
@@ -247,7 +231,7 @@ def neg__Int(space, w_int1):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer negation"))
-    return W_IntObject(space, x)
+    return wrapint(x)
 
 # pos__Int is supposed to do nothing, unless it has
 # a derived integer object, where it should return
@@ -267,7 +251,7 @@ def nonzero__Int(space, w_int1):
 def invert__Int(space, w_int1):
     x = w_int1.intval
     a = ~x
-    return W_IntObject(space, a)
+    return wrapint(a)
 
 def lshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
@@ -297,7 +281,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
-    return W_IntObject(space, c)
+    return wrapint(c)
 
 def rshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
@@ -316,25 +300,25 @@ def rshift__Int_Int(space, w_int1, w_int2):
         ## please look into pyport.h, how >> should be implemented!
         ## a = Py_ARITHMETIC_RIGHT_SHIFT(long, a, b);
         a = a >> b
-    return W_IntObject(space, a)
+    return wrapint(a)
 
 def and__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a & b
-    return W_IntObject(space, res)
+    return wrapint(res)
 
 def xor__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a ^ b
-    return W_IntObject(space, res)
+    return wrapint(res)
 
 def or__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a | b
-    return W_IntObject(space, res)
+    return wrapint(res)
 
 # coerce is not wanted
 ##
@@ -356,7 +340,7 @@ def int__Int(space, w_int1):
     if space.is_w(space.type(w_int1), space.w_int):
         return w_int1
     a = w_int1.intval
-    return W_IntObject(space, a)
+    return wrapint(a)
 
 """
 # Not registered
@@ -378,7 +362,7 @@ def hex__Int(space, w_int1):
     return space.wrap(hex(w_int1.intval))
 
 def getnewargs__Int(space, w_int1):
-    return space.newtuple([W_IntObject(space, w_int1.intval)])
+    return space.newtuple([wrapint(w_int1.intval)])
 
 
 register_all(vars())

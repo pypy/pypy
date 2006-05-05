@@ -12,7 +12,7 @@ class TestW_ComplexObject:
 
     def _test_instantiation(self):
         def _t_complex(r=0.0,i=0.0):
-            c = cobj.W_ComplexObject(self.space, r, i)
+            c = cobj.W_ComplexObject(r, i)
             assert c.real == float(r) and c.imag == float(i)
         pairs = (
             (1, 1),
@@ -51,8 +51,8 @@ class TestW_ComplexObject:
         assert cobj._powi((0.0,2.0),0) == (1.0,0.0)
         assert cobj._powi((0.0,0.0),2) == (0.0,0.0)
         assert cobj._powi((0.0,1.0),2) == (-1.0,0.0)
-        c = cobj.W_ComplexObject(self.space,0.0,1.0)
-        p = cobj.W_ComplexObject(self.space,2.0,0.0)
+        c = cobj.W_ComplexObject(0.0,1.0)
+        p = cobj.W_ComplexObject(2.0,0.0)
         r = cobj.pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0

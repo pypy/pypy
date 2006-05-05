@@ -11,6 +11,7 @@ a callback and a state variable.
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.rpython.rarithmetic import LONG_BIT
+from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.floatobject import repr__Float as repr_float
 from pypy.objspace.std.longobject import SHIFT as long_bits
 from pypy.objspace.std.objspace import StdObjSpace
@@ -141,14 +142,14 @@ def marshal_w__Int(space, w_int, m):
             m.atom_int(TYPE_INT, w_int.intval)
 
 def unmarshal_Int(space, u, tc):
-    return W_IntObject(space, u.get_int())
+    return wrapint(u.get_int())
 register(TYPE_INT, unmarshal_Int)
 
 def unmarshal_Int64(space, u, tc):
     if LONG_BIT >= 64:
         lo = u.get_int() & (2**32-1)
         hi = u.get_int()
-        return W_IntObject(space, (hi << 32) | lo)
+        return wrapint((hi << 32) | lo)
     else:
         # fall back to a long
         # XXX at some point, we need to extend longobject
@@ -198,7 +199,7 @@ def marshal_w__Float(space, w_float, m):
 def unmarshal_Float(space, u, tc):
     if tc == TYPE_BINARY_FLOAT:
         w_ret = str_to_float(space, space.wrap(u.get(8)))
-        return W_FloatObject(space, space.float_w(w_ret))
+        return W_FloatObject(space.float_w(w_ret))
     else:
         return space.call_function(space.builtin.get('float'),
                                  space.wrap(u.get_pascal()))
@@ -266,7 +267,7 @@ def unmarshal_Long(space, u, tc):
             raise_exception(space, 'bad marshal data')
         digits[i] = digit
         i += 1
-    w_long = W_LongObject(space, digits, sign)
+    w_long = W_LongObject(digits, sign)
     w_long._normalize()
     return w_long
 register(TYPE_LONG, unmarshal_Long)
@@ -283,7 +284,7 @@ def marshal_w__String(space, w_str, m):
     # using the fastest possible access method here
     # that does not touch the internal representation,
     # which might change (array of bytes?)
-    s = w_str.unwrap()
+    s = w_str.unwrap(space)
     if m.version >= 1 and PySTRING_CHECK_INTERNED(w_str):
         # we use a native rtyper stringdict for speed
         idx = m.stringtable.get(s, -1)
@@ -297,11 +298,11 @@ def marshal_w__String(space, w_str, m):
         m.atom_str(TYPE_STRING, s)
 
 def unmarshal_String(space, u, tc):
-    return W_StringObject(space, u.get_str())
+    return W_StringObject(u.get_str())
 register(TYPE_STRING, unmarshal_String)
 
 def unmarshal_interned(space, u, tc):
-    w_ret = W_StringObject(space, u.get_str())
+    w_ret = W_StringObject(u.get_str())
     u.stringtable_w.append(w_ret)
     w_intern = space.builtin.get('intern')
     space.call_function(w_intern, w_ret)
@@ -323,7 +324,7 @@ def marshal_w__Tuple(space, w_tuple, m):
 
 def unmarshal_Tuple(space, u, tc):
     items_w = u.get_list_w()
-    return W_TupleObject(space, items_w)
+    return W_TupleObject(items_w)
 register(TYPE_TUPLE, unmarshal_Tuple)
 
 def marshal_w__List(space, w_list, m):
@@ -333,10 +334,10 @@ def marshal_w__List(space, w_list, m):
 
 def unmarshal_List(space, u, tc):
     items_w = u.get_list_w()
-    return W_ListObject(space, items_w)
+    return W_ListObject(items_w)
 
 def finish_List(space, items_w, typecode):
-    return W_ListObject(space, items_w)
+    return W_ListObject(items_w)
 register(TYPE_LIST, unmarshal_List)
 
 def marshal_w__Dict(space, w_dict, m):
@@ -467,7 +468,7 @@ app = gateway.applevel(r'''
 string_to_buffer = app.interphook('string_to_buffer')
 
 def unmarshal_buffer(space, u, tc):
-    w_s = W_StringObject(space, u.get_str())
+    w_s = W_StringObject(u.get_str())
     return string_to_buffer(space, w_s)
 register(TYPE_UNKNOWN, unmarshal_buffer)
 
@@ -510,7 +511,7 @@ def unmarshal_set_frozenset(space, u, tc):
         w_frozen = space.w_False
     else:
         w_frozen = space.w_True
-    w_lis = W_ListObject(space, items_w)
+    w_lis = W_ListObject(items_w)
     return list_to_set(space, w_lis, w_frozen)
 register(TYPE_SET + TYPE_FROZENSET, unmarshal_set_frozenset)
 

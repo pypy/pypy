@@ -48,7 +48,7 @@ def descr__new__(space, w_stringtype, w_object=''):
         return w_obj  # XXX might be reworked when space.str() typechecks
     value = space.str_w(w_obj)
     w_obj = space.allocate_instance(W_StringObject, w_stringtype)
-    W_StringObject.__init__(w_obj, space, value)
+    W_StringObject.__init__(w_obj, value)
     return w_obj
 
 # ____________________________________________________________

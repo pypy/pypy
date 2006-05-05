@@ -79,11 +79,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # hack to avoid imports in the time-critical functions below
         for cls in self.model.typeorder:
             globals()[cls.__name__] = cls
+        from pypy.objspace.std.inttype import wrapint
+        self.newint = wrapint
 
         # singletons
-        self.w_None  = W_NoneObject(self)
-        self.w_False = W_BoolObject(self, False)
-        self.w_True  = W_BoolObject(self, True)
+        self.w_None  = W_NoneObject()
+        self.w_False = W_BoolObject(False)
+        self.w_True  = W_BoolObject(True)
         from pypy.interpreter.special import NotImplemented, Ellipsis
         self.w_NotImplemented = self.wrap(NotImplemented(self))  
         self.w_Ellipsis = self.wrap(Ellipsis(self))  
@@ -259,53 +261,54 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))
         if isinstance(x, int):
-            if isinstance(bool, type) and isinstance(x, bool):
+            if isinstance(x, bool):
                 return self.newbool(x)
-            return W_IntObject(self, x)
+            else:
+                return self.newint(x)
         if isinstance(x, str):
-            return W_StringObject(self, x)
+            return W_StringObject(x)
         if isinstance(x, unicode):
-            return W_UnicodeObject(self, [unichr(ord(u)) for u in x]) # xxx
+            return W_UnicodeObject([unichr(ord(u)) for u in x]) # xxx
         if isinstance(x, dict):
             items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
             return self.newdict(items_w)
         if isinstance(x, float):
-            return W_FloatObject(self, x)
+            return W_FloatObject(x)
         if isinstance(x, tuple):
             wrappeditems = [self.wrap(item) for item in list(x)]
-            return W_TupleObject(self, wrappeditems)
+            return W_TupleObject(wrappeditems)
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
-            return W_ListObject(self, wrappeditems)
+            return W_ListObject(wrappeditems)
         if isinstance(x, Wrappable):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
             from pypy.objspace.std.longobject import args_from_long
-            return W_LongObject(self, *args_from_long(x))
+            return W_LongObject(*args_from_long(x))
 
         # _____ below here is where the annotator should not get _____
         
         if isinstance(x, long):
             from pypy.objspace.std.longobject import args_from_long
-            return W_LongObject(self, *args_from_long(x))
+            return W_LongObject(*args_from_long(x))
         if isinstance(x, slice):
-            return W_SliceObject(self, self.wrap(x.start),
-                                       self.wrap(x.stop),
-                                       self.wrap(x.step))
+            return W_SliceObject(self.wrap(x.start),
+                                 self.wrap(x.stop),
+                                 self.wrap(x.step))
         if isinstance(x, complex):
-            return W_ComplexObject(self, x.real, x.imag)
+            return W_ComplexObject(x.real, x.imag)
 
         if isinstance(x, set):
             if WITHSET:
                 wrappeditems = [self.wrap(item) for item in x]
-                return W_SetObject(self, wrappeditems)
+                return W_SetObject(wrappeditems)
 
         if isinstance(x, frozenset):
             if WITHSET:
                 wrappeditems = [self.wrap(item) for item in x]
-                return W_FrozensetObject(self, wrappeditems)
+                return W_FrozensetObject(wrappeditems)
 
         if x is __builtin__.Ellipsis:
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
@@ -340,35 +343,35 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, Wrappable):
             return w_obj
         if isinstance(w_obj, W_Object):
-            return w_obj.unwrap()
+            return w_obj.unwrap(self)
         raise UnwrapError, "cannot unwrap: %r" % w_obj
-        
 
-    def newint(self, intval):
-        return W_IntObject(self, intval)
+    #def newint(self, intval):
+    #    this time-critical and circular-imports-funny method is stored
+    #    on 'self' by initialize()
 
     def newfloat(self, floatval):
-        return W_FloatObject(self, floatval)
+        return W_FloatObject(floatval)
 
     def newcomplex(self, realval, imagval):
-        return W_ComplexObject(self, realval, imagval)
+        return W_ComplexObject(realval, imagval)
 
     if WITHSET:
         def newset(self, rdict_w):
-            return W_SetObject(self, rdict_w)
+            return W_SetObject(rdict_w)
 
         def newfrozenset(self, rdict_w):
-            return W_FrozensetObject(self, rdict_w)
+            return W_FrozensetObject(rdict_w)
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
-        return W_TupleObject(self, list_w)
+        return W_TupleObject(list_w)
 
     def newlist(self, list_w):
-        return W_ListObject(self, list_w)
+        return W_ListObject(list_w)
 
     def newdict(self, list_pairs_w):
         w_result = W_DictObject(self)
@@ -376,7 +379,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return w_result
 
     def newslice(self, w_start, w_end, w_step):
-        return W_SliceObject(self, w_start, w_end, w_step)
+        return W_SliceObject(w_start, w_end, w_step)
 
     def newstring(self, chars_w):
         try:
@@ -384,7 +387,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         except ValueError:  # chr(out-of-range)
             raise OperationError(self.w_ValueError,
                                  self.wrap("character code not in range(256)"))
-        return W_StringObject(self, ''.join(chars))
+        return W_StringObject(''.join(chars))
 
     def newunicode(self, chars):
         try:
@@ -392,10 +395,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         except ValueError, e:  # unichr(out-of-range)
             msg = "character code not in range(%s)" % hex(sys.maxunicode+1)
             raise OperationError(self.w_ValueError, self.wrap(msg))
-        return W_UnicodeObject(self, chars)
+        return W_UnicodeObject(chars)
 
     def newseqiter(self, w_obj):
-        return W_SeqIterObject(self, w_obj)
+        return W_SeqIterObject(w_obj)
 
     def type(self, w_obj):
         return w_obj.getclass(self)

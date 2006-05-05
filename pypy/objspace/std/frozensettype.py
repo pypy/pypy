@@ -23,7 +23,7 @@ def descr__frozenset__new__(space, w_frozensettype, w_iterable=NoneNotWrapped):
     if _is_frozenset_exact(w_iterable):
         return w_iterable
     w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
-    W_FrozensetObject.__init__(w_obj, space, None)
+    W_FrozensetObject.__init__(w_obj, None)
 
     return w_obj
 

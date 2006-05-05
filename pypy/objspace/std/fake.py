@@ -114,9 +114,8 @@ def really_build_fake_type(cpy_type):
         typedef = StdTypeDef(
             cpy_type.__name__, base, **kw)
         def __init__(w_self, space, val):
-            W_Object.__init__(w_self, space)
             w_self.val = val
-        def unwrap(w_self):
+        def unwrap(w_self, space):
             return w_self.val
                 
     # cannot write to W_Fake.__name__ in Python 2.2!

@@ -45,7 +45,7 @@ class W_TypeObject(W_Object):
 
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
-        W_Object.__init__(w_self, space)
+        w_self.space = space
         w_self.name = name
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
@@ -297,7 +297,7 @@ class W_TypeObject(W_Object):
         dictspec = []
         for key, w_value in w_self.dict_w.items():
             dictspec.append((space.wrap(key), w_value))
-        return W_DictProxyObject(space, space.newdict(dictspec))
+        return W_DictProxyObject(space.newdict(dictspec))
 
     def unwrap(w_self):
         if w_self.instancetypedef.fakedcpytype is not None:

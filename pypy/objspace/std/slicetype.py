@@ -56,7 +56,7 @@ def descr__new__(space, w_slicetype, args_w):
         raise OperationError(space.w_TypeError,
                              space.wrap("slice() takes at least 1 argument"))
     w_obj = space.allocate_instance(W_SliceObject, w_slicetype)
-    W_SliceObject.__init__(w_obj, space, w_start, w_stop, w_step)
+    W_SliceObject.__init__(w_obj, w_start, w_stop, w_step)
     return w_obj
 #
 descr__new__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root,

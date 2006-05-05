@@ -13,8 +13,7 @@ class W_ComplexObject(W_Object):
 
     from pypy.objspace.std.complextype import complex_typedef as typedef
 
-    def __init__(w_self, space, realval=0.0, imgval=0.0):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, realval=0.0, imgval=0.0):
         w_self.realval = float(realval)
         w_self.imagval = float(imgval)
 
@@ -111,25 +110,21 @@ def _powi(c,n):
 
 
 
-def delegate_Bool2Complex(w_bool):
-    space = w_bool.space
-    return W_ComplexObject(space, w_bool.boolval, 0.0)
+def delegate_Bool2Complex(space, w_bool):
+    return W_ComplexObject(w_bool.boolval, 0.0)
 
-def delegate_Int2Complex(w_int):
-    space = w_int.space
-    return W_ComplexObject(space, w_int.intval, 0.0)
+def delegate_Int2Complex(space, w_int):
+    return W_ComplexObject(w_int.intval, 0.0)
 
-def delegate_Long2Complex(w_long):
-    space = w_long.space
+def delegate_Long2Complex(space, w_long):
     try:
         dval =  _AsDouble(w_long)
     except OverflowError, e:
         raise OperationError(space.w_OverflowError, space.wrap(str(e)))
-    return W_ComplexObject(space, dval, 0.0)
+    return W_ComplexObject(dval, 0.0)
 
-def delegate_Float2Complex(w_float):
-    space = w_float.space
-    return W_ComplexObject(space, w_float.floatval, 0.0)
+def delegate_Float2Complex(space, w_float):
+    return W_ComplexObject(w_float.floatval, 0.0)
 
 def hash__Complex(space, w_value):
     #this is straight out of CPython complex implementation
@@ -151,7 +146,7 @@ def _w2t(space, w_complex):
     return w_complex.realval, w_complex.imagval
 
 def _t2w(space, c):
-    return W_ComplexObject(space, c[0], c[1])
+    return W_ComplexObject(c[0], c[1])
 
 def add__Complex_Complex(space, w_complex1, w_complex2):
     return _t2w(space, _sum(_w2t(space, w_complex1), _w2t(space, w_complex2)))
@@ -218,11 +213,11 @@ def pow__Complex_Complex_ANY(space, w_complex1, w_complex2, thirdArg):
 
 def neg__Complex(space, w_complex):
     assert space.is_true(space.isinstance(w_complex, space.w_complex))
-    return W_ComplexObject(space, -w_complex.realval, -w_complex.imagval)
+    return W_ComplexObject(-w_complex.realval, -w_complex.imagval)
 
 def pos__Complex(space, w_complex):
     assert space.is_true(space.isinstance(w_complex, space.w_complex))
-    return W_ComplexObject(space, w_complex.realval, w_complex.imagval)
+    return W_ComplexObject(w_complex.realval, w_complex.imagval)
 
 def abs__Complex(space, w_complex):
     assert space.is_true(space.isinstance(w_complex, space.w_complex))

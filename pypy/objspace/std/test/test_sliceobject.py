@@ -8,18 +8,18 @@ class TestW_SliceObject:
         w = space.wrap
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w_None)
-        assert w_slice.indices3(6) == (0, 6, 1)
+        assert w_slice.indices3(space, 6) == (0, 6, 1)
         w_slice = space.newslice(w(0), w(6), w(1))
-        assert w_slice.indices3(6) == (0, 6, 1)
+        assert w_slice.indices3(space, 6) == (0, 6, 1)
         w_slice = space.newslice(w_None, w_None, w(-1))
-        assert w_slice.indices3(6) == (5, -1, -1)
+        assert w_slice.indices3(space, 6) == (5, -1, -1)
 
     def test_indices_fail(self):
         space = self.space
         w = space.wrap
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w(0))
-        self.space.raises_w(space.w_ValueError, w_slice.indices3, 10)
+        self.space.raises_w(space.w_ValueError, w_slice.indices3, space, 10)
 
 
 class AppTest_SliceObject:

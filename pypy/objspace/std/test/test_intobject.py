@@ -37,19 +37,19 @@ class TestW_IntObject:
         
     def test_repr(self):
         x = 1
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         result = iobj.repr__Int(self.space, f1)
         assert self.space.unwrap(result) == repr(x)
 
     def test_str(self):
         x = 12345
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         result = iobj.str__Int(self.space, f1)
         assert self.space.unwrap(result) == str(x)
 
     def test_hash(self):
         x = 42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         result = iobj.hash__Int(self.space, f1)
         assert result.intval == hash(x)
 
@@ -59,8 +59,8 @@ class TestW_IntObject:
         for x in (-10, -1, 0, 1, 2, 1000, sys.maxint):
             for y in (-sys.maxint-1, -11, -9, -2, 0, 1, 3, 1111, sys.maxint):
                 for op in optab:
-                    wx = iobj.W_IntObject(self.space, x)
-                    wy = iobj.W_IntObject(self.space, y)
+                    wx = iobj.W_IntObject(x)
+                    wy = iobj.W_IntObject(y)
                     res = getattr(operator, op)(x, y)
                     method = getattr(iobj, '%s__Int_Int' % op)
                     myres = method(self.space, wx, wy)
@@ -69,64 +69,64 @@ class TestW_IntObject:
     def test_add(self):
         x = 1
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         result = iobj.add__Int_Int(self.space, f1, f2)
         assert result.intval == x+y
         x = sys.maxint
         y = 1
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.add__Int_Int, self.space, f1, f2))
 
     def test_sub(self):
         x = 1
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         result = iobj.sub__Int_Int(self.space, f1, f2)
         assert result.intval == x-y
         x = sys.maxint
         y = -1
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.sub__Int_Int, self.space, f1, f2))
 
     def test_mul(self):
         x = 2
         y = 3
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         result = iobj.mul__Int_Int(self.space, f1, f2)
         assert result.intval == x*y
         x = -sys.maxint-1
         y = -1
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.mul__Int_Int, self.space, f1, f2))
 
     def test_div(self):
         for i in range(10):
             res = i//3
-            f1 = iobj.W_IntObject(self.space, i)
-            f2 = iobj.W_IntObject(self.space, 3)
+            f1 = iobj.W_IntObject(i)
+            f2 = iobj.W_IntObject(3)
             result = iobj.div__Int_Int(self.space, f1, f2)
             assert result.intval == res
         x = -sys.maxint-1
         y = -1
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.div__Int_Int, self.space, f1, f2))
 
     def test_mod(self):
         x = 1
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.mod__Int_Int(self.space, f1, f2)
         assert v.intval == x % y
         # not that mod cannot overflow
@@ -134,15 +134,15 @@ class TestW_IntObject:
     def test_divmod(self):
         x = 1
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         ret = iobj.divmod__Int_Int(self.space, f1, f2)
         v, w = self.space.unwrap(ret)
         assert (v, w) == divmod(x, y)
         x = -sys.maxint-1
         y = -1
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.divmod__Int_Int, self.space, f1, f2))
 
@@ -150,16 +150,16 @@ class TestW_IntObject:
         x = 10
         y = 2
         z = 13
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
-        f3 = iobj.W_IntObject(self.space, z)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
+        f3 = iobj.W_IntObject(z)
         v = iobj.pow__Int_Int_Int(self.space, f1, f2, f3)
         assert v.intval == pow(x, y, z)
-        f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, -1, 42)]
+        f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, -1, 42)]
         self.space.raises_w(self.space.w_TypeError,
                             iobj.pow__Int_Int_Int,
                             self.space, f1, f2, f3)
-        f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, 5, 0)]
+        f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, 5, 0)]
         self.space.raises_w(self.space.w_ValueError,
                             iobj.pow__Int_Int_Int,
                             self.space, f1, f2, f3)
@@ -167,125 +167,125 @@ class TestW_IntObject:
     def test_pow_iin(self):
         x = 10
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.pow__Int_Int_None(self.space, f1, f2, self.space.w_None)
         assert v.intval == x ** y
-        f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, 20)]
+        f1, f2 = [iobj.W_IntObject(i) for i in (10, 20)]
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2, self.space.w_None))
 
     def test_neg(self):
         x = 42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         v = iobj.neg__Int(self.space, f1)
         assert v.intval == -x
         x = -sys.maxint-1
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.neg__Int, self.space, f1))
 
     def test_pos(self):
         x = 42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         v = iobj.pos__Int(self.space, f1)
         assert v.intval == +x
         x = -42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         v = iobj.pos__Int(self.space, f1)
         assert v.intval == +x
 
     def test_abs(self):
         x = 42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         v = iobj.abs__Int(self.space, f1)
         assert v.intval == abs(x)
         x = -42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         v = iobj.abs__Int(self.space, f1)
         assert v.intval == abs(x)
         x = -sys.maxint-1
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.abs__Int, self.space, f1))
 
     def test_invert(self):
         x = 42
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         v = iobj.invert__Int(self.space, f1)
         assert v.intval == ~x
 
     def test_lshift(self):
         x = 12345678
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.lshift__Int_Int(self.space, f1, f2)
         assert v.intval == x << y
         y = self._longshiftresult(x)
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         assert self.space.w_OverflowError == (
                           self._unwrap_nonimpl(iobj.lshift__Int_Int, self.space, f1, f2))
 
     def test_rshift(self):
         x = 12345678
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.rshift__Int_Int(self.space, f1, f2)
         assert v.intval == x >> y
 
     def test_and(self):
         x = 12345678
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.and__Int_Int(self.space, f1, f2)
         assert v.intval == x & y
 
     def test_xor(self):
         x = 12345678
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.xor__Int_Int(self.space, f1, f2)
         assert v.intval == x ^ y
 
     def test_or(self):
         x = 12345678
         y = 2
-        f1 = iobj.W_IntObject(self.space, x)
-        f2 = iobj.W_IntObject(self.space, y)
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
         v = iobj.or__Int_Int(self.space, f1, f2)
         assert v.intval == x | y
 
     def test_int(self):
-        f1 = iobj.W_IntObject(self.space, 1)
+        f1 = iobj.W_IntObject(1)
         result = iobj.int__Int(self.space, f1)
         assert result == f1
 
 ##    def test_long(self):
 ##        x = 1
-##        f1 = iobj.W_IntObject(self.space, x)
+##        f1 = iobj.W_IntObject(x)
 ##        result = iobj.int_long(self.space, f1)
 ##        self.assertEquals(self.space.unwrap(result), long(x))
 
 ##    def test_float(self):
 ##        x = 1
-##        f1 = iobj.W_IntObject(self.space, x)
+##        f1 = iobj.W_IntObject(x)
 ##        result = iobj.int_float(self.space, f1)
 ##        self.assertEquals(self.space.unwrap(result), float(x))
 
     def test_oct(self):
         x = 012345
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         result = iobj.oct__Int(self.space, f1)
         assert self.space.unwrap(result) == oct(x)
 
     def test_hex(self):
         x = 0x12345
-        f1 = iobj.W_IntObject(self.space, x)
+        f1 = iobj.W_IntObject(x)
         result = iobj.hex__Int(self.space, f1)
         assert self.space.unwrap(result) == hex(x)
 

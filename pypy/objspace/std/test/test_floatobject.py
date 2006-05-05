@@ -17,9 +17,9 @@ class TestW_FloatObject:
         x = 10.0
         y = 2.0
         z = 13.0
-        f1 = fobj.W_FloatObject(self.space, x)
-        f2 = fobj.W_FloatObject(self.space, y)
-        f3 = fobj.W_FloatObject(self.space, z)
+        f1 = fobj.W_FloatObject(x)
+        f2 = fobj.W_FloatObject(y)
+        f3 = fobj.W_FloatObject(z)
         assert self.space.w_TypeError == (
                           self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
                                                self.space, f1, f2, f3))
@@ -27,20 +27,20 @@ class TestW_FloatObject:
     def test_pow_ffn(self):
         x = 10.0
         y = 2.0
-        f1 = fobj.W_FloatObject(self.space, x)
-        f2 = fobj.W_FloatObject(self.space, y)
+        f1 = fobj.W_FloatObject(x)
+        f2 = fobj.W_FloatObject(y)
         v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
         assert v.floatval == x ** y
-        f1 = fobj.W_FloatObject(self.space, -1.23)
-        f2 = fobj.W_FloatObject(self.space, -4.56)
+        f1 = fobj.W_FloatObject(-1.23)
+        f2 = fobj.W_FloatObject(-4.56)
         assert self.space.w_ValueError == (
                           self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
                                                self.space, f1, f2,
                                                self.space.w_None))
         x = -10
         y = 2.0
-        f1 = fobj.W_FloatObject(self.space, x)
-        f2 = fobj.W_FloatObject(self.space, y)
+        f1 = fobj.W_FloatObject(x)
+        f2 = fobj.W_FloatObject(y)
         v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
         assert v.floatval == x**y
 

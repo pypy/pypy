@@ -3,6 +3,10 @@ from pypy.objspace.std.strutil import string_to_int, string_to_w_long, ParseStri
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
+def wrapint(x):
+    from pypy.objspace.std.intobject import W_IntObject
+    return W_IntObject(x)
+
 def retry_to_w_long(space, parser, base=0):
     parser.rewind()
     try:
@@ -83,7 +87,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
         return w_longval
     else:
         w_obj = space.allocate_instance(W_IntObject, w_inttype)
-        W_IntObject.__init__(w_obj, space, value)
+        W_IntObject.__init__(w_obj, value)
         return w_obj
 
 # ____________________________________________________________

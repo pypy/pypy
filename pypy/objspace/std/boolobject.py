@@ -1,12 +1,11 @@
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std import intobject
+from pypy.objspace.std.inttype import wrapint
 
 
 class W_BoolObject(W_Object):
     from pypy.objspace.std.booltype import bool_typedef as typedef
 
-    def __init__(w_self, space, boolval):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, boolval):
         w_self.boolval = not not boolval
 
     def __nonzero__(w_self):
@@ -16,15 +15,15 @@ class W_BoolObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.boolval)
 
-    def unwrap(w_self):
+    def unwrap(w_self, space):
         return w_self.boolval
 
 registerimplementation(W_BoolObject)
 
 # bool-to-int delegation requires translating the .boolvar attribute
 # to an .intval one
-def delegate_Bool2Int(w_bool):
-    return intobject.W_IntObject(w_bool.space, int(w_bool.boolval))
+def delegate_Bool2Int(space, w_bool):
+    return wrapint(int(w_bool.boolval))
 
 
 def nonzero__Bool(space, w_bool):

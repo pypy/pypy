@@ -10,8 +10,7 @@ from pypy.objspace.std.objspace import *
 class W_SeqIterObject(W_Object):
     from pypy.objspace.std.itertype import iter_typedef as typedef
     
-    def __init__(w_self, space, w_seq, index=0):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, w_seq, index=0):
         w_self.w_seq = w_seq
         w_self.index = index
 
@@ -19,7 +18,6 @@ class W_ReverseSeqIterObject(W_Object):
     from pypy.objspace.std.itertype import reverse_iter_typedef as typedef
     
     def __init__(w_self, space, w_seq, index=-1):
-        W_Object.__init__(w_self, space)
         w_self.w_seq = w_seq
         w_self.w_len = space.len(w_seq)
         w_self.index = space.int_w(w_self.w_len) + index

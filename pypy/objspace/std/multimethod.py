@@ -214,8 +214,10 @@ class Installer:
             callargs = funcargs[:]
             if conversion is not None:
                 to_convert = func_selfarg_index
+                convert_callargs = (self.multimethod.argnames_before +
+                                    [callargs[to_convert]])
                 callargs[to_convert] = '%s(%s)' % (
-                    invent_name(conversion), callargs[to_convert])
+                    invent_name(conversion), ', '.join(convert_callargs))
             callname = invent_name(call)
             if call_selfarg_index is not None:
                 # fallback on root_class

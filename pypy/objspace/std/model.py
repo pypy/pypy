@@ -138,14 +138,10 @@ class StdTypeModel:
 
 W_ANY = W_Root
 
-class W_Object(W_Root, object):
-    "Parent base class for wrapped objects."
-
-    def __init__(w_self, space):
-        w_self.space = space    # XXX not sure this is ever used any more
-        # Note that it is wrong to depend on a .space attribute for a random
-        # wrapped object anyway, because not all wrapped objects inherit from
-        # W_Object.  (They inherit from W_Root.)
+class W_Object(W_Root):
+    "Parent base class for wrapped objects provided by the StdObjSpace."
+    # Note that not all wrapped objects in the interpreter inherit from
+    # W_Object.  (They inherit from W_Root.)
 
     def __repr__(self):
         s = '%s(%s)' % (
@@ -158,7 +154,7 @@ class W_Object(W_Root, object):
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
 
-    def unwrap(w_self):
+    def unwrap(w_self, space):
         raise UnwrapError, 'cannot unwrap %r' % (w_self,)
 
 class UnwrapError(Exception):

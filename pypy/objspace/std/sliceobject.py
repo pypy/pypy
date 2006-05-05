@@ -13,8 +13,7 @@ from pypy.objspace.std.slicetype import _Eval_SliceIndex
 class W_SliceObject(W_Object):
     from pypy.objspace.std.slicetype import slice_typedef as typedef
     
-    def __init__(w_self, space, w_start, w_stop, w_step):
-        W_Object.__init__(w_self, space)
+    def __init__(w_self, w_start, w_stop, w_step):
         assert w_start is not None
         assert w_stop is not None
         assert w_step is not None
@@ -22,12 +21,10 @@ class W_SliceObject(W_Object):
         w_self.w_stop = w_stop
         w_self.w_step = w_step
 
-    def unwrap(w_slice):
-        space = w_slice.space
+    def unwrap(w_slice, space):
         return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))
 
-    def indices3(w_slice, length):
-        space = w_slice.space
+    def indices3(w_slice, space, length):
         if space.is_w(w_slice.w_step, space.w_None):
             step = 1
         else:
@@ -69,8 +66,8 @@ class W_SliceObject(W_Object):
                 stop = length
         return start, stop, step
 
-    def indices4(w_slice, length):
-        start, stop, step = w_slice.indices3(length)
+    def indices4(w_slice, space, length):
+        start, stop, step = w_slice.indices3(space, length)
         if (step < 0 and stop >= start) or (step > 0 and start >= stop):
             slicelength = 0
         elif step < 0:
@@ -115,7 +112,7 @@ def lt__Slice_Slice(space, w_slice1, w_slice2):
 
 def slice_indices__Slice_ANY(space, w_slice, w_length):
     length = space.int_w(w_length)
-    start, stop, step = w_slice.indices3(length)
+    start, stop, step = w_slice.indices3(space, length)
     return space.newtuple([space.wrap(start), space.wrap(stop),
                            space.wrap(step)])
 

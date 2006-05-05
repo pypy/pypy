@@ -9,25 +9,25 @@ class TestW_TupleObject:
 
     def test_is_true(self):
         w = self.space.wrap
-        w_tuple = W_TupleObject(self.space, [])
+        w_tuple = W_TupleObject([])
         assert self.space.is_true(w_tuple) == False
-        w_tuple = W_TupleObject(self.space, [w(5)])
+        w_tuple = W_TupleObject([w(5)])
         assert self.space.is_true(w_tuple) == True
-        w_tuple = W_TupleObject(self.space, [w(5), w(3)])
+        w_tuple = W_TupleObject([w(5), w(3)])
         assert self.space.is_true(w_tuple) == True
 
     def test_len(self):
         w = self.space.wrap
-        w_tuple = W_TupleObject(self.space, [])
+        w_tuple = W_TupleObject([])
         assert self.space.eq_w(self.space.len(w_tuple), w(0))
-        w_tuple = W_TupleObject(self.space, [w(5)])
+        w_tuple = W_TupleObject([w(5)])
         assert self.space.eq_w(self.space.len(w_tuple), w(1))
-        w_tuple = W_TupleObject(self.space, [w(5), w(3), w(99)]*111)
+        w_tuple = W_TupleObject([w(5), w(3), w(99)]*111)
         assert self.space.eq_w(self.space.len(w_tuple), w(333))
 
     def test_getitem(self):
         w = self.space.wrap
-        w_tuple = W_TupleObject(self.space, [w(5), w(3)])
+        w_tuple = W_TupleObject([w(5), w(3)])
         assert self.space.eq_w(self.space.getitem(w_tuple, w(0)), w(5))
         assert self.space.eq_w(self.space.getitem(w_tuple, w(1)), w(3))
         assert self.space.eq_w(self.space.getitem(w_tuple, w(-2)), w(5))
@@ -41,7 +41,7 @@ class TestW_TupleObject:
 
     def test_iter(self):
         w = self.space.wrap
-        w_tuple = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple = W_TupleObject([w(5), w(3), w(99)])
         w_iter = self.space.iter(w_tuple)
         assert self.space.eq_w(self.space.next(w_iter), w(5))
         assert self.space.eq_w(self.space.next(w_iter), w(3))
@@ -51,7 +51,7 @@ class TestW_TupleObject:
 
     def test_contains(self):
         w = self.space.wrap
-        w_tuple = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple = W_TupleObject([w(5), w(3), w(99)])
         assert self.space.eq_w(self.space.contains(w_tuple, w(5)),
                            self.space.w_True)
         assert self.space.eq_w(self.space.contains(w_tuple, w(99)),
@@ -63,15 +63,14 @@ class TestW_TupleObject:
 
     def test_add(self):
         w = self.space.wrap
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(-7)] * 111)
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(-7)] * 111)
         assert self.space.eq_w(self.space.add(w_tuple1, w_tuple1),
-                           W_TupleObject(self.space, [w(5), w(3), w(99),
+                           W_TupleObject([w(5), w(3), w(99),
                                                       w(5), w(3), w(99)]))
         assert self.space.eq_w(self.space.add(w_tuple1, w_tuple2),
-                           W_TupleObject(self.space,
-                                         [w(5), w(3), w(99)] + [w(-7)] * 111))
+                           W_TupleObject([w(5), w(3), w(99)] + [w(-7)] * 111))
         assert self.space.eq_w(self.space.add(w_tuple1, w_tuple0), w_tuple1)
         assert self.space.eq_w(self.space.add(w_tuple0, w_tuple2), w_tuple2)
 
@@ -80,8 +79,8 @@ class TestW_TupleObject:
         w = self.space.wrap
         arg = w(2)
         n = 3
-        w_tup = W_TupleObject(self.space, [arg])
-        w_tup3 = W_TupleObject(self.space, [arg]*n)
+        w_tup = W_TupleObject([arg])
+        w_tup3 = W_TupleObject([arg]*n)
         w_res = self.space.mul(w_tup, w(n))
         assert self.space.eq_w(w_tup3, w_res)
         # commute
@@ -93,7 +92,7 @@ class TestW_TupleObject:
 
         def test1(testtuple, start, stop, step, expected):
             w_slice  = self.space.newslice(w(start), w(stop), w(step))
-            w_tuple = W_TupleObject(self.space, [w(i) for i in testtuple])
+            w_tuple = W_TupleObject([w(i) for i in testtuple])
             w_result = self.space.getitem(w_tuple, w_slice)
             assert self.space.unwrap(w_result) == expected
         
@@ -112,10 +111,10 @@ class TestW_TupleObject:
     def test_eq(self):
         w = self.space.wrap
         
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
 
         assert self.space.eq_w(self.space.eq(w_tuple0, w_tuple1),
                            self.space.w_False)
@@ -130,10 +129,10 @@ class TestW_TupleObject:
     def test_ne(self):
         w = self.space.wrap
         
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
 
         assert self.space.eq_w(self.space.ne(w_tuple0, w_tuple1),
                            self.space.w_True)
@@ -148,11 +147,11 @@ class TestW_TupleObject:
     def test_lt(self):
         w = self.space.wrap
         
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject([w(5), w(3), w(9), w(-1)])
 
         assert self.space.eq_w(self.space.lt(w_tuple0, w_tuple1),
                            self.space.w_True)
@@ -170,11 +169,11 @@ class TestW_TupleObject:
     def test_ge(self):
         w = self.space.wrap
         
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject([w(5), w(3), w(9), w(-1)])
 
         assert self.space.eq_w(self.space.ge(w_tuple0, w_tuple1),
                            self.space.w_False)
@@ -192,11 +191,11 @@ class TestW_TupleObject:
     def test_gt(self):
         w = self.space.wrap
         
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject([w(5), w(3), w(9), w(-1)])
 
         assert self.space.eq_w(self.space.gt(w_tuple0, w_tuple1),
                            self.space.w_False)
@@ -214,11 +213,11 @@ class TestW_TupleObject:
     def test_le(self):
         w = self.space.wrap
         
-        w_tuple0 = W_TupleObject(self.space, [])
-        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
-        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+        w_tuple0 = W_TupleObject([])
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject([w(5), w(3), w(9), w(-1)])
 
         assert self.space.eq_w(self.space.le(w_tuple0, w_tuple1),
                            self.space.w_True)
