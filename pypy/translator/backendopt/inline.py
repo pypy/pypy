@@ -517,7 +517,7 @@ def static_callers(translator, ignore_primitives=False):
 
 def auto_inlining(translator, multiplier=1, callgraph=None,
                   threshold=BASE_INLINE_THRESHOLD):
-    from heapq import heappush, heappop, heapreplace
+    from heapq import heappush, heappop, heapreplace, heapify
     threshold = threshold * multiplier
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
@@ -543,7 +543,20 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
             continue
 
         if weight >= threshold:
-            break   # finished
+            # finished... unless some graphs not in valid_weight would now
+            # have a weight below the threshold.  Re-insert such graphs
+            # at the start of the heap
+            finished = True
+            for i in range(len(heap)):
+                graph = heap[i][2]
+                if not valid_weight.get(graph):
+                    heap[i] = (0.0, heap[i][1], graph)
+                    finished = False
+            if finished:
+                break
+            else:
+                heapify(heap)
+                continue
 
         heappop(heap)
         if callers[graph]:
