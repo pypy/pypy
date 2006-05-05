@@ -189,7 +189,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from _file import file as libfile 
             for name, value in libfile.__dict__.items(): 
                 if (name != '__dict__' and name != '__doc__'
-                    and name != '__module__'):
+                    and name != '__module__' and name != '__weakref__'):
                     setattr(file, name, value) 
             sys.stdin._fdopen(0, "r", 1, '<stdin>') 
             sys.stdout._fdopen(1, "w", 1, '<stdout>') 
