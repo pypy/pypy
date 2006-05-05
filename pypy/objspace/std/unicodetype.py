@@ -136,4 +136,6 @@ Create a new Unicode object from the given encoded string.
 encoding defaults to the current default string encoding.
 errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.'''
     )
+
+unicode_typedef.custom_hash = True
 unicode_typedef.registermethods(globals())

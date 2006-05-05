@@ -204,4 +204,5 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     imag = complexwprop('imagval'),
     )
 
+complex_typedef.custom_hash = True
 complex_typedef.registermethods(globals())

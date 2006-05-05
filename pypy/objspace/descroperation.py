@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
@@ -285,7 +286,7 @@ class DescrOperation:
                space.lookup(w_obj, '__cmp__') is not None: 
                 raise OperationError(space.w_TypeError, 
                                      space.wrap("unhashable type"))
-            return w_obj.identity_hash(space) 
+            return default_identity_hash(space, w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
         if space.is_true(space.isinstance(w_result, space.w_int)): 
             return w_result 

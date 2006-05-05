@@ -388,10 +388,6 @@ def set_remove__Set_ANY(space, w_left, w_item):
         raise OperationError(space.w_KeyError,
                 space.call_method(w_item,'__repr__'))
 
-def hash__Set(space, w_set):
-    raise OperationError(space.w_TypeError,
-            space.wrap('set objects are unhashable'))
-
 def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
     if w_set.hash != -1:

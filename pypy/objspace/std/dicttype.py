@@ -118,6 +118,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     in the keyword argument list.  For example:  dict(one=1, two=2)''',
     __new__ = newmethod(descr__new__,
                         unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __hash__ = no_hash_descr,
     )
 dict_typedef.registermethods(globals())
 

@@ -4,7 +4,7 @@ from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
-from pypy.rpython.rarithmetic import r_uint, intmask
+from pypy.rpython.rarithmetic import r_uint
 import os
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -57,9 +57,6 @@ class W_Root(object):
 
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
-
-    def identity_hash(self, space):
-        return space.wrap(intmask(hash(self))) #space.id(self)
 
     # used by _weakref implemenation
 

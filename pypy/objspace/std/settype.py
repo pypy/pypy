@@ -39,6 +39,7 @@ Build an unordered collection.""",
     __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.Arguments]),
+    __hash__ = no_hash_descr,
     )
 
 set_typedef.registermethods(globals())

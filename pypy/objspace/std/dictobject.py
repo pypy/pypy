@@ -147,9 +147,6 @@ def lt__Dict_Dict(space, w_left, w_right):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
 
-def hash__Dict(space,w_dict):
-    raise OperationError(space.w_TypeError,space.wrap("dict objects are unhashable"))
-
 def dict_copy__Dict(space, w_self):
     return W_DictObject(space, w_self)
 

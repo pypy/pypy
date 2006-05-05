@@ -385,9 +385,22 @@ class Method(Wrappable):
         other = space.interpclass_w(w_other)
         if not isinstance(other, Method):
             return space.w_False
-        if not space.is_w(self.w_instance, other.w_instance):
-            return space.w_False
+        if self.w_instance is None:
+            if other.w_instance is not None:
+                return space.w_False
+        else:
+            if other.w_instance is None:
+                return space.w_False
+            if not space.is_w(self.w_instance, other.w_instance):
+                return space.w_False
         return space.eq(self.w_function, other.w_function)
+
+    def descr_method_hash(self):
+        space = self.space
+        w_result = space.hash(self.w_function)
+        if self.w_instance is not None:
+            w_result = space.xor(w_result, space.hash(self.w_instance))
+        return w_result
 
     def descr_method__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule

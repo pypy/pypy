@@ -120,3 +120,11 @@ class AppTestCodeIntrospection:
               ccode.co_name,
               ccode.co_firstlineno,
               ccode.co_lnotab)
+
+    def test_hash(self):
+        d1 = {}
+        exec "def f(): pass" in d1
+        d2 = {}
+        exec "def f(): pass" in d2
+        assert d1['f'].func_code == d2['f'].func_code
+        assert hash(d1['f'].func_code) == hash(d2['f'].func_code)

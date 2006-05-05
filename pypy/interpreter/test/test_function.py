@@ -206,6 +206,15 @@ class AppTestMethod:
         assert (c.m != c2.m) is True
         assert (c.m != c.m) is False
 
+    def test_method_hash(self):
+        class C(object):
+            def m(): pass
+        class D(C):
+            pass
+        c = C()
+        assert hash(C.m) == hash(D.m)
+        assert hash(c.m) == hash(c.m)
+
     def test_method_repr(self): 
         class A(object): 
             def f(self): 

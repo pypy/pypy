@@ -7,8 +7,9 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import compile2
+from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rpython.objectmodel import instantiate
+from pypy.rpython.rarithmetic import intmask
 
 class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
@@ -17,9 +18,12 @@ class TypeDef:
         self.base = __base
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
+        self.custom_hash = '__hash__' in rawdict
         if __base is not None:
-            self.hasdict |= __base.hasdict
+            self.hasdict     |= __base.hasdict
             self.weakrefable |= __base.weakrefable
+            self.custom_hash |= __base.custom_hash
+            # NB. custom_hash is sometimes overridden manually by callers
         self.rawdict = {}
         self.acceptable_as_base_class = True
         # xxx used by faking
@@ -37,6 +41,53 @@ class TypeDef:
         # hint for the annotator: track individual constant instances of TypeDef
         return True
 
+
+# ____________________________________________________________
+#  Hash support
+
+def get_default_hash_function(cls):
+    # go to the first parent class of 'cls' that as a typedef
+    while 'typedef' not in cls.__dict__:
+        print cls, '=> !'
+        cls = cls.__bases__[0]
+        if cls is object:
+            # not found: 'cls' must have been an abstract class,
+            # no hash function is needed
+            return None
+    if cls.typedef.custom_hash:
+        return None   # the typedef says that instances have their own
+                      # hash, so we don't need a default RPython-level
+                      # hash function.
+    try:
+        hashfunction = _hashfunction_cache[cls]
+    except KeyError:
+        def hashfunction(w_obj):
+            "Return the identity hash of 'w_obj'."
+            assert isinstance(w_obj, cls)
+            return hash(w_obj)   # forces a hash_cache only on 'cls' instances
+        hashfunction = func_with_new_name(hashfunction,
+                                       'hashfunction_for_%s' % (cls.__name__,))
+        _hashfunction_cache[cls] = hashfunction
+    return hashfunction
+get_default_hash_function._annspecialcase_ = 'specialize:memo'
+_hashfunction_cache = {}
+
+def default_identity_hash(space, w_obj):
+    fn = get_default_hash_function(w_obj.__class__)
+    if fn is None:
+        typename = space.type(w_obj).getname(space, '?')
+        msg = "%s objects have no default hash" % (typename,)
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    return space.wrap(intmask(fn(w_obj)))
+
+def descr__hash__unhashable(space, w_obj):
+    typename = space.type(w_obj).getname(space, '?')
+    msg = "%s objects are unhashable" % (typename,)
+    raise OperationError(space.w_TypeError,space.wrap(msg))
+
+no_hash_descr = interp2app(descr__hash__unhashable)
+
+# ____________________________________________________________
 
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
                                     weakrefable=False):
@@ -451,6 +502,7 @@ PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
     __eq__ = interp2app(PyCode.descr_code__eq__),
     __ne__ = descr_generic_ne,
+    __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__   = interp2app(PyCode.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
@@ -535,7 +587,6 @@ Function.typedef = TypeDef("function",
     __dict__ = getset_func_dict,
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
-    # XXX func_closure, etc.pp
     )
 
 Method.typedef = TypeDef("method",
@@ -549,16 +600,15 @@ Method.typedef = TypeDef("method",
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
     __ne__ = descr_generic_ne,
+    __hash__ = interp2app(Method.descr_method_hash),
     __repr__ = interp2app(Method.descr_method_repr),
     __reduce__ = interp2app(Method.descr_method__reduce__,
                             unwrap_spec=['self', ObjSpace]),
     __weakref__ = make_weakref_descr(Method),
-    # XXX getattribute/setattribute etc.pp
     )
 
 StaticMethod.typedef = TypeDef("staticmethod",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
-    # XXX getattribute etc.pp
     )
 
 def always_none(self, obj):
@@ -590,6 +640,7 @@ Cell.typedef = TypeDef("cell",
     __eq__       = interp2app(Cell.descr__eq__,
                               unwrap_spec=['self', ObjSpace, W_Root]),
     __ne__       = descr_generic_ne,
+    __hash__     = no_hash_descr,
     __reduce__   = interp2app(Cell.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(Cell.descr__setstate__,

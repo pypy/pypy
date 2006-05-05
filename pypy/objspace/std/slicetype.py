@@ -79,6 +79,7 @@ slice_typedef = StdTypeDef("slice",
 
 Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     __new__ = newmethod(descr__new__),
+    __hash__ = no_hash_descr,
     start = slicewprop('w_start'),
     stop  = slicewprop('w_stop'),
     step  = slicewprop('w_step'),

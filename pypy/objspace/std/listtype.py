@@ -46,5 +46,6 @@ list(sequence) -> new list initialized from sequence's items''',
     __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.Arguments]),
+    __hash__ = no_hash_descr,
     )
 list_typedef.registermethods(globals())

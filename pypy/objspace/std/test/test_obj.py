@@ -16,3 +16,10 @@ class AppTestObject:
     def test_no_getnewargs(self):
         o = object()
         assert not hasattr(o, '__getnewargs__')
+
+    def test_hash_subclass(self):
+        class X(object):
+            pass
+        x = X()
+        assert hash(x) == id(x)
+        assert hash(x) == object.__hash__(x)

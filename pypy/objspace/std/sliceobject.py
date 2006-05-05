@@ -111,10 +111,6 @@ def lt__Slice_Slice(space, w_slice1, w_slice2):
     else:
         return space.lt(w_slice1.w_start, w_slice2.w_start)
 
-def hash__Slice(space, w_slice):
-    """slices are not hashables but they must have a __hash__ method"""
-    raise OperationError(space.w_TypeError,
-                         space.wrap("unhashable type"))
 # indices impl
 
 def slice_indices__Slice_ANY(space, w_slice, w_length):

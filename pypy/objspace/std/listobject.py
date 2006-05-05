@@ -299,9 +299,6 @@ def repr__List(space, w_list):
     w_currently_in_repr = space.getexecutioncontext()._py_repr
     return listrepr(space, w_currently_in_repr, w_list)
 
-def hash__List(space,w_list):
-    raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
-
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
     where = space.int_w(w_where)
     length = len(w_list.wrappeditems)
