@@ -152,8 +152,9 @@ def constant_folding(graph, translator):
         for i, op in enumerate(block.operations):
             if sum([isinstance(arg, Variable) for arg in op.args]):
                 continue
-            if op.opname in lloperation.LL_OPERATIONS and lloperation.LL_OPERATIONS[op.opname].canfold:
+            if not op_dont_fold(op):
                 if op.opname in ("getsubstruct", "getarraysubstruct"):
+                    # XXX why this case?
                     if not var_needsgc(op.result):
                         continue
                 try:
@@ -208,8 +209,7 @@ def partial_folding_once(graph, translator):
             return
         usedvars = {}
         for op in block.operations:
-            if (op.opname not in lloperation.LL_OPERATIONS or
-                not lloperation.LL_OPERATIONS[op.opname].canfold):
+            if op_dont_fold(op):
                 return
             for arg in op.args:
                 if (isinstance(arg, Variable) and arg in block.inputargs):
