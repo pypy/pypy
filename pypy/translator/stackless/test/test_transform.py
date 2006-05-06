@@ -34,6 +34,12 @@ from pypy import conftest
 
 from pypy.translator.stackless import code
 
+def test_nothing():
+    def fn(ignored):
+        return 21
+    res = llinterp_stackless_function(fn)
+    assert res == 21
+
 def test_simple_transform_llinterp():
     def check(x):
         if x:
@@ -155,11 +161,11 @@ def rtype_stackless_function(fn):
     # helpers which can cause slp_main_loop to get re-annotated after
     # it is rtyped.  which is bad.
     unwind_def = bk.getuniqueclassdef(code.UnwindException)
-    #unwind_def.generalize_attr('frame_top',
-    #                           annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
     unwind_def.generalize_attr('frame_bottom',
                                annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
-    
+    attrdef = unwind_def.attrs['frame_bottom']
+    attrdef.readonly = False
+
     s_returnvar = annotator.build_types(fn, [s_list_of_strings])
     if not isinstance(s_returnvar, annmodel.SomeInteger):
         raise Exception, "this probably isn't going to work"
