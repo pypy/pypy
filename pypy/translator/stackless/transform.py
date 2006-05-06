@@ -10,6 +10,7 @@ from pypy.translator.stackless import code
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
+from pypy.rpython.module import ll_stackless
 
 from pypy.translator.stackless.code import STATE_HEADER, null_state
 
@@ -116,6 +117,14 @@ class StacklessTransformer(object):
             code.fetch_retval_float, [], annmodel.SomeFloat())
         self.fetch_retval_void_p_ptr = mixlevelannotator.constfunc(
             code.fetch_retval_void_p, [], annmodel.SomeAddress())
+
+        s_StatePtr = annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER))
+        self.stack_frames_depth_ptr = mixlevelannotator.constfunc(
+            code.stack_frames_depth, [], annmodel.SomeInteger())
+##        self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
+##            code.yield_current_frame_to_caller, [], s_StatePtr)
+##        self.ll_frame_switch_ptr = mixlevelannotator.constfunc(
+##            code.ll_frame_switch, [s_StatePtr], s_StatePtr)
 
         mixlevelannotator.finish()
 
@@ -323,6 +332,15 @@ class StacklessTransformer(object):
         while i < len(block.operations):
             op = block.operations[i]
             if op.opname in ('direct_call', 'indirect_call'):
+                # trap calls to stackless-related suggested primitives
+                if op.opname == 'direct_call':
+                    func = getattr(op.args[0].value._obj, '_callable', None)
+                    if func is ll_stackless.ll_stackless_stack_frames_depth:
+                        op = model.SpaceOperation(
+                            'direct_call', [self.stack_frames_depth_ptr],
+                            op.result)
+                        block.operations[i] = op
+
                 if i == len(block.operations) - 1 \
                        and block.exitswitch == model.c_last_exception:
                     link = block.exits[0]

@@ -116,7 +116,7 @@ class MixLevelHelperAnnotator:
     def __init__(self, rtyper):
         self.rtyper = rtyper
         self.policy = MixLevelAnnotatorPolicy(rtyper)
-        self.pending = []     # list of (graph, args_s, s_result)
+        self.pending = []     # list of (ll_function, graph, args_s, s_result)
         self.delayedreprs = []
         self.delayedconsts = []
         self.delayedfuncs = []
@@ -131,7 +131,7 @@ class MixLevelHelperAnnotator:
         for v_arg, s_arg in zip(graph.getargs(), args_s):
             self.rtyper.annotator.setbinding(v_arg, s_arg)
         self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
-        self.pending.append((graph, args_s, s_result))
+        self.pending.append((ll_function, graph, args_s, s_result))
         return graph
 
     def delayedfunction(self, ll_function, args_s, s_result):
@@ -172,15 +172,17 @@ class MixLevelHelperAnnotator:
         # push all the graphs into the annotator's pending blocks dict at once
         rtyper = self.rtyper
         ann = rtyper.annotator
-        for graph, args_s, s_result in self.pending:
+        bk = ann.bookkeeper
+        for ll_function, graph, args_s, s_result in self.pending:
             # mark the return block as already annotated, because the return var
             # annotation was forced in getgraph() above.  This prevents temporary
             # less general values reaching the return block from crashing the
             # annotator (on the assert-that-new-binding-is-not-less-general).
             ann.annotated[graph.returnblock] = graph
-            ann.build_graph_types(graph, args_s, complete_now=False)
+            s_function = bk.immutablevalue(ll_function)
+            bk.emulate_pbc_call(graph, s_function, args_s)
         ann.complete_helpers(self.policy)
-        for graph, args_s, s_result in self.pending:
+        for ll_function, graph, args_s, s_result in self.pending:
             s_real_result = ann.binding(graph.getreturnvar())
             if s_real_result != s_result:
                 raise Exception("wrong annotation for the result of %r:\n"
