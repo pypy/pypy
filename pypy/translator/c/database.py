@@ -168,6 +168,10 @@ class LowLevelDatabase(object):
                 return PrimitiveName[T](obj, self)
             elif isinstance(T, Ptr):
                 if obj:   # test if the ptr is non-NULL
+                    if isinstance(obj._obj, int):
+                        # special case for tagged odd-valued pointers
+                        return '((%s) %d)' % (cdecl(self.gettype(T), ''),
+                                              obj._obj)
                     node = self.getcontainernode(obj._obj)
                     return node.ptrname
                 else:
