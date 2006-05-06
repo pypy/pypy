@@ -73,11 +73,13 @@ def storage_type(T):
 #     return retval + x + 1
 
 class ResumePoint:
-    def __init__(self, var_result, args, links_to_resumption, frame_state_type):
+    def __init__(self, var_result, args, links_to_resumption,
+                 frame_state_type, fieldnames):
         self.var_result = var_result
         self.args = args
         self.links_to_resumption = links_to_resumption
         self.frame_state_type = frame_state_type
+        self.fieldnames = fieldnames
 
 class StacklessTransformer(object):
     def __init__(self, translator):
@@ -143,24 +145,30 @@ class StacklessTransformer(object):
 
 
     def frame_type_for_vars(self, vars):
-        types = [storage_type(v.concretetype) for v in vars]
+        fieldnames = []
         counts = [0] * len(STORAGE_TYPES)
-        for t in types:
-            counts[t] = counts[t] + 1
+        for v in vars:
+            t = storage_type(v.concretetype)
+            if t is None:
+                fieldnames.append(None)
+            else:
+                fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t],
+                                                   counts[t]))
+                counts[t] = counts[t] + 1
         key = tuple(counts)
         if key in self.frametypes:
-            return self.frametypes[key]
+            T = self.frametypes[key]
         else:
             fields = []
-            for i, k in enumerate(key):
-                for j in range(k):
-                    fields.append(
-                        ('state_%s_%d'%(STORAGE_FIELDS[i], j), STORAGE_TYPES[i]))
-            T = lltype.Struct("state_%d_%d_%d_%d"%tuple(key),
-                              ('header', STATE_HEADER),
-                              *fields)
+            for t in range(len(STORAGE_TYPES)):
+                for j in range(counts[t]):
+                    fields.append(('state_%s_%d'%(STORAGE_FIELDS[t], j),
+                                   STORAGE_TYPES[t]))
+            T = lltype.GcStruct("FrameState_%d_%d_%d_%d" % tuple(key),
+                                ('header', STATE_HEADER),
+                                *fields)
             self.frametypes[key] = T
-            return T
+        return T, fieldnames
 
     def transform_all(self):
         for graph in self.translator.graphs:
@@ -225,23 +233,25 @@ class StacklessTransformer(object):
         for resume_point_index, resume_point in enumerate(self.resume_points):
             newblock = model.Block([])
             newargs = []
-            ops = []
+            llops = LowLevelOpList()
             frame_state_type = resume_point.frame_state_type
             frame_top = varoftype(lltype.Ptr(frame_state_type))
-            ops.extend(self.ops_read_global_state_field(frame_top, "top"))
-            ops.append(model.SpaceOperation(
-                "setfield",
-                [self.ll_global_state,
-                 model.Constant("inst_top", lltype.Void),
-                 model.Constant(null_state, lltype.typeOf(null_state))],
-                varoftype(lltype.Void)))
+            llops.extend(self.ops_read_global_state_field(frame_top, "top"))
+            llops.genop("setfield",
+                       [self.ll_global_state,
+                        model.Constant("inst_top", lltype.Void),
+                        model.Constant(null_state, lltype.typeOf(null_state))])
             varmap = {}
             for i, arg in enumerate(resume_point.args):
-                newarg = varmap[arg] = unsimplify.copyvar(self.translator, arg)
                 assert arg is not resume_point.var_result
-                fname = model.Constant(frame_state_type._names[i+1], lltype.Void)
-                ops.append(model.SpaceOperation(
-                    'getfield', [frame_top, fname], newarg))
+                t = storage_type(arg.concretetype)
+                if t is None:
+                    continue
+                fname = model.Constant(resume_point.fieldnames[i], lltype.Void)
+                v_newarg = llops.genop('getfield', [frame_top, fname],
+                                       resulttype = STORAGE_TYPES[t])
+                v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
+                varmap[arg] = v_newarg
 
             r = storage_type(resume_point.var_result.concretetype)
             if r is not None:
@@ -265,10 +275,11 @@ class StacklessTransformer(object):
 ##                        need_address_conversion = True
                 getretval = self.fetch_retval_void_p_ptr
 
-            varmap[resume_point.var_result] = retval = varoftype(rettype)
-            ops.append(model.SpaceOperation("direct_call", [getretval], retval))
+            retval = llops.genop("direct_call", [getretval],
+                                 resulttype = rettype)
+            varmap[resume_point.var_result] = retval
 
-            newblock.operations.extend(ops)
+            newblock.operations.extend(llops)
 
             def rename(arg):
                 if isinstance(arg, model.Variable):
@@ -291,7 +302,7 @@ class StacklessTransformer(object):
                 newblock.exitswitch = None
 
             if resume_point.var_result.concretetype != rettype:
-                llops = LowLevelOpList(None)
+                llops = LowLevelOpList()
                 newvar = gen_cast(llops,
                                   resume_point.var_result.concretetype,
                                   retval)
@@ -378,11 +389,12 @@ class StacklessTransformer(object):
                            and arg not in args:
                             args.append(arg)
                 
-                save_block, frame_state_type = self.generate_save_block(
-                                args, var_unwind_exception)
+                save_block, frame_state_type, fieldnames = \
+                        self.generate_save_block(args, var_unwind_exception)
 
                 self.resume_points.append(
-                    ResumePoint(op.result, args, tuple(block.exits), frame_state_type))
+                    ResumePoint(op.result, args, tuple(block.exits),
+                                frame_state_type, fieldnames))
 
                 newlink = model.Link(args + [var_unwind_exception], 
                                      save_block, code.UnwindException)
@@ -408,17 +420,7 @@ class StacklessTransformer(object):
         var_unwind_exception = unsimplify.copyvar(
             self.translator, var_unwind_exception) 
 
-        fields = []
-        n = []
-        for i, v in enumerate(varstosave):
-            assert v.concretetype is not lltype.Void
-            fields.append(('field_%d'%(i,), v.concretetype))
-            n.append(repr(v.concretetype))
-        
-        frame_type = lltype.GcStruct("S" + '-'.join(n),
-                            ('header', STATE_HEADER),
-                            *fields)
-        
+        frame_type, fieldnames = self.frame_type_for_vars(varstosave)
 
         save_state_block = model.Block(inputargs + [var_unwind_exception])
         saveops = save_state_block.operations
@@ -429,7 +431,8 @@ class StacklessTransformer(object):
             [model.Constant(frame_type, lltype.Void)],
             frame_state_var))
         
-        saveops.extend(self.generate_saveops(frame_state_var, inputargs))
+        saveops.extend(self.generate_saveops(frame_state_var, inputargs,
+                                             fieldnames))
 
         var_exc = varoftype(self.unwind_exception_type)
         saveops.append(model.SpaceOperation(
@@ -483,16 +486,16 @@ class StacklessTransformer(object):
             self.curr_graph.exceptblock))
         self.translator.rtyper._convert_link(
             save_state_block, save_state_block.exits[0])
-        return save_state_block, frame_type
+        return save_state_block, frame_type, fieldnames
         
-    def generate_saveops(self, frame_state_var, varstosave):
+    def generate_saveops(self, frame_state_var, varstosave, fieldnames):
         frame_type = frame_state_var.concretetype.TO
-        ops = []
+        llops = LowLevelOpList()
         for i, var in enumerate(varstosave):
             t = storage_type(var.concretetype)
-            fname = model.Constant(frame_type._names[i+1], lltype.Void)
-            ops.append(model.SpaceOperation(
-                'setfield',
-                [frame_state_var, fname, var],
-                varoftype(lltype.Void)))
-        return ops
+            if t is lltype.Void:
+                continue
+            fname = model.Constant(fieldnames[i], lltype.Void)
+            v_typeerased = gen_cast(llops, STORAGE_TYPES[t], var)
+            llops.genop('setfield', [frame_state_var, fname, v_typeerased])
+        return llops
