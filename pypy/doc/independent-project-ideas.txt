@@ -8,6 +8,16 @@ should fit in two months of work including getting started with PyPy.
 (This might not actually be true, if you want to finish it all; two months
 should get some major sub-goals done.)
 
+::
+
+   Note about the Summer of Code: Your proposals need to somehow
+   give the impression that they are yours, and that your are interested in
+   them and have some idea about what is involved.  Feel free to discuss
+   ideas on pypy-dev, and submit proposals early -- you'll get early feedback
+   from us too, and you can update your proposal any number of times until the
+   deadline.  Basically, just copy-and-pasting one of the paragraphs from
+   here is *not* enough for a proposal!
+
 In no particular order:
 
 * Rewrite one or several CPython extension modules to be based on **ctypes**
