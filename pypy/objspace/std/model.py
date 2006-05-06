@@ -9,6 +9,7 @@ import pypy.interpreter.pycode
 import pypy.interpreter.special
 
 WITHSET = False
+WITHSMALLINT = False
 
 class StdTypeModel:
 
@@ -49,6 +50,8 @@ class StdTypeModel:
         from pypy.objspace.std import complexobject
         if WITHSET:
             from pypy.objspace.std import setobject
+        if WITHSMALLINT:
+            from pypy.objspace.std import smallintobject
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
@@ -92,6 +95,8 @@ class StdTypeModel:
             self.typeorder[setobject.W_SetObject] = []
             self.typeorder[setobject.W_FrozensetObject] = []
             self.typeorder[setobject.W_SetIterObject] = []
+        if WITHSMALLINT:
+            self.typeorder[smallintobject.W_SmallIntObject] = []
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
 
@@ -104,8 +109,19 @@ class StdTypeModel:
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
+        if WITHSMALLINT:
+            self.typeorder[boolobject.W_BoolObject] += [
+                (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
+                ]
+            self.typeorder[smallintobject.W_SmallIntObject] += [
+                (intobject.W_IntObject, smallintobject.delegate_SmallInt2Int),
+                (longobject.W_LongObject, smallintobject.delegate_SmallInt2Long),
+                (floatobject.W_FloatObject, smallintobject.delegate_SmallInt2Float),
+                (complexobject.W_ComplexObject, smallintobject.delegate_SmallInt2Complex),
+                ]
+
         self.typeorder[boolobject.W_BoolObject] += [
-            (intobject.W_IntObject,     boolobject.delegate_Bool2Int),
+            (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
             (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
             (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),

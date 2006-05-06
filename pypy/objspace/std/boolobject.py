@@ -1,5 +1,5 @@
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.intobject import W_IntObject
 
 
 class W_BoolObject(W_Object):
@@ -22,8 +22,12 @@ registerimplementation(W_BoolObject)
 
 # bool-to-int delegation requires translating the .boolvar attribute
 # to an .intval one
-def delegate_Bool2Int(space, w_bool):
-    return wrapint(int(w_bool.boolval))
+def delegate_Bool2IntObject(space, w_bool):
+    return W_IntObject(int(w_bool.boolval))
+
+def delegate_Bool2SmallInt(space, w_bool):
+    from pypy.objspace.std.smallintobject import W_SmallIntObject
+    return W_SmallIntObject(int(w_bool.boolval))   # cannot overflow
 
 
 def nonzero__Bool(space, w_bool):
