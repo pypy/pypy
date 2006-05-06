@@ -2074,6 +2074,18 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.knowntype == int
 
+    def test_unboxed_value(self):
+        class A(object):
+            pass
+        class C(A, objectmodel.UnboxedValue):
+            __slots__ = 'smallint'
+        def f(n):
+            return C(n).smallint
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.knowntype == int
+
 
 def g(n):
     return [0,1,2,n]

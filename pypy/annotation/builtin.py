@@ -314,9 +314,6 @@ def robjmodel_keepalive_until_here(*args_s):
 def robjmodel_hint(s, **kwds_s):
     return s
 
-def robjmodel_getvalue_from_unboxed(s):
-    return SomeInteger()
-
 def llmemory_cast_ptr_to_adr(s):
     return SomeAddress()
 
@@ -373,8 +370,6 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hint] = robjmodel_hint
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.getvalue_from_unboxed] = \
-                                               robjmodel_getvalue_from_unboxed
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_ptr] = llmemory_cast_adr_to_ptr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_int] = llmemory_cast_adr_to_int

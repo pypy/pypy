@@ -59,13 +59,8 @@ def rtype_builtin___import__(hop):
     c = hop.inputconst(pyobj_repr, __import__)
     return hop.genop('simple_call', [c] + args_v, resulttype = pyobj_repr)
 
-def rtype_getvalue_from_unboxed(hop):
-    from pypy.rpython.lltypesystem.rtagged import rtype_getvalue_from_unboxed
-    return rtype_getvalue_from_unboxed(hop)
-
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
-BUILTIN_TYPER[objectmodel.getvalue_from_unboxed] = rtype_getvalue_from_unboxed
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[__import__] = rtype_builtin___import__

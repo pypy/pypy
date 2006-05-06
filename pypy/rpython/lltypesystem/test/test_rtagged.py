@@ -15,14 +15,11 @@ class B(A):
         return self.normalint + x + 2
 
 class C(A, UnboxedValue):
+    __slots__ = 'smallint'
     def meth(self, x):
-        return self.getvalue() + x + 3
+        return self.smallint + x + 3
 
 # ____________________________________________________________
-
-def test_on_top_of_cpython():
-    assert C(17).getvalue() == 17
-    assert C(20).meth(10) == 33
 
 def test_instantiate():
     def fn1(n):
@@ -30,6 +27,12 @@ def test_instantiate():
     res = interpret(fn1, [42])
     value = lltype.cast_ptr_to_int(res)
     assert value == 42 * 2 + 1    # for now
+
+def test_attribute():
+    def fn1(n):
+        return C(n).smallint
+    res = interpret(fn1, [42])
+    assert res == 42
 
 def test_getvalue():
     def fn1(n):
@@ -49,7 +52,7 @@ def test_overflowerror():
         if isinstance(x, B):
             return 'B', x.normalint
         elif isinstance(x, C):
-            return 'C', x.getvalue()
+            return 'C', x.smallint
         else:
             return 'A', 0
 
@@ -68,7 +71,7 @@ def test_prebuilt():
             x = c
         else:
             x = C(n)
-        return x.getvalue()
+        return x.smallint
 
     res = interpret(fn, [12])
     assert res == 12
@@ -80,7 +83,7 @@ def test_C_or_None():
         if x is None:
             return sys.maxint
         else:
-            return x.getvalue()
+            return x.smallint
     def fn(n):
         if n < 0:
             x = None

@@ -365,41 +365,41 @@ class ClassDesc(Desc):
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
 
+    def add_source_attribute(self, name, value, mixin=False):
+        if isinstance(value, types.FunctionType):
+            # for debugging
+            if not hasattr(value, 'class_'):
+                value.class_ = self.pyobj # remember that this is really a method
+            if self.specialize:
+                # make a custom funcdesc that specializes on its first
+                # argument (i.e. 'self').
+                from pypy.annotation.specialize import specialize_argtype
+                def argtype0(funcdesc, args_s):
+                    return specialize_argtype(funcdesc, args_s, 0)
+                funcdesc = FunctionDesc(self.bookkeeper, value,
+                                        specializer=argtype0)
+                self.classdict[name] = funcdesc
+                return
+            if mixin:
+                # make a new copy of the FunctionDesc for this class,
+                # but don't specialize further for all subclasses
+                funcdesc = FunctionDesc(self.bookkeeper, value)
+                self.classdict[name] = funcdesc
+                return
+            # NB. if value is, say, AssertionError.__init__, then we
+            # should not use getdesc() on it.  Never.  The problem is
+            # that the py lib has its own AssertionError.__init__ which
+            # is of type FunctionType.  But bookkeeper.immutablevalue()
+            # will do the right thing in s_get_value().
+
+        if type(value) is MemberDescriptorType:
+            # skip __slots__, showing up in the class as 'member' objects
+            return
+        self.classdict[name] = Constant(value)
+
     def add_sources_for_class(self, cls, mixin=False):
         for name, value in cls.__dict__.items():
-            ## -- useless? -- ignore some special attributes
-            ##if name.startswith('_') and not isinstance(value, types.FunctionType):
-            ##    continue
-            if isinstance(value, types.FunctionType):
-                # for debugging
-                if not hasattr(value, 'class_'):
-                    value.class_ = self.pyobj # remember that this is really a method
-                if self.specialize:
-                    # make a custom funcdesc that specializes on its first
-                    # argument (i.e. 'self').
-                    from pypy.annotation.specialize import specialize_argtype
-                    def argtype0(funcdesc, args_s):
-                        return specialize_argtype(funcdesc, args_s, 0)
-                    funcdesc = FunctionDesc(self.bookkeeper, value,
-                                            specializer=argtype0)
-                    self.classdict[name] = funcdesc
-                    continue
-                if mixin:
-                    # make a new copy of the FunctionDesc for this class,
-                    # but don't specialize further for all subclasses
-                    funcdesc = FunctionDesc(self.bookkeeper, value)
-                    self.classdict[name] = funcdesc
-                    continue
-                # NB. if value is, say, AssertionError.__init__, then we
-                # should not use getdesc() on it.  Never.  The problem is
-                # that the py lib has its own AssertionError.__init__ which
-                # is of type FunctionType.  But bookkeeper.immutablevalue()
-                # will do the right thing in s_get_value().
-
-            if type(value) is MemberDescriptorType:
-                # skip __slots__, showing up in the class as 'member' objects
-                continue
-            self.classdict[name] = Constant(value)
+            self.add_source_attribute(name, value, mixin)
 
     def getclassdef(self, key):
         try:
@@ -531,8 +531,9 @@ class ClassDesc(Desc):
             # there is a new attribute
             cls = self.pyobj
             if name in cls.__dict__:
-                self.classdict[name] = Constant(cls.__dict__[name])
-                return self
+                self.add_source_attribute(name, cls.__dict__[name])
+                if name in self.classdict:
+                    return self
         return None
 
     def consider_call_site(bookkeeper, family, descs, args, s_result):

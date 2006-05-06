@@ -16,9 +16,18 @@ class TaggedInstanceRepr(InstanceRepr):
 
     def _setup_repr(self):
         InstanceRepr._setup_repr(self)
-        if len(self.allinstancefields) != 1:
-            raise TyperError("%r cannot have fields besides __class__: %r" % (
-                self.classdef, self.allinstancefields.keys()))
+        flds = self.allinstancefields.keys()
+        flds.remove('__class__')
+        if self.is_parent:
+            if flds:
+                raise TyperError("%r is a base class of an UnboxedValue,"
+                                 "so it cannot have fields: %r" % (
+                    self.classdef, flds))
+        else:
+            if len(flds) != 1:
+                raise TyperError("%r must have exactly one field: %r" % (
+                    self.classdef, flds))
+            self.specialfieldname = flds[0]
 
     def new_instance(self, llops, classcallhop=None):
         if self.is_parent:
@@ -49,9 +58,13 @@ class TaggedInstanceRepr(InstanceRepr):
             number = value.getvalue()
             return ll_int_to_unboxed(self.lowleveltype, number)
 
-    def getfield(self, vinst, attr, llops, force_cast=False):
-        if attr != '__class__':
-            raise MissingRTypeAttribute(attr)
+    def getvalue_from_unboxed(self, llops, vinst):
+        assert not self.is_parent
+        v2 = llops.genop('cast_ptr_to_int', [vinst],  resulttype=lltype.Signed)
+        c_one = inputconst(lltype.Signed, 1)
+        return llops.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
+
+    def gettype_from_unboxed(self, llops, vinst):
         unboxedclass_repr = getclassrepr(self.rtyper, self.unboxedclassdef)
         cunboxedcls = inputconst(CLASSTYPE, unboxedclass_repr.getvtable())
         if self.is_parent:
@@ -61,12 +74,21 @@ class TaggedInstanceRepr(InstanceRepr):
         else:
             return cunboxedcls
 
+    def getfield(self, vinst, attr, llops, force_cast=False):
+        if not self.is_parent and attr == self.specialfieldname:
+            return self.getvalue_from_unboxed(llops, vinst)
+        elif attr == '__class__':
+            return self.gettype_from_unboxed(llops, vinst)
+        else:
+            raise MissingRTypeAttribute(attr)
+
     def rtype_type(self, hop):
         [vinst] = hop.inputargs(self)
-        return self.getfield(vinst, '__class__', hop.llops)
+        return self.gettype_from_unboxed(hop.llops, vinst)
 
     def rtype_setattr(self, hop):
-        raise TyperError("cannot set attributes on %r" % (self,))
+        # only for UnboxedValue.__init__(), which is not actually called
+        hop.genop('UnboxedValue_setattr', [])
 
     def ll_str(self, i):
         if lltype.cast_ptr_to_int(i) & 1:
@@ -116,12 +138,3 @@ def ll_unboxed_isinstance_const(obj, minid, maxid, answer_if_unboxed):
         return answer_if_unboxed
     else:
         return ll_issubclass_const(obj.typeptr, minid, maxid)
-
-def rtype_getvalue_from_unboxed(hop):
-    assert isinstance(hop.args_r[0], TaggedInstanceRepr)
-    assert not hop.args_r[0].is_parent
-    [v_instance] = hop.inputargs(hop.args_r[0])
-    v2 = hop.genop('cast_ptr_to_int', [v_instance], resulttype = lltype.Signed)
-    c_one = hop.inputconst(lltype.Signed, 1)
-    return hop.genop('int_rshift',    [v2, c_one],  resulttype = lltype.Signed)
-

@@ -117,25 +117,28 @@ class UnboxedValue(object):
 
     def __new__(cls, value):
         assert '__init__' not in cls.__dict__  # won't be called anyway
-        int_as_pointer = value * 2 + 1   # XXX for now
-        if -sys.maxint-1 <= int_as_pointer <= sys.maxint:
-            result = super(UnboxedValue, cls).__new__(cls)
-            result._value_ = value
-            return result
-        else:
-            raise OverflowError("UnboxedValue: argument out of range")
+        assert isinstance(cls.__slots__, str) or len(cls.__slots__) == 1
+        return super(UnboxedValue, cls).__new__(cls)
 
     def __init__(self, value):
-        pass
+        # this funtion is annotated but not included in the translated program
+        int_as_pointer = value * 2 + 1   # XXX for now
+        if -sys.maxint-1 <= int_as_pointer <= sys.maxint:
+            if isinstance(self.__slots__, str):
+                setattr(self, self.__slots__, value)
+            else:
+                setattr(self, self.__slots__[0], value)
+        else:
+            raise OverflowError("UnboxedValue: argument out of range")
 
     def __repr__(self):
         return '<unboxed %d>' % (self.getvalue(),)
 
-    def getvalue(self):
-        return getvalue_from_unboxed(self)
-
-def getvalue_from_unboxed(obj):
-    return obj._value_     # this function is special-cased by the annotator
+    def getvalue(self):   # helper, equivalent to reading the custom field
+        if isinstance(self.__slots__, str):
+            return getattr(self, self.__slots__)
+        else:
+            return getattr(self, self.__slots__[0])
 
 # ____________________________________________________________
 

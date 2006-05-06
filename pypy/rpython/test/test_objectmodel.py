@@ -251,3 +251,18 @@ def test_access_in_try_set():
         return d[2]
     res = interpret(g, [3])
     assert res == 77
+
+def test_unboxed_value():
+    class Base(object):
+        pass
+    class C(Base, UnboxedValue):
+        __slots__ = 'smallint'
+
+    assert C(17).smallint == 17
+    assert C(17).getvalue() == 17
+
+    class A(UnboxedValue):
+        __slots__ = ['value']
+
+    assert A(12098).value == 12098
+    assert A(12098).getvalue() == 12098
