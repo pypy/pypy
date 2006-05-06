@@ -133,7 +133,7 @@ class CountingLLFrame(LLFrame):
             raise TooManyOperations
         return super(CountingLLFrame, self).eval_operation(operation)
 
-def op_can_be_folded(op):
+def op_dont_fold(op):
     try:
         return not lloperation.LL_OPERATIONS[op.opname].canfold
     except KeyError:
@@ -169,7 +169,7 @@ def constant_folding(graph, translator):
                 if (called_graph is not None and
                     simplify.has_no_side_effects(
                         translator, called_graph,
-                        is_operation_false=op_can_be_folded) and
+                        is_operation_false=op_dont_fold) and
                     (block.exitswitch != c_last_exception or 
                      i != len(block.operations) - 1)):
                     args = [arg.value for arg in op.args[1:]]
