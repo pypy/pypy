@@ -395,6 +395,10 @@ class ClassDesc(Desc):
                 # that the py lib has its own AssertionError.__init__ which
                 # is of type FunctionType.  But bookkeeper.immutablevalue()
                 # will do the right thing in s_get_value().
+
+            if type(value) is MemberDescriptorType:
+                # skip __slots__, showing up in the class as 'member' objects
+                continue
             self.classdict[name] = Constant(value)
 
     def getclassdef(self, key):
@@ -759,3 +763,10 @@ class MethodOfFrozenDesc(Desc):
 
     def rowkey(self):
         return self.funcdesc
+
+# ____________________________________________________________
+
+class Sample(object):
+    __slots__ = 'x'
+MemberDescriptorType = type(Sample.x)
+del Sample

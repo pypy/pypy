@@ -2060,6 +2060,20 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[1], annmodel.SomePBC)
         assert len(s.items[1].descriptions) == 1
 
+    def test_slots(self):
+        # check that the annotator ignores slots instead of being
+        # confused by them showing up as 'member' objects in the class
+        class A(object):
+            __slots__ = ('a', 'b')
+        def f(x):
+            a = A()
+            a.b = x
+            return a.b
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.knowntype == int
+
 
 def g(n):
     return [0,1,2,n]
