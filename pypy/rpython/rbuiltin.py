@@ -404,6 +404,7 @@ BUILTIN_TYPER[lltype.cast_int_to_ptr] = rtype_cast_int_to_ptr
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
 BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
+BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint

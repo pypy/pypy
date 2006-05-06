@@ -455,6 +455,10 @@ def runtime_type_info(s_p):
     assert isinstance(s_p, SomePtr), "runtime_type_info of non-pointer: %r" % s_p
     return SomePtr(lltype.typeOf(lltype.runtime_type_info(s_p.ll_ptrtype._example())))
 
+def constPtr(T):
+    assert T.is_constant()
+    return immutablevalue(lltype.Ptr(T.const))
+
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
@@ -467,6 +471,7 @@ BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int
 BUILTIN_ANALYZERS[lltype.cast_int_to_ptr] = cast_int_to_ptr
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
+BUILTIN_ANALYZERS[lltype.Ptr] = constPtr
 
 # ootype
 from pypy.annotation.model import SomeOOInstance, SomeOOClass

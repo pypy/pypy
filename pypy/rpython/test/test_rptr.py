@@ -109,3 +109,12 @@ def test_odd_ints():
         assert s == cast_pointer(PS, t)
 
     interpret(fn, [11521])
+
+
+def test_Ptr():
+    S = GcStruct('s')
+    def ll_example():
+        return malloc(Ptr(S).TO)
+    
+    p = interpret(ll_example, [])
+    assert typeOf(p) == Ptr(S)
