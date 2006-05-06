@@ -155,13 +155,16 @@ class AbstractInstanceRepr(Repr):
             result = rinstance.convert_const(value)
             return self.upcast(result)
         # common case
+        return self.convert_const_exact(value)
+
+    def convert_const_exact(self, value):
         try:
             return self.prebuiltinstances[id(value)][1]
         except KeyError:
             self.setup()
             result = self.create_instance()
             self.prebuiltinstances[id(value)] = value, result
-            self.initialize_prebuilt_instance(value, classdef, result)
+            self.initialize_prebuilt_instance(value, self.classdef, result)
             return result
 
     def rtype_type(self, hop):
