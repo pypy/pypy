@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.rclass import InstanceRepr, CLASSTYPE
 from pypy.rpython.lltypesystem.rclass import MissingRTypeAttribute
 from pypy.rpython.lltypesystem.rclass import ll_issubclass_const
 from pypy.rpython.rmodel import TyperError, inputconst
+from pypy.rpython.objectmodel import UnboxedValue
 
 
 class TaggedInstanceRepr(InstanceRepr):
@@ -52,11 +53,11 @@ class TaggedInstanceRepr(InstanceRepr):
         return v_instance, False   # don't call __init__
 
     def convert_const(self, value):
-        if value is None:
-            return self.null_instance()
-        else:
+        if isinstance(value, UnboxedValue):
             number = value.getvalue()
             return ll_int_to_unboxed(self.lowleveltype, number)
+        else:
+            return InstanceRepr.convert_const(self, value)
 
     def getvalue_from_unboxed(self, llops, vinst):
         assert not self.is_parent

@@ -66,17 +66,35 @@ def test_overflowerror():
 
 def test_prebuilt():
     c = C(111)
-    def fn(n):
+    b = B(939393)
+
+    def makeint(n):
         if n < 0:
             x = c
-        else:
+        elif n > 0:
             x = C(n)
-        return x.smallint
+        else:
+            x = b
+        return x
+
+    def fn(n):
+        x = makeint(n)
+        if isinstance(x, B):
+            return 'B', x.normalint
+        elif isinstance(x, C):
+            return 'C', x.smallint
+        else:
+            return 'A', 0
 
     res = interpret(fn, [12])
-    assert res == 12
+    assert res.item0 == 'C'
+    assert res.item1 == 12
     res = interpret(fn, [-1])
-    assert res == 111
+    assert res.item0 == 'C'
+    assert res.item1 == 111
+    res = interpret(fn, [0])
+    assert res.item0 == 'B'
+    assert res.item1 == 939393
 
 def test_C_or_None():
     def g(x):
