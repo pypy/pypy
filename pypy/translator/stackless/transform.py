@@ -9,6 +9,8 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code 
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.rpython.rbuiltin import gen_cast
+from pypy.rpython.rtyper import LowLevelOpList
 
 from pypy.translator.stackless.code import STATE_HEADER, null_state
 
@@ -47,7 +49,9 @@ def storage_type(T):
 #                              ('saved_long_0', Signed))
 #
 # def func(x):
-#     if global_state.restart_substate == 0:
+#     state = global_state.restart_substate
+#     global_state.restart_substate = 0
+#     if state == 0:   # normal case
 #         try:
 #             retval = g(x)
 #         except code.UnwindException, u:
@@ -58,9 +62,10 @@ def storage_type(T):
 #             state.saved_long_0 = x
 #             code.add_frame_state(u, state.header)
 #             raise
-#     elif global_state.restart_substate == 1:
+#     elif state == 1:
 #         state = lltype.cast_pointer(lltype.Ptr(STATE_func_0),
 #                                     global_state.top)
+#         global_state.top = null_state
 #         x = state.saved_long_0
 #         retval = global_state.long_retval
 #     else:
@@ -139,12 +144,10 @@ class StacklessTransformer(object):
 
     def frame_type_for_vars(self, vars):
         types = [storage_type(v.concretetype) for v in vars]
-        counts = dict.fromkeys(range(len(STORAGE_TYPES)), 0)
+        counts = [0] * len(STORAGE_TYPES)
         for t in types:
             counts[t] = counts[t] + 1
-        keys = counts.keys()
-        keys.sort()
-        key = tuple([counts[k] for k in keys])
+        key = tuple(counts)
         if key in self.frametypes:
             return self.frametypes[key]
         else:
@@ -246,8 +249,6 @@ class StacklessTransformer(object):
             else:
                 rettype = lltype.Void
 
-            need_address_conversion = False
-                
             if rettype == lltype.Signed:
                 getretval = self.fetch_retval_long_ptr
             if rettype == lltype.SignedLongLong:
@@ -257,21 +258,14 @@ class StacklessTransformer(object):
             elif rettype == lltype.Float:
                 getretval = self.fetch_retval_float_ptr
             elif rettype == llmemory.Address:
-                if resume_point.var_result.concretetype is not \
-                       llmemory.Address:
-                    if resume_point.var_result in \
-                           resume_point.links_to_resumption[0].args:
-                        need_address_conversion = True
+##                if resume_point.var_result.concretetype is not \
+##                       llmemory.Address:
+##                    if resume_point.var_result in \
+##                           resume_point.links_to_resumption[0].args:
+##                        need_address_conversion = True
                 getretval = self.fetch_retval_void_p_ptr
-            
-            if need_address_conversion:
-                varmap[resume_point.var_result] = retval = (
-                    varoftype(llmemory.Address))
-                self.translator.annotator.setbinding(
-                    retval, annmodel.SomeAddress())
-            else:
-                varmap[resume_point.var_result] = retval = (
-                    unsimplify.copyvar(self.translator, resume_point.var_result))
+
+            varmap[resume_point.var_result] = retval = varoftype(rettype)
             ops.append(model.SpaceOperation("direct_call", [getretval], retval))
 
             newblock.operations.extend(ops)
@@ -296,18 +290,23 @@ class StacklessTransformer(object):
             else:
                 newblock.exitswitch = None
 
-            if need_address_conversion:
-                newvar = unsimplify.copyvar(self.translator, resume_point.var_result)
-                newops = [model.SpaceOperation("cast_adr_to_ptr",
-                                               [retval],
-                                               newvar)]
+            if resume_point.var_result.concretetype != rettype:
+                llops = LowLevelOpList(None)
+                newvar = gen_cast(llops,
+                                  resume_point.var_result.concretetype,
+                                  retval)
                 convertblock = unsimplify.insert_empty_block(
-                    self.translator, newblock.exits[0], newops)
+                    self.translator, newblock.exits[0], llops)
                 # begin ouch!
-                index = newblock.exits[0].args.index(retval)
-                var = convertblock.inputargs[index]
-                index2 = convertblock.exits[0].args.index(var)
-                convertblock.exits[0].args[index2] = newvar
+                for index, linkvar in enumerate(convertblock.exits[0].args):
+                    # does this var come from retval ?
+                    try:
+                        index1 = convertblock.inputargs.index(linkvar)
+                    except IndexError:
+                        continue
+                    if newblock.exits[0].args[index1] is retval:
+                        # yes
+                        convertblock.exits[0].args[index] = newvar
                 # end ouch!
             
             resuming_links.append(
@@ -347,11 +346,12 @@ class StacklessTransformer(object):
                     # which doesn't preserve the annotation.  so put it back
                     # here.  it certainly sucks that this module has to worry
                     # about annotations :(
-                    ann = self.translator.annotator
-                    for f, t in zip(link.args, link.target.inputargs):
-                        nb = ann.binding(f, None)
-                        if nb is not None:
-                            ann.setbinding(t, nb)
+##                    XXX is this still needed?
+##                    ann = self.translator.annotator
+##                    for f, t in zip(link.args, link.target.inputargs):
+##                        nb = ann.binding(f, None)
+##                        if nb is not None:
+##                            ann.setbinding(t, nb)
                     block.exitswitch = model.c_last_exception
                     link.llexitcase = None
                 var_unwind_exception = varoftype(evalue)

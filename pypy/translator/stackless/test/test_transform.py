@@ -155,8 +155,8 @@ def rtype_stackless_function(fn):
     # helpers which can cause slp_main_loop to get re-annotated after
     # it is rtyped.  which is bad.
     unwind_def = bk.getuniqueclassdef(code.UnwindException)
-    unwind_def.generalize_attr('frame_top',
-                               annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
+    #unwind_def.generalize_attr('frame_top',
+    #                           annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
     unwind_def.generalize_attr('frame_bottom',
                                annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
     
@@ -174,7 +174,6 @@ def run_stackless_function(fn):
         try:
             r = fn(len(argv))
         except code.UnwindException, u:
-            code.global_state.top = u.frame_top
             code.slp_main_loop()
             r = code.global_state.retval_long
         os.write(1, str(r)+'\n')
@@ -197,7 +196,6 @@ def llinterp_stackless_function(fn):
         try:
             r = fn(len(argv))
         except code.UnwindException, u:
-            code.global_state.top = u.frame_top
             code.slp_main_loop()
             return code.global_state.retval_long
         return r

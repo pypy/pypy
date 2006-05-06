@@ -357,21 +357,46 @@ def rtype_direct_ptradd(hop):
 def rtype_cast_primitive(hop):
     assert hop.args_s[0].is_constant()
     TGT = hop.args_s[0].const
-    # we don't want these as automatic conversions, so:
-    if TGT == lltype.Char:
-        hop2 = hop.copy()
-        hop2.r_s_popfirstarg()
-        return hop2.args_r[0].rtype_chr(hop2)
-    elif TGT == lltype.UniChar:
-        hop2 = hop.copy()
-        hop2.r_s_popfirstarg()
-        return hop2.args_r[0].rtype_unichr(hop2)
-    elif hop.args_r[1] in (rstr.char_repr, rstr.unichar_repr):
-        hop2 = hop.copy()
-        hop2.r_s_popfirstarg()
-        v = hop2.args_r[0].rtype_ord(hop2)
-        return hop.llops.convertvar(v, rint.signed_repr, hop.r_result)
-    return hop.inputarg(TGT, 1)
+    v_type, v_value = hop.inputargs(lltype.Void, hop.args_r[1])
+    return gen_cast(hop.llops, TGT, v_value)
+
+_cast_to_Signed = {
+    lltype.Signed:   None,
+    lltype.Bool:     'cast_bool_to_int',
+    lltype.Char:     'cast_char_to_int',
+    lltype.UniChar:  'cast_unichar_to_int',
+    lltype.Float:    'cast_float_to_int',
+    lltype.Unsigned: 'cast_uint_to_int',
+    }
+_cast_from_Signed = {
+    lltype.Signed:   None,
+    lltype.Bool:     'cast_int_to_bool',
+    lltype.Char:     'cast_int_to_char',
+    lltype.UniChar:  'cast_int_to_unichar',
+    lltype.Float:    'cast_int_to_float',
+    lltype.Unsigned: 'cast_int_to_uint',
+    }
+def gen_cast(llops, TGT, v_value):
+    ORIG = v_value.concretetype
+    if ORIG == TGT:
+        return v_value
+    if (isinstance(TGT, lltype.Primitive) and
+        isinstance(ORIG, lltype.Primitive)):
+        op = _cast_to_Signed[ORIG]
+        if op:
+            v_value = llops.genop(op, [v_value], resulttype = lltype.Signed)
+        op = _cast_from_Signed[TGT]
+        if op:
+            v_value = llops.genop(op, [v_value], resulttype = TGT)
+        return v_value
+    elif isinstance(TGT, lltype.Ptr):
+        if isinstance(ORIG, lltype.Ptr):
+            return llops.genop('cast_pointer', [v_value], resulttype = TGT)
+        elif ORIG == llmemory.Address:
+            return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
+    elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
+        return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
+    raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
 
 def rtype_cast_ptr_to_int(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)

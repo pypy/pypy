@@ -1,65 +1,57 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython import rarithmetic
 
+
+def ll_frame_switch(state):
+    if global_state.restart_substate == 0:
+        u = UnwindException()
+        s = lltype.malloc(SWITCH_STATE)
+        s.header.restartstate = 1
+        # the next three lines are pure rtyper-pleasing hacks
+        f = ll_frame_switch
+        if global_state.restart_substate:
+            f = None
+        s.c = llmemory.cast_ptr_to_adr(state)
+        s.header.function = llmemory.cast_ptr_to_adr(f)
+        add_frame_state(u, s.header)
+        raise u
+    elif global_state.restart_substate == 1:
+        global_state.restart_substate = 0
+        top = global_state.top
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
+        top.restartstate = 2
+        state = llmemory.cast_adr_to_ptr(s.c, lltype.Ptr(STATE_HEADER))
+        global_state.top = state
+        global_state.retval_void_p = llmemory.cast_ptr_to_adr(top)
+        raise UnwindException()
+    else:
+        top = global_state.top
+        global_state.top = null_state
+        global_state.restart_substate = 0
+        origin_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
+                                                lltype.Ptr(STATE_HEADER))
+        return origin_state
+ll_frame_switch.stackless_explicit = True
+
 STATE_HEADER = lltype.GcStruct('state_header',
                                ('f_back',       lltype.Ptr(lltype.GcForwardReference())),
                                ('restartstate', lltype.Signed),
                                ('function',     llmemory.Address),
-                               ('retval_type',  lltype.Signed))
+                               ('retval_type',  lltype.Signed),
+                               adtmeths={'switch': ll_frame_switch})
 STATE_HEADER.f_back.TO.become(STATE_HEADER)
 
 null_state = lltype.nullptr(STATE_HEADER)
 
-def decode_state(currentframe): 
-    return (currentframe.function,
-            currentframe.retval_type,
-            currentframe.restartstate)
-decode_state.stackless_explicit = True
+##def decode_state(currentframe): 
+##    return (currentframe.function,
+##            currentframe.retval_type,
+##            currentframe.restartstate)
+##decode_state.stackless_explicit = True
 
 SWITCH_STATE = lltype.GcStruct('state_switch',
                                ('header', STATE_HEADER),
                                ('c', llmemory.Address))
-
-class Frame(object):
-    def __init__(self, state):
-        self.state = state
-    __init__.stackless_explicit = True
-    def switch(self):
-        if global_state.restart_substate == 0:
-            u = UnwindException()
-            s = lltype.malloc(SWITCH_STATE)
-            s.header.restartstate = 1
-            # the next three lines are pure rtyper-pleasing hacks
-            f = Frame.switch
-            if global_state.restart_substate:
-                f = None
-            s.c = llmemory.cast_ptr_to_adr(self.state)
-            s.header.function = llmemory.cast_ptr_to_adr(f)
-            add_frame_state(u, s.header)
-            raise u
-        elif global_state.restart_substate == 1:
-            top = global_state.top
-            state = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
-            u = UnwindException()
-            s.header.restartstate = 2
-            c = lltype.cast_adr_to_ptr(lltype.Ptr(STATE_HEADER), top)
-            s.header.function = c.function
-            s.reader.retval_type = RETVAL_VOID_P
-            # the next three lines are pure rtyper-pleasing hacks
-            f = Frame.switch
-            if global_state.restart_substate:
-                f = None
-            add_frame_state(u, s.header)
-            raise u            
-        else:
-            top = global_state.top
-            global_state.restart_substate = 0
-            r = top.f_back
-            state = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
-            global_state.top = lltype.cast_adr_to_ptr(lltype.Ptr(STATE_HEADER), state.c)
-            #global_state.restart_substate = state.header.restartstate
-            return r
-    switch.stackless_explicit = True
 
 def yield_current_frame_to_caller():
     if global_state.restart_substate == 0:
@@ -75,25 +67,37 @@ def yield_current_frame_to_caller():
         add_frame_state(u, s)
         raise u
     elif global_state.restart_substate == 1:
+        global_state.restart_substate = 0
         ycftc_state = global_state.top
+        ycftc_state.restartstate = 2
         our_caller_state = ycftc_state.f_back
         caller_state = our_caller_state.f_back
-        cur = caller_state
-        while cur.f_back:
-            cur = cur.f_back
-        bot = cur
-        u = UnwindException()
-        u.frame_top = caller_state
-        u.frame_bottom = bot
-        global_state.retval_void_p = llmemory.cast_ptr_to_adr(Frame(ycftc_state))
-        global_state.restart_substate = 2
-        raise u
+        # the next three lines are pure rtyper-pleasing hacks
+        f = yield_current_frame_to_caller
+        if global_state.restart_substate:
+            f = None
+        endstate = lltype.malloc(STATE_HEADER)
+        endstate.restartstate = 3
+        endstate.function = llmemory.cast_ptr_to_adr(f)
+        our_caller_state.f_back = endstate
+        global_state.top = caller_state
+        global_state.retval_void_p = llmemory.cast_ptr_to_adr(ycftc_state)
+        raise UnwindException()
+    elif global_state.restart_substate == 2:
+        top = global_state.top
+        global_state.top = null_state
+        global_state.restart_substate = 0
+        origin_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
+                                                lltype.Ptr(STATE_HEADER))
+        return origin_state
     else:
-        pass
-        
-        
+        global_state.restart_substate = 0
+        next_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
+                                              lltype.Ptr(STATE_HEADER))
+        global_state.top = next_state
+        raise UnwindException()
+
 yield_current_frame_to_caller.stackless_explicit = True
-    
 
 def stack_frames_depth():
     if not global_state.restart_substate:
@@ -152,44 +156,47 @@ call_function.stackless_explicit = True
 
 class UnwindException(Exception):
     def __init__(self):
-        # frame_top points to frame that first caught the
-        # UnwindException, whilst frame_bottom points to the frame
-        # that most recently caught the UnwindException.  frame_bottom
-        # is only needed to efficiently tack frames on to the end of
-        # the stack.  walking frame_top.f_back.f_back... goes to
-        # frame_bottom
-        self.frame_top = null_state
+        # during unwind, global_state.top points to frame that first caught
+        # the UnwindException, whilst frame_bottom points to the frame
+        # that most recently caught the UnwindException.  In a normal
+        # situation, frame_bottom is global_state.top.f_back.f_back.etc...
+        # To switch manually to a different frame, code issues a regular
+        # UnwindException first, to empty the C stack, and then issues a
+        # (XXX complete this comment)
         self.frame_bottom = null_state
 
 def slp_main_loop():
     """
     slp_main_loop() keeps resuming...
     """
-    currentframe = global_state.top
+    pending = global_state.top
     
-    while currentframe:
-        global_state.top = currentframe
-        nextframe = currentframe.f_back
-        fn, signature, global_state.restart_substate = decode_state(currentframe)
+    while True:
+        back                          = pending.f_back
+        fn                            = pending.function
+        signature                     = pending.retval_type
+        global_state.restart_substate = pending.restartstate
         try:
             call_function(fn, signature)
         except UnwindException, u:   #XXX annotation support needed
-            u.frame_bottom.f_back = nextframe
-            nextframe = u.frame_top
+            if u.frame_bottom:
+                u.frame_bottom.f_back = back
+            pending = global_state.top
+            continue
         except Exception, e:
+            if not back:
+                raise
             global_state.exception = e
         else:
-            global_state.exception = None
+            if not back:
+                return
+        global_state.top = pending = back
 
-        currentframe = nextframe
-
-    if global_state.exception is not None:
-        raise global_state.exception
 slp_main_loop.stackless_explicit = True
 
 def add_frame_state(u, frame_state):
-    if not u.frame_top:
-        u.frame_top = u.frame_bottom = frame_state
+    if not u.frame_bottom:
+        global_state.top = u.frame_bottom = frame_state
     else:
         u.frame_bottom.f_back = frame_state
         u.frame_bottom = frame_state
@@ -212,34 +219,44 @@ resume_state.stackless_explicit = True
 # XXX and then insert the rtyped graph of this into functions
         
 def fetch_retval_void():
-    if global_state.exception:
-        raise global_state.exception
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
 fetch_retval_void.stackless_explicit = True
 
 def fetch_retval_long():
-    if global_state.exception:
-        raise global_state.exception
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
     else:
         return global_state.retval_long
 fetch_retval_long.stackless_explicit = True
 
 def fetch_retval_longlong():
-    if global_state.exception:
-        raise global_state.exception
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
     else:
         return global_state.retval_longlong
 fetch_retval_longlong.stackless_explicit = True
 
 def fetch_retval_float():
-    if global_state.exception:
-        raise global_state.exception
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
     else:
         return global_state.retval_float
 fetch_retval_float.stackless_explicit = True
 
 def fetch_retval_void_p():
-    if global_state.exception:
-        raise global_state.exception
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
     else:
         return global_state.retval_void_p
 fetch_retval_void_p.stackless_explicit = True

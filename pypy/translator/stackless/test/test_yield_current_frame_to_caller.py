@@ -4,19 +4,30 @@ from pypy.translator.stackless import code
 import py
 import os
 
-py.test.skip('in progress')
+#py.test.skip('in progress')
 
 def test_simple():
     def f(ignored):
         c = g()
-        #c.switch()
+        return 1
+    def g():
+        code.yield_current_frame_to_caller()
+
+    data = llinterp_stackless_function(f)
+    assert data == 1
+
+
+def test_switch():
+    def f(ignored):
+        c = g()
+        c.switch()
         return 1
     def g():
         d = code.yield_current_frame_to_caller()
         return d
 
     data = llinterp_stackless_function(f)
-    assert data == 1234567
+    assert data == 1
 
 
 def test_yield_frame():
@@ -37,7 +48,7 @@ def test_yield_frame():
         lst.append(5)
         frametop_after_return = frametop_before_6.switch()
         lst.append(7)
-        assert frametop_after_return is None
+        assert bool(frametop_after_return)
         n = 0
         for i in lst:
             n = n*10 + i
