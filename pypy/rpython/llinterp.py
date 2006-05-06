@@ -351,26 +351,13 @@ class LLFrame(object):
                             break
                     else:
                         raise TypeError("the operation %s is not expected to raise %s" % (operation, exc))
-            self.handle_cleanup(operation, exception=True)
             raise
-        else:
-            self.handle_cleanup(operation)
         self.setvar(operation.result, retval)
         if tracer:
             if retval is None:
                 tracer.dump('\n')
             else:
                 tracer.dump('   ---> %r\n' % (retval,))
-
-    def handle_cleanup(self, operation, exception=False):
-        cleanup = getattr(operation, 'cleanup', None)
-        if cleanup is not None:
-            cleanup_finally, cleanup_except = cleanup
-            for op in cleanup_finally:
-                self.eval_operation(op)
-            if exception:
-                for op in cleanup_except:
-                    self.eval_operation(op)
 
     def make_llexception(self, exc=None):
         if exc is None:

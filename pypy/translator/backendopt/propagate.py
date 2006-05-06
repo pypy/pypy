@@ -134,6 +134,10 @@ class CountingLLFrame(LLFrame):
         return super(CountingLLFrame, self).eval_operation(operation)
 
 def op_dont_fold(op):
+    if op.opname in ('getfield', 'getarrayitem'):
+        CONTAINER = op.args[0].concretetype.TO
+        if CONTAINER._hints.get('immutable'):
+            return False
     try:
         return not lloperation.LL_OPERATIONS[op.opname].canfold
     except KeyError:
