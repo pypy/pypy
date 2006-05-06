@@ -138,6 +138,12 @@ def op_dont_fold(op):
         CONTAINER = op.args[0].concretetype.TO
         if CONTAINER._hints.get('immutable'):
             return False
+    if op.opname in ("getsubstruct", "getarraysubstruct"):
+        # this is needed so that the parent of the result (op.args[0])
+        # does not go away after the op is folded. see test_dont_fold_getsubstruct
+        if not var_needsgc(op.result):
+            return True
+        # XXX if the result is immortal, one could still fold...
     try:
         return not lloperation.LL_OPERATIONS[op.opname].canfold
     except KeyError:
@@ -153,10 +159,6 @@ def constant_folding(graph, translator):
             if sum([isinstance(arg, Variable) for arg in op.args]):
                 continue
             if not op_dont_fold(op):
-                if op.opname in ("getsubstruct", "getarraysubstruct"):
-                    # XXX why this case?
-                    if not var_needsgc(op.result):
-                        continue
                 try:
                     llframe.eval_operation(op)
                 except:

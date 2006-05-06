@@ -155,7 +155,7 @@ def test_dont_constant_fold_call():
         pass
     check_graph(graph, [10], 10, t)
 
-def test_dont_fold_getfield():
+def test_dont_fold_getsubstruct():
     # must not constant fold this, because the container might be collected
     string = "blablabla"
     def f(x):
