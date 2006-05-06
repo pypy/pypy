@@ -9,6 +9,7 @@ from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.backendopt.inline import OP_WEIGHTS
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.translator.backendopt.support import log, var_needsgc
+from pypy.translator.backendopt.graphanalyze import GraphAnalyzer
 
 def do_atmost(n, f, *args):
     i = 0
@@ -133,24 +134,29 @@ class CountingLLFrame(LLFrame):
             raise TooManyOperations
         return super(CountingLLFrame, self).eval_operation(operation)
 
-def op_dont_fold(op):
-    if op.opname in ('getfield', 'getarrayitem'):
-        CONTAINER = op.args[0].concretetype.TO
-        if CONTAINER._hints.get('immutable'):
-            return False
-    if op.opname in ("getsubstruct", "getarraysubstruct"):
-        # this is needed so that the parent of the result (op.args[0])
-        # does not go away after the op is folded. see test_dont_fold_getsubstruct
-        if not var_needsgc(op.result):
+class CanfoldAnalyzer(GraphAnalyzer):
+    def operation_is_true(self, op):
+        if op.opname in ('getfield', 'getarrayitem'):
+            CONTAINER = op.args[0].concretetype.TO
+            if CONTAINER._hints.get('immutable'):
+                return False
+        if op.opname in ("getsubstruct", "getarraysubstruct"):
+            # this is needed so that the parent of the result (op.args[0])
+            # does not go away after the op is folded. see test_dont_fold_getsubstruct
+            if not var_needsgc(op.result):
+                # if the containing object is immortal, one can still fold:
+                if isinstance(op.args[0], Constant) and op.args[0].value._solid:
+                    return False
+                return True
+        try:
+            return not lloperation.LL_OPERATIONS[op.opname].canfold
+        except KeyError:
             return True
-        # XXX if the result is immortal, one could still fold...
-    try:
-        return not lloperation.LL_OPERATIONS[op.opname].canfold
-    except KeyError:
-        return True
 
-def constant_folding(graph, translator):
+def constant_folding(graph, translator, analyzer=None):
     """do constant folding if the arguments of an operations are constants"""
+    if analyzer is None:
+        analyzer = CanfoldAnalyzer(translator)
     lli = LLInterpreter(translator.rtyper)
     llframe = LLFrame(graph, None, lli)
     changed = False
@@ -158,42 +164,31 @@ def constant_folding(graph, translator):
         for i, op in enumerate(block.operations):
             if sum([isinstance(arg, Variable) for arg in op.args]):
                 continue
-            if not op_dont_fold(op):
-                try:
-                    llframe.eval_operation(op)
-                except:
-                    pass
-                else:
-                    res = Constant(llframe.getval(op.result))
-                    log.constantfolding("in graph %s, %s = %s" %
-                                        (graph.name, op, res))
-                    res.concretetype = op.result.concretetype
-                    block.operations[i].opname = "same_as"
-                    block.operations[i].args = [res]
-                    changed = True
-            elif op.opname == "direct_call":
-                called_graph = get_graph(op.args[0], translator)
-                if (called_graph is not None and
-                    simplify.has_no_side_effects(
-                        translator, called_graph,
-                        is_operation_false=op_dont_fold) and
-                    (block.exitswitch != c_last_exception or 
-                     i != len(block.operations) - 1)):
+            # don't fold stuff with exception handling
+            if (block.exitswitch == c_last_exception and
+                i == len(block.operation) - 1):
+                continue
+            if analyzer.analyze(op):
+                continue
+            try:
+                if op.opname == "direct_call":
+                    called_graph = get_graph(op.args[0], translator)
                     args = [arg.value for arg in op.args[1:]]
                     countingframe = CountingLLFrame(called_graph, args, lli)
-                    #print "folding call", op, "in graph", graph.name
-                    try:
-                        res = countingframe.eval()
-                    except:
-                        #print "did not work"
-                        pass
-                    else:
-                        #print "result", res
-                        res = Constant(res)
-                        res.concretetype = op.result.concretetype
-                        block.operations[i].opname = "same_as"
-                        block.operations[i].args = [res]
-                        changed = True
+                    res = Constant(countingframe.eval())
+                else:
+                    llframe.eval_operation(op)
+                    res = Constant(llframe.getval(op.result))
+            except (SystemExit, KeyboardInterrupt):
+                raise
+            except:
+                continue
+            log.constantfolding("in graph %s, %s = %s" %
+                                (graph.name, op, res))
+            res.concretetype = op.result.concretetype
+            block.operations[i].opname = "same_as"
+            block.operations[i].args = [res]
+            changed = True
         block.operations = [op for op in block.operations if op is not None]
     if changed:
         remove_same_as(graph)
@@ -202,7 +197,9 @@ def constant_folding(graph, translator):
         return True
     return False
 
-def partial_folding_once(graph, translator):
+def partial_folding_once(graph, translator, analyzer=None):
+    if analyzer is None:
+        analyzer = CanfoldAnalyzer(translator)
     lli = LLInterpreter(translator.rtyper)
     entrymap = mkentrymap(graph)
     def visit(block):
@@ -211,7 +208,7 @@ def partial_folding_once(graph, translator):
             return
         usedvars = {}
         for op in block.operations:
-            if op_dont_fold(op):
+            if analyzer.analyze(op):
                 return
             for arg in op.args:
                 if (isinstance(arg, Variable) and arg in block.inputargs):
@@ -249,8 +246,6 @@ def partial_folding_once(graph, translator):
             else:
                 assert 0, "this should not occur"
             unchanged = link.target == nextblock and link.args == newargs
-#            if not unchanged:
-#                print "doing partial folding in graph", graph.name
             link.target = nextblock
             link.args = newargs
             checkgraph(graph)
@@ -365,13 +360,14 @@ def remove_all_getfields(graph, t):
 
 def propagate_all_per_graph(graph, translator):
     def prop():
+        analyzer = CanfoldAnalyzer(translator)
         changed = False
         changed = rewire_links(graph) or changed
         changed = propagate_consts(graph) or changed
 #        changed = coalesce_links(graph) or changed
 #        changed = do_atmost(100, constant_folding, graph,
-#                                       translator) or changed
-#        changed = partial_folding(graph, translator) or changed
+#                                       translator, analyzer) or changed
+#        changed = partial_folding(graph, translator, analyzer) or changed
         changed = remove_all_getfields(graph, translator) or changed
         checkgraph(graph)
         return changed
