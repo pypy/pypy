@@ -202,17 +202,21 @@ def partial_folding_once(graph, translator, analyzer=None):
         analyzer = CanfoldAnalyzer(translator)
     lli = LLInterpreter(translator.rtyper)
     entrymap = mkentrymap(graph)
-    def visit(block):
-        if (not isinstance(block, Block) or block is graph.startblock or
-            block is graph.returnblock or block is graph.exceptblock):
-            return
+    for block in graph.iterblocks():
+        if (block is graph.startblock or block is graph.returnblock or
+            block is graph.exceptblock):
+            continue
         usedvars = {}
+        cannotfold = False
         for op in block.operations:
             if analyzer.analyze(op):
-                return
+                cannotfold = True
+                break
             for arg in op.args:
                 if (isinstance(arg, Variable) and arg in block.inputargs):
                     usedvars[arg] = True
+        if cannotfold:
+            continue
         if isinstance(block.exitswitch, Variable):
             usedvars[block.exitswitch] = True
         pattern = [arg in usedvars for arg in block.inputargs]
@@ -250,13 +254,8 @@ def partial_folding_once(graph, translator, analyzer=None):
             link.args = newargs
             checkgraph(graph)
             if not unchanged:
-                raise ValueError
-    try:
-        traverse(visit, graph)
-    except ValueError:
-        return True
-    else:
-        return False
+                return True
+    return False
 
 def partial_folding(graph, translator):
     """this function does constant folding in the following situation:
