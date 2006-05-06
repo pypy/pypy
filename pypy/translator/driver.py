@@ -42,7 +42,7 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=Fal
 class TranslationDriver(SimpleTaskEngine):
 
     def __init__(self, options=None, default_goal=None, disable=[],
-                 exe_name = 'target-%(backend)s', extmod_name=None):
+                 exe_name=None, extmod_name=None):
         SimpleTaskEngine.__init__(self)
 
         self.log = log
@@ -155,6 +155,10 @@ class TranslationDriver(SimpleTaskEngine):
         annotator = translator.buildannotator(policy=policy)
         s = annotator.build_types(self.entry_point, self.inputtypes)
         self.sanity_check_annotation()
+        if self.standalone and s.knowntype != int:
+            raise Exception("stand-alone program entry point must return an "
+                            "int (and not, e.g., None or always raise an "
+                            "exception).")
         annotator.simplify()
         return s
     #
@@ -267,14 +271,15 @@ class TranslationDriver(SimpleTaskEngine):
     task_source_c = taskdef(task_source_c, ['database_c'], "Generating c source")
 
     def create_exe(self):
-        import shutil
-        exename = mkexename(self.c_entryp)
-        newexename = self.exe_name % self.options.__dict__
-        if '/' not in newexename and '\\' not in newexename:
-            newexename = './' + newexename
-        newexename = mkexename(newexename)
-        shutil.copy(exename, newexename)
-        self.c_entryp = newexename
+        if self.exe_name is not None:
+            import shutil
+            exename = mkexename(self.c_entryp)
+            newexename = self.exe_name % self.options.__dict__
+            if '/' not in newexename and '\\' not in newexename:
+                newexename = './' + newexename
+            newexename = mkexename(newexename)
+            shutil.copy(exename, newexename)
+            self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 
     def task_compile_c(self): # xxx messy
@@ -346,7 +351,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_compile_llvm(self):
         gen = self.llvmgen
         if self.standalone:
-            exe_name = self.exe_name % self.options.__dict__
+            exe_name = (self.exe_name or 'testing') % self.options.__dict__
             self.c_entryp = gen.compile_llvm_source(exe_name=exe_name)
             self.create_exe()
         else:
@@ -420,9 +425,6 @@ class TranslationDriver(SimpleTaskEngine):
             options = DEFAULT_OPTIONS
 
         driver = TranslationDriver(options, default_goal, disable)
-        if '__name__' in targetspec_dic:
-            driver.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
-
         target = targetspec_dic['target']
         spec = target(driver, args)
 

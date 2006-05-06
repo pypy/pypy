@@ -316,6 +316,9 @@ def main():
                                                       default_goal='compile')
         pdb_plus_show.expose({'drv': drv})
 
+        if drv.exe_name is None and '__name__' in targetspec_dic:
+            drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
+
         goals = options.goals
         drv.proceed(goals)
         
