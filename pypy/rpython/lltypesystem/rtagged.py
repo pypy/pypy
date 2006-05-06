@@ -52,6 +52,7 @@ class TaggedInstanceRepr(InstanceRepr):
         return v_instance, False   # don't call __init__
 
     def convert_const_exact(self, value):
+        self.setup()
         number = value.getvalue()
         return ll_int_to_unboxed(self.lowleveltype, number)
 
