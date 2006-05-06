@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong
 from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
+from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
@@ -101,9 +102,10 @@ class FunctionCodeGenerator(object):
             #    for op in block.operations:
             #        op.args = tuple(op.args)
             self.db.gctransformer.inline_helpers(newgraph)
-            self.collect_var_and_types()
         else:
             self.oldgraph = self.graph
+        SSI_to_SSA(self.graph)
+        self.collect_var_and_types()
         self.blocknum = {}
         for block in self.graph.iterblocks():
             self.blocknum[block] = len(self.blocknum)

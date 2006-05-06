@@ -206,7 +206,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_backendopt(self):
         from pypy.translator.backendopt.all import backend_optimizations
         opt = self.options
-        backend_optimizations(self.translator, ssa_form=opt.backend != 'llvm',
+        backend_optimizations(self.translator,
                               merge_if_blocks_to_switch=opt.merge_if_blocks)
     #
     task_backendopt = taskdef(task_backendopt, 

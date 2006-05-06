@@ -138,7 +138,7 @@ class Translation(object):
 
     def backendopt(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
-        self.ensure_backend()
+        #self.ensure_backend()
         self.driver.backendopt()
 
     def backendopt_c(self, argtypes=None, **kwds):

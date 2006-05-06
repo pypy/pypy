@@ -12,7 +12,7 @@ def get_graph(fn, signature, inline_threshold=True, all_opts=True):
     t.buildrtyper().specialize()
     if all_opts:
         backend_optimizations(t, inline_threshold=inline_threshold,
-                              ssa_form=False, propagate=False) 
+                              propagate=False) 
     graph = graphof(t, fn)
     if conftest.option.view:
         t.view()
@@ -234,7 +234,7 @@ def call_list_default_argument(i1):
     
 def test_call_list_default_argument():
     graph, t = get_graph(call_list_default_argument, [int])
-    backend_optimizations(t, propagate=True, ssa_form=False) 
+    backend_optimizations(t, propagate=True) 
     for i in range(10):
         check_graph(graph, [i], call_list_default_argument(i), t)
     if conftest.option.view:

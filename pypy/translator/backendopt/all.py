@@ -2,7 +2,6 @@ from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_ca
 from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
-from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.propagate import propagate_all
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
@@ -16,7 +15,6 @@ PRINT_STATISTICS = False
 def backend_optimizations(translator, raisingop2direct_call_all=False,
                                       inline_threshold=1,
                                       mallocs=True,
-                                      ssa_form=True,
                                       merge_if_blocks_to_switch=True,
                                       propagate=False,
                                       heap2stack=False,
@@ -92,9 +90,5 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
     if PRINT_STATISTICS:
         print "after if-to-switch:"
         print_statistics(translator.graphs[0], translator)
-
-    if ssa_form:
-        for graph in translator.graphs:
-            SSI_to_SSA(graph)
 
     translator.checkgraphs()

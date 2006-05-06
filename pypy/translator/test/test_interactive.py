@@ -52,7 +52,7 @@ def test_simple_backendopt():
     t.backendopt_c()
 
     t = Translation(f, [int, int])
-    py.test.raises(Exception, "t.backendopt()")
+    t.backendopt()
 
 def test_simple_source():
     def f(x, y):

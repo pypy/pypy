@@ -585,7 +585,10 @@ class FuncNode(ContainerNode):
 
     def funcgen_implementation(self, funcgen):
         funcgen.implementation_begin()
-        yield '%s {' % cdecl(self.implementationtypename, funcgen.name(self.name))
+        # recompute implementationtypename as the argnames may have changed
+        argnames = funcgen.argnames()
+        implementationtypename = self.db.gettype(self.T, argnames=argnames)
+        yield '%s {' % cdecl(implementationtypename, funcgen.name(self.name))
         #
         # declare the local variables
         #
