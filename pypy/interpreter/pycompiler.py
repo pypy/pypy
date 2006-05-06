@@ -238,11 +238,8 @@ class PythonAstCompiler(PyCodeCompiler):
         except SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        except ValueError,e:
-            raise OperationError(space.w_ValueError,space.wrap(str(e)))
-        except TypeError,e:
-            raise
-            raise OperationError(space.w_TypeError,space.wrap(str(e)))
+        except (ValueError, TypeError), e:
+            raise OperationError(space.w_SystemError, space.wrap(str(e)))
         assert isinstance(c,PyCode)
         return c
 
