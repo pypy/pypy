@@ -8,6 +8,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable
+from pypy.objspace.flow.model import Constant
 
 def not_const(s_obj): # xxx move it somewhere else
     if s_obj.is_constant():
@@ -117,7 +118,8 @@ class MixLevelHelperAnnotator:
         self.policy = MixLevelAnnotatorPolicy(rtyper)
         self.pending = []     # list of (graph, args_s, s_result)
         self.delayedreprs = []
-        self.delayedconsts = [] 
+        self.delayedconsts = []
+        self.delayedfuncs = []
 
     def getgraph(self, ll_function, args_s, s_result):
         # get the graph of the mix-level helper ll_function and prepare it for
@@ -131,6 +133,19 @@ class MixLevelHelperAnnotator:
         self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
         self.pending.append((graph, args_s, s_result))
         return graph
+
+    def delayedfunction(self, ll_function, args_s, s_result):
+        # get a delayed pointer to the low-level function, annotated as
+        # specified.  The pointer is only valid after finish() was called.
+        graph = self.getgraph(ll_function, args_s, s_result)
+        FUNCTYPE = lltype.ForwardReference()
+        delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), "delayed!", solid=True)
+        self.delayedfuncs.append((delayedptr, graph))
+        return delayedptr
+
+    def constfunc(self, ll_function, args_s, s_result):
+        p = self.delayedfunction(ll_function, args_s, s_result)
+        return Constant(p, lltype.typeOf(p))
 
     def getdelayedrepr(self, s_value):
         """Like rtyper.getrepr(), but the resulting repr will not be setup() at
@@ -180,6 +195,10 @@ class MixLevelHelperAnnotator:
             r.set_setup_delayed(False)
         for p, repr, obj in self.delayedconsts:
             p._become(repr.convert_const(obj))
+        for p, graph in self.delayedfuncs:
+            real_p = rtyper.getcallable(graph)
+            lltype.typeOf(p).TO.become(lltype.typeOf(real_p).TO)
+            p._become(real_p)
         rtyper.specialize_more_blocks()
         del self.pending[:]
         del self.delayedreprs[:]

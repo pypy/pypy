@@ -8,7 +8,6 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code 
 from pypy.rpython.rclass import getinstancerepr
-from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
 
@@ -98,43 +97,27 @@ class StacklessTransformer(object):
         l2a = annmodel.lltype_to_annotation
 
         unwinddef = bk.getuniqueclassdef(code.UnwindException)
-        add_frame_state_graph = mixlevelannotator.getgraph(
+        self.add_frame_state_ptr = mixlevelannotator.constfunc(
             code.add_frame_state,
             [annmodel.SomeInstance(unwinddef),
              annmodel.SomePtr(lltype.Ptr(STATE_HEADER))],
             l2a(lltype.Void))
 
-        resume_state_graph = mixlevelannotator.getgraph(
+        self.resume_state_ptr = mixlevelannotator.constfunc(
             code.resume_state, [], annmodel.SomeInteger())
 
-        fetch_retval_void_graph = mixlevelannotator.getgraph(
+        self.fetch_retval_void_ptr = mixlevelannotator.constfunc(
             code.fetch_retval_void, [], annmodel.s_None)
-        fetch_retval_long_graph = mixlevelannotator.getgraph(
+        self.fetch_retval_long_ptr = mixlevelannotator.constfunc(
             code.fetch_retval_long, [], annmodel.SomeInteger())
-        fetch_retval_longlong_graph = mixlevelannotator.getgraph( # WAA!
+        self.fetch_retval_longlong_ptr = mixlevelannotator.constfunc(
             code.fetch_retval_longlong, [], annmodel.SomeInteger(size=2))
-        fetch_retval_float_graph = mixlevelannotator.getgraph(
+        self.fetch_retval_float_ptr = mixlevelannotator.constfunc(
             code.fetch_retval_float, [], annmodel.SomeFloat())
-        fetch_retval_void_p_graph = mixlevelannotator.getgraph(
+        self.fetch_retval_void_p_ptr = mixlevelannotator.constfunc(
             code.fetch_retval_void_p, [], annmodel.SomeAddress())
 
         mixlevelannotator.finish()
-
-        def fptr(graph):
-            FTYPE = lltype.FuncType(
-                [v.concretetype for v in graph.startblock.inputargs],
-                graph.returnblock.inputargs[0].concretetype)
-            return model.Constant(getfunctionptr(graph), lltype.Ptr(FTYPE))
-
-        self.add_frame_state_ptr = fptr(add_frame_state_graph)
-
-        self.resume_state_ptr = fptr(resume_state_graph)
-
-        self.fetch_retval_void_ptr = fptr(fetch_retval_void_graph)
-        self.fetch_retval_long_ptr = fptr(fetch_retval_long_graph)
-        self.fetch_retval_longlong_ptr = fptr(fetch_retval_longlong_graph)
-        self.fetch_retval_float_ptr = fptr(fetch_retval_float_graph)
-        self.fetch_retval_void_p_ptr = fptr(fetch_retval_void_p_graph)
 
         s_global_state = bk.immutablevalue(code.global_state)
         r_global_state = translator.rtyper.getrepr(s_global_state)
