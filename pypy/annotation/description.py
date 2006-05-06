@@ -145,6 +145,11 @@ class Desc(object):
             changed = changed or changed1
         return changed
 
+    def queryattrfamily(self):
+        # no attributes supported by default;
+        # overriden in FrozenDesc and ClassDesc
+        return None
+
     def bind_under(self, classdef, name):
         return self
 

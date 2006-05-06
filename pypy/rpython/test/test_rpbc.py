@@ -1247,6 +1247,21 @@ class BaseTestRPBC:
             res = interpret(f, [i])
             assert res == f(i)
 
+    def test_function_as_frozen_pbc(self):
+        def f1(): pass
+        def f2(): pass
+        def choose(n):
+            if n == 1:
+                return f1
+            else:
+                return f2
+        def f(n):
+            return choose(n) is f1
+        res = interpret(f, [1], type_system=self.ts)
+        assert res == True
+        res = interpret(f, [2], type_system=self.ts)
+        assert res == False
+
 
 def test_call_from_list():
     # Don't test with ootype, since it doesn't support lists in a
