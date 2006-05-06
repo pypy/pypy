@@ -1,7 +1,9 @@
 import sys
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import UnboxedValue
+from pypy.translator.backendopt.all import backend_optimizations
+from pypy import conftest
 
 
 class A(object):
@@ -150,3 +152,17 @@ def test_method():
     assert res == 1102
     res = interpret(fn, [-1000])
     assert res == -897
+
+def test_optimize_method():
+    def fn(n):
+        if n > 0:
+            x = B(n)
+        else:
+            x = C(n)
+        return x.meth(100)
+    interp, graph = get_interpreter(fn, [1000])
+    t = interp.typer.annotator.translator
+    backend_optimizations(t, propagate=True)
+    if conftest.option.view:
+        t.view()
+    # XXX finish writing this test
