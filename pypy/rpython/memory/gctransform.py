@@ -720,7 +720,7 @@ def gc_pointers_inside(v, adr):
 
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
-        return op.opname in ("malloc", "malloc_varsize")
+        return op.opname in ("malloc", "malloc_varsize", "gc__collect")
 
 class FrameworkGCTransformer(GCTransformer):
 
@@ -875,6 +875,8 @@ class FrameworkGCTransformer(GCTransformer):
             GCData.GCClass.malloc_varsize.im_func,
             [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)],
             annmodel.SomeAddress())
+        collect_graph = annhelper.getgraph(GCData.GCClass.collect.im_func,
+            [s_gcdata], annmodel.s_None)
         annhelper.finish()   # at this point, annotate all mix-level helpers
         self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph)
         self.push_root_ptr = self.graph2funcptr(push_root_graph)
@@ -883,8 +885,8 @@ class FrameworkGCTransformer(GCTransformer):
         self.graphs_to_inline[pop_root_graph] = True
         self.malloc_fixedsize_ptr = self.graph2funcptr(malloc_fixedsize_graph)
         self.malloc_varsize_ptr = self.graph2funcptr(malloc_varsize_graph)
+        self.collect_ptr = self.graph2funcptr(collect_graph)
         self.graphs_to_inline[malloc_fixedsize_graph] = True
-
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()
 
@@ -1060,6 +1062,14 @@ class FrameworkGCTransformer(GCTransformer):
         return ops
 
     replace_malloc_varsize = replace_malloc
+
+    def replace_gc__collect(self, op, livevars, block):
+        # surely there's a better way of doing this?
+        s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
+        r_gc = self.translator.rtyper.getrepr(s_gc)
+        const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
+        return [SpaceOperation(
+                    "direct_call", [self.collect_ptr, const_gc], op.result)]
 
     def push_alive_nopyobj(self, var):
         return []

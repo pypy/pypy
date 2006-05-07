@@ -7,6 +7,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.objectmodel import cast_address_to_object, cast_object_to_address
 from pypy.rpython.memory.gctransform import GCTransformer
 
@@ -323,9 +324,9 @@ class TestUsingFramework(AbstractTestClass):
             a = A()
             a.b = g(1)
             # this should trigger a couple of collections
-            # XXX make sure it triggers at least one somehow!
             for i in range(1000):
                 [A() for j in range(1000)]
+            llop.gc__collect(lltype.Void)
             return a.b
         fn = self.getcompiled(f)
         res = fn()
@@ -353,10 +354,9 @@ class TestUsingFramework(AbstractTestClass):
             g(1)
             b0 = a.b
             b0.c = b.c = 42
-            # this should trigger a couple of collections
-            # XXX make sure it triggers at least one somehow!
             for i in range(1000):
                 [A() for j in range(1000)]
+            llop.gc__collect(lltype.Void)
             return global_a.b.a.b.c
         fn = self.getcompiled(f)
         startblock = self.t.graphs[0].startblock
@@ -378,6 +378,9 @@ class TestUsingFramework(AbstractTestClass):
             # this should trigger 3 collections
             for i in range(1000000):
                 prepare(B(), -1)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
             # we need to prevent it getting inlined
             if not a:
                 g(A())
@@ -445,8 +448,7 @@ class TestUsingFramework(AbstractTestClass):
         a.x = None
         def f():
             a.x = A(42)
-            for i in range(1000000):
-                A(i)
+            llop.gc__collect(lltype.Void)
             return a.x.y
         fn = self.getcompiled(f)
         res = fn()
