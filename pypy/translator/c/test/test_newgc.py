@@ -15,8 +15,9 @@ from pypy import conftest
 def compile_func(fn, inputtypes, t=None):
     if t is None:
         t = TranslationContext()
-    t.buildannotator().build_types(fn, inputtypes)
-    t.buildrtyper().specialize()
+    if inputtypes is not None:
+        t.buildannotator().build_types(fn, inputtypes)
+        t.buildrtyper().specialize()
     builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
     builder.generate_source(defines={'COUNT_OP_MALLOCS': 1})
     builder.compile()
@@ -141,6 +142,34 @@ def test_write_barrier():
     assert fn(1) == 4
     assert fn(0) == 5
 
+def test_del_basic():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    lltype.attachRuntimeTypeInfo(S)
+    GLOBAL = lltype.Struct('GLOBAL', ('x', lltype.Signed))
+    glob = lltype.malloc(GLOBAL, immortal=True)
+    def destructor(s):
+        glob.x = s.x + 1
+    def type_info_S(s):
+        return lltype.getRuntimeTypeInfo(S)
+
+    def g(n):
+        s = lltype.malloc(S)
+        s.x = n
+        # now 's' should go away
+    def entrypoint(n):
+        g(n)
+        return glob.x
+
+    t = TranslationContext()
+    t.buildannotator().build_types(entrypoint, [int])
+    rtyper = t.buildrtyper()
+    destrptr = rtyper.annotate_helper_fn(destructor, [lltype.Ptr(S)])
+    rtyper.attachRuntimeTypeInfoFunc(S, type_info_S, destrptr=destrptr)
+    rtyper.specialize()
+    fn = compile_func(entrypoint, None, t)
+
+    res = fn(123)
+    assert res == 124
 
 def test_del_catches():
     import os
