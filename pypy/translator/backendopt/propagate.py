@@ -313,8 +313,8 @@ def partial_folding_once(graph, translator, analyzer=None):
                 newargs = [getnewvar(var) for var in copylink.args]
                 newlink = Link(newargs, copylink.target, copylink.exitcase)
                 newlink.prevblock = block
-                newlink.last_exception = getnewvar(link.last_exception)
-                newlink.last_exc_value = getnewvar(link.last_exc_value)
+                newlink.last_exception = getnewvar(copylink.last_exception)
+                newlink.last_exc_value = getnewvar(copylink.last_exc_value)
                 if hasattr(link, 'llexitcase'):
                     newlink.llexitcase = link.llexitcase
                 newlinks.append(newlink)
