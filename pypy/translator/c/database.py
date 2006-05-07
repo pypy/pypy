@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.memory.lladdress import NULL
+from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
@@ -129,7 +130,9 @@ class LowLevelDatabase(object):
                     who_asks.dependencies[node] = True
                 return 'struct %s @' % node.name
             else:
-                raise Exception("don't know about opaque type %r" % (T,))
+                #raise Exception("don't know about opaque type %r" % (T,))
+                return 'struct %s @' % (
+                    valid_identifier('pypy_opaque_' + T.tag),)
         else:
             raise Exception("don't know about type %r" % (T,))
 

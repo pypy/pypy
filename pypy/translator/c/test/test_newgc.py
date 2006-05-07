@@ -324,8 +324,8 @@ class TestUsingFramework(AbstractTestClass):
             a.b = g(1)
             # this should trigger a couple of collections
             # XXX make sure it triggers at least one somehow!
-            for i in range(100000):
-                [A()] * 1000
+            for i in range(1000):
+                [A() for j in range(1000)]
             return a.b
         fn = self.getcompiled(f)
         res = fn()
@@ -355,8 +355,8 @@ class TestUsingFramework(AbstractTestClass):
             b0.c = b.c = 42
             # this should trigger a couple of collections
             # XXX make sure it triggers at least one somehow!
-            for i in range(100000):
-                [A()] * 1000
+            for i in range(1000):
+                [A() for j in range(1000)]
             return global_a.b.a.b.c
         fn = self.getcompiled(f)
         startblock = self.t.graphs[0].startblock
@@ -459,7 +459,7 @@ class TestUsingFramework(AbstractTestClass):
         def f():
             t.p = lltype.malloc(S)
             t.p.x = 43
-            for i in range(1000000):
+            for i in range(2500000):
                 s = lltype.malloc(S)
                 s.x = i
             return t.p.x
@@ -496,3 +496,30 @@ class TestUsingFramework(AbstractTestClass):
         res = fn()
         assert res == 43 + 1000000
         
+    def test_framework_opaque(self):
+        A = lltype.GcStruct('A', ('value', lltype.Signed))
+        B = lltype.GcStruct('B', ('a', lltype.Ptr(A)))
+        O = lltype.GcOpaqueType('test.framework')
+        b = lltype.malloc(B)
+        b.a = lltype.malloc(A)
+
+        def gethidden(n):
+            a = lltype.malloc(A)
+            a.value = -n * 7
+            # we need to prevent it getting inlined
+            if n > 0:
+                gethidden(n-1)
+            return lltype.cast_opaque_ptr(lltype.Ptr(O), a)
+        def reveal(o):
+            return lltype.cast_opaque_ptr(lltype.Ptr(A), o)
+        def f():
+            o = gethidden(10)
+            # this should trigger a collection
+            for i in range(2500000):
+                b.a.value = i
+                b.a = lltype.malloc(A)
+            a = reveal(o)
+            return a.value
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == -70

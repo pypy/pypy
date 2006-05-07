@@ -602,6 +602,11 @@ def find_gc_ptrs_in_type(TYPE):
         return result
     elif isinstance(TYPE, lltype.Ptr) and TYPE._needsgc():
         return [TYPE]
+    elif isinstance(TYPE, lltype.GcOpaqueType):
+        # heuristic: in theory the same problem exists with OpaqueType, but
+        # we use OpaqueType for other things too that we know are safely
+        # empty of further gc pointers
+        raise Exception("don't know what is in %r" % (TYPE,))
     else:
         return []
 

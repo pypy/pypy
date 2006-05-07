@@ -592,6 +592,7 @@ class FunctionCodeGenerator(object):
 
     OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
+    OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
