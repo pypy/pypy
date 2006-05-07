@@ -121,11 +121,13 @@ def test_Ptr():
 
 def test_cast_opaque_ptr():
     O = GcOpaqueType('O')
+    Q = GcOpaqueType('Q')
     S = GcStruct('S', ('x', Signed))
     def fn():
         s = malloc(S)
         o = cast_opaque_ptr(Ptr(O), s)
-        p = cast_opaque_ptr(Ptr(S), o)
+        q = cast_opaque_ptr(Ptr(Q), o)
+        p = cast_opaque_ptr(Ptr(S), q)
         return p == s
     res = interpret(fn, [])
     assert res is True

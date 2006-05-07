@@ -432,11 +432,14 @@ def test_opaque():
 
 def test_cast_opaque_ptr():
     O = GcOpaqueType('O')
+    Q = GcOpaqueType('Q')
     S = GcStruct('S', ('x', Signed))
     s = malloc(S)
     o = cast_opaque_ptr(Ptr(O), s)
     assert typeOf(o).TO == O
-    p = cast_opaque_ptr(Ptr(S), o)
+    q = cast_opaque_ptr(Ptr(Q), o)
+    assert typeOf(q).TO == Q
+    p = cast_opaque_ptr(Ptr(S), q)
     assert typeOf(p).TO == S
     assert p == s
     O1 = OpaqueType('O')

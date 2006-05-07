@@ -646,9 +646,18 @@ def cast_opaque_ptr(PTRTYPE, ptr):
           and isinstance(PTRTYPE.TO, OpaqueType)):
         return opaqueptr(PTRTYPE.TO, 'hidden', container = ptr._obj,
                                                solid     = ptr._solid)
+    elif (isinstance(CURTYPE.TO, OpaqueType)
+          and isinstance(PTRTYPE.TO, OpaqueType)):
+        try:
+            container = ptr._obj.container
+        except AttributeError:
+            raise RuntimeError("%r does not come from a container" % (ptr,))
+        return opaqueptr(PTRTYPE.TO, 'hidden',
+                         container = container,
+                         solid     = ptr._obj.solid)
     else:
-        raise TypeError("cast_opaque_ptr(): only between Opaque and "
-                        "non-Opaque")
+        raise TypeError("invalid cast_opaque_ptr(): %r -> %r" %
+                        (CURTYPE, PTRTYPE))
 
 def direct_fieldptr(structptr, fieldname):
     """Get a pointer to a field in the struct.  The resulting
