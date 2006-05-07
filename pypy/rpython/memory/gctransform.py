@@ -1068,8 +1068,11 @@ class FrameworkGCTransformer(GCTransformer):
         s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
         r_gc = self.translator.rtyper.getrepr(s_gc)
         const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
-        return [SpaceOperation(
-                    "direct_call", [self.collect_ptr, const_gc], op.result)]
+        newop = SpaceOperation(
+                    "direct_call", [self.collect_ptr, const_gc], op.result)
+        ops, index = self.protect_roots(newop, livevars, block,
+                                        block.operations.index(op))
+        return ops
 
     def push_alive_nopyobj(self, var):
         return []

@@ -315,17 +315,24 @@ from pypy.translator.c.test.test_boehm import AbstractTestClass
 class TestUsingFramework(AbstractTestClass):
     from pypy.translator.c.gc import FrameworkGcPolicy as gcpolicy
 
+    def test_empty_collect(self):
+        def f():
+            llop.gc__collect(lltype.Void)
+        fn = self.getcompiled(f)
+        fn()
+
     def test_framework_simple(self):
         def g(x): # cannot cause a collect
             return x + 1
         class A(object):
             pass
-        def f():
+        def make():
             a = A()
             a.b = g(1)
-            # this should trigger a couple of collections
-            for i in range(1000):
-                [A() for j in range(1000)]
+            return a
+        make.dont_inline = True
+        def f():
+            a = make()
             llop.gc__collect(lltype.Void)
             return a.b
         fn = self.getcompiled(f)
@@ -339,14 +346,15 @@ class TestUsingFramework(AbstractTestClass):
             pass
         class B(object):
             pass
-        def g(x): # can cause a collect
-            return B()
+        def g(x): # cause a collect
+            llop.gc__collect(lltype.Void)
+        g.dont_inline = True
         global_a = A()
         global_a.b = B()
         global_a.b.a = A()
         global_a.b.a.b = B()
         global_a.b.a.b.c = 1
-        def f():
+        def make():
             global_a.b.a.b.c = 40
             a = global_a.b.a
             b = a.b
@@ -354,8 +362,9 @@ class TestUsingFramework(AbstractTestClass):
             g(1)
             b0 = a.b
             b0.c = b.c = 42
-            for i in range(1000):
-                [A() for j in range(1000)]
+        make.dont_inline = True
+        def f():
+            make()
             llop.gc__collect(lltype.Void)
             return global_a.b.a.b.c
         fn = self.getcompiled(f)
@@ -375,16 +384,11 @@ class TestUsingFramework(AbstractTestClass):
             b.a = a
             b.othervalue = 5
         def g(a):
-            # this should trigger 3 collections
-            for i in range(1000000):
-                prepare(B(), -1)
             llop.gc__collect(lltype.Void)
-            llop.gc__collect(lltype.Void)
-            llop.gc__collect(lltype.Void)
-            # we need to prevent it getting inlined
-            if not a:
-                g(A())
+            for i in range(1000):
+                prepare(B(), -1)    # probably overwrites collected memory
             return a.value
+        g.dont_inline = True
         def f():
             b = B()
             prepare(b, 123)
@@ -446,8 +450,11 @@ class TestUsingFramework(AbstractTestClass):
                 self.y = y
         a = A(0)
         a.x = None
-        def f():
+        def make():
             a.x = A(42)
+        make.dont_inline = True
+        def f():
+            make()
             llop.gc__collect(lltype.Void)
             return a.x.y
         fn = self.getcompiled(f)
@@ -500,26 +507,23 @@ class TestUsingFramework(AbstractTestClass):
         
     def test_framework_opaque(self):
         A = lltype.GcStruct('A', ('value', lltype.Signed))
-        B = lltype.GcStruct('B', ('a', lltype.Ptr(A)))
         O = lltype.GcOpaqueType('test.framework')
-        b = lltype.malloc(B)
-        b.a = lltype.malloc(A)
 
         def gethidden(n):
             a = lltype.malloc(A)
             a.value = -n * 7
-            # we need to prevent it getting inlined
-            if n > 0:
-                gethidden(n-1)
             return lltype.cast_opaque_ptr(lltype.Ptr(O), a)
+        gethidden.dont_inline = True
         def reveal(o):
             return lltype.cast_opaque_ptr(lltype.Ptr(A), o)
+        def overwrite(a, i):
+            a.value = i
+        overwrite.dont_inline = True
         def f():
             o = gethidden(10)
-            # this should trigger a collection
-            for i in range(2500000):
-                b.a.value = i
-                b.a = lltype.malloc(A)
+            llop.gc__collect(lltype.Void)
+            for i in range(1000):    # overwrite freed memory
+                overwrite(lltype.malloc(A), i)
             a = reveal(o)
             return a.value
         fn = self.getcompiled(f)

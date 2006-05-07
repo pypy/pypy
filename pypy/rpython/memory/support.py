@@ -31,12 +31,12 @@ def get_address_linked_list(chunk_size=CHUNK_SIZE):
         _alloc_flavor_ = "raw"
         
         def __init__(self):
-            self.chunk = NULL
+            self.chunk = unused_chunks.get()
 
         def append(self, addr):
             if addr == NULL:
                 return
-            if self.chunk == NULL or self.chunk.signed[1] == chunk_size:
+            if self.chunk.signed[1] == chunk_size:
                 new = unused_chunks.get()
                 new.address[0] = self.chunk
                 new.signed[1] = 0
