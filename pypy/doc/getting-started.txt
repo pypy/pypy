@@ -384,7 +384,7 @@ Translating the flow graph to LLVM code
 +++++++++++++++++++++++++++++++++++++++
 
 To translate for LLVM (`low level virtual machine`_) you must first have `LLVM
-installed with version 1.6`_ - the `how to install LLVM`_ provides some helpful
+installed with version 1.7`_ - the `how to install LLVM`_ provides some helpful
 hints.  Please note that you do not need the CFrontend to compile, make
 tools-only.
 
