@@ -67,6 +67,11 @@ class Entry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop(op.opname, args_v, resulttype=hop.r_result.lowleveltype)
 
+
+class StackException(Exception):
+    """Base for internal exceptions possibly used by the stackless
+    implementation."""
+
 # ____________________________________________________________
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
@@ -311,7 +316,7 @@ LL_OPERATIONS = {
 
     # __________ stackless operation(s) __________
 
-    'yield_current_frame_to_caller': LLOp(),    
+    'yield_current_frame_to_caller': LLOp(canraise=(StackException,)),
 
     # __________ misc operations __________
 

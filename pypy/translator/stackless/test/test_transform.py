@@ -190,7 +190,7 @@ def run_stackless_function(fn):
 
     t.stacklesstransformer = StacklessTransformer(t)
 
-    cbuilder = CStandaloneBuilder(t, entry_point)
+    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gc.BoehmGcPolicy)
     cbuilder.generate_source()
     if conftest.option.view:
         t.view()

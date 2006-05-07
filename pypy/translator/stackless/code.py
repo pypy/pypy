@@ -158,7 +158,7 @@ def call_function(fn, retval_code):
             llmemory.Address, fn)
 call_function.stackless_explicit = True
 
-class UnwindException(Exception):
+class UnwindException(lloperation.StackException):
     def __init__(self):
         # during unwind, global_state.top points to frame that first caught
         # the UnwindException, whilst frame_bottom points to the frame

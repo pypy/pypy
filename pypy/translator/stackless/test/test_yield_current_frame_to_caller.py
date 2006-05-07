@@ -24,6 +24,8 @@ class TestFromCode:
         data = llinterp_stackless_function(f)
         assert data == 1
 
+        res = run_stackless_function(f)
+        assert res.strip() == "1"
 
     def test_switch(self):
         def f(ignored):
@@ -37,6 +39,8 @@ class TestFromCode:
         data = llinterp_stackless_function(f)
         assert data == 1
 
+        res = run_stackless_function(f)
+        assert res.strip() == "1"
 
     def test_yield_frame(self):
 
@@ -64,6 +68,9 @@ class TestFromCode:
 
         data = llinterp_stackless_function(f)
         assert data == 1234567
+
+        res = run_stackless_function(f)
+        assert res.strip() == "1234567"
 
 
 class TestFromRStack(TestFromCode):
