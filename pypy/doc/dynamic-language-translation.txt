@@ -2324,7 +2324,7 @@ Glossary and links mentioned in the text:
 
 * Lattice: http://en.wikipedia.org/wiki/Lattice_%28order%29
 
-* LLVM (Low-Level Virtual Machine): http://llvm.cs.uiuc.edu/
+* LLVM (Low-Level Virtual Machine): http://llvm.org/
 
 * Low-level Types: see [TR]_.
 
@@ -2353,7 +2353,7 @@ Glossary and links mentioned in the text:
 .. _`ACM SIGPLAN 2004 paper`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
 .. _SSA: http://en.wikipedia.org/wiki/Static_single_assignment_form
-.. _LLVM: http://llvm.cs.uiuc.edu/
+.. _LLVM: http://llvm.org/
 .. _`RTyper reference`: translation.html#rpython-typer
 .. _`GenC back-end`: translation.html#genc
 .. _`LLVM back-end`: translation.html#llvm

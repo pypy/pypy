@@ -5,7 +5,7 @@ CPython's Ctype's Behaviour
 .. contents::
 .. sectnum::
 
-This documents describes ctypes behaviour on CPython, as fas as it
+This documents describes ctypes behaviour on CPython, as far as it
 is know to the author and relevant for rctypes.
 
 Primitive Types
@@ -51,7 +51,7 @@ example below::
 Structures created from foreign pointers
 ########################################
 
-The author is currently not shure, whether the text below
+The author is currently not sure, whether the text below
 is correct in all aspects, but carefully planned trials did
 not provide any evidence to the contrary.
 
@@ -64,9 +64,9 @@ Pointers, especially pointers to Structures
 -------------------------------------------
 
 Pointer types are created by a factory function named `POINTER`.
-Pointers can be created by either calling and thus istanciating a
+Pointers can be created by either calling and thus instanciating a
 pointer type or by calling another function named `pointer` that
-creates the neccessary pointer type on the fly and returns
+creates the necessary pointer type on the fly and returns
 a pointer to the instance. 
 
 Pointers only implement one attribute named contents which 

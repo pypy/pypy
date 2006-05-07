@@ -633,10 +633,10 @@ plan where to meet with us.
 
 .. _`py library`: http://codespeak.net/py 
 .. _`PyPy/LLVM backend`: translation.html#llvm 
-.. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
-.. _`how to install LLVM`: http://llvm.cs.uiuc.edu/docs/GettingStarted.html
+.. _`low level virtual machine`: http://llvm.org/
+.. _`how to install LLVM`: http://llvm.org/docs/GettingStarted.html
 .. _`LLVM mailing list`: http://mail.cs.uiuc.edu/mailman/listinfo/llvmdev
-.. _`LLVM installed with version 1.6`: http://llvm.cs.uiuc.edu/releases
+.. _`LLVM installed with version 1.7`: http://llvm.org/releases
 
 
 .. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/

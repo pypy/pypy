@@ -46,7 +46,7 @@ Basic necessities
 Pickling of a running thread involves a bit more than normal
 object pickling, because there exist many objects which
 don't have a pickling interface, and people would not care
-aboutpickling them at all. But with thread pickling, these
+about pickling them at all. But with thread pickling, these
 objects simply exist as local variables and are needed
 to restore the current runtime environment, and the user
 should not have to know what goes into the pickle.
@@ -257,7 +257,7 @@ As a conclusion of this incomplete first analysis, it seems to be necessary
 to identify useless activation records in order to support pickling.
 The remaining, irreducible activation records should then be those
 which hold a reference to a Python frame.
-Such a chain is pickleable iff its root points back to the context switching code
+Such a chain is pickleable if its root points back to the context switching code
 of the interp-level implementation of coroutines.
 
 As an observation, this transform not only enables pickling, but
@@ -305,7 +305,7 @@ all the variables which we don't need to save any longer, because
 we know that they are held in, for instance, frames.
 
 I hope you understand that: If we improve the life-time analysis
-of veriables, the sketched problem of above about which blocks
+of variables, the sketched problem of above about which blocks
 need to save state and which don't, should become trivial and should
 just vanish. Doing this correctly will solve the pickling problem quasi
 automatically, leading to a more efficient implementation at the same time.

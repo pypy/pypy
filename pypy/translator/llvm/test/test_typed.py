@@ -210,7 +210,7 @@ def test_unichr_unichr():
 # floats 
 def test_float_operations(): 
     #llvm rem operation working starting llvm1.6")    
-    #see: http://llvm.cs.uiuc.edu/bugs/show_bug.cgi?id=611
+    #see: http://llvm.org/bugs/show_bug.cgi?id=611
     import math
     def func(x, y): 
         z = x + y / 2.1 * x 

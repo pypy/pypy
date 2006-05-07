@@ -1020,7 +1020,7 @@ Richard worked on it, achieving a standalone executable just prior to the
 Heidelberg sprint.  During the Heildelberg sprint Eric and Richard mainly
 worked on sharing the backend external code with GenC.
 
-.. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
+.. _`low level virtual machine`: http://llvm.org/
 .. _`here`: getting-started.html#translating-the-flow-graph-to-llvm-code
 
 

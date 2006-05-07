@@ -22,7 +22,7 @@ In no particular order:
 
 * Rewrite one or several CPython extension modules to be based on **ctypes**
   (newly integrated in Python 2.5): this is generally useful for Python
-  developpers, and it is now the best path to write extension modules that are
+  developers, and it is now the best path to write extension modules that are
   compatible with both CPython and PyPy.  See for example
   http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  
   (This is not documented so far; for an example on which we are working now,

@@ -15,7 +15,7 @@ class CodeWriter(object):
         self.file.close()
 
     def _resolvetail(self, tail, cconv):
-        # from: http://llvm.cs.uiuc.edu/docs/LangRef.html
+        # from: http://llvm.org/docs/LangRef.html
         # The optional "tail" marker indicates whether the callee function
         # accesses any allocas or varargs in the caller. If the "tail" marker
         # is present, the function call is eligible for tail call

@@ -49,7 +49,7 @@ Other typical sprint factors:
     prepares, leads and coordinate the work and track progress and makes this
     visible for the team. Important to note here - PyPy have never had coaches
     in our sprints. Instead we hold short status meetings in the whole group,
-    decisions are made in the same way.So far this have worked well and we
+    decisions are made in the same way. So far this have worked well and we
     still have been able to achieve tremendous results under stressed
     conditions, releases and such like. What we do have is a local organizer,
     often a developer living in the area and one more developer who prepares
@@ -63,13 +63,13 @@ Other typical sprint factors:
     line although again, if you visit a PyPy sprint we are doing quite a lot
     of other small activities in subgroups as well - planning sprints,
     documentation, coordinating our EU deliverables and evaluation etc. But
-    dont worry - our main focus is programming ;-)
+    don't worry - our main focus is programming ;-)
 
   * using XP techniques (mainly pairprogramming and unit testing - PyPy is
     leaning heavily on these aspects). Pairing up core developers with people
     with different levels of knowledge of the codebase have had the results
     that people can quite quickly get started and join in the development.
-    Many of our particpants (new to the project and the codebased) have
+    Many of our participants (new to the project and the codebase) have
     expressed how pairprogramming in combination with working on the automated
     tests have been a great way of getting started. This is of course also a
     dilemma because our core developers might have to pair up to solve some
