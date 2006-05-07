@@ -32,6 +32,8 @@ def get_address_linked_list(chunk_size=CHUNK_SIZE):
         
         def __init__(self):
             self.chunk = unused_chunks.get()
+            self.chunk.address[0] = NULL
+            self.chunk.signed[1] = 0
 
         def append(self, addr):
             if addr == NULL:
@@ -60,7 +62,7 @@ def get_address_linked_list(chunk_size=CHUNK_SIZE):
             self.chunk.signed[1] = used_chunks - 1
             return result
 
-        def free(self):
+        def free(self):   # XXX very inefficient
             while self.pop() != NULL:
                 pass
     return AddressLinkedList
