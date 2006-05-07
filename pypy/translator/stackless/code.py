@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython import rarithmetic
+from pypy.rpython import extfunctable
 
 
 def ll_frame_switch(state):
@@ -29,7 +30,7 @@ def ll_frame_switch(state):
         global_state.top = null_state
         global_state.restart_substate = 0
         origin_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
-                                                lltype.Ptr(STATE_HEADER))
+                                                OPAQUE_STATE_HEADER_PTR)
         return origin_state
 ll_frame_switch.stackless_explicit = True
 
@@ -42,6 +43,9 @@ STATE_HEADER = lltype.GcStruct('state_header',
 STATE_HEADER.f_back.TO.become(STATE_HEADER)
 
 null_state = lltype.nullptr(STATE_HEADER)
+
+OPAQUE_STATE_HEADER_PTR = lltype.Ptr(
+    extfunctable.frametop_type_info.get_lltype())
 
 ##def decode_state(currentframe): 
 ##    return (currentframe.function,
@@ -88,7 +92,7 @@ def yield_current_frame_to_caller():
         global_state.top = null_state
         global_state.restart_substate = 0
         origin_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
-                                                lltype.Ptr(STATE_HEADER))
+                                                OPAQUE_STATE_HEADER_PTR)
         return origin_state
     else:
         global_state.restart_substate = 0
