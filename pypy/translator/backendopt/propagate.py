@@ -1,10 +1,11 @@
 from pypy.objspace.flow.model import Block, Variable, Constant, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
-from pypy.objspace.flow.model import SpaceOperation
+from pypy.objspace.flow.model import SpaceOperation, Link
 from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython.llinterp import LLInterpreter, LLFrame
 from pypy.translator import simplify
 from pypy.translator.simplify import get_graph
+from pypy.translator.unsimplify import copyvar
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.backendopt.inline import OP_WEIGHTS
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
@@ -197,72 +198,140 @@ def constant_folding(graph, translator, analyzer=None):
         return True
     return False
 
+#def partial_folding_once(graph, translator, analyzer=None):
+#    if analyzer is None:
+#        analyzer = CanfoldAnalyzer(translator)
+#    lli = LLInterpreter(translator.rtyper)
+#    entrymap = mkentrymap(graph)
+#    for block in graph.iterblocks():
+#        if (block is graph.startblock or block is graph.returnblock or
+#            block is graph.exceptblock):
+#            continue
+#        usedvars = {}
+#        cannotfold = False
+#        for op in block.operations:
+#            if analyzer.analyze(op):
+#                cannotfold = True
+#                break
+#            for arg in op.args:
+#                if (isinstance(arg, Variable) and arg in block.inputargs):
+#                    usedvars[arg] = True
+#        if cannotfold:
+#            continue
+#        if isinstance(block.exitswitch, Variable):
+#            usedvars[block.exitswitch] = True
+#        pattern = [arg in usedvars for arg in block.inputargs]
+#        for link in entrymap[block]:
+#            s = sum([isinstance(arg, Constant) or not p
+#                         for arg, p in zip(link.args, pattern)])
+#            if s != len(link.args):
+#                continue
+#            args = []
+#            for i, arg in enumerate(link.args):
+#                if isinstance(arg, Constant):
+#                    args.append(arg.value)
+#                else:
+#                    assert not pattern[i]
+#                    args.append(arg.concretetype._example())
+#            llframe = LLFrame(graph, None, lli)
+#            llframe.fillvars(block, args)
+#            nextblock, forwardargs = llframe.eval_block(block)
+#            if nextblock is not None:
+#                newargs = []
+#                for i, arg in enumerate(nextblock.inputargs):
+#                    try:
+#                        index = [l.target for l in block.exits].index(nextblock)
+#                        index = block.inputargs.index(block.exits[index].args[i])
+#                    except ValueError:
+#                        c = Constant(forwardargs[i])
+#                        c.concretetype = arg.concretetype
+#                        newargs.append(c)
+#                    else:
+#                        newargs.append(link.args[index])
+#            else:
+#                assert 0, "this should not occur"
+#            unchanged = link.target == nextblock and link.args == newargs
+#            link.target = nextblock
+#            link.args = newargs
+#            checkgraph(graph)
+#            if not unchanged:
+#                return True
+#    return False
+
 def partial_folding_once(graph, translator, analyzer=None):
+    # XXX this is quite a suboptimal way to do it, but was easy to program
     if analyzer is None:
         analyzer = CanfoldAnalyzer(translator)
     lli = LLInterpreter(translator.rtyper)
     entrymap = mkentrymap(graph)
-    for block in graph.iterblocks():
-        if (block is graph.startblock or block is graph.returnblock or
-            block is graph.exceptblock):
-            continue
-        usedvars = {}
-        cannotfold = False
-        for op in block.operations:
-            if analyzer.analyze(op):
-                cannotfold = True
-                break
-            for arg in op.args:
-                if (isinstance(arg, Variable) and arg in block.inputargs):
-                    usedvars[arg] = True
-        if cannotfold:
-            continue
-        if isinstance(block.exitswitch, Variable):
-            usedvars[block.exitswitch] = True
-        pattern = [arg in usedvars for arg in block.inputargs]
-        for link in entrymap[block]:
-            s = sum([isinstance(arg, Constant) or not p
-                         for arg, p in zip(link.args, pattern)])
-            if s != len(link.args):
-                continue
-            args = []
+    for block, links in entrymap.iteritems():
+        # identify candidates
+        for link in links:
+            available_vars = {}
+            foldable_ops = {}
             for i, arg in enumerate(link.args):
                 if isinstance(arg, Constant):
-                    args.append(arg.value)
+                    available_vars[block.inputargs[i]] = True
+            if not available_vars:
+                continue
+            for op in block.operations:
+                if analyzer.analyze(op):
+                    continue
+                for arg in op.args:
+                    if not (isinstance(arg, Constant) or arg in available_vars):
+                        break
                 else:
-                    assert not pattern[i]
-                    args.append(arg.concretetype._example())
-            llframe = LLFrame(graph, None, lli)
-            llframe.fillvars(block, args)
-            nextblock, forwardargs = llframe.eval_block(block)
-            if nextblock is not None:
-                newargs = []
-                for i, arg in enumerate(nextblock.inputargs):
-                    try:
-                        index = [l.target for l in block.exits].index(nextblock)
-                        index = block.inputargs.index(block.exits[index].args[i])
-                    except ValueError:
-                        c = Constant(forwardargs[i])
-                        c.concretetype = arg.concretetype
-                        newargs.append(c)
-                    else:
-                        newargs.append(link.args[index])
-            else:
-                assert 0, "this should not occur"
-            unchanged = link.target == nextblock and link.args == newargs
-            link.target = nextblock
-            link.args = newargs
-            checkgraph(graph)
-            if not unchanged:
-                return True
-    return False
+                    foldable_ops[op] = True
+                    available_vars[op.result] = True
+            if not foldable_ops:
+                continue
+            # the link is a candidate. copy the target block so that
+            # constant folding can do its work
+            # whew, copying is annoying :-(. XXX nicely factor this out
+            vars_to_newvars = {}
+            def getnewvar(var):
+                if var in vars_to_newvars:
+                    return vars_to_newvars[var]
+                if var is None:
+                    return None
+                if isinstance(var, Constant):
+                    return var
+                result = copyvar(translator, var)
+                vars_to_newvars[var] = result
+                return result
+            newops = []
+            for op in block.operations:
+                newargs = [getnewvar(var) for var in op.args]
+                newresult = getnewvar(op.result)
+                newops.append(SpaceOperation(op.opname, newargs, newresult))
+            newargs = [getnewvar(var) for var in block.inputargs]
+            newblock = Block(newargs)
+            newblock.exitswitch = getnewvar(block.exitswitch)
+            newblock.operations = newops
+            newlinks = []
+            for copylink in block.exits:
+                newargs = [getnewvar(var) for var in copylink.args]
+                newlink = Link(newargs, copylink.target, copylink.exitcase)
+                newlink.prevblock = block
+                newlink.last_exception = getnewvar(link.last_exception)
+                newlink.last_exc_value = getnewvar(link.last_exc_value)
+                if hasattr(link, 'llexitcase'):
+                    newlink.llexitcase = link.llexitcase
+                newlinks.append(newlink)
+            newblock.closeblock(*newlinks)
+            link.target = newblock
+    propagate_consts(graph)
+    result = constant_folding(graph, translator, analyzer)
+    if result:
+        simplify.join_blocks(graph)
+    return result
 
-def partial_folding(graph, translator):
+def partial_folding(graph, translator, analyzer=None):
     """this function does constant folding in the following situation:
     a block has a link that leads to it that has only constant args. Then all
     the operations of this block are evaluated and the link leading to the
     block is adjusted according to the resulting value of the exitswitch"""
-    if do_atmost(1000, partial_folding_once, graph, translator):
+    if do_atmost(1000, partial_folding_once, graph, translator, analyzer):
         propagate_consts(graph)
         simplify.join_blocks(graph)
         return True
@@ -363,10 +432,10 @@ def propagate_all_per_graph(graph, translator):
         changed = False
         changed = rewire_links(graph) or changed
         changed = propagate_consts(graph) or changed
-#        changed = coalesce_links(graph) or changed
-#        changed = do_atmost(100, constant_folding, graph,
-#                                       translator, analyzer) or changed
-#        changed = partial_folding(graph, translator, analyzer) or changed
+        changed = coalesce_links(graph) or changed
+        changed = do_atmost(100, constant_folding, graph,
+                                       translator, analyzer) or changed
+        changed = partial_folding(graph, translator, analyzer) or changed
         changed = remove_all_getfields(graph, translator) or changed
         checkgraph(graph)
         return changed
