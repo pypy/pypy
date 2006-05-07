@@ -228,6 +228,9 @@ class fakeaddress(object):
             # special case that requires direct_fieldptr
             return lltype.direct_fieldptr(ref.struct,
                                           ref.fieldname)
+        elif (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
+              isinstance(ref.type().TO, lltype.OpaqueType)):
+            return lltype.cast_opaque_ptr(EXPECTED_TYPE, ref.get())
         else:
             # regular case
             return lltype.cast_pointer(EXPECTED_TYPE, ref.get())

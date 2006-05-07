@@ -182,3 +182,14 @@ def test_cast_structfield_pointer():
     subarray = cast_adr_to_ptr(adr, lltype.Ptr(SUBARRAY))
     subarray[0] = 121
     assert s.y == 121
+
+def test_opaque():
+    S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+    O = lltype.GcOpaqueType('O')
+    s = lltype.malloc(S)
+    adr = cast_ptr_to_adr(s)
+    o = cast_adr_to_ptr(adr, lltype.Ptr(O))
+    assert lltype.cast_opaque_ptr(lltype.Ptr(S), o) == s
+    adr2 = cast_ptr_to_adr(o)
+    s2 = cast_adr_to_ptr(adr2, lltype.Ptr(S))
+    assert s2 == s
