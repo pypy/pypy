@@ -335,7 +335,8 @@ class LLFrame(object):
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
         if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast',
-                                'cast_adr_to_ptr', 'cast_int_to_ptr']:
+                                'cast_adr_to_ptr', 'cast_int_to_ptr',
+                                'cast_opaque_ptr']:
             vals.insert(0, operation.result.concretetype)
         try:
             retval = ophandler(*vals)
@@ -556,8 +557,10 @@ class LLFrame(object):
         return len(array)
 
     def op_cast_pointer(self, tp, obj):
-        # well, actually this is what's now in the globals.
         return lltype.cast_pointer(tp, obj)
+
+    def op_cast_opaque_ptr(self, tp, obj):
+        return lltype.cast_opaque_ptr(tp, obj)
 
     def op_ptr_eq(self, ptr1, ptr2):
         assert checkptr(ptr1)

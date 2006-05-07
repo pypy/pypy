@@ -118,3 +118,24 @@ def test_Ptr():
     
     p = interpret(ll_example, [])
     assert typeOf(p) == Ptr(S)
+
+def test_cast_opaque_ptr():
+    O = GcOpaqueType('O')
+    S = GcStruct('S', ('x', Signed))
+    def fn():
+        s = malloc(S)
+        o = cast_opaque_ptr(Ptr(O), s)
+        p = cast_opaque_ptr(Ptr(S), o)
+        return p == s
+    res = interpret(fn, [])
+    assert res is True
+
+    O1 = OpaqueType('O')
+    S1 = Struct('S1', ('x', Signed))
+    s1 = malloc(S1, immortal=True)
+    def fn1():
+        o1 = cast_opaque_ptr(Ptr(O1), s1)
+        p1 = cast_opaque_ptr(Ptr(S1), o1)
+        return p1 == s1
+    res = interpret(fn1, [])
+    assert res is True

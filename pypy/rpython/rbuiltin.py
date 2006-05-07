@@ -332,6 +332,14 @@ def rtype_cast_pointer(hop):
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_cast_opaque_ptr(hop):
+    assert hop.args_s[0].is_constant()
+    assert isinstance(hop.args_r[1], rptr.PtrRepr)
+    v_type, v_input = hop.inputargs(lltype.Void, hop.args_r[1])
+    hop.exception_cannot_occur()
+    return hop.genop('cast_opaque_ptr', [v_input], # v_type implicit in r_result
+                     resulttype = hop.r_result.lowleveltype)
+
 def rtype_direct_fieldptr(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     assert hop.args_s[1].is_constant()
@@ -421,6 +429,7 @@ def rtype_runtime_type_info(hop):
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
+BUILTIN_TYPER[lltype.cast_opaque_ptr] = rtype_cast_opaque_ptr
 BUILTIN_TYPER[lltype.direct_fieldptr] = rtype_direct_fieldptr
 BUILTIN_TYPER[lltype.direct_arrayitems] = rtype_direct_arrayitems
 BUILTIN_TYPER[lltype.direct_ptradd] = rtype_direct_ptradd

@@ -430,6 +430,28 @@ def test_opaque():
     assert typeOf(p2.stuff) == Ptr(O)
     assert parentlink(p2.stuff._obj) == (p2._obj, 'stuff')
 
+def test_cast_opaque_ptr():
+    O = GcOpaqueType('O')
+    S = GcStruct('S', ('x', Signed))
+    s = malloc(S)
+    o = cast_opaque_ptr(Ptr(O), s)
+    assert typeOf(o).TO == O
+    p = cast_opaque_ptr(Ptr(S), o)
+    assert typeOf(p).TO == S
+    assert p == s
+    O1 = OpaqueType('O')
+    S1 = Struct('S1', ('x', Signed))
+    s1 = malloc(S1, immortal=True)
+    o1 = cast_opaque_ptr(Ptr(O1), s1)
+    assert typeOf(o1).TO == O1
+    p1 = cast_opaque_ptr(Ptr(S1), o1)
+    assert typeOf(p1).TO == S1
+    assert p1 == s1
+    py.test.raises(TypeError, "cast_opaque_ptr(Ptr(S), o1)")
+    py.test.raises(TypeError, "cast_opaque_ptr(Ptr(O1), s)")
+    S2 = Struct('S2', ('z', Signed))
+    py.test.raises(TypeError, "cast_opaque_ptr(Ptr(S2), o1)")
+
 def test_is_atomic():
     U = Struct('inlined', ('z', Signed))
     A = Ptr(RuntimeTypeInfo)

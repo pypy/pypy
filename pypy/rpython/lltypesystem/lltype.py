@@ -427,6 +427,14 @@ class OpaqueType(ContainerType):
 
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
+class GcOpaqueType(OpaqueType):
+
+    def __str__(self):
+        return "%s (gcopaque)" % self.tag
+
+    def _inline_is_varsize(self, last):
+        raise TypeError, "%r cannot be inlined in structure" % self
+
 class PyObjectType(ContainerType):
     __name__ = 'PyObject'
     def __str__(self):
@@ -452,7 +460,8 @@ class GcForwardReference(ForwardReference):
         self.__class__ = realcontainertype.__class__
         self.__dict__ = realcontainertype.__dict__
 
-GC_CONTAINER = (GcStruct, GcArray, PyObjectType, GcForwardReference)
+GC_CONTAINER = (GcStruct, GcArray, PyObjectType, GcForwardReference,
+                GcOpaqueType)
 
 
 class Primitive(LowLevelType):
@@ -613,6 +622,33 @@ def cast_pointer(PTRTYPE, ptr):
     if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
     return ptr._cast_to(PTRTYPE)
+
+def cast_opaque_ptr(PTRTYPE, ptr):
+    CURTYPE = typeOf(ptr)
+    if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
+        raise TypeError, "can only cast pointers to other pointers"
+    if CURTYPE._needsgc() != PTRTYPE._needsgc():
+        raise TypeError("cast_opaque_ptr() cannot change the gc status: "
+                        "%s to %s" % (CURTYPE, PTRTYPE))
+    if (isinstance(CURTYPE.TO, OpaqueType)
+        and not isinstance(PTRTYPE.TO, OpaqueType)):
+        try:
+            container = ptr._obj.container
+        except AttributeError:
+            raise RuntimeError("%r does not come from a container" % (ptr,))
+        if typeOf(container) != PTRTYPE.TO:
+            raise RuntimeError("%r contains a container of the wrong type:\n"
+                               "%r instead of %r" % (ptr, typeOf(container),
+                                                     PTRTYPE.TO))
+        solid = getattr(ptr._obj, 'solid', False)
+        return _ptr(PTRTYPE, container, solid)
+    elif (not isinstance(CURTYPE.TO, OpaqueType)
+          and isinstance(PTRTYPE.TO, OpaqueType)):
+        return opaqueptr(PTRTYPE.TO, 'hidden', container = ptr._obj,
+                                               solid     = ptr._solid)
+    else:
+        raise TypeError("cast_opaque_ptr(): only between Opaque and "
+                        "non-Opaque")
 
 def direct_fieldptr(structptr, fieldname):
     """Get a pointer to a field in the struct.  The resulting
@@ -1264,7 +1300,7 @@ def opaqueptr(TYPE, name, **attrs):
     if not isinstance(TYPE, OpaqueType):
         raise TypeError, "opaqueptr() for OpaqueTypes only"
     o = _opaque(TYPE, _name=name, **attrs)
-    return _ptr(Ptr(TYPE), o, solid=attrs.get('immortal', True))
+    return _ptr(Ptr(TYPE), o, solid=True)
 
 def pyobjectptr(obj):
     o = _pyobject(obj)
