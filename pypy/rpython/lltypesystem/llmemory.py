@@ -187,6 +187,9 @@ class fakeaddress(object):
             return fakeaddress(self.ob, offset)
         return NotImplemented
 
+    def __nonzero__(self):
+        return self.ob is not None
+
     def __eq__(self, other):
         if not isinstance(other, fakeaddress):
             return False
@@ -215,6 +218,8 @@ class fakeaddress(object):
         self.ref().set(value)
 
     def _cast_to_ptr(self, EXPECTED_TYPE):
+        if not self:
+            return lltype.nullptr(EXPECTED_TYPE.TO)
         ref = self.ref()
         if (isinstance(ref, _arrayitemref) and
             isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and

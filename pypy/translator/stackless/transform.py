@@ -10,7 +10,7 @@ from pypy.translator.stackless import code
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
-from pypy.rpython.module import ll_stackless
+from pypy.rpython.module import ll_stackless, ll_stack
 
 from pypy.translator.stackless.code import STATE_HEADER, null_state
 
@@ -119,12 +119,19 @@ class StacklessTransformer(object):
             code.fetch_retval_void_p, [], annmodel.SomeAddress())
 
         s_StatePtr = annmodel.SomePtr(code.OPAQUE_STATE_HEADER_PTR)
-        self.stack_frames_depth_ptr = mixlevelannotator.constfunc(
-            code.stack_frames_depth, [], annmodel.SomeInteger())
+        self.suggested_primitives = {
+            ll_stackless.ll_stackless_stack_frames_depth:
+                mixlevelannotator.constfunc(
+                    code.stack_frames_depth, [], annmodel.SomeInteger()),
+            ll_stackless.ll_stackless_switch:
+                mixlevelannotator.constfunc(
+                    code.ll_frame_switch, [s_StatePtr], s_StatePtr),
+            ll_stack.ll_stack_unwind:
+                mixlevelannotator.constfunc(
+                    code.ll_stack_unwind, [], annmodel.s_None),
+            }
         self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
             code.yield_current_frame_to_caller, [], s_StatePtr)
-        self.ll_frame_switch_ptr = mixlevelannotator.constfunc(
-            code.ll_frame_switch, [s_StatePtr], s_StatePtr)
 
         mixlevelannotator.finish()
 
@@ -344,10 +351,8 @@ class StacklessTransformer(object):
                 # trap calls to stackless-related suggested primitives
                 if op.opname == 'direct_call':
                     func = getattr(op.args[0].value._obj, '_callable', None)
-                    if func is ll_stackless.ll_stackless_stack_frames_depth:
-                        op = replace_with_call(self.stack_frames_depth_ptr)
-                    elif func is ll_stackless.ll_stackless_switch:
-                        op = replace_with_call(self.ll_frame_switch_ptr)
+                    if func in self.suggested_primitives:
+                        op = replace_with_call(self.suggested_primitives[func])
 
                 if i == len(block.operations) - 1 \
                        and block.exitswitch == model.c_last_exception:
@@ -357,23 +362,22 @@ class StacklessTransformer(object):
                         return
                 else:
                     link = support.split_block_with_keepalive(block, i+1)
-                    # this section deserves a whinge:
-                    
-                    # i want to use rtyper.insert_link_conversions() in
-                    # insert_resume_handling().  insert_link_conversions()
-                    # calls bindingrepr(), which depends on variables having
-                    # annotations.  split_block called copyvar(None, ...)
-                    # which doesn't preserve the annotation.  so put it back
-                    # here.  it certainly sucks that this module has to worry
-                    # about annotations :(
-##                    XXX is this still needed?
-##                    ann = self.translator.annotator
-##                    for f, t in zip(link.args, link.target.inputargs):
-##                        nb = ann.binding(f, None)
-##                        if nb is not None:
-##                            ann.setbinding(t, nb)
                     block.exitswitch = model.c_last_exception
                     link.llexitcase = None
+                    # add a general Exception link, because all calls can
+                    # raise anything
+                    v_exctype = varoftype(etype)
+                    v_excvalue = varoftype(evalue)
+                    newlink = model.Link([v_exctype, v_excvalue],
+                                         self.curr_graph.exceptblock,
+                                         Exception)
+                    newlink.last_exception = v_exctype
+                    newlink.last_exc_value = v_excvalue
+                    newexits = list(block.exits)
+                    newexits.append(newlink)
+                    block.recloseblock(*newexits)
+                    self.translator.rtyper._convert_link(block, newlink)
+
                 var_unwind_exception = varoftype(evalue)
                
                 # for the case where we are resuming to an except:

@@ -99,6 +99,7 @@ def yield_current_frame_to_caller():
         next_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
                                               lltype.Ptr(STATE_HEADER))
         global_state.top = next_state
+        global_state.retval_void_p = llmemory.NULL
         raise UnwindException()
 
 yield_current_frame_to_caller.stackless_explicit = True
@@ -125,6 +126,23 @@ def stack_frames_depth():
             cur = cur.f_back
         return depth
 stack_frames_depth.stackless_explicit = True
+
+def ll_stack_unwind():
+    if not global_state.restart_substate:
+        u = UnwindException()
+        s = lltype.malloc(STATE_HEADER)
+        s.restartstate = 1
+        # the next three lines are pure rtyper-pleasing hacks
+        f = ll_stack_unwind
+        if global_state.restart_substate:
+            f = None
+        s.function = llmemory.cast_ptr_to_adr(f)
+        s.retval_type = RETVAL_VOID
+        add_frame_state(u, s)
+        raise u
+    else:
+        global_state.restart_substate = 0
+ll_stack_unwind.stackless_explicit = True
 
 class StacklessData:
     def __init__(self):

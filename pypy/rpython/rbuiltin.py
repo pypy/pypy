@@ -378,7 +378,7 @@ _cast_to_Signed = {
     }
 _cast_from_Signed = {
     lltype.Signed:   None,
-    lltype.Bool:     'cast_int_to_bool',
+    lltype.Bool:     'int_is_true',
     lltype.Char:     'cast_int_to_char',
     lltype.UniChar:  'cast_int_to_unichar',
     lltype.Float:    'cast_int_to_float',

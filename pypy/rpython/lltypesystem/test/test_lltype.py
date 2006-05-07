@@ -299,7 +299,19 @@ def test_nullptr_cast():
     p10 = cast_pointer(Ptr(S1), p0)
     assert typeOf(p10) == Ptr(S1)
     assert not p10
-    
+
+def test_nullptr_opaque_cast():
+    S = Struct('S')
+    p0 = nullptr(S)
+    O1 = OpaqueType('O1')
+    O2 = OpaqueType('O2')
+    p1 = cast_opaque_ptr(Ptr(O1), p0)
+    assert not p1
+    p2 = cast_opaque_ptr(Ptr(O2), p1)
+    assert not p2
+    p3 = cast_opaque_ptr(Ptr(S), p2)
+    assert not p3
+
 
 def test_hash():
     S = ForwardReference()

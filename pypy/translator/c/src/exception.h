@@ -10,6 +10,9 @@
 #ifdef HAVE_RTYPER               /* RPython version of exceptions */
 /******************************************************************/
 
+/* Hint: functions and macros not defined here, like RPyRaiseException,
+   come from exctransformer via the table in extfunc.py. */
+
 #define RPyFetchException(etypevar, evaluevar, type_of_evaluevar) do {  \
 		etypevar = RPyFetchExceptionType();			\
 		evaluevar = (type_of_evaluevar)RPyFetchExceptionValue(); \

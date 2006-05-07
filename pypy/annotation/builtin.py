@@ -426,11 +426,8 @@ def cast_pointer(PtrT, s_p):
 def cast_opaque_ptr(PtrT, s_p):
     assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
     assert PtrT.is_constant()
-    try:
-        lltype.cast_opaque_ptr(PtrT.const, s_p.ll_ptrtype._defl())
-    except RuntimeError:
-        pass    # the type checks passed, but the _defl opaque cannot be cast
-    return SomePtr(ll_ptrtype=PtrT.const)
+    cast_p = lltype.cast_opaque_ptr(PtrT.const, s_p.ll_ptrtype._defl())
+    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
 
 def direct_fieldptr(s_p, s_fieldname):
     assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p

@@ -34,8 +34,18 @@ from pypy import conftest
 
 from pypy.translator.stackless import code
 
+def factorial(n):
+    if n > 1:
+        return factorial(n-1) * n
+    else:
+        return 1
+
+def one():   # but the annotator doesn't know it's one
+    return factorial(5) / 120
+
+
 def test_nothing():
-    def fn(ignored):
+    def fn():
         return 21
     res = llinterp_stackless_function(fn)
     assert res == 21
@@ -48,8 +58,8 @@ def test_simple_transform_llinterp():
     def g(x):
         check(x)
         return x + 1
-    def example(x):
-        return g(x) + 1
+    def example():
+        return g(one()) + 1
     res = llinterp_stackless_function(example)
     assert res == 3
 
@@ -60,8 +70,8 @@ def test_simple_transform_llinterp_float():
     def g(x):
         check(x)
         return x + 0.125
-    def example(x):
-        return int((g(x) + 1)*1000.0)
+    def example():
+        return int((g(one()) + 1)*1000.0)
     res = llinterp_stackless_function(example)
     assert res == 2125
 
@@ -72,10 +82,10 @@ def test_simple_transform_compiled():
     def g(x):
         check(x)
         return x + 1
-    def example(x):
-        return g(x) + 1
+    def example():
+        return g(one()) + 1
     res = run_stackless_function(example)
-    assert res.strip() == "3"
+    assert res == 3
 
 def test_protected_call():
     def check(x):
@@ -84,16 +94,16 @@ def test_protected_call():
     def g(x):
         check(x)
         return x + 1
-    def example(x):
+    def example():
         try:
-            y = g(x)
+            y = g(one())
         except Exception:
             y = -1
         return y + 1
     res = llinterp_stackless_function(example)
     assert res == 3
     res = run_stackless_function(example)
-    assert res == "3"
+    assert res == 3
 
 def test_resume_with_exception():
     def check(x):
@@ -107,8 +117,8 @@ def test_resume_with_exception():
             return x + 1
     def h(x):
         return g(x)
-    def example(x):
-        y = h(x)
+    def example():
+        y = h(one())
         return y + 1
     info = py.test.raises(
         llinterp.LLException,
@@ -127,9 +137,9 @@ def test_resume_with_exception_handling():
             return x + 1
     def h(x):
         return g(x)
-    def example(x):
+    def example():
         try:
-            y = h(x)
+            y = h(one())
         except KeyError:
             y = -1
         return y + 1
@@ -141,7 +151,8 @@ def test_listcomp():
         if x:
             raise code.UnwindException
     check.stackless_explicit = True
-    def f(l):
+    def f():
+        l = one()
         check(l)
         return len([x for x in range(l)])
     res = llinterp_stackless_function(f)
@@ -171,6 +182,9 @@ def rtype_stackless_function(fn):
         raise Exception, "this probably isn't going to work"
     t.buildrtyper().specialize()
 
+    from pypy.translator.transform import insert_ll_stackcheck
+    insert_ll_stackcheck(t)
+
     if conftest.option.view:
         t.view()
     return t
@@ -178,7 +192,7 @@ def rtype_stackless_function(fn):
 def run_stackless_function(fn):
     def entry_point(argv):
         try:
-            r = fn(len(argv))
+            r = fn()
         except code.UnwindException, u:
             code.slp_main_loop()
             r = code.global_state.retval_long
@@ -195,12 +209,13 @@ def run_stackless_function(fn):
     if conftest.option.view:
         t.view()
     cbuilder.compile()
-    return cbuilder.cmdexec('').strip()
+    res = cbuilder.cmdexec('')
+    return int(res.strip())
 
 def llinterp_stackless_function(fn):
     def entry_point(argv):
         try:
-            r = fn(len(argv))
+            r = fn()
         except code.UnwindException, u:
             code.slp_main_loop()
             return code.global_state.retval_long

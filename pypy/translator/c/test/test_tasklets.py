@@ -13,6 +13,11 @@ from pypy.translator.c.gc import BoehmGcPolicy
 gcpolicy = None
 if cbuild.check_boehm_presence():
     gcpolicy = BoehmGcPolicy
+else:
+    # to re-enable this, remove the two characters 'gc' in the
+    # declaregcptrtype(rstack.frame_stack_top,...) call in
+    # rpython/extfunctable.  Doing so breaks translator/stackless/.
+    py.test.skip("stackless + refcounting doesn't work any more for now")
 
 # count of loops in tests (set lower to speed up)
 loops = 1

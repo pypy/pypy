@@ -667,3 +667,6 @@ class __extend__(SomeAddress):
         return SomeTypedAddressAccess(
             lladdress.supported_access_types[s_attr.const])
     getattr.can_only_throw = []
+
+    def is_true(s_addr):
+        return SomeBool()

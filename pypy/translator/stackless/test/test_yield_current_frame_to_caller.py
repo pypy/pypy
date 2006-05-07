@@ -15,7 +15,7 @@ class TestFromCode:
         return True
 
     def test_simple(self):
-        def f(ignored):
+        def f():
             c = g()
             return 1
         def g():
@@ -25,10 +25,10 @@ class TestFromCode:
         assert data == 1
 
         res = run_stackless_function(f)
-        assert res.strip() == "1"
+        assert res == 1
 
     def test_switch(self):
-        def f(ignored):
+        def f():
             c = g()
             self.switch(c)
             return 1
@@ -40,7 +40,7 @@ class TestFromCode:
         assert data == 1
 
         res = run_stackless_function(f)
-        assert res.strip() == "1"
+        assert res == 1
 
     def test_yield_frame(self):
 
@@ -52,7 +52,7 @@ class TestFromCode:
             lst.append(6)
             return frametop_before_7
 
-        def f(ignored):
+        def f():
             lst = [1]
             frametop_before_4 = g(lst)
             lst.append(3)
@@ -60,7 +60,7 @@ class TestFromCode:
             lst.append(5)
             frametop_after_return = self.switch(frametop_before_6)
             lst.append(7)
-            assert bool(frametop_after_return)
+            assert not frametop_after_return
             n = 0
             for i in lst:
                 n = n*10 + i
@@ -70,7 +70,7 @@ class TestFromCode:
         assert data == 1234567
 
         res = run_stackless_function(f)
-        assert res.strip() == "1234567"
+        assert res == 1234567
 
 
 class TestFromRStack(TestFromCode):

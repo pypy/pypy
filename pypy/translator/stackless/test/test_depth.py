@@ -27,7 +27,7 @@ class TestFromCode:
             g2(g1)
             return res
 
-        def fn(ignored):
+        def fn():
             count0 = f(0)
             count10 = f(10)
             return count10 - count0
@@ -36,7 +36,7 @@ class TestFromCode:
         assert res == 10
 
         res = run_stackless_function(fn)
-        assert res.strip() == "10"
+        assert res == 10
 
     def test_with_ptr(self):
         def f(n):
@@ -46,7 +46,7 @@ class TestFromCode:
                 res = self.stack_frames_depth(), 1
             return res
 
-        def fn(ignored):
+        def fn():
             count0, _ = f(0)
             count10, _ = f(10)
             return count10 - count0
@@ -55,7 +55,7 @@ class TestFromCode:
         assert res == 10
 
         res = run_stackless_function(fn)
-        assert res.strip() == "10"
+        assert res == 10
 
     def test_manytimes(self):
         def f(n):
@@ -65,7 +65,7 @@ class TestFromCode:
                 res = self.stack_frames_depth(), 1
             return res
 
-        def fn(ignored):
+        def fn():
             count0, _ = f(0)
             count10, _ = f(100)
             return count10 - count0
@@ -74,7 +74,7 @@ class TestFromCode:
         assert res == 100
 
         res = run_stackless_function(fn)
-        assert res.strip() == "100"
+        assert res == 100
 
     def test_arguments(self):
         def f(n, d, t):
@@ -84,7 +84,7 @@ class TestFromCode:
                 res = self.stack_frames_depth(), d, t
             return res
 
-        def fn(ignored):
+        def fn():
             count0, d, t = f(0, 5.5, (1, 2))
             count10, d, t = f(10, 5.5, (1, 2))
             return count10 - count0 + int(d)
@@ -93,7 +93,7 @@ class TestFromCode:
         assert res == 15
 
         res = run_stackless_function(fn)
-        assert res.strip() == "15"
+        assert res == 15
 
 
 class TestFromRStack(TestFromCode):

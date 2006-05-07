@@ -632,6 +632,8 @@ def cast_opaque_ptr(PTRTYPE, ptr):
                         "%s to %s" % (CURTYPE, PTRTYPE))
     if (isinstance(CURTYPE.TO, OpaqueType)
         and not isinstance(PTRTYPE.TO, OpaqueType)):
+        if not ptr:
+            return nullptr(PTRTYPE.TO)
         try:
             container = ptr._obj.container
         except AttributeError:
@@ -644,10 +646,14 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         return _ptr(PTRTYPE, container, solid)
     elif (not isinstance(CURTYPE.TO, OpaqueType)
           and isinstance(PTRTYPE.TO, OpaqueType)):
+        if not ptr:
+            return nullptr(PTRTYPE.TO)
         return opaqueptr(PTRTYPE.TO, 'hidden', container = ptr._obj,
                                                solid     = ptr._solid)
     elif (isinstance(CURTYPE.TO, OpaqueType)
           and isinstance(PTRTYPE.TO, OpaqueType)):
+        if not ptr:
+            return nullptr(PTRTYPE.TO)
         try:
             container = ptr._obj.container
         except AttributeError:

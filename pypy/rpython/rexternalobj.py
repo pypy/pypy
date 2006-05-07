@@ -44,3 +44,7 @@ class ExternalObjRepr(Repr):
             init_opaque_object(p.obj, value)
             self.instance_cache[key] = p
         return p
+
+    def rtype_is_true(self, hop):
+        vlist = hop.inputargs(self)
+        return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)

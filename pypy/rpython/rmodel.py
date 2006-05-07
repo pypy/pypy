@@ -202,7 +202,9 @@ class Repr:
         try:
             vlen = self.rtype_len(hop)
         except MissingRTypeOperation:
-            return hop.inputconst(Bool, True)
+            if not hop.s_result.is_constant():
+                raise TyperError("rtype_is_true(%r) not implemented" % (self,))
+            return hop.inputconst(Bool, hop.s_result.const)
         else:
             return hop.genop('int_is_true', [vlen], resulttype=Bool)
 
