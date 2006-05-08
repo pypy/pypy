@@ -11,6 +11,7 @@ import os
 
 class StacklessTest(object):
     backendopt = False
+    stacklessmode = 'old'
 
     def setup_class(cls):
         import py
@@ -43,8 +44,7 @@ class StacklessTest(object):
         insert_ll_stackcheck(t)
 
         cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=self.gcpolicy)
-        cbuilder.stackless = True
-        #cbuilder.use_stackless_transformation = True
+        cbuilder.stackless = self.stacklessmode
         cbuilder.generate_source()
         cbuilder.compile()
         res = cbuilder.cmdexec('')
@@ -306,9 +306,4 @@ class TestStacklessBoehm(TestStackless):
 # ____________________________________________________________
 
 class TestStacklessTransformBoehm(TestStacklessBoehm):
-
-    def wrap_stackless_function(self, fn):
-        # temporary way of doing this
-        #import py; py.test.skip("in-progress")
-        from pypy.translator.stackless.test import test_transform
-        return test_transform.run_stackless_function(fn)
+    stacklessmode = True

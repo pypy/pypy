@@ -33,12 +33,16 @@ class FunctionCodeGenerator(object):
                        blocknum
                        oldgraph""".split()
 
-    def __init__(self, graph, db, cpython_exc=False, functionname=None):
+    def __init__(self, graph, db, cpython_exc=False, functionname=None,
+                 do_stackless=True):
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
         self.cpython_exc = cpython_exc
         self.functionname = functionname
+        # apply the stackless transformation
+        if db.stacklesstransformer and do_stackless:
+            db.stacklesstransformer.transform_graph(graph)
         # apply the exception transformation
         if self.db.exctransformer:
             self.db.exctransformer.create_exception_handling(self.graph)

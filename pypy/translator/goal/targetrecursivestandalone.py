@@ -22,7 +22,7 @@ def ackermann(x, y):
     return ackermann(x - 1, ackermann(x, y - 1))
 
 def entry_point(argv):
-    debug(str(ackermann(3, 27)) + "\n")
+    debug(str(ackermann(3, 12)) + "\n")
     return 0
 
 # _____ Define and setup target ___

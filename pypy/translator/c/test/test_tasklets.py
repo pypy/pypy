@@ -500,9 +500,4 @@ class TestTasklets(test_stackless.StacklessTest):
 # ____________________________________________________________
 
 class TestTaskletsStacklessTransform(TestTasklets):
-
-    def wrap_stackless_function(self, fn):
-        # temporary way of doing this
-        #import py; py.test.skip("in-progress")
-        from pypy.translator.stackless.test import test_transform
-        return test_transform.run_stackless_function(fn)
+    stacklessmode = True

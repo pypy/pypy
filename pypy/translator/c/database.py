@@ -21,6 +21,7 @@ from pypy import conftest
 # ____________________________________________________________
 
 class LowLevelDatabase(object):
+    stacklesstransformer = None
 
     def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
         self.translator = translator

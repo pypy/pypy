@@ -50,7 +50,8 @@ opts = {
 
     '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'framework', 'none', 'exact_boehm'])],
     '3_stackless': [OPT(('--stackless',), "Stackless code generation", True)],
-    '4_merge_if_blocks': [OPT(('--no-if-blocks-merge',), "Do not merge if ... elif ... chains and use a switch statement for them.", False)],
+    '4_stackless': [OPT(('--old-stackless',), "Stackless code generation (old GenC way)", 'old')],
+    '5_merge_if_blocks': [OPT(('--no-if-blocks-merge',), "Do not merge if ... elif ... chains and use a switch statement for them.", False)],
     },
 
 
@@ -192,6 +193,9 @@ def parse_options_and_load_target():
                     opt_setup['type'] = 'int'
                 elif choice is str:
                     opt_setup['type'] = 'string'
+                else:
+                    opt_setup['action'] = 'store_const'
+                    opt_setup['const'] = choice
 
                 grp.add_option(*names, **opt_setup)
 

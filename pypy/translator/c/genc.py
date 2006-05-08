@@ -20,12 +20,12 @@ class CBuilder(object):
     _compiled = False
     symboltable = None
     stackless = False
-    use_stackless_transformation = False
     modulename = None
     
     def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False):
         self.translator = translator
         self.entrypoint = entrypoint
+        self.originalentrypoint = entrypoint
         self.gcpolicy = gcpolicy
         self.thread_enabled = thread_enabled
 
@@ -39,10 +39,19 @@ class CBuilder(object):
         db = LowLevelDatabase(translator, standalone=self.standalone, 
                               gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
 
+        assert self.stackless in (False, 'old', True)
         if self.stackless:
-            from pypy.translator.c.stackless import StacklessData
-            db.stacklessdata = StacklessData(db)
-            db.use_stackless_transformation = self.use_stackless_transformation
+            if not self.standalone:
+                raise Exception("stackless: only for stand-alone builds")
+            if self.stackless == 'old':
+                from pypy.translator.c.stackless import StacklessData
+                db.stacklessdata = StacklessData(db)
+            else:
+                from pypy.translator.stackless.transform import \
+                                                       StacklessTransformer
+                db.stacklesstransformer = StacklessTransformer(translator,
+                                                       self.originalentrypoint)
+                self.entrypoint = db.stacklesstransformer.slp_entry_point
 
         # pass extra options into pyobjmaker
         if pyobj_options:
@@ -107,12 +116,9 @@ class CBuilder(object):
         else:
             if CBuilder.have___thread:
                 defines['HAVE___THREAD'] = 1
-            if self.stackless:
+            if self.stackless == 'old':
                 defines['USE_STACKLESS'] = '1'
                 defines['USE_OPTIMIZED_STACKLESS_UNWIND'] = '1'
-                if self.use_stackless_transformation: #set in test_stackless.py
-                    from pypy.translator.backendopt.stackless import stackless
-                    stackless(translator, db.stacklessdata)
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
                                                  defines = defines)
@@ -573,7 +579,7 @@ def gen_source_standalone(database, modulename, targetdir,
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
 
-    # 2bis) stackless data
+    # 2bis) old-style stackless data
     if hasattr(database, 'stacklessdata'):
         database.stacklessdata.writefiles(sg)
 

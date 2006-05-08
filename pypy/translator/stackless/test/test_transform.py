@@ -165,17 +165,6 @@ def rtype_stackless_function(fn):
     t = TranslationContext()
     annotator = t.buildannotator()
     annotator.policy.allow_someobjects = False
-    bk = annotator.bookkeeper
-    # we want to make sure that the annotator knows what
-    # code.UnwindException looks like very early on, because otherwise
-    # it can get mutated during the annotation of the low level
-    # helpers which can cause slp_main_loop to get re-annotated after
-    # it is rtyped.  which is bad.
-    unwind_def = bk.getuniqueclassdef(code.UnwindException)
-    unwind_def.generalize_attr('frame_bottom',
-                               annmodel.SomePtr(lltype.Ptr(code.STATE_HEADER)))
-    attrdef = unwind_def.attrs['frame_bottom']
-    attrdef.readonly = False
 
     s_returnvar = annotator.build_types(fn, [s_list_of_strings])
     if not isinstance(s_returnvar, annmodel.SomeInteger):
@@ -191,20 +180,14 @@ def rtype_stackless_function(fn):
     
 def run_stackless_function(fn):
     def entry_point(argv):
-        try:
-            r = fn()
-        except code.UnwindException, u:
-            code.slp_main_loop()
-            r = code.global_state.retval_long
+        r = fn()
         os.write(1, str(r)+'\n')
         return 0
-    entry_point.stackless_explicit = True
 
     t = rtype_stackless_function(entry_point)
 
-    t.stacklesstransformer = StacklessTransformer(t)
-
     cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gc.BoehmGcPolicy)
+    cbuilder.stackless = True
     cbuilder.generate_source()
     if conftest.option.view:
         t.view()
@@ -213,24 +196,18 @@ def run_stackless_function(fn):
     return int(res.strip())
 
 def llinterp_stackless_function(fn):
-    def entry_point(argv):
-        try:
-            r = fn()
-        except code.UnwindException, u:
-            code.slp_main_loop()
-            return code.global_state.retval_long
-        return r
-    entry_point.stackless_explicit = True
-
-    t = rtype_stackless_function(entry_point)
-    st = StacklessTransformer(t)
+    def wrapper(argv):
+        return fn()
+    t = rtype_stackless_function(wrapper)
+    st = StacklessTransformer(t, wrapper)
     st.transform_all()
     if conftest.option.view:
         t.view()
 
+    graph = graphof(t, st.slp_entry_point)
     r_list_of_strings = t.rtyper.getrepr(
-        t.annotator.binding(graphof(t, entry_point).startblock.inputargs[0]))
+        t.annotator.binding(graph.startblock.inputargs[0]))
     ll_list = r_list_of_strings.convert_const([''])
     interp = llinterp.LLInterpreter(t.rtyper)
-    res = interp.eval_graph(graphof(t, entry_point), [ll_list])
+    res = interp.eval_graph(graph, [ll_list])
     return res

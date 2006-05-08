@@ -31,7 +31,7 @@ def storage_type(T):
     elif T in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
         return lltype.SignedLongLong
     elif T is llmemory.Address:
-        return lltype.Address
+        return llmemory.Address
     elif isinstance(T, lltype.Primitive):
         return lltype.Signed
     else:
@@ -80,7 +80,7 @@ class ResumePoint:
         self.fieldnames = fieldnames
 
 class StacklessTransformer(object):
-    def __init__(self, translator):
+    def __init__(self, translator, entrypoint):
         self.translator = translator
 
         edata = translator.rtyper.getexceptiondata()
@@ -94,6 +94,21 @@ class StacklessTransformer(object):
                 
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
+
+        def slp_entry_point(argv):
+            try:
+                r = entrypoint(argv)
+            except code.UnwindException, u:
+                code.slp_main_loop()
+                return code.global_state.retval_long
+            return r
+        slp_entry_point.stackless_explicit = True
+
+        self.slp_entry_point = slp_entry_point
+        oldgraph = bk.getdesc(entrypoint).cachedgraph(None)
+        s_argv = translator.annotator.binding(oldgraph.getargs()[0])
+        self.slp_entry_point_ptr = mixlevelannotator.constfunc(
+            slp_entry_point, [s_argv], annmodel.SomeInteger())
 
         unwinddef = bk.getuniqueclassdef(code.UnwindException)
         self.add_frame_state_ptr = mixlevelannotator.constfunc(
