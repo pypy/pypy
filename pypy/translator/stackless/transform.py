@@ -282,7 +282,7 @@ class StacklessTransformer(object):
                         return varmap[arg]
                     else:
                         assert arg in [l.last_exception, l.last_exc_value]
-                        r = unsimplify.copyvar(self.translator, arg)
+                        r = unsimplify.copyvar(None, arg)
                         varmap[arg] = r
                         return r
                 else:
@@ -302,7 +302,7 @@ class StacklessTransformer(object):
                                   resume_point.var_result.concretetype,
                                   retval)
                 convertblock = unsimplify.insert_empty_block(
-                    self.translator, newblock.exits[0], llops)
+                    None, newblock.exits[0], llops)
                 # begin ouch!
                 for index, linkvar in enumerate(convertblock.exits[0].args):
                     # does this var come from retval ?
@@ -425,9 +425,9 @@ class StacklessTransformer(object):
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
-        inputargs = [unsimplify.copyvar(self.translator, v) for v in varstosave]
+        inputargs = [unsimplify.copyvar(None, v) for v in varstosave]
         var_unwind_exception = unsimplify.copyvar(
-            self.translator, var_unwind_exception) 
+            None, var_unwind_exception) 
 
         frame_type, fieldnames = self.frame_type_for_vars(varstosave)
 
