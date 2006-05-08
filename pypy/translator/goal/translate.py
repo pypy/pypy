@@ -49,8 +49,8 @@ opts = {
     '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm', 'cl', 'squeak', 'js'])],
 
     '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'framework', 'none', 'exact_boehm'])],
-    '3_stackless': [OPT(('--stackless',), "Stackless code generation", True)],
-    '4_stackless': [OPT(('--old-stackless',), "Stackless code generation (old GenC way)", 'old')],
+    '3_stackless': [OPT(('--new-stackless',), "Stackless code generation (graph transformer)", True)],
+    '4_stackless': [OPT(('--stackless',), "Stackless code generation (old GenC way)", 'old')],
     '5_merge_if_blocks': [OPT(('--no-if-blocks-merge',), "Do not merge if ... elif ... chains and use a switch statement for them.", False)],
     },
 
