@@ -3,7 +3,8 @@ from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
 from pypy.rpython.rslice import AbstractSliceRepr
-from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool, nullptr
+from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
+from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
 
 def dum_checkidx(): pass
@@ -350,7 +351,12 @@ def ll_alloc_and_set(LIST, count, item):
     if count < 0:
         count = 0
     l = LIST.ll_newlist(count)
-    if item: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
+    T = typeOf(item)
+    if T is Char or T is UniChar:
+        check = ord(item)
+    else:
+        check = item
+    if check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
         i = 0
         while i < count:
             l.ll_setitem_fast(i, item)
