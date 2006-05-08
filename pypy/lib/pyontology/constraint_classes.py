@@ -101,7 +101,7 @@ class SubClassConstraint(AbstractConstraint):
         vals += superdom.getValues()
         vals += subdom.getValues() +[self.variable]
         superdom.setValues(vals)
-	        
+            
         return 0
 
 class DisjointClassConstraint(SubClassConstraint):
@@ -244,23 +244,26 @@ class TransitiveConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def narrow(self, domains):
-        pass
         """narrowing algorithm for the constraint"""
-#        domain = domains[self.variable].getValues()
-#        for cls, val in domain:
-#            for v in val:
-#                domains[self.variable].addValue(cls,v)
+        domain = domains[self.variable].getValues()
+        for cls, val in domain:
+            for v in val:
+                if v in domains[self.variable]._dict.keys():
+                    [domains[self.variable].addValue(cls,x)
+                        for x in domains[self.variable]._dict[v]]
 
 class SymmetricConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-        domain = domains[self.variable].getValues()
+        prop = domains[self.variable]
+        domain = prop.getValues()
         for cls, val in domain:
-            if not (val, cls) in domain:
-                domain.append((val,cls))
-        domains[self.variable].setValues(domain)
+            for v in val:
+                if not v in prop._dict.keys() or not cls in prop._dict[v]:
+                    prop.addValue(v,cls)
+
 
 class InverseofConstraint(SubClassConstraint):
     """Contraint: all values must be distinct"""
@@ -272,12 +275,14 @@ class InverseofConstraint(SubClassConstraint):
         sub_domain = domains[self.variable].getValues()
         res = []
         for cls, val in obj_domain:
-            if not (val,cls) in sub_domain:
-                raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
+            for v in val:
+                if not (v,cls) in sub_domain:
+                    raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
                                          (val, cls, sub_domain) )
         for cls, val in sub_domain:
-            if not (val,cls) in obj_domain:
-                raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
+            for v in val:
+                if not (val,cls) in obj_domain:
+                    raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
                                          (val, cls, obj_domain)) 
 
 class DifferentfromConstraint(SubClassConstraint):

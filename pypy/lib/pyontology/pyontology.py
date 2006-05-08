@@ -133,6 +133,14 @@ class Property(ClassDomain):
             else:
                 self._dict[k] = [ x for x in vals if x != v]
 
+    def __contains__(self, (cls, val)):
+        if not cls in self._dict.keys():
+            return False
+        vals = self._dict[cls]
+        if val in vals:
+            return True
+        return False
+
 class ObjectProperty(Property):
     
     pass
@@ -546,29 +554,35 @@ class Ontology:
         self.constraints.append(constrain)
     
     def hasValue(self, s, var):
+        self.resolve_item(s)
         self.resolve_item(var)
         svar = self.make_var(Restriction, s)
         avar = self.make_var(None, var)
+        prop = self.variables[svar].property
         restr = self.variables[svar]
-        restr.TBox['hasValue'] = [('hasvalue', var)]
+        restr.TBox[prop] = {'hasValue' : [('hasvalue', var)]}
 #        constrain = HasvalueConstraint(svar, avar)
 #        self.constraints.append(constrain)
     
     def allValuesFrom(self, s, var):
+        self.resolve_item(s)
         self.resolve_item(var)
         svar = self.make_var(Restriction, s)
         avar = self.make_var(None, var)
+        prop = self.variables[svar].property
         restr = self.variables[svar]
-        restr.TBox['allValues'] = [('allvalue', var)]
+        restr.TBox[prop] = {'allValues' : [('allValues', var)]}
 #        constrain = AllValueConstraint(svar, avar)
 #        self.constraints.append(constrain)
     
     def someValuesFrom(self, s, var):
+        self.resolve_item(s)
         self.resolve_item(var)
         svar = self.make_var(Restriction, s)
         avar = self.make_var(None, var)
+        prop = self.variables[svar].property
         restr = self.variables[svar]
-        restr.TBox['someValues'] = [('somevalues', var)]
+        restr.TBox[prop] = {'someValues' : [('someValues', var)]}
 #        constrain = SomeValueConstraint(svar, avar)
 #        self.constraints.append(constrain)
 

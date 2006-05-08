@@ -255,7 +255,7 @@ def test_inversefunctionalproperty():
     py.test.raises(ConsistencyFailure, O.consistency)
     
 def test_Transitiveproperty():
-    py.test.skip("in transit")
+    #py.test.skip("in transit")
     O = Ontology()
     #Make functional property
     sub = URIRef('subRegionOf')
@@ -275,10 +275,10 @@ def test_Transitiveproperty():
     O.type(sub, obj)
     O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
     O.consistency()
-    assert ('Italy_', ['Chianti_']) in O.variables['subRegionOf_'].getValues()
+    assert 'Chianti_' in O.variables['subRegionOf_']._dict['Italy_']
     
 def test_symmetricproperty():
-    py.test.skip("in transit")
+    #py.test.skip("in transit")
     
     O = Ontology()
     #Make functional property
@@ -298,7 +298,7 @@ def test_symmetricproperty():
     O.type(sub, obj)
     O.variables['friend_'].setValues([('Bob_','Alice_')])
     O.consistency()
-    assert ('Alice_', 'Bob_') in O.variables['friend_'].getValues()
+    assert ('Alice_', ['Bob_']) in O.variables['friend_'].getValues()
 
 def test_inverseof():
     py.test.skip("in transit")
@@ -505,7 +505,6 @@ def test_sameasconsistency():
 
 
 def test_cardinality_terminology():
-    #py.test.skip("In progress")
     # Modeled after one of the standard tests (approved/maxCardinality)
     # 'cls' by subclassing two maxCardinality restrictions becomes the set of
     # individuals satisfying both restriction, ie having exactly 2 values of
