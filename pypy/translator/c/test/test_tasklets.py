@@ -8,16 +8,8 @@ from pypy.rpython.rstack import yield_current_frame_to_caller
 # For testing
 
 from pypy.translator.tool import cbuild
-from pypy.translator.c.gc import BoehmGcPolicy
-
-gcpolicy = None
-if cbuild.check_boehm_presence():
-    gcpolicy = BoehmGcPolicy
-else:
-    # to re-enable this, remove the two characters 'gc' in the
-    # declaregcptrtype(rstack.frame_stack_top,...) call in
-    # rpython/extfunctable.  Doing so breaks translator/stackless/.
-    py.test.skip("stackless + refcounting doesn't work any more for now")
+from pypy.translator.c import gc
+from pypy.translator.c.test import test_stackless
 
 # count of loops in tests (set lower to speed up)
 loops = 1
@@ -31,34 +23,6 @@ class Globals:
 
 globals = Globals()
 globals.count = 0
-
-def wrap_stackless_function(fn):
-    # ensure we have no SomeObject s
-    from pypy.annotation.policy import AnnotatorPolicy
-    annotatorpolicy = AnnotatorPolicy()
-    annotatorpolicy.allow_someobjects = False
-
-    from pypy.translator.translator import TranslationContext
-    from pypy.translator.c.genc import CStandaloneBuilder
-    from pypy.annotation.model import SomeList, SomeString
-    from pypy.annotation.listdef import ListDef
-    from pypy.translator.backendopt.all import backend_optimizations
-
-    def entry_point(argv):
-        os.write(1, str(fn()))
-        return 0
-
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    s_list_of_strings.listdef.resize()
-    t = TranslationContext()
-    t.buildannotator(annotatorpolicy).build_types(entry_point, [s_list_of_strings])
-    t.buildrtyper().specialize()
-    backend_optimizations(t)
-    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gcpolicy)
-    cbuilder.stackless = True
-    cbuilder.generate_source()
-    cbuilder.compile()
-    return cbuilder.cmdexec('')
 
 # ____________________________________________________________
 
@@ -230,301 +194,315 @@ def getcurrent():
 
 # ____________________________________________________________
 
-def test_simplex():
+class TestTasklets(test_stackless.StacklessTest):
+    gcpolicy = gc.BoehmGcPolicy
+    backendopt = True
 
-    class Tasklet1(Tasklet):
-        def fn(self):
-            for ii in range(5):
-                globals.count += 1
-                schedule()
+    def test_simplex(self):
 
-    def f():
-        for ii in range(loops):
-            Tasklet1().start()
-        run()
-        return globals.count == loops * 5
-
-    res = wrap_stackless_function(f)
-    print res
-    assert res == '1'
-
-def test_multiple_simple():
-    
-    class Tasklet1(Tasklet):
-        def fn(self):
-            for ii in range(5):
-                globals.count += 1
-                schedule()
-
-    class Tasklet2(Tasklet):
-        def fn(self):
-            for ii in range(5):
-                globals.count += 1
-                schedule()
-                globals.count += 1
-
-    class Tasklet3(Tasklet):
-        def fn(self):
-            schedule()
-            for ii in range(10):
-                globals.count += 1
-                if ii % 2:
+        class Tasklet1(Tasklet):
+            def fn(self):
+                for ii in range(5):
+                    globals.count += 1
                     schedule()
-            schedule()
 
-    def f():
-        for ii in range(loops):
-            Tasklet1().start()
+        def f():
+            for ii in range(loops):
+                Tasklet1().start()
+            run()
+            return globals.count == loops * 5
+
+        res = self.wrap_stackless_function(f)
+        print res
+        assert res == 1
+
+    def test_multiple_simple(self):
+
+        class Tasklet1(Tasklet):
+            def fn(self):
+                for ii in range(5):
+                    globals.count += 1
+                    schedule()
+
+        class Tasklet2(Tasklet):
+            def fn(self):
+                for ii in range(5):
+                    globals.count += 1
+                    schedule()
+                    globals.count += 1
+
+        class Tasklet3(Tasklet):
+            def fn(self):
+                schedule()
+                for ii in range(10):
+                    globals.count += 1
+                    if ii % 2:
+                        schedule()
+                schedule()
+
+        def f():
+            for ii in range(loops):
+                Tasklet1().start()
+                Tasklet2().start()
+                Tasklet3().start()
+            run()
+            return globals.count == loops * 25
+
+        res = self.wrap_stackless_function(f)
+        assert res == 1
+
+    def test_schedule_remove(self):
+
+        class Tasklet1(Tasklet):
+            def fn(self):
+                for ii in range(20):
+                    if ii < 10:
+                        schedule()
+                    else:
+                        schedule_remove()
+                    globals.count += 1
+
+        def f():
+            for ii in range(loops):
+                Tasklet1().start()
+            run()
+            for ii in range(loops):
+                Tasklet1().start()
+            run()
+            return globals.count == loops * 10 * 2
+
+        res = self.wrap_stackless_function(f)
+        assert res == 1
+
+    def test_run_immediately(self):
+        globals.intermediate = 0
+        class Tasklet1(Tasklet):
+            def fn(self):
+                for ii in range(20):
+                    globals.count += 1
+                    schedule()
+
+        class RunImmediate(Tasklet):
+            def fn(self):
+                globals.intermediate = globals.count
+                schedule()
+
+        class Tasklet2(Tasklet):
+            def fn(self):
+                for ii in range(20):
+                    globals.count += 1
+                    if ii == 10:
+                        RunImmediate().run()
+                    schedule()
+
+        def f():
             Tasklet2().start()
-            Tasklet3().start()
-        run()
-        return globals.count == loops * 25
-    
-    res = wrap_stackless_function(f)
-    assert res == '1'
+            for ii in range(loops):
+                Tasklet1().start()
+            run()
+            total_expected = (loops + 1) * 20
+            return (globals.intermediate == total_expected / 2 + 1 and
+                    globals.count == total_expected)
 
-def test_schedule_remove():
+        res = self.wrap_stackless_function(f)
+        assert res == 1
 
-    class Tasklet1(Tasklet):
-        def fn(self):
-            for ii in range(20):
-                if ii < 10:
-                    schedule()
-                else:
-                    schedule_remove()
-                globals.count += 1
+    def test_channel1(self):
+        ch = Channel()
 
-    def f():
-        for ii in range(loops):
+        class Tasklet1(Tasklet):
+            def fn(self):
+                for ii in range(5):
+                    ch.send(ii)
+
+        class Tasklet2(Tasklet):
+            def fn(self):
+                #while True: XXX Doesnt annotate
+                for ii in range(6):
+                    globals.count += ch.receive()
+
+        def f():
+            Tasklet2().start()
             Tasklet1().start()
-        run()
-        for ii in range(loops):
-            Tasklet1().start()
-        run()
-        return globals.count == loops * 10 * 2
+            run()
+            return (globals.count == 10)
 
-    res = wrap_stackless_function(f)
-    assert res == '1'
+        res = self.wrap_stackless_function(f)
+        assert res == 1
 
-def test_run_immediately():
-    globals.intermediate = 0
-    class Tasklet1(Tasklet):
-        def fn(self):
-            for ii in range(20):
+    def test_channel2(self):
+
+        class Tasklet1(Tasklet):
+            def __init__(self, ch):
+                self.ch = ch
+            def fn(self):
+                for ii in range(5):
+                    self.ch.send(ii)
+
+        class Tasklet2(Tasklet):
+            def __init__(self, ch):
+                self.ch = ch            
+            def fn(self):
+                #while True:XXX Doesnt annotate
+                for ii in range(6):
+                    res = self.ch.receive()
+                    globals.count += res
+
+        def f():
+            ch = Channel()
+            Tasklet1(ch).start()
+            Tasklet2(ch).start()
+            run()
+            return globals.count == 10
+
+        res = self.wrap_stackless_function(f)
+        assert res == 1
+
+    def test_channel3(self):
+
+        class Tasklet1(Tasklet):
+            def __init__(self, ch):
+                self.ch = ch
+            def fn(self):
+                for ii in range(5):
+                    self.ch.send(ii)
+
+        class Tasklet2(Tasklet):
+            def __init__(self, ch):
+                self.ch = ch
+            def fn(self):
+                #while True: XXX Doesnt annotate
+                for ii in range(16):
+                    res = self.ch.receive()
+                    globals.count += res
+
+        def f():
+            ch = Channel()
+            Tasklet1(ch).start()
+            Tasklet1(ch).start()
+            Tasklet1(ch).start()
+            Tasklet2(ch).start()
+            run()
+            return globals.count == 30
+
+        res = self.wrap_stackless_function(f)
+        assert res == 1
+
+    def test_flexible_channels(self):
+        """ test with something other than int """
+
+        class A(object):
+            def __init__(self, num):
+                self.num = num
+            def getvalue(self):
+                res = self.num
+                self.num *= 2
+                return res
+
+        class Data(object):
+            pass
+
+        class IntData(Data):
+            def __init__(self, i):
+                self.int = i
+
+        class StringData(Data):
+            def __init__(self, s):
+                self.str = s
+
+        class InstanceData(Data):
+            def __init__(self, i):
+                self.instance = i
+
+
+        class Tasklet1(Tasklet):
+            def __init__(self, ch):
+                self.ch = ch
+            def fn(self):
+                for ii in range(5):
+                    self.ch.send(IntData(ii))
+
+        class Tasklet2(Tasklet):
+            def __init__(self, ch, strdata):
+                self.ch = ch
+                self.strdata = strdata
+            def fn(self):
+                for ii in range(5):
+                    self.ch.send(StringData(self.strdata))
+
+        class Tasklet3(Tasklet):
+            def __init__(self, ch, instance):
+                self.ch = ch
+                self.instance = instance
+            def fn(self):
+                for ii in range(5):
+                    self.ch.send(InstanceData(self.instance))
+
+        class Server(Tasklet):
+            def __init__(self, ch):
+                self.ch = ch
+                self.loop = True
+
+            def stop(self):
+                self.loop = False
+
+            def fn(self):
+                while self.loop:
+                    data = self.ch.receive()
+                    if isinstance(data, IntData):
+                        globals.count += data.int
+                    elif isinstance(data, StringData):
+                        globals.count += len(data.str)
+                    elif isinstance(data, InstanceData):
+                        globals.count += data.instance.getvalue()
+
+        ch = Channel()
+        server = Server(ch)
+
+        def f():
+            Tasklet1(ch).start()
+            Tasklet2(ch, "abcd").start()
+            Tasklet2(ch, "xxx").start()
+            Tasklet3(ch, A(1)).start()
+            server.start()
+            run()
+            return globals.count == (0+1+2+3+4) + (5*4) + (5*3) + (1+2+4+8+16)
+
+        res = self.wrap_stackless_function(f)
+        assert res == 1
+
+    def test_original_api(self):
+
+        class TaskletAsFunction(Tasklet):
+            def __init__(self, fn):
+                self.redirect_fn = fn
+            def fn(self):
+                self.redirect_fn()
+
+        def tasklet(fn):
+            return TaskletAsFunction(fn)
+
+        def simple():
+            for ii in range(5):
                 globals.count += 1
                 schedule()
 
-    class RunImmediate(Tasklet):
-        def fn(self):
-            globals.intermediate = globals.count
-            schedule()
-    
-    class Tasklet2(Tasklet):
-        def fn(self):
-            for ii in range(20):
-                globals.count += 1
-                if ii == 10:
-                    RunImmediate().run()
-                schedule()
+        def f():
+            for ii in range(loops):
+                tasklet(simple).start()
+            run()
+            run()
+            return globals.count == loops * 5
 
-    def f():
-        Tasklet2().start()
-        for ii in range(loops):
-            Tasklet1().start()
-        run()
-        total_expected = (loops + 1) * 20
-        return (globals.intermediate == total_expected / 2 + 1 and
-                globals.count == total_expected)
+        res = self.wrap_stackless_function(f)
+        assert res == 1
 
-    res = wrap_stackless_function(f)
-    assert res == '1'
+# ____________________________________________________________
 
-def test_channel1():
-    ch = Channel()
-        
-    class Tasklet1(Tasklet):
-        def fn(self):
-            for ii in range(5):
-                ch.send(ii)
-            
-    class Tasklet2(Tasklet):
-        def fn(self):
-            #while True: XXX Doesnt annotate
-            for ii in range(6):
-                globals.count += ch.receive()
+class TestTaskletsStacklessTransform(TestTasklets):
 
-    def f():
-        Tasklet2().start()
-        Tasklet1().start()
-        run()
-        return (globals.count == 10)
-
-    res = wrap_stackless_function(f)
-    assert res == '1'
-
-def test_channel2():
-        
-    class Tasklet1(Tasklet):
-        def __init__(self, ch):
-            self.ch = ch
-        def fn(self):
-            for ii in range(5):
-                self.ch.send(ii)
-            
-    class Tasklet2(Tasklet):
-        def __init__(self, ch):
-            self.ch = ch            
-        def fn(self):
-            #while True:XXX Doesnt annotate
-            for ii in range(6):
-                res = self.ch.receive()
-                globals.count += res
-            
-    def f():
-        ch = Channel()
-        Tasklet1(ch).start()
-        Tasklet2(ch).start()
-        run()
-        return globals.count == 10
-
-    res = wrap_stackless_function(f)
-    assert res == '1'
-
-def test_channel3():
-        
-    class Tasklet1(Tasklet):
-        def __init__(self, ch):
-            self.ch = ch
-        def fn(self):
-            for ii in range(5):
-                self.ch.send(ii)
-            
-    class Tasklet2(Tasklet):
-        def __init__(self, ch):
-            self.ch = ch
-        def fn(self):
-            #while True: XXX Doesnt annotate
-            for ii in range(16):
-                res = self.ch.receive()
-                globals.count += res
-            
-    def f():
-        ch = Channel()
-        Tasklet1(ch).start()
-        Tasklet1(ch).start()
-        Tasklet1(ch).start()
-        Tasklet2(ch).start()
-        run()
-        return globals.count == 30
-
-    res = wrap_stackless_function(f)
-    assert res == '1'
-
-def test_flexible_channels():
-    """ test with something other than int """
-
-    class A(object):
-        def __init__(self, num):
-            self.num = num
-        def getvalue(self):
-            res = self.num
-            self.num *= 2
-            return res
-        
-    class Data(object):
-        pass
-    
-    class IntData(Data):
-        def __init__(self, i):
-            self.int = i
-
-    class StringData(Data):
-        def __init__(self, s):
-            self.str = s
-
-    class InstanceData(Data):
-        def __init__(self, i):
-            self.instance = i
-
-
-    class Tasklet1(Tasklet):
-        def __init__(self, ch):
-            self.ch = ch
-        def fn(self):
-            for ii in range(5):
-                self.ch.send(IntData(ii))
-
-    class Tasklet2(Tasklet):
-        def __init__(self, ch, strdata):
-            self.ch = ch
-            self.strdata = strdata
-        def fn(self):
-            for ii in range(5):
-                self.ch.send(StringData(self.strdata))
-
-    class Tasklet3(Tasklet):
-        def __init__(self, ch, instance):
-            self.ch = ch
-            self.instance = instance
-        def fn(self):
-            for ii in range(5):
-                self.ch.send(InstanceData(self.instance))
-            
-    class Server(Tasklet):
-        def __init__(self, ch):
-            self.ch = ch
-            self.loop = True
-            
-        def stop(self):
-            self.loop = False
-
-        def fn(self):
-            while self.loop:
-                data = self.ch.receive()
-                if isinstance(data, IntData):
-                    globals.count += data.int
-                elif isinstance(data, StringData):
-                    globals.count += len(data.str)
-                elif isinstance(data, InstanceData):
-                    globals.count += data.instance.getvalue()
-            
-    ch = Channel()
-    server = Server(ch)
-
-    def f():
-        Tasklet1(ch).start()
-        Tasklet2(ch, "abcd").start()
-        Tasklet2(ch, "xxx").start()
-        Tasklet3(ch, A(1)).start()
-        server.start()
-        run()
-        return globals.count == (0+1+2+3+4) + (5*4) + (5*3) + (1+2+4+8+16)
-
-    res = wrap_stackless_function(f)
-    assert res == '1'
-
-def test_original_api():
-
-    class TaskletAsFunction(Tasklet):
-        def __init__(self, fn):
-            self.redirect_fn = fn
-        def fn(self):
-            self.redirect_fn()
-
-    def tasklet(fn):
-        return TaskletAsFunction(fn)
-        
-    def simple():
-        for ii in range(5):
-            globals.count += 1
-            schedule()
-        
-    def f():
-        for ii in range(loops):
-            tasklet(simple).start()
-        run()
-        run()
-        return globals.count == loops * 5
-
-    res = wrap_stackless_function(f)
-    assert res == '1'
+    def wrap_stackless_function(self, fn):
+        # temporary way of doing this
+        #import py; py.test.skip("in-progress")
+        from pypy.translator.stackless.test import test_transform
+        return test_transform.run_stackless_function(fn)

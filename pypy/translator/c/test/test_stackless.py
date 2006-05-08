@@ -1,4 +1,5 @@
 from pypy.translator.translator import TranslationContext
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
 from pypy.annotation.model import SomeList, SomeString
@@ -8,18 +9,22 @@ from pypy.rpython.rstack import yield_current_frame_to_caller
 import os
 
 
-# ____________________________________________________________
-
-
-class TestStackless(object):
-    gcpolicy = None # Refcounting
+class StacklessTest(object):
+    backendopt = False
 
     def setup_class(cls):
-        # to re-enable this, remove the two characters 'gc' in the
-        # declaregcptrtype(rstack.frame_stack_top,...) call in
-        # rpython/extfunctable.  Doing so breaks translator/stackless/.
         import py
-        py.test.skip("stackless + refcounting doesn't work any more for now")
+        if cls.gcpolicy is None:
+            # to re-enable this, remove the two characters 'gc' in the
+            # declaregcptrtype(rstack.frame_stack_top,...) call in
+            # rpython/extfunctable.  Doing so breaks translator/stackless/.
+            import py
+            py.test.skip("stackless + refcounting doesn't work any more for now")
+        else:
+            assert cls.gcpolicy is gc.BoehmGcPolicy
+            from pypy.translator.tool.cbuild import check_boehm_presence
+            if not check_boehm_presence():
+                py.test.skip("Boehm GC not present")
 
     def wrap_stackless_function(self, fn):
         def entry_point(argv):
@@ -31,6 +36,8 @@ class TestStackless(object):
         t = TranslationContext()
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
+        if self.backendopt:
+            backend_optimizations(t)
 
         from pypy.translator.transform import insert_ll_stackcheck
         insert_ll_stackcheck(t)
@@ -43,6 +50,11 @@ class TestStackless(object):
         res = cbuilder.cmdexec('')
         return int(res.strip())
 
+# ____________________________________________________________
+
+
+class TestStackless(StacklessTest):
+    gcpolicy = None # Refcounting
 
     def test_stack_depth(self):
         def g1():
@@ -290,11 +302,6 @@ def malloc_a_lot():
 class TestStacklessBoehm(TestStackless):
     gcpolicy = gc.BoehmGcPolicy
 
-    def setup_class(cls):
-        import py
-        from pypy.translator.tool.cbuild import check_boehm_presence
-        if not check_boehm_presence():
-            py.test.skip("Boehm GC not present")
 
 # ____________________________________________________________
 
