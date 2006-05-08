@@ -123,7 +123,7 @@ def yield_current_frame_to_caller():
                                                          our_caller_state)
         raise UnwindException()  # this goes to the caller's caller
 
-    else:
+    elif global_state.restart_substate == 2:
         # STATE 2: this is a slight abuse of yield_current_frame_to_caller(),
         # as we return here when our immediate caller returns (and thus the
         # new tasklet finishes).
@@ -135,6 +135,13 @@ def yield_current_frame_to_caller():
         global_state.retval_ref = null_saved_ref
         raise UnwindException()  # this goes to the switch target given by
                                  # the 'return' at the end of our caller
+
+    else:
+        # STATE 3: this is never reached!  But the annotator doesn't know it,
+        # so it makes the whole function be annotated as returning a random
+        # non-constant STATE_HEADER pointer.
+        return lltype.cast_opaque_ptr(OPAQUE_STATE_HEADER_PTR,
+                                      global_state.top)
 
 yield_current_frame_to_caller.stackless_explicit = True
 

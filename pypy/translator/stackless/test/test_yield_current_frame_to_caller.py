@@ -17,9 +17,11 @@ class TestFromCode:
     def test_simple(self):
         def f():
             c = g()
+            assert c
             return 1
         def g():
-            self.yield_current_frame_to_caller()
+            d = self.yield_current_frame_to_caller()
+            return d
 
         data = llinterp_stackless_function(f)
         assert data == 1
