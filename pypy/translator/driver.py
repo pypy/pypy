@@ -404,6 +404,26 @@ class TranslationDriver(SimpleTaskEngine):
     task_run_squeak = taskdef(task_run_squeak, ['compile_squeak'],
                               'XXX')
 
+    def task_source_js(self):
+        from pypy.translator.js.js import JS
+        self.gen = JS(self.translator, functions=[self.entry_point],
+                      stackless=self.options.stackless)
+        filename = self.gen.write_source()
+        self.log.info("Wrote %s" % (filename,))
+    task_source_js = taskdef(task_source_js, 
+                        ['stackcheckinsertion', 'backendopt', 'rtype'],
+                        'Generating Javascript source')
+
+    def task_compile_js(self):
+        pass
+    task_compile_js = taskdef(task_compile_js, ['source_js'],
+                              'Skipping Javascript compilation')
+
+    def task_run_js(self):
+        pass
+    task_run_js = taskdef(task_run_js, ['compile_js'],
+                              'Please manually run the generated code')
+
     def proceed(self, goals):
         if not goals:
             if self.default_goal:
