@@ -19,7 +19,7 @@ def rdf_list(ont, name, data):
     own =owllist
     for i,dat in enumerate(data[:-1]):
         next = BNode( name + str(i))
-        print next,i,dat,own
+        next,i,dat,own
         ont.first(own, dat)
         ont.type(next, obj)
         ont.rest(own,  next)
@@ -500,7 +500,6 @@ def test_sameasconsistency():
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(sub, obj)
     O.variables[O.make_var(None,sub)].setValues([(cls,'1'), (own1,'2')])
-    for dom in O.variables.values() :print type(dom)
     py.test.raises(ConsistencyFailure, O.consistency, 3)
 
 
@@ -584,8 +583,5 @@ def test_more_cardinality():
 def test_allvalues_file():
     O = Ontology()
     O.add_file('approved/allValuesfrom/premises002.rdf')
-    print list(O.graph.triples((None,)*3))
-    #O = Ontology()
     O.add_file('approved/allValuesfrom/nonconclusions002.rdf')
-    print list(O.graph.triples((None,)*3))
     assert 1
