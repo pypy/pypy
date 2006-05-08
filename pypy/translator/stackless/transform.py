@@ -6,7 +6,9 @@ from pypy.rpython.memory.gctransform import varoftype
 from pypy.translator import unsimplify
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
-from pypy.translator.stackless import code 
+from pypy.translator.stackless import code
+from pypy.translator.stackless.code import SAVED_REFERENCE, STORAGE_TYPES
+from pypy.translator.stackless.code import STORAGE_FIELDS
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
@@ -14,28 +16,24 @@ from pypy.rpython.module import ll_stackless, ll_stack
 
 from pypy.translator.stackless.code import STATE_HEADER, null_state
 
-STORAGE_TYPES = [llmemory.Address,
-                 lltype.Signed,
-                 lltype.Float,
-                 lltype.SignedLongLong]
-STORAGE_FIELDS = ['addr',
-                  'long',
-                  'float',
-                  'longlong']
-
 def storage_type(T):
-    """Return the index into STORAGE_TYPES 
+    """Return the 'erased' storage type corresponding to T.
     """
     if T is lltype.Void:
-        return None
+        return lltype.Void
+    elif isinstance(T, lltype.Ptr):
+        if T._needsgc():
+            return SAVED_REFERENCE
+        else:
+            return llmemory.Address
     elif T is lltype.Float:
-        return 2
+        return lltype.Float
     elif T in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
-        return 3
-    elif T is llmemory.Address or isinstance(T, lltype.Ptr):
-        return 0
+        return lltype.SignedLongLong
+    elif T is llmemory.Address:
+        return lltype.Address
     elif isinstance(T, lltype.Primitive):
-        return 1
+        return lltype.Signed
     else:
         raise Exception("don't know about %r" % (T,))
 
@@ -107,16 +105,20 @@ class StacklessTransformer(object):
         self.resume_state_ptr = mixlevelannotator.constfunc(
             code.resume_state, [], annmodel.SomeInteger())
 
-        self.fetch_retval_void_ptr = mixlevelannotator.constfunc(
-            code.fetch_retval_void, [], annmodel.s_None)
-        self.fetch_retval_long_ptr = mixlevelannotator.constfunc(
-            code.fetch_retval_long, [], annmodel.SomeInteger())
-        self.fetch_retval_longlong_ptr = mixlevelannotator.constfunc(
-            code.fetch_retval_longlong, [], annmodel.SomeInteger(size=2))
-        self.fetch_retval_float_ptr = mixlevelannotator.constfunc(
-            code.fetch_retval_float, [], annmodel.SomeFloat())
-        self.fetch_retval_void_p_ptr = mixlevelannotator.constfunc(
-            code.fetch_retval_void_p, [], annmodel.SomeAddress())
+        self.fetch_retvals = {
+            lltype.Void: mixlevelannotator.constfunc(
+                code.fetch_retval_void, [], annmodel.s_None),
+            lltype.Signed: mixlevelannotator.constfunc(
+                code.fetch_retval_long, [], annmodel.SomeInteger()),
+            lltype.SignedLongLong: mixlevelannotator.constfunc(
+                code.fetch_retval_longlong, [], annmodel.SomeInteger(size=2)),
+            lltype.Float: mixlevelannotator.constfunc(
+                code.fetch_retval_float, [], annmodel.SomeFloat()),
+            llmemory.Address: mixlevelannotator.constfunc(
+                code.fetch_retval_addr, [], annmodel.SomeAddress()),
+            SAVED_REFERENCE: mixlevelannotator.constfunc(
+                code.fetch_retval_ref, [], annmodel.SomePtr(SAVED_REFERENCE)),
+            }
 
         s_StatePtr = annmodel.SomePtr(code.OPAQUE_STATE_HEADER_PTR)
         self.suggested_primitives = {
@@ -145,25 +147,24 @@ class StacklessTransformer(object):
 
     def frame_type_for_vars(self, vars):
         fieldnames = []
-        counts = [0] * len(STORAGE_TYPES)
+        counts = {}
         for v in vars:
             t = storage_type(v.concretetype)
-            if t is None:
+            if t is lltype.Void:
                 fieldnames.append(None)
             else:
-                fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t],
-                                                   counts[t]))
-                counts[t] = counts[t] + 1
-        key = tuple(counts)
+                n = counts.get(t, 0)
+                fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t], n))
+                counts[t] = n + 1
+        key = lltype.frozendict(counts)
         if key in self.frametypes:
             T = self.frametypes[key]
         else:
             fields = []
-            for t in range(len(STORAGE_TYPES)):
-                for j in range(counts[t]):
-                    fields.append(('state_%s_%d'%(STORAGE_FIELDS[t], j),
-                                   STORAGE_TYPES[t]))
-            T = lltype.GcStruct("FrameState_%d_%d_%d_%d" % tuple(key),
+            for t in STORAGE_TYPES:
+                for j in range(counts.get(t, 0)):
+                    fields.append(('state_%s_%d' % (STORAGE_FIELDS[t], j), t))
+            T = lltype.GcStruct("FrameState",
                                 ('header', STATE_HEADER),
                                 *fields)
             self.frametypes[key] = T
@@ -244,36 +245,16 @@ class StacklessTransformer(object):
             for i, arg in enumerate(resume_point.args):
                 assert arg is not resume_point.var_result
                 t = storage_type(arg.concretetype)
-                if t is None:
+                if t is lltype.Void:
                     continue
                 fname = model.Constant(resume_point.fieldnames[i], lltype.Void)
                 v_newarg = llops.genop('getfield', [frame_top, fname],
-                                       resulttype = STORAGE_TYPES[t])
+                                       resulttype = t)
                 v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
                 varmap[arg] = v_newarg
 
-            r = storage_type(resume_point.var_result.concretetype)
-            if r is not None:
-                rettype = STORAGE_TYPES[r]
-            else:
-                rettype = lltype.Void
-
-            if rettype == lltype.Signed:
-                getretval = self.fetch_retval_long_ptr
-            if rettype == lltype.SignedLongLong:
-                getretval = self.fetch_retval_longlong_ptr
-            elif rettype == lltype.Void:
-                getretval = self.fetch_retval_void_ptr
-            elif rettype == lltype.Float:
-                getretval = self.fetch_retval_float_ptr
-            elif rettype == llmemory.Address:
-##                if resume_point.var_result.concretetype is not \
-##                       llmemory.Address:
-##                    if resume_point.var_result in \
-##                           resume_point.links_to_resumption[0].args:
-##                        need_address_conversion = True
-                getretval = self.fetch_retval_void_p_ptr
-
+            rettype = storage_type(resume_point.var_result.concretetype)
+            getretval = self.fetch_retvals[rettype]
             retval = llops.genop("direct_call", [getretval],
                                  resulttype = rettype)
             varmap[resume_point.var_result] = retval
@@ -476,12 +457,8 @@ class StacklessTransformer(object):
              model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
             varoftype(lltype.Void)))
         rettype = lltype.typeOf(funcptr).TO.RESULT
-        retval_type = {None: code.RETVAL_VOID,
-                       0: code.RETVAL_VOID_P,
-                       1: code.RETVAL_LONG,
-                       2: code.RETVAL_FLOAT,
-                       3: code.RETVAL_LONGLONG}[storage_type(rettype)]
-        
+        retval_type = STORAGE_TYPES.index(storage_type(rettype))
+
         saveops.append(model.SpaceOperation(
             "setfield", [var_header, model.Constant("retval_type", lltype.Void), 
                          model.Constant(retval_type, lltype.Signed)],
@@ -509,6 +486,6 @@ class StacklessTransformer(object):
             if t is lltype.Void:
                 continue
             fname = model.Constant(fieldnames[i], lltype.Void)
-            v_typeerased = gen_cast(llops, STORAGE_TYPES[t], var)
+            v_typeerased = gen_cast(llops, t, var)
             llops.genop('setfield', [frame_state_var, fname, v_typeerased])
         return llops

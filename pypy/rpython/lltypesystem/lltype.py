@@ -580,7 +580,28 @@ def cast_primitive(TGT, value):
     if cast is None:
         raise TypeError, "unsupported cast"
     return cast(value)
- 
+
+def _cast_whatever(TGT, value):
+    from pypy.rpython.lltypesystem import llmemory
+    ORIG = typeOf(value)
+    if ORIG == TGT:
+        return value
+    if (isinstance(TGT, Primitive) and
+        isinstance(ORIG, Primitive)):
+        return cast_primitive(TGT, value)
+    elif isinstance(TGT, Ptr):
+        if isinstance(ORIG, Ptr):
+            if (isinstance(TGT.TO, OpaqueType) or
+                isinstance(ORIG.TO, OpaqueType)):
+                return cast_opaque_ptr(TGT, value)
+            else:
+                return cast_pointer(TGT, value)
+        elif ORIG == llmemory.Address:
+            return llmemory.cast_adr_to_ptr(value, TGT)
+    elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
+        return llmemory.cast_ptr_to_adr(value)
+    raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
+
 
 class InvalidCast(TypeError):
     pass

@@ -2,9 +2,29 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython import rarithmetic
 from pypy.rpython import extfunctable
 
+SAVED_REFERENCE = lltype.Ptr(lltype.GcOpaqueType('stackless.saved_ref'))
+null_saved_ref = lltype.nullptr(SAVED_REFERENCE.TO)
 
-def ll_frame_switch(state):
+STORAGE_TYPES = [lltype.Void, SAVED_REFERENCE, llmemory.Address,
+                 lltype.Signed, lltype.Float, lltype.SignedLongLong]
+
+STORAGE_FIELDS = {SAVED_REFERENCE: 'ref',
+                  llmemory.Address: 'addr',
+                  lltype.Signed: 'long',
+                  lltype.Float: 'float',
+                  lltype.SignedLongLong: 'longlong',
+                  }
+
+RETVAL_VOID = 0
+for _key, _value in STORAGE_FIELDS.items():
+    globals()['RETVAL_' + _value.upper()] = STORAGE_TYPES.index(_key)
+
+# ____________________________________________________________
+
+def ll_frame_switch(targetstate):
     if global_state.restart_substate == 0:
+        # normal entry point for a call to state.switch()
+        # first unwind the stack
         u = UnwindException()
         s = lltype.malloc(SWITCH_STATE)
         s.header.restartstate = 1
@@ -12,26 +32,35 @@ def ll_frame_switch(state):
         f = ll_frame_switch
         if global_state.restart_substate:
             f = None
-        s.c = llmemory.cast_ptr_to_adr(state)
+        s.c = lltype.cast_opaque_ptr(SAVED_REFERENCE, targetstate)
         s.header.function = llmemory.cast_ptr_to_adr(f)
+        s.header.retval_type = RETVAL_REF
         add_frame_state(u, s.header)
         raise u
     elif global_state.restart_substate == 1:
+        # STATE 1: we didn't do anything so far, but the stack is unwound
         global_state.restart_substate = 0
-        top = global_state.top
-        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), top)
-        top.restartstate = 2
-        state = llmemory.cast_adr_to_ptr(s.c, lltype.Ptr(STATE_HEADER))
-        global_state.top = state
-        global_state.retval_void_p = llmemory.cast_ptr_to_adr(top)
-        raise UnwindException()
+        # grab the frame corresponding to ourself, and prepare it for
+        # the future switch() back, which will go to STATE 2 below
+        sourcestate = global_state.top
+        sourcestate.restartstate = 2
+        # the 'targetstate' local is garbage here, it must be read back from
+        # 's.c' where we saved it by STATE 0 above
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), sourcestate)
+        targetstate = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), s.c)
+        global_state.top = targetstate
+        global_state.retval_ref = lltype.cast_opaque_ptr(SAVED_REFERENCE,
+                                                         sourcestate)
+        raise UnwindException()   # this jumps to targetstate
     else:
-        top = global_state.top
+        # STATE 2: switching back into a tasklet suspended by
+        # a call to switch()
         global_state.top = null_state
         global_state.restart_substate = 0
-        origin_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
-                                                OPAQUE_STATE_HEADER_PTR)
-        return origin_state
+        origin_state = lltype.cast_opaque_ptr(OPAQUE_STATE_HEADER_PTR,
+                                              fetch_retval_ref())
+        return origin_state    # a normal return into the current tasklet,
+                               # with the source state as return value
 ll_frame_switch.stackless_explicit = True
 
 STATE_HEADER = lltype.GcStruct('state_header',
@@ -55,10 +84,12 @@ OPAQUE_STATE_HEADER_PTR = lltype.Ptr(
 
 SWITCH_STATE = lltype.GcStruct('state_switch',
                                ('header', STATE_HEADER),
-                               ('c', llmemory.Address))
+                               ('c', SAVED_REFERENCE))
 
 def yield_current_frame_to_caller():
     if global_state.restart_substate == 0:
+        # normal entry point for yield_current_frame_to_caller()
+        # first unwind the stack
         u = UnwindException()
         s = lltype.malloc(STATE_HEADER)
         s.restartstate = 1
@@ -67,45 +98,50 @@ def yield_current_frame_to_caller():
         if global_state.restart_substate:
             f = None
         s.function = llmemory.cast_ptr_to_adr(f)
-        s.retval_type = RETVAL_VOID_P
+        s.retval_type = RETVAL_REF
         add_frame_state(u, s)
-        raise u
+        raise u   # this goes to 'STATE 1' below
+
     elif global_state.restart_substate == 1:
+        # STATE 1: we didn't do anything so far, but the stack is unwound
         global_state.restart_substate = 0
         ycftc_state = global_state.top
-        ycftc_state.restartstate = 2
         our_caller_state = ycftc_state.f_back
         caller_state = our_caller_state.f_back
         # the next three lines are pure rtyper-pleasing hacks
         f = yield_current_frame_to_caller
         if global_state.restart_substate:
             f = None
+        # when our immediate caller finishes (which is later, when the
+        # tasklet finishes), then we will jump to 'STATE 2' below
         endstate = lltype.malloc(STATE_HEADER)
-        endstate.restartstate = 3
+        endstate.restartstate = 2
         endstate.function = llmemory.cast_ptr_to_adr(f)
         our_caller_state.f_back = endstate
         global_state.top = caller_state
-        global_state.retval_void_p = llmemory.cast_ptr_to_adr(ycftc_state)
-        raise UnwindException()
-    elif global_state.restart_substate == 2:
-        top = global_state.top
-        global_state.top = null_state
-        global_state.restart_substate = 0
-        origin_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
-                                                OPAQUE_STATE_HEADER_PTR)
-        return origin_state
+        global_state.retval_ref = lltype.cast_opaque_ptr(SAVED_REFERENCE,
+                                                         our_caller_state)
+        raise UnwindException()  # this goes to the caller's caller
+
     else:
+        # STATE 2: this is a slight abuse of yield_current_frame_to_caller(),
+        # as we return here when our immediate caller returns (and thus the
+        # new tasklet finishes).
         global_state.restart_substate = 0
-        next_state = llmemory.cast_adr_to_ptr(fetch_retval_void_p(),
-                                              lltype.Ptr(STATE_HEADER))
+        next_state = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER),
+                                            fetch_retval_ref())
+        # return a NULL state pointer to the target of the implicit switch
         global_state.top = next_state
-        global_state.retval_void_p = llmemory.NULL
-        raise UnwindException()
+        global_state.retval_ref = null_saved_ref
+        raise UnwindException()  # this goes to the switch target given by
+                                 # the 'return' at the end of our caller
 
 yield_current_frame_to_caller.stackless_explicit = True
 
 def stack_frames_depth():
     if not global_state.restart_substate:
+        # normal entry point for stack_frames_depth()
+        # first unwind the stack
         u = UnwindException()
         s = lltype.malloc(STATE_HEADER)
         s.restartstate = 1
@@ -116,8 +152,10 @@ def stack_frames_depth():
         s.function = llmemory.cast_ptr_to_adr(f)
         s.retval_type = RETVAL_LONG
         add_frame_state(u, s)
-        raise u
+        raise u    # goes to STATE 1 below
     else:
+        # STATE 1: now the stack is unwound, and we can count the frames
+        # in the heap
         cur = global_state.top
         global_state.restart_substate = 0
         depth = 0
@@ -129,6 +167,8 @@ stack_frames_depth.stackless_explicit = True
 
 def ll_stack_unwind():
     if not global_state.restart_substate:
+        # normal entry point for stack_frames_depth()
+        # first unwind the stack in the usual way
         u = UnwindException()
         s = lltype.malloc(STATE_HEADER)
         s.restartstate = 1
@@ -139,8 +179,10 @@ def ll_stack_unwind():
         s.function = llmemory.cast_ptr_to_adr(f)
         s.retval_type = RETVAL_VOID
         add_frame_state(u, s)
-        raise u
+        raise u    # goes to STATE 1 below
     else:
+        # STATE 1: now the stack is unwound.  That was the goal.
+        # Return to caller.
         global_state.restart_substate = 0
 ll_stack_unwind.stackless_explicit = True
 
@@ -151,29 +193,30 @@ class StacklessData:
         self.retval_long = 0
         self.retval_longlong = rarithmetic.r_longlong(0)
         self.retval_float = 0.0
-        self.retval_void_p = llmemory.NULL
+        self.retval_addr = llmemory.NULL
+        self.retval_ref = null_saved_ref
         self.exception = None
 
 global_state = StacklessData()
 
-RETVAL_VOID, RETVAL_LONG, RETVAL_LONGLONG, RETVAL_FLOAT, RETVAL_VOID_P = \
-             range(5)
-
 def call_function(fn, retval_code):
     if retval_code == RETVAL_VOID:
         lloperation.llop.unsafe_call(lltype.Void, fn)
+    elif retval_code == RETVAL_REF:
+        global_state.retval_ref = lloperation.llop.unsafe_call(
+            SAVED_REFERENCE, fn)
+    elif retval_code == RETVAL_ADDR:
+        global_state.retval_addr = lloperation.llop.unsafe_call(
+            llmemory.Address, fn)
     elif retval_code == RETVAL_LONG:
         global_state.retval_long = lloperation.llop.unsafe_call(
             lltype.Signed, fn)
-    elif retval_code == RETVAL_LONGLONG:
-        global_state.retval_longlong = lloperation.llop.unsafe_call(
-            lltype.SignedLongLong, fn)
     elif retval_code == RETVAL_FLOAT:
         global_state.retval_float = lloperation.llop.unsafe_call(
             lltype.Float, fn)
-    elif retval_code == RETVAL_VOID_P:
-        global_state.retval_void_p = lloperation.llop.unsafe_call(
-            llmemory.Address, fn)
+    elif retval_code == RETVAL_LONGLONG:
+        global_state.retval_longlong = lloperation.llop.unsafe_call(
+            lltype.SignedLongLong, fn)
 call_function.stackless_explicit = True
 
 class UnwindException(lloperation.StackException):
@@ -274,11 +317,24 @@ def fetch_retval_float():
         return global_state.retval_float
 fetch_retval_float.stackless_explicit = True
 
-def fetch_retval_void_p():
+def fetch_retval_addr():
     e = global_state.exception
     if e:
         global_state.exception = None
         raise e
     else:
-        return global_state.retval_void_p
-fetch_retval_void_p.stackless_explicit = True
+        res = global_state.retval_addr
+        global_state.retval_addr = llmemory.NULL
+        return res
+fetch_retval_addr.stackless_explicit = True
+
+def fetch_retval_ref():
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
+    else:
+        res = global_state.retval_ref
+        global_state.retval_ref = null_saved_ref
+        return res
+fetch_retval_ref.stackless_explicit = True

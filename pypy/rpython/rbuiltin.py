@@ -399,7 +399,12 @@ def gen_cast(llops, TGT, v_value):
         return v_value
     elif isinstance(TGT, lltype.Ptr):
         if isinstance(ORIG, lltype.Ptr):
-            return llops.genop('cast_pointer', [v_value], resulttype = TGT)
+            if (isinstance(TGT.TO, lltype.OpaqueType) or
+                isinstance(ORIG.TO, lltype.OpaqueType)):
+                return llops.genop('cast_opaque_ptr', [v_value],
+                                                              resulttype = TGT)
+            else:
+                return llops.genop('cast_pointer', [v_value], resulttype = TGT)
         elif ORIG == llmemory.Address:
             return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):

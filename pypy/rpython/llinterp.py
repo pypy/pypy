@@ -333,10 +333,10 @@ class LLFrame(object):
         elif operation.opname == 'indirect_call':
             assert isinstance(operation.args[0], Variable)
         vals = [self.getval(x) for x in operation.args]
-        # if these special cases pile up, do something better here
+        # XXX these special cases DO pile up, do something better here
         if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast',
                                 'cast_adr_to_ptr', 'cast_int_to_ptr',
-                                'cast_opaque_ptr']:
+                                'cast_opaque_ptr', 'unsafe_call']:
             vals.insert(0, operation.result.concretetype)
         try:
             retval = ophandler(*vals)
@@ -479,7 +479,7 @@ class LLFrame(object):
             log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
-    def op_unsafe_call(self, f):
+    def op_unsafe_call(self, TGT, f):
         assert isinstance(f, llmemory.fakeaddress)
         assert f.offset is None
         obj = self.llinterpreter.typer.type_system.deref(f.ob)
@@ -490,9 +490,7 @@ class LLFrame(object):
             args.append(arg.concretetype._defl())
         frame = self.__class__(graph, args, self.llinterpreter, self)
         result = frame.eval()
-        if isinstance(lltype.typeOf(result), lltype.Ptr):
-            result = llmemory.cast_ptr_to_adr(result)
-        return result
+        return lltype._cast_whatever(TGT, result)
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:
