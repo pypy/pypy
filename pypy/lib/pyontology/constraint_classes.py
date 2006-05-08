@@ -222,10 +222,11 @@ class InverseFunctionalCardinality(OwlConstraint):
         domain = domains[self.variable].getValues()
         vals = {}
         for cls, val in domain:
-            if vals.has_key(val):
-                raise ConsistencyFailure("InverseFunctionalCardinality error")
-            else:
-                vals[val] = 1
+            for v in val:
+                if vals.has_key(v):
+                    raise ConsistencyFailure("InverseFunctionalCardinality error")
+                else:
+                    vals[v] = 1
         else:
             return 0
 
@@ -243,14 +244,12 @@ class TransitiveConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""
 
     def narrow(self, domains):
+        pass
         """narrowing algorithm for the constraint"""
-        domain = domains[self.variable].getValues()
-        domain_dict = Linkeddict(domain)
-        for cls, val in domain:
-            if  val in domain_dict:
-                for v in domain_dict[val]:
-                    domain.append((cls,v))
-        domains[self.variable].setValues(domain)
+#        domain = domains[self.variable].getValues()
+#        for cls, val in domain:
+#            for v in val:
+#                domains[self.variable].addValue(cls,v)
 
 class SymmetricConstraint(OwlConstraint):
     """Contraint: all values must be distinct"""

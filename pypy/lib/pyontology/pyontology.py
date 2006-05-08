@@ -1,6 +1,6 @@
 from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
-from logilab.constraint.fd import  FiniteDomain as fd
+from logilab.constraint.fd import  Expression, FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
 from constraint_classes import *
 import sys, py
@@ -18,6 +18,7 @@ for k,v in namespaces.items():
     uris[v] = k
 
 Class = URIRef(u'http://www.w3.org/2002/07/owl#Class')
+rdf_type = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
 rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
 rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
 rdf_nil = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil')
@@ -86,7 +87,10 @@ class ClassDomain(AbstractDomain):
     
     def getBases(self):
         return self.bases
-    
+
+    def addValue(self, value):
+	    self.values[value] = True
+
     def getValues(self):
         return self.values.keys()
     
@@ -112,11 +116,7 @@ class Property(ClassDomain):
     
     def getValues(self):
         items = self._dict.items()
-        res = []
-        for k,v in items:
-            for i in v:
-                res.append((k,i))
-        return res
+        return items
     
     def addValue(self, key, val):
         self._dict.setdefault(key, [])
@@ -193,7 +193,6 @@ class Restriction(ClassDomain):
         """
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
-        self.constraint = RestrictionConstraint(name)
         self.property = None
 
 builtin_voc = {
@@ -245,13 +244,13 @@ class Ontology:
     
     def attach_fd(self):
         for (s, p, o) in (self.graph.triples((None,)*3)):
-            if (s, p, o) in self.seen.keys():
-                continue
-            self.seen[(s, p, o)] = True
             self.consider_triple((s, p, o))
         assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
 
     def consider_triple(self,(s, p, o)):
+        if (s, p, o) in self.seen.keys():
+            return
+        self.seen[(s, p, o)] = True
         if p.find('#') != -1:
             ns, func = p.split('#')
         else:
@@ -270,12 +269,43 @@ class Ontology:
             propdom = self.variables[avar]
             res = propdom.addValue(sub, obj)
 
+    def resolve_item(self, item):
+        item_as_subject = self.graph.triples((item, None, None))
+        for triple in item_as_subject:
+            self.consider_triple(triple)
+
+    def get_individuals_of(self, item):
+        item_as_subject = self.graph.triples(( None, rdf_type, item))
+        for triple in item_as_subject:
+            self.consider_triple(triple)
+
+    def make_var(self, cls=fd, a=''):
+        if type(a) == URIRef:
+            if a.find('#') != -1:
+                ns,name = a.split('#')
+            else:
+                ns,name = a,''
+            if ns not in uris.keys():
+                uris[ns] = ns.split('/')[-1]
+            a = uris[ns] + '_' + name
+            var = str(a.replace('-','_'))
+        else:
+            var = a
+        if not cls:
+            return var
+        if not var in self.variables:
+            self.variables[var] = cls(var)
+        elif type(self.variables[var]) in cls.__bases__:
+            vals = self.variables[var].getValues()
+            self.variables[var] = cls(var)
+            self.variables[var].setValues(vals)
+        return var
+
     def evaluate(self, terms):
         # terms is a dictionary of types of restriction and list of values for this restriction
-        term = terms['Cardinality']
-        if len(term) < 1: return	
+        term = terms
+        if len(term) < 1: return    
         mini = maxi = equal = None
-        
         for tp,val in term:
             if tp == '<':
                if not maxi or val < maxi : maxi = val
@@ -294,8 +324,8 @@ class Ontology:
     def check_TBoxes(self):
         for var, cls in self.variables.items():
             for prop, terms in cls.TBox.items():
-                if len(terms) > 1: 
-                    self.evaluate(terms)
+                if len(terms['Cardinality']) > 1: 
+                    self.evaluate(terms['Cardinality'])
     
     def solve(self,verbose=0):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
@@ -327,52 +357,19 @@ class Ontology:
         self.variables[avar].setValues(res)
         return avar
     
-    def resolve_item(self, item):
-        item_as_subject = self.graph.triples((item, None, None))
-        for triple in item_as_subject:
-            if triple in self.seen.keys():
-               continue
-            self.seen[triple] = True
-            self.consider_triple(triple)
-    
-    def make_var(self, cls=fd, a=''):
-        self.resolve_item(a)
-        if type(a) == URIRef:
-            if a.find('#') != -1:
-                ns,name = a.split('#')
-            else:
-                ns,name = a,''
-            if ns not in uris.keys():
-                uris[ns] = ns.split('/')[-1]
-            a = uris[ns] + '_' + name
-            var = str(a.replace('-','_'))
-        else:
-            var = a
-        if not cls:
-            return var
-        if not var in self.variables:
-            self.variables[var] = cls(var)
-        elif type(self.variables[var]) in cls.__bases__:
-            vals = self.variables[var].getValues()
-            self.variables[var] = cls(var)
-            self.variables[var].setValues(vals)
-        return var
-
 #---------------- Implementation ----------------
     
     def comment(self, s, var):
         pass
     
     def type(self, s, var):
+        avar = self.make_var(ClassDomain, var)
         if not var in builtin_voc :
             # var is not one of the builtin classes
-            avar = self.make_var(ClassDomain, var)
             svar = self.make_var(self.variables[avar].__class__, s)
-            constrain = TypeConstraint(svar,  avar)
-            self.constraints.append(constrain)
         else:
             # var is a builtin class
-            cls =builtin_voc[var]
+            cls = builtin_voc[var]
             if cls == List:
                 return
             else:
@@ -383,6 +380,7 @@ class Ontology:
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
+        self.variables[avar].addValue(svar)
     
     def first(self, s, var):
         pass
@@ -393,8 +391,8 @@ class Ontology:
     def onProperty(self, s, var):
         svar =self.make_var(Restriction, s)
         avar =self.make_var(Property, var)
-        self.variables[svar].property = avar
-
+        restr = self.variables[svar]
+        restr.property = avar
 
 #---Class Axioms---#000000#FFFFFF-----------------------------------------------
     
@@ -404,22 +402,28 @@ class Ontology:
         # class extension of var, ie if a indiviual is in
         # the extension of s it must be in the extension of
         # var
+        self.resolve_item(s)
+        self.resolve_item(var)
         avar = self.make_var(None, var)
         svar = self.make_var(ClassDomain, s)
         obj = self.variables[avar]
         sub = self.variables[svar]
-        if obj.TBox:
-            sub.TBox.setdefault(obj.property, {})
-            op = sub.TBox[obj.property]
-            for restr in obj.TBox.keys():
-                op.setdefault(restr,[])
-                op[restr].extend(obj.TBox[restr])
 
-            assert len(sub.TBox) > 0 
-#            self.variables.pop(avar)
-        cons = SubClassConstraint( svar, avar)
-        self.constraints.append(cons)
-    
+        if obj.TBox:
+            for key in obj.TBox.keys():
+                sub.TBox.setdefault(key,{})
+                prop = sub.TBox[key]
+                for typ in obj.TBox[key].keys():
+                    prop.setdefault(typ, [])
+                    prop[typ].extend(obj.TBox[key][typ])
+
+#            if isinstance(self.variables[avar], Restriction):
+#                self.variables.pop(avar)
+        else:
+            cons = SubClassConstraint( svar, avar)
+            self.constraints.append(cons)
+        self.get_individuals_of(var)
+
     def equivalentClass(self, s, var):
         self.subClassOf(s, var)
         self.subClassOf(var, s)
@@ -507,43 +511,66 @@ class Ontology:
     
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
+        self.resolve_item(s)
         svar =self.make_var(Restriction, s)
-        constrain = MaxCardinality(svar, int(var))
+        cls = list(self.graph.subjects(None,s))[0]
+        cls_name = self.make_var(ClassDomain, cls)
+        prop = self.variables[svar].property
+        self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
+        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] < int(%s))" %(prop, cls_name, prop, var)
+        constrain = Expression([prop], formula)
         self.constraints.append(constrain)
-        self.variables[svar].TBox['Cardinality'] = [( '>', int(var))]
-    
+
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
+        self.resolve_item(s)
         svar =self.make_var(Restriction, s)
-        constrain = MinCardinality(svar, int(var))
+        cls = list(self.graph.subjects(None,s))[0]
+        cls_name = self.make_var(ClassDomain, cls)
+        prop = self.variables[svar].property
+        self.variables[svar].TBox[prop] = {'Cardinality': [( '>', int(var))]}
+        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] > int(%s))" %(prop, cls_name, prop, var)
+        constrain = Expression([prop], formula)
         self.constraints.append(constrain)
-        self.variables[svar].TBox['Cardinality'] = [( '>', int(var))]
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
+        self.resolve_item(s)
         svar =self.make_var(Restriction, s)
-        # Check if var is an int, else find the int buried in the structure
-        constrain = Cardinality(svar, int(var))
+        cls = list(self.graph.subjects(None,s))[0]
+        cls_name = self.make_var(ClassDomain, cls)
+        prop = self.variables[svar].property
+        self.variables[svar].TBox[prop] = {'Cardinality': [( '=', int(var))]}
+        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] == int(%s))" %(prop, cls_name, prop, var)
+        constrain = Expression([prop], formula)
         self.constraints.append(constrain)
-        self.variables[svar].TBox['Cardinality'] = [( '=', int(var))]
     
     def hasValue(self, s, var):
+        self.resolve_item(var)
         svar = self.make_var(Restriction, s)
         avar = self.make_var(None, var)
-        constrain = HasvalueConstraint(svar, avar)
-        self.constraints.append(constrain)
+        restr = self.variables[svar]
+        restr.TBox['hasValue'] = [('hasvalue', var)]
+#        constrain = HasvalueConstraint(svar, avar)
+#        self.constraints.append(constrain)
     
     def allValuesFrom(self, s, var):
+        self.resolve_item(var)
         svar = self.make_var(Restriction, s)
         avar = self.make_var(None, var)
-        constrain = AllValueConstraint(svar, avar)
-        self.constraints.append(constrain)
+        restr = self.variables[svar]
+        restr.TBox['allValues'] = [('allvalue', var)]
+#        constrain = AllValueConstraint(svar, avar)
+#        self.constraints.append(constrain)
     
     def someValuesFrom(self, s, var):
+        self.resolve_item(var)
         svar = self.make_var(Restriction, s)
         avar = self.make_var(None, var)
-        constrain = SomeValueConstraint(svar, avar)
-        self.constraints.append(constrain)
+        restr = self.variables[svar]
+        restr.TBox['someValues'] = [('somevalues', var)]
+#        constrain = SomeValueConstraint(svar, avar)
+#        self.constraints.append(constrain)
 
 # -----------------              ----------------
     
