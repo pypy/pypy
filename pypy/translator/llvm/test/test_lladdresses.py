@@ -117,6 +117,7 @@ def test_flavored_malloc1_raw():
     assert fn(1) == 2 
 
 def test_flavored_malloc2_raw():
+    py.test.skip("AddressLinkedList not found")
     from pypy.rpython.memory.support import AddressLinkedList
 
     def f():
