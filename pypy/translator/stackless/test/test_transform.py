@@ -179,7 +179,29 @@ def test_listcomp():
         return len([x for x in range(l)])
     res = llinterp_stackless_function(f)
     assert res == 1
-    
+
+def test_constant_on_link():
+    class A(object):
+        pass
+    def stuff(m):
+        if m > 100:
+            raise KeyError
+        a = A()
+        a.m = m + 5
+        return a
+    def g(n, m):
+        a = A()
+        if m > 0:
+            try:
+                a = stuff(m)
+            except KeyError:
+                return -1
+            n = 100
+        return a.m + n
+    def f():
+        return g(one(), one())
+    res = llinterp_stackless_function(f)
+    assert res == 106
 
 def rtype_stackless_function(fn):
     s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))

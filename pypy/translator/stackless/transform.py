@@ -308,7 +308,7 @@ class StacklessTransformer(object):
                     # does this var come from retval ?
                     try:
                         index1 = convertblock.inputargs.index(linkvar)
-                    except IndexError:
+                    except ValueError:   # e.g. linkvar is a Constant
                         continue
                     if newblock.exits[0].args[index1] is retval:
                         # yes
