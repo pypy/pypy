@@ -17,8 +17,10 @@ ovfcheck_lshift
          catering to 2.3/2.4 differences about <<
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
-r_ushort like r_uint but half word size
-r_ulong  like r_uint but double word size
+r_longlong
+         like r_int but double word size
+r_ulonglong
+         like r_uint but double word size
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -81,6 +83,17 @@ def ovfcheck_float_to_int(x):
         return int(intp)
     raise OverflowError
 
+def compute_restype(self_type, other_type):
+    if other_type in (int, long):
+        return self_type
+    if self_type.SIGNED != other_type.SIGNED:
+        raise TypeError('Can not mix %r and %r'%(self_type, other_type))
+    if self_type.BITS > other_type.BITS:
+        return self_type
+    if self_type.BITS < other_type.BITS:
+        return other_type
+    return self_type
+
 
 class base_int(long):
     """ fake unsigned integer implementation """
@@ -91,7 +104,15 @@ class base_int(long):
         if one argument is int or long, the other type wins.
         otherwise, produce the largest class to hold the result.
         """
-        return self.typemap[ type(self), type(other) ](value)
+        self_type = type(self)
+        other_type = type(other)
+        try:
+            return self.typemap[ self_type, other_type ](value)
+        except KeyError:
+            pass
+        restype = compute_restype(self_type, other_type)
+        self.typemap[self_type, other_type] = restype
+        return restype(value)
 
     def __new__(klass, val):
         if klass is base_int:
@@ -225,7 +246,8 @@ class base_int(long):
         return self._widen(other, res)
 
 class signed_int(base_int):
-    def __new__(klass, val):
+    SIGNED = True
+    def __new__(klass, val=0):
         if val > klass.MASK>>1 or val < -(klass.MASK>>1)-1:
             raise OverflowError("%s does not fit in signed %d-bit integer"%(val, klass.BITS))
         if val < 0:
@@ -234,53 +256,33 @@ class signed_int(base_int):
     typemap = {}
 
 class unsigned_int(base_int):
-    def __new__(klass, val):
+    SIGNED = False
+    def __new__(klass, val=0):
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
 
-class r_int(signed_int):
-    MASK = LONG_MASK
-    BITS = LONG_BIT
+_inttypes = {}
 
+def build_int(name, sign, bits):
+    sign = bool(sign)
+    try:
+        return _inttypes[sign, bits]
+    except KeyError:
+        pass
+    if sign:
+        int_type = signed_int
+    else:
+        int_type = unsigned_int
+    mask = (1 << bits) - 1
+    ret = _inttypes[sign, bits] = type(name, (int_type,), {'MASK': mask,
+                                                           'BITS': bits})
+    return ret
 
-class r_uint(unsigned_int):
-    MASK = LONG_MASK
-    BITS = LONG_BIT
+r_int = build_int('r_int', True, LONG_BIT)
+r_uint = build_int('r_uint', False, LONG_BIT)
 
-
-if LONG_BIT == 64:
-    r_ulonglong = r_uint
-    r_longlong = r_int
-else:
-    assert LONG_BIT == 32
-    
-    class r_longlong(signed_int):
-        BITS = LONG_BIT * 2
-        MASK = 2**BITS-1
-
-    class r_ulonglong(unsigned_int):
-        BITS = LONG_BIT * 2
-        MASK = 2**BITS-1
-
-def setup_typemap(typemap, types):
-    for left in types:
-        for right in types:
-            if left in (int, long):
-                restype = right
-            elif right in (int, long):
-                restype = left
-            else:
-                if left.BITS > right.BITS:
-                    restype = left
-                else:
-                    restype = right
-            if restype not in (int, long):
-                typemap[ left, right ] = restype
-
-setup_typemap(unsigned_int.typemap, (int, long, r_uint, r_ulonglong))
-setup_typemap(signed_int.typemap, (int, long, r_int, r_longlong))
-
-del setup_typemap
+r_longlong = build_int('r_longlong', True, 64)
+r_ulonglong = build_int('r_ulonglong', False, 64)
 
 # string -> float helper
 

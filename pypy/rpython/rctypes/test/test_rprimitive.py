@@ -15,7 +15,7 @@ from pypy.rpython.rarithmetic import r_longlong, r_ulonglong
 
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
-from ctypes import c_double, c_wchar, c_char_p, pointer
+from ctypes import c_double, c_wchar, c_char_p, pointer, sizeof
 
 class Test_annotation:
     def test_simple(self):
@@ -319,3 +319,11 @@ class Test_compilation:
 
         fn = compile(access_c_float, [])
         assert fn() == 5.2
+
+    def test_compile_short(self):
+        py.test.skip('In-progress')
+        def sizeof_c_short():
+            return sizeof(c_short)
+        fn = compile(sizeof_c_short, [])
+        assert fn() == sizeof(c_short)
+        

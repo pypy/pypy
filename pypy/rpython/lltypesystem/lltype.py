@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong, base_int
 from pypy.rpython.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
@@ -480,16 +480,25 @@ class Primitive(LowLevelType):
 
     _example = _defl
 
+_numbertypes = {int: Primitive("Signed", 0)}
+_numbertypes[r_int] = _numbertypes[int]
 
-Signed   = Primitive("Signed", 0)
-Unsigned = Primitive("Unsigned", r_uint(0))
-if maxint == 2**31-1:
-    SignedLongLong = Primitive("SignedLongLong", r_longlong(0))
-    UnsignedLongLong = Primitive("UnsignedLongLong", r_ulonglong(0))
-else:
-    SignedLongLong = Signed
-    UnsignedLongLong = Unsigned
-Float    = Primitive("Float", 0.0)
+def build_number(name, type):
+    try:
+        return _numbertypes[type]
+    except KeyError:
+        pass
+    if name is None:
+        raise ValueError('No matching lowlevel type for %r'%type)
+    number = _numbertypes[type] = Primitive(name, type())
+    return number
+
+Signed   = build_number("Signed", int)
+Unsigned = build_number("Unsigned", r_uint)
+SignedLongLong = build_number("SignedLongLong", r_longlong)
+UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
+Float    = build_number("Float", float)
+
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
@@ -539,12 +548,8 @@ def typeOf(val):
             return Signed
         if tp is bool:
             return Bool
-        if tp is r_uint:
-            return Unsigned
-        if tp is r_ulonglong:
-            return UnsignedLongLong
-        if tp is r_longlong:
-            return SignedLongLong
+        if issubclass(tp, base_int):
+            return build_number(None, tp)
         if tp is float:
             return Float
         if tp is str:
