@@ -141,7 +141,29 @@ def test_resume_with_exception_handling():
         try:
             y = h(one())
         except KeyError:
-            y = -1
+            y = -one()
+        return y + 1
+    res = llinterp_stackless_function(example)
+    assert res == 0
+
+def test_resume_with_exception_handling_with_vals():
+    def check(x):
+        if x:
+            raise code.UnwindException
+    def g(x):
+        check(x)
+        if x:
+            raise KeyError
+        else:
+            return x + 1
+    def h(x):
+        return g(x)
+    def example():
+        y = one()
+        try:
+            y = h(one())
+        except KeyError:
+            y = y - 2
         return y + 1
     res = llinterp_stackless_function(example)
     assert res == 0

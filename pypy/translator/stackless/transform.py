@@ -391,13 +391,14 @@ class StacklessTransformer(object):
                 # value is not again used.
                 args = []
                 for l in block.exits:
-                    for arg in link.args:
+                    for arg in l.args:
                         if isinstance(arg, model.Variable) \
                            and arg.concretetype is not lltype.Void \
                            and arg is not op.result \
-                           and arg not in args:
+                           and arg not in args \
+                           and arg not in [l.last_exception, l.last_exc_value]:
                             args.append(arg)
-                
+
                 save_block, frame_state_type, fieldnames = \
                         self.generate_save_block(args, var_unwind_exception)
 
