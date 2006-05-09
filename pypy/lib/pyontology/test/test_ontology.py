@@ -225,9 +225,8 @@ def test_functionalproperty():
     O.variables['p_'].setValues([('individ_',42)])
     #assert len(O.constraints) == 2
     #add another valueof the property
-    O.variables['p_'].setValues([('individ_',42),('individ_',43)])
+    py.test.raises(ConsistencyFailure, O.variables['p_'].setValues,[('individ_',42),('individ_',43)])
     #check that consistency raises
-    py.test.raises(ConsistencyFailure, O.consistency)
 
 def test_inversefunctionalproperty():
     
@@ -250,12 +249,9 @@ def test_inversefunctionalproperty():
     sub = URIRef('individ2')
     obj = URIRef('c')
     O.type(sub, obj)
-    O.variables['p_'].setValues([('individ_',42),('individ2_',42)])
-    #check that consistency raises
-    py.test.raises(ConsistencyFailure, O.consistency)
+    py.test.raises(ConsistencyFailure, O.variables['p_'].setValues, [('individ_',42),('individ2_',42)])
     
 def test_Transitiveproperty():
-    #py.test.skip("in transit")
     O = Ontology()
     #Make functional property
     sub = URIRef('subRegionOf')
@@ -277,9 +273,7 @@ def test_Transitiveproperty():
     O.consistency()
     assert 'Chianti_' in O.variables['subRegionOf_']._dict['Italy_']
     
-def test_symmetricproperty():
-    #py.test.skip("in transit")
-    
+def test_symmetricproperty():    
     O = Ontology()
     #Make functional property
     sub = URIRef('friend')

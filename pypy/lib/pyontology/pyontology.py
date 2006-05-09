@@ -110,7 +110,7 @@ class Property(ClassDomain):
     
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
-        self._dict = Linkeddict()
+        self._dict = {}
         self.range = []
         self.domain = []
     
@@ -123,7 +123,9 @@ class Property(ClassDomain):
         self._dict[key].append(val)
     
     def setValues(self, values):
-        self._dict = Linkeddict(values)
+        for key, val in values:
+            print val
+            self.addValue(key, val)
     
     def removeValues(self, values):
         for k,v in values:
@@ -168,25 +170,52 @@ class FunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = FunctionalCardinality(name)
+#        self.constraint = FunctionalCardinality(name)
 
+    def addValue(self, key, val):
+        Property.addValue(self, key, val)
+        if len(self._dict[key]) > 1:
+	        raise ConsistencyFailure("FunctionalProperties can only have one value")
+        
 class InverseFunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
         self.constraint = InverseFunctionalCardinality(name)
 
+    def addValue(self, key, val):
+        Property.addValue(self, key, val)
+        valuelist = [set(x) for x in self._dict.values()]
+        res = set()
+        for vals in valuelist:
+            if vals & res:
+                raise ConsistencyFailure("Only unique values in InverseFunctionalProperties")
+            res = res | vals
+
 class TransitiveProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = TransitiveConstraint(name)
+        #self.constraint = TransitiveConstraint(name)
 
+    def addValue(self, key, val):
+        Property.addValue(self, key, val)
+        if val in self._dict.keys():
+            for v in self._dict[val]:
+                Property.addValue(self, key, v)
+        for k in self._dict.keys():
+            if key in self._dict[k]:
+                Property.addValue(self, k, val)
+                
 class SymmetricProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = SymmetricConstraint(name)
+#        self.constraint = SymmetricConstraint(name)
+
+    def addValue(self, key, val):
+        Property.addValue(self, key, val)
+        Property.addValue(self, val, key)
 
 class Restriction(ClassDomain):
     """ A owl:restriction is an anonymous class that links a class to a restriction on a property

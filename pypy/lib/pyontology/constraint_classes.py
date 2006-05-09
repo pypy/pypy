@@ -172,10 +172,10 @@ class SubPropertyConstraint(SubClassConstraint):
         subdom = domains[self.variable]
         superdom = domains[self.object]
         vals = superdom.getValues()
-        for val in subdom.getValues():
-            if not val in vals:
-                vals.append(val)
-        superdom.setValues(vals)
+        for (key, val) in subdom.getValues():
+            if not (key, val) in superdom:
+                for v in val:
+                    superdom.addValue(key, v)
 
 class EquivalentPropertyConstraint(SubClassConstraint):
 
@@ -304,11 +304,11 @@ class SameasConstraint(SubClassConstraint):
                 if hasattr(dom, '_dict'):
                     val = Linkeddict(vals)
                     if self.variable in val.keys() and not self.object in val.keys():
-                        vals +=[(self.object,v) for v in val[self.variable]]
-                        dom.setValues(vals)
+                        vals +=[dom.addValue(self.object,v) for v in val[self.variable]]
+                        #dom.setValues(vals)
                     elif not self.variable in val.keys() and self.object in val.keys():
-                        vals +=[(self.variable,v) for v in val[self.object]]
-                        dom.setValues(vals)
+                        vals +=[dom.addValue(self.variable,v) for v in val[self.object]]
+                        #dom.setValues(vals)
                     elif self.variable in val.keys() and self.object in val.keys():
                         if not val[self.object] == val[self.variable]:
                             raise ConsistencyFailure("Sameas failure: The two individuals (%s, %s) \
