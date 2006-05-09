@@ -167,7 +167,7 @@ def constant_folding(graph, translator, analyzer=None):
                 continue
             # don't fold stuff with exception handling
             if (block.exitswitch == c_last_exception and
-                i == len(block.operation) - 1):
+                i == len(block.operations) - 1):
                 continue
             if analyzer.analyze(op):
                 continue

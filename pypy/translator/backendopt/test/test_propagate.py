@@ -1,6 +1,7 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.propagate import *
+from pypy.rpython.rarithmetic import ovfcheck
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.memory.test.test_gctransform import getops
@@ -121,6 +122,23 @@ def test_constant_fold():
         t.view()
     assert len(graph.startblock.operations) == 0
     check_graph(graph, [1], g(1), t)
+
+def test_dont_constant_fold_exc():
+    def f(x):
+        return 1
+    def g(x):
+        y = f(x)        
+        try:
+            return ovfcheck(1 + y)
+        except OverflowError:
+            return 0
+    graph, t = get_graph(g, [int])
+    constant_folding(graph, t)
+    if conftest.option.view:
+        t.view()
+    assert len(graph.startblock.operations) == 1
+    check_graph(graph, [1], g(1), t)
+
 
 def test_constant_fold_call():
     def s(x):
