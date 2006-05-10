@@ -160,9 +160,17 @@ def test_optimize_method():
         else:
             x = C(n)
         return x.meth(100)
-    interp, graph = get_interpreter(fn, [1000])
+    interp, graph = get_interpreter(fn, [-1000])
+
     t = interp.typer.annotator.translator
     backend_optimizations(t, propagate=True)
     if conftest.option.view:
         t.view()
-    # XXX finish writing this test
+
+    LLFrame = interp.frame_class
+    class MyFrame(LLFrame):
+        def op_indirect_call(self, f, *args):
+            raise AssertionError("this call should be optimized away")
+    interp.frame_class = MyFrame
+    res = interp.eval_graph(graph, [-1000])
+    assert res == -897

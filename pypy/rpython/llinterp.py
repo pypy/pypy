@@ -52,9 +52,10 @@ class LLInterpreter(object):
             self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
         if self.TRACING:
             self.tracer = Tracer()
+        self.frame_class = LLFrame
 
     def eval_graph(self, graph, args=()):
-        llframe = LLFrame(graph, args, self)
+        llframe = self.frame_class(graph, args, self)
         if self.tracer:
             self.tracer.start()
         retval = None
@@ -133,7 +134,7 @@ class LLInterpreter(object):
         import exceptions
         klass, inst = exc.args[0], exc.args[1]
         exdata = self.typer.getexceptiondata()
-        frame = LLFrame(None, [], self)
+        frame = self.frame_class(None, [], self)
         old_active_frame = self.active_frame
         try:
             for cls in exceptions.__dict__.values():
