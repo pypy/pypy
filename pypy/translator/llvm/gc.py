@@ -20,6 +20,9 @@ class GcPolicy:
     def malloc(self, codewriter, targetvar, type_, size=1, atomic=False):
         raise NotImplementedError, 'GcPolicy should not be used directly'
 
+    def var_malloc(self, codewriter, targetvar, type_, node, len, atomic=False):
+        raise NotImplementedError, 'GcPolicy should not be used directly'
+
     def new(db, gcpolicy=None):
         """ factory """
         gcpolicy = gcpolicy or 'boehm'
@@ -37,21 +40,33 @@ class GcPolicy:
             gcpolicy = BoehmGcPolicy(db)
         elif gcpolicy == 'ref':
             gcpolicy = RefcountingGcPolicy(db)
-        elif gcpolicy == 'raw':
+        elif gcpolicy in ('none', 'raw'):
             gcpolicy = RawGcPolicy(db)
         else:
             raise Exception, 'unknown gcpolicy: ' + str(gcpolicy)
         return gcpolicy
     new = staticmethod(new)
 
+
 class RawGcPolicy(GcPolicy):
     def __init__(self, db):
-        self.db = db
+        self.boehm = BoehmGcPolicy(db)
 
-    def malloc(self, codewriter, targetvar, type_, size=1, atomic=False):
-        codewriter.malloc(targetvar, type_, size)
-        #XXX memset
-        
+    def malloc(self, codewriter, targetvar, type_, size=1, atomic=False, exc_flag=False):
+        return self.boehm.malloc(codewriter, targetvar, type_, size, atomic, exc_flag)
+
+    def var_malloc(self, codewriter, targetvar, type_, node, len, atomic=False):
+        return self.boehm.var_malloc(codewriter, targetvar, type_, node, len, atomic)
+
+    def genextern_code(self):
+        r = ''
+        r += '#define __GC_STARTUP_CODE__\n'
+        r += '#define __GC_SETUP_CODE__\n'
+        r += 'char* pypy_malloc(int size)        { return calloc(1, size); }\n'
+        r += 'char* pypy_malloc_atomic(int size) { return calloc(1, size); }\n'
+        return r
+
+
 class BoehmGcPolicy(GcPolicy):
 
     def __init__(self, db, exc_useringbuf=False):
@@ -170,6 +185,7 @@ def GC_get_heap_size_wrapper():
         codewriter.getelementptr(arraylength, type_, 
                                  targetvar,  indices_to_arraylength)
         codewriter.store(lentype, len, arraylength)
+
 
 class RefcountingGcPolicy(GcPolicy):
     def __init__(self, db):

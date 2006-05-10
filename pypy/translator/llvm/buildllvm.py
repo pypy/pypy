@@ -35,8 +35,6 @@ def optimizations(simple, use_gcc):
         opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
                 "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
                 "-gcse -instcombine -simplifycfg -globaldce "
-        if use_gcc:
-            opts +=  "-inline-threshold=100 "
     return opts
 
 def compile_module(module, source_files, object_files, library_files):
@@ -59,6 +57,9 @@ def compile_module(module, source_files, object_files, library_files):
 def make_module_from_llvm(genllvm, llvmfile,
                           pyxfile=None, optimize=True, exe_name=None,
                           profile=False, cleanup=False, use_gcc=True):
+
+    if exe_name:
+        use_gcc = False #XXX trying to get of gcc (at least for standalones)
 
     # where we are building
     dirpath = llvmfile.dirpath()
@@ -92,6 +93,8 @@ def make_module_from_llvm(genllvm, llvmfile,
 
     if not use_gcc:
         llc_params = llvm_version() > 1.6 and '-enable-x86-fastcc' or ''
+        if llc_params and exe_name:
+            llc_params += ' -relocation-model=static'   #XXX while llvm jumptables not with PIC
         cmds.append("llc %s %s %s.bc -f -o %s.s" % (llc_params, genllvm.db.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
 
@@ -102,7 +105,7 @@ def make_module_from_llvm(genllvm, llvmfile,
     else:
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.db.exceptionpolicy.llc_options(), b, b))
         if exe_name:
-            cmd = "gcc %s.c -c -O3 -fno-inline -pipe" % b
+            cmd = "gcc %s.c -c -O3 -pipe" % b
             if profile:
                 cmd += ' -pg'
             else:
