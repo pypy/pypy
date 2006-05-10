@@ -49,7 +49,7 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
             name, parms = directive_parts
             try:
                 parms = eval("(lambda *parms: parms)(%s" % parms)
-            except KeyboardInterrupt, SystemExit:
+            except (KeyboardInterrupt, SystemExit):
                 raise
             except:
                 raise Exception, "broken specialize directive parms: %s" % directive
