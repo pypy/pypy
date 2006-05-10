@@ -2,6 +2,17 @@ import py.test
 from pypy.rpython.rctypes.rcarithmetic import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import rarithmetic
+from pypy.annotation import model as annmodel
+from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.error import TyperError
+from pypy.translator.translator import TranslationContext
+
+def specialize(func, types):
+    t = TranslationContext()
+    t.buildannotator().build_types(func, types)
+    t.buildrtyper().specialize()
+    t.checkgraphs()    
 
 def test_signedness():
     assert rcbyte(-1) < 0
@@ -30,3 +41,66 @@ def test_typeof():
     assert lltype.typeOf(rcshort(0)) == CShort
 
     assert lltype.typeOf(rcushort(0)) == CUShort
+
+inttypes = [rcbyte, rcubyte, rcshort, rcushort, rcint, rcuint,
+            rclong, rculong, rclonglong, rculonglong]
+
+def test_annotate():
+    for inttype in inttypes:
+        c = inttype()
+        def f():
+            return c
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.knowntype == inttype
+        assert s.unsigned == (inttype(-1) > 0)
+
+    for inttype in inttypes:
+        def f():
+            return inttype(0)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.knowntype == inttype
+        assert s.unsigned == (inttype(-1) > 0)
+
+    for inttype in inttypes:
+        def f(x):
+            return x
+        a = RPythonAnnotator()
+        s = a.build_types(f, [inttype])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.knowntype == inttype
+        assert s.unsigned == (inttype(-1) > 0)
+
+def test_specialize():
+    for inttype in inttypes:
+        c = inttype()
+        def f():
+            return c
+        res = interpret(f, [])
+        assert res == f()
+        assert lltype.typeOf(res) == lltype.build_number(None, inttype)
+
+    for inttype in inttypes:
+        def f():
+            return inttype(0)
+        res = interpret(f, [])
+        assert res == f()
+        assert lltype.typeOf(res) == lltype.build_number(None, inttype)        
+
+    for inttype in inttypes:
+        def f(x):
+            return x
+        res = interpret(f, [inttype(0)])
+        assert res == f(inttype(0))
+        assert lltype.typeOf(res) == lltype.build_number(None, inttype)
+
+        
+def test_unsupported_op():
+    def f(x, y):
+        return x + y
+
+    py.test.raises(TyperError, specialize, f, [rcbyte, rcbyte])
+    

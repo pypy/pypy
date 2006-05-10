@@ -10,7 +10,7 @@ from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
-from pypy.rpython.rarithmetic import r_uint, base_int
+from pypy.rpython.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from pypy.rpython import objectmodel
 from pypy.objspace.flow import FlowObjSpace
 
@@ -2085,6 +2085,83 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.knowntype == int
+
+
+    def test_annotate_bool(self):
+        def f(x):
+            return ~x
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.knowntype == int
+        
+
+        def f(x):
+            return -x
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.knowntype == int
+
+        def f(x):
+            return +x
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.knowntype == int
+
+        def f(x):
+            return abs(x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.knowntype == int
+
+        def f(x):
+            return int(x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.knowntype == int
+
+
+        def f(x, y):
+            return x + y
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool, int])
+        assert s.knowntype == int
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, bool])
+        assert s.knowntype == int
+
+
+
+    def test_annotate_rarith(self):
+        inttypes = [int, r_uint, r_longlong, r_ulonglong]
+        for inttype in inttypes:
+            c = inttype()
+            def f():
+                return c
+            a = self.RPythonAnnotator()
+            s = a.build_types(f, [])
+            assert isinstance(s, annmodel.SomeInteger)
+            assert s.knowntype == inttype
+            assert s.unsigned == (inttype(-1) > 0)
+            
+        for inttype in inttypes:
+            def f():
+                return inttype(0)
+            a = self.RPythonAnnotator()
+            s = a.build_types(f, [])
+            assert isinstance(s, annmodel.SomeInteger)
+            assert s.knowntype == inttype
+            assert s.unsigned == (inttype(-1) > 0)
+
+        for inttype in inttypes:
+            def f(x):
+                return x
+            a = self.RPythonAnnotator()
+            s = a.build_types(f, [inttype])
+            assert isinstance(s, annmodel.SomeInteger)
+            assert s.knowntype == inttype
+            assert s.unsigned == (inttype(-1) > 0)
+        
 
 
 def g(n):

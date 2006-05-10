@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.rarithmetic import r_uint, r_longlong
+from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 
 
 class TestSnippet(object):
@@ -147,3 +147,28 @@ def test_truediv():
     res = interpret(f, [20, 4])
     assert type(res) is float
     assert res == 5.0
+
+
+def test_rarithmetic():
+    inttypes = [int, r_uint, r_longlong, r_ulonglong]
+    for inttype in inttypes:
+        c = inttype()
+        def f():
+            return c
+        res = interpret(f, [])
+        assert res == f()
+        assert type(res) == inttype
+
+    for inttype in inttypes:
+        def f():
+            return inttype(0)
+        res = interpret(f, [])
+        assert res == f()
+        assert type(res) == inttype
+
+    for inttype in inttypes:
+        def f(x):
+            return x
+        res = interpret(f, [inttype(0)])
+        assert res == f(inttype(0))
+        assert type(res) == inttype

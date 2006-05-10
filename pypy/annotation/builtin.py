@@ -81,22 +81,6 @@ def builtin_int(s_obj, s_base=None):
         args_s = [s_obj]
     return constpropagate(int, args_s, SomeInteger())
 
-def restricted_uint(s_obj):    # for r_uint
-    return constpropagate(pypy.rpython.rarithmetic.r_uint, [s_obj],
-                          SomeInteger(nonneg=True, unsigned=True))
-
-def restricted_longlong(s_obj):    # for r_uint
-    return constpropagate(pypy.rpython.rarithmetic.r_longlong, [s_obj],
-                          SomeInteger(knowntype=pypy.rpython.rarithmetic.r_longlong))
-
-def restricted_ulonglong(s_obj):    # for r_uint
-    return constpropagate(pypy.rpython.rarithmetic.r_ulonglong, [s_obj],
-                          SomeInteger(knowntype=pypy.rpython.rarithmetic.r_ulonglong))
-
-def restricted_base_int(s_obj):
-    # insane hack: only for isinstance(., base_int), not for base_int()
-    raise Exception("cannot call rarithmetic.base_int()")
-
 def builtin_float(s_obj):
     return constpropagate(float, [s_obj], SomeFloat())
 
@@ -356,10 +340,6 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[8:])
         BUILTIN_ANALYZERS[original] = value
 
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_longlong] = restricted_longlong
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_ulonglong] = restricted_ulonglong
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.base_int] = restricted_base_int
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask

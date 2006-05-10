@@ -1,5 +1,6 @@
 import py
-from pypy.rpython.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong, base_int
+from pypy.rpython.rarithmetic import r_int, r_uint, intmask
+from pypy.rpython.rarithmetic import r_ulonglong, r_longlong, base_int
 from pypy.rpython.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
@@ -480,7 +481,17 @@ class Primitive(LowLevelType):
 
     _example = _defl
 
-_numbertypes = {int: Primitive("Signed", 0)}
+class Number(Primitive):
+
+    def __init__(self, name, type, cast=None):
+        Primitive.__init__(self, name, type())
+        self._type = type
+        if cast is None:
+            self._cast = type
+        else:
+            self._cast = cast
+
+_numbertypes = {int: Number("Signed", int, )}
 _numbertypes[r_int] = _numbertypes[int]
 
 def build_number(name, type):
@@ -490,15 +501,15 @@ def build_number(name, type):
         pass
     if name is None:
         raise ValueError('No matching lowlevel type for %r'%type)
-    number = _numbertypes[type] = Primitive(name, type())
+    number = _numbertypes[type] = Number(name, type)
     return number
 
 Signed   = build_number("Signed", int)
 Unsigned = build_number("Unsigned", r_uint)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
-Float    = build_number("Float", float)
 
+Float    = Primitive("Float", 0.0)
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
@@ -563,11 +574,9 @@ def typeOf(val):
         raise TypeError("typeOf(%r object)" % (tp.__name__,))
 
 _to_primitive = {
-    Signed: int,
-    Unsigned: r_uint,
-    Float: float,
     Char: chr,
     UniChar: unichr,
+    Float: float,
     Bool: bool,
 }
 
@@ -582,9 +591,11 @@ def cast_primitive(TGT, value):
     elif ORIG == Float:
         value = long(value)
     cast = _to_primitive.get(TGT)
-    if cast is None:
-        raise TypeError, "unsupported cast"
-    return cast(value)
+    if cast is not None:
+        return cast(value)
+    if isinstance(TGT, Number):
+        return TGT._cast(value)
+    raise TypeError, "unsupported cast"
 
 def _cast_whatever(TGT, value):
     from pypy.rpython.lltypesystem import llmemory

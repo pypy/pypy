@@ -4,7 +4,8 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
      Void, Char, UniChar, GcArray, malloc, Array, pyobjectptr, \
-     UnsignedLongLong, SignedLongLong
+     UnsignedLongLong, SignedLongLong, build_number, Number, cast_primitive, \
+     typeOf
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
@@ -12,27 +13,27 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
 from pypy.rpython import objectmodel
 
+_integer_reprs = {}
+def getintegerrepr(lltype, prefix=None):
+    try:
+        return _integer_reprs[lltype]
+    except KeyError:
+        pass
+    repr = _integer_reprs[lltype] = IntegerRepr(lltype, prefix)
+    return repr
+
 class __extend__(annmodel.SomeInteger):
     def rtyper_makerepr(self, rtyper):
-        if self.knowntype is int:
-            return signed_repr
-        if self.knowntype is bool:
-            return signed_repr
-        if self.knowntype is r_uint:
-            return unsigned_repr
-        if self.knowntype is r_longlong:
-            return signedlonglong_repr
-        if self.knowntype is r_ulonglong:
-            return unsignedlonglong_repr
-        raise TypeError('Can not build a repr for %r'%(self.knowntype,))
+        lltype = build_number(None, self.knowntype)
+        return getintegerrepr(lltype)
 
     def rtyper_makekey(self):
         return self.__class__, self.knowntype
 
-signed_repr = IntegerRepr(Signed, 'int_')
-signedlonglong_repr = IntegerRepr(SignedLongLong, 'llong_')
-unsigned_repr = IntegerRepr(Unsigned, 'uint_')
-unsignedlonglong_repr = IntegerRepr(UnsignedLongLong, 'ullong_')
+signed_repr = getintegerrepr(Signed, 'int_')
+signedlonglong_repr = getintegerrepr(SignedLongLong, 'llong_')
+unsigned_repr = getintegerrepr(Unsigned, 'uint_')
+unsignedlonglong_repr = getintegerrepr(UnsignedLongLong, 'ullong_')
 
 
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
@@ -201,17 +202,10 @@ class __extend__(IntegerRepr):
     def convert_const(self, value):
         if isinstance(value, objectmodel.Symbolic):
             return value
-        if not isinstance(value, (int, r_uint, r_int, r_longlong, r_ulonglong)):   # can be bool
-            raise TyperError("not an integer: %r" % (value,))
-        if self.lowleveltype == Signed:
-            return intmask(value)
-        if self.lowleveltype == Unsigned:
-            return r_uint(value)
-        if self.lowleveltype == UnsignedLongLong:
-            return r_ulonglong(value)
-        if self.lowleveltype == SignedLongLong:
-            return r_longlong(value)
-        raise NotImplementedError
+        T = typeOf(value)
+        if isinstance(T, Number) or T is Bool:
+            return cast_primitive(self.lowleveltype, value)
+        raise TyperError("not an integer: %r" % (value,))
 
     def get_ll_eq_function(self):
         return None 

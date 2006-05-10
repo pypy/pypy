@@ -319,9 +319,17 @@ class FloatRepr(Repr):
 class IntegerRepr(FloatRepr):
     def __init__(self, lowleveltype, opprefix):
         self.lowleveltype = lowleveltype
-        self.opprefix = opprefix
+        self._opprefix = opprefix
         self.as_int = self
 
+    def _get_opprefix(self):
+        if self._opprefix is None:
+            raise TyperError("arithmetic not supported on %r" %
+                             self.lowleveltype)
+        return self._opprefix
+
+    opprefix =property(_get_opprefix)
+    
 class BoolRepr(IntegerRepr):
     lowleveltype = Bool
     # NB. no 'opprefix' here.  Use 'as_int' systematically.

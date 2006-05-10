@@ -296,6 +296,14 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def gt(intint): return intint._compare_helper('gt', operator.gt)
     def ge(intint): return intint._compare_helper('ge', operator.ge)
 
+class __extend__(pairtype(SomeBool, SomeInteger)):
+    def lshift((int1, int2)):
+        return SomeInteger()
+
+    lshift.can_only_throw = [ValueError]
+    rshift = lshift
+    lshift_ovf = _clone(lshift, [ValueError, OverflowError])
+
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 

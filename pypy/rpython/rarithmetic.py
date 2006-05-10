@@ -29,6 +29,7 @@ mark where overflow checking is required.
 
 """
 import math
+from pypy.rpython import extregistry
 
 # set up of machine internals
 _bits = 0
@@ -85,6 +86,8 @@ def ovfcheck_float_to_int(x):
 
 def compute_restype(self_type, other_type):
     if other_type in (bool, int, long):
+        if self_type is bool:
+            return int
         return self_type
     if self_type in (bool, int, long):
         return other_type
@@ -266,15 +269,46 @@ def build_int(name, sign, bits):
     except KeyError:
         pass
     if sign:
-        int_type = signed_int
+        base_int_type = signed_int
     else:
-        int_type = unsigned_int
+        base_int_type = unsigned_int
     mask = (1 << bits) - 1
     if name is None:
         raise TypeError('No predefined %sint%d'%(['u', ''][sign], bits))
-    ret = _inttypes[sign, bits] = type(name, (int_type,), {'MASK': mask,
+    int_type = _inttypes[sign, bits] = type(name, (base_int_type,), {'MASK': mask,
                                                            'BITS': bits})
-    return ret
+    class ForValuesEntry(extregistry.ExtRegistryEntry):
+        _type_ = int_type
+
+        def compute_annotation(self):
+            from pypy.annotation import model as annmodel
+            return annmodel.SomeInteger(knowntype=int_type)
+            
+    class ForTypeEntry(extregistry.ExtRegistryEntry):
+        _about_ = int_type
+
+        def compute_result_annotation(self, *args_s, **kwds_s):
+            from pypy.annotation import model as annmodel
+            return annmodel.SomeInteger(knowntype=int_type)
+
+        def specialize_call(self, hop):
+            v_result, = hop.inputargs(hop.r_result.lowleveltype)
+            return v_result
+            
+    return int_type
+
+class BaseIntValueEntry(extregistry.ExtRegistryEntry):
+    _type_ = base_int
+
+    def compute_annotation(self):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeInteger(knowntype=r_ulonglong)
+        
+class BaseIntTypeEntry(extregistry.ExtRegistryEntry):
+    _about_ = base_int
+
+    def compute_result_annotation(self, *args_s, **kwds_s):
+        raise TypeError("abstract base!")
 
 r_int = build_int('r_int', True, LONG_BIT)
 r_uint = build_int('r_uint', False, LONG_BIT)

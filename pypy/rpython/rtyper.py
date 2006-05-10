@@ -22,7 +22,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Signed, Unsigned, Float, Char, Bool, Void, \
      LowLevelType, Ptr, ContainerType, \
      FuncType, functionptr, typeOf, RuntimeTypeInfo, \
-     attachRuntimeTypeInfo, Primitive
+     attachRuntimeTypeInfo, Primitive, Number
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.error import TyperError
@@ -66,9 +66,6 @@ class RPythonTyper:
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
-        for s_primitive, lltype in annmodel.annotation_to_ll_map:
-            r = self.getrepr(s_primitive)
-            self.primitive_to_repr[r.lowleveltype] = r
         if self.type_system.offers_exceptiondata:
             self.exceptiondata = self.type_system.exceptiondata.ExceptionData(self)
         else:
@@ -89,6 +86,16 @@ class RPythonTyper:
             log.info(s)
         self.crash_on_first_typeerror = True
 
+    def getprimitiverepr(self, lltype):
+        try:
+            return self.primitive_to_repr[lltype]
+        except KeyError:
+            pass
+        if isinstance(lltype, Primitive):
+            repr = self.primitive_to_repr[lltype] = self.getrepr(annmodel.lltype_to_annotation(lltype))
+            return repr
+        raise TyperError('There is no primitive repr for %r'%(lltype,))
+    
     def add_wrapper(self, clsdef):
         # record that this class has a wrapper, and what the __init__ is
         cls = clsdef.classdesc.pyobj
@@ -658,7 +665,7 @@ class HighLevelOp(object):
         type.
         """
         if not isinstance(converted_to, Repr):
-            converted_to = self.rtyper.primitive_to_repr[converted_to]
+            converted_to = self.rtyper.getprimitiverepr(converted_to)
         v = self.args_v[arg]
         if isinstance(v, Constant):
             return inputconst(converted_to, v.value)

@@ -203,7 +203,7 @@ class __extend__(SomeInteger):
     invert.can_only_throw = []
 
     def pos(self):
-        return self
+        return SomeInteger(knowntype=self.knowntype)
 
     pos.can_only_throw = []
     int = pos
@@ -226,6 +226,28 @@ class __extend__(SomeBool):
     def is_true(self):
         return self
 
+    def invert(self):
+        return SomeInteger()
+
+    invert.can_only_throw = []
+
+    def neg(self):
+        return SomeInteger()
+
+    neg.can_only_throw = []
+    neg_ovf = _clone(neg, [OverflowError])
+
+    def abs(self):
+        return SomeInteger(nonneg=True)
+
+    abs.can_only_throw = []
+    abs_ovf = _clone(abs, [OverflowError])
+
+    def pos(self):
+        return SomeInteger(nonneg=True)
+
+    pos.can_only_throw = []
+    int = pos
 
 class __extend__(SomeTuple):
 

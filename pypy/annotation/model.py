@@ -32,7 +32,7 @@ from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy.tool.instancemethod
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
-from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
 import inspect
 from sys import maxint
 
@@ -148,9 +148,8 @@ class SomeInteger(SomeFloat):
     knowntype = int
     # size is in multiples of C's sizeof(long)!
     def __init__(self, nonneg=False, unsigned=None, knowntype=None):
-        
-        if maxint != 2**31-1:
-            size = 1    #XXX don't support longlong on 64 bits systems
+        assert (knowntype is None or knowntype is int or
+                issubclass(knowntype, base_int))
         if knowntype is None:
             if unsigned:
                 knowntype = r_uint
@@ -516,13 +515,11 @@ class SomeOOStaticMeth(SomeObject):
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 
+NUMBER = object()
 annotation_to_ll_map = [
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (SomeBool(), lltype.Bool),
-    (SomeInteger(), lltype.Signed),
-    (SomeInteger(knowntype=r_longlong), lltype.SignedLongLong),    
-    (SomeInteger(unsigned=True), lltype.Unsigned),    
-    (SomeInteger(knowntype=r_ulonglong), lltype.UnsignedLongLong),    
+    (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
@@ -536,9 +533,11 @@ def annotation_to_lltype(s_val, info=None):
         return s_val.method
     if isinstance(s_val, SomePtr):
         return s_val.ll_ptrtype
-    for witness, lltype in annotation_to_ll_map:
+    for witness, T in annotation_to_ll_map:
         if witness.contains(s_val):
-            return lltype
+            if T is NUMBER:
+                return lltype.build_number(None, s_val.knowntype)
+            return T
     if info is None:
         info = ''
     else:
@@ -546,7 +545,7 @@ def annotation_to_lltype(s_val, info=None):
     raise ValueError("%sshould return a low-level type,\ngot instead %r" % (
         info, s_val))
 
-ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map])
+ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map if ll is not NUMBER])
 
 def lltype_to_annotation(T):
     try:
@@ -554,6 +553,8 @@ def lltype_to_annotation(T):
     except TypeError:
         s = None    # unhashable T, e.g. a Ptr(GcForwardReference())
     if s is None:
+        if isinstance(T, lltype.Number):
+            return SomeInteger(knowntype=T._type)
         if isinstance(T, (ootype.Instance, ootype.BuiltinType)):
             return SomeOOInstance(T)
         elif isinstance(T, ootype.StaticMethod):

@@ -310,14 +310,8 @@ class Bookkeeper:
             return x.annotation()
         if tp is bool:
             result = SomeBool()
-        elif tp is int or tp is r_int:
+        elif tp is int:
             result = SomeInteger(nonneg = x>=0)
-        elif tp is r_uint:
-            result = SomeInteger(nonneg = True, unsigned = True)
-        elif tp is r_ulonglong:
-            result = SomeInteger(nonneg = True, knowntype=r_ulonglong)
-        elif tp is r_longlong:
-            result = SomeInteger(nonneg = x>=0, knowntype=r_longlong)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             if len(x) == 1:
                 result = SomeChar()
@@ -500,14 +494,8 @@ class Bookkeeper:
         assert isinstance(t, (type, types.ClassType))
         if t is bool:
             return SomeBool()
-        elif t is int or t is r_int:
+        elif t is int:
             return SomeInteger()
-        elif t is r_uint:
-            return SomeInteger(unsigned = True)
-        elif t is r_ulonglong or t is base_int:
-            return SomeInteger(knowntype=r_ulonglong)
-        elif t is r_longlong:
-            return SomeInteger(knowntype=r_longlong)
         elif issubclass(t, str): # py.lib uses annotated str subclasses
             return SomeString()
         elif t is float:

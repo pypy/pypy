@@ -42,7 +42,7 @@ class __extend__(pairtype(IntegerRepr, PrimitiveRepr),
                  pairtype(UniCharRepr, PrimitiveRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         # first convert 'v' to the precise expected low-level type
-        r_input = r_to.rtyper.primitive_to_repr[r_to.ll_type]
+        r_input = r_to.rtyper.getprimitiverepr(r_to.ll_type)
         v = llops.convertvar(v, r_from, r_input)
         # allocate a memory-owning box to hold a copy of the ll value 'v'
         r_temp = r_to.r_memoryowner
