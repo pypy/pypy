@@ -315,9 +315,9 @@ class Bookkeeper:
         elif tp is r_uint:
             result = SomeInteger(nonneg = True, unsigned = True)
         elif tp is r_ulonglong:
-            result = SomeInteger(nonneg = True, unsigned = True, size = 2)
+            result = SomeInteger(nonneg = True, knowntype=r_ulonglong)
         elif tp is r_longlong:
-            result = SomeInteger(nonneg = x>=0, size = 2)
+            result = SomeInteger(nonneg = x>=0, knowntype=r_longlong)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             if len(x) == 1:
                 result = SomeChar()
@@ -503,11 +503,11 @@ class Bookkeeper:
         elif t is int or t is r_int:
             return SomeInteger()
         elif t is r_uint:
-            return SomeInteger(nonneg = True, unsigned = True)
+            return SomeInteger(unsigned = True)
         elif t is r_ulonglong or t is base_int:
-            return SomeInteger(nonneg = True, unsigned = True, size = 2)
+            return SomeInteger(knowntype=r_ulonglong)
         elif t is r_longlong:
-            return SomeInteger(size = 2)
+            return SomeInteger(knowntype=r_longlong)
         elif issubclass(t, str): # py.lib uses annotated str subclasses
             return SomeString()
         elif t is float:

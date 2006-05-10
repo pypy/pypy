@@ -198,9 +198,7 @@ class __extend__(SomeFloat):
 class __extend__(SomeInteger):
 
     def invert(self):
-        if self.unsigned:
-            return SomeInteger(unsigned=True, size=self.size)
-        return SomeInteger(size=self.size)
+        return SomeInteger(knowntype=self.knowntype)
 
     invert.can_only_throw = []
 
@@ -213,17 +211,13 @@ class __extend__(SomeInteger):
     # these are the only ones which can overflow:
 
     def neg(self):
-        if self.unsigned:
-            return SomeInteger(unsigned=True, size=self.size)
-        return SomeInteger(size=self.size)
+        return SomeInteger(knowntype=self.knowntype)
 
     neg.can_only_throw = []
     neg_ovf = _clone(neg, [OverflowError])
 
     def abs(self):
-        if self.unsigned:
-            return self
-        return SomeInteger(nonneg=True, size=self.size)
+        return SomeInteger(nonneg=True, knowntype=self.knowntype)
 
     abs.can_only_throw = []
     abs_ovf = _clone(abs, [OverflowError])

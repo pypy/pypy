@@ -147,34 +147,27 @@ class SomeInteger(SomeFloat):
     "Stands for an object which is known to be an integer."
     knowntype = int
     # size is in multiples of C's sizeof(long)!
-    def __init__(self, nonneg=False, unsigned=False, size=1):
-        self.nonneg = unsigned or nonneg
-        self.unsigned = unsigned  # pypy.rpython.rarithmetic.r_uint
+    def __init__(self, nonneg=False, unsigned=None, knowntype=None):
+        
         if maxint != 2**31-1:
             size = 1    #XXX don't support longlong on 64 bits systems
-        self.size = size
-        if self.unsigned:
-            if self.size == 2:
-                self.knowntype = r_ulonglong
+        if knowntype is None:
+            if unsigned:
+                knowntype = r_uint
             else:
-                self.knowntype = r_uint
-        else:
-            if self.size == 2:
-                self.knowntype = r_longlong
-            else:
-                self.knowntype = int
-
-    def fmt_size(self, s):
-        if s != 1:
-            return str(s)
-
+                knowntype = int
+        elif unsigned is not None:
+            raise TypeError('Conflicting specification for SomeInteger')
+        self.knowntype = knowntype
+        unsigned = self.knowntype(-1) > 0
+        self.nonneg = unsigned or nonneg
+        self.unsigned = unsigned  # pypy.rpython.rarithmetic.r_uint
 
 class SomeBool(SomeInteger):
     "Stands for true or false."
     knowntype = bool
     nonneg = True
     unsigned = False
-    size = 1
     def __init__(self):
         pass
 
@@ -527,9 +520,9 @@ annotation_to_ll_map = [
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (SomeBool(), lltype.Bool),
     (SomeInteger(), lltype.Signed),
-    (SomeInteger(size=2), lltype.SignedLongLong),    
-    (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
-    (SomeInteger(nonneg=True, unsigned=True, size=2), lltype.UnsignedLongLong),    
+    (SomeInteger(knowntype=r_longlong), lltype.SignedLongLong),    
+    (SomeInteger(unsigned=True), lltype.Unsigned),    
+    (SomeInteger(knowntype=r_ulonglong), lltype.UnsignedLongLong),    
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),

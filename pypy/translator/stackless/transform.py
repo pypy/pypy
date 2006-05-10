@@ -126,7 +126,7 @@ class StacklessTransformer(object):
             lltype.Signed: mixlevelannotator.constfunc(
                 code.fetch_retval_long, [], annmodel.SomeInteger()),
             lltype.SignedLongLong: mixlevelannotator.constfunc(
-                code.fetch_retval_longlong, [], annmodel.SomeInteger(size=2)),
+                code.fetch_retval_longlong, [], annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)),
             lltype.Float: mixlevelannotator.constfunc(
                 code.fetch_retval_float, [], annmodel.SomeFloat()),
             llmemory.Address: mixlevelannotator.constfunc(

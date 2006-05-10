@@ -12,23 +12,22 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
 from pypy.rpython import objectmodel
 
-
 class __extend__(annmodel.SomeInteger):
     def rtyper_makerepr(self, rtyper):
-        if self.unsigned:
-            if self.size == 2:
-                return unsignedlonglong_repr
-            else:
-                assert self.size == 1
-                return unsigned_repr
-        else:
-            if self.size == 2:
-                return signedlonglong_repr
-            else:
-                assert self.size == 1
-                return signed_repr
+        if self.knowntype is int:
+            return signed_repr
+        if self.knowntype is bool:
+            return signed_repr
+        if self.knowntype is r_uint:
+            return unsigned_repr
+        if self.knowntype is r_longlong:
+            return signedlonglong_repr
+        if self.knowntype is r_ulonglong:
+            return unsignedlonglong_repr
+        raise TypeError('Can not build a repr for %r'%(self.knowntype,))
+
     def rtyper_makekey(self):
-        return self.__class__, self.unsigned, self.size
+        return self.__class__, self.knowntype
 
 signed_repr = IntegerRepr(Signed, 'int_')
 signedlonglong_repr = IntegerRepr(SignedLongLong, 'llong_')

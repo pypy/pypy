@@ -20,7 +20,7 @@ from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable
 from pypy.annotation.listdef import ListDef
-from pypy.rpython import extregistry
+from pypy.rpython import extregistry, rarithmetic
 
 # convenience only!
 def immutablevalue(x):
@@ -225,10 +225,9 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
 
     def union((int1, int2)):
-        unsigned = int1.unsigned or int2.unsigned
-        return SomeInteger(nonneg = unsigned or (int1.nonneg and int2.nonneg),
-                           unsigned=unsigned,
-                           size = max(int1.size, int2.size))
+        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
+                           knowntype=knowntype)
 
     or_ = xor = add = mul = _clone(union, [])
     add_ovf = mul_ovf = _clone(union, [OverflowError])
@@ -241,33 +240,28 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     truediv_ovf = _clone(truediv, [ZeroDivisionError, OverflowError])
 
     def sub((int1, int2)):
-        return SomeInteger(unsigned = int1.unsigned or int2.unsigned,
-                           size = max(int1.size, int2.size))
+        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        return SomeInteger(knowntype=knowntype)
     sub.can_only_throw = []
     sub_ovf = _clone(sub, [OverflowError])
 
     def and_((int1, int2)):
-        unsigned = int1.unsigned or int2.unsigned
-        return SomeInteger(nonneg = unsigned or int1.nonneg or int2.nonneg,
-                           unsigned = unsigned,
-                           size = max(int1.size, int2.size))
+        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
+                           knowntype=knowntype)
     and_.can_only_throw = []
 
     def lshift((int1, int2)):
-        if int1.unsigned:
-            return SomeInteger(unsigned=True)
-        return SomeInteger(nonneg = int1.nonneg,
-                           size = max(int1.size, int2.size))
+        return SomeInteger(knowntype=int1.knowntype)
+
     lshift.can_only_throw = [ValueError]
     rshift = lshift
     lshift_ovf = _clone(lshift, [ValueError, OverflowError])
 
     def pow((int1, int2), obj3):
-        if int1.unsigned or int2.unsigned or getattr(obj3, 'unsigned', False):
-            return SomeInteger(unsigned=True,
-                               size = max(int1.size, int2.size))
+        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
         return SomeInteger(nonneg = int1.nonneg,
-                           size = max(int1.size, int2.size))
+                           knowntype=knowntype)
     pow.can_only_throw = [ZeroDivisionError]
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
 

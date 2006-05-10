@@ -84,15 +84,11 @@ def ovfcheck_float_to_int(x):
     raise OverflowError
 
 def compute_restype(self_type, other_type):
-    if other_type in (int, long):
+    if other_type in (bool, int, long):
         return self_type
-    if self_type.SIGNED != other_type.SIGNED:
-        raise TypeError('Can not mix %r and %r'%(self_type, other_type))
-    if self_type.BITS > other_type.BITS:
-        return self_type
-    if self_type.BITS < other_type.BITS:
+    if self_type in (bool, int, long):
         return other_type
-    return self_type
+    return build_int(None, self_type.SIGNED and other_type.SIGNED, max(self_type.BITS, other_type.BITS))
 
 
 class base_int(long):
@@ -107,7 +103,7 @@ class base_int(long):
         self_type = type(self)
         other_type = type(other)
         try:
-            return self.typemap[ self_type, other_type ](value)
+            return self.typemap[self_type, other_type](value)
         except KeyError:
             pass
         restype = compute_restype(self_type, other_type)
@@ -274,6 +270,8 @@ def build_int(name, sign, bits):
     else:
         int_type = unsigned_int
     mask = (1 << bits) - 1
+    if name is None:
+        raise TypeError('No predefined %sint%d'%(['u', ''][sign], bits))
     ret = _inttypes[sign, bits] = type(name, (int_type,), {'MASK': mask,
                                                            'BITS': bits})
     return ret

@@ -87,11 +87,11 @@ def restricted_uint(s_obj):    # for r_uint
 
 def restricted_longlong(s_obj):    # for r_uint
     return constpropagate(pypy.rpython.rarithmetic.r_longlong, [s_obj],
-                          SomeInteger(size=2))
+                          SomeInteger(knowntype=pypy.rpython.rarithmetic.r_longlong))
 
 def restricted_ulonglong(s_obj):    # for r_uint
     return constpropagate(pypy.rpython.rarithmetic.r_ulonglong, [s_obj],
-                          SomeInteger(size=2, nonneg=True, unsigned=True))
+                          SomeInteger(knowntype=pypy.rpython.rarithmetic.r_ulonglong))
 
 def restricted_base_int(s_obj):
     # insane hack: only for isinstance(., base_int), not for base_int()

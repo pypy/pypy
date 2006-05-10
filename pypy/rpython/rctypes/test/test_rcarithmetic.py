@@ -14,8 +14,8 @@ def test_promotion():
     assert type(rcbyte(1) + rcshort(1)) is rcshort
     assert type(rcshort(1) + rcbyte(1)) is rcshort
 
-    py.test.raises(TypeError, 'rcubyte(1) + rcshort(1)')
-    py.test.raises(TypeError, 'rcshort(1) + rcubyte(1)')
+    assert type(rcubyte(1) + rcshort(1)) is rcushort
+    assert type(rcshort(1) + rcubyte(1)) is rcushort
 
     
 def test_typeof():
