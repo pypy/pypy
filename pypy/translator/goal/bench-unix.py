@@ -71,7 +71,7 @@ def run_pystone(executable='/usr/local/bin/python', n=0):
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
     return get_result(txt, PYSTONE_PATTERN)
 
-def run_richards(executable='/usr/local/bin/python', n=10):
+def run_richards(executable='/usr/local/bin/python', n=5):
     argstr = RICHARDS_CMD % n
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
     return get_result(txt, RICHARDS_PATTERN)
@@ -80,7 +80,7 @@ def get_executables():  #sorted by revision number (highest first)
     exes = []
     for exe in [os.path.join('.', name) for name in os.listdir('.') if name.startswith('pypy-')]:
         try:
-            exes.append( (exe.split('-',2)[2], exe) )
+            exes.append( (exe.split('-')[2], exe) )
         except:
             pass    #skip filenames without version number
     exes.sort()
