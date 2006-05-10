@@ -7,7 +7,6 @@ from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.model import W_Object, UnwrapError
-from pypy.objspace.std.model import WITHSET
 from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
@@ -301,14 +300,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_ComplexObject(x.real, x.imag)
 
         if isinstance(x, set):
-            if WITHSET:
-                wrappeditems = [self.wrap(item) for item in x]
-                return W_SetObject(wrappeditems)
+            wrappeditems = [self.wrap(item) for item in x]
+            return W_SetObject(self, wrappeditems)
 
         if isinstance(x, frozenset):
-            if WITHSET:
-                wrappeditems = [self.wrap(item) for item in x]
-                return W_FrozensetObject(wrappeditems)
+            wrappeditems = [self.wrap(item) for item in x]
+            return W_FrozensetObject(self, wrappeditems)
 
         if x is __builtin__.Ellipsis:
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
@@ -356,12 +353,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newcomplex(self, realval, imagval):
         return W_ComplexObject(realval, imagval)
 
-    if WITHSET:
-        def newset(self, rdict_w):
-            return W_SetObject(rdict_w)
+    def newset(self, rdict_w):
+        return W_SetObject(self, rdict_w)
 
-        def newfrozenset(self, rdict_w):
-            return W_FrozensetObject(rdict_w)
+    def newfrozenset(self, rdict_w):
+        return W_FrozensetObject(self, rdict_w)
 
     def newlong(self, val): # val is an int
         return W_LongObject.fromint(self, val)

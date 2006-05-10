@@ -1,10 +1,9 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.objspace import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, newmethod
+from pypy.objspace.std.stdtypedef import StdTypeDef, newmethod, no_hash_descr
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod as SMM
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter import gateway
-from pypy.objspace.std.model import WITHSET
 
 set_add                         = SMM('add', 2)
 set_clear                       = SMM('clear', 1)
@@ -29,7 +28,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_settype, __args__):
     from pypy.objspace.std.setobject import W_SetObject
     w_obj = space.allocate_instance(W_SetObject, w_settype)
-    W_SetObject.__init__(w_obj, None)
+    W_SetObject.__init__(w_obj, space, None)
     return w_obj
 
 set_typedef = StdTypeDef("set",

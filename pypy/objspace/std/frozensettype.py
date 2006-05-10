@@ -4,7 +4,6 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, newmethod
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod as SMM
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter import gateway
-from pypy.objspace.std.model import WITHSET
 
 frozenset_copy                  = SMM('copy', 1)
 frozenset_difference            = SMM('difference', 2)
@@ -23,7 +22,7 @@ def descr__frozenset__new__(space, w_frozensettype, w_iterable=NoneNotWrapped):
     if _is_frozenset_exact(w_iterable):
         return w_iterable
     w_obj = space.allocate_instance(W_FrozensetObject, w_frozensettype)
-    W_FrozensetObject.__init__(w_obj, None)
+    W_FrozensetObject.__init__(w_obj, space, None)
 
     return w_obj
 

@@ -1,6 +1,5 @@
 from pypy.objspace.std.objspace import W_Object, OperationError
 from pypy.objspace.std.objspace import registerimplementation, register_all
-from pypy.objspace.std.model import WITHSET
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 from pypy.rpython.objectmodel import r_dict
 from pypy.rpython.rarithmetic import intmask, r_uint
@@ -8,7 +7,7 @@ from pypy.interpreter import gateway
 
 class W_BaseSetObject(W_Object):
 
-    def __init__(w_self, setdata=None):
+    def __init__(w_self, space, setdata=None):
         if setdata is None:
             w_self.setdata = r_dict(space.eq_w, space.hash_w)
         else:
@@ -23,9 +22,9 @@ class W_BaseSetObject(W_Object):
         #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
         objtype = type(w_self)
         if objtype is W_SetObject:
-            obj = W_SetObject(rdict_w)
+            obj = W_SetObject(space, rdict_w)
         elif objtype is W_FrozensetObject:
-            obj = W_FrozensetObject(rdict_w)
+            obj = W_FrozensetObject(space, rdict_w)
         else:
             itemiterator = space.iter(W_SetIterObject(rdict_w))
             obj = space.call_function(space.type(w_self),itemiterator)
@@ -37,8 +36,8 @@ class W_SetObject(W_BaseSetObject):
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
 
-    def __init__(w_self, setdata):
-        W_BaseSetObject.__init__(w_self, setdata)
+    def __init__(w_self, space, setdata):
+        W_BaseSetObject.__init__(w_self, space, setdata)
         w_self.hash = -1
 
 registerimplementation(W_SetObject)

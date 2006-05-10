@@ -8,7 +8,6 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 import pypy.interpreter.pycode
 import pypy.interpreter.special
 
-WITHSET = False
 WITHSMALLINT = False
 
 class StdTypeModel:
@@ -22,9 +21,8 @@ class StdTypeModel:
             from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
-            if WITHSET:
-                from pypy.objspace.std.settype import set_typedef
-                from pypy.objspace.std.frozensettype import frozenset_typedef
+            from pypy.objspace.std.settype import set_typedef
+            from pypy.objspace.std.frozensettype import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listtype   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
@@ -48,8 +46,7 @@ class StdTypeModel:
         from pypy.objspace.std import intobject
         from pypy.objspace.std import floatobject
         from pypy.objspace.std import complexobject
-        if WITHSET:
-            from pypy.objspace.std import setobject
+        from pypy.objspace.std import setobject
         if WITHSMALLINT:
             from pypy.objspace.std import smallintobject
         from pypy.objspace.std import tupleobject
@@ -91,10 +88,9 @@ class StdTypeModel:
             pypy.interpreter.special.Ellipsis: [],
             }
         self.typeorder[complexobject.W_ComplexObject] = []
-        if WITHSET:
-            self.typeorder[setobject.W_SetObject] = []
-            self.typeorder[setobject.W_FrozensetObject] = []
-            self.typeorder[setobject.W_SetIterObject] = []
+        self.typeorder[setobject.W_SetObject] = []
+        self.typeorder[setobject.W_FrozensetObject] = []
+        self.typeorder[setobject.W_SetIterObject] = []
         if WITHSMALLINT:
             self.typeorder[smallintobject.W_SmallIntObject] = []
         for type in self.typeorder:
