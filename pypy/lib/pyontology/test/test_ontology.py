@@ -55,9 +55,9 @@ def test_addvalue():
     O = Ontology()
     a = O.make_var(Property, 'a')
     O.variables[a].addValue('key', 42)
-    assert O.variables[a].getValues() == [('key', [42])]
+    assert O.variables[a].getValues() == [('key', 42)]
     O.variables[a].addValue('key', 43)
-    assert O.variables[a].getValues() == [('key', [42, 43])]
+    assert O.variables[a].getValues() == [('key', 42), ('key', 43)]
 
 def no_test_ClassDomain():
     a = ClassDomain()
@@ -200,9 +200,8 @@ def test_subproperty():
     O.type(sub, obj)
     b = URIRef('b')
     O.type(b, obj)
-    O.subPropertyOf(sub, b)
-    assert len(O.constraints) ==1
     O.variables['a_'].setValues([('individ_',42)])
+    O.subPropertyOf(sub, b)
     O.consistency()
     for val in O.variables['a_'].getValues():
         assert  val in O.variables['b_'].getValues()
@@ -292,10 +291,10 @@ def test_symmetricproperty():
     O.type(sub, obj)
     O.variables['friend_'].setValues([('Bob_','Alice_')])
     O.consistency()
-    assert ('Alice_', ['Bob_']) in O.variables['friend_'].getValues()
+    assert ('Alice_', 'Bob_') in O.variables['friend_'].getValues()
 
 def test_inverseof():
-    py.test.skip("in transit")
+    #py.test.skip("in transit")
     O = Ontology()
     own = URIRef('owner')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
@@ -303,7 +302,6 @@ def test_inverseof():
     owned = URIRef('ownedby')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(owned, obj)
-    O.inverseOf(own, owned)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
@@ -316,27 +314,29 @@ def test_inverseof():
     obj = URIRef('car')
     O.type(sub, obj)
     O.variables['owner_'].setValues([('Bob_','Fiat_')])
-    py.test.raises(ConsistencyFailure, O.consistency)
-    O.variables['ownedby_'].setValues([('Fiat_','Bob_')])
-    O.consistency()
-    
+    O.inverseOf(own, owned)
+    assert ('Fiat_','Bob_') in O.variables['ownedby_'].getValues()   
 def test_hasvalue():
-    py.test.skip("in transit")
     O = Ontology()
+    cls = URIRef('class')
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(cls, obj)
     restrict = BNode('anon1')
     obj = URIRef(namespaces['owl']+'#Restriction')
     O.type(restrict, obj)
     p = URIRef('p')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(p, obj)
-    O.hasValue(restrict, 2)
+    O.consider_triple((cls, p, 2))
     O.onProperty(restrict,p)
-    cls = URIRef('class')
+    O.variables['p_'].setValues([(O.make_var(None,cls),1)])
+    O.hasValue(restrict, 2)
+    cls2 = URIRef('class2')
     obj = URIRef(namespaces['owl']+'#Class')
-    O.type(cls, obj)
-    O.subClassOf(cls,restrict)
-    O.variables['p_'].setValues([(cls,1)])
-    py.test.raises(ConsistencyFailure, O.consistency)
+    O.type(cls2, obj)
+    O.subClassOf(cls2,restrict)
+    assert O.make_var(None, cls) in O.variables[O.make_var(None, cls2)].getValues()
+#    py.test.raises(ConsistencyFailure, O.consistency)
 
 def test_List():
     py.test.skip("Need to be rewritten using RDF-XML")
@@ -351,7 +351,7 @@ def test_List():
     O.first( URIRef('2'), 2)
     O.rest( URIRef('2'),  URIRef(namespaces['rdf']+'#nil'))
     O.flatten_rdf_list(own)
-    O.consistency(5)
+    O.consistency()
     assert O.rep._domains['favlist_'].getValues() == [0,1,2]
 
 def test_oneofclassenumeration():
@@ -360,7 +360,7 @@ def test_oneofclassenumeration():
     own = [UR('first'), UR('second'), UR('third')]
     O.oneOf(restrict, own)
     O.type(restrict, namespaces['owl']+'#Class')
-    O.consistency(4)
+    O.consistency()
     assert len(O.rep._domains[restrict].getValues()) == 3
     assert set(O.rep._domains[restrict].getValues()) == set(own)
 
@@ -370,12 +370,12 @@ def test_oneofdatarange():
     own = ['1','2','3'] 
     O.oneOf(restrict, own)
     O.type(restrict, namespaces['owl']+'#DataRange')
-    O.consistency(4)
+    O.consistency()
     assert len(O.rep._domains[restrict].getValues()) == 3
     assert set(O.rep._domains[restrict].getValues()) == set(own)
 
 def test_somevaluesfrom_datarange():
-    py.test.skip("in flux")
+
     O = Ontology()
     datarange = BNode('anon')
     own =  ['1','2','3']
@@ -387,17 +387,16 @@ def test_somevaluesfrom_datarange():
     p = URIRef('p')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(p, obj)
-    O.someValuesFrom(restrict, datarange)
-    O.onProperty(restrict,p)
     cls = URIRef('class')
     obj = URIRef(namespaces['owl']+'#Class')
     O.type(cls, obj)
+    O.variables['p_'].setValues([(cls,'1')])
+    O.onProperty(restrict,p)
+    O.someValuesFrom(restrict, datarange)
     O.subClassOf(cls,restrict)
-    O.variables['p_'].setValues([(cls,1)])
-    py.test.raises(ConsistencyFailure, O.consistency)
+    assert cls in O.variables[O.make_var(None, cls)].getValues()
 
 def test_allvaluesfrom_datarange():
-    py.test.skip("in flux")
     O = Ontology()
     datarange = BNode('anon')
     own = ['1','2','3']
@@ -409,14 +408,14 @@ def test_allvaluesfrom_datarange():
     p = URIRef('p')
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(p, obj)
-    O.allValuesFrom(restrict, datarange)
-    O.onProperty(restrict,p)
     cls = URIRef('class')
+    O.variables['p_'].setValues([(cls,'1'),(cls,'2'),(cls,'3')])
     obj = URIRef(namespaces['owl']+'#Class')
     O.type(cls, obj)
+    O.onProperty(restrict,p)
+    O.allValuesFrom(restrict, datarange)
     O.subClassOf(cls,restrict)
-    O.variables['p_'].setValues([(cls,1)])
-    py.test.raises(ConsistencyFailure, O.consistency)
+    assert cls in O.variables[O.make_var(None, cls)].getValues()
 
 def test_unionof():
     O = Ontology()
@@ -430,7 +429,7 @@ def test_unionof():
     O.oneOf( own2, list2)
     O.unionOf(cls, own)
     O.type(cls, namespaces['owl']+'#Class')
-    O.consistency(3)
+    O.consistency()
     res = O.rep._domains[cls].getValues()
     res.sort()
     assert res == ['1', '2', '3', '4', '5']
@@ -440,7 +439,7 @@ def test_intersectionof():
     cls = BNode('anon')
     O.intersectionOf(cls, [['1','2','3'],['3','4','5']])
     O.type(cls, namespaces['owl']+'#Class')
-    O.consistency(3)
+    O.consistency()
     assert O.rep._domains[cls].getValues() == ['3']
 
 def test_differentfrom():
@@ -455,7 +454,7 @@ def test_differentfrom():
     O.type(cls, namespaces['owl']+'#Thing')
     O.type(own1, namespaces['owl']+'#Thing')
     O.type(own2, namespaces['owl']+'#Thing')
-    O.consistency(3)
+    O.consistency()
     assert len(O.rep._constraints) == 4
 
 def test_differentfromconsistency():
@@ -463,7 +462,7 @@ def test_differentfromconsistency():
     cls = BNode('anon')
     O.differentFrom(cls, cls)
     O.type(cls, namespaces['owl']+'#Thing')
-    py.test.raises(ConsistencyFailure, O.consistency, 3)
+    py.test.raises(ConsistencyFailure, O.consistency)
 
 def test_sameas():
     O = Ontology()
@@ -480,8 +479,8 @@ def test_sameas():
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(sub, obj)
     O.variables[O.make_var(None,sub)].setValues([(cls,'1')])
-    O.consistency(3)
-    assert ('liist1',['1']) in O.rep._domains[O.make_var(None,sub)].getValues()
+    O.consistency()
+    assert ('liist1','1') in O.rep._domains[O.make_var(None,sub)].getValues()
 
 def test_sameasconsistency():
     O = Ontology()
@@ -494,7 +493,7 @@ def test_sameasconsistency():
     obj = URIRef(namespaces['owl']+'#ObjectProperty')
     O.type(sub, obj)
     O.variables[O.make_var(None,sub)].setValues([(cls,'1'), (own1,'2')])
-    py.test.raises(ConsistencyFailure, O.consistency, 3)
+    py.test.raises(ConsistencyFailure, O.consistency)
 
 
 def test_cardinality_terminology():

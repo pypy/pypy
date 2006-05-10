@@ -89,7 +89,7 @@ class ClassDomain(AbstractDomain):
         return self.bases
 
     def addValue(self, value):
-	    self.values[value] = True
+        self.values[value] = True
 
     def getValues(self):
         return self.values.keys()
@@ -116,7 +116,16 @@ class Property(ClassDomain):
     
     def getValues(self):
         items = self._dict.items()
-        return items
+        res = []
+        for k,vals in items:
+            for v in vals:
+                res.append((k,v))
+        return res
+
+    def getValuesPrKey(self, key= None):
+        if key:
+            return self._dict[key]
+        return self._dict.items()
     
     def addValue(self, key, val):
         self._dict.setdefault(key, [])
@@ -124,7 +133,6 @@ class Property(ClassDomain):
     
     def setValues(self, values):
         for key, val in values:
-            print val
             self.addValue(key, val)
     
     def removeValues(self, values):
@@ -175,7 +183,7 @@ class FunctionalProperty(Property):
     def addValue(self, key, val):
         Property.addValue(self, key, val)
         if len(self._dict[key]) > 1:
-	        raise ConsistencyFailure("FunctionalProperties can only have one value")
+            raise ConsistencyFailure("FunctionalProperties can only have one value")
         
 class InverseFunctionalProperty(Property):
     
@@ -270,7 +278,9 @@ class Ontology:
 
     def add_file(self, f, format=None):
         tmp = Graph('default')
-        tmp.load(f, format)
+        if not format:
+            format = check_format(f)
+        tmp.load(f, format=format)
         for triple in tmp.triples((None,)*3):
             self.add(triple)
             
@@ -311,6 +321,11 @@ class Ontology:
         for triple in item_as_subject:
             self.consider_triple(triple)
 
+    def resolve_predicate(self, item):
+        item_as_predicate = self.graph.triples(( None, item, None))
+        for triple in item_as_predicate:
+            self.consider_triple(triple)
+
     def get_individuals_of(self, item):
         item_as_subject = self.graph.triples(( None, rdf_type, item))
         for triple in item_as_subject:
@@ -325,6 +340,7 @@ class Ontology:
             if ns not in uris.keys():
                 uris[ns] = ns.split('/')[-1]
             a = uris[ns] + '_' + name
+            var = str(a.replace('.','_'))
             var = str(a.replace('-','_'))
         else:
             var = a
@@ -361,7 +377,7 @@ class Ontology:
     def check_TBoxes(self):
         for var, cls in self.variables.items():
             for prop, terms in cls.TBox.items():
-                if len(terms['Cardinality']) > 1: 
+                if len(terms.get('Cardinality',[])) > 1: 
                     self.evaluate(terms['Cardinality'])
     
     def solve(self,verbose=0):
@@ -426,6 +442,7 @@ class Ontology:
         pass
     
     def onProperty(self, s, var):
+        self.resolve_predicate(var)
         svar =self.make_var(Restriction, s)
         avar =self.make_var(Property, var)
         restr = self.variables[svar]
@@ -454,12 +471,14 @@ class Ontology:
                     prop.setdefault(typ, [])
                     prop[typ].extend(obj.TBox[key][typ])
 
-#            if isinstance(self.variables[avar], Restriction):
-#                self.variables.pop(avar)
+            if isinstance(self.variables[avar], Restriction):
+                self.variables[avar].TBox = {}
+                self.variables.pop(avar)
         else:
             cons = SubClassConstraint( svar, avar)
             self.constraints.append(cons)
-        self.get_individuals_of(var)
+        for item in obj.getValues():
+            sub.addValue(item)
 
     def equivalentClass(self, s, var):
         self.subClassOf(s, var)
@@ -529,9 +548,11 @@ class Ontology:
         # s is a subproperty of var
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
-        cons = SubPropertyConstraint( svar, avar)
-        self.constraints.append(cons)
-    
+        avals = self.variables[avar].getValues()
+        for pair in self.variables[svar].getValues():
+            if not pair in avals:
+                self.variables[avar].addValue(pair[0], pair[1])
+
     def equivalentProperty(self, s, var):
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
@@ -539,10 +560,21 @@ class Ontology:
         self.constraints.append(cons)
     
     def inverseOf(self, s, var):
+        self.resolve_item(s)
+        self.resolve_item(var)
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
-        con = InverseofConstraint(svar, avar)
-        self.constraints.append(con)
+#        con = InverseofConstraint(svar, avar)
+#        self.constraints.append(con)
+        avals = self.variables[avar].getValues()
+        svals = self.variables[svar].getValues()
+        #import pdb;pdb.set_trace()
+        for pair in avals:
+            if not (pair[1], pair[0]) in svals:
+	            self.variables[svar].addValue(pair[1], pair[0])
+        for pair in svals:
+            if not (pair[1], pair[0]) in avals:
+	            self.variables[avar].addValue(pair[1], pair[0])
 
 #---Property restrictions------------------------------------------------------
     
@@ -554,9 +586,13 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
-        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] < int(%s))" %(prop, cls_name, prop, var)
-        constrain = Expression([prop], formula)
-        self.constraints.append(constrain)
+#        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] < int(%s))" %(prop, cls_name, prop, var)
+#        constrain = Expression([prop], formula)
+#        self.constraints.append(constrain)
+
+        for cls,vals in self.variables[prop].getValuesPrKey():
+            if len(vals) < int(var):
+                self.variables[svar].addValue(cls)
 
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
@@ -566,9 +602,10 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '>', int(var))]}
-        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] > int(%s))" %(prop, cls_name, prop, var)
-        constrain = Expression([prop], formula)
-        self.constraints.append(constrain)
+        for cls,vals in self.variables[prop].getValuesPrKey():
+            if len(vals) > int(var):
+                self.variables[svar].addValue(cls)
+
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
@@ -578,9 +615,10 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '=', int(var))]}
-        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] == int(%s))" %(prop, cls_name, prop, var)
-        constrain = Expression([prop], formula)
-        self.constraints.append(constrain)
+        for cls,vals in self.variables[prop].getValuesPrKey():
+            if len(vals) == int(var):
+                self.variables[svar].addValue(cls)
+
     
     def hasValue(self, s, var):
         self.resolve_item(s)
@@ -590,8 +628,9 @@ class Ontology:
         prop = self.variables[svar].property
         restr = self.variables[svar]
         restr.TBox[prop] = {'hasValue' : [('hasvalue', var)]}
-#        constrain = HasvalueConstraint(svar, avar)
-#        self.constraints.append(constrain)
+        for cls,vals in self.variables[prop].getValuesPrKey():
+            if var in vals:
+                self.variables[svar].addValue(cls)
     
     def allValuesFrom(self, s, var):
         self.resolve_item(s)
@@ -600,9 +639,12 @@ class Ontology:
         avar = self.make_var(None, var)
         prop = self.variables[svar].property
         restr = self.variables[svar]
-        restr.TBox[prop] = {'allValues' : [('allValues', var)]}
-#        constrain = AllValueConstraint(svar, avar)
-#        self.constraints.append(constrain)
+        restr.TBox[prop] = {'allValuesFrom' : [('allValuesFrom', avar)]}
+        obj = self.variables[avar]
+        constrain_vals = set(obj.getValues())
+        for cls,vals in self.variables[prop].getValuesPrKey():
+            if (set(vals) & constrain_vals) == constrain_vals:
+                self.variables[svar].addValue(cls)
     
     def someValuesFrom(self, s, var):
         self.resolve_item(s)
@@ -611,9 +653,12 @@ class Ontology:
         avar = self.make_var(None, var)
         prop = self.variables[svar].property
         restr = self.variables[svar]
-        restr.TBox[prop] = {'someValues' : [('someValues', var)]}
-#        constrain = SomeValueConstraint(svar, avar)
-#        self.constraints.append(constrain)
+        obj = self.variables[avar]
+        constrain_vals = set(obj.getValues())
+        restr.TBox[prop] = {'someValuesFrom' : [('someValuesFrom', avar)]}
+        for cls,vals in self.variables[prop].getValuesPrKey():
+            if set(vals) & constrain_vals:
+                self.variables[svar].addValue(cls)
 
 # -----------------              ----------------
     
@@ -645,4 +690,3 @@ class Ontology:
                self.differentFrom(v, other)
         constrain = AllDifferentConstraint(s_var, var_var)
         self.constraints.append(constrain)
-
