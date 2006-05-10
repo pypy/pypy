@@ -1,0 +1,7 @@
+the 'tests' 'coro1.py', 'stackX.py' will only work with a pypy version that 
+has stackless support (translator/goal/translate.py --stackless).
+
+stackless_.py contains an application level proof of concept implementation of 
+stackless on top of stackless.coroutine.
+This implementation is neither feature complete nor has it any kind of 
+exception handling.
