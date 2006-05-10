@@ -14,6 +14,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
+from pypy.translator.c.exceptiontransform import ExceptionTransformer
 
 log = log.database 
 
@@ -29,6 +30,11 @@ class Database(object):
         self._opcomments = {}
 
         self.primitives_init()
+
+        if translator is None or translator.rtyper is None:
+            self.exctransformer = None
+        else:
+            self.exctransformer = ExceptionTransformer(translator)
 
     def primitives_init(self):
         primitives = {

@@ -44,6 +44,19 @@ class FuncNode(ConstantLLVMNode):
         #from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
         #merge_mallocs(self.db.translator, self.graph, self.ref)
 
+        # apply the stackless transformation
+        #if db.stacklesstransformer and do_stackless:
+        #    db.stacklesstransformer.transform_graph(graph)
+
+        # apply the exception transformation
+        #if self.db.exctransformer:
+        #    self.db.exctransformer.create_exception_handling(self.graph)
+
+        # apply the gc transformation
+        #self.db.gctransformer.transform_graph(self.graph)
+
+        #self.graph.show()
+
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
     

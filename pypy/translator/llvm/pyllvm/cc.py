@@ -8,7 +8,11 @@ class cdecl(object):
         d = __file__[:__file__.find("pyllvm")] + "llvmcapi/"
         #XXX does this load once or every time?
         try:
-            self.library  = cdll.load(d + libname + ".so")
+            if "load" in dir(cdll):
+                cdll_load = cdll.load
+            else:
+                cdll_load = cdll.LoadLibrary
+            self.library  = cdll_load(d + libname + ".so")
         except:
             raise Exception("llvmcapi not found: run 'python setup.py build_ext -i' in " + d)
         self.restype  = restype
