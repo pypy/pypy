@@ -390,6 +390,7 @@ def test_expose_classes():
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
+    assert (obj + obj).demo() == 10
 
 def extfunc(inst):
     return inst.demo()
@@ -417,7 +418,7 @@ def test_asd():
     obj = m.DemoClass(2, 3)
     res = obj.demo()
     assert res == DemoClass(2, 3).demo()
-
+    assert (obj + obj).demo() == 10
 
 if __name__=='__main__':
     test_expose_classes()
