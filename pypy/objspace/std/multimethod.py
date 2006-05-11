@@ -290,6 +290,8 @@ class MMDispatcher(object):
     achieve the same result.  The MMDispatcher is only used by
     rpython.lltypesystem.rmultimethod.  It is also nice for documentation.
     """
+    _revcache = None
+
     def __init__(self, multimethod, list_of_typeorders):
         self.multimethod = multimethod
         self.list_of_typeorders = list_of_typeorders
@@ -355,6 +357,16 @@ class MMDispatcher(object):
         result = []
         walktree(self.multimethod.dispatch_tree, ())
         return result
+
+    def anychance(self, typesprefix):
+        # is there any chance that a list of types starting with typesprefix
+        # could lead to a successful dispatch?
+        if self._revcache is None:
+            # quick hack!
+            installer = InstallerVersion1(self.multimethod, 'X',
+                                          self.list_of_typeorders)
+            self._revcache = dict.fromkeys(installer.subtree_cache)
+        return tuple(typesprefix) in self._revcache
 
 
 class Call(object):
@@ -551,11 +563,12 @@ class InstallerVersion2(object):
                                                   multimethod.argnames_after)
                 if calllist:
                     self.table[prefixtypes] = calllist
-            else:
+            elif dispatcher.anychance(prefixtypes):
                 typeorder = list_of_typeorders[len(prefixtypes)]
                 for t1 in typeorder:
                     buildtable(prefixtypes + (t1,))
         buildtable(())
+        self.dispatcher = dispatcher
 
     def is_empty(self):
         return len(self.table) == 0
@@ -582,7 +595,7 @@ class InstallerVersion2(object):
                 entry = self.build_funcentry(funcname, calllist)
                 entry.register_valid_types(typesnum)
                 return entry
-            else:
+            elif dispatcher.anychance(typesprefix):
                 flatline = []
                 for num1, t1 in enumerate(lst):
                     item = compress(typesprefix + (t1,), typesnum + (num1,))
@@ -592,6 +605,8 @@ class InstallerVersion2(object):
                 else:
                     array = indexarray
                 return array.insert_subarray(flatline)
+            else:
+                return 0
 
         master_index = compress((), ())
 
