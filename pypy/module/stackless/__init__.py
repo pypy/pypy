@@ -10,7 +10,7 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        #'tasklet'    : 'interp_stackless.tasklet',
+        'tasklet'    : 'interp_stackless.tasklet',
         'coroutine'  : 'coroutine.AppCoroutine',
     }
 
