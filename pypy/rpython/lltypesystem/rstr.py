@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
-from pypy.rpython.rstr import AbstractStringRepr, char_repr, AbstractStringIteratorRepr
+from pypy.rpython.rstr import AbstractStringRepr, char_repr, unichar_repr, AbstractStringIteratorRepr
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc, \
@@ -739,9 +739,8 @@ ll_strconcat = LLHelpers.ll_strconcat
 ll_join = LLHelpers.ll_join
 do_stringformat = LLHelpers.do_stringformat
 
-
-
 char_repr.ll = LLHelpers
+unichar_repr.ll = LLHelpers
 string_repr = StringRepr()
 emptystr = string_repr.convert_const("")
 
