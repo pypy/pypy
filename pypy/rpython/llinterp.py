@@ -337,7 +337,8 @@ class LLFrame(object):
         # XXX these special cases DO pile up, do something better here
         if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast',
                                 'cast_adr_to_ptr', 'cast_int_to_ptr',
-                                'cast_opaque_ptr', 'unsafe_call']:
+                                'cast_opaque_ptr', 'unsafe_call',
+                                'cast_primitive']:
             vals.insert(0, operation.result.concretetype)
         try:
             retval = ophandler(*vals)
@@ -592,6 +593,10 @@ class LLFrame(object):
         assert checkptr(obj)
         assert isinstance(index, int)
         return lltype.direct_ptradd(obj, index)
+
+    def op_cast_primitive(self, TYPE, value):
+        assert isinstance(lltype.typeOf(value), lltype.Primitive)
+        return lltype.cast_primitive(TYPE, value)
 
     def op_cast_ptr_to_int(self, ptr1):
         assert checkptr(ptr1)

@@ -147,3 +147,21 @@ PrimitiveErrorValue = {
     Void:     '/* error */',
     Address:  'NULL',
     }
+
+def define_c_primitive(lltype, c_name):
+    if lltype in PrimitiveName:
+        return
+    name_str = '((%s) %%dULL)' % c_name
+    PrimitiveName[lltype] = lambda value, db: name_str % value
+    PrimitiveType[lltype] = '%s @'% c_name
+    PrimitiveErrorValue[lltype] = '((%s) -1)'% c_name
+    
+try:
+    import ctypes
+except ImportError:
+    pass
+else:
+    from pypy.rpython.rctypes import rcarithmetic as rcarith
+    
+    define_c_primitive(rcarith.CShort, 'short')
+    

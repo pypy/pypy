@@ -4,13 +4,14 @@ from ctypes import c_double, c_wchar, c_char_p
 from pypy.annotation import model as annmodel
 from pypy.rpython.rctypes.implementation import CTypesCallEntry, CTypesObjEntry
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.rctypes import rcarithmetic as rcarith
 
 ctypes_annotation_list = {
     c_char:          lltype.Char,
     c_wchar:         lltype.UniChar,
     c_byte:          lltype.Signed,
     c_ubyte:         lltype.Unsigned,
-    c_short:         lltype.Signed,
+    c_short:         rcarith.CShort,
     c_ushort:        lltype.Unsigned,
     c_int:           lltype.Signed,
     c_uint:          lltype.Unsigned,
@@ -22,6 +23,11 @@ ctypes_annotation_list = {
     c_double:        lltype.Float,
 }   # nb. platform-dependent duplicate ctypes are removed
 
+def return_lltype(c_type):
+    ll_type = ctypes_annotation_list[c_type]
+    if isinstance(ll_type, lltype.Number):
+        return ll_type.normalized()
+    return ll_type
 
 class CallEntry(CTypesCallEntry):
     "Annotation and rtyping of calls to primitive c_xxx types."
@@ -49,7 +55,7 @@ class ObjEntry(CTypesObjEntry):
         return self.get_s_value()
 
     def get_s_value(self):
-        ll_type = ctypes_annotation_list[self.type]
+        ll_type = return_lltype(self.type)
         return annmodel.lltype_to_annotation(ll_type)
 
     s_return_trick = property(get_s_value)

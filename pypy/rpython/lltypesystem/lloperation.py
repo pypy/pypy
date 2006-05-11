@@ -236,6 +236,7 @@ LL_OPERATIONS = {
     'ullong_rshift_val':    LLOp(canfold=True, canraise=(ValueError,)),
     'ullong_xor':           LLOp(canfold=True),
 
+    'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),
     'cast_bool_to_float':   LLOp(canfold=True),

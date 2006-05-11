@@ -1,6 +1,7 @@
 import py
 from pypy.rpython.rarithmetic import r_int, r_uint, intmask
 from pypy.rpython.rarithmetic import r_ulonglong, r_longlong, base_int
+from pypy.rpython.rarithmetic import normalizedinttype
 from pypy.rpython.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
@@ -491,7 +492,11 @@ class Number(Primitive):
         else:
             self._cast = cast
 
-_numbertypes = {int: Number("Signed", int, )}
+    def normalized(self):
+        return build_number(None, normalizedinttype(self._type))
+        
+
+_numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
 
 def build_number(name, type):

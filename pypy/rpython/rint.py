@@ -49,7 +49,7 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
             return llops.genop('cast_int_to_longlong', [v], resulttype=SignedLongLong)
         if r_from.lowleveltype == SignedLongLong and r_to.lowleveltype == Signed:
             return llops.genop('truncate_longlong_to_int', [v], resulttype=Signed)
-        return NotImplemented
+        return llops.genop('cast_primitive', [v], resulttype=r_to.lowleveltype)
 
     #arithmetic
 

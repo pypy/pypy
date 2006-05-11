@@ -93,6 +93,14 @@ def compute_restype(self_type, other_type):
         return other_type
     return build_int(None, self_type.SIGNED and other_type.SIGNED, max(self_type.BITS, other_type.BITS))
 
+def normalizedinttype(t):
+    if t is int:
+        return int
+    if t.BITS <= r_int.BITS:
+        return build_int(None, t.SIGNED, r_int.BITS)
+    else:
+        assert t.BITS <= r_longlong.BITS
+        return build_int(None, t.SIGNED, r_longlong.BITS)
 
 class base_int(long):
     """ fake unsigned integer implementation """

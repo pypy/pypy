@@ -8,16 +8,27 @@ from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 
 class PrimitiveRepr(CTypesValueRepr):
 
+    def __init__(self, rtyper, s_ctypesobject, ll_type):
+        CTypesValueRepr.__init__(self, rtyper, s_ctypesobject, ll_type)
+        if isinstance(ll_type, lltype.Number):
+            normalized_lltype = ll_type.normalized()
+        else:
+            normalized_lltype = ll_type
+        self.value_repr = rtyper.getprimitiverepr(ll_type)
+        self.normalized_value_repr = rtyper.getprimitiverepr(normalized_lltype)
+            
     def return_c_data(self, llops, v_c_data):
         """Read out the atomic data from a raw C pointer.
         Used when the data is returned from an operation or C function call.
         """
-        return self.getvalue_from_c_data(llops, v_c_data)
+        v_value = self.getvalue_from_c_data(llops, v_c_data)
+        return self.return_value(llops, v_value)
 
     def return_value(self, llops, v_value):
         # like return_c_data(), but when the input is only the value
         # field instead of the c_data pointer
-        return v_value
+        return llops.convertvar(v_value, self.value_repr,
+                               self.normalized_value_repr)
 
     def rtype_getattr(self, hop):
         s_attr = hop.args_s[1]
@@ -25,7 +36,8 @@ class PrimitiveRepr(CTypesValueRepr):
         assert s_attr.const == 'value'
         v_primitive = hop.inputarg(self, 0)
         hop.exception_cannot_occur()
-        return self.getvalue(hop.llops, v_primitive)
+        v_c_data = self.get_c_data(hop.llops, v_primitive)
+        return self.return_c_data(hop.llops, v_c_data)
 
     def rtype_setattr(self, hop):
         s_attr = hop.args_s[1]
@@ -34,6 +46,11 @@ class PrimitiveRepr(CTypesValueRepr):
         v_primitive, v_attr, v_value = hop.inputargs(self, lltype.Void,
                                                         self.ll_type)
         self.setvalue(hop.llops, v_primitive, v_value)
+
+    def initialize_const(self, p, value):
+        if isinstance(value, self.ctype):
+            value = value.value
+        p.c_data[0] = lltype.cast_primitive(self.ll_type, value)
 
 
 class __extend__(pairtype(IntegerRepr, PrimitiveRepr),

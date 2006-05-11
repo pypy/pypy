@@ -12,10 +12,11 @@ from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import r_longlong, r_ulonglong
-
+from pypy.rpython.lltypesystem import lltype
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
 from ctypes import c_double, c_wchar, c_char_p, pointer, sizeof
+from ctypes import Structure
 
 class Test_annotation:
     def test_simple(self):
@@ -114,6 +115,121 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
+    def test_annotate_primitive_value(self):
+        def func(x):
+            cs = c_short(x)
+            return cs.value
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+            
+    def test_annotate_primitive_arrayitem(self):
+        CSA = c_short * 1
+        def func(x):
+            csa = CSA(x)
+            return csa[0]
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+            
+    def test_annotate_primitive_ptritem(self):
+        def func(x):
+            cs = pointer(c_short(x))
+            return cs[0]
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
+    def test_annotate_primitive_structfield(self):
+        class S(Structure):
+            _fields_ = [('cs', c_short)]
+        def func(x):
+            s = S(x)
+            return s.cs
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+            
+    def test_annotate_set_primitive_value(self):
+        def func(x):
+            cs = c_short()
+            cs.value = x
+            return cs.value
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
+    def test_annotate_set_primitive_arrayitem(self):
+        CSA = c_short * 1
+        def func(x):
+            csa = CSA()
+            csa[0] = x
+            return csa[0]
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+            
+    def test_annotate_set_primitive_ptritem(self):
+        def func(x):
+            cs = pointer(c_short())
+            cs[0] = x
+            return cs[0]
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+
+    def test_annotate_set_primitive_structfield(self):
+        class S(Structure):
+            _fields_ = [('cs', c_short)]
+        def func(x):
+            s = S()
+            s.cs = x
+            return s.cs
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+
+        assert s.knowntype == int
+
+        if conftest.option.view:
+            t.view()
+            
+        
 class Test_specialization:
     def test_specialize_c_int(self):
         def create_c_int():
@@ -268,6 +384,87 @@ class Test_specialization:
             assert c_ulonglong(big)
         interpret(func, [17, 0])
 
+    def test_specialize_primitive_value(self):
+        def func(x):
+            cs = c_short(x)
+            return cs.value
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+
+    def test_specialize_primitive_arrayitem(self):
+        CSA = c_short * 1
+        def func(x):
+            csa = CSA(x)
+            return csa[0]
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+            
+    def test_specialize_primitive_ptritem(self):
+        def func(x):
+            cs = pointer(c_short(x))
+            return cs[0]
+
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+
+    def test_specialize_primitive_structfield(self):
+        class S(Structure):
+            _fields_ = [('cs', c_short)]
+        def func(x):
+            s = S(x)
+            return s.cs
+
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+
+
+    def test_specialize_set_primitive_value(self):
+        def func(x):
+            cs = c_short()
+            cs.value = x
+            return cs.value
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+            
+    def test_specialize_set_primitive_arrayitem(self):
+        CSA = c_short * 1
+        def func(x):
+            csa = CSA()
+            csa[0] = x
+            return csa[0]
+            
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+
+    def test_specialize_set_primitive_ptritem(self):
+        def func(x):
+            cs = pointer(c_short())
+            cs[0] = x
+            return cs[0]
+
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+
+    def test_specialize_set_primitive_structfield(self):
+        class S(Structure):
+            _fields_ = [('cs', c_short)]
+        def func(x):
+            s = S()
+            s.cs = x
+            return s.cs
+
+        res = interpret(func, [19])
+        assert lltype.typeOf(res) is lltype.Signed
+        assert res == 19
+
+        
 class Test_compilation:
     def test_compile_c_int(self):
         def create_c_int():
@@ -321,9 +518,82 @@ class Test_compilation:
         assert fn() == 5.2
 
     def test_compile_short(self):
-        py.test.skip('In-progress')
+        #py.test.skip('In-progress')
         def sizeof_c_short():
             return sizeof(c_short)
         fn = compile(sizeof_c_short, [])
         assert fn() == sizeof(c_short)
         
+
+    def test_compile_primitive_value(self):
+        def func(x):
+            cs = c_short(x)
+            return cs.value
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_primitive_arrayitem(self):
+        CSA = c_short * 1
+        def func(x):
+            csa = CSA(x)
+            return csa[0]
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_primitive_ptritem(self):
+        def func(x):
+            cs = pointer(c_short(x))
+            return cs[0]
+
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_primitive_structfield(self):
+        class S(Structure):
+            _fields_ = [('cs', c_short)]
+        def func(x):
+            s = S(x)
+            return s.cs
+
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_set_primitive_value(self):
+        def func(x):
+            cs = c_short()
+            cs.value = x
+            return cs.value
+
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_set_primitive_arrayitem(self):
+        CSA = c_short * 1
+        def func(x):
+            csa = CSA()
+            csa[0] = x
+            return csa[0]
+            
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_set_primitive_ptritem(self):
+        def func(x):
+            cs = pointer(c_short())
+            cs[0] = x
+            return cs[0]
+
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
+    def test_compile_set_primitive_structfield(self):
+        class S(Structure):
+            _fields_ = [('cs', c_short)]
+        def func(x):
+            s = S()
+            s.cs = x
+            return s.cs
+
+        fn = compile(func, [int])
+        assert fn(19) == func(19)
+
