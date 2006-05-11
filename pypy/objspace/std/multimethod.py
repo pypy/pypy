@@ -570,7 +570,7 @@ class InstallerVersion2(object):
 
     def __init__(self, multimethod, prefix, list_of_typeorders,
                  baked_perform_call=True, base_typeorder=None):
-        print 'InstallerVersion2:', prefix
+        #print 'InstallerVersion2:', prefix
         self.multimethod = multimethod
         self.prefix = prefix
         self.list_of_typeorders = list_of_typeorders
@@ -727,4 +727,4 @@ class InstallerVersion2(object):
 # ____________________________________________________________
 # Selection of the version to use
 
-Installer = InstallerVersion1
+Installer = InstallerVersion1   # modified by translate.py targetpypystandalone
