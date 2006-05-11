@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import AbstractStringRepr, CharRepr, inputconst, UniCharRepr
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltypesystem.rtuple import TupleRepr # XXX type system!
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem.rslice import SliceRepr # XXX type system!
@@ -439,6 +440,15 @@ class __extend__(pairtype(AbstractStringRepr, CharRepr)):
             return llops.gendirectcall(r_from.ll.ll_stritem_nonneg, v, c_zero)
         return NotImplemented
 
+class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
+    def convert_from_to(this_pair, v, llops):
+        rstr = llops.rtyper.type_system.rstr
+        return rstr.convert_PyObjRepr_StringRepr(this_pair, v, llops)
+
+class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
+    def convert_from_to(this_pair, v, llops):
+        rstr = llops.rtyper.type_system.rstr
+        return rstr.convert_StringRepr_PyObjRepr(this_pair, v, llops)
 
 
 # ____________________________________________________________
