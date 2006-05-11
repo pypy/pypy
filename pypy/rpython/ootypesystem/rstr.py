@@ -1,5 +1,6 @@
-from pypy.rpython.rstr import AbstractStringRepr, AbstractStringIteratorRepr
-from pypy.rpython.lltypesystem.lltype import Ptr
+from pypy.rpython.rstr import AbstractStringRepr, \
+     AbstractCharRepr, AbstractUniCharRepr, AbstractStringIteratorRepr
+from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
 from pypy.rpython.ootypesystem.ootype import Signed, Record, String, make_string
 
 class StringRepr(AbstractStringRepr):
@@ -33,7 +34,17 @@ class StringRepr(AbstractStringRepr):
     def make_iterator_repr(self):
         return string_iterator_repr
 
+
+class CharRepr(AbstractCharRepr, StringRepr):
+    lowleveltype = Char
+
+class UniCharRepr(AbstractUniCharRepr):
+    lowleveltype = UniChar
+
+
 string_repr = StringRepr()
+char_repr = CharRepr()
+unichar_repr = UniCharRepr()
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
 

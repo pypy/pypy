@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem.lltype import \
      Signed, Unsigned, Bool, Float, Void, pyobjectptr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import FloatRepr
-from pypy.rpython.rmodel import IntegerRepr, BoolRepr, AbstractStringRepr
+from pypy.rpython.rmodel import IntegerRepr, BoolRepr
+from pypy.rpython.rstr import AbstractStringRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import log
 

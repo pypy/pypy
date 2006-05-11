@@ -1,7 +1,8 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.rstr import CharRepr, UniCharRepr
 from pypy.annotation.pairtype import pairtype
-from pypy.rpython.rmodel import IntegerRepr, FloatRepr, CharRepr, UniCharRepr
+from pypy.rpython.rmodel import IntegerRepr, FloatRepr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 

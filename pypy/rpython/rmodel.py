@@ -337,15 +337,6 @@ class BoolRepr(IntegerRepr):
         from pypy.rpython.rint import signed_repr
         self.as_int = signed_repr
 
-class AbstractStringRepr(Repr):
-    pass
-
-class CharRepr(AbstractStringRepr):
-    lowleveltype = Char
-
-class UniCharRepr(Repr):
-    lowleveltype = UniChar
-
 class VoidRepr(Repr):
     lowleveltype = Void
     def get_ll_eq_function(self): return None

@@ -3,12 +3,12 @@ from pypy.annotation.pairtype import pairtype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
-from pypy.rpython.rstr import AbstractStringRepr, char_repr, unichar_repr, AbstractStringIteratorRepr
+from pypy.rpython.rstr import AbstractStringRepr, \
+     AbstractCharRepr, AbstractUniCharRepr, AbstractStringIteratorRepr
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem.lltype import \
-     GcStruct, Signed, Array, Char, Ptr, malloc, \
+     GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
      Bool, Void, GcArray, nullptr, pyobjectptr
-
 
 
 # ____________________________________________________________
@@ -24,9 +24,7 @@ STR = GcStruct('rpy_string', ('hash',  Signed),
                              ('chars', Array(Char, hints={'immutable': True,
                                                           'isrpystring': True})))
 SIGNED_ARRAY = GcArray(Signed)
-
 CONST_STR_CACHE = WeakValueDictionary()
-
 
 class StringRepr(AbstractStringRepr):
 
@@ -62,6 +60,53 @@ class StringRepr(AbstractStringRepr):
             return True     # for CharRepr/UniCharRepr subclasses,
                             # where NULL is always valid: it is chr(0)
 
+
+class CharRepr(AbstractCharRepr, StringRepr):
+    lowleveltype = Char
+
+class UniCharRepr(AbstractUniCharRepr):
+    lowleveltype = UniChar
+
+
+class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
+        cstr = inputconst(Void, STR)
+        v_result = llops.genop('malloc_varsize', [cstr, v_len],
+                               resulttype=Ptr(STR))
+        cchars = inputconst(Void, "chars")
+        v_chars = llops.genop('getsubstruct', [v_result, cchars],
+                              resulttype=Ptr(STR.chars))
+        llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
+        string_repr = llops.rtyper.type_system.rstr.string_repr
+        v_result = llops.convertvar(v_result, string_repr, r_to)
+        return v_result
+
+
+class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        string_repr = llops.rtyper.type_system.rstr.string_repr
+        v = llops.convertvar(v, r_from, string_repr)
+        cchars = inputconst(Void, "chars")
+        v_chars = llops.genop('getsubstruct', [v, cchars],
+                              resulttype=Ptr(STR.chars))
+        v_size = llops.genop('getarraysize', [v_chars],
+                             resulttype=Signed)
+        # xxx put in table        
+        return llops.gencapicall('PyString_FromLLCharArrayAndSize',
+                                 [v_chars, v_size],
+                                 resulttype=pyobj_repr,
+                                 _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
+
+
+
+# ____________________________________________________________
+#
+#  Low-level methods.  These can be run for testing, but are meant to
+#  be direct_call'ed from rtyped flow graphs, which means that they will
+#  get flowed and annotated, mostly with SomePtr.
+#
+
 # TODO: move it to a better place
 import types
 class StaticMethods(type):
@@ -74,44 +119,6 @@ class StaticMethods(type):
                 cls_dict[key] = staticmethod(value)
         return type.__new__(cls, cls_name, bases, cls_dict)
 
-
-
-
-def convert_PyObjRepr_StringRepr((r_from, r_to), v, llops):
-    v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
-    cstr = inputconst(Void, STR)
-    v_result = llops.genop('malloc_varsize', [cstr, v_len],
-                           resulttype=Ptr(STR))
-    cchars = inputconst(Void, "chars")
-    v_chars = llops.genop('getsubstruct', [v_result, cchars],
-                          resulttype=Ptr(STR.chars))
-    llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
-    string_repr = llops.rtyper.type_system.rstr.string_repr
-    v_result = llops.convertvar(v_result, string_repr, r_to)
-    return v_result
-
-def convert_StringRepr_PyObjRepr((r_from, r_to), v, llops):
-    string_repr = llops.rtyper.type_system.rstr.string_repr
-    v = llops.convertvar(v, r_from, string_repr)
-    cchars = inputconst(Void, "chars")
-    v_chars = llops.genop('getsubstruct', [v, cchars],
-                          resulttype=Ptr(STR.chars))
-    v_size = llops.genop('getarraysize', [v_chars],
-                         resulttype=Signed)
-    # xxx put in table        
-    return llops.gencapicall('PyString_FromLLCharArrayAndSize',
-                             [v_chars, v_size],
-                             resulttype=pyobj_repr,
-                             _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
-
-
-
-# ____________________________________________________________
-#
-#  Low-level methods.  These can be run for testing, but are meant to
-#  be direct_call'ed from rtyped flow graphs, which means that they will
-#  get flowed and annotated, mostly with SomePtr.
-#
 
 class LLHelpers:
     __metaclass__ = StaticMethods
@@ -733,14 +740,18 @@ class LLHelpers:
         return r
 
 
+
+
 # TODO: make the public interface of the rstr module cleaner
 ll_strconcat = LLHelpers.ll_strconcat
 ll_join = LLHelpers.ll_join
 do_stringformat = LLHelpers.do_stringformat
 
+string_repr = StringRepr()
+char_repr   = CharRepr()
+unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
-string_repr = StringRepr()
 emptystr = string_repr.convert_const("")
 
 
