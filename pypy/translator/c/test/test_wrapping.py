@@ -6,11 +6,32 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import robject, rclass, rint
 from pypy.translator.tool.cbuild import enable_fast_compilation
+from pypy.interpreter.baseobjspace import ObjSpace
 
 import sys, types
 
 P = False  # debug printing
 
+SPECIAL_METHODS = {}
+
+def setup_special_methods():
+    for name, op, arity, funcs in ObjSpace.MethodTable:
+        for fname in funcs:
+            if fname.startswith('__'):
+                ann = [None] * arity # replaced by class
+                if 'attr' in fname:
+                    ann[1] = str
+                elif 'item' in fname:
+                    ann[1] = int
+                elif 'pow' in fname:
+                    ann[1] = int
+                elif 'shift' in fname:
+                    ann[1] = int
+                if arity == 3 and '_set' in fname:
+                    ann[-1] = object
+            SPECIAL_METHODS[fname] = ann
+setup_special_methods()
+                
 def get_annotation(func, pre=[]):
     argstypelist = pre[:]
     if func.func_defaults:
@@ -19,8 +40,17 @@ def get_annotation(func, pre=[]):
                 # use the first type only for the tests
                 spec = spec[0]
             argstypelist.append(spec)
+    elif len(argstypelist) == 1:
+        argstypelist = guess_methannotation(func, argstypelist[0])
     missing = [object] * (func.func_code.co_argcount - len(argstypelist))
     return missing + argstypelist
+
+def guess_methannotation(func, cls):
+    ret = [cls]
+    if func.__name__ in SPECIAL_METHODS:
+        pattern = SPECIAL_METHODS[func.__name__]
+        ret = [thetype or cls for thetype in pattern]
+    return ret
 
 def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
                 use_boehm=False, exports=None):
@@ -314,31 +344,6 @@ def __init__(mod):
     import __builtin__ as bltn
     hasattr = bltn.hasattr
     isinstance = bltn.isinstance
-    classes = []
-    x = 0
-    for name in mod.__all__:
-        obj = getattr(mod, name)
-        if isinstance(obj, type) and hasattr(obj, '__self__'):
-            classes.append(obj)
-    idx = 0
-    while 1:
-        name = get_methodname(idx)
-        if not name:
-            break
-        func = getattr(mod, name)
-        for cls in classes:
-            dic = get_typedict(cls)
-            for methname, value in dic.items():
-                if func is value:
-                    meth = build_method(idx, cls)
-                    dic[methname] = meth
-        idx += 1
-
-def __init__(mod):
-    import types
-    import __builtin__ as bltn
-    hasattr = bltn.hasattr
-    isinstance = bltn.isinstance
 
     funcs = bltn.dict() # no hashing function for PyObject
     idx = 0
@@ -405,7 +410,7 @@ def t(a=int, b=int, c=DemoClass):
         print 42
     return x.__add__(x), DemoBaseNotExposed(17, 4) # see if it works without wrapper
 
-# exposing and using classes from a generasted extension module
+# exposing and using classes from a generated extension module
 def test_asd():
     m = get_compiled_module(t, use_boehm=not True, exports=[
         DemoClass, DemoSubclass, DemoNotAnnotated, extfunc, extfunc2])
