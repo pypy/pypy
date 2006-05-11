@@ -6,7 +6,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.rint import signed_repr
-from pypy.rpython import rstr
+from pypy.rpython.lltypesystem import rstr
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.rarithmetic import r_uint, ovfcheck

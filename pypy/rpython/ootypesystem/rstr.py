@@ -1,4 +1,4 @@
-from pypy.rpython.rstr import AbstractStringRepr, STR, AbstractStringIteratorRepr
+from pypy.rpython.rstr import AbstractStringRepr, AbstractStringIteratorRepr
 from pypy.rpython.lltypesystem.lltype import Ptr
 from pypy.rpython.ootypesystem.ootype import Signed, Record, String, make_string
 

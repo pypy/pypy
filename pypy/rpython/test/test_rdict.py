@@ -1,8 +1,8 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
-from pypy.rpython import rstr, rint
-from pypy.rpython.lltypesystem import rdict
+from pypy.rpython import rint
+from pypy.rpython.lltypesystem import rdict, rstr
 
 import py
 py.log.setconsumer("rtyper", py.log.STDOUT)
@@ -98,7 +98,7 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         p = lltype.malloc(rstr.STR, len(value))
         for i in range(len(value)):
             p.chars[i] = value[i]
-        return rstr.ll_strhash(p) 
+        return rstr.LLHelpers.ll_strhash(p) 
     
     def func(c1, c2): 
         c1 = chr(c1) 

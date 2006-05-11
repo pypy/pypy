@@ -1,9 +1,32 @@
 from weakref import WeakValueDictionary
-from pypy.rpython.rstr import AbstractStringRepr, char_repr, STR, AbstractStringIteratorRepr, \
-        ll_strconcat, do_stringformat, ll_strhash
-from pypy.rpython.lltypesystem.lltype import malloc, GcStruct, Ptr, nullptr, Signed
+from pypy.annotation.pairtype import pairtype
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython.rarithmetic import _hash_string
+from pypy.rpython.rmodel import inputconst, IntegerRepr
+from pypy.rpython.rstr import AbstractStringRepr, char_repr, AbstractStringIteratorRepr
+from pypy.rpython import rint
+from pypy.rpython.lltypesystem.lltype import \
+     GcStruct, Signed, Array, Char, Ptr, malloc, \
+     Bool, Void, GcArray, nullptr, pyobjectptr
+
+
+
+# ____________________________________________________________
+#
+#  Concrete implementation of RPython strings:
+#
+#    struct str {
+#        hash: Signed
+#        chars: array of Char
+#    }
+
+STR = GcStruct('rpy_string', ('hash',  Signed),
+                             ('chars', Array(Char, hints={'immutable': True,
+                                                          'isrpystring': True})))
+SIGNED_ARRAY = GcArray(Signed)
 
 CONST_STR_CACHE = WeakValueDictionary()
+
 
 class StringRepr(AbstractStringRepr):
 
@@ -11,10 +34,7 @@ class StringRepr(AbstractStringRepr):
 
     def __init__(self, *args):
         AbstractStringRepr.__init__(self, *args)
-        self.ll_strip = ll_strip
-        self.ll_upper = ll_upper
-        self.ll_lower = ll_lower
-        self.ll_join = ll_join
+        self.ll = LLHelpers
 
     def convert_const(self, value):
         if value is None:
@@ -28,7 +48,7 @@ class StringRepr(AbstractStringRepr):
             p = malloc(STR, len(value))
             for i in range(len(value)):
                 p.chars[i] = value[i]
-            ll_strhash(p)   # precompute the hash
+            self.ll.ll_strhash(p)   # precompute the hash
             CONST_STR_CACHE[value] = p
             return p
 
@@ -42,88 +62,235 @@ class StringRepr(AbstractStringRepr):
             return True     # for CharRepr/UniCharRepr subclasses,
                             # where NULL is always valid: it is chr(0)
 
-def ll_strip(s, ch, left, right):
-    s_len = len(s.chars)
-    if s_len == 0:
-        return emptystr
-    lpos = 0
-    rpos = s_len - 1
-    if left:
-        while lpos < rpos and s.chars[lpos] == ch:
-            lpos += 1
-    if right:
-        while lpos < rpos and s.chars[rpos] == ch:
-            rpos -= 1
-    r_len = rpos - lpos + 1
-    result = malloc(STR, r_len)
-    i = 0
-    j = lpos
-    while i < r_len:
-        result.chars[i] = s.chars[j]
-        i += 1
-        j += 1
-    return result
+# TODO: move it to a better place
+import types
+class StaticMethods(type):
+    """
+    Metaclass that turn all methods into staticmethods.
+    """
+    def __new__(cls, cls_name, bases, cls_dict):
+        for key, value in cls_dict.iteritems():
+            if isinstance(value, types.FunctionType):
+                cls_dict[key] = staticmethod(value)
+        return type.__new__(cls, cls_name, bases, cls_dict)
 
-def ll_upper(s):
-    s_chars = s.chars
-    s_len = len(s_chars)
-    if s_len == 0:
-        return emptystr
-    i = 0
-    result = malloc(STR, s_len)
-    while i < s_len:
-        ch = s_chars[i]
-        if 'a' <= ch <= 'z':
-            ch = chr(ord(ch) - 32)
-        result.chars[i] = ch
-        i += 1
-    return result
 
-def ll_lower(s):
-    s_chars = s.chars
-    s_len = len(s_chars)
-    if s_len == 0:
-        return emptystr
-    i = 0
-    result = malloc(STR, s_len)
-    while i < s_len:
-        ch = s_chars[i]
-        if 'A' <= ch <= 'Z':
-            ch = chr(ord(ch) + 32)
-        result.chars[i] = ch
-        i += 1
-    return result
 
-def ll_join(s, length, items):
-    s_chars = s.chars
-    s_len = len(s_chars)
-    num_items = length
-    if num_items == 0:
-        return emptystr
-    itemslen = 0
-    i = 0
-    while i < num_items:
-        itemslen += len(items[i].chars)
-        i += 1
-    result = malloc(STR, itemslen + s_len * (num_items - 1))
-    res_chars = result.chars
-    res_index = 0
-    i = 0
-    item_chars = items[i].chars
-    item_len = len(item_chars)
-    j = 0
-    while j < item_len:
-        res_chars[res_index] = item_chars[j]
-        j += 1
-        res_index += 1
-    i += 1
-    while i < num_items:
+class __extend__(pairtype(PyObjRepr, StringRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
+        cstr = inputconst(Void, STR)
+        v_result = llops.genop('malloc_varsize', [cstr, v_len],
+                               resulttype=Ptr(STR))
+        cchars = inputconst(Void, "chars")
+        v_chars = llops.genop('getsubstruct', [v_result, cchars],
+                              resulttype=Ptr(STR.chars))
+        llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
+        string_repr = llops.rtyper.type_system.rstr.string_repr
+        v_result = llops.convertvar(v_result, string_repr, r_to)
+        return v_result
+
+class __extend__(pairtype(StringRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        string_repr = llops.rtyper.type_system.rstr.string_repr
+        v = llops.convertvar(v, r_from, string_repr)
+        cchars = inputconst(Void, "chars")
+        v_chars = llops.genop('getsubstruct', [v, cchars],
+                              resulttype=Ptr(STR.chars))
+        v_size = llops.genop('getarraysize', [v_chars],
+                             resulttype=Signed)
+        # xxx put in table        
+        return llops.gencapicall('PyString_FromLLCharArrayAndSize',
+                                 [v_chars, v_size],
+                                 resulttype=pyobj_repr,
+                                 _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
+
+
+
+# ____________________________________________________________
+#
+#  Low-level methods.  These can be run for testing, but are meant to
+#  be direct_call'ed from rtyped flow graphs, which means that they will
+#  get flowed and annotated, mostly with SomePtr.
+#
+
+class LLHelpers:
+    __metaclass__ = StaticMethods
+
+    def ll_char_isspace(ch):
+        c = ord(ch) 
+        return c == 32 or (c <= 13 and c >= 9)   # c in (9, 10, 11, 12, 13, 32)
+
+    def ll_char_isdigit(ch):
+        c = ord(ch)
+        return c <= 57 and c >= 48
+
+    def ll_char_isalpha(ch):
+        c = ord(ch)
+        if c >= 97:
+            return c <= 122
+        else:
+            return 65 <= c <= 90
+
+    def ll_char_isalnum(ch):
+        c = ord(ch)
+        if c >= 65:
+            if c >= 97:
+                return c <= 122
+            else:
+                return c <= 90
+        else:
+            return 48 <= c <= 57
+
+    def ll_char_isupper(ch):
+        c = ord(ch)
+        return 65 <= c <= 90
+
+    def ll_char_islower(ch):   
+        c = ord(ch)
+        return 97 <= c <= 122
+
+    def ll_char_mul(ch, times):
+        newstr = malloc(STR, times)
         j = 0
-        while j < s_len:
-            res_chars[res_index] = s_chars[j]
+        while j < times:
+            newstr.chars[j] = ch
             j += 1
-            res_index += 1
+        return newstr
 
+    def ll_char_hash(ch):
+        return ord(ch)
+
+    def ll_unichar_hash(ch):
+        return ord(ch)
+
+    def ll_strlen(s):
+        return len(s.chars)
+
+    def ll_stritem_nonneg(s, i):
+        return s.chars[i]
+
+    def ll_stritem_nonneg_checked(s, i):
+        if i >= len(s.chars):
+            raise IndexError
+        return s.chars[i]
+
+    def ll_stritem(s, i):
+        if i < 0:
+            i += len(s.chars)
+        return s.chars[i]
+
+    def ll_stritem_checked(s, i):
+        if i < 0:
+            i += len(s.chars)
+        if i >= len(s.chars) or i < 0:
+            raise IndexError
+        return s.chars[i]
+
+    def ll_str_is_true(s):
+        # check if a string is True, allowing for None
+        return bool(s) and len(s.chars) != 0
+
+    def ll_chr2str(ch):
+        s = malloc(STR, 1)
+        s.chars[0] = ch
+        return s
+
+    def ll_strhash(s):
+        # unlike CPython, there is no reason to avoid to return -1
+        # but our malloc initializes the memory to zero, so we use zero as the
+        # special non-computed-yet value.
+        x = s.hash
+        if x == 0:
+            x = _hash_string(s.chars)
+            s.hash = x
+        return x
+
+    def ll_strfasthash(s):
+        return s.hash     # assumes that the hash is already computed
+
+    def ll_strconcat(s1, s2):
+        len1 = len(s1.chars)
+        len2 = len(s2.chars)
+        newstr = malloc(STR, len1 + len2)
+        j = 0
+        while j < len1:
+            newstr.chars[j] = s1.chars[j]
+            j += 1
+        i = 0
+        while i < len2:
+            newstr.chars[j] = s2.chars[i]
+            i += 1
+            j += 1
+        return newstr
+
+    def ll_strip(s, ch, left, right):
+        s_len = len(s.chars)
+        if s_len == 0:
+            return emptystr
+        lpos = 0
+        rpos = s_len - 1
+        if left:
+            while lpos < rpos and s.chars[lpos] == ch:
+                lpos += 1
+        if right:
+            while lpos < rpos and s.chars[rpos] == ch:
+                rpos -= 1
+        r_len = rpos - lpos + 1
+        result = malloc(STR, r_len)
+        i = 0
+        j = lpos
+        while i < r_len:
+            result.chars[i] = s.chars[j]
+            i += 1
+            j += 1
+        return result
+
+    def ll_upper(s):
+        s_chars = s.chars
+        s_len = len(s_chars)
+        if s_len == 0:
+            return emptystr
+        i = 0
+        result = malloc(STR, s_len)
+        while i < s_len:
+            ch = s_chars[i]
+            if 'a' <= ch <= 'z':
+                ch = chr(ord(ch) - 32)
+            result.chars[i] = ch
+            i += 1
+        return result
+
+    def ll_lower(s):
+        s_chars = s.chars
+        s_len = len(s_chars)
+        if s_len == 0:
+            return emptystr
+        i = 0
+        result = malloc(STR, s_len)
+        while i < s_len:
+            ch = s_chars[i]
+            if 'A' <= ch <= 'Z':
+                ch = chr(ord(ch) + 32)
+            result.chars[i] = ch
+            i += 1
+        return result
+
+    def ll_join(s, length, items):
+        s_chars = s.chars
+        s_len = len(s_chars)
+        num_items = length
+        if num_items == 0:
+            return emptystr
+        itemslen = 0
+        i = 0
+        while i < num_items:
+            itemslen += len(items[i].chars)
+            i += 1
+        result = malloc(STR, itemslen + s_len * (num_items - 1))
+        res_chars = result.chars
+        res_index = 0
+        i = 0
         item_chars = items[i].chars
         item_len = len(item_chars)
         j = 0
@@ -132,15 +299,450 @@ def ll_join(s, length, items):
             j += 1
             res_index += 1
         i += 1
-    return result
+        while i < num_items:
+            j = 0
+            while j < s_len:
+                res_chars[res_index] = s_chars[j]
+                j += 1
+                res_index += 1
 
-char_repr.ll_strip = ll_strip
-char_repr.ll_upper = ll_upper
-char_repr.ll_lower = ll_lower
-char_repr.ll_join = ll_join
+            item_chars = items[i].chars
+            item_len = len(item_chars)
+            j = 0
+            while j < item_len:
+                res_chars[res_index] = item_chars[j]
+                j += 1
+                res_index += 1
+            i += 1
+        return result
 
+    def ll_strcmp(s1, s2):
+        if not s1 and not s2:
+            return True
+        if not s1 or not s2:
+            return False
+        chars1 = s1.chars
+        chars2 = s2.chars
+        len1 = len(chars1)
+        len2 = len(chars2)
+
+        if len1 < len2:
+            cmplen = len1
+        else:
+            cmplen = len2
+        i = 0
+        while i < cmplen:
+            diff = ord(chars1[i]) - ord(chars2[i])
+            if diff != 0:
+                return diff
+            i += 1
+        return len1 - len2
+
+    def ll_streq(s1, s2):
+        if s1 == s2:       # also if both are NULLs
+            return True
+        if not s1 or not s2:
+            return False
+        len1 = len(s1.chars)
+        len2 = len(s2.chars)
+        if len1 != len2:
+            return False
+        j = 0
+        chars1 = s1.chars
+        chars2 = s2.chars
+        while j < len1:
+            if chars1[j] != chars2[j]:
+                return False
+            j += 1
+
+        return True
+
+    def ll_startswith(s1, s2):
+        len1 = len(s1.chars)
+        len2 = len(s2.chars)
+        if len1 < len2:
+            return False
+        j = 0
+        chars1 = s1.chars
+        chars2 = s2.chars
+        while j < len2:
+            if chars1[j] != chars2[j]:
+                return False
+            j += 1
+
+        return True
+
+    def ll_endswith(s1, s2):
+        len1 = len(s1.chars)
+        len2 = len(s2.chars)
+        if len1 < len2:
+            return False
+        j = 0
+        chars1 = s1.chars
+        chars2 = s2.chars
+        offset = len1 - len2
+        while j < len2:
+            if chars1[offset + j] != chars2[j]:
+                return False
+            j += 1
+
+        return True
+
+    def ll_find_char(s, ch, start, end):
+        i = start
+        while i < end:
+            if s.chars[i] == ch:
+                return i
+            i += 1
+        return -1
+
+    def ll_rfind_char(s, ch, start, end):
+        i = end
+        while i > start:
+            i -= 1
+            if s.chars[i] == ch:
+                return i
+        return -1
+
+    @classmethod
+    def ll_find(cls, s1, s2, start, end):
+        """Knuth Morris Prath algorithm for substring match"""
+        len2 = len(s2.chars)
+        if len2 == 1:
+            return cls.ll_find_char(s1, s2.chars[0], start, end)
+        if len2 == 0:
+            return start
+        # Construct the array of possible restarting positions
+        # T = Array_of_ints [-1..len2]
+        # T[-1] = -1 s2.chars[-1] is supposed to be unequal to everything else
+        T = malloc( SIGNED_ARRAY, len2 )
+        T[0] = 0
+        i = 1
+        j = 0
+        while i<len2:
+            if s2.chars[i] == s2.chars[j]:
+                j += 1
+                T[i] = j
+                i += 1
+            elif j>0:
+                j = T[j-1]
+            else:
+                T[i] = 0
+                i += 1
+                j = 0
+
+        # Now the find algorithm
+        i = 0
+        m = start
+        while m+i<end:
+            if s1.chars[m+i]==s2.chars[i]:
+                i += 1
+                if i==len2:
+                    return m
+            else:
+                # mismatch, go back to the last possible starting pos
+                if i==0:
+                    m += 1
+                else:
+                    e = T[i-1]
+                    m = m + i - e
+                    i = e
+        return -1
+
+    @classmethod
+    def ll_rfind(cls, s1, s2, start, end):
+        """Reversed version of ll_find()"""
+        len2 = len(s2.chars)
+        if len2 == 1:
+            return cls.ll_rfind_char(s1, s2.chars[0], start, end)
+        if len2 == 0:
+            return end
+        # Construct the array of possible restarting positions
+        T = malloc( SIGNED_ARRAY, len2 )
+        T[0] = 1
+        i = 1
+        j = 1
+        while i<len2:
+            if s2.chars[len2-i-1] == s2.chars[len2-j]:
+                j += 1
+                T[i] = j
+                i += 1
+            elif j>1:
+                j = T[j-2]
+            else:
+                T[i] = 1
+                i += 1
+                j = 1
+
+        # Now the find algorithm
+        i = 1
+        m = end
+        while m-i>=start:
+            if s1.chars[m-i]==s2.chars[len2-i]:
+                if i==len2:
+                    return m-i
+                i += 1
+            else:
+                # mismatch, go back to the last possible starting pos
+                if i==1:
+                    m -= 1
+                else:
+                    e = T[i-2]
+                    m = m - i + e
+                    i = e
+        return -1
+
+    def ll_join_strs(length, items):
+        num_items = length
+        itemslen = 0
+        i = 0
+        while i < num_items:
+            itemslen += len(items[i].chars)
+            i += 1
+        result = malloc(STR, itemslen)
+        res_chars = result.chars
+        res_index = 0
+        i = 0
+        while i < num_items:
+            item_chars = items[i].chars
+            item_len = len(item_chars)
+            j = 0
+            while j < item_len:
+                res_chars[res_index] = item_chars[j]
+                j += 1
+                res_index += 1
+            i += 1
+        return result
+
+    def ll_join_chars(length, chars):
+        num_chars = length
+        result = malloc(STR, num_chars)
+        res_chars = result.chars
+        i = 0
+        while i < num_chars:
+            res_chars[i] = chars[i]
+            i += 1
+        return result
+
+    def ll_stringslice_startonly(s1, start):
+        len1 = len(s1.chars)
+        newstr = malloc(STR, len1 - start)
+        j = 0
+        while start < len1:
+            newstr.chars[j] = s1.chars[start]
+            start += 1
+            j += 1
+        return newstr
+
+    def ll_stringslice(s1, slice):
+        start = slice.start
+        stop = slice.stop
+        if stop > len(s1.chars):
+            stop = len(s1.chars)
+        newstr = malloc(STR, stop - start)
+        j = 0
+        while start < stop:
+            newstr.chars[j] = s1.chars[start]
+            start += 1
+            j += 1
+        return newstr
+
+    def ll_stringslice_minusone(s1):
+        newlen = len(s1.chars) - 1
+        assert newlen >= 0
+        newstr = malloc(STR, newlen)
+        j = 0
+        while j < newlen:
+            newstr.chars[j] = s1.chars[j]
+            j += 1
+        return newstr
+
+    def ll_split_chr(LIST, s, c):
+        chars = s.chars
+        strlen = len(chars)
+        count = 1
+        i = 0
+        while i < strlen:
+            if chars[i] == c:
+                count += 1
+            i += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        i = 0
+        j = 0
+        resindex = 0
+        while j < strlen:
+            if chars[j] == c:
+                item = items[resindex] = malloc(STR, j - i)
+                newchars = item.chars
+                k = i
+                while k < j:
+                    newchars[k - i] = chars[k]
+                    k += 1
+                resindex += 1
+                i = j + 1
+            j += 1
+        item = items[resindex] = malloc(STR, j - i)
+        newchars = item.chars
+        k = i
+        while k < j:
+            newchars[k - i] = chars[k]
+            k += 1
+        resindex += 1
+
+        return res
+
+    def ll_replace_chr_chr(s, c1, c2):
+        length = len(s.chars)
+        newstr = malloc(STR, length)
+        src = s.chars
+        dst = newstr.chars
+        j = 0
+        while j < length:
+            c = src[j]
+            if c == c1:
+                c = c2
+            dst[j] = c
+            j += 1
+        return newstr
+
+    def ll_contains(s, c):
+        chars = s.chars
+        strlen = len(chars)
+        i = 0
+        while i < strlen:
+            if chars[i] == c:
+                return True
+            i += 1
+        return False
+
+    def ll_int(s, base):
+        if not 2 <= base <= 36:
+            raise ValueError
+        chars = s.chars
+        strlen = len(chars)
+        i = 0
+        #XXX: only space is allowed as white space for now
+        while i < strlen and chars[i] == ' ':
+            i += 1
+        if not i < strlen:
+            raise ValueError
+        #check sign
+        sign = 1
+        if chars[i] == '-':
+            sign = -1
+            i += 1
+        elif chars[i] == '+':
+            i += 1;
+        #now get digits
+        val = 0
+        while i < strlen:
+            c = ord(chars[i])
+            if ord('a') <= c <= ord('z'):
+                digit = c - ord('a') + 10
+            elif ord('A') <= c <= ord('Z'):
+                digit = c - ord('A') + 10
+            elif ord('0') <= c <= ord('9'):
+                digit = c - ord('0')
+            else:
+                break
+            if digit >= base:
+                break
+            val = val * base + digit
+            i += 1
+        #skip trailing whitespace
+        while i < strlen and chars[i] == ' ':
+            i += 1
+        if not i == strlen:
+            raise ValueError
+        return sign * val
+
+    @classmethod
+    def do_stringformat(cls, hop, sourcevarsrepr):
+        s_str = hop.args_s[0]
+        assert s_str.is_constant()
+        s = s_str.const
+        things = cls.parse_fmt_string(s)
+        size = inputconst(Signed, len(things)) # could be unsigned?
+        TEMP = GcArray(Ptr(STR))
+        cTEMP = inputconst(Void, TEMP)
+        vtemp = hop.genop("malloc_varsize", [cTEMP, size],
+                          resulttype=Ptr(TEMP))
+        r_tuple = hop.args_r[1]
+        v_tuple = hop.args_v[1]
+
+        argsiter = iter(sourcevarsrepr)
+
+        InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
+        for i, thing in enumerate(things):
+            if isinstance(thing, tuple):
+                code = thing[0]
+                vitem, r_arg = argsiter.next()
+                if not hasattr(r_arg, 'll_str'):
+                    raise TyperError("ll_str unsupported for: %r" % r_arg)
+                if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
+                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'd':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'f':
+                    #assert isinstance(r_arg, FloatRepr)
+                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'x':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
+                                               inputconst(Bool, False))
+                elif code == 'o':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.gendirectcall(rint.ll_int2oct, vitem,
+                                               inputconst(Bool, False))
+                else:
+                    raise TyperError, "%%%s is not RPython" % (code, )
+            else:
+                from pypy.rpython.lltypesystem.rstr import string_repr
+                vchunk = inputconst(string_repr, thing)
+            i = inputconst(Signed, i)
+            hop.genop('setarrayitem', [vtemp, i, vchunk])
+
+        hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
+        return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
+
+    def parse_fmt_string(fmt):
+        # we support x, d, s, f, [r]
+
+        it = iter(fmt)
+        r = []
+        curstr = ''
+        for c in it:
+            if c == '%':
+                f = it.next()
+                if f == '%':
+                    curstr += '%'
+                    continue
+
+                if curstr:
+                    r.append(curstr)
+                curstr = ''
+                if f not in 'xdosrf':
+                    raise TyperError("Unsupported formatting specifier: %r in %r" % (f, fmt))
+
+                r.append((f,))
+            else:
+                curstr += c
+        if curstr:
+            r.append(curstr)
+        return r
+
+
+# TODO: make the public interface of the rstr module cleaner
+ll_strconcat = LLHelpers.ll_strconcat
+ll_join = LLHelpers.ll_join
+do_stringformat = LLHelpers.do_stringformat
+
+
+
+char_repr.ll = LLHelpers
 string_repr = StringRepr()
-
 emptystr = string_repr.convert_const("")
 
 

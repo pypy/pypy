@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, PyObject
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.rpython.rint import signed_repr
-from pypy.rpython import rstr
+from pypy.rpython.lltypesystem import rstr
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.rarithmetic import r_uint, ovfcheck
 from pypy.rpython.memory.lltypesimulation import pyobjectptr

@@ -1,6 +1,6 @@
 import random
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rstr import parse_fmt_string, ll_find, ll_rfind, STR
+from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
 from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython.llinterp import LLException
@@ -17,9 +17,9 @@ def test_ll_find_rfind():
         s1 = ''.join([random.choice("ab") for i in range(n1)])
         n2 = random.randint(0, 5)
         s2 = ''.join([random.choice("ab") for i in range(n2)])
-        res = ll_find(llstr(s1), llstr(s2), 0, n1)
+        res = LLHelpers.ll_find(llstr(s1), llstr(s2), 0, n1)
         assert res == s1.find(s2)
-        res = ll_rfind(llstr(s1), llstr(s2), 0, n1)
+        res = LLHelpers.ll_rfind(llstr(s1), llstr(s2), 0, n1)
         assert res == s1.rfind(s2)
 
 def test_simple():
@@ -326,9 +326,9 @@ def test_join():
             assert ''.join(res.chars) == fn(i, j)
 
 def test_parse_fmt():
-    assert parse_fmt_string('a') == ['a']
-    assert parse_fmt_string('%s') == [('s',)]
-    assert parse_fmt_string("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+    assert LLHelpers.parse_fmt_string('a') == ['a']
+    assert LLHelpers.parse_fmt_string('%s') == [('s',)]
+    assert LLHelpers.parse_fmt_string("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
 
 def test_strformat():
     def percentS(s):
