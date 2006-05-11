@@ -403,6 +403,7 @@ class MRDTable(object):
     # Multi-Method Dispatch Using Multiple Row Displacement,
     # Candy Pang, Wade Holst, Yuri Leontiev, and Duane Szafron
     # University of Alberta, Edmonton AB T6G 2H1 Canada
+    # can be found on http://web.cs.ualberta.ca/~yuri/publ.htm
 
     Counter = 0
 
