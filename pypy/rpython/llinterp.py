@@ -47,12 +47,12 @@ class LLInterpreter(object):
         # prepare_graphs_and_create_gc might already use the llinterpreter!
         self.gc = None
         self.tracer = None
+        self.frame_class = LLFrame
         if hasattr(heap, "prepare_graphs_and_create_gc"):
             flowgraphs = typer.annotator.translator.graphs
             self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
         if self.TRACING:
             self.tracer = Tracer()
-        self.frame_class = LLFrame
 
     def eval_graph(self, graph, args=()):
         llframe = self.frame_class(graph, args, self)
