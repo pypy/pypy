@@ -2161,7 +2161,15 @@ class TestAnnotateTestCase:
             assert isinstance(s, annmodel.SomeInteger)
             assert s.knowntype == inttype
             assert s.unsigned == (inttype(-1) > 0)
-        
+
+    def test_annotate_rshift(self):
+        def f(x):
+            return x >> 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger(nonneg=True)])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.nonneg
+
 
 
 def g(n):

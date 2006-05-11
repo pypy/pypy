@@ -254,9 +254,11 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def lshift((int1, int2)):
         return SomeInteger(knowntype=int1.knowntype)
 
-    lshift.can_only_throw = [ValueError]
-    rshift = lshift
     lshift_ovf = _clone(lshift, [ValueError, OverflowError])
+
+    def rshift((int1, int2)):
+        return SomeInteger(nonneg=int1.nonneg, knowntype=int1.knowntype)
+    rshift.can_only_throw = [ValueError]
 
     def pow((int1, int2), obj3):
         knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
@@ -301,9 +303,11 @@ class __extend__(pairtype(SomeBool, SomeInteger)):
         return SomeInteger()
 
     lshift.can_only_throw = [ValueError]
-    rshift = lshift
     lshift_ovf = _clone(lshift, [ValueError, OverflowError])
 
+    def rshift((int1, int2)):
+        return SomeInteger(nonneg=True)
+    rshift.can_only_throw = [ValueError]
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
