@@ -362,10 +362,38 @@ class MMDispatcher(object):
         # is there any chance that a list of types starting with typesprefix
         # could lead to a successful dispatch?
         if self._revcache is None:
-            # quick hack!
-            installer = InstallerVersion1(self.multimethod, 'X',
-                                          self.list_of_typeorders)
-            self._revcache = dict.fromkeys(installer.subtree_cache)
+
+            def build_tree(types_so_far, dispatch_node):
+                non_empty = False
+                typeorder = self.list_of_typeorders[len(types_so_far)]
+                for next_type in typeorder:
+                    if build_single_method(typeorder, types_so_far, next_type,
+                                           dispatch_node):
+                        non_empty = True
+                if non_empty:
+                    self._revcache[types_so_far] = True
+                return non_empty
+
+            def build_single_method(typeorder, types_so_far, next_type,
+                                    dispatch_node):
+                order = typeorder[next_type]
+                things_to_call = False
+                for type, conversion in order:
+                    if type not in dispatch_node:
+                        # there is no possible completion of
+                        # types_so_far+[type] that could lead to a
+                        # registered function.
+                        continue
+                    match = dispatch_node[type]
+                    if isinstance(match, dict):
+                        if build_tree(types_so_far+(next_type,), match):
+                            things_to_call = True
+                    elif match:
+                        things_to_call = True
+                return things_to_call
+
+            self._revcache = {}
+            build_tree((), self.multimethod.dispatch_tree)
         return tuple(typesprefix) in self._revcache
 
 
@@ -595,7 +623,7 @@ class InstallerVersion2(object):
                 entry = self.build_funcentry(funcname, calllist)
                 entry.register_valid_types(typesnum)
                 return entry
-            elif dispatcher.anychance(typesprefix):
+            elif self.dispatcher.anychance(typesprefix):
                 flatline = []
                 for num1, t1 in enumerate(lst):
                     item = compress(typesprefix + (t1,), typesnum + (num1,))
