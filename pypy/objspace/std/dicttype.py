@@ -122,6 +122,38 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     )
 dict_typedef.registermethods(globals())
 
+# ____________________________________________________________
+
+def descr_dictiter__reduce__(space, w_subtype):
+    from pypy.interpreter.mixedmodule import MixedModule
+    w_mod    = space.getbuiltinmodule('_pickle_support')
+    mod      = space.interp_w(MixedModule, w_mod)
+    new_inst = mod.get('dictiter_new')
+    w        = space.wrap
+    tup      = [
+        #w(10),
+        #w(self.co_argcount), 
+        #w(self.co_nlocals), 
+        #w(self.co_stacksize), 
+        #w(self.co_flags),
+        #w(self.co_code), 
+        #space.newtuple(self.co_consts_w), 
+        #space.newtuple(self.co_names_w), 
+        #space.newtuple([w(v) for v in self.co_varnames]), 
+        #w(self.co_filename),
+        #w(self.co_name), 
+        #w(self.co_firstlineno),
+        #w(self.co_lnotab), 
+        #space.newtuple([w(v) for v in self.co_freevars]),
+        #space.newtuple([w(v) for v in self.co_cellvars]),
+        #hidden_applevel=False, magic = 62061 | 0x0a0d0000
+    ]
+    return space.newtuple([new_inst, space.newtuple(tup)])
+
+# ____________________________________________________________
 
 dictiter_typedef = StdTypeDef("dictionaryiterator",
+    __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
+                           unwrap_spec=[gateway.ObjSpace,gateway.W_Root]),
     )
+#note: registering in dictobject.py

@@ -10,7 +10,6 @@ from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
-from pypy.interpreter.mixedmodule import MixedModule
 from pypy.rpython.rarithmetic import intmask
 
 # helper
@@ -401,6 +400,7 @@ class PyCode(eval.Code):
     descr_code__new__.unwrap_spec = unwrap_spec 
 
     def descr__reduce__(self, space):
+        from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('code_new')
