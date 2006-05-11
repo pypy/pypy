@@ -279,7 +279,8 @@ def slicemultimethod(space, multimethod, typedef, result, local=False):
             prefix, list_of_typeorders = sliced_typeorders(
                 space.model.typeorder, multimethod, typedef, i, local=local)
             exprargs, expr, miniglobals, fallback = multimethod.install(prefix, list_of_typeorders,
-                                                                        baked_perform_call=False)
+                                                                        baked_perform_call=False,
+                                                                        base_typeorder=space.model.typeorder)
             if fallback:
                 return None   # skip empty multimethods
             trampoline = make_perform_trampoline(prefix, exprargs, expr, miniglobals,

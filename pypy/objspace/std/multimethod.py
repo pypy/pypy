@@ -39,17 +39,21 @@ class MultiMethodTable:
             types, order)
         lst[order] = function
 
-    def install(self, prefix, list_of_typeorders, baked_perform_call=True):
+    def install(self, prefix, list_of_typeorders, baked_perform_call=True,
+                base_typeorder=None):
         "NOT_RPYTHON: initialization-time only"
         assert len(list_of_typeorders) == self.arity
         installer = Installer(self, prefix, list_of_typeorders,
-                              baked_perform_call=baked_perform_call)
+                              baked_perform_call=baked_perform_call,
+                              base_typeorder=base_typeorder)
         return installer.install()
 
-    def install_if_not_empty(self, prefix, list_of_typeorders):
+    def install_if_not_empty(self, prefix, list_of_typeorders,
+                             base_typeorder=None):
         "NOT_RPYTHON: initialization-time only"
         assert len(list_of_typeorders) == self.arity
-        installer = Installer(self, prefix, list_of_typeorders)
+        installer = Installer(self, prefix, list_of_typeorders,
+                              base_typeorder=base_typeorder)
         if installer.is_empty():
             return None
         else:
@@ -99,7 +103,8 @@ class InstallerVersion1:
 
     prefix_memo = {}
 
-    def __init__(self, multimethod, prefix, list_of_typeorders, baked_perform_call=True):
+    def __init__(self, multimethod, prefix, list_of_typeorders,
+                 baked_perform_call=True, base_typeorder=None):
         self.multimethod = multimethod
         # avoid prefix clashes, user code should supply different prefixes
         # itself for nice names in tracebacks
@@ -362,10 +367,9 @@ class Call(object):
 
 
 class CompressedArray(object):
-    def __init__(self, null_value, reserved_count):
+    def __init__(self, null_value):
         self.null_value = null_value
-        self.reserved_count = reserved_count
-        self.items = [null_value] * reserved_count
+        self.items = [null_value]
 
     def ensure_length(self, newlen):
         if newlen > len(self.items):
@@ -374,12 +378,9 @@ class CompressedArray(object):
     def insert_subarray(self, array):
         # insert the given array of numbers into the indexlist,
         # allowing null values to become non-null
-        initial_nulls = 0
-        for item in array:
-            if item != self.null_value:
-                break
-            initial_nulls += 1
-        test = max(self.reserved_count - initial_nulls, 0)
+        if array.count(self.null_value) == len(array):
+            return 0
+        test = 1
         while True:
             self.ensure_length(test+len(array))
             for i in range(len(array)):
@@ -415,14 +416,11 @@ class MRDTable(object):
         self.attrname = '__mrd%d_typenum' % self.id
         for t1, num in self.typenum.items():
             setattr(t1, self.attrname, num)
-        self.indexarray = CompressedArray(0, 1)
-        self.allarrays = [self.indexarray]
+        self.indexarray = CompressedArray(0)
 
     def normalize_length(self, next_array):
-        self.allarrays.append(next_array)
-        length = max([len(a.items) for a in self.allarrays])
-        for a in self.allarrays:
-            a.ensure_length(length)
+        # make sure that the indexarray is not smaller than any funcarray
+        self.indexarray.ensure_length(len(next_array.items))
 
 
 class FuncEntry(object):
@@ -446,12 +444,14 @@ class FuncEntry(object):
         name = min(self.possiblenames)   # pick a random one, but consistently
         self.compress_typechecks(mrdtable)
         checklines = self.generate_typechecks(fnargs[nbargs_before:], mrdtable)
-        source = 'def %s(%s):\n    %s\n    %s\n' % (name, ', '.join(fnargs),
-                                                    '\n    '.join(checklines),
-                                                    self.body)
-        print '_' * 60
-        print self.possiblenames
-        print source
+        if checklines == ['pass']:
+            body = self.body
+        else:
+            checklines.append(self.body)
+            body = '\n    '.join(checklines)
+        source = 'def %s(%s):\n    %s\n' % (name, ', '.join(fnargs), body)
+        #print '_' * 60
+        #print source
         exec compile2(source) in self.miniglobals
         self._function = self.miniglobals[name]
         return self._function
@@ -507,8 +507,6 @@ class FuncEntry(object):
         typeidexprs = ['%s.%s' % (arg, mrdtable.attrname) for arg in args]
         result = []
         generate(self.typetree)
-        if result == ['pass']:
-            del result[:]
         return result
 
 
@@ -518,8 +516,8 @@ class InstallerVersion2(object):
     mrdtables = {}
 
     def __init__(self, multimethod, prefix, list_of_typeorders,
-                 baked_perform_call=True):
-        print 'InstallerVersion2:', prefix
+                 baked_perform_call=True, base_typeorder=None):
+        #print 'InstallerVersion2:', prefix
         self.multimethod = multimethod
         self.prefix = prefix
         self.list_of_typeorders = list_of_typeorders
@@ -530,10 +528,12 @@ class InstallerVersion2(object):
                        multimethod.argnames_after)
 
         # compute the complete table
-        assert multimethod.arity == 2
-        assert list_of_typeorders[0] == list_of_typeorders[1]
+        base_typeorder = base_typeorder or list_of_typeorders[0]
+        for typeorder in list_of_typeorders:
+            for t1 in typeorder:
+                assert t1 in base_typeorder
 
-        lst = list(list_of_typeorders[0])
+        lst = list(base_typeorder)
         lst.sort()
         key = tuple(lst)
         try:
@@ -543,61 +543,87 @@ class InstallerVersion2(object):
 
         dispatcher = MMDispatcher(multimethod, list_of_typeorders)
         self.table = {}
-        for t0 in list_of_typeorders[0]:
-            for t1 in list_of_typeorders[1]:
-                calllist = dispatcher.expressions([t0, t1],
+        def buildtable(prefixtypes):
+            if len(prefixtypes) == multimethod.arity:
+                calllist = dispatcher.expressions(prefixtypes,
                                                   multimethod.argnames_before,
                                                   args,
                                                   multimethod.argnames_after)
                 if calllist:
-                    self.table[t0, t1] = calllist
+                    self.table[prefixtypes] = calllist
+            else:
+                typeorder = list_of_typeorders[len(prefixtypes)]
+                for t1 in typeorder:
+                    buildtable(prefixtypes + (t1,))
+        buildtable(())
 
     def is_empty(self):
         return len(self.table) == 0
 
     def install(self):
         nskip = len(self.multimethod.argnames_before)
-        null_entry = self.build_funcentry(self.prefix + '0fail', [])
+        null_entry = self.build_funcentry(self.prefix + '_0_fail', [])
         null_entry.no_typecheck()
         if self.is_empty():
             return self.answer(null_entry)
 
-        entryarray = CompressedArray(null_entry, 1)
+        entryarray = CompressedArray(null_entry)
         indexarray = self.mrdtable.indexarray
         lst = self.mrdtable.list_of_types
         indexline = []
-        for num0, t0 in enumerate(lst):
-            flatline = []
-            for num1, t1 in enumerate(lst):
-                calllist = self.table.get((t0, t1), [])
-                funcname = '_'.join([self.prefix, t0.__name__, t1.__name__])
-                entry = self.build_funcentry(funcname, calllist)
-                entry.register_valid_types((num0, num1))
-                flatline.append(entry)
-            index = entryarray.insert_subarray(flatline)
-            indexline.append(index)
 
-        master_index = indexarray.insert_subarray(indexline)
+        def compress(typesprefix, typesnum):
+            if len(typesprefix) == self.multimethod.arity:
+                calllist = self.table.get(typesprefix, [])
+                funcname = [self.prefix]
+                for t1 in typesprefix:
+                    funcname.append(t1.__name__)
+                funcname = '_'.join(funcname)
+                entry = self.build_funcentry(funcname, calllist)
+                entry.register_valid_types(typesnum)
+                return entry
+            else:
+                flatline = []
+                for num1, t1 in enumerate(lst):
+                    item = compress(typesprefix + (t1,), typesnum + (num1,))
+                    flatline.append(item)
+                if len(typesprefix) == self.multimethod.arity - 1:
+                    array = entryarray
+                else:
+                    array = indexarray
+                return array.insert_subarray(flatline)
+
+        master_index = compress((), ())
 
         null_func = null_entry.make_function(self.fnargs, nskip, self.mrdtable)
-        funcarray = CompressedArray(null_func, 0)
-        for entry in entryarray.items:
+        funcarray = CompressedArray(null_func)
+        # round up the length to a power of 2
+        N = 1
+        while N < len(entryarray.items):
+            N *= 2
+        funcarray.ensure_length(N)
+        for i, entry in enumerate(entryarray.items):
             func = entry.make_function(self.fnargs, nskip, self.mrdtable)
-            funcarray.items.append(func)
+            funcarray.items[i] = func
         self.mrdtable.normalize_length(funcarray)
 
-        print master_index
-        print indexarray.items
-        print funcarray.items
+        #print master_index
+        #print indexarray.items
+        #print funcarray.items
 
         attrname = self.mrdtable.attrname
-        exprfn = "funcarray.items[indexarray.items[%d + arg0.%s] + arg1.%s]" %(
-            master_index, attrname, attrname)
+        exprfn = "%d" % master_index
+        for n in range(self.multimethod.arity-1):
+            exprfn = "indexarray.items[%s + arg%d.%s]" % (exprfn, n, attrname)
+        n = self.multimethod.arity-1
+        exprfn = "funcarray.items[(%s + arg%d.%s) & mmmask]" % (exprfn, n,
+                                                                attrname)
         expr = Call(exprfn, self.fnargs)
-        entry = self.build_funcentry(self.prefix + '0perform_call',
+        entry = self.build_funcentry(self.prefix + '_0_perform_call',
                                      [expr],
                                      indexarray = indexarray,
-                                     funcarray = funcarray)
+                                     funcarray = funcarray,
+                                     mmmask = N-1)
         entry.no_typecheck()
         return self.answer(entry)
 
