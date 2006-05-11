@@ -6,7 +6,7 @@ from pypy.rpython.rmodel import inputconst, Repr
 from pypy.rpython.rtuple import AbstractTupleRepr
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython import rint
-from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void,
+from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void
 
 class AbstractStringRepr(Repr):
     pass
