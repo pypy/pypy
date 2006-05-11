@@ -463,6 +463,18 @@ class MRDTable(object):
         self.indexarray.ensure_length(len(next_array.items))
 
 
+def invent_name(miniglobals, obj):
+    if isinstance(obj, str):
+        return obj
+    name = obj.__name__
+    n = 1
+    while name in miniglobals:
+        n += 1
+        name = '%s%d' % (obj.__name__, n)
+    miniglobals[name] = obj
+    return name
+
+
 class FuncEntry(object):
 
     def __init__(self, bodylines, miniglobals, fallback):
@@ -483,7 +495,7 @@ class FuncEntry(object):
             return self._function
         name = min(self.possiblenames)   # pick a random one, but consistently
         self.compress_typechecks(mrdtable)
-        checklines = self.generate_typechecks(fnargs[nbargs_before:], mrdtable)
+        checklines = self.generate_typechecks(fnargs[nbargs_before:])
         if checklines == ['pass']:
             body = self.body
         else:
@@ -496,15 +508,15 @@ class FuncEntry(object):
         self._function = self.miniglobals[name]
         return self._function
 
-    def register_valid_types(self, typenums):
+    def register_valid_types(self, types):
         node = self.typetree
-        for n in typenums[:-1]:
+        for t1 in types[:-1]:
             if node is True:
                 return
-            node = node.setdefault(n, {})
+            node = node.setdefault(t1, {})
         if node is True:
             return
-        node[typenums[-1]] = True
+        node[types[-1]] = True
 
     def no_typecheck(self):
         self.typetree = True
@@ -526,7 +538,7 @@ class FuncEntry(object):
         if full(self.typetree):
             self.typetree = True
 
-    def generate_typechecks(self, args, mrdtable):
+    def generate_typechecks(self, args):
         def generate(node, level=0):
             indent = '    '*level
             if node is True:
@@ -537,14 +549,15 @@ class FuncEntry(object):
                 return
             keyword = 'if'
             for key, subnode in node.items():
-                result.append('%s%s %s == %d:' % (indent, keyword,
-                                                  typeidexprs[level], key))
+                typename = invent_name(self.miniglobals, key)
+                result.append('%s%s isinstance(%s, %s):' % (indent, keyword,
+                                                            args[level],
+                                                            typename))
                 generate(subnode, level+1)
                 keyword = 'elif'
             result.append('%selse:' % (indent,))
             result.append('%s    raise FailedToImplement' % (indent,))
 
-        typeidexprs = ['%s.%s' % (arg, mrdtable.attrname) for arg in args]
         result = []
         generate(self.typetree)
         return result
@@ -557,7 +570,7 @@ class InstallerVersion2(object):
 
     def __init__(self, multimethod, prefix, list_of_typeorders,
                  baked_perform_call=True, base_typeorder=None):
-        #print 'InstallerVersion2:', prefix
+        print 'InstallerVersion2:', prefix
         self.multimethod = multimethod
         self.prefix = prefix
         self.list_of_typeorders = list_of_typeorders
@@ -621,7 +634,7 @@ class InstallerVersion2(object):
                     funcname.append(t1.__name__)
                 funcname = '_'.join(funcname)
                 entry = self.build_funcentry(funcname, calllist)
-                entry.register_valid_types(typesnum)
+                entry.register_valid_types(typesprefix)
                 return entry
             elif self.dispatcher.anychance(typesprefix):
                 flatline = []
@@ -680,20 +693,9 @@ class InstallerVersion2(object):
             return self.fnargs, expr, entry.miniglobals, entry.fallback
 
     def build_funcentry(self, funcname, calllist, **extranames):
-        def invent_name(obj):
-            if isinstance(obj, str):
-                return obj
-            name = obj.__name__
-            n = 1
-            while name in miniglobals:
-                n += 1
-                name = '%s%d' % (obj.__name__, n)
-            miniglobals[name] = obj
-            return name
-
         def expr(v):
             if isinstance(v, Call):
-                return '%s(%s)' % (invent_name(v.function),
+                return '%s(%s)' % (invent_name(miniglobals, v.function),
                                    ', '.join([expr(w) for w in v.arguments]))
             else:
                 return v
