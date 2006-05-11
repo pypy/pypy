@@ -37,6 +37,7 @@ method_new.unwrap_spec = [ObjSpace, Arguments]
 
 #XXX this does not work yet
 def dictiter_new(space, w_dictitertype, __args__):
+    raise Exception('No dictiter_new (pickle support) yet')
     print "dictiter_new here 1)", space, w_dictitertype
     #w_type = space.gettypeobject(dictiter_typedef)
     #print "dictiter_new here 2)", w_type
@@ -53,7 +54,7 @@ dictiter_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
 
 #XXX this doesn't work either
 def seqiter_new(space, w_seqitertype, __args__):
-    raise 'No seqiter_new (pickle support) yet'
+    raise Exception('No seqiter_new (pickle support) yet')
     print "seqiter_new here 1)", space, __args__
     w_type = space.gettypeobject(seqiter_typedef)
     print "seqiter_new here 2)", w_type
