@@ -373,10 +373,11 @@ class Unmarshaller(_Base):
         b = ord(s[1])
         c = ord(s[2])
         d = ord(s[3])
-        if d & 0x80:
-            self.raise_exc('bad marshal data')
         x = a | (b<<8) | (c<<16) | (d<<24)
-        return x
+        if x >= 0:
+            return x
+        else:
+            self.raise_exc('bad marshal data')
 
     def get_pascal(self):
         lng = ord(self.get1())
@@ -498,7 +499,8 @@ class StringUnmarshaller(Unmarshaller):
         b = ord(self.bufstr[pos+1])
         c = ord(self.bufstr[pos+2])
         d = ord(self.bufstr[pos+3])
-        if d & 0x80:
-            self.raise_exc('bad marshal data')
         x = a | (b<<8) | (c<<16) | (d<<24)
-        return x
+        if x >= 0:
+            return x
+        else:
+            self.raise_exc('bad marshal data')
