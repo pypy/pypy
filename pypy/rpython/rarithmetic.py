@@ -272,7 +272,7 @@ def build_int(name, sign, bits):
         base_int_type = signed_int
     else:
         base_int_type = unsigned_int
-    mask = (1 << bits) - 1
+    mask = (2 ** bits) - 1
     if name is None:
         raise TypeError('No predefined %sint%d'%(['u', ''][sign], bits))
     int_type = _inttypes[sign, bits] = type(name, (base_int_type,), {'MASK': mask,

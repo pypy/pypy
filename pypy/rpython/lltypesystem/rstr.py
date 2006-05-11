@@ -404,7 +404,6 @@ class LLHelpers:
                 return i
         return -1
 
-    @classmethod
     def ll_find(cls, s1, s2, start, end):
         """Knuth Morris Prath algorithm for substring match"""
         len2 = len(s2.chars)
@@ -448,8 +447,8 @@ class LLHelpers:
                     m = m + i - e
                     i = e
         return -1
+    ll_find = classmethod(ll_find)
 
-    @classmethod
     def ll_rfind(cls, s1, s2, start, end):
         """Reversed version of ll_find()"""
         len2 = len(s2.chars)
@@ -491,6 +490,7 @@ class LLHelpers:
                     m = m - i + e
                     i = e
         return -1
+    ll_rfind = classmethod(ll_rfind)
 
     def ll_join_strs(length, items):
         num_items = length
@@ -657,7 +657,6 @@ class LLHelpers:
             raise ValueError
         return sign * val
 
-    @classmethod
     def do_stringformat(cls, hop, sourcevarsrepr):
         s_str = hop.args_s[0]
         assert s_str.is_constant()
@@ -706,6 +705,7 @@ class LLHelpers:
 
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
+    do_stringformat = classmethod(do_stringformat)
 
     def parse_fmt_string(fmt):
         # we support x, d, s, f, [r]
