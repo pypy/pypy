@@ -111,15 +111,35 @@ class FrameTyper:
         return T, fieldnames
 
 class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
+    def __init__(self, translator, unwindtype):
+        graphanalyze.GraphAnalyzer.__init__(self, translator)
+        self.unwindtype = unwindtype
+
     def operation_is_true(self, op):
-        return True
+        return op.opname == 'yield_current_frame_to_caller'
+
+    def analyze_link(self, graph, link):
+        if link.target is graph.exceptblock:
+            # XXX is this the right way to do this?
+            op = link.prevblock.operations[-1]
+            if op.opname == 'cast_pointer':
+                ct = op.args[0].concretetype
+                return ct is self.unwindtype
+        return False
+
+    def analyze_external_call(self, op):
+        callable = op.args[0].value._obj._callable
+        #assert getattr(callable, 'suggested_primitive', False)
+        return callable in [ll_stack.ll_stack_unwind,
+                            ll_stackless.ll_stackless_stack_frames_depth,
+                            ll_stackless.ll_stackless_switch]
+                            
 
 class StacklessTransformer(object):
     def __init__(self, translator, entrypoint):
         self.translator = translator
 
         self.frametyper = FrameTyper()
-        self.analyzer = StacklessAnalyzer(translator)
         self.curr_graph = None
         
         bk = translator.annotator.bookkeeper
@@ -127,6 +147,8 @@ class StacklessTransformer(object):
         self.unwind_exception_type = getinstancerepr(
             self.translator.rtyper,
             bk.getuniqueclassdef(code.UnwindException)).lowleveltype
+        self.analyzer = StacklessAnalyzer(translator,
+                                          self.unwind_exception_type)
 
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
@@ -362,6 +384,10 @@ class StacklessTransformer(object):
                     func = getattr(op.args[0].value._obj, '_callable', None)
                     if func in self.suggested_primitives:
                         op = replace_with_call(self.suggested_primitives[func])
+
+                if not self.analyzer.analyze(op):
+                    i += 1
+                    continue
 
                 if i == len(block.operations) - 1 \
                        and block.exitswitch == model.c_last_exception:

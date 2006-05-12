@@ -20,13 +20,19 @@ class GraphAnalyzer(object):
     def analyze_startblock(self, block, seen=None):
         return False
 
+    def analyze_external_call(self, op):
+        return True
+
+    def analyze_link(self, graph, link):
+        return False
+
     # general methods
 
     def analyze(self, op, seen=None):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
             if graph is None:
-                return True
+                return self.analyze_external_call(op)
             return self.analyze_direct_call(graph, seen)
         elif op.opname == "indirect_call":
             if op.args[-1].value is None:
@@ -57,6 +63,9 @@ class GraphAnalyzer(object):
             for op in block.operations:
                 if self.analyze(op, seen):
                     self.analyzed_calls[graph] = True
+                    return True
+            for exit in block.exits:
+                if self.analyze_link(graph, exit):
                     return True
         self.analyzed_calls[graph] = False
         return False

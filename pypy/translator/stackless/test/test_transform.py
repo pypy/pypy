@@ -205,6 +205,27 @@ def test_constant_on_link():
     res = llinterp_stackless_function(f)
     assert res == 106
 
+def test_dont_transform_too_much():
+    def check(x):
+        if x:
+            raise code.UnwindException
+    check.stackless_explicit = True
+    def f(x):
+        return x + 2
+    def g(x):
+        check(x)
+        return f(x) + x + 1
+    def example():
+        return g(one()) + 1
+    res, t = llinterp_stackless_function(example, returntranslator=True)
+    assert res == 6
+
+    ggraph = graphof(t, g)
+    for block, op in ggraph.iterblockops():
+        if op.opname == 'direct_call':
+            if op.args[0].value._obj._callable is f:
+                assert op != block.operations[-1]
+
 def rtype_stackless_function(fn):
     s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))
     s_list_of_strings.listdef.resize()
@@ -241,7 +262,7 @@ def run_stackless_function(fn):
     res = cbuilder.cmdexec('')
     return int(res.strip())
 
-def llinterp_stackless_function(fn):
+def llinterp_stackless_function(fn, returntranslator=False):
     def wrapper(argv):
         return fn()
     t = rtype_stackless_function(wrapper)
@@ -256,4 +277,7 @@ def llinterp_stackless_function(fn):
     ll_list = r_list_of_strings.convert_const([''])
     interp = llinterp.LLInterpreter(t.rtyper)
     res = interp.eval_graph(graph, [ll_list])
-    return res
+    if returntranslator:
+        return res, t
+    else:
+        return res
