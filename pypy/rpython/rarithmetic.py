@@ -47,7 +47,7 @@ LONG_TEST = _Ltest
 def intmask(n):
     if isinstance(n, int):
         return int(n)   # possibly bool->int
-    if isinstance(n, r_uint):
+    if isinstance(n, unsigned_int):
         n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:

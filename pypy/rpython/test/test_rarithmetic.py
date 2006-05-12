@@ -172,7 +172,7 @@ def test_intmask():
     assert intmask(sys.maxint+1) == minint
     assert intmask(minint-1) == sys.maxint
     assert intmask(r_uint(-1)) == -1
-
+    assert intmask(r_ulonglong(-1)) == -1
 
 def test_ovfcheck():
     one = 1
