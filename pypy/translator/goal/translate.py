@@ -135,7 +135,7 @@ class OptHelpFormatter(optparse.IndentedHelpFormatter):
             if val is None:
                 pass
             elif isinstance(val, bool):
-                if bool(val) == (option.action=="store_true"):
+                if val is True and option.action=="store_true":
                     defl = "[default]"
             else:
                 defl = "[default: %s]" % val
