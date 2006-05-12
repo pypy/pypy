@@ -1,4 +1,5 @@
 from weakref import WeakValueDictionary
+from pypy.tool.staticmethods import StaticMethods
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import _hash_string
@@ -108,17 +109,6 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
 #
 
 # TODO: move it to a better place
-import types
-class StaticMethods(type):
-    """
-    Metaclass that turn all methods into staticmethods.
-    """
-    def __new__(cls, cls_name, bases, cls_dict):
-        for key, value in cls_dict.iteritems():
-            if isinstance(value, types.FunctionType):
-                cls_dict[key] = staticmethod(value)
-        return type.__new__(cls, cls_name, bases, cls_dict)
-
 
 class LLHelpers:
     __metaclass__ = StaticMethods
