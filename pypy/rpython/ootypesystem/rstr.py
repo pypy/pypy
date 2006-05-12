@@ -3,7 +3,11 @@ from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
      AbstractLLHelpers
 from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
-from pypy.rpython.ootypesystem.ootype import Signed, Record, String, make_string
+from pypy.rpython.ootypesystem import ootype
+
+# TODO: investigate if it's possibile and it's worth to concatenate a
+# String and a Char directly without passing to Char-->String
+# conversion
 
 class StringRepr(AbstractStringRepr):
     """
@@ -23,7 +27,7 @@ class StringRepr(AbstractStringRepr):
     new low-level operation (convert_char_to_oostring or some such) for this.
     """
 
-    lowleveltype = String
+    lowleveltype = ootype.String
 
     def __init__(self, *args):
         AbstractStringRepr.__init__(self, *args)
@@ -31,10 +35,10 @@ class StringRepr(AbstractStringRepr):
 
     def convert_const(self, value):
         if value is None:
-            return String._null
+            return ootype.String._null
         if not isinstance(value, str):
             raise TyperError("not a str: %r" % (value,))
-        return make_string(value)
+        return ootype.make_string(value)
 
     def make_iterator_repr(self):
         return string_iterator_repr
@@ -47,7 +51,6 @@ class UniCharRepr(AbstractUniCharRepr):
     lowleveltype = UniChar
 
 class LLHelpers(AbstractLLHelpers):
-
     def ll_stritem_nonneg(s, i):
         return s.ll_stritem_nonneg(i)
 
@@ -57,6 +60,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strconcat(s1, s2):
         return s1.ll_strconcat(s2)
 
+
 string_repr = StringRepr()
 char_repr = CharRepr()
 unichar_repr = UniCharRepr()
@@ -64,7 +68,26 @@ char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
+    lowleveltype = ootype.Record({'string': string_repr.lowleveltype,
+                                  'index': ootype.Signed})
 
-    lowleveltype = Record({'string': string_repr.lowleveltype, 'index': Signed})
+    def __init__(self):
+        self.ll_striter = ll_striter
+        self.ll_strnext = ll_strnext
 
-string_iterator_repr = StringIteratorRepr
+def ll_striter(string):
+    iter = ootype.new(string_iterator_repr.lowleveltype)
+    iter.string = string
+    iter.index = 0
+    return iter
+
+def ll_strnext(iter):
+    string = iter.string    
+    index = iter.index
+    if index >= string.ll_strlen():
+        raise StopIteration
+    iter.index = index + 1
+    return string.ll_stritem_nonneg(index)
+
+string_iterator_repr = StringIteratorRepr()
+
