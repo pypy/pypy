@@ -79,6 +79,37 @@ class ResumePoint:
         self.frame_state_type = frame_state_type
         self.fieldnames = fieldnames
 
+class FrameTyper:
+    # this class only exists independently to ease testing
+    def __init__(self):
+        self.frametypes = {}
+
+    def frame_type_for_vars(self, vars):
+        fieldnames = []
+        counts = {}
+        for v in vars:
+            t = storage_type(v.concretetype)
+            if t is lltype.Void:
+                fieldnames.append(None)
+            else:
+                n = counts.get(t, 0)
+                fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t], n))
+                counts[t] = n + 1
+        key = lltype.frozendict(counts)
+        if key in self.frametypes:
+            T = self.frametypes[key]
+        else:
+            fields = []
+            for t in STORAGE_TYPES:
+                for j in range(counts.get(t, 0)):
+                    fields.append(('state_%s_%d' % (STORAGE_FIELDS[t], j), t))
+            T = lltype.GcStruct("FrameState",
+                                ('header', STATE_HEADER),
+                                *fields)
+            self.frametypes[key] = T
+        return T, fieldnames
+        
+
 class StacklessTransformer(object):
     def __init__(self, translator, entrypoint):
         self.translator = translator
@@ -89,9 +120,9 @@ class StacklessTransformer(object):
         self.unwind_exception_type = getinstancerepr(
             self.translator.rtyper,
             bk.getuniqueclassdef(code.UnwindException)).lowleveltype
-        self.frametypes = {}
+        self.frametyper = FrameTyper()
         self.curr_graph = None
-                
+
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
 
@@ -158,32 +189,6 @@ class StacklessTransformer(object):
             r_global_state.convert_const(code.global_state),
             r_global_state.lowleveltype)
         self.seen_blocks = set()
-
-
-    def frame_type_for_vars(self, vars):
-        fieldnames = []
-        counts = {}
-        for v in vars:
-            t = storage_type(v.concretetype)
-            if t is lltype.Void:
-                fieldnames.append(None)
-            else:
-                n = counts.get(t, 0)
-                fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t], n))
-                counts[t] = n + 1
-        key = lltype.frozendict(counts)
-        if key in self.frametypes:
-            T = self.frametypes[key]
-        else:
-            fields = []
-            for t in STORAGE_TYPES:
-                for j in range(counts.get(t, 0)):
-                    fields.append(('state_%s_%d' % (STORAGE_FIELDS[t], j), t))
-            T = lltype.GcStruct("FrameState",
-                                ('header', STATE_HEADER),
-                                *fields)
-            self.frametypes[key] = T
-        return T, fieldnames
 
     def transform_all(self):
         for graph in self.translator.graphs:
@@ -430,7 +435,7 @@ class StacklessTransformer(object):
         var_unwind_exception = unsimplify.copyvar(
             None, var_unwind_exception) 
 
-        frame_type, fieldnames = self.frame_type_for_vars(varstosave)
+        frame_type, fieldnames = self.frametyper.frame_type_for_vars(varstosave)
 
         save_state_block = model.Block(inputargs + [var_unwind_exception])
         saveops = save_state_block.operations
