@@ -34,6 +34,7 @@ class RPythonAnnotator:
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
+        self.fixed_graphs = {}  # set of graphs not to annotate again
         # --- the following information is recorded for debugging only ---
         # --- and only if annotation.model.DEBUG is kept to True
         self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
@@ -333,7 +334,17 @@ class RPythonAnnotator:
             callpositions[callback] = True
 
         # generalize the function's input arguments
-        self.addpendingblock(graph, graph.startblock, inputcells, position_key)
+        if graph in self.fixed_graphs:
+            # special case for annotating/rtyping in several phases: calling
+            # a graph that has already been rtyped.  Safety-check the new
+            # annotations that are passed in, and don't annotate the old
+            # graph -- it's already low-level operations!
+            for a, s_newarg in zip(graph.getargs(), inputcells):
+                s_oldarg = self.binding(a)
+                assert s_oldarg.contains(s_newarg)
+        else:
+            self.addpendingblock(graph, graph.startblock, inputcells,
+                                 position_key)
 
         # get the (current) return value
         v = graph.getreturnvar()

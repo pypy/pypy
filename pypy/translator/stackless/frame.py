@@ -1,7 +1,11 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import extfunctable
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.objspace.flow.model import FunctionGraph
+from pypy.tool.sourcetools import compile2
+from pypy.annotation import model as annmodel
+from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 
 # ____________________________________________________________
 # generic data types
@@ -59,39 +63,49 @@ OPAQUE_STATE_HEADER_PTR = lltype.Ptr(
 
 
 def make_state_header_type(name, *fields):
-##    source = ['def ll_reccopy_%s(frame):' % name,
-##              '    if frame.f_back:'
-##              '        prev = frame.f_back.XXX',
-##              '    newframe = lltype.malloc(lltype.typeOf(FRAME))',
-##              '    newframe.']
-    
-##    copynames = [name for (name, _) in fields]
-##    copynames.append('header.restartstate')
-##    copynames.append('header.function')
-##    copynames.append('header.retval_type')
-##    for name in copynames:
-##        source.append('    newframe.%s = frame.%s' % (name, name))
-##    source.append('    return newframe')
-##    source.append('')
-##    miniglobals = {'lltype': lltype}
-##    exec compile2('\n'.join(source)) in miniglobals
-##    extras = {
-##        'adtmeths': {'reccopy': miniglobals['ll_frame_reccopy']}
-##        }
-    return lltype.GcStruct(name,
-                           ('header', STATE_HEADER),
-                           *fields)
+    fnname = 'll_reccopy_%s' % (name,)
+    source = ['def %s(frame):' % (fnname,),
+              '    frame = lltype.cast_pointer(lltype.Ptr(FRAME), frame)',
+              '    newframe = lltype.malloc(FRAME)',
+              '    if frame.header.f_back:',
+              '        newframe.header.f_back = ll_frame_reccopy(',
+              '                                     frame.header.f_back)',
+              '    newframe.header.f_restart = frame.header.f_restart']
+    for name, _ in fields:
+        source.append('    newframe.%s = frame.%s' % (name, name))
+    source.append('    return lltype.cast_pointer(lltype.Ptr(STATE_HEADER),')
+    source.append('                               newframe)')
+    source.append('')
+    miniglobals = {'lltype': lltype,
+                   'll_frame_reccopy': ll_frame_reccopy,
+                   'STATE_HEADER': STATE_HEADER,
+                   }
+    exec compile2('\n'.join(source)) in miniglobals
+    extras = {
+        'adtmeths': {'reccopy': miniglobals[fnname]}
+        }
+    FRAME = lltype.GcStruct(name,
+                            ('header', STATE_HEADER),
+                            *fields, **extras)
+    miniglobals['FRAME'] = FRAME
+    return FRAME
 
 # ____________________________________________________________
 # master array giving information about the restart points
 # (STATE_HEADER.frameinfo is an index into this array)
 
+RECCOPY_FUNC = lltype.FuncType([lltype.Ptr(STATE_HEADER)],
+                               lltype.Ptr(STATE_HEADER))
+
 FRAME_INFO = lltype.Struct('frame_info',
-                           ('fnaddr', llmemory.Address),
-                           ('info',   lltype.Signed))
+                           ('fnaddr',  llmemory.Address),
+                           ('info',    lltype.Signed),
+                           ('reccopy', lltype.Ptr(RECCOPY_FUNC)))
 FRAME_INFO_ARRAY = lltype.Array(FRAME_INFO)
 
-def decodestate(masterarray, index):
+def decodestate(index):
+    from pypy.translator.stackless.code import global_state
+    masterarray = global_state.masterarray
     finfo = masterarray[index]
     if finfo.fnaddr:
         restartstate = 0
@@ -103,22 +117,28 @@ def decodestate(masterarray, index):
             finfo.info)    # retval_type
 decodestate.stackless_explicit = True
 
+def ll_frame_reccopy(frame):
+    from pypy.translator.stackless.code import global_state
+    masterarray = global_state.masterarray
+    finfo = masterarray[frame.f_restart]
+    return finfo.reccopy(frame)
+
 
 class RestartInfo(object):
     __slots__ = ['func_or_graph',
                  'first_index',
-                 'nb_restart_states']
+                 'frame_types']
 
-    def __init__(self, func_or_graph, first_index, nb_restart_states):
+    def __init__(self, func_or_graph, first_index, frame_types):
         self.func_or_graph = func_or_graph
         self.first_index = first_index
-        self.nb_restart_states = nb_restart_states
+        self.frame_types = frame_types
 
     def compress(self, rtyper, masterarray):
-        if self.nb_restart_states > 0:
+        if self.frame_types:
+            bk = rtyper.annotator.bookkeeper
             graph = self.func_or_graph
             if not isinstance(graph, FunctionGraph):
-                bk = rtyper.annotator.bookkeeper
                 graph = bk.getdesc(graph).getuniquegraph()
             funcptr = getfunctionptr(graph)
             rettype = lltype.typeOf(funcptr).TO.RESULT
@@ -127,18 +147,26 @@ class RestartInfo(object):
             finfo = masterarray[self.first_index]
             finfo.fnaddr = llmemory.cast_ptr_to_adr(funcptr)
             finfo.info = retval_type
-            for i in range(1, self.nb_restart_states):
+            for i in range(1, len(self.frame_types)):
                 finfo = masterarray[self.first_index+i]
                 finfo.info = i
+            for i in range(len(self.frame_types)):
+                reccopy = self.frame_types[i].reccopy
+                s_header = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
+                mixlevelannotator = MixLevelHelperAnnotator(rtyper)
+                fnptr = mixlevelannotator.delayedfunction(reccopy, [s_header],
+                                                          s_header)
+                mixlevelannotator.finish()
+                masterarray[self.first_index+i].reccopy = fnptr
 
     prebuilt = []
     prebuiltindex = 0
 
-    def add_prebuilt(cls, func, nb_restart_states):
+    def add_prebuilt(cls, func, frame_types):
         assert func.stackless_explicit    # did you forget this flag?
         n = cls.prebuiltindex
-        restart = cls(func, n, nb_restart_states)
+        restart = cls(func, n, frame_types)
         cls.prebuilt.append(restart)
-        cls.prebuiltindex += restart.nb_restart_states
+        cls.prebuiltindex += len(frame_types)
         return n
     add_prebuilt = classmethod(add_prebuilt)

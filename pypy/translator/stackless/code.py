@@ -4,6 +4,8 @@ from pypy.rpython import extfunctable
 from pypy.translator.stackless import frame
 from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE
 
+EMPTY_STATE = frame.make_state_header_type('empty_state')
+
 # ____________________________________________________________
 
 SWITCH_STATE = frame.make_state_header_type('switch_state',
@@ -22,14 +24,17 @@ def ll_frame_switch(targetstate):
     elif global_state.restart_substate == 0:
         # STATE 0: we didn't do anything so far, but the stack is unwound
         global_state.restart_substate = -1
-        # grab the frame corresponding to ourself, and prepare it for
-        # the future switch() back, which will go to STATE 1 below
-        sourcestate = global_state.top
-        sourcestate.f_restart = INDEX_SWITCH + 1
+        # grab the frame corresponding to ourself
         # the 'targetstate' local is garbage here, it must be read back from
         # 's.c' where we saved it by the normal entry point above
-        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), sourcestate)
+        mystate = global_state.top
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), mystate)
         targetstate = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), s.c)
+        # prepare a new saved state for the future switch() back,
+        # which will go to STATE 1 below
+        sourcestate = lltype.malloc(EMPTY_STATE).header
+        sourcestate.f_back = mystate.f_back
+        sourcestate.f_restart = INDEX_SWITCH + 1
         global_state.top = targetstate
         global_state.retval_ref = lltype.cast_opaque_ptr(SAVED_REFERENCE,
                                                          sourcestate)
@@ -45,7 +50,15 @@ def ll_frame_switch(targetstate):
                                # with the source state as return value
 ll_frame_switch.stackless_explicit = True
 
-INDEX_SWITCH = frame.RestartInfo.add_prebuilt(ll_frame_switch, 2)
+INDEX_SWITCH = frame.RestartInfo.add_prebuilt(ll_frame_switch,
+                                              [SWITCH_STATE, EMPTY_STATE])
+
+# ____________________________________________________________
+
+def ll_frame_clone(oldstate):
+    oldframe = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), oldstate)
+    newframe = frame.ll_frame_reccopy(oldframe)
+    return lltype.cast_opaque_ptr(frame.OPAQUE_STATE_HEADER_PTR, newframe)
 
 # ____________________________________________________________
 
@@ -54,7 +67,7 @@ def yield_current_frame_to_caller():
         # normal entry point for yield_current_frame_to_caller()
         # first unwind the stack
         u = UnwindException()
-        s = lltype.malloc(STATE_HEADER)
+        s = lltype.malloc(EMPTY_STATE).header
         s.f_restart = INDEX_YCFTC
         add_frame_state(u, s)
         raise u   # this goes to 'STATE 0' below
@@ -67,7 +80,7 @@ def yield_current_frame_to_caller():
         caller_state = our_caller_state.f_back
         # when our immediate caller finishes (which is later, when the
         # tasklet finishes), then we will jump to 'STATE 1' below
-        endstate = lltype.malloc(STATE_HEADER)
+        endstate = lltype.malloc(EMPTY_STATE).header
         endstate.f_restart = INDEX_YCFTC + 1
         our_caller_state.f_back = endstate
         global_state.top = caller_state
@@ -97,7 +110,8 @@ def yield_current_frame_to_caller():
 
 yield_current_frame_to_caller.stackless_explicit = True
 
-INDEX_YCFTC = frame.RestartInfo.add_prebuilt(yield_current_frame_to_caller, 2)
+INDEX_YCFTC = frame.RestartInfo.add_prebuilt(yield_current_frame_to_caller,
+                                             [EMPTY_STATE, EMPTY_STATE])
 
 # ____________________________________________________________
 
@@ -106,7 +120,7 @@ def stack_frames_depth():
         # normal entry point for stack_frames_depth()
         # first unwind the stack
         u = UnwindException()
-        s = lltype.malloc(STATE_HEADER)
+        s = lltype.malloc(EMPTY_STATE).header
         s.f_restart = INDEX_DEPTH
         add_frame_state(u, s)
         raise u    # goes to STATE 0 below
@@ -122,7 +136,8 @@ def stack_frames_depth():
         return depth
 stack_frames_depth.stackless_explicit = True
 
-INDEX_DEPTH = frame.RestartInfo.add_prebuilt(stack_frames_depth, 1)
+INDEX_DEPTH = frame.RestartInfo.add_prebuilt(stack_frames_depth,
+                                             [EMPTY_STATE])
 
 # ____________________________________________________________
 
@@ -131,7 +146,7 @@ def ll_stack_unwind():
         # normal entry point for stack_frames_depth()
         # first unwind the stack in the usual way
         u = UnwindException()
-        s = lltype.malloc(STATE_HEADER)
+        s = lltype.malloc(EMPTY_STATE).header
         s.f_restart = INDEX_UNWIND
         add_frame_state(u, s)
         raise u    # goes to STATE 0 below
@@ -141,7 +156,8 @@ def ll_stack_unwind():
         global_state.restart_substate = -1
 ll_stack_unwind.stackless_explicit = True
 
-INDEX_UNWIND = frame.RestartInfo.add_prebuilt(ll_stack_unwind, 1)
+INDEX_UNWIND = frame.RestartInfo.add_prebuilt(ll_stack_unwind,
+                                              [EMPTY_STATE])
 
 # ____________________________________________________________
 
@@ -200,8 +216,7 @@ def slp_main_loop():
     
     while True:
         back = pending.f_back
-        decoded = frame.decodestate(global_state.masterarray,
-                                    pending.f_restart)
+        decoded = frame.decodestate(pending.f_restart)
         (fn, global_state.restart_substate, retval_type) = decoded
         try:
             call_function(fn, retval_type)

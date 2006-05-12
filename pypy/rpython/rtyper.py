@@ -289,6 +289,9 @@ class RPythonTyper:
         return LowLevelOpList(self, block)
 
     def specialize_block(self, block):
+        graph = self.annotator.annotated[block]
+        self.annotator.fixed_graphs[graph] = True
+
         # give the best possible types to the input args
         try:
             self.setup_block_entry(block)

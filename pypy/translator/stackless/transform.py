@@ -187,6 +187,9 @@ class StacklessTransformer(object):
             ll_stackless.ll_stackless_switch:
                 mixlevelannotator.constfunc(
                     code.ll_frame_switch, [s_StatePtr], s_StatePtr),
+            ll_stackless.ll_stackless_clone:
+                mixlevelannotator.constfunc(
+                    code.ll_frame_clone, [s_StatePtr], s_StatePtr),
             ll_stack.ll_stack_unwind:
                 mixlevelannotator.constfunc(
                     code.ll_stack_unwind, [], annmodel.s_None),
@@ -535,8 +538,9 @@ class StacklessTransformer(object):
         return llops
 
     def generate_restart_infos(self, graph):
+        frame_types = [rp.frame_state_type for rp in self.resume_points]
         restartinfo = frame.RestartInfo(graph, self.restartinfoindex,
-                                        len(self.resume_points))
+                                        frame_types)
         self.restartinfos.append(restartinfo)
         self.restartinfoindex += len(self.resume_points)
 

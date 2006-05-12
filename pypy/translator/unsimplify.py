@@ -7,7 +7,7 @@ def copyvar(translator, v):
     if translator is not None:
         annotator = translator.annotator
         if annotator is not None and v in annotator.bindings:
-            annotator.bindings[newvar] = annotator.bindings[v]
+            annotator.setbinding(newvar, annotator.bindings[v])
     if hasattr(v, 'concretetype'):
         newvar.concretetype = v.concretetype
     return newvar
