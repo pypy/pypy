@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 
 class GraphAnalyzer(object):
     """generic way to analyze graphs: recursively follow it until the first
-    operation is found on which self.bad_op returns True"""
+    operation is found on which self.operation_is_true returns True"""
     def __init__(self, translator):
         self.translator = translator
         self.analyzed_calls = {}
