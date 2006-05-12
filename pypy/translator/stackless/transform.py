@@ -120,8 +120,7 @@ class StacklessTransformer(object):
         self.translator = translator
 
         self.frametyper = FrameTyper()
-        self.restartinfos = frame.RestartInfo.prebuilt[:]
-        self.restartinfoindex = frame.RestartInfo.prebuiltindex
+        self.masterarray1 = []
         self.curr_graph = None
         
         bk = translator.annotator.bookkeeper
@@ -214,6 +213,10 @@ class StacklessTransformer(object):
         self.c_minus_one = model.Constant(-1, lltype.Signed)
         self.c_null_state = model.Constant(null_state,
                                            lltype.typeOf(null_state))
+
+        # register the prebuilt restartinfos
+        for restartinfo in frame.RestartInfo.prebuilt:
+            self.register_restart_info(restartinfo)
 
     def transform_all(self):
         for graph in self.translator.graphs:
@@ -504,7 +507,7 @@ class StacklessTransformer(object):
             [self.add_frame_state_ptr, var_exc, var_header],
             varoftype(lltype.Void)))
 
-        f_restart = self.restartinfoindex + len(self.resume_points)
+        f_restart = len(self.masterarray1) + len(self.resume_points)
         saveops.append(model.SpaceOperation(
             "setfield",
             [var_header, self.c_f_restart_name,
@@ -539,19 +542,23 @@ class StacklessTransformer(object):
 
     def generate_restart_infos(self, graph):
         frame_types = [rp.frame_state_type for rp in self.resume_points]
-        restartinfo = frame.RestartInfo(graph, self.restartinfoindex,
-                                        frame_types)
-        self.restartinfos.append(restartinfo)
-        self.restartinfoindex += len(self.resume_points)
+        restartinfo = frame.RestartInfo(graph, frame_types)
+        self.register_restart_info(restartinfo)
+
+    def register_restart_info(self, restartinfo):
+        rtyper = self.translator.rtyper
+        for frame_info_dict in restartinfo.compress(rtyper):
+            self.masterarray1.append(frame_info_dict)
 
     def finish(self):
-        # compute the final masterarray
+        # compute the final masterarray by copying over the masterarray1,
+        # which is a list of dicts of attributes
         masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,
-                                    self.restartinfoindex,
+                                    len(self.masterarray1),
                                     immortal=True)
-        rtyper = self.translator.rtyper
-        for restartinfo in self.restartinfos:
-            restartinfo.compress(rtyper, masterarray)
+        for dst, src in zip(masterarray, self.masterarray1):
+            for key, value in src.items():
+                setattr(dst, key, value)
         # horrors in the same spirit as in rpython.memory.gctransform
         # (shorter, though)
         ll_global_state = self.ll_global_state.value

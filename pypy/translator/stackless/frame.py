@@ -125,16 +125,12 @@ def ll_frame_reccopy(frame):
 
 
 class RestartInfo(object):
-    __slots__ = ['func_or_graph',
-                 'first_index',
-                 'frame_types']
 
-    def __init__(self, func_or_graph, first_index, frame_types):
+    def __init__(self, func_or_graph, frame_types):
         self.func_or_graph = func_or_graph
-        self.first_index = first_index
         self.frame_types = frame_types
 
-    def compress(self, rtyper, masterarray):
+    def compress(self, rtyper):
         if self.frame_types:
             bk = rtyper.annotator.bookkeeper
             graph = self.func_or_graph
@@ -144,12 +140,11 @@ class RestartInfo(object):
             rettype = lltype.typeOf(funcptr).TO.RESULT
             retval_type = STORAGE_TYPES.index(storage_type(rettype))
 
-            finfo = masterarray[self.first_index]
-            finfo.fnaddr = llmemory.cast_ptr_to_adr(funcptr)
-            finfo.info = retval_type
+            result = [{'fnaddr': llmemory.cast_ptr_to_adr(funcptr),
+                       'info':   retval_type},
+                      ]
             for i in range(1, len(self.frame_types)):
-                finfo = masterarray[self.first_index+i]
-                finfo.info = i
+                result.append({'info': i})
             for i in range(len(self.frame_types)):
                 reccopy = self.frame_types[i].reccopy
                 s_header = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
@@ -157,15 +152,18 @@ class RestartInfo(object):
                 fnptr = mixlevelannotator.delayedfunction(reccopy, [s_header],
                                                           s_header)
                 mixlevelannotator.finish()
-                masterarray[self.first_index+i].reccopy = fnptr
+                result[i]['reccopy'] = fnptr
+        else:
+            result = []
+        return result
 
     prebuilt = []
     prebuiltindex = 0
 
     def add_prebuilt(cls, func, frame_types):
         assert func.stackless_explicit    # did you forget this flag?
+        restart = cls(func, frame_types)
         n = cls.prebuiltindex
-        restart = cls(func, n, frame_types)
         cls.prebuilt.append(restart)
         cls.prebuiltindex += len(frame_types)
         return n
