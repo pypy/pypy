@@ -13,6 +13,7 @@ from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.module import ll_stackless, ll_stack
+from pypy.translator.backendopt import graphanalyze
 
 from pypy.translator.stackless.code import STATE_HEADER, null_state
 
@@ -108,20 +109,24 @@ class FrameTyper:
                                 *fields)
             self.frametypes[key] = T
         return T, fieldnames
-        
+
+class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
+    def operation_is_true(self, op):
+        return True
 
 class StacklessTransformer(object):
     def __init__(self, translator, entrypoint):
         self.translator = translator
 
-        edata = translator.rtyper.getexceptiondata()
+        self.frametyper = FrameTyper()
+        self.analyzer = StacklessAnalyzer(translator)
+        self.curr_graph = None
+        
         bk = translator.annotator.bookkeeper
 
         self.unwind_exception_type = getinstancerepr(
             self.translator.rtyper,
             bk.getuniqueclassdef(code.UnwindException)).lowleveltype
-        self.frametyper = FrameTyper()
-        self.curr_graph = None
 
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
@@ -200,6 +205,9 @@ class StacklessTransformer(object):
         if hasattr(graph, 'func'):
             if getattr(graph.func, 'stackless_explicit', False):
                 return
+
+        if not self.analyzer.analyze_direct_call(graph):
+            return
         
         assert self.curr_graph is None
         self.curr_graph = graph
