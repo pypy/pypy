@@ -361,6 +361,7 @@ class MMDispatcher(object):
     def anychance(self, typesprefix):
         # is there any chance that a list of types starting with typesprefix
         # could lead to a successful dispatch?
+        # (START-UP TIME OPTIMIZATION ONLY)
         if self._revcache is None:
 
             def build_tree(types_so_far, dispatch_node):
@@ -496,7 +497,7 @@ class FuncEntry(object):
         name = min(self.possiblenames)   # pick a random one, but consistently
         self.compress_typechecks(mrdtable)
         checklines = self.generate_typechecks(fnargs[nbargs_before:])
-        if checklines == ['pass']:
+        if not checklines:
             body = self.body
         else:
             checklines.append(self.body)
@@ -542,10 +543,10 @@ class FuncEntry(object):
         def generate(node, level=0):
             indent = '    '*level
             if node is True:
-                result.append('%spass' % (indent,))
+                result.append('%s_failedtoimplement = False' % (indent,))
                 return
             if not node:
-                result.append('%sraise FailedToImplement' % (indent,))
+                result.append('%s_failedtoimplement = True' % (indent,))
                 return
             keyword = 'if'
             for key, subnode in node.items():
@@ -556,10 +557,13 @@ class FuncEntry(object):
                 generate(subnode, level+1)
                 keyword = 'elif'
             result.append('%selse:' % (indent,))
-            result.append('%s    raise FailedToImplement' % (indent,))
+            result.append('%s    _failedtoimplement = True' % (indent,))
 
         result = []
-        generate(self.typetree)
+        if self.typetree is not True:
+            generate(self.typetree)
+            result.append('if _failedtoimplement:')
+            result.append('    raise FailedToImplement')
         return result
 
 
