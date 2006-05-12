@@ -517,12 +517,21 @@ class Test_compilation:
         fn = compile(access_c_float, [])
         assert fn() == 5.2
 
-    def test_compile_short(self):
-        #py.test.skip('In-progress')
-        def sizeof_c_short():
-            return sizeof(c_short)
-        fn = compile(sizeof_c_short, [])
-        assert fn() == sizeof(c_short)
+    def test_compile_c_integers(self):
+        c_integers = [c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
+                      c_long, c_ulong, c_longlong, c_ulonglong]
+        for c_integer in c_integers:
+            def sizeof_c_integer():
+                return sizeof(c_integer)
+            fn = compile(sizeof_c_integer, [])
+            assert fn() == sizeof_c_integer()
+
+        for c_integer in c_integers:
+            def c_integer_is_unsigned(i):
+                return c_integer(-1).value > 0
+            c_integer_is_unsigned.__name__ == c_integer.__name__
+            fn = compile(c_integer_is_unsigned, [int])
+            assert fn(-1) == c_integer_is_unsigned(-1)
         
 
     def test_compile_primitive_value(self):

@@ -240,9 +240,7 @@ class CTypesValueRepr(CTypesRepr):
     def rtype_is_true(self, hop):
         [v_box] = hop.inputargs(self)
         v_value = self.getvalue(hop.llops, v_box)
-        if v_value.concretetype in (lltype.Char, lltype.UniChar):
-            llfn = ll_c_char_is_true
-        elif v_value.concretetype == llmemory.Address:
+        if v_value.concretetype == llmemory.Address:
             llfn = ll_address_is_true
         else:
             llfn = ll_is_true
@@ -252,9 +250,6 @@ class CTypesValueRepr(CTypesRepr):
 
 def ll_is_true(x):
     return bool(x)
-
-def ll_c_char_is_true(x):
-    return bool(ord(x))
 
 def ll_address_is_true(x):
     return x != llmemory.NULL

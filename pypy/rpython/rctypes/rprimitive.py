@@ -48,11 +48,25 @@ class PrimitiveRepr(CTypesValueRepr):
                                                         self.ll_type)
         self.setvalue(hop.llops, v_primitive, v_value)
 
+    def rtype_is_true(self, hop):
+        [v_box] = hop.inputargs(self)
+        v_value = self.return_value(hop.llops, self.getvalue(hop.llops, v_box))
+        if v_value.concretetype in (lltype.Char, lltype.UniChar):
+            llfn = ll_c_char_is_true
+        else:
+            llfn = ll_is_true
+        return hop.gendirectcall(llfn, v_value)
+
     def initialize_const(self, p, value):
         if isinstance(value, self.ctype):
             value = value.value
         p.c_data[0] = lltype.cast_primitive(self.ll_type, value)
 
+def ll_is_true(x):
+    return bool(x)
+
+def ll_c_char_is_true(x):
+    return bool(ord(x))
 
 class __extend__(pairtype(IntegerRepr, PrimitiveRepr),
                  pairtype(FloatRepr, PrimitiveRepr),

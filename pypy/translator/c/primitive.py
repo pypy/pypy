@@ -148,13 +148,16 @@ PrimitiveErrorValue = {
     Address:  'NULL',
     }
 
-def define_c_primitive(lltype, c_name):
-    if lltype in PrimitiveName:
+def define_c_primitive(ll_type, c_name):
+    if ll_type in PrimitiveName:
         return
-    name_str = '((%s) %%dULL)' % c_name
-    PrimitiveName[lltype] = lambda value, db: name_str % value
-    PrimitiveType[lltype] = '%s @'% c_name
-    PrimitiveErrorValue[lltype] = '((%s) -1)'% c_name
+    if ll_type._cast(-1) > 0:
+        name_str = '((%s) %%dULL)' % c_name
+    else:
+        name_str = '((%s) %%dLL)' % c_name
+    PrimitiveName[ll_type] = lambda value, db: name_str % value
+    PrimitiveType[ll_type] = '%s @'% c_name
+    PrimitiveErrorValue[ll_type] = '((%s) -1)'% c_name
     
 try:
     import ctypes
@@ -162,6 +165,19 @@ except ImportError:
     pass
 else:
     from pypy.rpython.rctypes import rcarithmetic as rcarith
-    
-    define_c_primitive(rcarith.CShort, 'short')
+    for ll_type, c_name in [(rcarith.CByte, 'signed char'),
+                            (rcarith.CUByte, 'unsigned char'),
+                            (rcarith.CShort, 'short'),
+                            (rcarith.CUShort, 'unsigned short'),
+                            (rcarith.CInt, 'int'),
+                            (rcarith.CUInt, 'unsigned int'),
+                            (rcarith.CLong, 'long'),
+                            (rcarith.CULong, 'unsigned long'),
+                            (rcarith.CLonglong, 'long long'),
+                            (rcarith.CULonglong, 'unsigned long long')]:
+        if ll_type in PrimitiveName:
+            continue
+        PrimitiveName[ll_type] = lambda value, db, c_name=c_name: '((%s) %dULL)' % (c_name, value)
+        PrimitiveType[ll_type] = '%s @'% c_name
+        PrimitiveErrorValue[ll_type] = '((%s) -1)'% c_name
     
