@@ -65,7 +65,7 @@ def storage_type(T):
 #                                     global_state.top)
 #         global_state.top = null_state
 #         x = state.saved_long_0
-#         retval = global_state.long_retval
+#         retval = code.fetch_retval_long() # can raise an exception
 #     else:
 #         abort()
 #     return retval + x + 1
