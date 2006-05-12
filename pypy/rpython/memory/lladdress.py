@@ -6,39 +6,34 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 from pypy.rpython.objectmodel import ComputedIntSymbolic
 
-class address(object):
-    #XXX should be _address!
-    
+NULL = llmemory.NULL
+
+
+class _address(object):
+
     def __new__(cls, intaddress=0):
         if intaddress == 0:
-            null = cls.__dict__.get("NULL")
-            if null is not None:
-                return null
-            cls.NULL = object.__new__(cls)
-            return cls.NULL
+            return NULL
         else:
             return object.__new__(cls)
 
     def __init__(self, intaddress=0):
         self.intaddress = intaddress
 
-    def _getintattr(self): #needed to make _accessor easy
-        return self.intaddress
-
     def __add__(self, offset):
         if isinstance(offset, int):
-            return address(self.intaddress + offset)
+            return _address(self.intaddress + offset)
         else:
             assert isinstance(offset, llmemory.AddressOffset)
-            return address(self.intaddress + convert_offset_to_int(offset))
+            return _address(self.intaddress + convert_offset_to_int(offset))
 
     def __sub__(self, other):
         if isinstance(other, int):
-            return address(self.intaddress - other)
+            return _address(self.intaddress - other)
         elif isinstance(other, llmemory.AddressOffset):
-            return address(self.intaddress - convert_offset_to_int(other))
+            return _address(self.intaddress - convert_offset_to_int(other))
         else:
-            assert isinstance(other, address)
+            assert isinstance(other, _address)
             return self.intaddress - other.intaddress
 
     def __cmp__(self, other):
@@ -112,20 +107,19 @@ class _char_accessor(_accessor):
 class _address_accessor(_accessor):
     format = "P"
     size = struct.calcsize("P")
-    convert_from = address
-    convert_to = address._getintattr
+    convert_from = _address
+    convert_to = staticmethod(lambda addr: addr.intaddress)
 
 
-address.signed = property(_signed_accessor)
-address.unsigned = property(_unsigned_accessor)
-address.char = property(_char_accessor)
-address.address = property(_address_accessor)
+_address.signed = property(_signed_accessor)
+_address.unsigned = property(_unsigned_accessor)
+_address.char = property(_char_accessor)
+_address.address = property(_address_accessor)
 
-NULL = address()
 simulator = MemorySimulator()
 
 def raw_malloc(size):
-    return address(simulator.malloc(size))
+    return _address(simulator.malloc(size))
 
 def raw_free(addr):
     simulator.free(addr.intaddress)
@@ -134,12 +128,12 @@ def raw_memcopy(addr1, addr2, size):
     simulator.memcopy(addr1.intaddress, addr2.intaddress, size)
 
 def get_address_of_object(obj):
-    return address(simulator.get_address_of_object(obj))
+    return _address(simulator.get_address_of_object(obj))
 
 def get_py_object(address):
     return simulator.get_py_object(address.intaddress)
 
-address._TYPE = llmemory.Address
+_address._TYPE = llmemory.Address
 
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,

@@ -1,6 +1,7 @@
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 
@@ -140,4 +141,22 @@ def test_cast_opaque_ptr():
         p1 = cast_opaque_ptr(Ptr(S1), o1)
         return p1 == s1
     res = interpret(fn1, [])
+    assert res is True
+
+def test_address():
+    S = GcStruct('S')
+    p1 = nullptr(S)
+    p2 = malloc(S)
+    
+    def g(p):
+        return bool(llmemory.cast_ptr_to_adr(p))
+    def fn(n):
+        if n < 0:
+            return g(p1)
+        else:
+            return g(p2)
+
+    res = interpret(fn, [-5])
+    assert res is False
+    res = interpret(fn, [5])
     assert res is True

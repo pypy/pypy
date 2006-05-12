@@ -63,9 +63,9 @@ def cast_object_to_address(obj):
     return fakeaddress(weakref.ref(obj))
 
 def cast_address_to_object(address, expected_result):
-    wref = address.ref().get()
-    if wref is None: # NULL address
+    if not address:  # NULL address
         return None
+    wref = address.ref().get()
     obj = wref()
     assert obj is not None
     assert isinstance(obj, expected_result)

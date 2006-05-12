@@ -363,11 +363,8 @@ class Bookkeeper:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, lladdress.address):
-            assert x is lladdress.NULL
-            result= SomeAddress(is_null=True)
         elif isinstance(x, llmemory.fakeaddress):
-            result = SomeAddress()
+            result = SomeAddress(is_null=not x)
         elif isinstance(x, ootype._static_meth):
             result = SomeOOStaticMeth(ootype.typeOf(x))
         elif isinstance(x, ootype._class):

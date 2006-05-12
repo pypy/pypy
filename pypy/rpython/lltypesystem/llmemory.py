@@ -166,7 +166,7 @@ def itemoffsetof(TYPE, n=0):
 
 class fakeaddress(object):
     def __init__(self, ob, offset=None):
-        self.ob = ob
+        self.ob = ob or None    # replace null pointers with None
         self.offset = offset
 
     def __repr__(self):
@@ -206,6 +206,8 @@ class fakeaddress(object):
         return not (self == other)
 
     def ref(self):
+        if not self:
+            raise NullAddressError
         ref = _obref(self.ob)
         if self.offset is not None:
             ref = self.offset.ref(ref)
@@ -241,11 +243,18 @@ class fakeaddress(object):
             return lltype.cast_pointer(EXPECTED_TYPE, ref.get())
 
     def _cast_to_int(self):
-        return self.get()._cast_to_int()
+        if self:
+            return self.get()._cast_to_int()
+        else:
+            return 0
 
 # ____________________________________________________________
 
-NULL = fakeaddress(None) # XXX this should be the same as memory.lladdress.NULL
+class NullAddressError(Exception):
+    pass
+
+NULL = fakeaddress(None)
+NULL.intaddress = 0      # this is to make memory.lladdress more happy
 Address = lltype.Primitive("Address", NULL)
 
 

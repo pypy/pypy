@@ -1,5 +1,5 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
-from pypy.rpython.memory.lladdress import NULL, address
+from pypy.rpython.memory.lladdress import NULL, _address
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory

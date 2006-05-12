@@ -6,10 +6,10 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import graphof
 from pypy.objspace.flow import FlowObjSpace
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.memory.lladdress import address, NULL
+from pypy.rpython.memory.lladdress import _address, NULL
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
-from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.lltypesystem.llmemory import Address, NullAddressError
 from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory.test.test_llinterpsim import interpret
 from pypy.rpython.lltypesystem import lltype
@@ -101,17 +101,17 @@ class TestAddressAnnotation(object):
         assert isinstance(s, annmodel.SomeChar)
         assert f(0, "c") == "c"
         assert f(123, "c") == "c"
-        
 
-    def test_address_comparison(self):
-        def f(offset):
-            return NULL < NULL + offset
-        a = RPythonAnnotator()
-        s = a.build_types(f, [annmodel.SomeInteger()])
-        assert isinstance(s, annmodel.SomeBool)
-        assert f(1)
-        assert not f(0)
-        assert not f(-1)
+##    -- no longer valid since NULL is not a regular _address any more
+##    def test_address_comparison(self):
+##        def f(offset):
+##            return NULL < NULL + offset
+##        a = RPythonAnnotator()
+##        s = a.build_types(f, [annmodel.SomeInteger()])
+##        assert isinstance(s, annmodel.SomeBool)
+##        assert f(1)
+##        assert not f(0)
+##        assert not f(-1)
 
     def test_simple_offsetof(self):
         from pypy.rpython.lltypesystem import lltype
@@ -298,7 +298,7 @@ class TestAddressInLLInterp(object):
             return bool(addr)
         res = interpret(f, [NULL])
         assert isinstance(res, bool) and not res
-        res = interpret(f, [address(1)])
+        res = interpret(f, [_address(1)])
         assert isinstance(res, bool) and res
 
     def test_memory_access(self):
@@ -337,13 +337,14 @@ class TestAddressInLLInterp(object):
         assert res == "x"
 
     def test_address_comparison(self):
-        def f(offset):
-            return NULL < NULL + offset or NULL == NULL + offset
-        res = interpret(f, [10])
+        def f(addr, offset):
+            return addr < addr + offset or addr == addr + offset
+        addr = _address(129820)
+        res = interpret(f, [addr, 10])
         assert res
-        res = interpret(f, [-10])
+        res = interpret(f, [addr, -10])
         assert not res
-        res = interpret(f, [0])
+        res = interpret(f, [addr, 0])
         assert res
 
     def test_raw_memcopy(self):
@@ -363,15 +364,15 @@ class TestAddressInLLInterp(object):
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):
-        assert address() is NULL
-        assert address() is address(0)
+        assert _address() is NULL
+        assert _address() is _address(0)
 
     def test_convert_to_bool(self):
-        assert not address()
+        assert not _address()
         assert not NULL
-        assert address(1)
-        assert address(2)
-        assert bool(address(3))
+        assert _address(1)
+        assert _address(2)
+        assert bool(_address(3))
 
     def test_memory_access(self):
         addr = raw_malloc(1000)
@@ -379,7 +380,7 @@ class TestAddressSimulation(object):
         assert addr.unsigned[0] == sys.maxint * 2 + 1
         addr.address[0] = addr
         assert addr.address[0] == addr
-        py.test.raises(MemorySimulatorError, "NULL.signed[0]")
+        py.test.raises(NullAddressError, "NULL.signed[0]")
 
     def test_pointer_arithmetic(self):
         addr = raw_malloc(100)

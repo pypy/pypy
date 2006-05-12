@@ -1,8 +1,8 @@
 # rtyping of memory address operations
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.memory.lladdress import NULL, address
-from pypy.rpython.lltypesystem.llmemory import Address, cast_adr_to_int
+from pypy.rpython.memory.lladdress import _address
+from pypy.rpython.lltypesystem.llmemory import NULL, Address, cast_adr_to_int
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
@@ -25,7 +25,7 @@ class AddressRepr(Repr):
     lowleveltype = Address
 
     def convert_const(self, value):
-        assert not isinstance(value, address) or value is NULL
+        assert not isinstance(value, _address)
         return value
 
     def rtype_getattr(self, hop):
