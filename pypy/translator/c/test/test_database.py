@@ -176,7 +176,7 @@ def makegraph(func, argtypes):
     t.buildannotator().build_types(func, [int])
     t.buildrtyper().specialize()
     bk = t.annotator.bookkeeper
-    graph = bk.getdesc(func).cachedgraph(None)
+    graph = bk.getdesc(func).getuniquegraph()
     return t, graph
 
 def test_function_call():

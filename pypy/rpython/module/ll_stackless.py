@@ -18,3 +18,10 @@ def ll_stackless_switch(opaqueframetop):
     else:
         return to_opaque_object(newframetop)
 ll_stackless_switch.suggested_primitive = True
+
+
+def ll_stackless_clone(opaqueframetop):
+    frametop = from_opaque_object(opaqueframetop)
+    newframetop = frametop.clone()
+    return to_opaque_object(newframetop)
+ll_stackless_clone.suggested_primitive = True

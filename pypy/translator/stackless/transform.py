@@ -6,37 +6,17 @@ from pypy.rpython.memory.gctransform import varoftype
 from pypy.translator import unsimplify
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
-from pypy.translator.stackless import code
-from pypy.translator.stackless.code import SAVED_REFERENCE, STORAGE_TYPES
-from pypy.translator.stackless.code import STORAGE_FIELDS
+from pypy.translator.stackless import code, frame
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.translator.backendopt import graphanalyze
 
-from pypy.translator.stackless.code import STATE_HEADER, null_state
-
-def storage_type(T):
-    """Return the 'erased' storage type corresponding to T.
-    """
-    if T is lltype.Void:
-        return lltype.Void
-    elif isinstance(T, lltype.Ptr):
-        if T._needsgc():
-            return SAVED_REFERENCE
-        else:
-            return llmemory.Address
-    elif T is lltype.Float:
-        return lltype.Float
-    elif T in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
-        return lltype.SignedLongLong
-    elif T is llmemory.Address:
-        return llmemory.Address
-    elif isinstance(T, lltype.Primitive):
-        return lltype.Signed
-    else:
-        raise Exception("don't know about %r" % (T,))
+from pypy.translator.stackless.frame import SAVED_REFERENCE, STORAGE_TYPES
+from pypy.translator.stackless.frame import STORAGE_FIELDS
+from pypy.translator.stackless.frame import STATE_HEADER, null_state
+from pypy.translator.stackless.frame import storage_type
 
 # a simple example of what the stackless transform does
 #
@@ -44,29 +24,31 @@ def storage_type(T):
 #     return g() + x + 1
 #
 # STATE_func_0 = lltype.Struct('STATE_func_0',
-#                              ('header', code.STATE_HEADER),
+#                              ('header', STATE_HEADER),
 #                              ('saved_long_0', Signed))
 #
 # def func(x):
 #     state = global_state.restart_substate
-#     global_state.restart_substate = 0
-#     if state == 0:   # normal case
+#     if state == -1:   # normal case
 #         try:
 #             retval = g(x)
 #         except code.UnwindException, u:
 #             state = lltype.malloc(STATE_func_0)
-#             state.header.restartstate = 1
-#             state.header.function = llmemory.cast_ptr_to_adr(func)
-#             state.header.retval_type = code.RETVAL_LONG
+#             state.header.f_restart = <index in array of frame.FRAMEINFO>
 #             state.saved_long_0 = x
 #             code.add_frame_state(u, state.header)
 #             raise
-#     elif state == 1:
+#     elif state == 0:
+#         global_state.restart_substate = -1
 #         state = lltype.cast_pointer(lltype.Ptr(STATE_func_0),
 #                                     global_state.top)
 #         global_state.top = null_state
 #         x = state.saved_long_0
 #         retval = code.fetch_retval_long() # can raise an exception
+#     elif state == 1:
+#         ...
+#     elif state == 2:
+#         ...
 #     else:
 #         abort()
 #     return retval + x + 1
@@ -104,9 +86,7 @@ class FrameTyper:
             for t in STORAGE_TYPES:
                 for j in range(counts.get(t, 0)):
                     fields.append(('state_%s_%d' % (STORAGE_FIELDS[t], j), t))
-            T = lltype.GcStruct("FrameState",
-                                ('header', STATE_HEADER),
-                                *fields)
+            T = frame.make_state_header_type("FrameState", *fields)
             self.frametypes[key] = T
         return T, fieldnames
 
@@ -140,6 +120,8 @@ class StacklessTransformer(object):
         self.translator = translator
 
         self.frametyper = FrameTyper()
+        self.restartinfos = frame.RestartInfo.prebuilt[:]
+        self.restartinfoindex = frame.RestartInfo.prebuiltindex
         self.curr_graph = None
         
         bk = translator.annotator.bookkeeper
@@ -149,6 +131,13 @@ class StacklessTransformer(object):
             bk.getuniqueclassdef(code.UnwindException)).lowleveltype
         self.analyzer = StacklessAnalyzer(translator,
                                           self.unwind_exception_type)
+
+        # the point of this little dance is to not annotate
+        # code.global_state.masterarray as a constant.
+        data_classdef = bk.getuniqueclassdef(code.StacklessData)
+        data_classdef.generalize_attr(
+            'masterarray',
+            annmodel.SomePtr(lltype.Ptr(frame.FRAME_INFO_ARRAY)))
 
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
@@ -163,7 +152,7 @@ class StacklessTransformer(object):
         slp_entry_point.stackless_explicit = True
 
         self.slp_entry_point = slp_entry_point
-        oldgraph = bk.getdesc(entrypoint).cachedgraph(None)
+        oldgraph = bk.getdesc(entrypoint).getuniquegraph()
         s_argv = translator.annotator.binding(oldgraph.getargs()[0])
         self.slp_entry_point_ptr = mixlevelannotator.constfunc(
             slp_entry_point, [s_argv], annmodel.SomeInteger())
@@ -174,9 +163,6 @@ class StacklessTransformer(object):
             [annmodel.SomeInstance(unwinddef),
              annmodel.SomePtr(lltype.Ptr(STATE_HEADER))],
             l2a(lltype.Void))
-
-        self.resume_state_ptr = mixlevelannotator.constfunc(
-            code.resume_state, [], annmodel.SomeInteger())
 
         self.fetch_retvals = {
             lltype.Void: mixlevelannotator.constfunc(
@@ -193,7 +179,7 @@ class StacklessTransformer(object):
                 code.fetch_retval_ref, [], annmodel.SomePtr(SAVED_REFERENCE)),
             }
 
-        s_StatePtr = annmodel.SomePtr(code.OPAQUE_STATE_HEADER_PTR)
+        s_StatePtr = annmodel.SomePtr(frame.OPAQUE_STATE_HEADER_PTR)
         self.suggested_primitives = {
             ll_stackless.ll_stackless_stack_frames_depth:
                 mixlevelannotator.constfunc(
@@ -217,9 +203,19 @@ class StacklessTransformer(object):
             r_global_state.lowleveltype)
         self.seen_blocks = set()
 
+        # some prebuilt constants to save memory
+        self.c_restart_substate_name = model.Constant("inst_restart_substate",
+                                                      lltype.Void)
+        self.c_inst_top_name = model.Constant("inst_top", lltype.Void)
+        self.c_f_restart_name = model.Constant("f_restart", lltype.Void)
+        self.c_minus_one = model.Constant(-1, lltype.Signed)
+        self.c_null_state = model.Constant(null_state,
+                                           lltype.typeOf(null_state))
+
     def transform_all(self):
         for graph in self.translator.graphs:
             self.transform_graph(graph)
+        self.finish()
         
     def transform_graph(self, graph):
         self.resume_points = []
@@ -241,6 +237,7 @@ class StacklessTransformer(object):
 
         if self.resume_points:
             self.insert_resume_handling(graph)
+            self.generate_restart_infos(graph)
 
         model.checkgraph(graph)
 
@@ -274,23 +271,28 @@ class StacklessTransformer(object):
         new_start_block = model.Block(newinputargs)
         var_resume_state = varoftype(lltype.Signed)
         new_start_block.operations.append(
-            model.SpaceOperation("direct_call",
-                                 [self.resume_state_ptr],
+            model.SpaceOperation("getfield",
+                                 [self.ll_global_state,
+                                  self.c_restart_substate_name],
                                  var_resume_state))
-        not_resuming_link = model.Link(newinputargs, old_start_block, 0)
-        not_resuming_link.llexitcase = 0
+        not_resuming_link = model.Link(newinputargs, old_start_block, -1)
+        not_resuming_link.llexitcase = -1
         resuming_links = []
         for resume_point_index, resume_point in enumerate(self.resume_points):
             newblock = model.Block([])
             newargs = []
             llops = LowLevelOpList()
+            llops.genop("setfield",
+                        [self.ll_global_state,
+                         self.c_restart_substate_name,
+                         self.c_minus_one])
             frame_state_type = resume_point.frame_state_type
             frame_top = varoftype(lltype.Ptr(frame_state_type))
             llops.extend(self.ops_read_global_state_field(frame_top, "top"))
             llops.genop("setfield",
                        [self.ll_global_state,
-                        model.Constant("inst_top", lltype.Void),
-                        model.Constant(null_state, lltype.typeOf(null_state))])
+                        self.c_inst_top_name,
+                        self.c_null_state])
             varmap = {}
             for i, arg in enumerate(resume_point.args):
                 assert arg is not resume_point.var_result
@@ -351,8 +353,8 @@ class StacklessTransformer(object):
                 # end ouch!
             
             resuming_links.append(
-                model.Link([], newblock, resume_point_index+1))
-            resuming_links[-1].llexitcase = resume_point_index+1
+                model.Link([], newblock, resume_point_index))
+            resuming_links[-1].llexitcase = resume_point_index
         new_start_block.exitswitch = var_resume_state
         new_start_block.closeblock(not_resuming_link, *resuming_links)
 
@@ -499,24 +501,11 @@ class StacklessTransformer(object):
             [self.add_frame_state_ptr, var_exc, var_header],
             varoftype(lltype.Void)))
 
+        f_restart = self.restartinfoindex + len(self.resume_points)
         saveops.append(model.SpaceOperation(
             "setfield",
-            [var_header, model.Constant("restartstate", lltype.Void), 
-             model.Constant(len(self.resume_points)+1, lltype.Signed)],
-            varoftype(lltype.Void)))
-
-        funcptr = rtyper.type_system.getcallable(self.curr_graph)
-        saveops.append(model.SpaceOperation(
-            "setfield",
-            [var_header, model.Constant("function", lltype.Void), 
-             model.Constant(llmemory.fakeaddress(funcptr), llmemory.Address)],
-            varoftype(lltype.Void)))
-        rettype = lltype.typeOf(funcptr).TO.RESULT
-        retval_type = STORAGE_TYPES.index(storage_type(rettype))
-
-        saveops.append(model.SpaceOperation(
-            "setfield", [var_header, model.Constant("retval_type", lltype.Void), 
-                         model.Constant(retval_type, lltype.Signed)],
+            [var_header, self.c_f_restart_name,
+             model.Constant(f_restart, lltype.Signed)],
             varoftype(lltype.Void)))
 
         type_repr = rclass.get_type_repr(rtyper)
@@ -544,3 +533,23 @@ class StacklessTransformer(object):
             v_typeerased = gen_cast(llops, t, var)
             llops.genop('setfield', [frame_state_var, fname, v_typeerased])
         return llops
+
+    def generate_restart_infos(self, graph):
+        restartinfo = frame.RestartInfo(graph, self.restartinfoindex,
+                                        len(self.resume_points))
+        self.restartinfos.append(restartinfo)
+        self.restartinfoindex += len(self.resume_points)
+
+    def finish(self):
+        # compute the final masterarray
+        masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,
+                                    self.restartinfoindex,
+                                    immortal=True)
+        rtyper = self.translator.rtyper
+        for restartinfo in self.restartinfos:
+            restartinfo.compress(rtyper, masterarray)
+        # horrors in the same spirit as in rpython.memory.gctransform
+        # (shorter, though)
+        ll_global_state = self.ll_global_state.value
+        ll_global_state.inst_masterarray = masterarray
+        return [masterarray]

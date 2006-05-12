@@ -179,7 +179,7 @@ class GenLLVM(object):
         self.entrypoint = func
 
         bk = self.translator.annotator.bookkeeper
-        ptr = getfunctionptr(bk.getdesc(func).cachedgraph(None))
+        ptr = getfunctionptr(bk.getdesc(func).getuniquegraph())
         c = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
         self.entry_func_name = func.func_name

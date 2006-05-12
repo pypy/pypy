@@ -163,7 +163,7 @@ class SymbolicQueryTypes(QueryTypes):
     
 def getfunctionptr(annotator, graphfunc):
     """Make a functionptr from the given Python function."""
-    graph = annotator.bookkeeper.getdesc(graphfunc).cachedgraph(None)
+    graph = annotator.bookkeeper.getdesc(graphfunc).getuniquegraph()
     llinputs = [v.concretetype for v in graph.getargs()]
     lloutput = graph.getreturnvar().concretetype
     FT = lltype.FuncType(llinputs, lloutput)
@@ -293,12 +293,12 @@ class AnnotatingGcWrapper(GcWrapper):
         # convert constants
         fgcc = FlowGraphConstantConverter(a.translator.graphs)
         fgcc.convert()
-        self.malloc_graph = a.bookkeeper.getdesc(self.gc.malloc.im_func).cachedgraph(None)
-        self.write_barrier_graph = a.bookkeeper.getdesc(self.gc.write_barrier.im_func).cachedgraph(None)
+        self.malloc_graph = a.bookkeeper.getdesc(self.gc.malloc.im_func).getuniquegraph()
+        self.write_barrier_graph = a.bookkeeper.getdesc(self.gc.write_barrier.im_func).getuniquegraph()
 
         # create a gc via invoking instantiate_gc
         self.gcptr = self.llinterp.eval_graph(
-            a.bookkeeper.getdesc(instantiate_gc).cachedgraph(None))
+            a.bookkeeper.getdesc(instantiate_gc).getuniquegraph())
         GETROOTS_FUNCTYPE = lltype.typeOf(
             getfunctionptr(a, dummy_get_roots1)).TO
         setattr(self.gcptr, "inst_get_roots",

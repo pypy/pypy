@@ -223,10 +223,13 @@ class LowLevelDatabase(object):
                     show_i += 1000
             work_to_do = False
             if not is_later_yet:
-                newgcdependencies = self.gctransformer.finish()
-                if newgcdependencies:
+                newdependencies = self.gctransformer.finish() or []
+                if self.stacklesstransformer:
+                    newdependencies2 = self.stacklesstransformer.finish() or []
+                    newdependencies.extend(newdependencies2)
+                if newdependencies:
                     work_to_do = True
-                    for value in newgcdependencies:
+                    for value in newdependencies:
                         if isinstance(typeOf(value), ContainerType):
                             self.getcontainernode(value)
                         else:

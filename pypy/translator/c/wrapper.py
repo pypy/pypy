@@ -40,7 +40,7 @@ def gen_wrapper(func, translator, newname=None, as_method=False):
             do_inline = True
         else:
             bk = translator.annotator.bookkeeper
-            graph = bk.getdesc(func).cachedgraph(None)
+            graph = bk.getdesc(func).getuniquegraph()
 
     f = getfunctionptr(graph)
     FUNCTYPE = typeOf(f).TO

@@ -318,7 +318,7 @@ class TranslationDriver(SimpleTaskEngine):
         translator = self.translator
         interp = LLInterpreter(translator.rtyper)
         bk = translator.annotator.bookkeeper
-        graph = bk.getdesc(self.entry_point).cachedgraph(None)
+        graph = bk.getdesc(self.entry_point).getuniquegraph()
         v = interp.eval_graph(graph,
                               self.extra.get('get_llinterp_args',
                                              lambda: [])())

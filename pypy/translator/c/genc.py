@@ -182,7 +182,7 @@ class CStandaloneBuilder(CBuilder):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
         bk = self.translator.annotator.bookkeeper
-        return getfunctionptr(bk.getdesc(self.entrypoint).cachedgraph(None))
+        return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
     def getccompiler(self, extra_includes):
         # XXX for now, we always include Python.h

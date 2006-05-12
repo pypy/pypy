@@ -39,7 +39,7 @@ class JS(object):   # JS = Javascript
         self.graph = []
         for  func in self.functions:
             bk   = self.db.translator.annotator.bookkeeper
-            ptr  = getfunctionptr(bk.getdesc(func).cachedgraph(None))
+            ptr  = getfunctionptr(bk.getdesc(func).getuniquegraph())
             c    = inputconst(lltype.typeOf(ptr), ptr)
             self.db.prepare_arg(c)
             self.graph.append( self.db.obj2node[c.value._obj].graph )

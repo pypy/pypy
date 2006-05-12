@@ -573,7 +573,7 @@ class PyObjMaker:
                         # this is the context where we create the instance.
                         ann = self.translator.annotator
                         clsdef = ann.bookkeeper.getuniqueclassdef(cls)
-                        graph = ann.bookkeeper.getdesc(func).cachedgraph(None)
+                        graph = ann.bookkeeper.getdesc(func).getuniquegraph()
                         if ann.binding(graph.getargs()[0]).classdef is not clsdef:
                             value = new_method_graph(graph, clsdef, fname, self.translator)
                     self.name_for_meth[value] = fname

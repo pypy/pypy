@@ -253,7 +253,9 @@ declare(rstack.stack_check, noneannotation, 'll_stack/check')
 declare(rstack.stack_unwind, noneannotation, 'll_stack/unwind')
 frametop_type_info = declaregcptrtype(rstack.frame_stack_top,'frame_stack_top',
                                         switch = (rstack.frame_stack_top,
-                                                  'll_stackless/switch'))
+                                                  'll_stackless/switch'),
+                                        clone  = (rstack.frame_stack_top,
+                                                  'll_stackless/clone'))
 
 # ___________________________________________________________
 # javascript

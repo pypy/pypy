@@ -191,6 +191,10 @@ class FunctionDesc(Desc):
             graph.name = alt_name
         return graph
 
+    def getuniquegraph(self):
+        assert len(self._cache) == 1
+        return self._cache.values()[0]
+
     def cachedgraph(self, key, alt_name=None, builder=None):
         try:
             return self._cache[key]
