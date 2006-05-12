@@ -193,7 +193,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
             bind(obj2, obj1, 0)
             bind(obj1, obj2, 1)
-                
+
         return r
 
     def divmod((obj1, obj2)):
@@ -212,7 +212,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         else:
             return obj
 
-    
+
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
     newfunc = type(f)(f.func_code, f.func_globals, f.func_name,
@@ -279,14 +279,19 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         op = block.operations[i]
         assert op.opname == opname
         assert len(op.args) == 2
+        def tointtype(int0):
+            if int1.knowntype is bool:
+                return int
+            return int0.knowntype
         if int1.nonneg and isinstance(op.args[1], Variable):
             case = opname in ('lt', 'le', 'eq')
+                
             add_knowntypedata(knowntypedata, case, [op.args[1]],
-                              SomeInteger(nonneg=True, unsigned=int2.unsigned))
+                              SomeInteger(nonneg=True, knowntype=tointtype(int2)))
         if int2.nonneg and isinstance(op.args[0], Variable):
             case = opname in ('gt', 'ge', 'eq')
             add_knowntypedata(knowntypedata, case, [op.args[0]],
-                              SomeInteger(nonneg=True, unsigned=int1.unsigned))
+                              SomeInteger(nonneg=True, knowntype=tointtype(int1)))
         if knowntypedata:
             r.knowntypedata = knowntypedata
         return r

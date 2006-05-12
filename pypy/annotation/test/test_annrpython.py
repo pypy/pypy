@@ -1303,6 +1303,25 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int]*8)
         assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 8)
 
+    def test_general_nonneg_cleverness(self):
+        def f(a, b, c, d, e, f, g, h):
+            if a < 0: a = 0
+            if b <= 0: b = 0
+            if c >= 0:
+                pass
+            else:
+                c = 0
+            if d < a: d = a
+            if e <= b: e = 1
+            if c > f: f = 2
+            if d >= g: g = 3
+            if h != a: h = 0
+            return a, b, c, d, e, f, g, h
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_longlong]*8)
+        assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True, knowntype=r_longlong)] * 8)
+
+
     def test_more_nonneg_cleverness(self):
         def f(start, stop):
             assert 0 <= start <= stop
@@ -1310,6 +1329,14 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int, int])
         assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 2)
+
+    def test_more_general_nonneg_cleverness(self):
+        def f(start, stop):
+            assert 0 <= start <= stop
+            return start, stop
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_longlong, r_longlong])
+        assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True, knowntype=r_longlong)] * 2)
 
     def test_nonneg_cleverness_is_gentle_with_unsigned(self):
         def witness1(x):
@@ -1328,7 +1355,23 @@ class TestAnnotateTestCase:
         assert a.binding(wg1.getargs()[0]).unsigned is True
         assert a.binding(wg2.getargs()[0]).unsigned is True        
         
-
+    def test_general_nonneg_cleverness_is_gentle_with_unsigned(self):
+        def witness1(x):
+            pass
+        def witness2(x):
+            pass        
+        def f(x):
+            if 0 < x:
+                witness1(x)
+            if x > 0:
+                witness2(x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger(knowntype=r_ulonglong)])
+        wg1 = graphof(a, witness1)
+        wg2 = graphof(a, witness2)        
+        assert a.binding(wg1.getargs()[0]).knowntype is r_ulonglong
+        assert a.binding(wg2.getargs()[0]).knowntype is r_ulonglong
+    
     def test_attr_moving_into_parent(self):
         class A: pass
         class B(A): pass
