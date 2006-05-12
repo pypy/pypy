@@ -43,59 +43,46 @@ class AbstractTestRstr:
             res = self.interpret(fn, [i])
             assert res == 'hello'[i]
 
-def test_implicit_index_error():
-    def fn(i):
-        s = 'hello'
-        try:
-            return s[i]
-        except IndexError:
-            return '*'
-    for i in range(-5, 5):
-        res = interpret(fn, [i])
-        assert res == 'hello'[i]
-    res = interpret(fn, [5])
-    assert res == '*'
-    res = interpret(fn, [6])
-    assert res == '*'
-    res = interpret(fn, [-42])
-    assert res == '*'
-    
+    def test_implicit_index_error(self):
+        def fn(i):
+            s = 'hello'
+            try:
+                return s[i]
+            except IndexError:
+                return '*'
+        for i in range(-5, 5):
+            res = self.interpret(fn, [i])
+            assert res == 'hello'[i]
+        res = self.interpret(fn, [5])
+        assert res == '*'
+        res = self.interpret(fn, [6])
+        assert res == '*'
+        res = self.interpret(fn, [-42])
+        assert res == '*'
 
-def test_nonzero():
-    def fn(i, j):
-        s = ['', 'xx'][j]
-        if i < 0:
-            s = None
-        if i > -2:
-            return bool(s)
-        else:
-            return False
-    for i in [-2, -1, 0]:
-        for j in range(2):
-            res = interpret(fn, [i, j])
-            assert res is fn(i, j)
+    def test_nonzero(self):
+        def fn(i, j):
+            s = ['', 'xx'][j]
+            if i < 0:
+                s = None
+            if i > -2:
+                return bool(s)
+            else:
+                return False
+        for i in [-2, -1, 0]:
+            for j in range(2):
+                res = self.interpret(fn, [i, j])
+                assert res is fn(i, j)
 
-def test_hash():
-    def fn(i):
-        if i == 0:
-            s = ''
-        else:
-            s = "xxx"
-        return hash(s)
-    res = interpret(fn, [0])
-    assert res == -1
-    res = interpret(fn, [1])
-    assert typeOf(res) == Signed
-
-def test_concat():
-    def fn(i, j):
-        s1 = ['', 'a', 'ab']
-        s2 = ['', 'x', 'xy']
-        return s1[i] + s2[j]
-    for i in range(3):
-        for j in range(3):
-            res = interpret(fn, [i,j])
-            assert ''.join(res.chars) == fn(i, j)
+    def test_concat(self):
+        def fn(i, j):
+            s1 = ['', 'a', 'ab']
+            s2 = ['', 'x', 'xy']
+            return s1[i] + s2[j]
+        for i in range(3):
+            for j in range(3):
+                res = self.interpret(fn, [i,j])
+                assert self.ll_to_string(res) == fn(i, j)
 
 def test_iter():
     def fn(i):
@@ -581,5 +568,24 @@ def FIXME_test_str_to_pystringobj():
 class TestLltype(AbstractTestRstr):
     ts = "lltype"
 
+    def ll_to_string(self, s):
+        return ''.join(s.chars)
+
+    def test_hash(self):
+        def fn(i):
+            if i == 0:
+                s = ''
+            else:
+                s = "xxx"
+            return hash(s)
+        res = self.interpret(fn, [0])
+        assert res == -1
+        res = self.interpret(fn, [1])
+        assert typeOf(res) == Signed
+
+
 class TestOotype(AbstractTestRstr):
     ts = "ootype"
+
+    def ll_to_string(self, s):
+        return s._str

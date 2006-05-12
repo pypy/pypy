@@ -1,11 +1,12 @@
 from weakref import WeakValueDictionary
-from pypy.tool.staticmethods import StaticMethods
 from pypy.annotation.pairtype import pairtype
+from pypy.rpython.error import TyperError
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
-from pypy.rpython.rstr import AbstractStringRepr, \
-     AbstractCharRepr, AbstractUniCharRepr, AbstractStringIteratorRepr
+from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
+     AbstractUniCharRepr, AbstractStringIteratorRepr,\
+     AbstractLLHelpers
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
@@ -108,41 +109,7 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-class LLHelpers:
-    __metaclass__ = StaticMethods
-
-    def ll_char_isspace(ch):
-        c = ord(ch) 
-        return c == 32 or (c <= 13 and c >= 9)   # c in (9, 10, 11, 12, 13, 32)
-
-    def ll_char_isdigit(ch):
-        c = ord(ch)
-        return c <= 57 and c >= 48
-
-    def ll_char_isalpha(ch):
-        c = ord(ch)
-        if c >= 97:
-            return c <= 122
-        else:
-            return 65 <= c <= 90
-
-    def ll_char_isalnum(ch):
-        c = ord(ch)
-        if c >= 65:
-            if c >= 97:
-                return c <= 122
-            else:
-                return c <= 90
-        else:
-            return 48 <= c <= 57
-
-    def ll_char_isupper(ch):
-        c = ord(ch)
-        return 65 <= c <= 90
-
-    def ll_char_islower(ch):   
-        c = ord(ch)
-        return 97 <= c <= 122
+class LLHelpers(AbstractLLHelpers):
 
     def ll_char_mul(ch, times):
         newstr = malloc(STR, times)
@@ -152,38 +119,11 @@ class LLHelpers:
             j += 1
         return newstr
 
-    def ll_char_hash(ch):
-        return ord(ch)
-
-    def ll_unichar_hash(ch):
-        return ord(ch)
-
     def ll_strlen(s):
         return len(s.chars)
 
     def ll_stritem_nonneg(s, i):
         return s.chars[i]
-
-    def ll_stritem_nonneg_checked(s, i):
-        if i >= len(s.chars):
-            raise IndexError
-        return s.chars[i]
-
-    def ll_stritem(s, i):
-        if i < 0:
-            i += len(s.chars)
-        return s.chars[i]
-
-    def ll_stritem_checked(s, i):
-        if i < 0:
-            i += len(s.chars)
-        if i >= len(s.chars) or i < 0:
-            raise IndexError
-        return s.chars[i]
-
-    def ll_str_is_true(s):
-        # check if a string is True, allowing for None
-        return bool(s) and len(s.chars) != 0
 
     def ll_chr2str(ch):
         s = malloc(STR, 1)
@@ -736,7 +676,7 @@ ll_join = LLHelpers.ll_join
 do_stringformat = LLHelpers.do_stringformat
 
 string_repr = StringRepr()
-char_repr   = CharRepr()
+char_repr = CharRepr()
 unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers

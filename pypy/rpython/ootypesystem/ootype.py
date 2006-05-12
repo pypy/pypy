@@ -268,15 +268,20 @@ class BuiltinADTType(BuiltinType):
 
 # WARNING: the name 'String' is rebound at the end of file
 class String(BuiltinADTType):
+    SELFTYPE_T = object()
 
     def __init__(self):
+        self._null = _null_string(self)
+
+        generic_types = { self.SELFTYPE_T: self }
         self._GENERIC_METHODS = frozendict({
             "ll_stritem_nonneg": Meth([Signed], Char),
-            "ll_stritem": Meth([Signed], Char),
+            "ll_strlen": Meth([], Signed),
+            "ll_strconcat": Meth([self.SELFTYPE_T], self.SELFTYPE_T)
         })
+        self._setup_methods(generic_types)
 
-        self._setup_methods({})
-
+    # TODO: should it return _null or ''?
     def _defl(self):
         return make_string("")
     
@@ -770,14 +775,18 @@ class _string(_builtin_type):
         self._str = value
         self._TYPE = STRING
 
-    def ll_stritem(self, i):
-        # NOT_RPYTHON
-        return self._str[i]
-
     def ll_stritem_nonneg(self, i):
         # NOT_RPYTHON
         assert i >= 0
         return self._str[i]
+
+    def ll_strlen(self):
+        # NOT_RPYTHON
+        return len(self._str)
+
+    def ll_strconcat(self, s):
+        # NOT_RPYTHON
+        return make_string(self._str + s._str)
 
     # delegate missing ll_* methods to self._str
     def __getattr__(self, attr):
@@ -803,8 +812,11 @@ class _string(_builtin_type):
                 return res
         return f
 
-class _list(_builtin_type):
+class _null_string(_null_mixin(_string), _string):
+    def __init__(self, STRING):
+        self.__dict__["_TYPE"] = STRING
 
+class _list(_builtin_type):
     def __init__(self, LIST):
         self._TYPE = LIST
         self._list = []

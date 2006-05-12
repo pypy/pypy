@@ -1,3 +1,4 @@
+from pypy.tool.staticmethods import StaticMethods
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
@@ -462,4 +463,83 @@ class AbstractStringIteratorRepr(IteratorRepr):
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
         return hop.gendirectcall(self.ll_strnext, v_iter)
+
+
+# ____________________________________________________________
+#
+#  Low-level methods.  These can be run for testing, but are meant to
+#  be direct_call'ed from rtyped flow graphs, which means that they will
+#  get flowed and annotated, mostly with SomePtr.
+#
+
+# this class contains low level helpers used both by lltypesystem and
+# ootypesystem; each typesystem should subclass it and add its own
+# primitives.
+class AbstractLLHelpers:
+    __metaclass__ = StaticMethods
+
+    def ll_char_isspace(ch):
+        c = ord(ch) 
+        return c == 32 or (c <= 13 and c >= 9)   # c in (9, 10, 11, 12, 13, 32)
+
+    def ll_char_isdigit(ch):
+        c = ord(ch)
+        return c <= 57 and c >= 48
+
+    def ll_char_isalpha(ch):
+        c = ord(ch)
+        if c >= 97:
+            return c <= 122
+        else:
+            return 65 <= c <= 90
+
+    def ll_char_isalnum(ch):
+        c = ord(ch)
+        if c >= 65:
+            if c >= 97:
+                return c <= 122
+            else:
+                return c <= 90
+        else:
+            return 48 <= c <= 57
+
+    def ll_char_isupper(ch):
+        c = ord(ch)
+        return 65 <= c <= 90
+
+    def ll_char_islower(ch):   
+        c = ord(ch)
+        return 97 <= c <= 122
+
+    def ll_char_hash(ch):
+        return ord(ch)
+
+    def ll_unichar_hash(ch):
+        return ord(ch)
+
+    @classmethod
+    def ll_str_is_true(cls, s):
+        # check if a string is True, allowing for None
+        return bool(s) and cls.ll_strlen(s) != 0
+
+    @classmethod
+    def ll_stritem_nonneg_checked(cls, s, i):
+        if i >= cls.ll_strlen(s):
+            raise IndexError
+        return cls.ll_stritem_nonneg(s, i)
+
+    @classmethod
+    def ll_stritem(cls, s, i):
+        if i < 0:
+            i += cls.ll_strlen(s)
+        return cls.ll_stritem_nonneg(s, i)
+
+    @classmethod
+    def ll_stritem_checked(cls, s, i):
+        length = cls.ll_strlen(s)
+        if i < 0:
+            i += length
+        if i >= length or i < 0:
+            raise IndexError
+        return cls.ll_stritem_nonneg(s, i)
 

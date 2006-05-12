@@ -1,6 +1,7 @@
-from pypy.tool.staticmethods import StaticMethods
-from pypy.rpython.rstr import AbstractStringRepr, \
-     AbstractCharRepr, AbstractUniCharRepr, AbstractStringIteratorRepr
+from pypy.rpython.error import TyperError
+from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
+     AbstractUniCharRepr, AbstractStringIteratorRepr,\
+     AbstractLLHelpers
 from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
 from pypy.rpython.ootypesystem.ootype import Signed, Record, String, make_string
 
@@ -29,9 +30,8 @@ class StringRepr(AbstractStringRepr):
         self.ll = LLHelpers
 
     def convert_const(self, value):
-        # XXX what do we do about null strings?
-        #if value is None:
-        #    return nullptr(STR)
+        if value is None:
+            return String._null
         if not isinstance(value, str):
             raise TyperError("not a str: %r" % (value,))
         return make_string(value)
@@ -46,19 +46,22 @@ class CharRepr(AbstractCharRepr, StringRepr):
 class UniCharRepr(AbstractUniCharRepr):
     lowleveltype = UniChar
 
-class LLHelpers:
-    __metaclass__ = StaticMethods
+class LLHelpers(AbstractLLHelpers):
 
     def ll_stritem_nonneg(s, i):
         return s.ll_stritem_nonneg(i)
 
-    def ll_stritem(s, i):
-        return s.ll_stritem(i)
+    def ll_strlen(s):
+        return s.ll_strlen()
 
+    def ll_strconcat(s1, s2):
+        return s1.ll_strconcat(s2)
 
 string_repr = StringRepr()
 char_repr = CharRepr()
 unichar_repr = UniCharRepr()
+char_repr.ll = LLHelpers
+unichar_repr.ll = LLHelpers
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
 
