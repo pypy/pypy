@@ -22,13 +22,26 @@ def test_ll_find_rfind():
         res = LLHelpers.ll_rfind(llstr(s1), llstr(s2), 0, n1)
         assert res == s1.rfind(s2)
 
-def test_simple():
-    def fn(i):
-        s = 'hello'
-        return s[i]
-    for i in range(5):
-        res = interpret(fn, [i])
-        assert res == 'hello'[i]
+
+class AbstractTestRstr:
+
+    def interpret(self, fn, args):
+        return interpret(fn, args, type_system=self.ts)
+
+    def interpret_raises(self, exc, fn, args):
+        return interpret_raises(exc, fn, args, type_system=self.ts)
+
+    def _skip_oo(self, reason):
+        if self.ts == 'ootype':
+            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
+
+    def test_simple(self):
+        def fn(i):
+            s = 'hello'
+            return s[i]
+        for i in range(5):
+            res = self.interpret(fn, [i])
+            assert res == 'hello'[i]
 
 def test_implicit_index_error():
     def fn(i):
@@ -564,3 +577,9 @@ def FIXME_test_str_to_pystringobj():
     assert res._obj.value == "ello"
     res = interpret(g, [-2])
     assert res._obj.value == 42
+
+class TestLltype(AbstractTestRstr):
+    ts = "lltype"
+
+class TestOotype(AbstractTestRstr):
+    ts = "ootype"

@@ -108,8 +108,6 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-# TODO: move it to a better place
-
 class LLHelpers:
     __metaclass__ = StaticMethods
 

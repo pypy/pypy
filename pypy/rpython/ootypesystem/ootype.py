@@ -181,16 +181,6 @@ class Meth(StaticMethod):
         StaticMethod.__init__(self, args, result)
 
 
-class String(OOType):
-
-    def _defl(self):
-        return make_string("")
-    
-    def _example(self):
-        return self._defl()
-
-String = String()
-
 class BuiltinType(OOType):
 
     def _example(self):
@@ -274,6 +264,30 @@ class BuiltinADTType(BuiltinType):
             cls = self._get_interp_class()
             meth = _meth(METH, _name=meth_name, _callable=getattr(cls, meth_name))
         return self, meth
+
+
+# WARNING: the name 'String' is rebound at the end of file
+class String(BuiltinADTType):
+
+    def __init__(self):
+        self._GENERIC_METHODS = frozendict({
+            "ll_stritem_nonneg": Meth([Signed], Char),
+            "ll_stritem": Meth([Signed], Char),
+        })
+
+        self._setup_methods({})
+
+    def _defl(self):
+        return make_string("")
+    
+    def _example(self):
+        return self._defl()
+
+    def _get_interp_class(self):
+        return _string
+
+    def _specialize(self, generic_types):
+        return self
 
 
 class List(BuiltinADTType):
@@ -654,7 +668,7 @@ else:
 
 def make_string(value):
     assert isinstance(value, str)
-    return _string(value)
+    return _string(String, value)
 
 def make_instance(INSTANCE):
     inst = _instance(INSTANCE)
@@ -738,8 +752,6 @@ class _bound_meth(object):
        callb, checked_args = self.meth._checkargs(args)
        return callb(self.inst, *checked_args)
 
-class _string(str):
-    _TYPE = String
 
 class _builtin_type(object):
     def __getattribute__(self, name):
@@ -750,6 +762,46 @@ class _builtin_type(object):
 
         return object.__getattribute__(self, name)
 
+
+
+class _string(_builtin_type):
+
+    def __init__(self, STRING, value = ''):
+        self._str = value
+        self._TYPE = STRING
+
+    def ll_stritem(self, i):
+        # NOT_RPYTHON
+        return self._str[i]
+
+    def ll_stritem_nonneg(self, i):
+        # NOT_RPYTHON
+        assert i >= 0
+        return self._str[i]
+
+    # delegate missing ll_* methods to self._str
+    def __getattr__(self, attr):
+        if attr.startswith('ll_'):
+            return self.wrapper(getattr(self._str, attr[3:]))
+        else:
+            raise AttributeError, attr
+
+    @staticmethod
+    def wrapper(fn):
+        def f(*args, **kwds):
+            res = fn(*args, **kwds)
+            if isinstance(res, str):
+                return make_string(res)
+            elif isinstance(res, list):
+                # it must be a list of strings
+                for i, item in enumerate(res):
+                    res[i] = make_string(item)
+                lst = _list(List(String))
+                lst._list = res
+                return lst
+            else:
+                return res
+        return f
 
 class _list(_builtin_type):
 
@@ -1004,5 +1056,5 @@ def setDictTypes(DICT, KEYTYPE, VALUETYPE):
 def hasDictTypes(DICT):
     return DICT._is_initialized()
 
-
+String = String()
 ROOT = Instance('Root', None, _is_root=True)

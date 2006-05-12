@@ -1,3 +1,4 @@
+from pypy.tool.staticmethods import StaticMethods
 from pypy.rpython.rstr import AbstractStringRepr, \
      AbstractCharRepr, AbstractUniCharRepr, AbstractStringIteratorRepr
 from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
@@ -23,6 +24,10 @@ class StringRepr(AbstractStringRepr):
 
     lowleveltype = String
 
+    def __init__(self, *args):
+        AbstractStringRepr.__init__(self, *args)
+        self.ll = LLHelpers
+
     def convert_const(self, value):
         # XXX what do we do about null strings?
         #if value is None:
@@ -40,6 +45,15 @@ class CharRepr(AbstractCharRepr, StringRepr):
 
 class UniCharRepr(AbstractUniCharRepr):
     lowleveltype = UniChar
+
+class LLHelpers:
+    __metaclass__ = StaticMethods
+
+    def ll_stritem_nonneg(s, i):
+        return s.ll_stritem_nonneg(i)
+
+    def ll_stritem(s, i):
+        return s.ll_stritem(i)
 
 
 string_repr = StringRepr()
