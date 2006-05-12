@@ -93,8 +93,6 @@ def target(driver, args):
         # thread might appear twice now, but the objspace can handle this
         usemodules.append('thread')
     if options.stackless:
-        if options.stackless != 'old':
-            raise MemoryError("in-progress; might consume tons of memory")
         usemodules.append('stackless')
         
     space = StdObjSpace(nofaking=True,
