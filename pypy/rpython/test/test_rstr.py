@@ -144,6 +144,28 @@ def test_char_mul():
     res = interpret(fn, ['5', 3])
     assert res == 5551
 
+def test_unichar_const():
+    def fn(c):
+        return c
+    assert interpret(fn, [u'\u03b1']) == u'\u03b1'
+
+def test_unichar_eq():
+    def fn(c1, c2):
+        return c1 == c2
+    assert interpret(fn, [u'\u03b1', u'\u03b1']) == True
+    assert interpret(fn, [u'\u03b1', u'\u03b2']) == False
+
+def test_unichar_ord():
+    def fn(c):
+        return ord(c)
+    assert interpret(fn, [u'\u03b1']) == ord(u'\u03b1')
+
+def test_unichar_hash():
+    def fn(c):
+        d = {c: 42}
+        return d[c]
+    assert interpret(fn, [u'\u03b1']) == 42
+
 def test_str_compare():
     def fn(i, j):
         s1 = ['one', 'two', None]
