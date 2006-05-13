@@ -36,9 +36,7 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    TRACING = True
-
-    def __init__(self, typer, heap=lltype):
+    def __init__(self, typer, heap=lltype, tracing=True):
         self.bindings = {}
         self.typer = typer
         self.heap = heap  #module that provides malloc, etc for lltypes
@@ -51,7 +49,7 @@ class LLInterpreter(object):
         if hasattr(heap, "prepare_graphs_and_create_gc"):
             flowgraphs = typer.annotator.translator.graphs
             self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
-        if self.TRACING:
+        if tracing:
             self.tracer = Tracer()
 
     def eval_graph(self, graph, args=()):

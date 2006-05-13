@@ -159,7 +159,7 @@ def constant_folding(graph, translator, analyzer=None):
     """do constant folding if the arguments of an operations are constants"""
     if analyzer is None:
         analyzer = CanfoldAnalyzer(translator)
-    lli = LLInterpreter(translator.rtyper)
+    lli = LLInterpreter(translator.rtyper, tracing=False)
     llframe = LLFrame(graph, None, lli)
     changed = False
     for block in graph.iterblocks():
@@ -183,7 +183,7 @@ def constant_folding(graph, translator, analyzer=None):
                     res = Constant(llframe.getval(op.result))
             except (SystemExit, KeyboardInterrupt):
                 raise
-            except:
+            except:    # XXXXXXXXXXXXXXXX try to only catch TypeError
                 continue
             log.constantfolding("in graph %s, %s = %s" %
                                 (graph.name, op, res))
@@ -191,7 +191,6 @@ def constant_folding(graph, translator, analyzer=None):
             block.operations[i].opname = "same_as"
             block.operations[i].args = [res]
             changed = True
-        block.operations = [op for op in block.operations if op is not None]
     if changed:
         remove_same_as(graph)
         propagate_consts(graph)
@@ -328,10 +327,6 @@ def partial_folding_once(graph, translator, analyzer=None):
     return result
 
 def partial_folding(graph, translator, analyzer=None):
-    """this function does constant folding in the following situation:
-    a block has a link that leads to it that has only constant args. Then all
-    the operations of this block are evaluated and the link leading to the
-    block is adjusted according to the resulting value of the exitswitch"""
     if do_atmost(1000, partial_folding_once, graph, translator, analyzer):
         propagate_consts(graph)
         simplify.join_blocks(graph)
