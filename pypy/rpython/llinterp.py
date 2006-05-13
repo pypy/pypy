@@ -1001,6 +1001,8 @@ class LLFrame(object):
     def op_ooidentityhash(self, inst):
         return ootype.ooidentityhash(inst)
 
+    def op_oostring(self, obj):
+        return ootype.oostring(obj)
 
 class Tracer(object):
     Counter = 0

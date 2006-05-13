@@ -57,6 +57,12 @@ def rtype_builtin_isinstance(hop):
     else:
         raise TyperError("XXX missing impl of isinstance(x, variable)")
 
+def rtype_oostring(hop):
+    assert isinstance(hop.args_s[0],(annmodel.SomeInteger,
+                                     annmodel.SomeChar,
+                                     annmodel.SomeString))
+    return hop.genop('oostring', hop.args_v, resulttype = ootype.String)
+
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[ootype.new] = rtype_new
@@ -66,3 +72,4 @@ BUILTIN_TYPER[ootype.subclassof] = rtype_subclassof
 BUILTIN_TYPER[ootype.runtimenew] = rtype_runtimenew
 BUILTIN_TYPER[ootype.ooidentityhash] = rtype_ooidentityhash
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
+BUILTIN_TYPER[ootype.oostring] = rtype_oostring

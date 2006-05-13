@@ -101,7 +101,6 @@ class AbstractTestRstr:
             assert res is True
         
     def test_char_constant(self):
-        self._skip_oo('conversion char-->string')
         def fn(s):
             return s + '.'
         res = self.interpret(fn, ['x'])

@@ -60,6 +60,8 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strconcat(s1, s2):
         return s1.ll_strconcat(s2)
 
+    def ll_chr2str(ch):
+        return ootype.oostring(ch)
 
 string_repr = StringRepr()
 char_repr = CharRepr()

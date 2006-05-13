@@ -1056,6 +1056,10 @@ def ooidentityhash(inst):
     assert isinstance(typeOf(inst), (Instance, Record))
     return inst._identityhash()
 
+def oostring(obj):
+    "Convert char, int and str to str"
+    return make_string(str(obj))
+
 def setItemType(LIST, ITEMTYPE):
     return LIST._set_itemtype(ITEMTYPE)
 
