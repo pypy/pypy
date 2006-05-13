@@ -63,6 +63,20 @@ class LLHelpers(AbstractLLHelpers):
     def ll_chr2str(ch):
         return ootype.oostring(ch)
 
+    def ll_char_mul(ch, times):
+        builder = ootype.new(ootype.StringBuilder)
+        builder.ll_allocate(times)
+        i = 0
+        while i<times:
+            builder.ll_append_char(ch)
+            i+= 1
+        return builder.ll_build()
+
+    def ll_streq(s1, s2):
+        if s1 is None:
+            return s2 is None
+        return s1.ll_equal(s2)
+
 string_repr = StringRepr()
 char_repr = CharRepr()
 unichar_repr = UniCharRepr()

@@ -277,7 +277,8 @@ class String(BuiltinADTType):
         self._GENERIC_METHODS = frozendict({
             "ll_stritem_nonneg": Meth([Signed], Char),
             "ll_strlen": Meth([], Signed),
-            "ll_strconcat": Meth([self.SELFTYPE_T], self.SELFTYPE_T)
+            "ll_strconcat": Meth([self.SELFTYPE_T], self.SELFTYPE_T),
+            "ll_equal": Meth([self.SELFTYPE_T], Bool),
         })
         self._setup_methods(generic_types)
 
@@ -308,9 +309,6 @@ class StringBuilder(BuiltinADTType):
 
     def _defl(self):
         return self._null
-
-    def _example(self):
-        return self._defl()
 
     def _get_interp_class(self):
         return _string_builder
@@ -809,6 +807,10 @@ class _string(_builtin_type):
     def ll_strconcat(self, s):
         # NOT_RPYTHON
         return make_string(self._str + s._str)
+
+    def ll_equal(self, s):
+        # NOT_RPYTON
+        return self._str == s._str
 
     # delegate missing ll_* methods to self._str
     def __getattr__(self, attr):

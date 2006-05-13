@@ -130,20 +130,20 @@ class AbstractTestRstr:
         res = self.interpret(lambda c1, c2: c1 <= c2,  ['z', 'a'])
         assert res is False
 
-def test_char_mul():
-    def fn(c, mul):
-        s = c * mul
-        res = 0
-        for i in range(len(s)):
-            res = res*10 + ord(s[i]) - ord('0')
-        c2 = c
-        c2 *= mul
-        res = 10 * res + (c2 == s)
-        return res
-    res = interpret(fn, ['3', 5])
-    assert res == 333331
-    res = interpret(fn, ['5', 3])
-    assert res == 5551
+    def test_char_mul(self):
+        def fn(c, mul):
+            s = c * mul
+            res = 0
+            for i in range(len(s)):
+                res = res*10 + ord(s[i]) - ord('0')
+            c2 = c
+            c2 *= mul
+            res = 10 * res + (c2 == s)
+            return res
+        res = self.interpret(fn, ['3', 5])
+        assert res == 333331
+        res = self.interpret(fn, ['5', 3])
+        assert res == 5551
 
 def test_unichar_const():
     def fn(c):
