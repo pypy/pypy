@@ -390,10 +390,12 @@ class StacklessTransformer(object):
             return newop
 
         while i < len(block.operations):
+            stackless_op = False
             op = block.operations[i]
             if op.opname == 'yield_current_frame_to_caller':
                 op = replace_with_call(self.yield_current_frame_to_caller_ptr)
-
+                stackless_op = True
+                
             if (op.opname in ('direct_call', 'indirect_call') or
                 op.opname.startswith('malloc')):
                 # trap calls to stackless-related suggested primitives
@@ -401,8 +403,9 @@ class StacklessTransformer(object):
                     func = getattr(op.args[0].value._obj, '_callable', None)
                     if func in self.suggested_primitives:
                         op = replace_with_call(self.suggested_primitives[func])
-
-                if not self.analyzer.analyze(op):
+                        stackless_op = True
+                        
+                if not stackless_op and not self.analyzer.analyze(op):
                     i += 1
                     continue
 
