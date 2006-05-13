@@ -40,7 +40,7 @@ class CBuilder(object):
                               gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
 
         assert self.stackless in (False, 'old', True)
-        if self.gcpolicy.requires_stackless:
+        if db.gcpolicy.requires_stackless:
             assert self.stackless != 'old'    # incompatible
             self.stackless = True
         if self.stackless:
@@ -54,7 +54,7 @@ class CBuilder(object):
                                                        StacklessTransformer
                 db.stacklesstransformer = StacklessTransformer(translator,
                                               self.originalentrypoint,
-                                              self.gcpolicy.requires_stackless)
+                                              db.gcpolicy.requires_stackless)
                 self.entrypoint = db.stacklesstransformer.slp_entry_point
 
         # pass extra options into pyobjmaker
