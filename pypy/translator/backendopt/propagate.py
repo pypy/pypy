@@ -141,7 +141,8 @@ class CanfoldAnalyzer(GraphAnalyzer):
             CONTAINER = op.args[0].concretetype.TO
             if CONTAINER._hints.get('immutable'):
                 return False
-        if op.opname in ("getsubstruct", "getarraysubstruct"):
+        if op.opname in ("getsubstruct", "getarraysubstruct",
+                         "direct_fieldptr", "direct_arrayitems"):
             # this is needed so that the parent of the result (op.args[0])
             # does not go away after the op is folded. see test_dont_fold_getsubstruct
             if not var_needsgc(op.result):
