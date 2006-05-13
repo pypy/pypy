@@ -13,6 +13,12 @@ class Symbolic(object):
     def lltype(self):
         return None
 
+    def __cmp__(self, other):
+        raise TypeError("Symbolics can not be compared!")
+
+    def __hash__(self):
+        raise TypeError("Symbolics are not hashable!")
+
 class ComputedIntSymbolic(Symbolic):
 
     def __init__(self, compute_fn):

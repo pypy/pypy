@@ -82,11 +82,17 @@ class BlockConverter:
                 value = fakeaddress(v.value)
             else:
                 value = v.value
-            try:
-                res = clist.index(value)
-            except ValueError:
-                res = len(clist)
-                clist.append(value)
+            for i, item in enumerate(clist):
+                # XXX hum, hum. The fact that symbolics are not comparable
+                # makes this ugly thing necessary :-(
+                try:
+                    if item == value:
+                        return i
+                except TypeError:
+                    if item is value:
+                        return i
+            res = len(clist)
+            clist.append(value)
             return res
         else:
             position = self.var2stack[v]
@@ -94,9 +100,10 @@ class BlockConverter:
 
     def getoffset(self, offset):
         clist = self.constants['int']
-        try:
-            res = clist.index(offset)
-        except ValueError:
+        for i, item in enumerate(clist):
+            if item is offset:
+                return i
+        else:
             res = len(clist)
             clist.append(offset)
         return res

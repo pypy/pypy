@@ -266,3 +266,12 @@ def test_unboxed_value():
 
     assert A(12098).value == 12098
     assert A(12098).getvalue() == 12098
+
+def test_symbolic():
+    
+
+def test_symbolic_raises():
+    s1 = Symbolic()
+    s2 = Symbolic()
+    py.test.raises(TypeError, "s1 < s2")
+    py.test.raises(TypeError, "hash(s1)")

@@ -907,7 +907,7 @@ class FrameworkGCTransformer(GCTransformer):
             self.type_info_list.append(info)
             self.id_of_type[TYPE] = type_id
             offsets = offsets_to_gc_pointers(TYPE)
-            info["ofstoptrs"] = self.offsets2table(offsets)
+            info["ofstoptrs"] = self.offsets2table(offsets, TYPE)
             if not TYPE._is_varsize():
                 info["fixedsize"] = llmemory.sizeof(TYPE)
                 info["ofstolength"] = -1
@@ -933,10 +933,10 @@ class FrameworkGCTransformer(GCTransformer):
                 assert isinstance(ARRAY, lltype.Array)
                 if ARRAY.OF != lltype.Void:
                     offsets = offsets_to_gc_pointers(ARRAY.OF)
-                    info["varofstoptrs"] = self.offsets2table(offsets)
+                    info["varofstoptrs"] = self.offsets2table(offsets, ARRAY.OF)
                     info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
                 else:
-                    info["varofstoptrs"] = self.offsets2table(())
+                    info["varofstoptrs"] = self.offsets2table((), lltype.Void)
                     info["varitemsize"] = 0
             return type_id
 
@@ -952,16 +952,15 @@ class FrameworkGCTransformer(GCTransformer):
                 for a in gc_pointers_inside(value, llmemory.fakeaddress(value)):
                     self.addresses_of_static_ptrs_in_nongc.append(a)
 
-    def offsets2table(self, offsets):
-        key = tuple(offsets)
+    def offsets2table(self, offsets, TYPE):
         try:
-            return self.offsettable_cache[key]
+            return self.offsettable_cache[TYPE]
         except KeyError:
             cachedarray = lltype.malloc(self.gcdata.OFFSETS_TO_GC_PTR,
                                         len(offsets), immortal=True)
             for i, value in enumerate(offsets):
                 cachedarray[i] = value
-            self.offsettable_cache[key] = cachedarray
+            self.offsettable_cache[TYPE] = cachedarray
             return cachedarray
 
     def finish(self):
