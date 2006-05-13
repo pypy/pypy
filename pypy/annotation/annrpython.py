@@ -295,9 +295,12 @@ class RPythonAnnotator:
                              (self.return_bindings[arg],None, None))
                 
             self.binding_caused_by[arg] = called_from_graph
-        # XXX make this line available as a debugging option
-        ##assert not (s_value.__class__ == annmodel.SomeObject and s_value.knowntype == object) ## debug
 
+    def transfer_binding(self, v_target, v_source):
+        assert v_source in self.bindings
+        self.bindings[v_target] = self.bindings[v_source]
+        if annmodel.DEBUG:
+            self.binding_caused_by[v_target] = None
 
     def warning(self, msg, pos=None):
         if pos is None:
