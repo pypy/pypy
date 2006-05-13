@@ -187,3 +187,18 @@ def test_is_exception_instance():
     INST = graph.getreturnvar().concretetype
     assert rtyper.exceptiondata.is_exception_instance(INST)
 
+def test_string_annotation():
+    def oof(lst):
+        return lst.ll_strlen()
+
+    s = new(String)
+    assert interpret(oof, [s], type_system='ootype') == 0
+    s = make_string('foo')
+    assert interpret(oof, [s], type_system='ootype') == 3
+
+def test_oostring():
+    def oof(ch):
+        return oostring(ch)
+
+    ch = 'a'
+    res = interpret(oof, [ch], type_system='ootype')

@@ -196,5 +196,13 @@ def test_list():
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
     #a.translator.view()
-    
+
     assert s == annmodel.SomeOOInstance(L)
+
+def test_string():
+    def oof():
+        return new(String)
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [])
+    assert s == annmodel.SomeOOInstance(String)
