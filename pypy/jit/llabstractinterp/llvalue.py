@@ -16,6 +16,8 @@ class AConstant(Hashable):
         Hashable.__init__(self, value)   
         self.concretetype = T or lltype.typeOf(value)
         self.genvar = genvar
+        if T is lltype.Void and self.genvar is None:
+            self.genvar = rgenop.placeholder(value)
         
     def getgenvar(self, builder):
         if self.genvar is None:
