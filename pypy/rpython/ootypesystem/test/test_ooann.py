@@ -206,3 +206,12 @@ def test_string():
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
     assert s == annmodel.SomeOOInstance(String)
+
+def test_oostring():
+    def oof():
+        return new
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [])
+    assert isinstance(s, annmodel.SomeBuiltin)
+

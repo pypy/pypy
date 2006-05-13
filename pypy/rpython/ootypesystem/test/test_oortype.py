@@ -202,3 +202,4 @@ def test_oostring():
 
     ch = 'a'
     res = interpret(oof, [ch], type_system='ootype')
+    assert res._str == 'a'

@@ -501,6 +501,10 @@ def ooidentityhash(i):
     assert isinstance(i, SomeOOInstance)
     return SomeInteger()
 
+def oostring(obj):
+    assert isinstance(obj, (SomeInteger, SomeChar, SomeString))
+    return SomeString()
+
 BUILTIN_ANALYZERS[ootype.instanceof] = instanceof
 BUILTIN_ANALYZERS[ootype.new] = new
 BUILTIN_ANALYZERS[ootype.null] = null
@@ -508,6 +512,7 @@ BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof
 BUILTIN_ANALYZERS[ootype.subclassof] = subclassof
 BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
+BUILTIN_ANALYZERS[ootype.oostring] = oostring
 
 #________________________________
 # non-gc objects
