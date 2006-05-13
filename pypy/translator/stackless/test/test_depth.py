@@ -87,3 +87,11 @@ def test_arguments():
 
     res = run_stackless_function(fn)
     assert res == 15
+
+def test_stack_unwind_retval():
+    def fn():
+        frame = rstack.stack_unwind()
+        return int(bool(frame))
+
+    res = llinterp_stackless_function(fn)
+    assert res == 1

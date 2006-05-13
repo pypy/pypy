@@ -6,7 +6,7 @@ RPython-compliant way, intended mostly for use by the Stackless PyPy.
 import inspect
 
 def stack_unwind():
-    pass
+    raise RuntimeError("cannot unwind stack in non-translated versions")
 
 def stack_frames_depth():
     return len(inspect.stack())

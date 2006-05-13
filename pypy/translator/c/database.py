@@ -54,6 +54,8 @@ class LowLevelDatabase(object):
                     gcpolicy = gc.NoneGcPolicy
                 elif polname == 'framework':
                     gcpolicy = gc.FrameworkGcPolicy
+                elif polname == 'stacklessgc':
+                    gcpolicy = gc.StacklessFrameworkGcPolicy
                 else:
                     assert False, "unknown gc policy %r"%polname
             else:
@@ -198,7 +200,17 @@ class LowLevelDatabase(object):
         else:
             show_i = -1
         work_to_do = True
-        is_later_yet = False
+        transformations_to_finish = [self.gctransformer]
+        if self.stacklesstransformer:
+            transformations_to_finish.insert(0, self.stacklesstransformer)
+
+        def add_dependencies(newdependencies):
+            for value in newdependencies:
+                if isinstance(typeOf(value), ContainerType):
+                    self.getcontainernode(value)
+                else:
+                    self.get(value)
+        
         while work_to_do:
             while True:
                 if hasattr(self, 'pyobjmaker'):
@@ -211,36 +223,28 @@ class LowLevelDatabase(object):
                 if i == len(self.containerlist):
                     break
                 node = self.containerlist[i]
-                for value in node.enum_dependencies():
-                    if isinstance(typeOf(value), ContainerType):
-                        self.getcontainernode(value)
-                    else:
-                        self.get(value)
+                add_dependencies(node.enum_dependencies())
                 i += 1
                 self.completedcontainers = i
                 if i == show_i:
                     dump()
                     show_i += 1000
             work_to_do = False
-            if not is_later_yet:
-                newdependencies = self.gctransformer.finish() or []
-                if self.stacklesstransformer:
-                    newdependencies2 = self.stacklesstransformer.finish() or []
-                    newdependencies.extend(newdependencies2)
+
+            while transformations_to_finish:
+                transformation = transformations_to_finish.pop(0)
+                newdependencies = transformation.finish()
                 if newdependencies:
+                    add_dependencies(newdependencies)
                     work_to_do = True
-                    for value in newdependencies:
-                        if isinstance(typeOf(value), ContainerType):
-                            self.getcontainernode(value)
-                        else:
-                            self.get(value)
-                is_later_yet = True
-            if self.latercontainerlist:
-                work_to_do = True
-                for node in self.latercontainerlist:
-                    node.make_funcgens()
-                    self.containerlist.append(node)
-                self.latercontainerlist = []
+                    break
+            else:
+                if self.latercontainerlist:
+                    work_to_do = True
+                    for node in self.latercontainerlist:
+                        node.make_funcgens()
+                        self.containerlist.append(node)
+                    self.latercontainerlist = []
         self.completed = True
         if show_progress:
             dump()

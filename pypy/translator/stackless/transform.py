@@ -91,12 +91,14 @@ class FrameTyper:
         return T, fieldnames
 
 class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
-    def __init__(self, translator, unwindtype):
+    def __init__(self, translator, unwindtype, stackless_gc):
         graphanalyze.GraphAnalyzer.__init__(self, translator)
         self.unwindtype = unwindtype
+        self.stackless_gc = stackless_gc
 
     def operation_is_true(self, op):
-        return op.opname == 'yield_current_frame_to_caller'
+        return (op.opname == 'yield_current_frame_to_caller' or
+                op.opname.startswith('malloc') and self.stackless_gc)
 
     def analyze_link(self, graph, link):
         if link.target is graph.exceptblock:
@@ -116,7 +118,8 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
                             
 
 class StacklessTransformer(object):
-    def __init__(self, translator, entrypoint):
+
+    def __init__(self, translator, entrypoint, stackless_gc=False):
         self.translator = translator
 
         self.frametyper = FrameTyper()
@@ -129,7 +132,8 @@ class StacklessTransformer(object):
             self.translator.rtyper,
             bk.getuniqueclassdef(code.UnwindException)).lowleveltype
         self.analyzer = StacklessAnalyzer(translator,
-                                          self.unwind_exception_type)
+                                          self.unwind_exception_type,
+                                          stackless_gc)
 
         # the point of this little dance is to not annotate
         # code.global_state.masterarray as a constant.
@@ -191,7 +195,7 @@ class StacklessTransformer(object):
                     code.ll_frame_clone, [s_StatePtr], s_StatePtr),
             ll_stack.ll_stack_unwind:
                 mixlevelannotator.constfunc(
-                    code.ll_stack_unwind, [], annmodel.s_None),
+                    code.ll_stack_unwind, [], s_StatePtr),
             }
         self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
             code.yield_current_frame_to_caller, [], s_StatePtr)
@@ -386,7 +390,8 @@ class StacklessTransformer(object):
             if op.opname == 'yield_current_frame_to_caller':
                 op = replace_with_call(self.yield_current_frame_to_caller_ptr)
 
-            if op.opname in ('direct_call', 'indirect_call'):
+            if (op.opname in ('direct_call', 'indirect_call') or
+                op.opname.startswith('malloc')):
                 # trap calls to stackless-related suggested primitives
                 if op.opname == 'direct_call':
                     func = getattr(op.args[0].value._obj, '_callable', None)

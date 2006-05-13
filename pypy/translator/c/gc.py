@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 PyObjPtr = Ptr(PyObject)
 
 class BasicGcPolicy(object):
+    requires_stackless = False
     
     def __init__(self, db, thread_enabled=False):
         self.db = db
@@ -391,3 +392,6 @@ class FrameworkGcPolicy(BasicGcPolicy):
         return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
                                             eresult)
 
+class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
+    transformerclass = gctransform.StacklessFrameworkGCTransformer
+    requires_stackless = True

@@ -318,8 +318,10 @@ class TestUsingFramework(AbstractTestClass):
     def test_empty_collect(self):
         def f():
             llop.gc__collect(lltype.Void)
+            return 41
         fn = self.getcompiled(f)
-        fn()
+        res = fn()
+        assert res == 41
 
     def test_framework_simple(self):
         def g(x): # cannot cause a collect
@@ -529,3 +531,18 @@ class TestUsingFramework(AbstractTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == -70
+
+class TestUsingStacklessFramework(TestUsingFramework):
+    from pypy.translator.c.gc import StacklessFrameworkGcPolicy as gcpolicy
+
+    def getcompiled(self, f):
+        py.test.skip('in-progress')
+        # XXX quick hack
+        from pypy.translator.c.test.test_stackless import StacklessTest
+        runner = StacklessTest()
+        runner.gcpolicy = self.gcpolicy
+        runner.stacklessmode = True
+        res = runner.wrap_stackless_function(f)
+        def compiled():
+            return res
+        return compiled

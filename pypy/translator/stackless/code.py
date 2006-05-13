@@ -128,6 +128,7 @@ def stack_frames_depth():
         # STATE 0: now the stack is unwound, and we can count the frames
         # in the heap
         cur = global_state.top
+        global_state.top = frame.null_state
         global_state.restart_substate = -1
         depth = 0
         while cur:
@@ -153,7 +154,13 @@ def ll_stack_unwind():
     else:
         # STATE 0: now the stack is unwound.  That was the goal.
         # Return to caller.
+        cur = global_state.top
+        global_state.top = frame.null_state
         global_state.restart_substate = -1
+        # Pass the caller's own saved state back to it.
+        # The StacklessFrameworkGCTransformer uses this for introspection.
+        return lltype.cast_opaque_ptr(frame.OPAQUE_STATE_HEADER_PTR,
+                                      cur.f_back)
 ll_stack_unwind.stackless_explicit = True
 
 INDEX_UNWIND = frame.RestartInfo.add_prebuilt(ll_stack_unwind,

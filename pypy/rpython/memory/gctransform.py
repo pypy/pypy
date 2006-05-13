@@ -723,6 +723,7 @@ class CollectAnalyzer(graphanalyze.GraphAnalyzer):
         return op.opname in ("malloc", "malloc_varsize", "gc__collect")
 
 class FrameworkGCTransformer(GCTransformer):
+    use_stackless = False
 
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
@@ -731,7 +732,6 @@ class FrameworkGCTransformer(GCTransformer):
         class GCData(object):
             from pypy.rpython.memory.gc import MarkSweepGC as GCClass
             startheapsize = 8*1024*1024 # XXX adjust
-            rootstacksize = 640*1024    # XXX adjust
 
             # types of the GC information tables
             OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
@@ -772,7 +772,12 @@ class FrameworkGCTransformer(GCTransformer):
                                                immortal=True)
         gcdata.static_roots = lltype.malloc(lltype.Array(llmemory.Address), 0,
                                             immortal=True)
-        gcdata.static_root_start = gcdata.static_root_end = llmemory.cast_ptr_to_adr(gcdata.static_roots)
+        # initialize the following two fields with a random non-NULL address,
+        # to make the annotator happy.  The fields are patched in finish()
+        # to point to a real array (not 'static_roots', another one).
+        a_random_address = llmemory.cast_ptr_to_adr(gcdata.type_info_table)
+        gcdata.static_root_start = a_random_address   # patched in finish()
+        gcdata.static_root_end = a_random_address     # patched in finish()
         self.gcdata = gcdata
         self.type_info_list = []
         self.id_of_type = {}      # {LLTYPE: type_id}
@@ -783,32 +788,13 @@ class FrameworkGCTransformer(GCTransformer):
         self.malloc_fnptr_cache = {}
 
         sizeofaddr = llmemory.sizeof(llmemory.Address)
-        from pypy.rpython.memory.lladdress import NULL
 
-        class StackRootIterator:
-            _alloc_flavor_ = 'raw'
-            def __init__(self):
-                self.stack_current = gcdata.root_stack_top
-                self.static_current = gcdata.static_root_start
-
-            def pop(self):
-                while self.static_current != gcdata.static_root_end:
-                    result = self.static_current
-                    self.static_current += sizeofaddr
-                    if result.address[0].address[0] != NULL:
-                        return result.address[0]
-                while self.stack_current != gcdata.root_stack_base:
-                    self.stack_current -= sizeofaddr
-                    if self.stack_current.address[0] != NULL:
-                        return self.stack_current
-                return NULL
+        StackRootIterator = self.build_stack_root_iterator()
         gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
 
         def frameworkgc_setup():
             # run-time initialization code
-            stackbase = lladdress.raw_malloc(GCData.rootstacksize)
-            gcdata.root_stack_top  = stackbase
-            gcdata.root_stack_base = stackbase
+            StackRootIterator.setup_root_stack()
             gcdata.gc.setup()
             gcdata.gc.set_query_functions(
                 q_is_varsize,
@@ -818,25 +804,6 @@ class FrameworkGCTransformer(GCTransformer):
                 q_varsize_offset_to_variable_part,
                 q_varsize_offset_to_length,
                 q_varsize_offsets_to_gcpointers_in_var_part)
-            i = 0
-            while i < len(gcdata.static_roots):
-                push_root(gcdata.static_roots[i])
-                i += 1
-
-        def push_root(addr):
-            top = gcdata.root_stack_top
-            top.address[0] = addr
-            gcdata.root_stack_top = top + sizeofaddr
-
-        # XXX specific to mark and sweep
-        def pop_root():
-            gcdata.root_stack_top -= sizeofaddr
-        # this should really be:
-        # def pop_root():
-        #     top = gcdata.root_stack_top - sizeofaddr
-        #     result = top.address[0]
-        #     gcdata.root_stack_top = top
-        #     return result
 
         bk = self.translator.annotator.bookkeeper
 
@@ -859,11 +826,17 @@ class FrameworkGCTransformer(GCTransformer):
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
         frameworkgc_setup_graph = annhelper.getgraph(frameworkgc_setup, [],
                                                      annmodel.s_None)
-        push_root_graph = annhelper.getgraph(push_root,
-                                             [annmodel.SomeAddress()],
-                                             annmodel.s_None)
-        pop_root_graph = annhelper.getgraph(pop_root, [],
-                                            annmodel.s_None)
+        if StackRootIterator.push_root is None:
+            push_root_graph = None
+        else:
+            push_root_graph = annhelper.getgraph(StackRootIterator.push_root,
+                                                 [annmodel.SomeAddress()],
+                                                 annmodel.s_None)
+        if StackRootIterator.pop_root is None:
+            pop_root_graph = None
+        else:
+            pop_root_graph = annhelper.getgraph(StackRootIterator.pop_root, [],
+                                                annmodel.s_None)
 
         classdef = bk.getuniqueclassdef(GCData.GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
@@ -879,16 +852,67 @@ class FrameworkGCTransformer(GCTransformer):
             [s_gcdata], annmodel.s_None)
         annhelper.finish()   # at this point, annotate all mix-level helpers
         self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph)
-        self.push_root_ptr = self.graph2funcptr(push_root_graph)
-        self.graphs_to_inline[push_root_graph] = True
-        self.pop_root_ptr = self.graph2funcptr(pop_root_graph)
-        self.graphs_to_inline[pop_root_graph] = True
+        if push_root_graph is None:
+            self.push_root_ptr = None
+        else:
+            self.push_root_ptr = self.graph2funcptr(push_root_graph)
+            self.graphs_to_inline[push_root_graph] = True
+        if pop_root_graph is None:
+            self.pop_root_ptr = None
+        else:
+            self.pop_root_ptr = self.graph2funcptr(pop_root_graph)
+            self.graphs_to_inline[pop_root_graph] = True
         self.malloc_fixedsize_ptr = self.graph2funcptr(malloc_fixedsize_graph)
         self.malloc_varsize_ptr = self.graph2funcptr(malloc_varsize_graph)
         self.collect_ptr = self.graph2funcptr(collect_graph)
         self.graphs_to_inline[malloc_fixedsize_graph] = True
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()
+
+    def build_stack_root_iterator(self):
+        rootstacksize = 640*1024    # XXX adjust
+        gcdata = self.gcdata
+        sizeofaddr = llmemory.sizeof(llmemory.Address)
+
+        class StackRootIterator:
+            _alloc_flavor_ = 'raw'
+            def setup_root_stack():
+                stackbase = lladdress.raw_malloc(rootstacksize)
+                gcdata.root_stack_top  = stackbase
+                gcdata.root_stack_base = stackbase
+                i = 0
+                while i < len(gcdata.static_roots):
+                    StackRootIterator.push_root(gcdata.static_roots[i])
+                    i += 1
+            setup_root_stack = staticmethod(setup_root_stack)
+
+            def push_root(addr):
+                top = gcdata.root_stack_top
+                top.address[0] = addr
+                gcdata.root_stack_top = top + sizeofaddr
+            push_root = staticmethod(push_root)
+
+            def pop_root():
+                gcdata.root_stack_top -= sizeofaddr
+            pop_root = staticmethod(pop_root)
+
+            def __init__(self):
+                self.stack_current = gcdata.root_stack_top
+                self.static_current = gcdata.static_root_start
+
+            def pop(self):
+                while self.static_current != gcdata.static_root_end:
+                    result = self.static_current
+                    self.static_current += sizeofaddr
+                    if result.address[0].address[0] != llmemory.NULL:
+                        return result.address[0]
+                while self.stack_current != gcdata.root_stack_base:
+                    self.stack_current -= sizeofaddr
+                    if self.stack_current.address[0] != llmemory.NULL:
+                        return self.stack_current
+                return llmemory.NULL
+
+        return StackRootIterator
 
     def graph2funcptr(self, graph):
         self.need_minimal_transform(graph)
@@ -1080,6 +1104,8 @@ class FrameworkGCTransformer(GCTransformer):
         return []
 
     def push_roots(self, vars):
+        if self.push_root_ptr is None:
+            return
         for var in vars:
             v = varoftype(llmemory.Address)
             yield SpaceOperation("cast_ptr_to_adr", [var], v)
@@ -1087,6 +1113,8 @@ class FrameworkGCTransformer(GCTransformer):
                                  varoftype(lltype.Void))
 
     def pop_roots(self, vars):
+        if self.pop_root_ptr is None:
+            return
         for var in vars[::-1]:
             v = varoftype(lltype.Void)
             # XXX specific to non-moving collectors
@@ -1106,7 +1134,11 @@ def offsets_to_gc_pointers(TYPE):
             baseofs = llmemory.offsetof(TYPE, name)
             suboffsets = offsets_to_gc_pointers(FIELD)
             for s in suboffsets:
-                if s == 0:
+                try:
+                    knownzero = s == 0
+                except TypeError:
+                    knownzero = False
+                if knownzero:
                     offsets.append(baseofs)
                 else:
                     offsets.append(baseofs + s)
@@ -1114,6 +1146,49 @@ def offsets_to_gc_pointers(TYPE):
           TYPE.TO is not lltype.PyObject):
         offsets.append(0)
     return offsets
+
+
+class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
+    use_stackless = True
+
+    def build_stack_root_iterator(self):
+        from pypy.rpython.rstack import stack_unwind
+        sizeofaddr = llmemory.sizeof(llmemory.Address)
+        gcdata = self.gcdata
+
+        class StackRootIterator:
+            _alloc_flavor_ = 'raw'
+
+            def setup_root_stack():
+                pass
+            setup_root_stack = staticmethod(setup_root_stack)
+
+            push_root = None
+            pop_root = None
+
+            def __init__(self):
+                self.provide_current_frame = True
+                self.static_current = gcdata.static_root_start
+                self.static_roots_index = len(gcdata.static_roots)
+
+            def pop(self):
+                while self.static_current != gcdata.static_root_end:
+                    result = self.static_current
+                    self.static_current += sizeofaddr
+                    if result.address[0].address[0] != llmemory.NULL:
+                        return result.address[0]
+                i = self.static_roots_index
+                if i > 0:
+                    i -= 1
+                    self.static_roots_index = i
+                    return gcdata.static_roots[i]
+                if self.provide_current_frame:
+                    self.provide_current_frame = False
+                    frame = stack_unwind()
+                    return llmemory.cast_ptr_to_adr(frame)
+                return llmemory.NULL
+
+        return StackRootIterator
 
 # ___________________________________________________________________
 # calculate some statistics about the number of variables that need
