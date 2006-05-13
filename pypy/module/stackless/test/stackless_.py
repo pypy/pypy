@@ -1,6 +1,173 @@
+"""
+The Stackless module allows you to do multitasking without using threads.
+The essential objects are tasklets and channels.
+Please refer to their documentation.
+"""
+
 from stackless import coroutine
 
 __all__ = 'run getcurrent getmain schedule tasklet channel'.split()
+
+# interface from original stackless
+# class attributes are placeholders for some kind of descriptor
+# (to be filled in later).
+
+class bomb(object):
+    """
+    A bomb object is used to hold exceptions in tasklets.
+    Whenever a tasklet is activated and its tempval is a bomb,
+    it will explode as an exception.
+    
+    You can create a bomb by hand and attach it to a tasklet if you like.
+    Note that bombs are 'sloppy' about the argument list, which means that
+    the following works, although you should use '*sys.exc_info()'.
+    
+    from stackless import *; import sys
+    t = tasklet(lambda:42)()
+    try: 1/0
+    except: b = bomb(sys.exc_info())
+    
+    t.tempval = b
+    nt.run()  # let the bomb explode
+    """
+
+    traceback = None
+    type = None
+    value = None
+
+class cframe(object):
+    """
+    """
+    __slots__ = ['f_back','obj1','obj2','obj3','i','n']
+
+# channel: see below
+
+class cstack(object):
+    """
+    A CStack object serves to save the stack slice which is involved
+    during a recursive Python call. It will also be used for pickling
+    of program state. This structure is highly platform dependant.
+    Note: For inspection, str() can dump it as a string.
+    """
+
+def enable_softswitch(flag):
+    """
+    enable_softswitch(flag) -- control the switching behavior.
+    Tasklets can be either switched by moving C stack slices around
+    or by avoiding stack changes at all. The latter is only possible
+    in the top interpreter level. Switching it off is for timing and
+    debugging purposes. This flag exists once for the whole process.
+    For inquiry only, use the phrase
+    ret = enable_softswitch(0); enable_softswitch(ret)
+    By default, soft switching is enabled.
+    """
+    pass
+
+def get_thread_info(thread_id):
+    """
+    get_thread_info(thread_id) -- return a 3-tuple of the thread's
+    main tasklet, current tasklet and runcount.
+    To obtain a list of all thread infos, use
+    
+    map (stackless.get_thread_info, stackless.threads)
+    """
+    pass
+
+# def getcurrent() : see below
+
+# def run(timeout): see below
+
+# def schedule(retval=stackless.current) : see below
+
+def schedule_remove(retval=None):
+    """
+    schedule(retval=stackless.current) -- switch to the next runnable tasklet.
+    The return value for this call is retval, with the current
+    tasklet as default.
+    schedule_remove(retval=stackless.current) -- ditto, and remove self.
+    """
+    pass
+
+def set_channel_callback(callable):
+    """
+    set_channel_callback(callable) -- install a callback for channels.
+    Every send/receive action will call the callback function.
+    Example:
+    def channel_cb(channel, tasklet, sending, willblock):
+        ...
+    sending and willblock are integers.
+    Pass None to switch monitoring off again.
+    """
+    pass
+
+def set_schedule_callback(callable):
+    """
+    set_schedule_callback(callable) -- install a callback for scheduling.
+    Every explicit or implicit schedule will call the callback function.
+    Example:
+    def schedule_cb(prev, next):
+        ...
+    When a tasklet is dying, next is None.
+    When main starts up or after death, prev is None.
+    Pass None to switch monitoring off again.
+    """
+    pass
+
+class slpmodule(object):
+    """
+    The stackless module has a special type derived from
+    the module type, in order to be able to override some attributes.
+    __tasklet__ and __channel__ are the default types
+    to be used when these objects must be instantiated internally.
+    runcount, current and main are attribute-like short-hands
+    for the getruncount, getcurrent and getmain module functions.
+    """
+
+# class tasklet: see below
+
+def test_cframe(switches, words=0):
+    """
+    test_cframe(switches, words=0) -- a builtin testing function that does 
+    nothing but tasklet switching. The function will call 
+    PyStackless_Schedule() for switches times and then finish.
+    If words is given, as many words will be allocated on the C stack.
+    Usage: Create two tasklets for test_cframe and run them by run().
+    
+        t1 = tasklet(test_cframe)(500000)
+        t2 = tasklet(test_cframe)(500000)
+        run()
+    This can be used to measure the execution time of 1.000.000 switches.
+    """
+    pass
+
+def test_cframe_nr(switches):
+    """
+    test_cframe_nr(switches) -- a builtin testing function that does nothing
+    but soft tasklet switching. The function will call 
+    PyStackless_Schedule_nr() for switches times and then finish.
+    Usage: Cf. test_cframe().
+    """
+    pass
+
+def test_outside():
+    """
+    test_outside() -- a builtin testing function.
+    This function simulates an application that does not run "inside"
+    Stackless, with active, running frames, but always needs to initialize
+    the main tasklet to get "\xednside".
+    The function will terminate when no other tasklets are runnable.
+    
+    Typical usage: Create a tasklet for test_cframe and run by test_outside().
+    
+        t1 = tasklet(test_cframe)(1000000)
+        test_outside()
+
+    This can be used to measure the execution time of 1.000.000 switches.
+    """
+    pass
+
+
+# end interface
 
 main_tasklet = None
 next_tasklet = None
@@ -16,9 +183,23 @@ def __init():
     coro_reg[c] = mt
 
 def run():
+    """
+    run_watchdog(timeout) -- run tasklets until they are all
+    done, or timeout instructions have passed. Tasklets must
+    provide cooperative schedule() calls.
+    If the timeout is met, the function returns.
+    The calling tasklet is put aside while the tasklets are running.
+    It is inserted back after the function stops, right before the
+    tasklet that caused a timeout, if any.
+    If an exception occours, it will be passed to the main tasklet.
+    """
     schedule()
 
 def getcurrent():
+    """
+    getcurrent() -- return the currently executing tasklet.
+    """
+
     c = coroutine.getcurrent()
     return coro_reg[c]
 
@@ -26,9 +207,26 @@ def getmain():
     return main_tasklet
 
 def schedule():
+    """
+    schedule(retval=stackless.current) -- switch to the next runnable tasklet.
+    The return value for this call is retval, with the current
+    tasklet as default.
+    schedule_remove(retval=stackless.current) -- ditto, and remove self.
+    """
     scheduler.schedule()
 
 class tasklet(object):
+    """
+    A tasklet object represents a tiny task in a Python thread.
+    At program start, there is always one running main tasklet.
+    New tasklets can be created with methods from the stackless
+    module.
+    """
+#    __slots__ = ['alive','atomic','block_trap','blocked','frame',
+#                 'ignore_nesting','is_current','is_main',
+#                 'nesting_level','next','paused','prev','recursion_depth',
+#                 'restorable','scheduled','thread_id']
+
     def __init__(self,func=None):
         self._func = func
 
@@ -39,39 +237,167 @@ class tasklet(object):
         self.insert()
         return self
 
-    def awake(self):pass
+    def become(self, retval=None):
+        """
+        t.become(retval) -- catch the current running frame in a tasklet.
+        It is also inserted at the end of the runnables chain.
+        If it is a toplevel frame (and therefore has no caller), an exception 
+        is raised.  The function result is the tasklet itself. retval is 
+        passed to the calling frame.
+        If retval is not given, the tasklet is used as default.
+        """
+        pass
 
-    def sleep(self):pass
+    def bind(self):
+        """
+        Binding a tasklet to a callable object.
+        The callable is usually passed in to the constructor.
+        In some cases, it makes sense to be able to re-bind a tasklet,
+        after it has been run, in order to keep its identity.
+        Note that a tasklet can only be bound when it doesn't have a frame.
+        """
+        pass
+
+    def capture(self, retval=None):
+        """
+        t.capture(retval) -- capture the current running frame in a tasklet,
+        like t.become(). In addition the tasklet is run immediately, and the
+        parent tasklet is removed from the runnables and returned as the value.
+        """
+        pass
+
+    cstate = None
+
+    def insert(self):
+        """
+        Insert this tasklet at the end of the scheduler list,
+        given that it isn't blocked.
+        Blocked tasklets need to be reactivated by channels.
+        """
+        scheduler.insert(self)
+
+    def kill(self):
+        """
+        tasklet.kill -- raise a TaskletExit exception for the tasklet.
+        Note that this is a regular exception that can be caught.
+        The tasklet is immediately activated.
+        If the exception passes the toplevel frame of the tasklet,
+        the tasklet will silently die.
+        """
+        pass
+
+    def raise_exception(self, exc, value):
+        """
+        tasklet.raise_exception(exc, value) -- raise an exception for the 
+        tasklet.  exc must be a subclass of Exception.
+        The tasklet is immediately activated.
+        """
+        pass
+
+    def remove(self):
+        """
+        Removing a tasklet from the runnables queue.
+        Note: If this tasklet has a non-trivial C stack attached,
+        it will be destructed when the containing thread state is destroyed.
+        Since this will happen in some unpredictable order, it may cause 
+        unwanted side-effects. Therefore it is recommended to either run 
+        tasklets to the end or to explicitly kill() them.
+        """
+        scheduler.remove(self)
 
     def run(self):
+        """
+        Run this tasklet, given that it isn't blocked.
+        Blocked tasks need to be reactivated by channels.
+        """
         scheduler.setnexttask(self)
         schedule()
 
-    def insert(self):
-        scheduler.insert(self)
+    def set_atomic(self):
+        """
+        t.set_atomic(flag) -- set tasklet atomic status and return current one.
+        If set, the tasklet will not be auto-scheduled.
+        This flag is useful for critical sections which should not be 
+        interrupted.
+        usage:
+            tmp = t.set_atomic(1)
+            # do critical stuff
+            t.set_atomic(tmp)
+        Note: Whenever a new tasklet is created, the atomic flag is initialized
+        with the atomic flag of the current tasklet.Atomic behavior is 
+        additionally influenced by the interpreter nesting level.
+        See set_ignore_nesting.
+        """
+        pass
 
-    def remove(self):
-        scheduler.remove(self)
+    def set_ignore_nesting(self,flag):
+        """
+        t.set_ignore_nesting(flag) -- set tasklet ignore_nesting status and 
+        return current one. If set, the tasklet may be be auto-scheduled, 
+        even if its nesting_level is > 0.
+        This flag makes sense if you know that nested interpreter levels are 
+        safe for auto-scheduling. This is on your own risk, handle with care!
+        usage:
+            tmp = t.set_ignore_nesting(1)
+            # do critical stuff
+            t.set_ignore_nesting(tmp)
+        """
+        pass
 
-    def kill(self):pass
+    def setup(self,*argl,**argd):
+        """
+        supply the parameters for the callable
+        """
+        pass
+
+    tempval = None
 
 class channel(object):
+    """
+    A channel object is used for communication between tasklets.
+    By sending on a channel, a tasklet that is waiting to receive
+    is resumed. If there is no waiting receiver, the sender is suspended.
+    By receiving from a channel, a tasklet that is waiting to send
+    is resumed. If there is no waiting sender, the receiver is suspended.
+    """
+
+#    __slots__ = ['balance','closed','closing','preference','queue',
+#                 'schedule_all']
+
     def __init__(self):
         self.balance = 0
         self._readq = []
         self._writeq = []
 
-    def send(self, msg):
-        ct = getcurrent()
-        scheduler.remove(ct)
-        self._writeq.append((ct,msg))
-        self.balance += 1
-        if self._readq:
-            nt, self._readq = self._readq[0], self._readq[1:]
-            scheduler.priorityinsert(nt)
-        schedule()
+    def close(self):
+        """
+        channel.close() -- stops the channel from enlarging its queue.
+        
+        If the channel is not empty, the flag 'closing' becomes true.
+        If the channel is empty, the flag 'closed' becomes true.
+        """
+        pass
+
+    def next(self):
+        """
+        x.next() -> the next value, or raise StopIteration
+        """
+        pass
+
+    def open(self):
+        """
+        channel.open() -- reopen a channel. See channel.close.
+        """
 
     def receive(self):
+        """
+        channel.receive() -- receive a value over the channel.
+        If no other tasklet is already sending on the channel,
+        the receiver will be blocked. Otherwise, the receiver will
+        continue immediately, and the sender is put at the end of
+        the runnables list.
+        The above policy can be changed by setting channel flags.
+        """
         ct = getcurrent()
         if self._writeq:
             (wt,retval), self._writeq = self._writeq[0], self._writeq[1:]
@@ -83,6 +409,42 @@ class channel(object):
             scheduler.remove(ct)
             schedule()
             return self.receive()
+
+    def send(self, msg):
+        """
+        channel.send(value) -- send a value over the channel.
+        If no other tasklet is already receiving on the channel,
+        the sender will be blocked. Otherwise, the receiver will
+        be activated immediately, and the sender is put at the end of
+        the runnables list.
+        """
+        ct = getcurrent()
+        scheduler.remove(ct)
+        self._writeq.append((ct,msg))
+        self.balance += 1
+        if self._readq:
+            nt, self._readq = self._readq[0], self._readq[1:]
+            scheduler.priorityinsert(nt)
+        schedule()
+
+    def send_exception(self, exc, value):
+        """
+        channel.send_exception(exc, value) -- send an exception over the 
+        channel. exc must be a subclass of Exception.
+        Behavior is like channel.send, but that the receiver gets an exception.
+        """
+        pass
+
+    def send_sequence(self, value):
+        """
+        channel.send(value) -- send a value over the channel.
+        If no other tasklet is already receiving on the channel,
+        the sender will be blocked. Otherwise, the receiver will
+        be activated immediately, and the sender is put at the end of
+        the runnables list.
+        """
+        pass
+
 
 class Scheduler(object):
     def __init__(self):
