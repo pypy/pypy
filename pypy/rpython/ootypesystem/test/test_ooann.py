@@ -185,3 +185,16 @@ def test_truth_value():
     s = a.build_types(oof, [bool])
     assert isinstance(s, annmodel.SomeBool)
     assert not s.is_constant()
+
+def test_list():
+    L = List(Signed)
+    def oof():
+        l = new(L)
+        l._ll_resize(42)
+        return l
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [])
+    #a.translator.view()
+    
+    assert s == annmodel.SomeOOInstance(L)
