@@ -186,7 +186,6 @@ def test_is_mixing():
     assert res == 0x0200
 
 def test_rtype_nongc_object():
-    from pypy.rpython.memory.lladdress import address
     class TestClass(object):
         _alloc_flavor_ = "raw"
         def __init__(self, a):
@@ -204,5 +203,6 @@ def test_rtype_nongc_object():
     assert isinstance(s, annmodel.SomeAddress)
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-##     res = interpret(malloc_and_free, [address()])
-##     assert res == address()
+##     from pypy.rpython.memory.lladdress import _address
+##     res = interpret(malloc_and_free, [_address()])
+##     assert res == _address()
