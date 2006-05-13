@@ -209,7 +209,7 @@ def test_string():
 
 def test_oostring():
     def oof():
-        return new
+        return oostring
 
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
