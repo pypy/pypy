@@ -18,3 +18,10 @@ def test_split():
     assert isinstance(res, ootype._list)
     assert res.ll_getitem_fast(0)._str == 'foo'
     assert res.ll_getitem_fast(1)._str == 'bar'
+
+def test_string_builder():
+    b = ootype.new(ootype.StringBuilder)
+    b.ll_append_char('a')
+    b.ll_append(ootype.make_string('bcd'))
+    res = b.ll_build()
+    assert res._str == 'abcd'

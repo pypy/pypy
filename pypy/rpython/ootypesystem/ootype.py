@@ -294,6 +294,29 @@ class String(BuiltinADTType):
     def _specialize(self, generic_types):
         return self
 
+# WARNING: the name 'StringBuilder' is rebound at the end of file
+class StringBuilder(BuiltinADTType):
+    def __init__(self):
+        self._null = _null_string_builder(self)
+        self._GENERIC_METHODS = frozendict({
+            "ll_allocate": Meth([Signed], Void),
+            "ll_append_char": Meth([Char], Void),
+            "ll_append": Meth([String], Void),
+            "ll_build": Meth([], String),
+            })
+        self._setup_methods({})
+
+    def _defl(self):
+        return self._null
+
+    def _example(self):
+        return self._defl()
+
+    def _get_interp_class(self):
+        return _string_builder
+
+    def _specialize(self, generic_types):
+        return self
 
 class List(BuiltinADTType):
     # placeholders for types
@@ -768,7 +791,6 @@ class _builtin_type(object):
         return object.__getattribute__(self, name)
 
 
-
 class _string(_builtin_type):
 
     def __init__(self, STRING, value = ''):
@@ -815,6 +837,31 @@ class _string(_builtin_type):
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):
         self.__dict__["_TYPE"] = STRING
+
+class _string_builder(_builtin_type):
+    def __init__(self, STRING_BUILDER):
+        self._TYPE = STRING_BUILDER
+        self._buf = []
+
+    def ll_allocate(self, n):
+        assert isinstance(n, int)
+        # do nothing
+
+    def ll_append_char(self, ch):
+        assert isinstance(ch, str) and len(ch) == 1
+        self._buf.append(ch)
+
+    def ll_append(self, s):
+        assert isinstance(s, _string)
+        self._buf.append(s._str)
+
+    def ll_build(self):
+        return make_string(''.join(self._buf))
+
+class _null_string_builder(_null_mixin(_string_builder), _string_builder):
+    def __init__(self, STRING_BUILDER):
+        self.__dict__["_TYPE"] = STRING_BUILDER
+
 
 class _list(_builtin_type):
     def __init__(self, LIST):
@@ -1073,4 +1120,5 @@ def hasDictTypes(DICT):
     return DICT._is_initialized()
 
 String = String()
+StringBuilder = StringBuilder()
 ROOT = Instance('Root', None, _is_root=True)
