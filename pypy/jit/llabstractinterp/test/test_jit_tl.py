@@ -9,7 +9,7 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 #from pypy.translator.backendopt import inline
 
-#py.test.skip("in-progress")
+py.test.skip("not implementing: handling of Void values")
 
 def setup_module(mod):
     t = TranslationContext()
