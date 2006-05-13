@@ -12,6 +12,13 @@ __all__ = 'run getcurrent getmain schedule tasklet channel'.split()
 # class attributes are placeholders for some kind of descriptor
 # (to be filled in later).
 
+note = """
+The bomb object decouples exception creation and exception
+raising. This is necessary to support channels which don't
+immediately react on messages.
+
+This is a necessary Stackless 3.1 feature.
+"""
 class bomb(object):
     """
     A bomb object is used to hold exceptions in tasklets.
@@ -35,6 +42,11 @@ class bomb(object):
     type = None
     value = None
 
+note = """
+cframes are an implementation detail.
+Do not implement this now. If we need such a thing in PyPy,
+then it will probably have a different layout.
+"""
 class cframe(object):
     """
     """
@@ -42,6 +54,11 @@ class cframe(object):
 
 # channel: see below
 
+note = """
+The future of C stacks is undecided, yet. This applies
+for Stackless, only at the moment. PyPy will use soft-switching
+only, until we support external callbacks.
+"""
 class cstack(object):
     """
     A CStack object serves to save the stack slice which is involved
@@ -50,6 +67,10 @@ class cstack(object):
     Note: For inspection, str() can dump it as a string.
     """
 
+note = """
+I would implement it as a simple flag but let it issue
+a warning that it has no effect.
+"""
 def enable_softswitch(flag):
     """
     enable_softswitch(flag) -- control the switching behavior.
@@ -63,6 +84,9 @@ def enable_softswitch(flag):
     """
     pass
 
+note = """
+Implementation can be deferred.
+"""
 def get_thread_info(thread_id):
     """
     get_thread_info(thread_id) -- return a 3-tuple of the thread's
@@ -79,6 +103,7 @@ def get_thread_info(thread_id):
 
 # def schedule(retval=stackless.current) : see below
 
+note = 'needed'
 def schedule_remove(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
@@ -88,6 +113,9 @@ def schedule_remove(retval=None):
     """
     pass
 
+note = """
+should be implemented for debugging purposes. Low priority
+"""
 def set_channel_callback(callable):
     """
     set_channel_callback(callable) -- install a callback for channels.
@@ -100,6 +128,9 @@ def set_channel_callback(callable):
     """
     pass
 
+note = """
+should be implemented for debugging purposes. Low priority
+"""
 def set_schedule_callback(callable):
     """
     set_schedule_callback(callable) -- install a callback for scheduling.
@@ -113,6 +144,12 @@ def set_schedule_callback(callable):
     """
     pass
 
+note = """
+this was an experiment on deriving from a module.
+The idea was to make runcount and current into properties.
+__tasklet__ and __channel__ are also not used.
+It is ok to ignore these.
+"""
 class slpmodule(object):
     """
     The stackless module has a special type derived from
@@ -125,6 +162,7 @@ class slpmodule(object):
 
 # class tasklet: see below
 
+note = 'drop'
 def test_cframe(switches, words=0):
     """
     test_cframe(switches, words=0) -- a builtin testing function that does 
@@ -140,6 +178,7 @@ def test_cframe(switches, words=0):
     """
     pass
 
+note = 'drop'
 def test_cframe_nr(switches):
     """
     test_cframe_nr(switches) -- a builtin testing function that does nothing
@@ -149,6 +188,7 @@ def test_cframe_nr(switches):
     """
     pass
 
+note = 'drop'
 def test_outside():
     """
     test_outside() -- a builtin testing function.
@@ -182,6 +222,12 @@ def __init():
     maintasklet = mt
     coro_reg[c] = mt
 
+note = """
+It is not needed to implement the watchdog feature right now.
+But run should be supported in the way the docstring says.
+The runner is always main, which must be removed while
+running all the tasklets. The implementation below is wrong.
+"""
 def run():
     """
     run_watchdog(timeout) -- run tasklets until they are all
@@ -195,6 +241,12 @@ def run():
     """
     schedule()
 
+note = """
+I don't see why coro_reg is needed.
+tasklets should ideally inherit from coroutine.
+This will create unwanted attributes, but they will
+go away when we port this to interp-leve.
+"""
 def getcurrent():
     """
     getcurrent() -- return the currently executing tasklet.
@@ -227,16 +279,23 @@ class tasklet(object):
 #                 'nesting_level','next','paused','prev','recursion_depth',
 #                 'restorable','scheduled','thread_id']
 
-    def __init__(self,func=None):
+## note: most of the above should be properties
+
+    def __init__(self, func=None):
+        ## note: this field should reuse tempval to save space
         self._func = func
 
-    def __call__(self,*argl,**argd):
+    def __call__(self, *argl, **argd):
+        ## note: please inherit
+        ## note: please use spaces after comma :-)
+        ## note: please express this using bind and setup
         self._coro = c = coroutine()
         c.bind(self._func,*argl,**argd)
         coro_reg[c] = self
         self.insert()
         return self
 
+    ## note: deprecated
     def become(self, retval=None):
         """
         t.become(retval) -- catch the current running frame in a tasklet.
@@ -248,6 +307,7 @@ class tasklet(object):
         """
         pass
 
+    ## note: __init__ should use this
     def bind(self):
         """
         Binding a tasklet to a callable object.
@@ -258,6 +318,7 @@ class tasklet(object):
         """
         pass
 
+    ## note: deprecated
     def capture(self, retval=None):
         """
         t.capture(retval) -- capture the current running frame in a tasklet,
@@ -266,6 +327,7 @@ class tasklet(object):
         """
         pass
 
+    ## note: this is not part of the interface, please drop it
     cstate = None
 
     def insert(self):
@@ -276,6 +338,7 @@ class tasklet(object):
         """
         scheduler.insert(self)
 
+    ## note: this is needed. please call coroutine.kill()
     def kill(self):
         """
         tasklet.kill -- raise a TaskletExit exception for the tasklet.
@@ -286,6 +349,7 @@ class tasklet(object):
         """
         pass
 
+    ## note: see the C implementation about how to use bombs
     def raise_exception(self, exc, value):
         """
         tasklet.raise_exception(exc, value) -- raise an exception for the 
@@ -311,8 +375,12 @@ class tasklet(object):
         Blocked tasks need to be reactivated by channels.
         """
         scheduler.setnexttask(self)
+        ## note: please support different schedulers
+        ## and don't mix calls to module functions with scheduler methods.
         schedule()
 
+    ## note: needed at some point. right now just a property
+    ## the stackless_flags should all be supported
     def set_atomic(self):
         """
         t.set_atomic(flag) -- set tasklet atomic status and return current one.
@@ -330,6 +398,7 @@ class tasklet(object):
         """
         pass
 
+    ## note: see above
     def set_ignore_nesting(self,flag):
         """
         t.set_ignore_nesting(flag) -- set tasklet ignore_nesting status and 
@@ -344,12 +413,18 @@ class tasklet(object):
         """
         pass
 
+    ## note
+    ## tasklet(func)(*args, **kwds)
+    ## is identical to
+    ## t = tasklet; t.bind(func); t.setup(*args, **kwds)
     def setup(self,*argl,**argd):
         """
         supply the parameters for the callable
         """
         pass
 
+    ## note: this attribute should always be there.
+    ## no class default needed.
     tempval = None
 
 class channel(object):
@@ -366,9 +441,11 @@ class channel(object):
 
     def __init__(self):
         self.balance = 0
+        ## note: this is a deque candidate.
         self._readq = []
         self._writeq = []
 
+    ## note: needed
     def close(self):
         """
         channel.close() -- stops the channel from enlarging its queue.
@@ -378,12 +455,14 @@ class channel(object):
         """
         pass
 
+    ## note: needed. iteration over a channel reads it all.
     def next(self):
         """
         x.next() -> the next value, or raise StopIteration
         """
         pass
 
+    ## note: needed
     def open(self):
         """
         channel.open() -- reopen a channel. See channel.close.
@@ -427,6 +506,7 @@ class channel(object):
             scheduler.priorityinsert(nt)
         schedule()
 
+    ## note: see the C implementation on how to use bombs.
     def send_exception(self, exc, value):
         """
         channel.send_exception(exc, value) -- send an exception over the 
@@ -435,6 +515,7 @@ class channel(object):
         """
         pass
 
+    ## needed
     def send_sequence(self, value):
         """
         channel.send(value) -- send a value over the channel.
@@ -448,7 +529,9 @@ class channel(object):
 
 class Scheduler(object):
     def __init__(self):
+        ## note: better use a deque
         self.tasklist = []
+        ## note: in terms of moving to interplevel, I would not do that
         self.nexttask = None 
 
     def empty(self):
@@ -508,3 +591,6 @@ class Scheduler(object):
 
 scheduler = Scheduler()
 __init()
+
+## note: nice work :-)
+
