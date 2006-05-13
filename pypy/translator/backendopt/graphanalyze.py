@@ -66,6 +66,7 @@ class GraphAnalyzer(object):
                     return True
             for exit in block.exits:
                 if self.analyze_link(graph, exit):
+                    self.analyzed_calls[graph] = True
                     return True
         self.analyzed_calls[graph] = False
         return False
