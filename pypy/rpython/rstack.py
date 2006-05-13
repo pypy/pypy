@@ -8,6 +8,9 @@ import inspect
 def stack_unwind():
     raise RuntimeError("cannot unwind stack in non-translated versions")
 
+def stack_capture():
+    raise RuntimeError("cannot unwind stack in non-translated versions")
+
 def stack_frames_depth():
     return len(inspect.stack())
 

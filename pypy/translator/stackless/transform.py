@@ -112,7 +112,7 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
     def analyze_external_call(self, op):
         callable = op.args[0].value._obj._callable
         #assert getattr(callable, 'suggested_primitive', False)
-        return callable in [ll_stack.ll_stack_unwind,
+        return callable in [ll_stack.ll_stack_unwind, ll_stack.ll_stack_capture,
                             ll_stackless.ll_stackless_stack_frames_depth,
                             ll_stackless.ll_stackless_switch]
                             
@@ -195,8 +195,12 @@ class StacklessTransformer(object):
                     code.ll_frame_clone, [s_StatePtr], s_StatePtr),
             ll_stack.ll_stack_unwind:
                 mixlevelannotator.constfunc(
-                    code.ll_stack_unwind, [], s_StatePtr),
+                    code.ll_stack_unwind, [], annmodel.s_None),
+            ll_stack.ll_stack_capture:
+                mixlevelannotator.constfunc(
+                    code.ll_stack_capture, [], s_StatePtr),
             }
+
         self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
             code.yield_current_frame_to_caller, [], s_StatePtr)
 

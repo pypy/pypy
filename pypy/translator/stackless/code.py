@@ -154,6 +154,28 @@ def ll_stack_unwind():
     else:
         # STATE 0: now the stack is unwound.  That was the goal.
         # Return to caller.
+        global_state.top = frame.null_state
+        global_state.restart_substate = -1
+        
+ll_stack_unwind.stackless_explicit = True
+
+INDEX_UNWIND = frame.RestartInfo.add_prebuilt(ll_stack_unwind,
+                                               [EMPTY_STATE])
+
+# ____________________________________________________________
+
+def ll_stack_capture():
+    if global_state.restart_substate == -1:
+        # normal entry point for stack_frames_depth()
+        # first unwind the stack in the usual way
+        u = UnwindException()
+        s = lltype.malloc(EMPTY_STATE).header
+        s.f_restart = INDEX_CAPTURE
+        add_frame_state(u, s)
+        raise u    # goes to STATE 0 below
+    else:
+        # STATE 0: now the stack is unwound.  That was the goal.
+        # Return to caller.
         cur = global_state.top
         global_state.top = frame.null_state
         global_state.restart_substate = -1
@@ -161,10 +183,10 @@ def ll_stack_unwind():
         # The StacklessFrameworkGCTransformer uses this for introspection.
         return lltype.cast_opaque_ptr(frame.OPAQUE_STATE_HEADER_PTR,
                                       cur.f_back)
-ll_stack_unwind.stackless_explicit = True
+ll_stack_capture.stackless_explicit = True
 
-INDEX_UNWIND = frame.RestartInfo.add_prebuilt(ll_stack_unwind,
-                                              [EMPTY_STATE])
+INDEX_CAPTURE = frame.RestartInfo.add_prebuilt(ll_stack_capture,
+                                               [EMPTY_STATE])
 
 # ____________________________________________________________
 

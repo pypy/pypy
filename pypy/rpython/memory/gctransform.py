@@ -1152,7 +1152,7 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
     use_stackless = True
 
     def build_stack_root_iterator(self):
-        from pypy.rpython.rstack import stack_unwind
+        from pypy.rpython.rstack import stack_capture
         sizeofaddr = llmemory.sizeof(llmemory.Address)
         gcdata = self.gcdata
 
@@ -1184,7 +1184,7 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
                     return gcdata.static_roots[i]
                 if self.provide_current_frame:
                     self.provide_current_frame = False
-                    frame = stack_unwind()
+                    frame = stack_capture()
                     return llmemory.cast_ptr_to_adr(frame)
                 return llmemory.NULL
 

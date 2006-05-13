@@ -88,9 +88,9 @@ def test_arguments():
     res = run_stackless_function(fn)
     assert res == 15
 
-def test_stack_unwind_retval():
+def test_stack_capture():
     def fn():
-        frame = rstack.stack_unwind()
+        frame = rstack.stack_capture()
         return int(bool(frame))
 
     res = llinterp_stackless_function(fn)
