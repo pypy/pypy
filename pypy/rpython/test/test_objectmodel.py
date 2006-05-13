@@ -268,7 +268,7 @@ def test_unboxed_value():
     assert A(12098).getvalue() == 12098
 
 def test_symbolic():
-    
+    py.test.skip("xxx no test here")
 
 def test_symbolic_raises():
     s1 = Symbolic()
