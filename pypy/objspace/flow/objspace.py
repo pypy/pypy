@@ -256,7 +256,7 @@ class FlowObjSpace(ObjSpace):
         # so that it becomes even more interchangeable with the function
         # itself
         graph.signature = cpython_code_signature(code)
-        graph.defaults = func.func_defaults
+        graph.defaults = func.func_defaults or ()
         self.setup_executioncontext(ec)
         ec.build_flow()
         checkgraph(graph)

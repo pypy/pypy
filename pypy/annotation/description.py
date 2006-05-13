@@ -158,6 +158,9 @@ class Desc(object):
     simplify_desc_set = staticmethod(simplify_desc_set)
 
 
+class NoStandardGraph(Exception):
+    """The function doesn't have a single standard non-specialized graph."""
+
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
     overridden = False
@@ -192,8 +195,13 @@ class FunctionDesc(Desc):
         return graph
 
     def getuniquegraph(self):
-        assert len(self._cache) == 1
-        return self._cache.values()[0]
+        if len(self._cache) != 1:
+            raise NoStandardGraph(self)
+        [graph] = self._cache.values()
+        if (graph.signature != self.signature or
+            graph.defaults  != self.defaults):
+            raise NoStandardGraph(self)
+        return graph
 
     def cachedgraph(self, key, alt_name=None, builder=None):
         try:

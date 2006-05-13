@@ -3,6 +3,7 @@ import autopath, os, sys, __builtin__, marshal, zlib
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
+from pypy.annotation.description import NoStandardGraph
 from pypy.translator.gensupp import builtin_base, builtin_type_base
 from pypy.translator.c.support import log
 from pypy.translator.c.wrapper import gen_wrapper, new_method_graph
@@ -215,9 +216,12 @@ class PyObjMaker:
         if self.shouldskipfunc(func):
             return self.skipped_function(func)
 
-        fwrapper = gen_wrapper(func, self.translator,
-                               newname=self.name_for_meth.get(func, func.__name__),
-                               as_method=func in self.is_method)
+        try:
+            fwrapper = gen_wrapper(func, self.translator,
+                                   newname=self.name_for_meth.get(func, func.__name__),
+                                   as_method=func in self.is_method)
+        except NoStandardGraph:
+            return self.skipped_function(func)
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
         self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper), func.__doc__
         return pycfunctionobj
