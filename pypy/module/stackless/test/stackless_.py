@@ -279,7 +279,15 @@ class tasklet(object):
 #                 'nesting_level','next','paused','prev','recursion_depth',
 #                 'restorable','scheduled','thread_id']
 
-## note: most of the above should be properties
+    ## note: most of the above should be properties
+
+    ## note that next and prev are not here.
+    ## should this be implemented, or better not?
+    ## I think yes. it is easier to keep the linkage.
+    ## tasklets gave grown this, and we can do different
+    ## classes, later.
+    ## well, it is a design question, but fow now probably simplest
+    ## to just copy that.
 
     def __init__(self, func=None):
         ## note: this field should reuse tempval to save space
@@ -581,6 +589,9 @@ class Scheduler(object):
         if task not in self.tasklist:
             self.tasklist.insert(task)
         try:
+            ## note: this is inefficient
+            ## please use the flag attributes
+            ## a tasklet 'knows' if it is in something
             i = self.tasklist.index(task)
             self.nexttask = i
         except IndexError:pass
