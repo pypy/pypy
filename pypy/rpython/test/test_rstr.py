@@ -122,13 +122,13 @@ class AbstractTestRstr:
             res = self.interpret(fn, [ch])
             assert res == fn(ch)
 
-def test_char_compare():
-    res = interpret(lambda c1, c2: c1 == c2,  ['a', 'b'])
-    assert res is False
-    res = interpret(lambda c1, c2: c1 == c2,  ['a', 'a'])
-    assert res is True
-    res = interpret(lambda c1, c2: c1 <= c2,  ['z', 'a'])
-    assert res is False
+    def test_char_compare(self):
+        res = self.interpret(lambda c1, c2: c1 == c2,  ['a', 'b'])
+        assert res is False
+        res = self.interpret(lambda c1, c2: c1 == c2,  ['a', 'a'])
+        assert res is True
+        res = self.interpret(lambda c1, c2: c1 <= c2,  ['z', 'a'])
+        assert res is False
 
 def test_char_mul():
     def fn(c, mul):
