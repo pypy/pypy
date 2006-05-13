@@ -160,3 +160,24 @@ def test_address():
     assert res is False
     res = interpret(fn, [5])
     assert res is True
+
+def test_flavored_malloc():
+    T = GcStruct('T', ('y', Signed))
+    def fn(n):
+        p = malloc(T, flavor='gc')
+        p.y = n
+        return p.y
+
+    res = interpret(fn, [232])
+    assert res == 232
+
+    S = Struct('S', ('x', Signed))
+    def fn(n):
+        p = malloc(S, flavor='whatever')
+        p.x = n
+        result = p.x
+        free(p, flavor='whatever')
+        return n
+
+    res = interpret(fn, [23])
+    assert res == 23

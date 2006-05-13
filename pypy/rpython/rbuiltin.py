@@ -298,16 +298,26 @@ BUILTIN_TYPER[OSError.__init__.im_func] = rtype_OSError__init__
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
 
-def rtype_malloc(hop):
+def rtype_malloc(hop, i_flavor=None):
     assert hop.args_s[0].is_constant()
-    if hop.nb_args == 1:
-        vlist = hop.inputargs(lltype.Void)
-        return hop.genop('malloc', vlist,
-                         resulttype = hop.r_result.lowleveltype)
-    else:
-        vlist = hop.inputargs(lltype.Void, lltype.Signed)
-        return hop.genop('malloc_varsize', vlist,
-                         resulttype = hop.r_result.lowleveltype)
+    vlist = [hop.inputarg(lltype.Void, arg=0)]
+    opname = 'malloc'
+    positional_args = hop.nb_args
+    if i_flavor is not None:
+        assert i_flavor == hop.nb_args-1
+        positional_args -= 1
+        vlist.insert(0, hop.inputarg(lltype.Void, arg=i_flavor))
+        opname = 'flavored_' + opname
+    if positional_args == 2:
+        vlist.append(hop.inputarg(lltype.Signed, arg=1))
+        opname += '_varsize'
+    return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
+
+def rtype_free(hop, i_flavor):
+    assert i_flavor == 1
+    vlist = hop.inputargs(hop.args_r[0], lltype.Void)
+    vlist.reverse()   # just for confusion
+    hop.genop('flavored_free', vlist)
 
 def rtype_const_result(hop):
     return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -420,6 +430,7 @@ def rtype_runtime_type_info(hop):
                  resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
+BUILTIN_TYPER[lltype.free] = rtype_free
 BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_opaque_ptr] = rtype_cast_opaque_ptr

@@ -1336,9 +1336,12 @@ def malloc(T, n=None, flavor='gc', immortal=False):
     solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
     return _ptr(Ptr(T), o, solid)
 
-def flavored_malloc(flavor, T, n=None): # avoids keyword argument usage
-    return malloc(T, n, flavor=flavor)
-    
+def free(p, flavor):
+    if flavor.startswith('gc'):
+        raise TypeError, "gc flavor free"
+    T = typeOf(p)
+    if not isinstance(T, Ptr) or p._needsgc():
+        raise TypeError, "free(): only for pointers to non-gc containers"
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):

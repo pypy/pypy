@@ -375,14 +375,24 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(T, n=None):
+def malloc(T, n=None, s_flavor=None):
     assert n is None or n.knowntype == int
     assert T.is_constant()
     if n is not None:
         n = 1
-    p = lltype.malloc(T.const, n)
+    if s_flavor is None:
+        p = lltype.malloc(T.const, n)
+    else:
+        assert s_flavor.is_constant()
+        p = lltype.malloc(T.const, n, s_flavor.const)
     r = SomePtr(lltype.typeOf(p))
     return r
+
+def free(s_p, s_flavor):
+    assert s_flavor.is_constant()
+    T = s_p.ll_ptrtype.TO
+    p = lltype.malloc(T, flavor=s_flavor.const)
+    lltype.free(p, flavor=s_flavor.const)
 
 def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
@@ -446,6 +456,7 @@ def constPtr(T):
     return immutablevalue(lltype.Ptr(T.const))
 
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
+BUILTIN_ANALYZERS[lltype.free] = free
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.cast_primitive] = cast_primitive
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr

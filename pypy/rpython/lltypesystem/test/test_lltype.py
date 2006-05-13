@@ -429,6 +429,11 @@ def test_flavor_malloc():
     p = malloc(S, flavor="raw")
     assert typeOf(p).TO == S
     assert not isweak(p, S)
+    free(p, flavor="raw")
+    T = GcStruct('T', ('y', Signed))
+    p = malloc(T, flavor="gc")
+    assert typeOf(p).TO == T
+    assert not isweak(p, T)
     
 def test_opaque():
     O = OpaqueType('O')
