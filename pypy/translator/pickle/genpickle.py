@@ -372,14 +372,14 @@ class GenPickle:
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
                 if isapp:
                     if (isinstance(value, staticmethod) and value.__get__(1) not in
-                        self.translator.flowgraphs and self.translator.frozen):
+                        self.translator.flowgraphs and self.translator.annotator.frozen):
                         continue
                     if isinstance(value, classmethod):
                         doc = value.__get__(cls).__doc__
                         if doc and doc.lstrip().startswith("NOT_RPYTHON"):
                             continue
                     if (isinstance(value, FunctionType) and value not in
-                        self.translator.flowgraphs and self.translator.frozen):
+                        self.translator.flowgraphs and self.translator.annotator.frozen):
                         continue
                 if key in ignore:
                     continue
@@ -685,7 +685,7 @@ class GenPickle:
 
     def nameof_function(self, func):
         # look for skipped functions
-        if self.translator.frozen:
+        if self.translator.annotator.frozen:
             if func not in self.translator.flowgraphs:
                 # see if this is in translator's domain
                 module = whichmodule(func, func.__name__)
