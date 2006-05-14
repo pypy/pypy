@@ -25,6 +25,7 @@ def create_no_gc(llinterp, flowgraphs):
 from pypy.rpython.memory.gc import MarkSweepGC, SemiSpaceGC
 use_gc = MarkSweepGC
 def create_gc(llinterp, flowgraphs):
+    import py; py.test.skip("out-of-progress")
     from pypy.rpython.memory.gcwrapper import GcWrapper, AnnotatingGcWrapper
     wrapper = GcWrapper(llinterp, flowgraphs, use_gc)
     return wrapper

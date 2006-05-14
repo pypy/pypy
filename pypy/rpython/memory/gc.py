@@ -142,7 +142,7 @@ class MarkSweepGC(GCBase):
         if can_collect and self.bytes_malloced > self.heap_size:
             self.collect()
         size_gc_header = MarkSweepGC._size_gc_header
-        result = raw_malloc(size + size_gc_header)
+        result = raw_malloc(size_gc_header + size)
         result.signed[0] = typeid << 1
         self.malloced_objects.append(result)
         self.bytes_malloced += size + size_gc_header
@@ -158,8 +158,8 @@ class MarkSweepGC(GCBase):
             raise MemoryError
         size += varsize
         size_gc_header = MarkSweepGC._size_gc_header
-        result = raw_malloc(size + size_gc_header)
-        (result + offset_to_length + size_gc_header).signed[0] = length
+        result = raw_malloc(size_gc_header + size)
+        (result + size_gc_header + offset_to_length).signed[0] = length
         result.signed[0] = typeid << 1
         self.malloced_objects.append(result)
         self.bytes_malloced += size + size_gc_header
