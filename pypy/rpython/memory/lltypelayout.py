@@ -102,7 +102,7 @@ def convert_offset_to_int(offset):
     elif isinstance(offset, llmemory.ArrayItemsOffset):
         return get_fixed_size(lltype.Signed)
     elif isinstance(offset, GCHeaderOffset):
-        return sizeof(offset.minimal_size)
+        return sizeof(offset.minimal_layout)
     else:
         raise Exception("unknown offset type %r"%offset)
         

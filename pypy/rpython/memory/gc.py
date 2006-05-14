@@ -11,14 +11,8 @@ import sys
 int_size = lltypesimulation.sizeof(lltype.Signed)
 
 class GCHeaderOffset(llmemory.AddressOffset):
-    def __init__(self, minimal_size):
-        self.minimal_size = minimal_size
-    def __int__(self):
-        from pypy.rpython.memory.lltypelayout import sizeof
-        return sizeof(self.minimal_size)
-    # XXX blech
-    def __radd__(self, other):
-        return int(self) + other
+    def __init__(self, minimal_layout):
+        self.minimal_layout = minimal_layout
 
 gc_header_two_ints = GCHeaderOffset(
     lltype.Struct("header", ("a", lltype.Signed), ("b", lltype.Signed)))

@@ -13,6 +13,16 @@ import types
 FUNCTIONTYPES = (types.FunctionType, types.UnboundMethodType,
                  types.BuiltinFunctionType)
 
+
+def get_real_value(val_or_ptr):
+    if isinstance(val_or_ptr, llmemory.AddressOffset):
+        return lltypelayout.convert_offset_to_int(val_or_ptr)
+    return val_or_ptr
+
+def size_gc_header(gc, typeid):
+    return get_real_value(gc.size_gc_header(typeid))
+
+
 class LLTypeConverter(object):
     def __init__(self, address, gc=None, qt=None):
         self.type_to_typeid = {}
@@ -27,9 +37,7 @@ class LLTypeConverter(object):
         TYPE = lltype.typeOf(val_or_ptr)
         if isinstance(TYPE, lltype.Primitive):
             assert inline_to_ptr is None
-            if isinstance(val_or_ptr, llmemory.AddressOffset):
-                return lltypelayout.convert_offset_to_int(val_or_ptr)
-            return val_or_ptr
+            return get_real_value(val_or_ptr)
         elif isinstance(TYPE, lltype.Array):
             return self.convert_array(val_or_ptr, inline_to_ptr)
         elif isinstance(TYPE, lltype.Struct):
@@ -61,8 +69,8 @@ class LLTypeConverter(object):
             if self.gc is not None:
                 typeid = self.query_types.get_typeid(TYPE)
                 self.gc.init_gc_object_immortal(startaddr, typeid)
-                startaddr += self.gc.size_gc_header(typeid)
-                self.curraddress += self.gc.size_gc_header(typeid)
+                startaddr += size_gc_header(self.gc, typeid)
+                self.curraddress += size_gc_header(self.gc, typeid)
             ptr = init_object_on_address(startaddr, TYPE, arraylength)
             self.constantroots.append(ptr)
         self.converted[_array] = ptr
@@ -101,8 +109,8 @@ class LLTypeConverter(object):
             if self.gc is not None:
                 typeid = self.query_types.get_typeid(TYPE)
                 self.gc.init_gc_object_immortal(startaddr, typeid)
-                startaddr += self.gc.size_gc_header(typeid)
-                self.curraddress += self.gc.size_gc_header(typeid)
+                startaddr += size_gc_header(self.gc, typeid)
+                self.curraddress += size_gc_header(self.gc, typeid)
             ptr = init_object_on_address(startaddr, TYPE, inlinedarraylength)
             self.constantroots.append(ptr)
         self.converted[_struct] = ptr
@@ -189,7 +197,7 @@ class FlowGraphConstantConverter(object):
                 total_size += sizeof(cand._TYPE, length)
                 if self.gc is not None:
                     typeid = self.query_types.get_typeid(cand._TYPE)
-                    total_size += self.gc.size_gc_header(typeid)
+                    total_size += size_gc_header(self.gc, typeid)
                 for item in cand.items:
                     candidates.append(item)
             elif isinstance(cand, lltype._struct):
@@ -209,7 +217,7 @@ class FlowGraphConstantConverter(object):
                         total_size += sizeof(TYPE)
                     if self.gc is not None:
                         typeid = self.query_types.get_typeid(TYPE)
-                        total_size += self.gc.size_gc_header(typeid)
+                        total_size += size_gc_header(self.gc, typeid)
                 for name in TYPE._flds:
                     candidates.append(getattr(cand, name))
             elif isinstance(cand, lltype._opaque):
