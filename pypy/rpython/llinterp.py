@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
-from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
+from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.objectmodel import ComputedIntSymbolic
 
@@ -36,7 +36,7 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, typer, heap=lltype, tracing=True):
+    def __init__(self, typer, heap=llheap, tracing=True):
         self.bindings = {}
         self.typer = typer
         self.heap = heap  #module that provides malloc, etc for lltypes
@@ -480,7 +480,7 @@ class LLFrame(object):
         return self.op_direct_call(f, *args)
 
     def op_unsafe_call(self, TGT, f):
-        assert isinstance(f, llmemory.fakeaddress)
+        checkadr(f)
         assert f.offset is None
         obj = self.llinterpreter.typer.type_system.deref(f.ob)
         assert hasattr(obj, 'graph') # don't want to think about that

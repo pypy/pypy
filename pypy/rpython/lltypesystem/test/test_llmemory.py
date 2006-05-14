@@ -193,3 +193,53 @@ def test_opaque():
     adr2 = cast_ptr_to_adr(o)
     s2 = cast_adr_to_ptr(adr2, lltype.Ptr(S))
     assert s2 == s
+
+def test_raw_malloc_struct():
+    T = lltype.GcStruct('T', ('z', lltype.Signed))
+    S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Ptr(T)))
+    adr = raw_malloc(sizeof(S))
+    s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+    assert lltype.typeOf(s) == lltype.Ptr(S)
+    s.x = 123
+    x_adr = adr + offsetof(S, 'x')
+    assert x_adr.signed[0] == 123
+    x_adr.signed[0] = 124
+    assert s.x == 124
+
+def test_raw_malloc_signed():
+    adr = raw_malloc(sizeof(lltype.Signed))
+    p = cast_adr_to_ptr(adr,
+                        lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1)))
+    p[0] = 123
+    assert adr.signed[0] == 123
+    adr.signed[0] = 124
+    assert p[0] == 124
+    py.test.raises(IndexError, "adr.signed[-1]")
+    py.test.raises(IndexError, "adr.signed[1]")
+
+def test_raw_malloc_signed_bunch():
+    adr = raw_malloc(sizeof(lltype.Signed) * 50)
+    p = cast_adr_to_ptr(adr,
+                        lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1)))
+    for i in range(50):
+        p[i] = 123 + i
+        assert adr.signed[i] == 123 + i
+        adr.signed[i] = 124 - i
+        assert p[i] == 124 - i
+    py.test.raises(IndexError, "adr.signed[50]")
+
+def test_raw_malloc_array():
+    A = lltype.Array(lltype.Signed)
+    adr = raw_malloc(sizeof(A, 50))
+    length_adr = adr + ArrayLengthOffset(A)
+    length_adr.signed[0] = 50
+    p = cast_adr_to_ptr(adr, lltype.Ptr(A))
+    assert len(p) == 50
+    for i in range(50):
+        item_adr = adr + itemoffsetof(A, i)
+        p[i] = 123 + i
+        assert item_adr.signed[0] == 123 + i
+        item_adr.signed[0] = 124 - i
+        assert p[i] == 124 - i
+    item_adr = adr + itemoffsetof(A, 50)
+    py.test.raises(IndexError, "item_adr.signed[0]")

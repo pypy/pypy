@@ -78,7 +78,7 @@ class ArrayItemsOffset(AddressOffset):
         self.TYPE = TYPE
 
     def __repr__(self):
-        return '< ArrayItemsOffset >'
+        return '< ArrayItemsOffset %r >' % (self.TYPE,)
 
     def ref(self, arrayref):
         array = arrayref.get()
@@ -91,7 +91,7 @@ class ArrayLengthOffset(AddressOffset):
         self.TYPE = TYPE
 
     def __repr__(self):
-        return '< ArrayLengthOffset >'
+        return '< ArrayLengthOffset %r >' % (self.TYPE,)
 
     def ref(self, arrayref):
         array = arrayref.get()
@@ -116,7 +116,8 @@ class _arraylenref(object):
     def get(self):
         return len(self.array)
     def set(self, value):
-        raise Exception("can't assign to an array's length")
+        if value != len(self.array):
+            raise Exception("can't change the length of an array")
     def type(self):
         return lltype.Signed
 
@@ -235,12 +236,14 @@ class fakeaddress(object):
             # special case that requires direct_fieldptr
             return lltype.direct_fieldptr(ref.struct,
                                           ref.fieldname)
-        elif (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
-              isinstance(ref.type().TO, lltype.OpaqueType)):
-            return lltype.cast_opaque_ptr(EXPECTED_TYPE, ref.get())
         else:
-            # regular case
-            return lltype.cast_pointer(EXPECTED_TYPE, ref.get())
+            result = ref.get()
+            if (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
+                isinstance(lltype.typeOf(result).TO, lltype.OpaqueType)):
+                return lltype.cast_opaque_ptr(EXPECTED_TYPE, result)
+            else:
+                # regular case
+                return lltype.cast_pointer(EXPECTED_TYPE, result)
 
     def _cast_to_int(self):
         if self:
@@ -320,3 +323,22 @@ def cast_adr_to_ptr(adr, EXPECTED_TYPE):
 def cast_adr_to_int(adr):
     return adr._cast_to_int()
 
+# ____________________________________________________________
+
+def raw_malloc(size):
+    if isinstance(size, ItemOffset):
+        T = lltype.FixedSizeArray(size.TYPE, size.repeat)
+        p = lltype.malloc(T, immortal=True)
+        array_adr = cast_ptr_to_adr(p)
+        return array_adr + ArrayItemsOffset(T)
+    elif isinstance(size, CompositeOffset):
+        if (isinstance(size.first, ArrayItemsOffset) and
+            isinstance(size.second, ItemOffset)):
+            assert size.first.TYPE.OF == size.second.TYPE
+            T = size.first.TYPE
+            p = lltype.malloc(T, size.second.repeat, immortal=True)
+            return cast_ptr_to_adr(p)
+    raise NotImplementedError(size)
+
+def raw_free(adr):
+    pass   # for now
