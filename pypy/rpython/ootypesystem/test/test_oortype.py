@@ -1,5 +1,6 @@
 from pypy import conftest
 from pypy.rpython.ootypesystem.ootype import *
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rlist import ListRepr
 from pypy.rpython.rint import signed_repr
 from pypy.annotation import model as annmodel
@@ -203,3 +204,13 @@ def test_oostring():
     ch = 'a'
     res = interpret(oof, [ch], type_system='ootype')
     assert res._str == 'a'
+
+def test_nullstring():
+    def oof(b):
+        if b:
+            return 'foo'
+        else:
+            return None
+
+    res = interpret(oof, [False], type_system='ootype')
+    assert isinstance(res, ootype._null_string)

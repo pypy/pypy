@@ -207,6 +207,17 @@ def test_string():
     s = a.build_types(oof, [])
     assert s == annmodel.SomeOOInstance(String)
 
+def test_nullstring():
+    def oof(b):
+        if b:
+            return 'foo'
+        else:
+            return None
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [bool])
+    assert s == annmodel.SomeString(can_be_None=True)
+
 def test_oostring():
     def oof():
         return oostring

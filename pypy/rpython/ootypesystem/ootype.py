@@ -278,7 +278,10 @@ class String(BuiltinADTType):
             "ll_stritem_nonneg": Meth([Signed], Char),
             "ll_strlen": Meth([], Signed),
             "ll_strconcat": Meth([self.SELFTYPE_T], self.SELFTYPE_T),
-            "ll_equal": Meth([self.SELFTYPE_T], Bool),
+            "ll_streq": Meth([self.SELFTYPE_T], Bool),
+            "ll_strcmp": Meth([self.SELFTYPE_T], Signed),
+            "ll_startswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_endswith": Meth([self.SELFTYPE_T], Bool),            
         })
         self._setup_methods(generic_types)
 
@@ -808,9 +811,19 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return make_string(self._str + s._str)
 
-    def ll_equal(self, s):
+    def ll_streq(self, s):
         # NOT_RPYTON
         return self._str == s._str
+
+    def ll_strcmp(self, s):
+        # NOT_RPYTHON
+        return cmp(self._str, s._str)
+
+    def ll_startswith(self, s):
+        return self._str.startswith(s._str)
+
+    def ll_endswith(self, s):
+        return self._str.endswith(s._str)
 
     # delegate missing ll_* methods to self._str
     def __getattr__(self, attr):
@@ -839,6 +852,7 @@ class _string(_builtin_type):
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):
         self.__dict__["_TYPE"] = STRING
+        self.__dict__["_str"] = None
 
 class _string_builder(_builtin_type):
     def __init__(self, STRING_BUILDER):

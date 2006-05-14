@@ -75,7 +75,21 @@ class LLHelpers(AbstractLLHelpers):
     def ll_streq(s1, s2):
         if s1 is None:
             return s2 is None
-        return s1.ll_equal(s2)
+        return s1.ll_streq(s2)
+
+    def ll_strcmp(s1, s2):
+        if not s1 and not s2:
+            return True
+        if not s1 or not s2:
+            return False
+        return s1.ll_strcmp(s2)
+
+    def ll_startswith(s1, s2):
+        return s1.ll_startswith(s2)
+
+    def ll_endswith(s1, s2):
+        return s1.ll_endswith(s2)
+    
 
 string_repr = StringRepr()
 char_repr = CharRepr()

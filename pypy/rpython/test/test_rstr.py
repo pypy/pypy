@@ -145,102 +145,109 @@ class AbstractTestRstr:
         res = self.interpret(fn, ['5', 3])
         assert res == 5551
 
-def test_unichar_const():
-    def fn(c):
-        return c
-    assert interpret(fn, [u'\u03b1']) == u'\u03b1'
+    def test_unichar_const(self):
+        def fn(c):
+            return c
+        assert self.interpret(fn, [u'\u03b1']) == u'\u03b1'
 
-def test_unichar_eq():
-    def fn(c1, c2):
-        return c1 == c2
-    assert interpret(fn, [u'\u03b1', u'\u03b1']) == True
-    assert interpret(fn, [u'\u03b1', u'\u03b2']) == False
+    def test_unichar_eq(self):
+        def fn(c1, c2):
+            return c1 == c2
+        assert self.interpret(fn, [u'\u03b1', u'\u03b1']) == True
+        assert self.interpret(fn, [u'\u03b1', u'\u03b2']) == False
 
-def test_unichar_ord():
-    def fn(c):
-        return ord(c)
-    assert interpret(fn, [u'\u03b1']) == ord(u'\u03b1')
+    def test_unichar_ord(self):
+        def fn(c):
+            return ord(c)
+        assert self.interpret(fn, [u'\u03b1']) == ord(u'\u03b1')
 
-def test_unichar_hash():
-    def fn(c):
-        d = {c: 42}
-        return d[c]
-    assert interpret(fn, [u'\u03b1']) == 42
+    def test_unichar_hash(self):
+        def fn(c):
+            d = {c: 42}
+            return d[c]
+        assert self.interpret(fn, [u'\u03b1']) == 42
 
-def test_str_compare():
-    def fn(i, j):
-        s1 = ['one', 'two', None]
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar', None]
-        return s1[i] == s2[j]
-    for i in range(3):
-        for j in range(7):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+    def test_is_none(self):
+        def fn(i):
+            s1 = ['foo', None][i]
+            return s1 is None
+        assert self.interpret(fn, [0]) == False
+        assert self.interpret(fn, [1]) == True
 
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
-        return s1[i] != s2[j]
-    for i in range(2):
-        for j in range(6):
-            res = interpret(fn, [i, j])
-            assert res is fn(i, j)
+    def test_str_compare(self):
+        def fn(i, j):
+            s1 = ['one', 'two', None]
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar', None]
+            return s1[i] == s2[j]
+        for i in range(3):
+            for j in range(7):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
 
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
-        return s1[i] < s2[j]
-    for i in range(2):
-        for j in range(6):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] != s2[j]
+        for i in range(2):
+            for j in range(6):
+                res = self.interpret(fn, [i, j])
+                assert res is fn(i, j)
 
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
-        return s1[i] <= s2[j]
-    for i in range(2):
-        for j in range(6):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] < s2[j]
+        for i in range(2):
+            for j in range(6):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
 
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
-        return s1[i] >= s2[j]
-    for i in range(2):
-        for j in range(6):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] <= s2[j]
+        for i in range(2):
+            for j in range(6):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
 
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
-        return s1[i] > s2[j]
-    for i in range(2):
-        for j in range(6):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] >= s2[j]
+        for i in range(2):
+            for j in range(6):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
 
-def test_startswith():
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
-        return s1[i].startswith(s2[j])
-    for i in range(2):
-        for j in range(9):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] > s2[j]
+        for i in range(2):
+            for j in range(6):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
 
-def test_endswith():
-    def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
-        return s1[i].endswith(s2[j])
-    for i in range(2):
-        for j in range(9):
-            res = interpret(fn, [i,j])
-            assert res is fn(i, j)
+    def test_startswith(self):
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+            return s1[i].startswith(s2[j])
+        for i in range(2):
+            for j in range(9):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
+
+    def test_endswith(self):
+        def fn(i, j):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+            return s1[i].endswith(s2[j])
+        for i in range(2):
+            for j in range(9):
+                res = self.interpret(fn, [i,j])
+                assert res is fn(i, j)
 
 def test_find():
     def fn(i, j):
