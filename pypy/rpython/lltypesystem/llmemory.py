@@ -284,6 +284,7 @@ def itemoffsetof(TYPE, n=0):
 
 class fakeaddress(object):
     def __init__(self, ob, offset=None):
+        #assert not isinstance(ob, lltype._parentable) - XXX in-progress
         self.ob = ob or None    # replace null pointers with None
         self.offset = offset
 
@@ -422,7 +423,7 @@ class _address_fakeaccessor(_fakeaccessor):
     def convert(self, value):
         if isinstance(value, lltype._ptr):
             return fakeaddress(value)
-        elif isinstance(value, Address):
+        elif lltype.typeOf(value) == Address:
             return value
         else:
             raise TypeError(value)
