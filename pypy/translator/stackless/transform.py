@@ -33,7 +33,7 @@ from pypy.translator.stackless.frame import storage_type
 #         try:
 #             retval = g(x)
 #         except code.UnwindException, u:
-#             state = lltype.malloc(STATE_func_0)
+#             state = lltype.malloc(STATE_func_0, flavor='gc_nocollect')
 #             state.header.f_restart = <index in array of frame.FRAMEINFO>
 #             state.saved_long_0 = x
 #             code.add_frame_state(u, state.header)
@@ -98,7 +98,8 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
 
     def operation_is_true(self, op):
         return (op.opname == 'yield_current_frame_to_caller' or
-                op.opname.startswith('malloc') and self.stackless_gc)
+                self.stackless_gc and (op.opname.startswith('malloc')
+                                       or op.opname == 'gc__collect'))
 
     def analyze_link(self, graph, link):
         if link.target is graph.exceptblock:
@@ -121,6 +122,7 @@ class StacklessTransformer(object):
 
     def __init__(self, translator, entrypoint, stackless_gc=False):
         self.translator = translator
+        self.stackless_gc = stackless_gc
 
         self.frametyper = FrameTyper()
         self.masterarray1 = []
@@ -221,6 +223,7 @@ class StacklessTransformer(object):
         self.c_minus_one = model.Constant(-1, lltype.Signed)
         self.c_null_state = model.Constant(null_state,
                                            lltype.typeOf(null_state))
+        self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
 
         # register the prebuilt restartinfos
         for restartinfo in frame.RestartInfo.prebuilt:
@@ -236,6 +239,8 @@ class StacklessTransformer(object):
         
         if hasattr(graph, 'func'):
             if getattr(graph.func, 'stackless_explicit', False):
+                if self.stackless_gc:
+                    self.transform_gc_nocollect(graph)
                 return
 
         if not self.analyzer.analyze_direct_call(graph):
@@ -396,8 +401,8 @@ class StacklessTransformer(object):
                 op = replace_with_call(self.yield_current_frame_to_caller_ptr)
                 stackless_op = True
                 
-            if (op.opname in ('direct_call', 'indirect_call') or
-                op.opname.startswith('malloc')):
+            if (op.opname in ('direct_call', 'indirect_call')
+                or self.analyzer.operation_is_true(op)):
                 # trap calls to stackless-related suggested primitives
                 if op.opname == 'direct_call':
                     func = getattr(op.args[0].value._obj, '_callable', None)
@@ -495,11 +500,17 @@ class StacklessTransformer(object):
         saveops = save_state_block.operations
         frame_state_var = varoftype(lltype.Ptr(frame_type))
 
-        saveops.append(model.SpaceOperation(
-            'malloc',
-            [model.Constant(frame_type, lltype.Void)],
-            frame_state_var))
-        
+        if self.stackless_gc:
+            saveops.append(model.SpaceOperation(
+                'flavored_malloc',
+                [self.c_gc_nocollect, model.Constant(frame_type, lltype.Void)],
+                frame_state_var))
+        else:
+            saveops.append(model.SpaceOperation(
+                'malloc',
+                [model.Constant(frame_type, lltype.Void)],
+                frame_state_var))
+
         saveops.extend(self.generate_saveops(frame_state_var, inputargs,
                                              fieldnames))
 
@@ -576,3 +587,14 @@ class StacklessTransformer(object):
         ll_global_state = self.ll_global_state.value
         ll_global_state.inst_masterarray = masterarray
         return [masterarray]
+
+    def transform_gc_nocollect(self, graph):
+        # for the framework gc: in stackless_explicit graphs, make sure
+        # that the mallocs won't trigger a collect.
+        for block in graph.iterblocks():
+            for i, op in enumerate(block.operations):
+                if op.opname.startswith('malloc'):
+                    newop = model.SpaceOperation('flavored_' + op.opname,
+                                                 [self.c_gc_nocollect]+op.args,
+                                                 op.result)
+                    block.operations[i] = newop

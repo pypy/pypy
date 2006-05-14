@@ -140,11 +140,12 @@ class MarkSweepGC(GCBase):
         if self.is_varsize(typeid):
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            return self.malloc_varsize(typeid, length, size, itemsize, offset_to_length)
-        return self.malloc_fixedsize(typeid, size)
+            return self.malloc_varsize(typeid, length, size, itemsize,
+                                       offset_to_length, True)
+        return self.malloc_fixedsize(typeid, size, True)
 
-    def malloc_fixedsize(self, typeid, size):
-        if self.bytes_malloced > self.heap_size:
+    def malloc_fixedsize(self, typeid, size, can_collect):
+        if can_collect and self.bytes_malloced > self.heap_size:
             self.collect()
         size_gc_header = MarkSweepGC._size_gc_header
         result = raw_malloc(size + size_gc_header)
@@ -152,9 +153,10 @@ class MarkSweepGC(GCBase):
         self.malloced_objects.append(result)
         self.bytes_malloced += size + size_gc_header
         return result + size_gc_header
-         
-    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length):
-        if self.bytes_malloced > self.heap_size:
+
+    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
+                       can_collect):
+        if can_collect and self.bytes_malloced > self.heap_size:
             self.collect()
         try:
             varsize = rarithmetic.ovfcheck(length * itemsize)
@@ -242,6 +244,8 @@ class MarkSweepGC(GCBase):
         self.malloced_objects = newmo
         if curr_heap_size > self.heap_size:
             self.heap_size = curr_heap_size
+        # warning, the following debug print allocates memory to manipulate
+        # the strings!  so it must be at the end
         os.write(2, "freed %s bytes. the heap is now %s bytes.\n" % (freed_size, curr_heap_size))
 
     def size_gc_header(self, typeid=0):

@@ -304,7 +304,7 @@ LL_OPERATIONS = {
 
     # __________ GC operations __________
 
-    'gc__collect':          LLOp(),
+    'gc__collect':          LLOp(canraise=(Exception,)),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),

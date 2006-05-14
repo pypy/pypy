@@ -35,6 +35,7 @@ class StacklessTest(object):
         s_list_of_strings = SomeList(ListDef(None, SomeString()))
         s_list_of_strings.listdef.resize()
         t = TranslationContext()
+        self.t = t
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
         if self.backendopt:

@@ -783,4 +783,7 @@ $(TARGET): $(OBJECTS)
 
 clean:
 \trm -f $(OBJECTS) $(TARGET)
+
+debug: clean
+\tmake CFLAGS="-g -pthread"
 '''

@@ -138,13 +138,20 @@ class MixLevelHelperAnnotator:
         # get a delayed pointer to the low-level function, annotated as
         # specified.  The pointer is only valid after finish() was called.
         graph = self.getgraph(ll_function, args_s, s_result)
+        return self.graph2delayed(graph)
+
+    def constfunc(self, ll_function, args_s, s_result):
+        p = self.delayedfunction(ll_function, args_s, s_result)
+        return Constant(p, lltype.typeOf(p))
+
+    def graph2delayed(self, graph):
         FUNCTYPE = lltype.ForwardReference()
         delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), "delayed!", solid=True)
         self.delayedfuncs.append((delayedptr, graph))
         return delayedptr
 
-    def constfunc(self, ll_function, args_s, s_result):
-        p = self.delayedfunction(ll_function, args_s, s_result)
+    def graph2const(self, graph):
+        p = self.graph2delayed(graph)
         return Constant(p, lltype.typeOf(p))
 
     def getdelayedrepr(self, s_value):

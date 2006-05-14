@@ -44,6 +44,10 @@ class GCTransformer(object):
         if inline:
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
         self.graphs_to_inline = {}
+        if self.MinimalGCTransformer:
+            self.minimalgctransformer = self.MinimalGCTransformer(self)
+        else:
+            self.minimalgctransformer = None
 
     def get_lltype_of_exception_value(self):
         if self.translator is not None:
@@ -62,7 +66,8 @@ class GCTransformer(object):
 
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
-            MinimalGCTransformer(self.translator).transform_graph(graph)
+            if self.minimalgctransformer:
+                self.minimalgctransformer.transform_graph(graph)
             del self.minimal_transform[graph]
             return
         if graph in self.seen_graphs:
@@ -281,12 +286,18 @@ class GCTransformer(object):
             self.mixlevelannotator.finish_rtype()
 
 class MinimalGCTransformer(GCTransformer):
+    def __init__(self, parenttransformer):
+        GCTransformer.__init__(self, parenttransformer.translator)
+        self.parenttransformer = parenttransformer
+
     def push_alive(self, var):
         return []
 
     def pop_alive(self, var):
         return []
 
+GCTransformer.MinimalGCTransformer = MinimalGCTransformer
+MinimalGCTransformer.MinimalGCTransformer = None
 
 # ----------------------------------------------------------------
 
@@ -586,12 +597,6 @@ def varoftype(concretetype):
     var.concretetype = concretetype
     return var
 
-def const_funcptr_fromgraph(graph):
-    FUNC = lltype.FuncType([v.concretetype for v in graph.startblock.inputargs],
-                           graph.returnblock.inputargs[0].concretetype)
-    return rmodel.inputconst(lltype.Ptr(FUNC),
-                             typesystem.getfunctionptr(graph))
-
 def find_gc_ptrs_in_type(TYPE):
     if isinstance(TYPE, lltype.Array):
         return find_gc_ptrs_in_type(TYPE.OF)
@@ -724,6 +729,7 @@ class CollectAnalyzer(graphanalyze.GraphAnalyzer):
 
 class FrameworkGCTransformer(GCTransformer):
     use_stackless = False
+    extra_static_slots = 0
 
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
@@ -824,50 +830,52 @@ class FrameworkGCTransformer(GCTransformer):
             annmodel.SomeAddress())
         
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
-        frameworkgc_setup_graph = annhelper.getgraph(frameworkgc_setup, [],
-                                                     annmodel.s_None)
+
+        def getfn(ll_function, args_s, s_result, inline=False):
+            graph = annhelper.getgraph(ll_function, args_s, s_result)
+            self.need_minimal_transform(graph)
+            if inline:
+                self.graphs_to_inline[graph] = True
+            return annhelper.graph2const(graph)
+
+        self.frameworkgc_setup_ptr = getfn(frameworkgc_setup, [],
+                                           annmodel.s_None)
         if StackRootIterator.push_root is None:
-            push_root_graph = None
+            self.push_root_ptr = None
         else:
-            push_root_graph = annhelper.getgraph(StackRootIterator.push_root,
-                                                 [annmodel.SomeAddress()],
-                                                 annmodel.s_None)
+            self.push_root_ptr = getfn(StackRootIterator.push_root,
+                                       [annmodel.SomeAddress()],
+                                       annmodel.s_None,
+                                       inline = True)
         if StackRootIterator.pop_root is None:
-            pop_root_graph = None
+            self.pop_root_ptr = None
         else:
-            pop_root_graph = annhelper.getgraph(StackRootIterator.pop_root, [],
-                                                annmodel.s_None)
+            self.pop_root_ptr = getfn(StackRootIterator.pop_root, [],
+                                      annmodel.s_None,
+                                      inline = True)
 
         classdef = bk.getuniqueclassdef(GCData.GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
-        malloc_fixedsize_graph = annhelper.getgraph(
+        self.malloc_fixedsize_ptr = getfn(
             GCData.GCClass.malloc_fixedsize.im_func,
             [s_gcdata, annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeInteger(nonneg=True)], annmodel.SomeAddress())
-        malloc_varsize_graph = annhelper.getgraph(
+             annmodel.SomeInteger(nonneg=True),
+             annmodel.SomeBool()], annmodel.SomeAddress(),
+            inline = True)
+        self.malloc_varsize_ptr = getfn(
             GCData.GCClass.malloc_varsize.im_func,
-            [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)],
-            annmodel.SomeAddress())
-        collect_graph = annhelper.getgraph(GCData.GCClass.collect.im_func,
+            [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
+            + [annmodel.SomeBool()], annmodel.SomeAddress())
+        self.collect_ptr = getfn(GCData.GCClass.collect.im_func,
             [s_gcdata], annmodel.s_None)
         annhelper.finish()   # at this point, annotate all mix-level helpers
-        self.frameworkgc_setup_ptr = self.graph2funcptr(frameworkgc_setup_graph)
-        if push_root_graph is None:
-            self.push_root_ptr = None
-        else:
-            self.push_root_ptr = self.graph2funcptr(push_root_graph)
-            self.graphs_to_inline[push_root_graph] = True
-        if pop_root_graph is None:
-            self.pop_root_ptr = None
-        else:
-            self.pop_root_ptr = self.graph2funcptr(pop_root_graph)
-            self.graphs_to_inline[pop_root_graph] = True
-        self.malloc_fixedsize_ptr = self.graph2funcptr(malloc_fixedsize_graph)
-        self.malloc_varsize_ptr = self.graph2funcptr(malloc_varsize_graph)
-        self.collect_ptr = self.graph2funcptr(collect_graph)
-        self.graphs_to_inline[malloc_fixedsize_graph] = True
+
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()
+
+        s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
+        r_gc = self.translator.rtyper.getrepr(s_gc)
+        self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
 
     def build_stack_root_iterator(self):
         rootstacksize = 640*1024    # XXX adjust
@@ -913,10 +921,6 @@ class FrameworkGCTransformer(GCTransformer):
                 return llmemory.NULL
 
         return StackRootIterator
-
-    def graph2funcptr(self, graph):
-        self.need_minimal_transform(graph)
-        return const_funcptr_fromgraph(graph)
 
     def get_type_id(self, TYPE):
         try:
@@ -1017,7 +1021,8 @@ class FrameworkGCTransformer(GCTransformer):
             #self.gcdata.type_info_table = table
 
             ll_static_roots = lltype.malloc(lltype.Array(llmemory.Address),
-                                            len(self.static_gc_roots),
+                                            len(self.static_gc_roots) +
+                                                self.extra_static_slots,
                                             immortal=True)
             for i in range(len(self.static_gc_roots)):
                 c = self.static_gc_roots[i]
@@ -1055,7 +1060,17 @@ class FrameworkGCTransformer(GCTransformer):
     replace_indirect_call  = replace_direct_call
 
     def replace_malloc(self, op, livevars, block):
-        TYPE = op.args[0].value
+        if op.opname.startswith('flavored_'):
+            flavor = op.args[0].value
+            TYPE = op.args[1].value
+        else:
+            flavor = 'gc'
+            TYPE = op.args[0].value
+
+        if not flavor.startswith('gc'):
+            return [op], 0
+        c_can_collect = rmodel.inputconst(lltype.Bool,
+                                          flavor != 'gc_nocollect')
         PTRTYPE = op.result.concretetype
         assert PTRTYPE.TO == TYPE
         type_id = self.get_type_id(TYPE)
@@ -1064,20 +1079,16 @@ class FrameworkGCTransformer(GCTransformer):
         c_type_id = rmodel.inputconst(lltype.Signed, type_id)
         info = self.type_info_list[type_id]
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
-
-        # surely there's a better way of doing this?
-        s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
-        r_gc = self.translator.rtyper.getrepr(s_gc)
-        const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
-        if len(op.args) == 1:
-            args = [self.malloc_fixedsize_ptr, const_gc, c_type_id,
-                    c_size]
+        if not op.opname.endswith('_varsize'):
+            args = [self.malloc_fixedsize_ptr, self.c_const_gc, c_type_id,
+                    c_size, c_can_collect]
         else:
-            v_length = op.args[1]
+            v_length = op.args[-1]
             c_ofstolength = rmodel.inputconst(lltype.Signed, info['ofstolength'])
             c_varitemsize = rmodel.inputconst(lltype.Signed, info['varitemsize'])
-            args = [self.malloc_varsize_ptr, const_gc, c_type_id,
-                    v_length, c_size, c_varitemsize, c_ofstolength] 
+            args = [self.malloc_varsize_ptr, self.c_const_gc, c_type_id,
+                    v_length, c_size, c_varitemsize, c_ofstolength,
+                    c_can_collect]
         newop = SpaceOperation("direct_call", args, v)
         ops, index = self.protect_roots(newop, livevars, block,
                                         block.operations.index(op))
@@ -1085,14 +1096,14 @@ class FrameworkGCTransformer(GCTransformer):
         return ops
 
     replace_malloc_varsize = replace_malloc
+    replace_flavored_malloc = replace_malloc
+    replace_flavored_malloc_varsize = replace_malloc
 
     def replace_gc__collect(self, op, livevars, block):
-        # surely there's a better way of doing this?
-        s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
-        r_gc = self.translator.rtyper.getrepr(s_gc)
-        const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
         newop = SpaceOperation(
-                    "direct_call", [self.collect_ptr, const_gc], op.result)
+                    "direct_call",
+                    [self.collect_ptr, self.c_const_gc],
+                    op.result)
         ops, index = self.protect_roots(newop, livevars, block,
                                         block.operations.index(op))
         return ops
@@ -1147,9 +1158,25 @@ def offsets_to_gc_pointers(TYPE):
         offsets.append(0)
     return offsets
 
+# ____________________________________________________________
+
+
+class StacklessFrameworkMinimalGCTransformer(MinimalGCTransformer):
+    def replace_flavored_malloc(self, op, livevars, block):
+        flavor = op.args[0].value
+        if flavor == 'gc_nocollect':
+            return self.parenttransformer.replace_flavored_malloc(op,
+                                                                  livevars,
+                                                                  block)
+        else:
+            return [op], 0
+    replace_flavored_malloc_varsize = replace_flavored_malloc
+
 
 class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
     use_stackless = True
+    extra_static_slots = 1     # for the stack_capture()'d frame
+    MinimalGCTransformer = StacklessFrameworkMinimalGCTransformer
 
     def build_stack_root_iterator(self):
         from pypy.rpython.rstack import stack_capture
@@ -1167,9 +1194,11 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
             pop_root = None
 
             def __init__(self):
-                self.provide_current_frame = True
+                frame = llmemory.cast_ptr_to_adr(stack_capture())
                 self.static_current = gcdata.static_root_start
-                self.static_roots_index = len(gcdata.static_roots)
+                index = len(gcdata.static_roots)
+                self.static_roots_index = index
+                gcdata.static_roots[index-1] = frame
 
             def pop(self):
                 while self.static_current != gcdata.static_root_end:
@@ -1181,11 +1210,9 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
                 if i > 0:
                     i -= 1
                     self.static_roots_index = i
-                    return gcdata.static_roots[i]
-                if self.provide_current_frame:
-                    self.provide_current_frame = False
-                    frame = stack_capture()
-                    return llmemory.cast_ptr_to_adr(frame)
+                    p = lltype.direct_arrayitems(gcdata.static_roots)
+                    p = lltype.direct_ptradd(p, i)
+                    return llmemory.cast_ptr_to_adr(p)
                 return llmemory.NULL
 
         return StackRootIterator

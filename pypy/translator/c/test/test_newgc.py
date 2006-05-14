@@ -570,6 +570,7 @@ class TestUsingStacklessFramework(TestUsingFramework):
         runner.gcpolicy = self.gcpolicy
         runner.stacklessmode = True
         res = runner.wrap_stackless_function(f)
+        self.t = runner.t
         def compiled():
             return res
         return compiled
