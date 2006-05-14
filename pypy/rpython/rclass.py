@@ -193,10 +193,3 @@ class AbstractInstanceRepr(Repr):
 def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
     rinstance = getinstancerepr(rtyper, classdef)
     return rinstance.new_instance(llops, classcallhop)
-
-def instance_annotation_for_cls(rtyper, cls):
-    try:
-        classdef = rtyper.annotator.getuserclasses()[cls]
-    except KeyError:
-        raise TyperError("no classdef: %r" % (cls,))
-    return annmodel.SomeInstance(classdef)

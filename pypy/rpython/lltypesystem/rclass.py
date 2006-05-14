@@ -8,8 +8,7 @@ from pypy.rpython.rclass import AbstractClassRepr,\
                                 AbstractInstanceRepr,\
                                 MissingRTypeAttribute,\
                                 getclassrepr, getinstancerepr,\
-                                get_type_repr, rtype_new_instance,\
-                                instance_annotation_for_cls
+                                get_type_repr, rtype_new_instance
 from pypy.rpython.lltypesystem.lltype import \
      ForwardReference, GcForwardReference, \
      Ptr, Struct, GcStruct, malloc, \
