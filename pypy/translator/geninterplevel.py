@@ -631,17 +631,11 @@ else:
     nameof_method = nameof_instancemethod   # when run on top of PyPy
 
     def should_translate_attr(self, pbc, attr):
-        ann = self.translator.annotator
-        if ann is None:
-            ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
-            if attr in ignore:
-                return False
-            else:
-                return "probably"   # True
-        classdef = ann.getuserclasses().get(pbc.__class__)
-        if classdef and classdef.about_attribute(attr) is not None:
-            return True
-        return False
+        ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
+        if attr in ignore:
+            return False
+        else:
+            return "probably"   # True
 
     def later(self, gen):
         self.latercode.append1((gen, self.debugstack))
