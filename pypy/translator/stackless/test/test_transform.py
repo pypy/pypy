@@ -9,7 +9,7 @@ from pypy.rpython import llinterp
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph
 from pypy.annotation import model as annmodel
-from pypy.annotation.listdef import ListDef 
+from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 
 def test_frame_typer():
@@ -227,8 +227,6 @@ def test_dont_transform_too_much():
                 assert op != block.operations[-1]
 
 def rtype_stackless_function(fn):
-    s_list_of_strings = annmodel.SomeList(ListDef(None, annmodel.SomeString()))
-    s_list_of_strings.listdef.resize()
     t = TranslationContext()
     annotator = t.buildannotator()
     annotator.policy.allow_someobjects = False

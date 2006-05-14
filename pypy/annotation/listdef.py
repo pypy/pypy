@@ -1,4 +1,5 @@
 from pypy.annotation.model import SomeObject, SomeImpossibleValue
+from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.model import unionof, TLS, UnionError, isdegenerated
 
 
@@ -135,3 +136,6 @@ class ListDef:
 
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
+
+s_list_of_strings = SomeList(ListDef(None, SomeString()))
+s_list_of_strings.listdef.resize()

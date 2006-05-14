@@ -2,8 +2,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
-from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.rstack import stack_unwind, stack_frames_depth, stack_too_big
 from pypy.rpython.rstack import yield_current_frame_to_caller
 import os
@@ -32,8 +31,6 @@ class StacklessTest(object):
             os.write(1, str(fn())+"\n")
             return 0
 
-        s_list_of_strings = SomeList(ListDef(None, SomeString()))
-        s_list_of_strings.listdef.resize()
         t = TranslationContext()
         self.t = t
         t.buildannotator().build_types(entry_point, [s_list_of_strings])

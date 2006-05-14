@@ -1,6 +1,6 @@
 import autopath
 import py
-from pypy.translator.c.node import PyObjectNode
+from pypy.translator.c.node import PyObjectNode, FuncNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename, NameManager
@@ -131,6 +131,16 @@ class CBuilder(object):
         if self.standalone:
             self.gen_makefile(targetdir)
         return cfile 
+
+    def generate_graphs_for_llinterp(self, db=None):
+        # prepare the graphs as when the source is generated, but without
+        # actually generating the source.
+        if db is None:
+            db = self.build_database()
+        for node in db.containerlist:
+            if isinstance(node, FuncNode):
+                for funcgen in node.funcgens:
+                    funcgen.patch_graph(copy_graph=False)
 
 
 class CExtModuleBuilder(CBuilder):

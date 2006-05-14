@@ -4,7 +4,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.taskengine import SimpleTaskEngine
 from pypy.translator.goal import query
 from pypy.annotation import model as annmodel
-from pypy.annotation import listdef
+from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
 import optparse
 
@@ -106,9 +106,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.standalone = standalone
 
         if standalone:
-            ldef = listdef.ListDef(None, annmodel.SomeString())
-            ldef.resize()
-            inputtypes = [annmodel.SomeList(ldef)]
+            inputtypes = [s_list_of_strings]
         self.inputtypes = inputtypes
 
         if policy is None:

@@ -335,6 +335,7 @@ class ExtTypeOpaqueDefNode:
 
 
 class ContainerNode(object):
+    is_later_container = False
     if USESLOTS:
         __slots__ = """db T obj 
                        typename implementationtypename
@@ -555,6 +556,8 @@ class FuncNode(ContainerNode):
             self.name = db.namespace.uniquename('g_' + self.basename())
         if not getattr(obj, 'isgchelper', False):
             self.make_funcgens()
+        else:
+            self.is_later_container = True
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
         self.ptrname = self.name

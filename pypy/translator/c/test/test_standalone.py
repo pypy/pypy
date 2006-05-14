@@ -1,7 +1,6 @@
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.genc import CStandaloneBuilder
-from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.listdef import s_list_of_strings
 import os
 
 
@@ -14,8 +13,6 @@ def test_hello_world():
             os.write(1, "   '" + str(s) + "'\n")
         return 0
 
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    s_list_of_strings.listdef.resize()
     t = TranslationContext()
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()

@@ -684,14 +684,32 @@ def test_count_vars_big():
 # ______________________________________________________________________
 # tests for FrameworkGCTransformer
 
-def DONT_test_framework_simple():
+def test_framework_simple():
     def g(x):
         return x + 1
     class A(object):
         pass
-    def f():
+    def entrypoint(argv):
         a = A()
         a.b = g(1)
-        return a.b
-    t, transformer = rtype_and_transform(f, [], gctransform.FrameworkGCTransformer, check=False)
-    # assert did not crash :-/
+        return str(a.b)
+
+    from pypy.rpython.llinterp import LLInterpreter
+    from pypy.translator.c.genc import CStandaloneBuilder
+    from pypy.translator.c import gc
+    from pypy.annotation.listdef import s_list_of_strings
+    
+    t = rtype(entrypoint, [s_list_of_strings])
+    cbuild = CStandaloneBuilder(t, entrypoint, gc.FrameworkGcPolicy)
+    cbuild.generate_graphs_for_llinterp()
+    entrypointptr = cbuild.getentrypointptr()
+    entrygraph = entrypointptr._obj.graph
+
+    r_list_of_strings = t.rtyper.getrepr(s_list_of_strings)
+    ll_argv = r_list_of_strings.convert_const([])
+
+    py.test.skip('in-progress')
+    llinterp = LLInterpreter(t.rtyper)
+    res = llinterp.eval_graph(entrygraph, [ll_argv])
+
+    assert ''.join(res.chars) == "2"

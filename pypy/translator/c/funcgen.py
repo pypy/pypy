@@ -96,18 +96,17 @@ class FunctionCodeGenerator(object):
     def name(self, cname):  #virtual
         return cname
 
-    def implementation_begin(self):
+    def patch_graph(self, copy_graph):
+        graph = self.graph
         if self.db.gctransformer.inline:
-            newgraph = copygraph(self.graph, shallow=True)
-            self.oldgraph = self.graph
-            self.graph = newgraph
-            ## protect
-            #for block in self.oldgraph.iterblocks():
-            #    for op in block.operations:
-            #        op.args = tuple(op.args)
-            self.db.gctransformer.inline_helpers(newgraph)
-        else:
-            self.oldgraph = self.graph
+            if copy_graph:
+                graph = copygraph(graph, shallow=True)
+            self.db.gctransformer.inline_helpers(graph)
+        return graph
+
+    def implementation_begin(self):
+        self.oldgraph = self.graph
+        self.graph = self.patch_graph(copy_graph=True)
         SSI_to_SSA(self.graph)
         self.collect_var_and_types()
         self.blocknum = {}

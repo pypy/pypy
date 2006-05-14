@@ -151,7 +151,7 @@ class LowLevelDatabase(object):
             nodefactory = ContainerNodeFactory[T.__class__]
             node = nodefactory(self, T, container)
             self.containernodes[container] = node
-            if getattr(container, 'isgchelper', False):
+            if node.is_later_container:
                 self.latercontainerlist.append(node)
             else:
                 self.containerlist.append(node)

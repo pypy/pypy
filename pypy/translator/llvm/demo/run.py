@@ -2,8 +2,7 @@ import py
 import os
 import sys
 
-from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.listdef import s_list_of_strings
 
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.genc import CStandaloneBuilder
@@ -16,8 +15,6 @@ def p():
     entry_point([])
 
 def c(name):
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    s_list_of_strings.listdef.resize()
     t = TranslationContext()
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
@@ -30,8 +27,6 @@ def c(name):
     os.system(exe_path)
     
 def l(name):
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    s_list_of_strings.listdef.resize()
     exe_path = genllvm_compile(entry_point, [s_list_of_strings],
                                exe_name=name, standalone=True)
     print 'Running standalone (llvm-based) executable:'

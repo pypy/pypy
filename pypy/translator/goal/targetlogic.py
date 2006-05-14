@@ -3,8 +3,6 @@ from pypy.objspace.logic import Space, newvar, unify
 # XXX from pypy.annotation.model import *
 # since we are execfile()'ed this would pull some
 # weird objects into the globals, which we would try to pickle.
-from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.listdef import ListDef
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy

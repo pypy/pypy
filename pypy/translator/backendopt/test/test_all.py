@@ -92,10 +92,9 @@ def test_list_comp():
 
 def test_premature_death():
     import os
-    from pypy.annotation import listdef
+    from pypy.annotation.listdef import s_list_of_strings
 
-    ldef = listdef.ListDef(None, annmodel.SomeString())
-    inputtypes = [annmodel.SomeList(ldef)]
+    inputtypes = [s_list_of_strings]
 
     def debug(msg): 
         os.write(2, "debug: " + msg + '\n')
