@@ -44,9 +44,9 @@ translation process. These are:
 
 5. One of the Code Generators (back-ends) turns the
    optionally annotated/typed flow graphs and produces a source file in
-   a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or
-   `Python again`_ (this is used in PyPy to turn sufficiently RPythonic
-   app-level code into interp-level code).
+   a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, JavaScript_,
+   Squeak_, CLI_ (.NET), or `Python again`_ (this is used in PyPy to turn
+   sufficiently RPythonic app-level code into interp-level code).
 
 6. This lower-level source file is compiled to produce an executable.
 
@@ -55,9 +55,11 @@ translation process. These are:
 .. _`play around`: getting-started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`control flow graph`: objspace.html#the-flow-model
-.. _`Common Lisp`: http://codespeak.net/pypy/dist/pypy/translator/gencl.py
-.. _Pyrex: http://codespeak.net/pypy/dist/pypy/translator/pyrex/genpyrex.py
-.. _Java: http://codespeak.net/pypy/dist/pypy/translator/java/
+.. _`Common Lisp`: http://codespeak.net/pypy/dist/pypy/translator/cl/
+.. _Pyrex: http://codespeak.net/pypy/dist/pypy/translator/pyrex/
+.. _JavaScript: http://codespeak.net/pypy/dist/pypy/translator/js/
+.. _Squeak: http://codespeak.net/pypy/dist/pypy/translator/squeak/
+.. _CLI: http://codespeak.net/pypy/dist/pypy/translator/cli/
 .. _graph: image/translation.pdf
 
 
