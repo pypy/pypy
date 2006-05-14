@@ -1,5 +1,0 @@
-
-
-class TypeError extends RuntimeException {
-
-};
