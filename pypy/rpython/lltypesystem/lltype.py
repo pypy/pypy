@@ -1098,13 +1098,21 @@ class _struct(_parentable):
 
     def _str_fields(self):
         fields = []
-        for name in self._TYPE._names:
+        names = self._TYPE._names
+        if len(names) > 10:
+            names = names[:5] + names[-1:]
+            skipped_after = 5
+        else:
+            skipped_after = None
+        for name in names:
             T = self._TYPE._flds[name]
             if isinstance(T, Primitive):
                 reprvalue = repr(getattr(self, name))
             else:
                 reprvalue = '...'
             fields.append('%s=%s' % (name, reprvalue))
+        if skipped_after:
+            fields.insert(skipped_after, '(...)')
         return ', '.join(fields)
 
     def __str__(self):
@@ -1160,8 +1168,16 @@ class _array(_parentable):
             return repr(item)
 
     def __str__(self):
-        return 'array [ %s ]' % (', '.join([self._str_item(item)
-                                            for item in self.items]),)
+        items = self.items
+        if len(items) > 20:
+            items = items[:12] + items[-5:]
+            skipped_at = 12
+        else:
+            skipped_at = None
+        items = [self._str_item(item) for item in self.items]
+        if skipped_at:
+            items.insert(skipped_at, '(...)')
+        return 'array [ %s ]' % (', '.join(items),)
 
     def getlength(self):
         return len(self.items)

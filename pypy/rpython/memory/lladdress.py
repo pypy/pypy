@@ -121,6 +121,10 @@ simulator = MemorySimulator()
 def raw_malloc(size):
     return _address(simulator.malloc(size))
 
+def raw_malloc_usage(size):
+    assert isinstance(size, int)
+    return size
+
 def raw_free(addr):
     simulator.free(addr.intaddress)
 

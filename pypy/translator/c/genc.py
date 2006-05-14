@@ -141,6 +141,7 @@ class CBuilder(object):
             if isinstance(node, FuncNode):
                 for funcgen in node.funcgens:
                     funcgen.patch_graph(copy_graph=False)
+        return db
 
 
 class CExtModuleBuilder(CBuilder):

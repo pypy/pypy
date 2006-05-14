@@ -243,3 +243,42 @@ def test_raw_malloc_array():
         assert p[i] == 124 - i
     item_adr = adr + itemoffsetof(A, 50)
     py.test.raises(IndexError, "item_adr.signed[0]")
+
+def test_raw_malloc_gcstruct():
+    from pypy.rpython.memory import gc
+    HDR = lltype.Struct('header', ('a', lltype.Signed))
+    gchdr = gc.GCHeaderOffset(HDR)
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+
+    def allocate():
+        adr = raw_malloc(gchdr + sizeof(S))
+        p = cast_adr_to_ptr(adr, lltype.Ptr(HDR))
+        p.a = -21
+        adr = cast_ptr_to_adr(p)
+        sadr = adr + gchdr
+        s = cast_adr_to_ptr(sadr, lltype.Ptr(S))
+        s.x = 123
+        assert (sadr+offsetof(S, 'x')).signed[0] == 123
+        (sadr+offsetof(S, 'x')).signed[0] = 125
+        assert s.x == 125
+        return s
+
+    s = allocate()
+    adr = cast_ptr_to_adr(s) - gchdr
+    p = cast_adr_to_ptr(adr, lltype.Ptr(HDR))
+    assert p.a == -21
+
+def test_raw_malloc_varsize():
+    A = lltype.Array(lltype.Signed)
+    S = lltype.Struct('S', ('x', lltype.Signed), ('y', A))
+    adr = raw_malloc(offsetof(S, 'y') + itemoffsetof(A, 10))
+    length_adr = adr + offsetof(S, 'y') + ArrayLengthOffset(A)
+    length_adr.signed[0] = 10
+
+    p = cast_adr_to_ptr(adr, lltype.Ptr(S))
+    p.y[7] = 5
+    assert (adr + offsetof(S, 'y') + itemoffsetof(A, 7)).signed[0] == 5
+    (adr + offsetof(S, 'y') + itemoffsetof(A, 7)).signed[0] = 18187
+    assert p.y[7] == 18187
+    py.test.raises(IndexError,
+                   "(adr + offsetof(S, 'y') + itemoffsetof(A, 10)).signed[0]")

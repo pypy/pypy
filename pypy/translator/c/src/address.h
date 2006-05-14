@@ -20,6 +20,8 @@
     r = (void*) calloc(1, size);                                       \
     if (r == NULL) FAIL_EXCEPTION( PyExc_MemoryError, "out of memory");\
 
+#define OP_RAW_MALLOC_USAGE(size, r) r = size
+
 #ifdef MS_WINDOWS
 #define alloca  _alloca
 #endif

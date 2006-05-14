@@ -93,8 +93,7 @@ def convert_offset_to_int(offset):
         layout = get_layout(offset.TYPE)
         return layout[offset.fldname]
     elif isinstance(offset, llmemory.CompositeOffset):
-        return convert_offset_to_int(offset.first) + \
-               convert_offset_to_int(offset.second)
+        return sum([convert_offset_to_int(item) for item in offset.offsets])
     elif type(offset) == llmemory.AddressOffset:
         return 0
     elif isinstance(offset, llmemory.ItemOffset):

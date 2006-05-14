@@ -878,9 +878,9 @@ class FrameworkGCTransformer(GCTransformer):
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
 
     def build_stack_root_iterator(self):
-        rootstacksize = 640*1024    # XXX adjust
         gcdata = self.gcdata
         sizeofaddr = llmemory.sizeof(llmemory.Address)
+        rootstacksize = sizeofaddr * 163840    # XXX adjust
 
         class StackRootIterator:
             _alloc_flavor_ = 'raw'
@@ -944,7 +944,7 @@ class FrameworkGCTransformer(GCTransformer):
                 if isinstance(TYPE, lltype.Struct):
                     ARRAY = TYPE._flds[TYPE._arrayfld]
                     ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
-                    info["ofstolength"] = ofs1
+                    info["ofstolength"] = ofs1 + llmemory.ArrayLengthOffset(ARRAY)
                     if ARRAY.OF != lltype.Void:
                         info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
                     else:

@@ -544,6 +544,10 @@ def raw_malloc(s_size):
     assert isinstance(s_size, SomeInteger) #XXX add noneg...?
     return SomeAddress()
 
+def raw_malloc_usage(s_size):
+    assert isinstance(s_size, SomeInteger) #XXX add noneg...?
+    return SomeInteger(nonneg=True)
+
 def raw_free(s_addr):
     assert isinstance(s_addr, SomeAddress)
     assert not s_addr.is_null
@@ -556,6 +560,7 @@ def raw_memcopy(s_addr1, s_addr2, s_int):
     assert isinstance(s_int, SomeInteger) #XXX add noneg...?
 
 BUILTIN_ANALYZERS[lladdress.raw_malloc] = raw_malloc
+BUILTIN_ANALYZERS[lladdress.raw_malloc_usage] = raw_malloc_usage
 BUILTIN_ANALYZERS[lladdress.raw_free] = raw_free
 BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
 

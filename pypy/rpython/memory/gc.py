@@ -1,5 +1,5 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
-from pypy.rpython.memory.lladdress import NULL, _address
+from pypy.rpython.memory.lladdress import NULL, _address, raw_malloc_usage
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -10,15 +10,10 @@ import sys
 
 int_size = lltypesimulation.sizeof(lltype.Signed)
 
-class GCHeaderOffset(llmemory.AddressOffset):
-    def __init__(self, minimal_layout):
-        self.minimal_layout = minimal_layout
+GCHeaderOffset = llmemory.GCHeaderOffset
 
 gc_header_two_ints = GCHeaderOffset(
     lltype.Struct("header", ("a", lltype.Signed), ("b", lltype.Signed)))
-
-gc_header_one_int = GCHeaderOffset(
-    lltype.Struct("header", ("a", lltype.Signed)))
 
 class GCError(Exception):
     pass
@@ -111,8 +106,10 @@ class DummyGC(GCBase):
 
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
-    
-    _size_gc_header = gc_header_one_int
+
+    HDR = lltype.Struct('header', ('typeid', lltype.Signed))
+    HDRPTR = lltype.Ptr(HDR)
+    _size_gc_header = GCHeaderOffset(HDR)
 
     def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
         self.bytes_malloced = 0
@@ -143,9 +140,10 @@ class MarkSweepGC(GCBase):
             self.collect()
         size_gc_header = MarkSweepGC._size_gc_header
         result = raw_malloc(size_gc_header + size)
-        result.signed[0] = typeid << 1
+        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
+        hdr.typeid = typeid << 1
         self.malloced_objects.append(result)
-        self.bytes_malloced += size + size_gc_header
+        self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
         return result + size_gc_header
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
@@ -153,16 +151,18 @@ class MarkSweepGC(GCBase):
         if can_collect and self.bytes_malloced > self.heap_size:
             self.collect()
         try:
-            varsize = rarithmetic.ovfcheck(length * itemsize)
+            varsize = rarithmetic.ovfcheck(itemsize * length)
         except OverflowError:
             raise MemoryError
+        # XXX also check for overflow on the various '+' below!
         size += varsize
         size_gc_header = MarkSweepGC._size_gc_header
         result = raw_malloc(size_gc_header + size)
         (result + size_gc_header + offset_to_length).signed[0] = length
-        result.signed[0] = typeid << 1
+        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
+        hdr.typeid = typeid << 1
         self.malloced_objects.append(result)
-        self.bytes_malloced += size + size_gc_header
+        self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
         return result + size_gc_header
 
     def collect(self):
@@ -178,10 +178,10 @@ class MarkSweepGC(GCBase):
                 break
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
-            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
-            # constants roots are not malloced and thus don't have their mark
-            # bit reset
-            gc_info.signed[0] = gc_info.signed[0] & (~1)
+##            # constants roots are not malloced and thus don't have their mark
+##            # bit reset
+##            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
+##            gc_info.signed[0] = gc_info.signed[0] & (~1)
         free_non_gc_object(roots)
         while 1:  #mark
             curr = objects.pop()
@@ -189,9 +189,10 @@ class MarkSweepGC(GCBase):
             if curr == NULL:
                 break
             gc_info = curr - MarkSweepGC._size_gc_header
-            if gc_info.signed[0] & 1:
+            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+            if hdr.typeid & 1:
                 continue
-            typeid = gc_info.signed[0] >> 1
+            typeid = hdr.typeid >> 1
             offsets = self.offsets_to_gc_pointers(typeid)
             i = 0
             while i < len(offsets):
@@ -213,7 +214,7 @@ class MarkSweepGC(GCBase):
                         objects.append((item + offsets[j]).address[0])
                         j += 1
                     i += 1
-            gc_info.signed[0] = gc_info.signed[0] | 1
+            hdr.typeid = hdr.typeid | 1
         free_non_gc_object(objects)
         newmo = self.AddressLinkedList()
         curr_heap_size = 0
@@ -222,17 +223,19 @@ class MarkSweepGC(GCBase):
             curr = self.malloced_objects.pop()
             if curr == NULL:
                 break
-            typeid = curr.signed[0] >> 1
+            hdr = llmemory.cast_adr_to_ptr(curr, self.HDRPTR)
+            typeid = hdr.typeid >> 1
             size = self.fixed_size(typeid)
             if self.is_varsize(typeid):
                 length = (curr + MarkSweepGC._size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
                 size += length * self.varsize_item_sizes(typeid)
-            if curr.signed[0] & 1:
-                curr.signed[0] = curr.signed[0] & (~1)
+            estimate = raw_malloc_usage(MarkSweepGC._size_gc_header + size)
+            if hdr.typeid & 1:
+                hdr.typeid = hdr.typeid & (~1)
                 newmo.append(curr)
-                curr_heap_size += size + MarkSweepGC._size_gc_header
+                curr_heap_size += estimate
             else:
-                freed_size += size + MarkSweepGC._size_gc_header
+                freed_size += estimate
                 raw_free(curr)
         free_non_gc_object(self.malloced_objects)
         self.malloced_objects = newmo
@@ -246,7 +249,8 @@ class MarkSweepGC(GCBase):
         return MarkSweepGC._size_gc_header
 
     def init_gc_object(self, addr, typeid):
-        addr.signed[0] = typeid << 1
+        hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+        hdr.typeid = typeid << 1
     init_gc_object_immortal = init_gc_object
 
 class SemiSpaceGC(GCBase):

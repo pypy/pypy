@@ -757,6 +757,10 @@ class LLFrame(object):
         assert lltype.typeOf(size) == lltype.Signed
         return self.heap.raw_malloc(size)
 
+    def op_raw_malloc_usage(self, size):
+        assert lltype.typeOf(size) == lltype.Signed
+        return self.heap.raw_malloc_usage(size)
+
     def op_raw_free(self, addr):
         assert checkadr(addr) 
         self.heap.raw_free(addr)
@@ -924,6 +928,14 @@ class LLFrame(object):
             return x * y
         else:
             return self.original_int_mul(x, y)
+
+    original_int_mul_ovf = op_int_mul_ovf
+
+    def op_int_mul_ovf(self, x, y):
+        if isinstance(x, llmemory.AddressOffset):
+            return x * y
+        else:
+            return self.original_int_mul_ovf(x, y)
 
     def op_unichar_eq(self, x, y):
         assert isinstance(x, unicode) and len(x) == 1

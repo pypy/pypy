@@ -701,15 +701,19 @@ def test_framework_simple():
     
     t = rtype(entrypoint, [s_list_of_strings])
     cbuild = CStandaloneBuilder(t, entrypoint, gc.FrameworkGcPolicy)
-    cbuild.generate_graphs_for_llinterp()
+    db = cbuild.generate_graphs_for_llinterp()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
 
     r_list_of_strings = t.rtyper.getrepr(s_list_of_strings)
     ll_argv = r_list_of_strings.convert_const([])
 
-    py.test.skip('in-progress')
     llinterp = LLInterpreter(t.rtyper)
+    
+    # FIIIIISH
+    setupgraph = db.gctransformer.frameworkgc_setup_ptr.value._obj.graph
+    llinterp.eval_graph(setupgraph, [])
+
     res = llinterp.eval_graph(entrygraph, [ll_argv])
 
     assert ''.join(res.chars) == "2"

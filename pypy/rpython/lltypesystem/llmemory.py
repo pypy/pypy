@@ -21,6 +21,9 @@ class AddressOffset(Symbolic):
             return NotImplemented
         return CompositeOffset(self, other)
 
+    def raw_malloc(self, rest):
+        raise NotImplementedError("raw_malloc(%r, %r)" % (self, rest))
+
 
 class ItemOffset(AddressOffset):
 
@@ -36,12 +39,28 @@ class ItemOffset(AddressOffset):
             return NotImplemented
         return ItemOffset(self.TYPE, self.repeat * other)
 
+    def __neg__(self):
+        return ItemOffset(self.TYPE, -self.repeat)
+
     def ref(self, firstitemref):
         assert isinstance(firstitemref, _arrayitemref)
         array = firstitemref.array
         assert lltype.typeOf(array).TO.OF == self.TYPE
         index = firstitemref.index + self.repeat
         return _arrayitemref(array, index)
+
+    def raw_malloc(self, rest):
+        assert not rest
+        if (isinstance(self.TYPE, lltype.ContainerType)
+            and self.TYPE._gcstatus()):
+            assert self.repeat == 1
+            p = lltype.malloc(self.TYPE)
+            return cast_ptr_to_adr(p)
+        else:
+            T = lltype.FixedSizeArray(self.TYPE, self.repeat)
+            p = lltype.malloc(T, immortal=True)
+            array_adr = cast_ptr_to_adr(p)
+            return array_adr + ArrayItemsOffset(T)
 
 
 class FieldOffset(AddressOffset):
@@ -58,18 +77,50 @@ class FieldOffset(AddressOffset):
         assert lltype.typeOf(struct).TO == self.TYPE
         return _structfieldref(struct, self.fldname)
 
+    def raw_malloc(self, rest, parenttype=None):
+        if self.fldname != self.TYPE._arrayfld:
+            return AddressOffset.raw_malloc(self, rest)   # for the error msg
+        assert rest
+        return rest[0].raw_malloc(rest[1:], parenttype=parenttype or self.TYPE)
+
 
 class CompositeOffset(AddressOffset):
 
-    def __init__(self, first, second):
-        self.first = first
-        self.second = second
+    def __new__(cls, *offsets):
+        lst = []
+        for item in offsets:
+            if isinstance(item, CompositeOffset):
+                lst.extend(item.offsets)
+            else:
+                lst.append(item)
+        for i in range(len(lst)-2, -1, -1):
+            if (isinstance(lst[i], ItemOffset) and
+                isinstance(lst[i+1], ItemOffset) and
+                lst[i].TYPE == lst[i+1].TYPE):
+                lst[i:i+2] = [ItemOffset(lst[i].TYPE,
+                                         lst[i].repeat + lst[i+1].repeat)]
+        if len(lst) == 1:
+            return lst[0]
+        else:
+            self = object.__new__(cls)
+            self.offsets = lst
+            return self
 
     def __repr__(self):
-        return '< %r + %r >'%(self.first, self.second)
+        return '< %s >' % (' + '.join([repr(item) for item in self.offsets]),)
 
-    def ref(self, containerref):
-        return self.second.ref(self.first.ref(containerref))
+    def __neg__(self):
+        ofs = [-item for item in self.offsets]
+        ofs.reverse()
+        return CompositeOffset(*ofs)
+
+    def ref(self, ref):
+        for item in self.offsets:
+            ref = item.ref(ref)
+        return ref
+
+    def raw_malloc(self, rest):
+        return self.offsets[0].raw_malloc(self.offsets[1:] + rest)
 
 
 class ArrayItemsOffset(AddressOffset):
@@ -85,6 +136,21 @@ class ArrayItemsOffset(AddressOffset):
         assert lltype.typeOf(array).TO == self.TYPE
         return _arrayitemref(array, index=0)
 
+    def raw_malloc(self, rest, parenttype=None):
+        if rest:
+            assert len(rest) == 1
+            assert isinstance(rest[0], ItemOffset)
+            assert self.TYPE.OF == rest[0].TYPE
+            count = rest[0].repeat
+        else:
+            count = 0
+        if self.TYPE._hints.get('isrpystring'):
+            count -= 1  # because malloc() will give us the extra char for free
+        p = lltype.malloc(parenttype or self.TYPE, count,
+                          immortal = not self.TYPE._gcstatus())
+        return cast_ptr_to_adr(p)
+
+
 class ArrayLengthOffset(AddressOffset):
 
     def __init__(self, TYPE):
@@ -97,6 +163,57 @@ class ArrayLengthOffset(AddressOffset):
         array = arrayref.get()
         assert lltype.typeOf(array).TO == self.TYPE
         return _arraylenref(array)
+
+
+class GCHeaderOffset(AddressOffset):
+    def __init__(self, minimal_layout):
+        self.minimal_layout = minimal_layout
+
+    def __repr__(self):
+        return '< GCHeaderOffset >'
+
+    def __neg__(self):
+        return GCHeaderAntiOffset(self.minimal_layout)
+
+    def ref(self, headerref):
+        header = headerref.get()
+        gcobj = _gc_header2struct[header._obj]
+        return _obref(lltype._ptr(lltype.Ptr(gcobj._TYPE), gcobj))
+
+    def raw_malloc(self, rest):
+        assert rest
+        if isinstance(rest[0], GCHeaderAntiOffset):
+            return rest[1].raw_malloc(rest[2:])    # just for fun
+        gcobjadr = rest[0].raw_malloc(rest[1:])
+        return gcobjadr - self
+
+
+class GCHeaderAntiOffset(AddressOffset):
+    def __init__(self, minimal_layout):
+        self.minimal_layout = minimal_layout
+
+    def __repr__(self):
+        return '< GCHeaderAntiOffset >'
+
+    def __neg__(self):
+        return GCHeaderOffset(self.minimal_layout)
+
+    def ref(self, gcptrref):
+        gcptr = gcptrref.get()
+        try:
+            headerobj = _gc_struct2header[gcptr._obj]
+        except KeyError:
+            headerobj = lltype.malloc(self.minimal_layout,
+                                      immortal=True)._obj
+            _gc_struct2header[gcptr._obj] = headerobj
+            _gc_header2struct[headerobj] = gcptr._obj
+        p = lltype._ptr(lltype.Ptr(headerobj._TYPE), headerobj, True)
+        return _obref(p)
+
+    def raw_malloc(self, rest):
+        assert rest
+        assert isinstance(rest[0], GCHeaderOffset)
+        return rest[1].raw_malloc(rest[2:])
 
 
 class _arrayitemref(object):
@@ -186,6 +303,11 @@ class fakeaddress(object):
             else:
                 offset = self.offset + other
             return fakeaddress(self.ob, offset)
+        return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, AddressOffset):
+            return self + (-other)
         return NotImplemented
 
     def __nonzero__(self):
@@ -325,20 +447,21 @@ def cast_adr_to_int(adr):
 
 # ____________________________________________________________
 
+import weakref
+_gc_struct2header = weakref.WeakKeyDictionary()
+_gc_header2struct = weakref.WeakKeyDictionary()
+
 def raw_malloc(size):
-    if isinstance(size, ItemOffset):
-        T = lltype.FixedSizeArray(size.TYPE, size.repeat)
-        p = lltype.malloc(T, immortal=True)
-        array_adr = cast_ptr_to_adr(p)
-        return array_adr + ArrayItemsOffset(T)
-    elif isinstance(size, CompositeOffset):
-        if (isinstance(size.first, ArrayItemsOffset) and
-            isinstance(size.second, ItemOffset)):
-            assert size.first.TYPE.OF == size.second.TYPE
-            T = size.first.TYPE
-            p = lltype.malloc(T, size.second.repeat, immortal=True)
-            return cast_ptr_to_adr(p)
-    raise NotImplementedError(size)
+    if not isinstance(size, AddressOffset):
+        raise NotImplementedError(size)
+    return size.raw_malloc([])
 
 def raw_free(adr):
     pass   # for now
+
+def raw_malloc_usage(size):
+    if isinstance(size, AddressOffset):
+        # ouah
+        from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+        size = convert_offset_to_int(size)
+    return size

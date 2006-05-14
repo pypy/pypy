@@ -500,6 +500,10 @@ def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
 
+def rtype_raw_malloc_usage(hop):
+    v_size, = hop.inputargs(lltype.Signed)
+    return hop.genop('raw_malloc_usage', [v_size], resulttype=lltype.Signed)
+
 def rtype_raw_free(hop):
     v_addr, = hop.inputargs(llmemory.Address)
     return hop.genop('raw_free', [v_addr])
@@ -509,6 +513,7 @@ def rtype_raw_memcopy(hop):
     return hop.genop('raw_memcopy', v_list)
 
 BUILTIN_TYPER[lladdress.raw_malloc] = rtype_raw_malloc
+BUILTIN_TYPER[lladdress.raw_malloc_usage] = rtype_raw_malloc_usage
 BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
 BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
 

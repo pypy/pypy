@@ -541,8 +541,8 @@ def generic_initializationexpr(db, value, access_expr, decoration):
 
 class FuncNode(ContainerNode):
     nodekind = 'func'
-    if USESLOTS:
-        __slots__ = """funcgens""".split()
+    # there not so many node of this kind, slots should not
+    # be necessary
 
     def __init__(self, db, T, obj):
         self.globalcontainer = True
@@ -632,8 +632,6 @@ class FuncNode(ContainerNode):
         yield '}'
         del bodyiter
         funcgen.implementation_end()
-
-assert not USESLOTS or '__dict__' not in dir(FuncNode)
 
 def select_function_code_generators(fnobj, db, functionname):
     if fnobj._callable in extfunc.EXTERNALS:

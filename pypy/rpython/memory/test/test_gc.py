@@ -6,7 +6,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.gc import GCError, MarkSweepGC, SemiSpaceGC
 from pypy.rpython.memory.gc import DeferredRefcountingGC, DummyGC
-from pypy.rpython.memory.support import INT_SIZE, CHUNK_SIZE
+from pypy.rpython.memory.support import INT_SIZE
 from pypy.rpython.memory import support
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.simulator import MemorySimulatorError
@@ -14,9 +14,6 @@ from pypy.rpython.memory import gclltype
 from pypy.rpython.memory.test.test_llinterpsim import interpret
 from pypy.rpython.memory.lladdress import simulator
 from pypy.rpython.objectmodel import free_non_gc_object
-
-import struct
-INT_SIZE = struct.calcsize("l")
 
 def setup_module(mod):
     def stdout_ignore_ll_functions(msg):

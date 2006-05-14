@@ -108,6 +108,8 @@ class simulatorptr(object):
                                                                 field_name))
 
     def __getitem__(self, i):
+        if isinstance(self._T, lltype.FixedSizeArray):
+            return self.__getattr__('item%d' % i)
         if isinstance(self._T, lltype.Array):
             if not (0 <= i < self._address.signed[0]):
                 raise IndexError, "array index out of bounds"
@@ -116,6 +118,8 @@ class simulatorptr(object):
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __setitem__(self, i, value):
+        if isinstance(self._T, lltype.FixedSizeArray):
+            return self.__setattr__('item%d' % i, value)
         if isinstance(self._T, lltype.Array):
             T1 = self._T.OF
             if isinstance(T1, lltype.ContainerType):

@@ -1,68 +1,81 @@
-from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.lltypelayout import sizeof
-import struct
 
 INT_SIZE = sizeof(lltype.Signed)
 
-CHUNK_SIZE = 1022
+DEFAULT_CHUNK_SIZE = 1019
 
-class FreeList(object):
-    _alloc_flavor_ = "raw"
+def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE):
 
-    def __init__(self, size):
-        self.free_list = NULL
-        self.size = size
+    CHUNK = lltype.ForwardReference()
+    CHUNK.become(lltype.Struct('AddressLinkedListChunk',
+                               ('previous', lltype.Ptr(CHUNK)),
+                               ('length', lltype.Signed),
+                               ('items', lltype.FixedSizeArray(
+                                   llmemory.Address, chunk_size))))
+    null_chunk = lltype.nullptr(CHUNK)
 
-    def get(self):
-        if self.free_list == NULL:
-            return raw_malloc(self.size * INT_SIZE)
-        result = self.free_list
-        self.free_list = result.address[0]
-        return result
+    class FreeList(object):
+        _alloc_flavor_ = "raw"
 
-    def put(self, chunk):
-        chunk.address[0] = self.free_list
-        self.free_list = chunk
+        def __init__(self):
+            self.free_list = null_chunk
 
-def get_address_linked_list(chunk_size=CHUNK_SIZE):
-    unused_chunks = FreeList(chunk_size + 2)
+        def get(self):
+            if not self.free_list:
+                return lltype.malloc(CHUNK, flavor='raw')
+            result = self.free_list
+            self.free_list = result.previous
+            return result
+
+        def put(self, chunk):
+            chunk.previous = self.free_list
+            self.free_list = chunk
+
+    unused_chunks = FreeList()
+
     class AddressLinkedList(object):
         _alloc_flavor_ = "raw"
         
         def __init__(self):
             self.chunk = unused_chunks.get()
-            self.chunk.address[0] = NULL
-            self.chunk.signed[1] = 0
+            self.chunk.previous = null_chunk
+            self.chunk.length = 0
 
         def append(self, addr):
-            if addr == NULL:
+            if addr == llmemory.NULL:
                 return
-            if self.chunk.signed[1] == chunk_size:
+            if self.chunk.length == chunk_size:
                 new = unused_chunks.get()
-                new.address[0] = self.chunk
-                new.signed[1] = 0
+                new.previous = self.chunk
+                new.length = 0
                 self.chunk = new
-            used_chunks = self.chunk.signed[1]
-            self.chunk.signed[1] += 1
-            self.chunk.address[used_chunks + 2] = addr
+            used_chunks = self.chunk.length
+            self.chunk.length += 1
+            self.chunk.items[used_chunks] = addr
             
         def pop(self):
-            used_chunks = self.chunk.signed[1]
+            used_chunks = self.chunk.length
             if used_chunks == 0:
                 old = self.chunk
-                previous = old.address[0]
-                if previous == NULL:
-                    return NULL
+                previous = old.previous
+                if not previous:
+                    return llmemory.NULL
                 self.chunk = previous
                 unused_chunks.put(old)
-                used_chunks = self.chunk.signed[1]
-            result = self.chunk.address[used_chunks + 1]
-            self.chunk.address[used_chunks + 1] = NULL
-            self.chunk.signed[1] = used_chunks - 1
+                used_chunks = self.chunk.length
+            result = self.chunk.items[used_chunks - 1]
+            #self.chunk.items[used_chunks - 1] = llmemory.NULL
+            self.chunk.length = used_chunks - 1
             return result
 
         def free(self):   # XXX very inefficient
-            while self.pop() != NULL:
-                pass
+            cur = self.chunk
+            while cur.previous:
+                prev = cur.previous
+                unused_chunks.put(cur)
+                cur = prev
+            self.chunk = cur
+            cur.length =  0
+
     return AddressLinkedList

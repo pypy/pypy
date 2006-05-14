@@ -1,5 +1,5 @@
 from pypy.rpython.objectmodel import free_non_gc_object
-from pypy.rpython.memory.support import get_address_linked_list, FreeList
+from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import support
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.test.test_llinterpsim import interpret
@@ -53,7 +53,7 @@ class TestAddressLinkedList(object):
         raw_free(addr)
         
 def test_linked_list_annotate():
-    AddressLinkedList = get_address_linked_list()
+    AddressLinkedList = get_address_linked_list(10)
     def f():
         addr = raw_malloc(100)
         ll = AddressLinkedList()
@@ -69,14 +69,14 @@ def test_linked_list_annotate():
         res = res and (ll.pop() == NULL)
         res = res and (ll.pop() == NULL)
         ll.append(addr)
-        for i in range(3000):
+        for i in range(30):
             ll.append(addr + i)
-        for i in range(2999, -1, -1):
+        for i in range(29, -1, -1):
             a = ll.pop()
             res = res and (a - addr == i)
-        for i in range(3000):
+        for i in range(30):
             ll.append(addr + i)
-        for i in range(2999, -1, -1):
+        for i in range(29, -1, -1):
             a = ll.pop()
             res = res and (a - addr == i)
         ll.free()

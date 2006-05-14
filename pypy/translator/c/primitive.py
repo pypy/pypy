@@ -33,7 +33,8 @@ def name_signed(value, db):
             return 'offsetof(%s, length)'%(
                 cdecl(db.gettype(value.TYPE), ''))
         elif isinstance(value, CompositeOffset):
-            return '(%s + %s)' % (name_signed(value.first, db), name_signed(value.second, db))
+            names = [name_signed(item, db) for item in value.offsets]
+            return '(%s)' % (' + '.join(names),)
         elif type(value) == AddressOffset:
             return '0'
         elif type(value) == GCHeaderOffset:
