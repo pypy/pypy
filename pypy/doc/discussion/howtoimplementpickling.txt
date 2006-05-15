@@ -66,13 +66,34 @@ prickelpit.c file.
 It should be simple and straightforward to redo these implementations.
 Nevertheless there is a complication. The most natural way to support
 pickling is providing a __getstate__/__setstate__ method pair.
-This is ok for extension types like coroutines/tasklets, but
-not allowed to use for existing types, since adding new methods
-would change the interface of these objects. For Stackless,
+This is ok for extension types like coroutines/tasklets which we can
+control, but it should be avoided for existing types.
+
+Consider for instance frames. We would have to add a __getstate__
+and a __setstate__ method, which is an interface change. Furthermore,
+we would need to support creation of frames by calling the
+frame type, which is not really intended.
+
+For other types with are already callable, things get more complicated
+because we need to make sure that creating new instances does
+not interfere with existing ways to call the type.
+
+Directly adding a pickling interface to existing types is quite
+likely to produce overlaps in the calling interface. This happened
+for instance, when the module type became callable, and the signature
+was different from what Stackless added before.
+
+For Stackless,
 I used the copyreg module, instead, and created special surrogate
 objects as placeholders, which replace the type of the object
 after unpickling with the right type pointer. For details, see
 the prickelpit.c file in the Stackless distribution.
+
+As a conclusion, pickling of tasklets is an addition to Stackless,
+but not meand to be an extension to Python. The need to support
+pickling of certain objects should not change the interface.
+It is better to decouple this and to use surrogate types for
+pickling which cannot collide with future additions to Python.
 
 The real problem
 ................
