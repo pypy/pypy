@@ -135,6 +135,10 @@ def setipaddr(space, name, addr_ret, addr_ret_size, af):
     return addr
 		
 def w_makesockaddr(space, caddr, caddrlen, proto):
+    if caddrlen == 0:
+        # No address -- may be recvfrom() from known socket
+        return space.w_None
+
     if caddr.contents.sa_family == _c.AF_INET:
         a = _c.cast(caddr, ctypes.POINTER(_c.sockaddr_in))
         return space.newtuple([space.wrap(_c.inet_ntoa(a.contents.sin_addr)),
@@ -826,8 +830,14 @@ class Socket(Wrappable):
         """
         peeraddr = _c.pointer(_c.sockaddr())
         peeraddrlen = _c.socklen_t(_c.sockaddr_size)
+
+        # XXX Temporary hack for releasing the GIL
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
         newfd = _c.socketaccept(self.fd, peeraddr,
                                 _c.pointer(peeraddrlen))
+        if GIL is not None: GIL.acquire(True)
+        
         if newfd < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
         newsocket = Socket(space, newfd, self.family, self.type, self.proto)
@@ -846,6 +856,10 @@ class Socket(Wrappable):
         if res < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
     bind.unwrap_spec = ['self', ObjSpace, W_Root]
+
+    def __del__(self):
+        if not self.closed:
+            _c.close(self.fd)
 
     def close(self, space):
         """close()
@@ -878,7 +892,13 @@ class Socket(Wrappable):
         instead of raising an exception when an error occurs.
         """
         sockaddr_ptr, sockaddr_len = self._getsockaddr(space, w_addr)
+
+        # XXX Temporary hack for releasing the GIL
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
         err = _c.socketconnect(self.fd, sockaddr_ptr, sockaddr_len)
+        if GIL is not None: GIL.acquire(True)
+
         if err:
             errno = _c.geterrno()
             if self.timeout > 0.0:
@@ -998,7 +1018,13 @@ class Socket(Wrappable):
         the remote end is closed and all data is read, return the empty string.
         """
         buf = _c.create_string_buffer(buffersize)
+
+        # XXX Temporary hack for releasing the GIL
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
         read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+        if GIL is not None: GIL.acquire(True)
+
         if read_bytes < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
         return space.wrap(buf[:read_bytes])
@@ -1012,12 +1038,18 @@ class Socket(Wrappable):
         """
         buf = _c.create_string_buffer(buffersize)
         sockaddr = _c.sockaddr()
-        sockaddr_size = _c.socklen_t()
+        sockaddr_size = _c.socklen_t(_c.sockaddr_size)
+
+        # XXX Temporary hack for releasing the GIL
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
         read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
                                  _c.pointer(sockaddr), _c.pointer(sockaddr_size))
-        w_addr = w_makesockaddr(space, _c.pointer(sockaddr), sockaddr_size.value, self.proto)
+        if GIL is not None: GIL.acquire(True)
+
         if read_bytes < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
+        w_addr = w_makesockaddr(space, _c.pointer(sockaddr), sockaddr_size.value, self.proto)
         return space.newtuple([space.wrap(buf[:read_bytes]), w_addr])
     recvfrom.unwrap_spec = ['self', ObjSpace, int, int]
 
@@ -1028,7 +1060,13 @@ class Socket(Wrappable):
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy.
         """
+
+        # XXX Temporary hack for releasing the GIL
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
         res = _c.send(self.fd, data, len(data), flags)
+        if GIL is not None: GIL.acquire(True)
+
         if res < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
         return space.wrap(res)
@@ -1043,7 +1081,13 @@ class Socket(Wrappable):
         to tell how much data has been sent.
         """
         while data:
+
+            # XXX Temporary hack for releasing the GIL
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
             res = _c.send(self.fd, data, len(data), flags)
+            if GIL is not None: GIL.acquire(True)
+
             if res < 0:
                 raise w_get_socketerror(space, None, _c.geterrno())
             data = data[res:]
@@ -1063,7 +1107,13 @@ class Socket(Wrappable):
             # 3 args version
             flags = space.int_w(w_param2)
             addr, addr_len = self._getsockaddr(space, w_param3)
+
+        # XXX Temporary hack for releasing the GIL
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
         res = _c.sendto(self.fd, data, len(data), flags, addr, addr_len)
+        if GIL is not None: GIL.acquire(True)
+
         if res < 0:
             raise w_get_socketerror(space, None, _c.geterrno())
         return space.wrap(res)
@@ -1141,6 +1191,8 @@ class Socket(Wrappable):
             raise w_get_socketerror(space, None, _c.geterrno())
         
     shutdown.unwrap_spec = ['self', ObjSpace, int]
+
+
 
 app_makefile = gateway.applevel(r'''
 def makefile(self, mode="r", buffersize=-1):
