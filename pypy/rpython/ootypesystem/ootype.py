@@ -820,9 +820,11 @@ class _string(_builtin_type):
         return cmp(self._str, s._str)
 
     def ll_startswith(self, s):
+        # NOT_RPYTHON
         return self._str.startswith(s._str)
 
     def ll_endswith(self, s):
+        # NOT_RPYTHON
         return self._str.endswith(s._str)
 
     # delegate missing ll_* methods to self._str
@@ -834,8 +836,8 @@ class _string(_builtin_type):
 
     @staticmethod
     def wrapper(fn):
-        def f(*args, **kwds):
-            res = fn(*args, **kwds)
+        def f(*args):
+            res = fn(*args)
             if isinstance(res, str):
                 return make_string(res)
             elif isinstance(res, list):
