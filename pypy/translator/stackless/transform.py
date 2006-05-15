@@ -101,15 +101,6 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
                 self.stackless_gc and (op.opname.startswith('malloc')
                                        or op.opname == 'gc__collect'))
 
-    def analyze_link(self, graph, link):
-        if link.target is graph.exceptblock:
-            # XXX is this the right way to do this?
-            op = link.prevblock.operations[-1]
-            if op.opname == 'cast_pointer':
-                ct = op.args[0].concretetype
-                return ct is self.unwindtype
-        return False
-
     def analyze_external_call(self, op):
         callable = op.args[0].value._obj._callable
         #assert getattr(callable, 'suggested_primitive', False)

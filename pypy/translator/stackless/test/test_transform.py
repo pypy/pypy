@@ -5,7 +5,7 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
 from pypy.rpython.memory.gctransform import varoftype
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython import llinterp
+from pypy.rpython import llinterp, rstack
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph
 from pypy.annotation import model as annmodel
@@ -34,8 +34,6 @@ def test_frame_typer():
 
     assert s2_1 is s2_2
 
-from pypy.translator.stackless import code
-
 def factorial(n):
     if n > 1:
         return factorial(n-1) * n
@@ -55,8 +53,7 @@ def test_nothing():
 def test_simple_transform_llinterp():
     def check(x):
         if x:
-            raise code.UnwindException
-    check.stackless_explicit = True
+            rstack.stack_unwind()
     def g(x):
         check(x)
         return x + 1
@@ -68,7 +65,7 @@ def test_simple_transform_llinterp():
 def test_simple_transform_llinterp_float():
     def check(x):
         if x:
-            raise code.UnwindException
+            rstack.stack_unwind()
     def g(x):
         check(x)
         return x + 0.125
@@ -80,7 +77,7 @@ def test_simple_transform_llinterp_float():
 def test_simple_transform_compiled():
     def check(x):
         if x:
-            raise code.UnwindException # XXX or so
+            rstack.stack_unwind()
     def g(x):
         check(x)
         return x + 1
@@ -92,7 +89,7 @@ def test_simple_transform_compiled():
 def test_protected_call():
     def check(x):
         if x:
-            raise code.UnwindException
+            rstack.stack_unwind()
     def g(x):
         check(x)
         return x + 1
@@ -110,7 +107,7 @@ def test_protected_call():
 def test_resume_with_exception():
     def check(x):
         if x:
-            raise code.UnwindException
+            rstack.stack_unwind()
     def g(x):
         check(x)
         if x:
@@ -130,7 +127,7 @@ def test_resume_with_exception():
 def test_resume_with_exception_handling():
     def check(x):
         if x:
-            raise code.UnwindException
+            rstack.stack_unwind()
     def g(x):
         check(x)
         if x:
@@ -151,7 +148,7 @@ def test_resume_with_exception_handling():
 def test_resume_with_exception_handling_with_vals():
     def check(x):
         if x:
-            raise code.UnwindException
+            rstack.stack_unwind()
     def g(x):
         check(x)
         if x:
@@ -173,8 +170,7 @@ def test_resume_with_exception_handling_with_vals():
 def test_listcomp():
     def check(x):
         if x:
-            raise code.UnwindException
-    check.stackless_explicit = True
+            rstack.stack_unwind()
     def f():
         l = one()
         check(l)
@@ -208,8 +204,7 @@ def test_constant_on_link():
 def test_dont_transform_too_much():
     def check(x):
         if x:
-            raise code.UnwindException
-    check.stackless_explicit = True
+            rstack.stack_unwind()
     def f(x):
         return x + 2
     def g(x):
