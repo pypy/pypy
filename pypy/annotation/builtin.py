@@ -376,7 +376,7 @@ from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
 def malloc(T, n=None, s_flavor=None):
-    assert n is None or n.knowntype == int
+    assert n is None or (n.knowntype == int or issubclass(n.knowntype, pypy.rpython.rarithmetic.base_int))
     assert T.is_constant()
     if n is not None:
         n = 1

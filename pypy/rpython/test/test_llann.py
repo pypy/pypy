@@ -53,6 +53,16 @@ class TestLowLevelAnnotateTestCase:
         s = self.annotate(llf, [])
         assert s.knowntype == int
 
+    def test_array_longlong(self):
+        from pypy.rpython.rarithmetic import r_longlong
+        A = GcArray(('v', Signed))
+        one = r_longlong(1)
+        def llf():
+            a = malloc(A, one)
+            return a[0].v
+        s = self.annotate(llf, [])
+        assert s.knowntype == int
+
     def test_prim_array(self):
         A = GcArray(Signed)
         def llf():
