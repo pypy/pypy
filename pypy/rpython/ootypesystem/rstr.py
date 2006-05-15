@@ -129,6 +129,19 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return buf.ll_build()
 
+    def ll_stringslice_startonly(s, start):
+        return s.ll_substring(start, s.ll_strlen() - start)
+
+    def ll_stringslice(s, slice):
+        start = slice.start
+        stop = slice.stop
+        length = s.ll_strlen()        
+        if stop > length:
+            stop = length
+        return s.ll_substring(start, stop-start)
+
+    def ll_stringslice_minusone(s):
+        return s.ll_substring(0, s.ll_strlen()-1)
 
 def add_helpers():
     dic = {}

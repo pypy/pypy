@@ -289,6 +289,7 @@ class String(BuiltinADTType):
             "ll_strip": Meth([Char, Bool, Bool], self.SELFTYPE_T),
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
+            "ll_substring": Meth([Signed, Signed], self.SELFTYPE_T), # ll_substring(start, count)
             })
         self._setup_methods(generic_types)
 
@@ -867,6 +868,9 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return make_string(self._str.lower())
 
+    def ll_substring(self, start, count):
+        # NOT_RPYTHON
+        return make_string(self._str[start:start+count])
 
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):

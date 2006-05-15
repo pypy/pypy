@@ -357,6 +357,25 @@ class AbstractTestRstr:
                 res = self.interpret(fn, [i,j])
                 assert self.ll_to_string(res) == fn(i, j)
 
+    def test_str_slice(self):
+        def fn():
+            s = 'hello'
+            s1 = s[:3]
+            s2 = s[3:]
+            s3 = s[3:10]
+            return s1+s2 == s and s2+s1 == 'lohel' and s1+s3 == s
+        res = self.interpret(fn, ())
+        assert res
+
+    def test_str_slice_minusone(self):
+        def fn():
+            s = 'hello'
+            z = 'h'
+            return s[:-1]+z[:-1]
+        res = self.interpret(fn, ())
+        assert self.ll_to_string(res) == 'hell'
+
+
 def test_parse_fmt():
     assert LLHelpers.parse_fmt_string('a') == ['a']
     assert LLHelpers.parse_fmt_string('%s') == [('s',)]
@@ -412,25 +431,6 @@ def test_strformat_nontuple():
 
     res = interpret(percentS, ['D'])
     assert ''.join(res.chars) == 'before D after'
-
-def test_str_slice():
-    def fn():
-        s = 'hello'
-        s1 = s[:3]
-        s2 = s[3:]
-        s3 = s[3:10]
-        return s1+s2 == s and s2+s1 == 'lohel' and s1+s3 == s
-    res = interpret(fn, ())
-    assert res
-
-def test_str_slice_minusone():
-    def fn():
-        s = 'hello'
-        z = 'h'
-        return s[:-1]+z[:-1]
-    res = interpret(fn, ())
-    assert ''.join(res.chars) == 'hell'
-
 
 def test_strformat_instance():
     class C:
