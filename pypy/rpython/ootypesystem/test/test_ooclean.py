@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.test.test_llinterp import get_interpreter
 import py
+import sys
 
 
 def check_only_ootype(graph):
@@ -446,7 +447,8 @@ def test_hash_preservation():
         #     one line to the next
         current_identityhash = id(d2)
         instance_hash = hash(d2)
-        return current_identityhash == instance_hash
+        return ((current_identityhash & sys.maxint) ==
+                (instance_hash & sys.maxint))
     res = interpret(f1, [])
     assert res is True
 

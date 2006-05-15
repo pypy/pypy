@@ -2,6 +2,7 @@ from pypy.interpreter.pyframe import PyFrame, SuspendedUnroller
 from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import instantiate
 from pypy.objspace.flow.model import *
+from pypy.tool.uid import uid
 
 class FrameState:
     # XXX this class depends on the internal state of PyFrame objects
@@ -140,7 +141,7 @@ def union(w1, w2):
 
 class SpecTag(object):
     def __repr__(self):
-        return 'SpecTag(%d)' % id(self)
+        return 'SpecTag(0x%x)' % uid(self)
     def _freeze_(self):
         return True
 

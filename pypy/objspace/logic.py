@@ -2,6 +2,7 @@ from pypy.objspace.proxy import patch_space_in_place
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import we_are_translated
+from pypy.tool.uid import uid
 
 # wrapped types, mm stuff
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
@@ -150,7 +151,7 @@ if USE_COROUTINES:
             return not (self == other)
 
         def __repr__(self):
-            return '<greenlet %s>' % id(self)
+            return '<greenlet 0x%x>' % uid(self)
 
     def construct_coroutine():
         if we_are_translated():

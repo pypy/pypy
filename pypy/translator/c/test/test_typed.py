@@ -594,7 +594,8 @@ class TestTypedTestCase:
         d = D()
         def fn():
             d2 = D()
-            x = hash(d2) == id(d2) # xxx check for this CPython peculiarity for now
+            # xxx check for this CPython peculiarity for now:
+            x = (hash(d2) & sys.maxint) == (id(d2) & sys.maxint)
             return x, hash(c)+hash(d)
         
         f = self.getcompiled(fn)

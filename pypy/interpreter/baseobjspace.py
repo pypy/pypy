@@ -3,8 +3,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
-from pypy.tool.cache import Cache 
-from pypy.rpython.rarithmetic import r_uint
+from pypy.tool.cache import Cache
+from pypy.tool.uid import HUGEVAL_BYTES
 import os
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -48,9 +48,23 @@ class W_Root(object):
             raise
 
     def getrepr(self, space, info):
-        id = space.int_w(space.id(self)) # xxx ids could be long
-        id = r_uint(id) # XXX what about sizeof(void*) > sizeof(long) !!
-        return space.wrap("<%s at 0x%x>" % (info, id))
+        # XXX slowish
+        w_id = space.id(self)
+        w_4 = space.wrap(4)
+        w_0x0F = space.wrap(0x0F)
+        i = 2 * HUGEVAL_BYTES
+        addrstring = [' '] * i
+        while True:
+            n = space.int_w(space.and_(w_id, w_0x0F))
+            n += ord('0')
+            if n > ord('9'):
+                n += (ord('a') - ord('9') - 1)
+            i -= 1
+            addrstring[i] = chr(n)
+            if i == 0:
+                break
+            w_id = space.rshift(w_id, w_4)
+        return space.wrap("<%s at 0x%s>" % (info, ''.join(addrstring)))
 
     def getslotvalue(self, index):
         raise NotImplementedError

@@ -8,8 +8,7 @@ from pypy.objspace.std.objspace import *
 
 def id__ANY(space, w_obj):
     #print 'id:', w_obj
-    from pypy.objspace.std.inttype import wrapint
-    return wrapint(id(w_obj))
+    return space.wrap(id(w_obj))
 
 # __init__ should succeed if called internally as a multimethod
 

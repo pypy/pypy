@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import get_graph
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.backendopt import support
+from pypy.tool.uid import uid
 
 class CreationPoint(object):
     def __init__(self, creation_method="?"):
@@ -16,8 +17,8 @@ class CreationPoint(object):
             self.malloced = False
 
     def __repr__(self):
-        return ("CreationPoint(<%s>, %s, esc=%s, cha=%s)" %
-                (id(self), self.creation_method, self.escapes, self.changes))
+        return ("CreationPoint(<0x%x>, %s, esc=%s, cha=%s)" %
+                (uid(self), self.creation_method, self.escapes, self.changes))
 
 class VarState(object):
     def __init__(self, crep=None):

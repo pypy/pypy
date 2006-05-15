@@ -18,6 +18,7 @@ By default, two objects x and y are merged by calling x.update(y).
 """
 
 import UserDict
+from pypy.tool.uid import uid
 
 
 class UnionRef(object):
@@ -112,7 +113,7 @@ class UnionDict(object, UserDict.DictMixin):
         return result
 
     def __repr__(self):
-        return "<UnionDict at %s>" % id(self)
+        return "<UnionDict at 0x%x>" % uid(self)
 
     def __getitem__(self, key):
         return self._data[key]()

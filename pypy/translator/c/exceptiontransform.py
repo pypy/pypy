@@ -137,8 +137,8 @@ class ExceptionTransformer(object):
         from the current graph with a special value (False/-1/-1.0/null).
         Because of the added exitswitch we need an additional block.
         """
-        assert id(graph) not in self.seen_graphs
-        self.seen_graphs[id(graph)] = True
+        assert graph not in self.seen_graphs
+        self.seen_graphs[graph] = True
         join_blocks(graph)
         # collect the blocks before changing them
         for block in list(graph.iterblocks()):

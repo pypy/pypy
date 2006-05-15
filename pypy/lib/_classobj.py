@@ -336,7 +336,7 @@ class instance(object):
                 raise TypeError("__hash__() should return an int")
             return ret
         else:
-            return id(self)
+            return object.__hash__(self)
 
     def __len__(self):
         ret = instance_getattr1(self,'__len__')()

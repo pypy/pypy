@@ -20,6 +20,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.objectmodel import UnboxedValue
+from pypy.rpython.rarithmetic import intmask
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -807,7 +808,7 @@ def ll_inst_hash(ins):
         return 0    # for None
     cached = ins.hash_cache
     if cached == 0:
-       cached = ins.hash_cache = id(ins)
+       cached = ins.hash_cache = intmask(id(ins))
     return cached
 
 def ll_inst_type(obj):

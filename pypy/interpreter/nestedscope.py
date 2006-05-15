@@ -3,6 +3,7 @@ from pypy.interpreter.pyopcode import PyInterpFrame
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.tool.uid import uid
 
 class Cell(Wrappable):
     "A simple container for a wrapped value."
@@ -55,7 +56,7 @@ class Cell(Wrappable):
         else:
             content = repr(self.w_value)
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
-                                     content, id(self))
+                                     content, uid(self))
 
 
 class PyNestedScopeFrame(PyInterpFrame):

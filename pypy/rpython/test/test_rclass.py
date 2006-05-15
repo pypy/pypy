@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
@@ -356,7 +357,8 @@ class BaseTestRclass:
         d = D()
         def f():
             d2 = D()
-            x = hash(d2) == id(d2) # xxx check for this CPython peculiarity for now
+            # xxx check for this CPython peculiarity for now:
+            x = (hash(d2) & sys.maxint) == (id(d2) & sys.maxint)
             return x, hash(c)+hash(d)
 
         res = interpret(f, [], type_system=self.ts)
