@@ -115,6 +115,8 @@ def ll_str2charp(s):
     return lltype.direct_arrayitems(s.chars)
 
 def ll_charp2str(p):
+    if not p:
+        return lltype.nullptr(string_repr.lowleveltype.TO)
     length = ll_strlen(p)
     newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
     for i in range(length):

@@ -112,6 +112,11 @@ class Test_specialization:
             assert not c_char_p(None)
         interpret(func, [])
 
+    def test_null_ptr(self):
+        def func():
+            return pointer(c_char_p(None))[0] is None
+        assert interpret(func, [])
+        
     def test_convert_pointers(self):
         from pypy.rpython.rctypes.rchar_p import ll_strlen
         strlen = CFUNCTYPE(c_int, c_char_p)()   # not directly executable!
@@ -155,3 +160,10 @@ class Test_compilation:
         fn = compile(func, [])
         res = fn()
         assert res == "hello"
+
+    def test_null_ptr(self):
+        def func():
+            return pointer(c_char_p(None))[0] is None
+        fn = compile(func, [])
+        assert fn()
+        
