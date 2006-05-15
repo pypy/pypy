@@ -827,30 +827,6 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self._str.endswith(s._str)
 
-    # delegate missing ll_* methods to self._str
-    def __getattr__(self, attr):
-        if attr.startswith('ll_'):
-            return self.wrapper(getattr(self._str, attr[3:]))
-        else:
-            raise AttributeError, attr
-
-    def wrapper(fn):
-        def f(*args):
-            res = fn(*args)
-            if isinstance(res, str):
-                return make_string(res)
-            elif isinstance(res, list):
-                # it must be a list of strings
-                for i, item in enumerate(res):
-                    res[i] = make_string(item)
-                lst = _list(List(String))
-                lst._list = res
-                return lst
-            else:
-                return res
-        return f
-    wrapper = staticmethod(wrapper)
-
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):
         self.__dict__["_TYPE"] = STRING
