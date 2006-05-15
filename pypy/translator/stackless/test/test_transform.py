@@ -47,8 +47,12 @@ def one():   # but the annotator doesn't know it's one
 def test_nothing():
     def fn():
         return 21
-    res = llinterp_stackless_function(fn)
+    res = llinterp_stackless_function(fn, assert_unwind=False)
     assert res == 21
+    info = py.test.raises(
+        llinterp.LLException,
+        "llinterp_stackless_function(fn, assert_unwind=True)")
+    assert ''.join(info.value.args[0].name).strip('\x00') == "AssertionError"        
 
 def test_simple_transform_llinterp():
     def check(x):
@@ -185,6 +189,7 @@ def test_constant_on_link():
         if m > 100:
             raise KeyError
         a = A()
+        rstack.stack_unwind()
         a.m = m + 5
         return a
     def g(n, m):
@@ -255,11 +260,12 @@ def run_stackless_function(fn):
     res = cbuilder.cmdexec('')
     return int(res.strip())
 
-def llinterp_stackless_function(fn, returntranslator=False):
+def llinterp_stackless_function(fn, returntranslator=False,
+                                assert_unwind=True):
     def wrapper(argv):
         return fn()
     t = rtype_stackless_function(wrapper)
-    st = StacklessTransformer(t, wrapper)
+    st = StacklessTransformer(t, wrapper, assert_unwind=assert_unwind)
     st.transform_all()
     if conftest.option.view:
         t.view()

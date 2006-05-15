@@ -111,7 +111,8 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
 
 class StacklessTransformer(object):
 
-    def __init__(self, translator, entrypoint, stackless_gc=False):
+    def __init__(self, translator, entrypoint,
+                 stackless_gc=False, assert_unwind=False):
         self.translator = translator
         self.stackless_gc = stackless_gc
 
@@ -138,14 +139,26 @@ class StacklessTransformer(object):
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
 
-        def slp_entry_point(argv):
-            try:
-                r = entrypoint(argv)
-            except code.UnwindException, u:
-                code.slp_main_loop()
-                return code.global_state.retval_long
-            return r
-        slp_entry_point.stackless_explicit = True
+        if assert_unwind:
+            def slp_entry_point(argv):
+                try:
+                    r = entrypoint(argv)
+                except code.UnwindException, u:
+                    code.slp_main_loop()
+                    return code.global_state.retval_long
+                else:
+                    assert False, "entrypoint never unwound the stack"
+                return r
+            slp_entry_point.stackless_explicit = True
+        else:
+            def slp_entry_point(argv):
+                try:
+                    r = entrypoint(argv)
+                except code.UnwindException, u:
+                    code.slp_main_loop()
+                    return code.global_state.retval_long
+                return r
+            slp_entry_point.stackless_explicit = True
 
         self.slp_entry_point = slp_entry_point
         oldgraph = bk.getdesc(entrypoint).getuniquegraph()
