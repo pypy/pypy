@@ -374,18 +374,16 @@ class FrameworkGcPolicy(BasicGcPolicy):
         # %s = %s; /* for moving GCs */' % (args[1], args[0])
 
     def common_gcheader_definition(self, defnode):
-        # XXX assumes mark and sweep
-        return [('typeid', lltype.Signed)]
+        return defnode.db.gctransformer.gc_fields()
 
     def common_gcheader_initdata(self, defnode):
-        # XXX this more or less assumes mark-and-sweep gc
         o = defnode.obj
         while True:
             n = o._parentstructure()
             if n is None:
                 break
             o = n
-        return [defnode.db.gctransformer.id_of_type[typeOf(o)] << 1]
+        return defnode.db.gctransformer.gc_field_values_for(o)
 
     def zero_malloc(self, TYPE, esize, eresult):
         assert TYPE._gcstatus()   # we don't really support this

@@ -884,6 +884,13 @@ class FrameworkGCTransformer(GCTransformer):
         r_gc = self.translator.rtyper.getrepr(s_gc)
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
 
+        gc_header_offset = self.gcdata.gc.size_gc_header()
+        HDR = self._gc_HDR = gc_header_offset.minimal_layout
+        self._gc_fields = fields = []
+        for fldname in HDR._names:
+            FLDTYPE = getattr(HDR, fldname)
+            fields.append((fldname, FLDTYPE))
+
     def build_stack_root_iterator(self):
         gcdata = self.gcdata
         sizeofaddr = llmemory.sizeof(llmemory.Address)
@@ -986,6 +993,17 @@ class FrameworkGCTransformer(GCTransformer):
             else: 
                 for a in gc_pointers_inside(value, llmemory.fakeaddress(value)):
                     self.addresses_of_static_ptrs_in_nongc.append(a)
+
+    def gc_fields(self):
+        return self._gc_fields
+
+    def gc_field_values_for(self, obj):
+        HDR = self._gc_HDR
+        p_hdr = lltype.malloc(HDR, immortal=True)
+        hdr_adr = llmemory.cast_ptr_to_adr(p_hdr)
+        vals = []
+        self.gcdata.gc.init_gc_object(hdr_adr, self.get_type_id(lltype.typeOf(obj)))
+        return [getattr(p_hdr, fldname) for fldname in HDR._names]
 
     def offsets2table(self, offsets, TYPE):
         try:
