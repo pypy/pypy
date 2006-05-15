@@ -769,6 +769,15 @@ def parentlink(container):
     else:
         return None, None
 
+def top_container(container):
+    top_parent = container
+    while True:
+        parent = top_parent._parentstructure()
+        if parent is None:
+            break
+        top_parent = parent
+    return top_parent
+
 
 class _ptr(object):
     __slots__ = ('_TYPE', '_T', 
@@ -990,8 +999,7 @@ class _ptr(object):
         obj = self._obj
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results
-        while obj._parentstructure():
-            obj = obj._parentstructure() 
+        obj = top_container(obj)
         result = id(obj)
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
@@ -1406,12 +1414,8 @@ def runtime_type_info(p):
     T = typeOf(p)
     if not isinstance(T, Ptr) or not isinstance(T.TO, GcStruct):
         raise TypeError, "runtime_type_info on non-GcStruct pointer: %s" % p
-    top_parent = struct = p._obj
-    while True:
-        parent = top_parent._parentstructure()
-        if parent is None:
-            break
-        top_parent = parent
+    struct = p._obj
+    top_parent = top_container(struct)
     result = getRuntimeTypeInfo(top_parent._TYPE)
     static_info = getRuntimeTypeInfo(T.TO)
     query_funcptr = getattr(static_info._obj, 'query_funcptr', None)

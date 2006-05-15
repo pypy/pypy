@@ -216,7 +216,7 @@ class TestMarkSweepGC(GCTest):
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(gctransform.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 15999 } # XXX 4096 -> collect boom
+            GC_PARAMS = {'start_heap_size': 4096 }
             
     def test_llinterp_lists(self):
         def malloc_a_lot():

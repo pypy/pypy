@@ -3,7 +3,7 @@ from pypy.translator.c.support import cdecl
 from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltypesystem.lltype import \
      typeOf, Ptr, PyObject, ContainerType, GcArray, GcStruct, \
-     RuntimeTypeInfo, getRuntimeTypeInfo
+     RuntimeTypeInfo, getRuntimeTypeInfo, top_container
 from pypy.rpython.memory import gctransform
 from pypy.rpython.lltypesystem import lltype, llmemory
 
@@ -377,12 +377,7 @@ class FrameworkGcPolicy(BasicGcPolicy):
         return defnode.db.gctransformer.gc_fields()
 
     def common_gcheader_initdata(self, defnode):
-        o = defnode.obj
-        while True:
-            n = o._parentstructure()
-            if n is None:
-                break
-            o = n
+        o = top_container(defnode.obj)
         return defnode.db.gctransformer.gc_field_values_for(o)
 
     def zero_malloc(self, TYPE, esize, eresult):

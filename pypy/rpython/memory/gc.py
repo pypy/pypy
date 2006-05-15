@@ -203,8 +203,8 @@ class MarkSweepGC(GCBase):
             if self.is_varsize(typeid):
                 offset = self.varsize_offset_to_variable_part(
                     typeid)
-                curr += offset
                 length = (curr + self.varsize_offset_to_length(typeid)).signed[0]
+                curr += offset
                 offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
                 itemlength = self.varsize_item_sizes(typeid)
                 i = 0
@@ -229,7 +229,7 @@ class MarkSweepGC(GCBase):
             size = self.fixed_size(typeid)
             if self.is_varsize(typeid):
                 length = (curr + MarkSweepGC._size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
-                size += length * self.varsize_item_sizes(typeid)
+                size += self.varsize_item_sizes(typeid) * length
             estimate = raw_malloc_usage(MarkSweepGC._size_gc_header + size)
             if hdr.typeid & 1:
                 hdr.typeid = hdr.typeid & (~1)

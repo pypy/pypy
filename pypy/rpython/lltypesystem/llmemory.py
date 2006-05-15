@@ -203,10 +203,18 @@ class GCHeaderAntiOffset(AddressOffset):
         try:
             headerobj = _gc_struct2header[gcptr._obj]
         except KeyError:
-            headerobj = lltype.malloc(self.minimal_layout,
-                                      immortal=True)._obj
+            # sanity checks
+            HDR = self.minimal_layout
+            gcobj = gcptr._obj
+            assert isinstance(gcobj._TYPE, lltype.GC_CONTAINER)
+            assert not gcobj._parentstructure()
+            
+            headerobj = lltype.malloc(HDR, immortal=True)._obj
+            # make uninitialized access explode
+            for fldname in HDR._names:
+                getattr(type(headerobj), fldname).__set__(headerobj, None)
             _gc_struct2header[gcptr._obj] = headerobj
-            _gc_header2struct[headerobj] = gcptr._obj
+            _gc_header2struct[headerobj] = gcobj
         p = lltype._ptr(lltype.Ptr(headerobj._TYPE), headerobj, True)
         return _obref(p)
 
@@ -284,7 +292,7 @@ def itemoffsetof(TYPE, n=0):
 
 class fakeaddress(object):
     def __init__(self, ob, offset=None):
-        #assert not isinstance(ob, lltype._parentable) - XXX in-progress
+        assert not isinstance(ob, lltype._parentable)
         self.ob = ob or None    # replace null pointers with None
         self.offset = offset
 
@@ -306,11 +314,15 @@ class fakeaddress(object):
             res = fakeaddress(self.ob, offset)
             #res.ref() # sanity check
             return res
+        if other == 0:
+            return self
         return NotImplemented
 
     def __sub__(self, other):
         if isinstance(other, AddressOffset):
             return self + (-other)
+        if other == 0:
+            return self
         return NotImplemented
 
     def __nonzero__(self):

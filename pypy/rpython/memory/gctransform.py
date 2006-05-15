@@ -885,8 +885,8 @@ class FrameworkGCTransformer(GCTransformer):
         r_gc = self.translator.rtyper.getrepr(s_gc)
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
 
-        gc_header_offset = self.gcdata.gc.size_gc_header()
-        HDR = self._gc_HDR = gc_header_offset.minimal_layout
+        self.gc_header_offset = self.gcdata.gc.size_gc_header()
+        HDR = self._gc_HDR = self.gc_header_offset.minimal_layout
         self._gc_fields = fields = []
         for fldname in HDR._names:
             FLDTYPE = getattr(HDR, fldname)
@@ -986,13 +986,18 @@ class FrameworkGCTransformer(GCTransformer):
             return type_id
 
     def consider_constant(self, TYPE, value):
-        if id(value) not in self.seen_roots:
-            self.seen_roots[id(value)] = True
+        if id(value) in self.seen_roots:
+            return
+        self.seen_roots[id(value)] = True
+        p = lltype._ptr(lltype.Ptr(TYPE), value)
+        adr = llmemory.cast_ptr_to_adr(p)
+
         if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
-            self.get_type_id(TYPE)
+            typeid = self.get_type_id(TYPE)
+            if lltype.top_container(value) is value:
+                self.gcdata.gc.init_gc_object(adr-self.gc_header_offset, typeid)
+
         if TYPE != lltype.PyObject and find_gc_ptrs_in_type(TYPE):
-            p = lltype._ptr(lltype.Ptr(TYPE), value)
-            adr = llmemory.cast_ptr_to_adr(p)
             if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
                 self.static_gc_roots.append(adr)
             else: 
@@ -1003,11 +1008,11 @@ class FrameworkGCTransformer(GCTransformer):
         return self._gc_fields
 
     def gc_field_values_for(self, obj):
+        p = lltype._ptr(lltype.Ptr(lltype.typeOf(obj)), obj)
+        adr = llmemory.cast_ptr_to_adr(p)
         HDR = self._gc_HDR
-        p_hdr = lltype.malloc(HDR, immortal=True)
-        hdr_adr = llmemory.cast_ptr_to_adr(p_hdr)
-        vals = []
-        self.gcdata.gc.init_gc_object(hdr_adr, self.get_type_id(lltype.typeOf(obj)))
+        p_hdr = llmemory.cast_adr_to_ptr(adr-self.gc_header_offset,
+                                         lltype.Ptr(HDR))
         return [getattr(p_hdr, fldname) for fldname in HDR._names]
 
     def offsets2table(self, offsets, TYPE):
