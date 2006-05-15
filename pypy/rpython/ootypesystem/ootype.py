@@ -281,8 +281,15 @@ class String(BuiltinADTType):
             "ll_streq": Meth([self.SELFTYPE_T], Bool),
             "ll_strcmp": Meth([self.SELFTYPE_T], Signed),
             "ll_startswith": Meth([self.SELFTYPE_T], Bool),
-            "ll_endswith": Meth([self.SELFTYPE_T], Bool),            
-        })
+            "ll_endswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
+            "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
+            "ll_find_char": Meth([Char, Signed, Signed], Signed),
+            "ll_rfind_char": Meth([Char, Signed, Signed], Signed),
+            "ll_strip": Meth([Char, Bool, Bool], self.SELFTYPE_T),
+            "ll_upper": Meth([], self.SELFTYPE_T),
+            "ll_lower": Meth([], self.SELFTYPE_T),
+            })
         self._setup_methods(generic_types)
 
     # TODO: should it return _null or ''?
@@ -826,6 +833,40 @@ class _string(_builtin_type):
     def ll_endswith(self, s):
         # NOT_RPYTHON
         return self._str.endswith(s._str)
+
+    def ll_find(self, s, start, end):
+        # NOT_RPYTHON
+        return self._str.find(s._str, start, end)
+
+    def ll_rfind(self, s, start, end):
+        # NOT_RPYTHON
+        return self._str.rfind(s._str, start, end)
+
+    def ll_find_char(self, ch, start, end):
+        # NOT_RPYTHON
+        return self._str.find(ch, start, end)
+
+    def ll_rfind_char(self, ch, start, end):
+        # NOT_RPYTHON
+        return self._str.rfind(ch, start, end)
+
+    def ll_strip(self, ch, left, right):
+        # NOT_RPYTHON
+        s = self._str
+        if left:
+            s = s.lstrip(ch)
+        if right:
+            s = s.rstrip(ch)
+        return make_string(s)
+
+    def ll_upper(self):
+        # NOT_RPYTHON
+        return make_string(self._str.upper())
+
+    def ll_lower(self):
+        # NOT_RPYTHON
+        return make_string(self._str.lower())
+
 
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):

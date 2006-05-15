@@ -249,79 +249,81 @@ class AbstractTestRstr:
                 res = self.interpret(fn, [i,j])
                 assert res is fn(i, j)
 
-def test_find():
-    def fn(i, j):
-        s1 = ['one two three', 'abc abcdab abcdabcdabde']
-        s2 = ['one', 'two', 'abcdab', 'one tou', 'abcdefgh', 'fortytwo', '']
-        return s1[i].find(s2[j])
-    for i in range(2):
-        for j in range(7):
-            res = interpret(fn, [i,j])
+    def test_find(self):
+        def fn(i, j):
+            s1 = ['one two three', 'abc abcdab abcdabcdabde']
+            s2 = ['one', 'two', 'abcdab', 'one tou', 'abcdefgh', 'fortytwo', '']
+            return s1[i].find(s2[j])
+        for i in range(2):
+            for j in range(7):
+                res = self.interpret(fn, [i,j])
+                assert res == fn(i, j)
+
+    def test_find_with_start(self):
+        self._skip_oo('assert')
+        def fn(i):
+            assert i >= 0
+            return 'ababcabc'.find('abc', i)
+        for i in range(9):
+            res = self.interpret(fn, [i])
+            assert res == fn(i)
+
+    def test_find_with_start_end(self):
+        self._skip_oo('assert')
+        def fn(i, j):
+            assert i >= 0
+            assert j >= 0
+            return 'ababcabc'.find('abc', i, j)
+        for (i, j) in [(1,7), (2,6), (3,7), (3,8)]:
+            res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
 
-def test_find_with_start():
-    def fn(i):
-        assert i >= 0
-        return 'ababcabc'.find('abc', i)
-    for i in range(9):
-        res = interpret(fn, [i])
-        assert res == fn(i)
+    def test_rfind(self):
+        def fn():
+            return 'aaa'.rfind('a') + 'aaa'.rfind('a', 1) + 'aaa'.rfind('a', 1, 2)
+        res = self.interpret(fn, [])
+        assert res == 2 + 2 + 1
 
-def test_find_with_start_end():
-    def fn(i, j):
-        assert i >= 0
-        assert j >= 0
-        return 'ababcabc'.find('abc', i, j)
-    for (i, j) in [(1,7), (2,6), (3,7), (3,8)]:
-        res = interpret(fn, [i, j])
-        assert res == fn(i, j)
+    def test_find_char(self):
+        def fn(ch):
+            pos1 = 'aiuwraz 483'.find(ch)
+            pos2 = 'aiuwraz 483'.rfind(ch)
+            return pos1 + (pos2*100)
+        for ch in 'a ?3':
+            res = self.interpret(fn, [ch])
+            assert res == fn(ch)
 
-def test_rfind():
-    def fn():
-        return 'aaa'.rfind('a') + 'aaa'.rfind('a', 1) + 'aaa'.rfind('a', 1, 2)
-    res = interpret(fn, [])
-    assert res == 2 + 2 + 1
+    def test_strip(self):
+        def both():
+            return '!ab!'.strip('!')
+        def left():
+            return '!ab!'.lstrip('!')
+        def right():
+            return '!ab!'.rstrip('!')
+        res = self.interpret(both, [])
+        assert self.ll_to_string(res) == 'ab'
+        res = self.interpret(left, [])
+        assert self.ll_to_string(res) == 'ab!'
+        res = self.interpret(right, [])
+        assert self.ll_to_string(res) == '!ab'
 
-def test_find_char():
-    def fn(ch):
-        pos1 = 'aiuwraz 483'.find(ch)
-        pos2 = 'aiuwraz 483'.rfind(ch)
-        return pos1 + (pos2*100)
-    for ch in 'a ?3':
-        res = interpret(fn, [ch])
-        assert res == fn(ch)
+    def test_upper(self):
+        strings = ['', ' ', 'upper', 'UpPeR', ',uppEr,']
+        for i in range(256): strings.append(chr(i))
+        def fn(i):
+            return strings[i].upper()
+        for i in range(len(strings)):
+            res = self.interpret(fn, [i])
+            assert self.ll_to_string(res) == fn(i)
 
-def test_strip():
-    def both():
-        return '!ab!'.strip('!')
-    def left():
-        return '!ab!'.lstrip('!')
-    def right():
-        return '!ab!'.rstrip('!')
-    res = interpret(both, [])
-    assert ''.join(res.chars) == 'ab'
-    res = interpret(left, [])
-    assert ''.join(res.chars) == 'ab!'
-    res = interpret(right, [])
-    assert ''.join(res.chars) == '!ab'
-
-def test_upper():
-    strings = ['', ' ', 'upper', 'UpPeR', ',uppEr,']
-    for i in range(256): strings.append(chr(i))
-    def fn(i):
-        return strings[i].upper()
-    for i in range(len(strings)):
-        res = interpret(fn, [i])
-        assert ''.join(res.chars) == fn(i)
-
-def test_lower():
-    strings = ['', ' ', 'lower', 'LoWeR', ',lowEr,']
-    for i in range(256): strings.append(chr(i))
-    def fn(i):
-        return strings[i].lower()
-    for i in range(len(strings)):
-        res = interpret(fn, [i])
-        assert ''.join(res.chars) == fn(i)
+    def test_lower(self):
+        strings = ['', ' ', 'lower', 'LoWeR', ',lowEr,']
+        for i in range(256): strings.append(chr(i))
+        def fn(i):
+            return strings[i].lower()
+        for i in range(len(strings)):
+            res = self.interpret(fn, [i])
+            assert self.ll_to_string(res) == fn(i)
 
 def test_join():
     res = interpret(lambda: ''.join([]), [])
