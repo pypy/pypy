@@ -51,12 +51,6 @@ class UniCharRepr(AbstractUniCharRepr):
     lowleveltype = UniChar
 
 class LLHelpers(AbstractLLHelpers):
-##    METHODS = ['ll_stritem_nonneg',
-##               'll_strlen',
-##               'll_strconcat',
-##               'll_startswith',
-##               'll_endswith',
-##               ]
 
     def ll_chr2str(ch):
         return ootype.oostring(ch)
@@ -88,7 +82,7 @@ def add_helpers():
         if name in LLHelpers.__dict__:
             continue
         n_args = len(meth.ARGS)
-        args = ', '.join('arg%d' % i for i in range(n_args))
+        args = ', '.join(['arg%d' % i for i in range(n_args)])
         code = """
 def %s(obj, %s):
     return obj.%s(%s)

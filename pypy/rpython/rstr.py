@@ -517,24 +517,23 @@ class AbstractLLHelpers:
     def ll_unichar_hash(ch):
         return ord(ch)
 
-    @classmethod
     def ll_str_is_true(cls, s):
         # check if a string is True, allowing for None
         return bool(s) and cls.ll_strlen(s) != 0
+    ll_str_is_true = classmethod(ll_str_is_true)
 
-    @classmethod
     def ll_stritem_nonneg_checked(cls, s, i):
         if i >= cls.ll_strlen(s):
             raise IndexError
         return cls.ll_stritem_nonneg(s, i)
+    ll_stritem_nonneg_checked = classmethod(ll_stritem_nonneg_checked)
 
-    @classmethod
     def ll_stritem(cls, s, i):
         if i < 0:
             i += cls.ll_strlen(s)
         return cls.ll_stritem_nonneg(s, i)
+    ll_stritem = classmethod(ll_stritem)
 
-    @classmethod
     def ll_stritem_checked(cls, s, i):
         length = cls.ll_strlen(s)
         if i < 0:
@@ -542,4 +541,4 @@ class AbstractLLHelpers:
         if i >= length or i < 0:
             raise IndexError
         return cls.ll_stritem_nonneg(s, i)
-
+    ll_stritem_checked = classmethod(ll_stritem_checked)

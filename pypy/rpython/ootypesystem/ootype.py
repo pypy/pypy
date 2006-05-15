@@ -834,7 +834,6 @@ class _string(_builtin_type):
         else:
             raise AttributeError, attr
 
-    @staticmethod
     def wrapper(fn):
         def f(*args):
             res = fn(*args)
@@ -850,6 +849,7 @@ class _string(_builtin_type):
             else:
                 return res
         return f
+    wrapper = staticmethod(wrapper)
 
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):
