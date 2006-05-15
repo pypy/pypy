@@ -75,6 +75,8 @@ def get_variable_size(TYPE):
         return 0
     elif isinstance(TYPE, lltype.PyObjectType):
         return 0
+    elif isinstance(TYPE, lltype.Ptr):
+        return 0
     else:
         assert 0, "not yet implemented"
 

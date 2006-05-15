@@ -731,14 +731,16 @@ class FrameworkGCTransformer(GCTransformer):
     use_stackless = False
     extra_static_slots = 0
 
+    from pypy.rpython.memory.gc import MarkSweepGC as GCClass
+    GC_PARAMS = {'start_heap_size': 8*1024*1024 # XXX adjust
+                 }
+    
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
+        GCClass = self.GCClass
         class GCData(object):
-            from pypy.rpython.memory.gc import MarkSweepGC as GCClass
-            startheapsize = 8*1024*1024 # XXX adjust
-
             # types of the GC information tables
             OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
             TYPE_INFO = lltype.Struct("type_info",
@@ -796,7 +798,7 @@ class FrameworkGCTransformer(GCTransformer):
         sizeofaddr = llmemory.sizeof(llmemory.Address)
 
         StackRootIterator = self.build_stack_root_iterator()
-        gcdata.gc = GCData.GCClass(AddressLinkedList, GCData.startheapsize, StackRootIterator)
+        gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **self.GC_PARAMS)
 
         def frameworkgc_setup():
             # run-time initialization code
@@ -854,26 +856,31 @@ class FrameworkGCTransformer(GCTransformer):
                                       annmodel.s_None,
                                       inline = True)
 
-        classdef = bk.getuniqueclassdef(GCData.GCClass)
+        classdef = bk.getuniqueclassdef(GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
         self.malloc_fixedsize_ptr = getfn(
-            GCData.GCClass.malloc_fixedsize.im_func,
+            GCClass.malloc_fixedsize.im_func,
             [s_gcdata, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool()], annmodel.SomeAddress(),
             inline = True)
         self.malloc_varsize_ptr = getfn(
-            GCData.GCClass.malloc_varsize.im_func,
+            GCClass.malloc_varsize.im_func,
             [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
             + [annmodel.SomeBool()], annmodel.SomeAddress())
-        self.collect_ptr = getfn(GCData.GCClass.collect.im_func,
+        self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gcdata], annmodel.s_None)
+
+        statics_s = (annmodel.SomeInteger(),)*GCClass.STATISTICS_NUMBERS
+        self.statistics_ptr = getfn(GCClass.statistics.im_func,
+                                    [s_gcdata], annmodel.SomeTuple(statics_s))
+                                   
         annhelper.finish()   # at this point, annotate all mix-level helpers
 
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()
 
-        s_gc = self.translator.annotator.bookkeeper.valueoftype(self.gcdata.GCClass)
+        s_gc = self.translator.annotator.bookkeeper.valueoftype(GCClass)
         r_gc = self.translator.rtyper.getrepr(s_gc)
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
 

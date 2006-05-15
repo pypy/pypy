@@ -245,6 +245,11 @@ class MarkSweepGC(GCBase):
         # the strings!  so it must be at the end
         os.write(2, "freed %s bytes. the heap is now %s bytes.\n" % (freed_size, curr_heap_size))
 
+    STATISTICS_NUMBERS = 2
+
+    def statistics(self):
+        return self.heap_size, self.bytes_malloced
+
     def size_gc_header(self, typeid=0):
         return MarkSweepGC._size_gc_header
 
