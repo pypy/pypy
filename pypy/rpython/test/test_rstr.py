@@ -325,37 +325,37 @@ class AbstractTestRstr:
             res = self.interpret(fn, [i])
             assert self.ll_to_string(res) == fn(i)
 
-def test_join():
-    res = interpret(lambda: ''.join([]), [])
-    assert ''.join(res.chars) == ""
+    def test_join(self):
+        res = self.interpret(lambda: ''.join([]), [])
+        assert self.ll_to_string(res) == ""
 
-    res = interpret(lambda: ''.join(['a', 'b', 'c']), [])
-    assert ''.join(res.chars) == "abc"
+        res = self.interpret(lambda: ''.join(['a', 'b', 'c']), [])
+        assert self.ll_to_string(res) == "abc"
 
-    res = interpret(lambda: ''.join(['abc', 'de', 'fghi']), [])
-    assert ''.join(res.chars) == "abcdefghi"
+        res = self.interpret(lambda: ''.join(['abc', 'de', 'fghi']), [])
+        assert self.ll_to_string(res) == "abcdefghi"
 
-    res = interpret(lambda: '.'.join(['abc', 'def']), [])
-    assert ''.join(res.chars) == 'abc.def'
-    
-    def fn(i, j):
-        s1 = [ '', ',', ' and ']
-        s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
-        return s1[i].join(s2[j])
-    for i in range(3):
-        for j in range(3):
-            res = interpret(fn, [i,j])
-            assert ''.join(res.chars) == fn(i, j)
+        res = self.interpret(lambda: '.'.join(['abc', 'def']), [])
+        assert self.ll_to_string(res) == 'abc.def'
 
-    def fn(i, j):
-        s1 = [ '', ',', ' and ']
-        s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
-        s2[1].extend(['x'])
-        return s1[i].join(s2[j])
-    for i in range(3):
-        for j in range(3):
-            res = interpret(fn, [i,j])
-            assert ''.join(res.chars) == fn(i, j)
+        def fn(i, j):
+            s1 = [ '', ',', ' and ']
+            s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
+            return s1[i].join(s2[j])
+        for i in range(3):
+            for j in range(3):
+                res = self.interpret(fn, [i,j])
+                assert self.ll_to_string(res) == fn(i, j)
+
+        def fn(i, j):
+            s1 = [ '', ',', ' and ']
+            s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
+            s2[1].extend(['x'])
+            return s1[i].join(s2[j])
+        for i in range(3):
+            for j in range(3):
+                res = self.interpret(fn, [i,j])
+                assert self.ll_to_string(res) == fn(i, j)
 
 def test_parse_fmt():
     assert LLHelpers.parse_fmt_string('a') == ['a']

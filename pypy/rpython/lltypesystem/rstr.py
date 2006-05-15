@@ -63,6 +63,13 @@ class StringRepr(AbstractStringRepr):
                             # where NULL is always valid: it is chr(0)
 
 
+    def _list_length_items(self, hop, v_lst, LIST):
+        LIST = LIST.TO
+        v_length = hop.gendirectcall(LIST.ll_length, v_lst)
+        v_items = hop.gendirectcall(LIST.ll_items, v_lst)
+        return v_length, v_items
+
+
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
 

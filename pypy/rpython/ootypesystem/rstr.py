@@ -43,6 +43,14 @@ class StringRepr(AbstractStringRepr):
     def make_iterator_repr(self):
         return string_iterator_repr
 
+    def _list_length_items(self, hop, v_lst, LIST):
+        # ootypesystem list has a different interface that
+        # lltypesystem list, so we don't need to calculate the lenght
+        # here and to pass the 'items' array. Let's pass the list
+        # itself and let LLHelpers.join to manipulate it directly.
+        c_length = hop.inputconst(ootype.Void, None)
+        return c_length, v_lst
+
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
@@ -56,13 +64,13 @@ class LLHelpers(AbstractLLHelpers):
         return ootype.oostring(ch)
 
     def ll_char_mul(ch, times):
-        builder = ootype.new(ootype.StringBuilder)
-        builder.ll_allocate(times)
+        buf = ootype.new(ootype.StringBuilder)
+        buf.ll_allocate(times)
         i = 0
         while i<times:
-            builder.ll_append_char(ch)
+            buf.ll_append_char(ch)
             i+= 1
-        return builder.ll_build()
+        return buf.ll_build()
 
     def ll_streq(s1, s2):
         if s1 is None:
@@ -75,6 +83,52 @@ class LLHelpers(AbstractLLHelpers):
         if not s1 or not s2:
             return False
         return s1.ll_strcmp(s2)
+
+    def ll_join(s, length_dummy, lst):
+        length = lst.ll_length()
+        buf = ootype.new(ootype.StringBuilder)
+
+        # TODO: check if it's worth of preallocating the buffer with
+        # the exact length
+##        itemslen = 0
+##        i = 0
+##        while i < length:
+##            itemslen += lst.ll_getitem_fast(i).ll_strlen()
+##            i += 1
+##        resultlen = itemslen + s.ll_strlen()*(length-1)
+##        buf.ll_allocate(resultlen)
+
+        i = 0
+        while i < length-1:
+            item = lst.ll_getitem_fast(i)
+            buf.ll_append(item)
+            buf.ll_append(s)
+            i += 1
+        if length > 0:
+            lastitem = lst.ll_getitem_fast(i)
+            buf.ll_append(lastitem)
+        return buf.ll_build()
+
+    def ll_join_chars(length_dummy, lst):
+        buf = ootype.new(ootype.StringBuilder)
+        length = lst.ll_length()
+        buf.ll_allocate(length)
+        i = 0
+        while i < length:
+            buf.ll_append_char(lst.ll_getitem_fast(i))
+            i += 1
+        return buf.ll_build()
+
+    def ll_join_strs(length_dummy, lst):
+        buf = ootype.new(ootype.StringBuilder)
+        length = lst.ll_length()
+        #buf.ll_allocate(length)
+        i = 0
+        while i < length:
+            buf.ll_append(lst.ll_getitem_fast(i))
+            i += 1
+        return buf.ll_build()
+
 
 def add_helpers():
     dic = {}
@@ -99,6 +153,7 @@ char_repr = CharRepr()
 unichar_repr = UniCharRepr()
 char_repr.ll = LLHelpers
 unichar_repr.ll = LLHelpers
+emptystr = string_repr.convert_const("")
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
     lowleveltype = ootype.Record({'string': string_repr.lowleveltype,

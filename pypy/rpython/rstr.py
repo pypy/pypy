@@ -135,7 +135,12 @@ class __extend__(AbstractStringRepr):
         v_str, = hop.inputargs(string_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_lower, v_str)
-        
+
+    def _list_length_items(self, hop, v_lst, LIST):
+        """Return two Variables containing the length and items of a
+        list. Need to be overriden because it is typesystem-specific."""
+        raise NotImplementedError
+
     def rtype_method_join(self, hop):
         hop.exception_cannot_occur()
         rstr = hop.rtyper.type_system.rstr
@@ -145,10 +150,8 @@ class __extend__(AbstractStringRepr):
         if not isinstance(r_lst, hop.rtyper.type_system.rlist.BaseListRepr):
             raise TyperError("string.join of non-list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(rstr.string_repr, r_lst)
-        LIST = r_lst.lowleveltype.TO
-        v_length = hop.gendirectcall(LIST.ll_length, v_lst)
-        v_items = hop.gendirectcall(LIST.ll_items, v_lst)
-                       
+        v_length, v_items = self._list_length_items(hop, v_lst, r_lst.lowleveltype)
+
         if hop.args_s[0].is_constant() and hop.args_s[0].const == '':
             if r_lst.item_repr == rstr.string_repr:
                 llfn = self.ll.ll_join_strs
