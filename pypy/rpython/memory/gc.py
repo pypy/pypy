@@ -168,6 +168,7 @@ class MarkSweepGC(GCBase):
     def collect(self):
         import os
         os.write(2, 'collecting... ')
+        old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
         roots = self.get_roots()
         objects = self.AddressLinkedList()
@@ -202,10 +203,10 @@ class MarkSweepGC(GCBase):
             if self.is_varsize(typeid):
                 offset = self.varsize_offset_to_variable_part(
                     typeid)
+                curr += offset
                 length = (curr + self.varsize_offset_to_length(typeid)).signed[0]
                 offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
                 itemlength = self.varsize_item_sizes(typeid)
-                curr += offset
                 i = 0
                 while i < length:
                     item = curr + itemlength * i
@@ -243,6 +244,7 @@ class MarkSweepGC(GCBase):
             self.heap_size = curr_heap_size
         # warning, the following debug print allocates memory to manipulate
         # the strings!  so it must be at the end
+        os.write(2, "malloced before this collection %s bytes. " % old_malloced)
         os.write(2, "freed %s bytes. the heap is now %s bytes.\n" % (freed_size, curr_heap_size))
 
     STATISTICS_NUMBERS = 2

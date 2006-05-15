@@ -216,7 +216,7 @@ class TestMarkSweepGC(GCTest):
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(gctransform.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 50000 } # XXX in-progress 4096 -> collection! boom
+            GC_PARAMS = {'start_heap_size': 15999 } # XXX 4096 -> collect boom
             
     def test_llinterp_lists(self):
         def malloc_a_lot():
@@ -225,16 +225,15 @@ class TestMarkSweepGC(GCTest):
                 i += 1
                 a = [1] * 10
                 j = 0
-                while j < 20:
+                while j < 30:
                     j += 1
                     a.append(j)
         run, statistics = self.runner(malloc_a_lot, statistics=True)
         run([])
-        allocated = statistics().item1
-        assert allocated < 16000 * INT_SIZE / 4 # xxx
+        heap_size = statistics().item0
+        assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
     def test_llinterp_tuples(self):
-        #curr = simulator.current_size
         def malloc_a_lot():
             i = 0
             while i < 10:
@@ -245,9 +244,10 @@ class TestMarkSweepGC(GCTest):
                 while j < 20:
                     j += 1
                     b.append((1, j, i))
-        self.runner(malloc_a_lot)([])
-        #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
-        #print "size before: %s, size after %s" % (curr, simulator.current_size)
+        run, statistics = self.runner(malloc_a_lot, statistics=True)
+        run([])
+        heap_size = statistics().item0
+        assert heap_size < 16000 * INT_SIZE / 4 # xxx                    
 
     def test_global_list(self):
         class Box:
@@ -265,12 +265,15 @@ class TestMarkSweepGC(GCTest):
             assert res == i - 1 # crashes if constants are not considered roots
             
     def test_string_concatenation(self):
-        #curr = simulator.current_size
+
         def concat(j, dummy):
             lst = []
             for i in range(j):
                 lst.append(str(i))
             return len("".join(lst))
         res = self.runner(concat, withargs=True)([100, 0])
-        #assert res == concat(100)
-        #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
+        run, statistics = self.runner(concat, withargs=True, statistics=True)
+        res = run([100, 0])
+        assert res == concat(100, 0)
+        heap_size = statistics().item0
+        assert heap_size < 16000 * INT_SIZE / 4 # xxx

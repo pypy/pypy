@@ -744,6 +744,7 @@ class FrameworkGCTransformer(GCTransformer):
             # types of the GC information tables
             OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
             TYPE_INFO = lltype.Struct("type_info",
+                ("isvarsize",   lltype.Bool),
                 ("fixedsize",   lltype.Signed),
                 ("ofstoptrs",   lltype.Ptr(OFFSETS_TO_GC_PTR)),
                 ("varitemsize", lltype.Signed),
@@ -754,7 +755,7 @@ class FrameworkGCTransformer(GCTransformer):
             TYPE_INFO_TABLE = lltype.Array(TYPE_INFO)
 
         def q_is_varsize(typeid):
-            return gcdata.type_info_table[typeid].ofstolength != -1
+            return gcdata.type_info_table[typeid].isvarsize
 
         def q_offsets_to_gc_pointers(typeid):
             return gcdata.type_info_table[typeid].ofstoptrs
@@ -951,9 +952,11 @@ class FrameworkGCTransformer(GCTransformer):
             offsets = offsets_to_gc_pointers(TYPE)
             info["ofstoptrs"] = self.offsets2table(offsets, TYPE)
             if not TYPE._is_varsize():
+                info["isvarsize"] = False
                 info["fixedsize"] = llmemory.sizeof(TYPE)
                 info["ofstolength"] = -1
             else:
+                info["isvarsize"] = True
                 info["fixedsize"] = llmemory.sizeof(TYPE, 0)
                 if isinstance(TYPE, lltype.Struct):
                     ARRAY = TYPE._flds[TYPE._arrayfld]
@@ -988,10 +991,12 @@ class FrameworkGCTransformer(GCTransformer):
         if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
             self.get_type_id(TYPE)
         if TYPE != lltype.PyObject and find_gc_ptrs_in_type(TYPE):
+            p = lltype._ptr(lltype.Ptr(TYPE), value)
+            adr = llmemory.cast_ptr_to_adr(p)
             if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
-                self.static_gc_roots.append(value)
+                self.static_gc_roots.append(adr)
             else: 
-                for a in gc_pointers_inside(value, llmemory.fakeaddress(value)):
+                for a in gc_pointers_inside(value, adr):
                     self.addresses_of_static_ptrs_in_nongc.append(a)
 
     def gc_fields(self):
@@ -1050,8 +1055,8 @@ class FrameworkGCTransformer(GCTransformer):
                                                 self.extra_static_slots,
                                             immortal=True)
             for i in range(len(self.static_gc_roots)):
-                c = self.static_gc_roots[i]
-                ll_static_roots[i] = llmemory.fakeaddress(c)
+                adr = self.static_gc_roots[i]
+                ll_static_roots[i] = adr
             ll_instance.inst_static_roots = ll_static_roots
 
             ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
@@ -1178,6 +1183,11 @@ def offsets_to_gc_pointers(TYPE):
                     offsets.append(baseofs)
                 else:
                     offsets.append(baseofs + s)
+        # sanity check
+        #ex = lltype.Ptr(TYPE)._example()
+        #adr = llmemory.cast_ptr_to_adr(ex)
+        #for off in offsets:
+        #    (adr + off)
     elif (isinstance(TYPE, lltype.Ptr) and TYPE._needsgc() and
           TYPE.TO is not lltype.PyObject):
         offsets.append(0)

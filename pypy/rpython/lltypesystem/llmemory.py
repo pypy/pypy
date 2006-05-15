@@ -303,7 +303,9 @@ class fakeaddress(object):
                 offset = other
             else:
                 offset = self.offset + other
-            return fakeaddress(self.ob, offset)
+            res = fakeaddress(self.ob, offset)
+            #res.ref() # sanity check
+            return res
         return NotImplemented
 
     def __sub__(self, other):
