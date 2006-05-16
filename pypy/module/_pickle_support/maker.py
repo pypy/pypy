@@ -37,7 +37,7 @@ method_new.unwrap_spec = [ObjSpace, Arguments]
 
 #XXX this does not work yet
 def dictiter_new(space, w_dictitertype, __args__=None):
-    #raise Exception('No dictiter_new (pickle support) yet')
+    raise Exception('No dictiter_new (pickle support) yet')
     print "dictiter_new here 0)", space, w_dictitertype, __args__
     print "XXX", str(dictiter_typedef)
     if False:
