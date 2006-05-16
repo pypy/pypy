@@ -476,48 +476,48 @@ class AbstractTestRstr:
         res = res.replace('pypy.rpython.test.test_rstr.', '')        
         assert res == 'what a nice <D object>, much nicer than <C object>'
 
-def test_split():
-    def fn(i):
-        s = ['', '0.1.2.4.8', '.1.2', '1.2.', '.1.2.4.'][i]
-        l = s.split('.')
-        sum = 0
-        for num in l:
-             if len(num):
-                 sum += ord(num) - ord('0')
-        return sum + len(l) * 100
-    for i in range(5):
-        res = interpret(fn, [i])
-        assert res == fn(i)
+    def test_split(self):
+        def fn(i):
+            s = ['', '0.1.2.4.8', '.1.2', '1.2.', '.1.2.4.'][i]
+            l = s.split('.')
+            sum = 0
+            for num in l:
+                 if len(num):
+                     sum += ord(num) - ord('0')
+            return sum + len(l) * 100
+        for i in range(5):
+            res = self.interpret(fn, [i])
+            assert res == fn(i)
 
-def test_contains():
-    def fn(i):
-        s = 'Hello world'
-        return chr(i) in s
-    for i in range(256):
-        res = interpret(fn, [i])#, view=i==42)
-        assert res == fn(i)
+    def test_contains(self):
+        def fn(i):
+            s = 'Hello world'
+            return chr(i) in s
+        for i in range(256):
+            res = self.interpret(fn, [i])#, view=i==42)
+            assert res == fn(i)
 
-def test_replace():
-    def fn(c1, c2):
-        s = 'abbccc'
-        s = s.replace(c1, c2)
-        res = 0
-        for c in s:
-            if c == c2:
-                res += 1
-        return res
-    res = interpret(fn, ['a', 'c'])
-    assert res == 4
-    res = interpret(fn, ['c', 'b'])
-    assert res == 5
-    def fn():
-        s = 'abbccc'
-        s = s.replace('a', 'baz')
-    raises (TyperError, interpret, fn, ())
-    def fn():
-        s = 'abbccc'
-        s = s.replace('abb', 'c')
-    raises (TyperError, interpret, fn, ())
+    def test_replace(self):
+        def fn(c1, c2):
+            s = 'abbccc'
+            s = s.replace(c1, c2)
+            res = 0
+            for c in s:
+                if c == c2:
+                    res += 1
+            return res
+        res = self.interpret(fn, ['a', 'c'])
+        assert res == 4
+        res = self.interpret(fn, ['c', 'b'])
+        assert res == 5
+        def fn():
+            s = 'abbccc'
+            s = s.replace('a', 'baz')
+        raises (TyperError, interpret, fn, ())
+        def fn():
+            s = 'abbccc'
+            s = s.replace('abb', 'c')
+        raises (TyperError, interpret, fn, ())
 
 def test_int():
     s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '']

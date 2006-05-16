@@ -290,6 +290,9 @@ class String(BuiltinADTType):
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
             "ll_substring": Meth([Signed, Signed], self.SELFTYPE_T), # ll_substring(start, count)
+            "ll_split_chr": Meth([Char], List(self.SELFTYPE_T)),
+            "ll_contains": Meth([Char], Bool),
+            "ll_replace_chr_chr": Meth([Char, Char], self.SELFTYPE_T),
             })
         self._setup_methods(generic_types)
 
@@ -871,6 +874,20 @@ class _string(_builtin_type):
     def ll_substring(self, start, count):
         # NOT_RPYTHON
         return make_string(self._str[start:start+count])
+
+    def ll_split_chr(self, ch):
+        # NOT_RPYTHON
+        res = _list(List(String))
+        res._list = [make_string(s) for s in self._str.split(ch)]
+        return res
+
+    def ll_contains(self, ch):
+        # NOT_RPYTHON
+        return ch in self._str
+
+    def ll_replace_chr_chr(self, ch1, ch2):
+        # NOT_RPYTHON
+        return make_string(self._str.replace(ch1, ch2))
 
 class _null_string(_null_mixin(_string), _string):
     def __init__(self, STRING):

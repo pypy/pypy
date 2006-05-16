@@ -147,6 +147,9 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_minusone(s):
         return s.ll_substring(0, s.ll_strlen()-1)
 
+    def ll_split_chr(LIST, s, c):
+        return s.ll_split_chr(c)
+
     def do_stringformat(cls, hop, sourcevarsrepr):
         InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
         string_repr = hop.rtyper.type_system.rstr.string_repr

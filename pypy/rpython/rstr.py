@@ -170,7 +170,11 @@ class __extend__(AbstractStringRepr):
     def rtype_method_split(self, hop):
         rstr = hop.rtyper.type_system.rstr
         v_str, v_chr = hop.inputargs(rstr.string_repr, rstr.char_repr)
-        cLIST = hop.inputconst(Void, hop.r_result.lowleveltype.TO)
+        try:
+            list_type = hop.r_result.lowleveltype.TO
+        except AttributeError:
+            list_type = hop.r_result.lowleveltype
+        cLIST = hop.inputconst(Void, list_type)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_split_chr, cLIST, v_str, v_chr)
 
