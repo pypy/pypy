@@ -480,3 +480,49 @@ def raw_malloc_usage(size):
         from pypy.rpython.memory.lltypelayout import convert_offset_to_int
         size = convert_offset_to_int(size)
     return size
+
+# ____________________________________________________________
+
+class _arena(object):
+
+    def __init__(self, rng):
+        self.rng = rng
+        self.items = []
+
+class ArenaItem(AddressOffset):
+    
+    def __init__(self, nr):
+        self.nr = nr
+
+    def ref(self, ref):
+        assert isinstance(ref, _obref)
+        assert isinstance(ref.ob, _arena)
+        arena = ref.ob
+        itemadr = arena.items[self.nr]
+        return itemadr.ref()
+        
+class ArenaRange(AddressOffset):
+    def __init__(self, unitsize, n):
+        self.unitsize = unitsize
+        self.n = n
+
+    def raw_malloc(self, rest):
+        assert not rest
+        return fakeaddress(_arena(self), ArenaItem(0))
+        
+def arena(TYPE, n):
+    return ArenaRange(sizeof(TYPE), n)
+
+def bump(adr, size):
+    assert isinstance(adr.ob, _arena)
+    assert isinstance(adr.offset, ArenaItem)
+    arena = adr.ob
+    nr = adr.offset.nr
+    if len(arena.items) == nr: # reserve
+        # xxx check that we are not larger than unitsize*n
+        itemadr = raw_malloc(size)
+        arena.items.append(itemadr)
+    else:
+        assert nr < len(arena.items)
+        # xxx check that size matches
+    return fakeaddress(arena, ArenaItem(nr+1))
