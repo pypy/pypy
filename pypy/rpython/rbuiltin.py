@@ -594,7 +594,23 @@ def rtype_cast_adr_to_int(hop):
     return hop.genop('cast_adr_to_int', [adr],
                      resulttype = lltype.Signed)
 
+def rtype_cast_ptr_to_weakadr(hop):
+    vlist = hop.inputargs(hop.args_r[0])
+    assert isinstance(vlist[0].concretetype, lltype.Ptr)
+    hop.exception_cannot_occur()
+    return hop.genop('cast_ptr_to_weakadr', vlist,
+                     resulttype = llmemory.WeakGcAddress)
+
+def rtype_cast_weakadr_to_ptr(hop):
+    assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
+    adr, TYPE = hop.inputargs(hop.args_r[0], lltype.Void)
+    hop.exception_cannot_occur()
+    return hop.genop('cast_weakadr_to_ptr', [adr],
+                     resulttype = TYPE.value)
+
 BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
+BUILTIN_TYPER[llmemory.cast_ptr_to_weakadr] = rtype_cast_ptr_to_weakadr
+BUILTIN_TYPER[llmemory.cast_weakadr_to_ptr] = rtype_cast_weakadr_to_ptr
 

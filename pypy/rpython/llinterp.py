@@ -334,7 +334,8 @@ class LLFrame(object):
         vals = [self.getval(x) for x in operation.args]
         # XXX these special cases DO pile up, do something better here
         if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast',
-                                'cast_adr_to_ptr', 'cast_int_to_ptr',
+                                'cast_adr_to_ptr', 'cast_weakadr_to_ptr',
+                                'cast_int_to_ptr',
                                 'cast_opaque_ptr', 'unsafe_call',
                                 'cast_primitive']:
             vals.insert(0, operation.result.concretetype)
@@ -615,6 +616,14 @@ class LLFrame(object):
     def op_cast_adr_to_int(self, adr):
         assert checkadr(adr)
         return llmemory.cast_adr_to_int(adr)
+
+    def op_cast_ptr_to_weakadr(self, ptr):
+        assert checkptr(ptr)
+        return llmemory.cast_ptr_to_weakadr(ptr)
+
+    def op_cast_weakadr_to_ptr(self, TYPE, wadr):
+        assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
+        return llmemory.cast_weakadr_to_ptr(wadr, TYPE)
 
     def op_cast_int_to_float(self, i):
         assert type(i) is int

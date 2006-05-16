@@ -98,6 +98,18 @@ def test_cast_adr_to_int():
     res = interpret(f, [])
     assert res
 
+def test_weak_casts():
+    from pypy.rpython.memory.test.test_llinterpsim import interpret
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    Sptr = lltype.Ptr(S)
+    def f():
+        s1 = lltype.malloc(S)
+        adr = cast_ptr_to_weakadr(s1)
+        s2 = cast_weakadr_to_ptr(adr, Sptr)
+        return s1 == s2
+    res = interpret(f, [])
+    assert res
+
 def test_fakeaccessor():
     S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
     s = lltype.malloc(S)

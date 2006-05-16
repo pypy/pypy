@@ -463,6 +463,35 @@ def cast_adr_to_int(adr):
 # ____________________________________________________________
 
 import weakref
+
+class fakeweakaddress(object):
+    def __init__(self, ob):
+        if ob is not None:
+            self.ref = weakref.ref(ob)
+        else:
+            self.ref = None
+    def get(self):
+        if self.ref is None:
+            raise NullAddressError
+        ob = self.ref()
+        if ob is None:
+            raise NullAddressError
+        return ob
+
+WeakGcAddress = lltype.Primitive("WeakGcAddress",
+                                 fakeweakaddress(None))
+
+def cast_ptr_to_weakadr(obj):
+    assert isinstance(lltype.typeOf(obj), lltype.Ptr)
+    return fakeweakaddress(obj)
+
+def cast_weakadr_to_ptr(adr, EXPECTED_TYPE):
+    return adr.get()
+
+fakeweakaddress._TYPE = WeakGcAddress
+
+# ____________________________________________________________
+
 _gc_struct2header = weakref.WeakKeyDictionary()
 _gc_header2struct = weakref.WeakKeyDictionary()
 
