@@ -6,7 +6,7 @@ class AppTest_Solver(object):
         cls.space = gettestobjspace('logic')
 
     def test_instantiate(self):
-        from pypy.objspace.constraint.applevel import solver, problems
+        import solver, problems
         spc = newspace()
 
         spc.define_problem(problems.conference_scheduling)
@@ -15,7 +15,7 @@ class AppTest_Solver(object):
         assert str(type(sols)) == "<type 'generator'>"
 
     def test_solve(self):
-        from pypy.objspace.constraint.applevel import solver, problems
+        import solver, problems
         spc = newspace()
 
         spc.define_problem(problems.conference_scheduling)

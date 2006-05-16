@@ -1,4 +1,4 @@
-class AppTest_BTree(object):
+class TestBTree(object):
 
 
     def test_everything_at_once(self):

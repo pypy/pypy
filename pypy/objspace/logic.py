@@ -847,8 +847,13 @@ def Space(*args, **kwds):
                  space.wrap(distributor.app_make_split_distributor))
     space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
                  space.wrap(distributor.app_make_dichotomy_distributor))
-    
-    
+    #-- path to the applevel modules --
+    import pypy.objspace.constraint
+    import os
+    dir = os.path.dirname(pypy.objspace.constraint.__file__)
+    dir = os.path.join(dir, 'applevel')
+    space.call_method(space.sys.get('path'), 'append', space.wrap(dir))
+
     if USE_COROUTINES:
         import os
         def exitfunc():
