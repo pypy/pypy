@@ -670,3 +670,13 @@ def test_odd_ints():
     assert typeOf(t) == Ptr(T)
     assert cast_ptr_to_int(t) == 21
     assert s == cast_pointer(Ptr(S), t)
+
+def test_str_of_dead_ptr():
+    S = Struct('S', ('x', Signed))
+    T = GcStruct('T', ('s', S))
+    t = malloc(T)
+    s = t.s
+    del t
+    import gc
+    gc.collect()
+    repr(s)

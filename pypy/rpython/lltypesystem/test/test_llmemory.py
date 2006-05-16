@@ -295,6 +295,49 @@ def test_raw_malloc_varsize():
     py.test.raises(IndexError,
                    "(adr + offsetof(S, 'y') + itemoffsetof(A, 10)).signed[0]")
 
+def test_raw_free():
+    A = lltype.GcArray(lltype.Signed)
+    adr = raw_malloc(sizeof(A, 10))
+    p_a = cast_adr_to_ptr(adr, lltype.Ptr(A))
+    p_a[0] = 1
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_a[0]")
+    py.test.raises(RuntimeError, "p_a[0] = 2")
+    repr(adr)
+    str(p_a)
+
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    adr = raw_malloc(sizeof(S))
+    p_s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+    p_s.x = 1
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_s.x")
+    py.test.raises(RuntimeError, "p_s.x = 2")
+    repr(adr)
+    str(p_s)
+    
+    T = lltype.GcStruct('T', ('s', S))
+    adr = raw_malloc(sizeof(T))
+    p_s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+    p_s.x = 1
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_s.x")
+    py.test.raises(RuntimeError, "p_s.x = 2")
+    repr(adr)
+    str(p_s)
+    
+    U = lltype.Struct('U', ('y', lltype.Signed))
+    T = lltype.GcStruct('T', ('x', lltype.Signed), ('u', U))
+    adr = raw_malloc(sizeof(T))
+    p_t = cast_adr_to_ptr(adr, lltype.Ptr(T))
+    p_u = p_t.u
+    p_u.y = 1
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_u.y")
+    py.test.raises(RuntimeError, "p_u.y = 2")
+    repr(adr)
+    str(p_u)
+    
 def test_inlined_substruct():
     T = lltype.Struct('T', ('x', lltype.Signed))
     S1 = lltype.GcStruct('S1', ('t1', T), ('t2', T))

@@ -875,12 +875,14 @@ class _ptr(object):
         
     def _getobj(self):
         obj = self._obj0
-        if obj is not None and self._weak:
-            obj = obj()
-            if obj is None:
-                raise RuntimeError("accessing already garbage collected %r"
-                                   % (self._T,))                
-            obj._check()
+        if obj is not None:
+            if self._weak:
+                obj = obj()
+                if obj is None:
+                    raise RuntimeError("accessing already garbage collected %r"
+                                   % (self._T,))
+            if not isinstance(obj, int):
+                obj._check()
         return obj
     _obj = property(_getobj)
 
@@ -977,7 +979,10 @@ class _ptr(object):
         return '<%s>' % (self,)
 
     def __str__(self):
-        return '* %s' % (self._obj, )
+        try:
+            return '* %s' % (self._obj, )
+        except RuntimeError:
+            return '* DEAD %s' % self._T
 
     def __call__(self, *args):
         if isinstance(self._T, FuncType):
@@ -1057,11 +1062,16 @@ class _parentable(object):
     __slots__ = ('_TYPE',
                  '_parent_type', '_parent_index', '_keepparent',
                  '_wrparent',
-                 '__weakref__')
+                 '__weakref__',
+                 '_dead')
 
     def __init__(self, TYPE):
         self._wrparent = None
         self._TYPE = TYPE
+        self._dead = False
+
+    def _free(self):
+        self._dead = True
 
     def _setparentstructure(self, parent, parentindex):
         self._wrparent = pickleable_weakref(parent)
@@ -1085,6 +1095,8 @@ class _parentable(object):
         return None
 
     def _check(self):
+        if self._dead:
+            raise RuntimeError("accessing freed %r" % self._TYPE)
         self._parentstructure()
 
     __getstate__ = getstate_with_slots

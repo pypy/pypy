@@ -508,7 +508,8 @@ def raw_malloc(size):
     return size.raw_malloc([])
 
 def raw_free(adr):
-    pass   # for now
+    assert isinstance(adr.ob._obj, lltype._parentable)
+    adr.ob._obj._free()
 
 def raw_malloc_usage(size):
     if isinstance(size, AddressOffset):
