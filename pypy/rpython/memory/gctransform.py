@@ -859,16 +859,17 @@ class FrameworkGCTransformer(GCTransformer):
 
         classdef = bk.getuniqueclassdef(GCClass)
         s_gcdata = annmodel.SomeInstance(classdef)
+        s_gcref = annmodel.SomePtr(llmemory.GCREF)
         self.malloc_fixedsize_ptr = getfn(
             GCClass.malloc_fixedsize.im_func,
             [s_gcdata, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool()], annmodel.SomeAddress(),
+             annmodel.SomeBool()], s_gcref,
             inline = True)
         self.malloc_varsize_ptr = getfn(
             GCClass.malloc_varsize.im_func,
             [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-            + [annmodel.SomeBool()], annmodel.SomeAddress())
+            + [annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gcdata], annmodel.s_None)
 
@@ -1110,7 +1111,6 @@ class FrameworkGCTransformer(GCTransformer):
         assert PTRTYPE.TO == TYPE
         type_id = self.get_type_id(TYPE)
 
-        v = varoftype(llmemory.Address)
         c_type_id = rmodel.inputconst(lltype.Signed, type_id)
         info = self.type_info_list[type_id]
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
@@ -1124,10 +1124,11 @@ class FrameworkGCTransformer(GCTransformer):
             args = [self.malloc_varsize_ptr, self.c_const_gc, c_type_id,
                     v_length, c_size, c_varitemsize, c_ofstolength,
                     c_can_collect]
+        v = varoftype(llmemory.GCREF)
         newop = SpaceOperation("direct_call", args, v)
         ops, index = self.protect_roots(newop, livevars, block,
                                         block.operations.index(op))
-        ops.append(SpaceOperation("cast_adr_to_ptr", [v], op.result))
+        ops.append(SpaceOperation("cast_opaque_ptr", [v], op.result))
         return ops
 
     replace_malloc_varsize = replace_malloc

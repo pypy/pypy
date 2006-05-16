@@ -563,14 +563,22 @@ class TestUsingStacklessFramework(TestUsingFramework):
     from pypy.translator.c.gc import StacklessFrameworkGcPolicy as gcpolicy
 
     def getcompiled(self, f):
-        py.test.skip('in-progress')
         # XXX quick hack
         from pypy.translator.c.test.test_stackless import StacklessTest
         runner = StacklessTest()
         runner.gcpolicy = self.gcpolicy
         runner.stacklessmode = True
-        res = runner.wrap_stackless_function(f)
+        try:
+            res = runner.wrap_stackless_function(f)
+        except py.process.cmdexec.Error, e:
+            if 'Fatal PyPy error: MemoryError' in e.err:
+                res = MemoryError
+            else:
+                raise
         self.t = runner.t
         def compiled():
-            return res
+            if res is MemoryError:
+                raise MemoryError
+            else:
+                return res
         return compiled

@@ -155,8 +155,11 @@ import sys
 ##         gclltype.use_gc = cls.old
 
 from pypy.translator.c import gc
+from pypy.annotation import model as annmodel
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import gctransform
 from pypy.rpython.memory.support import INT_SIZE
+from pypy import conftest
 
 
 def rtype(func, inputtypes, specialize=True):
@@ -165,33 +168,38 @@ def rtype(func, inputtypes, specialize=True):
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize(t)
+    if conftest.option.view:
+        t.view()
     return t
 
 class GCTest(object):
     gcpolicy = None
 
-    def runner(self, f, withargs=False, statistics=False):
-        if withargs:
-            def entrypoint(argv):
-                x = int(argv[0])
-                y = int(argv[1])
+    def runner(self, f, nbargs=0, statistics=False):
+        if nbargs == 2:
+            def entrypoint(args):
+                x = args[0]
+                y = args[1]
                 r = f(x, y)
                 return r
-        else:
-            def entrypoint(argv):
+        elif nbargs == 0:
+            def entrypoint(args):
                 return f()
-            
+        else:
+            raise NotImplementedError("pure laziness")
+
         from pypy.rpython.llinterp import LLInterpreter
         from pypy.translator.c.genc import CStandaloneBuilder
-        from pypy.annotation.listdef import s_list_of_strings
 
-        t = rtype(entrypoint, [s_list_of_strings])
+        ARGS = lltype.FixedSizeArray(lltype.Signed, nbargs)
+        s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
+        t = rtype(entrypoint, [s_args])
         cbuild = CStandaloneBuilder(t, entrypoint, self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
-
-        r_list_of_strings = t.rtyper.getrepr(s_list_of_strings)
+        if conftest.option.view:
+            t.view()
 
         llinterp = LLInterpreter(t.rtyper)
 
@@ -199,8 +207,10 @@ class GCTest(object):
         setupgraph = db.gctransformer.frameworkgc_setup_ptr.value._obj.graph
         llinterp.eval_graph(setupgraph, [])
         def run(args):
-            ll_argv = r_list_of_strings.convert_const([repr(x) for x in args])
-            res = llinterp.eval_graph(entrygraph, [ll_argv])
+            ll_args = lltype.malloc(ARGS, immortal=True)
+            for i in range(nbargs):
+                ll_args[i] = args[i]
+            res = llinterp.eval_graph(entrygraph, [ll_args])
             return res
 
         if statistics:
@@ -259,7 +269,7 @@ class TestMarkSweepGC(GCTest):
         def append_to_list(i, j):
             box.lst.append([i] * 50)
             return box.lst[j][0]
-        run = self.runner(append_to_list, withargs=True)
+        run = self.runner(append_to_list, nbargs=2)
         res = run([0, 0])
         assert res == 0
         for i in range(1, 15):
@@ -273,15 +283,14 @@ class TestMarkSweepGC(GCTest):
             for i in range(j):
                 lst.append(str(i))
             return len("".join(lst))
-        res = self.runner(concat, withargs=True)([100, 0])
-        run, statistics = self.runner(concat, withargs=True, statistics=True)
+        run, statistics = self.runner(concat, nbargs=2, statistics=True)
         res = run([100, 0])
         assert res == concat(100, 0)
         heap_size = statistics().item0
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
 
-class INPROGRESS_TestStacklessMarkSweepGC(TestMarkSweepGC):
+class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(gctransform.StacklessFrameworkGCTransformer):

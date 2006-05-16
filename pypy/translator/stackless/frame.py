@@ -10,7 +10,7 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 # ____________________________________________________________
 # generic data types
 
-SAVED_REFERENCE = lltype.Ptr(lltype.GcOpaqueType('stackless.saved_ref'))
+SAVED_REFERENCE = llmemory.GCREF
 null_saved_ref = lltype.nullptr(SAVED_REFERENCE.TO)
 
 STORAGE_TYPES = [lltype.Void, SAVED_REFERENCE, llmemory.Address,

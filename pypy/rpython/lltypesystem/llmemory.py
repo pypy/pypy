@@ -385,6 +385,9 @@ NULL = fakeaddress(None)
 NULL.intaddress = 0      # this is to make memory.lladdress more happy
 Address = lltype.Primitive("Address", NULL)
 
+# GCREF is similar to Address but it is GC-aware
+GCREF = lltype.Ptr(lltype.GcOpaqueType('GCREF'))
+
 
 class _fakeaccessor(object):
     def __init__(self, addr):

@@ -112,8 +112,9 @@ class MarkSweepGC(GCBase):
     _size_gc_header = GCHeaderOffset(HDR)
 
     def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
-        self.bytes_malloced = 0
-        self.heap_size = start_heap_size
+        self.heap_usage = 0          # at the end of the latest collection
+        self.bytes_malloced = 0      # since the latest collection
+        self.bytes_malloced_threshold = start_heap_size
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
         self.malloced_objects = None
@@ -125,18 +126,20 @@ class MarkSweepGC(GCBase):
         self.malloced_objects = self.AddressLinkedList()
 
     def malloc(self, typeid, length=0):
-        if self.bytes_malloced > self.heap_size:
-            self.collect()
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            return self.malloc_varsize(typeid, length, size, itemsize,
-                                       offset_to_length, True)
-        return self.malloc_fixedsize(typeid, size, True)
+            ref = self.malloc_varsize(typeid, length, size, itemsize,
+                                      offset_to_length, True)
+        else:
+            ref = self.malloc_fixedsize(typeid, size, True)
+        # XXX lots of cast and reverse-cast around, but this malloc()
+        # should eventually be killed
+        return lltype.cast_ptr_to_adr(ref)
 
     def malloc_fixedsize(self, typeid, size, can_collect):
-        if can_collect and self.bytes_malloced > self.heap_size:
+        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = MarkSweepGC._size_gc_header
         result = raw_malloc(size_gc_header + size)
@@ -144,11 +147,12 @@ class MarkSweepGC(GCBase):
         hdr.typeid = typeid << 1
         self.malloced_objects.append(result)
         self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
-        return result + size_gc_header
+        result += size_gc_header
+        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect):
-        if can_collect and self.bytes_malloced > self.heap_size:
+        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         try:
             varsize = rarithmetic.ovfcheck(itemsize * length)
@@ -163,13 +167,12 @@ class MarkSweepGC(GCBase):
         hdr.typeid = typeid << 1
         self.malloced_objects.append(result)
         self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
-        return result + size_gc_header
+        result += size_gc_header
+        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def collect(self):
         import os
-        os.write(2, 'collecting... ')
-        old_malloced = self.bytes_malloced
-        self.bytes_malloced = 0
+        os.write(2, 'collecting...\n')
         roots = self.get_roots()
         objects = self.AddressLinkedList()
         while 1:
@@ -184,6 +187,9 @@ class MarkSweepGC(GCBase):
 ##            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
 ##            gc_info.signed[0] = gc_info.signed[0] & (~1)
         free_non_gc_object(roots)
+        # from this point onwards, no more mallocs should be possible
+        old_malloced = self.bytes_malloced
+        self.bytes_malloced = 0
         while 1:  #mark
             curr = objects.pop()
 ##             print "object: ", curr
@@ -240,17 +246,25 @@ class MarkSweepGC(GCBase):
                 raw_free(curr)
         free_non_gc_object(self.malloced_objects)
         self.malloced_objects = newmo
-        if curr_heap_size > self.heap_size:
-            self.heap_size = curr_heap_size
+        if curr_heap_size > self.bytes_malloced_threshold:
+            self.bytes_malloced_threshold = curr_heap_size
         # warning, the following debug print allocates memory to manipulate
         # the strings!  so it must be at the end
-        os.write(2, "malloced before this collection %s bytes. " % old_malloced)
-        os.write(2, "freed %s bytes. the heap is now %s bytes.\n" % (freed_size, curr_heap_size))
+        os.write(2, "  malloced since previous collection: %s bytes\n" %
+                 old_malloced)
+        os.write(2, "  heap usage at start of collection:  %s bytes\n" %
+                 (self.heap_usage + old_malloced))
+        os.write(2, "  freed:                              %s bytes\n" %
+                 freed_size)
+        os.write(2, "  new heap usage:                     %s bytes\n" %
+                 curr_heap_size)
+        assert self.heap_usage + old_malloced == curr_heap_size + freed_size
+        self.heap_usage = curr_heap_size
 
     STATISTICS_NUMBERS = 2
 
     def statistics(self):
-        return self.heap_size, self.bytes_malloced
+        return self.heap_usage, self.bytes_malloced
 
     def size_gc_header(self, typeid=0):
         return MarkSweepGC._size_gc_header
