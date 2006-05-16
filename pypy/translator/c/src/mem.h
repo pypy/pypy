@@ -2,6 +2,22 @@
 /************************************************************/
  /***  C header subsection: operations on LowLevelTypes    ***/
 
+#define OP_RAW_MALLOC(size,r) OP_ZERO_MALLOC(size, r)
+
+#define OP_RAW_MALLOC_USAGE(size, r) r = size
+
+#ifdef MS_WINDOWS
+#define alloca  _alloca
+#endif
+
+#define OP_STACK_MALLOC(size,r)                                            \
+    r = (void*) alloca(size);                                              \
+    if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");\
+ 
+#define OP_RAW_FREE(x,r)        OP_FREE(x)
+#define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
+
+/************************************************************/
 
 /* a reasonably safe bound on the largest allowed argument value
    that we can pass to malloc.  This is used for var-sized mallocs
