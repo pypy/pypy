@@ -25,6 +25,7 @@ DEFAULT_OPTIONS = optparse.Values(defaults={
   'backend': 'c',
   'lowmem': False,
   'fork_before': None,
+  'raisingop2direct_call' : False,
   'merge_if_blocks': True
 })
 
@@ -205,6 +206,7 @@ class TranslationDriver(SimpleTaskEngine):
         from pypy.translator.backendopt.all import backend_optimizations
         opt = self.options
         backend_optimizations(self.translator,
+                              raisingop2direct_call_all=opt.raisingop2direct_call,
                               merge_if_blocks_to_switch=opt.merge_if_blocks)
     #
     task_backendopt = taskdef(task_backendopt, 
