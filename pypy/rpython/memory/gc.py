@@ -115,6 +115,7 @@ class MarkSweepGC(GCBase):
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
         self.bytes_malloced_threshold = start_heap_size
+        self.total_collection_time = 0.0
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
         self.malloced_objects = None
@@ -171,8 +172,9 @@ class MarkSweepGC(GCBase):
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def collect(self):
-        import os
+        import os, time
         os.write(2, 'collecting...\n')
+        start_time = time.time()
         roots = self.get_roots()
         objects = self.AddressLinkedList()
         while 1:
@@ -249,6 +251,8 @@ class MarkSweepGC(GCBase):
         self.malloced_objects = newmo
         if curr_heap_size > self.bytes_malloced_threshold:
             self.bytes_malloced_threshold = curr_heap_size
+        end_time = time.time()
+        self.total_collection_time += end_time - start_time
         # warning, the following debug print allocates memory to manipulate
         # the strings!  so it must be at the end
         os.write(2, "  malloced since previous collection: %s bytes\n" %
@@ -259,6 +263,8 @@ class MarkSweepGC(GCBase):
                  freed_size)
         os.write(2, "  new heap usage:                     %s bytes\n" %
                  curr_heap_size)
+        os.write(2, "  total time spent collecting:        %s seconds\n" %
+                 self.total_collection_time)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
         self.heap_usage = curr_heap_size
 
