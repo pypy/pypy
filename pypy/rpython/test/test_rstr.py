@@ -580,7 +580,7 @@ def FIXME_test_str_to_pystringobj():
     res = interpret(g, [-2])
     assert res._obj.value == 42
 
-class xTestLltype(AbstractTestRstr):
+class TestLltype(AbstractTestRstr):
     ts = "lltype"
 
     def ll_to_string(self, s):

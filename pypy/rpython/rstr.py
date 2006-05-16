@@ -305,7 +305,7 @@ class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
         if hop.rtyper.type_system.name == 'ootypesystem':
             getfield = 'oogetfield'
         else:
-            getfield = 'getfiel'
+            getfield = 'getfield'
 
         sourcevars = []
         for fname, r_arg in zip(r_tuple.fieldnames, r_tuple.items_r):
