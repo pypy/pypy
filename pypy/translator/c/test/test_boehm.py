@@ -95,6 +95,37 @@ class TestUsingBoehm(AbstractTestClass):
         # it might be the test's fault though.
         assert 0 < res <= 84
 
+    def test_weakgcaddress_is_weak(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        class State:
+            pass
+        s = State()
+        class A(object):
+            def __del__(self):
+                s.a_dels += 1
+        def f(i=int):
+            if i:
+                s.a_dels = 0
+                a = A()
+                # this should not keep a alive
+                s.a = cast_object_to_weakgcaddress(a)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return s.a_dels
+        fn = self.getcompiled(f)
+        # we can't demand that boehm has collected all of the objects,
+        # even with the gc__collect call.  calling the compiled
+        # function twice seems to help, though.
+        fn(1)
+        fn(0)
+        fn(0)
+        res = fn(0)
+        print res
+        assert res == 1
+
     def test_del_raises(self):
         from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.rpython.lltypesystem import lltype

@@ -112,3 +112,20 @@ def test_flavored_malloc_stack():
         return result
     fn = compile(f, [int])
     assert fn(1) == 2
+
+def test_weakaddress():
+    from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+    from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+    from pypy.rpython.lltypesystem.lloperation import llop
+    class A(object):
+        pass
+    def func(i):
+        l1 = []
+        l2 = []
+        for i in range(i):
+            a = A()
+            l1.append(a)
+            l2.append(cast_object_to_weakgcaddress(a))
+        return len(l1) == len(l2)
+    fn = compile(func, [int])
+    assert fn(10)

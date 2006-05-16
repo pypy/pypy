@@ -234,7 +234,6 @@ class BoehmGcPolicy(BasicGcPolicy):
     def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect(); GC_invoke_finalizers();'
 
-
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'boehm rtti'
     globalcontainer = True

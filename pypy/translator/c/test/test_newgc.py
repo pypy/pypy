@@ -6,9 +6,9 @@ from py.test import raises
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.objectmodel import cast_address_to_object, cast_object_to_address
+from pypy.rpython.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
 from pypy.rpython.memory.gctransform import GCTransformer
 
 from pypy import conftest
@@ -258,31 +258,54 @@ class Weakrefable(object):
     __lifeline__ = None
 
 class Weakref(object):
-    def __init__(self, obj):
-        self.address = cast_object_to_address(obj)
+    def __init__(self, lifeline, index, obj, callback):
+        self.address = cast_object_to_weakgcaddress(obj)
+        self.callback = callback
+        self.lifeline_addr = cast_object_to_weakgcaddress(lifeline)
+        self.index = index
     
     def ref(self):
-        return cast_address_to_object(self.address, Weakrefable)
+        return cast_weakgcaddress_to_object(self.address, Weakrefable)
 
     def invalidate(self):
-        from pypy.rpython.lltypesystem.llmemory import NULL
-        self.address = NULL
+        self.address = llmemory.WEAKNULL
+        self.lifeline_addr = llmemory.WEAKNULL
+        if self.callback is not None:
+            self.callback(self)
+
+    def __del__(self):
+        if cast_weakgcaddress_to_object(self.address, Weakrefable) is not None:
+            lifeline = cast_weakgcaddress_to_object(self.lifeline_addr,
+                                                    WeakrefLifeline)
+            lifeline.ref_is_dead(self.index)
 
 class WeakrefLifeline(object):
     def __init__(self, obj):
-        self.ref = Weakref(obj)
+        self.refs = []
         
     def __del__(self):
-        self.ref.invalidate()
-    
-    def get_weakref(self):
-        return self.ref
+        i = 0
+        while i < len(self.refs):
+            addr_ref = self.refs[i]
+            if cast_weakgcaddress_to_object(addr_ref, Weakref) is not None:
+                ref = cast_weakgcaddress_to_object(addr_ref, Weakref)
+                ref.invalidate()
+            i += 1
 
-def get_weakref(obj):
+    def get_weakref(self, obj, callback):
+        ref = Weakref(self, len(self.refs), obj, callback)
+        addr_ref = cast_object_to_weakgcaddress(ref)
+        self.refs.append(addr_ref)
+        return ref
+
+    def ref_is_dead(self, index):
+        self.refs[index] = llmemory.WEAKNULL
+
+def get_weakref(obj, callback=None):
     assert isinstance(obj, Weakrefable)
     if obj.__lifeline__ is None:
         obj.__lifeline__ = WeakrefLifeline(obj)
-    return obj.__lifeline__.get_weakref()
+    return obj.__lifeline__.get_weakref(obj, callback)
 
 def test_weakref_alive():
     def func():
@@ -290,10 +313,10 @@ def test_weakref_alive():
         f.x = 32
         ref1 = get_weakref(f)
         ref2 = get_weakref(f)
-        return f.x + ref2.ref().x + (ref1 is ref2)
-    assert func() == 65
+        return f.x + ref2.ref().x
+    assert func() == 64
     f = compile_func(func, [])
-    assert f() == 65
+    assert f() == 64
 
 def test_weakref_dying():
     def g():
@@ -303,6 +326,48 @@ def test_weakref_dying():
     def func():
         ref = g()
         return ref.ref() is None
+    assert func()
+    f = compile_func(func, [])
+    assert f()
+
+def test_weakref_callback():
+    global_w = Weakrefable()
+    global_w.x = 31
+    def g(ref):
+        global_w.x = 32
+    def h():
+        f = Weakrefable()
+        f.x = 32
+        ref = get_weakref(f, g)
+        return ref
+    def func():
+        ref = h()
+        return (ref.ref() is None and ref.callback is not None and
+                global_w.x == 32)
+    assert func()
+    f = compile_func(func, [])
+    assert f()
+
+def test_weakref_dont_always_callback():
+    py.test.skip("in-progress")
+    global_w1 = Weakrefable()
+    global_w1.x = 30
+    global_w2 = Weakrefable()
+    global_w2.x = 30
+    def g1(ref):
+        global_w1.x = 32
+    def g2(ref):
+        global_w2.x = 32
+    def h():
+        f = Weakrefable()
+        f.x = 32
+        ref1 = get_weakref(f, g1)
+        ref2 = get_weakref(f, g2)
+        ref2 = None
+        return ref1
+    def func():
+        ref = h()
+        return global_w1.x == 32 and global_w2.x == 30
     assert func()
     f = compile_func(func, [])
     assert f()

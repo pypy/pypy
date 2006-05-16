@@ -463,11 +463,17 @@ class fakeweakaddress(object):
             self.ref = None
     def get(self):
         if self.ref is None:
-            raise NullAddressError
+            return None
         ob = self.ref()
         if ob is None:
             raise NullAddressError
         return ob
+    def __repr__(self):
+        if self.ref is None:
+            s = 'NULL'
+        else:
+            s = str(self.ref)
+        return '<fakeweakaddr %s>' % (s,)
 
 WeakGcAddress = lltype.Primitive("WeakGcAddress",
                                  fakeweakaddress(None))
@@ -477,9 +483,13 @@ def cast_ptr_to_weakadr(obj):
     return fakeweakaddress(obj)
 
 def cast_weakadr_to_ptr(adr, EXPECTED_TYPE):
-    return adr.get()
+    result = adr.get()
+    if result is None:
+        return lltype.nullptr(EXPECTED_TYPE.TO)
+    return result
 
 fakeweakaddress._TYPE = WeakGcAddress
+WEAKNULL = fakeweakaddress(None)
 
 # ____________________________________________________________
 

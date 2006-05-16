@@ -481,6 +481,7 @@ class SomeTypedAddressAccess(SomeObject):
 class SomePtr(SomeObject):
     immutable = True
     def __init__(self, ll_ptrtype):
+        assert isinstance(ll_ptrtype, lltype.Ptr)
         self.ll_ptrtype = ll_ptrtype
 
     def can_be_none(self):
@@ -526,6 +527,7 @@ annotation_to_ll_map = [
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
+    (SomeWeakGcAddress(), llmemory.WeakGcAddress),
 ]
 
 def annotation_to_lltype(s_val, info=None):

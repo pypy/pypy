@@ -4,8 +4,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.rpython.objectmodel import cast_address_to_object, cast_object_to_address
-from pypy.rpython.lltypesystem.llmemory import NULL
+from pypy.rpython.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
+from pypy.rpython.lltypesystem.llmemory import WEAKNULL
 
 
 class WeakrefLifeline(object):
@@ -17,13 +17,12 @@ class WeakrefLifeline(object):
     def __del__(self):
         for i in range(len(self.addr_refs) - 1, -1, -1):
             addr_ref = self.addr_refs[i]
-            if addr_ref != NULL:
-                w_ref = cast_address_to_object(addr_ref, W_WeakrefBase)
+            if cast_weakgcaddress_to_object(addr_ref, W_Root) is not None:
+                w_ref = cast_weakgcaddress_to_object(addr_ref, W_Root)
                 w_ref.invalidate()
         for i in range(len(self.addr_refs) - 1, -1, -1):
-            addr_ref = self.addr_refs[i]
-            if addr_ref != NULL:
-                w_ref = cast_address_to_object(addr_ref, W_WeakrefBase)
+            if cast_weakgcaddress_to_object(addr_ref, W_Root) is not None:
+                w_ref = cast_weakgcaddress_to_object(addr_ref, W_Root)
                 w_ref.activate_callback()
     
     def get_weakref(self, space, w_subtype, w_obj, w_callable):
@@ -32,12 +31,12 @@ class WeakrefLifeline(object):
         can_reuse = space.is_w(w_callable, space.w_None)
         if is_weakreftype and can_reuse and self.cached_weakref_index >= 0:
             cached_weakref_address = self.addr_refs[self.cached_weakref_index]
-            return cast_address_to_object(cached_weakref_address, W_Weakref)
+            return cast_weakgcaddress_to_object(cached_weakref_address, W_Weakref)
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
         index = len(self.addr_refs)
         W_Weakref.__init__(w_ref, space, self, index,
                            w_obj, w_callable)
-        self.addr_refs.append(cast_object_to_address(w_ref))
+        self.addr_refs.append(cast_object_to_weakgcaddress(w_ref))
         if is_weakreftype and can_reuse:
             self.cached_weakref_index = index
         return w_ref
@@ -46,19 +45,19 @@ class WeakrefLifeline(object):
         can_reuse = space.is_w(w_callable, space.w_None)
         if can_reuse and self.cached_proxy_index >= 0:
             cached_proxy_address = self.addr_refs[self.cached_proxy_index]
-            return cast_address_to_object(cached_proxy_address, W_Proxy)
+            return cast_weakgcaddress_to_object(cached_proxy_address, W_Proxy)
         index = len(self.addr_refs)
         if space.is_true(space.callable(w_obj)):
             w_proxy = W_CallableProxy(space, self, index, w_obj, w_callable)
         else:
             w_proxy = W_Proxy(space, self, index, w_obj, w_callable)
-        self.addr_refs.append(cast_object_to_address(w_proxy))
+        self.addr_refs.append(cast_object_to_weakgcaddress(w_proxy))
         if can_reuse:
             self.cached_proxy_index = index
         return w_proxy
 
     def ref_is_dead(self, index):
-        self.addr_refs[index] = NULL
+        self.addr_refs[index] = WEAKNULL
         if self.cached_proxy_index == index:
             self.cached_proxy_index = -1
         if self.cached_weakref_index == index:
@@ -66,13 +65,13 @@ class WeakrefLifeline(object):
 
     def get_any_weakref(self, space):
         if self.cached_weakref_index != -1:
-            return cast_address_to_object(
-                self.addr_refs[self.cached_weakref_index], W_WeakrefBase)
+            return cast_weakgcaddress_to_object(
+                self.addr_refs[self.cached_weakref_index], W_Root)
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         for i in range(len(self.addr_refs)):
             addr = self.addr_refs[i]
-            if addr != NULL:
-                w_ref = cast_address_to_object(addr, W_WeakrefBase)
+            if cast_weakgcaddress_to_object(addr, W_Root) is not None:
+                w_ref = cast_weakgcaddress_to_object(addr, W_Root)
                 if space.is_true(space.isinstance(w_ref, w_weakreftype)):
                     return w_ref
         return space.w_None
@@ -80,18 +79,18 @@ class WeakrefLifeline(object):
 class W_WeakrefBase(Wrappable):
     def __init__(w_self, space, lifeline, index, w_obj, w_callable):
         w_self.space = space
-        w_self.address = cast_object_to_address(w_obj)
+        w_self.address = cast_object_to_weakgcaddress(w_obj)
         w_self.w_callable = w_callable
-        w_self.addr_lifeline = cast_object_to_address(lifeline)
+        w_self.addr_lifeline = cast_object_to_weakgcaddress(lifeline)
         w_self.index = index
 
     def dereference(self):
-        if self.address == NULL:
+        if cast_weakgcaddress_to_object(self.address, W_Root) is None:
             return self.space.w_None
-        return cast_address_to_object(self.address, W_Root)
+        return cast_weakgcaddress_to_object(self.address, W_Root)
         
     def invalidate(w_self):
-        w_self.address = NULL
+        w_self.address = WEAKNULL
 
     def activate_callback(w_self):
         if not w_self.space.is_w(w_self.w_callable, w_self.space.w_None):
@@ -101,9 +100,9 @@ class W_WeakrefBase(Wrappable):
                 e.write_unraisable(w_self.space, 'function', w_self.w_callable)
 
     def __del__(w_self):
-        if w_self.address != NULL:
-            lifeline = cast_address_to_object(w_self.addr_lifeline,
-                                              WeakrefLifeline)
+        lifeline = cast_weakgcaddress_to_object(w_self.addr_lifeline,
+                                                WeakrefLifeline)
+        if lifeline is not None:
             lifeline.ref_is_dead(w_self.index)
 
 class W_Weakref(W_WeakrefBase):
@@ -129,7 +128,8 @@ def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
     return lifeline.get_weakref(space, w_subtype, w_obj, w_callable)
 
 def descr__eq__(space, ref1, ref2):
-    if ref1.address == NULL or ref2.address == NULL:
+    if (cast_weakgcaddress_to_object(ref1.address, W_Root) is None or
+        cast_weakgcaddress_to_object(ref2.address, W_Root) is None):
         return space.is_(ref1, ref2)
     return space.eq(ref1.dereference(), ref2.dereference())
 
@@ -154,7 +154,7 @@ def getweakrefcount(space, w_obj):
     else:
         result = 0
         for i in range(len(lifeline.addr_refs)):
-            if lifeline.addr_refs[i] != NULL:
+            if cast_weakgcaddress_to_object(lifeline.addr_refs[i], W_Root) is not None:
                 result += 1
         return space.wrap(result)
 
@@ -166,8 +166,8 @@ def getweakrefs(space, w_obj):
         result = []
         for i in range(len(lifeline.addr_refs)):
             addr = lifeline.addr_refs[i]
-            if addr != NULL:
-                result.append(cast_address_to_object(addr, W_WeakrefBase))
+            if cast_weakgcaddress_to_object(addr, W_Root) is not None:
+                result.append(cast_weakgcaddress_to_object(addr, W_Root))
         return space.newlist(result)
 
 #_________________________________________________________________

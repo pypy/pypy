@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem.llmemory import *
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.test.test_llinterp import interpret
 import py
 
 def test_simple():
@@ -378,3 +379,32 @@ def test_arena_bump_ptr():
     s2_ptr = cast_adr_to_ptr(badr, SPTR)
     assert s2_ptr.x == 2
     # release(start)
+
+class TestWeakAddressLLinterp(object):
+    def test_null(self):
+        from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        class A:
+            pass
+        def f():
+            return cast_weakgcaddress_to_object(WEAKNULL, A) is None
+        assert interpret(f, [])
+    
+    def test_attribute(object):
+        from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        class A:
+            pass
+        class B:
+            pass
+        def f(x):
+            a = A()
+            b = B()
+            if x:
+                a.addr = WEAKNULL
+            else:
+                a.addr = cast_object_to_weakgcaddress(b)
+            return cast_weakgcaddress_to_object(a.addr, B) is b
+        assert not interpret(f, [1])
+        assert interpret(f, [0])
+ 

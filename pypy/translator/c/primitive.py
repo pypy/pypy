@@ -3,7 +3,7 @@ from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
-     CompositeOffset, ArrayLengthOffset
+     CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress
 from pypy.rpython.memory.gc import GCHeaderOffset
 from pypy.rpython.memory.lladdress import NULL
 from pypy.translator.c.support import cdecl
@@ -110,6 +110,12 @@ def name_address(value, db):
         
         return '(void*)(((char*)(%s)) + (%s))'%(base, db.get(value.offset))
 
+def name_weakgcaddress(value, db):
+    assert isinstance(value, fakeweakaddress)
+    assert value.ref is None # only weak NULL supported
+    return 'NULL'
+
+
 PrimitiveName = {
     Signed:   name_signed,
     SignedLongLong:   name_signedlonglong,
@@ -121,6 +127,7 @@ PrimitiveName = {
     Bool:     name_bool,
     Void:     name_void,
     Address:  name_address,
+    WeakGcAddress:  name_weakgcaddress,
     }
 
 PrimitiveType = {
@@ -134,6 +141,7 @@ PrimitiveType = {
     Bool:     'char @',
     Void:     'void @',
     Address:  'void* @',
+    WeakGcAddress:  'void* @',
     }
 
 PrimitiveErrorValue = {
@@ -147,6 +155,7 @@ PrimitiveErrorValue = {
     Bool:     '((char) -1)',
     Void:     '/* error */',
     Address:  'NULL',
+    WeakGcAddress:  'NULL',
     }
 
 def define_c_primitive(ll_type, c_name):
