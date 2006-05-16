@@ -60,7 +60,9 @@ def rtype_builtin_isinstance(hop):
 def rtype_oostring(hop):
     assert isinstance(hop.args_s[0],(annmodel.SomeInteger,
                                      annmodel.SomeChar,
-                                     annmodel.SomeString))
+                                     annmodel.SomeString,
+                                     annmodel.SomeOOInstance))
+    assert isinstance(hop.args_s[1], annmodel.SomeInteger)
     return hop.genop('oostring', hop.args_v, resulttype = ootype.String)
 
 

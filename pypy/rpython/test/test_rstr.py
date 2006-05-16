@@ -1,5 +1,6 @@
 import random
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.rstr import AbstractLLHelpers
 from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
 from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
@@ -21,6 +22,11 @@ def test_ll_find_rfind():
         assert res == s1.find(s2)
         res = LLHelpers.ll_rfind(llstr(s1), llstr(s2), 0, n1)
         assert res == s1.rfind(s2)
+
+def test_parse_fmt():
+    assert AbstractLLHelpers.parse_fmt_string('a') == ['a']
+    assert AbstractLLHelpers.parse_fmt_string('%s') == [('s',)]
+    assert AbstractLLHelpers.parse_fmt_string("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
 
 
 class AbstractTestRstr:
@@ -376,100 +382,99 @@ class AbstractTestRstr:
         assert self.ll_to_string(res) == 'hell'
 
 
-def test_parse_fmt():
-    assert LLHelpers.parse_fmt_string('a') == ['a']
-    assert LLHelpers.parse_fmt_string('%s') == [('s',)]
-    assert LLHelpers.parse_fmt_string("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+    def test_strformat(self):
+        def percentS(s):
+            return "before %s after" % (s,)
 
-def test_strformat():
-    def percentS(s):
-        return "before %s after" % (s,)
+        res = self.interpret(percentS, ['1'])
+        assert self.ll_to_string(res) == 'before 1 after'
 
-    res = interpret(percentS, ['1'])
-    assert ''.join(res.chars) == 'before 1 after'
+        def percentD(i):
+            return "bing %d bang" % (i,)
 
-    def percentD(i):
-        return "bing %d bang" % (i,)
-    
-    res = interpret(percentD, [23])
-    assert ''.join(res.chars) == 'bing 23 bang'
+        res = self.interpret(percentD, [23])
+        assert self.ll_to_string(res) == 'bing 23 bang'
 
-    def percentX(i):
-        return "bing %x bang" % (i,)
+        def percentX(i):
+            return "bing %x bang" % (i,)
 
-    res = interpret(percentX, [23])
-    assert ''.join(res.chars) == 'bing 17 bang'
+        res = self.interpret(percentX, [23])
+        assert self.ll_to_string(res) == 'bing 17 bang'
 
-    res = interpret(percentX, [-123])
-    assert ''.join(res.chars) == 'bing -7b bang'
+        res = self.interpret(percentX, [-123])
+        assert self.ll_to_string(res) == 'bing -7b bang'
 
-    def percentO(i):
-        return "bing %o bang" % (i,)
-    
-    res = interpret(percentO, [23])
-    assert ''.join(res.chars) == 'bing 27 bang'
+        def percentO(i):
+            return "bing %o bang" % (i,)
 
-    res = interpret(percentO, [-123])
-    assert ''.join(res.chars) == 'bing -173 bang'
+        res = self.interpret(percentO, [23])
+        assert self.ll_to_string(res) == 'bing 27 bang'
 
-    def moreThanOne(s, d, x, o):
-        return "string: %s decimal: %d hex: %x oct: %o" % (s, d, x, o)
+        res = self.interpret(percentO, [-123])
+        assert self.ll_to_string(res) == 'bing -173 bang'
 
-    args = 'a', 2, 3, 4
-    res = interpret(moreThanOne, list(args))
-    assert ''.join(res.chars) == moreThanOne(*args)
+        def moreThanOne(s, d, x, o):
+            return "string: %s decimal: %d hex: %x oct: %o" % (s, d, x, o)
 
-def test_strformat_nontuple():
-    def percentD(i):
-        return "before %d after" % i
+        args = 'a', 2, 3, 4
+        res = self.interpret(moreThanOne, list(args))
+        assert self.ll_to_string(res) == moreThanOne(*args)
 
-    res = interpret(percentD, [1])
-    assert ''.join(res.chars) == 'before 1 after'
+    def test_strformat_nontuple(self):
+        def percentD(i):
+            return "before %d after" % i
 
-    def percentS(i):
-        return "before %s after" % i
+        res = self.interpret(percentD, [1])
+        assert self.ll_to_string(res) == 'before 1 after'
 
-    res = interpret(percentS, ['D'])
-    assert ''.join(res.chars) == 'before D after'
+        def percentS(i):
+            return "before %s after" % i
 
-def test_strformat_instance():
-    class C:
-        pass
-    class D(C):
-        pass
-    def dummy(i):
-        if i:
-            x = C()
-        else:
-            x = D()
-        return str(x)
-        
-    res = interpret(dummy, [1])
-    assert ''.join(res.chars) == '<C object>'
+        res = self.interpret(percentS, ['D'])
+        assert self.ll_to_string(res) == 'before D after'
 
-    res = interpret(dummy, [0])
-    assert ''.join(res.chars) == '<D object>'
+    def test_strformat_instance(self):
+        class C:
+            pass
+        class D(C):
+            pass
+        def dummy(i):
+            if i:
+                x = C()
+            else:
+                x = D()
+            return str(x)
 
-def test_percentformat_instance():
-    class C:
-        pass
-    class D(C):
-        pass
-    
-    def dummy(i):
-        if i:
-            x = C()
-            y = D()
-        else:
-            x = D()
-            y = C()
-        return "what a nice %s, much nicer than %r"%(x, y)
-        
-    res = interpret(dummy, [1])
-    assert ''.join(res.chars) == 'what a nice <C object>, much nicer than <D object>'
+        res = self.ll_to_string(self.interpret(dummy, [1]))
+        assert res.startswith('<')
+        assert res.endswith('C object>')
 
-    res = interpret(dummy, [0])
-    assert ''.join(res.chars) == 'what a nice <D object>, much nicer than <C object>'
+        res = self.ll_to_string(self.interpret(dummy, [0]))
+        assert res.startswith('<')
+        assert res.endswith('D object>')
+
+    def test_percentformat_instance(self):
+        class C:
+            pass
+        class D(C):
+            pass
+
+        def dummy(i):
+            if i:
+                x = C()
+                y = D()
+            else:
+                x = D()
+                y = C()
+            return "what a nice %s, much nicer than %r"%(x, y)
+
+        res = self.ll_to_string(self.interpret(dummy, [1]))
+        res = res.replace('pypy.rpython.test.test_rstr.', '')
+        assert res == 'what a nice <C object>, much nicer than <D object>'
+
+        res = self.ll_to_string(self.interpret(dummy, [0]))
+        res = res.replace('pypy.rpython.test.test_rstr.', '')        
+        assert res == 'what a nice <D object>, much nicer than <C object>'
 
 def test_split():
     def fn(i):

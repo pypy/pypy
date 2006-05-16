@@ -1142,8 +1142,20 @@ def ooidentityhash(inst):
     assert isinstance(typeOf(inst), (Instance, Record))
     return inst._identityhash()
 
-def oostring(obj):
-    "Convert char, int and str to str"
+def oostring(obj, base):
+    """
+    Convert char, int, float, instances and str to str.
+    
+    Base is used only for formatting int: for other types is ignored
+    and should be set to -1. For int only base 8, 10 and 16 are
+    supported.
+    """
+    if isinstance(obj, int):
+        assert base in (-1, 8, 10, 16)
+        fmt = {-1:'%d', 8:'%o', 10:'%d', 16:'%x'}[base]
+        obj = fmt % obj
+    elif isinstance(obj, _view):
+        obj = '<%s object>' % obj._inst._TYPE._name
     return make_string(str(obj))
 
 def setItemType(LIST, ITEMTYPE):

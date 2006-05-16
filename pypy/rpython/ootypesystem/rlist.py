@@ -39,7 +39,6 @@ class BaseListRepr(AbstractBaseListRepr):
         result = self.LIST.ll_newlist(n)
         return result
 
-
     def send_message(self, hop, message, can_raise=False, v_args=None):
         if v_args is None:
             v_args = hop.inputargs(self, *hop.args_r[1:])

@@ -379,6 +379,13 @@ class InstanceRepr(AbstractInstanceRepr):
         vinst, = hop.inputargs(self)
         return hop.genop('oononnull', [vinst], resulttype=ootype.Bool)
 
+    def ll_const(c):
+        return c
+    ll_const = staticmethod(ll_const)
+
+    def ll_str(self, instance):
+        return ootype.oostring(instance, self.ll_const(-1))
+
     def rtype_type(self, hop):
         vinst, = hop.inputargs(self)
         if hop.args_s[0].can_be_none():

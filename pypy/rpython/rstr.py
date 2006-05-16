@@ -298,10 +298,15 @@ class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
         r_tuple = hop.args_r[1]
         v_tuple = hop.args_v[1]
 
+        if hop.rtyper.type_system.name == 'ootypesystem':
+            getfield = 'oogetfield'
+        else:
+            getfield = 'getfiel'
+
         sourcevars = []
         for fname, r_arg in zip(r_tuple.fieldnames, r_tuple.items_r):
             cname = hop.inputconst(Void, fname)
-            vitem = hop.genop("getfield", [v_tuple, cname],
+            vitem = hop.genop(getfield, [v_tuple, cname],
                               resulttype=r_arg)
             sourcevars.append((vitem, r_arg))
 
@@ -545,3 +550,28 @@ class AbstractLLHelpers:
             raise IndexError
         return cls.ll_stritem_nonneg(s, i)
     ll_stritem_checked = classmethod(ll_stritem_checked)
+
+    def parse_fmt_string(fmt):
+        # we support x, d, s, f, [r]
+        it = iter(fmt)
+        r = []
+        curstr = ''
+        for c in it:
+            if c == '%':
+                f = it.next()
+                if f == '%':
+                    curstr += '%'
+                    continue
+
+                if curstr:
+                    r.append(curstr)
+                curstr = ''
+                if f not in 'xdosrf':
+                    raise TyperError("Unsupported formatting specifier: %r in %r" % (f, fmt))
+
+                r.append((f,))
+            else:
+                curstr += c
+        if curstr:
+            r.append(curstr)
+        return r

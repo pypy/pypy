@@ -521,9 +521,9 @@ def ooidentityhash(i):
     assert isinstance(i, SomeOOInstance)
     return SomeInteger()
 
-def oostring(obj):
-    assert (isinstance(obj, (SomeInteger, SomeChar)) or
-            isinstance(obj, SomeOOInstance) and obj.ootype is ootype.String)
+def oostring(obj, base):
+    assert isinstance(obj, (SomeInteger, SomeChar, SomeOOInstance))
+    assert isinstance(base, SomeInteger)
     return SomeOOInstance(ootype.String)
 
 BUILTIN_ANALYZERS[ootype.instanceof] = instanceof

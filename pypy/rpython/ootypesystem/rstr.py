@@ -2,6 +2,7 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
      AbstractLLHelpers
+from pypy.rpython.rmodel import IntegerRepr
 from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
 from pypy.rpython.ootypesystem import ootype
 
@@ -60,8 +61,11 @@ class UniCharRepr(AbstractUniCharRepr):
 
 class LLHelpers(AbstractLLHelpers):
 
+    def ll_const(c):
+        return c
+
     def ll_chr2str(ch):
-        return ootype.oostring(ch)
+        return ootype.oostring(ch, LLHelpers.ll_const(-1))
 
     def ll_char_mul(ch, times):
         buf = ootype.new(ootype.StringBuilder)
@@ -143,6 +147,59 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_minusone(s):
         return s.ll_substring(0, s.ll_strlen()-1)
 
+    def do_stringformat(cls, hop, sourcevarsrepr):
+        InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
+        string_repr = hop.rtyper.type_system.rstr.string_repr
+        s_str = hop.args_s[0]
+        assert s_str.is_constant()
+        s = s_str.const
+
+        c_append = hop.inputconst(ootype.Void, 'll_append')
+        c_build = hop.inputconst(ootype.Void, 'll_build')
+        cm1 = hop.inputconst(ootype.Signed, -1)
+        c8 = hop.inputconst(ootype.Signed, 8)
+        c10 = hop.inputconst(ootype.Signed, 10)
+        c16 = hop.inputconst(ootype.Signed, 16)
+        c_StringBuilder = hop.inputconst(ootype.Void, ootype.StringBuilder)        
+        v_buf = hop.genop("new", [c_StringBuilder], resulttype=ootype.StringBuilder)
+
+        things = cls.parse_fmt_string(s)
+        argsiter = iter(sourcevarsrepr)
+        for thing in things:
+            if isinstance(thing, tuple):
+                code = thing[0]
+                vitem, r_arg = argsiter.next()
+                if not hasattr(r_arg, 'll_str'):
+                    raise TyperError("ll_str unsupported for: %r" % r_arg)
+                if code == 's':
+                    # TODO: for now it works only with types supported by oostring
+                    vchunk = hop.genop('oostring', [vitem, cm1], resulttype=ootype.String)
+                elif code == 'd':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.genop('oostring', [vitem, c10], resulttype=ootype.String)
+                elif code == 'f':
+                    #assert isinstance(r_arg, FloatRepr)
+                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'x':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.genop('oostring', [vitem, c16], resulttype=ootype.String)
+                elif code == 'o':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.genop('oostring', [vitem, c8], resulttype=ootype.String)
+                elif code == 'r' and isinstance(r_arg, InstanceRepr):
+                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                else:
+                    raise TyperError, "%%%s is not RPython" % (code, )
+            else:
+                vchunk = hop.inputconst(string_repr, thing)
+            #i = inputconst(Signed, i)
+            #hop.genop('setarrayitem', [vtemp, i, vchunk])
+            hop.genop('oosend', [c_append, v_buf, vchunk], resulttype=ootype.Void)
+
+        hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
+        return hop.genop('oosend', [c_build, v_buf], resulttype=ootype.String)        
+    do_stringformat = classmethod(do_stringformat)
+
 def add_helpers():
     dic = {}
     for name, meth in ootype.String._GENERIC_METHODS.iteritems():
@@ -192,3 +249,16 @@ def ll_strnext(iter):
 
 string_iterator_repr = StringIteratorRepr()
 
+
+# these should be in rclass, but circular imports prevent (also it's
+# not that insane that a string constant is built in this file).
+
+instance_str_prefix = string_repr.convert_const("<")
+instance_str_suffix = string_repr.convert_const(" object>")
+
+unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
+unboxed_instance_str_suffix = string_repr.convert_const(">")
+
+list_str_open_bracket = string_repr.convert_const("[")
+list_str_close_bracket = string_repr.convert_const("]")
+list_str_sep = string_repr.convert_const(", ")

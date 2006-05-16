@@ -648,31 +648,6 @@ class LLHelpers(AbstractLLHelpers):
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
     do_stringformat = classmethod(do_stringformat)
 
-    def parse_fmt_string(fmt):
-        # we support x, d, s, f, [r]
-
-        it = iter(fmt)
-        r = []
-        curstr = ''
-        for c in it:
-            if c == '%':
-                f = it.next()
-                if f == '%':
-                    curstr += '%'
-                    continue
-
-                if curstr:
-                    r.append(curstr)
-                curstr = ''
-                if f not in 'xdosrf':
-                    raise TyperError("Unsupported formatting specifier: %r in %r" % (f, fmt))
-
-                r.append((f,))
-            else:
-                curstr += c
-        if curstr:
-            r.append(curstr)
-        return r
 
 
 
