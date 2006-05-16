@@ -40,26 +40,25 @@ class LowLevelDatabase(object):
         self.namespace = CNameManager()
         if not standalone:
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
-        if gcpolicy is None:
+
+        gcpolicy = gcpolicy or conftest.option.gcpolicy or 'ref'
+        if isinstance(gcpolicy, str):
             from pypy.translator.c import gc
-            polname = conftest.option.gcpolicy
-            if polname is not None:
-                if polname == 'boehm':
-                    gcpolicy = gc.BoehmGcPolicy
-                elif polname == 'exact_boehm':
-                    gcpolicy = gc.MoreExactBoehmGcPolicy
-                elif polname == 'ref':
-                    gcpolicy = gc.RefcountingGcPolicy
-                elif polname == 'none':
-                    gcpolicy = gc.NoneGcPolicy
-                elif polname == 'framework':
-                    gcpolicy = gc.FrameworkGcPolicy
-                elif polname == 'stacklessgc':
-                    gcpolicy = gc.StacklessFrameworkGcPolicy
-                else:
-                    assert False, "unknown gc policy %r"%polname
-            else:
+            polname = gcpolicy
+            if polname == 'boehm':
+                gcpolicy = gc.BoehmGcPolicy
+            elif polname == 'exact_boehm':
+                gcpolicy = gc.MoreExactBoehmGcPolicy
+            elif polname == 'ref':
                 gcpolicy = gc.RefcountingGcPolicy
+            elif polname == 'none':
+                gcpolicy = gc.NoneGcPolicy
+            elif polname == 'framework':
+                gcpolicy = gc.FrameworkGcPolicy
+            elif polname == 'stacklessgc':
+                gcpolicy = gc.StacklessFrameworkGcPolicy
+            else:
+                assert False, "unknown gc policy %r"%polname
         if translator is None or translator.rtyper is None:
             self.exctransformer = None
         else:

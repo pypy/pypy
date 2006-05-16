@@ -228,26 +228,13 @@ class TranslationDriver(SimpleTaskEngine):
             translator.frozen = True
 
         standalone = self.standalone
-        gcpolicy = None
-        if opt.gc =='boehm':
-            from pypy.translator.c import gc
-            gcpolicy = gc.BoehmGcPolicy
-        if opt.gc =='exact_boehm':
-            from pypy.translator.c import gc
-            gcpolicy = gc.MoreExactBoehmGcPolicy
-        if opt.gc == 'none':
-            from pypy.translator.c import gc
-            gcpolicy = gc.NoneGcPolicy
-        if opt.gc == 'framework':
-            from pypy.translator.c import gc
-            gcpolicy = gc.FrameworkGcPolicy
 
         if standalone:
             from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
         else:
             from pypy.translator.c.genc import CExtModuleBuilder as CBuilder
         cbuilder = CBuilder(self.translator, self.entry_point,
-                            gcpolicy       = gcpolicy,
+                            gcpolicy       = opt.gc,
                             thread_enabled = getattr(opt, 'thread', False))
         cbuilder.stackless = opt.stackless
         if not standalone:     # xxx more messy
