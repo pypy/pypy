@@ -2,6 +2,7 @@ from pypy.rpython.ootypesystem.ootype import *
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
+import exceptions
 
 
 def test_simple_new():
@@ -225,4 +226,3 @@ def test_oostring():
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
     assert isinstance(s, annmodel.SomeBuiltin)
-

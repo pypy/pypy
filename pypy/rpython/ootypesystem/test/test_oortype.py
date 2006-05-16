@@ -214,3 +214,9 @@ def test_nullstring():
 
     res = interpret(oof, [False], type_system='ootype')
     assert isinstance(res, ootype._null_string)
+
+def test_assert():
+    def oof(b):
+        assert b
+
+    interpret(oof, [True], type_system='ootype')
