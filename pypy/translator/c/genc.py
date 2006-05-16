@@ -797,4 +797,7 @@ clean:
 
 debug: clean
 \tmake CFLAGS="-g -pthread"
+
+profile: clean
+\tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 '''
