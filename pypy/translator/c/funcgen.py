@@ -233,14 +233,13 @@ class FunctionCodeGenerator(object):
                 assert len(block.exits) == 1
                 for op in self.gen_link(block.exits[0]):
                     yield op
-                yield ''
             else:
                 assert block.exitswitch != c_last_exception
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
                 if TYPE in (Bool, PyObjPtr):
                     expr = self.expr(block.exitswitch)
-                    for link in block.exits[:-1]:
+                    for link in block.exits[:0:-1]:
                         assert link.exitcase in (False, True)
                         if TYPE == Bool:
                             if not link.exitcase:
@@ -256,13 +255,12 @@ class FunctionCodeGenerator(object):
                         for op in self.gen_link(link):
                             yield '\t' + op
                         yield '}'
-                    link = block.exits[-1]
+                    link = block.exits[0]
                     assert link.exitcase in (False, True)
                     #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
                     #                       self.genc.nameofvalue(link.exitcase, ct))
-                    for op in self.gen_link(block.exits[-1]):
+                    for op in self.gen_link(link):
                         yield op
-                    yield ''
                 elif TYPE in (Signed, Unsigned, SignedLongLong,
                               UnsignedLongLong, Char, UniChar):
                     defaultlink = None
