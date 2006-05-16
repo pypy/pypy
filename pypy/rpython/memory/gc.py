@@ -182,10 +182,11 @@ class MarkSweepGC(GCBase):
                 break
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
-##            # constants roots are not malloced and thus don't have their mark
-##            # bit reset
-##            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
-##            gc_info.signed[0] = gc_info.signed[0] & (~1)
+            # the last sweep did not clear the mark bit of static roots, 
+            # since they are not in the malloced_objects list
+            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+            hdr.typeid = hdr.typeid & (~1)
         free_non_gc_object(roots)
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced

@@ -158,6 +158,8 @@ from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory import gctransform
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.support import INT_SIZE
 from pypy import conftest
 
@@ -259,7 +261,7 @@ class TestMarkSweepGC(GCTest):
         run, statistics = self.runner(malloc_a_lot, statistics=True)
         run([])
         heap_size = statistics().item0
-        assert heap_size < 16000 * INT_SIZE / 4 # xxx                    
+        assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
     def test_global_list(self):
         class Box:
@@ -268,11 +270,12 @@ class TestMarkSweepGC(GCTest):
         box = Box()
         def append_to_list(i, j):
             box.lst.append([i] * 50)
+            llop.gc__collect(lltype.Void)
             return box.lst[j][0]
         run = self.runner(append_to_list, nbargs=2)
         res = run([0, 0])
         assert res == 0
-        for i in range(1, 15):
+        for i in range(1, 5):
             res = run([i, i - 1])
             assert res == i - 1 # crashes if constants are not considered roots
             
