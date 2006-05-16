@@ -274,9 +274,9 @@ class Weakref(object):
             self.callback(self)
 
     def __del__(self):
-        if cast_weakgcaddress_to_object(self.address, Weakrefable) is not None:
-            lifeline = cast_weakgcaddress_to_object(self.lifeline_addr,
-                                                    WeakrefLifeline)
+        lifeline = cast_weakgcaddress_to_object(self.lifeline_addr,
+                                                WeakrefLifeline)
+        if lifeline is not None:
             lifeline.ref_is_dead(self.index)
 
 class WeakrefLifeline(object):
@@ -349,7 +349,6 @@ def test_weakref_callback():
     assert f()
 
 def test_weakref_dont_always_callback():
-    py.test.skip("in-progress")
     global_w1 = Weakrefable()
     global_w1.x = 30
     global_w2 = Weakrefable()
@@ -363,7 +362,9 @@ def test_weakref_dont_always_callback():
         f.x = 32
         ref1 = get_weakref(f, g1)
         ref2 = get_weakref(f, g2)
-        ref2 = None
+        if f.x % 2 == 0: # start a new block to make sure ref2 dies before f
+            ref2 = None
+        f.x = 12
         return ref1
     def func():
         ref = h()
