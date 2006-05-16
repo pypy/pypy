@@ -18,6 +18,7 @@ DEFAULT_OPTIONS = {
 
    'fork_before': None,
 
+   'raisingop2direct_call' : False,
    'merge_if_blocks': True
 }
 
@@ -49,10 +50,11 @@ class Translation(object):
         'annotate': ['debug'],
         'rtype': ['insist'],
         'ootype': [],
-        'backendopt': ['merge_if_blocks'],
+        'backendopt': ['raisingop2direct_call', 'merge_if_blocks'],
         'stackcheckinsertion': [],
         'database_c': ['gc', 'stackless'],
-        'source_llvm': ['gc', 'stackless'],
+        'source_llvm': [],
+        'source_js': [],
         'source_c': [],
         'compile_c': [],
         'compile_llvm': [],
@@ -160,6 +162,12 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         self.ensure_backend('llvm')
         self.driver.source_llvm()
+
+    def source_js(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('js')
+        self.driver.source_js()
+        print open(str(self.driver.gen.filename)).read()
 
     def source_cl(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
