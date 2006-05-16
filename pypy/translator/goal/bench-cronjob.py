@@ -47,11 +47,19 @@ def bc2c_exe(revision):
     print cmd
     os.system(cmd)
 
+    cmd = "cp %s.c pypy/translator/goal/archive" % b
+    print cmd
+    os.system(cmd)
+
     cmd = "gcc %s.c -S -O3 -fomit-frame-pointer -o %s.s" % (b, b)
     print cmd
     os.system(cmd)
 
-    cmd = "gcc %s.s -static -lgc -lm -lpthread -pipe -o %s" % (b, b)
+    cmd = "cp %s.s pypy/translator/goal/archive" % b
+    print cmd
+    os.system(cmd)
+
+    cmd = "gcc %s.s -lgc -lm -lpthread -pipe -o %s" % (b, b) #XXX -static
     print cmd
     os.system(cmd)
 
@@ -70,11 +78,7 @@ def bc2x86_exe(revision, name_extra, llc_extra_options):
     print cmd
     os.system(cmd)
 
-    #cmd = "as %s.s -o %s.o" % (b, b)
-    #print cmd
-    #os.system(cmd)
-
-    cmd = "gcc %s.s -static -lgc -lm -lpthread -pipe -o %s" % (b, b)
+    cmd = "gcc %s.s -lgc -lm -lpthread -pipe -o %s" % (b, b) #XXX -static
     print cmd
     os.system(cmd)
 
@@ -99,7 +103,6 @@ def compile(backend):
         translateoptions = ''
 
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    #os.system('cp ~/x/entry_point.ll %s/entry_point.ll' % tmpdir) #XXX
     os.system('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --text --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
     os.system('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
 
