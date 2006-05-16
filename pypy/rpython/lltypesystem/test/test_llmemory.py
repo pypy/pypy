@@ -295,6 +295,27 @@ def test_raw_malloc_varsize():
     py.test.raises(IndexError,
                    "(adr + offsetof(S, 'y') + itemoffsetof(A, 10)).signed[0]")
 
+def test_inlined_substruct():
+    T = lltype.Struct('T', ('x', lltype.Signed))
+    S1 = lltype.GcStruct('S1', ('t1', T), ('t2', T))
+    S = lltype.GcStruct('S', ('header', S1), ('t', T))
+
+    s = lltype.malloc(S)
+    s.header.t1.x = 1
+    s.header.t2.x = 2
+    s.t.x = 3
+
+    for adr in [cast_ptr_to_adr(s), cast_ptr_to_adr(s.header)]:
+        assert (adr + offsetof(S, 'header')
+                    + offsetof(S1, 't1')
+                    + offsetof(T, 'x')).signed[0] == 1
+        assert (adr + offsetof(S1, 't1')
+                    + offsetof(T, 'x')).signed[0] == 1
+        assert (adr + offsetof(S1, 't2')
+                    + offsetof(T, 'x')).signed[0] == 2
+        assert (adr + offsetof(S, 't')
+                    + offsetof(T, 'x')).signed[0] == 3
+
 def test_arena_bump_ptr():
     S = lltype.Struct('S', ('x',lltype.Signed))
     SPTR = lltype.Ptr(S)

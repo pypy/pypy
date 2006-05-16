@@ -778,6 +778,36 @@ def top_container(container):
         top_parent = parent
     return top_parent
 
+def normalizeptr(p):
+    # If p is a pointer, returns the same pointer casted to the largest
+    # containing structure (for the cast where p points to the header part).
+    # Also un-hides pointers to opaque.  Null pointers become None.
+    assert not isinstance(p, _parentable)  # pointer or primitive
+    T = typeOf(p)
+    if not isinstance(T, Ptr):
+        return p      # primitive
+    if not p:
+        return None   # null pointer
+    # - if p is an opaque pointer containing a normal Struct/GcStruct,
+    #   unwrap it now
+    if isinstance(T.TO, OpaqueType) and hasattr(p._obj, 'container'):
+        T = Ptr(typeOf(p._obj.container))
+        p = cast_opaque_ptr(T, p)
+    # - if p points to the first inlined substructure of a structure,
+    #   make it point to the whole (larger) structure instead
+    container = p._obj
+    while True:
+        parent, index = parentlink(container)
+        if parent is None:
+            break
+        T = typeOf(parent)
+        if not isinstance(T, Struct) or T._first_struct()[0] != index:
+            break
+        container = parent
+    if container is not p._obj:
+        p = _ptr(Ptr(T), container, p._solid)
+    return p
+
 
 class _ptr(object):
     __slots__ = ('_TYPE', '_T', 
@@ -1012,12 +1042,12 @@ class _ptr(object):
             # return an address built as an offset in the whole array
             parent, parentindex = parentlink(self._obj)
             T = typeOf(parent)
-            addr = llmemory.fakeaddress(_ptr(Ptr(T), parent))
+            addr = llmemory.fakeaddress(normalizeptr(_ptr(Ptr(T), parent)))
             addr += llmemory.itemoffsetof(T, parentindex)
             return addr
         else:
             # normal case
-            return llmemory.fakeaddress(self)
+            return llmemory.fakeaddress(normalizeptr(self))
 
 assert not '__dict__' in dir(_ptr)
 

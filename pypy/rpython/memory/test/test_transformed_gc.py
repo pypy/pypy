@@ -228,6 +228,7 @@ class TestMarkSweepGC(GCTest):
                 while j < 30:
                     j += 1
                     a.append(j)
+            return 0
         run, statistics = self.runner(malloc_a_lot, statistics=True)
         run([])
         heap_size = statistics().item0
@@ -244,6 +245,7 @@ class TestMarkSweepGC(GCTest):
                 while j < 20:
                     j += 1
                     b.append((1, j, i))
+            return 0
         run, statistics = self.runner(malloc_a_lot, statistics=True)
         run([])
         heap_size = statistics().item0
@@ -277,3 +279,10 @@ class TestMarkSweepGC(GCTest):
         assert res == concat(100, 0)
         heap_size = statistics().item0
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
+
+
+class INPROGRESS_TestStacklessMarkSweepGC(TestMarkSweepGC):
+
+    class gcpolicy(gc.StacklessFrameworkGcPolicy):
+        class transformerclass(gctransform.StacklessFrameworkGCTransformer):
+            GC_PARAMS = {'start_heap_size': 4096 }

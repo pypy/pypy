@@ -74,7 +74,8 @@ class FieldOffset(AddressOffset):
 
     def ref(self, containerref):
         struct = containerref.get()
-        assert lltype.typeOf(struct).TO == self.TYPE
+        if lltype.typeOf(struct).TO != self.TYPE:
+            struct = lltype.cast_pointer(lltype.Ptr(self.TYPE), struct)
         return _structfieldref(struct, self.fldname)
 
     def raw_malloc(self, rest, parenttype=None):
@@ -200,21 +201,7 @@ class GCHeaderAntiOffset(AddressOffset):
 
     def ref(self, gcptrref):
         gcptr = gcptrref.get()
-        try:
-            headerobj = _gc_struct2header[gcptr._obj]
-        except KeyError:
-            # sanity checks
-            HDR = self.minimal_layout
-            gcobj = gcptr._obj
-            assert isinstance(gcobj._TYPE, lltype.GC_CONTAINER)
-            assert not gcobj._parentstructure()
-            
-            headerobj = lltype.malloc(HDR, immortal=True)._obj
-            # make uninitialized access explode
-            for fldname in HDR._names:
-                getattr(type(headerobj), fldname).__set__(headerobj, None)
-            _gc_struct2header[gcptr._obj] = headerobj
-            _gc_header2struct[headerobj] = gcobj
+        headerobj = getgcheaderobj(self.minimal_layout, gcptr._obj)
         p = lltype._ptr(lltype.Ptr(headerobj._TYPE), headerobj, True)
         return _obref(p)
 
@@ -291,9 +278,10 @@ def itemoffsetof(TYPE, n=0):
 # -------------------------------------------------------------
 
 class fakeaddress(object):
+    # NOTE: the 'ob' in the addresses must be normalized.
+    # Use cast_ptr_to_adr() instead of directly fakeaddress() if unsure.
     def __init__(self, ob, offset=None):
-        assert not isinstance(ob, lltype._parentable)
-        self.ob = ob or None    # replace null pointers with None
+        self.ob = ob
         self.offset = offset
 
     def __repr__(self):
@@ -312,7 +300,7 @@ class fakeaddress(object):
             else:
                 offset = self.offset + other
             res = fakeaddress(self.ob, offset)
-            #res.ref() # sanity check
+            res.ref() # sanity check
             return res
         if other == 0:
             return self
@@ -436,7 +424,7 @@ class _address_fakeaccessor(_fakeaccessor):
 
     def convert(self, value):
         if isinstance(value, lltype._ptr):
-            return fakeaddress(value)
+            return value._cast_to_adr()
         elif lltype.typeOf(value) == Address:
             return value
         else:
@@ -494,6 +482,25 @@ fakeweakaddress._TYPE = WeakGcAddress
 
 _gc_struct2header = weakref.WeakKeyDictionary()
 _gc_header2struct = weakref.WeakKeyDictionary()
+
+def getgcheaderobj(HDR, gcobj):
+    # XXX! this doesn't work if we use different HDRs in different tests
+    # for the same constants
+    try:
+        headerobj = _gc_struct2header[gcobj]
+    except KeyError:
+        # sanity checks
+        assert isinstance(gcobj._TYPE, lltype.GC_CONTAINER)
+        assert not isinstance(gcobj._TYPE, lltype.GcOpaqueType)
+        assert not gcobj._parentstructure()
+
+        headerobj = lltype.malloc(HDR, immortal=True)._obj
+        # make uninitialized access explode
+        for fldname in HDR._names:
+            getattr(type(headerobj), fldname).__set__(headerobj, None)
+        _gc_struct2header[gcobj] = headerobj
+        _gc_header2struct[headerobj] = gcobj
+    return headerobj
 
 def raw_malloc(size):
     if not isinstance(size, AddressOffset):
