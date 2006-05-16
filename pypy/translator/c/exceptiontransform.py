@@ -141,23 +141,28 @@ class ExceptionTransformer(object):
         self.seen_graphs[graph] = True
         join_blocks(graph)
         # collect the blocks before changing them
+        n_need_exc_matching_blocks = 0
+        n_gen_exc_checks           = 0
         for block in list(graph.iterblocks()):
-            self.transform_block(graph, block)
+            need_exc_matching, gen_exc_checks = self.transform_block(graph, block)
+            n_need_exc_matching_blocks += need_exc_matching
+            n_gen_exc_checks           += gen_exc_checks
         self.transform_except_block(graph, graph.exceptblock)
         cleanup_graph(graph)
         removenoops.remove_superfluous_keep_alive(graph)
+        return n_need_exc_matching_blocks, n_gen_exc_checks
 
     def transform_block(self, graph, block):
+        need_exc_matching = False
+        n_gen_exc_checks = 0
         if block is graph.exceptblock:
-            return
+            return need_exc_matching, n_gen_exc_checks
         elif block is graph.returnblock:
-            return
+            return need_exc_matching, n_gen_exc_checks
         last_operation = len(block.operations) - 1
         if block.exitswitch == c_last_exception:
             need_exc_matching = True
             last_operation -= 1
-        else:
-            need_exc_matching = False
         lastblock = block
         for i in range(last_operation, -1, -1):
             op = block.operations[i]
@@ -170,6 +175,7 @@ class ExceptionTransformer(object):
                 lastblock = afterblock
 
             self.gen_exc_check(block, graph.returnblock)                
+            n_gen_exc_checks += 1
 
             #non-exception case
             block.exits[0].exitcase = block.exits[0].llexitcase = False
@@ -184,6 +190,7 @@ class ExceptionTransformer(object):
                 lastblock.exits[0].exitcase = None
             else:
                 self.insert_matching(lastblock, graph)
+        return need_exc_matching, n_gen_exc_checks
 
     def transform_except_block(self, graph, block):
         # attach an except block -- let's hope that nobody uses it
