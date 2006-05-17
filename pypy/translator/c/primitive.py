@@ -113,7 +113,7 @@ def name_address(value, db):
 def name_weakgcaddress(value, db):
     assert isinstance(value, fakeweakaddress)
     assert value.ref is None # only weak NULL supported
-    return 'NULL'
+    return 'HIDE_POINTER(NULL)'
 
 
 PrimitiveName = {
@@ -141,7 +141,7 @@ PrimitiveType = {
     Bool:     'char @',
     Void:     'void @',
     Address:  'void* @',
-    WeakGcAddress:  'void* @',
+    WeakGcAddress:  'GC_hidden_pointer @',
     }
 
 PrimitiveErrorValue = {
