@@ -13,14 +13,16 @@ class TestAddressLinkedList(object):
         ll.append(addr)
         ll.append(addr + 1)
         ll.append(addr + 2)
+        assert ll.non_empty()
         a = ll.pop()
         assert a - addr == 2
+        assert ll.non_empty()
         a = ll.pop()
         assert a - addr == 1
+        assert ll.non_empty()
         a = ll.pop()
         assert a == addr
-        assert ll.pop() == NULL
-        assert ll.pop() == NULL
+        assert not ll.non_empty()
         ll.append(addr)
         ll.delete()
         ll = AddressLinkedList()
@@ -63,10 +65,10 @@ def test_linked_list_annotate():
         res = (a - INT_SIZE*2 == addr)
         a = ll.pop()
         res = res and (a - INT_SIZE*1 == addr)
+        res = res and ll.non_empty()
         a = ll.pop()
         res = res and a == addr
-        res = res and (ll.pop() == NULL)
-        res = res and (ll.pop() == NULL)
+        res = res and not ll.non_empty()
         ll.append(addr)
         for i in range(300):
             ll.append(addr + INT_SIZE*i)

@@ -6,7 +6,7 @@ INT_SIZE = sizeof(lltype.Signed)
 
 DEFAULT_CHUNK_SIZE = 1019
 
-def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE):
+def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE, hackishpop=False):
 
     CHUNK = lltype.ForwardReference()
     CHUNK.become(lltype.Struct('AddressLinkedListChunk',
@@ -43,31 +43,44 @@ def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE):
             self.chunk.previous = null_chunk
             self.chunk.length = 0
 
+        def enlarge(self):
+            new = unused_chunks.get()
+            new.previous = self.chunk
+            new.length = 0
+            self.chunk = new
+            return new
+        enlarge.dont_inline = True
+
+        def shrink(self):
+            old = self.chunk
+            self.chunk = old.previous
+            unused_chunks.put(old)
+            return self.chunk
+        shrink.dont_inline = True
+
         def append(self, addr):
             if addr == llmemory.NULL:
                 return
-            if self.chunk.length == chunk_size:
-                new = unused_chunks.get()
-                new.previous = self.chunk
-                new.length = 0
-                self.chunk = new
-            used_chunks = self.chunk.length
-            self.chunk.length += 1
-            self.chunk.items[used_chunks] = addr
-            
+            chunk = self.chunk
+            if chunk.length == chunk_size:
+                chunk = self.enlarge()
+            used_chunks = chunk.length
+            chunk.length = used_chunks + 1
+            chunk.items[used_chunks] = addr
+
+        def non_empty(self):
+            chunk = self.chunk
+            return chunk.length != 0 or bool(chunk.previous)
+
         def pop(self):
-            used_chunks = self.chunk.length
-            if used_chunks == 0:
-                old = self.chunk
-                previous = old.previous
-                if not previous:
-                    return llmemory.NULL
-                self.chunk = previous
-                unused_chunks.put(old)
-                used_chunks = self.chunk.length
-            result = self.chunk.items[used_chunks - 1]
-            #self.chunk.items[used_chunks - 1] = llmemory.NULL
-            self.chunk.length = used_chunks - 1
+            if hackishpop and not self.non_empty():
+                return llmemory.NULL
+            chunk = self.chunk
+            if chunk.length == 0:
+                chunk = self.shrink()
+            used_chunks = self.chunk.length - 1
+            result = chunk.items[used_chunks]
+            chunk.length = used_chunks
             return result
 
         def delete(self):

@@ -120,6 +120,7 @@ class MixLevelHelperAnnotator:
         self.delayedreprs = []
         self.delayedconsts = []
         self.delayedfuncs = []
+        self.original_graph_count = len(rtyper.annotator.translator.graphs)
 
     def getgraph(self, ll_function, args_s, s_result):
         # get the graph of the mix-level helper ll_function and prepare it for
@@ -212,3 +213,10 @@ class MixLevelHelperAnnotator:
         del self.pending[:]
         del self.delayedreprs[:]
         del self.delayedconsts[:]
+
+    def backend_optimize(self, **flags):
+        # only optimize the newly created graphs
+        from pypy.translator.backendopt.all import backend_optimizations
+        translator = self.rtyper.annotator.translator
+        newgraphs = translator.graphs[self.original_graph_count:]
+        backend_optimizations(translator, newgraphs, **flags)

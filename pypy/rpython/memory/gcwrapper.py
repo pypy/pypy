@@ -175,7 +175,7 @@ def getfunctionptr(annotator, graphfunc):
 class GcWrapper(object):
     def __init__(self, llinterp, flowgraphs, gc_class):
         self.query_types = QueryTypes()
-        self.AddressLinkedList = get_address_linked_list(3)
+        self.AddressLinkedList = get_address_linked_list(3, hackishpop=True)
         # XXX there might me GCs that have headers that depend on the type
         # therefore we have to change the query functions to annotatable ones
         # later

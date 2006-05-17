@@ -191,11 +191,9 @@ class MarkSweepGC(GCBase):
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
-        while 1:  #mark
+        while objects.non_empty():  #mark
             curr = objects.pop()
 ##             print "object: ", curr
-            if curr == NULL:
-                break
             gc_info = curr - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             if hdr.typeid & 1:
@@ -227,10 +225,9 @@ class MarkSweepGC(GCBase):
         newmo = self.AddressLinkedList()
         curr_heap_size = 0
         freed_size = 0
-        while 1:  #sweep
-            curr = self.malloced_objects.pop()
-            if curr == NULL:
-                break
+        malloced_objects = self.malloced_objects
+        while malloced_objects.non_empty():  #sweep
+            curr = malloced_objects.pop()
             hdr = llmemory.cast_adr_to_ptr(curr, self.HDRPTR)
             typeid = hdr.typeid >> 1
             size = self.fixed_size(typeid)
@@ -245,7 +242,7 @@ class MarkSweepGC(GCBase):
             else:
                 freed_size += estimate
                 raw_free(curr)
-        self.malloced_objects.delete()
+        malloced_objects.delete()
         self.malloced_objects = newmo
         if curr_heap_size > self.bytes_malloced_threshold:
             self.bytes_malloced_threshold = curr_heap_size
@@ -467,27 +464,21 @@ class DeferredRefcountingGC(GCBase):
         roots = roots_copy
         dealloc_list = self.AddressLinkedList()
         self.length_zero_ref_counts = 0
-        while 1:
+        while self.zero_ref_counts.non_empty():
             candidate = self.zero_ref_counts.pop()
-            if candidate == NULL:
-                break
             refcount = self.refcount(candidate)
             typeid = (candidate - self.size_gc_header()).signed[1]
             if (refcount == 0 and typeid >= 0):
                 (candidate - self.size_gc_header()).signed[1] = -typeid - 1
                 dealloc_list.append(candidate)
-        while 1:
+        while dealloc_list.non_empty():
             deallocate = dealloc_list.pop()
-            if deallocate == NULL:
-                break
             typeid = (deallocate - self.size_gc_header()).signed[1]
             (deallocate - self.size_gc_header()).signed[1] = -typeid - 1
             self.deallocate(deallocate)
         dealloc_list.delete()
-        while 1:
+        while roots.non_empty():
             root = roots.pop()
-            if root == NULL:
-                break
             self.decref(root.address[0])
         self.collecting = False
 

@@ -909,6 +909,7 @@ class FrameworkGCTransformer(GCTransformer):
                                     [s_gcdata], annmodel.SomeTuple(statics_s))
                                    
         annhelper.finish()   # at this point, annotate all mix-level helpers
+        annhelper.backend_optimize()
 
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()

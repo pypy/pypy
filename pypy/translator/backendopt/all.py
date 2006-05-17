@@ -1,6 +1,6 @@
 from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
 from pypy.translator.backendopt import removenoops
-from pypy.translator.backendopt.inline import auto_inlining
+from pypy.translator.backendopt import inline
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.propagate import propagate_all
 from pypy.translator.backendopt.stat import print_statistics
@@ -9,10 +9,12 @@ from pypy.translator import simplify
 from pypy.translator.backendopt.escape import malloc_to_stack
 from pypy.translator.backendopt.mallocprediction import clever_inlining_and_malloc_removal
 from pypy.translator.backendopt.support import log
+from pypy.objspace.flow.model import checkgraph
 
 PRINT_STATISTICS = False
 
-def backend_optimizations(translator, raisingop2direct_call_all=False,
+def backend_optimizations(translator, graphs=None,
+                                      raisingop2direct_call_all=False,
                                       inline_threshold=1,
                                       mallocs=True,
                                       merge_if_blocks_to_switch=True,
@@ -20,15 +22,19 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
                                       heap2stack=False,
                                       clever_malloc_removal=False):
 
+    if graphs is None:
+        graphs = translator.graphs
+
     if PRINT_STATISTICS:
         print "before optimizations:"
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
     if raisingop2direct_call_all:
+        assert graphs is translator.graphs  # XXX for now
         raisingop2direct_call(translator)
 
     # remove obvious no-ops
-    for graph in translator.graphs:
+    for graph in graphs:
         removenoops.remove_same_as(graph)
         simplify.eliminate_empty_blocks(graph)
         simplify.transform_dead_op_vars(graph, translator)
@@ -40,13 +46,16 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
 
     # ...
     if propagate:
+        assert graphs is translator.graphs  # XXX for now
         propagate_all(translator)
 
     if not clever_malloc_removal:
         # inline functions in each other
         if inline_threshold:
-            auto_inlining(translator, inline_threshold)
-            for graph in translator.graphs:
+            callgraph = inline.inlinable_static_callers(graphs)
+            inline.auto_inlining(translator, inline_threshold,
+                                 callgraph=callgraph)
+            for graph in graphs:
                 removenoops.remove_superfluous_keep_alive(graph)
                 removenoops.remove_duplicate_casts(graph, translator)
 
@@ -57,7 +66,7 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
         # vaporize mallocs
         if mallocs:
             tot = 0
-            for graph in translator.graphs:
+            for graph in graphs:
                 count = remove_simple_mallocs(graph)
                 if count:
                     # remove typical leftovers from malloc removal
@@ -71,6 +80,7 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
             print "after malloc removal:"
             print_statistics(translator.graphs[0], translator)
     else:
+        assert graphs is translator.graphs  # XXX for now
         clever_inlining_and_malloc_removal(translator)
 
         if PRINT_STATISTICS:
@@ -78,17 +88,20 @@ def backend_optimizations(translator, raisingop2direct_call_all=False,
             print_statistics(translator.graphs[0], translator)
 
     if propagate:
+        assert graphs is translator.graphs  # XXX for now
         propagate_all(translator)
 
     if heap2stack:
+        assert graphs is translator.graphs  # XXX for now
         malloc_to_stack(translator)
 
     if merge_if_blocks_to_switch:
-        for graph in translator.graphs:
+        for graph in graphs:
             merge_if_blocks(graph)
 
     if PRINT_STATISTICS:
         print "after if-to-switch:"
         print_statistics(translator.graphs[0], translator)
 
-    translator.checkgraphs()
+    for graph in graphs:
+        checkgraph(graph)

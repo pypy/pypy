@@ -496,11 +496,11 @@ def inlining_heuristic(graph):
             static_instruction_count(graph))
 
 
-def inlinable_static_callers(translator):
+def inlinable_static_callers(graphs):
     result = []
-    def build_call_graph(node):
-        if isinstance(node, Block):
-            for op in node.operations:
+    for parentgraph in graphs:
+        for block in parentgraph.iterblocks():
+            for op in block.operations:
                 if op.opname == "direct_call":
                     funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
@@ -512,8 +512,6 @@ def inlinable_static_callers(translator):
                                    'dont_inline', False):
                             continue
                         result.append((parentgraph, graph))
-    for parentgraph in translator.graphs:
-        traverse(build_call_graph, parentgraph)
     return result
 
 
@@ -524,7 +522,7 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
     if callgraph is None:
-        callgraph = inlinable_static_callers(translator)
+        callgraph = inlinable_static_callers(translator.graphs)
     for graph1, graph2 in callgraph:
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
