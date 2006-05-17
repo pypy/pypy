@@ -3,8 +3,8 @@ from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
-     CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress
-from pypy.rpython.memory.gc import GCHeaderOffset
+     CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress, \
+     GCHeaderOffset
 from pypy.rpython.memory.lladdress import NULL
 from pypy.translator.c.support import cdecl
 

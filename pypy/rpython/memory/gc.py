@@ -1,6 +1,7 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import NULL, _address, raw_malloc_usage
 from pypy.rpython.memory.support import get_address_linked_list
+from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import free_non_gc_object
@@ -9,11 +10,7 @@ from pypy.rpython import rarithmetic
 import sys
 
 int_size = lltypesimulation.sizeof(lltype.Signed)
-
-GCHeaderOffset = llmemory.GCHeaderOffset
-
-gc_header_two_ints = GCHeaderOffset(
-    lltype.Struct("header", ("a", lltype.Signed), ("b", lltype.Signed)))
+gc_header_two_ints = 2*int_size
 
 class GCError(Exception):
     pass
@@ -109,7 +106,6 @@ class MarkSweepGC(GCBase):
 
     HDR = lltype.Struct('header', ('typeid', lltype.Signed))
     HDRPTR = lltype.Ptr(HDR)
-    _size_gc_header = GCHeaderOffset(HDR)
 
     def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
         self.heap_usage = 0          # at the end of the latest collection
@@ -122,6 +118,7 @@ class MarkSweepGC(GCBase):
         self.AddressLinkedList = AddressLinkedList
         #self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
+        self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
 
     def setup(self):
         self.malloced_objects = self.AddressLinkedList()
@@ -142,7 +139,7 @@ class MarkSweepGC(GCBase):
     def malloc_fixedsize(self, typeid, size, can_collect):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
-        size_gc_header = MarkSweepGC._size_gc_header
+        size_gc_header = self.gcheaderbuilder.size_gc_header
         result = raw_malloc(size_gc_header + size)
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
@@ -161,7 +158,7 @@ class MarkSweepGC(GCBase):
             raise MemoryError
         # XXX also check for overflow on the various '+' below!
         size += varsize
-        size_gc_header = MarkSweepGC._size_gc_header
+        size_gc_header = self.gcheaderbuilder.size_gc_header
         result = raw_malloc(size_gc_header + size)
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
@@ -176,6 +173,7 @@ class MarkSweepGC(GCBase):
         os.write(2, 'collecting...\n')
         start_time = time.time()
         roots = self.get_roots()
+        size_gc_header = self.gcheaderbuilder.size_gc_header
         objects = self.AddressLinkedList()
         while 1:
             curr = roots.pop()
@@ -186,7 +184,7 @@ class MarkSweepGC(GCBase):
             objects.append(curr.address[0])
             # the last sweep did not clear the mark bit of static roots, 
             # since they are not in the malloced_objects list
-            gc_info = curr.address[0] - MarkSweepGC._size_gc_header
+            gc_info = curr.address[0] - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             hdr.typeid = hdr.typeid & (~1)
         free_non_gc_object(roots)
@@ -198,7 +196,7 @@ class MarkSweepGC(GCBase):
 ##             print "object: ", curr
             if curr == NULL:
                 break
-            gc_info = curr - MarkSweepGC._size_gc_header
+            gc_info = curr - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             if hdr.typeid & 1:
                 continue
@@ -237,9 +235,9 @@ class MarkSweepGC(GCBase):
             typeid = hdr.typeid >> 1
             size = self.fixed_size(typeid)
             if self.is_varsize(typeid):
-                length = (curr + MarkSweepGC._size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
+                length = (curr + size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
                 size += self.varsize_item_sizes(typeid) * length
-            estimate = raw_malloc_usage(MarkSweepGC._size_gc_header + size)
+            estimate = raw_malloc_usage(size_gc_header + size)
             if hdr.typeid & 1:
                 hdr.typeid = hdr.typeid & (~1)
                 newmo.append(curr)
@@ -274,7 +272,7 @@ class MarkSweepGC(GCBase):
         return self.heap_usage, self.bytes_malloced
 
     def size_gc_header(self, typeid=0):
-        return MarkSweepGC._size_gc_header
+        return self.gcheaderbuilder.size_gc_header
 
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)

@@ -149,16 +149,16 @@ class __extend__(annmodel.SomeLLADTMeth):
 class LLADTMethRepr(Repr):
 
     def __init__(self, adtmeth):
-        self.adtmeth = adtmeth
+        self.func = adtmeth.func
         self.lowleveltype = adtmeth.ll_ptrtype
 
     def rtype_simple_call(self, hop):
         hop2 = hop.copy()
-        func = self.adtmeth.func
+        func = self.func
         s_func = hop.rtyper.annotator.bookkeeper.immutablevalue(func)
         v_ptr = hop2.args_v[0]
         hop2.r_s_popfirstarg()
-        hop2.v_s_insertfirstarg(v_ptr, annmodel.SomePtr(self.adtmeth.ll_ptrtype))
+        hop2.v_s_insertfirstarg(v_ptr, annmodel.SomePtr(self.lowleveltype))
         hop2.v_s_insertfirstarg(flowmodel.Constant(func), s_func)
         return hop2.dispatch()
 

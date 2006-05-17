@@ -60,7 +60,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
                 result.knowntype = obj1.knowntype
             is_type_of1 = getattr(obj1, 'is_type_of', None)
             is_type_of2 = getattr(obj2, 'is_type_of', None)
-            if obj1.is_constant() and obj2.is_constant() and obj1.const == obj2.const:
+            if obj1.is_immutable_constant() and obj2.is_immutable_constant() and obj1.const == obj2.const:
                 result.const = obj1.const
                 is_type_of = {}
                 if is_type_of1:
@@ -269,7 +269,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
 
     def _compare_helper((int1, int2), opname, operation):
-        if int1.is_constant() and int2.is_constant():
+        if int1.is_immutable_constant() and int2.is_immutable_constant():
             r = immutablevalue(operation(int1.const, int2.const))
         else:
             r = SomeBool()
@@ -446,7 +446,7 @@ class __extend__(pairtype(SomeSlice, SomeSlice)):
 class __extend__(pairtype(SomeTuple, SomeInteger)):
     
     def getitem((tup1, int2)):
-        if int2.is_constant():
+        if int2.is_immutable_constant():
             try:
                 return tup1.items[int2.const]
             except IndexError:
@@ -771,7 +771,7 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         pass
 
     def getitem((s_cto, s_index)):
-        if s_index.is_constant():
+        if s_index.is_immutable_constant():
             # check that the constant index is valid, just because we
             # are nice (users should really catch such errors by
             # testing their programs!)

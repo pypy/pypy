@@ -307,7 +307,9 @@ class Bookkeeper:
             return SomeObject()
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
-            return x.annotation()
+            result = x.annotation()
+            result.const_box = Constant(x)
+            return result
         if tp is bool:
             result = SomeBool()
         elif tp is int:

@@ -159,7 +159,7 @@ def predeclare_extfuncs(db, rtyper, optimize=True):
         if modname not in modules:
             modules[modname] = True
             yield 'LL_NEED_%s' % modname.upper(), 1
-        funcptr = lltype._ptr(lltype.Ptr(lltype.typeOf(funcobj)), funcobj) # hum
+        funcptr = funcobj._as_ptr()
         yield c_name, funcptr
 
 def predeclare_exception_data(db, rtyper, optimize=True):

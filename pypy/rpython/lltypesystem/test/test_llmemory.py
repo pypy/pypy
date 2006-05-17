@@ -258,9 +258,10 @@ def test_raw_malloc_array():
     py.test.raises(IndexError, "item_adr.signed[0]")
 
 def test_raw_malloc_gcstruct():
-    from pypy.rpython.memory import gc
+    from pypy.rpython.memory import gcheader
     HDR = lltype.Struct('header', ('a', lltype.Signed))
-    gchdr = gc.GCHeaderOffset(HDR)
+    builder = gcheader.GCHeaderBuilder(HDR)
+    gchdr = builder.size_gc_header
     S = lltype.GcStruct('S', ('x', lltype.Signed))
 
     def allocate():

@@ -14,6 +14,7 @@ from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel, typesystem
 from pypy.rpython.memory import gc, lladdress
+from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.extregistry import ExtRegistryEntry
 import sets, os
@@ -388,19 +389,21 @@ ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
 class RefcountingGCTransformer(GCTransformer):
 
-    gc_header_offset = gc.GCHeaderOffset(lltype.Struct("header", ("refcount", lltype.Signed)))
+    HDR = lltype.Struct("header", ("refcount", lltype.Signed))
 
     def __init__(self, translator):
         super(RefcountingGCTransformer, self).__init__(translator)
+        self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
+        gc_header_offset = self.gcheaderbuilder.size_gc_header
         self.deallocator_graphs_needing_transforming = []
         # create incref graph
         def ll_incref(adr):
             if adr:
-                gcheader = adr - RefcountingGCTransformer.gc_header_offset
+                gcheader = adr - gc_header_offset
                 gcheader.signed[0] = gcheader.signed[0] + 1
         def ll_decref(adr, dealloc):
             if adr:
-                gcheader = adr - RefcountingGCTransformer.gc_header_offset
+                gcheader = adr - gc_header_offset
                 refcount = gcheader.signed[0] - 1
                 gcheader.signed[0] = refcount
                 if refcount == 0:
@@ -490,6 +493,13 @@ class RefcountingGCTransformer(GCTransformer):
     def finish(self):
         super(RefcountingGCTransformer, self).finish()
 
+##    -- maybe add this for tests and for consistency --
+##    def consider_constant(self, TYPE, value):
+##        p = value._as_ptr()
+##        if not self.gcheaderbuilder.get_header(p):
+##            hdr = new_header(p)
+##            hdr.refcount = sys.maxint // 2
+
     def static_deallocation_funcptr_for_type(self, TYPE):
         if TYPE in self.static_deallocator_funcptrs:
             return self.static_deallocator_funcptrs[TYPE]
@@ -543,7 +553,7 @@ def ll_deallocator(addr):
              'llop': llop,
              'lltype': lltype,
              'destrptr': destrptr,
-             'gc_header_offset': RefcountingGCTransformer.gc_header_offset,
+             'gc_header_offset': self.gcheaderbuilder.size_gc_header,
              'cast_adr_to_ptr': llmemory.cast_adr_to_ptr,
              'cast_pointer': lltype.cast_pointer,
              'PTR_TYPE': lltype.Ptr(TYPE),
@@ -577,9 +587,10 @@ def ll_deallocator(addr):
         
         RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
         QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
+        gc_header_offset = self.gcheaderbuilder.size_gc_header
         def ll_dealloc(addr):
             # bump refcount to 1
-            gcheader = addr - RefcountingGCTransformer.gc_header_offset
+            gcheader = addr - gc_header_offset
             gcheader.signed[0] = 1
             v = llmemory.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
@@ -631,8 +642,6 @@ def type_contains_pyobjs(TYPE):
 
 
 class BoehmGCTransformer(GCTransformer):
-    gc_header_offset = gc.GCHeaderOffset(lltype.Void)
-
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
         self.finalizer_funcptrs = {}
@@ -908,8 +917,7 @@ class FrameworkGCTransformer(GCTransformer):
         r_gc = self.translator.rtyper.getrepr(s_gc)
         self.c_const_gc = rmodel.inputconst(r_gc, self.gcdata.gc)
 
-        self.gc_header_offset = self.gcdata.gc.size_gc_header()
-        HDR = self._gc_HDR = self.gc_header_offset.minimal_layout
+        HDR = self._gc_HDR = self.gcdata.gc.gcheaderbuilder.HDR
         self._gc_fields = fields = []
         for fldname in HDR._names:
             FLDTYPE = getattr(HDR, fldname)
@@ -1012,15 +1020,17 @@ class FrameworkGCTransformer(GCTransformer):
         if id(value) in self.seen_roots:
             return
         self.seen_roots[id(value)] = True
-        p = lltype._ptr(lltype.Ptr(TYPE), value)
-        adr = llmemory.cast_ptr_to_adr(p)
 
         if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
             typeid = self.get_type_id(TYPE)
             if lltype.top_container(value) is value:
-                self.gcdata.gc.init_gc_object(adr-self.gc_header_offset, typeid)
+                hdrbuilder = self.gcdata.gc.gcheaderbuilder
+                hdr = hdrbuilder.new_header(value)
+                adr = llmemory.cast_ptr_to_adr(hdr)
+                self.gcdata.gc.init_gc_object(adr, typeid)
 
         if TYPE != lltype.PyObject and find_gc_ptrs_in_type(TYPE):
+            adr = llmemory.cast_ptr_to_adr(value._as_ptr())
             if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
                 self.static_gc_roots.append(adr)
             else: 
@@ -1031,12 +1041,9 @@ class FrameworkGCTransformer(GCTransformer):
         return self._gc_fields
 
     def gc_field_values_for(self, obj):
-        p = lltype._ptr(lltype.Ptr(lltype.typeOf(obj)), obj)
-        adr = llmemory.cast_ptr_to_adr(p)
+        hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
         HDR = self._gc_HDR
-        p_hdr = llmemory.cast_adr_to_ptr(adr-self.gc_header_offset,
-                                         lltype.Ptr(HDR))
-        return [getattr(p_hdr, fldname) for fldname in HDR._names]
+        return [getattr(hdr, fldname) for fldname in HDR._names]
 
     def offsets2table(self, offsets, TYPE):
         try:

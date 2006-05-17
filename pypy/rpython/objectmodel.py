@@ -14,7 +14,10 @@ class Symbolic(object):
         return None
 
     def __cmp__(self, other):
-        raise TypeError("Symbolics can not be compared!")
+        if self is other:
+            return 0
+        else:
+            raise TypeError("Symbolics can not be compared!")
 
     def __hash__(self):
         raise TypeError("Symbolics are not hashable!")

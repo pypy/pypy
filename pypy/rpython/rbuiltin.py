@@ -427,7 +427,7 @@ def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
     return hop.genop('runtime_type_info', vlist,
-                 resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
+                     resulttype = hop.r_result.lowleveltype)
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.free] = rtype_free

@@ -167,46 +167,46 @@ class ArrayLengthOffset(AddressOffset):
 
 
 class GCHeaderOffset(AddressOffset):
-    def __init__(self, minimal_layout):
-        self.minimal_layout = minimal_layout
+    def __init__(self, gcheaderbuilder):
+        self.gcheaderbuilder = gcheaderbuilder
 
     def __repr__(self):
         return '< GCHeaderOffset >'
 
     def __neg__(self):
-        return GCHeaderAntiOffset(self.minimal_layout)
+        return GCHeaderAntiOffset(self.gcheaderbuilder)
 
     def ref(self, headerref):
         header = headerref.get()
-        gcobj = _gc_header2struct[header._obj]
-        return _obref(lltype._ptr(lltype.Ptr(gcobj._TYPE), gcobj))
+        gcptr = self.gcheaderbuilder.object_from_header(header)
+        return _obref(gcptr)
 
     def raw_malloc(self, rest):
         assert rest
         if isinstance(rest[0], GCHeaderAntiOffset):
             return rest[1].raw_malloc(rest[2:])    # just for fun
         gcobjadr = rest[0].raw_malloc(rest[1:])
-        return gcobjadr - self
+        headerptr = self.gcheaderbuilder.new_header(gcobjadr.get())
+        return cast_ptr_to_adr(headerptr)
 
 
 class GCHeaderAntiOffset(AddressOffset):
-    def __init__(self, minimal_layout):
-        self.minimal_layout = minimal_layout
+    def __init__(self, gcheaderbuilder):
+        self.gcheaderbuilder = gcheaderbuilder
 
     def __repr__(self):
         return '< GCHeaderAntiOffset >'
 
     def __neg__(self):
-        return GCHeaderOffset(self.minimal_layout)
+        return GCHeaderOffset(self.gcheaderbuilder)
 
     def ref(self, gcptrref):
         gcptr = gcptrref.get()
-        headerobj = getgcheaderobj(self.minimal_layout, gcptr._obj)
-        p = lltype._ptr(lltype.Ptr(headerobj._TYPE), headerobj, True)
-        return _obref(p)
+        headerptr = self.gcheaderbuilder.header_of_object(gcptr)
+        return _obref(headerptr)
 
     def raw_malloc(self, rest):
-        assert rest
+        assert len(rest) >= 2
         assert isinstance(rest[0], GCHeaderOffset)
         return rest[1].raw_malloc(rest[2:])
 
@@ -492,28 +492,6 @@ fakeweakaddress._TYPE = WeakGcAddress
 WEAKNULL = fakeweakaddress(None)
 
 # ____________________________________________________________
-
-_gc_struct2header = weakref.WeakKeyDictionary()
-_gc_header2struct = weakref.WeakKeyDictionary()
-
-def getgcheaderobj(HDR, gcobj):
-    # XXX! this doesn't work if we use different HDRs in different tests
-    # for the same constants
-    try:
-        headerobj = _gc_struct2header[gcobj]
-    except KeyError:
-        # sanity checks
-        assert isinstance(gcobj._TYPE, lltype.GC_CONTAINER)
-        assert not isinstance(gcobj._TYPE, lltype.GcOpaqueType)
-        assert not gcobj._parentstructure()
-
-        headerobj = lltype.malloc(HDR, immortal=True)._obj
-        # make uninitialized access explode
-        for fldname in HDR._names:
-            getattr(type(headerobj), fldname).__set__(headerobj, None)
-        _gc_struct2header[gcobj] = headerobj
-        _gc_header2struct[headerobj] = gcobj
-    return headerobj
 
 def raw_malloc(size):
     if not isinstance(size, AddressOffset):

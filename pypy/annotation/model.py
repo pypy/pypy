@@ -94,10 +94,21 @@ class SomeObject:
             TLS.no_side_effects_in_union -= 1
 
     def is_constant(self):
-        return hasattr(self, 'const')
+        d = self.__dict__
+        return 'const' in d or 'const_box' in d
 
     def is_immutable_constant(self):
-        return self.immutable and hasattr(self, 'const')
+        return self.immutable and 'const' in self.__dict__
+
+    # delegate accesses to 'const' to accesses to 'const_box.value',
+    # where const_box is a Constant.  XXX the idea is to eventually
+    # use systematically 'const_box' instead of 'const' for
+    # non-immutable constant annotations
+    class ConstAccessDelegator(object):
+        def __get__(self, obj, cls=None):
+            return obj.const_box.value
+    const = ConstAccessDelegator()
+    del ConstAccessDelegator
 
     # for debugging, record where each instance comes from
     # this is disabled if DEBUG is set to False

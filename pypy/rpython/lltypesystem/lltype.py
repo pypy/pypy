@@ -782,7 +782,7 @@ def normalizeptr(p):
     # If p is a pointer, returns the same pointer casted to the largest
     # containing structure (for the cast where p points to the header part).
     # Also un-hides pointers to opaque.  Null pointers become None.
-    assert not isinstance(p, _parentable)  # pointer or primitive
+    assert not isinstance(p, _container)  # pointer or primitive
     T = typeOf(p)
     if not isinstance(T, Ptr):
         return p      # primitive
@@ -1054,9 +1054,25 @@ class _ptr(object):
             # normal case
             return llmemory.fakeaddress(normalizeptr(self))
 
+    def _as_ptr(self):
+        return self
+    def _as_obj(self):
+        return self._obj
+
 assert not '__dict__' in dir(_ptr)
 
-class _parentable(object):
+class _container(object):
+    __slots__ = ()
+    def _parentstructure(self):
+        return None
+    def _check(self):
+        pass
+    def _as_ptr(self):
+        return _ptr(Ptr(self._TYPE), self, True)
+    def _as_obj(self):
+        return self
+
+class _parentable(_container):
     _kind = "?"
 
     __slots__ = ('_TYPE',
@@ -1315,18 +1331,12 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
     _makeptr = staticmethod(_makeptr)
 
 
-class _func(object):
+class _func(_container):
     def __init__(self, TYPE, **attrs):
         self._TYPE = TYPE
         self._name = "?"
         self._callable = None
         self.__dict__.update(attrs)
-
-    def _parentstructure(self):
-        return None
-
-    def _check(self):
-        pass
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -1372,16 +1382,10 @@ class _opaque(_parentable):
         return "%s %s" % (self._TYPE.__name__, self._name)
 
 
-class _pyobject(Hashable):
+class _pyobject(Hashable, _container):
     __slots__ = []   # or we get in trouble with pickling
 
     _TYPE = PyObject
-
-    def _parentstructure(self):
-        return None
-
-    def _check(self):
-        pass
 
     def __repr__(self):
         return '<%s>' % (self,)

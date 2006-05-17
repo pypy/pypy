@@ -71,7 +71,7 @@ class __extend__(SomeObject):
             return immutablevalue(bool(obj.const))
         else:
             s_len = obj.len()
-            if s_len.is_constant():
+            if s_len.is_immutable_constant():
                 return immutablevalue(s_len.const > 0)
             else:
                 return SomeBool()
@@ -188,7 +188,7 @@ class __extend__(SomeFloat):
     abs = neg
 
     def is_true(self):
-        if self.is_constant():
+        if self.is_immutable_constant():
             return getbookkeeper().immutablevalue(bool(self.const))
         return SomeBool()
 
