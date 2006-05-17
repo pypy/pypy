@@ -16,3 +16,10 @@
 #define OP_ADR_LT(x,y,r)	  r = ((x) <  (y))
 #define OP_ADR_GE(x,y,r)	  r = ((x) >= (y))
 
+#ifndef HIDE_POINTER
+#define HIDE_POINTER(p) (p)
+#ifdef REVEAL_POINTER
+#error HIDE_POINTER but not REVEAL_POINTER?
+#endif
+#define REVEAL_POINTER(p) (p)
+#endif

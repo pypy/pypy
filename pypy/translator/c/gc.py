@@ -44,7 +44,7 @@ class BasicGcPolicy(object):
         return []
 
     def pre_gc_code(self):
-        return []
+        return ['typedef void *GC_hidden_pointer;']
 
     def gc_startup_code(self):
         return []
@@ -79,12 +79,6 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     def common_gcheader_initdata(self, defnode):
         return [REFCOUNT_IMMORTAL()]
-
-    def pre_gc_code(self):
-        return ['#define HIDE_POINTER(p) (p)',
-                '#define REVEAL_POINTER(p) (p)',
-                'typedef void *GC_hidden_pointer;']
-
 
     # for structs
 
@@ -222,6 +216,9 @@ class BoehmGcPolicy(BasicGcPolicy):
             yield '#include <gc/gc.h>'
             yield '#define USING_BOEHM_GC'
 
+    def pre_gc_code(self):
+        return []
+
     def gc_startup_code(self):
         if sys.platform == 'win32':
             pass # yield 'assert(GC_all_interior_pointers == 0);'
@@ -350,11 +347,6 @@ class NoneGcPolicy(BoehmGcPolicy):
     def pre_pre_gc_code(self):
         yield '#define USING_NO_GC'
 
-    def pre_gc_code(self):
-        return ['#define HIDE_POINTER(p) (p)',
-                '#define REVEAL_POINTER(p) (p)',
-                'typedef void *GC_hidden_pointer;']
-
 
 class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.FrameworkGCTransformer
@@ -374,9 +366,6 @@ class FrameworkGcPolicy(BasicGcPolicy):
     def gc_startup_code(self):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
         yield '%s();' % (self.db.get(fnptr),)
-
-    def pre_gc_code(self):
-        return []
 
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
