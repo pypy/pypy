@@ -150,6 +150,9 @@ class LLHelpers(AbstractLLHelpers):
     def ll_split_chr(LIST, s, c):
         return s.ll_split_chr(c)
 
+    def ll_int(s, base):
+        return ootype.ooparse_int(s, base)
+
     def do_stringformat(cls, hop, sourcevarsrepr):
         InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
         string_repr = hop.rtyper.type_system.rstr.string_repr

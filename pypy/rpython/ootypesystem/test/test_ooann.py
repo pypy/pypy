@@ -226,3 +226,11 @@ def test_oostring():
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
     assert isinstance(s, annmodel.SomeBuiltin)
+
+def test_ooparse_int():
+    def oof(n, b):
+        return ooparse_int(oostring(n, b), b)
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [int, int])
+    assert isinstance(s, annmodel.SomeInteger)

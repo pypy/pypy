@@ -198,8 +198,11 @@ def test_string_annotation():
     assert interpret(oof, [s], type_system='ootype') == 3
 
 def test_oostring():
+    def const(c):
+        return c
+    
     def oof(ch):
-        return oostring(ch)
+        return oostring(ch, const(-1))
 
     ch = 'a'
     res = interpret(oof, [ch], type_system='ootype')
@@ -220,3 +223,11 @@ def test_assert():
         assert b
 
     interpret(oof, [True], type_system='ootype')
+
+def test_ooparse_int():
+    def oof(n, b):
+        return ooparse_int(oostring(n, b), b)
+
+    for n in -42, 0, 42:
+        for b in 8, 10, 16:
+            assert interpret(oof, [n, b], type_system='ootype') == n

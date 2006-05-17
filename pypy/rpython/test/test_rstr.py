@@ -519,49 +519,49 @@ class AbstractTestRstr:
             s = s.replace('abb', 'c')
         raises (TyperError, interpret, fn, ())
 
-def test_int():
-    s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '']
-    def fn(i, base):
-        s = s1[i]
-        res = int(s, base)
-        return res
-    for j in (10, 16, 2, 1, 36, 42, -3):
-        for i in range(len(s1)):
+    def test_int(self):
+        s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '']
+        def fn(i, base):
+            s = s1[i]
+            res = int(s, base)
+            return res
+        for j in (10, 16, 2, 1, 36, 42, -3):
+            for i in range(len(s1)):
+                try:
+                    expected = fn(i, j)
+                except ValueError:
+                    self.interpret_raises(ValueError, fn, [i, j])
+                else:
+                    res = self.interpret(fn, [i, j])
+                    assert res == expected
+
+    def test_int_valueerror(self):
+        s1 = ['42g', '?']
+        def fn(i):
             try:
-                expected = fn(i, j)
+                return int(s1[i])
             except ValueError:
-                interpret_raises(ValueError, fn, [i, j])
-            else:
-                res = interpret(fn, [i, j])
-                assert res == expected
+                return -654
+        res = self.interpret(fn, [0])
+        assert res == -654
+        res = self.interpret(fn, [1])
+        assert res == -654
 
-def test_int_valueerror():
-    s1 = ['42g', '?']
-    def fn(i):
-        try:
-            return int(s1[i])
-        except ValueError:
-            return -654
-    res = interpret(fn, [0])
-    assert res == -654
-    res = interpret(fn, [1])
-    assert res == -654
+    def test_char_mul_n(self):
+        def f(c, n):
+            return c*n
+        res = self.interpret(f, ['a', 4])
+        assert self.ll_to_string(res) == 'a'*4
+        res = self.interpret(f, ['a', 0])
+        assert self.ll_to_string(res) == ""
 
-def test_char_mul_n():
-    def f(c, n):
-        return c*n
-    res = interpret(f, ['a', 4])
-    assert ''.join(res.chars) == 'a'*4
-    res = interpret(f, ['a', 0])
-    assert ''.join(res.chars) == ""
-    
-def test_n_mul_char():
-    def f(c, n):
-        return n*c
-    res = interpret(f, ['a', 4])
-    assert ''.join(res.chars) == 'a'*4
-    res = interpret(f, ['a', 0])
-    assert ''.join(res.chars) == ""
+    def test_n_mul_char(self):
+        def f(c, n):
+            return n*c
+        res = self.interpret(f, ['a', 4])
+        assert self.ll_to_string(res) == 'a'*4
+        res = self.interpret(f, ['a', 0])
+        assert self.ll_to_string(res) == ""
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

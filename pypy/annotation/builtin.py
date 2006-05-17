@@ -526,6 +526,11 @@ def oostring(obj, base):
     assert isinstance(base, SomeInteger)
     return SomeOOInstance(ootype.String)
 
+def ooparse_int(s, base):
+    assert isinstance(s, SomeOOInstance) and s.ootype is ootype.String
+    assert isinstance(base, SomeInteger)
+    return SomeInteger()
+
 BUILTIN_ANALYZERS[ootype.instanceof] = instanceof
 BUILTIN_ANALYZERS[ootype.new] = new
 BUILTIN_ANALYZERS[ootype.null] = null
@@ -534,6 +539,7 @@ BUILTIN_ANALYZERS[ootype.classof] = classof
 BUILTIN_ANALYZERS[ootype.subclassof] = subclassof
 BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
 BUILTIN_ANALYZERS[ootype.oostring] = oostring
+BUILTIN_ANALYZERS[ootype.ooparse_int] = ooparse_int
 
 #________________________________
 # non-gc objects

@@ -1175,6 +1175,9 @@ def oostring(obj, base):
         obj = '<%s object>' % obj._inst._TYPE._name
     return make_string(str(obj))
 
+def ooparse_int(s, base):
+    return int(s._str, base)
+
 def setItemType(LIST, ITEMTYPE):
     return LIST._set_itemtype(ITEMTYPE)
 
