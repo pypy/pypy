@@ -21,6 +21,8 @@ immediately react on messages.
 This is a necessary Stackless 3.1 feature.
 """
 
+last_thread_id = 0
+
 class TaskletProxy(object):
     def __init__(self, coro):
         self.alive = False
@@ -40,6 +42,12 @@ class TaskletProxy(object):
         self.thread_id = 0
         self.tempval = None
         self._coro = coro
+
+    def __str__(self):
+        return 'Tasklet-%s' % self.thread_id
+
+    def __getattr__(self,attr):
+        return getattr(self._coro,attr)
 
 class bomb(object):
     """
@@ -146,15 +154,73 @@ def set_schedule_callback(callable):
 
 # end interface
 
+def _next():
+    c = getcurrent()
+    if c.next is c:
+        return c
+    nt = c.next
+    if nt is main_tasklet and nt.next is not c:
+        return nt.next
+    else:
+        return nt
+
+def _insert(other):
+    "put other on the end tasklet queue"
+    this = getcurrent()
+    #print '_insert:',this,
+    #_print_queue()
+    prev = this.prev
+    this.prev = other
+    other.next = this
+    other.prev = prev
+    prev.next = other
+    other.blocked = False
+
+def _priority_insert(other):
+    "other will be the next tasklet"
+    this = getcurrent()
+    #print '_priority_insert:',this,
+    #_print_queue()
+    next = this.next
+    this.next = other
+    other.prev = this
+    other.next = next
+    next.prev = other
+    other.blocked = False
+
+def _remove(this):
+    #print '_remove:',this,
+    #_print_queue()
+    if this.next is this:
+        return
+    t = c = getcurrent()
+    count = 0
+    while t is not this:
+        if t is c and count:
+            break
+        count += 1
+        t = t.next
+    this.next.prev = this.prev
+    this.prev.next = this.next
+
+def _print_queue():
+    c = s = getcurrent()
+    print '[',c,
+    while c.next is not s:
+        c = c.next
+        print c,
+    print ']'
+
 main_tasklet = None
 main_coroutine = None
-scheduler = None
 
 def __init():
     global main_tasklet
     global main_coroutine
     main_coroutine = c = coroutine.getcurrent()
     main_tasklet = TaskletProxy(c)
+    main_tasklet.next = main_tasklet.prev = main_tasklet
+    main_tasklet.is_main = True
 
 note = """
 It is not needed to implement the watchdog feature right now.
@@ -181,6 +247,7 @@ tasklets should ideally inherit from coroutine.
 This will create unwanted attributes, but they will
 go away when we port this to interp-leve.
 """
+
 def getcurrent():
     """
     getcurrent() -- return the currently executing tasklet.
@@ -195,14 +262,28 @@ def getcurrent():
 def getmain():
     return main_tasklet
 
-def schedule():
+def schedule(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
     The return value for this call is retval, with the current
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-    scheduler.schedule()
+    #print 'schedule: before switch',
+    #_print_queue()
+    curr = getcurrent()
+    curr.is_current = False
+    nt = _next()
+    if curr.blocked:
+        _remove(curr)
+    nt.is_current = True
+    nt.switch()
+    #print 'schedule: after switch',
+    #_print_queue()
+    if retval is None:
+        return getcurrent()
+    else:
+        return retval
 
 """
 /***************************************************************************
@@ -281,6 +362,7 @@ class tasklet(coroutine):
         return super(tasklet,cls).__new__(cls)
 
     def __init__(self, func=None):
+        global last_thread_id
         super(tasklet,self).__init__()
         self.alive = False
         self.atomic = False
@@ -296,7 +378,8 @@ class tasklet(coroutine):
         self.recursion_depth = 0
         self.restorable = False
         self.scheduled = False
-        self.thread_id = 0
+        last_thread_id += 1
+        self.thread_id = last_thread_id
         self.tempval = None
         if func is not None:
             self.bind(func)
@@ -304,6 +387,9 @@ class tasklet(coroutine):
     def __call__(self, *argl, **argd):
         self.setup(*argl, **argd)
         return self
+
+    def __str__(self):
+        return 'Tasklet-%s' % self.thread_id
 
     def bind(self, func):
         """
@@ -323,7 +409,7 @@ class tasklet(coroutine):
         given that it isn't blocked.
         Blocked tasklets need to be reactivated by channels.
         """
-        scheduler.insert(self)
+        _insert(self)
 
     ## note: this is needed. please call coroutine.kill()
     def kill(self):
@@ -354,14 +440,15 @@ class tasklet(coroutine):
         unwanted side-effects. Therefore it is recommended to either run 
         tasklets to the end or to explicitly kill() them.
         """
-        scheduler.remove(self)
+        _remove(self)
 
     def run(self):
         """
         Run this tasklet, given that it isn't blocked.
         Blocked tasks need to be reactivated by channels.
         """
-        scheduler.setnexttask(self)
+        _remove(self)
+        _priority_insert(self)
         ## note: please support different schedulers
         ## and don't mix calls to module functions with scheduler methods.
         schedule()
@@ -544,12 +631,13 @@ class channel(object):
             wt = self.queue.popleft()
             retval = wt.tempval
             wt.tempval = None
-            scheduler.insert(wt)
+            _insert(wt)
             self.balance -= 1
             return retval
         else: # Receiving 2
             ct = getcurrent()
-            scheduler.remove(ct)
+            #_remove(ct)
+            ct.blocked = True
             self.queue.append(ct)
             self.balance -= 1
             schedule()
@@ -571,11 +659,12 @@ class channel(object):
         if self.balance < 0: # Sending 1
             wt = self.queue.popleft()
             wt.tempval = msg
-            scheduler.priorityinsert(wt)
+            _priority_insert(wt)
             self.balance += 1
         else: # Sending 2
             ct.tempval = msg
-            scheduler.remove(ct)
+            #_remove(ct)
+            ct.blocked = True
             self.queue.append(ct)
             self.balance += 1
         schedule()
@@ -600,74 +689,5 @@ class channel(object):
         """
         pass
 
-
-class Scheduler(object):
-    def __init__(self):
-        ## note: better use a deque
-        self.tasklist = []
-        ## note: in terms of moving to interplevel, I would not do that
-        self.nexttask = None 
-
-    def empty(self):
-        return not self.tasklist
-
-    def __str__(self):
-        return repr(self.tasklist) + '/%s' % self.nexttask
-
-    def insert(self,task):
-        if (task not in self.tasklist) and task is not main_tasklet:
-            self.tasklist.append(task)
-        if self.nexttask is None:
-            self.nexttask = 0
-
-    def priorityinsert(self,task):
-        if task in self.tasklist:
-            self.tasklist.remove(task)
-        if task is main_tasklet:
-            return
-        if self.nexttask:
-            self.tasklist.insert(self.nexttask,task)
-        else:
-            self.tasklist.insert(0,task)
-            self.nexttask = 0
-
-    def remove(self,task):
-        try:
-            i = self.tasklist.index(task)
-            del(self.tasklist[i])
-            if self.nexttask > i:
-                self.nexttask -= 1
-            if len(self.tasklist) == 0:
-                self.nexttask = None
-        except ValueError:pass
-
-    def next(self):
-        if self.nexttask is not None:
-            task = self.tasklist[self.nexttask]
-            self.nexttask += 1
-            if self.nexttask == len(self.tasklist):
-                self.nexttask = 0
-            return task
-        else:
-            return main_tasklet
-
-    def setnexttask(self,task):
-        if task not in self.tasklist:
-            self.tasklist.insert(task)
-        try:
-            ## note: this is inefficient
-            ## please use the flag attributes
-            ## a tasklet 'knows' if it is in something
-            i = self.tasklist.index(task)
-            self.nexttask = i
-        except IndexError:pass
-
-    def schedule(self):
-        n = self.next()
-        n.switch()
-
-scheduler = Scheduler()
 __init()
-
-## note: nice work :-)
 
