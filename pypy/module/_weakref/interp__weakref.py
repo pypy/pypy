@@ -92,6 +92,7 @@ class W_WeakrefBase(Wrappable):
         
     def invalidate(w_self):
         w_self.address = WEAKNULL
+        w_self.addr_lifeline = WEAKNULL
 
     def activate_callback(w_self):
         if not w_self.space.is_w(w_self.w_callable, w_self.space.w_None):
