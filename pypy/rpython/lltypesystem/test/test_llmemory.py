@@ -339,7 +339,59 @@ def test_raw_free():
     py.test.raises(RuntimeError, "p_u.y = 2")
     repr(adr)
     str(p_u)
+
+def test_raw_free_with_hdr():
+    from pypy.rpython.memory.gcheader import GCHeaderBuilder
     
+    HDR = lltype.Struct('h', ('t', lltype.Signed))
+    gh = GCHeaderBuilder(HDR).size_gc_header
+    
+    A = lltype.GcArray(lltype.Signed)
+    adr = raw_malloc(gh+sizeof(A, 10))
+    p_a = cast_adr_to_ptr(adr+gh, lltype.Ptr(A))
+    p_a[0] = 1
+    adr = cast_ptr_to_adr(p_a)-gh
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_a[0]")
+    py.test.raises(RuntimeError, "p_a[0] = 2")
+    repr(adr)
+    str(p_a)
+
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    adr = raw_malloc(gh+sizeof(S))
+    p_s = cast_adr_to_ptr(adr+gh, lltype.Ptr(S))
+    p_s.x = 1
+    adr = cast_ptr_to_adr(p_s)-gh
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_s.x")
+    py.test.raises(RuntimeError, "p_s.x = 2")
+    repr(adr)
+    str(p_s)
+    
+    T = lltype.GcStruct('T', ('s', S))
+    adr = raw_malloc(gh+sizeof(T))
+    p_s = cast_adr_to_ptr(adr+gh, lltype.Ptr(S))
+    p_s.x = 1
+    adr = cast_ptr_to_adr(p_s)-gh
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_s.x")
+    py.test.raises(RuntimeError, "p_s.x = 2")
+    repr(adr)
+    str(p_s)
+    
+    U = lltype.Struct('U', ('y', lltype.Signed))
+    T = lltype.GcStruct('T', ('x', lltype.Signed), ('u', U))
+    adr = raw_malloc(gh+sizeof(T))
+    p_t = cast_adr_to_ptr(adr+gh, lltype.Ptr(T))
+    p_u = p_t.u
+    p_u.y = 1
+    adr = cast_ptr_to_adr(p_t)-gh
+    raw_free(adr)
+    py.test.raises(RuntimeError, "p_u.y")
+    py.test.raises(RuntimeError, "p_u.y = 2")
+    repr(adr)
+    str(p_u)
+
 def test_inlined_substruct():
     T = lltype.Struct('T', ('x', lltype.Signed))
     S1 = lltype.GcStruct('S1', ('t1', T), ('t2', T))
