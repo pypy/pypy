@@ -1,17 +1,17 @@
 from stackless_ import *
 
 def f():
-    print 'in f'
+    print 'in f', getcurrent()
 
 def g(t):
-    print 'in g %s' % t
+    print 'in g %s' % t , getcurrent()
     schedule()
 
 def main():
     cg = tasklet(g)('test')
     cf = tasklet(f)()
     schedule()
-    print 'in main'
+    print 'in main', getcurrent()
 
 if __name__ == '__main__':
     main()

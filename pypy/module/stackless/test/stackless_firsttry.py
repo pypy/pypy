@@ -5,7 +5,6 @@ Please refer to their documentation.
 """
 
 from stackless import coroutine
-from collections import deque
 
 __all__ = 'run getcurrent getmain schedule tasklet channel'.split()
 
@@ -20,27 +19,6 @@ immediately react on messages.
 
 This is a necessary Stackless 3.1 feature.
 """
-
-class TaskletProxy(object):
-    def __init__(self, coro):
-        self.alive = False
-        self.atomic = False
-        self.blocked = False
-        self.frame = None
-        self.ignore_nesting = False
-        self.is_current = False
-        self.is_main = False
-        self.nesting_level = 0
-        self.next = None
-        self.paused = False
-        self.prev = None
-        self.recursion_depth = 0
-        self.restorable = False
-        self.scheduled = False
-        self.thread_id = 0
-        self.tempval = None
-        self._coro = coro
-
 class bomb(object):
     """
     A bomb object is used to hold exceptions in tasklets.
@@ -64,7 +42,30 @@ class bomb(object):
     type = None
     value = None
 
+note = """
+cframes are an implementation detail.
+Do not implement this now. If we need such a thing in PyPy,
+then it will probably have a different layout.
+"""
+class cframe(object):
+    """
+    """
+    __slots__ = ['f_back','obj1','obj2','obj3','i','n']
+
 # channel: see below
+
+note = """
+The future of C stacks is undecided, yet. This applies
+for Stackless, only at the moment. PyPy will use soft-switching
+only, until we support external callbacks.
+"""
+class cstack(object):
+    """
+    A CStack object serves to save the stack slice which is involved
+    during a recursive Python call. It will also be used for pickling
+    of program state. This structure is highly platform dependant.
+    Note: For inspection, str() can dump it as a string.
+    """
 
 note = """
 I would implement it as a simple flag but let it issue
@@ -102,6 +103,7 @@ def get_thread_info(thread_id):
 
 # def schedule(retval=stackless.current) : see below
 
+note = 'needed'
 def schedule_remove(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
@@ -142,19 +144,83 @@ def set_schedule_callback(callable):
     """
     pass
 
+note = """
+this was an experiment on deriving from a module.
+The idea was to make runcount and current into properties.
+__tasklet__ and __channel__ are also not used.
+It is ok to ignore these.
+"""
+class slpmodule(object):
+    """
+    The stackless module has a special type derived from
+    the module type, in order to be able to override some attributes.
+    __tasklet__ and __channel__ are the default types
+    to be used when these objects must be instantiated internally.
+    runcount, current and main are attribute-like short-hands
+    for the getruncount, getcurrent and getmain module functions.
+    """
+
 # class tasklet: see below
+
+note = 'drop'
+def test_cframe(switches, words=0):
+    """
+    test_cframe(switches, words=0) -- a builtin testing function that does 
+    nothing but tasklet switching. The function will call 
+    PyStackless_Schedule() for switches times and then finish.
+    If words is given, as many words will be allocated on the C stack.
+    Usage: Create two tasklets for test_cframe and run them by run().
+    
+        t1 = tasklet(test_cframe)(500000)
+        t2 = tasklet(test_cframe)(500000)
+        run()
+    This can be used to measure the execution time of 1.000.000 switches.
+    """
+    pass
+
+note = 'drop'
+def test_cframe_nr(switches):
+    """
+    test_cframe_nr(switches) -- a builtin testing function that does nothing
+    but soft tasklet switching. The function will call 
+    PyStackless_Schedule_nr() for switches times and then finish.
+    Usage: Cf. test_cframe().
+    """
+    pass
+
+note = 'drop'
+def test_outside():
+    """
+    test_outside() -- a builtin testing function.
+    This function simulates an application that does not run "inside"
+    Stackless, with active, running frames, but always needs to initialize
+    the main tasklet to get "\xednside".
+    The function will terminate when no other tasklets are runnable.
+    
+    Typical usage: Create a tasklet for test_cframe and run by test_outside().
+    
+        t1 = tasklet(test_cframe)(1000000)
+        test_outside()
+
+    This can be used to measure the execution time of 1.000.000 switches.
+    """
+    pass
+
 
 # end interface
 
 main_tasklet = None
-main_coroutine = None
+next_tasklet = None
 scheduler = None
 
+coro_reg = {}
+
 def __init():
-    global main_tasklet
-    global main_coroutine
-    main_coroutine = c = coroutine.getcurrent()
-    main_tasklet = TaskletProxy(c)
+    global maintasklet
+    mt = tasklet()
+    mt._coro = c = coroutine.getcurrent()
+    maintasklet = mt
+    coro_reg[c] = mt
 
 note = """
 It is not needed to implement the watchdog feature right now.
@@ -186,11 +252,8 @@ def getcurrent():
     getcurrent() -- return the currently executing tasklet.
     """
 
-    curr = coroutine.getcurrent()
-    if curr is main_coroutine:
-        return main_tasklet
-    else:
-        return curr
+    c = coroutine.getcurrent()
+    return coro_reg[c]
 
 def getmain():
     return main_tasklet
@@ -204,68 +267,17 @@ def schedule():
     """
     scheduler.schedule()
 
-"""
-/***************************************************************************
-
-    Tasklet Flag Definition
-    -----------------------
-
-    blocked:	    The tasklet is either waiting in a channel for
-		    writing (1) or reading (-1) or not blocked (0).
-		    Maintained by the channel logic. Do not change.
-
-    atomic:	    If true, schedulers will never switch. Driven by
-		    the code object or dynamically, see below.
-
-    ignore_nesting: Allows auto-scheduling, even if nesting_level
-		    is not zero.
-
-    autoschedule:   The tasklet likes to be auto-scheduled. User driven.
-
-    block_trap:     Debugging aid. Whenever the tasklet would be
-		    blocked by a channel, an exception is raised.
-
-    is_zombie:	    This tasklet is almost dead, its deallocation has
-		    started. The tasklet *must* die at some time, or the
-		    process can never end.
-
-    pending_irq:    If set, an interrupt was issued during an atomic
-		    operation, and should be handled when possible.
-
-
-    Policy for atomic/autoschedule and switching:
-    ---------------------------------------------
-    A tasklet switch can always be done explicitly by calling schedule().
-    Atomic and schedule are concerned with automatic features.
-
-    atomic  autoschedule
-
-	1	any	Neither a scheduler nor a watchdog will
-			try to switch this tasklet.
-
-	0	0	The tasklet can be stopped on desire, or it
-			can be killed by an exception.
-
-	0	1	Like above, plus auto-scheduling is enabled.
-
-    Default settings:
-    -----------------
-    All flags are zero by default.
-
- ***************************************************************************/
-"""
-
-class tasklet(coroutine):
+class tasklet(object):
     """
     A tasklet object represents a tiny task in a Python thread.
     At program start, there is always one running main tasklet.
     New tasklets can be created with methods from the stackless
     module.
     """
-    __slots__ = ['alive','atomic','blocked','frame',
-                 'ignore_nesting','is_current','is_main',
-                 'nesting_level','next','paused','prev','recursion_depth',
-                 'restorable','scheduled','tempval','thread_id']
+#    __slots__ = ['alive','atomic','block_trap','blocked','frame',
+#                 'ignore_nesting','is_current','is_main',
+#                 'nesting_level','next','paused','prev','recursion_depth',
+#                 'restorable','scheduled','thread_id']
 
     ## note: most of the above should be properties
 
@@ -277,35 +289,34 @@ class tasklet(coroutine):
     ## well, it is a design question, but fow now probably simplest
     ## to just copy that.
 
-    def __new__(cls, func=None):
-        return super(tasklet,cls).__new__(cls)
-
     def __init__(self, func=None):
-        super(tasklet,self).__init__()
-        self.alive = False
-        self.atomic = False
-        self.blocked = False
-        self.frame = None
-        self.ignore_nesting = False
-        self.is_current = False
-        self.is_main = False
-        self.nesting_level = 0
-        self.next = None
-        self.paused = False
-        self.prev = None
-        self.recursion_depth = 0
-        self.restorable = False
-        self.scheduled = False
-        self.thread_id = 0
-        self.tempval = None
-        if func is not None:
-            self.bind(func)
+        ## note: this field should reuse tempval to save space
+        self._func = func
 
     def __call__(self, *argl, **argd):
-        self.setup(*argl, **argd)
+        ## note: please inherit
+        ## note: please use spaces after comma :-)
+        ## note: please express this using bind and setup
+        self._coro = c = coroutine()
+        c.bind(self._func,*argl,**argd)
+        coro_reg[c] = self
+        self.insert()
         return self
 
-    def bind(self, func):
+    ## note: deprecated
+    def become(self, retval=None):
+        """
+        t.become(retval) -- catch the current running frame in a tasklet.
+        It is also inserted at the end of the runnables chain.
+        If it is a toplevel frame (and therefore has no caller), an exception 
+        is raised.  The function result is the tasklet itself. retval is 
+        passed to the calling frame.
+        If retval is not given, the tasklet is used as default.
+        """
+        pass
+
+    ## note: __init__ should use this
+    def bind(self):
         """
         Binding a tasklet to a callable object.
         The callable is usually passed in to the constructor.
@@ -313,9 +324,19 @@ class tasklet(coroutine):
         after it has been run, in order to keep its identity.
         Note that a tasklet can only be bound when it doesn't have a frame.
         """
-        if not callable(func):
-            raise TypeError('tasklet function must be a callable')
-        self.tempval = func
+        pass
+
+    ## note: deprecated
+    def capture(self, retval=None):
+        """
+        t.capture(retval) -- capture the current running frame in a tasklet,
+        like t.become(). In addition the tasklet is run immediately, and the
+        parent tasklet is removed from the runnables and returned as the value.
+        """
+        pass
+
+    ## note: this is not part of the interface, please drop it
+    cstate = None
 
     def insert(self):
         """
@@ -334,7 +355,7 @@ class tasklet(coroutine):
         If the exception passes the toplevel frame of the tasklet,
         the tasklet will silently die.
         """
-        coroutine.kill(self)
+        pass
 
     ## note: see the C implementation about how to use bombs
     def raise_exception(self, exc, value):
@@ -408,36 +429,11 @@ class tasklet(coroutine):
         """
         supply the parameters for the callable
         """
-        if self.tempval is None:
-            raise TypeError('cframe function must be callable')
-        coroutine.bind(self,self.tempval,*argl,**argd)
-        self.tempval = None
-        self.insert()
+        pass
 
-"""
-/***************************************************************************
-
-    Channel Flag Definition
-    -----------------------
-
-
-    closing:        When the closing flag is set, the channel does not
-		    accept to be extended. The computed attribute
-		    'closed' is true when closing is set and the
-		    channel is empty.
-
-    preference:	    0    no preference, caller will continue
-		    1    sender will be inserted after receiver and run
-		    -1   receiver will be inserted after sender and run
-
-    schedule_all:   ignore preference and always schedule the next task
-
-    Default settings:
-    -----------------
-    All flags are zero by default.
-
- ***************************************************************************/
-"""
+    ## note: this attribute should always be there.
+    ## no class default needed.
+    tempval = None
 
 class channel(object):
     """
@@ -454,17 +450,8 @@ class channel(object):
     def __init__(self):
         self.balance = 0
         ## note: this is a deque candidate.
-        self.queue = deque()
-        self.closing = False
-        self.preference = 0
-
-    def __str__(self):
-        return 'channel(' + str(self.balance) + ' : ' + str(self.queue) + ')'
-    
-    def _get_closed(self):
-        return self.closing and not self.queue
-
-    closed = property(_get_closed)
+        self._readq = []
+        self._writeq = []
 
     ## note: needed
     def close(self):
@@ -474,62 +461,20 @@ class channel(object):
         If the channel is not empty, the flag 'closing' becomes true.
         If the channel is empty, the flag 'closed' becomes true.
         """
-        self.closing = True
+        pass
 
     ## note: needed. iteration over a channel reads it all.
     def next(self):
         """
         x.next() -> the next value, or raise StopIteration
         """
-        if self.closing and not self.balance:
-            raise StopIteration()
-        return self.receive()
+        pass
 
     ## note: needed
     def open(self):
         """
         channel.open() -- reopen a channel. See channel.close.
         """
-        self.closing = False
-
-    """
-    /**********************************************************
-
-      The central functions of the channel concept.
-      A tasklet can either send or receive on a channel.
-      A channel has a queue of waiting tasklets.
-      They are either all waiting to send or all
-      waiting to receive.
-      Initially, a channel is in a neutral state.
-      The queue is empty, there is no way to
-      send or receive without becoming blocked.
-
-      Sending 1):
-        A tasklet wants to send and there is
-        a queued receiving tasklet. The sender puts
-        its data into the receiver, unblocks it,
-        and inserts it at the top of the runnables.
-        The receiver is scheduled.
-      Sending 2):
-        A tasklet wants to send and there is
-        no queued receiving tasklet.
-        The sender will become blocked and inserted
-        into the queue. The next receiver will
-        handle the rest through "Receiving 1)".
-      Receiving 1):
-        A tasklet wants to receive and there is
-        a queued sending tasklet. The receiver takes
-        its data from the sender, unblocks it,
-        and inserts it at the end of the runnables.
-        The receiver continues with no switch.
-      Receiving 2):
-        A tasklet wants to receive and there is
-        no queued sending tasklet.
-        The receiver will become blocked and inserted
-        into the queue. The next sender will
-        handle the rest through "Sending 1)".
-     */
-    """
 
     def receive(self):
         """
@@ -540,22 +485,17 @@ class channel(object):
         the runnables list.
         The above policy can be changed by setting channel flags.
         """
-        if self.balance > 0: # Receiving 1
-            wt = self.queue.popleft()
-            retval = wt.tempval
-            wt.tempval = None
-            scheduler.insert(wt)
+        ct = getcurrent()
+        if self._writeq:
+            (wt,retval), self._writeq = self._writeq[0], self._writeq[1:]
+            scheduler.priorityinsert(wt)
             self.balance -= 1
             return retval
-        else: # Receiving 2
-            ct = getcurrent()
+        else:
+            self._readq.append(ct)
             scheduler.remove(ct)
-            self.queue.append(ct)
-            self.balance -= 1
             schedule()
-            retval = ct.tempval
-            ct.tempval = None
-            return retval
+            return self.receive()
 
     def send(self, msg):
         """
@@ -566,18 +506,12 @@ class channel(object):
         the runnables list.
         """
         ct = getcurrent()
-        if ct.tempval is not None:
-            print 'THERE IS STILL SOME CHANNEL SEND VALUE',ct.tempval
-        if self.balance < 0: # Sending 1
-            wt = self.queue.popleft()
-            wt.tempval = msg
-            scheduler.priorityinsert(wt)
-            self.balance += 1
-        else: # Sending 2
-            ct.tempval = msg
-            scheduler.remove(ct)
-            self.queue.append(ct)
-            self.balance += 1
+        scheduler.remove(ct)
+        self._writeq.append((ct,msg))
+        self.balance += 1
+        if self._readq:
+            nt, self._readq = self._readq[0], self._readq[1:]
+            scheduler.priorityinsert(nt)
         schedule()
 
     ## note: see the C implementation on how to use bombs.
@@ -615,7 +549,7 @@ class Scheduler(object):
         return repr(self.tasklist) + '/%s' % self.nexttask
 
     def insert(self,task):
-        if (task not in self.tasklist) and task is not main_tasklet:
+        if (task not in self.tasklist) and task is not maintasklet:
             self.tasklist.append(task)
         if self.nexttask is None:
             self.nexttask = 0
@@ -623,7 +557,7 @@ class Scheduler(object):
     def priorityinsert(self,task):
         if task in self.tasklist:
             self.tasklist.remove(task)
-        if task is main_tasklet:
+        if task is maintasklet:
             return
         if self.nexttask:
             self.tasklist.insert(self.nexttask,task)
@@ -649,7 +583,7 @@ class Scheduler(object):
                 self.nexttask = 0
             return task
         else:
-            return main_tasklet
+            return maintasklet
 
     def setnexttask(self,task):
         if task not in self.tasklist:
@@ -664,7 +598,7 @@ class Scheduler(object):
 
     def schedule(self):
         n = self.next()
-        n.switch()
+        n._coro.switch()
 
 scheduler = Scheduler()
 __init()
