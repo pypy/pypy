@@ -622,7 +622,6 @@ class BaseTestListRtyping:
 
 
     def test_list_comparestr(self):
-        self._skip_oo('strings')
         def fn(i, j, neg=False):
             s1 = [["hell"], ["hello", "world"]]
             s1[0][0] += "o" # ensure no interning
@@ -701,7 +700,6 @@ class BaseTestListRtyping:
 
 
     def test_not_a_char_list_after_all(self):
-        self._skip_oo('strings')
         def fn():
             l = ['h', 'e', 'l', 'l', 'o']
             return 'world' in l
@@ -746,18 +744,18 @@ class BaseTestListRtyping:
 
 
     def test_list_str(self):
-        self._skip_oo('strings')
+        self._skip_oo('int to string')
         def fn():
             return str([1,2,3])
 
         res = self.interpret(fn, [])
-        assert ''.join(res.chars) == fn()
+        assert self.ll_to_string(res) == fn()
 
         def fn():
             return str([[1,2,3]])
 
         res = self.interpret(fn, [])
-        assert ''.join(res.chars) == fn()
+        assert self.ll_to_string(res) == fn()
 
         def fn():
             l = [1,2]
@@ -765,7 +763,7 @@ class BaseTestListRtyping:
             return str(l)
 
         res = self.interpret(fn, [])
-        assert ''.join(res.chars) == fn()
+        assert self.ll_to_string(res) == fn()
 
         def fn():
             l = [1,2]
@@ -773,7 +771,7 @@ class BaseTestListRtyping:
             return str([l])
 
         res = self.interpret(fn, [])
-        assert ''.join(res.chars) == fn()
+        assert self.ll_to_string(res) == fn()
 
     def test_list_or_None(self):
         empty_list = []
@@ -1138,6 +1136,9 @@ class TestLltypeRtyping(BaseTestListRtyping):
     def ll_to_list(self, l):
         return map(None, l.ll_items())[:l.ll_length()]
 
+    def ll_to_string(self, s):
+        return ''.join(s.chars)
+
     def class_name(self, value):
         return "".join(value.super.typeptr.name)[:-1]
 
@@ -1160,6 +1161,9 @@ class TestOotypeRtyping(BaseTestListRtyping):
 
     def ll_to_list(self, l):
         return l._list[:]
+
+    def ll_to_string(self, s):
+        return s._str
 
     def class_name(self, value):
         return ootype.dynamicType(value)._name.split(".")[-1] 

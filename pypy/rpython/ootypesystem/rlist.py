@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Void
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rslice import SliceRepr, \
      startstop_slice_repr, startonly_slice_repr, minusone_slice_repr
+from pypy.rpython.ootypesystem import rstr
 
 
 class BaseListRepr(AbstractBaseListRepr):
@@ -53,6 +54,25 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
+
+    def ll_str(self, lst):
+        item_repr = self.item_repr
+        length = lst.ll_length()        
+        buf = ootype.new(ootype.StringBuilder)
+        buf.ll_append_char('[')
+        i = 0
+        while i < length-1:
+            item = lst.ll_getitem_fast(i)
+            buf.ll_append(item_repr.ll_str(item))
+            buf.ll_append_char(',')
+            buf.ll_append_char(' ')
+            i += 1
+        if length > 0:
+            lastitem = lst.ll_getitem_fast(i)
+            buf.ll_append(item_repr.ll_str(lastitem))
+        buf.ll_append_char(']')
+        return buf.ll_build()
+
 
 class ListRepr(AbstractListRepr, BaseListRepr):
 
