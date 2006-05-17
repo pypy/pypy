@@ -21,7 +21,7 @@ class TypeSystem(object):
             except ImportError:
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
-                'rslice', 'rdict', 'rrange', 'rstr', 'exceptiondata'):
+                'rslice', 'rdict', 'rrange', 'rstr', 'll_str', 'exceptiondata'):
             mod = load(name)
             if mod is not None:
                 setattr(self, name, mod)

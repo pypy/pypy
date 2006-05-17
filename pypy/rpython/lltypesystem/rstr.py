@@ -649,9 +649,6 @@ class LLHelpers(AbstractLLHelpers):
     do_stringformat = classmethod(do_stringformat)
 
 
-
-
-
 # TODO: make the public interface of the rstr module cleaner
 ll_strconcat = LLHelpers.ll_strconcat
 ll_join = LLHelpers.ll_join
@@ -704,3 +701,5 @@ unboxed_instance_str_suffix = string_repr.convert_const(">")
 list_str_open_bracket = string_repr.convert_const("[")
 list_str_close_bracket = string_repr.convert_const("]")
 list_str_sep = string_repr.convert_const(", ")
+
+import ll_str # side-effects due to __extend__
