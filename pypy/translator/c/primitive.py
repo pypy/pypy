@@ -185,9 +185,4 @@ else:
                             (rcarith.CULong, 'unsigned long'),
                             (rcarith.CLonglong, 'long long'),
                             (rcarith.CULonglong, 'unsigned long long')]:
-        if ll_type in PrimitiveName:
-            continue
-        PrimitiveName[ll_type] = lambda value, db, c_name=c_name: '((%s) %dULL)' % (c_name, value)
-        PrimitiveType[ll_type] = '%s @'% c_name
-        PrimitiveErrorValue[ll_type] = '((%s) -1)'% c_name
-    
+        define_c_primitive(ll_type, c_name)
