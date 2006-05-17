@@ -22,14 +22,12 @@ class TestAddressLinkedList(object):
         assert ll.pop() == NULL
         assert ll.pop() == NULL
         ll.append(addr)
-        ll.free()
-        free_non_gc_object(ll)
+        ll.delete()
         ll = AddressLinkedList()
         ll.append(addr)
         ll.append(addr + 1)
         ll.append(addr + 2)
-        ll.free()
-        free_non_gc_object(ll)
+        ll.delete()
         raw_free(addr)
 
     def test_big_access(self):
@@ -49,8 +47,7 @@ class TestAddressLinkedList(object):
         for i in range(3000)[::-1]:
             a = ll.pop()
             assert a - addr == i
-        ll.free()
-        free_non_gc_object(ll)
+        ll.delete()
         raw_free(addr)
         
 def test_linked_list_annotate():
@@ -81,14 +78,12 @@ def test_linked_list_annotate():
         for i in range(299, -1, -1):
             a = ll.pop()
             res = res and (a - INT_SIZE*i == addr)
-        ll.free()
-        free_non_gc_object(ll)
+        ll.delete()
         ll = AddressLinkedList()
         ll.append(addr)
         ll.append(addr + INT_SIZE*1)
         ll.append(addr + INT_SIZE*2)
-        ll.free()
-        free_non_gc_object(ll)
+        ll.delete()
         raw_free(addr)
         return res
 

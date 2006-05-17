@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.lltypelayout import sizeof
+from pypy.rpython.objectmodel import free_non_gc_object
 
 INT_SIZE = sizeof(lltype.Signed)
 
@@ -69,13 +70,12 @@ def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE):
             self.chunk.length = used_chunks - 1
             return result
 
-        def free(self):   # XXX very inefficient
+        def delete(self):
             cur = self.chunk
-            while cur.previous:
+            while cur:
                 prev = cur.previous
                 unused_chunks.put(cur)
                 cur = prev
-            self.chunk = cur
-            cur.length =  0
+            free_non_gc_object(self)
 
     return AddressLinkedList

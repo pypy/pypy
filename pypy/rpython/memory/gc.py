@@ -223,7 +223,7 @@ class MarkSweepGC(GCBase):
                         j += 1
                     i += 1
             hdr.typeid = hdr.typeid | 1
-        free_non_gc_object(objects)
+        objects.delete()
         newmo = self.AddressLinkedList()
         curr_heap_size = 0
         freed_size = 0
@@ -245,7 +245,7 @@ class MarkSweepGC(GCBase):
             else:
                 freed_size += estimate
                 raw_free(curr)
-        free_non_gc_object(self.malloced_objects)
+        self.malloced_objects.delete()
         self.malloced_objects = newmo
         if curr_heap_size > self.bytes_malloced_threshold:
             self.bytes_malloced_threshold = curr_heap_size
@@ -483,7 +483,7 @@ class DeferredRefcountingGC(GCBase):
             typeid = (deallocate - self.size_gc_header()).signed[1]
             (deallocate - self.size_gc_header()).signed[1] = -typeid - 1
             self.deallocate(deallocate)
-        free_non_gc_object(dealloc_list)
+        dealloc_list.delete()
         while 1:
             root = roots.pop()
             if root == NULL:
