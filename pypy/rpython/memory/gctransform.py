@@ -9,6 +9,7 @@ from pypy.translator.unsimplify import starts_with_empty_block
 from pypy.translator.unsimplify import remove_empty_startblock
 from pypy.translator.translator import graphof
 from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
+from pypy.translator.backendopt import inline
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.annotation import model as annmodel
@@ -124,14 +125,14 @@ class GCTransformer(object):
 
     def inline_helpers(self, graph):
         if self.inline:
-            from pypy.translator.backendopt import inline
             for inline_graph in self.graphs_to_inline:
                 try:
                     # XXX quite inefficient: we go over the function lots of times
                     inline.inline_function(self.translator, inline_graph, graph,
                                            self.lltype_to_classdef)
-                except inline.CannotInline:
-                    pass
+                except inline.CannotInline, e:
+                    print 'CANNOT INLINE:', e
+                    print '\t%s into %s' % (inline_graph, graph)
             checkgraph(graph)
 
     def transform_block(self, block, is_borrowed):
@@ -1226,6 +1227,36 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
     use_stackless = True
     extra_static_slots = 1     # for the stack_capture()'d frame
     MinimalGCTransformer = StacklessFrameworkMinimalGCTransformer
+
+    def __init__(self, translator):
+        FrameworkGCTransformer.__init__(self, translator)
+        # and now, fun fun fun, we need to inline malloc_fixedsize
+        # manually into all 'malloc' operation users, because inlining
+        # it after it has been stackless transformed is both a Very
+        # Bad Idea and forbidden by the fact that stackless transform
+        # makes it self-recursive!  Argh.
+        self.replace_and_inline_malloc_already_now()
+        # nothing left to inline during code generation
+        self.inline = False
+
+    def replace_and_inline_malloc_already_now(self):
+        for graph in self.translator.graphs:
+            any_malloc = False
+            for block in graph.iterblocks():
+                if block.operations:
+                    newops = []
+                    for op in block.operations:
+                        if op.opname.startswith('malloc'):
+                            any_malloc = True
+                            ops = self.replace_malloc(op, [], block)
+                            if isinstance(ops, tuple):
+                                ops = ops[0]
+                            newops.extend(ops)
+                        else:
+                            newops.append(op)
+                    block.operations = newops
+            if any_malloc:
+                self.inline_helpers(graph)
 
     def build_stack_root_iterator(self):
         from pypy.rpython.rstack import stack_capture
