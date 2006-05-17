@@ -596,14 +596,14 @@ class FunctionCodeGenerator(object):
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
     def OP_CAST_PTR_TO_WEAKADR(self, op):
-        return '\t%s = HIDE_POINTER(%s);' % (self.expr(op.result),
+        return '%s = HIDE_POINTER(%s);' % (self.expr(op.result),
                                              self.expr(op.args[0]))
 
     def OP_CAST_WEAKADR_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
         assert TYPE != PyObjPtr
         typename = self.db.gettype(TYPE)
-        return '\t%s = (%s)REVEAL_POINTER(%s);' % (self.expr(op.result),
+        return '%s = (%s)REVEAL_POINTER(%s);' % (self.expr(op.result),
                                                    cdecl(typename, ''),
                                                    self.expr(op.args[0]))
 
