@@ -14,7 +14,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
-from pypy.translator.c.exceptiontransform import ExceptionTransformer
 
 log = log.database 
 
@@ -30,11 +29,6 @@ class Database(object):
         self._opcomments = {}
 
         self.primitives_init()
-
-        if translator is None or translator.rtyper is None:
-            self.exctransformer = None
-        else:
-            self.exctransformer = ExceptionTransformer(translator)
 
     def primitives_init(self):
         primitives = {
@@ -405,9 +399,9 @@ class Database(object):
 
         elif isinstance(value, llmemory.CompositeOffset):
             return "cast(%s* getelementptr(%s* null, int 0, uint 1, int %s) to int)" % (
-                self.repr_type(value.second.TYPE),
-                self.repr_type(value.first.TYPE),
-                value.second.repeat)
+                self.repr_type(value.offsets[1].TYPE),
+                self.repr_type(value.offsets[0].TYPE),
+                value.offsets[1].repeat)
         else:
             raise Exception("unsupported offset")
         

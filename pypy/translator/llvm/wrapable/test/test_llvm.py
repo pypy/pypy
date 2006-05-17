@@ -1,6 +1,8 @@
 import py
-from pypy.translator.llvm.wrapable.llvm import *
-
+try:
+    from pypy.translator.llvm.wrapable.llvm import *
+except:
+    py.test.skip("unable to import llvm wrapper")
 
 #XXX The tests below were shamefully never written when writing the rest of the code and
 #    should therefor be filled in by Eric asap.

@@ -31,6 +31,7 @@ class FuncTypeNode(LLVMNode):
 class BranchException(Exception):
     pass
 
+
 class FuncNode(ConstantLLVMNode):
     __slots__ = "db value ref graph block_to_name".split()
 
@@ -43,19 +44,6 @@ class FuncNode(ConstantLLVMNode):
         #XXX experimental
         #from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
         #merge_mallocs(self.db.translator, self.graph, self.ref)
-
-        # apply the stackless transformation
-        #if db.stacklesstransformer and do_stackless:
-        #    db.stacklesstransformer.transform_graph(graph)
-
-        # apply the exception transformation
-        #if self.db.exctransformer:
-        #    self.db.exctransformer.create_exception_handling(self.graph)
-
-        # apply the gc transformation
-        #self.db.gctransformer.transform_graph(self.graph)
-
-        #self.graph.show()
 
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
@@ -77,13 +65,14 @@ class FuncNode(ConstantLLVMNode):
                         self.db.prepare_constant(type_, link.llexitcase)
                                             
         assert self.graph, "cannot traverse"
+        self.db.exceptionpolicy.transform(self.db.translator, self.graph)
         traverse(visit, self.graph)
 
     # ______________________________________________________________________
     # main entry points from genllvm 
 
     def post_setup_transform(self):
-        self.db.exceptionpolicy.transform(self.db.translator, self.graph)
+        #self.db.exceptionpolicy.transform(self.db.translator, self.graph)
         remove_double_links(self.db.translator, self.graph)
     
     def writedecl(self, codewriter): 

@@ -314,9 +314,10 @@ def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
     t.buildannotator().build_types(function, annotation)
     t.buildrtyper().specialize()
     if optimize:
-        backend_optimizations(t)
+        backend_optimizations(t, raisingop2direct_call_all=True)
     else:
         backend_optimizations(t,
+                              raisingop2direct_call_all=True,
                               inline_threshold=0,
                               mallocs=False,
                               merge_if_blocks_to_switch=False,

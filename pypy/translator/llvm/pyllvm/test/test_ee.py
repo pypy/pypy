@@ -3,7 +3,11 @@ from pypy.translator.llvm.buildllvm import llvm_is_on_path
 if not llvm_is_on_path():
     py.test.skip("llvm not found")
 
-from pypy.translator.llvm.pyllvm import pyllvm
+try:
+    from pypy.translator.llvm.pyllvm import pyllvm
+except:
+    py.test.skip("Unable to import pyllvm")
+
 from pypy.translator.llvm.pyllvm.test import ll_snippet
 
 

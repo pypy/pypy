@@ -2,12 +2,16 @@ from pypy.objspace.flow.model import Variable, c_last_exception
 
 from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 from pypy.translator.llvm.backendopt.exception import create_exception_handling
-from pypy.translator.llvm.module.excsupport import invokeunwind_code, \
-                                                   explicit_code
+from pypy.translator.llvm.module.excsupport import invokeunwind_code, none_code, \
+                                                   explicit_code, exctransform_code
+from pypy.translator.c.exceptiontransform import ExceptionTransformer
+from pypy import conftest
+
 
 def repr_if_variable(db, arg):
     if isinstance(arg, Variable):
         return db.repr_arg(arg)
+
 
 class ExceptionPolicy:
     def __init__(self, db):
@@ -17,6 +21,22 @@ class ExceptionPolicy:
     def transform(self, translator, graph=None):
         return
 
+    def llvm_declcode(self):
+        return ''
+
+    def llvm_implcode(self, entrynode):
+        return ''
+
+    def llc_options(self):
+    	import sys
+    	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
+            s = '-enable-ia64-dag-isel'
+	else:
+            s = ''
+        #can be used with LLVM debug build...
+        #s += ' -view-legalize-dags -view-isel-dags -view-sched-dags'
+        return s
+    
     def update_phi_data(self, funcnode, entrylinks, block, blocknames):
         """ Exceptions handling code introduces intermediate blocks for
         exception handling cases, hence we modify our input phi data
@@ -57,11 +77,13 @@ class ExceptionPolicy:
         return noresult
 
     def new(db, exceptionpolicy=None):  #factory
-        exceptionpolicy = exceptionpolicy or 'explicit'
+        exceptionpolicy = exceptionpolicy or 'transform' #was: explicit/transform
         if exceptionpolicy == 'invokeunwind':
             exceptionpolicy = InvokeUnwindExceptionPolicy(db)
         elif exceptionpolicy == 'explicit':
             exceptionpolicy = ExplicitExceptionPolicy(db)
+        elif exceptionpolicy == 'transform':
+            exceptionpolicy = TransformExceptionPolicy(db)
         elif exceptionpolicy == 'none':
             exceptionpolicy = NoneExceptionPolicy(db)
         else:
@@ -69,21 +91,51 @@ class ExceptionPolicy:
         return exceptionpolicy
     new = staticmethod(new)
 
+
 class NoneExceptionPolicy(ExceptionPolicy):
     """  XXX untested """
 
     def __init__(self, db):
         self.db = db
 
+    def llvm_implcode(self, entrynode):
+        returntype, entrypointname = entrynode.getdecl().split('%', 1)
+        noresult = self._noresult(returntype)
+        cconv = DEFAULT_CCONV
+        return none_code % locals()
+
+    
+class TransformExceptionPolicy(ExceptionPolicy):
+    def __init__(self, db):
+        self.db = db
+        translator = db.translator
+        if translator is None or translator.rtyper is None:
+            self.exctransformer = None
+        else:
+            self.exctransformer = ExceptionTransformer(translator)
+
+    def llvm_implcode(self, entrynode):
+        returntype, entrypointname = entrynode.getdecl().split('%', 1)
+        noresult = self._noresult(returntype)
+        cconv = DEFAULT_CCONV
+        return exctransform_code % locals()
+
+    def transform(self, translator, graph=None):
+        if self.exctransformer:
+            n_need_exc_matching_blocks, n_gen_exc_checks = \
+                self.exctransformer.create_exception_handling(graph)
+            if n_need_exc_matching_blocks or n_gen_exc_checks:
+                if conftest.option.view:
+                    graph.show()
+                    #self.db.translator.view()
+
+    
 class InvokeUnwindExceptionPolicy(ExceptionPolicy):
     """ uses issubclass() and llvm invoke&unwind
     XXX Untested for a while """
     
     def __init__(self):
         pass
-
-    def llvm_declcode(self):
-        return ''
 
     def llvm_implcode(self, entrynode):
         returntype, entrypointname = entrynode.getdecl().split('%', 1)
@@ -175,15 +227,13 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):
             s = ''
         return '-enable-correct-eh-support' + s
 
+
 class ExplicitExceptionPolicy(ExceptionPolicy):
     """ uses issubclass() and last_exception tests after each call """
     def __init__(self, db):
         self.db = db
         self.invoke_count = 0
 
-    def llvm_declcode(self):
-        return ''
-    
     def llvm_implcode(self, entrynode):
         returntype, entrypointname = entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
@@ -350,12 +400,3 @@ class ExplicitExceptionPolicy(ExceptionPolicy):
     def reraise(self, funcnode, codewriter):
         returntype, name, dummy = funcnode.getdecl_parts()
         codewriter.ret(returntype, self._noresult2(returntype))
-
-    def llc_options(self):
-    	import sys
-    	if sys.platform == 'linux2' and sys.maxint == 2**63-1:
-            s = '-enable-ia64-dag-isel'
-	else:
-            s = ''
-        return s
-    

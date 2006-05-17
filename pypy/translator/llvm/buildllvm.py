@@ -92,8 +92,8 @@ def make_module_from_llvm(genllvm, llvmfile,
         source_files = []
 
     if not use_gcc:
-        llc_params = llvm_version() > 1.6 and '-enable-x86-fastcc' or ''
-        if llc_params and exe_name:
+        llc_params = llvm_version() > 1.7 and '-enable-x86-fastcc' or ''
+        if llc_params and exe_name and sys.platform != 'darwin':
             llc_params += ' -relocation-model=static'   #XXX while llvm jumptables not with PIC
         cmds.append("llc %s %s %s.bc -f -o %s.s" % (llc_params, genllvm.db.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))

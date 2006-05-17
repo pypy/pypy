@@ -95,30 +95,46 @@ def test_pass_exc():
     assert f(10) == fn(10)
 
 def test_reraise1():
-    def fn(n):
+    def fnpart2(n):
         lst = range(10)
         try:
             getitem(lst,n)
         except:
             raise
         return 4
+    def fn(n):
+        try:
+            return fnpart2(n)
+        except:
+            return 42
     f = compile_function(fn, [int])
-    py.test.raises(Exception, "f(-1)")
+    assert f(-1) == fn(-1)
+    assert f(-1) == 42
     assert f( 0) == fn( 0)
-    py.test.raises(Exception, "f(10)")
+    assert f( 0) != 42
+    assert f(10) == fn(10)
+    assert f(10) == 42
 
 def test_reraise2():
-    def fn(n):
+    def fnpart2(n):
         lst = range(10)
         try:
             getitem(lst,n)
         except Exception, e:
             raise e
         return 4
+    def fn(n):
+        try:
+            return fnpart2(n)
+        except:
+            return 42
     f = compile_function(fn, [int])
-    py.test.raises(Exception, "f(-1)")
+    assert f(-1) == fn(-1)
+    assert f(-1) == 42
     assert f( 0) == fn( 0)
-    py.test.raises(Exception, "f(10)")
+    assert f( 0) != 42
+    assert f(10) == fn(10)
+    assert f(10) == 42
 
 def test_simple_exception():
     def fn(n):
@@ -251,26 +267,30 @@ def test_miss_base():
         pass
 
     def raise_exception(n):
-        if n == 1: raise A
-        elif n == 0: raise B
+        if n == 1:
+            raise A
+        elif n == 0:
+            raise B
+        else:
+            pass    #i.e. don't raise
         
-    def fn(n):
-        ok = False
+    def fnpart2(n):
         try:
             raise_exception(n)
         except B, exc:
-            ok = True
-        return ok
-    
+            return 10
+        return 20
+
+    def fn(n):
+        try:
+            return fnpart2(n)
+        except:
+            return 765
+
     f = compile_function(fn, [int])
-    res = False
-    assert fn(0)
-    try:
-        f(1)
-    except:
-        res = True
-    assert res
-    assert not f(2)
+    assert f(0) == fn(0)
+    assert f(1) == fn(1)
+    assert f(2) == fn(2)
 
 def no_magic():
     import __builtin__

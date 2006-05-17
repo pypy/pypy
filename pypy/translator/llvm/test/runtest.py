@@ -2,7 +2,7 @@ import py
 from pypy.translator.llvm.genllvm import genllvm_compile
 from pypy.translator.llvm.buildllvm import llvm_is_on_path, llvm_version
 optimize_tests = False
-MINIMUM_LLVM_VERSION = 1.6
+MINIMUM_LLVM_VERSION = 1.7
 
 def llvm_test():
     if not llvm_is_on_path():
