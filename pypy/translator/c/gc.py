@@ -80,6 +80,12 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def common_gcheader_initdata(self, defnode):
         return [REFCOUNT_IMMORTAL()]
 
+    def pre_gc_code(self):
+        return ['#define HIDE_POINTER(p) (p)',
+                '#define REVEAL_POINTER(p) (p)',
+                'typedef void *GC_hidden_pointer;']
+
+
     # for structs
 
     def struct_setup(self, structdefnode, rtti):
@@ -208,9 +214,11 @@ class BoehmGcPolicy(BasicGcPolicy):
             yield "#define _REENTRANT 1"
             yield "#define GC_LINUX_THREADS 1"
             yield "#define GC_REDIRECT_TO_LOCAL 1"
+            yield "#define GC_I_HIDE_POINTERS 1"
             yield '#include <gc/gc_local_alloc.h>'
             yield '#define USING_BOEHM_GC'
         else:
+            yield "#define GC_I_HIDE_POINTERS 1"
             yield '#include <gc/gc.h>'
             yield '#define USING_BOEHM_GC'
 
@@ -341,6 +349,11 @@ class NoneGcPolicy(BoehmGcPolicy):
 
     def pre_pre_gc_code(self):
         yield '#define USING_NO_GC'
+
+    def pre_gc_code(self):
+        return ['#define HIDE_POINTER(p) (p)',
+                '#define REVEAL_POINTER(p) (p)',
+                'typedef void *GC_hidden_pointer;']
 
 
 class FrameworkGcPolicy(BasicGcPolicy):

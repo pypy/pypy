@@ -660,28 +660,6 @@ class BoehmGCTransformer(GCTransformer):
         """ for boehm it is enough to do nothing"""
         return [SpaceOperation("same_as", [Constant(None, lltype.Void)], op.result)]
 
-    def replace_cast_ptr_to_weakadr(self, op, livevars, block):
-        result = []
-        intvar = varoftype(lltype.Signed)
-        invertvar = varoftype(lltype.Signed)
-        ptrvar = varoftype(op.args[0].concretetype)
-        result.append(SpaceOperation("cast_ptr_to_int", [op.args[0]], intvar))
-        result.append(SpaceOperation("int_invert", [intvar], invertvar))
-        result.append(SpaceOperation("cast_int_to_ptr", [invertvar], ptrvar))
-        result.append(SpaceOperation("cast_ptr_to_weakadr", [ptrvar], op.result))
-        return result
-
-    def replace_cast_weakadr_to_ptr(self, op, livevars, block):
-        result = []
-        intvar = varoftype(lltype.Signed)
-        invertvar = varoftype(lltype.Signed)
-        ptrvar = varoftype(op.args[0].concretetype)
-        result.append(SpaceOperation("cast_weakadr_to_ptr", [op.args[0]], ptrvar))
-        result.append(SpaceOperation("cast_ptr_to_int", [ptrvar], intvar))
-        result.append(SpaceOperation("int_invert", [intvar], invertvar))
-        result.append(SpaceOperation("cast_int_to_ptr", [invertvar], op.result))
-        return result
-
     def get_rtti(self, TYPE):
         if isinstance(TYPE, lltype.GcStruct):
             try:

@@ -155,7 +155,7 @@ PrimitiveErrorValue = {
     Bool:     '((char) -1)',
     Void:     '/* error */',
     Address:  'NULL',
-    WeakGcAddress:  'NULL',
+    WeakGcAddress:  'HIDE_POINTER(NULL)',
     }
 
 def define_c_primitive(ll_type, c_name):
