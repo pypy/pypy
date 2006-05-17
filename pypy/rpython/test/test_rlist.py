@@ -12,6 +12,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.test_llinterp import interpret_raises
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():
@@ -254,17 +255,7 @@ def test_list_builder():
 
 
 
-class BaseTestListRtyping:
-
-    def interpret(self, fn, args):
-        return interpret(fn, args, type_system=self.ts)
-
-    def interpret_raises(self, exc, fn, args):
-        return interpret_raises(exc, fn, args, type_system=self.ts)
-
-    def _skip_oo(self, reason):
-        if self.ts == 'ootype':
-            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
+class BaseTestRlist(BaseRtypingTest):
 
     def test_simple(self):
         def dummyfn():
@@ -1059,7 +1050,7 @@ class BaseTestListRtyping:
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.ts)
+        rtyper = t.buildrtyper(type_system=self.type_system)
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1087,7 +1078,7 @@ class BaseTestListRtyping:
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.ts)
+        rtyper = t.buildrtyper(type_system=self.type_system)
         rtyper.specialize()
 
         s_A_list = s.items[0]
@@ -1128,19 +1119,8 @@ class BaseTestListRtyping:
         assert res == 77
 
 
-class TestLltypeRtyping(BaseTestListRtyping):
-
-    ts = "lltype"
+class TestLLtype(BaseTestRlist, LLRtypeMixin):
     rlist = ll_rlist
-
-    def ll_to_list(self, l):
-        return map(None, l.ll_items())[:l.ll_length()]
-
-    def ll_to_string(self, s):
-        return ''.join(s.chars)
-
-    def class_name(self, value):
-        return "".join(value.super.typeptr.name)[:-1]
 
     def test_memoryerror(self):
         def fn(i):
@@ -1154,16 +1134,5 @@ class TestLltypeRtyping(BaseTestListRtyping):
         self.interpret_raises(MemoryError, fn, [sys.maxint])
     
 
-class TestOotypeRtyping(BaseTestListRtyping):
-
-    ts = "ootype"
+class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist
-
-    def ll_to_list(self, l):
-        return l._list[:]
-
-    def ll_to_string(self, s):
-        return s._str
-
-    def class_name(self, value):
-        return ootype.dynamicType(value)._name.split(".")[-1] 

@@ -1,9 +1,9 @@
 from pypy.rpython.rrange import *
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rarithmetic import intmask
 
 
-class AbstractTestRange:
+class BaseTestRrange(BaseRtypingTest):
 
     def test_rlist_range(self):
         def test1(start, stop, step, varstep):
@@ -34,7 +34,7 @@ class AbstractTestRange:
             for i in range(N):
                 total += i
             return total
-        res = interpret(dummyfn, [10], type_system=self.ts)
+        res = self.interpret(dummyfn, [10])
         assert res == 45
 
     def test_range_is_lazy(self):
@@ -45,16 +45,16 @@ class AbstractTestRange:
                     break
                 total += i
             return total
-        res = interpret(dummyfn, [10, 2147418112], type_system=self.ts)
+        res = self.interpret(dummyfn, [10, 2147418112])
         assert res == 45
 
     def test_range_item(self):
         def dummyfn(start, stop, i):
             r = range(start, stop)
             return r[i]
-        res = interpret(dummyfn, [10, 17, 4], type_system=self.ts)
+        res = self.interpret(dummyfn, [10, 17, 4])
         assert res == 14
-        res = interpret(dummyfn, [10, 17, -2], type_system=self.ts)
+        res = self.interpret(dummyfn, [10, 17, -2])
         assert res == 15
 
     def test_xrange(self):
@@ -63,7 +63,7 @@ class AbstractTestRange:
             for i in xrange(N):
                 total += i
             return total
-        res = interpret(dummyfn, [10], type_system=self.ts)
+        res = self.interpret(dummyfn, [10])
         assert res == 45
 
     def test_range_len(self):
@@ -71,7 +71,7 @@ class AbstractTestRange:
             r = range(start, stop)
             return len(r)
         start, stop = 10, 17
-        res = interpret(dummyfn, [start, stop], type_system=self.ts)
+        res = self.interpret(dummyfn, [start, stop])
         assert res == dummyfn(start, stop)
 
     def test_range2list(self):
@@ -80,13 +80,12 @@ class AbstractTestRange:
             r.reverse()
             return r[0]
         start, stop = 10, 17
-        res = interpret(dummyfn, [start, stop], type_system=self.ts)
+        res = self.interpret(dummyfn, [start, stop])
         assert res == dummyfn(start, stop)
 
     def check_failed(self, func, *args):
         try:
-            kwargs = {"type_system": self.ts}
-            interpret(func, *args, **kwargs)
+            self.interpret(func, *args, **kwargs)
         except:
             return True
         else:
@@ -102,7 +101,7 @@ class AbstractTestRange:
             r = range(10, 17, step)
             return r[-1]
         step = 3
-        res = interpret(failingfn_var, [step], type_system=self.ts)
+        res = self.interpret(failingfn_var, [step])
         assert res == failingfn_var(step)
         step = 0
         assert self.check_failed(failingfn_var, [step])
@@ -121,17 +120,13 @@ class AbstractTestRange:
                 res = res * 51 + i
             return res
         for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
-            res = interpret(fn, args, type_system=self.ts)
+            res = self.interpret(fn, args)
             assert res == intmask(fn(*args))
 
 
-class TestRangeLltype(AbstractTestRange):
-
-    ts = "lltype"
+class TestLLtype(BaseTestRrange, LLRtypeMixin):
     from pypy.rpython.lltypesystem import rrange 
 
 
-class TestRangeOotype(AbstractTestRange):
-
-    ts = "ootype"
+class TestOOtype(BaseTestRrange, OORtypeMixin):
     from pypy.rpython.ootypesystem import rrange 

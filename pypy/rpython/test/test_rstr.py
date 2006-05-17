@@ -3,43 +3,16 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rstr import AbstractLLHelpers
 from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
 from pypy.rpython.rtyper import RPythonTyper, TyperError
-from pypy.rpython.test.test_llinterp import interpret, interpret_raises
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.llinterp import LLException
 
-def llstr(s):
-    p = malloc(STR, len(s))
-    for i in range(len(s)):
-        p.chars[i] = s[i]
-    return p
-
-def test_ll_find_rfind():
-    for i in range(50):
-        n1 = random.randint(0, 10)
-        s1 = ''.join([random.choice("ab") for i in range(n1)])
-        n2 = random.randint(0, 5)
-        s2 = ''.join([random.choice("ab") for i in range(n2)])
-        res = LLHelpers.ll_find(llstr(s1), llstr(s2), 0, n1)
-        assert res == s1.find(s2)
-        res = LLHelpers.ll_rfind(llstr(s1), llstr(s2), 0, n1)
-        assert res == s1.rfind(s2)
-
 def test_parse_fmt():
-    assert AbstractLLHelpers.parse_fmt_string('a') == ['a']
-    assert AbstractLLHelpers.parse_fmt_string('%s') == [('s',)]
-    assert AbstractLLHelpers.parse_fmt_string("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+    parse = AbstractLLHelpers.parse_fmt_string
+    assert parse('a') == ['a']
+    assert parse('%s') == [('s',)]
+    assert parse("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
 
-
-class AbstractTestRstr:
-
-    def interpret(self, fn, args):
-        return interpret(fn, args, type_system=self.ts)
-
-    def interpret_raises(self, exc, fn, args):
-        return interpret_raises(exc, fn, args, type_system=self.ts)
-
-    def _skip_oo(self, reason):
-        if self.ts == 'ootype':
-            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
+class BaseTestRstr(BaseRtypingTest):
 
     def test_simple(self):
         def fn(i):
@@ -513,11 +486,11 @@ class AbstractTestRstr:
         def fn():
             s = 'abbccc'
             s = s.replace('a', 'baz')
-        raises (TyperError, interpret, fn, ())
+        raises(TyperError, self.interpret, fn, ())
         def fn():
             s = 'abbccc'
             s = s.replace('abb', 'c')
-        raises (TyperError, interpret, fn, ())
+        raises(TyperError, self.interpret, fn, ())
 
     def test_int(self):
         s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '']
@@ -580,11 +553,25 @@ def FIXME_test_str_to_pystringobj():
     res = interpret(g, [-2])
     assert res._obj.value == 42
 
-class TestLltype(AbstractTestRstr):
-    ts = "lltype"
+class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
-    def ll_to_string(self, s):
-        return ''.join(s.chars)
+    def llstr(self, s):
+        p = malloc(STR, len(s))
+        for i in range(len(s)):
+            p.chars[i] = s[i]
+        return p
+
+    def test_ll_find_rfind(self):
+        for i in range(50):
+            n1 = random.randint(0, 10)
+            s1 = ''.join([random.choice("ab") for i in range(n1)])
+            n2 = random.randint(0, 5)
+            s2 = ''.join([random.choice("ab") for i in range(n2)])
+            res = LLHelpers.ll_find(self.llstr(s1), self.llstr(s2), 0, n1)
+            assert res == s1.find(s2)
+            res = LLHelpers.ll_rfind(self.llstr(s1), self.llstr(s2), 0, n1)
+            assert res == s1.rfind(s2)
+
 
     def test_hash(self):
         def fn(i):
@@ -599,8 +586,5 @@ class TestLltype(AbstractTestRstr):
         assert typeOf(res) == Signed
 
 
-class TestOotype(AbstractTestRstr):
-    ts = "ootype"
-
-    def ll_to_string(self, s):
-        return s._str
+class TestOOtype(BaseTestRstr, OORtypeMixin):
+    pass

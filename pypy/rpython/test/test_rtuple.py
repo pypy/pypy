@@ -3,7 +3,8 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
-from pypy.rpython.test.test_llinterp import interpret 
+from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import py
 
 def test_rtuple():
@@ -16,10 +17,7 @@ def test_rtuple():
 
 # ____________________________________________________________
 
-class AbstractTestRTuple:
-
-    def interpret(self, f, args):
-        return interpret(f, args, type_system=self.type_system)
+class BaseTestRtuple(BaseRtypingTest):
 
     def test_simple(self):
         def dummyfn(x):
@@ -88,8 +86,6 @@ class AbstractTestRTuple:
         assert res is False 
 
     def test_conv(self):
-        if self.type_system == "ootype":
-            py.test.skip("fix me if ootypes supports strings")
         def t0():
             return (3, 2, None)
         def t1():
@@ -102,13 +98,11 @@ class AbstractTestRTuple:
 
         res = self.interpret(f, [1])
         assert res.item0 == 7
-        # XXX this assertion will fail once ootypesystem properly supports
-        # strings, we're leaving the fix up to that point
-        assert isinstance(typeOf(res.item2), Ptr) and ''.join(res.item2.chars) == "xy"
+        assert self.ll_to_string(res.item2) == "xy"
+
         res = self.interpret(f, [0])
         assert res.item0 == 3
-        # XXX see above
-        assert isinstance(typeOf(res.item2), Ptr) and not res.item2
+        assert not res.item2
 
     def test_constant_tuples_shared(self):
         def g(n):
@@ -193,10 +187,7 @@ class AbstractTestRTuple:
             return list((i, j))
 
         res = self.interpret(f, [2, 3])
-        if self.type_system == "lltype":
-            assert res._obj.items == [2, 3]
-        else:
-            assert res._list == [2, 3]
+        assert self.ll_to_list(res) == [2, 3]
 
     def test_tuple_iterator_length1(self):
         def f(i):
@@ -239,17 +230,9 @@ class AbstractTestRTuple:
         res = self.interpret(g, [3])
         assert res == 3
 
-class TestLLTuple(AbstractTestRTuple):
+class TestLLtype(BaseTestRtuple, LLRtypeMixin):
+    pass
 
-    type_system = "lltype"
-
-    def class_name(self, value):
-        return "".join(value.super.typeptr.name)[:-1]
-
-class TestOOTuple(AbstractTestRTuple):
-
-    type_system = "ootype"
-
-    def class_name(self, value):
-        return ootype.dynamicType(value)._name.split(".")[-1] 
+class TestOOtype(BaseTestRtuple, OORtypeMixin):
+    pass
 
