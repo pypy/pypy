@@ -28,7 +28,7 @@ from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, BrokenReprTyperError
 from pypy.rpython.rmodel import warning, HalfConcreteWrapper
-from pypy.rpython.annlowlevel import annotate_lowlevel_helper
+from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from pypy.rpython.rmodel import log
 from pypy.rpython.typesystem import LowLevelTypeSystem,\
                                     ObjectOrientedTypeSystem
@@ -38,6 +38,8 @@ class RPythonTyper:
 
     def __init__(self, annotator, type_system="lltype"):
         self.annotator = annotator
+
+        self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
 
         if isinstance(type_system, str):
             if type_system == "lltype":
@@ -588,7 +590,8 @@ class RPythonTyper:
             args_s.insert(0, bk.immutablevalue(ll_function.im_self))
             ll_function = ll_function.im_func
         helper_graph = annotate_lowlevel_helper(self.annotator,
-                                                ll_function, args_s)
+                                                ll_function, args_s,
+                                                policy=self.lowlevel_ann_policy)
         return helper_graph
 
     def annotate_helper_fn(self, ll_function, argtypes):
@@ -604,8 +607,7 @@ class RPythonTyper:
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
         args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
-        graph = annotate_lowlevel_helper(self.annotator,
-                                         func, args_s)
+        graph = self.annotate_helper(func, args_s)
         s = self.annotator.binding(graph.getreturnvar())
         if (not isinstance(s, annmodel.SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
@@ -843,7 +845,8 @@ class LowLevelOpList(list):
             newargs_v.insert(0, inputconst(Void, ll_function.im_self))
             ll_function = ll_function.im_func
 
-        graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
+        graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s,
+                                         rtyper.lowlevel_ann_policy)
         self.record_extra_call(graph)
 
         # build the 'direct_call' operation

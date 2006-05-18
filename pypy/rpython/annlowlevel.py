@@ -47,6 +47,9 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     # if this exists and is boolean, then it always wins:
     override_do_imports_immediately = True
 
+    def __init__(pol, rtyper=None):
+        pol.rtyper = rtyper
+
     def default_specialize(pol, funcdesc, args_s):
         key = []
         new_args_s = []
@@ -86,9 +89,20 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         exttypeinfo = extfunctable.typetable[s_value.knowntype]
         return annmodel.SomePtr(lltype.Ptr(exttypeinfo.get_lltype()))
 
+    def specialize__ts(pol, funcdesc, args_s, ref):
+        ts = pol.rtyper.type_system
+        ref = ref.split('.')
+        x = ts
+        for part in ref:
+            x = getattr(x, part)
+        bk = pol.rtyper.annotator.bookkeeper
+        funcdesc2 = bk.getdesc(x)
+        return pol.default_specialize(funcdesc2, args_s)
 
-def annotate_lowlevel_helper(annotator, ll_function, args_s):
-    return annotator.annotate_helper(ll_function, args_s, policy= LowLevelAnnotatorPolicy())
+def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
+    if policy is None:
+        policy= LowLevelAnnotatorPolicy()
+    return annotator.annotate_helper(ll_function, args_s, policy)
 
 # ___________________________________________________________________
 # Mix-level helpers: combining RPython and ll-level

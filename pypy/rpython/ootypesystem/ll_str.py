@@ -3,6 +3,9 @@ from pypy.rpython.ootypesystem import ootype
 def const(c):
     return c
 
+def ll_int_str(repr, i):
+    return ll_int2dec(i)
+
 def ll_int2dec(i):
     return ootype.oostring(i, const(10))
 

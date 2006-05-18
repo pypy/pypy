@@ -3,6 +3,9 @@ from pypy.rpython.rarithmetic import r_uint
 
 CHAR_ARRAY = GcArray(Char)
 
+def ll_int_str(repr, i):
+    return ll_int2dec(i)
+
 def ll_int2dec(i):
     from pypy.rpython.lltypesystem.rstr import STR
     temp = malloc(CHAR_ARRAY, 20)

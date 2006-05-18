@@ -298,9 +298,11 @@ class __extend__(IntegerRepr):
         vlist = hop.inputargs(Float)
         return vlist[0]
 
-    def rtype_str(self, hop):
-        fn = hop.rtyper.type_system.ll_str.ll_int2dec
-        return hop.gendirectcall(fn, hop.args_v[0])
+    # version picked by specialisation based on which
+    # type system rtyping is using, from <type_system>.ll_str module
+    def ll_str(self, i):
+        pass
+    ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_int_str')"
 
     def rtype_hex(self, hop):
         self = self.as_int
