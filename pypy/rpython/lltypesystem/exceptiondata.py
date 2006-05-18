@@ -1,6 +1,5 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import rclass
-from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.lltypesystem.lltype import \
      Array, malloc, Ptr, PyObject, pyobjectptr, \
      FuncType, functionptr, Signed
@@ -21,26 +20,23 @@ class ExceptionData(AbstractExceptionData):
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_vtable, match_exception_vtable)
         s_typeptr = annmodel.SomePtr(self.lltype_of_exception_type)
-        helper_graph = annotate_lowlevel_helper(
-            rtyper.annotator, rclass.ll_issubclass, [s_typeptr, s_typeptr])
-        return rtyper.getcallable(helper_graph)
+        helper_fn = rtyper.annotate_helper_fn(rclass.ll_issubclass, [s_typeptr, s_typeptr])
+        return helper_fn
 
 
     def make_raise_OSError(self, rtyper):
         # ll_raise_OSError(errno)
         def ll_raise_OSError(errno):
             raise OSError(errno, None)
-        helper_graph = annotate_lowlevel_helper(
-            rtyper.annotator, ll_raise_OSError, [annmodel.SomeInteger()])
-        return rtyper.getcallable(helper_graph)
+        helper_fn = rtyper.annotate_helper_fn(ll_raise_OSError, [annmodel.SomeInteger()])
+        return helper_fn
 
 
     def make_type_of_exc_inst(self, rtyper):
         # ll_type_of_exc_inst(exception_instance) -> exception_vtable
         s_excinst = annmodel.SomePtr(self.lltype_of_exception_value)
-        helper_graph = annotate_lowlevel_helper(
-            rtyper.annotator, rclass.ll_type, [s_excinst])
-        return rtyper.getcallable(helper_graph)
+        helper_fn = rtyper.annotate_helper_fn(rclass.ll_type, [s_excinst])
+        return helper_fn
 
 
     def make_pyexcclass2exc(self, rtyper):
@@ -118,6 +114,5 @@ class ExceptionData(AbstractExceptionData):
             return default_excinst
 
         s_pyobj = annmodel.SomePtr(Ptr(PyObject))
-        helper_graph = annotate_lowlevel_helper(
-            rtyper.annotator, ll_pyexcclass2exc, [s_pyobj])
-        return rtyper.getcallable(helper_graph)
+        helper_fn = rtyper.annotate_helper_fn(ll_pyexcclass2exc, [s_pyobj])
+        return helper_fn

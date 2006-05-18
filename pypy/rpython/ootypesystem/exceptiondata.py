@@ -1,7 +1,6 @@
 from pypy.rpython.exceptiondata import AbstractExceptionData
 from pypy.rpython.ootypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
 
@@ -28,16 +27,14 @@ class ExceptionData(AbstractExceptionData):
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_meta, match_exception_meta)
         s_classtype = annmodel.SomeOOInstance(self.lltype_of_exception_type)
-        helper_graph = annotate_lowlevel_helper(
-            rtyper.annotator, rclass.ll_issubclass, [s_classtype, s_classtype])
-        return rtyper.getcallable(helper_graph)
-
+        helper_fn = rtyper.annotate_helper_fn(rclass.ll_issubclass, [s_classtype, s_classtype])
+        return helper_fn
+    
     def make_type_of_exc_inst(self, rtyper):
         # ll_type_of_exc_inst(exception_instance) -> exception_vtable
         s_excinst = annmodel.SomeOOInstance(self.lltype_of_exception_value)
-        helper_graph = annotate_lowlevel_helper(
-            rtyper.annotator, rclass.ll_inst_type, [s_excinst])
-        return rtyper.getcallable(helper_graph)
+        helper_fn = rtyper.annotate_helper_fn(rclass.ll_inst_type, [s_excinst])
+        return helper_fn
 
     def make_pyexcclass2exc(self, rtyper):
         # ll_pyexcclass2exc(python_exception_class) -> exception_instance
