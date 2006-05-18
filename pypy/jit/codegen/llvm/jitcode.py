@@ -41,6 +41,7 @@ class JITcode(object):
         self.db.exceptionpolicy = ExceptionPolicy.new(self.db, 'explicit')
         self.code = StringIO()
         self.codewriter = JITCodeWriter(self.code, self.db)
+        self.codewriter.linkage = '' #XXX default linkage is internal which does not work here
         self.opwriter = JITOpWriter(self.db, self.codewriter)
         self.graph_ref = {} #name by which LLVM knowns a graph
 
