@@ -23,8 +23,7 @@ def test_external_function_ll_time_time():
     assert abs(f()-fn()) < 10.0
 
 def test_external_function_ll_time_clock():
-    if sys.platform == 'darwin':
-        py.test.skip("time.clock behaving strangly on Darwin")
+    py.test.skip("XXX TODO FIXME time.clock behaving strangly")
     import time
     def fn():
         return time.clock()

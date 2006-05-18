@@ -4,11 +4,14 @@
 
 #ifdef USING_THREADED_BOEHM
 
+#define GC_LINUX_THREADS 1
 #define GC_REDIRECT_TO_LOCAL 1
+#define GC_I_HIDE_POINTERS 1
 #include <gc_local_alloc.h>
 
 #else
 
+#define GC_I_HIDE_POINTERS 1
 #include <gc.h>
 
 #endif
@@ -29,3 +32,35 @@ extern GC_all_interior_pointers;
 #define __GC_STARTUP_CODE__ \
   GC_all_interior_pointers = 0; \
   GC_init();
+
+
+// Some malloced data is expected to be short-lived (exceptions).
+// The follow is a hack to store such data in a ringbuffer.
+// This yields an extremely good speedup in certain cases but
+// fails badly (segfaults) when a reference to the data is kept
+// around and used (much) later.
+
+#define ringbufsize         1024
+#define ringbufentry_maxsize  16
+
+static  char    ringbufdata[ringbufsize + ringbufentry_maxsize];
+static  long    ringbufindex = 0;
+
+char *pypy_malloc_ringbuffer(long size) {
+    if (size <= ringbufentry_maxsize) { //test expected to be optimized away during compile time
+        ringbufindex = (ringbufindex + ringbufentry_maxsize) & (ringbufsize - 1);
+        return &ringbufdata[ringbufindex];
+    } else {
+        return GC_MALLOC(size);
+    }
+}
+
+char *pypy_malloc_atomic_ringbuffer(long size) {
+    if (size <= ringbufentry_maxsize) { //test expected to be optimized away during compile time
+        ringbufindex = (ringbufindex + ringbufentry_maxsize) & (ringbufsize - 1);
+        return &ringbufdata[ringbufindex];
+    } else {
+        return GC_MALLOC_ATOMIC(size);
+    }
+}
+

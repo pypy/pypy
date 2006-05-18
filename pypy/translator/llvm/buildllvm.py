@@ -35,6 +35,7 @@ def optimizations(simple, use_gcc):
         opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
                 "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
                 "-gcse -instcombine -simplifycfg -globaldce "
+        #opts += "-inline-threshold=200 "   #default: 200
     return opts
 
 def compile_module(module, source_files, object_files, library_files):

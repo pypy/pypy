@@ -4,12 +4,16 @@ log = log.codewriter
 
 DEFAULT_TAIL     = ''       #/tail
 DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
-DEFAULT_LINKAGE  = ''       #/internal (disabled for now because of the JIT)
+DEFAULT_LINKAGE  = 'internal '       #/internal (disabled for now because of the JIT)
 
 class CodeWriter(object): 
-    def __init__(self, file, db): 
+    def __init__(self, file, db, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV,
+                                 linkage=DEFAULT_LINKAGE): 
         self.file = file
         self.word_repr = db.get_machine_word()
+        self.tail = tail
+        self.cconv = cconv
+        self.linkage = linkage
 
     def close(self): 
         self.file.close()
@@ -60,7 +64,9 @@ class CodeWriter(object):
         self.newline()
         self._append("    %s:" % name)
 
-    def globalinstance(self, name, typeandata, linkage=DEFAULT_LINKAGE):
+    def globalinstance(self, name, typeandata, linkage=None):
+        if linkage is None:
+            linkage = self.linkage
         self._append("%s = %sglobal %s" % (name, linkage, typeandata))
 
     def typedef(self, name, type_):
@@ -76,7 +82,9 @@ class CodeWriter(object):
         self.typedef(name, "%s (%s)" % (rettyperepr,
                                         ", ".join(argtypereprs)))
 
-    def declare(self, decl, cconv=DEFAULT_CCONV):
+    def declare(self, decl, cconv=None):
+        if cconv is None:
+            cconv = self.cconv
         self._append("declare %s %s" %(cconv, decl,))
 
     def startimpl(self):
@@ -100,7 +108,11 @@ class CodeWriter(object):
         self._indent("switch %s %s, label %%%s [%s ]"
                      % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl, cconv=DEFAULT_CCONV, linkage=DEFAULT_LINKAGE): 
+    def openfunc(self, decl, cconv=None, linkage=None): 
+        if cconv is None:
+            cconv = self.cconv
+        if linkage is None:
+            linkage = self.linkage
         self.newline()
         self._append("%s%s %s {" % (linkage, cconv, decl,))
 
@@ -163,8 +175,12 @@ class CodeWriter(object):
         self._indent("unwind")
 
     def call(self, targetvar, returntype, functionref, argtypes, argrefs,
-             tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
-
+             tail=None, cconv=None):
+        if tail is None:
+            tail = self.tail
+        if cconv is None:
+            cconv = self.cconv
+            
         tail = self._resolvetail(tail, cconv)        
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
 

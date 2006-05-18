@@ -135,12 +135,6 @@ def setup_externs(db):
         decls.append(("ll_" + func.func_name, graph))
         return graph.name
 
-    if hasattr(db.gcpolicy, 'exc_useringbuf') and db.gcpolicy.exc_useringbuf:
-        from pypy.translator.llvm.externs import ringbuffer as rb
-        g = annotatehelper(rb.ringbuffer_initialise)
-        db.gcpolicy.ringbuf_malloc_name = \
-                 annotatehelper(rb.ringbuffer_malloc, lltype.Signed)
-
     return decls
 
 def get_c_cpath():

@@ -17,6 +17,5 @@ void RPYTHON_RAISE_OSERROR(int error);
   RPyListOfString *_RPyListOfString_New(long);
   void _RPyListOfString_SetItem(RPyListOfString *, int, RPyString *);
 #endif
-void ll_ringbuffer_initialise(void);
 
 // XXX end of proto hacks
