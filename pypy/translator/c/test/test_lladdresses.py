@@ -24,7 +24,9 @@ def test_memory_access():
     def f(value):
         addr = raw_malloc(16)
         addr.signed[0] = value
-        return addr.signed[0]
+        result = addr.signed[0]
+        raw_free(addr)
+        return result
     fc = compile(f, [int])
     res = fc(42)
     assert res == 42
@@ -51,7 +53,9 @@ def test_pointer_arithmetic_inplace():
         addr += offset
         addr.char[-offset] = char
         addr -= offset
-        return addr.char[0]
+        result = addr.char[0]
+        raw_free(addr)
+        return result
     fc = compile(f, [int, SomeChar()])
     res = fc(10, "c")
     assert res == "c"
@@ -67,6 +71,8 @@ def test_raw_memcopy():
         result = addr1.signed[0] == 12
         result = result and (addr1 + 10).signed[0] == 42
         result = result and (addr1 + 20).char[0] == "a"
+        raw_free(addr)
+        raw_free(addr1)
         return result
     fc = compile(f, [])
     res = fc()
@@ -75,7 +81,8 @@ def test_raw_memcopy():
 def test_pointer_comparison():
     def f():
         result = 0
-        for addr1 in [raw_malloc(1), NULL]:
+        addresses = [raw_malloc(1), NULL]
+        for addr1 in addresses:
             addr2 = addr1 + 1
             result = result * 2 + int(addr1 == addr2)
             result = result * 2 + int(addr1 != addr2)
@@ -83,6 +90,7 @@ def test_pointer_comparison():
             result = result * 2 + int(addr1 <= addr2)
             result = result * 2 + int(addr1 >  addr2)
             result = result * 2 + int(addr1 >= addr2)
+        raw_free(addresses[0])
         return result
     fc = compile(f, [])
     res = fc()
