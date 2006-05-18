@@ -7,7 +7,7 @@ from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
      AbstractLLHelpers
-from pypy.rpython import rint
+from pypy.rpython.lltypesystem import ll_str
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
      Bool, Void, GcArray, nullptr, pyobjectptr
@@ -624,17 +624,18 @@ class LLHelpers(AbstractLLHelpers):
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'd':
                     assert isinstance(r_arg, IntegerRepr)
-                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                    #vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                    vchunk = hop.gendirectcall(ll_str.ll_int2dec, vitem)
                 elif code == 'f':
                     #assert isinstance(r_arg, FloatRepr)
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'x':
                     assert isinstance(r_arg, IntegerRepr)
-                    vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
+                    vchunk = hop.gendirectcall(ll_str.ll_int2hex, vitem,
                                                inputconst(Bool, False))
                 elif code == 'o':
                     assert isinstance(r_arg, IntegerRepr)
-                    vchunk = hop.gendirectcall(rint.ll_int2oct, vitem,
+                    vchunk = hop.gendirectcall(ll_str.ll_int2oct, vitem,
                                                inputconst(Bool, False))
                 else:
                     raise TyperError, "%%%s is not RPython" % (code, )
@@ -701,5 +702,3 @@ unboxed_instance_str_suffix = string_repr.convert_const(">")
 list_str_open_bracket = string_repr.convert_const("[")
 list_str_close_bracket = string_repr.convert_const("]")
 list_str_sep = string_repr.convert_const(", ")
-
-import ll_str # side-effects due to __extend__

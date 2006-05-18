@@ -356,6 +356,8 @@ class BaseTestRstr(BaseRtypingTest):
 
 
     def test_strformat(self):
+        self._skip_oo('string formatting')
+        
         def percentS(s):
             return "before %s after" % (s,)
 
