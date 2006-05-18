@@ -75,9 +75,9 @@ def test_cast_to_and_from_address():
     class B(object):
         pass
     a = A()
-    addr = cast_object_to_address(a)
-    py.test.raises(AssertionError, "cast_address_to_object(addr, B)")
-    assert a is cast_address_to_object(addr, A)
+    addr = cast_object_to_weakgcaddress(a)
+    py.test.raises(AssertionError, "cast_weakgcaddress_to_object(addr, B)")
+    assert a is cast_weakgcaddress_to_object(addr, A)
 
 def test_recursive_r_dict_repr():
     import operator
