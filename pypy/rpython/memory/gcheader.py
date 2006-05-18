@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 class GCHeaderBuilder(object):
 
     def __init__(self, HDR):
+        """NOT_RPYTHON"""
         self.HDR = HDR
         self.obj2header = weakref.WeakKeyDictionary()
         self.header2obj = weakref.WeakKeyDictionary()

@@ -298,3 +298,13 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(gctransform.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
+
+class TestSemiSpaceGC(TestMarkSweepGC):
+
+    def setup_class(cls):
+        py.test.skip("in-progress")
+
+    class gcpolicy(gc.StacklessFrameworkGcPolicy):
+        class transformerclass(gctransform.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
+            GC_PARAMS = {'space_size': 4096 }

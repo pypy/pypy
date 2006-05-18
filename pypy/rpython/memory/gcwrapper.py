@@ -13,8 +13,10 @@ class QueryTypes(object):
         self.types = []
         self.type_to_typeid = {}
 
-    def get_typeid(self, TYPE):
+    def get_typeid(self, TYPE, nonewtype=False):
         if TYPE not in self.type_to_typeid:
+            if nonewtype:
+                raise Exception, "unknown type: %s" % TYPE
             index = len(self.types)
             self.type_to_typeid[TYPE] = index
             self.types.append(TYPE)
@@ -23,6 +25,7 @@ class QueryTypes(object):
         return typeid
 
     def create_query_functions(self):
+        from pypy.rpython.lltypesystem import rstr
         _is_varsize = []
         _offsets_to_gc_pointers = []
         _fixed_size = []
@@ -193,7 +196,7 @@ class GcWrapper(object):
 
 
     def get_arg_malloc(self, TYPE, size=0):
-        typeid = self.query_types.get_typeid(TYPE)
+        typeid = self.query_types.get_typeid(TYPE, nonewtype=True)
         return [typeid, size]
 
     def get_funcptr_malloc(self):
@@ -274,13 +277,13 @@ class AnnotatingGcWrapper(GcWrapper):
         def instantiate_linked_list():
             return AddressLinkedList()
         f1, f2, f3, f4, f5, f6, f7 = self.query_types.create_query_functions()
+        the_gc = gc_class(AddressLinkedList)
         def instantiate_gc():
-            gc = gc_class(AddressLinkedList)
-            gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7)
-            gc.setup()
-            return gc
+            the_gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7)
+            the_gc.setup()
+            return the_gc
         func, dummy_get_roots1, dummy_get_roots2 = gc.get_dummy_annotate(
-            self.gc.__class__, self.AddressLinkedList)
+            the_gc, self.AddressLinkedList)
         self.gc.get_roots = dummy_get_roots1
         a = RPythonAnnotator()
         a.build_types(instantiate_gc, [])
@@ -316,7 +319,7 @@ class AnnotatingGcWrapper(GcWrapper):
 ##         a.translator.view()
 
     def get_arg_malloc(self, TYPE, size=0):
-        typeid = self.query_types.get_typeid(TYPE)
+        typeid = self.query_types.get_typeid(TYPE, nonewtype=True)
         return [self.gcptr, typeid, size]
 
     def get_funcptr_malloc(self):

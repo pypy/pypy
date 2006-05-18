@@ -15,9 +15,8 @@ gc_header_two_ints = 2*int_size
 class GCError(Exception):
     pass
 
-def get_dummy_annotate(gc_class, AddressLinkedList):
+def get_dummy_annotate(gc, AddressLinkedList):
     def dummy_annotate():
-        gc = gc_class(AddressLinkedList)
         gc.setup()
         gc.get_roots = dummy_get_roots1 #prevent the get_roots attribute to 
         gc.get_roots = dummy_get_roots2 #be constants
@@ -99,7 +98,8 @@ class DummyGC(GCBase):
     def init_gc_object(self, addr, typeid):
         return
     init_gc_object_immortal = init_gc_object
-   
+
+DEBUG_PRINT = True
 
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -133,7 +133,7 @@ class MarkSweepGC(GCBase):
             ref = self.malloc_fixedsize(typeid, size, True)
         # XXX lots of cast and reverse-cast around, but this malloc()
         # should eventually be killed
-        return lltype.cast_ptr_to_adr(ref)
+        return llmemory.cast_ptr_to_adr(ref)
 
     def malloc_fixedsize(self, typeid, size, can_collect):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
@@ -171,7 +171,8 @@ class MarkSweepGC(GCBase):
 
     def collect(self):
         import os, time
-        os.write(2, 'collecting...\n')
+        if DEBUG_PRINT:
+            os.write(2, 'collecting...\n')
         start_time = time.time()
         roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -253,16 +254,17 @@ class MarkSweepGC(GCBase):
         self.total_collection_time += end_time - start_time
         # warning, the following debug print allocates memory to manipulate
         # the strings!  so it must be at the end
-        os.write(2, "  malloced since previous collection: %s bytes\n" %
-                 old_malloced)
-        os.write(2, "  heap usage at start of collection:  %s bytes\n" %
-                 (self.heap_usage + old_malloced))
-        os.write(2, "  freed:                              %s bytes\n" %
-                 freed_size)
-        os.write(2, "  new heap usage:                     %s bytes\n" %
-                 curr_heap_size)
-        os.write(2, "  total time spent collecting:        %s seconds\n" %
-                 self.total_collection_time)
+        if DEBUG_PRINT:
+            os.write(2, "  malloced since previous collection: %s bytes\n" %
+                     old_malloced)
+            os.write(2, "  heap usage at start of collection:  %s bytes\n" %
+                     (self.heap_usage + old_malloced))
+            os.write(2, "  freed:                              %s bytes\n" %
+                     freed_size)
+            os.write(2, "  new heap usage:                     %s bytes\n" %
+                     curr_heap_size)
+            os.write(2, "  total time spent collecting:        %s seconds\n" %
+                     self.total_collection_time)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
         self.heap_usage = curr_heap_size
 
@@ -282,6 +284,9 @@ class MarkSweepGC(GCBase):
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
 
+    HDR = lltype.Struct('header', ('forw', lltype.Signed),
+                                  ('typeid', lltype.Signed))
+
     def __init__(self, AddressLinkedList, space_size=1024*int_size,
                  get_roots=None):
         self.bytes_malloced = 0
@@ -291,6 +296,7 @@ class SemiSpaceGC(GCBase):
         self.fromspace = NULL
         self.free = NULL
         self.get_roots = get_roots
+        self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
 
     def setup(self):
         self.tospace = raw_malloc(self.space_size)
@@ -308,9 +314,20 @@ class SemiSpaceGC(GCBase):
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
-            size += length * self.varsize_item_sizes(typeid)
-        totalsize = size + self.size_gc_header()
-        if self.free + totalsize > self.top_of_space:
+            itemsize = self.varsize_item_sizes(typeid)
+            offset_to_length = self.varsize_offset_to_length(typeid)
+            ref = self.malloc_varsize(typeid, length, size, itemsize,
+                                      offset_to_length, True)
+        else:
+            ref = self.malloc_fixedsize(typeid, size, True)
+        # XXX lots of cast and reverse-cast around, but this malloc()
+        # should eventually be killed
+        return llmemory.cast_ptr_to_adr(ref)
+    
+    def malloc_fixedsize(self, typeid, size, can_collect):
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + size
+        if can_collect and self.free + totalsize > self.top_of_space:
             self.collect()
             #XXX need to increase the space size if the object is too big
             #for bonus points do big objects differently
@@ -318,9 +335,30 @@ class SemiSpaceGC(GCBase):
                 raise MemoryError
         result = self.free
         self.init_gc_object(result, typeid)
-##         print "mallocing %s, size %s at %s" % (typeid, size, result)
         self.free += totalsize
-        return result + self.size_gc_header()
+        return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
+
+    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
+                       can_collect):
+        try:
+            varsize = rarithmetic.ovfcheck(itemsize * length)
+        except OverflowError:
+            raise MemoryError
+        # XXX also check for overflow on the various '+' below!
+        size += varsize
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + size
+        if can_collect and self.free + totalsize > self.top_of_space:
+            self.collect()
+            #XXX need to increase the space size if the object is too big
+            #for bonus points do big objects differently
+            if self.free + totalsize > self.top_of_space:
+                raise MemoryError
+        result = self.free
+        self.init_gc_object(result, typeid)
+        (result + size_gc_header + offset_to_length).signed[0] = length
+        self.free += totalsize
+        return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def collect(self):
 ##         print "collecting"
@@ -414,9 +452,8 @@ class SemiSpaceGC(GCBase):
             size += length * self.varsize_item_sizes(typeid)
         return size
 
-
     def size_gc_header(self, typeid=0):
-        return gc_header_two_ints
+        return self.gcheaderbuilder.size_gc_header
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0

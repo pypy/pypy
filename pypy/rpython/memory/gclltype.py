@@ -5,6 +5,9 @@ from pypy.rpython.memory.lltypesimulation import malloc, functionptr, nullptr
 from pypy.rpython.memory.lltypesimulation import pyobjectptr
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 
+def raw_malloc_usage(sz):
+    return sz
+
 def notimplemented(*args, **kwargs):
     raise NotImplemented
 
