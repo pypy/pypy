@@ -1169,8 +1169,8 @@ def oostring(obj, base):
     """
     if isinstance(obj, int):
         assert base in (-1, 8, 10, 16)
-        fn = {-1: str, 8: oct, 10: str, 16: hex}[base]
-        obj = fn(obj)
+        fmt = {-1:'%d', 8:'%o', 10:'%d', 16:'%x'}[base]
+        obj = fmt % obj
     elif isinstance(obj, _view):
         obj = '<%s object>' % obj._inst._TYPE._name
     return make_string(str(obj))
