@@ -19,11 +19,9 @@ was attended by several core developers.  We gave three well-received
 talks, talked to a great many interested people and held a successful
 sprint, giving several newcomers their first taste of hacking on PyPy.
 
-You can read more about this in the `conference report`_ and `sprint
-report`_.
+You can read more about this in the `sprint report`_.
 
-.. _`conference report`: http://write.me/
-.. _`sprint report`: http://write.me/
+.. _`sprint report`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-report.txt
 
 The Logic Sprint
 ================

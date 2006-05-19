@@ -607,7 +607,7 @@ graphviz & pygame for flowgraph viewing (highly recommended)
 graphviz and pygame are both neccessary if you
 want to look at generated flowgraphs: 
 
-	graphviz: http://www.research.att.com/sw/tools/graphviz/download.html 
+	graphviz: http://www.graphviz.org/Download.php 
 
 	pygame: http://www.pygame.org/download.shtml
 
@@ -661,7 +661,7 @@ plan where to meet with us.
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 .. _`Google summer of code`: http://code.google.com/soc
 
-.. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
+.. _Dot Graphviz:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
 .. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
 .. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py

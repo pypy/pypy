@@ -51,7 +51,7 @@ Related projects
   a good introduction to the underlying models of Microsoft's Common 
   Language Runtime, the Intermediate Language, JIT and GC issues. 
   
-* spyweb_ translates Python programs to Scheme. 
+* spyweb translates Python programs to Scheme. (site unavailable)
 
 * Jython_ is a Python implementation in Java.
 
@@ -72,7 +72,6 @@ Related projects
 .. _testdesign: http://codespeak.net/pypy/dist/pypy/doc/coding-guide.html#test-design
 .. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
 .. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
-.. _spyweb: http://spyweb.hopto.org/
 .. _`GNU lightning`: http://www.gnu.org/software/lightning/lightning.html
 .. _LLVM: http://llvm.org/
 .. _IronPython: http://www.python.org/pycon/dc2004/papers/9/
