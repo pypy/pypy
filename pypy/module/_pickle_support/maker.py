@@ -35,30 +35,19 @@ def method_new(space, __args__):
     return space.call_args(w_type, __args__)
 method_new.unwrap_spec = [ObjSpace, Arguments]
 
-#XXX this does not work yet
-def dictiter_new(space, w_dictitertype, __args__=None):
-    raise Exception('No dictiter_new (pickle support) yet')
-    print "dictiter_new here 0)", space, w_dictitertype, __args__
-    print "XXX", str(dictiter_typedef)
-    if False:
-        w_type = space.gettypeobject(dictiter_typedef)
-        print "dictiter_new here 2)", w_type
-        a = space.call_args(w_type, __args__)
-        print "dictiter_new here 3)", a
-        return a
-    else:
-        from pypy.objspace.std.dictobject import W_DictIterObject
-        print "dictiter_new here 1)", space, w_dictitertype, __args__
-        #import pdb;pdb.set_trace()
-        if space.is_true(space.issubtype(w_dictitertype, W_DictIterObject)):
-            w_obj = space.allocate_instance(W_DictIterObject, w_dictitertype)
-            print "dictiter_new here 2)", w_obj
-            W_DictIterObject.__init__(w_obj, space)
-            print "dictiter_new here 3)", w_obj
-            return w_obj
-dictiter_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
+def dictiter_new(space, __args__):
+    from pypy.objspace.std.dictobject import W_DictIterObject
+    print "dictiter_new here 1)", space, w_dictitertype, __args__
+    w_type = space.gettypeobject(dictiter_typedef)
+    w_obj = space.allocate_instance(W_DictIterObject, w_type)
+    print "dictiter_new here 2)", w_obj
+    # XXX W_DictIterObject.__init__(w_obj, space)
+    # this is wrong, but we need to produce something different, anyway
+    print "dictiter_new here 3)", w_obj
+    return w_obj
+dictiter_new.unwrap_spec = [ObjSpace, Arguments]
 
-#XXX this doesn't work either
+#XXX this doesn't work yet
 def seqiter_new(space, w_seqitertype, __args__):
     raise Exception('No seqiter_new (pickle support) yet')
     print "seqiter_new here 1)", space, __args__

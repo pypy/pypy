@@ -154,6 +154,6 @@ def descr_dictiter__reduce__(space, w_subtype):
 
 dictiter_typedef = StdTypeDef("dictionaryiterator",
     __reduce__ = gateway.interp2app(descr_dictiter__reduce__,
-                           unwrap_spec=[gateway.ObjSpace,gateway.W_Root]),
+                           unwrap_spec=[gateway.ObjSpace, gateway.W_Root]),
     )
 #note: registering in dictobject.py
