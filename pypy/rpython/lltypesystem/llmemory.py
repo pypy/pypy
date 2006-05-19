@@ -510,6 +510,14 @@ def raw_malloc_usage(size):
         size = convert_offset_to_int(size)
     return size
 
+def raw_memcopy(source, dest, size):
+    source = source.get()
+    dest = dest.get()
+    # this check would be nice...
+    #assert sizeof(lltype.typeOf(source)) == sizeof(lltype.typeOf(dest)) == size
+    from pypy.rpython.rctypes.rmodel import reccopy
+    reccopy(source, dest)
+
 # ____________________________________________________________
 
 class _arena(object):
