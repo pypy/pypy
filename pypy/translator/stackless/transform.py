@@ -229,6 +229,8 @@ class StacklessTransformer(object):
                                            lltype.typeOf(null_state))
         self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
 
+        self.reccopyannotator = MixLevelHelperAnnotator(translator.rtyper)
+
         # register the prebuilt restartinfos
         for restartinfo in frame.RestartInfo.prebuilt:
             self.register_restart_info(restartinfo)
@@ -574,12 +576,13 @@ class StacklessTransformer(object):
 
     def register_restart_info(self, restartinfo):
         rtyper = self.translator.rtyper
-        for frame_info_dict in restartinfo.compress(rtyper):
+        for frame_info_dict in restartinfo.compress(rtyper, self.reccopyannotator):
             self.masterarray1.append(frame_info_dict)
 
     def finish(self):
         # compute the final masterarray by copying over the masterarray1,
         # which is a list of dicts of attributes
+        self.reccopyannotator.finish()
         masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,
                                     len(self.masterarray1),
                                     immortal=True)

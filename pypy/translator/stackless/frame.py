@@ -130,7 +130,7 @@ class RestartInfo(object):
         self.func_or_graph = func_or_graph
         self.frame_types = frame_types
 
-    def compress(self, rtyper):
+    def compress(self, rtyper, mix):
         if self.frame_types:
             bk = rtyper.annotator.bookkeeper
             graph = self.func_or_graph
@@ -148,10 +148,8 @@ class RestartInfo(object):
             for i in range(len(self.frame_types)):
                 reccopy = self.frame_types[i].reccopy
                 s_header = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
-                mixlevelannotator = MixLevelHelperAnnotator(rtyper)
-                fnptr = mixlevelannotator.delayedfunction(reccopy, [s_header],
+                fnptr = mix.delayedfunction(reccopy, [s_header],
                                                           s_header)
-                mixlevelannotator.finish()
                 result[i]['reccopy'] = fnptr
         else:
             result = []
