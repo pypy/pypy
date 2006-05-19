@@ -7,18 +7,27 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
-Next PyPy sprint in Tokyo 23rd - 29th April 2006
+Duesseldorf PyPy sprint 2-9 June 2006
 ==================================================================
 
-The next sprint will be Akihabara, Tokyo, Japan. Our hosts are
-FSIJ (Free Software Initiative of Japan) and out aim for the sprint
-will be to promote Python and introduce people to PyPy.
+The next PyPy sprint will be held in the Computer Science department of
+Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
+Main focus of the sprint will be on the goals of the upcoming June 0.9
+release.
 
 Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
-.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-announcement.html
-.. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/people.html
+.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/sprint-announcement.html
+.. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/people.html
+
+PyPy sprint in Tokyo 23rd - 29th April 2006
+==================================================================
+
+This sprint was in Akihabara, Tokyo, Japan, our hosts was
+FSIJ (Free Software Initiative of Japan) and we aimed for the sprint
+to promote Python and introduce people to PyPy. Good progress was also made
+on PyPy's ootypesystem for the more high level backends.
 
 PyPy at XPDay France 2006 in Paris March 23rd - March 24th 2006
 ==================================================================
