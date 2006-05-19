@@ -12,6 +12,9 @@ import sys
 int_size = lltypesimulation.sizeof(lltype.Signed)
 gc_header_two_ints = 2*int_size
 
+X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
+                                       ('malloced_list', llmemory.Address))
+
 class GCError(Exception):
     pass
 
@@ -280,6 +283,82 @@ class MarkSweepGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid = typeid << 1
     init_gc_object_immortal = init_gc_object
+
+    # experimental support for thread cloning
+    def x_swap_list(self, malloced_list):
+        # Swap the current malloced_objects linked list with another one.
+        # All malloc'ed objects are put into the current malloced_objects
+        # list; this is a way to separate objects depending on when they
+        # were allocated.
+        current = llmemory.cast_ptr_to_adr(self.malloced_objects)
+        self.malloced_objects = llmemory.cast_adr_to_ptr(malloced_list,
+                                                         self.HDRPTR)
+        return current
+
+    def x_clone(self, clonedata):
+        # Recursively clone the gcobject and everything it points to,
+        # directly or indirectly -- but stops at objects that are not
+        # in the malloced_list.  The gcobjectptr and the malloced_list
+        # fields of clonedata are adjusted to refer to the result.
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        oldobjects = self.AddressLinkedList()
+        hdr = llmemory.cast_adr_to_ptr(clonedata.malloced_list, self.HDRPTR)
+        while hdr:
+            next = hdr.next
+            hdr.typeid |= 1    # mark all objects from malloced_list
+            hdr.next = lltype.nullptr(self.HDR)  # abused to point to the copy
+            oldobjects.append(llmemory.cast_ptr_to_adr(hdr))
+            hdr = next
+
+        # a stack of addresses of places that still points to old objects
+        # and that must possibly be fixed to point to a new copy
+        stack = self.AddressLinkedList()
+        stack.append(llmemory.cast_ptr_to_adr(clonedata)
+                     + llmemory.offsetof(X_CLONE, 'gcobjectptr'))
+        newobjectlist = lltype.nullptr(self.HDR)
+        while stack.non_empty():
+            gcptr_addr = stack.pop()
+            oldobj_addr = gcptr_addr.address[0]
+            oldhdr = llmemory.cast_adr_to_ptr(oldobj_addr - size_gc_header,
+                                              self.HDRPTR)
+            typeid = oldhdr.typeid
+            if not (typeid & 1):
+                continue   # ignore objects that were not in the malloced_list
+            newhdr = oldhdr.next      # abused to point to the copy
+            if not newhdr:
+                typeid >>= 1
+                if self.is_varsize(typeid):
+                    raise NotImplementedError
+                else:
+                    size = self.fixed_size(typeid)
+                    newmem = raw_malloc(size_gc_header + size)
+                    newhdr = llmemory.cast_adr_to_ptr(newmem, self.HDRPTR)
+                    newhdr.typeid = typeid << 1
+                    newhdr.next = newobjectlist
+                    newobjectlist = newhdr
+                    newobj_addr = newmem + size_gc_header
+                    raw_memcopy(oldobj_addr, newobj_addr, size)
+                    offsets = self.offsets_to_gc_pointers(typeid)
+                    i = 0
+                    while i < len(offsets):
+                        pointer_addr = newobj_addr + offsets[i]
+                        stack.append(pointer_addr)
+                        i += 1
+                oldhdr.next = newhdr
+            newobj_addr = llmemory.cast_ptr_to_adr(newhdr) + size_gc_header
+            gcptr_addr.address[0] = newobj_addr
+
+        clonedata.malloced_list = llmemory.cast_ptr_to_adr(newobjectlist)
+
+        # re-create the original linked list
+        next = lltype.nullptr(self.HDR)
+        while oldobjects.non_empty():
+            hdr = llmemory.cast_adr_to_ptr(oldobjects.pop(), self.HDRPTR)
+            hdr.typeid &= ~1   # reset the mark bit
+            hdr.next = next
+            next = hdr
+        oldobjects.delete()
+
 
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"

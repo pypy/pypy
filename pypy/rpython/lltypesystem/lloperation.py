@@ -317,6 +317,10 @@ LL_OPERATIONS = {
     'gc_protect':           LLOp(),
     'gc_unprotect':         LLOp(),    
     'gc_reload_possibly_moved': LLOp(),
+    # experimental operations in support of thread cloning, only
+    # implemented by the Mark&Sweep GC
+    'gc_x_swap_list':       LLOp(),
+    'gc_x_clone':           LLOp(canraise=(MemoryError,)),
 
     # __________ stackless operation(s) __________
 

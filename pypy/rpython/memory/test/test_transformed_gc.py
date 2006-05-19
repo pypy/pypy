@@ -156,11 +156,12 @@ import sys
 
 from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory import gctransform
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.support import INT_SIZE
+from pypy.rpython.memory.gc import X_CLONE
 from pypy import conftest
 
 
@@ -291,6 +292,40 @@ class TestMarkSweepGC(GCTest):
         assert res == concat(100, 0)
         heap_size = statistics().item0
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
+
+    def test_cloning(self):
+        py.test.skip("in-progress")
+        B = lltype.GcStruct('B', ('x', lltype.Signed))
+        A = lltype.GcStruct('A', ('b', lltype.Ptr(B)))
+        def make(n):
+            b = lltype.malloc(B)
+            b.x = n
+            a = lltype.malloc(A)
+            a.b = b
+            return a
+        def func():
+            a1 = make(111)
+            # start recording mallocs in a new list
+            oldlist = llop.gc_x_swap_list(llmemory.Address, llmemory.NULL)
+            # the following a2 goes into the new list
+            a2 = make(222)
+            # now put the old list back and get the new list
+            newlist = llop.gc_x_swap_list(llmemory.Address, oldlist)
+            a3 = make(333)
+            # clone a2
+            a2ref = lltype.cast_opaque_ptr(llmemory.GCREF, a2)
+            clonedata = lltype.malloc(X_CLONE)
+            clonedata.gcobjectptr = a2ref
+            clonedata.malloced_list = newlist
+            llop.gc_x_clone(lltype.Void, clonedata)
+            a2copyref = clonedata.gcobjectptr
+            a2copy = lltype.cast_opaque_ptr(lltype.Ptr(A), a2copyref)
+            a2copy.b.x = 444
+            return a1.b.x * 1000000 + a2.b.x * 1000 + a3.b.x
+
+        run = self.runner(func)
+        res = run([])
+        assert res == 111222333
 
 
 class TestStacklessMarkSweepGC(TestMarkSweepGC):

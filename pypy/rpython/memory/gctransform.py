@@ -868,25 +868,34 @@ class FrameworkGCTransformer(GCTransformer):
                                       inline = True)
 
         classdef = bk.getuniqueclassdef(GCClass)
-        s_gcdata = annmodel.SomeInstance(classdef)
+        s_gc = annmodel.SomeInstance(classdef)
         s_gcref = annmodel.SomePtr(llmemory.GCREF)
         self.malloc_fixedsize_ptr = getfn(
             GCClass.malloc_fixedsize.im_func,
-            [s_gcdata, annmodel.SomeInteger(nonneg=True),
+            [s_gc, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool()], s_gcref,
             inline = True)
         self.malloc_varsize_ptr = getfn(
             GCClass.malloc_varsize.im_func,
-            [s_gcdata] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
+            [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
             + [annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
-            [s_gcdata], annmodel.s_None)
+            [s_gc], annmodel.s_None)
 
         statics_s = (annmodel.SomeInteger(),)*GCClass.STATISTICS_NUMBERS
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
-                                    [s_gcdata], annmodel.SomeTuple(statics_s))
-                                   
+                                    [s_gc], annmodel.SomeTuple(statics_s))
+
+        # experimental gc_x_* operations
+        self.x_swap_list_ptr = getfn(GCClass.x_swap_list.im_func,
+                                     [s_gc, annmodel.SomeAddress()],
+                                     annmodel.SomeAddress())
+        self.x_clone_ptr = getfn(GCClass.x_clone.im_func,
+                                 [s_gc,
+                                  annmodel.SomePtr(lltype.Ptr(gc.X_CLONE))],
+                                 annmodel.s_None)
+
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
 
@@ -1152,6 +1161,22 @@ class FrameworkGCTransformer(GCTransformer):
         ops, index = self.protect_roots(newop, livevars, block,
                                         block.operations.index(op))
         return ops
+
+    def replace_gc_x_swap_list(self, op, livevars, block):
+        [v_malloced] = op.args
+        newop = SpaceOperation("direct_call",
+                               [self.x_swap_list_ptr, self.c_const_gc,
+                                                      v_malloced],
+                               op.result)
+        return [newop]
+
+    def replace_gc_x_clone(self, op, livevars, block):
+        [v_clonedata] = op.args
+        newop = SpaceOperation("direct_call",
+                               [self.x_clone_ptr, self.c_const_gc,
+                                                  v_clonedata],
+                               op.result)
+        return [newop]
 
     def push_alive_nopyobj(self, var):
         return []
