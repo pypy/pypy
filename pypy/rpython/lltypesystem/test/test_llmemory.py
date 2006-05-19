@@ -144,6 +144,18 @@ def test_fakeaccessor():
     adr1000 = (adr + ArrayItemsOffset(A) + ItemOffset(lltype.Char, 1000))
     assert adr1000.char[-997] == '+'
 
+    T = lltype.FixedSizeArray(lltype.Char, 10)
+    S = lltype.GcStruct('S', ('z', lltype.Ptr(T)))
+    s = lltype.malloc(S)
+    s.z = lltype.malloc(T, immortal=True)
+    adr = cast_ptr_to_adr(s)
+    assert (adr + offsetof(S, 'z')).address[0] == cast_ptr_to_adr(s.z)
+    (adr + offsetof(S, 'z')).address[0] = NULL
+    assert s.z == lltype.nullptr(T)
+    t = lltype.malloc(T, immortal=True)
+    (adr + offsetof(S, 'z')).address[0] = cast_ptr_to_adr(t)
+    assert s.z == t
+
 def test_fakeadr_eq():
     S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
     s = lltype.malloc(S)

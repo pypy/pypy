@@ -396,16 +396,21 @@ class _fakeaccessor(object):
         addr = self.addr
         if index != 0:
             addr += ItemOffset(addr.ref().type(), index)
-        return self.convert(addr.get())
+        return self.erase_type(addr.get())
 
     def __setitem__(self, index, value):
+        assert lltype.typeOf(value) == self.TYPE
         addr = self.addr
         if index != 0:
             addr += ItemOffset(addr.ref().type(), index)
-        addr.set(value)
+        addr.set(self.unerase_type(addr.ref().type(), value))
 
-    def convert(self, value):
+    def erase_type(self, value):
         assert lltype.typeOf(value) == self.TYPE
+        return value
+
+    def unerase_type(self, TARGETTYPE, value):
+        assert lltype.typeOf(value) == TARGETTYPE
         return value
 
 
@@ -415,23 +420,24 @@ class _signed_fakeaccessor(_fakeaccessor):
 class _char_fakeaccessor(_fakeaccessor):
     TYPE = lltype.Char
 
-    def convert(self, value):
-        # hack to try to interpret the items of an array of bytes as chars
-        if lltype.typeOf(value) == lltype.Signed:
-            value = chr(value)
-        assert lltype.typeOf(value) == lltype.Char
-        return value
-
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = Address
 
-    def convert(self, value):
+    def erase_type(self, value):
         if isinstance(value, lltype._ptr):
             return value._cast_to_adr()
         elif lltype.typeOf(value) == Address:
             return value
         else:
             raise TypeError(value)
+
+    def unerase_type(self, TARGETTYPE, value):
+        if TARGETTYPE == Address:
+            return value
+        elif isinstance(TARGETTYPE, lltype.Ptr):
+            return cast_adr_to_ptr(value, TARGETTYPE)
+        else:
+            raise TypeError(TARGETTYPE, value)
 
 
 fakeaddress.signed = property(_signed_fakeaccessor)

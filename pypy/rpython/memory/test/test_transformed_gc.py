@@ -294,7 +294,6 @@ class TestMarkSweepGC(GCTest):
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
     def test_cloning(self):
-        py.test.skip("in-progress")
         B = lltype.GcStruct('B', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('b', lltype.Ptr(B)))
         def make(n):
