@@ -18,7 +18,7 @@ release.
 Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
-.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/sprint-announcement.html
+.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/announce.html
 .. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/people.html
 
 PyPy sprint in Tokyo 23rd - 29th April 2006
