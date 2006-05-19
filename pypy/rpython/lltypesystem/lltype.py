@@ -1035,7 +1035,7 @@ class _ptr(object):
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results
         obj = top_container(obj)
-        result = id(obj)
+        result = intmask(id(obj))
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
         assert result != 0 and (result & 3) == 0
