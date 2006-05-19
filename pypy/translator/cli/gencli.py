@@ -7,7 +7,9 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.database import LowLevelDatabase
-
+from pypy.translator.cli.cts import CTS
+from pypy.translator.cli.opcodes import opcodes
+from pypy.translator.squeak.node import LoopFinder
 
 class Tee(object):
     def __init__(self, *args):
@@ -23,11 +25,11 @@ class Tee(object):
                 outfile.close()
 
 class GenCli(object):
-    def __init__(self, tmpdir, translator, entrypoint = None):
+    def __init__(self, tmpdir, translator, entrypoint = None , type_system_class = CTS , opcode_dict = opcodes ):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
-        self.db = LowLevelDatabase()
+        self.db = LowLevelDatabase( type_system_class = type_system_class , opcode_dict = opcode_dict )
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
@@ -36,12 +38,12 @@ class GenCli(object):
 
         self.tmpfile = tmpdir.join(self.assembly_name + '.il')
 
-    def generate_source(self):
+    def generate_source(self , asm_class = IlasmGenerator ):
         out = self.tmpfile.open('w')
         if getoption('stdout'):
             out = Tee(sys.stdout, out)
 
-        self.ilasm = IlasmGenerator(out, self.assembly_name)
+        self.ilasm = asm_class(out, self.assembly_name )
         
         # TODO: instance methods that are also called as unbound
         # methods are rendered twice, once within the class and once

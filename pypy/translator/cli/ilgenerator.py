@@ -1,3 +1,6 @@
+from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
+from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+
 class CodeGenerator(object):
     def __init__(self, out, indentstep = 4, startblock = '{', endblock = '}'):
         self._out = out
@@ -39,6 +42,9 @@ class IlasmGenerator(object):
         self.code.writeline('.assembly extern mscorlib {}')
         self.code.writeline('.assembly extern pypylib {}')
         self.code.writeline('.assembly %s {}' % name)
+
+    def show_const(self):
+        return True
 
     def close(self):
         self.out.close()
@@ -133,6 +139,60 @@ class IlasmGenerator(object):
 
     def new(self, class_):
         self.code.writeline('newobj ' + class_)
+
+    def set_field(self, field_data ):
+        self.opcode('stfld %s %s::%s' % field_data )
+
+    def get_field(self,field_data):
+        self.opcode('ldfld %s %s::%s' % field_data )
+
+    def load_set_field(self, cts_type, name):
+        self.opcode('ldsfld %s %s' % (cts_type, name))
+    
+    def throw(self):
+        self.opcode('throw')
+    
+    def pop(self):
+        self.opcode('pop')
+    
+    def ret(self):
+        self.opcode('ret')
+
+    def castclass(self,cts_type):
+        self.opcode('castclass', cts_type)
+    
+    def load_self(self):
+        self.opcode('ldarg.0')
+    
+    def load_arg(self,v):
+        self.opcode('ldarg', repr(v.name))
+    
+    def load_local(self,v):
+        self.opcode('ldloc', repr(v.name))
+
+    def load_const(self,type_,v):
+        if type_ is Void:
+            pass
+        elif type_ is Bool:
+            self.opcode('ldc.i4', str(int(v)))
+        elif type_ is Float:
+            self.opcode('ldc.r8', repr(v))
+        elif type_ in (Signed, Unsigned):
+            self.opcode('ldc.i4', str(v))
+        elif type_ in (SignedLongLong, UnsignedLongLong):
+            self.opcode('ldc.i8', str(v))
+
+    def store_local ( self , v ):
+        self.opcode('stloc', repr(v.name))
+
+    def set_static_field ( self, type_, CONST_NAMESPACE, CONST_CLASS, name ):
+        self.opcode('stsfld %s %s.%s::%s' % (type_, CONST_NAMESPACE, CONST_CLASS, name))
+
+    def emit ( self , opcode , *args ):
+        self.opcode ( opcode , *args )
+
+    def begin_link ( self ):
+        pass
 
     def opcode(self, opcode, *args):
         self.code.write(opcode + ' ')

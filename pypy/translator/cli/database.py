@@ -3,6 +3,7 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.cli.opcodes import opcodes
 
 try:
     set
@@ -13,9 +14,12 @@ CONST_NAMESPACE = 'pypy.runtime'
 CONST_CLASS = 'Constants'
 
 class LowLevelDatabase(object):
-    def __init__(self):
+    def __init__(self, type_system_class = CTS, opcode_dict = opcodes, function_class = Function):
         self._pending_nodes = set()
+        self.opcode_dict = opcode_dict
         self._rendered_nodes = set()
+        self.function_class = function_class
+        self.type_system_class = type_system_class
         self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
@@ -23,7 +27,7 @@ class LowLevelDatabase(object):
         self.const_names = set()
 
     def pending_function(self, graph):
-        self.pending_node(Function(self, graph))
+        self.pending_node(self.function_class(self, graph))
 
     def pending_class(self, classdef):
         self.pending_node(Class(self, classdef))
@@ -64,6 +68,8 @@ class LowLevelDatabase(object):
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
 
     def gen_constants(self, ilasm):
+        if not ilasm . show_const ():
+            return
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
 
@@ -77,9 +83,9 @@ class LowLevelDatabase(object):
         for const, name in self.consts.iteritems():
             const.init(ilasm)
             type_ = const.get_type()
-            ilasm.opcode('stsfld %s %s.%s::%s' % (type_, CONST_NAMESPACE, CONST_CLASS, name))
+            ilasm.set_static_field ( type_, CONST_NAMESPACE, CONST_CLASS, name )
 
-        ilasm.opcode('ret')
+        ilasm.ret()
         ilasm.end_function()
 
         ilasm.end_class()

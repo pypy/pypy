@@ -4,7 +4,7 @@ from pypy.translator.cli.cts import CTS
 class Class(Node):
     def __init__(self, db, classdef):
         self.db = db
-        self.cts = CTS(db)
+        self.cts = db.type_system_class(db)
         self.classdef = classdef
         self.namespace, self.name = self.cts.split_class_name(classdef._name)
 
@@ -52,9 +52,9 @@ class Class(Node):
         self._ctor()
 
         # lazy import to avoid circular dependencies
-        import pypy.translator.cli.function as function
+        #import pypy.translator.cli.function as function
         for m_name, m_meth in self.classdef._methods.iteritems():
-            f = function.Function(self.db, m_meth.graph, m_name, is_method = True)
+            f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True)
             f.render(ilasm)
 
         ilasm.end_class()

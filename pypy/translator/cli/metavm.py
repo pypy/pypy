@@ -106,7 +106,6 @@ class _RuntimeNew(MicroInstruction):
         generator.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
         generator.cast_to(op.result.concretetype)
 
-
 PushAllArgs = _PushAllArgs()
 StoreResult = _StoreResult()
 Call = _Call()
