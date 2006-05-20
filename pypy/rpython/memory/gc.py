@@ -121,6 +121,11 @@ class MarkSweepGC(GCBase):
     POOL = lltype.GcStruct('gc_pool')
     POOLPTR = lltype.Ptr(POOL)
 
+    POOLNODE = lltype.ForwardReference()
+    POOLNODEPTR = lltype.Ptr(POOLNODE)
+    POOLNODE.become(lltype.Struct('gc_pool_node', ('linkedlist', HDRPTR),
+                                                  ('nextnode', POOLNODEPTR)))
+
     def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
@@ -129,9 +134,22 @@ class MarkSweepGC(GCBase):
         self.AddressLinkedList = AddressLinkedList
         #self.set_query_functions(None, None, None, None, None, None, None)
         self.malloced_objects = lltype.nullptr(self.HDR)
-        self.curpool = lltype.nullptr(self.POOL)
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
+        # pools, for x_swap_pool():
+        #   'curpool' is the current pool, lazily allocated (i.e. NULL means
+        #   the current POOL object is not yet malloc'ed).  POOL objects are
+        #   usually at the start of a linked list of objects, via the HDRs.
+        #   The exception is 'curpool' whose linked list of objects is in
+        #   'self.malloced_objects' instead of in the header of 'curpool'.
+        #   POOL objects are never in the middle of a linked list themselves.
+        self.curpool = lltype.nullptr(self.POOL)
+        #   'poolnodes' is a linked list of all such linked lists.  Each
+        #   linked list will usually start with a POOL object, but it can
+        #   also contain only normal objects if the POOL object at the head
+        #   was already freed.  The objects in 'malloced_objects' are not
+        #   found via 'poolnodes'.
+        self.poolnodes = lltype.nullptr(self.POOLNODE)
 
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
@@ -235,30 +253,53 @@ class MarkSweepGC(GCBase):
                     i += 1
             hdr.typeid = hdr.typeid | 1
         objects.delete()
-        newmo = self.AddressLinkedList()
+        # also mark self.curpool
+        if self.curpool:
+            gc_info = llmemory.cast_ptr_to_adr(self.curpool) - size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+            hdr.typeid = hdr.typeid | 1
+
         curr_heap_size = 0
         freed_size = 0
-        hdr = self.malloced_objects
-        newmo = lltype.nullptr(self.HDR)
-        while hdr:  #sweep
-            typeid = hdr.typeid >> 1
-            next = hdr.next
-            addr = llmemory.cast_ptr_to_adr(hdr)
-            size = self.fixed_size(typeid)
-            if self.is_varsize(typeid):
-                length = (addr + size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
-                size += self.varsize_item_sizes(typeid) * length
-            estimate = raw_malloc_usage(size_gc_header + size)
-            if hdr.typeid & 1:
-                hdr.typeid = hdr.typeid & (~1)
-                hdr.next = newmo
-                newmo = hdr
-                curr_heap_size += estimate
+        firstpoolnode = lltype.malloc(self.POOLNODE, flavor='raw')
+        firstpoolnode.linkedlist = self.malloced_objects
+        firstpoolnode.nextnode = self.poolnodes
+        prevpoolnode = lltype.nullptr(self.POOLNODE)
+        poolnode = firstpoolnode
+        while poolnode:   #sweep
+            ppnext = lltype.direct_fieldptr(poolnode, 'linkedlist')
+            hdr = poolnode.linkedlist
+            while hdr:  #sweep
+                typeid = hdr.typeid >> 1
+                next = hdr.next
+                addr = llmemory.cast_ptr_to_adr(hdr)
+                size = self.fixed_size(typeid)
+                if self.is_varsize(typeid):
+                    length = (addr + size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
+                    size += self.varsize_item_sizes(typeid) * length
+                estimate = raw_malloc_usage(size_gc_header + size)
+                if hdr.typeid & 1:
+                    hdr.typeid = hdr.typeid & (~1)
+                    ppnext[0] = hdr
+                    ppnext = lltype.direct_fieldptr(hdr, 'next')
+                    curr_heap_size += estimate
+                else:
+                    freed_size += estimate
+                    raw_free(addr)
+                hdr = next
+            ppnext[0] = lltype.nullptr(self.HDR)
+            next = poolnode.nextnode
+            if not poolnode.linkedlist and prevpoolnode:
+                # completely empty node
+                prevpoolnode.nextnode = next
+                lltype.free(poolnode, flavor='raw')
             else:
-                freed_size += estimate
-                raw_free(addr)
-            hdr = next
-        self.malloced_objects = newmo
+                prevpoolnode = poolnode
+            poolnode = next
+        self.malloced_objects = firstpoolnode.linkedlist
+        self.poolnodes = firstpoolnode.nextnode
+        lltype.free(firstpoolnode, flavor='raw')
+
         if curr_heap_size > self.bytes_malloced_threshold:
             self.bytes_malloced_threshold = curr_heap_size
         end_time = time.time()
@@ -305,6 +346,14 @@ class MarkSweepGC(GCBase):
             # make a fresh pool object, which is automatically inserted at the
             # front of the current list
             oldpool = lltype.malloc(self.POOL)
+            addr = llmemory.cast_ptr_to_adr(oldpool)
+            addr -= size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+            # put this new POOL object in the poolnodes list
+            node = lltype.malloc(self.POOLNODE, flavor="raw")
+            node.linkedlist = hdr
+            node.nextnode = self.poolnodes
+            self.poolnodes = node
         else:
             # manually insert oldpool at the front of the current list
             addr = llmemory.cast_ptr_to_adr(oldpool)
@@ -319,12 +368,13 @@ class MarkSweepGC(GCBase):
             addr -= size_gc_header
             hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
             self.malloced_objects = hdr.next
+            # invariant: now that objects in the hdr.next list are accessible
+            # through self.malloced_objects, make sure they are not accessible
+            # via poolnodes (which has a node pointing to newpool):
+            hdr.next = lltype.nullptr(self.HDR)
         else:
             # start a fresh new linked list
             self.malloced_objects = lltype.nullptr(self.HDR)
-        # note that newpool will not be freed by a collect as long as
-        # it sits in self.malloced_objects_box, because it is not itself
-        # part of any linked list
         self.curpool = newpool
         return lltype.cast_opaque_ptr(X_POOL_PTR, oldpool)
 
@@ -334,13 +384,19 @@ class MarkSweepGC(GCBase):
         # in the specified pool.  A new pool is built to contain the
         # copies, and the 'gcobjectptr' and 'pool' fields of clonedata
         # are adjusted to refer to the result.
+
+        # install a new pool into which all the mallocs go
+        curpool = self.x_swap_pool(lltype.nullptr(X_POOL))
+
         size_gc_header = self.gcheaderbuilder.size_gc_header
         oldobjects = self.AddressLinkedList()
-        oldpool = lltype.cast_opaque_ptr(self.POOLPTR, clonedata.pool)
+        # if no pool specified, use the current pool as the 'source' pool
+        oldpool = clonedata.pool or curpool
+        oldpool = lltype.cast_opaque_ptr(self.POOLPTR, oldpool)
         addr = llmemory.cast_ptr_to_adr(oldpool)
         addr -= size_gc_header
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
-        hdr = hdr.next
+        hdr = hdr.next   # skip the POOL object itself
         while hdr:
             next = hdr.next
             hdr.typeid |= 1    # mark all objects from malloced_list
@@ -353,10 +409,11 @@ class MarkSweepGC(GCBase):
         stack = self.AddressLinkedList()
         stack.append(llmemory.cast_ptr_to_adr(clonedata)
                      + llmemory.offsetof(X_CLONE, 'gcobjectptr'))
-        newobjectlist = lltype.nullptr(self.HDR)
         while stack.non_empty():
             gcptr_addr = stack.pop()
             oldobj_addr = gcptr_addr.address[0]
+            if not oldobj_addr:
+                continue   # pointer is NULL
             oldhdr = llmemory.cast_adr_to_ptr(oldobj_addr - size_gc_header,
                                               self.HDRPTR)
             typeid = oldhdr.typeid
@@ -369,12 +426,11 @@ class MarkSweepGC(GCBase):
                     raise NotImplementedError
                 else:
                     size = self.fixed_size(typeid)
-                    newmem = raw_malloc(size_gc_header + size)
-                    newhdr = llmemory.cast_adr_to_ptr(newmem, self.HDRPTR)
-                    newhdr.typeid = typeid << 1
-                    newhdr.next = newobjectlist
-                    newobjectlist = newhdr
-                    newobj_addr = newmem + size_gc_header
+                    # XXX! collect() at the beginning if the free heap is low
+                    newobj = self.malloc_fixedsize(typeid, size, False)
+                    newobj_addr = llmemory.cast_ptr_to_adr(newobj)
+                    newhdr_addr = newobj_addr - size_gc_header
+                    newhdr = llmemory.cast_adr_to_ptr(newhdr_addr, self.HDRPTR)
                     raw_memcopy(oldobj_addr, newobj_addr, size)
                     offsets = self.offsets_to_gc_pointers(typeid)
                     i = 0
@@ -395,10 +451,8 @@ class MarkSweepGC(GCBase):
             next = hdr
         oldobjects.delete()
 
-        # make the new pool object to collect newobjectlist
-        curpool = self.x_swap_pool(lltype.nullptr(X_POOL))
-        assert not self.malloced_objects
-        self.malloced_objects = newobjectlist
+        # build the new pool object collecting the new objects, and
+        # reinstall the pool that was current at the beginning of x_clone()
         clonedata.pool = self.x_swap_pool(curpool)
 
 

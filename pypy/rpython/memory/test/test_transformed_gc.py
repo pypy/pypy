@@ -295,7 +295,8 @@ class TestMarkSweepGC(GCTest):
 
     def test_cloning(self):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
-        A = lltype.GcStruct('A', ('b', lltype.Ptr(B)))
+        A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
+                                 ('unused', lltype.Ptr(B)))
         def make(n):
             b = lltype.malloc(B)
             b.x = n
@@ -332,6 +333,85 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(gctransform.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
+
+    def test_tree_cloning(self):
+        py.test.skip("aaaaaaaaaaaaaaaaaaaaaaargh later")
+        import os
+        # this makes a tree of calls.  Each leaf stores its path (a linked
+        # list) in 'result'.  Paths are mutated in-place but the leaves don't
+        # see each other's mutations because of x_clone.
+        NODE = lltype.GcForwardReference()
+        NODE.become(lltype.GcStruct('node', ('index', lltype.Signed),
+                                            ('counter', lltype.Signed),
+                                            ('next', lltype.Ptr(NODE))))
+        PATHARRAY = lltype.GcArray(lltype.Ptr(NODE))
+        clonedata = lltype.malloc(X_CLONE)
+
+        def clone(node):
+            # that's for testing if the test is correct...
+            if not node:
+                return node
+            newnode = lltype.malloc(NODE)
+            newnode.index = node.index
+            newnode.counter = node.counter
+            newnode.next = clone(node.next)
+            return newnode
+
+        def do_call(result, path, index, remaining_depth):
+            # clone the while path
+            clonedata.gcobjectptr = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                           path)
+            clonedata.pool = lltype.nullptr(X_POOL)
+            llop.gc_x_clone(lltype.Void, clonedata)
+            # install the new pool as the current one
+            parentpool = llop.gc_x_swap_pool(X_POOL_PTR, clonedata.pool)
+            path = lltype.cast_opaque_ptr(lltype.Ptr(NODE),
+                                          clonedata.gcobjectptr)
+
+            # The above should have the same effect as:
+            #    path = clone(path)
+
+            # bump all the path's counters by one
+            p = path
+            while p:
+                p.counter += 1
+                p = p.next
+
+            if remaining_depth == 0:
+                result[index] = path   # leaf
+            else:
+                node = lltype.malloc(NODE)
+                node.index = index * 2
+                node.counter = 0
+                node.next = path
+                do_call(result, node, node.index, remaining_depth - 1)
+                node.index += 1    # mutation!
+                do_call(result, node, node.index, remaining_depth - 1)
+
+            # restore the parent pool
+            llop.gc_x_swap_pool(X_POOL_PTR, parentpool)
+
+        def check(path, index, level, depth):
+            if level == depth:
+                assert index == 0
+                assert not path
+            else:
+                assert path.index == index
+                assert path.counter == level + 1
+                check(path.next, index >> 1, level + 1, depth)
+
+        def func(depth, dummy):
+            result = lltype.malloc(PATHARRAY, 1 << depth)
+            os.write(2, 'building tree... ')
+            do_call(result, lltype.nullptr(NODE), 0, depth)
+            os.write(2, 'checking tree... ')
+            for i in range(1 << depth):
+                check(result[i], i, 0, depth)
+            os.write(2, 'ok\n')
+            return 1
+        run = self.runner(func, nbargs=2)
+        res = run([5, 0])
+        assert res == 1
 
 class TestSemiSpaceGC(TestMarkSweepGC):
 
