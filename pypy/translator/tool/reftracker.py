@@ -3,7 +3,7 @@ General-purpose reference tracker.
 Usage: call track(obj).
 """
 
-import autopath
+import autopath, sys, os
 import gc
 from pypy.translator.tool.graphpage import GraphPage, DotGen
 from pypy.tool.uid import uid
@@ -12,7 +12,7 @@ from pypy.tool.uid import uid
 MARKER = object()
 
 
-class RefTrackerPage(GraphPage):
+class BaseRefTrackerPage(GraphPage):
 
     def compute(self, objectlist):
         assert objectlist[0] is MARKER
@@ -24,36 +24,24 @@ class RefTrackerPage(GraphPage):
 
         def addedge(o1, o2):
             key = (uid(o1), uid(o2))
-            slst = []
-            if type(o1) in (list, tuple):
-                for i in range(len(o1)):
-                    if o1[i] is o2:
-                        slst.append('[%d]' % i)
-            elif type(o1) is dict:
-                for k, v in o1.items():
-                    if v is o2:
-                        slst.append('[%r]' % (k,))
-            edges[key] = ', '.join(slst)
+            edges[key] = self.edgelabel(o1, o2)
 
         for i in range(1, len(objectlist)):
-            s = repr(objectlist[i])
+            typename, s, linktext = self.formatobject(objectlist[i])
             word = '0x%x' % uid(objectlist[i])
-            if len(s) > 50:
-                self.links[word] = s
-                s = s[:20] + ' ... ' + s[-20:]
-            s = '<%s> %s\\n%s' % (type(objectlist[i]).__name__,
-                                    word,
-                                    s)
+            if linktext:
+                self.links[word] = linktext
+            s = '<%s> %s\\n%s' % (typename, word, s)
             nodename = 'node%d' % len(nodes)
             dotgen.emit_node(nodename, label=s, shape="box")
             nodes[uid(objectlist[i])] = nodename
-            for o2 in gc.get_referents(objectlist[i]):
+            for o2 in self.get_referents(objectlist[i]):
                 if o2 is None:
                     continue
                 addedge(objectlist[i], o2)
                 id2typename[uid(o2)] = type(o2).__name__
                 del o2
-            for o2 in gc.get_referrers(objectlist[i]):
+            for o2 in self.get_referrers(objectlist[i]):
                 if o2 is None:
                     continue
                 if type(o2) is list and o2 and o2[0] is MARKER:
@@ -81,26 +69,60 @@ class RefTrackerPage(GraphPage):
         found = None
         objectlist = self.objectlist
         for i in range(1, len(objectlist)):
-            for o2 in gc.get_referents(objectlist[i]):
+            for o2 in self.get_referents(objectlist[i]):
                 if uid(o2) == id1:
                     found = o2
-            for o2 in gc.get_referrers(objectlist[i]):
+            for o2 in self.get_referrers(objectlist[i]):
                 if uid(o2) == id1:
                     found = o2
         if found is not None:
             objectlist = objectlist + [found]
         else:
             print '*** NOTE: object not found'
-        return RefTrackerPage(objectlist)
+        return self.__class__(objectlist)
+
+    def formatobject(self, o):
+        s = repr(o)
+        if len(s) > 50:
+            linktext = s
+            s = s[:20] + ' ... ' + s[-20:]
+        else:
+            linktext = ''
+        return type(o).__name__, s, linktext
+
+    def edgelabel(self, o1, o2):
+        return ''
 
 
-def track(o):
+class RefTrackerPage(BaseRefTrackerPage):
+
+    get_referrers = staticmethod(gc.get_referrers)
+    get_referents = staticmethod(gc.get_referents)
+
+    def edgelabel(self, o1, o2):
+        slst = []
+        if type(o1) in (list, tuple):
+            for i in range(len(o1)):
+                if o1[i] is o2:
+                    slst.append('[%d]' % i)
+        elif type(o1) is dict:
+            for k, v in o1.items():
+                if v is o2:
+                    slst.append('[%r]' % (k,))
+        return ', '.join(slst)
+
+
+def track(*objs):
     """Invoke a dot+pygame object reference tracker."""
-    page = RefTrackerPage([MARKER, o])
-    del o
+    page = RefTrackerPage([MARKER] + list(objs))
+    del objs
     page.display()
 
 
 if __name__ == '__main__':
+    try:
+        sys.path.remove(os.getcwd())
+    except ValueError:
+        pass
     d = {"lskjadldjslkj": "adjoiadoixmdoiemdwoi"}
     track(d)

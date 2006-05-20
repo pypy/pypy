@@ -341,6 +341,9 @@ LL_OPERATIONS = {
     'decode_arg':           LLOp(canraise=(Exception,)),
     'decode_arg_def':       LLOp(canraise=(Exception,)),
     'getslice':             LLOp(canraise=(Exception,)),
+
+    # __________ debugging __________
+    'debug_view':           LLOp(),
 }
 
     # __________ operations on PyObjects __________

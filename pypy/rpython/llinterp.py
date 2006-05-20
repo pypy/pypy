@@ -401,6 +401,10 @@ class LLFrame(object):
     # __________________________________________________________
     # misc LL operation implementations
 
+    def op_debug_view(self, *ll_objects):
+        from pypy.translator.tool.lltracker import track
+        track(*ll_objects)
+
     def op_keepalive(self, value):
         pass
 
