@@ -4,6 +4,13 @@ from pypy.translator.test import snippet
 from pypy.translator.squeak.test.runtest import compile_function
 
 class TestGenSqueak:
+    def test_while(self):
+        def addon(i):
+            while not i == 1:
+                i -= 1
+            return i
+        fn = compile_function(addon, [int])
+        assert fn(4) == 1
 
     def test_theanswer(self):
         def theanswer():
@@ -34,7 +41,7 @@ class TestGenSqueak:
             return A().m(i, j=3)
         fn = compile_function(simplemethod, [int])
         assert fn(1) == "6"
-
+    
     def test_nameclash_classes(self):
         from pypy.translator.squeak.test.support import A as A2
         class A:
@@ -177,7 +184,7 @@ class TestException:
         assert fn(-1) == "1"
         assert fn(0) == "0"
         assert fn(2) == "3"
-
+    
     def test_exceptreraise(self):
         def raising(i):
             if i == 0:
