@@ -101,6 +101,8 @@ class Translation(object):
             self.ensure_setup(argtypes, kwds.get('policy'),
                                         kwds.get('standalone'))
         for optname, value in kwds.iteritems():
+            if optname in ('policy', 'standalone'):
+                continue
             if optname in self.frozen_options:
                 if getattr(self.driver.options, optname) != value:
                      raise Exception("inconsistent option supplied: %s" % optname)
