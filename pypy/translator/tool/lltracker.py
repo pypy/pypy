@@ -12,6 +12,10 @@ from pypy.tool.uid import uid
 
 class LLRefTrackerPage(BaseRefTrackerPage):
 
+    def compute(self, objectlist, size_gc_header):
+        self.size_gc_header = size_gc_header
+        return BaseRefTrackerPage.compute(self, objectlist)
+
     def formatobject(self, o):
         lines = []
         for name, value in self.enum_content(o):
@@ -37,8 +41,18 @@ class LLRefTrackerPage(BaseRefTrackerPage):
                 slst.append(name)
         return '/'.join(slst)
 
-    def enum_content(cls, o, name=''):
+    def newpage(self, objectlist):
+        return self.__class__(objectlist, self.size_gc_header)
+
+    def enum_content(self, o, name='', with_header=True):
+        # XXX clean up
         T = lltype.typeOf(o)
+        if (self.size_gc_header is not None and with_header
+            and isinstance(T, lltype.GC_CONTAINER)):
+            adr = llmemory.cast_ptr_to_adr(o._as_ptr())
+            adr -= self.size_gc_header
+            o = adr.get()._obj
+            T = lltype.typeOf(o)
         if isinstance(T, lltype.Struct):
             try:
                 gcobjptr = header2obj[o]
@@ -47,26 +61,33 @@ class LLRefTrackerPage(BaseRefTrackerPage):
                 gcobjptr = None
                 fmt = '%s'
             for name in T._names:
-                for name, value in cls.enum_content(getattr(o, name), name):
+                for name, value in self.enum_content(getattr(o, name), name,
+                                                     with_header=False):
                     yield fmt % (name,), value
             if gcobjptr:
                 GCT = lltype.typeOf(gcobjptr)
-                yield 'header of', '<%s>' % (shorttypename(GCT.TO),)
-                for sub in cls.enum_content(gcobjptr._obj):
-                    yield sub
+                if self.size_gc_header is not None:
+                    yield 'header of', '<%s>' % (shorttypename(GCT.TO),)
+                    for sub in self.enum_content(gcobjptr._obj,
+                                                 with_header=False):
+                        yield sub
+                else:
+                    # display as a link to avoid the same data showing up
+                    # twice in the graph
+                    yield 'header of', gcobjptr._obj
         elif isinstance(T, lltype.Array):
             for index, o1 in enumerate(o.items):
-                for sub in cls.enum_content(o1, str(index)):
+                for sub in self.enum_content(o1, str(index)):
                     yield sub
         elif isinstance(T, lltype.Ptr):
             if not o:
                 yield name, 'null'
             else:
-                yield name, o._obj
+                yield name, lltype.normalizeptr(o)._obj
         elif isinstance(T, lltype.OpaqueType) and hasattr(o, 'container'):
             T = lltype.typeOf(o.container)
             yield 'container', '<%s>' % (shorttypename(T),)
-            for sub in cls.enum_content(o.container, name):
+            for sub in self.enum_content(o.container, name, with_header=False):
                 yield sub
         elif T == llmemory.Address:
             if not o:
@@ -84,7 +105,6 @@ class LLRefTrackerPage(BaseRefTrackerPage):
                         yield '... offset', str(o.offset)
         else:
             yield name, str(o)
-    enum_content = classmethod(enum_content)
 
 def shorttypename(T):
     return '%s %s' % (T.__class__.__name__, getattr(T, '__name__', ''))
@@ -93,16 +113,23 @@ def shorttypename(T):
 def track(*ll_objects):
     """Invoke a dot+pygame object reference tracker."""
     lst = [MARKER]
+    size_gc_header = None
     for ll_object in ll_objects:
+        if isinstance(ll_object, llmemory.GCHeaderOffset):
+            size_gc_header = ll_object
+            continue
         if isinstance(lltype.typeOf(ll_object), lltype.Ptr):
-            ll_object = ll_object._obj
-        lst.append(ll_object)
-    if len(ll_objects) == 1:
+            ll_object = lltype.normalizeptr(ll_object)._obj
+        if ll_object not in lst:
+            lst.append(ll_object)
+    page = LLRefTrackerPage(lst, size_gc_header)
+    if len(lst) == 2:
         # auto-expand one level
-        for name, value in LLRefTrackerPage.enum_content(ll_objects[0]):
-            if not isinstance(value, str):
+        page = page.content()
+        for name, value in page.enum_content(lst[1]):
+            if not isinstance(value, str) and value not in lst:
                 lst.append(value)
-    page = LLRefTrackerPage(lst)
+        page = page.newpage(lst)
     page.display()
 
 

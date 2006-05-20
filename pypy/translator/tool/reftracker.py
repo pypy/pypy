@@ -79,7 +79,7 @@ class BaseRefTrackerPage(GraphPage):
             objectlist = objectlist + [found]
         else:
             print '*** NOTE: object not found'
-        return self.__class__(objectlist)
+        return self.newpage(objectlist)
 
     def formatobject(self, o):
         s = repr(o)
@@ -92,6 +92,9 @@ class BaseRefTrackerPage(GraphPage):
 
     def edgelabel(self, o1, o2):
         return ''
+
+    def newpage(self, objectlist):
+        return self.__class__(objectlist)
 
 
 class RefTrackerPage(BaseRefTrackerPage):
