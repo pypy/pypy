@@ -1197,7 +1197,9 @@ class FrameworkGCTransformer(GCTransformer):
                                [self.x_become_ptr, self.c_const_gc,
                                 v_target, v_source],
                                op.result)
-        return [newop]
+        ops, index = self.protect_roots(newop, livevars, block,
+                                        block.operations.index(op))
+        return ops
 
     def push_alive_nopyobj(self, var):
         return []

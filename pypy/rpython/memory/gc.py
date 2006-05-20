@@ -456,7 +456,146 @@ class MarkSweepGC(GCBase):
         clonedata.pool = self.x_swap_pool(curpool)
 
     def x_become(self, target_addr, source_addr):
-        pass
+        # become is implemented very very much like collect currently...
+        import os, time
+        if DEBUG_PRINT:
+            os.write(2, 'becoming...\n')
+        start_time = time.time()
+        roots = self.get_roots()
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        objects = self.AddressLinkedList()
+        while 1:
+            curr = roots.pop()
+##             print "root: ", curr
+            if curr == NULL:
+                break
+            # roots is a list of addresses to addresses:
+            # -------------------------------------------------
+            # begin difference from collect
+            if curr.address[0] == target_addr:
+                raise RuntimeError("can't replace a root")
+            # end difference from collect
+            # -------------------------------------------------
+            objects.append(curr.address[0])
+            # the last sweep did not clear the mark bit of static roots, 
+            # since they are not in the malloced_objects list
+            gc_info = curr.address[0] - size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+            hdr.typeid = hdr.typeid & (~1)
+        free_non_gc_object(roots)
+        # from this point onwards, no more mallocs should be possible
+        old_malloced = self.bytes_malloced
+        self.bytes_malloced = 0
+        while objects.non_empty():  #mark
+            curr = objects.pop()
+##             print "object: ", curr
+            gc_info = curr - size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+            if hdr.typeid & 1:
+                continue
+            typeid = hdr.typeid >> 1
+            offsets = self.offsets_to_gc_pointers(typeid)
+            i = 0
+            while i < len(offsets):
+                pointer = curr + offsets[i]
+                objects.append(pointer.address[0])
+                # -------------------------------------------------
+                # begin difference from collect
+                if pointer.address[0] == target_addr:
+                    pointer.address[0] == source_addr
+                # end difference from collect
+                # -------------------------------------------------
+                i += 1
+            if self.is_varsize(typeid):
+                offset = self.varsize_offset_to_variable_part(
+                    typeid)
+                length = (curr + self.varsize_offset_to_length(typeid)).signed[0]
+                curr += offset
+                offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+                itemlength = self.varsize_item_sizes(typeid)
+                i = 0
+                while i < length:
+                    item = curr + itemlength * i
+                    j = 0
+                    while j < len(offsets):
+                        objects.append((item + offsets[j]).address[0])
+                        # -------------------------------------------------
+                        # begin difference from collect
+                        pointer = item + offsets[j]
+                        if pointer.address[0] == target_addr:
+                            pointer.address[0] == source_addr
+                        ## end difference from collect
+                        # -------------------------------------------------
+                        j += 1
+                    i += 1
+            hdr.typeid = hdr.typeid | 1
+        objects.delete()
+        # also mark self.curpool
+        if self.curpool:
+            gc_info = llmemory.cast_ptr_to_adr(self.curpool) - size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+            hdr.typeid = hdr.typeid | 1
+
+        curr_heap_size = 0
+        freed_size = 0
+        firstpoolnode = lltype.malloc(self.POOLNODE, flavor='raw')
+        firstpoolnode.linkedlist = self.malloced_objects
+        firstpoolnode.nextnode = self.poolnodes
+        prevpoolnode = lltype.nullptr(self.POOLNODE)
+        poolnode = firstpoolnode
+        while poolnode:   #sweep
+            ppnext = lltype.direct_fieldptr(poolnode, 'linkedlist')
+            hdr = poolnode.linkedlist
+            while hdr:  #sweep
+                typeid = hdr.typeid >> 1
+                next = hdr.next
+                addr = llmemory.cast_ptr_to_adr(hdr)
+                size = self.fixed_size(typeid)
+                if self.is_varsize(typeid):
+                    length = (addr + size_gc_header + self.varsize_offset_to_length(typeid)).signed[0]
+                    size += self.varsize_item_sizes(typeid) * length
+                estimate = raw_malloc_usage(size_gc_header + size)
+                if hdr.typeid & 1:
+                    hdr.typeid = hdr.typeid & (~1)
+                    ppnext[0] = hdr
+                    ppnext = lltype.direct_fieldptr(hdr, 'next')
+                    curr_heap_size += estimate
+                else:
+                    freed_size += estimate
+                    raw_free(addr)
+                hdr = next
+            ppnext[0] = lltype.nullptr(self.HDR)
+            next = poolnode.nextnode
+            if not poolnode.linkedlist and prevpoolnode:
+                # completely empty node
+                prevpoolnode.nextnode = next
+                lltype.free(poolnode, flavor='raw')
+            else:
+                prevpoolnode = poolnode
+            poolnode = next
+        self.malloced_objects = firstpoolnode.linkedlist
+        self.poolnodes = firstpoolnode.nextnode
+        lltype.free(firstpoolnode, flavor='raw')
+
+        if curr_heap_size > self.bytes_malloced_threshold:
+            self.bytes_malloced_threshold = curr_heap_size
+        end_time = time.time()
+        self.total_collection_time += end_time - start_time
+        # warning, the following debug prints allocate memory to manipulate
+        # the strings!  so they must be at the end
+        if DEBUG_PRINT:
+            os.write(2, "  malloced since previous collection: %s bytes\n" %
+                     old_malloced)
+            os.write(2, "  heap usage at start of collection:  %s bytes\n" %
+                     (self.heap_usage + old_malloced))
+            os.write(2, "  freed:                              %s bytes\n" %
+                     freed_size)
+            os.write(2, "  new heap usage:                     %s bytes\n" %
+                     curr_heap_size)
+            os.write(2, "  total time spent collecting:        %s seconds\n" %
+                     self.total_collection_time)
+        assert self.heap_usage + old_malloced == curr_heap_size + freed_size
+        self.heap_usage = curr_heap_size
 
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
