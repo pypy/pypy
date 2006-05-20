@@ -903,7 +903,11 @@ class FrameworkGCTransformer(GCTransformer):
                                  annmodel.s_None,
                                  minimal_transform = False)
 
-        self.annotate_more_helpers(annhelper)
+        self.x_become_ptr = getfn(
+            GCClass.x_become.im_func,
+            [s_gc, annmodel.SomeAddress(), annmodel.SomeAddress()],
+            annmodel.s_None,
+            minimal_transform = False)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -920,9 +924,6 @@ class FrameworkGCTransformer(GCTransformer):
         for fldname in HDR._names:
             FLDTYPE = getattr(HDR, fldname)
             fields.append((fldname, FLDTYPE))
-
-    def annotate_more_helpers(self, annhelper):
-        pass
 
     def build_stack_root_iterator(self):
         gcdata = self.gcdata
@@ -1190,6 +1191,14 @@ class FrameworkGCTransformer(GCTransformer):
                                op.result)
         return [newop]
 
+    def replace_gc_x_become(self, op, livevars, block):
+        [v_target, v_source] = op.args
+        newop = SpaceOperation("direct_call",
+                               [self.x_become_ptr, self.c_const_gc,
+                                v_target, v_source],
+                               op.result)
+        return [newop]
+
     def push_alive_nopyobj(self, var):
         return []
 
@@ -1275,9 +1284,6 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
         self.replace_and_inline_malloc_already_now()
         # nothing left to inline during code generation
         self.inline = False
-
-    def annotate_more_helpers(self, annhelper):
-        pass
 
     def replace_and_inline_malloc_already_now(self):
         for graph in self.translator.graphs:

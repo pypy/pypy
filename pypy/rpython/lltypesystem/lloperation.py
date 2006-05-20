@@ -321,6 +321,11 @@ LL_OPERATIONS = {
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,)),
     'gc_x_clone':           LLOp(canraise=(MemoryError,)),
+    # this one is even more experimental; only implemented with the
+    # Mark&Sweep GC, and likely only useful when combined with
+    # stackless:
+    'gc_x_become':          LLOp(canraise=(RuntimeError,)),
+    
 
     # __________ stackless operation(s) __________
 

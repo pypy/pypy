@@ -334,6 +334,23 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
         class transformerclass(gctransform.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
 
+    def test_x_become(self):
+        S = lltype.GcStruct("S", ('x', lltype.Signed))
+        def f():
+            x = lltype.malloc(S)
+            x.x = 10
+            y = lltype.malloc(S)
+            y.x = 20
+            z = x
+            llop.gc_x_become(lltype.Void,
+                             llmemory.cast_ptr_to_adr(x),
+                             llmemory.cast_ptr_to_adr(y))
+            return z.x
+        run = self.runner(f)
+        res = run([])
+        # not implemented yet!
+        #assert res == 20 
+
     def test_tree_cloning(self):
         py.test.skip("aaaaaaaaaaaaaaaaaaaaaaargh later")
         import os

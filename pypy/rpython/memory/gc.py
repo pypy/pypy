@@ -455,6 +455,8 @@ class MarkSweepGC(GCBase):
         # reinstall the pool that was current at the beginning of x_clone()
         clonedata.pool = self.x_swap_pool(curpool)
 
+    def x_become(self, target_addr, source_addr):
+        pass
 
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
