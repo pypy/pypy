@@ -12,6 +12,6 @@ class Module(MixedModule):
         'func_new'     : 'maker.func_new',
         'module_new'   : 'maker.module_new',
         'method_new'   : 'maker.method_new',
-        'dictiter_new' : 'maker.dictiter_new',
+        'dictiter_surrogate_new' : 'maker.dictiter_surrogate_new',
         'seqiter_new'  : 'maker.seqiter_new',
     }

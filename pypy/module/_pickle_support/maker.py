@@ -35,17 +35,11 @@ def method_new(space, __args__):
     return space.call_args(w_type, __args__)
 method_new.unwrap_spec = [ObjSpace, Arguments]
 
-def dictiter_new(space, __args__):
-    from pypy.objspace.std.dictobject import W_DictIterObject
-    #print "dictiter_new here 1)", space, w_dictitertype, __args__
-    w_type = space.gettypeobject(dictiter_typedef)
-    w_obj = space.allocate_instance(W_DictIterObject, w_type)
-    #print "dictiter_new here 2)", w_obj
-    # XXX W_DictIterObject.__init__(w_obj, space)
-    # this is wrong, but we need to produce something different, anyway
-    #print "dictiter_new here 3)", w_obj
-    return w_obj
-dictiter_new.unwrap_spec = [ObjSpace, Arguments]
+def dictiter_surrogate_new(space, w_lis):
+    # we got a listobject.
+    # simply create an iterator and that's it.
+    return space.iter(w_lis)
+dictiter_surrogate_new.unwrap_spec = [ObjSpace, W_Root]
 
 #XXX this doesn't work yet
 def seqiter_new(space, w_seqitertype, __args__):

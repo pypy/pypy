@@ -190,12 +190,14 @@ class AppTestInterpObjectPickling:
         assert liter == result
     
     def test_pickle_dictiter(self):
-        skip("work in progress")
         import pickle
-        diter  = iter({})
+        tdict = {'2':2, '3':3, '5':5}
+        diter  = iter(tdict)
+        diter.next()
         pckl   = pickle.dumps(diter)
         result = pickle.loads(pckl)
-        assert diter == result
+        assert len(diter) == 2
+        assert list(diter) == list(result)
     
     def test_pickle_enum(self):
         import pickle
