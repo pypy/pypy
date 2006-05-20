@@ -25,7 +25,8 @@ class Tee(object):
                 outfile.close()
 
 class GenCli(object):
-    def __init__(self, tmpdir, translator, entrypoint = None , type_system_class = CTS , opcode_dict = opcodes ):
+    def __init__(self, tmpdir, translator, entrypoint = None, type_system_class = CTS, \
+        opcode_dict = opcodes, name_suffix = '.il' ):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
@@ -36,7 +37,7 @@ class GenCli(object):
         else:
             self.assembly_name = entrypoint.get_name()
 
-        self.tmpfile = tmpdir.join(self.assembly_name + '.il')
+        self.tmpfile = tmpdir.join(self.assembly_name + name_suffix)
 
     def generate_source(self , asm_class = IlasmGenerator ):
         out = self.tmpfile.open('w')
