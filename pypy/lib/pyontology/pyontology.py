@@ -385,6 +385,7 @@ class Ontology:
         return Solver().solve(rep, verbose)
     
     def consistency(self, verbose=0):
+        self.check_TBoxes()
         self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
         self.rep.consistency(verbose)
     
@@ -400,6 +401,7 @@ class Ontology:
             while lis != rdf_nil:
                 res.append(list(self.graph.objects(lis, rdf_first))[0])
                 lis = list(self.graph.objects(lis, rdf_rest))[0]
+            self.variables[avar].setValues(res)
         else:
             # For testing
             avar = self.make_var(List, BNode('anon_%r'%rdf_list))
@@ -420,6 +422,7 @@ class Ontology:
         if not var in builtin_voc :
             # var is not one of the builtin classes
             svar = self.make_var(self.variables[avar].__class__, s)
+            self.variables[avar].addValue(s)
         else:
             # var is a builtin class
             cls = builtin_voc[var]
@@ -433,7 +436,7 @@ class Ontology:
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
-        self.variables[avar].addValue(svar)
+        self.variables[avar].addValue(s)
     
     def first(self, s, var):
         pass
@@ -499,6 +502,7 @@ class Ontology:
     
     def oneOf(self, s, var):
         var = self.flatten_rdf_list(var)
+        print "*******", var, type(var), self.variables[var]
         #avar = self.make_var(List, var)
         svar = self.make_var(ClassDomain, s)
         res = self.variables[var].getValues()
@@ -586,9 +590,9 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
-#        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1] < int(%s))" %(prop, cls_name, prop, var)
-#        constrain = Expression([prop], formula)
-#        self.constraints.append(constrain)
+        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1]) < int(%s)" %(prop, cls_name, prop, var)
+        constrain = Expression([prop, cls_name, prop, var], formula)
+        self.constraints.append(constrain)
 
         for cls,vals in self.variables[prop].getValuesPrKey():
             if len(vals) < int(var):
