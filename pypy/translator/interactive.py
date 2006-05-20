@@ -105,6 +105,8 @@ class Translation(object):
                 if getattr(self.driver.options, optname) != value:
                      raise Exception("inconsistent option supplied: %s" % optname)
             else:
+                if not hasattr(self.driver.options, optname):
+                    raise TypeError('driver has no option %r' % (optname,))
                 setattr(self.driver.options, optname, value)
                 self.frozen_options[optname] = True
 
