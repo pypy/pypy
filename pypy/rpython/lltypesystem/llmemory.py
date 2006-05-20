@@ -219,6 +219,10 @@ class _arrayitemref(object):
         return self.array[self.index]
     def set(self, value):
         self.array[self.index] = value
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        return self.array is other.array and self.index == other.index
     def type(self):
         return lltype.typeOf(self.array).TO.OF
 
@@ -230,6 +234,10 @@ class _arraylenref(object):
     def set(self, value):
         if value != len(self.array):
             raise Exception("can't change the length of an array")
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        return self.array is other.array
     def type(self):
         return lltype.Signed
 
@@ -241,6 +249,10 @@ class _structfieldref(object):
         return getattr(self.struct, self.fieldname)
     def set(self, value):
         setattr(self.struct, self.fieldname, value)
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        return self.struct is other.struct and self.fieldname == other.fieldname
     def type(self):
         return getattr(lltype.typeOf(self.struct).TO, self.fieldname)
 
@@ -251,6 +263,10 @@ class _obref(object):
         return self.ob
     def set(self, value):
         raise Exception("can't assign to whole object")
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        return self.ob is other.ob
     def type(self):
         return lltype.typeOf(self.ob)
 
@@ -323,10 +339,7 @@ class fakeaddress(object):
             return other.ob is None
         if other.ob is None:
             return False
-        ref1 = self.ref()
-        ref2 = other.ref()
-        return (ref1.__class__ is ref2.__class__ and
-                ref1.__dict__ == ref2.__dict__)
+        return self.ref() == other.ref()
 
     def __ne__(self, other):
         return not (self == other)

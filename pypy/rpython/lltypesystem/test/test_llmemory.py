@@ -85,6 +85,24 @@ def test_cast_adr_to_ptr():
     res = interpret(f, [])
     assert res
 
+def test_fakeaddress_equality():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    T = lltype.GcStruct('T', ('y', lltype.Signed))
+
+    s1 = lltype.malloc(S)
+    s1.x = 1
+    s2 = lltype.malloc(S)
+    s2.x = 1
+    t = lltype.malloc(T)
+    t.y = 1
+
+    a1s1, a2s1, as2, at = map(cast_ptr_to_adr, [s1, s1, s2, t])
+    assert a1s1 == a2s1
+    assert a1s1 != as2
+    assert a1s1 != at
+    assert as2 != at
+    
+
 def test_cast_adr_to_int():
     from pypy.rpython.memory.test.test_llinterpsim import interpret
     S = lltype.GcStruct("S", ("x", lltype.Signed))
