@@ -903,6 +903,8 @@ class FrameworkGCTransformer(GCTransformer):
                                  annmodel.s_None,
                                  minimal_transform = False)
 
+        self.annotate_more_helpers(annhelper)
+
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
 
@@ -918,6 +920,9 @@ class FrameworkGCTransformer(GCTransformer):
         for fldname in HDR._names:
             FLDTYPE = getattr(HDR, fldname)
             fields.append((fldname, FLDTYPE))
+
+    def annotate_more_helpers(self, annhelper):
+        pass
 
     def build_stack_root_iterator(self):
         gcdata = self.gcdata
@@ -1270,6 +1275,9 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
         self.replace_and_inline_malloc_already_now()
         # nothing left to inline during code generation
         self.inline = False
+
+    def annotate_more_helpers(self, annhelper):
+        pass
 
     def replace_and_inline_malloc_already_now(self):
         for graph in self.translator.graphs:
