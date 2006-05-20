@@ -12,8 +12,12 @@ import sys
 int_size = lltypesimulation.sizeof(lltype.Signed)
 gc_header_two_ints = 2*int_size
 
+X_POOL = lltype.GcOpaqueType('gc.pool')
+X_POOL_PTR = lltype.Ptr(X_POOL)
 X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
-                                       ('malloced_list', llmemory.Address))
+                                       ('pool',        X_POOL_PTR))
+X_CLONE_PTR = lltype.Ptr(X_CLONE)
+
 
 class GCError(Exception):
     pass
@@ -114,6 +118,9 @@ class MarkSweepGC(GCBase):
     HDR.become(lltype.Struct('header', ('typeid', lltype.Signed),
                                        ('next', HDRPTR)))
 
+    POOL = lltype.GcStruct('gc_pool')
+    POOLPTR = lltype.Ptr(POOL)
+
     def __init__(self, AddressLinkedList, start_heap_size=4096, get_roots=None):
         self.heap_usage = 0          # at the end of the latest collection
         self.bytes_malloced = 0      # since the latest collection
@@ -122,6 +129,7 @@ class MarkSweepGC(GCBase):
         self.AddressLinkedList = AddressLinkedList
         #self.set_query_functions(None, None, None, None, None, None, None)
         self.malloced_objects = lltype.nullptr(self.HDR)
+        self.curpool = lltype.nullptr(self.POOL)
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
 
@@ -255,8 +263,8 @@ class MarkSweepGC(GCBase):
             self.bytes_malloced_threshold = curr_heap_size
         end_time = time.time()
         self.total_collection_time += end_time - start_time
-        # warning, the following debug print allocates memory to manipulate
-        # the strings!  so it must be at the end
+        # warning, the following debug prints allocate memory to manipulate
+        # the strings!  so they must be at the end
         if DEBUG_PRINT:
             os.write(2, "  malloced since previous collection: %s bytes\n" %
                      old_malloced)
@@ -285,24 +293,54 @@ class MarkSweepGC(GCBase):
     init_gc_object_immortal = init_gc_object
 
     # experimental support for thread cloning
-    def x_swap_list(self, malloced_list):
-        # Swap the current malloced_objects linked list with another one.
-        # All malloc'ed objects are put into the current malloced_objects
-        # list; this is a way to separate objects depending on when they
-        # were allocated.
-        current = llmemory.cast_ptr_to_adr(self.malloced_objects)
-        self.malloced_objects = llmemory.cast_adr_to_ptr(malloced_list,
-                                                         self.HDRPTR)
-        return current
+    def x_swap_pool(self, newpool):
+        # Set newpool as the current pool (create one if newpool == NULL).
+        # All malloc'ed objects are put into the current pool;this is a
+        # way to separate objects depending on when they were allocated.
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        # invariant: each POOL GcStruct is at the _front_ of a linked list
+        # of malloced objects.
+        oldpool = self.curpool
+        if not oldpool:
+            # make a fresh pool object, which is automatically inserted at the
+            # front of the current list
+            oldpool = lltype.malloc(self.POOL)
+        else:
+            # manually insert oldpool at the front of the current list
+            addr = llmemory.cast_ptr_to_adr(oldpool)
+            addr -= size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+            hdr.next = self.malloced_objects
+
+        newpool = lltype.cast_opaque_ptr(self.POOLPTR, newpool)
+        if newpool:
+            # newpool is at the front of the new linked list to install
+            addr = llmemory.cast_ptr_to_adr(newpool)
+            addr -= size_gc_header
+            hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+            self.malloced_objects = hdr.next
+        else:
+            # start a fresh new linked list
+            self.malloced_objects = lltype.nullptr(self.HDR)
+        # note that newpool will not be freed by a collect as long as
+        # it sits in self.malloced_objects_box, because it is not itself
+        # part of any linked list
+        self.curpool = newpool
+        return lltype.cast_opaque_ptr(X_POOL_PTR, oldpool)
 
     def x_clone(self, clonedata):
         # Recursively clone the gcobject and everything it points to,
         # directly or indirectly -- but stops at objects that are not
-        # in the malloced_list.  The gcobjectptr and the malloced_list
-        # fields of clonedata are adjusted to refer to the result.
+        # in the specified pool.  A new pool is built to contain the
+        # copies, and the 'gcobjectptr' and 'pool' fields of clonedata
+        # are adjusted to refer to the result.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         oldobjects = self.AddressLinkedList()
-        hdr = llmemory.cast_adr_to_ptr(clonedata.malloced_list, self.HDRPTR)
+        oldpool = lltype.cast_opaque_ptr(self.POOLPTR, clonedata.pool)
+        addr = llmemory.cast_ptr_to_adr(oldpool)
+        addr -= size_gc_header
+        hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+        hdr = hdr.next
         while hdr:
             next = hdr.next
             hdr.typeid |= 1    # mark all objects from malloced_list
@@ -348,8 +386,6 @@ class MarkSweepGC(GCBase):
             newobj_addr = llmemory.cast_ptr_to_adr(newhdr) + size_gc_header
             gcptr_addr.address[0] = newobj_addr
 
-        clonedata.malloced_list = llmemory.cast_ptr_to_adr(newobjectlist)
-
         # re-create the original linked list
         next = lltype.nullptr(self.HDR)
         while oldobjects.non_empty():
@@ -358,6 +394,12 @@ class MarkSweepGC(GCBase):
             hdr.next = next
             next = hdr
         oldobjects.delete()
+
+        # make the new pool object to collect newobjectlist
+        curpool = self.x_swap_pool(lltype.nullptr(X_POOL))
+        assert not self.malloced_objects
+        self.malloced_objects = newobjectlist
+        clonedata.pool = self.x_swap_pool(curpool)
 
 
 class SemiSpaceGC(GCBase):

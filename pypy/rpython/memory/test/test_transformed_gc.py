@@ -161,7 +161,7 @@ from pypy.rpython.memory import gctransform
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.support import INT_SIZE
-from pypy.rpython.memory.gc import X_CLONE
+from pypy.rpython.memory.gc import X_CLONE, X_POOL, X_POOL_PTR
 from pypy import conftest
 
 
@@ -304,18 +304,18 @@ class TestMarkSweepGC(GCTest):
             return a
         def func():
             a1 = make(111)
-            # start recording mallocs in a new list
-            oldlist = llop.gc_x_swap_list(llmemory.Address, llmemory.NULL)
+            # start recording mallocs in a new pool
+            oldpool = llop.gc_x_swap_pool(X_POOL_PTR, lltype.nullptr(X_POOL))
             # the following a2 goes into the new list
             a2 = make(222)
-            # now put the old list back and get the new list
-            newlist = llop.gc_x_swap_list(llmemory.Address, oldlist)
+            # now put the old pool back and get the new pool
+            newpool = llop.gc_x_swap_pool(X_POOL_PTR, oldpool)
             a3 = make(333)
             # clone a2
             a2ref = lltype.cast_opaque_ptr(llmemory.GCREF, a2)
             clonedata = lltype.malloc(X_CLONE)
             clonedata.gcobjectptr = a2ref
-            clonedata.malloced_list = newlist
+            clonedata.pool = newpool
             llop.gc_x_clone(lltype.Void, clonedata)
             a2copyref = clonedata.gcobjectptr
             a2copy = lltype.cast_opaque_ptr(lltype.Ptr(A), a2copyref)

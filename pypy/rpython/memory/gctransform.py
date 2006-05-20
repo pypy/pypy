@@ -844,9 +844,11 @@ class FrameworkGCTransformer(GCTransformer):
         
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
-        def getfn(ll_function, args_s, s_result, inline=False):
+        def getfn(ll_function, args_s, s_result, inline=False,
+                  minimal_transform=True):
             graph = annhelper.getgraph(ll_function, args_s, s_result)
-            self.need_minimal_transform(graph)
+            if minimal_transform:
+                self.need_minimal_transform(graph)
             if inline:
                 self.graphs_to_inline[graph] = True
             return annhelper.graph2const(graph)
@@ -888,13 +890,18 @@ class FrameworkGCTransformer(GCTransformer):
                                     [s_gc], annmodel.SomeTuple(statics_s))
 
         # experimental gc_x_* operations
-        self.x_swap_list_ptr = getfn(GCClass.x_swap_list.im_func,
-                                     [s_gc, annmodel.SomeAddress()],
-                                     annmodel.SomeAddress())
+        s_x_pool  = annmodel.SomePtr(gc.X_POOL_PTR)
+        s_x_clone = annmodel.SomePtr(gc.X_CLONE_PTR)
+        # the x_*() methods use some regular mallocs that must be
+        # transformed in the normal way
+        self.x_swap_pool_ptr = getfn(GCClass.x_swap_pool.im_func,
+                                     [s_gc, s_x_pool],
+                                     s_x_pool,
+                                     minimal_transform = False)
         self.x_clone_ptr = getfn(GCClass.x_clone.im_func,
-                                 [s_gc,
-                                  annmodel.SomePtr(lltype.Ptr(gc.X_CLONE))],
-                                 annmodel.s_None)
+                                 [s_gc, s_x_clone],
+                                 annmodel.s_None,
+                                 minimal_transform = False)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -1162,10 +1169,10 @@ class FrameworkGCTransformer(GCTransformer):
                                         block.operations.index(op))
         return ops
 
-    def replace_gc_x_swap_list(self, op, livevars, block):
+    def replace_gc_x_swap_pool(self, op, livevars, block):
         [v_malloced] = op.args
         newop = SpaceOperation("direct_call",
-                               [self.x_swap_list_ptr, self.c_const_gc,
+                               [self.x_swap_pool_ptr, self.c_const_gc,
                                                       v_malloced],
                                op.result)
         return [newop]
