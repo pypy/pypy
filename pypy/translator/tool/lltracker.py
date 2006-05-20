@@ -126,8 +126,12 @@ def track(*ll_objects):
             size_gc_header = ll_object
             continue
         if isinstance(lltype.typeOf(ll_object), lltype.Ptr):
-            ll_object = lltype.normalizeptr(ll_object)._obj
-        if ll_object not in lst:
+            ptr = lltype.normalizeptr(ll_object)
+            if ptr is not None:
+                ll_object = ptr._obj
+            else:
+                ll_object = None
+        if ll_object is not None and ll_object not in lst:
             lst.append(ll_object)
     page = LLRefTrackerPage(lst, size_gc_header)
     if len(lst) == 2:
