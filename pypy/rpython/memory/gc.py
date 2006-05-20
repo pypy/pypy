@@ -267,7 +267,8 @@ class MarkSweepGC(GCBase):
         prevpoolnode = lltype.nullptr(self.POOLNODE)
         poolnode = firstpoolnode
         while poolnode:   #sweep
-            ppnext = lltype.direct_fieldptr(poolnode, 'linkedlist')
+            ppnext = llmemory.cast_ptr_to_adr(poolnode)
+            ppnext += llmemory.offsetof(self.POOLNODE, 'linkedlist')
             hdr = poolnode.linkedlist
             while hdr:  #sweep
                 typeid = hdr.typeid >> 1
@@ -280,14 +281,15 @@ class MarkSweepGC(GCBase):
                 estimate = raw_malloc_usage(size_gc_header + size)
                 if hdr.typeid & 1:
                     hdr.typeid = hdr.typeid & (~1)
-                    ppnext[0] = hdr
-                    ppnext = lltype.direct_fieldptr(hdr, 'next')
+                    ppnext.address[0] = addr
+                    ppnext = llmemory.cast_ptr_to_adr(hdr)
+                    ppnext += llmemory.offsetof(self.HDR, 'next')
                     curr_heap_size += estimate
                 else:
                     freed_size += estimate
                     raw_free(addr)
                 hdr = next
-            ppnext[0] = lltype.nullptr(self.HDR)
+            ppnext.address[0] = llmemory.NULL
             next = poolnode.nextnode
             if not poolnode.linkedlist and prevpoolnode:
                 # completely empty node
