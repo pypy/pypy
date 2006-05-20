@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
 from pypy.rpython import rarithmetic, rclass, rmodel
 from pypy.translator.backendopt import support
 from pypy.objspace.flow import model
@@ -97,9 +98,9 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
         self.stackless_gc = stackless_gc
 
     def operation_is_true(self, op):
-        return (op.opname == 'yield_current_frame_to_caller' or
-                self.stackless_gc and (op.opname.startswith('malloc')
-                                       or op.opname == 'gc__collect'))
+        if op.opname == 'yield_current_frame_to_caller':
+            return True
+        return self.stackless_gc and LL_OPERATIONS[op.opname].canunwindgc
 
     def analyze_external_call(self, op):
         callable = op.args[0].value._obj._callable

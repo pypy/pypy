@@ -327,42 +327,17 @@ class TestMarkSweepGC(GCTest):
         res = run([])
         assert res == 111222333
 
-
-class TestStacklessMarkSweepGC(TestMarkSweepGC):
-
-    class gcpolicy(gc.StacklessFrameworkGcPolicy):
-        class transformerclass(gctransform.StacklessFrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 4096 }
-
-    def test_x_become(self):
-        py.test.skip('fails mysteriously')
-        S = lltype.GcStruct("S", ('x', lltype.Signed))
-        def f():
-            x = lltype.malloc(S)
-            x.x = 10
-            y = lltype.malloc(S)
-            y.x = 20
-            z = x
-            #llop.gc__collect(lltype.Void)
-            llop.gc_x_become(lltype.Void,
-                             llmemory.cast_ptr_to_adr(x),
-                             llmemory.cast_ptr_to_adr(y))
-            return z.x
-        run = self.runner(f)
-        res = run([])
-        # not implemented yet!
-        assert res == 20 
-
     def test_tree_cloning(self):
-        py.test.skip("aaaaaaaaaaaaaaaaaaaaaaargh later")
         import os
         # this makes a tree of calls.  Each leaf stores its path (a linked
         # list) in 'result'.  Paths are mutated in-place but the leaves don't
         # see each other's mutations because of x_clone.
+        STUFF = lltype.FixedSizeArray(lltype.Signed, 21)
         NODE = lltype.GcForwardReference()
         NODE.become(lltype.GcStruct('node', ('index', lltype.Signed),
                                             ('counter', lltype.Signed),
-                                            ('next', lltype.Ptr(NODE))))
+                                            ('next', lltype.Ptr(NODE)),
+                                            ('use_some_space', STUFF)))
         PATHARRAY = lltype.GcArray(lltype.Ptr(NODE))
         clonedata = lltype.malloc(X_CLONE)
 
@@ -390,22 +365,23 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
             # The above should have the same effect as:
             #    path = clone(path)
 
-            # bump all the path's counters by one
+            # bump all the path node counters by one
             p = path
             while p:
                 p.counter += 1
                 p = p.next
 
             if remaining_depth == 0:
+                llop.debug_print(lltype.Void, "setting", index, "with", path)
                 result[index] = path   # leaf
             else:
                 node = lltype.malloc(NODE)
                 node.index = index * 2
                 node.counter = 0
                 node.next = path
-                do_call(result, node, node.index, remaining_depth - 1)
+                do_call(result, node, index * 2, remaining_depth - 1)
                 node.index += 1    # mutation!
-                do_call(result, node, node.index, remaining_depth - 1)
+                do_call(result, node, index * 2 + 1, remaining_depth - 1)
 
             # restore the parent pool
             llop.gc_x_swap_pool(X_POOL_PTR, parentpool)
@@ -424,13 +400,42 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
             os.write(2, 'building tree... ')
             do_call(result, lltype.nullptr(NODE), 0, depth)
             os.write(2, 'checking tree... ')
+            #from pypy.rpython.lltypesystem.lloperation import llop
+            #llop.debug_view(lltype.Void, result,
+            #                llop.gc_x_size_header(lltype.Signed))
             for i in range(1 << depth):
                 check(result[i], i, 0, depth)
             os.write(2, 'ok\n')
             return 1
         run = self.runner(func, nbargs=2)
-        res = run([5, 0])
+        res = run([3, 0])
         assert res == 1
+
+
+class TestStacklessMarkSweepGC(TestMarkSweepGC):
+
+    class gcpolicy(gc.StacklessFrameworkGcPolicy):
+        class transformerclass(gctransform.StacklessFrameworkGCTransformer):
+            GC_PARAMS = {'start_heap_size': 4096 }
+
+    def test_x_become(self):
+        py.test.skip('fails less mysteriously')
+        S = lltype.GcStruct("S", ('x', lltype.Signed))
+        def f():
+            x = lltype.malloc(S)
+            x.x = 10
+            y = lltype.malloc(S)
+            y.x = 20
+            z = x
+            #llop.gc__collect(lltype.Void)
+            llop.gc_x_become(lltype.Void,
+                             llmemory.cast_ptr_to_adr(x),
+                             llmemory.cast_ptr_to_adr(y))
+            return z.x
+        run = self.runner(f)
+        res = run([])
+        # not implemented yet!
+        assert res == 20 
 
 class TestSemiSpaceGC(TestMarkSweepGC):
 

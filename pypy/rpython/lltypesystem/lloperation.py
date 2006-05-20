@@ -7,7 +7,8 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 
 class LLOp(object):
 
-    def __init__(self, sideeffects=True, canfold=False, canraise=(), pyobj=False):
+    def __init__(self, sideeffects=True, canfold=False, canraise=(),
+                 pyobj=False, canunwindgc=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -27,6 +28,13 @@ class LLOp(object):
 
         # The operation manipulates PyObjects
         self.pyobj = pyobj
+
+        # The operation can unwind the stack in a stackless gc build
+        self.canunwindgc = canunwindgc
+        if canunwindgc:
+            if (StackException not in self.canraise and
+                Exception not in self.canraise):
+                self.canraise += (StackException,)
 
     # __________ make the LLOp instances callable from LL helpers __________
 
@@ -254,8 +262,8 @@ LL_OPERATIONS = {
 
     # __________ pointer operations __________
 
-    'malloc':               LLOp(canraise=(MemoryError,)),
-    'malloc_varsize':       LLOp(canraise=(MemoryError,)),
+    'malloc':               LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'malloc_varsize':       LLOp(canraise=(MemoryError,), canunwindgc=True),
     'flavored_malloc':      LLOp(canraise=(MemoryError,)),
     'flavored_free':        LLOp(),
     'getfield':             LLOp(sideeffects=False),
@@ -307,7 +315,7 @@ LL_OPERATIONS = {
 
     # __________ GC operations __________
 
-    'gc__collect':          LLOp(canraise=(Exception,)),
+    'gc__collect':          LLOp(canunwindgc=True),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
@@ -319,21 +327,21 @@ LL_OPERATIONS = {
     'gc_reload_possibly_moved': LLOp(),
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
-    'gc_x_swap_pool':       LLOp(canraise=(Exception,)),
-    'gc_x_clone':           LLOp(canraise=(Exception,)),
+    'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'gc_x_clone':           LLOp(canraise=(MemoryError,), canunwindgc=True),
     'gc_x_size_header':     LLOp(),
     # this one is even more experimental; only implemented with the
     # Mark&Sweep GC, and likely only useful when combined with
     # stackless:
-    'gc_x_become':          LLOp(canraise=(Exception,)),
+    'gc_x_become':          LLOp(canraise=(RuntimeError,), canunwindgc=True),
 
-    # NOTE NOTE NOTE! don't forget *** canraise=StackException *** or
-    # possibly Exception for anything that can unwind the stack, in
-    # particular anything that mallocs!
+    # NOTE NOTE NOTE! don't forget *** canunwindgc=True *** for anything that
+    # can go through a stack unwind, in particular anything that mallocs!
 
     # __________ stackless operation(s) __________
 
     'yield_current_frame_to_caller': LLOp(canraise=(StackException,)),
+    #                               can always unwind, not just if stackless gc
 
     # __________ misc operations __________
 
