@@ -394,6 +394,9 @@ class fakeaddress(object):
 class NullAddressError(Exception):
     pass
 
+class DanglingPointerError(Exception):
+    pass
+
 NULL = fakeaddress(None)
 NULL.intaddress = 0      # this is to make memory.lladdress more happy
 Address = lltype.Primitive("Address", NULL)
@@ -485,7 +488,7 @@ class fakeweakaddress(object):
             return None
         ob = self.ref()
         if ob is None:
-            raise NullAddressError
+            raise DanglingPointerError
         return ob
     def __repr__(self):
         if self.ref is None:
