@@ -36,7 +36,8 @@ __version__ = '1.0'
 # clock() values. You can use option -w to speedup the tests
 # by a fixed integer factor (the "warp factor").
 #
-
+import autopath
+from py.xml import html
 import sys,time,operator
 from CommandLine import *
 
@@ -262,40 +263,41 @@ class Benchmark:
 
     def html_stat(self, compare_to=None, hidenoise=0):
 
-        import autopath
-        from py.xml import html
 
         if not compare_to:
             table = html.table(
                         html.thead(
                             html.tr(
-                                [ html.th(x,  align='left', mochi_format = y)
+                                [ html.th(x, **{'mochi:format': y, 'align':'left'})
                             for (x,y) in [('Tests','str'), ('per run','float'),
                                   ('per oper.', 'float'), ('overhead', 'float')]])
                                     ),id = "sortable_table")
                                
             tests = self.tests.items()
             tests.sort()
+            tbody = html.tbody()
             for name,t in tests:
                 avg,op_avg,ov_avg = t.stat()
-                table.append(html.tr( html.td(name),
-                                      html.td((avg*1000.0),
+                tbody.append(html.tr( html.td(name),
+                                      html.td(avg*1000.0),
                                       html.td(op_avg*1000000.0),
-                                      html.td(ov_avg*1000.0))
+                                      html.td(ov_avg*1000.0)
                                     ))
-                table.append(html.tr(
+            table.append(tbody)
+            table.append(html.tr(
                                     'Average round time %s' % (self.roundtime * 1000.0))
                                             )
             return table
-        else:
+        elif isinstance(compare_to, Benchmark):
             table = html.table(html.thead(
-                      html.tr([ html.th(x,  align='left', mochi_format = y)
+                      html.tr([ html.th(x, **{'mochi:format': y, 'align':'left'})
                           for (x,y) in [('Tests','str'), ('per run','float'),
-                             ('per oper.', 'float'), ('diff', 'float')]]),
-                             id = "sortable_table"))
+                             ('per oper.', 'float'), ('diff', 'float')]])),
+                             id = "sortable_table", class_="datagrid")
             tests = self.tests.items()
             tests.sort()
             compatible = 1
+            tbody = html.tbody()
             for name,t in tests:
                 avg,op_avg,ov_avg = t.stat()
                 try:
@@ -313,11 +315,59 @@ class Benchmark:
                 else:
                     qavg,qop_avg = 'n/a', 'n/a'
                     compatible = 0
-                table.append(html.tr( html.td(name),
-                                      html.td((avg*1000.0),
+                tbody.append(html.tr( html.td(name),
+                                      html.td(avg*1000.0),
                                       html.td(op_avg*1000000.0),
                                       html.td(qop_avg)
-                                    )))
+                                    ))
+            if compatible and compare_to.roundtime > 0 and \
+               compare_to.version == self.version:
+                tbody.append(html.tr(
+                                 html.td('Average round time'),
+                                 html.td(self.roundtime * 1000.0),
+                                 html.td(''),
+                                 html.td('%+7.2f%%'% (((self.roundtime*self.warp)/ 
+                                        (compare_to.roundtime*compare_to.warp)-1.0)*100.0)
+                                        )))
+                                    
+            else:
+                tbody.append(html.tr(
+                                    html.td('Average round time'),
+                                    html.td(self.roundtime * 1000.0)))
+            table.append(tbody)
+            return table
+        else:
+            table = html.table(html.thead(
+                      html.tr([ html.th(x, **{'mochi:format': y, 'align':'left'})
+                          for (x,y) in [('Tests','str')]+[('pypy ver','float') for z in compare_to]
+                             ])),
+                             id = "sortable_table")
+            tests = self.tests.items()
+            tests.sort()
+            compatible = 1
+            for name,t in tests:
+                avg,op_avg,ov_avg = t.stat()
+                percent = []
+                for comp_to in compare_to:
+                    try:
+                        other = comp_to.tests[name]
+                    except KeyError:
+                        other = None
+                    if other and other.version == t.version and \
+                            other.operations == t.operations:
+                        avg1,op_avg1,ov_avg1 = other.stat()
+                        qop_avg = (op_avg/op_avg1-1.0)*100.0
+                        if hidenoise and abs(qop_avg) < 10:
+                            qop_avg = ''
+                        else:
+                            qop_avg = '%+7.2f%%' % qop_avg
+                    else:
+                        qavg,qop_avg = 'n/a', 'n/a'
+                        compatible = 0
+                    percent.append(qop_avg)
+                table.append(html.tr( html.td(name),
+                                      [html.td(qop_avg) for qop_avg in percent]
+                                    ))
             if compatible and compare_to.roundtime > 0 and \
                compare_to.version == self.version:
                 table.append(html.tr(
@@ -346,6 +396,31 @@ def print_machine():
         buildno, buildate = platform.python_build()
         print '   Build:        %s (#%i)' % (buildate, buildno)
 
+class Document(object): 
+    
+    def __init__(self, title=None): 
+
+        self.body = html.body()
+        self.head = html.head()
+        self.doc = html.html(self.head, self.body)
+        if title is not None: 
+            self.head.append(
+                html.meta(name="title", content=title))
+        self.head.append(
+            html.link(rel="Stylesheet", type="text/css", href="MochiKit-1.1/examples/sortable_tables/sortable_tables.css"))
+        self.head.append(
+	            html.script(rel="JavaScript", type="text/javascript", src="MochiKit-1.1/lib/MochiKit/MochiKit.js"))
+        self.head.append(
+            html.script(rel="JavaScript", type="text/javascript", src="MochiKit-1.1/examples/sortable_tables/sortable_tables.js"))
+
+    def writetopath(self, p): 
+        assert p.ext == '.html'
+        self.head.append(
+            html.meta(name="Content-Type", content="text/html;charset=UTF-8")
+        )
+        s = self.doc.unicode().encode('utf-8')
+        p.write(s) 
+
 class PyBenchCmdline(Application):
 
     header = ("PYBENCH - a benchmark test suite for Python "
@@ -356,6 +431,7 @@ class PyBenchCmdline(Application):
     options = [ArgumentOption('-n','number of rounds',Setup.Number_of_rounds),
                ArgumentOption('-f','save benchmark to file arg',''),
                ArgumentOption('-c','compare benchmark with the one in file arg',''),
+               ArgumentOption('-l','compare benchmark with the ones in the files arg',''),
                ArgumentOption('-s','show benchmark in file arg, then exit',''),
                ArgumentOption('-w','set warp factor to arg',Setup.Warp_factor),
                SwitchOption('-d','hide noise in compares', 0),
@@ -381,11 +457,12 @@ python pybench.py -s p15 -c p14
         reportfile = self.values['-f']
         show_bench = self.values['-s']
         compare_to = self.values['-c']
+        compare_to_many = self.values['-l']
         hidenoise = self.values['-d']
         warp = self.values['-w']
         nogc = self.values['--no-gc']
         html = self.values['-x']
-        
+
         # Switch off GC
         if nogc:
             try:
@@ -400,7 +477,7 @@ python pybench.py -s p15 -c p14
         print
 
         if not compare_to:
-            print_machine()
+            #print_machine()
             print
 
         if compare_to:
@@ -423,11 +500,15 @@ python pybench.py -s p15 -c p14
                 print 'Benchmark: %s (rounds=%i, warp=%i)' % \
                       (bench.name,bench.rounds,bench.warp)
                 print
+                print "*******************************************"
                 if html:
+                    print "Generating HTML"
+                    import py.path
+                    index = py.path.local('index.html')
                     table = bench.html_stat(compare_to, hidenoise)
-                    f = open('index.html','w')
-                    print >>f,table.unicode()
-                    f.close()
+                    doc = Document()
+                    doc.body.append(table)
+                    doc.writetopath(index)
                 else:
                     bench.print_stat(compare_to, hidenoise)
             except IOError:
@@ -456,6 +537,14 @@ python pybench.py -s p15 -c p14
             print
             return
         bench.print_stat(compare_to)
+        if html:
+            print "Generating HTML"
+            import py.path
+            index = py.path.local('index.html')
+            table = bench.html_stat(compare_to, hidenoise)
+            doc = Document()
+            doc.body.append(table)
+            doc.writetopath(index)
         # ring bell
         sys.stderr.write('\007')
 
