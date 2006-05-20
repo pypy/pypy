@@ -735,7 +735,8 @@ def gc_pointers_inside(v, adr):
 
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
-        return op.opname in ("malloc", "malloc_varsize", "gc__collect")
+        return op.opname in ("malloc", "malloc_varsize", "gc__collect",
+                             "gc_x_become")
 
 class FrameworkGCTransformer(GCTransformer):
     use_stackless = False
@@ -906,8 +907,7 @@ class FrameworkGCTransformer(GCTransformer):
         self.x_become_ptr = getfn(
             GCClass.x_become.im_func,
             [s_gc, annmodel.SomeAddress(), annmodel.SomeAddress()],
-            annmodel.s_None,
-            minimal_transform = False)
+            annmodel.s_None)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
