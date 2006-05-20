@@ -44,6 +44,14 @@ class LLRefTrackerPage(BaseRefTrackerPage):
     def newpage(self, objectlist):
         return self.__class__(objectlist, self.size_gc_header)
 
+    def normalize(self, o):
+        if self.size_gc_header is not None:
+            try:
+                return header2obj[o]._obj
+            except (KeyError, TypeError):
+                pass
+        return o
+
     def enum_content(self, o, name='', with_header=True):
         # XXX clean up
         T = lltype.typeOf(o)
@@ -67,7 +75,6 @@ class LLRefTrackerPage(BaseRefTrackerPage):
             if gcobjptr:
                 GCT = lltype.typeOf(gcobjptr)
                 if self.size_gc_header is not None:
-                    yield 'header of', '<%s>' % (shorttypename(GCT.TO),)
                     for sub in self.enum_content(gcobjptr._obj,
                                                  with_header=False):
                         yield sub
@@ -83,7 +90,7 @@ class LLRefTrackerPage(BaseRefTrackerPage):
             if not o:
                 yield name, 'null'
             else:
-                yield name, lltype.normalizeptr(o)._obj
+                yield name, self.normalize(lltype.normalizeptr(o)._obj)
         elif isinstance(T, lltype.OpaqueType) and hasattr(o, 'container'):
             T = lltype.typeOf(o.container)
             yield 'container', '<%s>' % (shorttypename(T),)
@@ -98,9 +105,9 @@ class LLRefTrackerPage(BaseRefTrackerPage):
                 if (isinstance(T1, lltype.Ptr) and
                     isinstance(T1.TO, lltype.Struct) and
                     addrof._obj in header2obj):
-                    yield name + ' @hdr', addrof._obj
+                    yield name + ' @hdr', self.normalize(addrof._obj)
                 else:
-                    yield name + ' @', o.ob._obj
+                    yield name + ' @', self.normalize(o.ob._obj)
                     if o.offset:
                         yield '... offset', str(o.offset)
         else:
