@@ -405,6 +405,15 @@ class LLFrame(object):
         from pypy.translator.tool.lltracker import track
         track(*ll_objects)
 
+    def op_debug_print(self, *ll_args):
+        from pypy.rpython.lltypesystem.rstr import STR
+        for arg in ll_args:
+            T = lltype.typeOf(arg)
+            if T == lltype.Ptr(STR):
+                arg = ''.join(arg.chars)
+            print arg,
+        print
+
     def op_keepalive(self, value):
         pass
 

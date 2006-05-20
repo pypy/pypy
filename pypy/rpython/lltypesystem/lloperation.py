@@ -319,13 +319,17 @@ LL_OPERATIONS = {
     'gc_reload_possibly_moved': LLOp(),
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
-    'gc_x_swap_pool':       LLOp(canraise=(MemoryError,)),
-    'gc_x_clone':           LLOp(canraise=(MemoryError,)),
+    'gc_x_swap_pool':       LLOp(canraise=(Exception,)),
+    'gc_x_clone':           LLOp(canraise=(Exception,)),
+    'gc_x_size_header':     LLOp(),
     # this one is even more experimental; only implemented with the
     # Mark&Sweep GC, and likely only useful when combined with
     # stackless:
-    'gc_x_become':          LLOp(canraise=(RuntimeError,)),
-    
+    'gc_x_become':          LLOp(canraise=(Exception,)),
+
+    # NOTE NOTE NOTE! don't forget *** canraise=StackException *** or
+    # possibly Exception for anything that can unwind the stack, in
+    # particular anything that mallocs!
 
     # __________ stackless operation(s) __________
 
@@ -344,6 +348,7 @@ LL_OPERATIONS = {
 
     # __________ debugging __________
     'debug_view':           LLOp(),
+    'debug_print':          LLOp(),
 }
 
     # __________ operations on PyObjects __________

@@ -68,7 +68,7 @@ class CNameManager(NameManager):
            ''')
 
 
-def c_string_constant(s):
+def c_string_constant(s, force_quote=False):
     '''Returns EITHER a " "-delimited string literal for C
                OR a { }-delimited array of chars.
     '''
@@ -82,7 +82,7 @@ def c_string_constant(s):
     if len(s) < 64:
         return '"%s"' % line_repr(s)
 
-    elif len(s) < 1024:
+    elif len(s) < 1024 or force_quote:
         lines = ['"']
         for i in range(0, len(s), 32):
             lines.append(line_repr(s[i:i+32]))

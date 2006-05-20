@@ -1191,6 +1191,13 @@ class FrameworkGCTransformer(GCTransformer):
                                op.result)
         return [newop]
 
+    def replace_gc_x_size_header(self, op, livevars, block):
+        c_result = Constant(self.gcdata.gc.size_gc_header(), lltype.Signed)
+        newop = SpaceOperation("same_as",
+                               [c_result],
+                               op.result)
+        return [newop]
+
     def replace_gc_x_become(self, op, livevars, block):
         [v_target, v_source] = op.args
         newop = SpaceOperation("direct_call",

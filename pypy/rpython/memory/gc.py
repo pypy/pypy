@@ -5,6 +5,7 @@ from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython import rarithmetic
 
 import sys
@@ -199,12 +200,14 @@ class MarkSweepGC(GCBase):
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def collect(self):
-        import os, time
+        import time
         if DEBUG_PRINT:
-            os.write(2, 'collecting...\n')
+            llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
         roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
+##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
+##                        size_gc_header)
         objects = self.AddressLinkedList()
         while 1:
             curr = roots.pop()
@@ -306,19 +309,24 @@ class MarkSweepGC(GCBase):
             self.bytes_malloced_threshold = curr_heap_size
         end_time = time.time()
         self.total_collection_time += end_time - start_time
-        # warning, the following debug prints allocate memory to manipulate
-        # the strings!  so they must be at the end
         if DEBUG_PRINT:
-            os.write(2, "  malloced since previous collection: %s bytes\n" %
-                     old_malloced)
-            os.write(2, "  heap usage at start of collection:  %s bytes\n" %
-                     (self.heap_usage + old_malloced))
-            os.write(2, "  freed:                              %s bytes\n" %
-                     freed_size)
-            os.write(2, "  new heap usage:                     %s bytes\n" %
-                     curr_heap_size)
-            os.write(2, "  total time spent collecting:        %s seconds\n" %
-                     self.total_collection_time)
+            llop.debug_print(lltype.Void,
+                             "  malloced since previous collection:",
+                             old_malloced, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  heap usage at start of collection: ",
+                             self.heap_usage + old_malloced, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  freed:                             ",
+                             freed_size, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  new heap usage:                    ",
+                             curr_heap_size, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  total time spent collecting:       ",
+                             self.total_collection_time, "seconds")
+##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
+##                        size_gc_header)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
         self.heap_usage = curr_heap_size
 
@@ -397,6 +405,7 @@ class MarkSweepGC(GCBase):
         oldpool = lltype.cast_opaque_ptr(self.POOLPTR, oldpool)
         addr = llmemory.cast_ptr_to_adr(oldpool)
         addr -= size_gc_header
+
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr = hdr.next   # skip the POOL object itself
         while hdr:

@@ -2,10 +2,11 @@ from __future__ import generators
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
+from pypy.translator.c.support import c_string_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import c_last_exception, copygraph
 from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
-from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong
+from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong, Float
 from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
@@ -657,6 +658,38 @@ class FunctionCodeGenerator(object):
         result = self.expr(op.result)
         typename = cdecl(self.db.gettype(TYPE), '')        
         return "%(result)s = (%(typename)s)(%(val)s);" % locals()
+
+    def OP_DEBUG_PRINT(self, op):
+        # XXX
+        from pypy.rpython.lltypesystem.rstr import STR
+        format = []
+        argv = []
+        for arg in op.args:
+            T = arg.concretetype
+            if T == Ptr(STR):
+                if isinstance(arg, Constant):
+                    format.append(''.join(arg.value.chars).replace('%', '%%'))
+                else:
+                    format.append('%s')
+                    argv.append('RPyString_AsString(%s)' % self.expr(arg))
+                continue
+            elif T == Signed:
+                format.append('%d')
+            elif T == Float:
+                format.append('%f')
+            elif isinstance(T, Ptr):
+                format.append('%p')
+            elif T == Char:
+                if isinstance(arg, Constant):
+                    format.append(arg.value.replace('%', '%%'))
+                    continue
+                format.append('%c')
+            else:
+                raise Exception("don't know how to debug_print %r" % (T,))
+            argv.append(self.expr(arg))
+        return "fprintf(stderr, %s%s);" % (
+            c_string_constant(' '.join(format) + '\n'),
+            ''.join([', ' + s for s in argv]))
 
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)
