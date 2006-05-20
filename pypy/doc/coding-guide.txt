@@ -8,7 +8,11 @@ PyPy - Coding Guide
 
 This document describes coding requirements and conventions for
 working with the PyPy code base.  Please read it carefully and
-ask back any questions you might have.
+ask back any questions you might have. The document does not talk
+very much about coding style issues. We mostly follow `PEP 8`_ though.
+If in doubt, follow the style that is already present in the code base.
+
+.. _`PEP 8`: http://www.python.org/dev/peps/pep-0008/
 
 .. _`RPython`:
 
