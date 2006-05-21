@@ -352,7 +352,11 @@ class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.FrameworkGCTransformer
 
     def struct_setup(self, structdefnode, rtti):
-        pass
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            destrptr = rtti._obj.destructor_funcptr
+            # make sure this is seen by the database early, i.e. before
+            # finish() on the gctransformer
+            self.db.get(destrptr)
 
     def array_setup(self, arraydefnode):
         pass

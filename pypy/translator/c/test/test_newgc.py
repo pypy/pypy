@@ -625,6 +625,19 @@ class TestUsingFramework(AbstractTestClass):
         res = fn()
         assert res == 123
 
+    def test_framework_del_seeing_new_types(self):
+        class B(object):
+            pass
+        class A(object):
+            def __del__(self):
+                B()
+        def f():
+            A()
+            return 42
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 42
+
 class TestUsingStacklessFramework(TestUsingFramework):
     from pypy.translator.c.gc import StacklessFrameworkGcPolicy as gcpolicy
 
