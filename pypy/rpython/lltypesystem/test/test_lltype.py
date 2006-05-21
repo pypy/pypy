@@ -470,7 +470,7 @@ def test_cast_opaque_ptr():
     py.test.raises(TypeError, "cast_opaque_ptr(Ptr(S), o1)")
     py.test.raises(TypeError, "cast_opaque_ptr(Ptr(O1), s)")
     S2 = Struct('S2', ('z', Signed))
-    py.test.raises(RuntimeError, "cast_opaque_ptr(Ptr(S2), o1)")
+    py.test.raises(InvalidCast, "cast_opaque_ptr(Ptr(S2), o1)")
 
 def test_is_atomic():
     U = Struct('inlined', ('z', Signed))

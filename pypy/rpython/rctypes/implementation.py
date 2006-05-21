@@ -118,15 +118,3 @@ import pypy.rpython.rctypes.astruct
 import pypy.rpython.rctypes.avoid_p
 import pypy.rpython.rctypes.astringbuf
 import pypy.rpython.rctypes.apyobject
-
-
-# Register the correspondance between SomeCTypesObject and the get_repr()
-# functions attached to the extregistry to create CTypesReprs
-
-class __extend__( SomeCTypesObject ):
-    def rtyper_makerepr( self, rtyper ):
-        entry = extregistry.lookup_type(self.knowntype)
-        return entry.get_repr(rtyper, self)
-
-    def rtyper_makekey( self ):
-        return self.__class__, self.knowntype, self.memorystate

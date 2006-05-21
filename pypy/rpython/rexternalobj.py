@@ -5,16 +5,33 @@ from pypy.rpython.extfunctable import typetable
 from pypy.rpython import rbuiltin
 from pypy.rpython.module.support import init_opaque_object
 from pypy.objspace.flow.model import Constant
+from pypy.rpython import extregistry
 
 
 class __extend__(annmodel.SomeExternalObject):
+
     def rtyper_makerepr(self, rtyper):
-        return ExternalObjRepr(self.knowntype)
+        if self.knowntype in typetable:
+            return ExternalObjRepr(self.knowntype)
+        else:
+            # delegate to the get_repr() of the extregistrered Entry class
+            entry = extregistry.lookup_type(self.knowntype)
+            return entry.get_repr(rtyper, self)
+
     def rtyper_makekey(self):
-        return self.__class__, self.knowntype
+        # grab all attributes of the SomeExternalObject for the key
+        attrs = lltype.frozendict(self.__dict__)
+        if 'const' in attrs:
+            del attrs['const']
+        if 'const_box' in attrs:
+            del attrs['const_box']
+        return self.__class__, attrs
 
 
 class ExternalObjRepr(Repr):
+    """Repr for the (obsolecent) extfunctable.declaretype() case.
+    If you use the extregistry instead you get to pick your own Repr.
+    """
 
     def __init__(self, knowntype):
         self.exttypeinfo = typetable[knowntype]

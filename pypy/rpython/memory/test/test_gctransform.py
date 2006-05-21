@@ -64,7 +64,7 @@ def rtype(func, inputtypes, specialize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
-        t.buildrtyper().specialize(t)
+        t.buildrtyper().specialize()
     return t    
 
 def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=True):
@@ -442,7 +442,7 @@ def make_deallocator(TYPE,
         pass
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
-    t.buildrtyper().specialize(t)
+    t.buildrtyper().specialize()
     transformer = cls(t)
     fptr = getattr(transformer, attr)(TYPE)
     transformer.finish()
@@ -554,7 +554,7 @@ def test_caching_dynamic_deallocator():
         pass
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
-    t.buildrtyper().specialize(t)
+    t.buildrtyper().specialize()
     transformer = gctransform.RefcountingGCTransformer(t)
     p_S = transformer.dynamic_deallocation_funcptr_for_type(S)
     p_S1 = transformer.dynamic_deallocation_funcptr_for_type(S1)

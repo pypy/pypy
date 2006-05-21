@@ -170,7 +170,7 @@ def rtype(func, inputtypes, specialize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
-        t.buildrtyper().specialize(t)
+        t.buildrtyper().specialize()
     if conftest.option.view:
         t.view()
     return t
@@ -381,6 +381,40 @@ class TestMarkSweepGC(GCTest):
         run = self.runner(func)
         res = run([])
         assert res == 111222333
+
+    def test_cloning_highlevel(self):
+        from pypy.rpython import rgc
+        class A:
+            pass
+        class B(A):
+            pass
+        def func(n, dummy):
+            if n > 5:
+                x = A()
+            else:
+                x = B()
+                x.bvalue = 123
+            x.next = A()
+            x.next.next = x
+            y, newpool = rgc.gc_clone(x, None)
+            assert y is not x
+            assert y.next is not x
+            assert y is not x.next
+            assert y.next is not x.next
+            assert y is not y.next
+            assert y is y.next.next
+            if isinstance(y, B):
+                assert n <= 5
+                assert y.bvalue == 123
+            else:
+                assert n > 5
+            return 1
+
+        run = self.runner(func, nbargs=2)
+        res = run([3, 0])
+        assert res == 1
+        res = run([7, 0])
+        assert res == 1
 
     def test_tree_cloning(self):
         import os

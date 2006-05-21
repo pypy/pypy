@@ -158,6 +158,7 @@ class RPythonTyper:
         """Main entry point: specialize all annotated blocks of the program."""
         self.crash_on_first_typeerror = crash_on_first_typeerror
         # specialize depends on annotator simplifications
+        assert dont_simplify_again in (False, True)  # safety check
         if not dont_simplify_again:
             self.annotator.simplify()
             

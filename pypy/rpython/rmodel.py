@@ -344,6 +344,18 @@ class VoidRepr(Repr):
     get_ll_fasthash_function = get_ll_hash_function
 impossible_repr = VoidRepr()
 
+class SimplePointerRepr(Repr):
+    "Convenience Repr for simple ll pointer types with no operation on them."
+
+    def __init__(self, lowleveltype):
+        self.lowleveltype = lowleveltype
+
+    def convert_const(self, value):
+        if value is not None:
+            raise TyperError("%r only supports None as prebuilt constant, "
+                             "got %r" % (self, value))
+        return lltype.nullptr(self.lowleveltype.TO)
+
 # ____________________________________________________________
 
 def inputdesc(reqtype, desc):

@@ -679,13 +679,10 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         try:
             container = ptr._obj.container
         except AttributeError:
-            raise RuntimeError("%r does not come from a container" % (ptr,))
-        if typeOf(container) != PTRTYPE.TO:
-            raise RuntimeError("%r contains a container of the wrong type:\n"
-                               "%r instead of %r" % (ptr, typeOf(container),
-                                                     PTRTYPE.TO))
+            raise InvalidCast("%r does not come from a container" % (ptr,))
         solid = getattr(ptr._obj, 'solid', False)
-        return _ptr(PTRTYPE, container, solid)
+        p = _ptr(Ptr(typeOf(container)), container, solid)
+        return cast_pointer(PTRTYPE, p)
     elif (not isinstance(CURTYPE.TO, OpaqueType)
           and isinstance(PTRTYPE.TO, OpaqueType)):
         if not ptr:
@@ -699,7 +696,7 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         try:
             container = ptr._obj.container
         except AttributeError:
-            raise RuntimeError("%r does not come from a container" % (ptr,))
+            raise InvalidCast("%r does not come from a container" % (ptr,))
         return opaqueptr(PTRTYPE.TO, 'hidden',
                          container = container,
                          solid     = ptr._obj.solid)
