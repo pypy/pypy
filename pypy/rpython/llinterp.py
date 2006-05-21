@@ -415,6 +415,7 @@ class LLFrame(object):
         print
 
     def op_debug_pdb(self, *ll_args):
+        print "entering pbb...", ll_args
         import pdb
         pdb.set_trace()
 
