@@ -66,6 +66,7 @@ class RPythonTyper:
         self.cache_dummy_values = {}
         self.typererrors = []
         self.typererror_count = 0
+        self.seen_graphs_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         if self.type_system.offers_exceptiondata:
@@ -179,6 +180,11 @@ class RPythonTyper:
         self.list_of_str_repr = self.getrepr(annmodel.SomeList(ldef))
 
     def specialize_more_blocks(self):
+        if self.already_seen:
+            newtext = ' more'
+        else:
+            newtext = ''
+        blockcount = 0
         while True:
             # look for blocks not specialized yet
             pending = [block for block in self.annotator.annotated
@@ -199,6 +205,7 @@ class RPythonTyper:
             # specialize all blocks in the 'pending' list
             for block in pending:
                 tracking(block)
+                blockcount += 1
                 self.specialize_block(block)
                 self.already_seen[block] = True
                 # progress bar
@@ -218,9 +225,12 @@ class RPythonTyper:
             self.dump_typererrors(to_log=True) 
             raise TyperError("there were %d error" % len(self.typererrors))
         # make sure that the return variables of all graphs are concretetype'd
-        for graph in self.annotator.translator.graphs:
+        newgraphs = self.annotator.translator.graphs[self.seen_graphs_count:]
+        self.seen_graphs_count += len(newgraphs)
+        for graph in newgraphs:
             v = graph.getreturnvar()
             self.setconcretetype(v)
+        log.event('-=- specialized %d%s blocks -=-' % (blockcount, newtext))
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False): 
         c = 0
@@ -441,7 +451,7 @@ class RPythonTyper:
             yield HighLevelOp(self, block.operations[-1], exclinks, llops)
 
     def translate_hl_to_ll(self, hop, varmapping):
-        log.translating(hop.spaceop.opname, hop.args_s)
+        #log.translating(hop.spaceop.opname, hop.args_s)
         resultvar = hop.dispatch()
         if hop.exceptionlinks and hop.llops.llop_raising_exceptions is None:
             raise TyperError("the graph catches %s, but the rtyper did not "
