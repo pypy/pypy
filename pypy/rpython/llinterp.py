@@ -414,6 +414,10 @@ class LLFrame(object):
             print arg,
         print
 
+    def op_debug_pdb(self, *ll_args):
+        import pdb
+        pdb.set_trace()
+
     def op_keepalive(self, value):
         pass
 

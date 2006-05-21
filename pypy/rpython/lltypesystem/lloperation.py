@@ -357,6 +357,7 @@ LL_OPERATIONS = {
     # __________ debugging __________
     'debug_view':           LLOp(),
     'debug_print':          LLOp(),
+    'debug_pdb':            LLOp(),
 }
 
     # __________ operations on PyObjects __________
