@@ -388,6 +388,16 @@ def print_call_chain(ob):
 
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
+def get_rtti(TYPE):
+    if isinstance(TYPE, lltype.GcStruct):
+        try:
+            return lltype.getRuntimeTypeInfo(TYPE)
+        except ValueError:
+            pass
+    return None
+
+
+
 class RefcountingGCTransformer(GCTransformer):
 
     HDR = lltype.Struct("header", ("refcount", lltype.Signed))
@@ -483,14 +493,6 @@ class RefcountingGCTransformer(GCTransformer):
         result.extend(self.pop_alive(oldval))
         return result
 
-    def get_rtti(self, TYPE):
-        if isinstance(TYPE, lltype.GcStruct):
-            try:
-                return lltype.getRuntimeTypeInfo(TYPE)
-            except ValueError:
-                pass
-        return None
-
     def finish(self):
         super(RefcountingGCTransformer, self).finish()
 
@@ -506,7 +508,7 @@ class RefcountingGCTransformer(GCTransformer):
             return self.static_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
 
-        rtti = self.get_rtti(TYPE) 
+        rtti = get_rtti(TYPE) 
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
             destrptr = rtti._obj.destructor_funcptr
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
@@ -576,7 +578,7 @@ def ll_deallocator(addr):
             return self.dynamic_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
 
-        rtti = self.get_rtti(TYPE)
+        rtti = get_rtti(TYPE)
         if rtti is None:
             p = self.static_deallocation_funcptr_for_type(TYPE)
             self.dynamic_deallocator_funcptrs[TYPE] = p
@@ -661,14 +663,6 @@ class BoehmGCTransformer(GCTransformer):
         """ for boehm it is enough to do nothing"""
         return [SpaceOperation("same_as", [Constant(None, lltype.Void)], op.result)]
 
-    def get_rtti(self, TYPE):
-        if isinstance(TYPE, lltype.GcStruct):
-            try:
-                return lltype.getRuntimeTypeInfo(TYPE)
-            except ValueError:
-                pass
-        return None
-
     def finish(self):
         super(BoehmGCTransformer, self).finish()
 
@@ -676,7 +670,7 @@ class BoehmGCTransformer(GCTransformer):
         if TYPE in self.finalizer_funcptrs:
             return self.finalizer_funcptrs[TYPE]
 
-        rtti = self.get_rtti(TYPE)
+        rtti = get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
             destrptr = rtti._obj.destructor_funcptr
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
@@ -751,11 +745,14 @@ class FrameworkGCTransformer(GCTransformer):
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
         GCClass = self.GCClass
+        self.finalizer_funcptrs = {}
+        self.FINALIZERTYPE = lltype.Ptr(ADDRESS_VOID_FUNC)
         class GCData(object):
             # types of the GC information tables
             OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
             TYPE_INFO = lltype.Struct("type_info",
                 ("isvarsize",   lltype.Bool),
+                ("finalyzer",   self.FINALIZERTYPE),
                 ("fixedsize",   lltype.Signed),
                 ("ofstoptrs",   lltype.Ptr(OFFSETS_TO_GC_PTR)),
                 ("varitemsize", lltype.Signed),
@@ -767,6 +764,9 @@ class FrameworkGCTransformer(GCTransformer):
 
         def q_is_varsize(typeid):
             return gcdata.type_info_table[typeid].isvarsize
+
+        def q_finalyzer(typeid):
+            return gcdata.type_info_table[typeid].finalyzer
 
         def q_offsets_to_gc_pointers(typeid):
             return gcdata.type_info_table[typeid].ofstoptrs
@@ -818,6 +818,7 @@ class FrameworkGCTransformer(GCTransformer):
             gcdata.gc.setup()
             gcdata.gc.set_query_functions(
                 q_is_varsize,
+                q_finalyzer,
                 q_offsets_to_gc_pointers,
                 q_fixed_size,
                 q_varsize_item_sizes,
@@ -984,6 +985,7 @@ class FrameworkGCTransformer(GCTransformer):
             self.id_of_type[TYPE] = type_id
             offsets = offsets_to_gc_pointers(TYPE)
             info["ofstoptrs"] = self.offsets2table(offsets, TYPE)
+            info["finalyzer"] = self.finalizer_funcptr_for_type(TYPE)
             if not TYPE._is_varsize():
                 info["isvarsize"] = False
                 info["fixedsize"] = llmemory.sizeof(TYPE)
@@ -1017,6 +1019,31 @@ class FrameworkGCTransformer(GCTransformer):
                     info["varofstoptrs"] = self.offsets2table((), lltype.Void)
                     info["varitemsize"] = 0
             return type_id
+
+    def finalizer_funcptr_for_type(self, TYPE):
+        if TYPE in self.finalizer_funcptrs:
+            return self.finalizer_funcptrs[TYPE]
+
+        rtti = get_rtti(TYPE)
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            destrptr = rtti._obj.destructor_funcptr
+            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
+        else:
+            destrptr = None
+            DESTR_ARG = None
+
+        assert not type_contains_pyobjs(TYPE), "not implemented"
+        if destrptr:
+            def ll_finalizer(addr):
+                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                ll_call_destructor(destrptr, v)
+            g, fptr = self.annotate_helper(ll_finalizer, [llmemory.Address], lltype.Void)
+        else:
+            g = fptr = lltype.nullptr(ADDRESS_VOID_FUNC)
+        if g:
+            self.need_minimal_transform(g)
+        self.finalizer_funcptrs[TYPE] = fptr
+        return fptr
 
     def consider_constant(self, TYPE, value):
         if id(value) in self.seen_roots:

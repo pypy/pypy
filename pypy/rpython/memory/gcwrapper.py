@@ -27,6 +27,7 @@ class QueryTypes(object):
     def create_query_functions(self):
         from pypy.rpython.lltypesystem import rstr
         _is_varsize = []
+        _finalizers = []
         _offsets_to_gc_pointers = []
         _fixed_size = []
         _varsize_item_sizes = []
@@ -39,6 +40,7 @@ class QueryTypes(object):
         for TYPE, typeid in tttid:
             varsize = self.is_varsize(typeid)
             _is_varsize.append(varsize)
+            _finalizers.append(None)
             _offsets_to_gc_pointers.append(self.offsets_to_gc_pointers(typeid))
             _fixed_size.append(self.fixed_size(typeid))
             if varsize:
@@ -54,8 +56,12 @@ class QueryTypes(object):
                 _varsize_offset_to_variable_part.append(0)
                 _varsize_offset_to_length.append(0)
                 _varsize_offsets_to_gcpointers_in_var_part.append([])
+        # trick to make the annotator see that the list can contain functions:
+        _finalizers.append(lambda addr: None)
         def is_varsize(typeid):
             return _is_varsize[typeid]
+        def getfinalizer(typeid):
+            return _finalizers[typeid]
         def offsets_to_gc_pointers(typeid):
             return _offsets_to_gc_pointers[typeid]
         def fixed_size(typeid):
@@ -68,7 +74,7 @@ class QueryTypes(object):
             return _varsize_offset_to_length[typeid]
         def varsize_offsets_to_gcpointers_in_var_part(typeid):
             return _varsize_offsets_to_gcpointers_in_var_part[typeid]
-        return (is_varsize, offsets_to_gc_pointers, fixed_size,
+        return (is_varsize, getfinalizer, offsets_to_gc_pointers, fixed_size,
                 varsize_item_sizes, varsize_offset_to_variable_part,
                 varsize_offset_to_length,
                 varsize_offsets_to_gcpointers_in_var_part)
@@ -79,6 +85,9 @@ class QueryTypes(object):
         return (isinstance(TYPE, lltype.Array) or
                 (isinstance(TYPE, lltype.Struct) and
                  TYPE._arrayfld is not None))
+
+    def getfinalizer(self, typeid):
+        return None
 
     def offsets_to_gc_pointers(self, typeid):
         assert typeid >= 0
@@ -118,51 +127,12 @@ class QueryTypes(object):
             return 0
 
     def get_setup_query_functions(self):
-        return (self.is_varsize, self.offsets_to_gc_pointers, self.fixed_size,
+        return (self.is_varsize, self.getfinalizer,
+                self.offsets_to_gc_pointers, self.fixed_size,
                 self.varsize_item_sizes, self.varsize_offset_to_variable_part,
                 self.varsize_offset_to_length,
                 self.varsize_offsets_to_gcpointers_in_var_part)
 
-class SymbolicQueryTypes(QueryTypes):
-    def fixed_size(self, typeid):
-        assert typeid >= 0
-        if self.types[typeid]._is_varsize():
-            return llmemory.sizeof(self.types[typeid], 0)
-        else:
-            return llmemory.sizeof(self.types[typeid])
-
-    def varsize_item_sizes(self, typeid):
-        assert typeid >= 0
-        if self.is_varsize(typeid):
-            return llmemory.ItemOffset(self.types[typeid])
-        else:
-            return 0
-
-    def varsize_offset_to_variable_part(self, typeid):
-        assert typeid >= 0
-        if self.is_varsize(typeid):
-            return llmemory.ArrayItemsOffset(self.types[typeid])
-        else:
-            return 0
-
-    def varsize_offset_to_length(self, typeid):
-        assert typeid >= 0
-        if self.is_varsize(typeid):
-            TYPE = self.types[typeid]
-            if isinstance(TYPE, lltype.Array):
-                return 0
-            else:
-                return llmemory.FieldOffset(TYPE, TYPE._arrayfld)
-        else:
-            return 0
-
-    def varsize_offsets_to_gcpointers_in_var_part(self, typeid):
-        assert typeid >= 0
-        if self.is_varsize(typeid):
-            return lltypelayout.varsize_offsets_to_gcpointers_in_var_part(
-                self.types[typeid])
-        else:
-            return 0
     
 def getfunctionptr(annotator, graphfunc):
     """Make a functionptr from the given Python function."""
@@ -276,10 +246,10 @@ class AnnotatingGcWrapper(GcWrapper):
         AddressLinkedList = self.AddressLinkedList
         def instantiate_linked_list():
             return AddressLinkedList()
-        f1, f2, f3, f4, f5, f6, f7 = self.query_types.create_query_functions()
+        f1, f2, f3, f4, f5, f6, f7, f8 = self.query_types.create_query_functions()
         the_gc = gc_class(AddressLinkedList)
         def instantiate_gc():
-            the_gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7)
+            the_gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7, f8)
             the_gc.setup()
             return the_gc
         func, dummy_get_roots1, dummy_get_roots2 = gc.get_dummy_annotate(

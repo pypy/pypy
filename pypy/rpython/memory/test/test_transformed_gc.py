@@ -293,6 +293,61 @@ class TestMarkSweepGC(GCTest):
         heap_size = statistics().item0
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
+    def test_finalizer(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                b.num_deleted += 1
+        def f(x, y):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        run = self.runner(f, nbargs=2)
+        res = run([5, 42]) #XXX pure lazyness here too
+        assert res == 6
+
+    def test_finalizer_calls_malloc(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                b.num_deleted += 1
+                C()
+        class C(A):
+            def __del__(self):
+                b.num_deleted += 1
+        def f(x, y):
+            a = A()
+            c = C()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        run = self.runner(f, nbargs=2)
+        res = run([5, 42]) #XXX pure lazyness here too
+        assert res == 13
+
     def test_cloning(self):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),

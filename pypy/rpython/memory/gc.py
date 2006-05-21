@@ -60,11 +60,13 @@ gc_interface = {
 class GCBase(object):
     _alloc_flavor_ = "raw"
 
-    def set_query_functions(self, is_varsize, offsets_to_gc_pointers,
+    def set_query_functions(self, is_varsize, getfinalizer,
+                            offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
                             varsize_offset_to_length,
                             varsize_offsets_to_gcpointers_in_var_part):
+        self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
         self.offsets_to_gc_pointers = offsets_to_gc_pointers
         self.fixed_size = fixed_size
@@ -133,8 +135,8 @@ class MarkSweepGC(GCBase):
         self.bytes_malloced_threshold = start_heap_size
         self.total_collection_time = 0.0
         self.AddressLinkedList = AddressLinkedList
-        #self.set_query_functions(None, None, None, None, None, None, None)
         self.malloced_objects = lltype.nullptr(self.HDR)
+        self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         # pools, for x_swap_pool():
@@ -172,8 +174,12 @@ class MarkSweepGC(GCBase):
         result = raw_malloc(size_gc_header + size)
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
-        hdr.next = self.malloced_objects
-        self.malloced_objects = hdr
+        if not self.getfinalizer(typeid):
+            hdr.next = self.malloced_objects
+            self.malloced_objects = hdr
+        else:
+            hdr.next = self.malloced_objects_with_finalizer
+            self.malloced_objects_with_finalizer = hdr
         self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
         result += size_gc_header
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
@@ -193,14 +199,24 @@ class MarkSweepGC(GCBase):
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
-        hdr.next = self.malloced_objects
-        self.malloced_objects = hdr
+        if not self.getfinalizer(typeid):
+            hdr.next = self.malloced_objects
+            self.malloced_objects = hdr
+        else:
+            hdr.next = self.malloced_objects_with_finalizer
+            self.malloced_objects_with_finalizer = hdr
         self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
         result += size_gc_header
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def collect(self):
+        # 1. mark from the roots, and also the objects that objects-with-del
+        #    point to (using the list of malloced_objects_with_finalizer)
+        # 2. walk the list of objects-without-del and free the ones not marked
+        # 3. walk the list of objects-with-del and for the ones not marked:
+        #    call __del__, move the object to the list of object-without-del
         import time
+        from pypy.rpython.lltypesystem.lloperation import llop
         if DEBUG_PRINT:
             llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
@@ -208,10 +224,11 @@ class MarkSweepGC(GCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
-        objects = self.AddressLinkedList()
+
+        # push the roots on the mark stack
+        objects = self.AddressLinkedList() # mark stack
         while 1:
             curr = roots.pop()
-##             print "root: ", curr
             if curr == NULL:
                 break
             # roots is a list of addresses to addresses:
@@ -225,35 +242,37 @@ class MarkSweepGC(GCBase):
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
+        curr_heap_size = 0
+        freed_size = 0
+
+        # mark objects reachable by objects with a finalizer, but not those
+        # themselves. add their size to curr_heap_size, since they always
+        # survive the collection
+        hdr = self.malloced_objects_with_finalizer
+        while hdr:
+            next = hdr.next
+            typeid = hdr.typeid >> 1
+            gc_info = llmemory.cast_ptr_to_adr(hdr)
+            obj = gc_info + size_gc_header
+            self.add_reachable_to_stack(obj, objects)
+            addr = llmemory.cast_ptr_to_adr(hdr)
+            size = self.fixed_size(typeid)
+            if self.is_varsize(typeid):
+                length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+                size += self.varsize_item_sizes(typeid) * length
+            estimate = raw_malloc_usage(size_gc_header + size)
+            curr_heap_size += estimate
+            hdr = next
+
+        # mark thinks on the mark stack and put their descendants onto the
+        # stack until the stack is empty
         while objects.non_empty():  #mark
             curr = objects.pop()
-##             print "object: ", curr
+            self.add_reachable_to_stack(curr, objects)
             gc_info = curr - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             if hdr.typeid & 1:
                 continue
-            typeid = hdr.typeid >> 1
-            offsets = self.offsets_to_gc_pointers(typeid)
-            i = 0
-            while i < len(offsets):
-                pointer = curr + offsets[i]
-                objects.append(pointer.address[0])
-                i += 1
-            if self.is_varsize(typeid):
-                offset = self.varsize_offset_to_variable_part(
-                    typeid)
-                length = (curr + self.varsize_offset_to_length(typeid)).signed[0]
-                curr += offset
-                offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-                itemlength = self.varsize_item_sizes(typeid)
-                i = 0
-                while i < length:
-                    item = curr + itemlength * i
-                    j = 0
-                    while j < len(offsets):
-                        objects.append((item + offsets[j]).address[0])
-                        j += 1
-                    i += 1
             hdr.typeid = hdr.typeid | 1
         objects.delete()
         # also mark self.curpool
@@ -262,8 +281,8 @@ class MarkSweepGC(GCBase):
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             hdr.typeid = hdr.typeid | 1
 
-        curr_heap_size = 0
-        freed_size = 0
+        # sweep: delete objects without del if they are not marked
+        # unmark objects without del that are marked
         firstpoolnode = lltype.malloc(self.POOLNODE, flavor='raw')
         firstpoolnode.linkedlist = self.malloced_objects
         firstpoolnode.nextnode = self.poolnodes
@@ -328,9 +347,55 @@ class MarkSweepGC(GCBase):
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
+
+        # call finalizers if needed
         self.heap_usage = curr_heap_size
+        hdr = self.malloced_objects_with_finalizer
+        self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
+        while hdr:
+            next = hdr.next
+            if hdr.typeid & 1:
+                hdr.next = self.malloced_objects_with_finalizer
+                self.malloced_objects_with_finalizer = hdr
+                hdr.typeid = hdr.typeid & (~1)
+            else:
+                obj = llmemory.cast_ptr_to_adr(hdr) + size_gc_header
+                finalizer = self.getfinalizer(hdr.typeid >> 1)
+                finalizer(obj)
+                hdr.next = self.malloced_objects
+                self.malloced_objects = hdr
+            hdr = next
 
     STATISTICS_NUMBERS = 2
+
+    def add_reachable_to_stack(self, obj, objects):
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        gc_info = obj - size_gc_header
+        hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+        if hdr.typeid & 1:
+            return
+        typeid = hdr.typeid >> 1
+        offsets = self.offsets_to_gc_pointers(typeid)
+        i = 0
+        while i < len(offsets):
+            pointer = obj + offsets[i]
+            objects.append(pointer.address[0])
+            i += 1
+        if self.is_varsize(typeid):
+            offset = self.varsize_offset_to_variable_part(
+                typeid)
+            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            obj += offset
+            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+            itemlength = self.varsize_item_sizes(typeid)
+            i = 0
+            while i < length:
+                item = obj + itemlength * i
+                j = 0
+                while j < len(offsets):
+                    objects.append((item + offsets[j]).address[0])
+                    j += 1
+                i += 1
 
     def statistics(self):
         return self.heap_usage, self.bytes_malloced
