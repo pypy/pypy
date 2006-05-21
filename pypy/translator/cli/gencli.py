@@ -26,11 +26,12 @@ class Tee(object):
 
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint = None, type_system_class = CTS, \
-        opcode_dict = opcodes, name_suffix = '.il' ):
+        opcode_dict = opcodes, name_suffix = '.il', function_class = Function ):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
-        self.db = LowLevelDatabase( type_system_class = type_system_class , opcode_dict = opcode_dict )
+        self.db = LowLevelDatabase( type_system_class = type_system_class , opcode_dict = opcode_dict,
+            function_class = function_class )
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
