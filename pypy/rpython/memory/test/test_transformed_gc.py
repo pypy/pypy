@@ -336,7 +336,6 @@ class TestMarkSweepGC(GCTest):
                 b.num_deleted += 1
         def f(x, y):
             a = A()
-            c = C()
             i = 0
             while i < x:
                 i += 1
@@ -346,7 +345,7 @@ class TestMarkSweepGC(GCTest):
             return b.num_deleted
         run = self.runner(f, nbargs=2)
         res = run([5, 42]) #XXX pure lazyness here too
-        assert res == 13
+        assert res == 12
 
     def test_cloning(self):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
