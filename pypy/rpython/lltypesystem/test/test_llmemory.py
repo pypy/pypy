@@ -101,7 +101,17 @@ def test_fakeaddress_equality():
     assert a1s1 != as2
     assert a1s1 != at
     assert as2 != at
-    
+
+def test_more_fakeaddress_equality():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', S))
+
+    t = lltype.malloc(T)
+    t.s.x = 1
+    s = lltype.cast_pointer(lltype.Ptr(S), t)
+
+    a_t, a_s = map(cast_ptr_to_adr, [s, t])
+    assert a_t == a_s
 
 def test_cast_adr_to_int():
     from pypy.rpython.memory.test.test_llinterpsim import interpret

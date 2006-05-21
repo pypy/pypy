@@ -851,6 +851,9 @@ class _ptr(object):
     def __ne__(self, other):
         return not (self == other)
 
+    def _same_obj(self, other):
+        return self._obj == other._obj
+
     def __hash__(self):
         raise TypeError("pointer objects are not hashable")
 

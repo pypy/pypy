@@ -507,7 +507,6 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
             GC_PARAMS = {'start_heap_size': 4096 }
 
     def test_x_become(self):
-        py.test.skip('fails less mysteriously')
         S = lltype.GcStruct("S", ('x', lltype.Signed))
         def f():
             x = lltype.malloc(S)

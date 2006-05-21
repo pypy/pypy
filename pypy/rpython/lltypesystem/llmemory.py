@@ -222,7 +222,8 @@ class _arrayitemref(object):
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
-        return self.array is other.array and self.index == other.index
+        return self.array._same_obj(other.array) and \
+               self.index == other.index
     def type(self):
         return lltype.typeOf(self.array).TO.OF
 
@@ -237,7 +238,7 @@ class _arraylenref(object):
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
-        return self.array is other.array
+        return self.array._same_obj(other.array)
     def type(self):
         return lltype.Signed
 
@@ -252,7 +253,8 @@ class _structfieldref(object):
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
-        return self.struct is other.struct and self.fieldname == other.fieldname
+        return self.struct._same_obj(other.struct) and \
+               self.fieldname == other.fieldname
     def type(self):
         return getattr(lltype.typeOf(self.struct).TO, self.fieldname)
 
@@ -266,7 +268,7 @@ class _obref(object):
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
-        return self.ob is other.ob
+        return self.ob._same_obj(other.ob)
     def type(self):
         return lltype.typeOf(self.ob)
 
