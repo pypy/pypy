@@ -66,6 +66,8 @@ class TupleRepr(AbstractTupleRepr):
 def rtype_newtuple(hop):
     return TupleRepr._rtype_newtuple(hop)
 
+newtuple = TupleRepr.newtuple
+
 #
 # _________________________ Conversions _________________________
 
