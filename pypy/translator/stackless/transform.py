@@ -197,9 +197,6 @@ class StacklessTransformer(object):
             ll_stackless.ll_stackless_switch:
                 mixlevelannotator.constfunc(
                     code.ll_frame_switch, [s_StatePtr], s_StatePtr),
-            ll_stackless.ll_stackless_clone:
-                mixlevelannotator.constfunc(
-                    code.ll_frame_clone, [s_StatePtr], s_StatePtr),
             ll_stack.ll_stack_unwind:
                 mixlevelannotator.constfunc(
                     code.ll_stack_unwind, [], annmodel.s_None),
@@ -229,8 +226,6 @@ class StacklessTransformer(object):
         self.c_null_state = model.Constant(null_state,
                                            lltype.typeOf(null_state))
         self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
-
-        self.reccopyannotator = MixLevelHelperAnnotator(translator.rtyper)
 
         # register the prebuilt restartinfos
         for restartinfo in frame.RestartInfo.prebuilt:
@@ -577,13 +572,12 @@ class StacklessTransformer(object):
 
     def register_restart_info(self, restartinfo):
         rtyper = self.translator.rtyper
-        for frame_info_dict in restartinfo.compress(rtyper, self.reccopyannotator):
+        for frame_info_dict in restartinfo.compress(rtyper):
             self.masterarray1.append(frame_info_dict)
 
     def finish(self):
         # compute the final masterarray by copying over the masterarray1,
         # which is a list of dicts of attributes
-        self.reccopyannotator.finish()
         masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,
                                     len(self.masterarray1),
                                     immortal=True)

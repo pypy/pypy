@@ -63,44 +63,17 @@ OPAQUE_STATE_HEADER_PTR = lltype.Ptr(
 
 
 def make_state_header_type(name, *fields):
-    fnname = 'll_reccopy_%s' % (name,)
-    source = ['def %s(frame):' % (fnname,),
-              '    frame = lltype.cast_pointer(lltype.Ptr(FRAME), frame)',
-              '    newframe = lltype.malloc(FRAME)',
-              '    if frame.header.f_back:',
-              '        newframe.header.f_back = ll_frame_reccopy(',
-              '                                     frame.header.f_back)',
-              '    newframe.header.f_restart = frame.header.f_restart']
-    for name, _ in fields:
-        source.append('    newframe.%s = frame.%s' % (name, name))
-    source.append('    return lltype.cast_pointer(lltype.Ptr(STATE_HEADER),')
-    source.append('                               newframe)')
-    source.append('')
-    miniglobals = {'lltype': lltype,
-                   'll_frame_reccopy': ll_frame_reccopy,
-                   'STATE_HEADER': STATE_HEADER,
-                   }
-    exec compile2('\n'.join(source)) in miniglobals
-    extras = {
-        'adtmeths': {'reccopy': miniglobals[fnname]}
-        }
-    FRAME = lltype.GcStruct(name,
-                            ('header', STATE_HEADER),
-                            *fields, **extras)
-    miniglobals['FRAME'] = FRAME
-    return FRAME
+    return lltype.GcStruct(name,
+                           ('header', STATE_HEADER),
+                           *fields)
 
 # ____________________________________________________________
 # master array giving information about the restart points
 # (STATE_HEADER.frameinfo is an index into this array)
 
-RECCOPY_FUNC = lltype.FuncType([lltype.Ptr(STATE_HEADER)],
-                               lltype.Ptr(STATE_HEADER))
-
 FRAME_INFO = lltype.Struct('frame_info',
                            ('fnaddr',  llmemory.Address),
-                           ('info',    lltype.Signed),
-                           ('reccopy', lltype.Ptr(RECCOPY_FUNC)))
+                           ('info',    lltype.Signed))
 FRAME_INFO_ARRAY = lltype.Array(FRAME_INFO)
 
 def decodestate(index):
@@ -117,12 +90,6 @@ def decodestate(index):
             finfo.info)    # retval_type
 decodestate.stackless_explicit = True
 
-def ll_frame_reccopy(frame):
-    from pypy.translator.stackless.code import global_state
-    masterarray = global_state.masterarray
-    finfo = masterarray[frame.f_restart]
-    return finfo.reccopy(frame)
-
 
 class RestartInfo(object):
 
@@ -130,7 +97,7 @@ class RestartInfo(object):
         self.func_or_graph = func_or_graph
         self.frame_types = frame_types
 
-    def compress(self, rtyper, mix):
+    def compress(self, rtyper):
         if self.frame_types:
             bk = rtyper.annotator.bookkeeper
             graph = self.func_or_graph
@@ -145,12 +112,6 @@ class RestartInfo(object):
                       ]
             for i in range(1, len(self.frame_types)):
                 result.append({'info': i})
-            for i in range(len(self.frame_types)):
-                reccopy = self.frame_types[i].reccopy
-                s_header = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
-                fnptr = mix.delayedfunction(reccopy, [s_header],
-                                                          s_header)
-                result[i]['reccopy'] = fnptr
         else:
             result = []
         return result

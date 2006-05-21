@@ -55,13 +55,6 @@ INDEX_SWITCH = frame.RestartInfo.add_prebuilt(ll_frame_switch,
 
 # ____________________________________________________________
 
-def ll_frame_clone(oldstate):
-    oldframe = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), oldstate)
-    newframe = frame.ll_frame_reccopy(oldframe)
-    return lltype.cast_opaque_ptr(frame.OPAQUE_STATE_HEADER_PTR, newframe)
-
-# ____________________________________________________________
-
 def yield_current_frame_to_caller():
     if global_state.restart_substate == -1:
         # normal entry point for yield_current_frame_to_caller()

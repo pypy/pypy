@@ -32,5 +32,3 @@ def yield_current_frame_to_caller():
 class frame_stack_top(object):
     def switch(self):
         raise NotImplementedError("only works in translated versions")
-    def clone(self):
-        raise NotImplementedError("only works in translated versions")

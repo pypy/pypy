@@ -4,6 +4,7 @@ from pypy.rpython import rstack
 
 
 def test_simple():
+    import py; py.test.skip("to be rewritten with gc_x_clone")
     def g(lst):
         lst.append(1)
         parent = rstack.yield_current_frame_to_caller()
