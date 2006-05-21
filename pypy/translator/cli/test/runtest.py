@@ -98,6 +98,7 @@ class compile_function:
             t.graphs.insert(0, graph)
         else:
             t.buildannotator().build_types(func, annotation)
+            
         t.buildrtyper(type_system="ootype").specialize()
         self.graph = t.graphs[0]
 
@@ -131,7 +132,10 @@ class compile_function:
             py.test.skip("Compilation disabled")
 
         arglist = SDK.runtime() + [self._exe] + map(str, args)
-        mono = subprocess.Popen(arglist, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        env = os.environ.copy()
+        env['LANG'] = 'C'        
+        mono = subprocess.Popen(arglist, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=env)
         stdout, stderr = mono.communicate()
         retval = mono.wait()
         assert retval == 0, stderr

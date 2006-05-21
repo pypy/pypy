@@ -31,14 +31,12 @@ class Foo:
 def foo(a, b):
     pass
 
-from pypy.rpython.rarithmetic import ovfcheck
-
 def bar(x, y):
-    try:
-        l = [x, y]
-        return l[0]
-    except IndexError:
-        return 0
+    if x:
+        return 1
+    else:
+        return None
+    
 
 f = compile_function(bar, [int, int])
 
