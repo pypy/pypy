@@ -31,12 +31,12 @@ def _path_join(root_path, *paths):
     return path
 
 class JS(object):
-    def __init__ ( self , translator , functions=[] , stackless=False , compress=False , logging=False ):
-        self . cli = GenCli ( udir , translator , type_system_class = JTS , opcode_dict = opcodes ,\
-            name_suffix = '.js' , function_class = Function )
-        self . translator = translator
+    def __init__(self, translator, functions=[], stackless=False, compress=False, logging=False):
+        self.cli = GenCli(udir, translator, type_system_class = JTS, opcode_dict = opcodes,\
+            name_suffix = '.js', function_class = Function)
+        self.translator = translator
     
-    def write_source ( self ):
-        self . cli . generate_source ( AsmGen )
-        self . filename = self . cli . tmpfile
-        return self . cli . tmpfile
+    def write_source(self):
+        self.cli.generate_source(AsmGen)
+        self.filename = self.cli.tmpfile
+        return self.cli.tmpfile

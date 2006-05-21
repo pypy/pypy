@@ -82,62 +82,62 @@ class Function(Node, Generator):
         for op in block.operations:
             self._render_op(op)
     
-    def render_block ( self , block , stop_block = None ):
+    def render_block(self, block, stop_block = None):
         if block is stop_block:
             return
         
         for op in block.operations:
             self._render_op(op)
         
-        if len ( block . exits ) == 0:
+        if len(block.exits) == 0:
             # return block
             return_var = block.inputargs[0]
-            self . load ( return_var )
-            self . ilasm . ret ()
-        elif block . exitswitch is None:
+            self.load(return_var)
+            self.ilasm.ret()
+        elif block.exitswitch is None:
             # single exit block
-            assert ( len(block.exits) == 1 )
-            link = block . exits [ 0 ]
-            self . _setup_link ( link )
-            self . render_block ( link . target , stop_block )
-        elif block . exitswitch is flowmodel.c_last_exception:
-            raise NotImplementedError ( "Exception handling" )
+            assert(len(block.exits) == 1)
+            link = block.exits[0]
+            self._setup_link(link)
+            self.render_block(link.target, stop_block)
+        elif block.exitswitch is flowmodel.c_last_exception:
+            raise NotImplementedError("Exception handling")
         else:
-            if self . loops . has_key ( block ):
+            if self.loops.has_key(block):
                 # we've got loop
-                self . ilasm . branch_while ( block . exitswitch , self . loops [ block ] )
-                exit_case = block . exits [ self . loops [ block ] ]
-                self . _setup_link ( exit_case )
-                self . render_block ( exit_case . target , block )
-                for op in block . operations:
-                    self._render_op ( op )
-                self . ilasm . close_branch ()
-                exit_case = block . exits [ not self . loops [ block ] ]
-                self . _setup_link ( exit_case )
+                self.ilasm.branch_while(block.exitswitch, self.loops[block])
+                exit_case = block.exits[self.loops[block]]
+                self._setup_link(exit_case)
+                self.render_block(exit_case.target, block)
+                for op in block.operations:
+                    self._render_op(op)
+                self.ilasm.close_branch()
+                exit_case = block.exits[not self.loops[block]]
+                self._setup_link(exit_case)
                 #log (  )
-                self . render_block ( exit_case . target , block )
+                self.render_block(exit_case.target,block)
                 #raise NotImplementedError ( "loop" )
             else:
                 # just a simple if
-                assert ( len ( block . exits ) == 2 )
-                self . ilasm . branch_if ( block . exitswitch , True )
-                self . _setup_link ( block . exits [ True ] )
-                self . render_block ( block . exits [ True ] . target , stop_block )
-                self . ilasm . branch_else ()
-                self . _setup_link ( block . exits [ False ] )
-                self . render_block ( block . exits [ False ] . target , stop_block )
-                self . ilasm . close_branch ()
+                assert(len(block.exits) == 2)
+                self.ilasm.branch_if(block.exitswitch, True)
+                self._setup_link(block.exits[True])
+                self.render_block(block.exits[True].target, stop_block)
+                self.ilasm.branch_else()
+                self._setup_link(block.exits[False])
+                self.render_block(block.exits[False].target, stop_block)
+                self.ilasm.close_branch()
 
-    def render ( self , ilasm ):
-        if self . db . graph_name ( self . graph ) is not None and not self . is_method:
+    def render(self,ilasm):
+        if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
         
-        self . ilasm = ilasm
+        self.ilasm = ilasm
         
-        self . loops = LoopFinder ( self . graph . startblock ) . loops
-        self . ilasm . begin_function ( self . name , self . args , None , None , None )
+        self.loops = LoopFinder(self.graph.startblock).loops
+        self.ilasm.begin_function(self.name, self.args, None, None, None)
 
-        self . render_block ( self . graph . startblock )
+        self.render_block(self.graph.startblock)
 ##            if self._is_return_block(block):
 ##                return_blocks.append(block)
 ##                continue
@@ -161,110 +161,6 @@ class Function(Node, Generator):
 ##            if return_var.concretetype is not Void:
 ##                self.load(return_var)
 ##            self.ilasm.ret()
-
-        self.ilasm.end_function()
-        if self.is_method:
-            pass # TODO
-        else:
-            self.db.record_function(self.graph, self.name)
-
-    def oldrender(self, ilasm):
-        if self.db.graph_name(self.graph) is not None and not self.is_method:
-            return # already rendered
-
-        loop_finder = LoopFinder ( self . graph . startblock )
-        # Work out it here
-
-        self.ilasm = ilasm
-        graph = self.graph
-        returntype, returnvar = self.cts.llvar_to_cts(graph.getreturnvar())
-
-        self.ilasm.begin_function(self.name, self.args, returntype, None , None )
-        self.ilasm.locals(self.locals)
-
-        return_blocks = []
-        for block in graph.iterblocks():
-            if self._is_return_block(block):
-                return_blocks.append(block)
-                continue
-                
-
-            #self.ilasm.label(self._get_block_name(block))
-
-            handle_exc = (block.exitswitch == flowmodel.c_last_exception)
-            if handle_exc:
-                self.ilasm.begin_try()
-
-            for op in block.operations:
-                #self._search_for_classes(op)
-                self._render_op(op)
-
-            if self._is_raise_block(block):
-                exc = block.inputargs[1]
-                self.load(exc)
-                self.ilasm.throw()
-
-            if handle_exc:
-                # search for the "default" block to be executed when no exception is raised
-                for link in block.exits:
-                    if link.exitcase is None:
-                        self._setup_link(link)
-                        target_label = self._get_block_name(link.target)
-                        self.ilasm.leave(target_label)
-                self.ilasm.end_try()
-
-                # catch the exception and dispatch to the appropriate block
-                for link in block.exits:
-                    if link.exitcase is None:
-                        continue # see above
-
-                    assert issubclass(link.exitcase, Exception)
-                    #cts_exc = self.cts.pyexception_to_cts(link.exitcase)
-                    #cts_exc = str(link.exitcase) # TODO: is it a bit hackish?
-                    ll_meta_exc = link.llexitcase
-                    self.db.record_const(ll_meta_exc)
-                    ll_exc = ll_meta_exc._inst.class_._INSTANCE
-                    cts_exc = self.cts.lltype_to_cts(ll_exc, False)
-                    self.ilasm.begin_catch(cts_exc)
-
-                    target = link.target
-                    if self._is_raise_block(target):
-                        # the exception value is on the stack, use it as the 2nd target arg
-                        assert len(link.args) == 2
-                        assert len(target.inputargs) == 2
-                        self.store(link.target.inputargs[1])
-                    else:
-                        # pop the unused exception value
-                        self.ilasm.pop()
-                        self._setup_link(link)
-                    
-                    target_label = self._get_block_name(target)
-                    self.ilasm.leave(target_label)
-                    self.ilasm.end_catch()
-
-            else:
-                # no exception handling, follow block links
-                for link in block.exits:
-                    target_label = self._get_block_name(link.target)
-                    if link.exitcase is None:
-                        pass
-                        #self.ilasm.branch(target_label)
-                    else:
-                        assert type(link.exitcase is bool)
-                        assert block.exitswitch is not None
-                        self.ilasm.branch_if( block.exitswitch, link.exitcase, target_label)
-                    self._setup_link(link)
-                    self.ilasm.close_branch()
-
-        # render return blocks at the end just to please the .NET
-        # runtime that seems to need a return statement at the end of
-        # the function
-        for block in return_blocks:
-            #self.ilasm.label(self._get_block_name(block))
-            return_var = block.inputargs[0]
-            if return_var.concretetype is not Void:
-                self.load(return_var)
-            self.ilasm.ret()
 
         self.ilasm.end_function()
         if self.is_method:

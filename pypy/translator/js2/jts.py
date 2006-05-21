@@ -4,15 +4,15 @@
 
 from pypy.rpython.ootypesystem import ootype
 
-class JTS ( object ):
+class JTS(object):
     """ Class implementing JavaScript type system
     calls with mapping similiar to cts
     """
-    def __init__ ( self , db ):
-        self . db = db
+    def __init__(self, db):
+        self.db = db
     
-    def llvar_to_cts ( self , var ):
-        return 'var ',var.name
+    def llvar_to_cts(self, var):
+        return 'var ', var.name
     
     def graph_to_signature(self, graph, is_method = False, func_name = None):
         ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())

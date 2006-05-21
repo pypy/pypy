@@ -7,16 +7,16 @@ from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult,\
 
 DoNothing = [PushAllArgs]
 
-class _SameAs ( MicroInstruction ):
-    def render ( self , generator , op ):
-        generator.change_name(op.result,op.args[0])
+class _SameAs(MicroInstruction):
+    def render(self, generator, op):
+        generator.change_name(op.result, op.args[0])
         
-class _CastFloor ( MicroInstruction ):
-    def render ( self , generator , op ):
+class _CastFloor(MicroInstruction):
+    def render(self, generator, op):
         generator.cast_floor()
 
-CastFloor = [ PushAllArgs , _CastFloor() ]
-CopyName = [ PushAllArgs , _SameAs () ]
+CastFloor = [PushAllArgs, _CastFloor()]
+CopyName = [PushAllArgs, _SameAs ()]
 SameAs = CopyName
 
 opcodes = {'int_mul': '*',
@@ -59,6 +59,13 @@ opcodes = {'int_mul': '*',
     'unichar_ne': '!=',
     'unichar_ge': '>=',
     'unichar_gt': '>',
+    
+    'char_lt': '<',
+    'char_le': '<=',
+    'char_eq': '==',
+    'char_ne': '!=',
+    'char_ge': '>=',
+    'char_gt': '>',
 
     'float_mul': '*',
     'float_add': '+',
@@ -92,6 +99,7 @@ opcodes = {'int_mul': '*',
     'cast_int_to_float':        CopyName,
     'cast_int_to_longlong':     CopyName,
     'cast_uint_to_int':         CopyName,
+    'cast_uint_to_float':       CopyName,
     'cast_float_to_int':        CastFloor,
     'cast_float_to_uint':       CastFloor,
     'truncate_longlong_to_int': CopyName,

@@ -2,17 +2,16 @@ import py
 from pypy.translator.js2.test.runtest import compile_function
 
 #test returntypes
-##def test_bool_return():
-##    def bool_return_False():
-##        return False
-##    def bool_return_True():
-##        return True
-##    f_false = compile_function(bool_return_False, [])
-##    assert f_false() == bool_return_False()
-##    f_true  = compile_function(bool_return_True , [])
-##    assert f_true()  == bool_return_True()
-##    
-##
+def test_bool_return():
+    def bool_return_False():
+        return False
+    def bool_return_True():
+        return True
+    f_false = compile_function(bool_return_False, [])
+    assert f_false() == bool_return_False()
+    f_true  = compile_function(bool_return_True , [])
+    assert f_true()  == bool_return_True()    
+
 def test_int_return():
     def int_return():
         return 42
