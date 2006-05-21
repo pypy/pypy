@@ -531,18 +531,73 @@ class MarkSweepGC(GCBase):
         # reinstall the pool that was current at the beginning of x_clone()
         clonedata.pool = self.x_swap_pool(curpool)
 
+    def add_reachable_to_stack2(self, obj, objects, target_addr, source_addr):
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        gc_info = obj - size_gc_header
+        hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
+        if hdr.typeid & 1:
+            return
+        typeid = hdr.typeid >> 1
+        offsets = self.offsets_to_gc_pointers(typeid)
+        i = 0
+        while i < len(offsets):
+            pointer = obj + offsets[i]
+            objects.append(pointer.address[0])
+            # -------------------------------------------------
+            # begin difference from collect
+            llop.debug_debug(lltype.Void,
+                             pointer.address[0], target_addr,
+                             pointer.address[0] == target_addr,
+                             )
+            if pointer.address[0] == target_addr:
+                pointer.address[0] = source_addr
+            # end difference from collect
+            # -------------------------------------------------
+            i += 1
+        if self.is_varsize(typeid):
+            offset = self.varsize_offset_to_variable_part(
+                typeid)
+            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            obj += offset
+            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+            itemlength = self.varsize_item_sizes(typeid)
+            i = 0
+            while i < length:
+                item = obj + itemlength * i
+                j = 0
+                while j < len(offsets):
+                    objects.append((item + offsets[j]).address[0])
+                    # -------------------------------------------------
+                    # begin difference from collect
+                    pointer = item + offsets[j]
+                    if pointer.address[0] == target_addr:
+                        pointer.address[0] = source_addr
+                    ## end difference from collect
+                    # -------------------------------------------------
+                    j += 1
+                i += 1
+
+
     def x_become(self, target_addr, source_addr):
-        # become is implemented very very much like collect currently...
-        import os, time
+        # 1. mark from the roots, and also the objects that objects-with-del
+        #    point to (using the list of malloced_objects_with_finalizer)
+        # 2. walk the list of objects-without-del and free the ones not marked
+        # 3. walk the list of objects-with-del and for the ones not marked:
+        #    call __del__, move the object to the list of object-without-del
+        import time
+        from pypy.rpython.lltypesystem.lloperation import llop
         if DEBUG_PRINT:
-            os.write(2, 'becoming...\n')
+            llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
         roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        objects = self.AddressLinkedList()
+##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
+##                        size_gc_header)
+
+        # push the roots on the mark stack
+        objects = self.AddressLinkedList() # mark stack
         while 1:
             curr = roots.pop()
-##             print "root: ", curr
             if curr == NULL:
                 break
             # roots is a list of addresses to addresses:
@@ -562,48 +617,37 @@ class MarkSweepGC(GCBase):
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
         self.bytes_malloced = 0
+        curr_heap_size = 0
+        freed_size = 0
+
+        # mark objects reachable by objects with a finalizer, but not those
+        # themselves. add their size to curr_heap_size, since they always
+        # survive the collection
+        hdr = self.malloced_objects_with_finalizer
+        while hdr:
+            next = hdr.next
+            typeid = hdr.typeid >> 1
+            gc_info = llmemory.cast_ptr_to_adr(hdr)
+            obj = gc_info + size_gc_header
+            self.add_reachable_to_stack2(obj, objects, target_addr, source_addr)
+            addr = llmemory.cast_ptr_to_adr(hdr)
+            size = self.fixed_size(typeid)
+            if self.is_varsize(typeid):
+                length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+                size += self.varsize_item_sizes(typeid) * length
+            estimate = raw_malloc_usage(size_gc_header + size)
+            curr_heap_size += estimate
+            hdr = next
+
+        # mark thinks on the mark stack and put their descendants onto the
+        # stack until the stack is empty
         while objects.non_empty():  #mark
             curr = objects.pop()
-##             print "object: ", curr
+            self.add_reachable_to_stack2(curr, objects, target_addr, source_addr)
             gc_info = curr - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             if hdr.typeid & 1:
                 continue
-            typeid = hdr.typeid >> 1
-            offsets = self.offsets_to_gc_pointers(typeid)
-            i = 0
-            while i < len(offsets):
-                pointer = curr + offsets[i]
-                objects.append(pointer.address[0])
-                # -------------------------------------------------
-                # begin difference from collect
-                if pointer.address[0] == target_addr:
-                    pointer.address[0] == source_addr
-                # end difference from collect
-                # -------------------------------------------------
-                i += 1
-            if self.is_varsize(typeid):
-                offset = self.varsize_offset_to_variable_part(
-                    typeid)
-                length = (curr + self.varsize_offset_to_length(typeid)).signed[0]
-                curr += offset
-                offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-                itemlength = self.varsize_item_sizes(typeid)
-                i = 0
-                while i < length:
-                    item = curr + itemlength * i
-                    j = 0
-                    while j < len(offsets):
-                        objects.append((item + offsets[j]).address[0])
-                        # -------------------------------------------------
-                        # begin difference from collect
-                        pointer = item + offsets[j]
-                        if pointer.address[0] == target_addr:
-                            pointer.address[0] == source_addr
-                        ## end difference from collect
-                        # -------------------------------------------------
-                        j += 1
-                    i += 1
             hdr.typeid = hdr.typeid | 1
         objects.delete()
         # also mark self.curpool
@@ -612,15 +656,16 @@ class MarkSweepGC(GCBase):
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             hdr.typeid = hdr.typeid | 1
 
-        curr_heap_size = 0
-        freed_size = 0
+        # sweep: delete objects without del if they are not marked
+        # unmark objects without del that are marked
         firstpoolnode = lltype.malloc(self.POOLNODE, flavor='raw')
         firstpoolnode.linkedlist = self.malloced_objects
         firstpoolnode.nextnode = self.poolnodes
         prevpoolnode = lltype.nullptr(self.POOLNODE)
         poolnode = firstpoolnode
         while poolnode:   #sweep
-            ppnext = lltype.direct_fieldptr(poolnode, 'linkedlist')
+            ppnext = llmemory.cast_ptr_to_adr(poolnode)
+            ppnext += llmemory.offsetof(self.POOLNODE, 'linkedlist')
             hdr = poolnode.linkedlist
             while hdr:  #sweep
                 typeid = hdr.typeid >> 1
@@ -633,14 +678,15 @@ class MarkSweepGC(GCBase):
                 estimate = raw_malloc_usage(size_gc_header + size)
                 if hdr.typeid & 1:
                     hdr.typeid = hdr.typeid & (~1)
-                    ppnext[0] = hdr
-                    ppnext = lltype.direct_fieldptr(hdr, 'next')
+                    ppnext.address[0] = addr
+                    ppnext = llmemory.cast_ptr_to_adr(hdr)
+                    ppnext += llmemory.offsetof(self.HDR, 'next')
                     curr_heap_size += estimate
                 else:
                     freed_size += estimate
                     raw_free(addr)
                 hdr = next
-            ppnext[0] = lltype.nullptr(self.HDR)
+            ppnext.address[0] = llmemory.NULL
             next = poolnode.nextnode
             if not poolnode.linkedlist and prevpoolnode:
                 # completely empty node
@@ -657,21 +703,43 @@ class MarkSweepGC(GCBase):
             self.bytes_malloced_threshold = curr_heap_size
         end_time = time.time()
         self.total_collection_time += end_time - start_time
-        # warning, the following debug prints allocate memory to manipulate
-        # the strings!  so they must be at the end
         if DEBUG_PRINT:
-            os.write(2, "  malloced since previous collection: %s bytes\n" %
-                     old_malloced)
-            os.write(2, "  heap usage at start of collection:  %s bytes\n" %
-                     (self.heap_usage + old_malloced))
-            os.write(2, "  freed:                              %s bytes\n" %
-                     freed_size)
-            os.write(2, "  new heap usage:                     %s bytes\n" %
-                     curr_heap_size)
-            os.write(2, "  total time spent collecting:        %s seconds\n" %
-                     self.total_collection_time)
+            llop.debug_print(lltype.Void,
+                             "  malloced since previous collection:",
+                             old_malloced, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  heap usage at start of collection: ",
+                             self.heap_usage + old_malloced, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  freed:                             ",
+                             freed_size, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  new heap usage:                    ",
+                             curr_heap_size, "bytes")
+            llop.debug_print(lltype.Void,
+                             "  total time spent collecting:       ",
+                             self.total_collection_time, "seconds")
+##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
+##                        size_gc_header)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
+
+        # call finalizers if needed
         self.heap_usage = curr_heap_size
+        hdr = self.malloced_objects_with_finalizer
+        self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
+        while hdr:
+            next = hdr.next
+            if hdr.typeid & 1:
+                hdr.next = self.malloced_objects_with_finalizer
+                self.malloced_objects_with_finalizer = hdr
+                hdr.typeid = hdr.typeid & (~1)
+            else:
+                obj = llmemory.cast_ptr_to_adr(hdr) + size_gc_header
+                finalizer = self.getfinalizer(hdr.typeid >> 1)
+                finalizer(obj)
+                hdr.next = self.malloced_objects
+                self.malloced_objects = hdr
+            hdr = next
 
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
