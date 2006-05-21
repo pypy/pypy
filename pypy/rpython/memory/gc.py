@@ -545,9 +545,9 @@ class MarkSweepGC(GCBase):
             objects.append(pointer.address[0])
             # -------------------------------------------------
             # begin difference from collect
-            llop.debug_pdb(lltype.Void,
-                           pointer.address[0], target_addr,
-                           pointer.address[0] == target_addr)
+##             llop.debug_pdb(lltype.Void,
+##                            pointer.address[0], target_addr,
+##                            pointer.address[0] == target_addr)
             if pointer.address[0] == target_addr:
                 pointer.address[0] = source_addr
             # end difference from collect
@@ -600,12 +600,6 @@ class MarkSweepGC(GCBase):
             if curr == NULL:
                 break
             # roots is a list of addresses to addresses:
-            # -------------------------------------------------
-            # begin difference from collect
-            if curr.address[0] == target_addr:
-                raise RuntimeError("can't replace a root")
-            # end difference from collect
-            # -------------------------------------------------
             objects.append(curr.address[0])
             # the last sweep did not clear the mark bit of static roots, 
             # since they are not in the malloced_objects list
