@@ -582,5 +582,3 @@ def test_import():
     O = Ontology()
     s = URIRef('s')
     O.imports(s,URIRef('http://www.w3.org/2002/03owlt/imports/support001-A'))
-    print list(O.graph.triples((None,)*3))
-    assert 0
