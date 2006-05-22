@@ -153,6 +153,7 @@ class MarkSweepGC(GCBase):
         #   was already freed.  The objects in 'malloced_objects' are not
         #   found via 'poolnodes'.
         self.poolnodes = lltype.nullptr(self.POOLNODE)
+        self.collect_in_progress = False
 
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
@@ -217,9 +218,14 @@ class MarkSweepGC(GCBase):
         #    call __del__, move the object to the list of object-without-del
         import time
         from pypy.rpython.lltypesystem.lloperation import llop
+        # XXX the following two lines should not be there, but without them
+        # there is a strange crash in decodestate when using stackless :-(
+        if self.collect_in_progress:
+            return
         if DEBUG_PRINT:
             llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
+        self.collect_in_progress = True
         roots = self.get_roots()
         size_gc_header = self.gcheaderbuilder.size_gc_header
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
@@ -323,6 +329,7 @@ class MarkSweepGC(GCBase):
         self.malloced_objects = firstpoolnode.linkedlist
         self.poolnodes = firstpoolnode.nextnode
         lltype.free(firstpoolnode, flavor='raw')
+        #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
 
         if curr_heap_size > self.bytes_malloced_threshold:
             self.bytes_malloced_threshold = curr_heap_size
@@ -348,23 +355,49 @@ class MarkSweepGC(GCBase):
 ##                        size_gc_header)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
 
-        # call finalizers if needed
         self.heap_usage = curr_heap_size
         hdr = self.malloced_objects_with_finalizer
         self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
+        last = lltype.nullptr(self.HDR)
         while hdr:
             next = hdr.next
             if hdr.typeid & 1:
-                hdr.next = self.malloced_objects_with_finalizer
-                self.malloced_objects_with_finalizer = hdr
+                hdr.next = lltype.nullptr(self.HDR)
+                if not self.malloced_objects_with_finalizer:
+                    self.malloced_objects_with_finalizer = hdr
+                else:
+                    last.next = hdr
                 hdr.typeid = hdr.typeid & (~1)
+                last = hdr
             else:
                 obj = llmemory.cast_ptr_to_adr(hdr) + size_gc_header
                 finalizer = self.getfinalizer(hdr.typeid >> 1)
-                finalizer(obj)
+                # make malloced_objects_with_finalizer consistent
+                # for the sake of a possible collection caused by finalizer
+                if not self.malloced_objects_with_finalizer:
+                    self.malloced_objects_with_finalizer = next
+                else:
+                    last.next = next
                 hdr.next = self.malloced_objects
                 self.malloced_objects = hdr
+                #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
+                finalizer(obj)
+                if not self.collect_in_progress: # another collection was caused?
+                    return
+                if not last:
+                    if self.malloced_objects_with_finalizer == next:
+                        self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
+                    else:
+                        # now it gets annoying: finalizer caused a malloc of something
+                        # with a finalizer
+                        last = self.malloced_objects_with_finalizer
+                        while last.next != next:
+                            last = last.next
+                            last.next = lltype.nullptr(self.HDR)
+                else:
+                    last.next = lltype.nullptr(self.HDR)
             hdr = next
+        self.collect_in_progress = False
 
     STATISTICS_NUMBERS = 2
 

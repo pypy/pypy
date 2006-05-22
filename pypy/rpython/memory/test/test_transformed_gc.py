@@ -347,6 +347,73 @@ class TestMarkSweepGC(GCTest):
         res = run([5, 42]) #XXX pure lazyness here too
         assert res == 12
 
+    def test_finalizer_resurrects(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                b.num_deleted += 1
+                b.a = self
+        def f(x, y):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            aid = b.a.id
+            b.a = None
+            # check that __del__ is not called again
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted * 10 + aid + 100 * (b.a is None)
+        run = self.runner(f, nbargs=2)
+        res = run([5, 42]) #XXX pure lazyness here too
+        assert 160 <= res <= 165
+
+    def test_collect_during_collect(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 1
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                b.num_deleted += 1
+                C()
+                C()
+                llop.gc__collect(lltype.Void)
+        class C(A):
+            def __del__(self):
+                b.num_deleted += 1
+        def f(x, y):
+            persistent_a1 = A()
+            persistent_a2 = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            persistent_a3 = A()
+            persistent_a4 = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            b.bla = persistent_a1.id + persistent_a2.id + persistent_a3.id + persistent_a4.id
+            return b.num_deleted
+        run = self.runner(f, nbargs=2)
+        # runs collect recursively 4 times
+        res = run([4, 42]) #XXX pure lazyness here too
+        assert res == 12
+
     def test_cloning(self):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
