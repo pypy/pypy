@@ -227,6 +227,7 @@ class StacklessTransformer(object):
                                            lltype.typeOf(null_state))
         self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
 
+        self.is_finished = False
         # register the prebuilt restartinfos
         for restartinfo in frame.RestartInfo.prebuilt:
             self.register_restart_info(restartinfo)
@@ -571,6 +572,7 @@ class StacklessTransformer(object):
         self.register_restart_info(restartinfo)
 
     def register_restart_info(self, restartinfo):
+        assert not self.is_finished
         rtyper = self.translator.rtyper
         for frame_info_dict in restartinfo.compress(rtyper):
             self.masterarray1.append(frame_info_dict)
@@ -578,6 +580,7 @@ class StacklessTransformer(object):
     def finish(self):
         # compute the final masterarray by copying over the masterarray1,
         # which is a list of dicts of attributes
+        self.is_finished = True
         masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,
                                     len(self.masterarray1),
                                     immortal=True)
