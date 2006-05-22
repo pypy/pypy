@@ -18,6 +18,7 @@ for k,v in namespaces.items():
     uris[v] = k
 
 Class = URIRef(u'http://www.w3.org/2002/07/owl#Class')
+Thing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
 rdf_type = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
 rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
 rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
@@ -497,13 +498,23 @@ class Ontology:
         # add constraint of not var
         # i.e. the extension of s shall contain all individuals not in var
         # We need to know all elements and subtract the elements of var
-##        avar = self.make_var(ClassDomain, var)
-##        svar = self.make_var(ClassDomain, s)
-        pass
+        self.resolve_item(s)
+        self.resolve_item(var)
+        avar = self.make_var(ClassDomain, var)
+        svar = self.make_var(ClassDomain, s)
+        vals = self.variables[avar].getValues()
+        x_vals = self.variables[svar].getValues()
+        for v in x_vals:
+            if v in vals:
+                raise ConsistencyFailure("%s cannot have the value %s and be \
+                                                    complementOf %s" % (s, v, var)) 
+        for v in self.variables[self.make_var(None,Thing_uri)].getValues():
+            if not v in vals:
+                self.variables[svar].addValue(v)       
     
     def oneOf(self, s, var):
         var = self.flatten_rdf_list(var)
-        print "*******", var, type(var), self.variables[var]
+#        print "*******", var, type(var), self.variables[var]
         #avar = self.make_var(List, var)
         svar = self.make_var(ClassDomain, s)
         res = self.variables[var].getValues()

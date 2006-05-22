@@ -582,3 +582,29 @@ def test_import():
     O = Ontology()
     s = URIRef('s')
     O.imports(s,URIRef('http://www.w3.org/2002/03owlt/imports/support001-A'))
+
+def test_complementof():
+    O = Ontology()
+    a_cls = URIRef('a')
+    b_cls = URIRef('b')
+    O.type(a_cls, URIRef(namespaces['owl']+'#Class'))
+    O.type(b_cls, URIRef(namespaces['owl']+'#Class'))
+    for i in ['i1', 'i2', 'i3', 'i4']:
+        O.type(URIRef(i), a_cls)
+        O.type(URIRef(i), URIRef(namespaces['owl']+'#Thing'))
+    O.type(URIRef('i5'), URIRef(namespaces['owl']+'#Thing'))
+    O.complementOf(b_cls, a_cls)
+    assert O.variables[O.make_var(None, b_cls)].getValues() == ['i5']
+
+def test_complementof():
+    O = Ontology()
+    a_cls = URIRef('a')
+    b_cls = URIRef('b')
+    O.type(a_cls, URIRef(namespaces['owl']+'#Class'))
+    O.type(b_cls, URIRef(namespaces['owl']+'#Class'))
+    for i in ['i1', 'i2', 'i3', 'i4']:
+        O.type(URIRef(i), a_cls)
+        O.type(URIRef(i), URIRef(namespaces['owl']+'#Thing'))
+    O.type(URIRef('i5'), URIRef(namespaces['owl']+'#Thing'))
+    O.type(URIRef('i4'), b_cls)
+    raises(ConsistencyFailure, O.complementOf, b_cls, a_cls)
