@@ -149,10 +149,10 @@ def test_merge():
     O = Ontology()
     sub = URIRef('a')
     obj = URIRef('b')
-    O.variables['b_'] = fd([1,2,3,4])
+    O.variables['b_'] = ClassDomain(values=[1,2,3,4])
     O.range(sub, obj)
     obj = URIRef('c')
-    O.variables['c_'] = fd([3,4,5,6])
+    O.variables['c_'] = ClassDomain(values=[3,4,5,6])
     O.range(sub, obj)
     sub = URIRef('a')
     pred = URIRef('type')
@@ -577,4 +577,10 @@ def test_allvalues_file():
     O = Ontology()
     O.add_file('approved/allValuesfrom/premises002.rdf')
     O.add_file('approved/allValuesfrom/nonconclusions002.rdf')
-    assert 1
+    
+def test_import():
+    O = Ontology()
+    s = URIRef('s')
+    O.imports(s,URIRef('http://www.w3.org/2002/03owlt/imports/support001-A'))
+    print list(O.graph.triples((None,)*3))
+    assert 0

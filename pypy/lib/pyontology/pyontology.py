@@ -495,10 +495,11 @@ class Ontology:
     
     def complementOf(self, s, var):
         # add constraint of not var
-        # TODO: implementthis for OWL DL
+        # i.e. the extension of s shall contain all individuals not in var
+        # We need to know all elements and subtract the elements of var
 ##        avar = self.make_var(ClassDomain, var)
 ##        svar = self.make_var(ClassDomain, s)
-            pass
+        pass
     
     def oneOf(self, s, var):
         var = self.flatten_rdf_list(var)
@@ -590,8 +591,8 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
-        formula = "not isinstance(%s[0], self.variables[%s]) or len(%s[1]) < int(%s)" %(prop, cls_name, prop, var)
-        constrain = Expression([prop, cls_name, prop, var], formula)
+        formula = "len(%s[1]) < int(%s)" %(prop, var)
+        constrain = Expression([prop], formula)
         self.constraints.append(constrain)
 
         for cls,vals in self.variables[prop].getValuesPrKey():
@@ -667,8 +668,13 @@ class Ontology:
 # -----------------              ----------------
     
     def imports(self, s, var):
-        # PP TODO: implement this
-        pass
+        # Get the url
+        url = var
+        # add the triples to the graph
+        tmp = Graph()
+        tmp.load(url)
+        for trip in tmp.triples((None,)*3):
+            self.add(trip)
 
     def sameAs(self, s, var):
         s_var = self.make_var(Thing, s)
