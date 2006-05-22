@@ -785,24 +785,9 @@ def normalizeptr(p):
         return p      # primitive
     if not p:
         return None   # null pointer
-    # - if p is an opaque pointer containing a normal Struct/GcStruct,
-    #   unwrap it now
-    if isinstance(T.TO, OpaqueType) and hasattr(p._obj, 'container'):
-        T = Ptr(typeOf(p._obj.container))
-        p = cast_opaque_ptr(T, p)
-    # - if p points to the first inlined substructure of a structure,
-    #   make it point to the whole (larger) structure instead
-    container = p._obj
-    while True:
-        parent, index = parentlink(container)
-        if parent is None:
-            break
-        T = typeOf(parent)
-        if not isinstance(T, Struct) or T._first_struct()[0] != index:
-            break
-        container = parent
+    container = p._obj._normalizedcontainer()
     if container is not p._obj:
-        p = _ptr(Ptr(T), container, p._solid)
+        p = _ptr(Ptr(typeOf(container)), container, p._solid)
     return p
 
 
@@ -1071,6 +1056,8 @@ class _container(object):
         return _ptr(Ptr(self._TYPE), self, True)
     def _as_obj(self):
         return self
+    def _normalizedcontainer(self):
+        return self
 
 class _parentable(_container):
     _kind = "?"
@@ -1117,6 +1104,20 @@ class _parentable(_container):
 
     __getstate__ = getstate_with_slots
     __setstate__ = setstate_with_slots
+
+    def _normalizedcontainer(self):
+        # if we are the first inlined substructure of a structure,
+        # return the whole (larger) structure instead
+        container = self
+        while True:
+            parent, index = parentlink(container)
+            if parent is None:
+                break
+            T = typeOf(parent)
+            if not isinstance(T, Struct) or T._first_struct()[0] != index:
+                break
+            container = parent
+        return container
 
 def _struct_variety(flds, cache={}):
     flds = list(flds)
@@ -1380,6 +1381,34 @@ class _opaque(_parentable):
 
     def __str__(self):
         return "%s %s" % (self._TYPE.__name__, self._name)
+
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        if hasattr(self, 'container') and hasattr(other, 'container'):
+            obj1 = self.container._normalizedcontainer()
+            obj2 = other.container._normalizedcontainer()
+            return obj1 == obj2
+        else:
+            return self is other
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        if hasattr(self, 'container'):
+            obj = self.container._normalizedcontainer()
+            return hash(obj)
+        else:
+            return _parentable.__hash__(self)
+
+    def _normalizedcontainer(self):
+        # if we are an opaque containing a normal Struct/GcStruct,
+        # unwrap it
+        if hasattr(self, 'container'):
+            return self.container._normalizedcontainer()
+        else:
+            return _parentable._normalizedcontainer(self)
 
 
 class _pyobject(Hashable, _container):

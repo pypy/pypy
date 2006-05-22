@@ -472,6 +472,19 @@ def test_cast_opaque_ptr():
     S2 = Struct('S2', ('z', Signed))
     py.test.raises(InvalidCast, "cast_opaque_ptr(Ptr(S2), o1)")
 
+    BIG = GcStruct('BIG', ('s', S))
+    UNRELATED = GcStruct('UNRELATED')
+    big = malloc(BIG)
+    unrelated = malloc(UNRELATED)
+    p1 = cast_opaque_ptr(Ptr(O), big)
+    p2 = cast_opaque_ptr(Ptr(O), big)
+    assert p1 == p2
+    p3 = cast_opaque_ptr(Ptr(O), big.s)
+    assert p1 == p3
+    p4 = cast_opaque_ptr(Ptr(O), unrelated)
+    assert p1 != p4
+    assert p3 != p4
+
 def test_is_atomic():
     U = Struct('inlined', ('z', Signed))
     A = Ptr(RuntimeTypeInfo)
