@@ -578,9 +578,6 @@ class MarkSweepGC(GCBase):
             objects.append(pointer.address[0])
             # -------------------------------------------------
             # begin difference from collect
-##             llop.debug_pdb(lltype.Void,
-##                            pointer.address[0], target_addr,
-##                            pointer.address[0] == target_addr)
             if pointer.address[0] == target_addr:
                 pointer.address[0] = source_addr
             # end difference from collect

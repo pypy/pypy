@@ -581,15 +581,14 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
             y = lltype.malloc(S)
             y.x = 20
             z = x
-            #llop.gc__collect(lltype.Void)
             llop.gc_x_become(lltype.Void,
                              llmemory.cast_ptr_to_adr(x),
                              llmemory.cast_ptr_to_adr(y))
             return z.x
         run = self.runner(f)
         res = run([])
-        # not implemented yet!
-        assert res == 20 
+        assert res == 20
+
 
 class TestSemiSpaceGC(TestMarkSweepGC):
 
