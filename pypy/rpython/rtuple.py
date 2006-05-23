@@ -111,7 +111,8 @@ class AbstractTupleRepr(Repr):
             p = self.instantiate()
             self.tuple_cache[key] = p
             for obj, r, name in zip(value, self.items_r, self.fieldnames):
-                setattr(p, name, r.convert_const(obj))
+                if r.lowleveltype is not Void:
+                    setattr(p, name, r.convert_const(obj))
             return p
 
     def compact_repr(self):

@@ -230,6 +230,19 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 3
 
+    def test_void_items(self):
+        def f():
+            return 6
+        def getf():
+            return f
+        def g():
+            f1 = getf()
+            return (f1, 12)
+        def example():
+            return g()[0]()
+        res = self.interpret(example, [])
+        assert res == 6
+
 class TestLLtype(BaseTestRtuple, LLRtypeMixin):
     pass
 
