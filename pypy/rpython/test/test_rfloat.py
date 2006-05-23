@@ -1,7 +1,8 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.test_llinterp import interpret
-
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.ootypesystem import ooregistry # side effects
 
 class TestSnippet(object):
 
@@ -43,15 +44,23 @@ def test_int_conversion():
     res = interpret(fn, [2.34])
     assert res == fn(2.34) 
 
-def test_float2str():
-    def fn(f):
-        return str(f)
-
-    res = interpret(fn, [1.5])
-    assert float(''.join(res.chars)) == 1.5
-
 def test_hash():
     def fn(f):
         return hash(f)
     res = interpret(fn, [1.5])
     assert res == hash(1.5)
+
+class BaseTestRfloat(BaseRtypingTest):
+    
+    def test_float2str(self):
+        def fn(f):
+            return str(f)
+
+        res = self.interpret(fn, [1.5])
+        assert float(self.ll_to_string(res)) == 1.5
+
+class TestLLtype(BaseTestRfloat, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestRfloat, OORtypeMixin):
+    pass

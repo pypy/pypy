@@ -105,3 +105,9 @@ def ll_int2oct(i, addPrefix):
         result.chars[j] = temp[len-j-1]
         j += 1
     return result
+
+def ll_float_str(repr, f):
+    from pypy.rpython.module.ll_strtod import ll_strtod_formatd
+    from pypy.rpython.lltypesystem.rstr import percent_f
+    return ll_strtod_formatd(percent_f, f)
+

@@ -136,13 +136,12 @@ class __extend__(FloatRepr):
 
     rtype_float = rtype_pos
 
+    # version picked by specialisation based on which
+    # type system rtyping is using, from <type_system>.ll_str module
     def ll_str(self, f):
-        from pypy.rpython.module.ll_strtod import ll_strtod_formatd
-        return ll_strtod_formatd(percent_f, f)
+        pass
+    ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_float_str')"
 
-# XXX this will need to be type system independent
-from pypy.rpython.lltypesystem.rstr import string_repr
-percent_f = string_repr.convert_const("%f")
 
 TAKE_NEXT = float(2**31)
 

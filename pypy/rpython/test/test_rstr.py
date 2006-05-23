@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
 from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.llinterp import LLException
+from pypy.rpython.ootypesystem import ooregistry # side effects
 
 def test_parse_fmt():
     parse = AbstractLLHelpers.parse_fmt_string

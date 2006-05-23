@@ -1175,18 +1175,6 @@ def oostring(obj, base):
         obj = '<%s object>' % obj._inst._TYPE._name
     return make_string(str(obj))
 
-def oostring2(obj, base):
-    """
-    Temp function for playing with extregistry.
-    """
-    if isinstance(obj, int):
-        assert base in (-1, 8, 10, 16)
-        fmt = {-1:'%d', 8:'%o', 10:'%d', 16:'%x'}[base]
-        obj = fmt % obj
-    elif isinstance(obj, _view):
-        obj = '<%s object>' % obj._inst._TYPE._name
-    return make_string(str(obj))
-
 def ooparse_int(s, base):
     return int(s._str, base)
 

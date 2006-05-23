@@ -13,6 +13,7 @@ from pypy.rpython.test.test_llinterp import interpret_raises
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.ootypesystem import ooregistry # side effects
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():

@@ -702,3 +702,5 @@ unboxed_instance_str_suffix = string_repr.convert_const(">")
 list_str_open_bracket = string_repr.convert_const("[")
 list_str_close_bracket = string_repr.convert_const("]")
 list_str_sep = string_repr.convert_const(", ")
+
+percent_f = string_repr.convert_const("%f")

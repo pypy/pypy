@@ -36,4 +36,5 @@ def ll_int2oct(i, addPrefix):
     buf.ll_append(oostring(i, const(8)))
     return buf.ll_build()
 
-
+def ll_float_str(repr, f):
+    return oostring(f, const(-1))
