@@ -320,11 +320,13 @@ class StacklessTransformer(object):
                 assert arg is not resume_point.var_result
                 t = storage_type(arg.concretetype)
                 if t is lltype.Void:
-                    continue
-                fname = model.Constant(resume_point.fieldnames[i], lltype.Void)
-                v_newarg = llops.genop('getfield', [frame_top, fname],
-                                       resulttype = t)
-                v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
+                    v_newarg = model.Constant(None, lltype.Void)
+                else:
+                    fname = model.Constant(resume_point.fieldnames[i],
+                                           lltype.Void)
+                    v_newarg = llops.genop('getfield', [frame_top, fname],
+                                           resulttype = t)
+                    v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
                 varmap[arg] = v_newarg
 
             rettype = storage_type(resume_point.var_result.concretetype)
@@ -460,7 +462,6 @@ class StacklessTransformer(object):
                 for l in block.exits:
                     for arg in l.args:
                         if isinstance(arg, model.Variable) \
-                           and arg.concretetype is not lltype.Void \
                            and arg is not op.result \
                            and arg not in args \
                            and arg not in [l.last_exception, l.last_exc_value]:

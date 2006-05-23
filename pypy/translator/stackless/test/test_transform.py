@@ -226,6 +226,21 @@ def test_dont_transform_too_much():
             if op.args[0].value._obj._callable is f:
                 assert op != block.operations[-1]
 
+def test_void_around():
+    def f():
+        return 6
+    def getf():
+        return f
+    def g():
+        f1 = getf()
+        for i in range(5):
+            rstack.stack_unwind()
+        return f1
+    def example():
+        return g()()
+    res = llinterp_stackless_function(example)
+    assert res == 6
+
 def rtype_stackless_function(fn):
     t = TranslationContext()
     annotator = t.buildannotator()
