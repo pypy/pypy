@@ -45,9 +45,8 @@ unicode_zfill      = StdObjSpaceMultiMethod('zfill', 2)
 # ____________________________________________________________
 
 app = gateway.applevel('''
-import codecs, sys
-
 def unicode_from_encoded_object(obj, encoding, errors):
+    import codecs, sys
     if encoding is None:
         encoding = sys.getdefaultencoding()
     decoder = codecs.getdecoder(encoding)

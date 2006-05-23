@@ -510,6 +510,7 @@ def _to_unichar_w(space, w_char):
     try:
         w_unichar = unicodetype.unicode_from_object(space, w_char)
     except OperationError:
+        # XXX don't completely eat this exception
         raise OperationError(space.w_TypeError, space.wrap('The fill character cannot be converted to Unicode'))
 
     if space.int_w(space.len(w_unichar)) != 1:
