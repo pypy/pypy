@@ -19,6 +19,7 @@ for k,v in namespaces.items():
 
 Class = URIRef(u'http://www.w3.org/2002/07/owl#Class')
 Thing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
+Nothing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Nothing')
 rdf_type = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
 rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
 rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
@@ -171,9 +172,10 @@ class AllDifferent(ClassDomain):
     pass
 
 class Nothing(ClassDomain):
-    
-    pass
 
+    def __init__(self, name='', values=[], bases = []):
+        ClassDomain.__init__(self, name, values, bases)
+        self.constraint = NothingConstraint(name)
 
 class FunctionalProperty(Property):
     
@@ -334,6 +336,8 @@ class Ontology:
             self.consider_triple(triple)
 
     def make_var(self, cls=fd, a=''):
+        if a in builtin_voc:
+            cls = builtin_voc[a]
         if type(a) == URIRef:
             if a.find('#') != -1:
                 ns,name = a.split('#')
@@ -371,11 +375,13 @@ class Ontology:
                     raise ConsistencyFailure
                 equal = val
 
-        if mini and maxi and (mini > maxi or
-                             equal < mini or
-                             equal > maxi):
+        if mini and maxi and mini > maxi:
             raise ConsistencyFailure
-        
+        if mini and equal and equal < mini:        
+            raise ConsistencyFailure
+        if maxi and equal and equal > maxi:        
+            raise ConsistencyFailure
+
     def check_TBoxes(self):
         for var, cls in self.variables.items():
             for prop, terms in cls.TBox.items():
@@ -438,7 +444,8 @@ class Ontology:
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
-        self.variables[avar].addValue(s)
+            if not isinstance(self.variables[avar], Property):
+                self.variables[avar].addValue(s)
     
     def first(self, s, var):
         pass
@@ -490,6 +497,8 @@ class Ontology:
         self.subClassOf(var, s)
     
     def disjointWith(self, s, var):
+        self.resolve_item(s)
+        self.resolve_item(var)
         avar = self.make_var(None, var)
         svar = self.make_var(None, s)
         constrain = DisjointClassConstraint(svar, avar)
@@ -527,7 +536,10 @@ class Ontology:
         
         res = []
         for val in vals:
-             res.extend([x for x in val])
+            self.get_individuals_of(val)
+            var_name = self.make_var(ClassDomain, val)
+            val = self.variables[var_name].getValues()
+            res.extend([x for x in val])
         svar = self.make_var(ClassDomain, s)
         vals = self.variables[svar].getValues()
         res.extend(vals)
@@ -535,12 +547,13 @@ class Ontology:
     
     def intersectionOf(self, s, var):
         var = self.flatten_rdf_list(var)
-        vals = self.variables[var].getValues()
+        vals = [self.make_var(ClassDomain, x) for x in self.variables[var].getValues()]
+        
         res = vals[0]
         for l in vals[1:]:
             result = []
             for v in res:
-                if v in l :
+                if v in self.variables[l].getValues() :
                     result.append(v)
             res = result
         svar = self.make_var(ClassDomain, s)
@@ -563,7 +576,8 @@ class Ontology:
     
     def subPropertyOf(self, s, var):
         # s is a subproperty of var
-        self.resolve_item(var)
+        self.resolve_predicate(var)
+        self.resolve_predicate(s)
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
         avals = self.variables[avar].getValues()

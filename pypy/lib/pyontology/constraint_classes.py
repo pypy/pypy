@@ -25,15 +25,30 @@ def get_cardinality(props, cls):
 
 class CardinalityConstraint(AbstractConstraint):
 
+    cost = 10
+
     def __init__(self, prop, cls_name, var, comp):
         AbstractConstraint.__init__(self, [prop])
         self.check_individual = "domains['%s'].getValues() != []" % prop
         self.formula = "len(domains['%s'].getValuesPrKey('%s')) %s int(%s)"% (prop, cls_name, comp, var)
 
+    def estimateCost(self, domains):
+        return self.cost
+
     def narrow(self, domains):
         if eval(self.check_individual):
             if not eval(self.formula):
                 raise ConsistencyFailure
+
+class NothingConstraint(AbstractConstraint):
+
+    def __init__(self, variable):
+        AbstractConstraint.__init__(self, [variable])
+        self.variable = variable
+
+    def narrow(self, domains):
+        if domains[self.variable] != []:
+            raise ConsistencyFailure
 
 class SubClassConstraint(AbstractConstraint):
 
@@ -63,6 +78,8 @@ class SubClassConstraint(AbstractConstraint):
 class DisjointClassConstraint(SubClassConstraint):
 
     def narrow(self, domains):
+        if self.variable ==self.object:
+            raise ConsistencyFailure
         subdom = domains[self.variable]
         superdom = domains[self.object]
         vals1 = superdom.getValues()  
