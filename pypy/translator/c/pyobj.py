@@ -542,7 +542,6 @@ class PyObjMaker:
     # addition for true extension module building
 
     def wrap_exported_class(self, cls):
-        metaclass = "type"
         name = self.uniquename('gwcls_' + cls.__name__)
         basenames = [self.nameof(base) for base in cls.__bases__]
         # we merge the class dicts for more speed
@@ -612,7 +611,8 @@ class PyObjMaker:
 
     def nameof_graph(self, g):
         newname=self.name_for_meth.get(g, g.func.__name__)
-        fwrapper = gen_wrapper(g, self.translator, newname=newname)
+        fwrapper = gen_wrapper(g, self.translator, newname=newname,
+                               as_method=g in self.is_method)
         pycfunctionobj = self.uniquename('gfunc_' + newname)
         self.wrappers[pycfunctionobj] = g.func.__name__, self.getvalue(fwrapper), g.func.__doc__
         return pycfunctionobj
