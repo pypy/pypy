@@ -14,13 +14,15 @@ SAVED_REFERENCE = llmemory.GCREF
 null_saved_ref = lltype.nullptr(SAVED_REFERENCE.TO)
 
 STORAGE_TYPES = [lltype.Void, SAVED_REFERENCE, llmemory.Address,
-                 lltype.Signed, lltype.Float, lltype.SignedLongLong]
+                 lltype.Signed, lltype.Float, lltype.SignedLongLong,
+                 llmemory.WeakGcAddress]
 
 STORAGE_FIELDS = {SAVED_REFERENCE: 'ref',
                   llmemory.Address: 'addr',
                   lltype.Signed: 'long',
                   lltype.Float: 'float',
                   lltype.SignedLongLong: 'longlong',
+                  llmemory.WeakGcAddress: 'weak',
                   }
 
 RETVAL_VOID = 0
@@ -43,6 +45,8 @@ def storage_type(T):
         return lltype.SignedLongLong
     elif T is llmemory.Address:
         return llmemory.Address
+    elif T is llmemory.WeakGcAddress:
+        return llmemory.WeakGcAddress
     elif isinstance(T, lltype.Primitive):
         return lltype.Signed
     else:
