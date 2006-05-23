@@ -7,84 +7,78 @@ from pypy.translator.llvm.buildllvm import optimizations
 
 homedir = os.getenv('HOME')
 tmpdir  = py.std.tempfile.gettempdir() + '/usession-' + os.environ['USER'] + '/'
+cflags  = "-march=pentium4 -O3 -fomit-frame-pointer"
+lflags  = "-lgc -lm -lpthread"
+
+def run(cmd):
+    print 'RUN:', cmd
+    os.system(cmd)
 
 def update_pypy():
     os.chdir(homedir + '/projects/pypy-dist')
-    os.system('svn up 2>&1')
+    run('svn up 2>&1')
 
 def update_llvm():
     os.chdir(homedir + '/projects/llvm')
-    os.system('cvs -q up 2>&1')
-    os.system('make -k -j3 tools-only 2>&1')
+    run('cvs -q up 2>&1')
+    run('make -k -j3 tools-only 2>&1')
 
 def compile_llvm_variants(revision):
     ll2bc(revision)
+
+    bc2c_exe(revision, 'from richards import *;main(iterations=1)')
+
     bc2x86_exe(revision, 'x86A', '-enable-x86-fastcc -relocation-model=static -join-liveintervals')
     bc2x86_exe(revision, 'x86B', '-relocation-model=static')
     bc2x86_exe(revision, 'x86C', '')
-    bc2c_exe(revision)
 
 
 def ll2bc(revision):
     cmd = 'cp %spypy.ll pypy/translator/goal/archive/pypy-%s.ll' % (tmpdir, revision)
-    print cmd
-    os.system(cmd)
+    run(cmd)
 
     opts = optimizations(simple=False, use_gcc=False)
     cmd  = '~/bin/llvm-as < %spypy.ll | ~/bin/opt %s -f -o %spypy.bc' % (
         tmpdir, opts, tmpdir)
-    print cmd
-    os.system(cmd)
+    run(cmd)
 
     cmd = 'cp %spypy.bc pypy/translator/goal/archive/pypy-%s.bc' % (tmpdir, revision)
-    print cmd
-    os.system(cmd)
+    run(cmd)
 
 
-def bc2c_exe(revision):
-    b   = "%spypy-llvm-%s-c" % (tmpdir, revision)
-    cmd = "~/bin/llc %spypy.bc -march=c -f -o %s.c" % (tmpdir, b)
-    print cmd
-    os.system(cmd)
+def bc2c_exe(revision, profile_command=None):
+    filename = "pypy-llvm-%s-c" % revision
+    b = tmpdir + filename
 
-    cmd = "cp %s.c pypy/translator/goal/archive" % b
-    print cmd
-    os.system(cmd)
+    run("~/bin/llc %spypy.bc -march=c -f -o %s.c" % (tmpdir, b))
+    run("cp %s.c pypy/translator/goal/archive" % b)
+    run("gcc %s.c %s -S -o %s.s" % (b, cflags, b))
+    run("cp %s.s pypy/translator/goal/archive" % b)
+    run("gcc %s.s %s -o %s" % (b, lflags, b))
+    run("cp %s pypy/translator/goal" % b)
 
-    cmd = "gcc %s.c -S -O3 -fomit-frame-pointer -o %s.s" % (b, b)
-    print cmd
-    os.system(cmd)
-
-    cmd = "cp %s.s pypy/translator/goal/archive" % b
-    print cmd
-    os.system(cmd)
-
-    cmd = "gcc %s.s -lgc -lm -lpthread -pipe -o %s" % (b, b) #XXX -static
-    print cmd
-    os.system(cmd)
-
-    cmd = "cp %s pypy/translator/goal" % b
-    print cmd
-    os.system(cmd)
-
+    if profile_command:
+        run("gcc %s.c -fprofile-generate %s -S -o %s.s" % (b, cflags, b))
+        run("gcc %s.s -fprofile-generate %s -o %s" % (b, lflags, b))
+        run("%s -c '%s'" % (b, profile_command))
+        run("gcc %s.c -fprofile-use %s -S -o %s.s" % (b, cflags, b))
+        run("cp %s.s pypy/translator/goal/archive/%s-prof.s" % (b, filename))
+        run("gcc %s.s -fprofile-use %s -o %s" % (b, lflags, b))
+        run("cp %s pypy/translator/goal/%s-prof" % (b, filename))
 
 def bc2x86_exe(revision, name_extra, llc_extra_options):
     b   = "%spypy-llvm-%s-%s" % (tmpdir, revision, name_extra)
     cmd = "~/bin/llc %spypy.bc %s -f -o %s.s" % (tmpdir, llc_extra_options, b)
-    print cmd
-    os.system(cmd)
+    run(cmd)
 
     cmd = 'cp %s.s pypy/translator/goal/archive' % b
-    print cmd
-    os.system(cmd)
+    run(cmd)
 
-    cmd = "gcc %s.s -lgc -lm -lpthread -pipe -o %s" % (b, b) #XXX -static
-    print cmd
-    os.system(cmd)
+    cmd = "gcc %s.s %s -o %s" % (b, lflags, b)
+    run(cmd)
 
     cmd = "cp %s pypy/translator/goal" % b
-    print cmd
-    os.system(cmd)
+    run(cmd)
 
 
 def compile(backend):
@@ -98,13 +92,13 @@ def compile(backend):
         targetoptions  = ''
 
     if backend == 'llvm':
-        translateoptions = ' --source'
+        translateoptions = ' --source --raisingop2direct_call'
     else:
         translateoptions = ''
 
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    os.system('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --text --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
-    os.system('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
+    run('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --text --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
+    run('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
 
     os.chdir(homedir + '/projects/pypy-dist')
     try:
@@ -126,14 +120,14 @@ def compile(backend):
         os.unlink(basename)
 
 def benchmark():
-    #os.system('cat /proc/cpuinfo')
-    #os.system('free')
+    #run('cat /proc/cpuinfo')
+    #run('free')
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    os.system('/usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
-    os.system('echo "<html><body><pre>"    >  benchmark.html')
-    os.system('cat benchmark.txt           >> benchmark.html')
-    os.system('echo "</pre></body></html>" >> benchmark.html')
-    os.system('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
+    run('/usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
+    run('echo "<html><body><pre>"    >  benchmark.html')
+    run('cat benchmark.txt           >> benchmark.html')
+    run('echo "</pre></body></html>" >> benchmark.html')
+    run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
 
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option
