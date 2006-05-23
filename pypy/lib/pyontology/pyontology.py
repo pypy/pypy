@@ -312,7 +312,8 @@ class Ontology:
         else:
             avar = self.make_var(Property, p)
             # Set the values of the property p to o
-            sub = self.make_var(ClassDomain, s)
+            self.type(s, Thing_uri)
+            sub = self.make_var(Thing, s)
             obj = self.make_var(Thing, o)
             propdom = self.variables[avar]
             res = propdom.addValue(sub, obj)
@@ -328,8 +329,8 @@ class Ontology:
             self.consider_triple(triple)
 
     def get_individuals_of(self, item):
-        item_as_subject = self.graph.triples(( None, rdf_type, item))
-        for triple in item_as_subject:
+        item_as_object = self.graph.triples(( None, rdf_type, item))
+        for triple in item_as_object:
             self.consider_triple(triple)
 
     def make_var(self, cls=fd, a=''):
@@ -562,6 +563,7 @@ class Ontology:
     
     def subPropertyOf(self, s, var):
         # s is a subproperty of var
+        self.resolve_item(var)
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
         avals = self.variables[avar].getValues()
@@ -599,16 +601,12 @@ class Ontology:
         self.resolve_item(s)
         svar =self.make_var(Restriction, s)
         cls = list(self.graph.subjects(None,s))[0]
+        self.resolve_item(cls)
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
-        formula = "len(%s[1]) < int(%s)" %(prop, var)
-        constrain = Expression([prop], formula)
-        self.constraints.append(constrain)
 
-        for cls,vals in self.variables[prop].getValuesPrKey():
-            if len(vals) < int(var):
-                self.variables[svar].addValue(cls)
+        self.constraints.append(CardinalityConstraint(prop, cls_name, var, '<='))
 
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
@@ -618,10 +616,8 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '>', int(var))]}
-        for cls,vals in self.variables[prop].getValuesPrKey():
-            if len(vals) > int(var):
-                self.variables[svar].addValue(cls)
 
+        self.constraints.append(CardinalityConstraint(prop, cls_name, var, '>='))
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
@@ -631,10 +627,8 @@ class Ontology:
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         self.variables[svar].TBox[prop] = {'Cardinality': [( '=', int(var))]}
-        for cls,vals in self.variables[prop].getValuesPrKey():
-            if len(vals) == int(var):
-                self.variables[svar].addValue(cls)
-
+        
+        self.constraints.append(CardinalityConstraint(prop, cls_name, var, '=='))
     
     def hasValue(self, s, var):
         self.resolve_item(s)

@@ -23,61 +23,17 @@ def get_cardinality(props, cls):
            card = 0
         return card 
 
-class MaxCardinality(AbstractConstraint):
-    """Contraint: all values must be distinct"""
+class CardinalityConstraint(AbstractConstraint):
 
-    def __init__(self, variable, cardinality):
-        AbstractConstraint.__init__(self, [variable])
-        self.cost = 80
-        self.variable = variable
-        self.cardinality = cardinality
-
-    def __repr__(self):
-        return '<%s  %s %i>' % (self.__class__.__name__, str(self._variables[0]), self.cardinality)
-
-    def estimateCost(self, domains):
-        return self.cost
-    
-    def narrow(self, domains):
-        """narrowing algorithm for the constraint"""
-        prop = domains[self.variable].property
-        props = Linkeddict(domains[prop].getValues())
-        dom = domains[self.variable].getValues()
-        if not dom:
-            return 0
-        cls = dom[0]
-        card = get_cardinality(props, cls)
-        if card > self.cardinality:
-            raise ConsistencyFailure("Maxcardinality of %i exceeded by the value %i" %(self.cardinality,len(props[cls])))
-        else:
-            return 1
-
-class MinCardinality(MaxCardinality):
+    def __init__(self, prop, cls_name, var, comp):
+        AbstractConstraint.__init__(self, [prop])
+        self.check_individual = "domains['%s'].getValues() != []" % prop
+        self.formula = "len(domains['%s'].getValuesPrKey('%s')) %s int(%s)"% (prop, cls_name, comp, var)
 
     def narrow(self, domains):
-        """narrowing algorithm for the constraint"""
-        prop = domains[self.variable].property
-        props = Linkeddict(domains[prop].getValues())
-        cls = domains[self.variable].getValues()[0]
-        card = get_cardinality(props, cls)
-        if card < self.cardinality:
-            raise ConsistencyFailure("MinCardinality of %i not achieved by the value %i" %(self.cardinality,len(props[cls])))
-        else:
-            return 1
-        
-class Cardinality(MaxCardinality):
-    
-    def narrow(self, domains):
-        """narrowing algorithm for the constraint"""
-        prop = domains[self.variable].property
-        props = Linkeddict(domains[prop].getValues())
-        cls = domains[self.variable].getValues()[0]
-        card = get_cardinality(props, cls)
-        if card != self.cardinality:
-            raise ConsistencyFailure("Cardinality of %i exceeded by the value %r for %r" %
-                                     (self.cardinality, props[cls], prop))
-        else:
-            return 1
+        if eval(self.check_individual):
+            if not eval(self.formula):
+                raise ConsistencyFailure
 
 class SubClassConstraint(AbstractConstraint):
 
