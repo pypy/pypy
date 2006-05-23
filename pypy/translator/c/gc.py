@@ -357,6 +357,13 @@ class FrameworkGcPolicy(BasicGcPolicy):
             # make sure this is seen by the database early, i.e. before
             # finish_helpers() on the gctransformer
             self.db.get(destrptr)
+            # the following, on the other hand, will only discover ll_finalizer
+            # helpers.  The get() sees and records a delayed pointer.  It is
+            # still important to see it so that it can be followed as soon as
+            # the mixlevelannotator resolves it.
+            gctransf = self.db.gctransformer
+            fptr = gctransf.finalizer_funcptr_for_type(structdefnode.STRUCT)
+            self.db.get(fptr)
 
     def array_setup(self, arraydefnode):
         pass
