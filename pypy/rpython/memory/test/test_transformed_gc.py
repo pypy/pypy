@@ -389,10 +389,10 @@ class TestMarkSweepGC(GCTest):
                 self.id = b.nextid
                 b.nextid += 1
             def __del__(self):
+                llop.gc__collect(lltype.Void)
                 b.num_deleted += 1
                 C()
                 C()
-                llop.gc__collect(lltype.Void)
         class C(A):
             def __del__(self):
                 b.num_deleted += 1

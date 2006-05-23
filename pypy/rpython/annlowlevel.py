@@ -161,7 +161,11 @@ class MixLevelHelperAnnotator:
 
     def graph2delayed(self, graph):
         FUNCTYPE = lltype.ForwardReference()
-        delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), "delayed!", solid=True)
+        # obscure hack: embed the name of the function in the string, so
+        # that the genc database can get it even before the delayedptr
+        # is really computed
+        name = "delayed!%s" % (graph.name,)
+        delayedptr = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
         self.delayedfuncs.append((delayedptr, graph))
         return delayedptr
 

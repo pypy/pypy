@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong, Float
 from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
+from pypy.rpython.lltypesystem.lltype import ForwardReference
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 PyObjPtr = Ptr(PyObject)
@@ -34,15 +35,14 @@ class FunctionCodeGenerator(object):
                        blocknum
                        oldgraph""".split()
 
-    def __init__(self, graph, db, cpython_exc=False, functionname=None,
-                 do_stackless=True):
+    def __init__(self, graph, db, cpython_exc=False, functionname=None):
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
         self.cpython_exc = cpython_exc
         self.functionname = functionname
         # apply the stackless transformation
-        if db.stacklesstransformer and do_stackless:
+        if db.stacklesstransformer:
             db.stacklesstransformer.transform_graph(graph)
         # apply the exception transformation
         if self.db.exctransformer:
@@ -54,6 +54,10 @@ class FunctionCodeGenerator(object):
 
         for v in self.vars:
             T = getattr(v, 'concretetype', PyObjPtr)
+            # obscure: skip forward references and hope for the best
+            # (needed for delayed function pointers)
+            if isinstance(T, Ptr) and T.TO.__class__ == ForwardReference:
+                continue
             db.gettype(T)  # force the type to be considered by the database
        
         self.lltypes = None

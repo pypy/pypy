@@ -790,6 +790,8 @@ def normalizeptr(p):
         p = _ptr(Ptr(typeOf(container)), container, p._solid)
     return p
 
+class DelayedPointer(Exception):
+    pass
 
 class _ptr(object):
     __slots__ = ('_TYPE', '_T', 
@@ -843,7 +845,10 @@ class _ptr(object):
         raise TypeError("pointer objects are not hashable")
 
     def __nonzero__(self):
-        return self._obj is not None
+        try:
+            return self._obj is not None
+        except DelayedPointer:
+            return True    # assume it's not a delayed null
 
     # _setobj, _getobj and _obj0 are really _internal_ implementations details of _ptr,
     # use _obj if necessary instead !
@@ -866,8 +871,10 @@ class _ptr(object):
                 if obj is None:
                     raise RuntimeError("accessing already garbage collected %r"
                                    % (self._T,))
-            if not isinstance(obj, int):
+            if isinstance(obj, _container):
                 obj._check()
+            elif isinstance(obj, str) and obj.startswith("delayed!"):
+                raise DelayedPointer
         return obj
     _obj = property(_getobj)
 
@@ -968,6 +975,8 @@ class _ptr(object):
             return '* %s' % (self._obj, )
         except RuntimeError:
             return '* DEAD %s' % self._T
+        except DelayedPointer:
+            return '* %s' % (self._obj0,)
 
     def __call__(self, *args):
         if isinstance(self._T, FuncType):

@@ -218,10 +218,6 @@ class MarkSweepGC(GCBase):
         #    call __del__, move the object to the list of object-without-del
         import time
         from pypy.rpython.lltypesystem.lloperation import llop
-        # XXX the following two lines should not be there, but without them
-        # there is a strange crash in decodestate when using stackless :-(
-        if self.collect_in_progress:
-            return
         if DEBUG_PRINT:
             llop.debug_print(lltype.Void, 'collecting...')
         start_time = time.time()
@@ -383,6 +379,8 @@ class MarkSweepGC(GCBase):
                 #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
                 finalizer(obj)
                 if not self.collect_in_progress: # another collection was caused?
+                    llop.debug_print(lltype.Void, "outer collect interrupted "
+                                                  "by recursive collect")
                     return
                 if not last:
                     if self.malloced_objects_with_finalizer == next:

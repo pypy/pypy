@@ -335,7 +335,6 @@ class ExtTypeOpaqueDefNode:
 
 
 class ContainerNode(object):
-    is_later_container = False
     if USESLOTS:
         __slots__ = """db T obj 
                        typename implementationtypename
@@ -544,20 +543,18 @@ class FuncNode(ContainerNode):
     # there not so many node of this kind, slots should not
     # be necessary
 
-    def __init__(self, db, T, obj):
+    def __init__(self, db, T, obj, forcename=None):
         self.globalcontainer = True
         self.db = db
         self.T = T
         self.obj = obj
         if hasattr(obj, 'includes'):
             self.includes = obj.includes
-            self.name = self.basename()
+            self.name = forcename or self.basename()
         else:
-            self.name = db.namespace.uniquename('g_' + self.basename())
-        if not getattr(obj, 'isgchelper', False):
-            self.make_funcgens()
-        else:
-            self.is_later_container = True
+            self.name = (forcename or
+                         db.namespace.uniquename('g_' + self.basename()))
+        self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
         self.ptrname = self.name
@@ -656,8 +653,7 @@ def select_function_code_generators(fnobj, db, functionname):
                 from pypy.translator.c.stackless import SlpFunctionCodeGenerator
                 return [SlpFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
         else:
-            return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname,
-                       do_stackless = not getattr(fnobj, 'isgchelper', False))]
+            return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
         if hasattr(fnobj, 'includes'):

@@ -30,7 +30,8 @@ class LowLevelDatabase(object):
         self.pendingsetupnodes = []
         self.containernodes = {}
         self.containerlist = []
-        self.latercontainerlist = []
+        self.delayedfunctionnames = {}
+        self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
         self.externalfuncs = {}
@@ -138,7 +139,7 @@ class LowLevelDatabase(object):
         else:
             raise Exception("don't know about type %r" % (T,))
 
-    def getcontainernode(self, container):
+    def getcontainernode(self, container, **buildkwds):
         try:
             node = self.containernodes[container]
         except KeyError:
@@ -148,12 +149,9 @@ class LowLevelDatabase(object):
                 if hasattr(self.gctransformer, 'consider_constant'):
                     self.gctransformer.consider_constant(T, container)
             nodefactory = ContainerNodeFactory[T.__class__]
-            node = nodefactory(self, T, container)
+            node = nodefactory(self, T, container, **buildkwds)
             self.containernodes[container] = node
-            if node.is_later_container:
-                self.latercontainerlist.append(node)
-            else:
-                self.containerlist.append(node)
+            self.containerlist.append(node)
             kind = getattr(node, 'nodekind', '?')
             self.containerstats[kind] = self.containerstats.get(kind, 0) + 1
         return node
@@ -173,11 +171,40 @@ class LowLevelDatabase(object):
                 return PrimitiveName[T](obj, self)
             elif isinstance(T, Ptr):
                 if obj:   # test if the ptr is non-NULL
-                    if isinstance(obj._obj, int):
+                    try:
+                        container = obj._obj
+                    except lltype.DelayedPointer:
+                        # hack hack hack
+                        name = obj._obj0
+                        assert name.startswith('delayed!')
+                        n = len('delayed!')
+                        if len(name) == n:
+                            raise
+                        if id(obj) in self.delayedfunctionnames:
+                            return self.delayedfunctionnames[id(obj)][0]
+                        funcname = name[n:]
+                        funcname = self.namespace.uniquename('g_' + funcname)
+                        self.delayedfunctionnames[id(obj)] = funcname, obj
+                        self.delayedfunctionptrs.append(obj)
+                        return funcname
+                        # /hack hack hack
+                    else:
+                        # hack hack hack
+                        if id(obj) in self.delayedfunctionnames:
+                            # this used to be a delayed function,
+                            # make sure we use the same name
+                            forcename = self.delayedfunctionnames[id(obj)][0]
+                            node = self.getcontainernode(container,
+                                                         forcename=forcename)
+                            assert node.ptrname == forcename
+                            return forcename
+                        # /hack hack hack
+
+                    if isinstance(container, int):
                         # special case for tagged odd-valued pointers
                         return '((%s) %d)' % (cdecl(self.gettype(T), ''),
                                               obj._obj)
-                    node = self.getcontainernode(obj._obj)
+                    node = self.getcontainernode(container)
                     return node.ptrname
                 else:
                     return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
@@ -198,10 +225,52 @@ class LowLevelDatabase(object):
             show_i = (i//1000 + 1) * 1000
         else:
             show_i = -1
-        work_to_do = True
-        transformations_to_finish = [self.gctransformer]
+
+        # The order of database completion is fragile with stackless and
+        # gc transformers.  Here is what occurs:
+        #
+        # 1. follow dependencies recursively from the entry point: data
+        #    structures pointing to other structures or functions, and
+        #    constants in functions pointing to other structures or functions.
+        #    Because of the mixlevelannotator, this might find delayed
+        #    (not-annotated-and-rtyped-yet) function pointers.  They are
+        #    not followed at this point.  User finalizers (__del__) on the
+        #    other hand are followed during this step too.
+        #
+        # 2. gctransformer.finish_helpers() - after this, all functions in
+        #    the program have been rtyped.
+        #
+        # 3. follow new dependencies.  All previously delayed functions
+        #    should have been resolved by 2 - they are gc helpers, like
+        #    ll_finalize().  New FuncNodes are built for them.  No more
+        #    FuncNodes can show up after this step.
+        #
+        # 4. stacklesstransform.finish() - freeze the stackless resume point
+        #    table.
+        #
+        # 5. follow new dependencies (this should be only the new frozen
+        #    table, which contains only numbers and already-seen function
+        #    pointers).
+        #
+        # 6. gctransformer.finish_tables() - freeze the gc types table.
+        #
+        # 7. follow new dependencies (this should be only the gc type table,
+        #    which contains only numbers and pointers to ll_finalizer
+        #    functions seen in step 3).
+        #
+        # I think that there is no reason left at this point that force
+        # step 4 to be done before step 6, nor to have a follow-new-
+        # dependencies step inbetween.  It is important though to have step 3
+        # before steps 4 and 6.
+        #
+        # This is implemented by interleaving the follow-new-dependencies
+        # steps with calls to the next 'finish' function from the following
+        # list:
+        finish_callbacks = []
+        finish_callbacks.append(self.gctransformer.finish_helpers)
         if self.stacklesstransformer:
-            transformations_to_finish.insert(0, self.stacklesstransformer)
+            finish_callbacks.append(self.stacklesstransformer.finish)
+        finish_callbacks.append(self.gctransformer.finish_tables)
 
         def add_dependencies(newdependencies):
             for value in newdependencies:
@@ -210,7 +279,7 @@ class LowLevelDatabase(object):
                 else:
                     self.get(value)
         
-        while work_to_do:
+        while True:
             while True:
                 if hasattr(self, 'pyobjmaker'):
                     self.pyobjmaker.collect_initcode()
@@ -228,22 +297,32 @@ class LowLevelDatabase(object):
                 if i == show_i:
                     dump()
                     show_i += 1000
-            work_to_do = False
 
-            while transformations_to_finish:
-                transformation = transformations_to_finish.pop(0)
-                newdependencies = transformation.finish()
+            if self.delayedfunctionptrs:
+                lst = self.delayedfunctionptrs
+                self.delayedfunctionptrs = []
+                progress = False
+                for fnptr in lst:
+                    try:
+                        fnptr._obj
+                    except lltype.DelayedPointer:   # still not resolved
+                        self.delayedfunctionptrs.append(fnptr)
+                    else:
+                        self.get(fnptr)
+                        progress = True
+                if progress:
+                    continue   # progress - follow all dependencies again
+
+            if finish_callbacks:
+                finish = finish_callbacks.pop(0)
+                newdependencies = finish()
                 if newdependencies:
                     add_dependencies(newdependencies)
-                    work_to_do = True
-                    break
-            else:
-                if self.latercontainerlist:
-                    work_to_do = True
-                    for node in self.latercontainerlist:
-                        node.make_funcgens()
-                        self.containerlist.append(node)
-                    self.latercontainerlist = []
+                continue       # progress - follow all dependencies again
+
+            break     # database is now complete
+
+        assert not self.delayedfunctionptrs
         self.completed = True
         if show_progress:
             dump()
