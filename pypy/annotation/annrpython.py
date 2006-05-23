@@ -22,6 +22,8 @@ class RPythonAnnotator:
     See description in doc/translation.txt."""
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
+        import pypy.rpython.ootypesystem.ooregistry # has side effects
+        
         if translator is None:
             # interface for tests
             from pypy.translator.translator import TranslationContext
