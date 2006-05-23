@@ -152,6 +152,8 @@ def descr_dictiter__reduce__(w_self, space):
         w_clone = space.allocate_instance(W_DictIter_Values, w_typeobj)
     elif isinstance(w_self, W_DictIter_Items):
         w_clone = space.allocate_instance(W_DictIter_Items, w_typeobj)
+    else:
+        raise Exception("%s has unknown dictiter type" % w_self)
     # we cannot call __init__ since we don't have the original dict
     w_clone.space = space
     w_clone.content = w_self.content
