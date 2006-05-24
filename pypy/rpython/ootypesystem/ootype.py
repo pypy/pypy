@@ -296,10 +296,16 @@ class String(BuiltinADTType):
             })
         self._setup_methods(generic_types)
 
+    def _enforce(self, value):
+        TYPE = typeOf(value)
+        if TYPE == Char:
+            return make_string(value)
+        else:
+            return BuiltinADTType._enforce(self, value)
+
     # TODO: should it return _null or ''?
     def _defl(self):
         return make_string("")
-    
     def _example(self):
         return self._defl()
 

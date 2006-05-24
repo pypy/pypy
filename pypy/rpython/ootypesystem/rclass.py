@@ -233,6 +233,9 @@ class InstanceRepr(AbstractInstanceRepr):
 
         ootype.addFields(self.lowleveltype, fields)
 
+        self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef, True)
+        self.rbase.setup()
+
         methods = {}
         classattributes = {}
         baseInstance = self.lowleveltype._superclass

@@ -188,7 +188,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 2
 
     def test_dict_copy(self):
-        self._skip_oo('mixing char and string')
         def func():
             # XXX this does not work if we use chars, only!
             dic = {'ab':1, 'b':2}
@@ -205,7 +204,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 1
 
     def test_dict_update(self):
-        self._skip_oo('mixing char and string')
         def func():
             dic = {'ab':1000, 'b':200}
             d2 = {'b':30, 'cb':4}
@@ -227,7 +225,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 14
 
     def test_dict_inst_keys(self):
-        self._skip_oo('instances as keys')
         class Empty:
             pass
         class A(Empty):
@@ -241,7 +238,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 3
 
     def test_dict_inst_iterkeys(self):
-        self._skip_oo('instances as keys')
         class Empty:
             pass
         class A(Empty):
@@ -265,7 +261,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 1202
 
     def test_dict_inst_values(self):
-        self._skip_oo('instances as values')
         class A:
             pass
         def func():
@@ -276,7 +271,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 3
 
     def test_dict_inst_itervalues(self):
-        self._skip_oo('instances as values')
         class A:
             pass
         def func():
@@ -289,7 +283,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 2
 
     def test_dict_inst_items(self):
-        self._skip_oo('instances as keys')
         class Empty:
             pass
         class A:
@@ -310,7 +303,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 8
 
     def test_dict_inst_iteritems(self):
-        self._skip_oo('instances as values')
         class Empty:
             pass
         class A:
@@ -348,7 +340,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res is True
 
     def test_dict_contains_with_constant_dict(self):
-        self._skip_oo('mixing char and string')
         dic = {'4':1000, ' 8':200}
         def func(i):
             return chr(i) in dic 
