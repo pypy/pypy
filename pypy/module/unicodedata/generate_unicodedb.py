@@ -2,6 +2,17 @@
 
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
+class Fraction:
+    def __init__(self, numerator, denominator):
+        self.numerator = numerator
+        self.denominator = denominator
+
+    def __repr__(self):
+        return '%r / %r' % (self.numerator, self.denominator)
+
+    def __str__(self):
+        return repr(self)
+
 class Unicodechar:
     def __init__(self, data):
         if not data[1] or data[1][0] == '<' and data[1][-1] == '>':
@@ -39,7 +50,7 @@ class Unicodechar:
         if data[8]:
             try:
                 numerator, denomenator = data[8].split('/')
-                self.numeric = float(numerator) / float(denomenator)
+                self.numeric = Fraction(float(numerator), float(denomenator))
             except ValueError:
                 self.numeric = float(data[8])
         self.mirrored = (data[9] == 'Y')
