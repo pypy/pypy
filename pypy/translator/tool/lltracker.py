@@ -121,25 +121,30 @@ def track(*ll_objects):
     """Invoke a dot+pygame object reference tracker."""
     lst = [MARKER]
     size_gc_header = None
+    seen = {}
     for ll_object in ll_objects:
         if isinstance(ll_object, llmemory.GCHeaderOffset):
             size_gc_header = ll_object
             continue
-        if isinstance(lltype.typeOf(ll_object), lltype.Ptr):
-            ptr = lltype.normalizeptr(ll_object)
-            if ptr is not None:
-                ll_object = ptr._obj
-            else:
-                ll_object = None
-        if ll_object is not None and ll_object not in lst:
+        #if isinstance(lltype.typeOf(ll_object), lltype.Ptr):
+        #    ptr = lltype.normalizeptr(ll_object)
+        #    if ptr is not None:
+        #        ll_object = ptr._obj
+        #    else:
+        #        ll_object = None
+        if ll_object is not None and id(ll_object) not in seen:
             lst.append(ll_object)
+            seen[id(ll_object)] = ll_object
     page = LLRefTrackerPage(lst, size_gc_header)
-    if len(lst) == 2:
-        # auto-expand one level
+    # auto-expand one level, for now
+    auto_expand = 1
+    for i in range(auto_expand):
         page = page.content()
-        for name, value in page.enum_content(lst[1]):
-            if not isinstance(value, str) and value not in lst:
-                lst.append(value)
+        for ll_object in lst[1:]:
+            for name, value in page.enum_content(ll_object):
+                if not isinstance(value, str) and id(value) not in seen:
+                    lst.append(value)
+                    seen[id(value)] = value
         page = page.newpage(lst)
     page.display()
 
