@@ -15,9 +15,13 @@ class TestCoroutine(StacklessTest):
     backendopt = True
     stacklessmode = True
     gcpolicy = gc.BoehmGcPolicy
+    Coroutine = Coroutine
 
     def setup_meth(self):
         costate.__init__()
+
+    def _freeze_(self):    # for 'self.Coroutine'
+        return True
 
     def test_coroutine(self):
 
@@ -48,8 +52,8 @@ class TestCoroutine(StacklessTest):
         def f():
             lst = [1]
             coro_f = costate.main
-            coro_g = Coroutine()
-            coro_h = Coroutine()
+            coro_g = self.Coroutine()
+            coro_h = self.Coroutine()
             coros = [coro_f, coro_g, coro_h]
             thunk_g = T(g, lst, coros)
             output('binding g after f set 1')
@@ -116,8 +120,8 @@ class TestCoroutine(StacklessTest):
 
         def f1(coro_f1):
             lst = [1]
-            coro_g = Coroutine()
-            coro_h = Coroutine()
+            coro_g = self.Coroutine()
+            coro_h = self.Coroutine()
             coros = [coro_f1, coro_g, coro_h]
             thunk_g = T(g, lst, coros)
             output('binding g after f1 set 1')
@@ -143,7 +147,7 @@ class TestCoroutine(StacklessTest):
 
         def f():
             coro_f = costate.main
-            coro_f1 = Coroutine()
+            coro_f1 = self.Coroutine()
             thunk_f1 = T1(f1, coro_f1)
             output('binding f1 after f set 1')
             coro_f1.bind(thunk_f1)
@@ -171,7 +175,7 @@ class TestCoroutine(StacklessTest):
             costate.main.switch()
 
         def f():
-            coro_g = Coroutine()
+            coro_g = self.Coroutine()
             thunk_g = T(g, 42)
             coro_g.bind(thunk_g)
             coro_g.switch()
@@ -182,7 +186,7 @@ class TestCoroutine(StacklessTest):
             coro_g.kill()
             res *= 10
             res |= coro_g.frame is None
-            coro_g = Coroutine()
+            coro_g = self.Coroutine()
             thunk_g = T(g, -42)
             coro_g.bind(thunk_g)
             try:
@@ -246,8 +250,8 @@ class TestCoroutine(StacklessTest):
 
         def pre_order_eq(t1, t2):
             objects = []
-            producer = Coroutine()
-            consumer = Coroutine()
+            producer = self.Coroutine()
+            consumer = self.Coroutine()
 
             producer.bind(Producer(t1, objects, consumer))
             cons = Consumer(t2, objects, producer)

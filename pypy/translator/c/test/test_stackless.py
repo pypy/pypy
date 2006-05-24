@@ -14,14 +14,13 @@ class StacklessTest(object):
 
     def setup_class(cls):
         import py
-        if cls.gcpolicy is None:
+        if cls.gcpolicy in (None, gc.RefcountingGcPolicy):
             # to re-enable this, remove the two characters 'gc' in the
             # declaregcptrtype(rstack.frame_stack_top,...) call in
             # rpython/extfunctable.  Doing so breaks translator/stackless/.
             import py
             py.test.skip("stackless + refcounting doesn't work any more for now")
-        else:
-            assert cls.gcpolicy is gc.BoehmGcPolicy
+        elif cls.gcpolicy is gc.BoehmGcPolicy:
             from pypy.translator.tool.cbuild import check_boehm_presence
             if not check_boehm_presence():
                 py.test.skip("Boehm GC not present")

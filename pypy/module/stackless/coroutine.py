@@ -76,13 +76,18 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
-        state = self.costate
-        ec = space.getexecutioncontext()
-        ec.subcontext_switch(state.current, self)
         self.switch()
-        ec.subcontext_switch(state.last, state.current)
+        state = self.costate
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
+
+    def hello(self):
+        ec = self.space.getexecutioncontext()
+        ec.subcontext_enter(self)
+
+    def goodbye(self):
+        ec = self.space.getexecutioncontext()
+        ec.subcontext_leave(self)
 
     def w_kill(self):
         self.kill()

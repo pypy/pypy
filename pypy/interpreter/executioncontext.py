@@ -45,16 +45,17 @@ class ExecutionContext:
         coobj.is_tracing = 0
     subcontext_new = staticmethod(subcontext_new)
 
-    def subcontext_switch(self, current, next):
-        current.framestack = self.framestack
-        current.w_tracefunc = self.w_tracefunc
-        current.w_profilefunc = self.w_profilefunc
-        current.is_tracing = self.is_tracing
-
+    def subcontext_enter(self, next):
         self.framestack = next.framestack
         self.w_tracefunc = next.w_tracefunc
         self.w_profilefunc = next.w_profilefunc
         self.is_tracing = next.is_tracing
+
+    def subcontext_leave(self, current):
+        current.framestack = self.framestack
+        current.w_tracefunc = self.w_tracefunc
+        current.w_profilefunc = self.w_profilefunc
+        current.is_tracing = self.is_tracing
 
     # coroutine: I think this is all, folks!
     

@@ -39,8 +39,13 @@ class BaseCoState(object):
         self.current = self.main = self.last = None
 
     def update(self, new):
-        self.last, self.current = self.current, new
+        old = self.current
+        if old is not None:
+            old.goodbye()
+        self.last, self.current = old, new
         frame, new.frame = new.frame, None
+        if new is not None:
+            new.hello()
         return frame
 
 class CoState(BaseCoState):
@@ -185,6 +190,12 @@ class Coroutine(Wrappable):
     def getcurrent():
         return costate.current
     getcurrent = staticmethod(getcurrent)
+
+    def hello(self):
+        "Called when execution is transferred into this coroutine."
+
+    def goodbye(self):
+        "Called just before execution is transferred away from this coroutine."
 
 costate = None
 costate = CoState()
