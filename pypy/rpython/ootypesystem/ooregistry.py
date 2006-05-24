@@ -23,6 +23,13 @@ class Entry_oostring(ExtRegistryEntry):
         return hop.genop('oostring', hop.args_v, resulttype = ootype.String)
 
 
+class Entry_ootype_string(ExtRegistryEntry):
+    _type_ = ootype._string
+
+    def compute_annotation(self):
+        return annmodel.SomeOOInstance(ootype=ootype.String)
+
+
 class Entry_ooparse_int(ExtRegistryEntry):
     _about_ = ootype.ooparse_int
 
