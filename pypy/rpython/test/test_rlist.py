@@ -802,7 +802,6 @@ class BaseTestRlist(BaseRtypingTest):
 
 
     def test_inst_list(self):
-        self._skip_oo('list to string')
         def fn():
             l = [None]
             l[0] = Foo()
@@ -816,8 +815,9 @@ class BaseTestRlist(BaseRtypingTest):
             x = l.pop()
             x = l2.pop()
             return str(x)+";"+str(l)
-        res = self.interpret(fn, [])
-        assert self.ll_to_string(res) == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
+        res = self.ll_to_string(self.interpret(fn, []))
+        res = res.replace('pypy.rpython.test.test_rlist.', '')
+        assert res == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
         def fn():
             l = [None] * 2
@@ -830,8 +830,9 @@ class BaseTestRlist(BaseRtypingTest):
                 l[i] = x
                 i += 1
             return str(l)
-        res = self.interpret(fn, [])
-        assert self.ll_to_string(res) == '[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
+        res = self.ll_to_string(self.interpret(fn, []))
+        res = res.replace('pypy.rpython.test.test_rlist.', '')        
+        assert res == '[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
     def test_list_slice_minusone(self):
         def fn(i):
