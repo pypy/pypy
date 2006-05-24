@@ -14,7 +14,7 @@ def test_simple():
     def f(n):
         g1()
         if n > 0:
-            res = f(n-1)
+            res = f(n-1) + 0
         else:
             res = rstack.stack_frames_depth()
         g2(g1)
@@ -34,7 +34,8 @@ def test_simple():
 def test_with_ptr():
     def f(n):
         if n > 0:
-            res = f(n-1)
+            res, dummy = f(n-1)
+            return (res, dummy)
         else:
             res = rstack.stack_frames_depth(), 1
         return res
@@ -53,7 +54,8 @@ def test_with_ptr():
 def test_manytimes():
     def f(n):
         if n > 0:
-            res = f(n-1)
+            res, dummy = f(n-1)
+            return (res, dummy)
         else:
             res = rstack.stack_frames_depth(), 1
         return res
@@ -72,7 +74,8 @@ def test_manytimes():
 def test_arguments():
     def f(n, d, t):
         if n > 0:
-            res = f(n-1, d, t)
+            res, y, z = f(n-1, d, t)
+            return res, y, z
         else:
             res = rstack.stack_frames_depth(), d, t
         return res
@@ -95,3 +98,19 @@ def test_stack_capture():
 
     res = llinterp_stackless_function(fn)
     assert res == 1
+
+def test_eliminate_tail_calls():
+    # make sure that when unwinding the stack there are no frames saved
+    # for tail calls
+    def f(n):
+        if n > 0:
+            res = f(n-1)
+        else:
+            res = rstack.stack_frames_depth()
+        return res
+    def fn():
+        count0 = f(0)
+        count10 = f(10)
+        return count10 - count0
+    res = llinterp_stackless_function(fn)
+    assert res == 0

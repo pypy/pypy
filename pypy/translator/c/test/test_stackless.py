@@ -62,7 +62,7 @@ class TestStackless(StacklessTest):
         def f(n):
             g1()
             if n > 0:
-                res = f(n-1)
+                res = f(n-1) + 0 # make sure it is not a tail call
             else:
                 res = stack_frames_depth()
             g2(g1)
@@ -79,10 +79,10 @@ class TestStackless(StacklessTest):
     def test_stack_withptr(self):
         def f(n):
             if n > 0:
-                res = f(n-1)
+                res, dummy = f(n-1)
             else:
-                res = stack_frames_depth(), 1
-            return res
+                res, dummy = stack_frames_depth(), 1
+            return res, dummy
 
         def fn():
             count0, _ = f(0)
@@ -96,10 +96,10 @@ class TestStackless(StacklessTest):
         def f(n):
             if n > 0:
                 stack_frames_depth()
-                res = f(n-1)
+                res, dummy = f(n-1)
             else:
-                res = stack_frames_depth(), 1
-            return res
+                res, dummy = stack_frames_depth(), 1
+            return res, dummy
 
         def fn():
             count0, _ = f(0)
@@ -112,10 +112,10 @@ class TestStackless(StacklessTest):
     def test_stackless_arguments(self):
         def f(n, d, t):
             if n > 0:
-                res = f(n-1, d, t)
+                a, b, c = f(n-1, d, t)
             else:
-                res = stack_frames_depth(), d, t
-            return res
+                a, b, c = stack_frames_depth(), d, t
+            return a, b, c
 
         def fn():
             count0, d, t = f(0, 5.5, (1, 2))

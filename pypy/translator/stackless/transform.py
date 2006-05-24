@@ -419,6 +419,15 @@ class StacklessTransformer(object):
                     i += 1
                     continue
 
+                if (not stackless_op and i == len(block.operations) - 1 and
+                    len(block.exits) == 1 and
+                    block.exits[0].target is self.curr_graph.returnblock and
+                    (block.exits[0].args[0].concretetype is lltype.Void or 
+                     block.exits[0].args[0] is op.result)):
+#                    print "optimizing tail call %s in function %s" % (op, self.curr_graph.name)
+                    i += 1
+                    continue
+
                 if i == len(block.operations) - 1 \
                        and block.exitswitch == model.c_last_exception:
                     link = block.exits[0]
