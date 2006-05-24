@@ -159,7 +159,7 @@ INDEX_UNWIND = frame.RestartInfo.add_prebuilt(ll_stack_unwind,
 
 def ll_stack_capture():
     if global_state.restart_substate == -1:
-        # normal entry point for stack_frames_depth()
+        # normal entry point for ll_stack_capture()
         # first unwind the stack in the usual way
         u = UnwindException()
         s = lltype.malloc(EMPTY_STATE).header
