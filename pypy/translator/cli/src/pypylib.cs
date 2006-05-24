@@ -1,6 +1,27 @@
 using System;
 using System.Collections.Generic;
 
+namespace pypy.test
+{
+    public class Result 
+    {
+        public static string ToPython(int x)    { return x.ToString(); }
+        public static string ToPython(bool x)   { return x.ToString(); }
+        public static string ToPython(double x) { return x.ToString(); }
+        public static string ToPython(char x)   { return string.Format("'{0}'", x); }
+        
+        public static string ToPython<T>(pypy.runtime.List<T> lst)
+        {
+            // TODO: use StringBuilder instead
+            string res = "[";
+            foreach(T item in lst)
+                res += item.ToString() + ","; // XXX: only works for int, bool and double
+            res += "]";
+            return res;
+        }
+    }
+}
+
 namespace pypy.runtime
 {
     public class Utils
@@ -9,6 +30,7 @@ namespace pypy.runtime
         {
             return t.GetConstructor(new Type[0]).Invoke(new object[0]);
         }
+            
     }
 
     //The public interface List must implement is defined in

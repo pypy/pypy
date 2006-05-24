@@ -27,7 +27,8 @@ _lltype_to_cts = {
     SignedLongLong: 'int64',
     UnsignedLongLong: 'unsigned int64',
     ootype.Bool: 'bool',
-    ootype.Float: 'float64',    
+    ootype.Float: 'float64',
+    ootype.Char: 'char',
     ootype.Class: 'class [mscorlib]System.Type',
 
     # maps generic types to their ordinal

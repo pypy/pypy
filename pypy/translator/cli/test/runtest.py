@@ -5,6 +5,11 @@ import shutil
 import py
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
+from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
+from pypy.rpython.lltypesystem.lltype import typeOf
+from pypy.rpython.ootypesystem import ootype
+from pypy.annotation.model import lltype_to_annotation
+
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
 from pypy.translator.cli.function import Function
@@ -44,7 +49,7 @@ class TestEntryPoint(Node):
     def render(self, ilasm):
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
 
-        # TODO: only int32 and bool are tested
+        # convert string arguments to their true type
         for i, arg in enumerate(self.graph.getargs()):
             ilasm.opcode('ldarg.0')
             ilasm.opcode('ldc.i4.%d' % i)
@@ -55,12 +60,22 @@ class TestEntryPoint(Node):
 
         ilasm.call(cts.graph_to_signature(self.graph))
 
-        # print the result using the appropriate WriteLine overload
-        ret_type, ret_var = cts.llvar_to_cts(self.graph.getreturnvar())
-        ilasm.call('void class [mscorlib]System.Console::WriteLine(%s)' % ret_type)
+        # convert result to a string containing a valid python expression
+        var = self.graph.getreturnvar()
+        ilasm.call('string class [pypylib]pypy.test.Result::%s' %
+                   self.__output_method(var.concretetype))
+        ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
         ilasm.opcode('ret')
         ilasm.end_function()
         self.db.pending_function(self.graph)
+
+    def __output_method(self, TYPE):
+        if isinstance(TYPE, ootype.List):
+            item_type = cts.lltype_to_cts(TYPE._ITEMTYPE)
+            return 'ToPython<%s> (class [pypylib]pypy.runtime.List`1<!!0>)' % item_type
+        else:
+            type_ = cts.lltype_to_cts(TYPE)
+            return 'ToPython(%s)' % type_
 
     def __convert_method(self, arg_type):
         _conv = {
@@ -69,7 +84,8 @@ class TestEntryPoint(Node):
             'int64': 'ToInt64',
             'unsigned int64': 'ToUInt64',
             'bool': 'ToBoolean',
-            'float64': 'ToDouble'
+            'float64': 'ToDouble',
+            'char': 'ToChar',
             }
 
         try:
@@ -140,12 +156,24 @@ class compile_function:
         retval = mono.wait()
         assert retval == 0, stderr
 
-        ret_type, ret_var = cts.llvar_to_cts(self.graph.getreturnvar())
-        if 'int' in ret_type:
-            return int(stdout)
-        elif ret_type == 'float64':
-            return float(stdout)
-        elif ret_type == 'bool':
-            return stdout.strip().lower() == 'true'
-        else:
-            assert False, 'Return type %s is not supported' % ret_type
+        return eval(stdout)
+##        ret_type, ret_var = cts.llvar_to_cts(self.graph.getreturnvar())
+##        if 'int' in ret_type:
+##            return int(stdout)
+##        elif ret_type == 'float64':
+##            return float(stdout)
+##        elif ret_type == 'bool':
+##            return stdout.strip().lower() == 'true'
+##        else:
+##            assert False, 'Return type %s is not supported' % ret_type
+
+
+class CliTest(BaseRtypingTest, OORtypeMixin):
+    def interpret(self, fn, args):
+        ann = [lltype_to_annotation(typeOf(x)) for x in args]
+        f = compile_function(fn, ann)
+        return f(*args)
+
+    def interpret_raises(exc, func, args):
+        py.test.skip("CLI tests don't support interpret_raises")
+    
