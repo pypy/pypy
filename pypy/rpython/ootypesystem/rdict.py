@@ -137,7 +137,7 @@ class DictRepr(AbstractDictRepr):
 
     def convert_const(self, dictobj):
         if dictobj is None:
-            return lltype.nullptr(self.DICT)
+            return self.DICT._defl()
         if not isinstance(dictobj, dict):
             raise TyperError("expected a dict: %r" % (dictobj,))
         try:
@@ -180,7 +180,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 ##            hop.exception_is_here()
 ##        else:
 ##            hop.exception_cannot_occur()
-        hop.exception_is_here()
+##        hop.exception_is_here()
         return r_dict.send_message(hop, 'll_set', can_raise=True)
 
     def rtype_contains((r_dict, r_key), hop):

@@ -809,6 +809,12 @@ class _string(_builtin_type):
         self._str = value
         self._TYPE = STRING
 
+    def __hash__(self):
+        return hash(self._str)
+
+    def __cmp__(self, other):
+        return cmp(self._str, other._str)
+
     def ll_stritem_nonneg(self, i):
         # NOT_RPYTHON
         assert i >= 0
@@ -987,7 +993,7 @@ class _dict(_builtin_type):
         return self._dict[key]
 
     def ll_set(self, key, value):
-        # NOT_RPYTHON        
+        # NOT_RPYTHON
         assert typeOf(key) == self._TYPE._KEYTYPE
         assert typeOf(value) == self._TYPE._VALUETYPE
         self._dict[key] = value
@@ -1075,6 +1081,13 @@ class _record(object):
             return id(self)
         else:
             return 0 # for all null tuples
+
+    def __hash__(self):
+        key = tuple(self._items.keys()), tuple(self._items.values())
+        return hash(key)
+
+    def __eq__(self, other):
+        return self._items == other._items
 
 class _null_record(_null_mixin(_record), _record):
 
