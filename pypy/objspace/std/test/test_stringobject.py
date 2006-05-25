@@ -252,6 +252,7 @@ class AppTestStringObject:
         assert 'abc'.replace('', '-', 3) == '-a-b-c'
         assert 'abc'.replace('', '-', 0) == 'abc'
         assert ''.replace('', '') == ''
+        assert ''.replace('', 'a') == 'a'
         assert 'abc'.replace('ab', '--', 0) == 'abc'
         assert 'abc'.replace('xy', '--') == 'abc'
         assert '123'.replace('123', '') == ''

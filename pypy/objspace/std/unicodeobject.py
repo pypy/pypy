@@ -766,8 +766,6 @@ def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     return space.newlist(parts)
 
 def _split(space, self, maxsplit):
-    if len(self) == 0:
-        return []
     if maxsplit == 0:
         return [W_UnicodeObject(self)]
     index = 0

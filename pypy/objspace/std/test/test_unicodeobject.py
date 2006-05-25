@@ -51,12 +51,21 @@ class AppTestUnicodeString:
         assert u'\na\nb\n'.splitlines(1) == [u'\n', u'a\n', u'b\n']
 
     def test_zfill(self):
-        assert u'123'.zfill(6) == u'000123'
         assert u'123'.zfill(2) == u'123'
+        assert u'123'.zfill(3) == u'123'
+        assert u'123'.zfill(4) == u'0123'
         assert u'123'.zfill(6) == u'000123'
         assert u'+123'.zfill(2) == u'+123'
+        assert u'+123'.zfill(3) == u'+123'
         assert u'+123'.zfill(4) == u'+123'
+        assert u'+123'.zfill(5) == u'+0123'
         assert u'+123'.zfill(6) == u'+00123'
+        assert u'-123'.zfill(3) == u'-123'
+        assert u'-123'.zfill(4) == u'-123'
+        assert u'-123'.zfill(5) == u'-0123'
+        assert u''.zfill(3) == u'000'
+        assert u'34'.zfill(1) == u'34'
+        assert u'34'.zfill(4) == u'0034'
 
     def test_split(self):
         assert u"".split() == []
@@ -132,6 +141,36 @@ class AppTestUnicodeString:
         assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
         raises(TypeError, u'abc'.center, 4, u'cba')
 
+    def test_title(self):
+        assert u"brown fox".title() == u"Brown Fox"
+        assert u"!brown fox".title() == u"!Brown Fox"
+        assert u"bROWN fOX".title() == u"Brown Fox"
+        assert u"Brown Fox".title() == u"Brown Fox"
+        assert u"bro!wn fox".title() == u"Bro!Wn Fox"
+
+    def test_istitle(self):
+        assert u"".istitle() == False
+        assert u"!".istitle() == False
+        assert u"!!".istitle() == False
+        assert u"brown fox".istitle() == False
+        assert u"!brown fox".istitle() == False
+        assert u"bROWN fOX".istitle() == False
+        assert u"Brown Fox".istitle() == True
+        assert u"bro!wn fox".istitle() == False
+        assert u"Bro!wn fox".istitle() == False
+        assert u"!brown Fox".istitle() == False
+        assert u"!Brown Fox".istitle() == True
+        assert u"Brow&&&&N Fox".istitle() == True
+        assert u"!Brow&&&&n Fox".istitle() == False
+        
+    def test_capitalize(self):
+        assert u"brown fox".capitalize() == u"Brown fox"
+        assert u' hello '.capitalize() == u' hello '
+        assert u'Hello '.capitalize() == u'Hello '
+        assert u'hello '.capitalize() == u'Hello '
+        assert u'aaaa'.capitalize() == u'Aaaa'
+        assert u'AaAa'.capitalize() == u'Aaaa'
+
     def test_rjust(self):
         s = u"abc"
         assert s.rjust(2) == s
@@ -159,6 +198,37 @@ class AppTestUnicodeString:
         assert u'abc'.ljust(5, u'*') == u'abc**'    # Python 2.4
         assert u'abc'.ljust(5, '*') == u'abc**'     # Python 2.4
         raises(TypeError, u'abc'.ljust, 6, u'')
+
+    def test_replace(self):
+        assert u'one!two!three!'.replace(u'!', '@', 1) == u'one@two!three!'
+        assert u'one!two!three!'.replace('!', u'') == u'onetwothree'
+        assert u'one!two!three!'.replace(u'!', u'@', 2) == u'one@two@three!'
+        assert u'one!two!three!'.replace('!', '@', 3) == u'one@two@three@'
+        assert u'one!two!three!'.replace(u'!', '@', 4) == u'one@two@three@'
+        assert u'one!two!three!'.replace('!', u'@', 0) == u'one!two!three!'
+        assert u'one!two!three!'.replace(u'!', u'@') == u'one@two@three@'
+        assert u'one!two!three!'.replace('x', '@') == u'one!two!three!'
+        assert u'one!two!three!'.replace(u'x', '@', 2) == u'one!two!three!'
+        assert u'abc'.replace('', u'-') == u'-a-b-c-'
+        assert u'abc'.replace(u'', u'-', 3) == u'-a-b-c'
+        assert u'abc'.replace('', '-', 0) == u'abc'
+        assert u''.replace(u'', '') == u''
+        assert u''.replace('', u'a') == u'a'
+        assert u'abc'.replace(u'ab', u'--', 0) == u'abc'
+        assert u'abc'.replace('xy', '--') == u'abc'
+        assert u'123'.replace(u'123', '') == u''
+        assert u'123123'.replace('123', u'') == u''
+        assert u'123x123'.replace(u'123', u'') == u'x'
+
+    def test_strip(self):
+        s = u" a b "
+        assert s.strip() == u"a b"
+        assert s.rstrip() == u" a b"
+        assert s.lstrip() == u"a b "
+        assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
+        assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
+        assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
+
 
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
