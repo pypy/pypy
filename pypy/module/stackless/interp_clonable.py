@@ -51,3 +51,7 @@ def fork():
     # we resume here twice.  The following would need explanations about
     # why it returns the correct thing in both the parent and the child...
     return thunk.newcoroutine
+
+##    from pypy.rpython.lltypesystem import lltype, lloperation
+##    lloperation.llop.debug_view(lltype.Void, current, thunk,
+##        lloperation.llop.gc_x_size_header(lltype.Signed))

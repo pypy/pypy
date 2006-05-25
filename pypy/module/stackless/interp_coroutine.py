@@ -39,13 +39,8 @@ class BaseCoState(object):
         self.current = self.main = self.last = None
 
     def update(self, new):
-        old = self.current
-        if old is not None:
-            old.goodbye()
-        self.last, self.current = old, new
+        self.last, self.current = self.current, new
         frame, new.frame = new.frame, None
-        if new is not None:
-            new.hello()
         return frame
 
 class CoState(BaseCoState):
@@ -124,7 +119,11 @@ class Coroutine(Wrappable):
     def _bind(self, thunk):
         state = self.costate
         self.parent = state.current
-        state.last.frame = yield_current_frame_to_caller()
+        incoming_frame = yield_current_frame_to_caller()
+        left = state.last
+        left.frame = incoming_frame
+        left.goodbye()
+        self.hello()
         try:
             costate.do_things_to_do()
             thunk.call()
@@ -146,8 +145,11 @@ class Coroutine(Wrappable):
             # greenlets and tasklets have different ideas about this.
             raise CoroutineDamage
         state = self.costate
-        state.last.frame = state.update(self).switch()
-        # note that last gets updated before assignment!
+        incoming_frame = state.update(self).switch()
+        left = state.last
+        left.frame = incoming_frame
+        left.goodbye()
+        self.hello()
         costate.do_things_to_do()
 
     def kill(self):
@@ -195,7 +197,7 @@ class Coroutine(Wrappable):
         "Called when execution is transferred into this coroutine."
 
     def goodbye(self):
-        "Called just before execution is transferred away from this coroutine."
+        "Called just after execution is transferred away from this coroutine."
 
 costate = None
 costate = CoState()

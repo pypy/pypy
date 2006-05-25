@@ -45,8 +45,42 @@ class TestClonableCoroutine(test_transformed_gc.GCTest):
         res = run([])
         assert res == 1234546
 
+    def test_clone_local_state(self):
+        class T(AbstractThunk):
+            def __init__(self, result):
+                self.result = result
+            def call(self):
+                localstate = []
+                localstate.append(10)
+                self.result.append(2)
+                costate.main.switch()
+                localstate.append(20)
+                if localstate == [10, 20]:
+                    self.result.append(4)
+                else:
+                    self.result.append(0)
+        def f():
+            result = []
+            coro = ClonableCoroutine()
+            coro.bind(T(result))
+            result.append(1)
+            coro.switch()
+            coro2 = coro.clone()
+            result.append(3)
+            coro2.switch()
+            result.append(5)
+            coro.switch()
+            result.append(6)
+            n = 0
+            for i in result:
+                n = n*10 + i
+            return n
+
+        run = self.runner(f)
+        res = run([])
+        assert res == 1234546
+
     def test_fork(self):
-        import py; py.test.skip("in-progress")
         class T(AbstractThunk):
             def __init__(self, result):
                 self.result = result
