@@ -30,6 +30,8 @@ def setup_special_methods():
                 if arity == 3 and '_set' in fname:
                     ann[-1] = object
             SPECIAL_METHODS[fname] = ann
+    # __init__ is not in the table.
+    SPECIAL_METHODS['__init__'] = [None]
 setup_special_methods()
                 
 def get_annotation(func, pre=[]):
@@ -48,6 +50,11 @@ def guess_methannotation(func, cls):
         pattern = SPECIAL_METHODS[func.__name__]
         ret = [thetype or cls for thetype in pattern]
     return ret
+
+def should_expose_method(func):
+    # expose all special methods but hide those starting with _
+    name = func.__name__
+    return name in SPECIAL_METHODS or not name.startswith('_')
 
 def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
                 use_boehm=False, exports=None):
@@ -78,9 +85,10 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
             rtyper.add_wrapper(clsdef)
             for obj in cls.__dict__.values():
                 if isinstance(obj, types.FunctionType):
-                    if not ann.bookkeeper.getdesc(obj).querycallfamily():
-                        # not annotated, so enforce it
-                        ann.build_types(obj, get_annotation(obj, [cls]), complete_now=False)
+                    if should_expose_method(obj):
+                        if not ann.bookkeeper.getdesc(obj).querycallfamily():
+                            # not annotated, so enforce it
+                            ann.build_types(obj, get_annotation(obj, [cls]), complete_now=False)
                 elif isinstance(obj, property):
                     for obj in obj.fget, obj.fset, obj.fdel:
                         if obj and not ann.bookkeeper.getdesc(obj).querycallfamily():

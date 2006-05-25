@@ -156,6 +156,7 @@ def test_extcompiler():
     assert res == DemoClass(2, 3).demo()
     assert (obj + obj).demo() == 10
     assert hasattr(m, '__init__')
+    assert m.zweiundvierzig == 42
     
 if __name__=='__main__':
     test_expose_classes()
