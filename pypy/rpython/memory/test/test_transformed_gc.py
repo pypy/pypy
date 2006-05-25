@@ -448,6 +448,41 @@ class TestMarkSweepGC(GCTest):
         res = run([])
         assert res == 111222333
 
+    def test_cloning_varsize(self):
+        B = lltype.GcStruct('B', ('x', lltype.Signed))
+        A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
+                                 ('more', lltype.Array(lltype.Ptr(B))))
+        def make(n):
+            b = lltype.malloc(B)
+            b.x = n
+            a = lltype.malloc(A, 2)
+            a.b = b
+            a.more[0] = lltype.malloc(B)
+            a.more[0].x = n*10
+            a.more[1] = lltype.malloc(B)
+            a.more[1].x = n*10+1
+            return a
+        def func():
+            oldpool = llop.gc_x_swap_pool(X_POOL_PTR, lltype.nullptr(X_POOL))
+            a2 = make(22)
+            newpool = llop.gc_x_swap_pool(X_POOL_PTR, oldpool)
+            # clone a2
+            a2ref = lltype.cast_opaque_ptr(llmemory.GCREF, a2)
+            clonedata = lltype.malloc(X_CLONE)
+            clonedata.gcobjectptr = a2ref
+            clonedata.pool = newpool
+            llop.gc_x_clone(lltype.Void, clonedata)
+            a2copyref = clonedata.gcobjectptr
+            a2copy = lltype.cast_opaque_ptr(lltype.Ptr(A), a2copyref)
+            a2copy.b.x = 44
+            a2copy.more[0].x = 440
+            a2copy.more[1].x = 441
+            return a2.b.x * 1000000 + a2.more[0].x * 1000 + a2.more[1].x
+
+        run = self.runner(func)
+        res = run([])
+        assert res == 22220221
+
     def test_cloning_highlevel(self):
         from pypy.rpython import rgc
         class A:
@@ -481,6 +516,33 @@ class TestMarkSweepGC(GCTest):
         assert res == 1
         res = run([7, 0])
         assert res == 1
+
+    def test_cloning_highlevel_varsize(self):
+        from pypy.rpython import rgc
+        class A:
+            pass
+        def func(n, dummy):
+            lst = [A() for i in range(n)]
+            for a in lst:
+                a.value = 1
+            lst2, newpool = rgc.gc_clone(lst, None)
+            for i in range(n):
+                a = A()
+                a.value = i
+                lst.append(a)
+                lst[i].value = 4 + i
+                lst2[i].value = 7 + i
+
+            n = 0
+            for a in lst:
+                n = n*10 + a.value
+            for a in lst2:
+                n = n*10 + a.value
+            return n
+
+        run = self.runner(func, nbargs=2)
+        res = run([3, 0])
+        assert res == 456012789
 
     def test_tree_cloning(self):
         import os

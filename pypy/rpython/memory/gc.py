@@ -529,22 +529,47 @@ class MarkSweepGC(GCBase):
             newhdr = oldhdr.next      # abused to point to the copy
             if not newhdr:
                 typeid >>= 1
+                size = self.fixed_size(typeid)
+                # XXX! collect() at the beginning if the free heap is low
                 if self.is_varsize(typeid):
-                    raise NotImplementedError
+                    itemsize = self.varsize_item_sizes(typeid)
+                    offset_to_length = self.varsize_offset_to_length(typeid)
+                    length = (oldobj_addr +
+                              self.varsize_offset_to_length(typeid)).signed[0]
+                    newobj = self.malloc_varsize(typeid, length, size,
+                                                 itemsize, offset_to_length,
+                                                 False)
                 else:
-                    size = self.fixed_size(typeid)
-                    # XXX! collect() at the beginning if the free heap is low
                     newobj = self.malloc_fixedsize(typeid, size, False)
-                    newobj_addr = llmemory.cast_ptr_to_adr(newobj)
-                    newhdr_addr = newobj_addr - size_gc_header
-                    newhdr = llmemory.cast_adr_to_ptr(newhdr_addr, self.HDRPTR)
-                    raw_memcopy(oldobj_addr, newobj_addr, size)
-                    offsets = self.offsets_to_gc_pointers(typeid)
+                    length = -1
+
+                newobj_addr = llmemory.cast_ptr_to_adr(newobj)
+                newhdr_addr = newobj_addr - size_gc_header
+                newhdr = llmemory.cast_adr_to_ptr(newhdr_addr, self.HDRPTR)
+                raw_memcopy(oldobj_addr, newobj_addr, size)
+                offsets = self.offsets_to_gc_pointers(typeid)
+                i = 0
+                while i < len(offsets):
+                    pointer_addr = newobj_addr + offsets[i]
+                    stack.append(pointer_addr)
+                    i += 1
+
+                if length > 0:
+                    offsets = self.varsize_offsets_to_gcpointers_in_var_part(
+                        typeid)
+                    itemlength = self.varsize_item_sizes(typeid)
+                    offset = self.varsize_offset_to_variable_part(typeid)
+                    itembaseaddr = newobj_addr + offset
                     i = 0
-                    while i < len(offsets):
-                        pointer_addr = newobj_addr + offsets[i]
-                        stack.append(pointer_addr)
+                    while i < length:
+                        item = itembaseaddr + itemlength * i
+                        j = 0
+                        while j < len(offsets):
+                            pointer_addr = item + offsets[j]
+                            stack.append(pointer_addr)
+                            j += 1
                         i += 1
+
                 oldhdr.next = newhdr
             newobj_addr = llmemory.cast_ptr_to_adr(newhdr) + size_gc_header
             gcptr_addr.address[0] = newobj_addr
