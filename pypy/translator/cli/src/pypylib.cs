@@ -9,16 +9,6 @@ namespace pypy.test
         public static string ToPython(bool x)   { return x.ToString(); }
         public static string ToPython(double x) { return x.ToString(); }
         public static string ToPython(char x)   { return string.Format("'{0}'", x); }
-        
-        public static string ToPython<T>(pypy.runtime.List<T> lst)
-        {
-            // TODO: use StringBuilder instead
-            string res = "[";
-            foreach(T item in lst)
-                res += item.ToString() + ","; // XXX: only works for int, bool and double
-            res += "]";
-            return res;
-        }
     }
 }
 
@@ -37,6 +27,16 @@ namespace pypy.runtime
     // rpython.ootypesystem.ootype.List.GENERIC_METHODS
     public class List<T>: System.Collections.Generic.List<T>
     {
+        public override string ToString()
+        {
+            // TODO: use StringBuilder instead
+            string res = "[";
+            foreach(T item in this)
+                res += item.ToString() + ","; // XXX: doesn't work for chars
+            res += "]";
+            return res;
+        }
+
         public int ll_length()
         {
             return this.Count;

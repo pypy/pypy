@@ -143,7 +143,7 @@ class IlasmGenerator(object):
     def set_field(self, field_data ):
         self.opcode('stfld %s %s::%s' % field_data )
 
-    def get_field(self,field_data):
+    def get_field(self, field_data):
         self.opcode('ldfld %s %s::%s' % field_data )
 
     def load_set_field(self, cts_type, name):
@@ -158,7 +158,7 @@ class IlasmGenerator(object):
     def ret(self):
         self.opcode('ret')
 
-    def castclass(self,cts_type):
+    def castclass(self, cts_type):
         self.opcode('castclass', cts_type)
     
     def load_self(self):

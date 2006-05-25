@@ -33,6 +33,14 @@ def check(func, annotation, args):
     else:
         assert res1 == res2
 
+def format_object(TYPE, ilasm):
+    if isinstance(TYPE, ootype.BuiltinType):
+        ilasm.call_method('string object::ToString()', virtual=True)
+    else:
+        type_ = cts.lltype_to_cts(TYPE)
+        ilasm.call('string class [pypylib]pypy.test.Result::ToPython(%s)' % type_)
+    
+
 class TestEntryPoint(Node):
     """
     This class produces a 'main' method that converts its arguments
@@ -61,21 +69,12 @@ class TestEntryPoint(Node):
         ilasm.call(cts.graph_to_signature(self.graph))
 
         # convert result to a string containing a valid python expression
-        var = self.graph.getreturnvar()
-        ilasm.call('string class [pypylib]pypy.test.Result::%s' %
-                   self.__output_method(var.concretetype))
+        TYPE = self.graph.getreturnvar().concretetype
+        format_object(TYPE, ilasm)
         ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
         ilasm.opcode('ret')
         ilasm.end_function()
         self.db.pending_function(self.graph)
-
-    def __output_method(self, TYPE):
-        if isinstance(TYPE, ootype.List):
-            item_type = cts.lltype_to_cts(TYPE._ITEMTYPE)
-            return 'ToPython<%s> (class [pypylib]pypy.runtime.List`1<!!0>)' % item_type
-        else:
-            type_ = cts.lltype_to_cts(TYPE)
-            return 'ToPython(%s)' % type_
 
     def __convert_method(self, arg_type):
         _conv = {
@@ -156,17 +155,18 @@ class compile_function:
         retval = mono.wait()
         assert retval == 0, stderr
 
-        return eval(stdout)
-##        ret_type, ret_var = cts.llvar_to_cts(self.graph.getreturnvar())
-##        if 'int' in ret_type:
-##            return int(stdout)
-##        elif ret_type == 'float64':
-##            return float(stdout)
-##        elif ret_type == 'bool':
-##            return stdout.strip().lower() == 'true'
-##        else:
-##            assert False, 'Return type %s is not supported' % ret_type
+        res = eval(stdout)
+        if isinstance(res, tuple):
+            res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
+        return res
 
+class StructTuple(tuple):
+    def __getattr__(self, name):
+        if name.startswith('item'):
+            i = int(name[len('item'):])
+            return self[i]
+        else:
+            raise AttributeError, name
 
 class CliTest(BaseRtypingTest, OORtypeMixin):
     def interpret(self, fn, args):
@@ -177,3 +177,11 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
     def interpret_raises(exc, func, args):
         py.test.skip("CLI tests don't support interpret_raises")
     
+    def ll_to_string(self, s):
+        py.test.skip('ll_to_string not supported, yet')
+
+    def ll_to_list(self, l):
+        return l
+
+    def class_name(self, value):
+        py.test.skip('class_name not supported, yet')

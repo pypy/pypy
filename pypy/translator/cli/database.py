@@ -68,7 +68,7 @@ class LowLevelDatabase(object):
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
 
     def gen_constants(self, ilasm):
-        if not ilasm . show_const ():
+        if not ilasm.show_const():
             return
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
@@ -83,7 +83,7 @@ class LowLevelDatabase(object):
         for const, name in self.consts.iteritems():
             const.init(ilasm)
             type_ = const.get_type()
-            ilasm.set_static_field ( type_, CONST_NAMESPACE, CONST_CLASS, name )
+            ilasm.set_static_field (type_, CONST_NAMESPACE, CONST_CLASS, name)
 
         ilasm.ret()
         ilasm.end_function()
@@ -102,10 +102,31 @@ class AbstractConst(object):
 
         if isinstance(const, ootype._instance):
             return InstanceConst(db, const, static_type)
+        elif isinstance(const, ootype._record):
+            return RecordConst(db, const)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
-    
+
+    def load(db, TYPE, value, ilasm):
+        # TODO: code duplicated from function.py, refactoring needed
+        if TYPE is ootype.Void:
+            pass
+        elif TYPE is ootype.Bool:
+            ilasm.opcode('ldc.i4', str(int(value)))
+        elif TYPE is ootype.Float:
+            ilasm.opcode('ldc.r8', repr(value))
+        elif TYPE in (ootype.Signed, ootype.Unsigned):
+            ilasm.opcode('ldc.i4', str(value))
+        elif TYPE in (ootype.SignedLongLong, ootype.UnsignedLongLong):
+            ilasm.opcode('ldc.i8', str(value))
+        else:
+            cts = CTS(db)
+            name = db.record_const(value)
+            cts_type = cts.lltype_to_cts(TYPE)
+            ilasm.opcode('ldsfld %s %s' % (cts_type, name))
+    load = staticmethod(load)
+
     def get_name(self):
         pass
 
@@ -114,6 +135,34 @@ class AbstractConst(object):
 
     def init(self, ilasm):
         pass
+
+class RecordConst(AbstractConst):
+    def __init__(self, db, record):
+        self.db = db
+        self.cts = CTS(db)        
+        self.record = record
+
+    def __hash__(self):
+        return hash(self.record)
+
+    def __eq__(self, other):
+        return self.record == other.record
+
+    def get_name(self):
+        return 'Record'
+
+    def get_type(self):
+        return self.cts.lltype_to_cts(self.record._TYPE)
+
+    def init(self, ilasm):
+        class_name = self.record._TYPE._name
+        ilasm.new('instance void class %s::.ctor()' % class_name)
+        for f_name, (FIELD_TYPE, f_default) in self.record._TYPE._fields.iteritems():
+            f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+            value = self.record._items[f_name]
+            ilasm.opcode('dup')
+            AbstractConst.load(self.db, FIELD_TYPE, value, ilasm)            
+            ilasm.set_field((f_type, class_name, f_name))
 
 class InstanceConst(AbstractConst):
     def __init__(self, db, obj, static_type):

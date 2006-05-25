@@ -25,3 +25,8 @@ class TestRunTest(CliTest):
         def fn():
             return [1, 2, 3]
         assert self.interpret(fn, []) == [1, 2, 3]
+
+    def test_tuple(self):
+        def fn():
+            return 1, 2
+        assert self.interpret(fn, []) == (1, 2)

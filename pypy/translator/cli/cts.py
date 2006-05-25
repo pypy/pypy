@@ -79,6 +79,8 @@ class CTS(object):
             return 'void' # TODO: is it correct to ignore StaticMethod?
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
+            if item_type == 'void': # special case: CLI doesn't allow List of void; use int instead
+                item_type = 'int32'
             return self.__class(PYPY_LIST % item_type, include_class)
         elif isinstance(t, ootype.Dict):
             key_type = self.lltype_to_cts(t._KEYTYPE)
