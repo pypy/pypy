@@ -4,7 +4,12 @@ from logilab.constraint.fd import  Expression, FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
 from constraint_classes import *
 import sys, py
+from pypy.tool.ansi_print import ansi_log
 import time
+
+log = py.log.Producer("Pyontology")
+py.log.setconsumer("Pyontology", ansi_log)
+
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
@@ -56,7 +61,7 @@ class ClassDomain(AbstractDomain):
         self.values = {}
         self.setValues(values)
         self.name = name
-        self.properties = {}
+        self.property = None
         # The TBox is a dictionary containing terminology constraints
         # on predicates for this class. Keys are predicates, constraint
         # tupples ie. (p,'Carddinality') and values are list, comparison
@@ -99,13 +104,16 @@ class ClassDomain(AbstractDomain):
     def setValues(self, values):
         self.values = dict.fromkeys(values)
 
+class Thing(ClassDomain):
+    pass
+
 class List(ClassDomain):
     
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
         self.constraint = ListConstraint(name)
 
-class Property(ClassDomain):
+class Property(Thing):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
     # for range and domain must be filled in by rdfs:range and rdfs:domain
@@ -160,9 +168,6 @@ class ObjectProperty(Property):
 class DatatypeProperty(Property):
     pass
 
-class Thing(ClassDomain):
-    pass
-
 class DataRange(ClassDomain):
     pass
 
@@ -181,12 +186,12 @@ class FunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-#        self.constraint = FunctionalCardinality(name)
+        self.constraint = FunctionalCardinality(name)
 
     def addValue(self, key, val):
         Property.addValue(self, key, val)
-        if len(self._dict[key]) > 1:
-            raise ConsistencyFailure("FunctionalProperties can only have one value")
+#        if len(self._dict[key]) > 1:
+#            raise ConsistencyFailure("FunctionalProperties can only have one value")
         
 class InverseFunctionalProperty(Property):
     
@@ -293,20 +298,24 @@ class Ontology:
         self.graph.load(f, format=format)
     
     def attach_fd(self):
-        for (s, p, o) in (self.graph.triples((None,)*3)):
-            self.consider_triple((s, p, o))
+        while len(list(self.graph.triples((None,)*3))) != len(self.seen.keys()):
+            for (s, p, o) in (self.graph.triples((None,)*3)):
+                self.consider_triple((s, p, o))
+        log("=============================")
         assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
 
     def consider_triple(self,(s, p, o)):
+        log("Trying %r" % ((s, p, o),))
         if (s, p, o) in self.seen.keys():
             return
+        log("Doing %r" % ((s, p, o),))
         self.seen[(s, p, o)] = True
         if p.find('#') != -1:
             ns, func = p.split('#')
         else:
             ns =''
             func = p
-        if ns in namespaces.values():
+        if ns in namespaces.values() and hasattr(self, func):
             #predicate is one of builtin OWL or rdf predicates
             pred = getattr(self, func)
             res = pred(s, o)
@@ -318,7 +327,7 @@ class Ontology:
             sub = self.make_var(Thing, s)
             obj = self.make_var(Thing, o)
             propdom = self.variables[avar]
-            res = propdom.addValue(sub, obj)
+            res = propdom.addValue(s, o)
 
     def resolve_item(self, item):
         item_as_subject = self.graph.triples((item, None, None))
@@ -336,6 +345,7 @@ class Ontology:
             self.consider_triple(triple)
 
     def make_var(self, cls=fd, a=''):
+        log("make_var %r,%r" %(cls,a))
         if a in builtin_voc:
             cls = builtin_voc[a]
         if type(a) == URIRef:
@@ -354,10 +364,14 @@ class Ontology:
             return var
         if not var in self.variables:
             self.variables[var] = cls(var)
-        elif type(self.variables[var]) in cls.__bases__:
+        # XXX needed because of old style classes
+        elif issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
-            self.variables[var] = cls(var)
-            self.variables[var].setValues(vals)
+            tmp = cls(var)
+            tmp.setValues(vals)
+            tmp.property = self.variables[var].property
+            tmp.TBox = self.variables[var].TBox
+            self.variables[var] = tmp
         return var
 
     def evaluate(self, terms):
@@ -425,10 +439,15 @@ class Ontology:
     def comment(self, s, var):
         pass
     
+    def label(self, s, var):
+        pass
+
     def type(self, s, var):
+        log("type %r %r"%(s, var))
         avar = self.make_var(ClassDomain, var)
         if not var in builtin_voc :
-            # var is not one of the builtin classes
+            # var is not one of the builtin classes -> it is a Thing
+            self.type(s, Thing_uri)
             svar = self.make_var(self.variables[avar].__class__, s)
             self.variables[avar].addValue(s)
         else:
@@ -438,9 +457,9 @@ class Ontology:
                 return
             else:
                 svar = self.make_var(None, s)
-            if not (self.variables.has_key(svar) and
-                   isinstance(self.variables[svar], cls)):
-                svar = self.make_var(cls, s)
+#            if not (self.variables.has_key(svar) and
+#                   isinstance(self.variables[svar], cls)):
+            svar = self.make_var(cls, s)
             cls = self.variables[svar]
             if hasattr(cls, 'constraint'):
                 self.constraints.append(cls.constraint)
@@ -454,7 +473,8 @@ class Ontology:
         pass
     
     def onProperty(self, s, var):
-        self.resolve_predicate(var)
+#        self.resolve_predicate(var)
+        log("%r onProperty %r "%(s, var))
         svar =self.make_var(Restriction, s)
         avar =self.make_var(Property, var)
         restr = self.variables[svar]
@@ -468,13 +488,14 @@ class Ontology:
         # class extension of var, ie if a indiviual is in
         # the extension of s it must be in the extension of
         # var
-        self.resolve_item(s)
+        log("%r subClassOf %r "%(s, var))
         self.resolve_item(var)
+#        self.resolve_item(s)
         avar = self.make_var(None, var)
         svar = self.make_var(ClassDomain, s)
         obj = self.variables[avar]
         sub = self.variables[svar]
-
+#        assert (not isinstance(obj, Restriction)) or obj.TBox 
         if obj.TBox:
             for key in obj.TBox.keys():
                 sub.TBox.setdefault(key,{})
@@ -483,9 +504,9 @@ class Ontology:
                     prop.setdefault(typ, [])
                     prop[typ].extend(obj.TBox[key][typ])
 
-            if isinstance(self.variables[avar], Restriction):
-                self.variables[avar].TBox = {}
-                self.variables.pop(avar)
+#            if isinstance(self.variables[avar], Restriction):
+#                self.variables[avar].TBox = {}
+#                self.variables.pop(avar)
         else:
             cons = SubClassConstraint( svar, avar)
             self.constraints.append(cons)
@@ -520,11 +541,11 @@ class Ontology:
                                                     complementOf %s" % (s, v, var)) 
         for v in self.variables[self.make_var(None,Thing_uri)].getValues():
             if not v in vals:
-                self.variables[svar].addValue(v)       
+                self.variables[svar].addValue(v)
+        self.constraints.append(ComplementOfConstraint(svar, avar))       
     
     def oneOf(self, s, var):
         var = self.flatten_rdf_list(var)
-#        print "*******", var, type(var), self.variables[var]
         #avar = self.make_var(List, var)
         svar = self.make_var(ClassDomain, s)
         res = self.variables[var].getValues()
@@ -592,15 +613,14 @@ class Ontology:
         self.constraints.append(cons)
     
     def inverseOf(self, s, var):
-        self.resolve_item(s)
-        self.resolve_item(var)
+        self.resolve_predicate(s)
+        self.resolve_predicate(var)
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
 #        con = InverseofConstraint(svar, avar)
 #        self.constraints.append(con)
         avals = self.variables[avar].getValues()
         svals = self.variables[svar].getValues()
-        #import pdb;pdb.set_trace()
         for pair in avals:
             if not (pair[1], pair[0]) in svals:
 	            self.variables[svar].addValue(pair[1], pair[0])
@@ -613,36 +633,41 @@ class Ontology:
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
         self.resolve_item(s)
+        log("%r maxCardinality %r "%(s, var))
         svar =self.make_var(Restriction, s)
         cls = list(self.graph.subjects(None,s))[0]
         self.resolve_item(cls)
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
+        assert prop
         self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
-
-        self.constraints.append(CardinalityConstraint(prop, cls_name, var, '<='))
+        self.constraints.append(CardinalityConstraint(prop, cls, var, '<='))
 
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
         self.resolve_item(s)
+        log("%r minCardinality %r "%(s, var))
         svar =self.make_var(Restriction, s)
         cls = list(self.graph.subjects(None,s))[0]
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
+        assert prop
         self.variables[svar].TBox[prop] = {'Cardinality': [( '>', int(var))]}
 
-        self.constraints.append(CardinalityConstraint(prop, cls_name, var, '>='))
+        self.constraints.append(CardinalityConstraint(prop, cls, var, '>='))
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
         self.resolve_item(s)
+        log("%r Cardinality %r "%(s, var))
         svar =self.make_var(Restriction, s)
         cls = list(self.graph.subjects(None,s))[0]
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
+        assert prop
         self.variables[svar].TBox[prop] = {'Cardinality': [( '=', int(var))]}
         
-        self.constraints.append(CardinalityConstraint(prop, cls_name, var, '=='))
+        self.constraints.append(CardinalityConstraint(prop, cls, var, '=='))
     
     def hasValue(self, s, var):
         self.resolve_item(s)
@@ -677,8 +702,11 @@ class Ontology:
         avar = self.make_var(None, var)
         prop = self.variables[svar].property
         restr = self.variables[svar]
-        obj = self.variables[avar]
-        constrain_vals = set(obj.getValues())
+        obj = self.variables.get(avar, None)
+        if obj: 
+            constrain_vals = set(obj.getValues())
+        else:
+            constrain_vals = set()
         restr.TBox[prop] = {'someValuesFrom' : [('someValuesFrom', avar)]}
         for cls,vals in self.variables[prop].getValuesPrKey():
             if set(vals) & constrain_vals:
@@ -708,14 +736,12 @@ class Ontology:
         constrain = DifferentfromConstraint(s_var, var_var)
         self.constraints.append(constrain)
 
-#XXX need to change this
     def distinctMembers(self, s, var):
         s_var = self.make_var(AllDifferent, s)
         var_var = self.flatten_rdf_list(var)
         #var_var = self.make_var(List, var)
-        for v in var_var:
-           indx = var_var.index(v)
-           for other in var_var[indx+1:]:
+        diff_list = self.variables[var_var].getValues()
+        for v in diff_list:
+           indx = diff_list.index(v)
+           for other in diff_list[indx+1:]:
                self.differentFrom(v, other)
-        constrain = AllDifferentConstraint(s_var, var_var)
-        self.constraints.append(constrain)

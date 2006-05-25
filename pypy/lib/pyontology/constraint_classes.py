@@ -1,4 +1,5 @@
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
+from rdflib import URIRef
 
 class OwlConstraint(AbstractConstraint):
 
@@ -47,7 +48,7 @@ class NothingConstraint(AbstractConstraint):
         self.variable = variable
 
     def narrow(self, domains):
-        if domains[self.variable] != []:
+        if domains[self.variable].getValues() != []:
             raise ConsistencyFailure
 
 class SubClassConstraint(AbstractConstraint):
@@ -88,11 +89,21 @@ class DisjointClassConstraint(SubClassConstraint):
             if i in vals2:
                 raise ConsistencyFailure()
 
-class ComplementClassConstraint(SubClassConstraint):
+Thing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
+
+class ComplementOfConstraint(SubClassConstraint):
 
     def narrow(self, domains):
-        subdom = domains[self.variable]
-        superdom = domains[self.object]
+        vals = domains[self.variable].getValues()
+        x_vals = domains[self.object].getValues()
+        for v in x_vals:
+            if v in vals:
+                raise ConsistencyFailure("%s cannot have the value %s and be \
+                                          complementOf %s" % (v, self.object, self.variable)) 
+        for v in domains['owl_Thing'].getValues():
+            if not v in vals:
+                domains[self.variable].addValue(v)       
+        
 
 class RangeConstraint(SubClassConstraint):
 
@@ -285,7 +296,8 @@ class SameasConstraint(SubClassConstraint):
                     elif self.variable in val.keys() and self.object in val.keys():
                         if not val[self.object] == val[self.variable]:
                             raise ConsistencyFailure("Sameas failure: The two individuals (%s, %s) \
-                                                has different values for property %r"%(self.variable, self.object, dom))
+                                                has different values for property %r" % \
+                                                (self.variable, self.object, dom))
                 else:
                     if self.variable in vals and not self.object in vals:
                         vals.append(self.object)
