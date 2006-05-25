@@ -196,7 +196,7 @@ class BuiltinHelper(object):
     # the following would be much easier if we had
     # loop unrolling right inside the flowing process
     src = []
-    src.append('def __init__(self):')
+    src.append('def _setup(self):')
     src.append('    import __builtin__ as b')
     import __builtin__
     for name in dir(__builtin__):
@@ -206,8 +206,17 @@ class BuiltinHelper(object):
     src = '\n'.join(src)
     #print src
     exec src
+    def __init__(self):
+        self._initialized = False
     del __builtin__, name, obj, src
 
+bltn_singleton = BuiltinHelper()
+
+def get_bltn():
+    if not bltn_singleton._initialized:
+        bltn_singleton._setup()
+        bltn_singleton._initialized = True
+    return bltn_singleton
 
 def get_methodname(funcidx):
     pass
@@ -267,8 +276,7 @@ def __init__(mod):
     properties are re-created, too.
     """
     import types
-    import __builtin__ as bltn
-    bltn = BuiltinHelper()
+    bltn = get_bltn()
     hasattr = bltn.hasattr
     isinstance = bltn.isinstance
 
