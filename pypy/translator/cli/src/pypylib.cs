@@ -14,6 +14,11 @@ namespace pypy.test
         { 
             return string.Format("InstanceWrapper('{0}')", obj.GetType().FullName);
         }
+
+        public static string FormatException(object obj) 
+        { 
+            return string.Format("ExceptionWrapper('{0}')", obj.GetType().FullName);
+        }
     }
 }
 

@@ -68,12 +68,24 @@ class TestEntryPoint(Node):
             ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
                        (arg_type, self.__convert_method(arg_type)))
 
+        # call the function and convert the result to a string containing a valid python expression
+        ilasm.begin_try()
         ilasm.call(cts.graph_to_signature(self.graph))
-
-        # convert result to a string containing a valid python expression
         TYPE = self.graph.getreturnvar().concretetype
         format_object(TYPE, ilasm)
         ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
+        ilasm.leave('return')
+        ilasm.end_try()
+
+        for exc in ('[mscorlib]System.Exception', 'exceptions.Exception'):
+            ilasm.begin_catch(exc)
+            ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
+            ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
+            ilasm.leave('return')
+            ilasm.end_catch()
+
+        # write the result to stdout
+        ilasm.label('return')
         ilasm.opcode('ret')
         ilasm.end_function()
         self.db.pending_function(self.graph)
@@ -157,6 +169,7 @@ class compile_function:
         retval = mono.wait()
         assert retval == 0, stderr
 
+        print stdout
         res = eval(stdout)
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
@@ -183,14 +196,22 @@ class InstanceWrapper:
     def __init__(self, class_name):
         self.class_name = class_name
 
+class ExceptionWrapper:
+    def __init__(self, class_name):
+        self.class_name = class_name
+
+
 class CliTest(BaseRtypingTest, OORtypeMixin):
     def interpret(self, fn, args):
         ann = [lltype_to_annotation(typeOf(x)) for x in args]
         f = compile_function(fn, ann)
         return f(*args)
 
-    def interpret_raises(self, exc, func, args):
-        py.test.skip("CLI tests don't support interpret_raises")
+    def interpret_raises(self, exception, fn, args):
+        import exceptions # needed by eval
+        res = self.interpret(fn, args)
+        assert isinstance(res, ExceptionWrapper)
+        assert eval(res.class_name) is exception
     
     def ll_to_string(self, s):
         py.test.skip('ll_to_string not supported, yet')

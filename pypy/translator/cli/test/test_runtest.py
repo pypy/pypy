@@ -30,3 +30,8 @@ class TestRunTest(CliTest):
         def fn():
             return 1, 2
         assert self.interpret(fn, []) == (1, 2)
+
+    def test_exception(self):
+        def fn():
+            raise ValueError
+        self.interpret_raises(ValueError, fn, [])
