@@ -498,7 +498,6 @@ def test_sameasconsistency():
 
 
 def test_terminology_cardinality():
-    py.test.skip("There is a bug in here somewhere")
     # Modeled after one of the standard tests (approved/maxCardinality)
     # 'cls' by subclassing two maxCardinality restrictions becomes the set of
     # individuals satisfying both restriction, ie having exactly 2 values of
@@ -525,7 +524,6 @@ def test_terminology_cardinality():
     py.test.raises(ConsistencyFailure, O.check_TBoxes)
 
 def test_terminology_subclassof_cardinality():
-    py.test.skip("There is a bug in here somewhere")
     cls = URIRef('cls')
     cls2 = URIRef('cls2')
     O = Ontology()

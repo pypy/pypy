@@ -634,14 +634,11 @@ class Ontology:
         self.resolve_item(s)
         log("%r %sCardinality %r "%(s, card, var))
         svar =self.make_var(Restriction, s)
-        cls = list(self.graph.subjects(None,s))[0]
-        self.resolve_item(cls)
-        cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         assert prop
         comp = {'max': '<', 'min': '>'}.get(card, '=')
         self.variables[svar].TBox[prop] = {'Cardinality': [( comp, int(var))]}
-        self.constraints.append(CardinalityConstraint(prop, cls, var, comp+'='))
+        self.constraints.append(CardinalityConstraint(prop, var, comp+'='))
 
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""

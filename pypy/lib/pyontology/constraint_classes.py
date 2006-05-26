@@ -28,10 +28,10 @@ class CardinalityConstraint(AbstractConstraint):
 
     cost = 10
 
-    def __init__(self, prop, cls_name, var, comp):
+    def __init__(self, prop,  var, comp):
         AbstractConstraint.__init__(self, [prop])
         self.check_individual = "domains['%s'].getValues() != []" % prop
-        self.formula = "len(domains['%s'].getValuesPrKey('%s')) %s int(%s)"% (prop, cls_name, comp, var)
+        self.formula = "len(domains['%s'].getValuesPrKey('%s')) %s int(%s)"% (prop, var, comp, var)
 
     def estimateCost(self, domains):
         return self.cost
