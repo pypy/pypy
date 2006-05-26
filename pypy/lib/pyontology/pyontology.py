@@ -630,44 +630,30 @@ class Ontology:
 
 #---Property restrictions------------------------------------------------------
     
-    def maxCardinality(self, s, var):
-        """ Len of finite domain of the property shall be less than or equal to var"""
+    def cardinality_helper(self, s, var, card):
         self.resolve_item(s)
-        log("%r maxCardinality %r "%(s, var))
+        log("%r %sCardinality %r "%(s, card, var))
         svar =self.make_var(Restriction, s)
         cls = list(self.graph.subjects(None,s))[0]
         self.resolve_item(cls)
         cls_name = self.make_var(ClassDomain, cls)
         prop = self.variables[svar].property
         assert prop
-        self.variables[svar].TBox[prop] = {'Cardinality': [( '<', int(var))]}
-        self.constraints.append(CardinalityConstraint(prop, cls, var, '<='))
+        comp = {'max': '<', 'min': '>'}.get(card, '=')
+        self.variables[svar].TBox[prop] = {'Cardinality': [( comp, int(var))]}
+        self.constraints.append(CardinalityConstraint(prop, cls, var, comp+'='))
 
+    def maxCardinality(self, s, var):
+        """ Len of finite domain of the property shall be less than or equal to var"""
+        self.cardinality_helper(s, var, 'max')
+        
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
-        self.resolve_item(s)
-        log("%r minCardinality %r "%(s, var))
-        svar =self.make_var(Restriction, s)
-        cls = list(self.graph.subjects(None,s))[0]
-        cls_name = self.make_var(ClassDomain, cls)
-        prop = self.variables[svar].property
-        assert prop
-        self.variables[svar].TBox[prop] = {'Cardinality': [( '>', int(var))]}
-
-        self.constraints.append(CardinalityConstraint(prop, cls, var, '>='))
+        self.cardinality_helper(s, var, 'min')
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
-        self.resolve_item(s)
-        log("%r Cardinality %r "%(s, var))
-        svar =self.make_var(Restriction, s)
-        cls = list(self.graph.subjects(None,s))[0]
-        cls_name = self.make_var(ClassDomain, cls)
-        prop = self.variables[svar].property
-        assert prop
-        self.variables[svar].TBox[prop] = {'Cardinality': [( '=', int(var))]}
-        
-        self.constraints.append(CardinalityConstraint(prop, cls, var, '=='))
+        self.cardinality_helper(s, var, '')
     
     def hasValue(self, s, var):
         self.resolve_item(s)
@@ -728,7 +714,6 @@ class Ontology:
         var_var = self.make_var(Thing, var)
         constrain = SameasConstraint(s_var, var_var)
         self.constraints.append(constrain)
-
 
     def differentFrom(self, s, var):
         s_var = self.make_var(Thing, s)
