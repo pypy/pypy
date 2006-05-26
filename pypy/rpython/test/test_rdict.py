@@ -460,7 +460,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == f(2)
 
     def test_dict_of_dict(self):
-        self._skip_oo('dict of dict')
         def f(n):
             d = {}
             d[5] = d

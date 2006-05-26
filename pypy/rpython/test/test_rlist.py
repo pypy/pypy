@@ -1040,6 +1040,7 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == 2
 
     def test_type_erase_fixed_size(self):
+        self._skip_oo('type erasing')
         class A(object):
             pass
         class B(object):
@@ -1064,6 +1065,7 @@ class BaseTestRlist(BaseRtypingTest):
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
 
     def test_type_erase_var_size(self):
+        self._skip_oo('type erasing')        
         class A(object):
             pass
         class B(object):

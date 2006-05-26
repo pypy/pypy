@@ -26,10 +26,16 @@ class BaseListRepr(AbstractBaseListRepr):
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
 
+    def _externalvsinternal(self, rtyper, item_repr):
+        # EXPERIMENTAL: distinct internal and external repr are not
+        # needed in high level backends
+        #return externalvsinternal(rtyper, item_repr)
+        return item_repr, item_repr
+    
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
             self.external_item_repr, self.item_repr = \
-                    externalvsinternal(self.rtyper, self._item_repr_computer())
+                    self._externalvsinternal(self.rtyper, self._item_repr_computer())
         if not ootype.hasItemType(self.lowleveltype):
             ootype.setItemType(self.lowleveltype, self.item_repr.lowleveltype)
 
