@@ -45,7 +45,7 @@ opcodes = {
     'ooupcast':                 DoNothing,
     'oodowncast':               DoNothing, # TODO: is it really safe?
     'oois':                     'ceq',
-
+    'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],
@@ -53,7 +53,7 @@ opcodes = {
 
     # __________ numeric operations __________
 
-    'bool_not':                 Not,
+    'bool_not':                 [PushAllArgs]+Not,
 
     'char_lt':                  None,
     'char_le':                  None,

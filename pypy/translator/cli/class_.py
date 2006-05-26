@@ -50,6 +50,7 @@ class Class(Node):
 
         # TODO: should the .ctor set the default values?
         self._ctor()
+        self._toString()
 
         # lazy import to avoid circular dependencies
         #import pypy.translator.cli.function as function
@@ -71,3 +72,11 @@ class Class(Node):
         self.ilasm.call('instance void %s::.ctor()' % self.get_base_class())
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
+
+    def _toString(self):
+        self.ilasm.begin_function('ToString', [], 'string', False, 'virtual', 'instance', 'default')
+        self.ilasm.opcode('ldarg.0')
+        self.ilasm.call('string class [pypylib]pypy.test.Result::ToPython(object)')
+        self.ilasm.ret()
+        self.ilasm.end_function()
+

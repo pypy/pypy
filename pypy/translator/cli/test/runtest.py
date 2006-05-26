@@ -34,12 +34,14 @@ def check(func, annotation, args):
         assert res1 == res2
 
 def format_object(TYPE, ilasm):
-    if isinstance(TYPE, ootype.BuiltinType):
+    if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance)):
         ilasm.call_method('string object::ToString()', virtual=True)
+    elif TYPE is ootype.Void:
+        ilasm.opcode('ldstr "None"')
     else:
         type_ = cts.lltype_to_cts(TYPE)
         ilasm.call('string class [pypylib]pypy.test.Result::ToPython(%s)' % type_)
-    
+
 
 class TestEntryPoint(Node):
     """
@@ -158,6 +160,8 @@ class compile_function:
         res = eval(stdout)
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
+        elif isinstance(res, list):
+            res = OOList(res)
         return res
 
 class StructTuple(tuple):
@@ -168,13 +172,24 @@ class StructTuple(tuple):
         else:
             raise AttributeError, name
 
+class OOList(list):
+    def ll_length(self):
+        return len(self)
+
+    def ll_getitem_fast(self, i):
+        return self[i]
+
+class InstanceWrapper:
+    def __init__(self, class_name):
+        self.class_name = class_name
+
 class CliTest(BaseRtypingTest, OORtypeMixin):
     def interpret(self, fn, args):
         ann = [lltype_to_annotation(typeOf(x)) for x in args]
         f = compile_function(fn, ann)
         return f(*args)
 
-    def interpret_raises(exc, func, args):
+    def interpret_raises(self, exc, func, args):
         py.test.skip("CLI tests don't support interpret_raises")
     
     def ll_to_string(self, s):
@@ -184,4 +199,4 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         return l
 
     def class_name(self, value):
-        py.test.skip('class_name not supported, yet')
+        return value.class_name.split(".")[-1] 

@@ -3,6 +3,7 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.cli.opcodes import opcodes
 
 try:
@@ -73,17 +74,42 @@ class LowLevelDatabase(object):
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
 
-        # render field definitions
-        for const, name in self.consts.iteritems():
-            ilasm.field(name, const.get_type(), static=True)
-
         # initialize fields
+
+        # This strange machinery it's necessary because it could be
+        # happen that new constants are registered during rendering of
+        # constants. So we split initialization of constants in a
+        # number of 'steps' that are executed in reverse order as they
+        # are rendered. The first step to be executed will be stepN,
+        # the last step0.
+
+        step = 0
+        while self.consts: 
+            consts = self.consts
+            self.consts = {}
+
+            # render field definitions
+            for const, name in consts.iteritems():
+                ilasm.field(name, const.get_type(), static=True)
+
+            ilasm.begin_function('step%d' % step, [], 'void', False, 'static')
+            for const, name in consts.iteritems():
+                const.init(ilasm)
+                type_ = const.get_type()
+                ilasm.set_static_field (type_, CONST_NAMESPACE, CONST_CLASS, name)
+
+            ilasm.ret()
+            ilasm.end_function()
+            step += 1
+
+        # the constructor calls the steps in reverse order
         ilasm.begin_function('.cctor', [], 'void', False, 'static',
                              'specialname', 'rtspecialname', 'default')
-        for const, name in self.consts.iteritems():
-            const.init(ilasm)
-            type_ = const.get_type()
-            ilasm.set_static_field (type_, CONST_NAMESPACE, CONST_CLASS, name)
+
+        last_step = step-1
+        for step in xrange(last_step, -1, -1):
+            func = '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, 'step%d' % step)
+            ilasm.call('void %s()' % func)
 
         ilasm.ret()
         ilasm.end_function()
@@ -104,21 +130,24 @@ class AbstractConst(object):
             return InstanceConst(db, const, static_type)
         elif isinstance(const, ootype._record):
             return RecordConst(db, const)
+        elif isinstance(const, ootype._list):
+            return ListConst(db, const)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
 
     def load(db, TYPE, value, ilasm):
-        # TODO: code duplicated from function.py, refactoring needed
         if TYPE is ootype.Void:
             pass
         elif TYPE is ootype.Bool:
             ilasm.opcode('ldc.i4', str(int(value)))
+        elif TYPE is ootype.Char:
+            ilasm.opcode('ldc.i4', ord(value))
         elif TYPE is ootype.Float:
             ilasm.opcode('ldc.r8', repr(value))
         elif TYPE in (ootype.Signed, ootype.Unsigned):
             ilasm.opcode('ldc.i4', str(value))
-        elif TYPE in (ootype.SignedLongLong, ootype.UnsignedLongLong):
+        elif TYPE in (lltype.SignedLongLong, lltype.UnsignedLongLong):
             ilasm.opcode('ldc.i8', str(value))
         else:
             cts = CTS(db)
@@ -151,11 +180,11 @@ class RecordConst(AbstractConst):
     def get_name(self):
         return 'Record'
 
-    def get_type(self):
-        return self.cts.lltype_to_cts(self.record._TYPE)
+    def get_type(self, include_class=True):
+        return self.cts.lltype_to_cts(self.record._TYPE, include_class)
 
     def init(self, ilasm):
-        class_name = self.record._TYPE._name
+        class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
         for f_name, (FIELD_TYPE, f_default) in self.record._TYPE._fields.iteritems():
             f_type = self.cts.lltype_to_cts(FIELD_TYPE)
@@ -163,6 +192,49 @@ class RecordConst(AbstractConst):
             ilasm.opcode('dup')
             AbstractConst.load(self.db, FIELD_TYPE, value, ilasm)            
             ilasm.set_field((f_type, class_name, f_name))
+
+class ListConst(AbstractConst):
+    def __init__(self, db, list_):
+        self.db = db
+        self.cts = CTS(db)
+        self.list = list_
+
+    def __hash__(self):
+        return hash(self.list)
+
+    def __eq__(self, other):
+        return self.list == other.list
+
+    def get_name(self):
+        return 'List'
+
+    def get_type(self, include_class=True):
+        return self.cts.lltype_to_cts(self.list._TYPE, include_class)
+
+    def init(self, ilasm):
+        if not self.list: # it is a null list
+            ilasm.opcode('ldnull')
+            return
+
+        class_name = self.get_type(False)
+        ITEMTYPE = self.list._TYPE._ITEMTYPE
+        itemtype = self.cts.lltype_to_cts(ITEMTYPE)
+        itemtype_T = self.cts.lltype_to_cts(self.list._TYPE.ITEMTYPE_T)
+        ilasm.new('instance void class %s::.ctor()' % class_name)
+
+        # special case: List(Void); only resize it, don't care of the contents
+        if ITEMTYPE is ootype.Void:
+            ilasm.opcode('dup')
+            AbstractConst.load(self.db, ootype.Signed, len(self.list._list), ilasm)            
+            meth = 'void class [pypylib]pypy.runtime.List`1<int32>::_ll_resize(int32)'
+            ilasm.call_method(meth, False)
+            return
+        
+        for item in self.list._list:
+            ilasm.opcode('dup')
+            AbstractConst.load(self.db, ITEMTYPE, item, ilasm)
+            meth = 'void class [pypylib]pypy.runtime.List`1<%s>::Add(%s)' % (itemtype, itemtype_T)
+            ilasm.call_method(meth, False)
 
 class InstanceConst(AbstractConst):
     def __init__(self, db, obj, static_type):

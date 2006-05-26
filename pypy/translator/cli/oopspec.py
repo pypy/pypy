@@ -10,7 +10,10 @@ def get_method_name(graph, op):
     # builtin methods take the same arguments of the corresponding
     # ll_* function.
     full_name, _ = oopspec.split('(', 1)
-    type_name, method_name = full_name.split('.')
+    try:
+        type_name, method_name = full_name.split('.')
+    except ValueError:
+        return None
 
     try:
         type_ = BUILTIN_TYPES[type_name]

@@ -297,24 +297,9 @@ class Function(Node, Generator):
         else:
             assert False
 
-    def _load_const(self, const):        
-        type_ = const.concretetype
-        if type_ is Void:
-            pass
-        elif type_ is Bool:
-            self.ilasm.opcode('ldc.i4', str(int(const.value)))
-        elif type_ is Float:
-            self.ilasm.opcode('ldc.r8', repr(const.value))
-        elif type_ in (Signed, Unsigned):
-            self.ilasm.opcode('ldc.i4', str(const.value))
-        elif type_ in (SignedLongLong, UnsignedLongLong):
-            self.ilasm.opcode('ldc.i8', str(const.value))
-        else:
-            name = self.db.record_const(const.value)
-            cts_type = self.cts.lltype_to_cts(type_)
-            self.ilasm.opcode('ldsfld %s %s' % (cts_type, name))
-            #assert False, 'Unknown constant %s' % const
-
+    def _load_const(self, const):
+        from pypy.translator.cli.database import AbstractConst
+        AbstractConst.load(self.db, const.concretetype, const.value, self.ilasm)
 
     def store(self, v):
         if isinstance(v, flowmodel.Variable):

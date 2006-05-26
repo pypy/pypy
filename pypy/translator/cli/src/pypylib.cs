@@ -9,6 +9,11 @@ namespace pypy.test
         public static string ToPython(bool x)   { return x.ToString(); }
         public static string ToPython(double x) { return x.ToString(); }
         public static string ToPython(char x)   { return string.Format("'{0}'", x); }
+
+        public static string ToPython(object obj) 
+        { 
+            return string.Format("InstanceWrapper('{0}')", obj.GetType().FullName);
+        }
     }
 }
 

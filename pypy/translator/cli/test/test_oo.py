@@ -25,10 +25,6 @@ class MyClass:
         return x*y
     static_meth = staticmethod(static_meth)
 
-##    def class_meth(cls, x, y):
-##        return x*y + cls.INCREMENT
-##    class_meth = classmethod(class_meth)
-
     def class_attribute(self):
         return self.x + self.INCREMENT
 
@@ -80,8 +76,14 @@ def oo_class_attribute(x, y):
 def oo_runtimenew(x, y):
     return init_and_compute(MyClass, x, y) + init_and_compute(MyDerivedClass, x, y)
 
-##def oo_class_meth(x, y):
-##    return MyClass.class_meth(x, y) + MyDerivedClass.class_meth(x, y)
+def nonnull_helper(lst):
+    if lst is None:
+        return 1
+    else:
+        return 2
+
+def oo_nonnull(x, y):
+    return nonnull_helper([]) + nonnull_helper(None)
 
 if __name__ == '__main__':
     from pypy.translator.cli import conftest
