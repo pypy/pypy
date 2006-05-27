@@ -211,8 +211,8 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         import exceptions # needed by eval
         res = self.interpret(fn, args)
         assert isinstance(res, ExceptionWrapper)
-        assert eval(res.class_name) is exception
-    
+        assert issubclass(eval(res.class_name), exception)
+
     def ll_to_string(self, s):
         py.test.skip('ll_to_string not supported, yet')
 

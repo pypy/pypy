@@ -35,3 +35,8 @@ class TestRunTest(CliTest):
         def fn():
             raise ValueError
         self.interpret_raises(ValueError, fn, [])
+
+    def test_exception_subclass(self):
+        def fn():
+            raise IndexError
+        self.interpret_raises(LookupError, fn, [])
