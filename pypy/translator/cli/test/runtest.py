@@ -126,10 +126,17 @@ class compile_function:
             ann.build_graph_types(graph, inputcells)
             t.graphs.insert(0, graph)
         else:
-            t.buildannotator().build_types(func, annotation)
-            
+            ann = t.buildannotator()
+            ann.build_types(func, annotation)
+
+        # quick hack: force exceptions.Exception to be rendered
+        def raiseKeyError():
+            raise KeyError
+        ann.build_types(raiseKeyError, [])
+
         t.buildrtyper(type_system="ootype").specialize()
         self.graph = t.graphs[0]
+        raiseKeyError_graph = t.graphs[1]
 
         if getoption('view'):
            t.view()
@@ -139,7 +146,7 @@ class compile_function:
         else:
             self.tmpdir = udir
 
-        return GenCli(self.tmpdir, t, TestEntryPoint(self.graph))
+        return GenCli(self.tmpdir, t, TestEntryPoint(self.graph), pending_graphs=[raiseKeyError_graph])
 
     def _build_exe(self):        
         tmpfile = self._gen.generate_source()

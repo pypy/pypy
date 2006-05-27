@@ -55,12 +55,12 @@ opcodes = {
 
     'bool_not':                 [PushAllArgs]+Not,
 
-    'char_lt':                  None,
-    'char_le':                  None,
-    'char_eq':                  None,
-    'char_ne':                  None,
-    'char_gt':                  None,
-    'char_ge':                  None,
+    'char_lt':                  'clt',
+    'char_le':                  _not('cgt'),
+    'char_eq':                  'ceq',
+    'char_ne':                  _not('ceq'),
+    'char_gt':                  'cgt',
+    'char_ge':                  _not('clt'),
 
     'unichar_eq':               None,      # should we unify unichar and char, as Jython does?
     'unichar_ne':               None,

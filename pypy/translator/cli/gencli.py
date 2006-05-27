@@ -9,7 +9,6 @@ from pypy.translator.cli.option import getoption
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
-from pypy.translator.squeak.node import LoopFinder
 
 class Tee(object):
     def __init__(self, *args):
@@ -25,13 +24,17 @@ class Tee(object):
                 outfile.close()
 
 class GenCli(object):
-    def __init__(self, tmpdir, translator, entrypoint = None, type_system_class = CTS, \
-        opcode_dict = opcodes, name_suffix = '.il', function_class = Function ):
+    def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
+                 opcode_dict=opcodes, name_suffix='.il', function_class=Function,
+                 pending_graphs=()):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
         self.db = LowLevelDatabase( type_system_class = type_system_class , opcode_dict = opcode_dict,
             function_class = function_class )
+
+        for graph in pending_graphs:
+            self.db.pending_function(graph)
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
