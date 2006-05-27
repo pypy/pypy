@@ -253,7 +253,14 @@ class GenCL:
             for line in emit_op:
                 yield line
         exits = block.exits
-        if len(exits) == 1:
+        if len(exits) == 0:
+            if len(block.inputargs) == 2:
+                exc_value = clrepr(block.inputargs[1])
+                yield "(error %s)" % (exc_value,)
+            else:
+                retval = clrepr(block.inputargs[0])
+                yield "(return %s)" % (retval,)
+        elif len(exits) == 1:
             for line in self.emit_link(exits[0]):
                 yield line
         elif len(exits) > 1:
@@ -303,12 +310,6 @@ class GenCL:
                 for line in self.emit_link(exits[-1]):
                     yield line
                 yield ")" * len(exits)
-        elif len(block.inputargs) == 2:
-            exc_value = clrepr(block.inputargs[1], True)
-            yield "(error %s)" % (exc_value,)
-        else:
-            retval = clrepr(block.inputargs[0])
-            yield "(return %s)" % clrepr(retval, True)
         if handle_exc:
             yield ")"
 
