@@ -136,7 +136,11 @@ class compile_function:
 
         t.buildrtyper(type_system="ootype").specialize()
         self.graph = t.graphs[0]
-        raiseKeyError_graph = t.graphs[1]
+
+        # XXX: horrible hack :-(
+        for graph in t.graphs:
+            if graph.name == 'raiseKeyError':
+                raiseKeyError_graph = graph
 
         if getoption('view'):
            t.view()
