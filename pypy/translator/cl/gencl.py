@@ -263,53 +263,44 @@ class GenCL:
         elif len(exits) == 1:
             for line in self.emit_link(exits[0]):
                 yield line
-        elif len(exits) > 1:
-            # only works in the current special case
-            if (len(exits) == 2 and
-                exits[0].exitcase == False and
-                exits[1].exitcase == True):
-                yield "(if " + clrepr(block.exitswitch, True)
-                yield "(progn"
-                for line in self.emit_link(exits[1]):
+        elif handle_exc:
+            body = None
+            exceptions = {}
+            for exit in exits:
+                if exit.exitcase is None:
+                    body = exit
+                else:
+                    cls = exit.llexitcase.class_._INSTANCE
+                    exception = self.declare_exception(cls)
+                    exceptions[exception] = exit
+            for line in self.emit_link(body):
+                yield line
+            yield ")" # closes the progn for the handler-case
+            for exception in exceptions:
+                yield "(%s ()" % (exception,)
+                for line in self.emit_link(exceptions[exception]):
                     yield line
-                yield ") ; else"
-                yield "(progn"
-                for line in self.emit_link(exits[0]):
+                yield ")"
+        elif len(exits) == 2:
+            assert exits[0].exitcase == False
+            assert exits[1].exitcase == True
+            yield "(if %s" % (clrepr(block.exitswitch),)
+            yield "(progn"
+            for line in self.emit_link(exits[1]):
+                yield line
+            yield ") ; else"
+            yield "(progn"
+            for line in self.emit_link(exits[0]):
+                yield line
+            yield "))"
+        else:
+            yield "(case %s" % (clrepr(block.exitswitch),)
+            for exit in exits:
+                yield "(%s" % (clrepr(exit.exitcase),)
+                for line in self.emit_link(exit):
                     yield line
-                yield "))"
-            elif block.exitswitch is c_last_exception:
-                body = None
-                exceptions = {}
-                for exit in exits:
-                    if exit.exitcase is None:
-                        body = exit
-                    else:
-                        cls = exit.llexitcase.class_._INSTANCE
-                        exception = self.declare_exception(cls)
-                        exceptions[exception] = exit
-                for line in self.emit_link(body):
-                    yield line
-                yield ")" # closes the progn for the handler-case
-                for exception in exceptions:
-                    yield "(%s ()" % (exception,)
-                    for line in self.emit_link(exceptions[exception]):
-                        yield line
-                    yield ")"
-            else:
-                # this is for the more general case.  The previous special case
-                # shouldn't be needed but in Python 2.2 we can't tell apart
-                # 0 vs nil  and  1 vs t  :-(
-                for exit in exits[:-1]:
-                    yield "(if (equalp " + clrepr(block.exitswitch, True)
-                    yield clrepr(exit.exitcase, True) + ')'
-                    yield "(progn"
-                    for line in self.emit_link(exit):
-                        yield line
-                    yield ")"
-                yield "(progn ; else should be %s" % clrepr(exits[-1].exitcase, True)
-                for line in self.emit_link(exits[-1]):
-                    yield line
-                yield ")" * len(exits)
+                yield ")"
+            yield ")"
         if handle_exc:
             yield ")"
 
