@@ -29,6 +29,7 @@ _lltype_to_cts = {
     ootype.Char: 'char',
     ootype.UniChar: 'char',
     ootype.Class: 'class [mscorlib]System.Type',
+    ootype.String: 'string',
 
     # maps generic types to their ordinal
     ootype.List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),

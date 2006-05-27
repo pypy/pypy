@@ -73,7 +73,7 @@ class _Call(MicroInstruction):
         for arg in args: # push parametes
             generator.load(arg)
         generator.call_method(this.concretetype, method_name)
-        
+
 
 class _CallMethod(_Call):
     def render(self, generator, op):

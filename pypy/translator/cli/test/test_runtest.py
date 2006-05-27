@@ -31,6 +31,12 @@ class TestRunTest(CliTest):
             return 1, 2
         assert self.interpret(fn, []) == (1, 2)
 
+    def test_string(self):
+        def fn():
+            return 'foo'
+        res = self.interpret(fn, [])
+        assert self.ll_to_string(res) == 'foo'
+
     def test_exception(self):
         def fn():
             raise ValueError

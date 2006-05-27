@@ -12,6 +12,8 @@ namespace pypy.test
         public static string ToPython(uint x)   { return x.ToString(); }
         public static string ToPython(long x)   { return x.ToString(); }
         public static string ToPython(ulong x)  { return x.ToString(); }
+        // XXX: it does not support strings containing "'".
+        public static string ToPython(string x) { return string.Format("'{0}'", x); }
 
         public static string ToPython(object obj) 
         { 
@@ -33,7 +35,6 @@ namespace pypy.runtime
         {
             return t.GetConstructor(new Type[0]).Invoke(new object[0]);
         }
-            
     }
 
     //The public interface List must implement is defined in

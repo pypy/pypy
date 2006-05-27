@@ -34,7 +34,7 @@ def check(func, annotation, args):
         assert res1 == res2
 
 def format_object(TYPE, ilasm):
-    if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance)):
+    if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance)) and TYPE is not ootype.String:
         ilasm.call_method('string object::ToString()', virtual=True)
     elif TYPE is ootype.Void:
         ilasm.opcode('ldstr "None"')
@@ -224,7 +224,7 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         assert issubclass(eval(res.class_name), exception)
 
     def ll_to_string(self, s):
-        py.test.skip('ll_to_string not supported, yet')
+        return s
 
     def ll_to_list(self, l):
         return l

@@ -132,6 +132,8 @@ class AbstractConst(object):
             return RecordConst(db, const)
         elif isinstance(const, ootype._list):
             return ListConst(db, const)
+        elif isinstance(const, ootype._string):
+            return StringConst(db, const)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
@@ -164,6 +166,27 @@ class AbstractConst(object):
 
     def init(self, ilasm):
         pass
+
+class StringConst(AbstractConst):
+    def __init__(self, db, string):
+        self.db = db
+        self.cts = CTS(db)
+        self.string = string
+
+    def __hash__(self):
+        return hash(self.string)
+
+    def __eq__(self, other):
+        return self.string == other.string
+
+    def get_name(self):
+        return 'string_literal'
+
+    def get_type(self, include_class=True):
+        return self.cts.lltype_to_cts(ootype.String, include_class)
+
+    def init(self, ilasm):
+        ilasm.opcode('ldstr', '"%s"' % self.string._str)
 
 class RecordConst(AbstractConst):
     def __init__(self, db, record):
