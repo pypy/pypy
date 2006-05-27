@@ -159,6 +159,7 @@ def load_target(targetspec):
     thismod = sys.modules[__name__]
     targetspec_dic = {
         '__name__': os.path.splitext(os.path.basename(targetspec))[0],
+        '__file__': targetspec,
         'translate': thismod}
     sys.path.insert(0, os.path.dirname(targetspec))
     execfile(targetspec, targetspec_dic)
