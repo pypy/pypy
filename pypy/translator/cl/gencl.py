@@ -243,7 +243,6 @@ class GenCL:
         yield "))"
 
     def emit_block(self, block):
-        self.cur_block = block
         tag = self.blockref[block]
         yield "tag" + clrepr(str(tag), True)
         if block.exitswitch is c_last_exception:
