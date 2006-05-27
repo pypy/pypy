@@ -245,7 +245,8 @@ class GenCL:
     def emit_block(self, block):
         tag = self.blockref[block]
         yield "tag" + clrepr(str(tag), True)
-        if block.exitswitch is c_last_exception:
+        handle_exc = block.exitswith == c_last_exception
+        if handle_exc:
             yield "(handler-case (progn"
         for op in block.operations:
             emit_op = OpFormatter(self, op)
@@ -308,7 +309,7 @@ class GenCL:
         else:
             retval = clrepr(block.inputargs[0])
             yield "(return %s)" % clrepr(retval, True)
-        if block.exitswitch is c_last_exception:
+        if handle_exc:
             yield ")"
 
     def format_jump(self, block):
