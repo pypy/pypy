@@ -42,7 +42,7 @@ def get_annotation(func, pre=[]):
     if len(argstypelist) == 1:
         argstypelist = guess_methannotation(func, argstypelist[0])
     missing = [object] * (func.func_code.co_argcount - len(argstypelist))
-    return missing + argstypelist
+    return argstypelist + missing
 
 def guess_methannotation(func, cls):
     ret = [cls]
@@ -57,7 +57,7 @@ def should_expose_method(func):
     return name in SPECIAL_METHODS or not name.startswith('_')
 
 def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
-                use_boehm=False, exports=None):
+                use_boehm=False, exports=None, expose_all=True):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
 
@@ -85,7 +85,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
             rtyper.add_wrapper(clsdef)
             for obj in cls.__dict__.values():
                 if isinstance(obj, types.FunctionType):
-                    if should_expose_method(obj):
+                    if should_expose_method(obj) and expose_all:
                         if not ann.bookkeeper.getdesc(obj).querycallfamily():
                             # not annotated, so enforce it
                             ann.build_types(obj, get_annotation(obj, [cls]), complete_now=False)
@@ -99,6 +99,8 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
                 ann.build_types(obj, get_annotation(obj), complete_now=False)
             if obj.__name__ == '__init__':
                 pyobj_options['use_true_methods'] = True
+        elif isinstance(obj, types.ClassType):
+            raise TypeError, 'old-style classes are not supported:%r' % obj
 
     all = []
     for obj in exports:
@@ -208,6 +210,9 @@ class BuiltinHelper(object):
     exec src
     def __init__(self):
         self._initialized = False
+    def _freeze_(self):
+        self._initialized = False
+        return False
     del __builtin__, name, obj, src
 
 bltn_singleton = BuiltinHelper()
@@ -312,8 +317,9 @@ def __init__(mod):
                     dic[name] = property(*stuff)
 
 class ExtCompiler(object):
-    def __init__(self, startupfunc, use_true_methods=True):
+    def __init__(self, startupfunc, use_true_methods=True, expose_all=True):
         self.startupfunc = startupfunc
+        self.expose_all = expose_all
         self.exports = {}
         if use_true_methods:
             self.export(__init__)
@@ -325,5 +331,6 @@ class ExtCompiler(object):
             self.exports[obj.__name__] = obj
 
     def build(self, modname):
-        mod = get_compiled_module(self.startupfunc, exports=self.exports.values())
+        mod = get_compiled_module(self.startupfunc, exports=self.exports.values(),
+                                  expose_all=self.expose_all)
         return mod

@@ -7,6 +7,7 @@ from pypy.annotation.description import NoStandardGraph
 from pypy.translator.gensupp import builtin_base, builtin_type_base
 from pypy.translator.c.support import log
 from pypy.translator.c.wrapper import gen_wrapper, new_method_graph
+from pypy.translator.tool.raymond import should_expose_method
 
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
@@ -568,6 +569,9 @@ class PyObjMaker:
                 if isinstance(value, FunctionType):
                     func = value
                     fname = '%s.%s' % (cls.__name__, func.__name__)
+                    if not should_expose_method(func):
+                        log.REMARK('method %s hidden from wrapper' % fname)
+                        continue
                     if func.__name__ == '__init__':
                         init_seen = True
                         # there is the problem with exposed classes inheriting from
