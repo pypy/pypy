@@ -111,7 +111,7 @@ class List(ClassDomain):
     
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
-        self.constraint = ListConstraint(name)
+#        self.constraint = ListConstraint(name)
 
 class Property(Thing):
     # Property contains the relationship between a class instance and a value
@@ -181,7 +181,7 @@ class Nothing(ClassDomain):
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
         self.constraint = NothingConstraint(name)
-
+    
 class FunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
@@ -363,7 +363,10 @@ class Ontology:
         if not cls:
             return var
         if not var in self.variables:
-            self.variables[var] = cls(var)
+            cls = self.variables[var] = cls(var)
+            if hasattr(cls, 'constraint'):
+                log("make_var constraint 1 %r,%r" %(cls,a))
+                self.constraints.append(cls.constraint)
         # XXX needed because of old style classes
         elif issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
@@ -371,6 +374,9 @@ class Ontology:
             tmp.setValues(vals)
             tmp.property = self.variables[var].property
             tmp.TBox = self.variables[var].TBox
+            if hasattr(tmp, 'constraint'):
+                log("make_var constraint 2 %r,%r" %(cls,a))
+                self.constraints.append(tmp.constraint)
             self.variables[var] = tmp
         return var
 
@@ -417,7 +423,7 @@ class Ontology:
             avar = self.make_var(List, rdf_list)
             lis = list(self.graph.objects(rdf_list, rdf_first))
             if not lis:
-                return res
+                return avar
             res.append(lis[0])
             lis = list(self.graph.objects(rdf_list, rdf_rest))[0]
             while lis != rdf_nil:
@@ -636,9 +642,14 @@ class Ontology:
         svar =self.make_var(Restriction, s)
         prop = self.variables[svar].property
         assert prop
+        cls = list(self.graph.triples((None, None, s)))
+        if cls: 
+            cls = cls[0][0]
+        else:
+            cls = var
         comp = {'max': '<', 'min': '>'}.get(card, '=')
         self.variables[svar].TBox[prop] = {'Cardinality': [( comp, int(var))]}
-        self.constraints.append(CardinalityConstraint(prop, var, comp+'='))
+        self.constraints.append(CardinalityConstraint(prop, cls, var, comp+'='))
 
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
