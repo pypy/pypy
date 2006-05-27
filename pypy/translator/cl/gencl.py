@@ -245,7 +245,7 @@ class GenCL:
     def emit_block(self, block):
         tag = self.blockref[block]
         yield "tag" + clrepr(str(tag), True)
-        handle_exc = block.exitswith == c_last_exception
+        handle_exc = block.exitswitch == c_last_exception
         if handle_exc:
             yield "(handler-case (progn"
         for op in block.operations:
