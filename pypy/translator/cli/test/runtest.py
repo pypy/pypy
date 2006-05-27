@@ -173,14 +173,13 @@ class compile_function:
 
         arglist = SDK.runtime() + [self._exe] + map(str, args)
         env = os.environ.copy()
-        env['LANG'] = 'C'        
+        env['LANG'] = 'C'
         mono = subprocess.Popen(arglist, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, env=env)
         stdout, stderr = mono.communicate()
         retval = mono.wait()
         assert retval == 0, stderr
 
-        print stdout
         res = eval(stdout)
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.

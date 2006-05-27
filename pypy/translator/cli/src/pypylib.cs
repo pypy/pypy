@@ -11,6 +11,7 @@ namespace pypy.test
         public static string ToPython(char x)   { return string.Format("'{0}'", x); }
         public static string ToPython(uint x)   { return x.ToString(); }
         public static string ToPython(long x)   { return x.ToString(); }
+        public static string ToPython(ulong x)  { return x.ToString(); }
 
         public static string ToPython(object obj) 
         { 

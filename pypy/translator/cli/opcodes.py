@@ -62,8 +62,8 @@ opcodes = {
     'char_gt':                  'cgt',
     'char_ge':                  _not('clt'),
 
-    'unichar_eq':               None,      # should we unify unichar and char, as Jython does?
-    'unichar_ne':               None,
+    'unichar_eq':               'ceq',
+    'unichar_ne':               _not('ceq'),
 
     'int_is_true':              DoNothing,
     'int_neg':                  'neg',
@@ -187,7 +187,7 @@ opcodes = {
     'ullong_lt':                'clt.un',
     'ullong_le':                _not('cgt.un'),
     'ullong_eq':                'ceq',
-    'ullong_ne':                _not('ceq.un'),
+    'ullong_ne':                _not('ceq'),
     'ullong_gt':                'cgt.un',
     'ullong_ge':                _not('clt.un'),
 

@@ -4,9 +4,7 @@ Translate between PyPy ootypesystem and .NET Common Type System
 
 import exceptions
 
-#from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-#from pypy.rpython.ootypesystem.ootype import Instance, Class, StaticMethod, List, Record, Dict
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
@@ -29,6 +27,7 @@ _lltype_to_cts = {
     ootype.Bool: 'bool',
     ootype.Float: 'float64',
     ootype.Char: 'char',
+    ootype.UniChar: 'char',
     ootype.Class: 'class [mscorlib]System.Type',
 
     # maps generic types to their ordinal

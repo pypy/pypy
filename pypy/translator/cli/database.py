@@ -141,7 +141,7 @@ class AbstractConst(object):
             pass
         elif TYPE is ootype.Bool:
             ilasm.opcode('ldc.i4', str(int(value)))
-        elif TYPE is ootype.Char:
+        elif TYPE is ootype.Char or TYPE is ootype.UniChar:
             ilasm.opcode('ldc.i4', ord(value))
         elif TYPE is ootype.Float:
             ilasm.opcode('ldc.r8', repr(value))
