@@ -49,10 +49,10 @@ class BaseListRepr(AbstractBaseListRepr):
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
-        self.list_builder = ListBuilder()
+        self.list_builder = ListBuilder(self)
 
     def _setup_repr_final(self):
-        self.list_builder.setup(self)
+        self.list_builder.setup()
 
     def null_const(self):
         return nullptr(self.LIST)
@@ -83,12 +83,19 @@ class BaseListRepr(AbstractBaseListRepr):
 
 class ListBuilder(object):
     """Interface to allow lazy list building by the JIT."""
-    # This should not keep a reference to the RTyper, even indirectly via
-    # the list_repr.
-        
-    def setup(self, list_repr):
+
+    def __init__(self, list_repr):
+        # This should not keep a reference to the RTyper, even indirectly via
+        # the list_repr.  So tmp_list_repr is replaced by None in setup().
+        self.tmp_list_repr = list_repr
+
+    def setup(self):
         # Precompute the c_newitem and c_setitem_nonneg function pointers,
         # needed below.
+        list_repr = self.tmp_list_repr
+        if list_repr is None:
+            return     # already set up
+        self.tmp_list_repr = None
         if list_repr.rtyper is None:
             return     # only for test_rlist, which doesn't need this anyway
         
@@ -127,8 +134,18 @@ class ListBuilder(object):
                           Void)
         return v_result
 
+    def getlistptr(self):
+        list_repr = self.tmp_list_repr
+        if list_repr is not None:
+            list_repr.setup()
+            return list_repr.lowleveltype
+        else:
+            return self.LISTPTR
+
     def __eq__(self, other):
-        return self.LISTPTR == other.LISTPTR
+        if not isinstance(other, ListBuilder):
+            return False
+        return self.getlistptr() == other.getlistptr()
 
     def __ne__(self, other):
         return not (self == other)

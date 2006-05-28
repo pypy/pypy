@@ -139,12 +139,14 @@ class RPythonTyper:
         try:
             result = self.reprs[key]
         except KeyError:
+            self.reprs[key] = None
             result = self.makerepr(s_obj)
             assert not isinstance(result.lowleveltype, ContainerType), (
                 "missing a Ptr in the type specification "
                 "of %s:\n%r" % (s_obj, result.lowleveltype))
             self.reprs[key] = result
             self.add_pendingsetup(result)
+        assert result is not None     # recursive getrepr()!
         return result
 
     def binding(self, var, default=annmodel.SomeObject()):
