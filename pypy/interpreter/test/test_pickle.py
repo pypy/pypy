@@ -182,12 +182,15 @@ class AppTestInterpObjectPickling:
         tupleiterator that is why you will find no test_pickle_listiter nor
         test_pickle_tupleiter here, just this test.
         '''
-        skip("work in progress")
         import pickle
-        liter  = iter([])
+        liter  = iter([3,9,6,12,15,17,19,111])
+        liter.next()
         pckl   = pickle.dumps(liter)
         result = pickle.loads(pckl)
-        assert liter == result
+        liter.next()
+        result.next()
+        assert len(liter) == 6
+        assert list(liter) == list(result)
     
     def test_pickle_dictiter(self):
         import pickle

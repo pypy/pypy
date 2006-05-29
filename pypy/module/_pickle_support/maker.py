@@ -6,7 +6,7 @@ from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.objspace.std.dicttype import dictiter_typedef
-from pypy.objspace.std.itertype import iter_typedef as seqiter_typedef
+from pypy.objspace.std.iterobject import W_SeqIterObject
 
 
 #note: for now we don't use the actual value when creating the Cell.
@@ -41,13 +41,5 @@ def dictiter_surrogate_new(space, w_lis):
     return space.iter(w_lis)
 dictiter_surrogate_new.unwrap_spec = [ObjSpace, W_Root]
 
-#XXX this doesn't work yet
-def seqiter_new(space, w_seqitertype, __args__):
-    raise Exception('No seqiter_new (pickle support) yet')
-    print "seqiter_new here 1)", space, __args__
-    w_type = space.gettypeobject(seqiter_typedef)
-    print "seqiter_new here 2)", w_type
-    a = space.call_args(w_type, __args__)
-    print "seqiter_new here 3)", a
-    return a
-seqiter_new.unwrap_spec = [ObjSpace, W_Root, Arguments]
+def seqiter_new(space, w_seq, w_index):
+    return W_SeqIterObject(w_seq, space.int_w(w_index))
