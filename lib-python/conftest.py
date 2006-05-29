@@ -468,7 +468,7 @@ testmap = [
     RegrTest('test_decimal.py', enabled=True),
     RegrTest('test_decorators.py', enabled=True, core=True),
     RegrTest('test_deque.py', enabled=True, core=True),
-    RegrTest('test_descr.py', enabled=True, core=True, oldstyle=True),
+    RegrTest('test_descr.py', enabled=True, core=True, oldstyle=True, usemodules='_weakref'),
     RegrTest('test_descrtut.py', enabled=True, core=True, oldstyle=True),
     RegrTest('test_dict.py', enabled=True, core=True),
 
@@ -506,7 +506,7 @@ testmap = [
     RegrTest('test_future1.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_future2.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_future3.py', enabled=True, core=True),
-    RegrTest('test_gc.py', enabled=True, dumbtest=1),
+    RegrTest('test_gc.py', enabled=True, dumbtest=1, usemodules='_weakref'),
     RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
     RegrTest('test_generators.py', enabled=True, core=True),
         #rev 10840: 30 of 152 tests fail
@@ -664,7 +664,7 @@ testmap = [
     RegrTest('test_site.py', enabled=False, core=False), # considered cpython impl-detail 
         # Needs non-faked codecs.
     RegrTest('test_slice.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_socket.py', enabled=False, usemodules='thread'),
+    RegrTest('test_socket.py', enabled=False, usemodules='thread _weakref'),
 
     RegrTest('test_socket_ssl.py', enabled=False),
     RegrTest('test_socketserver.py', enabled=False, usemodules='thread'),
@@ -752,8 +752,7 @@ testmap = [
 
     RegrTest('test_warnings.py', enabled=True, core=True),
     RegrTest('test_wave.py', enabled=False, dumbtest=1),
-    RegrTest('test_weakref.py', enabled=True, core=True),
-        #rev 10840: ImportError: _weakref
+    RegrTest('test_weakref.py', enabled=True, core=True, usemodules='_weakref'),
 
     RegrTest('test_whichdb.py', enabled=True),
     RegrTest('test_winreg.py', enabled=False),
