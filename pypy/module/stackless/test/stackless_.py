@@ -23,6 +23,10 @@ This is a necessary Stackless 3.1 feature.
 
 last_thread_id = 0
 
+def restore_exception(etype, value, stack):
+    """until I find out how to restore an exception on python level"""
+    raise value
+
 class TaskletProxy(object):
     def __init__(self, coro):
         self.alive = False
@@ -71,6 +75,13 @@ class bomb(object):
     traceback = None
     type = None
     value = None
+    def __init__(self,etype=None, value=None, traceback=None):
+        self.type = etype
+        self.value = value
+        self.traceback = traceback
+
+    def _explode(self):
+        restore_exception(self.type, self.value, self.traceback)
 
 # channel: see below
 
@@ -154,6 +165,8 @@ def set_schedule_callback(callable):
 
 # end interface
 
+# implicit scheduler
+
 def _next():
     c = getcurrent()
     if c.next is c:
@@ -211,6 +224,8 @@ def _print_queue():
         print c,
     print ']'
 
+# end implicit scheduler
+
 main_tasklet = None
 main_coroutine = None
 
@@ -240,13 +255,6 @@ def run():
     If an exception occours, it will be passed to the main tasklet.
     """
     schedule()
-
-note = """
-I don't see why coro_reg is needed.
-tasklets should ideally inherit from coroutine.
-This will create unwanted attributes, but they will
-go away when we port this to interp-leve.
-"""
 
 def getcurrent():
     """
@@ -280,6 +288,9 @@ def schedule(retval=None):
     nt.switch()
     #print 'schedule: after switch',
     #_print_queue()
+    curr = getcurrent()
+    if type(curr.tempval) is bomb:
+        raise curr.tempval._explode()
     if retval is None:
         return getcurrent()
     else:
@@ -627,6 +638,8 @@ class channel(object):
         the runnables list.
         The above policy can be changed by setting channel flags.
         """
+        if self.closing:
+            raise StopIteration
         if self.balance > 0: # Receiving 1
             wt = self.queue.popleft()
             retval = wt.tempval
@@ -653,6 +666,8 @@ class channel(object):
         be activated immediately, and the sender is put at the end of
         the runnables list.
         """
+        if self.closing:
+            raise StopIteration
         ct = getcurrent()
         if ct.tempval is not None:
             print 'THERE IS STILL SOME CHANNEL SEND VALUE',ct.tempval
@@ -676,7 +691,8 @@ class channel(object):
         channel. exc must be a subclass of Exception.
         Behavior is like channel.send, but that the receiver gets an exception.
         """
-        pass
+        b = bomb(exc, value)
+        self.send(bomb)
 
     ## needed
     def send_sequence(self, value):
@@ -687,7 +703,8 @@ class channel(object):
         be activated immediately, and the sender is put at the end of
         the runnables list.
         """
-        pass
+        for item in value:
+            self.send(item)
 
 __init()
 
