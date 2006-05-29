@@ -3,6 +3,15 @@
 """
 
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype
+from pypy.translator.cli import oopspec
+
+from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
+from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, Primitive
+from pypy.rpython.lltypesystem.lltype import Char, UniChar
+from pypy.rpython.ootypesystem.ootype import String, _string, List, StaticMethod
+
+from pypy.translator.js2.log import log
 
 class JTS(object):
     """ Class implementing JavaScript type system
@@ -11,24 +20,82 @@ class JTS(object):
     def __init__(self, db):
         self.db = db
     
+    def __class(self, name):
+        return name.split(".")[-1]
+    
     def llvar_to_cts(self, var):
         return 'var ', var.name
     
+    def lltype_to_cts(self, t):
+        if isinstance(t, ootype.Instance):
+            self.db.pending_class(t)
+            return self.__class(t._name)
+        elif isinstance(t, ootype.List):
+            return "Array"
+        elif isinstance(t, lltype.Primitive):
+            return "var"
+        elif isinstance(t, ootype.Record):
+            return "Object"
+        elif isinstance(t, ootype.String.__class__):
+            return '""'
+        #return "var"
+        raise NotImplementedError("Type %r" % (t,))
+    
     def graph_to_signature(self, graph, is_method = False, func_name = None):
-        ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
-        func_name = func_name or graph.name
+        func_name = func_name or self.db.get_uniquename(graph,graph.name)
         
-        args = [arg for arg in graph.getargs() if arg.concretetype is not ootype.Void]
+        args = graph.getargs()
         if is_method:
             args = args[1:]
 
-        #arg_types = [self.lltype_to_cts(arg.concretetype) for arg in args]
-        #arg_list = ', '.join(arg_types)
-
         return func_name,args
     
-    def lltype_to_cts(self, t, include_class=True):
-        return 'var'
+    def method_signature(self, obj, name):
+        # TODO: use callvirt only when strictly necessary
+        if isinstance(obj, ootype.Instance):
+            owner, meth = obj._lookup(name)
+            class_name = obj._name
+            return self.graph_to_signature(meth.graph, True, class_name)
+
+        elif isinstance(obj, ootype.BuiltinType):
+            meth = oopspec.get_method(obj, name)
+            class_name = self.lltype_to_cts(obj)
+            #arg_list = ', '.join(arg_types)
+            return class_name,meth.ARGS
+        else:
+            assert False
+    
+    def obj_name(self, obj):
+        return self.lltype_to_cts(obj)
+    
+    def primitive_repr(self, _type, v):
+        if _type is Bool:
+            if v == False:
+                val = 'false'
+            else:
+                val = 'true'
+        elif _type is Void:
+            val = 'undefined'
+        elif isinstance(_type,String.__class__):
+            val = '%r'%v._str
+        elif isinstance(_type,List):
+            # FIXME: It's not ok to use always empty list
+            val = "[]"
+        elif isinstance(_type,StaticMethod):
+            val = v._name
+        elif _type is UniChar or _type is Char:
+            #log("Constant %r"%v)
+            val = '"%s"'%str(v)
+        elif isinstance(_type,Primitive):
+            #log("Type: %r"%_type)
+            val = str(v)
+        else:
+            assert False, "Unknown constant %r"%_type
+            val = str(v)
+        return val
+    
+    #def lltype_to_cts(self, t, include_class=True):
+    #    return 'var'
 ##        if isinstance(t, ootype.Instance):
 ##            self.db.pending_class(t)
 ##            return self.__class(t._name, include_class)

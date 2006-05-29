@@ -4,8 +4,7 @@
 
 from pypy.translator.js2.log import log
 
-from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
-from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.objspace.flow.model import Variable
 
 from StringIO import StringIO
 
@@ -45,6 +44,8 @@ class Queue(object):
         self.subst_table = subst_table
     
     def pop(self):
+        if len(self.l) == 0:
+            return "sth"
         el = self.l.pop()
         return self.subst_table.get(el, el)
     
@@ -64,16 +65,19 @@ class AsmGen(object):
         self.right_hand = Queue([], self.subst_table)
         self.codegenerator = CodeGenerator(outfile)
     
-    def show_const(self):
-        return False
-
-    def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args):
+    def begin_function(self, name, arglist):
         args = ",".join([i[1] for i in arglist])
         self.codegenerator.write("function %s (%s) "%(name, args))
         self.codegenerator.openblock()
     
+    def begin_method(self, name, _class, arglist):
+        args = ",".join([i[1] for i in arglist])
+        self.codegenerator.write("%s.prototype.%s = function (%s)"%(_class, name, args))
+        self.codegenerator.openblock()
+    
     def end_function(self):
         self.codegenerator.closeblock()
+        self.codegenerator.writeline("")
     
     def locals(self, loc):
         self.codegenerator.writeline("var "+",".join([i[1] for i in loc])+";")
@@ -90,31 +94,12 @@ class AsmGen(object):
     def load_local(self, v):
         self.right_hand.append(v.name)
     
-    def load_const(self, _type, v):
-        if _type is Bool:
-            if v == False:
-                val = 'false'
-            else:
-                val = 'true'
-        else:
-            val = str(v)
-        self.right_hand.append(val)
-    
+    def load_const(self, v):
+        self.right_hand.append(v)
+
     def ret(self):
         self.codegenerator.writeline("return ( %s );"%self.right_hand.pop())
     
-    def begin_namespace(self,namespace):
-        pass
-    
-    def end_namespace(self):
-        pass
-    
-    def begin_class(self,cl):
-        raise NotImplementedError("Class support")
-    
-    def end_class(self):
-        raise NotImplementedError("Class support")
-
     def emit(self, opcode, *args):
         v1 = self.right_hand.pop()
         v2 = self.right_hand.pop()
@@ -122,8 +107,10 @@ class AsmGen(object):
 
     def call(self, func):
         func_name, args = func
-        real_args = ",".join([self.right_hand.pop() for i in xrange(len(args))] )
-        self.right_hand.append("%s ( %s )"%(func_name, real_args))
+        l = [self.right_hand.pop() for i in xrange(len(args))]
+        l.reverse()
+        real_args = ",".join(l)
+        self.right_hand.append("%s ( %s )" % (func_name, real_args))
 
     def branch_if(self, arg, exitcase):
         arg_name = self.subst_table.get(arg.name, arg.name)
@@ -151,11 +138,91 @@ class AsmGen(object):
         pass
     
     def change_name(self, from_name, to_name):
-        self.subst_table[from_name.name] = to_name.name
-        #pass
+    #    if isinstance(from_name,Variable) and isinstance(to_name,Variable):
+    #        self.subst_table[from_name.name] = to_name.name
+        pass
     
-    def cast_floor(self):
-        self.right_hand.append("Math.floor ( %s )"%self.right_hand.pop())
+    def cast_function(self, name, num):
+        # FIXME: redundancy with call
+        args = [self.right_hand.pop() for i in xrange(num)]
+        args.reverse()
+        arg_list = ",".join(args)
+        self.right_hand.append("%s ( %s )"%(name, arg_list))
+    
+    def prefix_op(self, st):
+        self.right_hand.append("%s%s"%(st, self.right_hand.pop()))
+    
+    #def field(self, f_name, cts_type):
+    #    pass
+    
+    def set_static_field(self, _type, namespace, _class, varname):
+        self.codegenerator.writeline("%s.prototype.%s = %s;"%(_class, varname, self.right_hand.pop()))
+    
+    #def load_set_field(self, _type, name):
+    #    #self.right_hand.append("")
+    #    #self.codegenerator.writeline("set field %r %r"%(_type, name))
+    #    pass
+    
+    def set_field(self, useless_parameter, name):
+        v = self.right_hand.pop()
+        self.codegenerator.writeline("%s.%s = %s;"%(self.right_hand.pop(), name, v))
+        self.right_hand.append(None)
+    
+    def call_method(self, obj, name, signature):
+        l = [self.right_hand.pop() for i in signature]
+        l.reverse()
+        args = ",".join(l)
+        self.right_hand.append("%s.%s(%s)"%(self.right_hand.pop(), name, args))
+    
+    def get_field(self, name):
+        self.right_hand.append("%s.%s"%(self.right_hand.pop(), name))
+    
+    def new(self, obj):
+        log("New: %r"%obj)
+        self.right_hand.append("new %s()"%obj)
+    
+    def load_self(self):
+        self.right_hand.append("this")
+    
+    def store_void(self):
+        v = self.right_hand.pop()
+        if v is not None:
+            self.codegenerator.writeline(v+";")
+        #self.right_hand.pop()
+    
+    def begin_consts(self, name):
+        # load consts, maybe more try to use stack-based features?
+        self.codegenerator.writeline("%s = {};"%name)
+    
+    def new_obj(self):
+        self.right_hand.append("{}")
+    
+    def new_list(self):
+        self.right_hand.append("[]")
+    
+    # FIXME: will refactor later
+    load_str = load_const
+    
+    def list_setitem(self):
+        item = self.right_hand.pop()
+        value = self.right_hand.pop()
+        lst = self.right_hand.pop()
+        self.right_hand.append("%s[%s]=%s"%(lst, item, value))
+    
+    def list_getitem(self):
+        item = self.right_hand.pop()
+        lst = self.right_hand.pop()
+        self.right_hand.append("%s[%s]"%(lst, item))
+    
+    def load_void(self):
+        self.right_hand.append("undefined")
+    
+    def begin_try(self):
+        self.codegenerator.write("try ")
+        self.codegenerator.openblock()
+    
+    def end_try(self):
+        self.codegenerator.closeblock()
     
     #def finish ( self ):
     #    self . outfile . write ( "%r" % self . right_hand )

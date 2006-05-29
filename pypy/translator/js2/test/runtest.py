@@ -41,8 +41,8 @@ class compile_function(object):
         self.js.write_source()
 
     def _conv(self, v):
-        if isinstance(v, str):
-            return "{hash:0, chars:'%s'}" % v
+        #if isinstance(v, str):
+        #    return "{hash:0, chars:'%s'}" % v
         return str(v).lower()
 
     def __call__(self, *kwds):

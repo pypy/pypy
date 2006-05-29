@@ -14,10 +14,7 @@ from pypy.translator.cli.metavm import Generator,InstructionList
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.class_ import Class
 
-from pypy.tool.ansi_print import ansi_log
-import py
-log = py.log.Producer("cli") 
-py.log.setconsumer("cli", ansi_log) 
+from pypy.translator.js2.log import log
 
 class LoopFinder:
 
@@ -52,14 +49,15 @@ class LoopFinder:
             self.visit_Block(link.target, switches)
 
 class Function(Node, Generator):
-    def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False ):
+    def __init__(self, db, graph, name=None, is_method=False, is_entrypoint=False, _class = None):
         self.db = db
         self.cts = db.type_system_class(db)
         self.graph = graph
-        self.name = name or graph.name
+        self.name = name or self.db.get_uniquename(self.graph, graph.name)
         self.is_method = is_method
         self.is_entrypoint = is_entrypoint
         self.blocknum = {}
+        self._class = _class
         self._set_args()
         self._set_locals()
 
@@ -78,22 +76,23 @@ class Function(Node, Generator):
     def _is_raise_block(self, block):
         return (not block.exits) and len(block.inputargs) == 2        
 
-    def render_block ( self , block ):
-        for op in block.operations:
-            self._render_op(op)
-    
     def render_block(self, block, stop_block = None):
         if block is stop_block:
             return
         
+        handle_exc = (block.exitswitch == flowmodel.c_last_exception)
+        if handle_exc:
+            self.ilasm.begin_try()
+
         for op in block.operations:
             self._render_op(op)
         
         if len(block.exits) == 0:
             # return block
             return_var = block.inputargs[0]
-            self.load(return_var)
-            self.ilasm.ret()
+            if return_var.concretetype is not Void:
+                self.load(return_var)
+                self.ilasm.ret()
         elif block.exitswitch is None:
             # single exit block
             assert(len(block.exits) == 1)
@@ -101,7 +100,8 @@ class Function(Node, Generator):
             self._setup_link(link)
             self.render_block(link.target, stop_block)
         elif block.exitswitch is flowmodel.c_last_exception:
-            raise NotImplementedError("Exception handling")
+            # we've got exception block
+            raise NotImplementedError("Exception handling not implemented")
         else:
             if self.loops.has_key(block):
                 # we've got loop
@@ -132,10 +132,19 @@ class Function(Node, Generator):
         if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
         
+        if self.is_method:
+            args = self.args[1:] # self is implicit
+        else:
+            args = self.args
+        
         self.ilasm = ilasm
         
         self.loops = LoopFinder(self.graph.startblock).loops
-        self.ilasm.begin_function(self.name, self.args, None, None, None)
+        if self.is_method:
+            self.ilasm.begin_method(self.name, self._class, args)
+        else:
+            self.ilasm.begin_function(self.name, args)
+        log("loops: %r"%self.loops)
 
         self.render_block(self.graph.startblock)
 ##            if self._is_return_block(block):
@@ -219,7 +228,7 @@ class Function(Node, Generator):
         self.locals = locals
 
     def _set_args(self):
-        args = [arg for arg in self.graph.getargs() if arg.concretetype is not Void]
+        args = self.graph.getargs()
         self.args = map(self.cts.llvar_to_cts, args)
         self.argset = set([argname for argtype, argname in self.args])
 
@@ -276,27 +285,33 @@ class Function(Node, Generator):
         self.db.pending_function(graph)
         func_sig = self.function_signature(graph)        
         self.ilasm.call(func_sig)
+    
+    def call_external(self, name, args):
+        self.ilasm.call((name, args))
 
-    def call_signature(self, signature):
-        self.ilasm.call(signature)
+    #def call_signature(self, signature):
+    #    self.ilasm.call(signature)
 
     def cast_to(self, lltype):
         cts_type = self.cts.lltype_to_cts(lltype, False)
         self.ilasm.castclass(cts_type)
         
     def new(self, obj):
-        self.ilasm.new(self.cts.ctor_name(obj))
+        self.ilasm.new(self.cts.obj_name(obj))
 
     def set_field(self, obj, name):
-        self.ilasm.set_field(self.field_name(obj,name))
+        self.ilasm.set_field(obj, name)
+        #self.ilasm.set_field(self.field_name(obj,name))
 
-    def get_field(self, obj, name):
-        self.ilasm.get_field(self.field_name(obj,name))
+    def get_field(self, useless_stuff, name):
+        self.ilasm.get_field(name)
         
     def call_method(self, obj, name):
-        # TODO: use callvirt only when strictly necessary
-        signature, virtual = self.cts.method_signature(obj, name)
-        self.ilasm.call_method(signature, virtual)
+        func_name, signature = self.cts.method_signature(obj, name)
+        self.ilasm.call_method(obj, name, signature)
+    
+    def call_external_method(self, name, arg_len):
+        self.ilasm.call_method(None, name, [0]*arg_len)
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):
@@ -310,30 +325,46 @@ class Function(Node, Generator):
                 self.ilasm.load_local(v)
 
         elif isinstance(v, flowmodel.Constant):
-            self._load_const(v)
+            self.db.load_const(v.concretetype, v.value, self.ilasm)
         else:
             assert False
-
-    def _load_const(self, const):        
-        type_ = const.concretetype
-        if type_ in [ Void , Bool , Float , Signed , Unsigned , SignedLongLong , UnsignedLongLong ]:
-            self.ilasm.load_const(type_,const.value)
-        else:
-            name = self.db.record_const(const.value)
-            cts_type = self.cts.lltype_to_cts(type_)
-            self.ilasm.load_set_field(cts_type,name)
-            #assert False, 'Unknown constant %s' % const
-
+    
     def store(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.concretetype is not Void:
                 self.ilasm.store_local(v)
+            else:
+                self.ilasm.store_void()
         else:
             assert False
     
     def change_name(self, name, to_name):
         self.ilasm.change_name(name, to_name)
     
-    def cast_floor(self):
-        self.ilasm.cast_floor()
+    def cast_function(self, name, num):
+        self.ilasm.cast_function(name, num)
 
+    def prefix_op(self, st):
+        self.ilasm.prefix_op(st)
+    
+    def load_str(self, s):
+        self.ilasm.load_str(s)
+    
+    def load_void(self):
+        self.ilasm.load_void()
+    
+    def list_setitem(self, base_obj, item, val):
+        self.load(base_obj)
+        self.load(val)
+        self.load(item)
+        self.ilasm.list_setitem()
+    
+    def list_getitem(self, base_obj, item):
+        self.load(base_obj)
+        self.load(item)
+        self.ilasm.list_getitem()
+
+    def list_resize(self, lst, new_size):
+        self.load(lst)
+        self.load(new_size)
+        self.set_field(None, 'length')

@@ -2,9 +2,9 @@ from pypy.translator.gensupp import NameManager
 #from pypy.translator.js2.optimize import is_optimized_function
 
 class JavascriptNameManager(NameManager):
-    def __init__(self, js):
+    def __init__(self, db):
         NameManager.__init__(self)
-        self.js = js
+        self.db = db
         self.reserved = {}
 
         #http://javascript.about.com/library/blreserved.htm
