@@ -1,7 +1,6 @@
 from __future__ import division
 import sys
 
-import autopath
 import py
 
 from pypy.objspace.flow.model import Constant, Variable
