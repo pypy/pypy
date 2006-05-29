@@ -43,9 +43,6 @@ class IlasmGenerator(object):
         self.code.writeline('.assembly extern pypylib {}')
         self.code.writeline('.assembly %s {}' % name)
 
-    def show_const(self):
-        return True
-
     def close(self):
         self.out.close()
 

@@ -26,12 +26,12 @@ class Tee(object):
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
                  opcode_dict=opcodes, name_suffix='.il', function_class=Function,
-                 pending_graphs=()):
+                 database_class = LowLevelDatabase, pending_graphs=()):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
-        self.db = LowLevelDatabase( type_system_class = type_system_class , opcode_dict = opcode_dict,
-            function_class = function_class )
+        self.db = database_class(type_system_class = type_system_class, opcode_dict = opcode_dict,
+            function_class = function_class)
 
         for graph in pending_graphs:
             self.db.pending_function(graph)

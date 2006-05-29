@@ -69,8 +69,6 @@ class LowLevelDatabase(object):
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
 
     def gen_constants(self, ilasm):
-        if not ilasm.show_const():
-            return
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
 
@@ -104,7 +102,7 @@ class LowLevelDatabase(object):
 
         # the constructor calls the steps in reverse order
         ilasm.begin_function('.cctor', [], 'void', False, 'static',
-                             'specialname', 'rtspecialname', 'default')
+            'specialname', 'rtspecialname', 'default')
 
         last_step = step-1
         for step in xrange(last_step, -1, -1):
