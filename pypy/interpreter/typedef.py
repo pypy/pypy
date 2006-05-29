@@ -521,8 +521,8 @@ PyCode.typedef = TypeDef('code',
     )
 
 PyFrame.typedef = TypeDef('frame',
-    __reduce__   = interp2app(PyFrame.descr__reduce__,
-                                  unwrap_spec=['self', ObjSpace]),
+    #__reduce__   = interp2app(PyFrame.descr__reduce__,
+    #                              unwrap_spec=['self', ObjSpace]),
     f_builtins = GetSetProperty(PyFrame.fget_f_builtins),
     f_lineno = GetSetProperty(PyFrame.fget_f_lineno, PyFrame.fset_f_lineno),
     f_back = GetSetProperty(PyFrame.fget_f_back),
