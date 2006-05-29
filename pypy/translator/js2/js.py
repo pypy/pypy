@@ -48,7 +48,7 @@ class JS(object):
         self.filename = self.cli.tmpfile
 
         data = self.filename.open().read()
-        src_filename = _path_join(os.path.dirname(__file__), 'src', 'misc.js')
+        src_filename = _path_join(os.path.dirname(__file__), 'jssrc', 'misc.js')
         f = self.cli.tmpfile.open("w")
         s = open(src_filename).read()
         f.write(s)
