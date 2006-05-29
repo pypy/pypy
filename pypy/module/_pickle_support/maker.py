@@ -2,6 +2,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.module import Module
+from pypy.interpreter.pyframe import PyFrame
 from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
@@ -48,3 +49,7 @@ def reverseseqiter_new(space, w_seq, w_index):
     w_len = space.len(w_seq)
     index = space.int_w(w_index) - space.int_w(w_len)
     return W_ReverseSeqIterObject(space, w_seq, index)
+    
+def frame_new(space, w_pycode, w_globals):
+    new_frame = PyFrame(space, w_pycode, w_globals, None)
+    return space.wrap(new_frame)

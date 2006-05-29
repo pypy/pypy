@@ -51,7 +51,7 @@ class PyFrame(eval.EvalFrame):
             self.valuestack = Stack()
         self.blockstack = Stack()
         self.last_exception = None
-        self.next_instr = r_uint(0) # Force it unsigned for performace reasons.
+        self.next_instr = r_uint(0) # Force it unsigned for performance reasons.
         self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
@@ -66,7 +66,20 @@ class PyFrame(eval.EvalFrame):
         self.instr_lb = 0
         self.instr_ub = -1
         self.instr_prev = -1;
-        
+
+    def descr__reduce__(self, space):
+        raise Exception('frame pickling is work in progress')
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('frame_new')
+        w        = space.wrap
+        tup      = [
+            w(self.pycode),
+            self.w_globals,
+            ]
+        return space.newtuple([new_inst, space.newtuple(tup)])
+
     def hide(self):
         return self.pycode.hidden_applevel
 

@@ -73,6 +73,10 @@ class AppTestInterpObjectPickling:
         assert not (cell != result)
     
     def test_pickle_frame(self):
+        '''
+        >>>> dir(frame)
+        ['__class__', '__delattr__', '__doc__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__str__', 'f_back', 'f_builtins', 'f_code', 'f_exc_traceback', 'f_exc_type', 'f_exc_value', 'f_globals', 'f_lasti', 'f_lineno', 'f_locals', 'f_restricted', 'f_trace']
+        '''
         skip("work in progress")
         from sys import exc_info
         def f():
@@ -85,8 +89,22 @@ class AppTestInterpObjectPickling:
         frame  = f()
         pckl   = pickle.dumps(frame)
         result = pickle.loads(pckl)
-        assert frame == result
-    
+        assert type(frame) is type(result)
+        assert dir(frame) == dir(result)
+        assert frame.__doc__ == result.__doc__
+        assert type(frame.f_back) is type(result.f_back)
+        assert frame.f_builtins is result.f_builtins
+        assert frame.f_code is result.f_code
+        assert frame.f_exc_traceback is result.f_exc_traceback
+        assert frame.f_exc_type is result.f_exc_type
+        assert frame.f_exc_value is result.f_exc_value
+        assert frame.f_globals is result.f_globals
+        assert frame.f_lasti == result.f_lasti
+        assert frame.f_lineno == result.f_lineno
+        assert list(frame.f_locals) == list(result.f_locals)
+        assert frame.f_restricted is result.f_restricted
+        assert frame.f_trace is result.f_trace
+
     def test_pickle_traceback(self):
         skip("work in progress")
         def f():
@@ -238,7 +256,7 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
     
     def test_pickle_generator(self):
-        skip("work in progress")
+        skip("work in progress (implement after frame pickling)")
         import pickle
         def giveme(n):
             x = 0
