@@ -220,13 +220,13 @@ class AppTestInterpObjectPickling:
         e      = enumerate(range(10))
         e.next()
         e.next()
-        e._iter= 42 #XXX HACK, because we have no sequence/dict iterator yet
         pckl   = pickle.dumps(e)
         result = pickle.loads(pckl)
+        e.next()
+        result.next()
         assert type(e) is type(result)
-        assert e._iter  == result._iter #change when _iter is an iter(..) again
-        assert e._index == result._index
-    
+        assert list(e) == list(result)
+
     def test_pickle_xrangeiter(self):
         import pickle
         riter  = iter(xrange(5))
