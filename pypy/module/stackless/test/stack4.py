@@ -11,12 +11,12 @@ def f(outchan):
     v = 1
     print 'f sending',v
     outchan.send(v)
-    print 'f successfully sended',v
+    print 'f has successfully sent',v
     v = 2
     print 'f sending',v
     try:
         outchan.send(v)
-        print 'f successfully sended',v
+        print 'f has successfully sent',v
     except StopIteration:
         print 'f got StopIteration'
 
