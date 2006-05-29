@@ -14,4 +14,5 @@ class Module(MixedModule):
         'method_new'   : 'maker.method_new',
         'dictiter_surrogate_new' : 'maker.dictiter_surrogate_new',
         'seqiter_new'  : 'maker.seqiter_new',
+        'reverseseqiter_new' : 'maker.reverseseqiter_new',
     }

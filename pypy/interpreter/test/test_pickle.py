@@ -189,9 +189,22 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         liter.next()
         result.next()
+        assert type(liter) is type(result)
         assert len(liter) == 6
         assert list(liter) == list(result)
-    
+
+    def test_pickle_reversesequenceiter(self):
+        import pickle
+        liter  = reversed([3,9,6,12,15,17,19,111])
+        liter.next()
+        pckl   = pickle.dumps(liter)
+        result = pickle.loads(pckl)
+        liter.next()
+        result.next()
+        assert type(liter) is type(result)
+        assert len(liter) == 6
+        assert list(liter) == list(result)
+
     def test_pickle_dictiter(self):
         import pickle
         tdict = {'2':2, '3':3, '5':5}
@@ -223,16 +236,6 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert type(riter) is type(result)
         assert list(result) == [2,3,4]
-    
-    def test_pickle_reversed_iterator(self):
-        import pickle
-        i = reversed(xrange(5))
-        i.next()
-        i.next()
-        pckl   = pickle.dumps(i)
-        result = pickle.loads(pckl)
-        assert type(i) is type(result)
-        assert list(result) == [2,1,0]
     
     def test_pickle_generator(self):
         skip("work in progress")

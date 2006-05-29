@@ -15,6 +15,20 @@ def descr_seqiter__reduce__(w_self, space):
     return space.newtuple([new_inst, space.newtuple(tup)])
 
 # ____________________________________________________________
+
+def descr_reverseseqiter__reduce__(w_self, space):
+    """
+    XXX to do: remove this __reduce__ method and do
+    a registration with copy_reg, instead.
+    """
+    from pypy.interpreter.mixedmodule import MixedModule
+    w_mod    = space.getbuiltinmodule('_pickle_support')
+    mod      = space.interp_w(MixedModule, w_mod)
+    new_inst = mod.get('reverseseqiter_new')
+    tup      = [w_self.w_seq, space.wrap(w_self.index)]
+    return space.newtuple([new_inst, space.newtuple(tup)])
+
+# ____________________________________________________________
 iter_typedef = StdTypeDef("sequenceiterator",
     __doc__ = '''iter(collection) -> iterator
 iter(callable, sentinel) -> iterator
@@ -28,4 +42,7 @@ In the second form, the callable is called until it returns the sentinel.''',
     )
 
 reverse_iter_typedef = StdTypeDef("reversesequenceiterator",
+
+    __reduce__ = gateway.interp2app(descr_reverseseqiter__reduce__,
+                           unwrap_spec=[gateway.W_Root, gateway.ObjSpace]),
     )

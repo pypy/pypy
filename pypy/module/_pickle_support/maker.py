@@ -6,7 +6,7 @@ from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.objspace.std.dicttype import dictiter_typedef
-from pypy.objspace.std.iterobject import W_SeqIterObject
+from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
 
 
 #note: for now we don't use the actual value when creating the Cell.
@@ -43,3 +43,8 @@ dictiter_surrogate_new.unwrap_spec = [ObjSpace, W_Root]
 
 def seqiter_new(space, w_seq, w_index):
     return W_SeqIterObject(w_seq, space.int_w(w_index))
+
+def reverseseqiter_new(space, w_seq, w_index):
+    w_len = space.len(w_seq)
+    index = space.int_w(w_index) - space.int_w(w_len)
+    return W_ReverseSeqIterObject(space, w_seq, index)
