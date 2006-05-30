@@ -140,7 +140,7 @@ def set_channel_callback(callable):
     Example:
     def channel_cb(channel, tasklet, sending, willblock):
         ...
-    sending and willblock are integers.
+    sending and willblock are booleans.
     Pass None to switch monitoring off again.
     """
     pass
@@ -151,7 +151,8 @@ should be implemented for debugging purposes. Low priority
 def set_schedule_callback(callable):
     """
     set_schedule_callback(callable) -- install a callback for scheduling.
-    Every explicit or implicit schedule will call the callback function.
+    Every explicit or implicit schedule will call the callback function
+    right before the switch is actually done.
     Example:
     def schedule_cb(prev, next):
         ...
@@ -302,27 +303,27 @@ def schedule(retval=None):
     Tasklet Flag Definition
     -----------------------
 
-    blocked:	    The tasklet is either waiting in a channel for
-		    writing (1) or reading (-1) or not blocked (0).
-		    Maintained by the channel logic. Do not change.
+    blocked:        The tasklet is either waiting in a channel for
+                    writing (1) or reading (-1) or not blocked (0).
+                    Maintained by the channel logic. Do not change.
 
-    atomic:	    If true, schedulers will never switch. Driven by
-		    the code object or dynamically, see below.
+    atomic:         If true, schedulers will never switch. Driven by
+                    the code object or dynamically, see below.
 
     ignore_nesting: Allows auto-scheduling, even if nesting_level
-		    is not zero.
+                    is not zero.
 
     autoschedule:   The tasklet likes to be auto-scheduled. User driven.
 
     block_trap:     Debugging aid. Whenever the tasklet would be
-		    blocked by a channel, an exception is raised.
+                    blocked by a channel, an exception is raised.
 
-    is_zombie:	    This tasklet is almost dead, its deallocation has
-		    started. The tasklet *must* die at some time, or the
-		    process can never end.
+    is_zombie:      This tasklet is almost dead, its deallocation has
+                    started. The tasklet *must* die at some time, or the
+                    process can never end.
 
     pending_irq:    If set, an interrupt was issued during an atomic
-		    operation, and should be handled when possible.
+                    operation, and should be handled when possible.
 
 
     Policy for atomic/autoschedule and switching:
@@ -332,13 +333,13 @@ def schedule(retval=None):
 
     atomic  autoschedule
 
-	1	any	Neither a scheduler nor a watchdog will
-			try to switch this tasklet.
+        1       any     Neither a scheduler nor a watchdog will
+                        try to switch this tasklet.
 
-	0	0	The tasklet can be stopped on desire, or it
-			can be killed by an exception.
+        0       0       The tasklet can be stopped on desire, or it
+                        can be killed by an exception.
 
-	0	1	Like above, plus auto-scheduling is enabled.
+        0       1       Like above, plus auto-scheduling is enabled.
 
     Default settings:
     -----------------
@@ -484,7 +485,7 @@ class tasklet(coroutine):
         pass
 
     ## note: see above
-    def set_ignore_nesting(self,flag):
+    def set_ignore_nesting(self, flag):
         """
         t.set_ignore_nesting(flag) -- set tasklet ignore_nesting status and 
         return current one. If set, the tasklet may be be auto-scheduled, 
@@ -502,7 +503,7 @@ class tasklet(coroutine):
     ## tasklet(func)(*args, **kwds)
     ## is identical to
     ## t = tasklet; t.bind(func); t.setup(*args, **kwds)
-    def setup(self,*argl,**argd):
+    def setup(self, *argl, **argd):
         """
         supply the parameters for the callable
         """
@@ -520,13 +521,13 @@ class tasklet(coroutine):
 
 
     closing:        When the closing flag is set, the channel does not
-		    accept to be extended. The computed attribute
-		    'closed' is true when closing is set and the
-		    channel is empty.
+                    accept to be extended. The computed attribute
+                    'closed' is true when closing is set and the
+                    channel is empty.
 
-    preference:	    0    no preference, caller will continue
-		    1    sender will be inserted after receiver and run
-		    -1   receiver will be inserted after sender and run
+    preference:     0    no preference, caller will continue
+                    1    sender will be inserted after receiver and run
+                    -1   receiver will be inserted after sender and run
 
     schedule_all:   ignore preference and always schedule the next task
 
