@@ -120,7 +120,6 @@ class UCD(Wrappable):
     decomposition.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def normalize(self, space, form, w_unistr):
-        form = space.str_w(w_form)
         if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
             raise TypeError, 'argument 2 must be unicode'
         if form == 'NFC':
