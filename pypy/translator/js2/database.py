@@ -90,7 +90,10 @@ class LowLevelDatabase(object):
             return None
         const = AbstractConst.make(self, value)
         try:
-            return self.consts[const]
+            if retval == 'name':
+                return self.consts[const]
+            else:
+                return const
         except KeyError:
             log("New const:%r"%value)
             if isinstance(value, ootype._string):
@@ -120,7 +123,6 @@ class LowLevelDatabase(object):
         def generate_constants(consts):
             all_c = [const for const,name in consts.iteritems()]
             rendered = set()
-            
             while len(all_c) > 0:
                 const = all_c.pop()
                 if const not in rendered:

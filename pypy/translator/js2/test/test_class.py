@@ -87,7 +87,7 @@ class TestClass(object):
         assert f(False) == llvmsnippet.call_degrading_func(False)
     
     def test_circular_classdef(self):
-        py.test.skip("Problems with constant names")
+        #py.test.skip("Problems with constant names")
         #py.test.skip("Inheritance not implemented")
         f = compile_function(llvmsnippet.circular_classdef, [])
         assert f() == 10
