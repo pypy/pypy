@@ -39,7 +39,7 @@ class ComputedIntSymbolic(Symbolic):
 def instantiate(cls):
     "Create an empty instance of 'cls'."
     if isinstance(cls, type):
-        return object.__new__(cls)
+        return cls.__new__(cls)
     else:
         return new.instance(cls)
 
