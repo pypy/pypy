@@ -1,6 +1,6 @@
 # UNICODE CHARACTER DATABASE
 # This file was generated with the command:
-#     ./generate_unicodedb.py -o unicodedb.py UnicodeData-4.1.0.txt CompositionExclusions-4.1.0.txt EastAsianWidth-4.1.0.txt
+#     ./generate_unicodedb.py -o unicodedb_4_1_0.py UnicodeData-4.1.0.txt CompositionExclusions-4.1.0.txt EastAsianWidth-4.1.0.txt
 
 version = '4.1.0'
 
