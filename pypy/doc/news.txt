@@ -7,6 +7,20 @@ nonsense, isn't it?  `more...`_
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+
+PyPy and Summer of Code 2006
+==================================================================
+
+PyPy will again mentor students through Google's `Summer of Code`_
+campaign. Three students will kick-off their work on PyPy by
+participating in the Duesseldorf sprint. They will be exploring a
+back-end for Microsoft.NET, work on ways to build web applications
+with Javascript code (in this case by translating RPython to
+Javascript) and porting some CPython modules to use ctypes. Welcome to
+the team!
+
+.. _`Summer of Code`: http://code.google.com/soc/psf/about.html
+
 Duesseldorf PyPy sprint 2-9 June 2006
 ==================================================================
 
@@ -21,13 +35,26 @@ on the `people page`_.
 .. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/announce.html
 .. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/people.html
 
-PyPy sprint in Tokyo 23rd - 29th April 2006
+PyPy sprint at Akihabara (Tokyo, Japan)
 ==================================================================
 
-This sprint was in Akihabara, Tokyo, Japan, our hosts was
-FSIJ (Free Software Initiative of Japan) and we aimed for the sprint
-to promote Python and introduce people to PyPy. Good progress was also made
-on PyPy's ootypesystem for the more high level backends.
+*April 23rd - 29th 2006.* This sprint was in Akihabara, Tokyo, Japan,
+our hosts was FSIJ (Free Software Initiative of Japan) and we aimed
+for the sprint to promote Python and introduce people to PyPy. Good
+progress was also made on PyPy's ootypesystem for the more high level
+backends. For more details, read the last `sprint status`_ page and
+enjoy the pictures_.
+
+.. _`sprint status`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/tokyo-planning.html
+.. _`pictures`: http://www.flickr.com/photos/19046555@N00/sets/72057594116388174/
+
+PyPy at Python UK/ACCU Conference (United Kingdom)
+===================================================================
+
+*April 19th - April 22nd 2006.* Several talks about PyPy were hold at
+this year's Python UK/ACCU conference. Read more at the `ACCU site`_.
+
+.. _`ACCU site`: http://www.accu.org/
 
 PyPy at XPDay France 2006 in Paris March 23rd - March 24th 2006
 ==================================================================

@@ -7,25 +7,42 @@
 
 .. _`over there`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 
-Talks at Python UK/ACCU Conference (United Kingdom)
-===================================================================
+Duesseldorf PyPy sprint 2-9 June 2006
+==================================================================
 
-*April 19th - April 22nd 2006.* Read more at the `ACCU site`_.
+The next PyPy sprint will be held in the Computer Science department of
+Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
+Main focus of the sprint will be on the goals of the upcoming June 0.9
+release.
 
-.. _`ACCU site`: http://www.accu.org/
-
-Sprint in Tokyo (Japan)
-===================================================================
-
-*April 23rd - April 29th 2006.*
-
-The sprint will be Akihabara, Tokyo, Japan. Our hosts are
-FSIJ (Free Software Initiative of Japan) and out aim for the sprint
-will be to promote Python and introduce people to PyPy.
-
-Read more in `the announcement`_, see who is  planning to attend
+Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
-.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-announcement.html
-.. _`People page`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/tokyo/people.txt
+.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/announce.html
+.. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/people.html
 
+
+PyPy at XP 2006 and Agile 2006
+==================================================================
+
+PyPy will present experience reports at the two main agile conferences
+this year, `XP 2006`_ and `Agile 2006`_.
+Both experience reports focus on aspects of the sprint-driven
+development method that is being used in PyPy.
+
+.. _`XP 2006`: http://virtual.vtt.fi/virtual/xp2006/ 
+.. _`Agile 2006`: http://www.agile2006.org/
+
+
+EuroPython PyPy sprint 6-9 July 2006
+==================================================================
+
+Once again a PyPy sprint will take place right after the EuroPython
+Conference. This year it will be from the *6th to the 9th of July*.
+
+Read more in `the sprint announcement`_, see who is  planning to attend
+on the `people page`_. There is also a page_ in the python wiki.
+
+.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/announce.html
+.. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/people.html
+.. _page: http://wiki.python.org/moin/EuroPython2006
