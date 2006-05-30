@@ -7,6 +7,8 @@ def descr_seqiter__reduce__(w_self, space):
     XXX to do: remove this __reduce__ method and do
     a registration with copy_reg, instead.
     """
+    from pypy.objspace.std.iterobject import W_SeqIterObject
+    assert isinstance(w_self, W_SeqIterObject)
     from pypy.interpreter.mixedmodule import MixedModule
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)
@@ -21,6 +23,8 @@ def descr_reverseseqiter__reduce__(w_self, space):
     XXX to do: remove this __reduce__ method and do
     a registration with copy_reg, instead.
     """
+    from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
+    assert isinstance(w_self, W_ReverseSeqIterObject)
     from pypy.interpreter.mixedmodule import MixedModule
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)
