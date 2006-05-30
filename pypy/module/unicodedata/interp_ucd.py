@@ -29,12 +29,28 @@ def unichr_to_code_w(space, w_unichr):
 
 class UCD(Wrappable):
     def __init__(self, unicodedb):
-        self.unicodedb = unicodedb
+        self._lookup = unicodedb.lookup
+        self._name = unicodedb.name
+        self._decimal = unicodedb.decimal
+        self._digit = unicodedb.digit
+        self._numeric = unicodedb.numeric
+        self._category = unicodedb.category
+        self._east_asian_width = unicodedb.east_asian_width
+        self._bidirectional = unicodedb.bidirectional
+        self._combining = unicodedb.combining
+        self._mirrored = unicodedb.mirrored
+        self._decomposition = unicodedb.decomposition
+        self._canon_decomposition = unicodedb._canon_decomposition
+        self._compat_decomposition = unicodedb._compat_decomposition
+        self._composition_max = unicodedb._composition_max
+        self._composition_shift = unicodedb._composition_shift
+        self._composition = unicodedb._composition
+        
         self.version = unicodedb.version
         
     def lookup(self, space, name):
         try:
-            code = self.unicodedb.lookup(name)
+            code = self._lookup(name)
         except KeyError:
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
@@ -46,7 +62,7 @@ class UCD(Wrappable):
     def name(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            name = self.unicodedb.name(code)
+            name = self._name(code)
         except KeyError:
             if w_default is not None:
                 return w_default
@@ -58,7 +74,7 @@ class UCD(Wrappable):
     def decimal(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self.unicodedb.decimal(code))
+            return space.wrap(self._decimal(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -69,7 +85,7 @@ class UCD(Wrappable):
     def digit(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self.unicodedb.digit(code))
+            return space.wrap(self._digit(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -80,7 +96,7 @@ class UCD(Wrappable):
     def numeric(self, space, w_unichr, w_default=NoneNotWrapped):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self.unicodedb.numeric(code))
+            return space.wrap(self._numeric(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -91,32 +107,32 @@ class UCD(Wrappable):
 
     def category(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self.unicodedb.category(code))
+        return space.wrap(self._category(code))
     category.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def east_asian_width(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self.unicodedb.east_asian_width(code))
+        return space.wrap(self._east_asian_width(code))
     east_asian_width.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def bidirectional(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self.unicodedb.bidirectional(code))
+        return space.wrap(self._bidirectional(code))
     bidirectional.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def combining(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self.unicodedb.combining(code))
+        return space.wrap(self._combining(code))
     combining.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def mirrored(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self.unicodedb.mirrored(code))
+        return space.wrap(self._mirrored(code))
     mirrored.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def decomposition(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self.unicodedb.decomposition(code))
+        return space.wrap(self._decomposition(code))
     decomposition.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def normalize(self, space, form, w_unistr):
@@ -124,16 +140,16 @@ class UCD(Wrappable):
             raise TypeError, 'argument 2 must be unicode'
         if form == 'NFC':
             composed = True
-            decomposition = self.unicodedb._canon_decomposition
+            decomposition = self._canon_decomposition
         elif form == 'NFD':
             composed = False
-            decomposition = self.unicodedb._canon_decomposition
+            decomposition = self._canon_decomposition
         elif form == 'NFKC': 
             composed = True
-            decomposition = self.unicodedb._compat_decomposition
+            decomposition = self._compat_decomposition
         elif form == 'NFKD':
             composed = False
-            decomposition = self.unicodedb._compat_decomposition
+            decomposition = self._compat_decomposition
         else:
             raise OperationError(space.w_ValueError,
                                  space.wrap('invalid normalization form'))
@@ -186,11 +202,11 @@ class UCD(Wrappable):
         # Sort all combining marks
         for i in range(j):
             ch = result[i]
-            comb = self.unicodedb.combining(ch)
+            comb = self._combining(ch)
             if comb == 0:
                 continue
             for k in range(i, 0, -1):
-                if self.unicodedb.combining(result[k - 1]) <= comb:
+                if self._combining(result[k - 1]) <= comb:
                     result[k] = ch
                     break
 
@@ -208,11 +224,11 @@ class UCD(Wrappable):
         starter_pos = 0
         next_insert = 1
         prev_combining = 0
-        if self.unicodedb.combining(current):
+        if self._combining(current):
             prev_combining = 256
         for k in range(1, j):
             next = result[k]
-            next_combining = self.unicodedb.combining(next)
+            next_combining = self._combining(next)
             if next_insert == starter_pos + 1 or prev_combining < next_combining:
                 # Combine if not blocked
                 if (LBase <= current < LBase + LCount and
@@ -226,11 +242,11 @@ class UCD(Wrappable):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
                     continue
-                if (current <= self.unicodedb._composition_max and
-                       next <= self.unicodedb._composition_max):
-                    key = current << self.unicodedb._composition_shift | next
+                if (current <= self._composition_max and
+                       next <= self._composition_max):
+                    key = current << self._composition_shift | next
                     try:
-                        current = self.unicodedb._composition[key]
+                        current = self._composition[key]
                         continue
                     except KeyError:
                         pass
