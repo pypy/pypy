@@ -24,22 +24,32 @@ def get_cardinality(props, cls):
            card = 0
         return card 
 
+import py
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("CardinalityConstraint")
+py.log.setconsumer("CardinalityConstraint", ansi_log)
+
 class CardinalityConstraint(AbstractConstraint):
 
     cost = 10
 
     def __init__(self, prop, restr, var, comp):
-        AbstractConstraint.__init__(self, [prop])
-        self.check_individual = "domains['%s'].getValues() != []" % prop
-        self.formula = "len(domains['%s'].getValuesPrKey('%s')) %s int(%s)"% (prop, restr, comp, var)
+        AbstractConstraint.__init__(self, [restr])
+        self.prop = prop 
+        self.formula = "lambda x,y:len(x.getValuesPrKey(y)) %s int(%s)"% (comp, var)
 
     def estimateCost(self, domains):
         return self.cost
 
     def narrow(self, domains):
-        if eval(self.check_individual):
-            if not eval(self.formula):
-                raise ConsistencyFailure
+        log(self.formula)
+
+        if domains[self.prop].getValues() != []:
+            log ("%r"% self._variables[0])
+            for indi in domains[self._variables[0]].getValues():
+                log("%s" % indi)
+                if not eval(self.formula)(domains[self.prop],indi):
+                    raise ConsistencyFailure
 
 class NothingConstraint(AbstractConstraint):
 
@@ -206,11 +216,10 @@ class InverseFunctionalCardinality(OwlConstraint):
         domain = domains[self.variable].getValues()
         vals = {}
         for cls, val in domain:
-            for v in val:
-                if vals.has_key(v):
-                    raise ConsistencyFailure("InverseFunctionalCardinality error")
-                else:
-                    vals[v] = 1
+            if vals.has_key(val):
+                raise ConsistencyFailure("InverseFunctionalCardinality error")
+            else:
+                vals[val] = 1
         else:
             return 0
 
@@ -459,10 +468,11 @@ class AllValueConstraint(OneofPropertyConstraint):
 
 class HasvalueConstraint(AbstractConstraint):
 
-    def __init__(self, variable, List):
+    def __init__(self, variable, property, value):
         AbstractConstraint.__init__(self, [variable])
         self.variable = variable
-        self.List = List
+        self.property = property
+        self.value = value
 
     cost = 100
 
@@ -470,15 +480,15 @@ class HasvalueConstraint(AbstractConstraint):
         return self.cost
 
     def narrow(self, domains):
-        val = self.List
-        property = domains[self.variable].property
-        cls = domains[self.variable].getValues()[0]
-        prop = Linkeddict(domains[property].getValues())
-        for v in prop[cls]:
+        """ This is to check the assertion that the class self.variable has a value of self.value
+            for the property """
+        val = self.value
+        prop = domains[self.property].getValuesPrKey(self.variable)
+        for v in prop:
             if v == val:
                 break
         else:
             raise ConsistencyFailure(
                     "The value of the property %s in the class %s has a value not from %r"
-                        %(property, cls, val))
+                        %(self.property, self.variable, self.value))
 

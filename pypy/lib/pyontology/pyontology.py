@@ -30,6 +30,8 @@ rdf_rest = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest')
 rdf_first = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#first')
 rdf_nil = URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil')
 
+
+
 def getUriref(ns, obj):
     return URIRef(namespaces[ns]+'#'+obj)
 
@@ -46,7 +48,7 @@ def check_format(f):
         format = "n3"
     return format
 
-class ClassDomain(AbstractDomain):
+class ClassDomain(fd, object):
     
     # Class domain is intended as a (abstract/virtual) domain for implementing
     # Class axioms. Working on class descriptions the class domain should allow
@@ -57,50 +59,82 @@ class ClassDomain(AbstractDomain):
     
     def __init__(self, name='', values=[], bases = []):
         AbstractDomain.__init__(self)
-        self.bases = bases+[self]
+        self.name = name
         self.values = {}
         self.setValues(values)
-        self.name = name
         self.property = None
-        # The TBox is a dictionary containing terminology constraints
-        # on predicates for this class. Keys are predicates, constraint
-        # tupples ie. (p,'Carddinality') and values are list, comparison
-        # tupples
-        self.TBox = {}
-        # The ABox contains the constraints the individuals of the class
-        # shall comply to
-        self.ABox = {}
-    
+        self.constraint = []
+        self.un_constraint = []
+        self.in_constraint = []
+        self.domains = {}
+        self._bases = [] #bases #+[name]
+        self.finished = False
+
+    def finish(self, variables, glob_constraints):
+        # The finish method constructs the constraints
+        if not self.finished:
+            log("FINISH %s" % self.name)
+        # Try to initialise constraints for this class
+            for constraint in self.un_constraint:
+                dom, constraints = constraint(self.name, variables[self.property], self.value)
+                if dom:
+                    self.domains.update(dom)
+                    self.in_constraint.extend(constraints)
+        # Initialise constraints from the base classes
+            for cls in self.bases:
+                cls = variables[cls]
+                dom,constraint = cls.finish(variables, glob_constraints)
+                # if the base class is a Restriction we shouldnt add the constraints to the store
+                if not isinstance(cls, Restriction):
+                    self.domains.update(dom)
+                    self.constraint.extend(constraint)
+                # initialise the constraint with this class as the first argument
+                for constraint in cls.un_constraint:
+                    dom, constraints = constraint(self.name, variables[cls.property], cls.value)
+                    self.domains.update(dom)
+                    log("Updating constraints %r" % constraints)
+                    self.in_constraint.extend(constraints)
+            self.finished = True
+            log("RESULT of finish %r, %r" %(self.domains,self.in_constraint))
+            # update the store
+            if 'owl_Thing' in variables.keys() and isinstance(self, ClassDomain):
+                variables[self.name].setValues(variables['owl_Thing'].getValues())
+            variables.update(self.domains)
+            glob_constraints.extend(self.in_constraint)
+            assert len([x for x in glob_constraints if type(x)==list])==0
+        return self.domains, self.un_constraint
+            
     def __repr__(self):
-        return "<%s %s %r>" % (self.__class__, str(self.name),self.getValues())
-    
-    def __getitem__(self, index):
-        return None
-    
-    def __iter__(self):
-        return iter(self.bases)
-    
-    def size(self):
-        return len(self.bases)
-    
-    __len__ = size
+        return "<%s %s %r>" % (self.__class__, str(self.name), self.getValues())
     
     def copy(self):
         return self
     
+    def size(self):
+        return len(self.getValues())
+    
     def removeValues(self, values):
         for val in values:
-            self.values.pop(self.values.index(val))
+            self.values.pop(val) #(self.values.index(val))
     
     def getBases(self):
-        return self.bases
+        return self._bases
 
+    def setBases(self, bases):
+        log(">>>>>>>>>>>>>>>>>>>>>>>  %r" %self.name)
+        assert self.name != 'owl_Class'
+        self._bases = bases
+    bases = property(getBases, setBases)
+    
     def addValue(self, value):
         self.values[value] = True
 
     def getValues(self):
         return self.values.keys()
-    
+        
+    def __iter__(self):
+        return iter(self.values.keys())
+        
     def setValues(self, values):
         self.values = dict.fromkeys(values)
 
@@ -113,17 +147,28 @@ class List(ClassDomain):
         ClassDomain.__init__(self, name, values, bases)
 #        self.constraint = ListConstraint(name)
 
-class Property(Thing):
+class Property(fd):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
     # for range and domain must be filled in by rdfs:range and rdfs:domain
     
     def __init__(self, name='', values=[], bases = []):
-        ClassDomain.__init__(self, name, values, bases)
+        AbstractDomain.__init__(self)
+        self.name = name
         self._dict = {}
         self.range = []
         self.domain = []
+        self.property = None
+        self.constraint = []
+        self.un_constraint = []
+        self.in_constraint = []
     
+    def finish(self, var, constraints):
+        return var, constraints
+    
+    def size(self):
+        return len(self.getValues())
+            
     def getValues(self):
         items = self._dict.items()
         res = []
@@ -134,7 +179,7 @@ class Property(Thing):
 
     def getValuesPrKey(self, key= None):
         if key:
-            return self._dict[key]
+            return self._dict.get(key,[])
         return self._dict.items()
     
     def addValue(self, key, val):
@@ -180,13 +225,13 @@ class Nothing(ClassDomain):
 
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
-        self.constraint = NothingConstraint(name)
+        self.constraint = [NothingConstraint(name)]
     
 class FunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = FunctionalCardinality(name)
+        self.constraint = [FunctionalCardinality(name)]
 
     def addValue(self, key, val):
         Property.addValue(self, key, val)
@@ -197,7 +242,7 @@ class InverseFunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
-        self.constraint = InverseFunctionalCardinality(name)
+        self.constraint = [InverseFunctionalCardinality(name)]
 
     def addValue(self, key, val):
         Property.addValue(self, key, val)
@@ -251,6 +296,7 @@ class Restriction(ClassDomain):
 builtin_voc = {
                getUriref('owl', 'Thing') : Thing,
                getUriref('owl', 'Class') : ClassDomain,
+               getUriref('rdf', 'Property') : Property,               
                getUriref('owl', 'ObjectProperty') : ObjectProperty,
                getUriref('owl', 'AllDifferent') : AllDifferent ,
                getUriref('owl', 'AnnotationProperty') : Property, #XXX AnnotationProperty,
@@ -301,9 +347,15 @@ class Ontology:
         while len(list(self.graph.triples((None,)*3))) != len(self.seen.keys()):
             for (s, p, o) in (self.graph.triples((None,)*3)):
                 self.consider_triple((s, p, o))
+                log("%s %s" %(s,p))
+                #assert len([x for x in self.variables.values() if isinstance(x, fd)])==0
         log("=============================")
         assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
 
+    def finish(self):
+        for key in list(self.variables.keys()):
+            self.variables[key].finish(self.variables, self.constraints)
+    
     def consider_triple(self,(s, p, o)):
         log("Trying %r" % ((s, p, o),))
         if (s, p, o) in self.seen.keys():
@@ -359,61 +411,33 @@ class Ontology:
             var = str(a.replace('.','_'))
             var = str(a.replace('-','_'))
         else:
-            var = a
+            var = str(a)
         if not cls:
             return var
         if not var in self.variables:
             cls = self.variables[var] = cls(var)
-            if hasattr(cls, 'constraint'):
+            if cls.constraint:
                 log("make_var constraint 1 %r,%r" %(cls,a))
-                self.constraints.append(cls.constraint)
+                self.constraints.extend(cls.constraint)
         # XXX needed because of old style classes
-        elif issubclass(cls, self.variables[var].__class__):
+        elif not cls == self.variables[var].__class__ and issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
             tmp = cls(var)
             tmp.setValues(vals)
             tmp.property = self.variables[var].property
-            tmp.TBox = self.variables[var].TBox
-            if hasattr(tmp, 'constraint'):
+            if tmp.constraint:
                 log("make_var constraint 2 %r,%r" %(cls,a))
-                self.constraints.append(tmp.constraint)
+                self.constraints.extend(tmp.constraint)
             self.variables[var] = tmp
         return var
 
-    def evaluate(self, terms):
-        # terms is a dictionary of types of restriction and list of values for this restriction
-        term = terms
-        if len(term) < 1: return    
-        mini = maxi = equal = None
-        for tp,val in term:
-            if tp == '<':
-               if not maxi or val < maxi : maxi = val
-            elif tp == '>':
-               if not mini or val > mini : mini = val
-            else:
-                if equal:
-                    raise ConsistencyFailure
-                equal = val
-
-        if mini and maxi and mini > maxi:
-            raise ConsistencyFailure
-        if mini and equal and equal < mini:        
-            raise ConsistencyFailure
-        if maxi and equal and equal > maxi:        
-            raise ConsistencyFailure
-
-    def check_TBoxes(self):
-        for var, cls in self.variables.items():
-            for prop, terms in cls.TBox.items():
-                if len(terms.get('Cardinality',[])) > 1: 
-                    self.evaluate(terms['Cardinality'])
-    
     def solve(self,verbose=0):
         rep = Repository(self.variables.keys(), self.variables, self.constraints)
         return Solver().solve(rep, verbose)
     
     def consistency(self, verbose=0):
-        self.check_TBoxes()
+        self.finish()
+        log("DOMAINS %r"% self.variables)
         self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
         self.rep.consistency(verbose)
     
@@ -463,12 +487,10 @@ class Ontology:
                 return
             else:
                 svar = self.make_var(None, s)
-#            if not (self.variables.has_key(svar) and
-#                   isinstance(self.variables[svar], cls)):
             svar = self.make_var(cls, s)
             cls = self.variables[svar]
-            if hasattr(cls, 'constraint'):
-                self.constraints.append(cls.constraint)
+            if cls.constraint:
+                self.constraints.extend(cls.constraint)
             if not isinstance(self.variables[avar], Property):
                 self.variables[avar].addValue(s)
     
@@ -494,30 +516,14 @@ class Ontology:
         # class extension of var, ie if a indiviual is in
         # the extension of s it must be in the extension of
         # var
+        
+        # what I really  want is to just say s.bases.append(var)
+        
         log("%r subClassOf %r "%(s, var))
-        self.resolve_item(var)
-#        self.resolve_item(s)
-        avar = self.make_var(None, var)
+        avar = self.make_var(ClassDomain, var)
         svar = self.make_var(ClassDomain, s)
-        obj = self.variables[avar]
-        sub = self.variables[svar]
-#        assert (not isinstance(obj, Restriction)) or obj.TBox 
-        if obj.TBox:
-            for key in obj.TBox.keys():
-                sub.TBox.setdefault(key,{})
-                prop = sub.TBox[key]
-                for typ in obj.TBox[key].keys():
-                    prop.setdefault(typ, [])
-                    prop[typ].extend(obj.TBox[key][typ])
-
-#            if isinstance(self.variables[avar], Restriction):
-#                self.variables[avar].TBox = {}
-#                self.variables.pop(avar)
-        else:
-            cons = SubClassConstraint( svar, avar)
-            self.constraints.append(cons)
-        for item in obj.getValues():
-            sub.addValue(item)
+        self.variables[svar].bases.append(avar)
+        self.variables[svar].bases.extend(self.variables[avar].bases)
 
     def equivalentClass(self, s, var):
         self.subClassOf(s, var)
@@ -635,76 +641,63 @@ class Ontology:
 	            self.variables[avar].addValue(pair[1], pair[0])
 
 #---Property restrictions------------------------------------------------------
-    
+        
     def cardinality_helper(self, s, var, card):
-        self.resolve_item(s)
+        
         log("%r %sCardinality %r "%(s, card, var))
         svar =self.make_var(Restriction, s)
-        prop = self.variables[svar].property
-        assert prop
-        cls = list(self.graph.triples((None, None, s)))
-        if cls: 
-            cls = cls[0][0]
-        else:
-            cls = var
-        comp = {'max': '<', 'min': '>'}.get(card, '=')
-        self.variables[svar].TBox[prop] = {'Cardinality': [( comp, int(var))]}
-        self.constraints.append(CardinalityConstraint(prop, cls, var, comp+'='))
+        scls = self.variables[svar]
+        scls.un_constraint.append(card)
+        scls.value = var
 
     def maxCardinality(self, s, var):
         """ Len of finite domain of the property shall be less than or equal to var"""
-        self.cardinality_helper(s, var, 'max')
+        def maxCard(cls , prop, val):
+            dom = {"%s_%s_card" %(cls, prop.name) : fd(range(val+1))}
+            return dom,[CardinalityConstraint( prop.name, cls, val, '<')]
+        self.cardinality_helper(s, int(var), maxCard)
         
     def minCardinality(self, s, var):
         """ Len of finite domain of the property shall be greater than or equal to var"""
-        self.cardinality_helper(s, var, 'min')
+        def minCard(cls , prop, val):
+            var = "%s_%s_card" %(cls, prop.name)
+            con = Expression([var], "%s >= %i" % (var, val))
+            return {},[con, CardinalityConstraint(prop.name, cls, val , '>')]
+        self.cardinality_helper(s, int(var), minCard)
     
     def cardinality(self, s, var):
         """ Len of finite domain of the property shall be equal to var"""
-        self.cardinality_helper(s, var, '')
-    
+        def Card(cls , prop, val):
+            dom = {"%s_%s_card" %(cls, prop.name) : fd([val])}
+            return dom,[CardinalityConstraint( prop.name, cls, val, '=')]
+        self.cardinality_helper(s, int(var), Card)
+
+    def value_helper(self, s, var, constraint):
+        svar = self.make_var(Restriction, s)
+        avar = self.make_var(None, var)
+        scls = self.variables[svar]
+        scls.un_constraint.append(constraint)
+        scls.value = var
+
     def hasValue(self, s, var):
-        self.resolve_item(s)
-        self.resolve_item(var)
-        svar = self.make_var(Restriction, s)
-        avar = self.make_var(None, var)
-        prop = self.variables[svar].property
-        restr = self.variables[svar]
-        restr.TBox[prop] = {'hasValue' : [('hasvalue', var)]}
-        for cls,vals in self.variables[prop].getValuesPrKey():
-            if var in vals:
-                self.variables[svar].addValue(cls)
-    
+        """ The hasValue restriction defines a class having as an extension all
+            Individuals that have a property with the value of var.
+            To make an assertion we need to know for which class the restriction applies"""
+
+        def Hasvalue(cls ,prop, val):
+            #The Domain of the cls should be Thing
+            var = "%s_%s_hasvalue" %(cls, prop.name)
+            dom = {var : fd(prop.getValues( ))}
+            cons = Expression([cls, var], "%s == %s[1] and %s == %s[0]" %(val, var, cls, var))
+            return dom, [cons] 
+        
+        self.value_helper(s, var, Hasvalue)
+
     def allValuesFrom(self, s, var):
-        self.resolve_item(s)
-        self.resolve_item(var)
-        svar = self.make_var(Restriction, s)
-        avar = self.make_var(None, var)
-        prop = self.variables[svar].property
-        restr = self.variables[svar]
-        restr.TBox[prop] = {'allValuesFrom' : [('allValuesFrom', avar)]}
-        obj = self.variables[avar]
-        constrain_vals = set(obj.getValues())
-        for cls,vals in self.variables[prop].getValuesPrKey():
-            if (set(vals) & constrain_vals) == constrain_vals:
-                self.variables[svar].addValue(cls)
-    
+        self.value_helper(s, var, AllValueConstraint)
+
     def someValuesFrom(self, s, var):
-        self.resolve_item(s)
-        self.resolve_item(var)
-        svar = self.make_var(Restriction, s)
-        avar = self.make_var(None, var)
-        prop = self.variables[svar].property
-        restr = self.variables[svar]
-        obj = self.variables.get(avar, None)
-        if obj: 
-            constrain_vals = set(obj.getValues())
-        else:
-            constrain_vals = set()
-        restr.TBox[prop] = {'someValuesFrom' : [('someValuesFrom', avar)]}
-        for cls,vals in self.variables[prop].getValuesPrKey():
-            if set(vals) & constrain_vals:
-                self.variables[svar].addValue(cls)
+        self.value_helper(s, var, SomeValueConstraint)
 
 # -----------------              ----------------
     
@@ -732,7 +725,6 @@ class Ontology:
     def distinctMembers(self, s, var):
         s_var = self.make_var(AllDifferent, s)
         var_var = self.flatten_rdf_list(var)
-        #var_var = self.make_var(List, var)
         diff_list = self.variables[var_var].getValues()
         for v in diff_list:
            indx = diff_list.index(v)
