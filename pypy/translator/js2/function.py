@@ -16,7 +16,7 @@ from pypy.translator.cli.class_ import Class
 
 from pypy.translator.js2.log import log
 
-class LoopFinder:
+class LoopFinder(object):
 
     def __init__(self, startblock):
         self.loops = {}
@@ -60,6 +60,7 @@ class Function(Node, Generator):
         self._class = _class
         self._set_args()
         self._set_locals()
+        self.order = 0
 
     def get_name(self):
         return self.name
@@ -69,6 +70,9 @@ class Function(Node, Generator):
 
     def __eq__(self, other):
         return self.graph == other.graph
+    
+    def __cmp__(self, other):
+        return cmp(self.order, other.order)
 
     def _is_return_block(self, block):
         return (not block.exits) and len(block.inputargs) == 1

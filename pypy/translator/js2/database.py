@@ -50,7 +50,9 @@ class LowLevelDatabase(object):
         self.pending_node(self.function_class(self, graph))
 
     def pending_class(self, classdef):
-        self.pending_node(Class(self, classdef))
+        c = Class(self, classdef)
+        self.pending_node(c)
+        return c
 
     def pending_record(self, record):
         r = Record(self, record)

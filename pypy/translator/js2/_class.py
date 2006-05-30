@@ -13,13 +13,19 @@ class Class(Node):
         self.name = classdef._name.split('.')[-1]
 
         if not self.is_root(classdef):
-            self.db.pending_class(classdef._superclass)
+            self.parent = self.db.pending_class(classdef._superclass)
+            self.order = self.parent.order + 1
+        else:
+            self.order = 0
 
     def __hash__(self):
         return hash(self.classdef)
 
     def __eq__(self, other):
         return self.classdef == other.classdef
+    
+    def __cmp__(self, other):
+        return cmp(self.order, other.order)
 
     def is_root(classdef):
         return classdef._superclass is None
@@ -27,13 +33,6 @@ class Class(Node):
 
     def get_name(self):
         return self.name
-
-    def get_base_class(self):
-        base_class = self.classdef._superclass
-        if self.is_root(base_class):
-            return '[mscorlib]System.Object'
-        else:
-            return base_class._name
 
     def render(self, ilasm):
         if self.is_root(self.classdef):
@@ -52,16 +51,20 @@ class Class(Node):
             #if cts_type != 'void':
         #    ilasm.field(f_name, cts_type)
 
-        # TODO: should the .ctor set the default values?
-        #self._ctor()
-
-        # lazy import to avoid circular dependencies
-        #import pypy.translator.cli.function as function
+        if not self.is_root(self.classdef):
+            basename = self.basename(self.classdef._superclass._name)
+            if basename != 'Root':
+                ilasm.inherits(self.name, basename)
+        
         for m_name, m_meth in self.classdef._methods.iteritems():
             f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True, _class = self.name)
             f.render(ilasm)
-
+        
+        
         self.db.record_class(self.classdef, self.name)
+    
+    def basename(self, name):
+        return name.split('.')[-1]
 
     #def _ctor(self):
     #    self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')

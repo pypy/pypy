@@ -25,18 +25,34 @@ from pypy.translator.js2.database import LowLevelDatabase
 
 from pypy.translator.cli.gencli import GenCli
 
+from heapq import heappush, heappop
+
 def _path_join(root_path, *paths):
     path = root_path
     for p in paths:
         path = os.path.join(path, p)
     return path
 
-class JS(object):
+class JS(GenCli):
     def __init__(self, translator, functions=[], stackless=False, compress=False, logging=False):
-        self.cli = GenCli(udir, translator, type_system_class = JTS, opcode_dict = opcodes,\
+        GenCli.__init__(self, udir, translator, type_system_class = JTS, opcode_dict = opcodes,\
             name_suffix = '.js', function_class = Function, database_class = LowLevelDatabase)
         self.translator = translator
     
+    def gen_pendings(self):
+        while self.db._pending_nodes:
+            node = self.db._pending_nodes.pop()
+            to_render = []
+            nparent = node
+            while nparent.order != 0:
+                nparent = nparent.parent
+                to_render.append(nparent)
+            to_render.reverse()
+            for i in to_render:
+                i.render(self.ilasm)
+            
+            node.render(self.ilasm)
+        
     def write_source(self):
         
         # write down additional functions
@@ -44,15 +60,16 @@ class JS(object):
         # not be used as inlined, rather another script to load
         # this is just workaround
         
-        self.cli.generate_source(AsmGen)
-        self.filename = self.cli.tmpfile
+        self.generate_source(AsmGen)
 
-        data = self.filename.open().read()
+        data = self.tmpfile.open().read()
         src_filename = _path_join(os.path.dirname(__file__), 'jssrc', 'misc.js')
-        f = self.cli.tmpfile.open("w")
+        f = self.tmpfile.open("w")
         s = open(src_filename).read()
         f.write(s)
         f.write(data)
         f.close()
         
-        return self.cli.tmpfile
+        self.filename = self.tmpfile
+        
+        return self.tmpfile

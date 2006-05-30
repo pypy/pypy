@@ -224,5 +224,8 @@ class AsmGen(object):
     def end_try(self):
         self.codegenerator.closeblock()
     
+    def inherits(self, subclass_name, parent_name):
+        self.codegenerator.writeline("%s.inherits(%s);"%(subclass_name, parent_name))
+    
     #def finish ( self ):
     #    self . outfile . write ( "%r" % self . right_hand )
