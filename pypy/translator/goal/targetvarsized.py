@@ -10,6 +10,7 @@ modfilename = os.path.join(os.path.dirname(__file__), 'richards.py')
 #     translate.py targetvarsized.py 20
 #
 DEFAULT_CODE_SIZE_FACTOR   = 10
+take_options = True
 
 
 # __________  Entry point  __________
