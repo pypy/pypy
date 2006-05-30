@@ -440,7 +440,12 @@ start serving graphs on <port>
                 port = engraph.port
             else:
                 return
-        start, show, stop = server_setup(port)
+        try:
+            start, show, stop = server_setup(port)
+        except Exception, e:
+            print '%s.%s: %s' % (e.__class__.__module__,
+                                 e.__class__.__name__, e)
+            return self.start(tb, server_setup, graphic=False)
         self.install_show(show)
         debugger = self._run_debugger_in_thread(tb, stop)
         debugger.start()
