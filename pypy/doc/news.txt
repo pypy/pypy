@@ -209,14 +209,14 @@ Its main focus is translation of the whole PyPy interpreter
 to a low level language and reaching 2.4.1 Python compliance.
 The goal of the sprint is to release a first self-contained
 PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_, 
-there are some pictures_ online and a `heidelberg summary report`_
+there are `some pictures`_ online and a `heidelberg summary report`_
 detailing some of the works that led to the successful release 
 of `pypy-0.7.0`_! 
 
 .. _`heidelberg summary report`: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-report.html 
 .. _`PyPy sprint`: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-sprint.html
 .. _`day 1 - 3`: http://codespeak.net/pipermail/pypy-dev/2005q3/002287.html
-.. _pictures: http://codespeak.net/~hpk/heidelberg-sprint/
+.. _`some pictures`: http://codespeak.net/~hpk/heidelberg-sprint/
 
 PyPy Hildesheim2 finished: first self-contained PyPy run! 
 ===========================================================

@@ -40,9 +40,9 @@ EuroPython PyPy sprint 6-9 July 2006
 Once again a PyPy sprint will take place right after the EuroPython
 Conference. This year it will be from the *6th to the 9th of July*.
 
-Read more in `the sprint announcement`_, see who is  planning to attend
-on the `people page`_. There is also a page_ in the python wiki.
+Read more in `EuroPython sprint announcement`_, see who is  planning to attend
+on `the people page`_. There is also a page_ in the python wiki.
 
-.. _`the sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/announce.html
-.. _`people page`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/people.html
+.. _`EuroPython sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/announce.html
+.. _`the people page`: http://codespeak.net/pypy/extradoc/sprintinfo/europython-2006/people.html
 .. _page: http://wiki.python.org/moin/EuroPython2006
