@@ -264,17 +264,19 @@ class GCTransformer(object):
     def replace_safe_call(self, op, livevars, block):
         return [SpaceOperation("direct_call", op.args, op.result)]
 
-    def annotate_helper(self, ll_helper, ll_args, ll_result):
+    def annotate_helper(self, ll_helper, ll_args, ll_result, inline=False):
         assert not self.finished_helpers
         args_s = map(annmodel.lltype_to_annotation, ll_args)
         s_result = annmodel.lltype_to_annotation(ll_result)
         graph = self.mixlevelannotator.getgraph(ll_helper, args_s, s_result)
         # the produced graphs does not need to be fully transformed
         self.need_minimal_transform(graph)
+        if inline:
+            self.graphs_to_inline[graph] = True
         return self.mixlevelannotator.graph2delayed(graph)
 
     def inittime_helper(self, ll_helper, ll_args, ll_result):
-        ptr = self.annotate_helper(ll_helper, ll_args, ll_result)
+        ptr = self.annotate_helper(ll_helper, ll_args, ll_result, inline=True)
         return Constant(ptr, lltype.typeOf(ptr))
 
     def finish_helpers(self):
@@ -407,7 +409,7 @@ class RefcountingGCTransformer(GCTransformer):
     HDR = lltype.Struct("header", ("refcount", lltype.Signed))
 
     def __init__(self, translator):
-        super(RefcountingGCTransformer, self).__init__(translator)
+        super(RefcountingGCTransformer, self).__init__(translator, inline=True)
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         gc_header_offset = self.gcheaderbuilder.size_gc_header
         self.deallocator_graphs_needing_transforming = []
@@ -423,6 +425,14 @@ class RefcountingGCTransformer(GCTransformer):
                 gcheader.signed[0] = refcount
                 if refcount == 0:
                     dealloc(adr)
+        def ll_decref_simple(adr):
+            if adr:
+                gcheader = adr - gc_header_offset
+                refcount = gcheader.signed[0] - 1
+                if refcount == 0:
+                    llop.gc_free(lltype.Void, adr)
+                else:
+                    gcheader.signed[0] = refcount
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
         if self.translator:
@@ -431,8 +441,11 @@ class RefcountingGCTransformer(GCTransformer):
             self.decref_ptr = self.inittime_helper(
                 ll_decref, [llmemory.Address, lltype.Ptr(ADDRESS_VOID_FUNC)],
                 lltype.Void)
+            self.decref_simple_ptr = self.inittime_helper(
+                ll_decref_simple, [llmemory.Address], lltype.Void)
             self.no_pointer_dealloc_ptr = self.inittime_helper(
                 ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
+            self.mixlevelannotator.finish()   # for now
         # cache graphs:
         self.decref_funcptrs = {}
         self.static_deallocator_funcptrs = {}
@@ -453,12 +466,17 @@ class RefcountingGCTransformer(GCTransformer):
         result = [SpaceOperation("cast_ptr_to_adr", [var], adr1)]
 
         dealloc_fptr = self.dynamic_deallocation_funcptr_for_type(PTRTYPE.TO)
-        cdealloc_fptr = rmodel.inputconst(
-            lltype.typeOf(dealloc_fptr), dealloc_fptr)
-             
-        result.append(SpaceOperation("direct_call",
-                                     [self.decref_ptr, adr1, cdealloc_fptr],
-                                     varoftype(lltype.Void)))
+        if dealloc_fptr is self.no_pointer_dealloc_ptr.value:
+            # simple case
+            result.append(SpaceOperation("direct_call",
+                                         [self.decref_simple_ptr, adr1],
+                                         varoftype(lltype.Void)))
+        else:
+            cdealloc_fptr = rmodel.inputconst(
+                lltype.typeOf(dealloc_fptr), dealloc_fptr)
+            result.append(SpaceOperation("direct_call",
+                                        [self.decref_ptr, adr1, cdealloc_fptr],
+                                         varoftype(lltype.Void)))
         return result
 
     def replace_gc_protect(self, op, livevars, block):

@@ -215,6 +215,7 @@ class MixLevelHelperAnnotator:
                                 "originally specified: %r\n"
                                 " found by annotating: %r" %
                                 (graph, s_result, s_real_result))
+        del self.pending[:]
 
     def finish_rtype(self):
         rtyper = self.rtyper
@@ -228,13 +229,14 @@ class MixLevelHelperAnnotator:
             lltype.typeOf(p).TO.become(lltype.typeOf(real_p).TO)
             p._become(real_p)
         rtyper.specialize_more_blocks()
-        del self.pending[:]
         del self.delayedreprs[:]
         del self.delayedconsts[:]
+        del self.delayedfuncs[:]
 
     def backend_optimize(self, **flags):
         # only optimize the newly created graphs
         from pypy.translator.backendopt.all import backend_optimizations
         translator = self.rtyper.annotator.translator
         newgraphs = translator.graphs[self.original_graph_count:]
+        self.original_graph_count = len(translator.graphs)
         backend_optimizations(translator, newgraphs, **flags)
