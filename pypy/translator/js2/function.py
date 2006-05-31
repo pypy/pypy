@@ -150,30 +150,10 @@ class Function(Node, Generator):
             self.ilasm.begin_function(self.name, args)
         log("loops: %r"%self.loops)
 
+        # render all variables
+        
+        self.ilasm.set_locals(",".join(self.locals))
         self.render_block(self.graph.startblock)
-##            if self._is_return_block(block):
-##                return_blocks.append(block)
-##                continue
-##            
-##            for op in block.operations:
-##                self._render_op(op)
-##            
-##            for link in block.exits:
-##                target_label = self._get_block_name(link.target)
-##                if link.exitcase is None:
-##                    pass
-##                    self.ilasm.branch(target_label)
-##                else:
-##                    assert type(link.exitcase is bool)
-##                    assert block.exitswitch is not None
-##                    self.ilasm.branch_if( block.exitswitch, link.exitcase, target_label)
-##                self._setup_link(link)
-
-##        for block in return_blocks:
-##            return_var = block.inputargs[0]
-##            if return_var.concretetype is not Void:
-##                self.load(return_var)
-##            self.ilasm.ret()
 
         self.ilasm.end_function()
         if self.is_method:
@@ -192,6 +172,7 @@ class Function(Node, Generator):
     def _set_locals(self):
         # this code is partly borrowed from pypy.translator.c.funcgen.FunctionCodeGenerator
         # TODO: refactoring to avoid code duplication
+        # and borrowed again from gencli
 
         graph = self.graph
         mix = [graph.getreturnvar()]
@@ -226,7 +207,7 @@ class Function(Node, Generator):
         for v in mix:
             is_var = isinstance(v, flowmodel.Variable)
             if id(v) not in seen and is_var and v.name not in args and v.concretetype is not Void:
-                locals.append(self.cts.llvar_to_cts(v))
+                locals.append(v.name)
                 seen[id(v)] = True
 
         self.locals = locals

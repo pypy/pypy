@@ -154,7 +154,11 @@ class AsmGen(object):
     
     #def field(self, f_name, cts_type):
     #    pass
-    
+
+    def set_locals(self, loc_string):
+        if loc_string != '':
+            self.codegenerator.writeline("var %s;"%loc_string)
+
     def set_static_field(self, _type, namespace, _class, varname):
         self.codegenerator.writeline("%s.prototype.%s = %s;"%(_class, varname, self.right_hand.pop()))
     

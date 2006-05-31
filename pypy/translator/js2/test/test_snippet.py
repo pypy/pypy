@@ -63,12 +63,12 @@ class TestSnippet(object):
         assert f(1027) == 1027
 
     def test_factorial2(self):
-        py.test.skip("unknown error")
+        #py.test.skip("unknown error")
         factorial2 = compile_function(test.factorial2, [int])
         assert factorial2(5) == 120
 
     def test_factorial(self):
-        py.test.skip("unknown error")
+        #py.test.skip("unknown error")
         factorial = compile_function(test.factorial, [int])
         assert factorial(5) == 120
 
