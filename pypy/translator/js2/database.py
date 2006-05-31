@@ -93,6 +93,7 @@ class LowLevelDatabase(object):
             if retval == 'name':
                 return self.consts[const]
             else:
+                self.consts[const]
                 return const
         except KeyError:
             log("New const:%r"%value)
@@ -135,6 +136,7 @@ class LowLevelDatabase(object):
                             const.depends = None
                             all_c.append(i)
 
+        log("Consts: %r"%self.consts)
         # We need to keep track of fields to make sure
         # our items appear earlier than us
         for const,name in generate_constants(self.consts):
@@ -320,18 +322,3 @@ class StringConst(AbstractConst):
     def init_fields(self, ilasm, const_var, name):
         pass
 
-##        ilasm.new('instance void class %s::.ctor()' % classdef._name)
-##        while classdef is not None:
-##            for name, (type_, default) in classdef._fields.iteritems():
-##                if isinstance(type_, ootype.StaticMethod):
-##                    continue
-##                elif type_ is ootype.Class:
-##                    value = getattr(self.obj, name)
-##                    self.cts.lltype_to_cts(value._INSTANCE) # force scheduling class generation
-##                    classname = value._INSTANCE._name
-##                    ilasm.opcode('dup')
-##                    ilasm.opcode('ldtoken', classname)
-##                    ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
-##                    ilasm.opcode('stfld class [mscorlib]System.Type %s::%s' % (classdef._name, name))
-##            classdef = classdef._superclass
-##
