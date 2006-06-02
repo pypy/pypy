@@ -271,10 +271,10 @@ app = gateway.applevel("""
 
     def str__Complex(f):
         if not f.real:
-            return repr(possint(f.imag))+'j'
+            return str(possint(f.imag))+'j'
         imag = f.imag
         sign = ((imag >= 0) and '+') or ''
-        return "'("+repr(possint(f.real)) + sign + repr(possint(f.imag))+"j)'"
+        return '('+str(possint(f.real)) + sign + str(possint(f.imag))+'j)'
 
 """, filename=__file__) 
 
