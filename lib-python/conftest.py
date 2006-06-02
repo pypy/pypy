@@ -540,7 +540,7 @@ testmap = [
     RegrTest('test_imageop.py', enabled=False, dumbtest=1),
     RegrTest('test_imaplib.py', enabled=True, dumbtest=1),
     RegrTest('test_imgfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_imp.py', enabled=True, core=True),
+    RegrTest('test_imp.py', enabled=True, core=True, usemodules='thread'),
     RegrTest('test_import.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_importhooks.py', enabled=True, core=True),
     RegrTest('test_inspect.py', enabled=True, dumbtest=1),
