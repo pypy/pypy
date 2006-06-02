@@ -59,9 +59,15 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         for desc in self.s_pbc.descriptions:
             if desc.find_source_for('__init__') is not None:
                 unbound = desc.s_get_value(desc.getuniqueclassdef(), '__init__')
-                unbound, = unbound.descriptions
-                bound = unbound.bind_self(desc.getuniqueclassdef())
-                inits.append(bound)
+                if isinstance(unbound, annmodel.SomePBC):
+                    unbound, = unbound.descriptions
+                    bound = unbound.bind_self(desc.getuniqueclassdef())
+                    inits.append(bound)
+                else:
+                    assert isinstance(unbound, annmodel.SomeBuiltin)
+                    # do nothing, because builtin __init__s (for
+                    # example from exceptions such as Exception and
+                    # AssertionError) do nothing.
 
         if inits:
             s_init = annmodel.SomePBC(inits)

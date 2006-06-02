@@ -239,7 +239,6 @@ class BaseTestRstr(BaseRtypingTest):
                 assert res == fn(i, j)
 
     def test_find_with_start(self):
-        self._skip_oo('assert')
         def fn(i):
             assert i >= 0
             return 'ababcabc'.find('abc', i)
@@ -248,7 +247,6 @@ class BaseTestRstr(BaseRtypingTest):
             assert res == fn(i)
 
     def test_find_with_start_end(self):
-        self._skip_oo('assert')
         def fn(i, j):
             assert i >= 0
             assert j >= 0

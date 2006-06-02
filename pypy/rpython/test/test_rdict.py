@@ -124,7 +124,6 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == 42
 
     def test_dict_itermethods(self):
-        self._skip_oo('assert')
         def func():
             d = {}
             d['hello'] = 6
