@@ -1,7 +1,15 @@
 import os
-from pypy.rpython.ootypesystem.ootype import oostring
+from pypy.rpython.ootypesystem.module.support import from_rstr, to_rstr
+
+def ll_os_open(fname, flag, mode):
+    return os.open(from_rstr(fname), flag, mode)
+ll_os_open.suggested_primitive = True
+
+def ll_os_write(fd, astring):
+    return os.write(fd, from_rstr(astring))
+ll_os_write.suggested_primitive = True
 
 def ll_os_getcwd():
-    return oostring(os.getcwd(), -1)
+    return to_rstr(os.getcwd())
 ll_os_getcwd.suggested_primitive = True
 

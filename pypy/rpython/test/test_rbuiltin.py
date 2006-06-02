@@ -103,7 +103,7 @@ def test_os_open():
     res = interpret(f, [])
     os.close(res)
     count = 0
-    from pypy.rpython.module import ll_os
+    from pypy.rpython.lltypesystem.module import ll_os
     for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
         cfptr = dir_call.args[0]
         assert cfptr.value._obj._callable == ll_os.ll_os_open
@@ -340,6 +340,19 @@ class BaseTestExtfunc(BaseRtypingTest):
         res = self.interpret(fn, []) 
         assert self.ll_to_string(res) == fn()
         
+    def test_os_write(self):
+        tmpdir = str(udir.udir.join("os_write_test"))
+        import os
+        def wr_open(fname):
+            fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+            os.write(fd, "hello world")
+            return fd
+        def f():
+            return wr_open(tmpdir)
+        res = self.interpret(f, [])
+        os.close(res)
+        hello = open(tmpdir).read()
+        assert hello == "hello world"
 
 class TestOOtype(BaseTestExtfunc, OORtypeMixin):
     pass

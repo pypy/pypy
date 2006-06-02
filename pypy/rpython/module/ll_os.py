@@ -21,11 +21,6 @@ from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython import ros
 from pypy.rpython.rarithmetic import r_longlong
 
-def ll_os_open(fname, flag, mode):
-    return os.open(from_rstr(fname), flag, mode)
-ll_os_open.suggested_primitive = True
-
-
 def ll_read_into(fd, buffer):
     data = os.read(fd, len(buffer.chars))
     _ll_strfill(buffer, data, len(data))
@@ -44,10 +39,6 @@ def ll_os_read(fd, count):
         buffer = s
     return buffer
 
-
-def ll_os_write(fd, astring):
-    return os.write(fd, from_rstr(astring))
-ll_os_write.suggested_primitive = True
 
 
 def ll_os_close(fd):
