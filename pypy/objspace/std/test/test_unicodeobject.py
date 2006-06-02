@@ -20,6 +20,9 @@ class AppTestUnicodeString:
         check(u'a' + 'b', u'ab')
         check('a' + u'b', u'ab')
 
+    def test_hash(self):
+        assert hash(u'') == 0
+        
     def test_join(self):
         def check(a, b):
             assert a == b

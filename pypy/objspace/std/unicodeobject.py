@@ -197,6 +197,8 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
 def hash__Unicode(space, w_uni):
     if w_uni.w_hash is None:
         chars = w_uni._value
+        if len(chars) == 0:
+            return space.wrap(0)
         x = ord(chars[0]) << 7
         for c in chars:
             x = intmask((1000003 * x) ^ ord(c))
