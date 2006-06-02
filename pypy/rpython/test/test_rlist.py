@@ -1017,7 +1017,6 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == 17
 
     def test_voidlist_fixed(self):
-        self._skip_oo('_freeze_')
         fr = Freezing()
         def f():
             return len([fr, fr])
@@ -1025,7 +1024,6 @@ class BaseTestRlist(BaseRtypingTest):
         assert res == 2
 
     def test_voidlist_nonfixed(self):
-        self._skip_oo('_freeze_')
         class Freezing:
             def _freeze_(self):
                 return True
@@ -1038,60 +1036,6 @@ class BaseTestRlist(BaseRtypingTest):
             return len(lst)
         res = self.interpret(f, [])
         assert res == 2
-
-    def test_type_erase_fixed_size(self):
-        self._skip_oo('type erasing')
-        class A(object):
-            pass
-        class B(object):
-            pass
-
-        def f():
-            return [A()], [B()]
-
-        t = TranslationContext()
-        s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
-        rtyper.specialize()
-
-        s_A_list = s.items[0]
-        s_B_list = s.items[1]
-
-        r_A_list = rtyper.getrepr(s_A_list)
-        assert isinstance(r_A_list, self.rlist.FixedSizeListRepr)
-        r_B_list = rtyper.getrepr(s_B_list)
-        assert isinstance(r_B_list, self.rlist.FixedSizeListRepr)    
-
-        assert r_A_list.lowleveltype == r_B_list.lowleveltype
-
-    def test_type_erase_var_size(self):
-        self._skip_oo('type erasing')        
-        class A(object):
-            pass
-        class B(object):
-            pass
-
-        def f():
-            la = [A()]
-            lb = [B()]
-            la.append(None)
-            lb.append(None)
-            return la, lb
-
-        t = TranslationContext()
-        s = t.buildannotator().build_types(f, [])
-        rtyper = t.buildrtyper(type_system=self.type_system)
-        rtyper.specialize()
-
-        s_A_list = s.items[0]
-        s_B_list = s.items[1]
-
-        r_A_list = rtyper.getrepr(s_A_list)
-        assert isinstance(r_A_list, self.rlist.ListRepr)
-        r_B_list = rtyper.getrepr(s_B_list)
-        assert isinstance(r_B_list, self.rlist.ListRepr)
-
-        assert r_A_list.lowleveltype == r_B_list.lowleveltype
 
     def test_access_in_try(self):
         def f(sq):
@@ -1134,6 +1078,58 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         res = self.interpret(fn, [2])
         assert res == 0
         self.interpret_raises(MemoryError, fn, [sys.maxint])
+
+    def test_type_erase_fixed_size(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f():
+            return [A()], [B()]
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper.specialize()
+
+        s_A_list = s.items[0]
+        s_B_list = s.items[1]
+
+        r_A_list = rtyper.getrepr(s_A_list)
+        assert isinstance(r_A_list, self.rlist.FixedSizeListRepr)
+        r_B_list = rtyper.getrepr(s_B_list)
+        assert isinstance(r_B_list, self.rlist.FixedSizeListRepr)    
+
+        assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+    def test_type_erase_var_size(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f():
+            la = [A()]
+            lb = [B()]
+            la.append(None)
+            lb.append(None)
+            return la, lb
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper(type_system=self.type_system)
+        rtyper.specialize()
+
+        s_A_list = s.items[0]
+        s_B_list = s.items[1]
+
+        r_A_list = rtyper.getrepr(s_A_list)
+        assert isinstance(r_A_list, self.rlist.ListRepr)
+        r_B_list = rtyper.getrepr(s_B_list)
+        assert isinstance(r_B_list, self.rlist.ListRepr)
+
+        assert r_A_list.lowleveltype == r_B_list.lowleveltype
     
 
 class TestOOtype(BaseTestRlist, OORtypeMixin):

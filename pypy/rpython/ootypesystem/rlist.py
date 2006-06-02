@@ -27,9 +27,6 @@ class BaseListRepr(AbstractBaseListRepr):
         # setup() needs to be called to finish this initialization
 
     def _externalvsinternal(self, rtyper, item_repr):
-        # EXPERIMENTAL: distinct internal and external repr are not
-        # needed in high level backends
-        #return externalvsinternal(rtyper, item_repr)
         return item_repr, item_repr
     
     def _setup_repr(self):
@@ -101,7 +98,7 @@ def newlist(llops, r_list, items_v):
     c_resize = inputconst(ootype.Void, "_ll_resize")
     c_length = inputconst(ootype.Signed, len(items_v))
     llops.genop("oosend", [c_resize, v_result, c_length], resulttype=ootype.Void)
-    
+
     c_setitem = inputconst(ootype.Void, "ll_setitem_fast")
     for i, v_item in enumerate(items_v):
         ci = inputconst(Signed, i)

@@ -743,7 +743,8 @@ class _callable(object):
        checked_args = []
        for a, ARG in zip(args, self._TYPE.ARGS):
            try:
-               a = enforce(ARG, a)
+               if ARG is not Void:
+                   a = enforce(ARG, a)
            except TypeError:
                raise TypeError,"calling %r with wrong argument types: %r" % (self._TYPE, args)
            checked_args.append(a)
@@ -973,7 +974,7 @@ class _list(_builtin_type):
 
     def ll_setitem_fast(self, index, item):
         # NOT_RPYTHON
-        assert typeOf(item) == self._TYPE._ITEMTYPE
+        assert self._TYPE._ITEMTYPE is Void or typeOf(item) == self._TYPE._ITEMTYPE
         assert typeOf(index) == Signed
         assert index >= 0
         self._list[index] = item
